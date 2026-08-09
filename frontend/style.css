@@ -5263,6 +5263,57 @@ kbd {
   background: rgba(185, 28, 28, 0.10);
 }
 
+/* Grouped submenus in the note card's ⋯ menu, asked for directly: a side
+   flyout for related actions instead of one long flat list. */
+.menu-group {
+  position: relative;
+}
+
+.menu-item.has-submenu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.menu-submenu-arrow {
+  opacity: 0.6;
+}
+
+.action-menu.submenu {
+  top: 0;
+  left: 100%;
+  right: auto;
+  margin-left: var(--space-2);
+}
+
+/* Flipped when the default side would run off the right edge of the
+   viewport — the same "which side has room" check the graph/timeline
+   popups already do, applied here instead of guessing a fixed side. */
+.action-menu.submenu.submenu-left {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: var(--space-2);
+}
+
+/* Below phone width there is nowhere for a side flyout to go without
+   running off-screen — asked for directly ("compatible for small screen
+   sizes like iPhones"). Drops the flyout positioning entirely and expands
+   the group in place instead, indented to still read as nested. */
+@media (max-width: 720px) {
+  .action-menu.submenu {
+    position: static;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 0 var(--space-6);
+    border: none;
+    box-shadow: none;
+    background: none;
+  }
+}
+
 /* Type polish: a touch more base size + calmer headings. */
 html {
   font-size: 16px;

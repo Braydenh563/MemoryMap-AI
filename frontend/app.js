@@ -1128,6 +1128,118 @@ async function removeEntryTitle(entry) {
   }
 }
 
+// A single `role="menuitem"` button — shared by the top-level menu and every
+// submenu, so a click behaves identically (close everything, then run) no
+// matter how deep the item is nested.
+function buildMenuItemButton(item) {
+  const button = document.createElement("button");
+  button.setAttribute("role", "menuitem");
+  button.className = "menu-item" + (item.danger ? " menu-danger" : "");
+  button.textContent = item.label;
+  if (item.title) button.title = item.title;
+  button.addEventListener("click", () => {
+    closeActionMenus();
+    item.run();
+  });
+  return button;
+}
+
+// A grouped trigger ("✨ AI actions ›") that opens a side flyout of its own
+// items — asked for directly, to cut a 15-item flat list down to something
+// scannable. Hover opens it on a device that has hover; click/tap opens it
+// everywhere, which is the only way in on a touchscreen. Below
+// `--menu-submenu-stack-width` (phone-width) there is nowhere for a flyout
+// to go without running off-screen, so it drops the side-popup positioning
+// entirely and expands in place instead — an accordion, not a flyout, which
+// is what "compatible with small screens like iPhones" actually means here.
+function buildMenuGroupButton(label, subItems) {
+  const groupWrap = document.createElement("div");
+  groupWrap.className = "menu-group";
+
+  const trigger = document.createElement("button");
+  trigger.setAttribute("role", "menuitem");
+  trigger.setAttribute("aria-haspopup", "menu");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.className = "menu-item has-submenu";
+  const labelSpan = document.createElement("span");
+  labelSpan.textContent = label;
+  const arrow = document.createElement("span");
+  arrow.className = "menu-submenu-arrow";
+  arrow.setAttribute("aria-hidden", "true");
+  arrow.textContent = "›";
+  trigger.append(labelSpan, arrow);
+
+  const submenu = document.createElement("div");
+  submenu.className = "action-menu submenu hidden";
+  submenu.setAttribute("role", "menu");
+  for (const item of subItems) submenu.appendChild(buildMenuItemButton(item));
+
+  const openSubmenu = () => {
+    // Only one flyout open at a time, at this level or any sibling group.
+    for (const other of groupWrap.parentElement?.querySelectorAll(".submenu:not(.hidden)") || []) {
+      if (other !== submenu) {
+        other.classList.add("hidden");
+        other.previousElementSibling?.setAttribute("aria-expanded", "false");
+      }
+    }
+    submenu.classList.remove("hidden");
+    trigger.setAttribute("aria-expanded", "true");
+    // Side popup by default; flip to the left if the right edge would run
+    // off the viewport, and drop the flyout positioning below phone-width
+    // (handled in CSS — this only measures when it's actually a flyout).
+    submenu.classList.remove("submenu-left");
+    if (window.innerWidth > 720) {
+      const rect = submenu.getBoundingClientRect();
+      if (rect.right > window.innerWidth) submenu.classList.add("submenu-left");
+    }
+  };
+  const closeSubmenu = () => {
+    submenu.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  let hoverTimer = null;
+  groupWrap.addEventListener("mouseenter", () => {
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(openSubmenu, 120); // brief delay: a mouse crossing the item isn't a request to open it
+  });
+  groupWrap.addEventListener("mouseleave", () => {
+    clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(closeSubmenu, 200); // outlives the diagonal move from the trigger into the flyout
+  });
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (submenu.classList.contains("hidden")) openSubmenu();
+    else closeSubmenu();
+  });
+  submenu.addEventListener("keydown", (event) => {
+    const subItems = [...submenu.querySelectorAll(':scope > [role="menuitem"]')];
+    const current = subItems.indexOf(document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      subItems[(current + 1) % subItems.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      subItems[(current - 1 + subItems.length) % subItems.length]?.focus();
+    } else if (event.key === "ArrowLeft" || event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation(); // don't also close the whole menu on ArrowLeft
+      closeSubmenu();
+      trigger.focus();
+    }
+  });
+  trigger.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openSubmenu();
+      submenu.querySelector('[role="menuitem"]')?.focus();
+    }
+  });
+
+  groupWrap.append(trigger, submenu);
+  return groupWrap;
+}
+
 function entryOverflowMenu(entry) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -1144,7 +1256,11 @@ function entryOverflowMenu(entry) {
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
-  const items = [
+  // Kept flat: the three actions used often enough, or serious enough (a
+  // delete), that burying them a level down would cost more than the
+  // grouping below saves. Everything else groups into three side flyouts —
+  // asked for directly, to cut what had grown into a 15-item flat list.
+  const topLevel = [
     {
       label: entry.is_private ? "🔓 Make readable" : "🔒 Make private",
       title: entry.is_private
@@ -1157,21 +1273,9 @@ function entryOverflowMenu(entry) {
       title: "See earlier versions of this note, and put one back",
       run: () => openEntryHistory(entry),
     },
-    {
-      label: "📄 Add to a document",
-      title: "Attach this note to a document you have already started",
-      run: () => {
-        inlineAction = inlineActionIs(entry.id, "document")
-          ? null
-          : { id: entry.id, kind: "document" };
-        renderEntries();
-      },
-    },
-    {
-      label: "📄 Expand into a document",
-      title: "Start a document from this note — the note stays where it is",
-      run: () => expandNoteIntoDocument(entry),
-    },
+  ];
+
+  const aiItems = [
     {
       label: "🔄 Re-evaluate",
       title: "Refresh this note's AI confidence and suggest tags & links",
@@ -1205,6 +1309,29 @@ function entryOverflowMenu(entry) {
           },
         ]
       : []),
+  ];
+
+  const connectItems = [
+    {
+      label: "📄 Add to a document",
+      title: "Attach this note to a document you have already started",
+      run: () => {
+        inlineAction = inlineActionIs(entry.id, "document")
+          ? null
+          : { id: entry.id, kind: "document" };
+        renderEntries();
+      },
+    },
+    {
+      label: "📄 Expand into a document",
+      title: "Start a document from this note — the note stays where it is",
+      run: () => expandNoteIntoDocument(entry),
+    },
+    { label: "🔗 Link to another", run: () => beginOrCompleteLink(entry) },
+    { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+  ];
+
+  const addItems = [
     {
       label: "➕ Add context",
       title: "Append detail — the AI may refile it",
@@ -1221,8 +1348,6 @@ function entryOverflowMenu(entry) {
         renderEntries();
       },
     },
-    { label: "📎 Attach a file", run: () => attachFileTo(entry) },
-    { label: "≈ Similar notes", run: () => toggleRelated(entry) },
     {
       label: "⏰ Remind me",
       run: () => {
@@ -1230,40 +1355,38 @@ function entryOverflowMenu(entry) {
         renderEntries();
       },
     },
-    { label: "🔗 Link to another", run: () => beginOrCompleteLink(entry) },
-    {
-      label: "🗑 Move to bin",
-      danger: true,
-      // Instant + one-click Undo, soft delete underneath (Wave J).
-      run: async () => {
-        await api(`/entries/${entry.id}`, { method: "DELETE" });
-        await loadEntries();
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await loadEntries();
-          toast("Note restored.");
-        });
-      },
-    },
+    { label: "📎 Attach a file", run: () => attachFileTo(entry) },
   ];
-  for (const item of items) {
-    const button = document.createElement("button");
-    button.setAttribute("role", "menuitem");
-    button.className = "menu-item" + (item.danger ? " menu-danger" : "");
-    button.textContent = item.label;
-    if (item.title) button.title = item.title;
-    button.addEventListener("click", () => {
-      closeActionMenus();
-      item.run();
-    });
-    menu.appendChild(button);
-  }
 
-  // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move between
-  // items (wrapping), Home/End jump to the ends, Esc closes and returns focus
-  // to the opener.
+  const danger = {
+    label: "🗑 Move to bin",
+    danger: true,
+    // Instant + one-click Undo, soft delete underneath (Wave J).
+    run: async () => {
+      await api(`/entries/${entry.id}`, { method: "DELETE" });
+      await loadEntries();
+      toastAction("Moved to the recycle bin.", "Undo", async () => {
+        await api(`/entries/${entry.id}/restore`, { method: "POST" });
+        await loadEntries();
+        toast("Note restored.");
+      });
+    },
+  };
+
+  for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
+  menu.appendChild(buildMenuGroupButton("✨ AI actions", aiItems));
+  menu.appendChild(buildMenuGroupButton("🔗 Connect", connectItems));
+  menu.appendChild(buildMenuGroupButton("➕ Add", addItems));
+  menu.appendChild(buildMenuItemButton(danger));
+
+  // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move
+  // between *top-level* items (wrapping) — `:scope >` so a hidden submenu's
+  // own items (handled by their own keydown handler above) never get mixed
+  // into this list, which would desync Home/End and let arrow keys land on
+  // an item the user can't currently see. Home/End jump to the ends, Esc
+  // closes and returns focus to the opener.
   menu.addEventListener("keydown", (event) => {
-    const menuItems = [...menu.querySelectorAll('[role="menuitem"]')];
+    const menuItems = [...menu.querySelectorAll(':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"]')];
     const current = menuItems.indexOf(document.activeElement);
     if (event.key === "ArrowDown") {
       event.preventDefault();

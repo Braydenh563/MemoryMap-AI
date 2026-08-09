@@ -1874,6 +1874,37 @@ Hide unlinked / Labels, no sketch or image controls at all) — left alone
 rather than guessed at; possibly a stale note from whatever session first
 triaged this list.
 
+**Then a note card menu redesign, asked for directly** (not a prior
+ROADMAP item): the ⋯ overflow menu had grown to 15 flat items (14 without
+a title), and the ask was to group related ones into sub-sections that
+open a side popup on hover or click, working on small screens too.
+Restructured `entryOverflowMenu`: three items stay flat at the top level
+(Make private/readable, History, and the destructive Move to bin, kept
+one click away rather than buried), and the other twelve group into three
+side flyouts — **✨ AI actions** (Re-evaluate, Improve writing,
+Generate/Regenerate title, Remove title), **🔗 Connect** (Add/Expand into
+a document, Link to another, Similar notes), and **➕ Add** (Add context,
+Continue thought, Remind me, Attach a file). A new `buildMenuGroupButton`
+opens its flyout on `mouseenter` (a 120ms delay so a mouse merely crossing
+the item doesn't trigger it) and on click (the only way in on a
+touchscreen), flips from the right side to the left when it would run off
+the viewport's right edge (measured live, the same "which side has room"
+check the graph/timeline popups already use), and — below 720px, this
+project's own standing phone breakpoint — drops the side-popup
+positioning entirely in favour of expanding in place, since there is
+nowhere for a flyout to go on a phone-width screen without running off it.
+Reused `buildMenuItemButton` for every item at both levels so a click
+behaves identically no matter how deep it's nested, and scoped the
+top-level arrow-key handler to `:scope >` children specifically — without
+that, a hidden submenu's own items would have joined the top-level
+Up/Down/Home/End list and silently broken it, since `querySelectorAll`
+does not stop at the first level by default. Verified live end to end:
+clicking a group trigger opens the correct three (or four) items, nothing
+else; hovering a *different* group closes whichever was open and opens
+the one under the pointer, never both; at 390px width (iPhone-sized) the
+submenu measured `position: static` with zero horizontal overflow, versus
+`position: absolute` and a real `left`/`right` flyout at desktop width.
+
 Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
 frontend/app.js` all green throughout — each fix run individually before
 moving to the next, per this project's own standing practice.

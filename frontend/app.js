@@ -2548,6 +2548,46 @@ function flashEntry(id) {
   });
 }
 
+// ROADMAP.md Tier 2 §13: changeRow's View button only ever reached notes and
+// documents — reminders and categories had no navigation target at all, on
+// top of having no backend id/name resolver. Same shape as flashEntry above.
+async function flashReminder(id) {
+  switchTab("reminders");
+  // The change that brought us here (setting or completing a reminder) may
+  // not match whatever filter was last active — "open" is the default, and
+  // completing one is exactly the case where it would just have vanished.
+  reminderFilter = "all";
+  for (const b of document.querySelectorAll("#reminder-filter button")) {
+    b.classList.toggle("active", b.dataset.filter === "all");
+  }
+  await loadReminders();
+  requestAnimationFrame(() => {
+    const item = document.querySelector(`#reminder-groups li[data-id="${id}"]`);
+    if (!item) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    item.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    item.classList.remove("flash");
+    void item.offsetWidth;
+    item.classList.add("flash");
+    announce(`Showing reminder: ${(item.textContent || "").trim().slice(0, 80)}`);
+    clearTimeout(flashReminder.timer);
+    flashReminder.timer = setTimeout(() => item.classList.remove("flash"), 2700);
+  });
+}
+
+// Categories have no single note to scroll to — "View" means "show me what's
+// in it", the same job the sidebar's own category filter already does.
+function flashCategory(name) {
+  switchTab("notes");
+  showNotesSection("browse");
+  activeCategory = name;
+  noteSearch = "";
+  const searchBox = $("note-search");
+  if (searchBox) searchBox.value = "";
+  renderSidebar();
+  renderEntries();
+}
+
 // A raw search result the user can click to open the note (Wave C).
 function clickableResult(entry) {
   const li = entryItem(entry);
@@ -4572,6 +4612,19 @@ function changeRow(change, options = {}) {
       smallButton("View", "Open this document", () => openDocumentFromNote(change.document_id))
     );
   }
+  // ROADMAP.md Tier 2 §13: the same View button, extended to the two kinds
+  // that never had a `_change_*_id` resolver at all — a reminder set or
+  // completed this turn, and a category a note landed in.
+  if (change.reminder_id) {
+    row.appendChild(
+      smallButton("View", "Show this reminder", () => flashReminder(change.reminder_id))
+    );
+  }
+  if (change.category_name) {
+    row.appendChild(
+      smallButton("View", "Show this category", () => flashCategory(change.category_name))
+    );
+  }
   if (change.undo) {
     const undo = smallButton("Undo", "Put this back the way it was", async () => {
       undo.disabled = true;
@@ -5126,6 +5179,43 @@ function applyMarkdown(kind) {
 function wrapDocSelection(marker, placeholder = "") {
   const box = $("doc-content");
   const { selectionStart: start, selectionEnd: end, value } = box;
+
+  // Toggle off, case 1: the selection sits *inside* an existing pair of
+  // markers ("**|bold text|**", caret positions marked). Reported directly:
+  // applying Bold to an already-bold selection didn't remove it the way
+  // every other rich-text editor's toggle does — this was a one-way
+  // "apply", never a toggle.
+  const before = value.slice(Math.max(0, start - marker.length), start);
+  const after = value.slice(end, end + marker.length);
+  if (marker && before === marker && after === marker) {
+    box.value =
+      value.slice(0, start - marker.length) + value.slice(start, end) + value.slice(end + marker.length);
+    box.selectionStart = start - marker.length;
+    box.selectionEnd = end - marker.length;
+    box.focus();
+    markDocDirty();
+    renderDocPreview();
+    return;
+  }
+  // Toggle off, case 2: the markers themselves are part of the selection
+  // ("|**bold text**|") — selecting the whole formatted span, not just its
+  // inner text, is just as natural a way to select it for un-formatting.
+  if (
+    marker &&
+    end - start >= marker.length * 2 &&
+    value.slice(start, start + marker.length) === marker &&
+    value.slice(end - marker.length, end) === marker
+  ) {
+    const inner = value.slice(start + marker.length, end - marker.length);
+    box.value = value.slice(0, start) + inner + value.slice(end);
+    box.selectionStart = start;
+    box.selectionEnd = start + inner.length;
+    box.focus();
+    markDocDirty();
+    renderDocPreview();
+    return;
+  }
+
   // With nothing selected, insert the placeholder and select it, so the next
   // keystroke replaces it — pressing Bold on an empty line should give you
   // somewhere to type, not two markers and a caret between them.
@@ -9979,6 +10069,7 @@ let editingReminderId = null;
 
 function reminderItem(reminder, label) {
   const li = document.createElement("li");
+  li.dataset.id = reminder.id; // flashReminder's own hook, same shape as #entry-list's data-id
   if (label === "Overdue") li.classList.add("overdue");
   // Colour-code by priority (styled in CSS: a coloured left border).
   if (reminder.priority && reminder.priority !== "normal") {
@@ -22662,26 +22753,45 @@ async function initWhiteboard() {
   // on release/close) is what actually persists, so dragging across ten
   // hues doesn't write ten times.
   const bgColorPicker = document.getElementById("wb-bg-color-picker");
+  const bgColorReset = document.getElementById("wb-bg-color-reset");
+  // The real default (the theme's --modal-bg) as a hex string, read fresh
+  // each time rather than cached — the whole point of "reset to theme
+  // default" is that it still means the *current* theme after a switch.
+  const themeDefaultBoardHex = () => {
+    const rgb = getComputedStyle(container.node()).backgroundColor;
+    const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+    return m ? "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
+  };
   if (bgColorPicker) {
     const savedBg = localStorage.getItem("wb-bg-color");
     if (savedBg) {
       container.node().style.setProperty("--wb-board-bg", savedBg);
       bgColorPicker.value = savedBg;
     } else {
-      // Reflect the real default (the theme's --modal-bg) in the swatch,
-      // not an arbitrary placeholder that doesn't match what's on screen.
-      const rgb = getComputedStyle(container.node()).backgroundColor;
-      const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
-      if (m) {
-        bgColorPicker.value =
-          "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("");
-      }
+      // Reflect the real default in the swatch, not an arbitrary placeholder
+      // that doesn't match what's on screen.
+      const hex = themeDefaultBoardHex();
+      if (hex) bgColorPicker.value = hex;
     }
     bgColorPicker.addEventListener("input", (e) => {
       container.node().style.setProperty("--wb-board-bg", e.target.value);
     });
     bgColorPicker.addEventListener("change", (e) => {
       localStorage.setItem("wb-bg-color", e.target.value);
+    });
+  }
+  // Asked for directly: once you've picked a colour there was no way back to
+  // the theme's own board colour short of guessing its hex. Clearing the
+  // saved override and re-reading the CSS the board falls back to (rather
+  // than a hardcoded hex) means this still means "the theme's colour" after
+  // a light/dark switch, not just "whatever it happened to be once".
+  if (bgColorReset && bgColorPicker) {
+    bgColorReset.addEventListener("click", () => {
+      localStorage.removeItem("wb-bg-color");
+      container.node().style.removeProperty("--wb-board-bg");
+      const hex = themeDefaultBoardHex();
+      if (hex) bgColorPicker.value = hex;
+      toast("Board background reset to the theme default.");
     });
   }
 
@@ -22958,12 +23068,19 @@ async function initWhiteboard() {
     const [x, y] = getLogicalMouse(e);
     const [sx, sy] = currentDrawData[0];
     
-    // Check if user actually dragged
+    // A plain click with no drag — reported directly: the pen tool "doesn't
+    // respond to a single click, only a drag", which the sketch pad's own
+    // pen never had wrong (see `sketchEnd`'s own `!sketchMoved` branch, the
+    // same fix mirrored here). A `moveto` with no `lineto` after it draws
+    // nothing at all, so a stationary click has to add a near-zero-length
+    // segment — round linecaps turn that into a visible dot — rather than
+    // being discarded as "no shape to save".
     if (window.currentTool === "draw" && currentDrawData.length < 2) {
-      if (currentDrawPath) currentDrawPath.remove();
-      currentDrawPath = null;
-      return;
+      currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${sx} ${sy + 0.1}`);
     } else if (window.currentTool !== "draw" && Math.abs(x - sx) < 2 && Math.abs(y - sy) < 2) {
+      // Shape tools (line/rect/circle) need an actual drag to have a size —
+      // a zero-size shape isn't a reasonable click-to-draw default the way a
+      // pen dot is, so these are still discarded.
       if (currentDrawPath) currentDrawPath.remove();
       currentDrawPath = null;
       return;
@@ -23143,7 +23260,13 @@ function renderWhiteboard() {
     .attr("data-id", d => d.id)
     .style("cursor", () => (window.currentTool === "delete" || window.currentTool === "eraser") ? "pointer" : "default")
     .on("click", (event, d) => {
-      if (window.currentTool === "delete") deleteSketch(d);
+      // Reported directly, same family as the pen's single-click dot: a
+      // plain click with the eraser (no drag across anything) did nothing —
+      // only `mouseenter` while `wbErasing` was true caught a stroke, which
+      // needs movement to fire at all. The eraser is "delete, but you can
+      // also drag across several" — a single click should erase the one
+      // thing clicked, the same as the delete tool does.
+      if (window.currentTool === "delete" || window.currentTool === "eraser") deleteSketch(d);
     })
     .on("mouseenter", (event, d) => {
       if (window.currentTool === "eraser" && wbErasing) deleteSketch(d);
@@ -23235,7 +23358,10 @@ function renderWhiteboard() {
       .on("drag", dragging)
       .on("end", dragEndNode))
     .on("click", (event, d) => {
-      if (window.currentTool === "delete") deleteNode(d);
+      // Same fix as the sketch group above: a single eraser click, no drag,
+      // now erases the one card clicked instead of needing movement to
+      // trigger a mouseenter.
+      if (window.currentTool === "delete" || window.currentTool === "eraser") deleteNode(d);
     })
     .on("mouseenter", (event, d) => {
       if (window.currentTool === "eraser" && wbErasing) deleteNode(d);

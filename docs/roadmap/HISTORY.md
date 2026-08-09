@@ -1689,3 +1689,138 @@ frontend/app.js` all green throughout.
 the skill-run timeout/false-done-tick pair, the small-talk/TOOLS_GUIDE prompt
 contradiction, background tasks that never appear in the task list), then
 Tier 2 top-down.
+
+## 51. All of Tier 1 cleared (four items were already fixed, four bugs weren't), then Tier 2 top-down: change-target resolvers for reminders/categories, a real bold/italic toggle, and two whiteboard single-click bugs
+
+Continued straight from §50 in the same long unattended session, per the
+user's own "work autonomously, don't wait for my prompt" instruction. §50
+covers the ReDoS fix and the two graph bugs; this section is everything
+after Tier 1 was fully clear.
+
+**Tier 1's last four items (2, 3, 4, 6) were found already done**, not
+built. Each was checked against the actual code and existing tests before
+being crossed out — not assumed from an uncrossed-out ROADMAP line, which
+is exactly the staleness this project's own history keeps warning about.
+Items 2/3 (skill step timeout, false "done" tick, network-error handling)
+were already in `skill_runner.py` and `app.js`'s `STREAM_IDLE_TIMEOUT_MS`,
+pinned by `test_a_step_that_produces_nothing_is_not_ticked_done` and
+`test_a_network_failure_mid_step_stops_the_run_instead_of_repeating` — both
+§41's work. Item 4 (small talk reaching the agent's `TOOLS_GUIDE`) turned
+out to be a non-issue: `routes_chat.py` only ever calls the tool-enabled
+agent when `intent.needs_retrieval(...)` is true, which `SMALLTALK` never
+is, and `test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent` already
+proves it. Item 6 (unregistered background threads) turned into a full
+sweep — every `threading.Thread(` call site in `src/memorymap` checked by
+hand against `routes_tasks.collect()` — and found all nine already
+covered, one of them (`embedmodels.py`) carrying its own "Tier 1 §6"
+comment from whichever earlier session actually fixed it.
+
+**Tier 1 item 1 (meeting transcription) was re-confirmed, not re-fixed,
+one step further than before.** `faster-whisper` installed cleanly (no
+torch — the standing CLAUDE.md constraint is about `sentence-transformers`
+and torch specifically, not this package). A real WAV clip POSTed to
+`/voice/transcribe-meeting` on a live server got back `503 "Couldn't load
+the Whisper 'base' model... check your internet connection"` — the exact
+distinct error §41 built, not the old generic mystery error. A genuinely
+successful transcription still couldn't be observed: this sandbox's
+network policy blocks `huggingface.co` outright (403 at the proxy,
+confirmed via `$HTTPS_PROXY/__agentproxy/status` rather than assumed from
+the symptom) — an environment limitation, not a code question. Said so
+plainly in ROADMAP.md rather than claiming a screenshot that doesn't
+exist.
+
+**Then Tier 2, item 13 — reminders and categories got the same
+`_change_*_id` resolver notes and documents already had.** `agent.py`
+gained `_change_reminder_id` (an int id, same shape as `_change_note_id`)
+and `_change_category_name` (a *name* — every category tool already works
+in names, so this names the field that carries one rather than inventing
+an id nothing else uses; `delete_category` is destructive like
+`delete_document` and never reaches this code path). `changeRow` grew two
+View buttons: `flashReminder(id)` (switches to Reminders, forces the
+filter to "all" since the change that brought you here, e.g. completing a
+reminder, is exactly the case the default "open" filter would hide, then
+scroll-flashes it the way `flashEntry` does for notes) and
+`flashCategory(name)` (reuses the sidebar's own `activeCategory` filter
+rather than a second filtering mechanism). Verified live: created a real
+reminder and a real note in a fresh category via the API, called both
+functions directly, confirmed the tab switched, the item was found, and —
+waiting the two animation frames the flash needs, which an early check
+missed — the `.flash` class was actually applied.
+
+**Item 16b — the document editor's bold/italic didn't toggle off.**
+`wrapDocSelection` only ever wrapped; a second press on already-bold text
+stacked a second `**` pair instead of removing the first. Now checks both
+shapes a selection can be in — markers just outside it, or included inside
+it — before wrapping, so a second press strips them either way. No JS test
+runner exists for this file, so verified directly against the real
+`#doc-content` textarea: `hello world` → Bold → `**hello** world` → Bold
+again → `hello world`, byte for byte; the whole-span-selected and italic
+cases both round-tripped the same way.
+
+**Then two whiteboard bugs, reported live mid-session and fixed the same
+way §50's graph bugs were — diagnosed before touching anything.** The pen
+tool's "doesn't respond to a single click, only a drag" turned out to be a
+whiteboard-only gap: the sketch pad's own pen already drew a dot on a
+stationary click (`sketchEnd`'s `!sketchMoved` branch), but the
+whiteboard's separate SVG-path implementation discarded a click with no
+movement outright (`currentDrawData.length < 2` → delete the path, return).
+Mirrored the sketch pad's own trick — a near-zero-length line segment,
+which a round linecap renders as a visible dot — instead of a second,
+different fix. The eraser had the same symptom for a different cause: it
+only ever caught a stroke via `mouseenter` while the button was held, which
+needs real movement to fire at all, so a plain click on a shape did
+nothing; its `click` handler (already there for the Delete tool) now also
+fires for the eraser. Verified live against a real running server, not
+assumed from the code: single pen click on empty canvas, 0 sketches → 1;
+single eraser click on that same dot, 1 → 0.
+
+**A related, small feature asked for directly**: a `↺` reset button next
+to the whiteboard's board-colour picker, since picking a colour left no way
+back to the theme's own default short of guessing its hex. Clears the
+`localStorage` override and re-reads the *live* computed colour rather than
+a hardcoded hex, so "reset" still means "the theme's colour" after a
+light/dark switch. Verified live: pick a colour → persisted; reset → the
+swatch shows the real computed default, not a placeholder.
+
+**What's still open, reported live and correctly not force-fixed**: the
+single-node hover-highlight during a drag was re-reported as still
+happening, outside this sandbox, after §50's fix — which specifically
+targeted panning (dragging empty canvas) and was verified 6/6 clean here.
+Checked whether an actual node-drag shares the same cause and it doesn't:
+every *other* node is pinned (`fx`/`fy` set) for the length of a node drag,
+so nothing can slide under a stationary cursor the way panned content
+does. No obvious quick fix without a fresh repro (which tool, which
+gesture, which browser) — named in ROADMAP.md rather than guessed at.
+Also named but not built: "a lot of the whiteboard's tools are missing —
+it should be an upgraded version of the sketch pad", asked for directly
+but not itemised; most of what's actually missing (redo, select/rotate,
+shift-to-lock, images) is already named in item 11's own open list rather
+than being a new, separate gap.
+
+**Then item 16a — the document editor's sidebar, reported with
+screenshots.** The sticky/floating half was already done (`#doc-sidebar`
+already has `position: sticky`) — stale by the time it was reported,
+corrected rather than rebuilt, the same shape as items 2/3/4/6 above. The
+Outline-collapses half was real, and measured live before touching
+anything: 10 headings' outline went from 258px tall to exactly **0px** the
+instant the "Where are my documents kept?" disclosure opened. Cause:
+`.doc-sidebar > details` was `flex: 0 0 auto` — flex-shrink *zero*, which
+means *exempt* from shrinking — while the outline above it had no minimum
+height at all, so the entire squeeze landed on the one sibling that could
+give and had nothing left to give. That is backwards from what the CSS
+block's own comment already said the intent was ("the help disclosure
+gives up its space first"). Fixed by giving the outline a real floor
+(`min-height: 4rem`) and actually making the disclosure shrinkable with
+its own internal scroll. Re-measured after: outline settles around 100px,
+visible and scrollable, instead of 0.
+
+Full `pytest tests/` (~1,600+ tests), `ruff check .`, and `node --check
+frontend/app.js` all green throughout — each fix run individually before
+moving to the next, per this project's own standing practice.
+
+**What's next**: ROADMAP.md's remaining Tier 2 items, prioritised by
+correctness-bug-over-new-feature the same way Tier 1 was — the Timeline
+line view's popup missing markdown/attachments (14), then the larger,
+properly scoped items (the sketch pad's selection tool, the whiteboard's
+redo/select/rotate list, onboarding's seeded-notes/guided-tour work) roughly in
+that order, unless a live report reprioritises something above them.

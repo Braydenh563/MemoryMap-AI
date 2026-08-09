@@ -332,13 +332,53 @@ into a good one.
     - **Grid lines (varying types) and snap-to-grid for placement.** Asked
       for directly, not scoped further — needs a decision on which grid
       types (square/dot/isometric?) before building.
-    - **Drawing only responds to a drag, not a single click.** Asked for
-      directly — e.g. a dot or a single short mark should be possible
-      without dragging the pointer at all. Not yet reproduced against the
-      actual pointer handlers; likely the same code path the sketch pad's
-      own `sketchMoved` flag guards (a click with no movement is currently
-      treated as "nothing drawn" there too — see `sketchEnd`), so worth
-      checking whether the fix belongs in one shared place or two.
+    - ~~**A way to reset the board colour back to the theme default.**~~
+      **Fixed (HISTORY.md §51), asked for directly.** Once a colour was
+      picked there was no way back to the theme's own `--modal-bg` short of
+      guessing its hex. A `↺` button next to `#wb-bg-color-picker` clears
+      the `localStorage` override and re-reads the live computed colour
+      (not a hardcoded hex), so it means "the theme's colour" even after a
+      light/dark switch, not "whatever it happened to be once". Verified
+      live: pick a colour → persisted and applied; click reset → cleared,
+      swatch shows the real computed default.
+    - **"A lot of the tools are missing — it should be an upgraded version
+      of the sketch pad," asked for directly this session, not itemised.**
+      The sketch pad has text, shift-lock proportions (asked for, item 10
+      above), and a size control the whiteboard lacks entirely; the
+      whiteboard has cards/links/boards the sketch pad doesn't. Needs a
+      concrete "which of the sketch pad's tools, specifically" before a
+      session can act on more than the two bugs just fixed — most of what's
+      "missing" is already named above (redo, select/rotate,
+      shift-to-lock, images) rather than a new, separate gap.
+    - **The single-node hover-highlight during a drag was re-reported as
+      still happening after item 10 above's fix**, on a live run outside
+      this sandbox. That fix targeted panning specifically (dragging empty
+      canvas) and was verified 6/6 clean in this sandbox's Chromium; dragging
+      an *actual node* was checked and doesn't share the same cause (every
+      other node is pinned — `fx`/`fy` set — for the length of a node drag,
+      so nothing else can slide under a stationary cursor the way panned
+      content does), so there's no obvious analogous quick fix. Left open
+      rather than guessed at — needs the exact gesture that reproduces it
+      (which tool, panning vs. dragging a note, which browser) from a
+      session that can watch it happen live.
+    - ~~**Drawing only responds to a drag, not a single click.**~~ **Fixed
+      and verified live (HISTORY.md §51).** Diagnosed, not guessed: the
+      sketch pad's own pen already handled this correctly (`sketchEnd`'s
+      `!sketchMoved` branch draws a near-zero-length line, which a round
+      linecap renders as a dot) — the *whiteboard*'s separate SVG-path
+      implementation didn't, discarding a stationary click outright
+      (`currentDrawData.length < 2` → remove the path, return). Same fix,
+      mirrored: a click with no drag now sets the path's `d` to a
+      near-zero-length segment instead of deleting it. The eraser had the
+      same gap for a different reason — it only ever caught a stroke via
+      `mouseenter` while the button was held, which needs *movement* to
+      fire at all, so a plain click did nothing; its own `click` handler
+      (already there for the Delete tool) now also fires for the eraser.
+      Verified live end to end against a real running server: single pen
+      click on empty canvas, 0 sketches → 1; single eraser click on that
+      same dot, 1 → 0. Shape tools (line/rect/circle) are left alone — a
+      zero-size shape isn't a reasonable click default the way a pen dot
+      is.
 
     **This is a lot for one item** — draw.io, Microsoft Whiteboard and
     OneNote between them are three separate mature products' worth of
@@ -359,18 +399,31 @@ into a good one.
     search results and wiki-style `[[links]]` already use. This file's own
     claim that they were "decoration" was stale, likely inherited from
     before that wiring existed; nothing here needed building.
-13. **"Take me to the thing the agent just changed," the UI half.** The
-    document half is **done (HISTORY.md §47)**: `agent._change_document_id`
-    has resolved a real document id on every write since §21, but
-    `changeRow` — the one place both the chat's "what changed" list and the
-    autonomous-pass review panel render a change — never read it. Now does,
-    reusing `openDocumentFromNote` (the same navigation a note's own
-    document link already used); verified live (a synthetic `document_id`
-    change renders a View button that actually un-hides `#tab-documents`,
-    not just calls something silently). **Still open**: reminders and
-    categories have no `_change_*_id` resolver on the backend at all yet
-    (only note/document exist), so extending this further needs that
-    groundwork laid first, not just another `if` in `changeRow`.
+13. ~~**"Take me to the thing the agent just changed," the UI half.**~~
+    **All four kinds now done (HISTORY.md §47, §51).** The document half
+    was done in §47: `agent._change_document_id` has resolved a real
+    document id on every write since §21, and `changeRow` — the one place
+    both the chat's "what changed" list and the autonomous-pass review
+    panel render a change — reads it, reusing `openDocumentFromNote`.
+    **Reminders and categories, done this session**: `agent.py` gained
+    `_change_reminder_id` (`set_reminder`/`complete_reminder`, an int id —
+    the same shape as `_change_note_id`) and `_change_category_name`
+    (`create_category`/`rename_category`/`merge_categories`, a *name*, not
+    an id — every category tool already works in names, so this names the
+    field that carries one rather than inventing an id nothing else uses;
+    `delete_category` is destructive like `delete_document` and never
+    reaches this code path). `changeRow` grew two more View buttons:
+    `flashReminder(id)` switches to the Reminders tab, forces the filter to
+    "all" (the change that brought you here — completing a reminder — is
+    exactly the case where the default "open" filter would hide it), and
+    scroll-flashes the item the same way `flashEntry` does for notes;
+    `flashCategory(name)` reuses the sidebar's own category filter
+    (`activeCategory`) rather than building a second filtering mechanism.
+    Verified live end to end: created a real reminder and a real note in a
+    fresh category via the API, called both functions directly, confirmed
+    the tab switched, the item was found in the DOM, and (after waiting the
+    two animation frames the flash needs) the `.flash` class was actually
+    applied.
 14. **Timeline line view, and text placement in grid view.** The grid view's
     text-placement half is **done**: `.timeline-dot`'s `line-clamp: 3` was
     unprefixed under a `-webkit-box` display, a combination this Chromium
@@ -414,23 +467,40 @@ into a good one.
     exact steps or a screenshot before the next session spends more time on
     it.
 16. **Documents in the graph.** They are notes' equal everywhere else.
-16a. **The document editor's sidebar, reported directly with screenshots.**
-    Two asks: make it full-scale and sticky/floating to the left (today it
-    scrolls with the page rather than staying put — not yet checked against
-    the actual CSS, likely a missing `position: sticky` or a parent without
-    `overflow` set up for it), and its Outline section visibly collapses/
-    disappears when the "Where are my documents kept?" disclosure below it
-    is expanded — the disclosure's own content is pushing the outline out
-    of a fixed-height scroll area rather than the sidebar growing to fit
-    both. Not yet investigated against the real DOM.
-16b. **The document editor itself: bold/italic don't toggle off, and it
-    needs broader work.** Reported directly: applying Bold to an
-    already-bold selection (or Italic to an already-italic one) doesn't
-    remove the formatting the way every other rich-text editor's toggle
-    does — it's a one-way "apply," not `document.execCommand`/ProseMirror-
-    style toggle behaviour. "A bunch of missing features... could be
-    improved a lot more" was named but not itemised — needs a concrete list
-    from the user before a session can act on more than the toggle bug.
+16a. ~~**The document editor's sidebar, reported directly with
+    screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The
+    sticky/floating half was already done — `#doc-sidebar` already has
+    `position: sticky` — stale by the time it was reported, corrected
+    rather than rebuilt. The Outline-collapses bug was real and reproduced
+    live before touching anything: 10 headings' outline went from 258px
+    tall to exactly **0px** the instant the storage disclosure opened.
+    Cause: `.doc-sidebar > details` was `flex: 0 0 auto` — flex-shrink
+    *zero*, meaning it was **exempt** from shrinking — while the outline
+    sitting above it had no minimum height at all, so the entire squeeze
+    landed on the one sibling that could give and had nothing to give.
+    That's backwards from what the block's own comment already said the
+    intent was ("the help disclosure gives up its space first"). Fixed by
+    giving the outline a real floor (`min-height: 4rem` — enough for a few
+    entries even under pressure) and actually making the disclosure
+    shrinkable with its own internal scroll, so it's now the one that
+    yields. Re-measured live after the fix: outline settles at ~100px
+    (visible and scrollable) instead of 0, disclosure scrolls its own
+    overflow instead of forcing the outline out.
+16b. ~~**The document editor's bold/italic don't toggle off.**~~ **Fixed
+    and verified live (HISTORY.md §51).** `wrapDocSelection` (`app.js`,
+    shared by the toolbar buttons and Ctrl+B/Ctrl+I) only ever wrapped —
+    applying Bold to an already-bold selection stacked a second `**` pair
+    instead of removing the first. Now checks both shapes a selection can
+    be in before wrapping: markers just outside it (`**|bold|**`) or
+    markers included inside it (`|**bold**|`) — either way, a second press
+    strips them instead of stacking. Verified live through the real
+    `#doc-content` textarea and `wrapDocSelection` itself, not a unit test
+    (this file has no JS test runner): `hello world` → Bold → `**hello**
+    world` → Bold again → back to `hello world`, byte for byte; the
+    whole-span-selected and italic cases both round-tripped the same way.
+    **Still open**: "a bunch of missing features... could be improved a lot
+    more" was named but not itemised — needs a concrete list from the user
+    before a session can act on more than the toggle bug.
 16c. **Images and files still can't be copied, pasted, or dragged into
     notes.** Item 20 below already names the Library surface and
     drag-to-attach as unbuilt on top of existing `/media`/attachment

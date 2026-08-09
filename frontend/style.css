@@ -13399,9 +13399,18 @@ body.has-agent-monitor .whiteboard-floating-panel.bottom-right {
   min-height: 9rem;
 }
 
+/* Reported directly, with screenshots: the Outline visibly disappeared
+   whenever the "Where are my documents kept?" disclosure below it was
+   opened. The comment above this block already said the help disclosure
+   should "give up its space first" — but `flex: 0 0 auto` means
+   flex-shrink: 0, which is the opposite of giving anything up; it is
+   *exempt* from shrinking, so the whole deficit landed on the one sibling
+   that could shrink and had no floor of its own. Measured live before
+   fixing: 10 headings' worth of outline went from 258px tall to exactly
+   0px the instant the disclosure opened. */
 .doc-outline-wrap {
-  flex: 0 1 auto;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 4rem; /* enough for a few entries even when squeezed */
   display: flex;
   flex-direction: column;
 }
@@ -13412,11 +13421,13 @@ body.has-agent-monitor .whiteboard-floating-panel.bottom-right {
   overflow-y: auto;
 }
 
-/* The help disclosure gives up its space first and never forces the column
-   taller than the sidebar. */
+/* Now genuinely last in the queue for space — shrinkable, so the outline's
+   own floor above actually gets honoured, and scrollable rather than
+   clipped once it's smaller than its own paragraph text needs. */
 .doc-sidebar > details {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-height: 0;
+  overflow-y: auto;
 }
 
 /* Nothing in here may push the column wider than the track it sits in — a

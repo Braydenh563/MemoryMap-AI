@@ -2265,6 +2265,18 @@ end, which cost real time before the fixes below were confirmed real.
   and there is more than one such site per kind — grep for all of them, not
   just the first one found.
 
+**One more real bug, found by looking, not testing** — the standing rule
+this project's own CLAUDE.md states plainly ("measure and look before you
+claim a UI change works"). A screenshot taken to sanity-check the new
+multi-select properties panel showed the board picker reading
+`UI screenshot (0 items)` for a board that visibly held three text boxes.
+`refreshBoardList()`'s own item count summed `node_count + sketch_count`
+only — `object_count` (images/text boxes), which `GET /whiteboard/boards`
+has returned since §53, was never added to the sum. A board holding only
+objects (no cards or sketches) read as empty in the picker even with
+content on it. One-line fix; the screenshot that caught it was taken to
+check panel *layout*, not this.
+
 **Two Playwright coordinate traps found live, worth recording since they
 cost real debugging time before being understood as test bugs, not app
 bugs**: a marquee drag starting near the container's own top-left corner

@@ -25385,13 +25385,16 @@ async function refreshBoardList(justCreated = null) {
   const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
   if (!boards) return;
   if (justCreated && !boards.some((b) => b.id === justCreated.id)) {
-    boards.push({ ...justCreated, node_count: 0, sketch_count: 0 });
+    boards.push({ ...justCreated, node_count: 0, sketch_count: 0, object_count: 0 });
   }
   select.replaceChildren();
   for (const board of boards) {
     const opt = document.createElement("option");
     opt.value = board.id ?? "";
-    const count = board.node_count + board.sketch_count;
+    // Images and text boxes count too — a board holding only those (no
+    // cards or sketches) read as "(0 items)" here, which is exactly what
+    // exposed this: a board with three text boxes on it, live-verified.
+    const count = board.node_count + board.sketch_count + (board.object_count || 0);
     opt.textContent = board.id === null
       ? board.title
       : `${board.title} (${count} item${count === 1 ? "" : "s"})`;

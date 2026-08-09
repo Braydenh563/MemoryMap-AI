@@ -2,7 +2,165 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: §44–§49, then a large burst of new reports triaged and queued rather than built, on user instruction, at high usage
+## Latest session: §50–§51 — a CodeQL ReDoS fixed, all of Tier 1 cleared (four items were stale, not unbuilt), most of Tier 2 worked top-down, and a menu redesign asked for directly
+
+Long unattended run, worked exactly as instructed: "work autonomously,
+commit and push as you go," plus a live-fired security alert and several
+UI reports the user added mid-session. Full detail is in
+[HISTORY.md §50](HISTORY.md) and [§51](HISTORY.md); this is the ordered
+short version and — the part a handover is actually for — what is and
+isn't done, and why.
+
+**Started from a CodeQL alert** (`py/polynomial-redos`, high severity) on
+`manager._TITLE_LINE`, the note-title regex. Replaced with a linear
+hand-rolled scan, verified against the regex's own edge cases, not just
+"tests still pass". A second alert on the same file (`py/cyclic-import`,
+Note severity) was checked and correctly left alone — a deliberate
+deferred import breaking a real cycle, not a bug.
+
+**Then Tier 1, top to bottom.** Two real, previously-undiagnosed graph
+bugs, both reproduced with Playwright before being fixed and re-verified
+the same way afterward — not reasoned from the code:
+
+- Tree/Radial/Arc lost every edge the instant the Time Filter left "All
+  time" (Force was unaffected). Cause: those layouts' edges include
+  synthetic category-heading/root nodes with no `created_at`, read as
+  "created right now" by the filter. Fixed by exempting `isGroup` nodes.
+- Dragging on empty canvas could leave an unrelated note's hover-spotlight
+  stuck lit. Cause: panning slides nodes under a stationary cursor, firing
+  a real `mouseenter` with no reliable following `mouseleave`. Fixed with
+  a `graphIsPanning` flag muting hover for the whole gesture. **Re-reported
+  as still happening, live, outside this sandbox, after the fix** — see
+  "what's still open" below; not force-fixed without a fresh repro.
+
+The other five open Tier 1 items (2, 3, 4, 6, and 17 over in Tier 2) were
+each checked against the actual code and existing tests before being
+touched, per this file's own standing rule — and turned out to be
+**already fixed**, mostly by §41, just never crossed off. Meeting
+transcription (item 1) was re-confirmed rather than re-fixed: `faster-
+whisper` installed cleanly and a real clip now gets the correct distinct
+503, but this sandbox's network policy blocks `huggingface.co` outright,
+so a genuinely successful transcription is still unobserved by any
+session. Item 7 (claim-specificity) remains the one Tier 1 item that
+cannot be closed here — it needs real model output this sandbox has never
+been able to provide.
+
+**Then Tier 2, top to bottom, each one reproduced live before being
+touched:**
+
+- **§13 done**: reminders and categories got the `_change_*_id`
+  resolvers notes/documents already had (`_change_reminder_id`, an int;
+  `_change_category_name`, since category tools work in names). `changeRow`
+  grew `flashReminder`/`flashCategory` View buttons.
+- **§16b done**: the document editor's Bold/Italic only ever wrapped, never
+  toggled off. Fixed to check both shapes a selection can be in.
+- **§11 (whiteboard) — two bugs done, one board-colour reset built**: the
+  pen tool ignored a single click (fixed the same way the sketch pad
+  already had it right); the eraser needed movement to register at all,
+  so a plain click did nothing (fixed); a `↺` reset button for the board
+  colour picker, asked for directly, reads the live theme default rather
+  than a hardcoded hex.
+- **§16a done**: the document sidebar's Outline collapsed to *exactly 0px*
+  the instant the storage disclosure opened — measured live before fixing.
+  Cause: the disclosure was `flex-shrink: 0` (exempt from shrinking) while
+  the outline had no floor, backwards from what the CSS's own comment said
+  the intent was.
+- **§14 done**: the Timeline line view's popup showed raw `**`/`#`
+  characters and never rendered an attachment at all — `#timeline-popup-
+  media` existed in the HTML and nothing had ever populated it. Rewired to
+  reuse `renderMarkdown`/`renderGraphPopupMedia`'s own pattern.
+- **§16c done**: paste and drag-drop into notes already worked (a global
+  textarea handler Capture's `#entry-content` happened to already qualify
+  for) — checked live before assuming a rebuild was needed. Only a
+  file-picker button was genuinely missing; built one.
+- **§18 done**: the full-screen graph's suggested-links list wasn't just
+  unscrolled, it was **unreachable** — `#graph-card`'s `overflow: hidden`
+  (from an earlier, unrelated fix) still applied in fullscreen, since an
+  ID beats a class on specificity no matter the source order. Fixed with
+  an id+class compound selector.
+- **A note-card menu redesign, asked for directly mid-session** (not a
+  prior ROADMAP item): the ⋯ menu had grown to 15 flat items. Three stay
+  top-level (private toggle, History, the destructive delete); the rest
+  group into three side flyouts (AI actions / Connect / Add) that open on
+  hover or click, flip side when the viewport edge is close, and collapse
+  to an in-place accordion below 720px — verified at both desktop and
+  390px (iPhone) viewport widths.
+
+**What's still open in Tier 2, and why each one is genuinely left for
+next time rather than rushed:**
+
+- **The single-node drag-highlight, re-reported live after the fix
+  above.** Checked whether an actual node-drag (not a pan) shares the
+  cause — it doesn't, every other node is pinned during one — so there's
+  no obvious quick fix without a fresh repro (which tool, which gesture,
+  which browser). Named in ROADMAP item 11, not guessed at.
+- **The whiteboard's larger list** (redo, select/move/rotate as real
+  tools, shift-to-lock, images, precise placement, draw.io-style
+  connections, toolbar default position, grid/snap) — explicitly named by
+  an earlier session as needing its own dedicated session given the
+  integration surface (drag, zoom, the trace overlay, physics sliders all
+  touch it), and that reasoning still holds. The user also asked directly
+  this session for "an upgraded version of the sketch pad" with more
+  tools generally — not itemised; needs a concrete list before a session
+  can act on more than what's already named.
+- **The sketch pad's selection tool** (click an existing stroke to move,
+  resize, or delete it) and **shift-to-lock proportions** — both scoped,
+  neither built. The selection tool in particular needs real hit-testing
+  design (a stroke is a path, not a rect) that deserves its own pass
+  rather than a rushed one at the end of an already-long session.
+- **Item 16 ("documents in the graph")** — one line, no detail beyond
+  "they are notes' equal everywhere else." Real gap (the `/graph`
+  endpoint only ever returns notes), but needs scoping before building:
+  does a document get its own node kind, its own colour, does it link to
+  the notes attached to it automatically?
+- **Item 15 (Arc labels-behind-nodes)** — investigated live in an earlier
+  session and did not reproduce with synthetic data. Needs the original
+  report's exact steps or a screenshot, not another guess.
+- **Item 19 (onboarding, the rest)** — reachability diagnostics are built
+  (BACKLOG.md §27); still open: offering to pull a model (needs its own
+  progress UI), a data-dir writability probe (the backend doesn't have
+  one yet), seeded example notes, and a guided tour. Real, valuable, and
+  substantial enough that it deserves a session of its own rather than a
+  partial pass wedged into this one.
+- **Items 16d/16e/16f** (an optional title field, an emoji picker, a full
+  emoji-usage sweep) are explicitly blocked on the user's own design
+  decisions, not on anything technical — asking is the correct next step
+  for each, not building a guess.
+
+**What was and wasn't verified**: every fix above with a concrete,
+checkable behaviour was driven against a real running server via
+Playwright — screen measurements, DOM state, real file uploads, real
+mouse gestures — not reasoned from reading the code, per this project's
+own standing rule. Full `pytest tests/` (~1,600+ tests), `ruff check .`,
+and `node --check frontend/app.js` green after every single change, not
+just at the end. What's genuinely unverified: meeting transcription's
+actual output (network-blocked in this sandbox, named above), and
+anything in the "still open" list, which is open precisely *because* it
+wasn't rushed to a guessed fix.
+
+**Where to start next**, roughly in the order this session would pick
+them, but not a mandate — re-prioritise freely against whatever's been
+reported since:
+
+1. The sketch pad's selection tool (item 10) — smallest of the remaining
+   scoped builds, self-contained, no dependency on anything else.
+2. Item 19's onboarding work (seeded notes, the writability probe, the
+   model-pull UI, the guided tour) — each piece is independently
+   buildable; seeded notes are probably the cheapest, highest-visible-
+   impact one to start with.
+3. The whiteboard's list (item 11) — biggest remaining surface, budget a
+   full session for it rather than a partial pass, and read the
+   connection-point / draw.io framing in ROADMAP.md before starting.
+4. Item 16 (documents in the graph) — scope it first (what a document
+   node looks like, what it colours as) before writing any code.
+5. Ask directly about 16d/16e/16f (title field, emoji picker, emoji
+   sweep) — each is one question away from being buildable.
+6. Item 15 (Arc labels) stays parked until a real report with exact
+   repro steps arrives — not worth another blind attempt.
+
+---
+
+## Previous session: §44–§49, then a large burst of new reports triaged and queued rather than built, on user instruction, at high usage
 
 Same session as the §44–§48 entry below, continued through §49 and then a
 large burst of new reports arrived faster than they could be safely

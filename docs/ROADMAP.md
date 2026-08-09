@@ -567,8 +567,9 @@ into a good one.
     twice, which this project's own history (HISTORY.md's repeated "checked
     before building" theme) is precisely the failure mode it keeps warning
     about.
-17. **Battery-saver: an indicator and an honest description.** Checked before
-    writing this — the indicator already exists (`#power-saver-indicator`, a
+17. ~~**Battery-saver: an indicator and an honest description.**~~ **Done —
+    both halves, one already there.** Checked before writing this — the
+    indicator already exists (`#power-saver-indicator`, a
     status-bar chip shown/hidden from `battery_efficient_mode`) and is wired
     on both load and toggle, so that half was already done and this file
     hadn't been told. The "honest" half had a real bug, now **fixed**: the

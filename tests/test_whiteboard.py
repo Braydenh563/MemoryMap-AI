@@ -132,3 +132,75 @@ def test_an_enormous_sketch_is_refused_rather_than_stored(board_client):
         "/whiteboard/sketches", json={"data": "x" * (MAX_SKETCH_CHARS + 1)}
     )
     assert too_big.status_code == 422
+
+
+def test_a_stale_board_id_is_refused_not_a_crash(board_client, session):
+    """`board_id` is a real `ForeignKey("entries.id")`
+    (`PRAGMA foreign_keys=ON`) — writing one that doesn't exist wasn't
+    validated the way `entry_id` already was, so it reached `db.commit()`
+    and came back as a raw, unhandled `IntegrityError` — a 500, not a 404,
+    and the frontend's own "the board is stale, reload" recovery only
+    catches 4xx/error responses gracefully either way, but a 500 is a bug in
+    its own right, not just a stale read.
+    """
+    entry = _note(session)
+    refused = board_client.post(
+        "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": 9999}
+    )
+    assert refused.status_code == 404
+    assert board_client.get("/whiteboard/").json()["nodes"] == []
+
+    node = board_client.post("/whiteboard/nodes", json={"entry_id": entry.id}).json()
+    moved = board_client.put(
+        f"/whiteboard/nodes/{node['id']}",
+        json={"entry_id": entry.id, "board_id": 9999, "x": 0, "y": 0},
+    )
+    assert moved.status_code == 404
+
+    bad_sketch = board_client.post(
+        "/whiteboard/sketches", json={"data": "M0 0 L1 1", "board_id": 9999}
+    )
+    assert bad_sketch.status_code == 404
+
+
+def test_purging_a_note_removes_its_own_whiteboard_card(board_client, session):
+    """`_hard_delete` deletes rows in half a dozen tables that carry a real
+    `ForeignKey("entries.id")` before it deletes the entry itself, because
+    `PRAGMA foreign_keys=ON` fails the whole `DELETE FROM entries` the
+    instant one is left behind — reproduced live: emptying the recycle bin
+    for a note that had a whiteboard card on it 500'd, and the note (and
+    everything else in the same purge batch) stayed stuck in the bin.
+    `WhiteboardNode`/`WhiteboardSketch` were added to the schema after
+    `_hard_delete` was written and were never added to its cleanup list.
+    """
+    entry = _note(session)
+    board_client.post("/whiteboard/nodes", json={"entry_id": entry.id})
+
+    assert board_client.delete(f"/entries/{entry.id}").status_code == 200
+    purged = board_client.delete(f"/entries/{entry.id}/purge")
+    assert purged.status_code == 200, purged.text
+
+    assert board_client.get("/whiteboard/").json()["nodes"] == []
+
+
+def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
+    board_client, session
+):
+    """The board itself is just a note (`board_id` points at one), and
+    purging *that* note must not take every card on the board down with
+    it — the same 'orphan becomes a root' choice already made for
+    `Entry.parent_id`, not a cascade delete.
+    """
+    entry, board = _note(session), _note(session, "a board")
+    node = board_client.post(
+        "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": board.id}
+    ).json()
+
+    assert board_client.delete(f"/entries/{board.id}").status_code == 200
+    purged = board_client.delete(f"/entries/{board.id}/purge")
+    assert purged.status_code == 200, purged.text
+
+    # The card survives, moved to the default board rather than deleted.
+    default_board = board_client.get("/whiteboard/").json()["nodes"]
+    assert [n["id"] for n in default_board] == [node["id"]]
+    assert default_board[0]["board_id"] is None

@@ -84,6 +84,23 @@ def _require_entry(session: Session, entry_id: int) -> Entry:
     return entry
 
 
+def _require_board(session: Session, board_id: int | None) -> None:
+    """A board is a note too, and `board_id` is a real foreign key
+    (`PRAGMA foreign_keys=ON`) — writing one that doesn't exist doesn't fail
+    quietly, it throws `IntegrityError` out of `db.commit()` as a raw 500. A
+    board note purged (or hard-deleted) out from under a stale client-side
+    `currentBoardId` is exactly how that happens: nothing here re-validates
+    the id on write the way `_require_entry` already does for `entry_id`.
+    Checked the same permissive way `_board_filter` reads it — `None` always
+    means the default scratch board, never "board 0".
+    """
+    if board_id is None:
+        return
+    entry = session.get(Entry, board_id)
+    if entry is None or entry.is_deleted:
+        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+
+
 @router.get("/", response_model=WhiteboardStateOut)
 def get_whiteboard_state(
     board_id: int | None = None, db: Session = Depends(get_session)
@@ -102,6 +119,7 @@ def create_node(
     node_in: WhiteboardNodeBase, db: Session = Depends(get_session)
 ) -> WhiteboardNode:
     _require_entry(db, node_in.entry_id)
+    _require_board(db, node_in.board_id)
     # One card per note per board. Dropping the same note on a board twice is
     # a move, not a duplicate — the alternative is two cards stacked exactly
     # on top of each other, which reads as one card that won't drag properly.
@@ -130,6 +148,7 @@ def update_node(
     if node is None:
         raise HTTPException(status_code=404, detail="Node not found")
     _require_entry(db, node_in.entry_id)
+    _require_board(db, node_in.board_id)
     node.entry_id = node_in.entry_id
     # `board_id` was read from the body and then never assigned, so moving a
     # card between boards returned 200 and changed nothing.
@@ -157,6 +176,7 @@ def delete_node(node_id: int, db: Session = Depends(get_session)) -> dict:
 def create_sketch(
     sketch_in: WhiteboardSketchBase, db: Session = Depends(get_session)
 ) -> WhiteboardSketch:
+    _require_board(db, sketch_in.board_id)
     sketch = WhiteboardSketch(**sketch_in.model_dump())
     db.add(sketch)
     db.commit()
@@ -171,6 +191,7 @@ def update_sketch(
     sketch = db.get(WhiteboardSketch, sketch_id)
     if sketch is None:
         raise HTTPException(status_code=404, detail="Sketch not found")
+    _require_board(db, sketch_in.board_id)
     sketch.data = sketch_in.data
     sketch.board_id = sketch_in.board_id
     sketch.x, sketch.y, sketch.z = sketch_in.x, sketch_in.y, sketch_in.z

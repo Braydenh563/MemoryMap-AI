@@ -901,7 +901,15 @@ function entryItem(entry, options = {}) {
       const short = label.length > LINK_CHIP_CHARS
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
-      const linkChip = chip(`↔ ${short}`, "link");
+      // chip() sets plain textContent, right for a tag or category name but
+      // not here — `link.preview` is a clip of the *other* note's own text,
+      // which can carry the same **bold**/`code` a reader would expect to
+      // see rendered, the way the note's own body already does.
+      const linkChip = chip("", "link");
+      linkChip.appendChild(document.createTextNode("↔ "));
+      const linkPreview = document.createElement("span");
+      renderInlineMarkdown(linkPreview, short, [], true);
+      linkChip.appendChild(linkPreview);
       const reasonNote = link.reason
         ? link.reason_confidence != null
           ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
@@ -1491,7 +1499,7 @@ function renderReevaluateResult(entry, wrap) {
       const row = document.createElement("div");
       row.className = "row space-between reevaluate-link";
       const preview = document.createElement("span");
-      preview.textContent = link.preview;
+      renderInlineMarkdown(preview, link.preview, [], true);
       row.appendChild(preview);
       row.appendChild(
         smallButton("🔗 Link", "Link these two notes", async () => {
@@ -1707,7 +1715,11 @@ async function toggleRelated(entry) {
   row.appendChild(label);
   for (const other of related) {
     const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
-    const relChip = chip(`≈ ${preview}`, "link", () => flashEntry(other.id));
+    const relChip = chip("", "link", () => flashEntry(other.id));
+    relChip.appendChild(document.createTextNode("≈ "));
+    const previewSpan = document.createElement("span");
+    renderInlineMarkdown(previewSpan, preview, [], true);
+    relChip.appendChild(previewSpan);
     row.appendChild(relChip);
   }
   card.appendChild(row);
@@ -1997,7 +2009,13 @@ function unlatex(text) {
   );
 }
 
-function renderInlineMarkdown(element, text, terms) {
+// `compact`: skip the actual <img> and show the alt text instead — for a
+// label-sized surface (a link chip, a document sidebar button) where a
+// note's own image markdown would otherwise cram a thumbnail into a spot
+// sized for a line of text. The note card's own body always gets the real
+// image; everywhere smaller gets the same treatment `notePreviewText`
+// already gives one to a plain-text preview.
+function renderInlineMarkdown(element, text, terms, compact = false) {
   element.replaceChildren();
   text = unlatex(text);
   const pattern = new RegExp(INLINE_MD.source, "g");
@@ -2017,7 +2035,9 @@ function renderInlineMarkdown(element, text, terms) {
     // highlight, and a link's own text isn't split into marks any more than
     // a code span's is).
     if (imageUrl !== undefined) {
-      if (isRenderableUrl(imageUrl)) {
+      if (compact) {
+        element.appendChild(document.createTextNode(imageAlt || "🖼"));
+      } else if (isRenderableUrl(imageUrl)) {
         const img = document.createElement("img");
         img.src = imageUrl;
         img.alt = imageAlt || "";
@@ -5071,7 +5091,11 @@ function renderDocNotes() {
     const open = document.createElement("button");
     open.type = "button";
     open.className = "outline-link";
-    open.textContent = note.is_private ? "🔒 (private note)" : note.preview;
+    if (note.is_private) {
+      open.textContent = "🔒 (private note)";
+    } else {
+      renderInlineMarkdown(open, note.preview, [], true);
+    }
     open.title = "Show this note";
     open.addEventListener("click", () => {
       switchTab("notes");
@@ -11758,7 +11782,7 @@ function renderTraceReadout(result) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "graph-trace-note";
-    button.textContent = node.preview;
+    renderInlineMarkdown(button, node.preview, [], true);
     button.title = `Open this note (${node.category})`;
     button.addEventListener("click", () => flashEntry(node.id));
     return button;
@@ -16575,8 +16599,12 @@ async function loadMostUsed() {
     const li = document.createElement("li");
     li.title = entry.content;
     const text = document.createElement("span");
-    text.textContent =
-      entry.content.length > 26 ? entry.content.slice(0, 25) + "…" : entry.content;
+    renderInlineMarkdown(
+      text,
+      entry.content.length > 26 ? entry.content.slice(0, 25) + "…" : entry.content,
+      [],
+      true
+    );
     const count = document.createElement("span");
     count.className = "count";
     count.textContent = `×${entry.access_count}`;

@@ -2451,6 +2451,20 @@ progress {
   font-weight: 400;
 }
 
+/* A link chip's preview can now render inline markdown (the linked note's
+   own text, same as the note card's own body) — including, in the rare case
+   a note's very first line *is* an image, the image markdown itself. Capped
+   small and inline rather than the note-card size: a chip is a label, not a
+   thumbnail gallery. */
+.chip .entry-inline-image {
+  display: inline;
+  max-height: 1.1em;
+  max-width: 3em;
+  vertical-align: text-bottom;
+  margin: 0 0.15em;
+  border-radius: var(--radius-sm);
+}
+
 /* What a note's own "tomorrow" resolved to. Quieter than a tag: it is a
    reading of the text, not something the user typed. */
 .chip.when {

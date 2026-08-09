@@ -112,6 +112,22 @@ Things that are wrong, lose work, or make the app feel unreliable.
    "Run optimization now" button being hidden while the toggle is off is a
    UI convenience, not an authorization check. The route now checks the
    toggle itself before calling `trigger_now`.
+10. **Every graph layout except Force shows no connections when the Time
+    Filter is moved off "All time".** Reported directly with screenshots:
+    Tree, Radial and Arc all render nodes with no edges/arcs at all once the
+    slider is pulled back, while Force keeps its connections. Not yet
+    investigated — start by finding where `similarity`/edge filtering
+    intersects the time-filter's node subset for each layout function
+    (`layoutHierarchy` and friends), since Force building its own separate
+    physics-edge list is the likely reason it alone is unaffected. High
+    value: the time filter is close to useless on three of four layouts
+    right now.
+11. **Dragging on empty graph canvas sometimes highlights an unrelated
+    note.** Reported directly, not yet reproduced or investigated. Likely a
+    pointer/drag-select handler treating a click-drag on empty space as a
+    hit on whatever node happened to be under the pointer at drag-start
+    instead of requiring the drag to actually originate on a node — but
+    that is a guess, not a diagnosis. Reproduce first.
 
 ### Tier 2 — half-built features, cheap to finish
 
@@ -163,7 +179,24 @@ into a good one.
    wasn't, since deduction only ever ran at the moment a link was first made.
    `POST /entries/links/backfill-reasons` (`manager.backfill_link_reasons`)
    runs it once over every existing reason-less link, behind a button next
-   to Suggest links.
+   to Suggest links. **Asked again this session: "can there be a way to
+   visually see link reasons in the graph?"** — there already is (the SVG
+   tooltip on hover, above), but a hover-only affordance is easy to never
+   discover. Worth asking directly next session whether that's enough or
+   whether a reason needs a more persistent, always-visible presence (an
+   edge label, shown at least on hover-highlight or Trace) before building
+   either. **Asked for directly, not yet built:** the same
+   backfill as an agent-callable tool/skill, so it can run unattended
+   (a manual pass, or folded into the autonomous background worker's own
+   task list — see item 31) rather than only a button someone has to click.
+   Also asked for: **the deduction should weigh temporal words as well as
+   embedding similarity** — two notes both mentioning "next Tuesday" or
+   written the same day read as related even when their topics don't
+   overlap semantically. `_deduce_reason` today is embedding-only
+   (`AUTO_REASON_THRESHOLD`); this needs a second signal folded in (or
+   compared against) using `entry.timewords`/`EntryDate`, not a wholesale
+   replacement of the embedding check — a note from "next Tuesday" and one
+   from "last Tuesday" are not related just because they share a weekday.
 10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
     invisible~~ **Fixed (HISTORY.md §46)**: `globalAlpha` was `0.05` — around
     twenty overlapping passes before a stroke showed at all, which is the
@@ -186,8 +219,11 @@ into a good one.
     save composites, verified live by reading the saved-PNG composite's own
     pixel data back, not just the on-screen canvas. **Still genuinely open**:
     a selection tool (clicking an existing stroke/shape to move, resize or
-    delete it; today's tools only ever draw a new one). The toolbar redesign
-    comes *after* that, not before.
+    delete it; today's tools only ever draw a new one), and — asked for
+    directly — **holding Shift while drawing a shape constrains it** (a
+    perfect circle/square rather than an ellipse/rectangle, the same
+    convention every other drawing tool uses). The toolbar redesign comes
+    *after* those, not before.
 11. **The whiteboard, properly.** Done in an earlier session, reported and
     verified in Chromium: per-tool cursors (native `cursor: url(svg)`, not a
     JS-tracked div — the div version was reported and reproduced as "the
@@ -234,6 +270,16 @@ into a good one.
       it persists.
     - **Resizable cards**, and the edge-labelling the graph has — see item 9
       — both still open from before.
+    - **Grid lines (varying types) and snap-to-grid for placement.** Asked
+      for directly, not scoped further — needs a decision on which grid
+      types (square/dot/isometric?) before building.
+    - **Drawing only responds to a drag, not a single click.** Asked for
+      directly — e.g. a dot or a single short mark should be possible
+      without dragging the pointer at all. Not yet reproduced against the
+      actual pointer handlers; likely the same code path the sketch pad's
+      own `sketchMoved` flag guards (a click with no movement is currently
+      treated as "nothing drawn" there too — see `sketchEnd`), so worth
+      checking whether the fix belongs in one shared place or two.
 
     **This is a lot for one item** — draw.io, Microsoft Whiteboard and
     OneNote between them are three separate mature products' worth of
@@ -274,11 +320,24 @@ into a good one.
     with no ellipsis. Fixed (the `-webkit-` property, kept alongside the
     standard one), plus the backend's own `preview` field, which was a bare
     `text[:120]` slice with no "…" on truncation even before the CSS ever
-    saw it. **Still open:** the line view itself — reported as needing a
-    real visual pass ("very professional and ready for public use"), and
-    grid view could still take general UX polish/feature expansion beyond
-    the text-cropping fix (not scoped further — say what specifically,
-    next time it's reported).
+    saw it. **Re-reported after that fix, still cut off** — four full lines
+    with no ellipsis this time, not reproduced in this sandbox's Chromium
+    (a live check found nothing overflowing at all: `scrollHeight ===
+    clientHeight`). A defensive `max-height` independent of
+    `-webkit-line-clamp` support was added as a safety net (HISTORY.md
+    §49-adjacent, same session as §48's Arc investigation) but this is
+    hardening, not a diagnosis — if it's still cut off after this, the next
+    session needs the actual browser/OS this is happening in, since two
+    separate attempts from this sandbox's Chromium haven't reproduced it.
+    **Also reported, not yet built**: the line-view's own note popup shows
+    no markdown rendering (plain text with literal `**`/`#` characters) and
+    no sketch/image attachment preview — both of which the note card
+    elsewhere in the app already does, so this is a gap in one render path
+    rather than a missing feature. **Still open:** the line view itself —
+    reported as needing a real visual pass ("very professional and ready
+    for public use"), and grid view could still take general UX polish
+    beyond the text-cropping fix (not scoped further — say what
+    specifically, next time it's reported).
 15. **Arc view: labels behind nodes**, plus a refinement pass on that layout.
     One piece of the refinement pass is **done**: the trace overlay drew a
     straight chord regardless of layout, and Arc puts every node on one
@@ -296,6 +355,62 @@ into a good one.
     exact steps or a screenshot before the next session spends more time on
     it.
 16. **Documents in the graph.** They are notes' equal everywhere else.
+16a. **The document editor's sidebar, reported directly with screenshots.**
+    Two asks: make it full-scale and sticky/floating to the left (today it
+    scrolls with the page rather than staying put — not yet checked against
+    the actual CSS, likely a missing `position: sticky` or a parent without
+    `overflow` set up for it), and its Outline section visibly collapses/
+    disappears when the "Where are my documents kept?" disclosure below it
+    is expanded — the disclosure's own content is pushing the outline out
+    of a fixed-height scroll area rather than the sidebar growing to fit
+    both. Not yet investigated against the real DOM.
+16b. **The document editor itself: bold/italic don't toggle off, and it
+    needs broader work.** Reported directly: applying Bold to an
+    already-bold selection (or Italic to an already-italic one) doesn't
+    remove the formatting the way every other rich-text editor's toggle
+    does — it's a one-way "apply," not `document.execCommand`/ProseMirror-
+    style toggle behaviour. "A bunch of missing features... could be
+    improved a lot more" was named but not itemised — needs a concrete list
+    from the user before a session can act on more than the toggle bug.
+16c. **Images and files still can't be copied, pasted, or dragged into
+    notes.** Item 20 below already names the Library surface and
+    drag-to-attach as unbuilt on top of existing `/media`/attachment
+    plumbing; this confirms notes specifically (not just documents/the
+    whiteboard) are still missing all three input paths — worth verifying
+    exactly which of paste/drag-drop/file-picker already work, if any,
+    before assuming all three need building from scratch.
+16d. **An optional title field in Capture, and everywhere a note can be
+    created.** Raised as a design question earlier this session (see
+    HISTORY.md §44's "open questions") and asked again more directly here.
+    Still needs the same decision before building: a second field
+    duplicates §43's leading-heading mechanism (`manager.extract_title`)
+    unless it's wired to *write* that heading line into `content` rather
+    than storing a separate title — which is buildable (prepend `# {title}`
+    on save, exactly the shape `extract_title` already reads) but is a
+    decision worth confirming before writing it, not re-litigating from
+    scratch next time it's raised.
+16e. **An emoji picker in every note-creation input and the document
+    editor.** New feature, not yet scoped — needs a decision on picker
+    source (native OS picker via `<input>` attributes vs. a built-in
+    palette) before building, and probably belongs alongside item 16f's
+    emoji-usage decision rather than before it, since a picker that adds
+    emoji everywhere sits oddly next to a simultaneous push to use fewer.
+16f. **A full sweep of emoji usage across the app, asked for directly**:
+    *"I feel the application is very heavy with emojis, it feels too much
+    like AI slop... make sure they are only used professionally and with
+    intention, otherwise professional icons are the better way to go."*
+    Also considering colourless/monochrome emoji as a middle ground, but
+    undecided. This is a design decision affecting most of `index.html` and
+    a large fraction of `app.js` (tab icons, button labels, toast prefixes,
+    status chips) — not a quick pass. Needs, in order: (1) an actual count
+    and categorisation (decorative vs. load-bearing — some emoji are the
+    only differentiator between otherwise-identical icons, e.g. the
+    notification kind icons), (2) a decision on the replacement (SVG icon
+    set vs. monochrome emoji vs. selective removal), (3) then a build pass.
+    Doing the build pass before the decision risks redoing the same ground
+    twice, which this project's own history (HISTORY.md's repeated "checked
+    before building" theme) is precisely the failure mode it keeps warning
+    about.
 17. **Battery-saver: an indicator and an honest description.** Checked before
     writing this — the indicator already exists (`#power-saver-indicator`, a
     status-bar chip shown/hidden from `battery_efficient_mode`) and is wired

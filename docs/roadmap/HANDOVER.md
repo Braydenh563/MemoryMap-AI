@@ -2,7 +2,89 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session: a long unattended run, §44–§48 — two real perf fixes, a real "ran without being enabled" bug, a manual mode for skills, two sketch pad fixes, two stale-claim corrections, and one investigated-but-not-reproduced report
+## Latest session: §44–§49, then a large burst of new reports triaged and queued rather than built, on user instruction, at high usage
+
+Same session as the §44–§48 entry below, continued through §49 and then a
+large burst of new reports arrived faster than they could be safely
+investigated one at a time. **The user explicitly said not to build all of
+them now** ("you can list them and properly prioritise the roadmap") — so
+this half of the session is triage, not implementation, and that was the
+right call given where usage was.
+
+**Built and verified this half (§49, HISTORY.md)**: a notifications-panel
+mute toggle (🔕/🔔 bell, `#notif-mute-toggle` in the panel itself, not only
+Settings) — and the real bug it caught live: `get_preferences()` never
+echoed back **eight** separate preferences (every Autonomous Background
+Workers toggle, its interval and model, battery mode, smart model routing)
+despite all of them saving and being correctly honoured by the code that
+reads them. Every Settings checkbox bound to one of these reset to
+unchecked on reload, the whole time, silently. Fixed with two new
+round-trip regression tests, since nothing had ever asserted what `GET
+/preferences` echoes.
+
+**Also fixed this half**: the graph toolbar had four different font sizes
+across Gravity/Spread/Time-Filter/the toggles, and the "Up to DD/MM/YYYY"
+readout could overlap the slider thumb (`flex-shrink` missing, `min-width`
+sized for the shorter "All time" text) — both from a screenshot, both
+fixed with ordinary CSS. The Timeline grid's text-cut-off bug (believed
+fixed in an earlier session) was re-reported with a new screenshot showing
+four full lines with no ellipsis; **still not reproduced in this sandbox's
+Chromium** after a second live attempt, so a defensive `max-height`
+independent of `-webkit-line-clamp` support was added as hardening, not a
+diagnosis — flagged as such in ROADMAP item 14.
+
+**Everything else from this burst was investigated only enough to scope,
+then written into ROADMAP.md rather than built**, per the user's own
+instruction and this project's standing rule that a reported item gets a
+tier immediately even when nobody is working on it yet:
+
+- Every graph layout except Force loses all its edges when the Time Filter
+  moves off "All time" (Tier 1, item 10 — not investigated at all, high
+  value, likely the top item for next session).
+- Dragging on an empty part of the graph canvas sometimes highlights an
+  unrelated note (Tier 1, item 11 — not reproduced).
+- The document editor's sidebar should be full-scale and sticky-left, and
+  its Outline visibly collapses when the "Where are my documents kept?"
+  disclosure expands (item 16a — not investigated against the real DOM).
+- Bold/Italic in the document editor don't toggle off on a second click of
+  an already-formatted selection, plus a general "needs more features" ask
+  with nothing itemised yet (item 16b).
+- Copy/paste/drag-drop of images and files into notes — still unclear which
+  of the three (if any) already work; needs checking before assuming a
+  rebuild (item 16c).
+- An optional title field in Capture and everywhere else a note is made —
+  the same design question as §44's "open questions" section, raised again
+  more directly; the buildable shape (write the heading line into `content`
+  rather than a second stored field) is scoped but not decided (item 16d).
+- An emoji picker in every note-input and the document editor (item 16e),
+  and — the bigger one — a full audit of emoji usage across the app with a
+  view to professional icons or monochrome emoji instead, because it reads
+  as "AI slop" as built (item 16f). Deliberately sequenced *audit, then
+  decide, then build* — not a quick pass, and building before the decision
+  risks doing it twice.
+- A link-reason backfill exposed as an agent-callable tool/skill (not only
+  a UI button), and folding temporal-word similarity into the reason
+  deduction alongside embeddings (extends item 9).
+- Whiteboard: grid lines with snap-to-grid, and drawing not responding to a
+  plain click (only a drag) — both new, added to item 11's already-long
+  open list. Shift-to-lock-proportions, which the user thought might
+  already be listed, **was already there** — confirmed rather than
+  duplicated.
+- The Timeline line-view's note popup renders no markdown and shows no
+  sketch/image attachments, unlike the note card elsewhere in the app
+  (folded into item 14).
+
+**What's next**: ROADMAP.md's Tier 1 items 10 and 11 (the time-filter/
+layout bug and the drag-highlight bug) are the highest-value starting
+points — both are correctness bugs, both are undiagnosed, and item 10 in
+particular makes the time filter close to useless on three of four
+layouts. After that, work top-down through Tier 2 as usual, or take
+whichever of the newly-added items the user re-prioritises after reading
+the list above.
+
+---
+
+## Previous session: a long unattended run, §44–§48 — two real perf fixes, a real "ran without being enabled" bug, a manual mode for skills, two sketch pad fixes, two stale-claim corrections, and one investigated-but-not-reproduced report
 
 Worked ROADMAP.md's Tier 1/Tier 2 list top-down for an extended unattended
 session, per the project's own standing rule and the user's explicit

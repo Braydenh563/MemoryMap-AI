@@ -620,12 +620,12 @@ into a good one.
     after save; a bare `#` line typed directly into the body was read back
     with the same computed title; the graph popup's own field produced
     identical behaviour.
-16e. **An emoji picker in every note-creation input and the document
-    editor.** New feature, not yet scoped — needs a decision on picker
-    source (native OS picker via `<input>` attributes vs. a built-in
-    palette) before building, and probably belongs alongside item 16f's
-    emoji-usage decision rather than before it, since a picker that adds
-    emoji everywhere sits oddly next to a simultaneous push to use fewer.
+16e. **Decision made, not yet built**: both a native-OS picker and a
+    built-in in-app palette, same pattern as 16f — a toggle in Settings →
+    Appearance picks which one opens. Not scoped further (which inputs get
+    the trigger control, where the built-in palette's emoji set/data comes
+    from) — do that scoping next to whatever picks up 16f, since both share
+    the same Appearance-tab toggle mechanism and are cheaper built together.
 16f. **Decision made, not yet built**: an SVG icon set *and* monochrome
     emoji, both available, with a toggle in Settings → Appearance to switch
     between them (not a single fixed replacement). Needs: (1) the actual

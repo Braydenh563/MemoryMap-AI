@@ -13137,6 +13137,15 @@ textarea.autogrow {
   box-sizing: border-box;
 }
 
+/* The properties panel's fill swatch stayed full-strength regardless of the
+   Filled toggle next to it, so toggling it looked like it did nothing —
+   reported directly. Dimming it when disabled (JS sets `disabled` to match
+   the toggle) gives the same at-a-glance on/off read the toggle itself has. */
+.whiteboard-floating-panel input[type="color"].wb-color-picker:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* The six shape tools' dropdown — asked for directly ("the tool bar is
    getting quite long... make them like a selectable dropdown"). */
 .wb-shape-picker {

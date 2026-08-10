@@ -24329,6 +24329,7 @@ function wbUpdatePropertiesPanel() {
       rows.shapefill.classList.remove("hidden");
       document.getElementById("wb-prop-shapefill").value = parsed.fill || "#3355ff";
       document.getElementById("wb-prop-shapefill-on").checked = Boolean(parsed.fill);
+      document.getElementById("wb-prop-shapefill").disabled = !parsed.fill;
     }
   } else if (kind === "object" && item.kind === "text") {
     panel.classList.remove("hidden");
@@ -25990,12 +25991,14 @@ async function initWhiteboard() {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
     document.getElementById("wb-prop-shapefill-on").checked = true;
+    document.getElementById("wb-prop-shapefill").disabled = false;
     await wbSaveSketchProps(sketch, { fill: e.target.value, fillOpacity: 1 });
     renderWhiteboard();
   });
   document.getElementById("wb-prop-shapefill-on")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
+    document.getElementById("wb-prop-shapefill").disabled = !e.target.checked;
     await wbSaveSketchProps(sketch, { fill: e.target.checked ? document.getElementById("wb-prop-shapefill").value : undefined });
     renderWhiteboard();
   });

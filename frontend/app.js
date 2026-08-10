@@ -23117,6 +23117,10 @@ let wbDeleteObjectRef = null;
 // outside it — placing a text box switches back to Select once typed —
 // can still call it, the same shape the delete-refs above already use.
 let wbSelectToolRef = null;
+// Same shape, for refreshing the "Line ends" control's displayed value when
+// the active tool switches between Line and Arrow (each now has its own
+// remembered end-style — see the live-reported bug fix in `initWhiteboard`).
+let wbRefreshArrowStyleControlRef = null;
 // True only between an eraser mousedown and mouseup — the drawing tools
 // leave one mark per click-drag, the eraser is meant to remove everything
 // the pointer crosses while held, so it needs a "currently held" flag the
@@ -23379,7 +23383,7 @@ function wbDashArray(style, width) {
 
 //: Two head-stroke subpaths meeting at `(tipX, tipY)`, angled back from
 //: `approachAngle` (the direction the shaft arrives *from*, in radians) —
-//: factored out so both ends of an arrow can draw one (`window.currentArrowStyle`,
+//: factored out so both ends of an arrow can draw one (`currentArrowEndStyle`,
 //: reported directly: "can't change arrow heads").
 //: Absolute width/height for a shape drawn from `(0,0)` to `(dx, dy)` —
 //: equal (a square/perfect circle) while `shiftHeld`, matching the sketch
@@ -23858,7 +23862,11 @@ function wbUpdatePropertiesPanel() {
     document.getElementById("wb-prop-width").value = parsed.width || 3;
     if (wbSketchIsArrow(parsed.d)) {
       rows.arrowhead.classList.remove("hidden");
-      document.getElementById("wb-prop-arrowhead").value = window.currentArrowStyle || "end";
+      // The sketch's own actual style, not the active drawing tool's current
+      // default — live-reported bug, same root cause as Line always drawing
+      // with a head: this used to show `window.currentArrowStyle` instead
+      // of what was really on the selected line/arrow.
+      document.getElementById("wb-prop-arrowhead").value = wbDetectArrowStyle(parsed.d);
     }
     // Stroke style/no-stroke apply to any drawn shape/line; fill only to
     // the four closed shapes — asked for directly ("stroke width, style,
@@ -25270,13 +25278,38 @@ async function initWhiteboard() {
   const toolGroup = document.getElementById("wb-tool-group");
   const colorPicker = document.getElementById("wb-color-picker");
   const arrowStyleSelect = document.getElementById("wb-arrow-style");
-  window.currentArrowStyle = localStorage.getItem("wb-arrow-style") || "end";
+  // Live-reported: "I selected the line tool and it still drew with an
+  // arrow head." Line and Arrow share this one control (asked for
+  // directly, so a plain line *can* carry a head), but they used to share
+  // a single `currentArrowStyle` value too — so drawing with Arrow first
+  // (default "end") left Line permanently defaulting to an arrowhead as
+  // well, since nothing ever reset it. Each tool now keeps its own
+  // default (Line: none, Arrow: end) and its own localStorage key; the
+  // control itself still reads/writes whichever tool is currently active,
+  // via `wbCurrentEndStyleKind`/`wbSetCurrentEndStyle` below.
+  window.currentLineEndStyle = localStorage.getItem("wb-line-end-style") || "none";
+  window.currentArrowEndStyle = localStorage.getItem("wb-arrow-style") || "end";
+  function wbCurrentEndStyleKind() {
+    return window.currentTool === "line" ? "line" : "arrow";
+  }
+  function wbCurrentEndStyle() {
+    return wbCurrentEndStyleKind() === "line" ? window.currentLineEndStyle : window.currentArrowEndStyle;
+  }
+  function wbSetCurrentEndStyle(value) {
+    if (wbCurrentEndStyleKind() === "line") {
+      window.currentLineEndStyle = value;
+      localStorage.setItem("wb-line-end-style", value);
+    } else {
+      window.currentArrowEndStyle = value;
+      localStorage.setItem("wb-arrow-style", value);
+    }
+  }
+  wbRefreshArrowStyleControlRef = () => {
+    if (arrowStyleSelect) arrowStyleSelect.value = wbCurrentEndStyle();
+  };
   if (arrowStyleSelect) {
-    arrowStyleSelect.value = window.currentArrowStyle;
-    arrowStyleSelect.addEventListener("change", (e) => {
-      window.currentArrowStyle = e.target.value;
-      localStorage.setItem("wb-arrow-style", e.target.value);
-    });
+    arrowStyleSelect.value = wbCurrentEndStyle();
+    arrowStyleSelect.addEventListener("change", (e) => wbSetCurrentEndStyle(e.target.value));
   }
 
   // Fill/stroke-style controls for the shape tools — asked for directly
@@ -25546,6 +25579,7 @@ async function initWhiteboard() {
     }
     selectMenu?.classList.add("hidden");
     selectToggle?.setAttribute("aria-expanded", "false");
+    wbRefreshArrowStyleControlRef?.();
     updateWbCursor();
   }
 
@@ -26111,17 +26145,19 @@ async function initWhiteboard() {
       if (window.currentTool === "line" || window.currentTool === "arrow") {
         // One path, one or more subpaths — a plain SVG `d` string can hold
         // more than one `M`, and every subpath in it shares the same
-        // stroke, so this is the shaft plus whichever head strokes
-        // `window.currentArrowStyle` calls for in a single element, rather
-        // than several sketches that would each need their own undo entry
-        // and could drift apart. Asked for directly: "regular lines should
-        // also get line end options... arrow heads" — the Line and Arrow
-        // tools now share the same "Line ends" control (in the shape
-        // dropdown), so a plain line can carry an arrowhead too.
+        // stroke, so this is the shaft plus whichever head strokes the
+        // *active tool's own* end-style calls for in a single element,
+        // rather than several sketches that would each need their own undo
+        // entry and could drift apart. Asked for directly: "regular lines
+        // should also get line end options... arrow heads" — the Line and
+        // Arrow tools share the same "Line ends" control, so a plain line
+        // *can* carry an arrowhead, but each tool keeps its own remembered
+        // default (Line: none, Arrow: end) — see the live-reported bug fix
+        // on `currentLineEndStyle`/`currentArrowEndStyle` in `initWhiteboard`.
         const angle = Math.atan2(y - sy, x - sx);
         const headLen = WB_STROKE_WIDTH * 4 + 6;
         let d = `M ${sx} ${sy} L ${x} ${y}`;
-        const style = window.currentArrowStyle || "end";
+        const style = (window.currentTool === "line" ? window.currentLineEndStyle : window.currentArrowEndStyle) || "none";
         if (style === "end" || style === "both") d += " " + wbArrowHeadPath(x, y, angle, headLen);
         if (style === "start" || style === "both") d += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
         currentDrawPath.setAttribute("d", d);
@@ -26565,6 +26601,31 @@ function wbRegenerateArrowHeads(d, style, headLen) {
   if (style === "end" || style === "both") out += " " + wbArrowHeadPath(ex, ey, angle, headLen);
   if (style === "start" || style === "both") out += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
   return out;
+}
+
+//: What style a drawn line/arrow's own path is *actually* carrying —
+//: needed because the properties panel used to just show whatever the
+//: active drawing tool's current default was (live-reported bug, same
+//: session as the Line-tool-always-drew-an-arrowhead one above), which
+//: lies the moment a sketch's real style differs from that default.
+//: `wbArrowHeadPath` always starts its own subpath at the tip it's drawn
+//: for, so a head is detected by which of the shaft's two endpoints each
+//: extra `M` lands on — exact, not guessed, since these are the same
+//: coordinates the shaft itself was drawn from.
+function wbDetectArrowStyle(d) {
+  const m = d.match(/^M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)\s+L\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/);
+  if (!m) return "none";
+  const sx = parseFloat(m[1]), sy = parseFloat(m[2]), ex = parseFloat(m[3]), ey = parseFloat(m[4]);
+  let hasEnd = false, hasStart = false;
+  for (const extra of d.matchAll(/M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/g)) {
+    const x = parseFloat(extra[1]), y = parseFloat(extra[2]);
+    if (Math.hypot(x - ex, y - ey) < 0.5) hasEnd = true;
+    else if (Math.hypot(x - sx, y - sy) < 0.5) hasStart = true;
+  }
+  if (hasEnd && hasStart) return "both";
+  if (hasEnd) return "end";
+  if (hasStart) return "start";
+  return "none";
 }
 
 // The handles themselves — a fresh SVG group per selection, since (unlike a

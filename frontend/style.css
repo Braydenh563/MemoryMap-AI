@@ -4574,6 +4574,24 @@ html.modal-open body {
   stroke-width: 2.2;
 }
 
+/* The invisible, much wider click target laid over each thin visible edge —
+   reported directly: "the links are hard to click on". `stroke: transparent`
+   still hit-tests (unlike `fill: none` with no stroke at all), and only a
+   link edge (`.graph-edge-manageable`) actually wants a pointer/click; every
+   other kind stays pointer-events:none so it can't steal a click meant for
+   whatever's underneath it. */
+.graph-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: none;
+}
+
+.graph-edge-hit.graph-edge-manageable {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
 .graph-link-panel-reason {
   width: 100%;
   resize: vertical;
@@ -9202,11 +9220,28 @@ button {
   white-space: nowrap;
 }
 
+/* Bumped from a 1.5rem icon-sized thumbnail — reported directly as needing
+   to read as an actual image preview, not a small generic file-attached
+   icon. Large enough to recognise the picture at a glance, still well
+   short of the note's own composing area. */
+.attachment-chip-image {
+  max-width: 8rem;
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-2);
+  gap: var(--space-2);
+}
+
 .attachment-chip-image img {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 100%;
+  height: 5rem;
   object-fit: cover;
   border-radius: var(--radius-sm);
+  cursor: zoom-in;
+}
+
+.attachment-chip-image>span:first-of-type {
+  font-size: var(--text-xs);
 }
 
 .attachment-chips {
@@ -12044,13 +12079,21 @@ textarea.autogrow {
 /* The destructive choice is coloured as destructive. It is also NOT the
    focused button — cancel takes focus, so a stray Enter arriving with the
    dialog can't be the thing that empties the recycle bin. */
-.confirm-actions .danger {
+/* `button.danger` (type + 2 classes) so this beats `button.ghost.danger`
+   (also type + 2 classes) on specificity via source order rather than
+   losing to it — reported directly, with a screenshot: unreadable text,
+   because the graph link panel's "Remove link" button carries both
+   `ghost` and `danger` (`openGraphLinkPanel` in app.js), and
+   `button.ghost.danger`'s `color: var(--error)` was winning over this
+   rule's own `color: #fff`, painting the text the exact same red as the
+   background it was sitting on. */
+.confirm-actions button.danger {
   background: var(--error);
   border-color: var(--error);
   color: #fff;
 }
 
-.confirm-actions .danger:hover {
+.confirm-actions button.danger:hover {
   filter: brightness(1.1);
 }
 
@@ -12905,12 +12948,22 @@ textarea.autogrow {
   position: absolute;
   z-index: 10;
   display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--space-3);
+  padding: var(--space-3);
   align-items: center;
   border-radius: var(--radius);
   background: var(--card-bg);
   box-shadow: var(--shadow-sm);
+}
+
+/* Reported directly, with a screenshot: the colour swatch and the
+   stroke-width slider read as touching, and the slider ran up against the
+   zoom cluster's own grip handle at the row's end — the panel's own
+   `gap` gives even spacing between simple icon buttons, but a slider is
+   wide enough that the same gap reads as none at all next to it. A little
+   extra room on both sides of the one control that isn't icon-sized. */
+#wb-stroke-width {
+  margin-inline: var(--space-2);
 }
 
 /* The Export button's own dropdown — six format/scope combinations, small
@@ -12981,7 +13034,9 @@ textarea.autogrow {
      anchor instead of drifting toward centre. */
   flex-wrap: wrap;
   justify-content: flex-end;
-  max-width: min(26rem, 42vw);
+  /* Live-measured, not guessed: 26rem still overlapped the centred back
+     button down to ~950px wide. 18rem clears it down to ~700px. */
+  max-width: min(18rem, 34vw);
 }
 
 .whiteboard-floating-panel.bottom-right {
@@ -13076,6 +13131,18 @@ textarea.autogrow {
    font. */
 #wb-grid-select {
   min-width: 9rem;
+}
+
+/* Reported directly, with a screenshot: "No grid" rendered as "No arid" —
+   the "g"'s descender was being clipped. The base select/input rule's own
+   vertical padding (var(--space-4) each side) plus one line of text
+   overflowed the panel's fixed 2.25rem control height above, so the box's
+   own bottom edge cut off exactly the letters with a tail (g/y/p/q).
+   Smaller vertical padding leaves room for the full glyph without
+   changing the box height every other control in the row shares. */
+.whiteboard-floating-panel select {
+  padding-block: var(--space-2);
+  line-height: 1.3;
 }
 
 #wb-board-select {

@@ -216,9 +216,15 @@ def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> d
             out.write(chunk)
 
     original_name = file.filename or stored_name
-    session.add(MediaUpload(filename=stored_name, original_name=original_name[:300]))
+    upload = MediaUpload(filename=stored_name, original_name=original_name[:300])
+    session.add(upload)
     session.commit()
-    return {"url": f"/media/{stored_name}", "filename": original_name}
+    session.refresh(upload)
+    # `id` lets a caller that changes its mind (the capture form's own
+    # attachment chip, removable with a click) call DELETE /media/{id}
+    # instead of just detaching the markdown reference and leaving the
+    # file behind — asked for directly.
+    return {"id": upload.id, "url": f"/media/{stored_name}", "filename": original_name}
 
 
 class MediaUploadOut(BaseModel):

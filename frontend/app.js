@@ -12364,26 +12364,48 @@ async function renderGraph() {
   // A tree's edges are curves between fixed points; the web's are lines that
   // move on every tick. Different elements, so each can be what it needs.
   const edgeLayer = canvas.append("g");
+  const edgePathD = (d) => (tree.arc ? arcPath(d) : hierarchyPath(d, tree.radial));
   const edgeLines = tree
     ? edgeLayer
-        .selectAll("path")
+        .selectAll("path.graph-edge")
         .data(edges)
         .join("path")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`)
         .attr("fill", "none")
-        .attr("d", (d) => (tree.arc ? arcPath(d) : hierarchyPath(d, tree.radial)))
+        .attr("d", edgePathD)
     : edgeLayer
-        .selectAll("line")
+        .selectAll("line.graph-edge")
         .data(edges)
         .join("line")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
+
+  // Reported directly: the actual visible line (1.6px, thinner once dimmed)
+  // is a hard target to click precisely. A second, invisible, much wider
+  // stroke on the same path/line is the standard SVG way to grow a click
+  // target without also growing what's drawn — the same shape as the
+  // whiteboard's own `.sketch-hitbox` this session already added for the
+  // identical reason. Drawn *under* the visible line's join below so the
+  // tooltip/click listener attach to this wider element, not the thin one.
+  const edgeHitLines = tree
+    ? edgeLayer
+        .selectAll("path.graph-edge-hit")
+        .data(edges)
+        .join("path")
+        .attr("class", (d) => `graph-edge-hit graph-edge-${d.kind}`)
+        .attr("fill", "none")
+        .attr("d", edgePathD)
+    : edgeLayer
+        .selectAll("line.graph-edge-hit")
+        .data(edges)
+        .join("line")
+        .attr("class", (d) => `graph-edge-hit graph-edge-${d.kind}`);
 
   // A link's own reason ("why are these connected?" — asked for directly),
   // as a native SVG tooltip. `<title>` is the SVG way to get a hover
   // tooltip on a shape; there's no HTML `title` attribute equivalent for
   // `<line>`/`<path>`. Re-added after every join rather than left stale, so
   // a link edited or re-drawn on refresh doesn't keep showing an old reason.
-  edgeLines.each(function (d) {
+  edgeHitLines.each(function (d) {
     const el = d3.select(this);
     el.selectAll("title").remove();
     if (d.reason) {
@@ -12401,9 +12423,12 @@ async function renderGraph() {
   // directly: "a visual way to see the reasons... and a way to manage/add/
   // remove/edit them." A distinct edge style makes "this connection has a
   // documented reason" visible at a glance, not just on hover; a click
-  // opens the real management panel below.
-  edgeLines
-    .classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason)
+  // opens the real management panel below. The class also drives
+  // `.graph-edge-reasoned`'s stronger colour on the *visible* thin line —
+  // toggled on both selections so hover/reason styling and the click
+  // target agree on which edges are which.
+  edgeLines.classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason);
+  edgeHitLines
     .classed("graph-edge-manageable", (d) => d.kind === "link")
     .on("click", (event, d) => {
       if (d.kind !== "link") return;
@@ -12785,6 +12810,11 @@ async function renderGraph() {
       node.y = Math.max(worldTop + pad, Math.min(worldBottom - pad, node.y));
     }
     edgeLines
+      .attr("x1", (d) => d.source.x)
+      .attr("y1", (d) => d.source.y)
+      .attr("x2", (d) => d.target.x)
+      .attr("y2", (d) => d.target.y);
+    edgeHitLines
       .attr("x1", (d) => d.source.x)
       .attr("y1", (d) => d.source.y)
       .attr("x2", (d) => d.target.x)
@@ -23088,9 +23118,10 @@ function renderEntryAttachmentChips() {
     const chip = document.createElement("span");
     chip.className = "chip attachment-chip attachment-chip-image";
     const img = document.createElement("img");
-    img.src = url;
+    img.src = mediaSrc(url);
     img.alt = name;
     img.loading = "lazy";
+    img.addEventListener("click", () => openLightbox(mediaSrc(url), name));
     const label = document.createElement("span");
     label.textContent = name || url;
     const remove = document.createElement("button");
@@ -23099,9 +23130,23 @@ function renderEntryAttachmentChips() {
     remove.textContent = "✕";
     remove.title = `Remove "${name || url}" from this note`;
     remove.setAttribute("aria-label", remove.title);
-    remove.addEventListener("click", () => {
+    remove.addEventListener("click", async () => {
       textarea.value = textarea.value.replace(full, "").replace(/\n{3,}/g, "\n\n");
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      // Asked for directly: removing it here should delete the underlying
+      // upload too, not just detach the markdown reference — a note being
+      // drafted (never saved, so nothing else could reference this image
+      // yet) is exactly the case where leaving an orphan file behind in
+      // data/media serves no one. `/media` isn't filterable by url, so this
+      // resolves the id by listing and matching — one request, only when a
+      // chip is actually removed, not on every render.
+      try {
+        const uploads = await apiJson("/media");
+        const match = uploads.find((u) => u.url === url);
+        if (match) await apiJson(`/media/${match.id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Couldn't delete the underlying upload", err);
+      }
     });
     chip.append(img, label, remove);
     box.appendChild(chip);

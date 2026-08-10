@@ -12115,6 +12115,10 @@ textarea.autogrow {
 .confirm-text {
   margin: 0;
   line-height: 1.5;
+  /* A long unbroken filename (underscores, no spaces) has no wrap point,
+     so it overflowed the card's fixed width instead of wrapping - reported
+     directly with a media-delete confirmation. */
+  overflow-wrap: anywhere;
 }
 
 .confirm-actions {
@@ -13100,10 +13104,13 @@ textarea.autogrow {
   border-radius: var(--radius-pill);
 }
 
-/* Below the "library" panel (which ends ~7rem down), so a shown properties
-   panel never overlaps it. */
+/* Below the "library"/top-right panel, so a shown properties panel never
+   overlaps it. Bumped from 6rem: the top-right panel's own `flex-wrap`
+   fix (above) lets its 8 controls wrap onto 2-3 rows on a narrow board,
+   growing taller than the single-row height this value was first tuned
+   against — reported directly as the two panels visually clashing. */
 .whiteboard-floating-panel.mid-right {
-  top: 6rem;
+  top: 10rem;
   right: 1rem;
   flex-direction: column;
   align-items: stretch;

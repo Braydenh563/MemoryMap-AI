@@ -2,43 +2,76 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Next session: start here — selection tooling and alignment guides are now done; three scoped whiteboard items are next
+## Next session: start here — an unsolved live-reported CSS bug, then three scoped whiteboard items
 
-§58 (HISTORY.md) finished smart alignment guides (edge/centre/spacing, all
-colour-coded and user-alterable), added a lasso select tool alongside the
-existing marquee (both now grouped in their own toolbar dropdown), and an
-"export just the selection" option. **Read [HISTORY.md §58](HISTORY.md)
-before trusting a live-drag Playwright test that reports zero movement or
-a failed snap** — three separate "bugs" this session were the test's own
-geometry (a card landing under `#status-bar`, a gap check reading the
-wrong neighbour, leftover cards from an earlier test still on the board),
-confirmed each time by re-running the same check against a freshly wiped
-server. Re-run clean before concluding the *feature* is broken.
+**Live-reported, only half-resolved.** Two bugs came in the same report:
+"line tool still drew with an arrow head" (fixed and verified — Line and
+Arrow shared one `currentArrowStyle` global, so drawing with Arrow first
+left Line permanently defaulting to a head too; each now keeps its own
+remembered end-style, `currentLineEndStyle`/`currentArrowEndStyle`,
+plus a companion fix: the properties panel used to show the *active
+tool's* default instead of a *selected sketch's own* style — now reads
+the real drawn path via a new `wbDetectArrowStyle`), and "the grid
+dropdown is cut off and misaligned" (`#wb-grid-select`, "No grid" renders
+with a corrupted-looking "G" under the Mono appearance font — reproduced
+via Playwright screenshot, **not fixed**).
+
+For the grid dropdown: two root-cause theories were tested and *both
+ruled out* by direct measurement, not assumption — don't retry them:
+1. Not a CSS overflow/clipping issue — `scrollWidth === clientWidth` in
+   every configuration tested, and the box has ~80px of unused slack.
+2. Not fontconfig substituting a bad font for an unavailable name
+   (`ui-monospace`/Cascadia Code/SF Mono/Consolas aren't installed in this
+   sandbox) — putting a *real, installed* font first (`fc-list` confirmed
+   Liberation Mono and DejaVu Sans Mono are present) made no difference;
+   the glitch persisted identically.
+
+   What *did* change the outcome, inexplicably: a single bare `monospace`
+   keyword set via inline `style.setProperty` on `:root` rendered
+   correctly, but the identical computed value (verified via
+   `getComputedStyle` — both showed `font: "16px / 24px monospace"`)
+   reached through the real `:root[data-font="mono"]` stylesheet rule
+   still glitched. Same computed style, different render — worth a
+   from-scratch look with browser devtools' own font-inspection panel
+   (not just `getComputedStyle`) rather than more CSS-value guessing.
+
+Also from the same run of sessions: §58 (HISTORY.md) finished smart
+alignment guides (edge/centre/spacing, all colour-coded and
+user-alterable), added a lasso select tool alongside the existing marquee
+(both now grouped in their own toolbar dropdown), and an "export just the
+selection" option. **Read [HISTORY.md §58](HISTORY.md) before trusting a
+live-drag Playwright test that reports zero movement or a failed snap** —
+three separate "bugs" that session were the test's own geometry (a card
+landing under `#status-bar`, a gap check reading the wrong neighbour,
+leftover cards from an earlier test still on the board), confirmed each
+time by re-running the same check against a freshly wiped server. Re-run
+clean before concluding the *feature* is broken.
 
 **What's left, in the order worth tackling it:**
-1. **Renaming a board**, and a **Library gallery of every board/mind-map
+1. **The grid-dropdown font-rendering bug above.**
+2. **Renaming a board**, and a **Library gallery of every board/mind-map
    and every uploaded image** — both asked for directly this session, both
    scoped in BACKLOG.md §29d, neither built (out of budget, not out of
    scope). The read endpoints for the gallery already exist
    (`GET /whiteboard/boards`, `GET /whiteboard/images`); rename needs a new
    `PUT /whiteboard/boards/{id}`.
-2. A **structured, small-model-friendly diagram-generation tool**
+3. A **structured, small-model-friendly diagram-generation tool**
    (BACKLOG.md §29d) — the AI can place cards/links one at a time
    (`add_whiteboard_card`/`add_whiteboard_link`, §57) but has to invent
    `x`/`y` itself across many chained calls, which is exactly where a
    2–8B tool-calling model breaks. Needs the existing tree/radial layout
    math (`wbArrangeMindMap`, currently client-side JS only) ported to
    Python so a single bulk call can do placement server-side.
-3. A **full line/arrow end-cap system** (circle/square/multi-line ends,
+4. A **full line/arrow end-cap system** (circle/square/multi-line ends,
    independently per end) — named directly, not built; §56 only extended
    the existing arrowhead control from Arrow-only to also cover Line.
-4. **Sketch rotation** and **image cropping** — both named multiple
+5. **Sketch rotation** and **image cropping** — both named multiple
    sessions running, neither scoped further than "needs real trig" /
    "needs an interaction decision" respectively.
-5. An **Agent Activity popup cleanup pass** (ROADMAP item 20b) and a
+6. An **Agent Activity popup cleanup pass** (ROADMAP item 20b) and a
    **real semantic index** over whiteboard content if `search_whiteboard`
    (a keyword scan) turns out not to be enough once used for real.
-6. Whichever ROADMAP.md Tier 2/3 item reads as next-most-valuable on a
+7. Whichever ROADMAP.md Tier 2/3 item reads as next-most-valuable on a
    fresh read — none of the above are blocking anything else.
 
 ## §56 — real anchor/connection points, built and verified live, then a live-reported whiteboard UI/bug list worked the same session

@@ -955,18 +955,38 @@ Worth doing, and worth doing after the above.
     where the description is stored (a note field vs. a side table) and
     whether the agent narrates "generated from an image" the way whiteboard
     AI actions already disclose their own source.
-36. **Q&A answers cite which notes matched, not which claim inside the
-    answer's prose came from which note.** `match_info` (search results'
+36. ~~**Q&A answers cite which notes matched, not which claim inside the
+    answer's prose came from which note.**~~ **Backend done and tested;
+    frontend badge not built — say so plainly rather than claim the whole
+    item.** `ai/grounding.py`'s `ground_answer_sentences` splits the
+    answer into sentences and scores each against every retrieved note by
+    shared meaningful words (the same signal `search_manager`'s own
+    keyword ranking uses) — deliberately not a second LLM call, so the
+    already-answered turn isn't made slower to explain itself. Attaches a
+    note only above `MIN_OVERLAP_RATIO`; omits the sentence rather than
+    guessing when nothing clears it, on purpose (a wrong claim-ledger
+    entry is worse than a missing one). Wired into `POST /chat` (the
+    direct Q&A path, non-conversational turns only) as a new
+    `sentence_grounding` field, empty-list default so older clients see no
+    change. Seven tests (`test_grounding.py`): sentence splitting, code-
+    fence stripping, correct grounding, an ungrounded sentence correctly
+    omitted, the short-sentence floor, and the endpoint carrying the field.
+    **Not done: the Ask box uses `/chat/stream` (NDJSON), not this
+    endpoint** — so nothing renders yet in the actual UI, and the "badge,
+    not an interruption" half of this item is still open. Streaming the
+    grounding as its own event type, and the frontend badge itself, are
+    the next two steps, in that order.
+
+    Original scope, for the next session: `match_info` (search results'
     per-row "why this matched" badge) already covers "which notes were
     retrieved"; `unsupported_claims` (Tier 1 item 7) already covers the
     agent's own narrated actions; link `reason`/`reason_confidence` (Tier 2
     item 9) already covers grounding a connection between two notes. None of
     the three covers a sentence inside a direct Q&A answer. Narrower than a
     full claim-ledger (ANALYSIS.md §59) precisely because those three already
-    exist: a lightweight per-sentence "which retrieved note backs this" pass
-    over the librarian's own answer, surfaced the same understated way
-    `match_info` already is — a badge, not an interruption — and scoped to
-    the direct Q&A path only, not the full agentic chat, where
+    exist, surfaced the same understated way `match_info` already is — a
+    badge, not an interruption — and scoped to the direct Q&A path only, not
+    the full agentic chat, where
     `unsupported_claims` already does the related job.
 37. **`preferences.json` isn't crash-safe** (ANALYSIS.md §60). Found by the
     second odysseus read: `ConfigManager.set_preference` persists it with a

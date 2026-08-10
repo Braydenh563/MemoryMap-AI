@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import agent, intent, librarian, presets, skill_runner, skills, tools
+from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
@@ -292,6 +293,11 @@ class ChatResponse(BaseModel):
     # — "no matching records" — is what makes a working narrow search look
     # like a broken one. The client needs the phrase to say the second.
     when_phrase: str = ""
+    # ROADMAP.md item 36 — which retrieved note backs which sentence of the
+    # answer, direct-Q&A path only (this endpoint, not /chat/stream's
+    # conversational/agentic modes). Omitted, not wrong, for a sentence with
+    # no note clearing the overlap threshold — see ai/grounding.py.
+    sentence_grounding: list[dict] = []
 
 
 def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
@@ -476,6 +482,14 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
             mode=mode,
             **shared,
         )
+    # Direct Q&A only — conversational replies aren't grounded in retrieved
+    # notes at all (there may be none), and grounding one would attach a
+    # note to a sentence that has nothing to do with it.
+    sentence_grounding = (
+        ground_answer_sentences(ai_response, prepared["notes"])
+        if not conversational and answered
+        else []
+    )
     return ChatResponse(
         ai_response=ai_response,
         ai_thinking=ai_thinking,
@@ -486,6 +500,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         when_phrase=prepared["when_phrase"],
         answered_by=deps.get_model_manager().chat_model() if answered else None,
         ollama_running=ollama_running,
+        sentence_grounding=sentence_grounding,
     )
 
 

@@ -1427,6 +1427,194 @@ def _add_whiteboard_link(session: Session, args: dict) -> dict:
     }
 
 
+#: A runaway model asking for a diagram of hundreds of notes is a real
+#: failure mode a bulk tool has to bound, the same reason every list tool
+#: here clamps its own `limit` — one call shouldn't be able to flood a
+#: board.
+MAX_DIAGRAM_NODES = 60
+
+#: Layout constants mirrored from the whiteboard's own client-side
+#: `wbArrangeMindMap` (`WB_MINDMAP_TREE_ROW`/`_COL`/`_RADIAL_STEP` in
+#: app.js) so a diagram this tool places and one arranged by hand afterward
+#: read as the same spacing convention, not two different tools' opinions.
+_DIAGRAM_ROW = 170.0
+_DIAGRAM_COL = 320.0
+_DIAGRAM_RADIAL_STEP = 260.0
+
+
+def _diagram_tree_positions(root_ref: str, children_of: dict[str, list[str]], layout: str) -> dict[str, tuple[float, float]]:
+    """Board (x, y) for every node reachable from `root_ref`, laid out as a
+    tree (depth → column, siblings spread along a row) or radially (depth →
+    ring, siblings spread around it).
+
+    Not a port of d3.tree()'s own tidy-tree (Reingold-Tilford/Buchheim)
+    algorithm — that optimises for the *tightest* non-overlapping packing,
+    which this doesn't need to match exactly, only to produce. A leaf gets
+    the next free row slot in visitation order; an internal node's slot is
+    the mean of its children's, which is the simplest arrangement that is
+    still guaranteed non-overlapping and reads as a sensible tree. Depth is
+    plain BFS distance from the root.
+    """
+    import math
+
+    depth: dict[str, int] = {root_ref: 0}
+    queue = [root_ref]
+    while queue:
+        current = queue.pop(0)
+        for child in children_of.get(current, []):
+            if child in depth:
+                # Reached via two different paths — not a simple tree.
+                raise ToolError(f"'{child}' has more than one path back to the root — check parent_ref for a cycle or a duplicate.")
+            depth[child] = depth[current] + 1
+            queue.append(child)
+
+    slot: dict[str, float] = {}
+    next_leaf_slot = [0]
+
+    def assign(node: str) -> float:
+        kids = children_of.get(node, [])
+        if not kids:
+            value = float(next_leaf_slot[0])
+            next_leaf_slot[0] += 1
+        else:
+            value = sum(assign(k) for k in kids) / len(kids)
+        slot[node] = value
+        return value
+
+    assign(root_ref)
+
+    positions: dict[str, tuple[float, float]] = {}
+    if layout == "radial":
+        leaf_count = max(next_leaf_slot[0], 1)
+        for node, d in depth.items():
+            angle = (slot[node] / leaf_count) * 2 * math.pi - math.pi / 2
+            radius = d * _DIAGRAM_RADIAL_STEP
+            positions[node] = (radius * math.cos(angle), radius * math.sin(angle))
+    else:
+        for node, d in depth.items():
+            positions[node] = (d * _DIAGRAM_COL, slot[node] * _DIAGRAM_ROW)
+    return positions
+
+
+def _generate_diagram(session: Session, args: dict) -> dict:
+    """Place a whole tree of notes on a whiteboard in one call — the gap
+    named directly (BACKLOG.md §29d, HANDOVER.md): `add_whiteboard_card`/
+    `add_whiteboard_link` already exist, but x/y are free-form numbers the
+    model has to invent itself across many chained calls, exactly the
+    bookkeeping a small (2-8B) tool-calling model gets wrong. Here the
+    model only ever declares *structure* (a title or an existing note, and
+    which other node is its parent); this function creates whatever notes
+    need creating, computes every position server-side, and wires the
+    links — the same job `wbArrangeMindMap` already does client-side for a
+    board someone arranges by hand, now reachable in one round trip.
+    """
+    from memorymap.core.database import WhiteboardNode, WhiteboardSketch
+
+    raw_nodes = args.get("nodes")
+    if not isinstance(raw_nodes, list) or not raw_nodes:
+        raise ToolError("'nodes' must be a non-empty list.")
+    if len(raw_nodes) > MAX_DIAGRAM_NODES:
+        raise ToolError(f"That's {len(raw_nodes)} nodes — {MAX_DIAGRAM_NODES} is the most this can place in one call.")
+
+    raw_board_id = args.get("board_id")
+    board_id = int(raw_board_id) if raw_board_id not in (None, "") else None
+    layout = "radial" if args.get("layout") == "radial" else "tree"
+
+    by_ref: dict[str, dict] = {}
+    for i, raw in enumerate(raw_nodes):
+        ref = str(raw.get("ref") or "").strip()
+        if not ref:
+            raise ToolError(f"nodes[{i}] has no 'ref' — every node needs a short local id to reference as a parent.")
+        if ref in by_ref:
+            raise ToolError(f"'{ref}' is used as 'ref' on more than one node — refs must be unique.")
+        title = str(raw.get("title") or "").strip()
+        note_id = raw.get("note_id")
+        if bool(title) == bool(note_id):
+            raise ToolError(f"Node '{ref}' needs exactly one of 'title' (new note) or 'note_id' (existing note).")
+        by_ref[ref] = {"title": title, "note_id": note_id, "parent_ref": raw.get("parent_ref") or None}
+
+    roots = [ref for ref, node in by_ref.items() if not node["parent_ref"]]
+    if len(roots) != 1:
+        raise ToolError(
+            "Exactly one node must have no 'parent_ref' (the diagram's root) — "
+            f"found {len(roots)}."
+        )
+    root_ref = roots[0]
+
+    children_of: dict[str, list[str]] = {}
+    for ref, node in by_ref.items():
+        parent_ref = node["parent_ref"]
+        if parent_ref is None:
+            continue
+        if parent_ref not in by_ref:
+            raise ToolError(f"Node '{ref}' has parent_ref '{parent_ref}', which isn't in this call's own nodes.")
+        children_of.setdefault(parent_ref, []).append(ref)
+
+    positions = _diagram_tree_positions(root_ref, children_of, layout)
+
+    # Resolve every ref to a real Entry — creating one for a bare title,
+    # reusing (and permission-checking, same as any other tool) one already
+    # given as note_id. Two passes on purpose: entries have to exist before
+    # any card/link touches them, and failing on node 40 of 60 after
+    # already writing 39 cards would be a worse outcome than failing before
+    # anything is written at all.
+    entries: dict[str, Entry] = {}
+    for ref, node in by_ref.items():
+        if node["note_id"] is not None:
+            entries[ref] = _require_note(session, {"note_id": node["note_id"]})
+        else:
+            entries[ref] = manager.create_entry(
+                session, node["title"], category_name=manager.UNCATEGORISED, tags=[], ai_confidence=0
+            )
+    for ref, entry in entries.items():
+        deps.store_quietly(session, entry)
+
+    cards: dict[str, WhiteboardNode] = {}
+    for ref, entry in entries.items():
+        x, y = positions[ref]
+        existing = session.scalar(
+            select(WhiteboardNode).where(
+                WhiteboardNode.entry_id == entry.id,
+                _whiteboard_board_filter(WhiteboardNode, board_id),
+            )
+        )
+        node = existing or WhiteboardNode(board_id=board_id, entry_id=entry.id, z=1)
+        node.x, node.y = x, y
+        if existing is None:
+            session.add(node)
+        cards[ref] = node
+    session.commit()
+    for card in cards.values():
+        session.refresh(card)
+
+    link_count = 0
+    for ref, node in by_ref.items():
+        parent_ref = node["parent_ref"]
+        if parent_ref is None:
+            continue
+        data = {
+            "type": "link-straight",
+            "sourceId": cards[parent_ref].id,
+            "targetId": cards[ref].id,
+            "color": "#8899ff",
+        }
+        session.add(WhiteboardSketch(board_id=board_id, data=json.dumps(data), x=0, y=0, z=1))
+        link_count += 1
+    manager.log_action(session, "created", "whiteboard_diagram", None, f"{len(cards)} cards, root '{root_ref}'")
+    session.commit()
+
+    return {
+        "board_id": board_id,
+        "root_card_id": cards[root_ref].id,
+        "cards": [
+            {"ref": ref, "card_id": card.id, "note_id": entries[ref].id, "x": card.x, "y": card.y}
+            for ref, card in cards.items()
+        ],
+        "links_created": link_count,
+        "label": f"🗺️ Placed {len(cards)} cards as a {layout} diagram",
+    }
+
+
 def _search_chat_history(session: Session, args: dict) -> dict:
     """Past conversations. "What did we decide last week?" was unanswerable:
     each turn only ever saw its own thread, so the assistant had no memory of
@@ -2984,6 +3172,45 @@ TOOLS: dict[str, ToolSpec] = {
             _add_whiteboard_link,
         ),
         ToolSpec(
+            "generate_diagram",
+            "Place a whole tree of notes on a whiteboard board in one call — "
+            "for 'draw a diagram/mind map of X' when several connected cards "
+            "are needed at once. Each node is either a new note (give "
+            "'title') or an existing one ('note_id'), plus a short local "
+            "'ref' other nodes reference as their 'parent_ref'. Exactly one "
+            "node has no parent_ref (the root). Positions are computed "
+            f"automatically — never invent x/y. Up to {MAX_DIAGRAM_NODES} nodes.",
+            {
+                "type": "object",
+                "properties": {
+                    "nodes": {
+                        "type": "array",
+                        "description": "Each: {ref, title OR note_id, parent_ref (omit for the root)}",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "ref": {"type": "string", "description": "Short local id, e.g. 'a'"},
+                                "title": {"type": "string", "description": "Content for a new note"},
+                                "note_id": {"type": "integer", "description": "An existing note's id instead"},
+                                "parent_ref": {"type": "string", "description": "Another node's ref; omit for the root"},
+                            },
+                            "required": ["ref"],
+                        },
+                    },
+                    "board_id": {
+                        "type": "integer",
+                        "description": "The board's own note id. Omit for the default board.",
+                    },
+                    "layout": {
+                        "type": "string",
+                        "description": "'tree' (default) or 'radial'",
+                    },
+                },
+                "required": ["nodes"],
+            },
+            _generate_diagram,
+        ),
+        ToolSpec(
             "search_chat_history",
             "Look through earlier conversations with the user, including "
             "ones from other days. Use this when they refer to something "
@@ -3485,6 +3712,7 @@ WRITE_TOOLS = {
     "delete_document",
     "add_whiteboard_card",
     "add_whiteboard_link",
+    "generate_diagram",
 }
 
 
@@ -3637,7 +3865,10 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
         ),
     ),
     (
-        ("read_whiteboard", "search_whiteboard", "add_whiteboard_card", "add_whiteboard_link"),
+        (
+            "read_whiteboard", "search_whiteboard", "add_whiteboard_card",
+            "add_whiteboard_link", "generate_diagram",
+        ),
         (
             "whiteboard", "board", "canvas", "diagram", "mind map", "mindmap",
             "mind-map", "sketch", "draw.io", "drawio", "flowchart",

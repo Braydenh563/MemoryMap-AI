@@ -26080,8 +26080,7 @@ async function initWhiteboard() {
     } else if (shapeToggle) {
       shapeToggle.classList.remove("active");
     }
-    shapeMenu?.classList.add("hidden");
-    shapeToggle?.setAttribute("aria-expanded", "false");
+    if (shapeMenu && shapeToggle) wbCloseDockedMenu(shapeMenu, shapeToggle);
     if (selectToggle && WB_SELECT_TOOLS.has(tool)) {
       lastSelectTool = tool;
       const chosen = selectMenu?.querySelector(`button[data-tool="${tool}"] svg`);
@@ -26090,8 +26089,7 @@ async function initWhiteboard() {
     } else if (selectToggle) {
       selectToggle.classList.remove("active");
     }
-    selectMenu?.classList.add("hidden");
-    selectToggle?.setAttribute("aria-expanded", "false");
+    if (selectMenu && selectToggle) wbCloseDockedMenu(selectMenu, selectToggle);
     wbRefreshArrowStyleControlRef?.();
     updateWbCursor();
   }
@@ -26106,34 +26104,58 @@ async function initWhiteboard() {
   }
 
   // Docked as a sidebar, the toolbar panel scrolls (`overflow-y: auto`, so a
-  // tall tool column fits above the canvas). Two things trap the shape/select
-  // popup inside that box instead of it opening beside the panel, both
-  // reported directly (twice — a first fix here didn't hold): (1) setting
-  // only `overflow-y` still clips the *other* axis too — a real CSS rule,
-  // not a bug in this one: when one axis is `visible` and the other isn't,
-  // the visible one is coerced to `auto`. (2) a `position: fixed` popup
-  // should normally escape an ancestor's overflow entirely, but this panel's
-  // `.glass` class sets `backdrop-filter`, which — like `transform`/`filter`
-  // — creates a new containing block for fixed descendants and traps them
-  // right back inside it. Toggling the panel's own `overflow` to `visible`
-  // for exactly as long as a menu is open sidesteps both: no DOM
-  // reparenting, so #wb-tool-group's existing delegated click listener still
-  // sees clicks on tool buttons inside the (still-CSS-positioned) menu.
-  function wbSetDockedMenuOverflow(toggle, open) {
-    const panel = toggle.closest(".whiteboard-floating-panel");
-    if (panel?.dataset.dock === "side") panel.style.overflow = open ? "visible" : "";
-  }
-
+  // tall tool column fits above the canvas) — three attempts at this,
+  // reported directly each time: (1) CSS-only positioning was clipped by
+  // that same overflow (setting only `overflow-y` coerces `overflow-x` to
+  // `auto` too, clipping both axes — a real CSS rule, not a bug in that one
+  // declaration). (2) `position: fixed` should escape an ancestor's overflow
+  // entirely, but this panel's `.glass` class sets `backdrop-filter`, which —
+  // like `transform`/`filter` — creates a new containing block for fixed
+  // descendants and traps them right back inside it. (3) toggling the whole
+  // panel's `overflow` to `visible` while a menu was open avoided the clip,
+  // but also uncapped the tool column's own `max-height` for as long as the
+  // menu stayed open, spilling tools out past the panel's bottom edge with
+  // no scrollbar to reach them.
+  //
+  // The only thing that both escapes the clip *and* leaves the scrolling
+  // tool column alone is not being inside it: the open menu is reparented to
+  // <body> (remembering where it came from, to put it back on close) and
+  // positioned from the toggle's own `getBoundingClientRect()`, same as any
+  // popover library would. Its own click listener below (rather than relying
+  // on bubbling to #wb-tool-group's delegated one) is what makes that safe —
+  // a tool button click needs to work identically whether the menu is
+  // sitting in its normal spot (bottom-docked) or reparented to <body>
+  // (side-docked, open).
   function wbOpenDockedMenu(menu, toggle) {
     menu.classList.remove("hidden");
     toggle.setAttribute("aria-expanded", "true");
-    wbSetDockedMenuOverflow(toggle, true);
+    const panel = toggle.closest(".whiteboard-floating-panel");
+    if (panel?.dataset.dock === "side" && !menu._wbHome) {
+      menu._wbHome = { parent: menu.parentNode, next: menu.nextSibling };
+      document.body.appendChild(menu);
+      const rect = toggle.getBoundingClientRect();
+      menu.style.position = "fixed";
+      menu.style.left = `${rect.right + 8}px`;
+      menu.style.top = `${rect.top}px`;
+      menu.style.bottom = "auto";
+      menu.style.transform = "none";
+      menu.style.zIndex = "200";
+    }
   }
 
   function wbCloseDockedMenu(menu, toggle) {
     menu.classList.add("hidden");
     toggle.setAttribute("aria-expanded", "false");
-    wbSetDockedMenuOverflow(toggle, false);
+    if (menu._wbHome) {
+      menu._wbHome.parent.insertBefore(menu, menu._wbHome.next);
+      menu._wbHome = null;
+      menu.style.position = "";
+      menu.style.left = "";
+      menu.style.top = "";
+      menu.style.bottom = "";
+      menu.style.transform = "";
+      menu.style.zIndex = "";
+    }
   }
 
   // Asked for directly: a plain click/tap on the toggle's icon selects the
@@ -26187,12 +26209,22 @@ async function initWhiteboard() {
     toggle.addEventListener("pointercancel", cancelHold);
     toggle.addEventListener("pointerleave", cancelHold);
 
-    // No stopPropagation on menu clicks: a tool-button click inside the menu
-    // has to keep bubbling up to #wb-tool-group's own delegated listener
-    // (real bug, caught live — stopping it here silently broke every pick,
-    // the menu just stayed open with nothing selected).
+    // Handled directly rather than relying on the click bubbling up to
+    // #wb-tool-group's own delegated listener: once open+side-docked, the
+    // menu is reparented to <body> (see wbOpenDockedMenu) and is no longer
+    // a descendant of #wb-tool-group at all, so that bubbling path stops
+    // reaching it. stopPropagation here is what it is safe now, unlike the
+    // old bottom-docked-only version of this handler — this is the only
+    // listener that will ever see the click, in either dock mode.
+    menu.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-tool]");
+      if (btn) {
+        e.stopPropagation();
+        selectWbTool(btn.dataset.tool);
+      }
+    });
     document.addEventListener("click", (e) => {
-      if (!menu.classList.contains("hidden") && !picker.contains(e.target)) {
+      if (!menu.classList.contains("hidden") && !picker.contains(e.target) && !menu.contains(e.target)) {
         wbCloseDockedMenu(menu, toggle);
       }
     });

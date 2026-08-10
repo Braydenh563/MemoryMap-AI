@@ -13755,6 +13755,7 @@ async function renderTimeline() {
       grid.appendChild(cell);
     }
   }
+  clampTimelineDots();
   // The most recent column is the interesting one, so start there.
   $("timeline-scroll").scrollLeft = $("timeline-scroll").scrollWidth;
   void byId;
@@ -14014,6 +14015,7 @@ function timelineDot(note) {
   // typed. Without it the timeline quietly moves notes and looks wrong.
   dot.textContent =
     (note.placed_by === "mentioned" ? "🕓 " : "") + stripMarkdownPreview(note.preview);
+  dot.dataset.fullText = dot.textContent; // clampTimelineDots reads this back
   dot.title =
     note.placed_by === "mentioned"
       ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
@@ -14023,6 +14025,37 @@ function timelineDot(note) {
     openTimelinePopup(event, note);
   });
   return dot;
+}
+
+// Reported directly, more than once: the CSS 3-line clamp (`-webkit-line-
+// clamp` + a max-height safety net, right above `.timeline-dot` in
+// style.css) still cut text off with no "…" to say so. Root cause a live
+// measurement this sandbox's Chromium couldn't reproduce — the clamp not
+// actually engaging in whatever engine renders it for real, so the max-
+// height net was the only thing cropping, mid-line, past wherever the
+// clamp should have stopped. This replaces "hope the clamp works" with a
+// measurement every engine agrees on: does the card's content overflow its
+// own box? If so, shorten the actual text (not just how it's displayed)
+// until it fits, and add the ellipsis by hand. Runs once after the grid's
+// cards are all in the DOM — `clientHeight` reads 0 before that.
+function clampTimelineDots() {
+  const dots = document.querySelectorAll("#timeline-grid .timeline-dot");
+  for (const dot of dots) {
+    const full = dot.dataset.fullText || dot.textContent;
+    if (dot.scrollHeight <= dot.clientHeight + 1) continue; // +1: subpixel rounding
+    let lo = 0, hi = full.length;
+    // Binary search for the longest prefix that still fits with "…" appended —
+    // a handful of iterations regardless of note length, and exact rather than
+    // guessing a fixed character budget that a narrower column would still
+    // overflow or a wider one would under-fill.
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      dot.textContent = `${full.slice(0, mid).trimEnd()}…`;
+      if (dot.scrollHeight <= dot.clientHeight + 1) lo = mid;
+      else hi = mid - 1;
+    }
+    dot.textContent = lo > 0 ? `${full.slice(0, lo).trimEnd()}…` : "…";
+  }
 }
 
 // Matches routes_timeline.py's OTHER_BAND — the long-tail lane has no single

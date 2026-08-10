@@ -26098,11 +26098,41 @@ async function initWhiteboard() {
     });
   }
 
+  // Docked as a sidebar, the toolbar panel scrolls (`overflow-y: auto`, so a
+  // tall tool column fits above the canvas) — and a scrolling ancestor clips
+  // any absolutely-positioned descendant to its own box, so the shape/select
+  // dropdown's CSS "open to the right" offset (`left: calc(100% + 0.5rem)`)
+  // was rendering squashed inside that scroll area instead of escaping it.
+  // Reported directly. Fixed by switching the open dropdown to
+  // `position: fixed` with a real viewport offset read from the toggle
+  // button's own rect — fixed positioning isn't clipped by an ancestor's
+  // overflow (only a transformed ancestor would trap it, and this panel
+  // doesn't use one). Bottom-docked mode is untouched: it never set
+  // `overflow-y: auto`, so the existing CSS-only positioning still applies.
+  function wbPositionDockedMenu(menu, toggle) {
+    const panel = toggle.closest(".whiteboard-floating-panel");
+    if (panel?.dataset.dock === "side") {
+      const rect = toggle.getBoundingClientRect();
+      menu.style.position = "fixed";
+      menu.style.left = `${rect.right + 8}px`;
+      menu.style.top = `${rect.top}px`;
+      menu.style.bottom = "auto";
+      menu.style.transform = "none";
+    } else {
+      menu.style.position = "";
+      menu.style.left = "";
+      menu.style.top = "";
+      menu.style.bottom = "";
+      menu.style.transform = "";
+    }
+  }
+
   if (shapeToggle && shapeMenu) {
     shapeToggle.addEventListener("click", (e) => {
       e.stopPropagation();
       const open = shapeMenu.classList.toggle("hidden") === false;
       shapeToggle.setAttribute("aria-expanded", String(open));
+      if (open) wbPositionDockedMenu(shapeMenu, shapeToggle);
     });
     // No stopPropagation here: a tool-button click inside the menu has to
     // keep bubbling up to #wb-tool-group's own delegated listener (real bug,
@@ -26124,6 +26154,7 @@ async function initWhiteboard() {
       e.stopPropagation();
       const open = selectMenu.classList.toggle("hidden") === false;
       selectToggle.setAttribute("aria-expanded", String(open));
+      if (open) wbPositionDockedMenu(selectMenu, selectToggle);
     });
     document.addEventListener("click", (e) => {
       if (!selectMenu.classList.contains("hidden") && !e.target.closest("#wb-select-picker")) {

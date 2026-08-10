@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, time
 
 import numpy as np
-from sqlalchemy import and_, or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import (
@@ -75,10 +75,16 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
     contained both words, because the order didn't match. Word order is not
     something anyone should have to guess.
 
-    Now every word must appear somewhere (content or tags), in any order, and
-    results are ranked rather than just listed newest-first. When no note has
-    all the words, it falls back to notes with *some* of them — a partial
-    answer beats an empty page.
+    Now every word must appear somewhere (content or tags), in any order.
+    Ranked by SQLite's own FTS5 `bm25()` — real IDF-weighted relevance
+    (ROADMAP.md item 32: the previous hand-rolled integer score treated a
+    rare, distinctive word the same as a common one) — with tag matches
+    weighted above a plain content mention, and an exact contiguous phrase
+    (checked in Python against the small candidate set FTS already
+    narrowed things to, not a second index) breaking ties in front of
+    everything else, the same way the old +25 phrase bonus did. When no
+    note has all the words, it falls back to notes with *some* of them — a
+    partial answer beats an empty page.
 
     This matters most with no AI running: keyword search is then the whole of
     search, not a fallback.
@@ -95,22 +101,37 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
         Entry.is_private == False,  # noqa: E712
     )
 
-    def matching(require_all: bool) -> list[Entry]:
-        clauses = [
-            or_(Entry.content.ilike(f"%{t}%"), Entry.tags.ilike(f"%{t}%")) for t in terms
-        ]
-        combined = and_(*clauses) if require_all else or_(*clauses)
-        return list(
-            session.scalars(
-                # Over-fetch so ranking has something to choose between; the
-                # cut to `limit` happens after scoring, not before it.
-                select(Entry).where(*base, combined).limit(max(limit * 5, 50))
-            )
-        )
+    def matching(require_all: bool) -> dict[int, float]:
+        # `terms` are pre-filtered to \W-stripped words by `_meaningful_terms`,
+        # so none of them can contain FTS5 query-syntax characters — safe to
+        # join directly rather than needing to quote/escape each one.
+        match_expr = (" AND " if require_all else " OR ").join(terms)
+        rows = session.execute(
+            text(
+                "SELECT rowid, bm25(entries_fts, 1.0, 4.0) AS score "
+                "FROM entries_fts WHERE entries_fts MATCH :expr "
+                # Over-fetch so ranking (below) has something to choose
+                # between; the cut to `limit` happens after, not before.
+                "ORDER BY score LIMIT :n"
+            ),
+            {"expr": match_expr, "n": max(limit * 5, 50)},
+        ).all()
+        # bm25() is *lower is better* — more negative means more relevant.
+        return {row.rowid: row.score for row in rows}
 
-    rows = matching(require_all=True) or matching(require_all=False)
-    rows.sort(key=lambda e: (-_keyword_score(e, terms), -e.id))
-    return rows[:limit]
+    scores = matching(require_all=True) or matching(require_all=False)
+    if not scores:
+        return []
+
+    entries = list(session.scalars(select(Entry).where(*base, Entry.id.in_(scores))))
+    phrase = " ".join(terms)
+
+    def sort_key(entry: Entry) -> tuple[int, float, int]:
+        has_phrase = phrase in re.sub(r"\W+", " ", (entry.content or "").lower())
+        return (0 if has_phrase else 1, scores.get(entry.id, 0.0), -entry.id)
+
+    entries.sort(key=sort_key)
+    return entries[:limit]
 
 
 # Words that carry no signal in a search. Matching on them is worse than
@@ -135,35 +156,6 @@ def _meaningful_terms(query: str) -> list[str]:
     # An all-stopword query ("how do I") has no keywords in it; don't invent
     # some by falling back to the raw words.
     return kept
-
-
-def _keyword_score(entry: Entry, terms: list[str]) -> int:
-    """How well one entry answers this query. Higher is better.
-
-    The weights encode what a person means by "best match": the exact phrase
-    beats scattered words, a tag beats a passing mention in the body (you
-    chose the tag deliberately), and the title-ish opening of a note beats
-    something buried at the end.
-    """
-    content = (entry.content or "").lower()
-    tags = (entry.tags or "").lower()
-    opening = content[:80]
-
-    score = 0
-    # Compare phrases with punctuation stripped from BOTH sides, so
-    # "bread, proving!" ranks exactly like "bread proving" — the reader meant
-    # the same thing, and the comma shouldn't reorder their results.
-    phrase = " ".join(terms)
-    if phrase and phrase in re.sub(r"\W+", " ", content):
-        score += 25  # the whole query, in order
-    for term in terms:
-        if term in tags:
-            score += 8
-        if term in opening:
-            score += 4
-        if term in content:
-            score += 2 + min(content.count(term) - 1, 3)  # a little for repeats
-    return score
 
 
 def semantic_search(

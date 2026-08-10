@@ -6,8 +6,8 @@
 
 **Your thoughts, mapped by a local AI. 100% offline, on your machine.**
 
-[![CI](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI-v0/actions/workflows/codeql.yml)
+[![CI](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
@@ -72,7 +72,7 @@ Seven tabs, all offline:
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dashboard** | Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange                                                 |
 | **Notes**     | Capture, browse and ask, as three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes (encrypted at rest), a recycle bin, revision history, and a search box that understands `tag:work`, `cat:recipes`, `is:pinned`, `"exact phrase"` and `-exclude` |
-| **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use 35 tools - search and read your notes, walk the connections between them, create, tag, link and unlink, organise, set reminders, open a web page - with destructive actions always confirmed, and an ask-me button when it isn't sure which note you meant. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
+| **Chat**      | A conversation with your notebook, saved and resumable. **Agent mode** lets it use nearly 50 tools - search and read your notes, walk the connections between them, create, tag, link and unlink, organise, set reminders, open a web page, place and connect cards on a whiteboard - with destructive actions always confirmed, and an ask-me button when it isn't sure which note you meant. Personas change its voice; the run is shown as a timeline of thinking, tool calls and prose in the order they happened |
 | **Graph**     | Your notes as a force-directed map, and a knowledge graph the AI can walk: links, reply threads and shared tags, each labelled with *how* two notes connect. It can also point out notes that read alike and were never linked                |
 | **Library**   | Everything you have made, in one place: notes, documents, chats, files, tags, the recycle bin and the activity log. Overview tiles that are also filters, search across titles *and* previews, four sorts, bulk selection with counted confirmations, grid ⇄ list, and a coloured spine per kind so a shelf of mixed things is scannable by edge. The long-form **document editor** opens from here, and so does the **whiteboard** — note cards and freehand sketches on a canvas you can pan and zoom, where a board is itself a note and so is searchable and filable like any other |
 | **Timeline**  | Every note plotted on a time axis - at what it's *about* when a phrase like "next week" resolves to a date, and at when it was written otherwise - in bands by category or tag, at a bucket size you pick |
@@ -466,7 +466,7 @@ place, your notes are never touched. You do *not* need to delete `data/memorymap
 ## Developing
 
 ```
-pytest                       # ~560 tests, about a minute
+pytest                       # ~1,700 tests, a few minutes
 ruff check .                 # what CI lints with
 node --check frontend/app.js # the frontend is one plain-JS file
 ```
@@ -491,10 +491,10 @@ src/memorymap/
 ├── entry/            # create/read/soft-delete notes + the audit log
 ├── ai/               # ollama client, janitor, librarian, agent, tools, embeddings, voice
 ├── search/           # keyword + semantic search, opt-in web search, SearXNG
-└── api/              # FastAPI app + 16 routers, one per feature area
+└── api/              # FastAPI app + 20 routers, one per feature area
 frontend/             # vanilla HTML/CSS/JS + PWA - no framework, no build step
 tests/                # pytest; every AI call faked
-docs/                 # ARCHITECTURE.md and ROADMAP.md
+docs/                 # ARCHITECTURE.md, DESIGN.md, ROADMAP.md + roadmap/
 ```
 
 ## Where it's up to
@@ -530,10 +530,15 @@ a bin can disagree about what is in it.
 Since then, the whiteboard grew from a sketch pad into a real OneNote/
 draw.io-style canvas: images and text boxes, resize, grid+snap, export,
 multi-select with alignment/distribute, undo/redo, draw.io-style
-connection-point anchors, and a mind-mapping mode (auto-arrange plus
-keyboard-driven branch entry). The chat agent can now read a board's
-contents, search across boards, and place/link cards on one from a
-description.
+connection-point anchors you can hover, drag and reattach, rotation, an
+independent start/end cap system for lines and arrows, and a
+mind-mapping mode (auto-arrange plus keyboard-driven branch entry). The
+chat agent can now read a board's contents, search across boards, place
+and link cards on one from a description, and lay out a whole diagram
+from a set of notes in one call. A Library gallery lists every board and
+every uploaded image, each individually renameable or deletable, and the
+graph view shows and lets you edit *why* two notes are linked, not just
+that they are.
 
 **Next up** lives in one place now, not two — a hardcoded snapshot here
 kept drifting out of step with the real, actively-maintained priority list.

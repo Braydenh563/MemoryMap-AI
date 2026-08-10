@@ -2793,3 +2793,211 @@ known fixtures, real mouse-drag gestures reading back `wbState`/DOM,
 `elementsFromPoint` for the danger-zone diagnosis, and a direct
 `wbBuildExportSvg()` call inspecting the returned SVG string. Nothing UI
 in this section is reasoned-not-observed.
+
+## 59. §58's own three deferred whiteboard items closed out, a live-reported bug list worked through as it arrived, and a second whiteboard architecture bug found the same way the first one was
+
+Opened by re-checking the running app and BACKLOG.md §29d before building
+anything, per this file's own standing rule — all three of that section's
+scoped-but-unbuilt items got closed this session, then a stream of live
+bug reports arrived mid-session and were fixed as each one landed, the
+same working pattern §56/§57 already used.
+
+**Board rename and a Library gallery** (§29d's first two bullets).
+`PUT /whiteboard/boards/{id}` rewrites the underlying note's own heading
+line via `apply_title` — a board's title is that line, per `list_boards`'
+own `extract_title` read, so renaming is the same edit any note's title
+already goes through, not a second stored field; the default scratch
+board (`board_id=None`) and a stale/negative id both 404 the same way,
+since neither resolves to a real note. A new Library subtab, initially
+"Boards & Images" and later split (below) into "Whiteboards" and "Image
+Gallery", consumes the existing `GET /whiteboard/boards`/`GET
+/whiteboard/images` reads that had no frontend consumer before this.
+
+**A live-reported layout bug list, fixed as each one arrived**, with
+screenshots: the empty-canvas hint text sat under the top-right floating
+panel — `top: 50%` centred it in the *whole* canvas, wrong once the panel
+already claims the first ~4rem of it; rebuilt as a full-inset flex box
+with padding reserving the panels' own strip, plus a "Don't show this
+again" dismiss (`localStorage`), asked for directly. The grid and board
+`<select>`s got a defensive `min-width` — a browser sizes a `<select>`
+from its own font metrics, which don't always agree with what the font
+actually paints, and this project's own multi-session font-rendering bug
+is exactly that mismatch; a fixed floor closes the failure class without
+re-litigating the font bug itself, which is still open (see ROADMAP.md).
+The mono appearance font gained two more widely-installed fallbacks ahead
+of the bare `monospace` keyword. The Settings search placeholder
+("Find a setting…") measured wider than its own box via a canvas
+`measureText` check — shortened to fit rather than guessed at.
+
+**Real anchor discoverability and endpoint editing**, asked for directly:
+hovering a card with a link tool selected (no drag started) now shows its
+8 fixed anchor points via a new `pointermove` listener, not only mid-drag
+as before. A selected link sketch gets two draggable endpoint handles —
+drag one onto a different card to reattach (snapping to that card's
+nearest anchor) or onto empty canvas to detach into a free "dangling"
+point. The free-point case is new data shape, not a schema change: a link
+sketch's `data` is already an opaque JSON blob, so `sourcePoint`/
+`targetPoint` (`{x, y}`) live alongside the existing `sourceId`/
+`sourceAnchor` fields, and `wbResolveLinkEndpoints` reads either shape so
+every render path goes through one function. **A second whiteboard
+architecture bug, found building this** (the first was §54's `/media`
+path-traversal one): the SVG drawing layer renders *under* the HTML card
+layer by design (for strokes), so anything meant to be seen or clicked
+*over* a card — the new anchor hints, the new endpoint handles — was both
+invisible and unclickable exactly where it mattered, since a link's
+anchor sits on a card's own border by definition. Not caught by reasoning
+about the DOM, caught by a Playwright drag that silently produced zero
+`d3.drag` events despite correct math; `document.elementFromPoint` at the
+handle's own screen position showed a toolbar button underneath the
+cursor, not the SVG circle. Fixed with `#wb-overlay-layer`, a second SVG
+layer *above* the card layer sharing the same pan/zoom transform,
+`pointer-events: none` at its root so it never blocks a card, each
+interactive child opting back in individually.
+
+**The lasso select tool, actually fixed this time.** Reported directly as
+"doesn't work properly." `WB_BRUSH_TOOLS` — the set the card/object/grip
+drag filters check to step aside for a drawing tool — never included
+`"lasso"`; unlike the marquee (naturally excluded by its own
+empty-canvas-only start condition), a lasso loop is meant to begin
+anywhere, including right at the edge of the first card it means to
+circle. Without the exclusion, a lasso gesture begun on a card was
+captured by the card's own move-drag first and silently moved the card
+instead — and the lasso's own pointerdown listener made it worse by also
+refusing to start on a card at all, so nothing useful happened either
+way. Fixed both halves: the drag filters now step aside for `"lasso"`
+too, and the lasso's own start condition only excludes an actual handle,
+not the card/sketch/object it sits on. Verified live: a loop started from
+a card's own top-left corner leaves the card at its exact original board
+position and still selects everything the loop encloses.
+
+**Every upload tracked, deletable, and a "deleted" placeholder instead of
+a broken image.** Reported directly: an uploaded image "isn't rendered
+and can't be deleted." The render half turned out to be something else —
+a note's image rendered correctly once the Notes tab's Browse
+sub-section was actually shown (Capture stays adjacent to `display:
+none`, this file's own long-documented trap) — but "can't be deleted"
+was real and matches a gap this project's own docs had already named
+(ROADMAP item 20a): an image pasted into a note's own markdown had no DB
+row at all, unlike a whiteboard image object. New `MediaUpload` table —
+one row per `/media/upload` call regardless of where the url ends up
+(note, document, or whiteboard) — backs a `GET /media` list and `DELETE
+/media/{id}`; the Library's image gallery now sources this instead of
+whiteboard-only images, with a delete button per tile. Also asked for
+directly: both inline note images and whiteboard image objects now catch
+their own `<img>` `error` event and swap in a dismissible "deleted" box
+instead of a broken-image glyph. A related, smaller gap found the same
+pass: a Library "file" item's own ⋯ menu had a Download action that
+never attached the auth token (`window.open` can't carry a header the
+way `mediaSrc` exists to add one) and no Delete action at all — bulk-
+select delete already worked, nothing offered it from the single-item
+menu someone looks at first. Both fixed.
+
+**The whiteboard tab split**, asked for directly mid-session once the
+gallery above existed: two doors onto the whiteboard (a bare canvas tab
+that always opened whatever board was last active, plus the new gallery
+tab) collapsed into one. "Whiteboards" now lands on the board gallery by
+default; picking a board or "+ New board" swaps in the actual canvas with
+a "← Boards" way back; "Image Gallery" is the former combined tab, images
+only now that boards have their own home. A real layout bug caught
+building it: the back button, placed in normal document flow before
+`.whiteboard-container` (itself always absolutely positioned at its
+ancestor's 0,0 regardless of DOM order), rendered exactly under the
+board-picker floating panel and never received a click — fixed with an
+explicit top-centre position, the one corner none of the whiteboard's
+five floating panels already occupy. Also fixed: a newly-created empty
+board vanished from the gallery the moment you went back to it, since
+`list_boards` only returns a board once something is placed on it — the
+same shape of bug this project already fixed once for the in-canvas
+board dropdown (`refreshBoardList`'s own `justCreated` merge), not yet
+applied to the new landing gallery until now.
+
+**Graph link reasons, made visible and manageable, not just hoverable.**
+Asked for directly: "a visual way to see the reasons for each connection
+and a way to manage/add/remove/edit them." A reason existed only as a
+hover-only SVG `<title>` before this. A manual link edge now carries a
+`.graph-edge-reasoned` class giving it distinct visual weight, and
+clicking any manual-link edge opens a real panel — both note previews,
+the reason in an editable textarea, Save and Remove-link, both wired to
+backend endpoints (`PUT`/`DELETE .../links/{link_id}...`) that already
+existed with no graph-side caller. The panel needed the link's own row
+id, which `/graph`'s edge payload never carried; added (`edges: [{...,
+id: link.id}]`), with the two pre-existing exact-shape tests in
+`test_wavee_graph.py` updated to match rather than loosened.
+
+**The Agent Activity monitor's own reported overlap, finally scoped and
+fixed.** Named in an earlier handover as intermittently overlapping other
+UI, never scoped further until this session found it: the monitor
+(`position: fixed`, bottom-right, `z-index: 1000`) and `#toast-box` (also
+fixed, bottom-right, `z-index: 60`) shared the same corner, so any toast
+firing while the monitor was open rendered directly underneath it,
+effectively hidden rather than merely overlapping. Moved the monitor to
+bottom-left — checked every `position: fixed` rule in the stylesheet
+first, not just the two involved, and it's the one corner nothing else
+in the app fixes a panel to. The whiteboard's own bottom-right-panel-lift
+workaround for this same collision (§53-era) is now dead weight and was
+removed rather than left as an unnecessary safety net.
+
+**A full line/arrow end-cap system** (§29d/§56's own "still open" list):
+circle/square/multi-line, independently per end, for both a drawn
+line/arrow sketch and a link connector — replacing the single shared
+"which end gets the (only) arrowhead" dropdown. `wbCapPath` is the one
+shared shape generator (arrow is the pre-existing two-line V; circle and
+square are closed subpaths centred on the tip; multi-line is two short
+perpendicular ticks, the ER-diagram "many" mark), appended into the same
+single path string every other cap already used. No migration: a link's
+older single `endStyle` and a sketch's shape-sniffed arrow style
+(`wbDetectArrowStyle`) both translate to the new independent-per-end
+fields on first read, replaced with the real fields the moment either end
+actually changes.
+
+**Sketch rotation** — the one thing cards/objects already had (a stored
+rotation column, a live CSS transform) that a sketch didn't, since its
+"shape" is its path data. `wbTransformPathD` gained a `rotate` parameter
+alongside its existing `dx`/`dy`/`sx`/`sy`, handling three real cases
+rather than a naive point rotation: `M`/`L`/`C` rotate normally; `h`/`v`
+(the rect tool's own purely horizontal/vertical relative lines) become
+absolute `L` once rotation isn't a multiple of 90°, since a rotated line
+can't stay axis-aligned; `a` (the circle tool's relative arc pairs) keeps
+`rx`/`ry`/large-arc/sweep unchanged — correct for a pure rotation, since
+this app never emits a negative scale — and only rotates the endpoint
+delta plus adds the same angle to the arc's own x-axis-rotation
+parameter. `rotate=0` is confirmed byte-identical to the pre-rotation
+output, so every existing move/resize call site is unaffected. A round
+rotate handle above a selected sketch (separate CSS class from cards' own
+HTML-based handle, since a sketch is SVG) drags by absolute angle-from-
+vertical, baked into `d` on release the same way move/resize already
+commit an edit. Verified with hand-checked arithmetic, not just a visual
+check: a 200×100 rectangle dragged ~90° produced all four corners
+matching an exact rotation about its own centre to the pixel.
+
+**A bulk diagram-generation tool for the AI** (§29d's third bullet).
+`add_whiteboard_card`/`add_whiteboard_link` already let a model build a
+diagram one call at a time, but `x`/`y` are free-form numbers it has to
+invent itself across many chained calls — exactly the bookkeeping a small
+(2–8B) tool-calling model gets wrong. New `generate_diagram` tool: the
+model declares only structure (each node a new note's title or an
+existing note's id, plus which other node is its parent); every note that
+needs creating, every position, and every link are done server-side in
+one call. `_diagram_tree_positions` isn't a port of d3.tree()'s own
+tidy-tree (Reingold-Tilford/Buchheim) algorithm — it doesn't need the
+tightest packing, only a non-overlapping, readable one, and reuses the
+client-side `wbArrangeMindMap`'s own row/column/radial-step spacing so a
+generated board and a hand-arranged one read as one convention. Validated
+up front — exactly one root, every parent reference resolvable, a
+repeated-reachable node caught as a cycle before anything is written, a
+capped node count — rather than failing partway through having already
+written some of a malformed structure.
+
+Every backend claim is unit-tested (29 new tests: whiteboard rename/404,
+the media table's list/delete/404, nine on `generate_diagram`'s
+validation and layout, the graph edge id). Every UI claim was driven live
+via Playwright against a real running server rather than reasoned from
+the diff — including two real trap encounters worth keeping: a stale
+uvicorn process surviving a supposed restart produced a `create_node`
+500 that looked like a genuine backend bug for several rounds of
+debugging before `ss -ltnp`/exact-PID `kill -9` confirmed the old process
+was still answering; and `pkill -f` matching this shell's own invocation
+(the pattern string appearing in the command line being searched) killed
+the calling shell itself more than once. All ~1,700+ tests pass (29
+added this session), `ruff check .` is clean, `node --check
+frontend/app.js` is clean.

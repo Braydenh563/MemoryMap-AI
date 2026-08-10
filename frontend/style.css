@@ -13756,10 +13756,17 @@ textarea.drag-over {
   outline-offset: -2px;
 }
 
+/* Named directly (HANDOVER.md §53) as intermittently overlapping other UI,
+   never scoped further until now: `#toast-box` also sits fixed at
+   bottom-right (`right: 1rem`, just above the status bar), and this
+   panel's own `z-index: 1000` sits well above the toast box's `z-index: 60`
+   — any toast firing while this is open was rendered directly underneath
+   it, not overlapping so much as hidden. Moved to the opposite corner,
+   which nothing else in the app claims as a fixed position. */
 .agent-monitor {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   width: 350px;
   z-index: 1000;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -14223,17 +14230,6 @@ textarea.drag-over {
 .trace-chip.is-empty {
   border-style: dashed;
   color: var(--muted);
-}
-
-/* The agent monitor is fixed in the bottom-right corner and the whiteboard's
-   zoom controls sit in the same place, so while the monitor was open the zoom
-   buttons were behind it and could not be clicked at all. Measured in
-   Chromium, not guessed: the monitor is 350px wide and the panel's right edge
-   sat inside it. Lift the panel clear rather than move the monitor — the
-   monitor's corner is consistent across every tab, and the whiteboard is the
-   only surface that competes for it. */
-body.has-agent-monitor .whiteboard-floating-panel.bottom-right {
-  bottom: 14rem;
 }
 
 /* A skill's description wraps onto its own line under the chips. It used to

@@ -13163,6 +13163,20 @@ textarea.autogrow {
   gap: 0.4rem;
 }
 
+/* The properties panel is a fixed 11rem wide (shared by every row, tuned for
+   one control each) - the Fill row alone crams a swatch, a toggle switch and
+   a text label into it, which no longer fit on one line once the checkbox
+   became a full toggle switch with a "Filled" label. Wrapping instead of
+   widening the whole panel for one row - reported directly as the text
+   running past the panel's edge. */
+.wb-properties-row .wb-inline-controls {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 0.2rem;
+}
+
 .wb-shape-toggle-icon {
   pointer-events: none;
 }

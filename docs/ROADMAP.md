@@ -13,7 +13,7 @@ code comments and tests still resolve via HISTORY.md's index.
 | [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | **The last session's handover.** What changed, what couldn't be checked and why. Read this first. |
 | [roadmap/HISTORY.md](roadmap/HISTORY.md) | Everything already built, and every backlog item already closed — with the reasoning, condensed. **Check here before building anything.** Four sessions have rebuilt something that already existed. |
 | [roadmap/BACKLOG.md](roadmap/BACKLOG.md) | Standing backlog items not yet promoted to this file's live list. |
-| [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. |
+| [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
 
 **The standing caveat:** every provider test runs against a fake transport —
@@ -896,6 +896,80 @@ Worth doing, and worth doing after the above.
     letting a saved skill run on the same schedule instead of only the three
     fixed tasks. Needs a real "which of these, and why" before building —
     "expand the capabilities" alone isn't a spec.
+32. **Keyword search has no IDF weighting and can't use an index.**
+    `keyword_search`'s `Entry.content.ilike(f"%{term}%")` (`search_manager.py`)
+    is a full-column substring scan with a leading wildcard, so no SQL index
+    can serve it, and `_keyword_score`'s hand-rolled weights (phrase/tag/
+    opening-position) treat a rare, distinctive word the same as a common
+    one — the wrong direction as the notebook grows. Found reading a sibling
+    project's stdlib BM25 index against this file directly, not assumed
+    (ANALYSIS.md §59). SQLite's own FTS5 virtual table plus its built-in
+    `bm25()` ranking function is the fix that fits — already in SQLite, no
+    new dependency — not a ported implementation. Needs a shadow FTS5 table
+    kept in sync with `entries` (additive, per this project's own migration
+    convention) and `_rank`'s fusion weights re-tuned once keyword scores are
+    on a different scale than today's ad-hoc integer score.
+33. **`graph_expansion` is hard-capped at one hop, on purpose** —
+    `GRAPH_EXPANSION_SEEDS`/`GRAPH_EXPANSION_LIMIT` (`search_manager.py`)
+    exist so a question two links away from what matched is reachable only
+    if the agent thinks to walk there itself; a direct search answer never
+    sees it. Surfaced weighing a sibling project's multi-hop, chain-of-thought
+    graph retrieval against this file's own already-stated principle
+    (ANALYSIS.md §59) — the same reasoning that ruled out Leiden clustering
+    ("an answer the user cannot verify by clicking two notes is one they
+    cannot trust") argues against an unbounded walk here too, so this is not
+    "just add hops." The version worth building is bounded and still
+    verifiable: an opt-in second hop, still carrying the same link `reason`/
+    Trace provenance the first hop already has, shown as a visibly weaker
+    tier in the answer panel rather than merged into the main matches. Needs
+    a decision — automatic (a slightly larger `GRAPH_EXPANSION_LIMIT`) or a
+    user-visible "search deeper" action — before building either.
+34. **No entity/concept layer above notes — only note-to-note links.** Every
+    edge in the graph today connects two whole notes; there is no node for
+    "this person" or "this project" that exists independent of any one note
+    mentioning them, so a name mentioned in passing across a dozen notes is a
+    dozen separate matches, not one thing with a dozen mentions. The one
+    genuine capability gap a sibling project's LLM-driven entity extraction
+    has that this app doesn't (ANALYSIS.md §59), and the piece most directly
+    in the way of finding things by following concepts through the graph.
+    Scope before building, deliberately smaller than the sibling project's
+    full ontology-grounded version: a lightweight local-LLM pass (the janitor
+    already runs one per note) pulling a short entity list per note into a
+    table, entity→note membership as the only edge kind at first (no
+    entity-to-entity graph yet — a second, harder step), and a way to see one
+    in the existing D3 graph — a differently-shaped node or a filter/lens on
+    the current view, not a second graph engine.
+35. **No vision-capable image understanding.** Confirmed by grep, not
+    assumed: `ollama_client.py` already reads a model's `vision` capability
+    alongside `tools`/`thinking` from the same `/api/show` call §6 built, but
+    nothing consumes it — no code path sends an attached image to a vision
+    model. Asked for directly, including how it should be configured:
+    auto-detected the same way `tools`/`thinking` already are, with a manual
+    override in Settings → Models for OpenAI-compatible backends that don't
+    self-report capabilities. Wire into the existing image path (paste/drop/
+    attach → `/media/upload`), and run it *alongside*, not instead of, the
+    OCR idea already scoped in BACKLOG.md §4 item 1 — the two answer
+    different questions and are both cheap once the pipeline exists: local
+    OCR (`pytesseract`, no torch, always available) extracts literal text for
+    the existing keyword index ("what did that whiteboard photo say"), a
+    vision model's description (only when one is configured) covers content
+    OCR can't read at all ("what's in that photo"). Needs a decision on
+    where the description is stored (a note field vs. a side table) and
+    whether the agent narrates "generated from an image" the way whiteboard
+    AI actions already disclose their own source.
+36. **Q&A answers cite which notes matched, not which claim inside the
+    answer's prose came from which note.** `match_info` (search results'
+    per-row "why this matched" badge) already covers "which notes were
+    retrieved"; `unsupported_claims` (Tier 1 item 7) already covers the
+    agent's own narrated actions; link `reason`/`reason_confidence` (Tier 2
+    item 9) already covers grounding a connection between two notes. None of
+    the three covers a sentence inside a direct Q&A answer. Narrower than a
+    full claim-ledger (ANALYSIS.md §59) precisely because those three already
+    exist: a lightweight per-sentence "which retrieved note backs this" pass
+    over the librarian's own answer, surfaced the same understated way
+    `match_info` already is — a badge, not an interruption — and scoped to
+    the direct Q&A path only, not the full agentic chat, where
+    `unsupported_claims` already does the related job.
 
 ### Tier 4 — deferred, with the reason
 

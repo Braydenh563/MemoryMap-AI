@@ -1,7 +1,7 @@
 # Analysis and outside reads
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34 and §59, including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. These sections are **reference, not work** — they
 record judgements, a competitor read, and what was deliberately *not* taken, so
@@ -723,3 +723,113 @@ multi-step agent work feels, and it interacts badly with the background
 librarian, which abandons a run rather than ask. Left as it arrived, and
 flagged in §40's open list, because "which of those two costs more" is a
 product judgement rather than a correctness one.
+
+---
+
+## 59. Three sibling repos, read and triaged — claude-obsidian, cognee, graphify
+
+Asked for directly: a full analysis of three other repos attached to the same
+session (`claude-obsidian`, `cognee`, `graphify`), what they do better, what
+this app has overlooked, and whether their backends are better designed —
+followed up by *"for the parts you skipped [because MemoryMap already has
+them], are there areas in which they do it better than is currently there?"*
+The second question is the one that mattered: three separate read-only agents
+summarised each repo, and every recommendation was then checked against this
+app's actual code (`search_manager.py`, `entry/paths.py`,
+`ai/ollama_client.py`, ROADMAP.md itself) before anything was written down
+here, per this file's own standing rule and §33's own precedent — a
+recommendation that survives a `grep` is worth more than one that doesn't.
+
+**The repositories, in one line each:** claude-obsidian is a set of Agent
+Skills for filing an Obsidian vault with source-cited notes, not a standalone
+app. Cognee is an AI-memory platform that builds an LLM-extracted knowledge
+graph over ingested data via a pipeline of pluggable graph/vector/relational
+backends. Graphify maps a codebase (not notes) into a queryable graph via
+tree-sitter, with an optional LLM pass and a vis.js visualisation.
+
+**Licences — no constraint, unlike §33.** claude-obsidian is MIT, cognee and
+graphify are both Apache-2.0. All three are permissive and compatible with
+this project's AGPL-3.0: nothing here needs the AGPL clause in §33 to be
+lifted. Apache-2.0 code carries a NOTICE/attribution requirement if anything
+is copied close to verbatim; nothing below proposes that — as in §33, the
+value found was in the *shape* of an idea, checked against and re-derived for
+this app's own code, not a port.
+
+---
+
+### Looked at and deliberately not taken
+
+- **Community-detection clustering (graphify's Leiden algorithm).** Not a
+  gap. `entry/paths.py`'s `clusters()` already rejected Louvain/Leiden/label
+  propagation in favour of connected components, with its own comment
+  spelling out why: "a component is **exactly true**... where a community is
+  a judgement call... an answer the user cannot verify by clicking two notes
+  is one they cannot trust." Graphify's own hub-labelling is functionally
+  what `pagerank()` (same file) already does for this app. Same call, made
+  earlier, for the same reason — no action.
+- **Direct cloud-provider breadth (graphify supports Anthropic/Gemini/Azure/
+  Bedrock out of the box).** Not a gap — a deliberate scope boundary. This
+  app's Ollama-plus-OpenAI-compatible pair (§6) is the whole of "100%
+  offline"; adding hosted providers would be a different product, not a
+  missing feature.
+- **Cognee's multi-tenant ACLs and pluggable graph/vector/relational adapter
+  interfaces.** Real engineering, and real overkill for a single-user local
+  notebook. The one shape worth naming without adopting the machinery: this
+  app already has the *equivalent* pattern where it matters — `ai/provider.py`
+  is exactly cognee's adapter-interface idea applied to LLM backends instead
+  of databases. Extending the same shape to storage is not worth it unless a
+  second storage backend is ever actually planned.
+- **claude-obsidian's filesystem transaction/dirfd safety layer** (atomic
+  writes, casefold-alias detection, symlink-traversal rejection). Solves a
+  problem — many agents concurrently writing loose Markdown files across
+  Windows/macOS/Linux filesystems — that this app's single SQLite database
+  with its own transactions doesn't have.
+
+### Promoted to ROADMAP.md, Tier 3 — items 32–36
+
+Two of the four things this app already has, checked against sibling repos
+doing the "same" thing, turned out to be doing it worse in a concrete,
+fixable way rather than just differently:
+
+- **Keyword search has no IDF weighting and can't use an index**
+  (`keyword_search`'s `Entry.content.ilike(f"%{term}%")` is a full-column
+  scan with a leading wildcard). claude-obsidian's stdlib BM25 index is what
+  surfaced this; the fix that fits this codebase is SQLite's own FTS5 +
+  `bm25()`, not a port. → ROADMAP.md item 32.
+- **`graph_expansion` is hard-capped at one hop**, so an answer two links
+  away from what matched isn't reachable through search at all. Cognee's
+  multi-hop `GRAPH_COMPLETION_COT` is what surfaced this, but the fix has to
+  answer to this app's own already-stated verifiability principle (the same
+  one that ruled out Leiden clustering above), not just add hops. → ROADMAP.md
+  item 33.
+
+Two are genuine new capability, not present in any form:
+
+- **No entity/concept layer above notes** — every connection in the graph is
+  note-to-note; there is no node for "this person" or "this project"
+  independent of any one note that mentions them. This is the one thing
+  cognee's LLM-entity-extraction genuinely has that this app doesn't, and
+  it's the piece most directly in the way of "find things by following
+  concepts through the graph," which is what was asked for. → ROADMAP.md item
+  34.
+- **No vision-capable image understanding.** Confirmed by grep, not assumed:
+  `ollama_client.py` already reads a model's `vision` capability alongside
+  `tools`/`thinking` (the same `/api/show` call, §6), but nothing consumes
+  it — no code path sends an attached image to a vision model. Asked for
+  directly this session, including how it should be configured. → ROADMAP.md
+  item 35.
+
+And one is a refinement of something this app already does better than any
+of the three repos individually, closing the one real gap in it:
+
+- **Q&A answers cite which notes matched (`match_info`) but not which
+  specific claim inside the answer's prose came from which note.**
+  claude-obsidian's claim ledger is the sibling idea, but most of what it
+  does already exists here in a different shape — `unsupported_claims`
+  (ROADMAP.md Tier 1 item 7) checks the agent's own narrated actions, and
+  link `reason`/`reason_confidence` (Tier 2 item 9) already grounds a
+  connection between two notes with an editable, backfillable confidence
+  score, which is more than any of the three repos' link-provenance features
+  do. The gap left after those two is narrower than a full claim ledger:
+  per-sentence grounding inside a direct Q&A answer specifically. →
+  ROADMAP.md item 36.

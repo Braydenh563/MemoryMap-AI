@@ -12870,6 +12870,17 @@ textarea.autogrow {
   position: relative;
 }
 
+/* A tighter gap than `.row`'s own default 0.6rem, for a colour swatch +
+   opacity slider + checkbox squeezed into one properties-panel row. Real
+   bug, caught live: a first pass used `style="gap: 0.4rem"` inline, which
+   this app's own CSP (`style-src 'self'`) silently refused — exactly the
+   trap CLAUDE.md already names ("inline style attributes, all rejected by
+   this app's own CSP, all invisible until a browser was pointed at them"),
+   reintroduced by this same session before being caught by driving it. */
+.wb-inline-controls {
+  gap: 0.4rem;
+}
+
 .wb-shape-toggle-icon {
   pointer-events: none;
 }
@@ -13305,11 +13316,36 @@ aside[data-resizable="1"] {
    directly ("area select... missing"). A real SVG element in board space,
    appended/removed by the marquee's own pointerdown/pointerup, not a fixed
    part of any template. */
+/* Smart alignment guides while dragging — asked for directly ("draw.io and
+   Microsoft PowerPoint have... dotted alignment rule guides"). Colour is
+   set per-line by `wbShowAlignmentGuides` (edge/center/spacing each get
+   their own, user-alterable colour — see `WB_ALIGN_GUIDE_COLORS`), so this
+   rule deliberately leaves `stroke` unset: an SVG presentation attribute
+   only wins over an *unset* CSS property, not a set one, so a `stroke` here
+   would silently override every line to one colour again. Every other
+   whiteboard overlay (anchor hints, selection outline, marquee) uses the
+   app's own `--accent` instead — a guide line stays deliberately distinct
+   from that so it still reads as a momentary "you're aligned" signal. */
+.wb-align-guide-line {
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
 .wb-marquee {
   fill: color-mix(in srgb, var(--accent) 12%, transparent);
   stroke: var(--accent);
   stroke-width: 1px;
   stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+.wb-lasso {
+  fill: color-mix(in srgb, var(--accent) 12%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 3;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 

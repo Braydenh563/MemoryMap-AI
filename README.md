@@ -527,31 +527,19 @@ a bin can disagree about what is in it.
 
 [`CHANGELOG.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/CHANGELOG.md) has it wave by wave.
 
-**Next up**, in order — by how much it unlocks, not how contained the fix is.
-A backlog audit found three sessions in a row had been extending the newest
-UI-polish batch instead of touching the standing backlog underneath it; most
-of that corrected list is now done — Arc joined force/tree/radial as a graph
-layout, the Timeline has a branch/line view, meeting notes record → transcribe
-→ review → save, onboarding reports Ollama reachability, and `markitdown` now
-powers a real "import a document as notes" button in Settings → Import &
-export. What's left:
+Since then, the whiteboard grew from a sketch pad into a real OneNote/
+draw.io-style canvas: images and text boxes, resize, grid+snap, export,
+multi-select with alignment/distribute, undo/redo, draw.io-style
+connection-point anchors, and a mind-mapping mode (auto-arrange plus
+keyboard-driven branch entry). The chat agent can now read a board's
+contents, search across boards, and place/link cards on one from a
+description.
 
-1. **Graph layouts beyond force/tree/radial/arc** — a mind map, treemap or
-adjacency matrix. Named this project's own differentiator; arc reused the
-existing hierarchy machinery, but each of these is a materially different
-rendering approach.
-2. **Meeting notes' action-item extraction** — the recorder saves a note
-today; turning it into structured reminders needs a real model call this
-project's own sandbox can't verify against a running Ollama.
-3. **`llama-cpp-python` has nothing calling it.** Greyed out in Settings →
-Optional extras and says why: it wants wiring into the chat backend beside
-Ollama, a new provider plus a GGUF file picker — its own session's worth of
-work.
-4. **Onboarding's remaining pieces** — offering to pull a model, a data-dir
-writability check, example notes for a first-run screen.
-
-[`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md) §38 has the reasoning behind each, which is the
-expensive part to reconstruct.
+**Next up** lives in one place now, not two — a hardcoded snapshot here
+kept drifting out of step with the real, actively-maintained priority list.
+[`docs/ROADMAP.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ROADMAP.md)
+is that list: ranked by tier, with the reasoning behind each item, updated
+every session rather than periodically reconciled with this file.
 
 ## Documentation
 

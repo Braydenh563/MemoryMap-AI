@@ -187,6 +187,25 @@ Things that are wrong, lose work, or make the app feel unreliable.
     mutes hover mouseenter/mouseleave for the whole gesture, not just its
     two ends; 6/6 clean Playwright runs after, versus reproducing the stuck
     highlight on the unpatched code every time.
+12. ~~**Clicking a whiteboard card or object to select it silently didn't
+    work.**~~ **Fixed and verified live (HISTORY.md §57).** Found while
+    live-testing mind-map selection, not reported first: `dragStart`'s
+    (and `objDragStart`'s) unconditional `d3.select(this).raise()` on
+    every pointerdown — including a plain zero-movement click — reappends
+    the card as its parent's last DOM child mid-gesture, which is enough
+    to stop the browser synthesizing the following `click` event at all.
+    Confirmed by instrumenting the card's own click handler, the
+    container's "empty canvas" handler, and a plain sketch's own click
+    handler (which selects correctly, and never calls `.raise()` in its
+    own "start") side by side. Fixed by moving `.raise()` into the drag
+    handler, which — unlike "start" — only runs after real movement.
+13. ~~**Two features silently shared the same Ctrl+K shortcut.**~~ **Fixed
+    (HISTORY.md §57).** The navigation command palette (`openPalette`) and
+    a separately-built "ask the agent anything" quick-command overlay both
+    bound the identical global Ctrl+K keydown, independently — the second
+    sat later in the DOM and silently ate every click meant for the first.
+    Found live while testing a new command-palette entry. Rebound the
+    "ask anything" overlay to Ctrl+Shift+K.
 
 ### Tier 2 — half-built features, cheap to finish
 
@@ -328,32 +347,26 @@ into a good one.
       *every* card/object corner for *any* tool, not just while selected;
       this is very likely why a link-from-corner drag felt unreliable even
       before anchors existed.
-    - **A mind-mapping mode** — see item 25's own entry (Tier 3): decided
-      to be a whiteboard mode (auto-arrange via the Graph tab's existing
-      Tree/Radial layout code, plus Tab/Enter keyboard branch entry), not a
-      third tab. **Confirmed as the second thing to build**, right after
-      anchors — branch lines need real anchors to land on card borders
-      instead of arbitrary corners, which is why this stays sequenced after
-      the item above rather than before it.
-    - **AI + whiteboard, three pieces, all confirmed wanted together** (not
-      scoped or started): (1) the chat agent gets read access to a board's
-      contents as context, so it can answer "what's on my project-planning
-      board?" — a new tool in `src/memorymap/ai/tools.py`, wired into
-      `TOOLS_GUIDE` in `agent.py`, since neither currently mentions the
-      whiteboard at all (`src/memorymap/ai/autonomous.py`'s orphaned-card
-      cleanup is the only whiteboard reference under `ai/`, and it's a
-      background job, not agent context); (2) whiteboard content (sketch
-      labels, text-box content, image alt text) becomes searchable the same
-      way notes are — `src/memorymap/search/search_manager.py` currently
-      queries only `Entry`, no whiteboard table at all; (3) AI-guided
-      diagram generation (asked for directly, "allow the ai to generate the
-      diagrams guided") is the write side of (1) — the agent reads a
-      board's current state via the same tool, then places/connects
-      cards/shapes/links on it from a text description, reusing the
-      existing create/update endpoints rather than a new generation path.
-      Do (1) and (2) first; (3) depends on (1)'s read tool existing, and
-      reads better once anchors (above) exist so generated links don't land
-      on arbitrary corners either.
+    - ~~**A mind-mapping mode**~~ **Done — see item 25's own entry (Tier 3)
+      and HISTORY.md §57.**
+    - ~~**AI + whiteboard, three pieces**~~ **Done, verified (HISTORY.md
+      §57).** `read_whiteboard` (board contents: cards, text boxes, image
+      count, links), `search_whiteboard` (keyword scan across every board —
+      a real embedding index was scoped short as a bigger lift than this
+      pass, see the same section), `add_whiteboard_card`/`add_whiteboard_link`
+      (the write side — place a note, connect two cards, reusing the
+      existing create endpoints). All four registered in
+      `src/memorymap/ai/tools.py`, cued via a `TOOL_GROUPS` entry
+      (whiteboard/board/canvas/diagram/mind map/sketch/draw.io/flowchart)
+      rather than `TOOLS_GUIDE` prose — the fixed prompt prose had 2
+      characters of headroom left under `PROSE_BUDGET_CHARS`
+      (`test_prompt_budget.py`), so this was a deliberate scoping choice,
+      not a miss. 9 new tests in `tests/test_ai_whiteboard_tools.py`,
+      including that `add_whiteboard_card` goes through `_require_note`
+      (refuses a private note) and is idempotent on `(note_id, board_id)`.
+      **Not verified against a live model** — this sandbox's standing
+      caveat about provider behaviour applies here too; the tool logic is
+      real-database-tested, not watched being chosen mid-conversation.
     - **Sketch rotation.** Cards and objects rotate (§55); a sketch does
       not — its "shape" *is* its path data, and rotating a path correctly
       (including the `a` command's own elliptical-arc flags, which flip
@@ -363,14 +376,60 @@ into a good one.
     - **Image cropping.** Asked about directly; not scoped or built —
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
-    - **Uploaded whiteboard images showing in the Library as files.** Asked
-      for directly; not started — needs a decision (track `/media/` uploads
-      in a real DB table so the Library has rows to list, or surface the
-      media directory directly) before building.
-    - **A whiteboard backend/perf pass** (N+1 queries, inefficient
-      endpoints) beyond the one full-rerender bug already fixed (§54) — not
-      started, not profiled.
-      above since branch lines need real anchors to look right.
+    - **Uploaded whiteboard images showing in the Library as files, and
+      orphaned `/media/` garbage collection.** See item 20a (Tier 3) — asked
+      for directly, promoted from HANDOVER-only prose to here this session;
+      still not scoped or built. **Backend half done (HISTORY.md §57)**:
+      `GET /whiteboard/images` lists every image across every board. **No
+      frontend consumer yet** — see the two bullets below.
+    - ~~**Smart alignment guides while dragging, colour-coded, with
+      equal-spacing detection**~~ **Done, verified live (HISTORY.md §58).**
+      Edge/centre snap plus equal-spacing (nearest neighbour each side,
+      O(n) per drag frame), Alt bypasses all of it, three independently
+      recoloured guide kinds (edge/centre/spacing) via pickers in the
+      shape-menu dropdown, persisted to `localStorage`.
+    - ~~**Rectangle select and lasso, export selection**~~ **Done, verified
+      live (HISTORY.md §58).** A freeform lasso (ray-cast, centre-point
+      test) joins the existing marquee, both grouped into their own toolbar
+      dropdown (`#wb-select-picker`, same pattern as the shape dropdown).
+      Export gained a "Just the selection" option (PNG/SVG/PDF) that
+      filters to the selected item(s) and crops to their bounds, not just
+      the whole board.
+    - **Renaming a board, and a Library gallery of every board/mind-map and
+      every uploaded image.** Asked for directly this session, not built —
+      out of budget, not out of scope. A board's title is its underlying
+      note's first `# heading` line; there is no `PUT /whiteboard/boards`
+      yet. `GET /whiteboard/boards` and `GET /whiteboard/images` (both
+      already built, §57) have no frontend gallery consumer — today's only
+      way to see "which boards exist" is the whiteboard's own board-switcher
+      dropdown, not a Library-tab view. See BACKLOG.md.
+    - **A structured, small-model-friendly "generate a diagram from my
+      notes" tool.** Asked about directly this session: the AI can already
+      place cards and link them (`add_whiteboard_card`/`add_whiteboard_link`,
+      §57), but `x`/`y` are free-form numbers the model must invent itself
+      across many chained calls — the exact bookkeeping small (2–8B)
+      tool-calling models get wrong. The auto-layout math already exists
+      (`wbArrangeMindMap`, tree/radial) but is client-side JS behind
+      keyboard shortcuts, not AI-callable. Needs a bulk tool that takes a
+      structure (parent/child pairs) and does placement server-side in one
+      call. See BACKLOG.md.
+    - ~~**A whiteboard backend/perf pass**~~ **Partly done (HISTORY.md
+      §57).** Asked for directly ("no heavy algorithms, everything
+      efficient"): the backend routes themselves (`get_whiteboard_state`,
+      `list_boards`) were audited and are already flat, aggregate-query
+      shaped — no N+1 found there. The one real issue found was
+      client-side: `allEntries.find(...)` inside each card's per-render
+      content callback (and again in the SVG-export loop) was O(cards ×
+      notebook size) on every single render; replaced with a `Map` built
+      once per call. **Not done**: a real profile against a large,
+      many-hundred-item board (nothing this session was measured against
+      one) — the fixes above are reasoned from reading the code's own
+      complexity, not from a before/after timing.
+    - **A full line/arrow end-cap system** (circle/square/multi-line ends,
+      independently per end). Asked for directly (§56); the Line and Arrow
+      tools now *share* one end-style control (extended from Arrow-only),
+      which is as far as this got — no new marker shapes beyond the
+      existing arrowhead.
 12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
     (HISTORY.md §47).** Checked before touching anything, per this file's
     own rule: every place a link chip renders (a note card's own links, the
@@ -711,6 +770,24 @@ Worth doing, and worth doing after the above.
 20. **Files and images on notes, and standalone in the Library.** The plumbing
     exists (`/media`, attachments); the Library surface and drag-to-attach do
     not.
+20a. **A Library "Media/Images" gallery tab**, and **garbage-collecting
+    orphaned `/media/` files.** Named directly (HANDOVER.md §53) and never
+    promoted into this file before now — the exact failure mode this
+    section's own rule exists to catch. Two distinct pieces: a gallery
+    surface (part of item 20 above, a Library view over everything
+    `/media/upload` has ever produced) and a real correctness gap — an
+    image pasted or dropped into a *note* (unlike a whiteboard image
+    object, which has its own `WhiteboardObject` row) has no DB row
+    tracking it at all, so purging the note that referenced it leaves the
+    file on disk forever. Needs a decision first: track uploads in a real
+    table (enables both the gallery and the cleanup) vs. a directory scan
+    reconciled against every note's own markdown at cleanup time.
+20b. **An "Agent Activity" background-task popup cleanup pass.** Named
+    directly (HANDOVER.md §53), not scoped further — a stray toast from it
+    has intermittently overlapped other UI (HISTORY.md §46's Save button,
+    this file's own live-verification notes). Needs a concrete list of
+    what's wrong with it before a session can act on more than "it exists
+    and sometimes overlaps something."
 21. **A persona on the welcome messages.** Small, and it makes the app feel
     like one thing rather than a chat bolted to a notebook.
 22. **Meeting recordings as first-class objects**: pause/resume, replay, save
@@ -728,32 +805,16 @@ Worth doing, and worth doing after the above.
     new layout algorithm. Worth reproducing what specifically feels
     different — screenshot the two side by side — before assuming it's this
     item rather than a tuning pass on the existing force simulation.
-25. **Mind-mapping — decided: a whiteboard mode, not a third tab.** The
-    whiteboard already has every primitive a mind map needs (cards, text
-    boxes, straight/curved links, resize); a separate tab would duplicate all
-    of that for one missing thing, structure. Two additions, on top of the
-    whiteboard rather than beside it:
-    1. **"Arrange as mind map"** — select a card, one button, everything
-       connected to it (via the whiteboard's own links) auto-positions in a
-       radial/tree layout. Not new math: the Graph tab's Tree/Radial layout
-       algorithms (HISTORY.md) already do this against note-link data; reuse
-       that code against the whiteboard's own node/link data rather than
-       writing a second layout engine.
-    2. **Keyboard-driven branch entry** — with a card selected, `Tab` creates
-       a linked child note at the next open radial slot, `Enter` creates a
-       sibling. This is the actual ergonomic difference between "a whiteboard
-       you can draw a mind map on" and "a mind-mapping tool" — every
-       dedicated app (XMind, MindMeister) lives or dies on this; dragging
-       cards one at a time to fake it defeats the point.
-    Why not extend the Graph tab instead: it already has the layout
-    algorithms and real link data, but it's architecturally a read-only
-    *derived* view (computed from note links, not a canvas you place things
-    on) — making it editable is a bigger lift than reusing its layout math
-    from the whiteboard side, which is already an editable canvas.
-    **Sequencing: build item 11's connection-point/anchor work (draw.io-style
-    fixed/free anchors) first.** It's a direct prerequisite — without it,
-    branch lines terminate at arbitrary card corners instead of looking like
-    mind-map branches.
+25. ~~**Mind-mapping — decided: a whiteboard mode, not a third tab.**~~
+    **Done, verified live (HISTORY.md §57).** Both additions built exactly as
+    scoped: "Arrange as mind map" (Tree or Radial, in the properties panel
+    for a linked card) reuses the Graph tab's own `d3.hierarchy`/`d3.tree`
+    approach against the whiteboard's node/link data via a BFS spanning
+    tree, not a second layout engine; Tab (linked child, next open radial
+    slot) and Enter (sibling) both create a real note+card+link. Verified
+    live: a 4-card hub-and-spoke arranged radially put every child at
+    exactly the configured ring distance from the root; Tab/Enter both
+    produced real, correctly-parented cards.
 26. **Widgets: a picker**, and more of them. Customisable sidebars, and note
     view options in the Notes tab. Asked for directly as "a widget management
     hub popup on the dashboard, like a widget marketplace" — the foundation

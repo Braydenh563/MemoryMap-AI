@@ -1219,6 +1219,210 @@ def _delete_document(session: Session, args: dict) -> dict:
     return {"title": title, "label": f"🗑 Deleted the document “{_clip(title, 40)}”"}
 
 
+def _whiteboard_board_filter(model, board_id: int | None):
+    """Same rule `routes_whiteboard.py`'s own `_board_filter` uses — `== None`
+    renders as SQL `= NULL`, never true for any row, so the default board
+    would read as empty however much was actually on it."""
+    return model.board_id.is_(None) if board_id is None else model.board_id == board_id
+
+
+def _read_whiteboard(session: Session, args: dict) -> dict:
+    """The read half of ROADMAP item 11's AI+whiteboard integration: lets the
+    agent answer "what's on my project-planning board?" without a human
+    describing it first. Nothing under `ai/` mentioned the whiteboard at all
+    before this — `autonomous.py`'s orphaned-card cleanup is a background
+    job, not agent context.
+    """
+    from memorymap.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
+
+    raw_board_id = args.get("board_id")
+    board_id = int(raw_board_id) if raw_board_id not in (None, "") else None
+
+    nodes = list(session.scalars(select(WhiteboardNode).where(_whiteboard_board_filter(WhiteboardNode, board_id))))
+    sketches = list(
+        session.scalars(select(WhiteboardSketch).where(_whiteboard_board_filter(WhiteboardSketch, board_id)))
+    )
+    objects = list(
+        session.scalars(select(WhiteboardObject).where(_whiteboard_board_filter(WhiteboardObject, board_id)))
+    )
+
+    entry_ids = [n.entry_id for n in nodes]
+    entries = (
+        {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(entry_ids)))} if entry_ids else {}
+    )
+    cards = [
+        {
+            "card_id": n.id,
+            "note_id": n.entry_id,
+            "preview": _clip(entries[n.entry_id].content, PREVIEW_CHARS) if n.entry_id in entries else "(note missing)",
+        }
+        for n in nodes
+    ]
+
+    links = []
+    for sketch in sketches:
+        try:
+            parsed = json.loads(sketch.data)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(parsed, dict) and str(parsed.get("type", "")).startswith("link-"):
+            links.append({"from_card_id": parsed.get("sourceId"), "to_card_id": parsed.get("targetId")})
+
+    text_boxes = []
+    image_count = 0
+    for obj in objects:
+        try:
+            data = json.loads(obj.data)
+        except (TypeError, ValueError):
+            data = {}
+        if obj.kind == "text":
+            text_boxes.append({"object_id": obj.id, "text": _clip(str(data.get("content") or ""), PREVIEW_CHARS)})
+        elif obj.kind == "image":
+            image_count += 1
+
+    board_title = "Default board"
+    if board_id is not None:
+        board_entry = session.get(Entry, board_id)
+        if board_entry is not None:
+            board_title = manager.extract_title(board_entry.content) or _clip(board_entry.content, 40)
+
+    return {
+        "board_id": board_id,
+        "board_title": board_title,
+        "cards": cards,
+        "text_boxes": text_boxes,
+        "image_count": image_count,
+        "links": links,
+        "label": f"🗂️ Read whiteboard board “{board_title}”",
+    }
+
+
+def _search_whiteboard(session: Session, args: dict) -> dict:
+    """The search half of ROADMAP item 11's AI+whiteboard integration:
+    "whiteboard content becomes searchable the same way notes are." A real
+    embedding index over sketch/text-box content is a bigger lift (a new
+    table, a backfill, a place in the embedding-refresh cycle) than this
+    session's remaining scope — a keyword scan across every board's card
+    previews and text boxes still answers "which board did I put that on?",
+    which is the actual question this was asked for.
+    """
+    from memorymap.core.database import WhiteboardNode, WhiteboardObject
+
+    term = str(args.get("query") or "").strip().lower()
+    if not term:
+        raise ToolError("query is required")
+    limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
+
+    matches = []
+    node_rows = list(session.scalars(select(WhiteboardNode)))
+    entry_ids = [n.entry_id for n in node_rows]
+    entries = {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(entry_ids)))} if entry_ids else {}
+    for node in node_rows:
+        entry = entries.get(node.entry_id)
+        if entry is not None and term in entry.content.lower():
+            matches.append({
+                "board_id": node.board_id,
+                "card_id": node.id,
+                "note_id": node.entry_id,
+                "preview": _clip(entry.content, PREVIEW_CHARS),
+            })
+
+    for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "text")):
+        try:
+            data = json.loads(obj.data)
+        except (TypeError, ValueError):
+            continue
+        text = str(data.get("content") or "")
+        if term in text.lower():
+            matches.append({
+                "board_id": obj.board_id,
+                "object_id": obj.id,
+                "text": _clip(text, PREVIEW_CHARS),
+            })
+
+    return {
+        "matches": matches[:limit],
+        "total_matching": len(matches),
+        "label": f"🔍 Searched whiteboards for “{_clip(term, 30)}”",
+    }
+
+
+def _add_whiteboard_card(session: Session, args: dict) -> dict:
+    """The write half's simplest step: place an existing note as a card on a
+    board — what "AI-guided diagram generation" reduces to for one note at a
+    time. Reuses `_require_note` (not a bare `session.get`) so a private note
+    gets the same refusal every other tool already gives it.
+    """
+    from memorymap.core.database import WhiteboardNode
+
+    entry = _require_note(session, args, "note_id")
+    raw_board_id = args.get("board_id")
+    board_id = int(raw_board_id) if raw_board_id not in (None, "") else None
+    x = float(args["x"]) if args.get("x") is not None else 100.0
+    y = float(args["y"]) if args.get("y") is not None else 100.0
+
+    existing = session.scalar(
+        select(WhiteboardNode).where(
+            WhiteboardNode.entry_id == entry.id,
+            _whiteboard_board_filter(WhiteboardNode, board_id),
+        )
+    )
+    if existing is not None:
+        return {
+            "card_id": existing.id,
+            "note_id": entry.id,
+            "already_there": True,
+            "label": f"🗂️ “{_clip(entry.content, 40)}” is already on that board",
+        }
+
+    node = WhiteboardNode(board_id=board_id, entry_id=entry.id, x=x, y=y, z=1)
+    session.add(node)
+    manager.log_action(session, "created", "whiteboard_node", entry.id, entry.content[:80])
+    session.commit()
+    session.refresh(node)
+    return {
+        "card_id": node.id,
+        "note_id": entry.id,
+        "x": node.x,
+        "y": node.y,
+        "label": f"🗂️ Placed “{_clip(entry.content, 40)}” on the whiteboard",
+    }
+
+
+def _add_whiteboard_link(session: Session, args: dict) -> dict:
+    """The other write step: connect two cards already on a board. No anchor
+    picking here (that's a live-drag interaction, ROADMAP item 11) — a
+    generated link is a floating one, which still terminates correctly on
+    each card's own border via `wbLinkEndpoints` on the client side.
+    """
+    from memorymap.core.database import WhiteboardNode, WhiteboardSketch
+
+    source = session.get(WhiteboardNode, int(args.get("from_card_id") or 0))
+    target = session.get(WhiteboardNode, int(args.get("to_card_id") or 0))
+    if source is None:
+        raise ToolError(f"No whiteboard card with id {args.get('from_card_id')}")
+    if target is None:
+        raise ToolError(f"No whiteboard card with id {args.get('to_card_id')}")
+
+    data = {
+        "type": "link-curved" if args.get("curved") else "link-straight",
+        "sourceId": source.id,
+        "targetId": target.id,
+        "color": "#8899ff",
+    }
+    sketch = WhiteboardSketch(board_id=source.board_id, data=json.dumps(data), x=0, y=0, z=1)
+    session.add(sketch)
+    manager.log_action(session, "created", "whiteboard_link", None, f"{source.id} -> {target.id}")
+    session.commit()
+    session.refresh(sketch)
+    return {
+        "link_id": sketch.id,
+        "from_card_id": source.id,
+        "to_card_id": target.id,
+        "label": "🔗 Linked the two cards",
+    }
+
+
 def _search_chat_history(session: Session, args: dict) -> dict:
     """Past conversations. "What did we decide last week?" was unanswerable:
     each turn only ever saw its own thread, so the assistant had no memory of
@@ -2706,6 +2910,76 @@ TOOLS: dict[str, ToolSpec] = {
             _get_document,
         ),
         ToolSpec(
+            "read_whiteboard",
+            "Read a whiteboard board's contents: which notes are placed as "
+            "cards, any text boxes, how many images, and which cards are "
+            "linked to which. Use this for 'what's on my project board?' or "
+            "before adding to a board, so new cards/links don't duplicate "
+            "what's already there.",
+            {
+                "type": "object",
+                "properties": {
+                    "board_id": {
+                        "type": "integer",
+                        "description": "The board's own note id. Omit for the default board.",
+                    },
+                },
+            },
+            _read_whiteboard,
+        ),
+        ToolSpec(
+            "search_whiteboard",
+            "Search across every whiteboard board for a card or text box "
+            "containing a word — use this for 'which board did I put X on?' "
+            "when you don't already know the board.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Word or phrase to look for"},
+                    "limit": {"type": "integer", "description": "Max results (1-10)"},
+                },
+                "required": ["query"],
+            },
+            _search_whiteboard,
+        ),
+        ToolSpec(
+            "add_whiteboard_card",
+            "Place an existing note as a card on a whiteboard board — the "
+            "building block of drawing a diagram from a description. Call "
+            "read_whiteboard first so a note already on the board isn't "
+            "placed a second time.",
+            {
+                "type": "object",
+                "properties": {
+                    "note_id": _NOTE_ID,
+                    "board_id": {
+                        "type": "integer",
+                        "description": "The board's own note id. Omit for the default board.",
+                    },
+                    "x": {"type": "number", "description": "Board x position (optional)"},
+                    "y": {"type": "number", "description": "Board y position (optional)"},
+                },
+                "required": ["note_id"],
+            },
+            _add_whiteboard_card,
+        ),
+        ToolSpec(
+            "add_whiteboard_link",
+            "Draw a link between two cards already on a whiteboard board — "
+            "the connecting step of building a diagram from a description. "
+            "Both cards must already exist (add_whiteboard_card first).",
+            {
+                "type": "object",
+                "properties": {
+                    "from_card_id": {"type": "integer", "description": "The source card's id (not the note id)"},
+                    "to_card_id": {"type": "integer", "description": "The target card's id (not the note id)"},
+                    "curved": {"type": "boolean", "description": "Curved instead of straight (default false)"},
+                },
+                "required": ["from_card_id", "to_card_id"],
+            },
+            _add_whiteboard_link,
+        ),
+        ToolSpec(
             "search_chat_history",
             "Look through earlier conversations with the user, including "
             "ones from other days. Use this when they refer to something "
@@ -3205,6 +3479,8 @@ WRITE_TOOLS = {
     "delete_skill",
     "create_document",
     "delete_document",
+    "add_whiteboard_card",
+    "add_whiteboard_link",
 }
 
 
@@ -3354,6 +3630,13 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "condense this conversation", "shorten the chat",
             "shorten this conversation", "running out of context",
             "context window",
+        ),
+    ),
+    (
+        ("read_whiteboard", "search_whiteboard", "add_whiteboard_card", "add_whiteboard_link"),
+        (
+            "whiteboard", "board", "canvas", "diagram", "mind map", "mindmap",
+            "mind-map", "sketch", "draw.io", "drawio", "flowchart",
         ),
     ),
 ]

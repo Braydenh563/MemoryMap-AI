@@ -2528,3 +2528,268 @@ ROADMAP item 11's own notes. (3) A **full end-cap system** (circle/square/
 multi-line ends, asked for directly) beyond the arrowhead-sharing done
 this session. (4) Sketch rotation and image cropping, both already named
 and both explicitly deferred again.
+
+## 57. Mind-mapping mode, AI + whiteboard integration, and two real bugs found live that predate both — the rest of §56's own confirmed order, same session, continued after the user kept watching and reporting
+
+Continued straight from §56 on the same branch, the user staying in the
+loop the whole time ("continue your roadmap development plan", "finish
+all the rest of the whiteboard tasks... autonomously", "be token
+efficient"). Built items 2 and 3 of §55's confirmed order in full, plus
+two more live-reported/found bugs. Full code detail is in this section;
+HANDOVER.md carries the short version and what's next.
+
+**Mind-mapping (ROADMAP item 25), done and verified live.** "Arrange as
+mind map" (Tree or Radial) appears in the properties panel for a single
+selected card that has at least one whiteboard link — reuses the Graph
+tab's own `d3.hierarchy`/`d3.tree` approach (`layoutHierarchy`'s pattern),
+against the whiteboard's plain node/link data rather than the notebook's
+category/reply structure, exactly as ROADMAP item 25 specified ("reuse
+that code... instead of writing a second layout engine"). A link graph
+isn't necessarily a tree — a BFS from the selected root (`wbMindMapSpanningTree`)
+turns whatever is reachable into a real spanning tree, and only what's
+reachable moves; the root card itself stays put. Tab (new linked child, at
+"the next open radial slot" — evenly spaced by angle among existing
+siblings, one ring further out) and Enter (new sibling — a child of the
+selected card's *own* parent, falling back to a child of the card itself
+for a root) both create a real note, a real card, and a real link,
+verified live via Playwright: a 4-node hub-and-spoke arranged radially put
+all three children at exactly 260px from the root (the configured ring
+step); Tab added a 5th card and selected it; Enter added a 6th as another
+child of the root (the new card's sibling). `window.wbMindMap` caches the
+parent/children map from the last arrange (or lazily seeds one from the
+board's current links, rooted at whatever card Tab/Enter is used from, if
+nothing was ever arranged) so repeated Tab/Enter presses stay coherent.
+
+**A real, previously-unverified bug found *while building the live test
+for the above*, not by inspection — and its blast radius was much wider
+than mind-mapping.** Selecting a card by clicking it, in Select tool, was
+confirmed live to simply not work: `wbHandleItemClick` fired correctly
+when called directly, but a real `page.click()` on a card never reached
+its own `.on("click", ...)` handler, and — instrumented further — never
+even reached the container's own "empty canvas clears selection" listener
+either. The cause: `dragStart`'s unconditional `d3.select(this).raise()`
+(re-appending the card as its parent's last DOM child, for z-order while
+dragging) ran on *every* pointerdown, including a plain zero-movement
+click, and reappending the interaction target mid-gesture is enough to
+stop the browser from ever synthesizing the following `click` event at
+all. A plain sketch, whose own drag "start" never calls `.raise()`,
+selected correctly the same way, the same session, on the same page —
+confirmed by adding matching instrumentation to both and comparing.
+`objDragStart` (images/text objects) had the identical shape and got the
+identical fix. Moved `.raise()` from each `*DragStart` into the matching
+`*DragMove`/`dragging` handler, which — unlike "start" — only ever runs
+after real movement, so a plain click's own click event is never touched.
+**This means clicking a card or object to select it may never have
+reliably worked via a real click gesture before this fix**, however many
+sessions' own Playwright checks read as passing — worth keeping in mind
+when trusting an *older* session's "verified live" claim about
+card/object selection specifically; a check that calls `selectWbItem()`
+directly, or drives selection through a keyboard shortcut, would never
+have caught this.
+
+**AI + whiteboard integration, all three pieces, ROADMAP item 11's own
+plan followed exactly.** Nothing under `src/memorymap/ai/` mentioned the
+whiteboard before this.
+- **Read** (`read_whiteboard`): board id (or the default board), every
+  card with its note preview, every text box's content, an image count,
+  and every link as `{from_card_id, to_card_id}`. Uses its own copy of the
+  `board_id IS NULL` filter `routes_whiteboard.py`'s `_board_filter`
+  already gets right — tested explicitly (`test_read_whiteboard_default_
+  board_is_not_confused_with_an_absent_one`) since `== None` rendering as
+  SQL `= NULL` is exactly the bug HISTORY.md §40 already found once in the
+  same shape, in a different file.
+- **Search** (`search_whiteboard`): a keyword scan across *every* board's
+  card previews and text boxes, returning which `board_id` each match is
+  on. Scoped deliberately short of a real embedding index (a new table, a
+  backfill, a place in the embedding-refresh cycle) — that's a bigger lift
+  than this pass's remaining budget, and a keyword scan already answers
+  the actual question this was asked for ("which board did I put that
+  on?").
+- **Write** (`add_whiteboard_card`, `add_whiteboard_link`): places an
+  existing note as a card, or links two existing cards — the two
+  operations "AI-guided diagram generation" (asked for directly, "allow
+  the ai to generate the diagrams guided") reduces to for one step at a
+  time, reusing the existing create endpoints rather than a new generation
+  path, exactly as scoped. `add_whiteboard_card` goes through
+  `_require_note`, not a bare `session.get`, so a private note gets the
+  same refusal every other tool already gives it — tested directly
+  (`test_add_whiteboard_card_refuses_a_private_note`), the exact regression
+  shape CLAUDE.md's own review checklist names ("a guard removed while the
+  shape around it was kept"). It is also idempotent on `(note_id,
+  board_id)` — calling it twice for the same note doesn't create a second
+  card, tested directly, since an LLM retrying (or a user asking twice) is
+  a real, not hypothetical, way to hit this path twice. Both write tools
+  are in `WRITE_TOOLS`, the set the agent's "you claimed you saved it but
+  never called a write tool" safety net reads — missing from it would have
+  meant a genuine card/link creation read as a hallucinated claim, the
+  opposite of what that check exists to catch. **Not added to
+  `TOOLS_GUIDE`**: the prompt's fixed prose had 2 characters of headroom
+  left under `PROSE_BUDGET_CHARS` (`test_prompt_budget.py`) — the tools
+  are still reachable via a `TOOL_GROUPS` cue (whiteboard/board/canvas/
+  diagram/mind map/sketch/draw.io/flowchart) and each tool's own
+  description is self-contained, so this is a scoping choice, not a gap;
+  raise the budget deliberately, with a reason in the comment above it, if
+  a future session needs guide-level prose for this too. 9 new tests in
+  `tests/test_ai_whiteboard_tools.py`, all passing.
+
+**A second real, previously-unknown bug, found live while testing the new
+"New whiteboard board" command-palette entry (asked for directly: "add
+creating a new board to the command palette").** Pressing Ctrl+K opened
+*two* overlays at once: the intended navigation palette (`openPalette`,
+`#palette-overlay`) and a second, separately-built "ask the agent
+anything" quick-command overlay (`#command-palette-overlay`) — both bound
+the identical global Ctrl+K keydown on `document`, independently, neither
+aware the other existed. The second one sits later in the DOM and
+silently ate every click meant for the first, confirmed live via
+Playwright (`locator resolved... <div id="command-palette-overlay">...
+intercepts pointer events`). The "ask anything" overlay is itself a real,
+previously-fixed feature (its own code comment records a genuine XSS +
+parsing bug fixed in an earlier pass) — not dead code to delete, just
+mis-bound. Rebound to Ctrl+Shift+K, the smallest fix that keeps both
+features intact. **This means the "ask the agent anything" quick command
+has likely been unreachable by its own shortcut for as long as both
+palettes have coexisted** — worth a mention if it's ever reported as
+"missing"; it was built, tested, and simply unopenable.
+
+**Two more contained fixes, same session:** a real O(n × notebook size)
+lookup — `allEntries.find(...)` inside each card's per-render content
+callback, and again inside the SVG-export loop — replaced with a `Map`
+built once per call (`entriesById`/`exportEntriesById`), asked for
+directly ("make sure... there are no heavy algorithms, everything is
+efficient"); the whiteboard's own backend routes (`get_whiteboard_state`,
+`list_boards`) were audited and are already flat, aggregate-query shaped,
+no N+1 found there. And "creating a new board" is now also a command-
+palette entry (`🗂️ New whiteboard board`), switching to the Whiteboard
+sub-tab and invoking the existing `createNewBoard()` flow.
+
+All ~1,600+ tests pass (9 new, `test_ai_whiteboard_tools.py`), `ruff
+check .` is clean, `node --check frontend/app.js` is clean. **What was
+and wasn't verified**: the mind-map arrangement math, Tab/Enter branch
+entry, the click-to-select fix (both cards and objects, compared directly
+against a working sketch), and the Ctrl+K collision were all driven
+against a real running server via Playwright — DOM state, `wbState`, and
+computed layout read back directly. The AI tools were verified through
+`tests/test_ai_whiteboard_tools.py` calling each handler directly against
+a real (SQLite, in-memory) session — not through a live Ollama round-trip,
+per this project's own standing caveat that provider behaviour is untested
+in this sandbox; the tool *logic* (filters, idempotency, the private-note
+guard) is real-database-verified, but no session has watched a live model
+actually choose to call `read_whiteboard`/`add_whiteboard_card` mid-
+conversation.
+
+**Still open, in the order worth tackling them:** (1) a full line/arrow
+end-cap system (circle/square/multi-line ends, independently per end) —
+scoped in §56, not built, beyond the arrowhead-sharing between Line and
+Arrow. (2) Sketch rotation and image cropping, both named multiple
+sessions running. (3) Uploaded whiteboard images in the Library as files,
+and orphaned `/media/` garbage collection (ROADMAP item 20a — newly
+promoted from HANDOVER prose this session, see below). (4) An "Agent
+Activity" popup cleanup pass (item 20b, same promotion). (5) A genuine
+semantic index over whiteboard content, if keyword search
+(`search_whiteboard`) turns out not to be enough in practice.
+
+**Documentation housekeeping, asked for directly** ("make sure the rest is
+in the roadmap"): a stale HANDOVER.md-only list from several sessions back
+was checked item by item against the current ROADMAP.md. Two real gaps
+found — a Library media gallery + orphan cleanup, and an Agent Activity
+popup cleanup pass — had only ever been named in HANDOVER.md prose, never
+promoted into ROADMAP.md's own Tier list, which is precisely the failure
+mode this project's own "How to work on this repo" section exists to
+catch. Added as items 20a/20b. Everything else on that old list (start.sh
+parity, link-reason visibility, AI whiteboard access, Tier 2 remainder)
+was already correctly tracked or already resolved.
+
+## 58. Smart alignment/spacing guides finished and colour-coded, a lasso select tool, export-selection, and a "two-card drag does nothing" scare that turned out to be three separate test-geometry bugs, not one product bug
+
+Continued straight from §57 on the same branch. The session's biggest time
+sink was diagnosing what looked like a serious regression — dragging a
+card with a second card present on the board produced *zero* movement,
+confirmed by instrumenting `dragging()` directly and seeing it never fire.
+The eventual finding, confirmed with `document.elementsFromPoint` at the
+exact drag-start coordinates: the test's own geometry placed the second
+card at a board `y` that mapped to screen `y≈890`, landing on `#status-bar`
+(`.has-agent-monitor`), not the card — the same class of danger-zone bug
+this file already warns about for the floating toolbar panel, just at the
+opposite edge of the viewport. Two more rounds of the *same* mistake
+followed while verifying the fix (a snap-to-exact-position test that
+"failed" was reading gaps against the wrong neighbour card, and a
+spacing-guide test that "failed" was contaminated by leftover cards from
+an earlier test still sitting on the same in-memory board) — each
+confirmed as a test artifact, not a product bug, by re-running the same
+assertion against a freshly wiped server. The lesson worth keeping: when a
+live-drag Playwright test fails, re-run the same check via a direct
+function call against a clean board before concluding the *feature* is
+broken — three "bugs" this session were the harness, not the code.
+
+With that settled, alignment guides work end-to-end: real mouse-drag tests
+confirm edge/centre snapping (`WB_ALIGN_SNAP_PX = 6`), guide-line display,
+and Alt-bypass, all previously verified only via direct function call.
+**Equal-spacing guides**, asked for directly ("same spacing... what
+draw.io and Microsoft PowerPoint have"), were newly built and verified:
+`wbAlignmentGuides` now also checks, on whichever axis edge/centre didn't
+already claim, whether the dragged item's nearest single neighbour on each
+side would end up with equal gaps, snapping to the exact middle when
+within threshold — O(n) per drag frame like the alignment pass above it,
+not O(n²), since it only ever looks at the nearest neighbour each side,
+never every triple. **Colour-coding**, also asked for directly: each guide
+line now carries a `kind` (`"edge"`, `"center"`, `"spacing"`), each with
+its own default colour (magenta/cyan/green — the CSS rule that used to
+hard-code `stroke: #ff00ff` had to lose that declaration entirely, since an
+SVG presentation attribute only loses to a CSS property that's actually
+*set*, not an unset one) and each independently overridable via three new
+colour pickers in the shape-menu dropdown, persisted to `localStorage`.
+Deliberately *not* built: a new "top menu bar" for this — the user's own
+phrasing floated it as "or smth," and the shape-menu dropdown is this
+whiteboard's existing home for "alter a drawing default," so the colour
+pickers went there instead of opening a larger, separate redesign.
+
+**Selection tooling, asked for directly** ("all the selection tools (e.g.
+rectangle select and lasso)... export selection feature"): a genuine
+freeform lasso tool (`wbPointInPolygon`, ray-casting, one test per item
+against the traced loop rather than a rectangle intersection) joins the
+existing rectangle marquee, hit-testing each item's centre point against
+the polygon. Per a follow-up ask in the same session, Select and Lasso are
+now grouped into their own dropdown in the toolbar — the exact
+`#wb-shape-picker` pattern the shape tools already used, duplicated as
+`#wb-select-picker`/`#wb-select-menu`, not a bespoke second mechanism.
+`k` is the lasso hotkey (`l` was already Line). The export menu gained a
+"Just the selection" option for PNG/SVG/PDF wherever something is
+selected, filtering `wbBuildExportSvg`'s three item loops to the selected
+keys and cropping to `wbSelectionBounds()` rather than the whole board —
+verified via a direct-call test that the SVG contains only the selected
+card's `<g>`, not the unselected one.
+
+**A question worth recording rather than guessing at**: asked whether the
+AI can generate a diagram with hierarchy from notes, "kinda like
+mermaid.js," given small (2–8B) models are the target. Current answer is
+partial — `add_whiteboard_card`/`add_whiteboard_link` (§57) let the model
+build a connected diagram, but `x`/`y` are free-form numbers defaulting to
+`(100, 100)`, so a multi-note hierarchy means the model must invent
+spread-out coordinates itself across many chained tool calls, threading
+card IDs through context the whole way — exactly the bookkeeping small
+tool-calling models get wrong. The real auto-layout math already exists
+(`wbArrangeMindMap`, tree/radial, walking the link graph via
+`wbMindMapSpanningTree`) but is pure client-side JS behind keyboard
+shortcuts, not callable by the AI. The scoped fix — a single bulk tool
+that takes a structure and does all placement server-side — is recorded in
+BACKLOG.md rather than built this session.
+
+**Explicitly deferred, not half-built** — asked for directly this session
+but out of budget: renaming a board (there is no `PUT /whiteboard/boards`
+endpoint yet; a board's title is its underlying note's first `# heading`
+line, so this is a small, well-scoped addition, not a design problem), and
+a Library-tab gallery view surfacing every board/mind-map and every
+uploaded image as its own browsable section (`GET /whiteboard/boards` and
+`GET /whiteboard/images`, both already built in §57, have no frontend
+consumer yet beyond the whiteboard's own board-switcher dropdown). Both
+recorded in BACKLOG.md ahead of the next session, not left as a
+half-finished attempt in the codebase.
+
+All ~1,600+ tests pass, `ruff check .` is clean, `node --check
+frontend/app.js` is clean. **What was and wasn't verified**: every claim
+in this section past the code-reading stage was checked against a real
+running server via Playwright — direct `wbAlignmentGuides()` calls against
+known fixtures, real mouse-drag gestures reading back `wbState`/DOM,
+`elementsFromPoint` for the danger-zone diagnosis, and a direct
+`wbBuildExportSvg()` call inspecting the returned SVG string. Nothing UI
+in this section is reasoned-not-observed.

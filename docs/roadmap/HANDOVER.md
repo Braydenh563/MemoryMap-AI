@@ -2,37 +2,44 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Next session: start here — mind-map mode, then AI + whiteboard
+## Next session: start here — selection tooling and alignment guides are now done; three scoped whiteboard items are next
 
-§56 finished item 1 of the three-part confirmed order (anchors) and then
-worked a live-reported whiteboard bug list that arrived mid-session before
-reaching items 2/3. **Read [HISTORY.md §56](HISTORY.md) before touching
-the whiteboard** — it names a real shared-drag-instance bug pattern
-(`objDrag`/`gripDrag`) and a CSS specificity trap (`.bottom-center` vs.
-`[data-dock="side"]`) that cost real time and are easy to reintroduce.
+§58 (HISTORY.md) finished smart alignment guides (edge/centre/spacing, all
+colour-coded and user-alterable), added a lasso select tool alongside the
+existing marquee (both now grouped in their own toolbar dropdown), and an
+"export just the selection" option. **Read [HISTORY.md §58](HISTORY.md)
+before trusting a live-drag Playwright test that reports zero movement or
+a failed snap** — three separate "bugs" this session were the test's own
+geometry (a card landing under `#status-bar`, a gap check reading the
+wrong neighbour, leftover cards from an earlier test still on the board),
+confirmed each time by re-running the same check against a freshly wiped
+server. Re-run clean before concluding the *feature* is broken.
 
-**Build order, remaining:**
-1. ~~**Real anchor/connection points**~~ **Done, verified live (§56).**
-   Eight fixed points + a floating (rectangle-intersection) case, matching
-   draw.io. `wbLinkEndpoints`/`wbLinkPathD` are the shared math every call
-   site now uses — read those before touching link rendering again.
-2. **Mind-mapping mode** (ROADMAP item 25: already fully designed —
-   "Arrange as mind map" reusing the Graph tab's Tree/Radial layout code,
-   plus Tab/Enter branch entry). No longer blocked — branch lines can
-   terminate on real anchors now instead of arbitrary corners.
-3. **AI + whiteboard, three pieces, confirmed wanted together**: the chat
-   agent gets a tool to read a board's contents (nothing under
-   `src/memorymap/ai/` currently mentions the whiteboard at all, other than
-   an unrelated orphan-cleanup job); whiteboard content becomes searchable
-   (`search_manager.py` currently queries only `Entry`); AI-guided diagram
-   generation is the write side of the first piece, reusing the same read
-   tool plus the existing create/update endpoints. Build the read tool and
-   search indexing before the generation piece.
-
-Also still open, named directly by the user in §56 but not built: a full
-line/arrow end-cap system (circle/square/multi-line ends, independently
-per end — only the existing arrowhead was extended from Arrow-only to also
-cover Line).
+**What's left, in the order worth tackling it:**
+1. **Renaming a board**, and a **Library gallery of every board/mind-map
+   and every uploaded image** — both asked for directly this session, both
+   scoped in BACKLOG.md §29d, neither built (out of budget, not out of
+   scope). The read endpoints for the gallery already exist
+   (`GET /whiteboard/boards`, `GET /whiteboard/images`); rename needs a new
+   `PUT /whiteboard/boards/{id}`.
+2. A **structured, small-model-friendly diagram-generation tool**
+   (BACKLOG.md §29d) — the AI can place cards/links one at a time
+   (`add_whiteboard_card`/`add_whiteboard_link`, §57) but has to invent
+   `x`/`y` itself across many chained calls, which is exactly where a
+   2–8B tool-calling model breaks. Needs the existing tree/radial layout
+   math (`wbArrangeMindMap`, currently client-side JS only) ported to
+   Python so a single bulk call can do placement server-side.
+3. A **full line/arrow end-cap system** (circle/square/multi-line ends,
+   independently per end) — named directly, not built; §56 only extended
+   the existing arrowhead control from Arrow-only to also cover Line.
+4. **Sketch rotation** and **image cropping** — both named multiple
+   sessions running, neither scoped further than "needs real trig" /
+   "needs an interaction decision" respectively.
+5. An **Agent Activity popup cleanup pass** (ROADMAP item 20b) and a
+   **real semantic index** over whiteboard content if `search_whiteboard`
+   (a keyword scan) turns out not to be enough once used for real.
+6. Whichever ROADMAP.md Tier 2/3 item reads as next-most-valuable on a
+   fresh read — none of the above are blocking anything else.
 
 ## §56 — real anchor/connection points, built and verified live, then a live-reported whiteboard UI/bug list worked the same session
 

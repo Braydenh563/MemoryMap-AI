@@ -173,7 +173,7 @@
     <div class="card glass command-palette-card">
       <div class="command-palette-bar">
         <span class="command-palette-icon">✨</span>
-        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Esc to close)">
+        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Ctrl+Shift+K to open, Esc to close)">
       </div>
       <div id="command-palette-results" class="command-palette-results">
         <p class="muted command-palette-hint">Press Enter to send.</p>
@@ -1475,9 +1475,29 @@ Link to another note with [[its first few words]]."></textarea>
         <button class="ghost icon-button active" data-tool="pan" title="Pan (V)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
         </button>
-        <button class="ghost icon-button" data-tool="select" title="Select (S) — click a card or sketch, Delete to remove it">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
-        </button>
+        <!-- Selection tools grouped into their own dropdown — asked for
+             directly ("have the selection tools as their own dropdown tools
+             part like with the shapes and lines"). Same #wb-shape-picker
+             pattern: a toggle showing whichever of the two is active, a
+             hidden menu underneath, plain `data-tool` buttons inside that
+             #wb-tool-group's existing delegated click listener picks up
+             unchanged. -->
+        <div class="wb-shape-picker" id="wb-select-picker">
+          <button type="button" class="ghost icon-button" id="wb-select-toggle" title="Selection tools (S/K)" aria-haspopup="true" aria-expanded="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="wb-select-toggle-icon"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
+            <svg class="wb-shape-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="wb-shape-menu hidden" id="wb-select-menu" role="menu">
+            <div class="wb-shape-menu-group">
+              <button class="ghost icon-button" data-tool="select" title="Select (S) — click a card or sketch, Delete to remove it">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="lasso" title="Lasso select (K) — draw a freeform loop around anything whose centre falls inside it">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3C4 3 2 6 2 9c0 4 4 5 4 8 0 1.5-1 2-1 2"></path><path d="M8 3c5 0 8 2 8 6 0 3-2 4-5 4"></path><circle cx="5" cy="19.5" r="1.5"></circle></svg>
+              </button>
+            </div>
+          </div>
+        </div>
         <button class="ghost icon-button" data-tool="draw" title="Pen (P)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
         </button>
@@ -1536,6 +1556,60 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="none">Plain</option>
               </select>
             </label>
+            <!-- Asked for directly: "can the stroke width, style, and
+                 colour be altered, same with the fill colour/transparency??
+                 options for no border/stroke or background". Stroke colour
+                 already lives on the main toolbar (#wb-color-picker, always
+                 visible — every tool uses it); these three apply
+                 specifically to the shape tools (Rect/Circle/Triangle/
+                 Diamond fill; dash style also applies to Line/Arrow). -->
+            <div class="wb-shape-menu-divider" role="separator"></div>
+            <label class="wb-shape-menu-row" title="Rectangle, Circle, Triangle and Diamond only">
+              <span>Fill</span>
+              <span class="row wb-inline-controls">
+                <input type="color" id="wb-fill-color" class="wb-color-picker" value="#3355ff">
+                <input type="range" id="wb-fill-opacity" min="0" max="100" step="5" value="100" title="Fill opacity">
+                <label class="wb-snap-label" title="No fill — outline only">
+                  <input type="checkbox" id="wb-fill-none" checked>
+                  <span>None</span>
+                </label>
+              </span>
+            </label>
+            <label class="wb-shape-menu-row">
+              <span>Stroke style</span>
+              <select id="wb-stroke-style">
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </label>
+            <label class="wb-shape-menu-row">
+              <span>Stroke</span>
+              <label class="wb-snap-label" title="No stroke — fill only">
+                <input type="checkbox" id="wb-stroke-none">
+                <span>None</span>
+              </label>
+            </label>
+            <!-- Asked for directly: "the guides should be colour coded with
+                 default colours for various alignments and spacing
+                 suggestions, and the colours should be alterable". Lives
+                 here rather than a new top menu bar — that redesign is a
+                 separate, larger, deliberately deferred item (see
+                 HISTORY.md); this dropdown is the whiteboard's existing home
+                 for "alter a drawing default", which a guide colour is. -->
+            <div class="wb-shape-menu-divider" role="separator"></div>
+            <label class="wb-shape-menu-row" title="Colour shown while dragging when an edge lines up with another item's edge">
+              <span>Guide: edge</span>
+              <input type="color" id="wb-guide-color-edge" class="wb-color-picker" value="#ff00ff">
+            </label>
+            <label class="wb-shape-menu-row" title="Colour shown while dragging when a centre lines up with another item's centre">
+              <span>Guide: center</span>
+              <input type="color" id="wb-guide-color-center" class="wb-color-picker" value="#00c8ff">
+            </label>
+            <label class="wb-shape-menu-row" title="Colour shown while dragging when the gap to two neighbours becomes equal">
+              <span>Guide: spacing</span>
+              <input type="color" id="wb-guide-color-spacing" class="wb-color-picker" value="#3ddc84">
+            </label>
           </div>
         </div>
         <button class="ghost icon-button" data-tool="text" title="Text box (T) — click the canvas to place one">
@@ -1568,6 +1642,14 @@ Link to another note with [[its first few words]]."></textarea>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
         <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">
+        <!-- Asked for directly ("pen size, eraser size, line/shape width").
+             The sketch pad's own `#sketch-size` already reaches every one of
+             its tools (HISTORY.md §46); the whiteboard's pen/line/shapes/
+             eraser had no equivalent — every stroke drew at a hardcoded 3px
+             with no way to change it before drawing (only after, and only
+             for a sketch already on the board, via the properties panel's
+             own Width field). -->
+        <input type="range" id="wb-stroke-width" min="1" max="24" step="1" value="3" title="Pen / shape / eraser size">
       </div>
     </div>
 
@@ -1605,13 +1687,42 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="none">None</option>
         </select>
       </label>
+      <!-- A drawn shape's own fill/stroke-style/no-stroke — asked for
+           directly, editable on an already-drawn shape, not just chosen
+           before drawing a new one (the shape-menu dropdown's own controls,
+           see index.html's #wb-fill-color etc.). -->
+      <label class="wb-properties-row hidden" id="wb-prop-dash-row">
+        <span>Stroke style</span>
+        <select id="wb-prop-dash">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
+      </label>
+      <label class="wb-properties-row hidden" id="wb-prop-nostroke-row">
+        <span>Stroke</span>
+        <input type="checkbox" id="wb-prop-nostroke" title="No stroke — fill only">
+      </label>
+      <label class="wb-properties-row hidden" id="wb-prop-shapefill-row">
+        <span>Fill</span>
+        <span class="row wb-inline-controls">
+          <input type="color" id="wb-prop-shapefill">
+          <input type="checkbox" id="wb-prop-shapefill-none" title="No fill">
+        </span>
+      </label>
       <label class="wb-properties-row hidden" id="wb-prop-bg-row">
         <span>Fill</span>
-        <input type="color" id="wb-prop-bg">
+        <span class="row wb-inline-controls">
+          <input type="color" id="wb-prop-bg">
+          <input type="checkbox" id="wb-prop-bg-none" title="No background">
+        </span>
       </label>
       <label class="wb-properties-row hidden" id="wb-prop-border-row">
         <span>Border</span>
-        <input type="color" id="wb-prop-border">
+        <span class="row wb-inline-controls">
+          <input type="color" id="wb-prop-border">
+          <input type="checkbox" id="wb-prop-border-none" title="No border">
+        </span>
       </label>
       <label class="wb-properties-row hidden" id="wb-prop-fontsize-row">
         <span>Text size</span>

@@ -2794,7 +2794,7 @@ known fixtures, real mouse-drag gestures reading back `wbState`/DOM,
 `wbBuildExportSvg()` call inspecting the returned SVG string. Nothing UI
 in this section is reasoned-not-observed.
 
-## 59. §58's own three deferred whiteboard items closed out, a live-reported bug list worked through as it arrived, and a second whiteboard architecture bug found the same way the first one was
+## 61. §58's own three deferred whiteboard items closed out, a live-reported bug list worked through as it arrived, and a second whiteboard architecture bug found the same way the first one was
 
 Opened by re-checking the running app and BACKLOG.md §29d before building
 anything, per this file's own standing rule — all three of that section's

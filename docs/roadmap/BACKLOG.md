@@ -2316,15 +2316,15 @@ session that only reads ROADMAP.md's live list.
 ## 29d. Whiteboard — scoped and next, not brainstormed
 
 Unlike §29c above, these four were specific asks from the same session
-(HISTORY.md §58) with a clear shape. Three are now built (HISTORY.md §59);
+(HISTORY.md §58) with a clear shape. Three are now built (HISTORY.md §61);
 the fourth — links to objects — is still open.
 
-- ~~**Rename a board.**~~ **Done (HISTORY.md §59).** `PUT
+- ~~**Rename a board.**~~ **Done (HISTORY.md §61).** `PUT
   /whiteboard/boards/{id}` rewrites the underlying note's first `#
   heading` line; the one board that isn't a note (`board_id=None`,
   "Default board") is refused with a clear error rather than crashing.
 - ~~**A Library gallery of boards, mind-maps, and uploaded images.**~~
-  **Done (HISTORY.md §59).** The Library's whiteboard area is now two
+  **Done (HISTORY.md §61).** The Library's whiteboard area is now two
   sub-tabs: "Whiteboards" (a board gallery over `GET /whiteboard/boards`,
   plus "+ New board", replacing the bare board-switcher dropdown as the
   only way to see what boards exist) and "Image Gallery" (sourced from the
@@ -2333,7 +2333,7 @@ the fourth — links to objects — is still open.
   objects — see the Tier 3 media item in ROADMAP.md for what's still open
   there).
 - ~~**A structured, small-model-friendly diagram-generation tool.**~~
-  **Done (HISTORY.md §59).** `generate_diagram` takes a flat node list
+  **Done (HISTORY.md §61).** `generate_diagram` takes a flat node list
   (`title` or `note_id`, plus `parent_ref`) and a `layout`
   (`tree`/`radial`), creates every card and link server-side in one call,
   and computes placement itself — a BFS depth/slot layout in Python

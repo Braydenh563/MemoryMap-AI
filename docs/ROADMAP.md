@@ -970,18 +970,55 @@ Worth doing, and worth doing after the above.
     `match_info` already is — a badge, not an interruption — and scoped to
     the direct Q&A path only, not the full agentic chat, where
     `unsupported_claims` already does the related job.
+37. **`preferences.json` isn't crash-safe** (ANALYSIS.md §60). Found by the
+    second odysseus read: `ConfigManager.set_preference` persists it with a
+    plain `write_text()` — no tmp file, no fsync, no atomic rename — so a
+    crash mid-write can truncate or corrupt the one file holding
+    `llm_api_key` and every saved setting, contradicting its own docstring's
+    promise that "a crash never loses a settings change." §59 already looked
+    at this class of fix once (claude-obsidian's transaction layer) and
+    correctly ruled it unnecessary because SQLite's own transactions cover
+    concurrent note writes — but `preferences.json` sits outside the
+    database, so that dismissal doesn't reach this file. Fix is odysseus's
+    own `atomic_write_json`/`atomic_write_text` shape (write-to-tmp + fsync +
+    `os.replace`), ~15 lines, applied at the one call site in `core/config.py`.
+38. **MCP support, now with a concrete shape to build from** (ANALYSIS.md
+    §60, narrowing BACKLOG §29). Expose first: a stdio MCP server over the
+    existing tool registry (search/create/tag a note) needs no new trust
+    model — it's the same local-process boundary the app already has, reachable
+    from Claude Desktop or any other MCP client on the machine. Consuming
+    external MCP servers is a separate, harder feature that needs the trust
+    model BACKLOG §29 already flagged as missing; it should wait until that
+    exists rather than ship alongside the expose direction.
+39. **Passive capture: a fifth autonomous-tasks job that mines chat for
+    un-filed facts** (ANALYSIS.md §60). Today a note is only filed on an
+    explicit instruction or an explicit tool call — something mentioned in
+    passing during an ordinary Q&A turn is never captured. An
+    `auto_capture_enabled` job alongside the existing `auto_tag`/`auto_link`/
+    `auto_dedupe` three, default off for the same reason those are ("it runs
+    the agent against the whole notebook with nobody watching"). Needs
+    measuring before it ships, the same discipline already applied to §33's
+    semantic-tool-retrieval item — a background job that mis-files something
+    nobody asked to capture is a worse failure than one that misses something.
 
 ### Tier 4 — deferred, with the reason
 
 Not a dump: each says why it is not Tier 3.
 
-- **`app.js` module split** (~20.7k lines) and the same for `style.css`. Worth
-  doing and worth doing *deliberately* — a mechanical split makes review
-  harder for a session and gains nothing on its own. There is no longer a
-  natural ride-along feature to split it against, so it needs a scoping
-  decision (which module first, how to keep it reviewable) before a session
-  starts, not a default pull. The `tests-e2e/` Playwright smoke suite is the
-  safety net when someone does.
+- **`app.js` module split** (29.1k lines now, up from the 20.7k this entry
+  was last written against — §60's session). Still worth doing
+  *deliberately*, and now with an actual first candidate instead of "pick
+  something": the whiteboard is a single unbroken, clearly-marked 5,300-line
+  block (`// === WHITEBOARD LOGIC ===` at line 23292 through the next marked
+  section at 28586) — the largest coherent subsystem in the file by a wide
+  margin, and one a session could plausibly extract to `whiteboard.js` in
+  one sitting with the `tests-e2e/` Playwright smoke suite as the safety
+  net. Not attempted this session — the risk isn't the extraction itself,
+  it's doing it *in the same sitting* as live edits to that exact code (this
+  session's whiteboard bug fixes), where a half-done split and a bug fix
+  landing in the same diff is much harder to review or revert than either
+  alone. Do the split on a quiet day, not appended to a bug-fix session.
+  Same for `style.css`, unscoped.
 - **A second React frontend.** A second implementation of every screen, kept
   in step by hand, for an app whose brief is "no build step". The cost is not
   the first version — it is every change afterwards having two homes. If the
@@ -998,18 +1035,21 @@ Not a dump: each says why it is not Tier 3.
 - **The "full UI audit" umbrella.** Break into dated sub-items as capacity
   allows. The concrete pieces left: a colour-scale pass to match the existing
   spacing/type work, and a widget-density sweep.
-- **"Clean up, consolidate and refactor the test files."** 106 files, and the
-  suite is fully green — there is no known duplication or staleness to point
-  at, just a general request. Doing this blind risks the opposite of the
-  goal: this project's own tests are written as *narrative* (each docstring
-  is a reported bug or a design decision, not a spec), and a mechanical
-  consolidation pass — merging `test_x.py` and `test_x_more.py` because the
-  names look related — is exactly how that history gets flattened into
-  generic assertions nobody can trace back to why they exist. Worth doing
-  *with a concrete finding first*: run coverage, look for genuinely
-  duplicated setup (a fixture reinvented under a different name in three
-  files is a real, safe consolidation), or split a file that actually is
-  too large — not a scheduled tidy with no target.
+- **"Clean up, consolidate and refactor the test files."** Asked again
+  (§60's session), so this time checked with the actual method the entry
+  above calls for, not re-deferred on the same reasoning twice: grepped
+  every `@pytest.fixture` across all 107 files for a name reused in more
+  than one — none found. The two closest near-misses (`ollama()` in both
+  `test_presets.py` and `test_model_specs.py`) build genuinely different
+  mocks, not a copy-paste duplicate. **The finding is that there is no
+  finding** — no reinvented fixture, no `test_x`/`test_x_more` pair sharing
+  setup, nothing a mechanical merge would safely collapse. The four largest
+  files (`test_skills.py` 881 lines, `test_wavef_api.py` 764,
+  `test_searxng_install.py` 755, `test_antigravity_regressions.py` 733) are
+  each single-topic and coherent, not grab-bags — a size-triggered split
+  would separate a fixture from the twenty tests that share it for no
+  reason but the line count. Still nothing to do here until a real
+  duplication turns up.
 
 ### The rule this section exists to enforce
 

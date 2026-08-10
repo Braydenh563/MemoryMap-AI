@@ -1432,11 +1432,35 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile {
+  position: relative;
   margin: 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--card);
+}
+
+/* Had no styling at all before — a plain inline button between the image
+   and caption, not the corner overlay a delete control on a tile usually
+   is anywhere else in this app. Hover/focus-revealed so a grid of images
+   doesn't carry a permanent row of trash-can icons; the button itself
+   stays in the DOM (not display:none) so it's still keyboard-reachable
+   without hovering. */
+.library-image-tile .library-image-delete {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.library-image-tile:hover .library-image-delete,
+.library-image-tile:focus-within .library-image-delete,
+.library-image-tile .library-image-delete:focus-visible {
+  opacity: 1;
 }
 
 .library-image-tile img {
@@ -9178,6 +9202,24 @@ button {
   white-space: nowrap;
 }
 
+.attachment-chip-image img {
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 var(--space-3);
+}
+
+.attachment-chips.hidden {
+  display: none;
+}
+
 .attachment-remove {
   border: 0;
   background: none;
@@ -12809,12 +12851,32 @@ textarea.autogrow {
   align-items: center;
   justify-content: center;
   padding: calc(var(--space-9) * 2.5) var(--space-8) calc(var(--space-9) * 3);
-  overflow-y: auto;
   z-index: 1;
   pointer-events: none;
 }
 
-.wb-empty-hint > * {
+/* The padding above reserves the top/bottom panels' strips *most* of the
+   time, but it's a guess at their height, not a measurement of it — the
+   tools panel grows when a shape submenu opens, and a short window has less
+   room to begin with. Previously the text itself sat directly in the padded
+   box with `overflow-y: auto` there, which should have let it scroll past
+   either case — except that box is `pointer-events: none` (deliberately, so
+   an empty canvas stays click-through-able to start drawing), which also
+   blocks the wheel/drag a scroll needs. Reported directly: the text and
+   button overflowing, covered by the tool UI, with no way to reach them.
+   This inner box is the fix — it's the only part that's actually
+   `pointer-events: auto`, so scrolling and clicking both work, and its own
+   `max-height` + `overflow-y` mean content that doesn't fit scrolls inside
+   it rather than spilling into the reserved strip. */
+.wb-empty-hint-inner {
+  pointer-events: auto;
+  max-width: 26rem;
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.wb-empty-hint-inner>* {
   max-width: 26rem;
   text-align: center;
   color: var(--muted);
@@ -12909,6 +12971,17 @@ textarea.autogrow {
 .whiteboard-floating-panel.top-right {
   top: 1rem;
   right: 1rem;
+  /* Eight controls (library toggle, colour, grid, snap, background image,
+     reset, clear, export) in one un-wrapped row reached ~666px wide, which
+     at any viewport under ~1330px overlapped #wb-back-to-boards's own
+     centred position — reported directly ("top right panel clashes with
+     the boards back button"). Wrapping to a second row instead of growing
+     further left is a smaller change than redesigning the toolbar, and
+     right-aligning the wrap keeps it flush with the panel's own `right`
+     anchor instead of drifting toward centre. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: min(26rem, 42vw);
 }
 
 .whiteboard-floating-panel.bottom-right {
@@ -13105,13 +13178,32 @@ textarea.autogrow {
    source order alone and silently pin the "sidebar" to the bottom edge. */
 .whiteboard-floating-panel.bottom-center[data-dock="side"] {
   bottom: auto;
+  /* Anchored from the top, not vertically centred — a column of ~12 tools
+     plus the stroke-width slider is tall enough that centring it pushed the
+     top edge up into the top-left board-picker panel's own 1rem-4rem strip.
+     Matches `.whiteboard-sidebar`'s own top/max-height pair below, which
+     solved the same "panel taller than the canvas" problem the same way. */
   left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 5.5rem;
+  transform: none;
   flex-direction: column;
   border-radius: var(--radius);
-  max-height: calc(100% - 2rem);
+  max-height: calc(100% - 7rem);
   overflow-y: auto;
+}
+
+/* The stroke-width slider is a plain <input type="range"> with no width of
+   its own, so it took the browser default (~150px) — far wider than the
+   36px tool buttons around it, which is what actually forced the docked
+   sidebar "very wide" (reported directly). `writing-mode: vertical-lr` turns
+   it into a vertical slider matching the column it now sits in, the same
+   trick used to build a vertical range input without a custom control. */
+.whiteboard-floating-panel[data-dock="side"] #wb-stroke-width {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 28px;
+  height: 5.5rem;
+  margin: var(--space-2) auto;
 }
 
 .whiteboard-floating-panel[data-dock="side"] .wb-tool-group {
@@ -13160,6 +13252,25 @@ textarea.autogrow {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+}
+
+.wb-stroke-width-badge {
+  position: fixed;
+  z-index: 50;
+  transform: translate(-50%, -100%);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.wb-stroke-width-badge.hidden {
+  display: none;
 }
 
 .wb-tool-group button.active {

@@ -2250,6 +2250,10 @@ them are close to being built:
   would need its own trust model, since an external MCP server is exactly
   the kind of thing design principle 1 (offline-first, one narrow opt-in
   exception for web search) currently doesn't have a category for.
+  **No longer a blank slate** — ANALYSIS.md §60 (ROADMAP.md item 38) read
+  odysseus's actual MCP implementation and split this into two: expose (no
+  new trust model needed, build first) and consume (needs the trust model
+  this paragraph already flagged, build second).
 - **A VS Code extension.** No stated purpose yet beyond the idea itself —
   worth asking what it would let someone do that the app's own web UI, PWA
   and desktop window don't, before scoping anything.

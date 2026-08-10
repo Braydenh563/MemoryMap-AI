@@ -157,6 +157,47 @@ class Entry(Base):
     # the additive auto-migrator backfills every existing row as not-private.
     is_private: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    # ROADMAP.md item 34. Null means "never scanned"; set (even with zero
+    # entities found) after a pass, so a note that genuinely mentions none
+    # isn't rescanned by every autonomous pass forever. A plain timestamp
+    # rather than a boolean so a future re-scan policy ("older than 30
+    # days") has something to compare against without a second column.
+    entities_extracted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+class Entity(Base):
+    """A person/project/thing worth naming, independent of any one note.
+
+    ROADMAP.md item 34: every edge in the graph used to connect two whole
+    notes; a name mentioned in passing across a dozen notes was a dozen
+    separate matches, not one thing with a dozen mentions. Deliberately
+    smaller than a full ontology — no entity-to-entity graph, no type
+    system beyond the free-text `name` a local model already extracted.
+    Membership (`EntityMention`) is the only edge kind, on purpose (see
+    `ai/entities.py`).
+    """
+
+    __tablename__ = "entities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Not unique at the DB level: two different models/passes proposing
+    # "Sarah" for two actually-different Sarahs is a real ambiguity this
+    # MVP doesn't try to resolve, matching the roadmap item's own explicit
+    # scope cut. `entities.py` still merges exact, case-folded name matches
+    # within one pass so the same note doesn't create the same entity twice.
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class EntityMention(Base):
+    """One note mentioning one entity — membership, not a graph edge kind."""
+
+    __tablename__ = "entity_mentions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity_id: Mapped[int] = mapped_column(ForeignKey("entities.id"))
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class EntryLink(Base):

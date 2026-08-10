@@ -12099,9 +12099,13 @@ let graphFocusModeId = null;
 
 async function renderGraph() {
   const wantSimilarity = $("graph-similarity").checked;
-  const endpoint = graphFocusModeId 
-    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}` 
-    : `/graph${wantSimilarity ? "?similarity=true" : ""}`;
+  // ROADMAP.md item 34 — off by default and only on the top-level graph, not
+  // the local/focus view: entities are membership edges to *notes*, and
+  // /graph/local's own depth-limited walk has no equivalent concept yet.
+  const wantEntities = $("graph-entities")?.checked;
+  const endpoint = graphFocusModeId
+    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
+    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true" : ""}`;
     
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) return;
@@ -12557,7 +12561,7 @@ async function renderGraph() {
         })
     )
     .on("click", (event, d) => {
-      if (d.isGroup) return; // a category heading, not a note to open
+      if (d.isGroup || d.type === "entity") return; // not a note to open
       // Trace is a *mode*: while it is on, clicking the map picks the two ends
       // rather than opening notes. This branch is the whole reason Trace was
       // unusable — `traceModeActive` was set and then consulted nowhere, so
@@ -12596,6 +12600,11 @@ async function renderGraph() {
     .append("circle")
     .attr("class", "graph-core")
     .classed("graph-group", (d) => Boolean(d.isGroup))
+    // A differently-shaped node was the roadmap's own suggestion (item 34)
+    // for telling an entity apart from a note at a glance; a dashed ring is
+    // the version that doesn't need a second SVG shape (a <rect> sized and
+    // centred to match graphNodeRadius) for one node kind.
+    .classed("graph-node-entity", (d) => d.type === "entity")
     .attr("r", graphNodeRadius)
     .attr("fill", nodeColour)
     .classed("graph-pinned", (d) => d.pinned)
@@ -21679,6 +21688,7 @@ $("graph-refresh").addEventListener("click", () => {
   renderGraph();
 });
 $("graph-similarity").addEventListener("change", renderGraph);
+$("graph-entities")?.addEventListener("change", renderGraph);
 // The tuned-once controls, folded away. Remembered, because whether you want
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit — and because a panel that reopens closed every time is one

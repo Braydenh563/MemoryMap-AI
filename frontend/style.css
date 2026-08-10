@@ -4684,6 +4684,20 @@ button.ghost.danger {
   stroke-width: 2.5px;
 }
 
+/* An entity (ROADMAP.md item 34) isn't a note — a dashed ring says so at a
+   glance without needing a second SVG shape for one node kind. Not a
+   pointer cursor either: clicking one is a no-op (app.js), there's no note
+   underneath it to open. */
+.graph-node .graph-core.graph-node-entity {
+  stroke: var(--ink);
+  stroke-width: 2px;
+  stroke-dasharray: 3 2;
+}
+
+.graph-node:has(.graph-node-entity) {
+  cursor: default;
+}
+
 .graph-node:hover .graph-core {
   stroke: var(--accent);
   stroke-width: 3px;

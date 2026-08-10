@@ -129,6 +129,24 @@ def _run_optimization() -> None:
             logger.info("skipped: battery efficient mode is on")
             return
 
+        # ROADMAP.md item 34, run separately from the agent pass below —
+        # a plain per-note completion call (like suggest_tags), not a tool-
+        # calling agent turn, and gated by its own preference so it isn't
+        # silently skipped whenever tag/link/dedupe are all switched off.
+        if config.get_preference("auto_entities_enabled", False):
+            try:
+                from memorymap.ai.entities import extract_entities_pass
+
+                db = deps.get_db()
+                with db.session() as session:
+                    processed = extract_entities_pass(
+                        session, deps.get_model_manager(), deps.get_ollama()
+                    )
+                if processed:
+                    logger.info("entity extraction: scanned %d note(s)", processed)
+            except Exception as exc:  # noqa: BLE001 — top of a worker thread
+                logger.error("entity extraction failed: %s", exc, exc_info=True)
+
         tasks = _enabled_tasks(config)
         if not tasks:
             logger.info("skipped: every autonomous task is switched off in Settings")

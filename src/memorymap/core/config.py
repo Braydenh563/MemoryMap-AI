@@ -75,6 +75,11 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "auto_tag_enabled": True,
     "auto_link_enabled": True,
     "auto_dedupe_enabled": True,
+    # ROADMAP.md item 34. Off by default like the other three, and for the
+    # same reason — but also because unlike tag/link/dedupe, this one adds a
+    # whole new kind of thing to the notebook (an entity) rather than
+    # changing an existing note, which deserves an even more deliberate opt-in.
+    "auto_entities_enabled": False,
     "autonomous_tasks_interval_hours": 6,
     #: Skip the expensive extras — similarity edges on the graph, the
     #: background pass — on a laptop running off its battery.

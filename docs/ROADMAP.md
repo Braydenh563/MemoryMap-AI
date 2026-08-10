@@ -896,49 +896,47 @@ Worth doing, and worth doing after the above.
     letting a saved skill run on the same schedule instead of only the three
     fixed tasks. Needs a real "which of these, and why" before building —
     "expand the capabilities" alone isn't a spec.
-32. **Keyword search has no IDF weighting and can't use an index.**
-    `keyword_search`'s `Entry.content.ilike(f"%{term}%")` (`search_manager.py`)
-    is a full-column substring scan with a leading wildcard, so no SQL index
-    can serve it, and `_keyword_score`'s hand-rolled weights (phrase/tag/
-    opening-position) treat a rare, distinctive word the same as a common
-    one — the wrong direction as the notebook grows. Found reading a sibling
-    project's stdlib BM25 index against this file directly, not assumed
-    (ANALYSIS.md §59). SQLite's own FTS5 virtual table plus its built-in
-    `bm25()` ranking function is the fix that fits — already in SQLite, no
-    new dependency — not a ported implementation. Needs a shadow FTS5 table
-    kept in sync with `entries` (additive, per this project's own migration
-    convention) and `_rank`'s fusion weights re-tuned once keyword scores are
-    on a different scale than today's ad-hoc integer score.
-33. **`graph_expansion` is hard-capped at one hop, on purpose** —
-    `GRAPH_EXPANSION_SEEDS`/`GRAPH_EXPANSION_LIMIT` (`search_manager.py`)
-    exist so a question two links away from what matched is reachable only
-    if the agent thinks to walk there itself; a direct search answer never
-    sees it. Surfaced weighing a sibling project's multi-hop, chain-of-thought
-    graph retrieval against this file's own already-stated principle
-    (ANALYSIS.md §59) — the same reasoning that ruled out Leiden clustering
-    ("an answer the user cannot verify by clicking two notes is one they
-    cannot trust") argues against an unbounded walk here too, so this is not
-    "just add hops." The version worth building is bounded and still
-    verifiable: an opt-in second hop, still carrying the same link `reason`/
-    Trace provenance the first hop already has, shown as a visibly weaker
-    tier in the answer panel rather than merged into the main matches. Needs
-    a decision — automatic (a slightly larger `GRAPH_EXPANSION_LIMIT`) or a
-    user-visible "search deeper" action — before building either.
-34. **No entity/concept layer above notes — only note-to-note links.** Every
-    edge in the graph today connects two whole notes; there is no node for
-    "this person" or "this project" that exists independent of any one note
-    mentioning them, so a name mentioned in passing across a dozen notes is a
-    dozen separate matches, not one thing with a dozen mentions. The one
-    genuine capability gap a sibling project's LLM-driven entity extraction
-    has that this app doesn't (ANALYSIS.md §59), and the piece most directly
-    in the way of finding things by following concepts through the graph.
-    Scope before building, deliberately smaller than the sibling project's
-    full ontology-grounded version: a lightweight local-LLM pass (the janitor
-    already runs one per note) pulling a short entity list per note into a
-    table, entity→note membership as the only edge kind at first (no
-    entity-to-entity graph yet — a second, harder step), and a way to see one
-    in the existing D3 graph — a differently-shaped node or a filter/lens on
-    the current view, not a second graph engine.
+32. ~~**Keyword search has no IDF weighting and can't use an index.**~~
+    **Done.** An external-content FTS5 table (`entries_fts`, kept in sync by
+    triggers, `core/database.py`) replaced the leading-wildcard `ILIKE`
+    scan; ranked by `bm25()` with tags weighted above body text, an exact
+    contiguous phrase still breaking ties in front of everything else
+    (checked against the small already-narrowed candidate set, not a
+    second index). Full suite green.
+33. ~~**`graph_expansion` is hard-capped at one hop, on purpose.**~~ **Done
+    — automatic, not a "search deeper" action.** That was the one open
+    decision; made it automatic because it needs no new UI and the roadmap
+    text's own "shown as a visibly weaker tier" already implied no control
+    was required to see it. `GRAPH_EXPANSION_HOP2_LIMIT = 2` (smaller than
+    the first hop's 3), walked from the first hop's own neighbours, tagged
+    `connected_2hop` in `match_info` rather than merged into `connected` —
+    its own badge text and ~0.65 opacity vs ~0.85 for a direct connection.
+34. ~~**No entity/concept layer above notes — only note-to-note links.**~~
+    **Done, at the scoped-down size this item asked for.** `Entity` +
+    `EntityMention` (membership only, no entity-to-entity graph), extracted
+    by `ai/entities.py`'s `suggest_entities` — one `suggest_tags`-shaped
+    completion per note, run a few at a time by the autonomous pass behind
+    its own `auto_entities_enabled` toggle (default off), skipping notes
+    under 20 chars and never re-scanning one already marked
+    (`Entry.entities_extracted_at`). Same-name mentions merge within a pass
+    via a case-folded lookup — two real different "Sarah"s colliding into
+    one entity is an accepted gap, not an oversight (the item's own scope
+    cut). `GET /graph?include_entities=true` (off by default; every
+    existing consumer of that endpoint assumes a numeric Entry id, so an
+    entity node's id is prefixed `entity:N`) adds entity nodes and
+    membership edges; the graph's own "Entities" checkbox asks for them,
+    and a matched node renders with a dashed ring rather than a second SVG
+    shape. Seven tests (`tests/test_entities.py`) cover extraction,
+    merging, the skip-short/skip-already-scanned paths, and the endpoint
+    shape — all against a faked model, this suite runs with no LLM. The
+    graph rendering was checked live (seeded an entity by hand, confirmed
+    the dashed node paints) after catching a real trap the hard way: the
+    dev server had been running since the start of the session and was
+    serving stale Python for every backend change up to that point,
+    including this one — restarted, then re-verified. Nothing else in this
+    session's backend work was re-checked live after that restart; the
+    pytest suite (unaffected by server staleness, since it imports fresh)
+    is what stands behind items 32/33 and the earlier bug fixes instead.
 35. **No vision-capable image understanding.** Confirmed by grep, not
     assumed: `ollama_client.py` already reads a model's `vision` capability
     alongside `tools`/`thinking` from the same `/api/show` call §6 built, but

@@ -13023,12 +13023,13 @@ textarea.autogrow {
 }
 
 /* Below the "library"/top-right panel, so a shown properties panel never
-   overlaps it. Bumped from 6rem: the top-right panel's own `flex-wrap`
-   fix (above) lets its 8 controls wrap onto 2-3 rows on a narrow board,
-   growing taller than the single-row height this value was first tuned
-   against — reported directly as the two panels visually clashing. */
+   overlaps it. Bumped from 6rem, then again from 10rem: the top-right
+   panel's own `flex-wrap` fix (above) lets its 8 controls wrap onto 2-3
+   rows on a narrow board, growing taller than the single-row height this
+   value was first tuned against — reported directly, twice, as the two
+   panels visually touching with no gap between them. */
 .whiteboard-floating-panel.mid-right {
-  top: 10rem;
+  top: 12.5rem;
   right: 1rem;
   flex-direction: column;
   align-items: stretch;

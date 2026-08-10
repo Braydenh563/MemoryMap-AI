@@ -2311,37 +2311,33 @@ session that only reads ROADMAP.md's live list.
 
 ## 29d. Whiteboard — scoped and next, not brainstormed
 
-Unlike §29c above, these three are specific asks from the same session
-(HISTORY.md §58) with a clear shape, just not built yet — not raw
-brainstorm, next in line for the whiteboard.
+Unlike §29c above, these four were specific asks from the same session
+(HISTORY.md §58) with a clear shape. Three are now built (HISTORY.md §59);
+the fourth — links to objects — is still open.
 
-- **Rename a board.** No `PUT /whiteboard/boards/{id}` endpoint exists yet.
-  A board's title is its underlying note's first `# heading` line
-  (`routes_whiteboard.py`'s `create_board`), so renaming means rewriting
-  that line and needs to handle the one board that isn't a note at all —
-  `board_id=None`, "Default board." Frontend: a rename control (pencil
-  icon) next to `#wb-board-select`.
-- **A Library gallery of boards, mind-maps, and uploaded images.** Both
-  read endpoints already exist and are unused by any gallery UI —
-  `GET /whiteboard/boards` (title + item counts) and `GET /whiteboard/images`
-  (every image object across every board, added §57). Today the *only*
-  way to see "what boards exist" is the whiteboard's own board-switcher
-  dropdown; there is no Library-tab view at all. Natural home: a new
-  section alongside `library-view-documents`/`library-view-skills`, or a
-  sub-view of `library-view-whiteboard`.
-- **A structured, small-model-friendly diagram-generation tool.** Raised
-  directly: `add_whiteboard_card`/`add_whiteboard_link` (§57) make the AI
-  *capable* of building a connected diagram, but push coordinate math onto
-  the model — `x`/`y` are free-form, defaulting to `(100, 100)` if omitted,
-  so a multi-note hierarchy needs the model to invent non-overlapping
-  positions across many chained calls. Small (2–8B) tool-calling models are
-  exactly where that bookkeeping breaks first. The fix is a single bulk
-  tool (e.g. `generate_diagram(nodes: [{note_id, parent_id?}], layout:
-  "tree"|"radial")`) that creates every card and link server-side in one
-  call and computes layout itself — which means porting `wbArrangeMindMap`
-  /`wbMindMapSpanningTree`'s tree/radial math from `app.js` into Python, since
-  today that logic only exists client-side, behind keyboard shortcuts, with
-  no AI-callable path to it at all.
+- ~~**Rename a board.**~~ **Done (HISTORY.md §59).** `PUT
+  /whiteboard/boards/{id}` rewrites the underlying note's first `#
+  heading` line; the one board that isn't a note (`board_id=None`,
+  "Default board") is refused with a clear error rather than crashing.
+- ~~**A Library gallery of boards, mind-maps, and uploaded images.**~~
+  **Done (HISTORY.md §59).** The Library's whiteboard area is now two
+  sub-tabs: "Whiteboards" (a board gallery over `GET /whiteboard/boards`,
+  plus "+ New board", replacing the bare board-switcher dropdown as the
+  only way to see what boards exist) and "Image Gallery" (sourced from the
+  new `/media` listing rather than `/whiteboard/images`, since it also
+  needed to cover plain note-image uploads, not just whiteboard image
+  objects — see the Tier 3 media item in ROADMAP.md for what's still open
+  there).
+- ~~**A structured, small-model-friendly diagram-generation tool.**~~
+  **Done (HISTORY.md §59).** `generate_diagram` takes a flat node list
+  (`title` or `note_id`, plus `parent_ref`) and a `layout`
+  (`tree`/`radial`), creates every card and link server-side in one call,
+  and computes placement itself — a BFS depth/slot layout in Python
+  (`_diagram_tree_positions`) rather than a full port of
+  `wbArrangeMindMap`, since the AI tool only needed the placement math, not
+  the interactive drag machinery around it. Capped at 60 nodes; refuses no
+  root, more than one root/a cycle, an unresolvable `parent_ref`, and a
+  node with both `title` and `note_id`.
 - **Links that can reach an object (image/text box), not just a card.**
   Asked about directly (HISTORY.md §58): the border/anchor math itself
   (`wbAnchorPoint`/`wbLinkEndpoints`/`wbBoxRayIntersection`) is generic —

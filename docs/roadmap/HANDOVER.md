@@ -2,7 +2,113 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Next session: start here — an unsolved live-reported CSS bug, then three scoped whiteboard items
+## Next session: start here — §58's three scoped whiteboard items closed out, a live bug list worked through as it arrived, and a second whiteboard architecture bug found the same way the first one was
+
+Full detail is [HISTORY.md §59](HISTORY.md). This section is the condensed
+version: what changed, what's verified vs. reasoned, the traps, and what's
+next.
+
+**§58's three deferred items are done.** `PUT /whiteboard/boards/{id}`
+renames a board; the Library's whiteboard area is now two sub-tabs
+("Whiteboards" — a board gallery, replacing the bare board-switcher dropdown
+as the only way to see what boards exist — and "Image Gallery"); and
+`generate_diagram` is a new AI tool that places a whole tree/radial diagram
+server-side in one call instead of making a small model invent `x`/`y`
+across many chained `add_whiteboard_card` calls. All three verified live.
+
+**Also done, all live-reported mid-session and worked through as they came
+in (not pre-planned):**
+- The empty-canvas hint's cut-off text, a disable option for it, and the
+  grid/board dropdown sizing/alignment bugs from four screenshots.
+- Anchor points now hover-highlight during a line/link drag, and a link's
+  endpoints can be dragged to reattach to a different anchor or detach into
+  a free-floating point. **Found the same way the flat-card bug in this
+  file's own §-before-last was found — by driving it live, not by reading
+  the code:** the new anchor hints and endpoint handles, rendered into the
+  base SVG layer, were invisible and unclickable under any card, because
+  `#wb-html-layer` (cards) renders after/above that SVG layer by design.
+  Confirmed via `document.elementFromPoint`, not guessed. Fixed with a new
+  `#wb-overlay-layer` SVG above the card layer for anything that needs to
+  sit visually on top. **If you add a third thing that needs to render above
+  cards, it goes in `#wb-overlay-layer`, not `#wb-zoom-group` — this will
+  bite again otherwise.**
+- The lasso tool "doesn't work properly": dragging a lasso stroke across a
+  card moved the card instead of drawing the lasso. The card/object/grip
+  drag filters excluded every other tool while the lasso was active, except
+  the lasso's own pointerdown guard — fixed by adding it to those filters.
+- Uploaded images weren't rendering and couldn't be deleted: there was no
+  `MediaUpload` DB row for a plain `/media/upload`, so nothing could list or
+  delete one. Added the table, `GET /media`, `DELETE /media/{id}`; the
+  Image Gallery now sources from `/media` (not the older
+  `/whiteboard/images`, since it needed to cover note-image uploads too,
+  not just whiteboard image objects). A broken `<img>` — in a note or on the
+  whiteboard — now renders a closable "deleted" placeholder instead of a
+  silent broken-image icon. The file-menu Download action was pointed at
+  the wrong URL; fixed alongside the new Delete action.
+- The graph view: edges carrying a link reason are now visually distinct,
+  and clicking one opens a small panel to view/edit/remove the reason —
+  closes the "reason on every link" item's last visible-in-graph gap.
+- The Agent Activity monitor's intermittent overlap with other floating UI
+  turned out to be one bug: it and several whiteboard panels both anchored
+  to `right: 20px`. Moved to `left: 20px`.
+- A full independent start/end cap system for Line and Arrow
+  (none/arrow/circle/square/multiline per end), and sketch rotation with a
+  drag handle — both scoped-but-unbuilt items from the session before this
+  one, now built and verified live (including the `wbTransformPathD`
+  rotation math itself: h/v path commands must become `L` under rotation,
+  which was checked directly, not assumed).
+
+**Deliberately not attempted, and why:** the grid-dropdown font-rendering
+bug this section used to lead with is still unsolved — multiple sessions
+have already ruled out overflow/clipping and font-substitution theories
+(see the archived section directly below) without finding the real cause,
+so another guess-and-check pass didn't seem like the highest-value use of
+this session. The emoji/icon sweep (ROADMAP §16e/16f) is flagged in
+ROADMAP.md itself as "a full session's worth" and was left for one. A
+Library gallery specifically for *note attachments* (as opposed to the
+images gallery built this session) was asked for directly but not reached.
+
+**Traps that cost real time this session, worth naming so the next one
+skips them:**
+- **A "restarted" server can still be the old process.** `pkill -f
+  "uvicorn memorymap.api.app:create_app.*8781"` from inside this sandbox's
+  shell can match the invoking shell's own command line and kill the
+  calling shell instead (exit 144), and a softer `kill $(ps aux | grep
+  ...)` can silently fail to actually end the process while a health-check
+  still reports success against a stale one. This produced a fully
+  reproducible-looking 500 (`Could not refresh instance`) that took real
+  time to debug via print statements before `ps`/timestamps showed the OLD
+  process was still answering. Use exact-PID `kill -9` via `pgrep -f
+  "uvicorn memorymap.api.app:create_app.*8781"`, then poll `kill -0` for
+  death before relaunching, then poll `/health` before declaring success.
+- **CSP silently blocks inline `style=""`.** Setting `pointer-events: none`
+  directly on an element in `index.html` did nothing, with no console
+  output unless you check for it — confirmed only via the actual "Refused
+  to apply inline style" CSP violation message. Any new dynamic style needs
+  a real CSS rule, not an inline attribute.
+
+**What's next, ranked:**
+1. **A Library gallery for note-attached files**, separate from the images
+   gallery built this session — asked for directly, not reached. Scoping
+   is closer than it looks: the images gallery's pattern (`GET /media`,
+   `library-view-media`) is the template; a files gallery needs to also
+   surface non-image attachments a note references, which today have no
+   equivalent listing endpoint.
+2. **BACKLOG.md §29d's remaining item**: links that can reach an object
+   (image/text box), not just a card — scoped in full there, genuinely
+   still open (the other three §29d items are now done).
+3. The **emoji/icon sweep** (ROADMAP §16e/16f) — full session's worth, per
+   the file's own note.
+4. The **grid-dropdown font-rendering bug** — low confidence pickup; three
+   theories are already ruled out (see archived section below). Worth a
+   from-scratch look with browser devtools' own font-inspection panel
+   rather than more CSS-value guessing, if a session wants to take it on.
+5. **Orphaned `/media/` garbage collection** (ROADMAP item 20a's remaining
+   half) — the tracking table this session added makes this reachable now,
+   but nothing yet reconciles a `MediaUpload` row against whether any live
+   note/board still references the file.
+
+## Previous session: §58 handover — an unsolved live-reported CSS bug, then three scoped whiteboard items
 
 **Live-reported, only half-resolved.** Two bugs came in the same report:
 "line tool still drew with an arrow head" (fixed and verified — Line and

@@ -16663,7 +16663,8 @@ function renderNotifMuteToggle() {
   const button = $("notif-mute-toggle");
   if (!button) return;
   const muted = notificationsMuted();
-  button.textContent = muted ? "🔔 Unmute" : "🔕 Mute";
+  button.textContent = muted ? "🔕" : "🔔";
+  // button.textContent = muted ? "🔔 Unmute" : "🔕 Mute";
   button.title = muted
     ? "Stop muting — everything will notify again"
     : "Mute notifications except reminders";

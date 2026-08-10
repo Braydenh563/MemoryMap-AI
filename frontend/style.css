@@ -13056,10 +13056,12 @@ textarea.autogrow {
   right: 1rem;
 }
 
+/* Bottom-left by default (asked for directly) — the class name predates the
+   move and is left as-is since it's also the drag/reset storage key
+   (`wb-panel-pos-tools`) and the [data-dock="side"] override below. */
 .whiteboard-floating-panel.bottom-center {
   bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 1rem;
   border-radius: var(--radius-pill);
 }
 

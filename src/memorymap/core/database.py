@@ -413,6 +413,28 @@ class WhiteboardObject(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
+class MediaUpload(Base):
+    """Every file `/media/upload` has ever produced — an image pasted or
+    dropped into a *note's* own markdown, unlike a whiteboard image object
+    (`WhiteboardObject`), had no row tracking it at all: nothing could list
+    it, delete it, or tell a live note apart from one whose image had
+    already been removed from disk by hand (ROADMAP.md item 20a). One row
+    per upload, regardless of where the resulting `/media/...` url ends up
+    being pasted — a note's markdown, a whiteboard object, a document — so
+    a single gallery and a single delete path cover all of them.
+    """
+
+    __tablename__ = "media_uploads"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: The stored, random filename — `/media/{filename}` serves it.
+    filename: Mapped[str] = mapped_column(String(140))
+    #: What the uploader's own file was called, kept for a readable gallery
+    #: label only — never used to resolve a path.
+    original_name: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class UserPreference(Base):
     """Agent Memory Streams: Learned preferences and instructions appended by the AI."""
 

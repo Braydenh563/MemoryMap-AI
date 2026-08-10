@@ -231,6 +231,40 @@ def test_creating_a_board_makes_a_named_note_and_lists_it(board_client):
     assert entry["sketch_count"] == 1
 
 
+def test_renaming_a_board_rewrites_its_notes_heading_line(board_client, session):
+    """A board's title is its underlying note's own first `#` heading —
+    `list_boards` reads it via `extract_title` — so renaming a board has to
+    rewrite that line, not add a second stored field."""
+    created = board_client.post("/whiteboard/boards", json={"name": "Old Name"}).json()
+    board_client.post("/whiteboard/sketches", json={"data": "M0 0 L1 1", "board_id": created["id"]})
+
+    renamed = board_client.put(f"/whiteboard/boards/{created['id']}", json={"title": "New Name"})
+    assert renamed.status_code == 200, renamed.text
+    body = renamed.json()
+    assert body["title"] == "New Name"
+    assert body["sketch_count"] == 1
+
+    entry = session.get(Entry, created["id"])
+    session.refresh(entry)
+    assert entry.content.splitlines()[0] == "# New Name"
+
+    boards = board_client.get("/whiteboard/boards").json()
+    listed = next(b for b in boards if b["id"] == created["id"])
+    assert listed["title"] == "New Name"
+
+
+def test_renaming_the_default_board_is_refused_not_a_crash(board_client):
+    """`board_id=None` is the always-present scratch board — there is no
+    underlying note to rewrite a heading line into."""
+    resp = board_client.put("/whiteboard/boards/0", json={"title": "Nope"})
+    assert resp.status_code == 404
+
+
+def test_renaming_a_stale_board_id_404s(board_client):
+    resp = board_client.put("/whiteboard/boards/999999", json={"title": "Ghost"})
+    assert resp.status_code == 404
+
+
 def test_an_image_object_needs_a_real_media_url(board_client):
     """A card wraps a note, a sketch is a path — neither is a placeable
     image. `data.url` has to be a same-origin `/media/...` path, the shape

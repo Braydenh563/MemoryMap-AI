@@ -257,14 +257,16 @@ into a good one.
    wasn't, since deduction only ever ran at the moment a link was first made.
    `POST /entries/links/backfill-reasons` (`manager.backfill_link_reasons`)
    runs it once over every existing reason-less link, behind a button next
-   to Suggest links. **Asked again this session: "can there be a way to
-   visually see link reasons in the graph?"** — there already is (the SVG
-   tooltip on hover, above), but a hover-only affordance is easy to never
-   discover. Worth asking directly next session whether that's enough or
-   whether a reason needs a more persistent, always-visible presence (an
-   edge label, shown at least on hover-highlight or Trace) before building
-   either. **Asked for directly, not yet built:** the same
-   backfill as an agent-callable tool/skill, so it can run unattended
+   to Suggest links. ~~**Asked again this session: "can there be a way to
+   visually see link reasons in the graph?"**~~ **Done (HISTORY.md §59).**
+   A manual link edge with a reason now carries `.graph-edge-reasoned` —
+   visibly distinct weight/colour, not just a hover tooltip — and clicking
+   any manual-link edge opens a real management panel: both note previews,
+   the reason in an editable textarea, Save and Remove-link. Needed the
+   link's own row id, which `/graph`'s edge payload never carried before
+   this; added, with the two pre-existing exact-shape tests updated to
+   match rather than loosened. **Asked for directly, not yet built:** the
+   same backfill as an agent-callable tool/skill, so it can run unattended
    (a manual pass, or folded into the autonomous background worker's own
    task list — see item 31) rather than only a button someone has to click.
    Also asked for: **the deduction should weigh temporal words as well as
@@ -346,7 +348,20 @@ into a good one.
       `pointer-events: none`, so an invisible handle intercepted drags at
       *every* card/object corner for *any* tool, not just while selected;
       this is very likely why a link-from-corner drag felt unreliable even
-      before anchors existed.
+      before anchors existed. **Extended (HISTORY.md §59), asked for
+      directly** ("their anchor points should display... and I should be
+      able to move the points... or even make it a dangling unattached
+      point"): hovering a card with a link tool selected now shows its
+      anchors without needing to start a drag first; a selected link's two
+      endpoints get draggable handles that reattach to a different card
+      (snapping to its nearest anchor) or detach to a free board-space
+      point (`sourcePoint`/`targetPoint`, the same no-migration pattern as
+      `sourceAnchor` before it). Building this found a second real
+      architecture bug, the same way the resize-handle one above was
+      found: the SVG drawing layer renders *under* the HTML card layer by
+      design, so anything meant to be seen or clicked *over* a card was
+      both invisible and unclickable — fixed with `#wb-overlay-layer`, a
+      second SVG layer above the card layer for exactly this.
     - ~~**A mind-mapping mode**~~ **Done — see item 25's own entry (Tier 3)
       and HISTORY.md §57.**
     - ~~**AI + whiteboard, three pieces**~~ **Done, verified (HISTORY.md
@@ -367,21 +382,34 @@ into a good one.
       **Not verified against a live model** — this sandbox's standing
       caveat about provider behaviour applies here too; the tool logic is
       real-database-tested, not watched being chosen mid-conversation.
-    - **Sketch rotation.** Cards and objects rotate (§55); a sketch does
-      not — its "shape" *is* its path data, and rotating a path correctly
-      (including the `a` command's own elliptical-arc flags, which flip
-      under rotation in a way `wbTransformPathD`'s existing translate/scale
-      math doesn't need to handle) is real trig this session didn't spend
-      the time on. A sketch can still be deleted and redrawn at an angle.
+    - ~~**Sketch rotation.**~~ **Done, verified live (HISTORY.md §59).**
+      `wbTransformPathD` gained a `rotate` parameter: `M`/`L`/`C` rotate
+      normally, `h`/`v` (the rect tool's own axis-aligned relative lines)
+      become absolute `L` since a rotated line can't stay axis-aligned, and
+      `a` (the circle tool's arcs) keeps `rx`/`ry`/large-arc/sweep
+      unchanged (correct for a pure rotation) while rotating the endpoint
+      delta and adding the same angle to the arc's own x-axis-rotation.
+      `rotate=0` confirmed byte-identical to the pre-rotation output. A
+      round rotate handle above a selected sketch, absolute angle-from-
+      vertical drag, baked into `d` on release. Verified with hand-checked
+      arithmetic: a rectangle dragged ~90° produced all four corners
+      matching an exact rotation about its own centre to the pixel.
     - **Image cropping.** Asked about directly; not scoped or built —
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
-    - **Uploaded whiteboard images showing in the Library as files, and
-      orphaned `/media/` garbage collection.** See item 20a (Tier 3) — asked
-      for directly, promoted from HANDOVER-only prose to here this session;
-      still not scoped or built. **Backend half done (HISTORY.md §57)**:
-      `GET /whiteboard/images` lists every image across every board. **No
-      frontend consumer yet** — see the two bullets below.
+    - ~~**Uploaded images showing in the Library, and a way to delete
+      one.**~~ **Done (HISTORY.md §59).** New `MediaUpload` table tracks
+      every `/media/upload` regardless of destination (note, document, or
+      whiteboard); `GET /media`/`DELETE /media/{id}` back the Library's
+      Image Gallery, one delete button per tile. Both a note's own inline
+      image and a whiteboard image object now show a dismissible "deleted"
+      box instead of a broken-image glyph once their file is gone. **Still
+      open: orphaned `/media/` garbage collection** — deleting an image
+      through the gallery removes its file and row, but a file that
+      becomes unreferenced some other way (a note edited to remove the
+      markdown line, without ever going through the gallery) is not
+      detected or cleaned up automatically; this is still a manual-only
+      delete, not a sweep.
     - ~~**Smart alignment guides while dragging, colour-coded, with
       equal-spacing detection**~~ **Done, verified live (HISTORY.md §58).**
       Edge/centre snap plus equal-spacing (nearest neighbour each side,
@@ -394,25 +422,34 @@ into a good one.
       dropdown (`#wb-select-picker`, same pattern as the shape dropdown).
       Export gained a "Just the selection" option (PNG/SVG/PDF) that
       filters to the selected item(s) and crops to their bounds, not just
-      the whole board.
-    - **Renaming a board, and a Library gallery of every board/mind-map and
-      every uploaded image.** Asked for directly this session, not built —
-      out of budget, not out of scope. A board's title is its underlying
-      note's first `# heading` line; there is no `PUT /whiteboard/boards`
-      yet. `GET /whiteboard/boards` and `GET /whiteboard/images` (both
-      already built, §57) have no frontend gallery consumer — today's only
-      way to see "which boards exist" is the whiteboard's own board-switcher
-      dropdown, not a Library-tab view. See BACKLOG.md.
-    - **A structured, small-model-friendly "generate a diagram from my
-      notes" tool.** Asked about directly this session: the AI can already
-      place cards and link them (`add_whiteboard_card`/`add_whiteboard_link`,
-      §57), but `x`/`y` are free-form numbers the model must invent itself
-      across many chained calls — the exact bookkeeping small (2–8B)
-      tool-calling models get wrong. The auto-layout math already exists
-      (`wbArrangeMindMap`, tree/radial) but is client-side JS behind
-      keyboard shortcuts, not AI-callable. Needs a bulk tool that takes a
-      structure (parent/child pairs) and does placement server-side in one
-      call. See BACKLOG.md.
+      the whole board. **Bug found and fixed (HISTORY.md §59):** the lasso
+      was live-reported as "doesn't work properly" — the card/object/grip
+      drag filters excluded every other tool while the lasso was active
+      *except* the lasso's own pointerdown guard, so dragging a lasso stroke
+      across a card moved the card instead of drawing the lasso. Fixed by
+      adding the lasso to the three drag filters.
+    - ~~**Renaming a board, and a Library gallery of every board/mind-map
+      and every uploaded image.**~~ **Done (HISTORY.md §59).** `PUT
+      /whiteboard/boards/{id}` renames a board (rewrites its note's `#
+      heading` line). The Library's Whiteboard area is now two sub-tabs —
+      "Whiteboards" (a board gallery plus "+ New board", replacing the old
+      bare board-switcher dropdown as the way to see what boards exist) and
+      "Image Gallery" (sourced from the new `/media` listing, see the
+      Tier 3 media item below) — restructured mid-session from an initial
+      single combined tab after feedback that the whiteboard canvas itself
+      should be reachable from the same page.
+    - ~~**A structured, small-model-friendly "generate a diagram from my
+      notes" tool.**~~ **Done (HISTORY.md §59).** `generate_diagram` takes
+      a flat list of nodes (each a title-or-`note_id`, plus a `parent_ref`)
+      and a `layout` (`tree` or `radial`), and does the BFS depth/slot
+      placement server-side in one call — reusing the existing
+      `wbArrangeMindMap` layout logic rather than making a small model
+      invent `x`/`y` coordinates across many chained
+      `add_whiteboard_card`/`add_whiteboard_link` calls. Capped at 60
+      nodes, refuses ambiguous input (no root, more than one root/a cycle,
+      an unresolvable `parent_ref`, a node with both `title` and `note_id`),
+      and dedups against existing cards on the target board the same way
+      `add_whiteboard_card` does.
     - ~~**A whiteboard backend/perf pass**~~ **Partly done (HISTORY.md
       §57).** Asked for directly ("no heavy algorithms, everything
       efficient"): the backend routes themselves (`get_whiteboard_state`,
@@ -425,11 +462,12 @@ into a good one.
       many-hundred-item board (nothing this session was measured against
       one) — the fixes above are reasoned from reading the code's own
       complexity, not from a before/after timing.
-    - **A full line/arrow end-cap system** (circle/square/multi-line ends,
-      independently per end). Asked for directly (§56); the Line and Arrow
-      tools now *share* one end-style control (extended from Arrow-only),
-      which is as far as this got — no new marker shapes beyond the
-      existing arrowhead.
+    - ~~**A full line/arrow end-cap system**~~ **Done (HISTORY.md §59).**
+      Independent start/end cap pickers (none/arrow/circle/square/
+      multiline) replace the old single shared arrowhead control, for both
+      the Line and Arrow tools. Caps are computed from the path's own
+      tangent at each end (`wbCapPath`), so they track rotation and
+      resizing rather than being drawn at a fixed angle.
 12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
     (HISTORY.md §47).** Checked before touching anything, per this file's
     own rule: every place a link chip renders (a note card's own links, the
@@ -768,26 +806,37 @@ into a good one.
 Worth doing, and worth doing after the above.
 
 20. **Files and images on notes, and standalone in the Library.** The plumbing
-    exists (`/media`, attachments); the Library surface and drag-to-attach do
-    not.
-20a. **A Library "Media/Images" gallery tab**, and **garbage-collecting
-    orphaned `/media/` files.** Named directly (HANDOVER.md §53) and never
-    promoted into this file before now — the exact failure mode this
-    section's own rule exists to catch. Two distinct pieces: a gallery
-    surface (part of item 20 above, a Library view over everything
-    `/media/upload` has ever produced) and a real correctness gap — an
-    image pasted or dropped into a *note* (unlike a whiteboard image
-    object, which has its own `WhiteboardObject` row) has no DB row
-    tracking it at all, so purging the note that referenced it leaves the
-    file on disk forever. Needs a decision first: track uploads in a real
-    table (enables both the gallery and the cleanup) vs. a directory scan
-    reconciled against every note's own markdown at cleanup time.
-20b. **An "Agent Activity" background-task popup cleanup pass.** Named
-    directly (HANDOVER.md §53), not scoped further — a stray toast from it
-    has intermittently overlapped other UI (HISTORY.md §46's Save button,
-    this file's own live-verification notes). Needs a concrete list of
-    what's wrong with it before a session can act on more than "it exists
-    and sometimes overlaps something."
+    exists (`/media`, attachments); an images-only Library gallery now exists
+    (20a, HISTORY.md §59). **Still not built:** a gallery over *note
+    attachments* specifically (files attached to a note but not images —
+    asked for directly this session as "separate from the whiteboard gallery
+    I just built"), and drag-to-attach.
+20a. ~~**A Library "Media/Images" gallery tab**~~, **and garbage-collecting
+    orphaned `/media/` files** (still open). The decision this item asked
+    for is made and built (HISTORY.md §59): every `/media/upload` now gets
+    a `MediaUpload` row (filename, original name, timestamp), which is
+    what the new Library "Image Gallery" sub-tab lists, and what
+    `DELETE /media/{id}` uses to remove a file plus its row. A note's own
+    inline images now also fail visibly and manageably instead of silently
+    — a broken `<img>` (from a note, or from a whiteboard image object)
+    renders a closable "deleted" placeholder in its place, and the file
+    action menu's Download/Delete on a gallery item both work (Download
+    was pointed at the wrong URL before this session; Delete didn't
+    exist). **Still open:** nothing yet reconciles `/media/` files on disk
+    against live note content, so an image referenced only inline in a
+    note's markdown (not tracked via the note's own attachment list) that
+    gets pasted over or the note deleted still leaks a file with a
+    `MediaUpload` row nobody will ever call delete on. That reconciliation
+    pass — not the tracking/gallery/delete plumbing — is what remains of
+    this item.
+20b. ~~**An "Agent Activity" background-task popup cleanup pass.**~~ **Done
+    (HISTORY.md §59).** The concrete overlap this item asked for a list of
+    turned out to be one bug: `.agent-monitor` was pinned to `right: 20px`,
+    the same corner several whiteboard floating panels anchor to, so the
+    monitor toast sat on top of them at some viewport sizes. Moved to
+    `left: 20px`; the dead compensating CSS rule for the old position
+    (`body.has-agent-monitor .whiteboard-floating-panel.bottom-right`) was
+    removed with it.
 21. **A persona on the welcome messages.** Small, and it makes the app feel
     like one thing rather than a chat bolted to a notebook.
 22. **Meeting recordings as first-class objects**: pause/resume, replay, save

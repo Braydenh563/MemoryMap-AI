@@ -155,3 +155,136 @@ def test_whiteboard_write_tools_are_in_the_write_tools_set(session):
     creation would read as a hallucinated claim."""
     assert "add_whiteboard_card" in tools.WRITE_TOOLS
     assert "add_whiteboard_link" in tools.WRITE_TOOLS
+    assert "generate_diagram" in tools.WRITE_TOOLS
+
+
+# --- generate_diagram (BACKLOG.md §29d) -------------------------------------
+#
+# add_whiteboard_card/add_whiteboard_link already let the model build a
+# diagram one call at a time, but x/y are numbers it has to invent itself —
+# exactly the bookkeeping a small tool-calling model gets wrong across many
+# chained calls. This tool takes only structure (a title or an existing
+# note, and which other node is its parent) and does every placement
+# server-side in one round trip.
+
+
+def test_generate_diagram_creates_notes_cards_and_links_for_a_small_tree(session):
+    result = tools.TOOLS["generate_diagram"].handler(
+        session,
+        {
+            "nodes": [
+                {"ref": "root", "title": "Project X"},
+                {"ref": "a", "title": "Design", "parent_ref": "root"},
+                {"ref": "b", "title": "Build", "parent_ref": "root"},
+                {"ref": "c", "title": "Test", "parent_ref": "b"},
+            ]
+        },
+    )
+    assert result["links_created"] == 3
+    assert len(result["cards"]) == 4
+    assert session.query(WhiteboardNode).count() == 4
+    assert session.query(WhiteboardSketch).count() == 3
+    titles = {c["ref"]: session.get(Entry, c["note_id"]).content for c in result["cards"]}
+    assert titles == {"root": "Project X", "a": "Design", "b": "Build", "c": "Test"}
+    # Positions actually differ — every node landing at (0, 0) would mean
+    # the layout math silently did nothing.
+    positions = {c["ref"]: (c["x"], c["y"]) for c in result["cards"]}
+    assert len(set(positions.values())) == 4
+
+
+def test_generate_diagram_can_reuse_an_existing_note_as_a_node(session):
+    existing = _note(session, "already a note")
+    result = tools.TOOLS["generate_diagram"].handler(
+        session,
+        {
+            "nodes": [
+                {"ref": "root", "note_id": existing.id},
+                {"ref": "child", "title": "New idea", "parent_ref": "root"},
+            ]
+        },
+    )
+    root_card = next(c for c in result["cards"] if c["ref"] == "root")
+    assert root_card["note_id"] == existing.id
+    # Only one new note was actually created (the child) — the root reused
+    # the existing entry rather than duplicating it.
+    assert session.query(Entry).count() == 2
+
+
+def test_generate_diagram_refuses_a_private_existing_note(session):
+    private = _note(session, "secret")
+    private.is_private = True
+    session.commit()
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["generate_diagram"].handler(
+            session, {"nodes": [{"ref": "root", "note_id": private.id}]}
+        )
+
+
+def test_generate_diagram_requires_exactly_one_root(session):
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["generate_diagram"].handler(
+            session,
+            {"nodes": [{"ref": "a", "title": "A"}, {"ref": "b", "title": "B"}]},
+        )
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["generate_diagram"].handler(
+            session,
+            {"nodes": [{"ref": "a", "title": "A", "parent_ref": "b"}, {"ref": "b", "title": "B", "parent_ref": "a"}]},
+        )
+
+
+def test_generate_diagram_rejects_an_unknown_parent_ref(session):
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["generate_diagram"].handler(
+            session,
+            {"nodes": [{"ref": "root", "title": "Root"}, {"ref": "a", "title": "A", "parent_ref": "nope"}]},
+        )
+
+
+def test_generate_diagram_rejects_a_node_with_both_title_and_note_id(session):
+    existing = _note(session)
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["generate_diagram"].handler(
+            session,
+            {"nodes": [{"ref": "root", "title": "Root", "note_id": existing.id}]},
+        )
+
+
+def test_generate_diagram_rejects_more_nodes_than_the_cap(session):
+    nodes = [{"ref": "root", "title": "Root"}] + [
+        {"ref": f"n{i}", "title": f"Node {i}", "parent_ref": "root"}
+        for i in range(tools.MAX_DIAGRAM_NODES)
+    ]
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["generate_diagram"].handler(session, {"nodes": nodes})
+
+
+def test_generate_diagram_radial_layout_also_places_every_node(session):
+    result = tools.TOOLS["generate_diagram"].handler(
+        session,
+        {
+            "layout": "radial",
+            "nodes": [
+                {"ref": "root", "title": "Root"},
+                {"ref": "a", "title": "A", "parent_ref": "root"},
+                {"ref": "b", "title": "B", "parent_ref": "root"},
+            ],
+        },
+    )
+    assert len(result["cards"]) == 3
+    # The root stays at the origin; the two children ring around it.
+    root = next(c for c in result["cards"] if c["ref"] == "root")
+    assert (root["x"], root["y"]) == (0.0, 0.0)
+
+
+def test_generate_diagram_is_idempotent_with_add_whiteboard_card_on_a_shared_board(session):
+    """A card generate_diagram places for an existing note must be found and
+    reused by the same one-card-per-note-per-board rule add_whiteboard_card
+    already enforces — not a second, competing card."""
+    existing = _note(session, "shared")
+    first = tools.TOOLS["add_whiteboard_card"].handler(session, {"note_id": existing.id, "x": 1, "y": 1})
+    result = tools.TOOLS["generate_diagram"].handler(
+        session, {"nodes": [{"ref": "root", "note_id": existing.id}]}
+    )
+    assert result["cards"][0]["card_id"] == first["card_id"]
+    assert session.query(WhiteboardNode).count() == 1

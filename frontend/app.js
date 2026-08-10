@@ -2071,6 +2071,24 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
         img.alt = imageAlt || "";
         img.className = "entry-inline-image";
         img.loading = "lazy";
+        // Asked for directly: a deleted image left a broken-image glyph in
+        // the note that referenced it — a closable "deleted" box instead.
+        // Only dismisses the placeholder from this render; the note's own
+        // markdown line is left alone; editing it back out is a further,
+        // separate feature.
+        img.addEventListener("error", () => {
+          const placeholder = document.createElement("span");
+          placeholder.className = "entry-inline-image-deleted";
+          placeholder.append(document.createTextNode(`🖼 ${imageAlt || "Image"} deleted`));
+          const dismiss = document.createElement("button");
+          dismiss.type = "button";
+          dismiss.className = "ghost small icon-button";
+          dismiss.title = "Dismiss";
+          dismiss.textContent = "✕";
+          dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
+          placeholder.appendChild(dismiss);
+          img.replaceWith(placeholder);
+        });
         element.appendChild(img);
       } else {
         element.appendChild(document.createTextNode(match[0]));
@@ -12377,6 +12395,20 @@ async function renderGraph() {
       el.append("title").text(text);
     }
   });
+  // A reason was hover-only before this — discoverable only by finding the
+  // one edge you already suspected and holding still over it. Asked for
+  // directly: "a visual way to see the reasons... and a way to manage/add/
+  // remove/edit them." A distinct edge style makes "this connection has a
+  // documented reason" visible at a glance, not just on hover; a click
+  // opens the real management panel below.
+  edgeLines
+    .classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason)
+    .classed("graph-edge-manageable", (d) => d.kind === "link")
+    .on("click", (event, d) => {
+      if (d.kind !== "link") return;
+      event.stopPropagation();
+      openGraphLinkPanel(d, nodes);
+    });
 
   // Semantic Zoom: Clustering super-nodes
   const categoryGroups = d3.group(nodes, d => d.category || "Uncategorized");
@@ -13125,6 +13157,97 @@ async function openGraphPopup(event, node) {
   renderGraphPopupActions(entry);
   placeGraphPopup(); // now that it's at its real height
   $("graph-popup-content").focus();
+}
+
+// A link edge's own management panel — asked for directly: "a visual way
+// to see the reasons for each connection and a way to manage/add/remove/
+// edit them." Clicking a `kind: "link"` edge (see `renderGraph`'s own
+// click handler) opens this rather than only ever showing the reason on
+// hover. A dynamic overlay, the same `promptDialog`/`confirmDialog`
+// pattern, rather than fixed markup — this is the one place in the app
+// that edits a *connection* rather than a note or a whiteboard item, so it
+// doesn't share a container with either.
+function openGraphLinkPanel(edge, nodes) {
+  const sourceId = typeof edge.source === "object" ? edge.source.id : edge.source;
+  const targetId = typeof edge.target === "object" ? edge.target.id : edge.target;
+  const sourceNode = nodes.find((n) => n.id === sourceId);
+  const targetNode = nodes.find((n) => n.id === targetId);
+  const label = (n, id) => (n?.preview ? n.preview.slice(0, 60) : `Note ${id}`);
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Manage this connection");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card graph-link-panel";
+
+  const title = document.createElement("p");
+  title.className = "confirm-text";
+  title.textContent = `${label(sourceNode, sourceId)}  ↔  ${label(targetNode, targetId)}`;
+  card.appendChild(title);
+
+  if (edge.reason_confidence != null) {
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.textContent = `Deduced (${Math.round(edge.reason_confidence * 100)}% confidence) — editing replaces it with your own words.`;
+    card.appendChild(note);
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "graph-link-panel-reason";
+  textarea.placeholder = "Why are these connected? (optional)";
+  textarea.value = edge.reason || "";
+  textarea.rows = 3;
+  card.appendChild(textarea);
+
+  const returnFocus = document.activeElement;
+  const close = () => {
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.textContent = "Save";
+  saveBtn.addEventListener("click", async () => {
+    await apiJson(`/entries/${sourceId}/links/${edge.id}/reason`, {
+      method: "PUT",
+      body: JSON.stringify({ reason: textarea.value.trim() || null }),
+    }).catch((e) => toast(e.message, true));
+    toast("Saved.");
+    close();
+    renderGraph();
+  });
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "ghost danger";
+  removeBtn.textContent = "🗑 Remove link";
+  removeBtn.addEventListener("click", async () => {
+    if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched — only the link between them goes."))) return;
+    await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+    toast("Link removed.");
+    close();
+    renderGraph();
+  });
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "ghost";
+  cancelBtn.textContent = "Close";
+  cancelBtn.addEventListener("click", close);
+
+  row.append(saveBtn, removeBtn, cancelBtn);
+  card.appendChild(row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  document.body.appendChild(overlay);
+  textarea.focus();
 }
 
 // Show a note's images in the popup, biggest reason being sketches.
@@ -15605,6 +15728,7 @@ function paletteCommands() {
         switchTab("library");
         const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
         wbSubtab?.click();
+        wbShowCanvasView();
         await createNewBoard();
       },
     },
@@ -17297,11 +17421,28 @@ function libraryActions(item) {
   // An activity row is a record of something that already happened. There is
   // nothing to do to it, so it gets no menu at all rather than an empty one.
   if (item.kind === "activity") return [];
-  return [
-    makeMenuItem("⬇ Download", "Save this file", () => {
-      window.open(`/files/${item.id}`, "_blank");
-    }),
-  ];
+  if (item.kind === "file") {
+    return [
+      // `window.open` never attaches the `X-Auth-Token` header a plain
+      // navigation can't carry — the same gap `mediaSrc` already exists to
+      // close for `<img src>`, just missed here. Every notebook with a
+      // password set (the normal case) 401'd on Download until this.
+      makeMenuItem("⬇ Download", "Save this file", () => {
+        window.open(mediaSrc(`/files/${item.id}`), "_blank");
+      }),
+      // Live-reported: an uploaded file "can't be deleted" — true for its
+      // own ⋯ menu specifically; bulk-select delete already worked
+      // (`library-bulk-delete` already has a `file` branch), but nothing
+      // offered it from the one place someone looks first.
+      makeMenuItem("🗑 Delete", "Remove this file permanently", async () => {
+        if (!(await confirmDialog(`Delete "${item.title}"?\n\nThis cannot be undone.`))) return;
+        await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        toast("Deleted.");
+        reload();
+      }),
+    ];
+  }
+  return [];
 }
 
 // The two strips that only appear when they have something to say.
@@ -23126,6 +23267,11 @@ let wbRefreshArrowStyleControlRef = null;
 // the pointer crosses while held, so it needs a "currently held" flag the
 // per-item hover handlers in renderWhiteboard can check.
 let wbErasing = false;
+// True for the span of an in-progress link drag (dragStart → dragEndNode on
+// a card, with a link-type tool selected) — lets the plain hover listener
+// in initWhiteboard step aside rather than fight the drag's own per-frame
+// anchor-hint redraw with a second, slightly-stale one.
+let wbLinkDragActive = false;
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -23146,6 +23292,7 @@ const wbDeleting = new Set();
 function handleWbZoom(e) {
   d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
   d3.select("#wb-zoom-group").attr("transform", e.transform);
+  d3.select("#wb-overlay-zoom-group").attr("transform", e.transform);
   wbSyncGridToTransform(e.transform);
 }
 
@@ -23405,6 +23552,48 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
   return `M ${tipX} ${tipY} L ${h1x} ${h1y} M ${tipX} ${tipY} L ${h2x} ${h2y}`;
 }
 
+//: Every cap kind a line/arrow/link end can wear, asked for directly ("a
+//: full line/arrow end-cap system... circle/square/multi-line ends,
+//: independently per end") — the shared arrowhead control only ever grew
+//: from Arrow-only to Line-and-Arrow, still one shape. Each is its own
+//: closed subpath appended to the shaft's own `d`, same convention
+//: `wbArrowHeadPath` already established (a stroked path, no separate SVG
+//: element, so hit-testing/move/resize/export keep treating the whole
+//: sketch as the one path they already know how to handle) — "arrow" here
+//: is exactly `wbArrowHeadPath`'s own two-line V, kept for a single call
+//: site to switch on.
+const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline"];
+
+function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
+  if (!kind || kind === "none") return "";
+  if (kind === "arrow") return wbArrowHeadPath(tipX, tipY, approachAngle, headLen);
+  if (kind === "circle") {
+    const r = headLen / 3;
+    // Centred a radius back from the tip along the shaft, so the circle
+    // sits *at* the end rather than half hanging past it.
+    const cx = tipX - r * Math.cos(approachAngle), cy = tipY - r * Math.sin(approachAngle);
+    return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+  }
+  if (kind === "square") {
+    const s = headLen / 2.6;
+    const cx = tipX - s * Math.cos(approachAngle), cy = tipY - s * Math.sin(approachAngle);
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    const corner = (dx, dy) => `${cx + dx * cos - dy * sin} ${cy + dx * sin + dy * cos}`;
+    return `M ${corner(-s, -s)} L ${corner(s, -s)} L ${corner(s, s)} L ${corner(-s, s)} Z`;
+  }
+  // "multiline": two short perpendicular ticks near the tip — the
+  // ER-diagram "many" mark, and a visually distinct third option from a
+  // filled dot or square rather than a second arrow variant.
+  const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+  const perpX = -sin, perpY = cos;
+  const half = headLen * 0.4;
+  const tick = (back) => {
+    const bx = tipX - cos * back, by = tipY - sin * back;
+    return `M ${bx - perpX * half} ${by - perpY * half} L ${bx + perpX * half} ${by + perpY * half}`;
+  };
+  return `${tick(headLen * 0.35)} ${tick(headLen * 0.75)}`;
+}
+
 function wbCursorForTool(tool, strokeColor) {
   const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
   if (WB_BRUSH_TOOLS.has(tool)) {
@@ -23591,29 +23780,82 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
   };
 }
 
+//: A link end is either attached to a card (`sourceId`/`targetId`, plus an
+//: optional fixed `sourceAnchor`/`targetAnchor` fraction — the existing
+//: shape) or a free "dangling" point in board space with no card at all
+//: (`sourcePoint`/`targetPoint`, `{x, y}` — asked for directly: "even make
+//: it a dangling unattached point not attached to an object"). Both ends
+//: independently resolved here so any combination — node/node (the
+//: original case), node/free, or free/free — renders through one path.
+//: Returns `null` for a stale reference (a card end whose id no longer
+//: exists), same as the two call sites already treated a missing node.
+function wbResolveLinkEndpoints(parsed) {
+  const sourceNode = parsed.sourceId != null ? wbState.nodes.find((n) => n.id === parsed.sourceId) : null;
+  const targetNode = parsed.targetId != null ? wbState.nodes.find((n) => n.id === parsed.targetId) : null;
+  if (parsed.sourceId != null && !sourceNode) return null;
+  if (parsed.targetId != null && !targetNode) return null;
+  if (!sourceNode && !parsed.sourcePoint) return null;
+  if (!targetNode && !parsed.targetPoint) return null;
+  if (sourceNode && targetNode) return wbLinkEndpoints(sourceNode, parsed.sourceAnchor, targetNode, parsed.targetAnchor);
+
+  const sourceBox = sourceNode ? wbItemBBox("node", sourceNode) : null;
+  const targetBox = targetNode ? wbItemBBox("node", targetNode) : null;
+  // A free point is always fixed — there's no card border for it to "aim
+  // toward" the way a floating card-end resolves. A card-end with no fixed
+  // anchor of its own still floats toward whatever the other end actually
+  // is, same as the node/node case.
+  const sourceFixed = sourceNode ? wbAnchorPoint("node", sourceNode, parsed.sourceAnchor) : parsed.sourcePoint;
+  const targetFixed = targetNode ? wbAnchorPoint("node", targetNode, parsed.targetAnchor) : parsed.targetPoint;
+  const targetCenter = targetBox && { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
+  const sourceCenter = sourceBox && { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
+  return {
+    source: sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y),
+    target: targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y),
+  };
+}
+
+//: Reads a link's own start/end cap kinds — the new independent-per-end
+//: fields (`startCap`/`endCap`, one of `WB_CAP_KINDS`) if it has them, or
+//: translated from the older single `endStyle` (start/end/both/none,
+//: always an arrow) for a link saved before the full end-cap system
+//: existed. No migration needed: this is the only place either shape gets
+//: read, so an old link keeps rendering exactly as it always did until its
+//: caps are actually changed.
+function wbLinkCaps(parsed) {
+  if (parsed.startCap !== undefined || parsed.endCap !== undefined) {
+    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none" };
+  }
+  const style = parsed.endStyle;
+  return {
+    startCap: style === "start" || style === "both" ? "arrow" : "none",
+    endCap: style === "end" || style === "both" ? "arrow" : "none",
+  };
+}
+
 //: Shared by the render path and the live drag preview so a straight vs.
-//: curved link can't compute its path two different ways. `endStyle`
-//: ("end"/"start"/"both", same values the sketch Arrow tool's own control
-//: uses) is optional — asked for directly ("customisable links...
-//: connection endpoint designs") — a link had no endpoint marker option at
-//: all before this. The approach angle for the arrowhead is the straight
-//: line to the *other* endpoint, which is exact for a straight link and a
-//: reasonable approximation for a curved one (the curve's own tangent at
-//: the endpoint, not attempted — this app's curves are gentle enough that
-//: the difference is small).
-function wbLinkPathD(type, sPt, tPt, endStyle, width) {
+//: curved link can't compute its path two different ways. `caps` (from
+//: `wbLinkCaps`) is optional — asked for directly ("customisable links...
+//: connection endpoint designs", later extended to "circle/square/multi-
+//: line ends, independently per end") — a link had no endpoint marker
+//: option at all before the first version of this. The approach angle for
+//: a cap is the straight line to the *other* endpoint, which is exact for
+//: a straight link and a reasonable approximation for a curved one (the
+//: curve's own tangent at the endpoint, not attempted — this app's curves
+//: are gentle enough that the difference is small).
+function wbLinkPathD(type, sPt, tPt, caps, width) {
   const base = type === "link-straight"
     ? `M ${sPt.x} ${sPt.y} L ${tPt.x} ${tPt.y}`
     : (() => {
         const dx = tPt.x - sPt.x;
         return `M ${sPt.x} ${sPt.y} C ${sPt.x + dx / 2} ${sPt.y}, ${tPt.x - dx / 2} ${tPt.y}, ${tPt.x} ${tPt.y}`;
       })();
-  if (!endStyle || endStyle === "none") return base;
+  const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
+  if (startCap === "none" && endCap === "none") return base;
   const headLen = (width || 3) * 4 + 6;
   const angle = Math.atan2(tPt.y - sPt.y, tPt.x - sPt.x);
   let d = base;
-  if (endStyle === "end" || endStyle === "both") d += " " + wbArrowHeadPath(tPt.x, tPt.y, angle, headLen);
-  if (endStyle === "start" || endStyle === "both") d += " " + wbArrowHeadPath(sPt.x, sPt.y, angle + Math.PI, headLen);
+  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, angle, headLen);
+  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, angle + Math.PI, headLen);
   return d;
 }
 
@@ -23623,7 +23865,11 @@ function wbLinkPathD(type, sPt, tPt, endStyle, width) {
 //: nearest one to the live pointer (if within snapping range) renders larger
 //: and filled, so "this is where it'll land" is visible before release.
 function wbShowAnchorHints(kind, item, nearAnchor) {
-  const zoomGroup = document.getElementById("wb-zoom-group");
+  // The overlay layer, not the base SVG's own `#wb-zoom-group` — cards
+  // render in an HTML layer *above* that SVG (see `#wb-overlay-layer`'s own
+  // comment in index.html), so a hint drawn there for a hovered card would
+  // be painted directly underneath it, invisible exactly when it matters.
+  const zoomGroup = document.getElementById("wb-overlay-zoom-group");
   if (!zoomGroup) return;
   let hints = document.getElementById("wb-anchor-hints");
   if (!hints) {
@@ -23797,7 +24043,8 @@ function wbUpdatePropertiesPanel() {
   const rows = {
     color: document.getElementById("wb-prop-color-row"),
     width: document.getElementById("wb-prop-width-row"),
-    arrowhead: document.getElementById("wb-prop-arrowhead-row"),
+    startcap: document.getElementById("wb-prop-startcap-row"),
+    endcap: document.getElementById("wb-prop-endcap-row"),
     bg: document.getElementById("wb-prop-bg-row"),
     border: document.getElementById("wb-prop-border-row"),
     fontsize: document.getElementById("wb-prop-fontsize-row"),
@@ -23842,11 +24089,14 @@ function wbUpdatePropertiesPanel() {
       panel.classList.remove("hidden");
       rows.color.classList.remove("hidden");
       rows.width.classList.remove("hidden");
-      rows.arrowhead.classList.remove("hidden");
+      rows.startcap.classList.remove("hidden");
+      rows.endcap.classList.remove("hidden");
       rows.dash.classList.remove("hidden");
       document.getElementById("wb-prop-color").value = linkParsed.color || "#ffffff";
       document.getElementById("wb-prop-width").value = linkParsed.width || 3;
-      document.getElementById("wb-prop-arrowhead").value = linkParsed.endStyle || "none";
+      const linkCaps = wbLinkCaps(linkParsed);
+      document.getElementById("wb-prop-startcap").value = linkCaps.startCap;
+      document.getElementById("wb-prop-endcap").value = linkCaps.endCap;
       document.getElementById("wb-prop-dash").value = linkParsed.dash || "solid";
       return;
     }
@@ -23861,12 +24111,15 @@ function wbUpdatePropertiesPanel() {
     document.getElementById("wb-prop-color").value = parsed.color || "#000000";
     document.getElementById("wb-prop-width").value = parsed.width || 3;
     if (wbSketchIsArrow(parsed.d)) {
-      rows.arrowhead.classList.remove("hidden");
+      rows.startcap.classList.remove("hidden");
+      rows.endcap.classList.remove("hidden");
       // The sketch's own actual style, not the active drawing tool's current
       // default — live-reported bug, same root cause as Line always drawing
       // with a head: this used to show `window.currentArrowStyle` instead
       // of what was really on the selected line/arrow.
-      document.getElementById("wb-prop-arrowhead").value = wbDetectArrowStyle(parsed.d);
+      const caps = wbSketchCaps(parsed);
+      document.getElementById("wb-prop-startcap").value = caps.startCap;
+      document.getElementById("wb-prop-endcap").value = caps.endCap;
     }
     // Stroke style/no-stroke apply to any drawn shape/line; fill only to
     // the four closed shapes — asked for directly ("stroke width, style,
@@ -24435,6 +24688,22 @@ function wbItemTransform(d) {
 //: 0 — so an untouched handle already reads as the item's actual rotation.
 //: `shiftSnap` rounds to the nearest 15°, the same modifier convention as
 //: shift-to-constrain while drawing a shape.
+//: `wbAngleFromCenterDeg`, but for a sketch's rotate handle specifically —
+//: the center it's given is in *board* space (the same coordinate space
+//: `d` itself uses), while the pointer only ever arrives in *screen*
+//: space (`clientX`/`clientY`). The resize-handle drag just above this
+//: function divides `event.dx` by the zoom scale by hand for the same
+//: reason: an SVG child's d3.drag coordinates are not auto-corrected for
+//: an ancestor `<g transform>` in this app's actual DOM, so the two
+//: spaces have to be reconciled explicitly rather than assumed to match.
+function wbSketchAngleFromCenterDeg(boardCx, boardCy, sourceEvent, shiftSnap) {
+  const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+  const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+  const screenCx = boardCx * transform.k + transform.x + rect.left;
+  const screenCy = boardCy * transform.k + transform.y + rect.top;
+  return wbAngleFromCenterDeg(screenCx, screenCy, sourceEvent.clientX, sourceEvent.clientY, shiftSnap);
+}
+
 function wbAngleFromCenterDeg(cx, cy, px, py, shiftSnap) {
   let deg = Math.atan2(py - cy, px - cx) * (180 / Math.PI) + 90;
   deg = ((deg % 360) + 360) % 360;
@@ -25003,6 +25272,11 @@ async function initWhiteboard() {
     });
   }
   $("wb-new-board")?.addEventListener("click", createNewBoard);
+  $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
+  $("wb-empty-hint-dismiss")?.addEventListener("click", () => {
+    localStorage.setItem("wbEmptyHintDismissed", "1");
+    $("wb-empty-hint")?.classList.add("hidden");
+  });
 
   // Board background colour, asked for directly — the ambient generative-art
   // canvas showed straight through the board before this (`--wb-board-bg`,
@@ -25411,7 +25685,13 @@ async function initWhiteboard() {
     await wbSaveSketchProps(sketch, { width });
     renderWhiteboard();
   });
-  document.getElementById("wb-prop-arrowhead")?.addEventListener("change", async (e) => {
+  // Start/end cap dropdowns — independently per end (asked for directly),
+  // replacing the single shared "which end gets an arrowhead" control.
+  // Shared by both: reads the *other* end's current cap first (from
+  // whichever field it's actually stored in — the explicit new one, or
+  // the legacy `endStyle` for a link that predates it) so changing one end
+  // never silently resets the other.
+  async function wbSetCap(which, value) {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
     let linkParsed = null;
@@ -25420,20 +25700,28 @@ async function initWhiteboard() {
       if (candidate && (candidate.type || "").startsWith("link-")) linkParsed = candidate;
     } catch { /* not a link */ }
     if (linkParsed) {
-      // A link's arrowhead is computed at render time from `endStyle`
+      // A link's caps are computed at render time from `startCap`/`endCap`
       // (`wbLinkPathD`), not baked into a stored path the way a drawn
       // arrow's is — nothing to regenerate, just persist the choice.
-      await wbSaveSketchProps(sketch, { endStyle: e.target.value === "none" ? undefined : e.target.value });
+      const current = wbLinkCaps(linkParsed);
+      current[which] = value;
+      await wbSaveSketchProps(sketch, {
+        startCap: current.startCap, endCap: current.endCap, endStyle: undefined,
+      });
       renderWhiteboard();
       return;
     }
     const parsed = wbSketchParsedData(sketch);
     if (!parsed || !wbSketchIsArrow(parsed.d)) return;
+    const current = wbSketchCaps(parsed);
+    current[which] = value;
     const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
-    const newD = wbRegenerateArrowHeads(parsed.d, e.target.value, headLen);
-    await wbSaveSketchProps(sketch, { d: newD });
+    const newD = wbRegenerateShapeCaps(parsed.d, current.startCap, current.endCap, headLen);
+    await wbSaveSketchProps(sketch, { d: newD, startCap: current.startCap, endCap: current.endCap });
     renderWhiteboard();
-  });
+  }
+  document.getElementById("wb-prop-startcap")?.addEventListener("change", (e) => wbSetCap("startCap", e.target.value));
+  document.getElementById("wb-prop-endcap")?.addEventListener("change", (e) => wbSetCap("endCap", e.target.value));
   document.getElementById("wb-prop-bg")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
@@ -25916,6 +26204,28 @@ async function initWhiteboard() {
     wbMarqueeEl.setAttribute("width", w);
     wbMarqueeEl.setAttribute("height", h);
   });
+  // Anchor points weren't discoverable until a link drag was already under
+  // way — asked for directly: "when I hover over objects, their anchor
+  // points should display... so I can connect them." A plain hover with a
+  // link-type tool selected, no drag started yet, now shows the same 8
+  // fixed-point hints the in-progress drag already draws (`wbShowAnchorHints`,
+  // shared so the two can't drift visually apart). Skips while an actual
+  // link drag is running (`wbLinkDragActive`) — that path already redraws
+  // hints every frame from the live pointer position, and this would just
+  // be a second, slightly-stale write to the same DOM nodes.
+  containerEl.addEventListener("pointermove", (e) => {
+    if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
+    if (wbLinkDragActive) return;
+    const [x, y] = getLogicalMouse(e);
+    let hoverNode = null;
+    for (const node of wbState.nodes || []) {
+      const box = wbItemBBox("node", node);
+      if (box && x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY) { hoverNode = node; break; }
+    }
+    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, x, y));
+    else wbClearAnchorHints();
+  });
+
   containerEl.addEventListener("pointerup", (e) => {
     if (!wbMarqueeStart) return;
     const [x, y] = getLogicalMouse(e);
@@ -25976,7 +26286,13 @@ async function initWhiteboard() {
   let wbLassoEl = null;
   let wbLassoShift = false;
   containerEl.addEventListener("pointerdown", (e) => {
-    if (window.currentTool !== "lasso" || !wbIsEmptyCanvasTarget(e.target)) return;
+    // Unlike the marquee (`wbIsEmptyCanvasTarget`, above — empty canvas
+    // only, since a drag starting *on* a card there means "move it"), a
+    // lasso loop is drawn freeform and routinely starts right at the edge
+    // of the first thing it means to circle — reported directly as "the
+    // lasso tool doesn't work properly". Still excludes an actual handle,
+    // which needs its own drag gesture to keep working.
+    if (window.currentTool !== "lasso" || e.target.closest?.(".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-link-endpoint-handle")) return;
     const [x, y] = getLogicalMouse(e);
     wbLassoPoints = [[x, y]];
     wbLassoShift = e.shiftKey;
@@ -26391,6 +26707,28 @@ async function refreshBoardList(justCreated = null) {
     select.appendChild(opt);
   }
   select.value = window.currentBoardId || "";
+  // The default scratch board (`board_id=null`) has no underlying note to
+  // rename — `rename_board` 404s on anything that isn't a real positive id.
+  const renameBtn = document.getElementById("wb-rename-board");
+  if (renameBtn) renameBtn.disabled = !window.currentBoardId;
+}
+
+async function renameCurrentBoard() {
+  if (!window.currentBoardId) return;
+  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.textContent
+    .replace(/\s*\(\d+ items?\)$/, "") || "";
+  const name = await promptDialog("Rename this board:", current);
+  if (!name || !name.trim()) return;
+  try {
+    const board = await apiJson(`/whiteboard/boards/${window.currentBoardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ title: name.trim() }),
+    });
+    await refreshBoardList(board);
+    toast(`Board renamed to "${board.title}".`);
+  } catch (err) {
+    toast(err.message || "Couldn't rename that board.", true);
+  }
 }
 
 async function createNewBoard() {
@@ -26402,6 +26740,12 @@ async function createNewBoard() {
       body: JSON.stringify({ name: name.trim() }),
     });
     window.currentBoardId = board.id;
+    // `list_boards` only lists a board once something is actually placed on
+    // it (see its own docstring) — an empty new one is invisible to both
+    // this dropdown (already handled below via `justCreated`) and the
+    // landing gallery, which would otherwise make a board someone just
+    // created appear to vanish the moment they go back to the list.
+    window.wbLastCreatedBoard = board;
     const url = `/whiteboard/?board_id=${board.id}`;
     wbState = await apiJson(url);
     await refreshBoardList(board);
@@ -26425,30 +26769,79 @@ async function createNewBoard() {
 // curves, `h`/`v`/`Z` for rect, `a` for circle) — a path from anywhere else
 // was never a possibility, so there is no reason to handle SVG's full
 // command set.
-function wbTransformPathD(d, { dx = 0, dy = 0, sx = 1, sy = 1, anchorX = 0, anchorY = 0 } = {}) {
-  const mapX = (x) => anchorX + (x - anchorX) * sx + dx;
-  const mapY = (y) => anchorY + (y - anchorY) * sy + dy;
+//: `rotate` (degrees, about `anchorX`/`anchorY`) is what a sketch didn't
+//: have — cards and objects rotate (a drag handle + a stored `rotation`
+//: column), but a sketch *is* its path data, and rotating a path correctly
+//: needs care `dx`/`sx` alone don't: `h`/`v` (a purely horizontal/vertical
+//: relative line — this app's own rect tool emits them) can't represent a
+//: rotated line at all, since rotating "purely horizontal" by anything
+//: other than a multiple of 90° makes it not horizontal any more, so each
+//: becomes an absolute `L` instead once rotation is non-zero. `a` (the
+//: circle tool's arc pairs) stays relative — a rotation adds straight onto
+//: the arc's own `x-axis-rotation` parameter and rotates its endpoint
+//: delta; `rx`/`ry`/large-arc/sweep are unchanged, which is exact for a
+//: *pure* rotation (no reflection) — this app never emits a negative
+//: scale, so that combination doesn't need handling here.
+function wbTransformPathD(d, { dx = 0, dy = 0, sx = 1, sy = 1, rotate = 0, anchorX = 0, anchorY = 0 } = {}) {
+  const theta = (rotate * Math.PI) / 180;
+  const cos = Math.cos(theta), sin = Math.sin(theta);
+  const mapPoint = (x, y) => {
+    const scaledX = anchorX + (x - anchorX) * sx;
+    const scaledY = anchorY + (y - anchorY) * sy;
+    const relX = scaledX - anchorX, relY = scaledY - anchorY;
+    return [anchorX + relX * cos - relY * sin + dx, anchorY + relX * sin + relY * cos + dy];
+  };
+  // A relative delta scales the same way a point's offset from the anchor
+  // does, but never translates (dx/dy are a position's own change, not a
+  // vector's).
+  const mapDelta = (ddx, ddy) => {
+    const scaledX = ddx * sx, scaledY = ddy * sy;
+    return [scaledX * cos - scaledY * sin, scaledX * sin + scaledY * cos];
+  };
   const tokens = d.match(/[MLCHVAZmlchvaz]|-?\d*\.?\d+(?:[eE]-?\d+)?/g);
   if (!tokens) return d;
-  let i = 0;
+  let i = 0, px = 0, py = 0; // current point, tracked only for h/v → L under rotation
   const out = [];
   while (i < tokens.length) {
     const cmd = tokens[i++];
     if (cmd === "M" || cmd === "L") {
-      out.push(cmd, mapX(parseFloat(tokens[i++])), mapY(parseFloat(tokens[i++])));
+      const x = parseFloat(tokens[i++]), y = parseFloat(tokens[i++]);
+      const [mx, my] = mapPoint(x, y);
+      out.push(cmd, mx, my);
+      px = x; py = y;
     } else if (cmd === "C") {
       const n = [];
       for (let k = 0; k < 6; k++) n.push(parseFloat(tokens[i++]));
-      out.push(cmd, mapX(n[0]), mapY(n[1]), mapX(n[2]), mapY(n[3]), mapX(n[4]), mapY(n[5]));
+      const [x1, y1] = mapPoint(n[0], n[1]);
+      const [x2, y2] = mapPoint(n[2], n[3]);
+      const [x3, y3] = mapPoint(n[4], n[5]);
+      out.push(cmd, x1, y1, x2, y2, x3, y3);
+      px = n[4]; py = n[5];
     } else if (cmd === "h") {
-      out.push(cmd, parseFloat(tokens[i++]) * sx);
+      const ddx = parseFloat(tokens[i++]);
+      if (rotate) {
+        const [mx, my] = mapPoint(px + ddx, py);
+        out.push("L", mx, my);
+      } else {
+        out.push(cmd, ddx * sx);
+      }
+      px += ddx;
     } else if (cmd === "v") {
-      out.push(cmd, parseFloat(tokens[i++]) * sy);
+      const ddy = parseFloat(tokens[i++]);
+      if (rotate) {
+        const [mx, my] = mapPoint(px, py + ddy);
+        out.push("L", mx, my);
+      } else {
+        out.push(cmd, ddy * sy);
+      }
+      py += ddy;
     } else if (cmd === "a") {
       const rx = parseFloat(tokens[i++]) * sx, ry = parseFloat(tokens[i++]) * sy;
-      const rot = tokens[i++], large = tokens[i++], sweep = tokens[i++];
-      const ex = parseFloat(tokens[i++]) * sx, ey = parseFloat(tokens[i++]) * sy;
-      out.push(cmd, rx, ry, rot, large, sweep, ex, ey);
+      const rot = parseFloat(tokens[i++]) + rotate, large = tokens[i++], sweep = tokens[i++];
+      const edx = parseFloat(tokens[i++]), edy = parseFloat(tokens[i++]);
+      const [mdx, mdy] = mapDelta(edx, edy);
+      out.push(cmd, rx, ry, rot, large, sweep, mdx, mdy);
+      px += edx; py += edy;
     } else if (cmd === "Z" || cmd === "z") {
       out.push(cmd);
     } else {
@@ -26587,19 +26980,21 @@ function wbSketchIsArrow(d) {
   return (d.match(/M/g) || []).length > 1;
 }
 
-//: Rebuilds an arrow's head stroke(s) at `style` from its own shaft — the
-//: shaft is always the sketch's first subpath, `M sx sy L ex ey` (every
-//: arrow this app draws starts that way), so head style can be changed
-//: after the fact without needing to have stored which style was originally
-//: chosen.
-function wbRegenerateArrowHeads(d, style, headLen) {
+//: Rebuilds a line/arrow's own two end caps from its shaft — the shaft is
+//: always the sketch's first subpath, `M sx sy L ex ey` (every arrow this
+//: app draws starts that way), so either end's cap can be changed after
+//: the fact without needing to have stored which shape was originally
+//: chosen. Independently per end (`WB_CAP_KINDS` each) — asked for
+//: directly ("a full line/arrow end-cap system... circle/square/multi-line
+//: ends"), replacing the single shared arrowhead-only version.
+function wbRegenerateShapeCaps(d, startCap, endCap, headLen) {
   const m = d.match(/^M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)\s+L\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/);
   if (!m) return d;
   const sx = parseFloat(m[1]), sy = parseFloat(m[2]), ex = parseFloat(m[3]), ey = parseFloat(m[4]);
   const angle = Math.atan2(ey - sy, ex - sx);
   let out = `M ${sx} ${sy} L ${ex} ${ey}`;
-  if (style === "end" || style === "both") out += " " + wbArrowHeadPath(ex, ey, angle, headLen);
-  if (style === "start" || style === "both") out += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
+  if (endCap && endCap !== "none") out += " " + wbCapPath(endCap, ex, ey, angle, headLen);
+  if (startCap && startCap !== "none") out += " " + wbCapPath(startCap, sx, sy, angle + Math.PI, headLen);
   return out;
 }
 
@@ -26628,6 +27023,101 @@ function wbDetectArrowStyle(d) {
   return "none";
 }
 
+//: A drawn line/arrow's own two cap kinds — the explicit `startCap`/
+//: `endCap` fields (any of `WB_CAP_KINDS`) if this sketch has them, or
+//: `wbDetectArrowStyle`'s older binary read translated to "arrow"/"none"
+//: for one saved before the full end-cap system existed. Explicit fields
+//: rather than shape-sniffing every cap kind out of the raw path: circle
+//: and square are geometrically ambiguous with plenty of things a pen
+//: stroke could also draw, where an arrow's two-line V (`wbDetectArrowStyle`)
+//: is not — so a *new* cap choice is trusted and stored, and only a link
+//: with no stored choice at all falls back to inferring one.
+function wbSketchCaps(parsed) {
+  if (parsed.startCap !== undefined || parsed.endCap !== undefined) {
+    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none" };
+  }
+  const legacy = wbDetectArrowStyle(parsed.d);
+  return {
+    startCap: legacy === "start" || legacy === "both" ? "arrow" : "none",
+    endCap: legacy === "end" || legacy === "both" ? "arrow" : "none",
+  };
+}
+
+//: Two draggable handles at a selected link's own resolved endpoints —
+//: asked for directly: "I should be able to move the points where lines,
+//: arrows and links connect on objects to other points or even make it a
+//: dangling unattached point not attached to an object." Dragging one
+//: rewrites *that end's* own reference (`sourceId`/`sourceAnchor` or
+//: `targetId`/`targetAnchor` — reattach, snapping to the nearest of the
+//: hovered card's 8 fixed anchors the same way creating a link already
+//: does) or, released over empty canvas, `sourcePoint`/`targetPoint` — a
+//: fixed board-space point with no card at all. `wbResolveLinkEndpoints`
+//: already reads both shapes, so nothing else needs to change to render one.
+function wbRenderLinkEndpointHandles(sketch, parsed) {
+  const endpoints = wbResolveLinkEndpoints(parsed);
+  if (!endpoints) return;
+  // The overlay layer (see its own comment in index.html) — an endpoint
+  // sits *on a card's own border* by definition, which the base SVG layer
+  // paints underneath the card's HTML element. A handle there would be
+  // both invisible and unclickable exactly where it's needed most.
+  const group = d3.select("#wb-overlay-zoom-group").append("g").attr("class", "wb-sketch-handle-group");
+
+  const hoveredNodeAt = (px, py) => {
+    for (const node of wbState.nodes) {
+      const box = wbItemBBox("node", node);
+      if (px >= box.minX && px <= box.maxX && py >= box.minY && py <= box.maxY) return node;
+    }
+    return null;
+  };
+
+  for (const end of ["source", "target"]) {
+    const other = end === "source" ? "target" : "source";
+    const live = { x: endpoints[end].x, y: endpoints[end].y };
+    group.append("circle")
+      .attr("class", "wb-link-endpoint-handle")
+      .attr("data-end", end)
+      .attr("cx", live.x).attr("cy", live.y)
+      .attr("r", 7)
+      .style("cursor", "crosshair")
+      .call(
+        d3.drag()
+          .on("start", (event) => event.sourceEvent.stopPropagation())
+          .on("drag", function (event) {
+            const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+            live.x += event.dx / transform.k;
+            live.y += event.dy / transform.k;
+            d3.select(this).attr("cx", live.x).attr("cy", live.y);
+            const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
+            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width);
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
+
+            const hoverNode = hoveredNodeAt(live.x, live.y);
+            if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, live.x, live.y));
+            else wbClearAnchorHints();
+          })
+          .on("end", async () => {
+            wbClearAnchorHints();
+            const before = WB_KIND_INFO.sketch.payload(sketch);
+            const hoverNode = hoveredNodeAt(live.x, live.y);
+            const partial = {};
+            if (hoverNode) {
+              partial[end + "Id"] = hoverNode.id;
+              partial[end + "Anchor"] = wbNearestAnchor("node", hoverNode, live.x, live.y) || undefined;
+              partial[end + "Point"] = undefined;
+            } else {
+              partial[end + "Id"] = undefined;
+              partial[end + "Anchor"] = undefined;
+              partial[end + "Point"] = { x: live.x, y: live.y };
+            }
+            await wbSaveSketchProps(sketch, partial);
+            wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+            renderWhiteboard();
+          })
+      );
+  }
+}
+
 // The handles themselves — a fresh SVG group per selection, since (unlike a
 // card/object's own always-present handles) a sketch has no fixed element to
 // attach 8 children to; it's rebuilt on every selection change and after
@@ -26636,11 +27126,18 @@ function wbRenderSketchHandles() {
   d3.select("#wb-zoom-group").selectAll(".wb-sketch-handle-group").remove();
   if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return;
   const sketch = wbState.sketches.find((s) => s.id === wbSelectedItem.id);
-  const parsed = sketch && wbSketchParsedData(sketch);
-  // Link sketches (a curve/line between two cards) are computed fresh from
-  // the cards' own positions on every render — dragging a handle on one
-  // would be undone the instant either card moves again, so they don't get
-  // handles at all; move/delete the cards instead.
+  if (!sketch) return;
+  // A link sketch has no `.d` of its own — `wbSketchParsedData` returns
+  // null for it, and the 8-point bbox resize handles below make no sense
+  // for a path recomputed fresh from its endpoints every render anyway.
+  // It gets its own two endpoint handles instead (below).
+  let rawParsed;
+  try { rawParsed = JSON.parse(sketch.data); } catch { rawParsed = null; }
+  if (rawParsed && (rawParsed.type || "").startsWith("link-")) {
+    wbRenderLinkEndpointHandles(sketch, rawParsed);
+    return;
+  }
+  const parsed = wbSketchParsedData(sketch);
   if (!parsed) return;
   const bbox = wbPathBBox(parsed.d);
   if (!bbox) return;
@@ -26696,6 +27193,56 @@ function wbRenderSketchHandles() {
           })
       );
   }
+
+  // Rotation — asked for directly, the one thing cards/objects already had
+  // (a drag handle above the item, Shift snaps to 15°) that a sketch
+  // didn't, since its "shape" is its path data rather than a stored
+  // rotation column. Baked into `d` on release via `wbTransformPathD`'s new
+  // `rotate` support, the same "commit into the path" convention move and
+  // resize already use for a sketch — not a live CSS transform, which
+  // would need a rotation to remember and re-apply on every future edit
+  // instead of just being the shape's own coordinates.
+  const centerX = (bbox.minX + bbox.maxX) / 2, centerY = (bbox.minY + bbox.maxY) / 2;
+  const handleY = bbox.minY - 28;
+  group.append("line")
+    .attr("class", "wb-rotate-handle-stem")
+    .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
+  // Absolute, not incremental — the handle sits straight above the shape's
+  // centre (0°, the same reference `wbAngleFromCenterDeg` uses), so the
+  // rotation applied is exactly the pointer's own angle from vertical, the
+  // same "the handle follows your cursor" feel `nodeRotateDrag` above
+  // already established for cards.
+  let rotateOriginalD = null, rotateLiveD = null;
+  group.append("circle")
+    .attr("class", "wb-sketch-rotate-handle")
+    .attr("cx", centerX).attr("cy", handleY).attr("r", 7)
+    .style("cursor", "grab")
+    .call(
+      d3.drag()
+        .on("start", (event) => {
+          event.sourceEvent.stopPropagation();
+          rotateOriginalD = parsed.d;
+          sketch._rotateUndoBefore = WB_KIND_INFO.sketch.payload(sketch);
+        })
+        .on("drag", (event) => {
+          const currentAngle = wbSketchAngleFromCenterDeg(centerX, centerY, event.sourceEvent, event.sourceEvent.shiftKey);
+          const newD = wbTransformPathD(rotateOriginalD, { rotate: currentAngle, anchorX: centerX, anchorY: centerY });
+          rotateLiveD = newD;
+          document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
+          document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
+        })
+        .on("end", async () => {
+          const before = sketch._rotateUndoBefore;
+          delete sketch._rotateUndoBefore;
+          if (rotateLiveD) {
+            const finalD = rotateLiveD;
+            rotateLiveD = null;
+            await wbSaveSketchD(sketch, finalD);
+            if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+          }
+          renderWhiteboard();
+        })
+    );
 }
 
 function renderWhiteboard() {
@@ -26713,10 +27260,13 @@ function renderWhiteboard() {
       "hidden",
       // Objects count too — a board holding only a text box or an image is
       // not empty, and left out of this sum the hint sat on top of them.
+      // Asked for directly: an option to turn the hint off entirely, once
+      // it's served its purpose — `localStorage`, the same durability the
+      // onboarding tour's own "don't show again" already uses.
       (wbState.nodes?.length || 0) +
         (wbState.sketches?.length || 0) +
         (wbState.objects?.length || 0) >
-        0
+        0 || localStorage.getItem("wbEmptyHintDismissed") === "1"
     );
 
   // Render Sketches (SVG)
@@ -26908,14 +27458,8 @@ function renderWhiteboard() {
         stroke = parsed.color || stroke;
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
-        const source = wbState.nodes.find(n => n.id === parsed.sourceId);
-        const target = wbState.nodes.find(n => n.id === parsed.targetId);
-        if (source && target) {
-           const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
-           pathData = wbLinkPathD(parsed.type, sPt, tPt, parsed.endStyle, parsed.width);
-        } else {
-           pathData = "";
-        }
+        const endpoints = wbResolveLinkEndpoints(parsed);
+        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width) : "";
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
@@ -27078,7 +27622,14 @@ function renderWhiteboard() {
       // exact same pointerdown, and whichever one's gesture-tracking the
       // browser resolved first silently won, so a resize handle drag never
       // visibly resized anything.
-      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle"))
+      // `currentTool !== "lasso"`: reported directly ("the lasso tool
+      // doesn't work properly") — a lasso loop is meant to start from
+      // anywhere, including right at a card's own edge, but this filter
+      // (unlike the lasso's own pointerdown listener) never excluded the
+      // lasso tool the way it already excludes the brush tools, so a lasso
+      // gesture begun on top of a card silently moved the card instead of
+      // ever reaching the lasso's own draw logic.
+      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle"))
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
@@ -27298,7 +27849,7 @@ function renderWbObjects(canvas) {
     // object's listener catching a bubbled grip click" apart. `gripDrag`
     // below exists precisely because that distinction needs two behaviour
     // objects, not one filter.
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
     .on("start", objDragStart)
     .on("drag", objDragMove)
     .on("end", objDragEnd);
@@ -27308,7 +27859,7 @@ function renderWbObjects(canvas) {
   // keep their own handle grabs from also bubbling into the object's own
   // `objDrag` listener.
   const gripDrag = d3.drag()
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool))
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       objDragStart.call(this, event, d);
@@ -27408,7 +27959,26 @@ function renderWbObjects(canvas) {
   objectEnter.each(function (d) {
     const el = d3.select(this);
     if (d.kind === "image") {
-      el.append("img").attr("src", mediaSrc(d.data.url) || "").attr("alt", "");
+      // Asked for directly: an image deleted out from under a board (via
+      // the Library gallery's own delete, or by hand off disk) left a
+      // plain broken-image glyph — "there should probably be a placeholder
+      // or closable box that says it is deleted in its place." The close
+      // button removes the object outright rather than leaving a
+      // permanently-broken box on the board.
+      el.append("img").attr("src", mediaSrc(d.data.url) || "").attr("alt", "")
+        .on("error", function () {
+          d3.select(this).remove();
+          if (el.select(".wb-object-deleted").empty()) {
+            const placeholder = el.append("div").attr("class", "wb-object-deleted");
+            placeholder.append("span").text("🖼 Image deleted");
+            placeholder.append("button")
+              .attr("type", "button")
+              .attr("class", "ghost small icon-button")
+              .attr("title", "Remove this")
+              .text("✕")
+              .on("click", (event) => { event.stopPropagation(); deleteObject(d); });
+          }
+        });
     } else {
       // Fill/border, asked for directly (the properties panel) — set on the
       // outer object div, which is what `.wb-object-text`'s own default
@@ -27507,11 +28077,9 @@ function wbUpdateLinkedSketches(nodeId) {
     }
     if (!parsed.type || !parsed.type.startsWith("link-")) continue;
     if (parsed.sourceId !== nodeId && parsed.targetId !== nodeId) continue;
-    const source = wbState.nodes.find((n) => n.id === parsed.sourceId);
-    const target = wbState.nodes.find((n) => n.id === parsed.targetId);
-    if (!source || !target) continue;
-    const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
-    const pathData = wbLinkPathD(parsed.type, sPt, tPt, parsed.endStyle, parsed.width);
+    const endpoints = wbResolveLinkEndpoints(parsed);
+    if (!endpoints) continue;
+    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width);
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
     el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
@@ -27533,6 +28101,7 @@ function dragStart(event, d) {
     const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
     const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
     d.linkSourceAnchor = wbNearestAnchor("node", d, startX, startY);
+    wbLinkDragActive = true;
     wbShowAnchorHints("node", d, d.linkSourceAnchor);
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     d.linkingPath.setAttribute("fill", "none");
@@ -27649,6 +28218,7 @@ async function dragEndNode(event, d) {
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     if (d.linkingPath) d.linkingPath.remove();
     d.linkingPath = null;
+    wbLinkDragActive = false;
     wbClearAnchorHints();
 
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
@@ -27729,8 +28299,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const librarySubtabs = document.getElementById("library-subtabs");
   if (librarySubtabs) {
     const buttons = librarySubtabs.querySelectorAll("button");
-    const sections = ["library-view-documents", "library-view-skills", "library-view-whiteboard"];
-    
+    const sections = [
+      "library-view-documents", "library-view-skills", "library-view-whiteboard", "library-view-media",
+    ];
+
     buttons.forEach(btn => {
       btn.addEventListener("click", () => {
         buttons.forEach(b => {
@@ -27739,7 +28311,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         btn.classList.add("active");
         btn.setAttribute("aria-selected", "true");
-        
+
         const targetId = btn.getAttribute("data-target");
         sections.forEach(id => {
           const el = document.getElementById(id);
@@ -27751,14 +28323,139 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }
         });
-        
+
         if (targetId === "library-view-whiteboard") {
-          setTimeout(initWhiteboard, 50);
+          // Lands on the boards gallery, not straight onto a canvas — one
+          // door onto the whiteboard, asked for directly, replacing the
+          // old always-opens-the-last-board behaviour.
+          wbShowBoardsLanding();
+        } else if (targetId === "library-view-media") {
+          renderLibraryImagesGallery();
         }
       });
     });
   }
+  $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("wb-boards-new")?.addEventListener("click", async () => {
+    wbShowCanvasView();
+    await createNewBoard();
+  });
+  $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
 });
+
+// The Whiteboards tab has two views sharing one subtab: a boards gallery
+// (the landing view) and the actual canvas — asked for directly, replacing
+// two separate doors onto the whiteboard (a bare canvas tab defaulting to
+// whatever board was last open, plus a picker tab) with one. Canvas init
+// is lazy and idempotent (`wbInitialized` guards it), so switching between
+// the two views repeatedly costs nothing after the first time.
+function wbShowCanvasView() {
+  $("wb-boards-landing")?.classList.add("hidden");
+  $("wb-canvas-view")?.classList.remove("hidden");
+  setTimeout(initWhiteboard, 50);
+}
+
+function wbShowBoardsLanding() {
+  $("wb-canvas-view")?.classList.add("hidden");
+  $("wb-boards-landing")?.classList.remove("hidden");
+  renderLibraryBoardsGallery();
+}
+
+async function renderLibraryBoardsGallery() {
+  const grid = $("library-boards-grid");
+  const empty = $("library-boards-empty");
+  if (!grid) return;
+  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); return; }
+  // See `createNewBoard`'s own comment: a board with nothing on it yet
+  // doesn't come back from the server at all.
+  const created = window.wbLastCreatedBoard;
+  if (created && !boards.some((b) => b.id === created.id)) {
+    boards.push({ ...created, node_count: 0, sketch_count: 0, object_count: 0 });
+  }
+  grid.replaceChildren();
+  if (!boards.length) {
+    empty?.classList.remove("hidden");
+    return;
+  }
+  empty?.classList.add("hidden");
+  for (const board of boards) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "library-card library-board-card";
+    const title = document.createElement("strong");
+    title.className = "library-card-title";
+    title.textContent = board.title;
+    const count = board.node_count + board.sketch_count + (board.object_count || 0);
+    const meta = document.createElement("span");
+    meta.className = "muted";
+    meta.textContent = `${count} item${count === 1 ? "" : "s"}`;
+    card.append(title, meta);
+    card.addEventListener("click", () => openWhiteboardBoard(board.id));
+    grid.appendChild(card);
+  }
+}
+
+// Every `/media/upload` has ever produced — note-inline images, document
+// images, and whiteboard image objects alike, since all three funnel
+// through the same upload endpoint and (asked for directly) "images can be
+// managed (delete, rename etc) in the gallery as well." A file whose bytes
+// are gone (deleted from here, or off-disk by hand) leaves a broken-image
+// glyph — same guard `libraryCard`'s own thumbnail already uses — but a
+// note or whiteboard still referencing a *deleted* url gets its own
+// placeholder instead of a broken glyph; see `renderInlineMarkdown`'s own
+// image `error` handler and `wbRenderObjects`'s image-object one.
+async function renderLibraryImagesGallery() {
+  const grid = $("library-images-grid");
+  const empty = $("library-images-empty");
+  if (!grid) return;
+  const images = await apiJson("/media", { silent: true }).catch(() => null);
+  grid.replaceChildren();
+  if (!images || !images.length) {
+    empty?.classList.remove("hidden");
+    return;
+  }
+  empty?.classList.add("hidden");
+  for (const image of images) {
+    const fig = document.createElement("figure");
+    fig.className = "library-image-tile";
+    const img = document.createElement("img");
+    img.src = mediaSrc(image.url);
+    img.alt = image.original_name;
+    img.loading = "lazy";
+    img.addEventListener("error", () => fig.remove());
+    img.addEventListener("click", () => openLightbox(mediaSrc(image.url), image.original_name));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "ghost small icon-button library-image-delete";
+    del.title = "Delete this image";
+    del.textContent = "🗑";
+    del.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
+      await apiJson(`/media/${image.id}`, { method: "DELETE" }).catch((err) => toast(err.message, true));
+      fig.remove();
+      if (!grid.children.length) empty?.classList.remove("hidden");
+    });
+    const cap = document.createElement("figcaption");
+    cap.textContent = image.original_name;
+    fig.append(img, del, cap);
+    grid.appendChild(fig);
+  }
+}
+
+// Jump to the real whiteboard canvas with a specific board loaded.
+async function openWhiteboardBoard(boardId) {
+  switchTab("library");
+  const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
+  wbSubtab?.click();
+  wbShowCanvasView();
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  window.currentBoardId = boardId ?? null;
+  await fetchWhiteboardState();
+  renderWhiteboard();
+  wbApplyBgImage();
+}
 
 // ======================= FLOATING FORMAT MENU =======================
 function initFloatingFormatMenu() {

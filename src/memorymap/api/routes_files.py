@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
-from memorymap.core.database import Attachment
+from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -188,7 +188,7 @@ MEDIA_SUFFIXES = frozenset(
 
 
 @router.post("/media/upload")
-def upload_media(file: UploadFile) -> dict:
+def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> dict:
     """General file/image upload for drag-and-drop in markdown (documents & notes)."""
     media_dir = deps.get_config().data_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
@@ -215,7 +215,50 @@ def upload_media(file: UploadFile) -> dict:
                 raise HTTPException(status_code=413, detail="File is larger than 50 MB")
             out.write(chunk)
 
-    return {"url": f"/media/{stored_name}", "filename": file.filename or stored_name}
+    original_name = file.filename or stored_name
+    session.add(MediaUpload(filename=stored_name, original_name=original_name[:300]))
+    session.commit()
+    return {"url": f"/media/{stored_name}", "filename": original_name}
+
+
+class MediaUploadOut(BaseModel):
+    id: int
+    url: str
+    original_name: str
+
+
+@router.get("/media", response_model=list[MediaUploadOut])
+def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
+    """Every upload `/media/upload` has ever produced — asked for directly
+    (a gallery for note-attached and whiteboard images alike). Newest first,
+    the same convention the Library's own sort defaults to.
+    """
+    uploads = session.query(MediaUpload).order_by(MediaUpload.created_at.desc()).all()
+    return [
+        MediaUploadOut(id=u.id, url=f"/media/{u.filename}", original_name=u.original_name)
+        for u in uploads
+    ]
+
+
+@router.delete("/media/{upload_id}")
+def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dict:
+    """Removes the file and its tracking row. Asked for directly — an
+    uploaded image "can't be deleted" today, since nothing tracked it at
+    all before `MediaUpload` existed. Any note or whiteboard object still
+    pointing at this url is left as-is; its own `<img>` fails to load and
+    the frontend renders a "this image was deleted" placeholder rather than
+    a broken-image glyph, the same live-reported ask.
+    """
+    upload = session.get(MediaUpload, upload_id)
+    if upload is None:
+        raise HTTPException(status_code=404, detail="No upload with that id")
+    media_dir = (deps.get_config().data_dir / "media").resolve()
+    candidate = (media_dir / upload.filename).resolve()
+    if candidate.is_relative_to(media_dir):
+        candidate.unlink(missing_ok=True)
+    session.delete(upload)
+    session.commit()
+    return {"status": "ok"}
 
 
 @media_router.get("/media/{filename}")

@@ -19,7 +19,8 @@ def test_graph_empty_notebook(client):
 def test_graph_nodes_and_manual_link_edges(client):
     a = _save(client, "first note", category="Alpha")
     b = _save(client, "second note", category="Beta")
-    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+    linked = client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]}).json()
+    link_id = linked["links"][0]["link_id"]
 
     body = client.get("/graph").json()
     assert {n["id"] for n in body["nodes"]} == {a["id"], b["id"]}
@@ -29,6 +30,9 @@ def test_graph_nodes_and_manual_link_edges(client):
             "source": a["id"],
             "target": b["id"],
             "kind": "link",
+            # The link row's own id — asked for directly, so the graph can
+            # edit or remove a reason without going through a note card.
+            "id": link_id,
             "reason": None,
             "reason_confidence": None,
         }
@@ -73,10 +77,11 @@ def test_graph_local_node_dates_are_valid_iso_too(client):
 def test_graph_link_edge_carries_its_reason(client):
     a = _save(client, "assignment due next week", category="Uni")
     b = _save(client, "gym session tuesday", category="Fitness")
-    client.post(
+    linked = client.post(
         f"/entries/{a['id']}/links",
         json={"target_id": b["id"], "reason": "both about scheduling"},
-    )
+    ).json()
+    link_id = linked["links"][0]["link_id"]
 
     edges = client.get("/graph").json()["edges"]
     assert edges == [
@@ -84,6 +89,7 @@ def test_graph_link_edge_carries_its_reason(client):
             "source": a["id"],
             "target": b["id"],
             "kind": "link",
+            "id": link_id,
             "reason": "both about scheduling",
             # A reason someone typed, not one deduced — no score attached.
             "reason_confidence": None,

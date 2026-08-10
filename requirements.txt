@@ -37,7 +37,7 @@ tzdata>=2025.2
 # AI (Phase 2)
 requests>=2.34.2,<3.0      # talks to the local Ollama REST API
 numpy>=2.4.6,<3.0           # vectors stored as raw float32 bytes
-sentence-transformers>=5.6.1,<6.0
+sentence-transformers>=5.7.0,<6.0
 
 # torch: on Windows, force the CPU-only build. The default Windows torch wheel
 # now ships Intel's torch_xpu.dll, which fails to load on many machines with
@@ -51,7 +51,7 @@ sentence-transformers>=5.6.1,<6.0
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.2,<3.0 ; sys_platform == "win32"
 
-fsspec[http]>=2024.2.0,<=2026.2.0
+fsspec[http]<=2026.7.0,>=2026.7.0
 
 # Auth (Phase 4) — single-user unlock
 bcrypt>=5.0.0,<6.0

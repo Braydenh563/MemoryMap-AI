@@ -12543,6 +12543,22 @@ textarea.autogrow {
 
 .notif-head {
   margin-bottom: var(--space-3);
+  /* `.row` (both this one and the button group inside it) is nowrap by
+     default, so "Notifications" plus Mute/Clear/Close never had anywhere
+     to go but past the panel's edge at narrow widths — reported directly,
+     with the close button pushed off and a horizontal scrollbar appearing
+     to reach it. Wrapping, with the button group shrinkable so it can drop
+     to its own line and wrap its own three buttons too if even that's
+     still too narrow. */
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
+
+.notif-head > .row {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* Muted is a state worth seeing at a glance, not just reading in a label —

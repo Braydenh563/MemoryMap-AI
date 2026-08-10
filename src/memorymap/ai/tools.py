@@ -1403,6 +1403,10 @@ def _add_whiteboard_link(session: Session, args: dict) -> dict:
         raise ToolError(f"No whiteboard card with id {args.get('from_card_id')}")
     if target is None:
         raise ToolError(f"No whiteboard card with id {args.get('to_card_id')}")
+    if source.id == target.id:
+        raise ToolError("Can't link a card to itself.")
+    if source.board_id != target.board_id:
+        raise ToolError("Both cards must be on the same board to link them.")
 
     data = {
         "type": "link-curved" if args.get("curved") else "link-straight",

@@ -119,6 +119,36 @@ def test_add_whiteboard_link_rejects_an_unknown_card(session):
         tools.TOOLS["add_whiteboard_link"].handler(session, {"from_card_id": 999, "to_card_id": 998})
 
 
+def test_add_whiteboard_link_rejects_a_self_link(session):
+    a = _note(session, "A")
+    node_a = WhiteboardNode(entry_id=a.id, x=0, y=0)
+    session.add(node_a)
+    session.commit()
+
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["add_whiteboard_link"].handler(
+            session, {"from_card_id": node_a.id, "to_card_id": node_a.id}
+        )
+
+
+def test_add_whiteboard_link_rejects_cards_on_different_boards(session):
+    """Without this, a link between cards on two different boards saved as a
+    sketch on the source's board only — the target node is never in the
+    target board's own fetched state, so the link renders with a dangling
+    endpoint on both boards it could conceivably show up on."""
+    a, b = _note(session, "A"), _note(session, "B")
+    board = _note(session, "# A board")
+    node_a = WhiteboardNode(entry_id=a.id, x=0, y=0, board_id=None)
+    node_b = WhiteboardNode(entry_id=b.id, x=0, y=0, board_id=board.id)
+    session.add_all([node_a, node_b])
+    session.commit()
+
+    with pytest.raises(tools.ToolError):
+        tools.TOOLS["add_whiteboard_link"].handler(
+            session, {"from_card_id": node_a.id, "to_card_id": node_b.id}
+        )
+
+
 def test_whiteboard_write_tools_are_in_the_write_tools_set(session):
     """The agent's "you claimed you saved it but never called a write tool"
     safety net keys off this set — missing from it means a real card/link

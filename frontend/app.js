@@ -12395,6 +12395,20 @@ async function renderGraph() {
       el.append("title").text(text);
     }
   });
+  // A reason was hover-only before this — discoverable only by finding the
+  // one edge you already suspected and holding still over it. Asked for
+  // directly: "a visual way to see the reasons... and a way to manage/add/
+  // remove/edit them." A distinct edge style makes "this connection has a
+  // documented reason" visible at a glance, not just on hover; a click
+  // opens the real management panel below.
+  edgeLines
+    .classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason)
+    .classed("graph-edge-manageable", (d) => d.kind === "link")
+    .on("click", (event, d) => {
+      if (d.kind !== "link") return;
+      event.stopPropagation();
+      openGraphLinkPanel(d, nodes);
+    });
 
   // Semantic Zoom: Clustering super-nodes
   const categoryGroups = d3.group(nodes, d => d.category || "Uncategorized");
@@ -13143,6 +13157,97 @@ async function openGraphPopup(event, node) {
   renderGraphPopupActions(entry);
   placeGraphPopup(); // now that it's at its real height
   $("graph-popup-content").focus();
+}
+
+// A link edge's own management panel — asked for directly: "a visual way
+// to see the reasons for each connection and a way to manage/add/remove/
+// edit them." Clicking a `kind: "link"` edge (see `renderGraph`'s own
+// click handler) opens this rather than only ever showing the reason on
+// hover. A dynamic overlay, the same `promptDialog`/`confirmDialog`
+// pattern, rather than fixed markup — this is the one place in the app
+// that edits a *connection* rather than a note or a whiteboard item, so it
+// doesn't share a container with either.
+function openGraphLinkPanel(edge, nodes) {
+  const sourceId = typeof edge.source === "object" ? edge.source.id : edge.source;
+  const targetId = typeof edge.target === "object" ? edge.target.id : edge.target;
+  const sourceNode = nodes.find((n) => n.id === sourceId);
+  const targetNode = nodes.find((n) => n.id === targetId);
+  const label = (n, id) => (n?.preview ? n.preview.slice(0, 60) : `Note ${id}`);
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Manage this connection");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card graph-link-panel";
+
+  const title = document.createElement("p");
+  title.className = "confirm-text";
+  title.textContent = `${label(sourceNode, sourceId)}  ↔  ${label(targetNode, targetId)}`;
+  card.appendChild(title);
+
+  if (edge.reason_confidence != null) {
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.textContent = `Deduced (${Math.round(edge.reason_confidence * 100)}% confidence) — editing replaces it with your own words.`;
+    card.appendChild(note);
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "graph-link-panel-reason";
+  textarea.placeholder = "Why are these connected? (optional)";
+  textarea.value = edge.reason || "";
+  textarea.rows = 3;
+  card.appendChild(textarea);
+
+  const returnFocus = document.activeElement;
+  const close = () => {
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.textContent = "Save";
+  saveBtn.addEventListener("click", async () => {
+    await apiJson(`/entries/${sourceId}/links/${edge.id}/reason`, {
+      method: "PUT",
+      body: JSON.stringify({ reason: textarea.value.trim() || null }),
+    }).catch((e) => toast(e.message, true));
+    toast("Saved.");
+    close();
+    renderGraph();
+  });
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "ghost danger";
+  removeBtn.textContent = "🗑 Remove link";
+  removeBtn.addEventListener("click", async () => {
+    if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched — only the link between them goes."))) return;
+    await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+    toast("Link removed.");
+    close();
+    renderGraph();
+  });
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "ghost";
+  cancelBtn.textContent = "Close";
+  cancelBtn.addEventListener("click", close);
+
+  row.append(saveBtn, removeBtn, cancelBtn);
+  card.appendChild(row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  document.body.appendChild(overlay);
+  textarea.focus();
 }
 
 // Show a note's images in the popup, biggest reason being sketches.

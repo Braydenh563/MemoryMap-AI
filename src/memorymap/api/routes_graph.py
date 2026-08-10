@@ -233,6 +233,11 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
                         "source": link.source_entry_id,
                         "target": link.target_entry_id,
                         "kind": "link",
+                        # The link row's own id — asked for directly (a way
+                        # to manage a reason from the graph itself, not only
+                        # a note card's link chip). Without it, editing or
+                        # removing a link from here had no id to act on.
+                        "id": link.id,
                         "reason": link.reason,
                         # Set only when `reason` was deduced from embedding
                         # similarity rather than said in words — see

@@ -4537,6 +4537,28 @@ html.modal-open body {
   stroke: var(--accent);
 }
 
+/* A manual link is clickable (opens the management panel); a documented
+   reason gets its own visible weight, not just a hover tooltip — asked for
+   directly ("a visual way to see the reasons for each connection"). */
+.graph-edge-manageable {
+  cursor: pointer;
+}
+
+.graph-edge-reasoned {
+  stroke: var(--accent);
+  stroke-opacity: 0.8;
+  stroke-width: 2.2;
+}
+
+.graph-link-panel-reason {
+  width: 100%;
+  resize: vertical;
+}
+
+button.ghost.danger {
+  color: var(--error);
+}
+
 /* --- a traced path (§9) -----------------------------------------------------
    Drawn as its own layer rather than by highlighting the edges underneath.
    Two reasons, and the second is the one that decided it: a step may be a

@@ -26214,6 +26214,7 @@ async function initWhiteboard() {
     d: "diamond",
     t: "text",
     e: "eraser",
+    b: "bucket",
     x: "delete",
   };
   document.addEventListener("keydown", (e) => {
@@ -27230,6 +27231,27 @@ async function wbSaveSketchD(sketch, newD) {
   await wbSaveSketchProps(sketch, { d: newD });
 }
 
+// Paint-bucket tool: recolour whatever's clicked with the main toolbar's
+// stroke colour. Closed shapes (rect/circle/triangle/diamond) get their
+// fill set, since that's the area a bucket click reads as "inside" of;
+// anything else (line/arrow/pen stroke) has no interior, so its stroke is
+// recoloured instead - the same colour the properties panel would show.
+async function wbBucketFillSketch(sketch) {
+  const color = document.getElementById("wb-color-picker")?.value || "#3355ff";
+  let parsed;
+  try {
+    parsed = JSON.parse(sketch.data);
+  } catch {
+    return;
+  }
+  if (parsed && WB_FILLABLE_SHAPES.has(parsed.shape)) {
+    await wbSaveSketchProps(sketch, { fill: color });
+  } else {
+    await wbSaveSketchProps(sketch, { color });
+  }
+  renderWhiteboard();
+}
+
 //: True once a sketch's `d` has more than one `M` — every shape this app's
 //: own tools ever draw uses exactly one *except* an arrow (shaft + one or
 //: two head subpaths, `wbArrowHeadPath`'s own `M`s). Good enough to tell
@@ -27666,6 +27688,7 @@ function renderWhiteboard() {
       // also drag across several" — a single click should erase the one
       // thing clicked, the same as the delete tool does.
       if (window.currentTool === "delete" || window.currentTool === "eraser") deleteSketch(d);
+      if (window.currentTool === "bucket") { event.stopPropagation(); wbBucketFillSketch(d); }
     })
     .on("pointerenter", (event, d) => {
       if (window.currentTool === "eraser" && wbErasing) deleteSketch(d);
@@ -28037,7 +28060,7 @@ function renderWbObjects(canvas) {
   // goes through `this.closest(".wb-object")` rather than `this` directly,
   // the same convention `resizeDrag`'s own "drag" handler already uses.
   function objDragStart(event, d) {
-    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     // `.raise()` deliberately does NOT happen here — moved to objDragMove.
     // See the matching comment on the card drag's own `dragging` for the
     // real bug this caused (raising mid-`start` breaks the browser's click
@@ -28056,7 +28079,7 @@ function renderWbObjects(canvas) {
     // the sketch drag's own "start" for the click-toggle bug that caused.
   }
   function objDragMove(event, d) {
-    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (d._bulkOrigin === undefined) {
       d._bulkOrigin = wbDragIsBulkMove("object", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
@@ -28089,7 +28112,7 @@ function renderWbObjects(canvas) {
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
   async function objDragEnd(event, d) {
-    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     wbClearAlignmentGuides();
     const bulkOrigin = d._bulkOrigin;
     // Reset unconditionally — a solo drag sets this to `null` (see
@@ -28363,7 +28386,7 @@ function wbUpdateLinkedSketches(nodeId) {
 function dragStart(event, d) {
   // Eraser/delete don't move cards — a swipe meant to erase a run of cards
   // must not also drag the first one it touches out from under the pointer.
-  if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+  if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     // Real anchors: snap the link's own start to whichever of the source
     // card's 8 fixed points the drag actually began near, so a link from a
@@ -28409,7 +28432,7 @@ function dragStart(event, d) {
 }
 
 function dragging(event, d) {
-  if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+  if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();

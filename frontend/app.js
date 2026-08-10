@@ -15595,6 +15595,19 @@ function paletteCommands() {
     },
     { label: "🆕 New chat", run: () => { switchTab("chat"); newChatConversation(); } },
     { label: "🎨 New sketch", run: openSketch },
+    {
+      // Asked for directly: "add creating a new board to the command
+      // palette and tools and features as well" — the only way in before
+      // this was the ➕ button inside the whiteboard's own board-picker
+      // panel, unreachable without already being on that tab.
+      label: "🗂️ New whiteboard board",
+      run: async () => {
+        switchTab("library");
+        const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
+        wbSubtab?.click();
+        await createNewBoard();
+      },
+    },
     // Filters as commands: the fastest route to "the notes I mean" without
     // remembering the operator syntax.
     ...[
@@ -23173,6 +23186,132 @@ function wbSnap(value, bypass) {
   return wbSnapOn() && !bypass ? Math.round(value / WB_GRID_SPACING) * WB_GRID_SPACING : value;
 }
 
+//: Smart alignment guides while dragging (asked for directly: "the
+//: recognisable popup alignment guides... draw.io and Microsoft
+//: PowerPoint have... dotted alignment rule guides... subtly snap"). Scoped
+//: to cards and objects as both the dragged item and the things it aligns
+//: against — sketches are freehand strokes, not the kind of rectangular
+//: "object" this pattern is normally drawn against in the apps it's
+//: modelled on. Independent per axis: an X-axis snap and a Y-axis snap can
+//: both fire on the same frame (a corner aligning with another item's
+//: corner), each drawing its own guide line.
+const WB_ALIGN_SNAP_PX = 6; // board units — matches WB_GRID_SPACING's own order of magnitude
+
+function wbAlignmentGuides(excludeKind, excludeId, x, y, w, h) {
+  const dragged = { left: x, centerX: x + w / 2, right: x + w, top: y, centerY: y + h / 2, bottom: y + h };
+  let bestX = null, bestY = null;
+  const others = [];
+  for (const [kind, listName] of [["node", "nodes"], ["object", "objects"]]) {
+    for (const item of wbState[listName] || []) {
+      if (kind === excludeKind && item.id === excludeId) continue;
+      const box = wbItemBBox(kind, item);
+      if (!box) continue;
+      others.push(box);
+      const other = {
+        left: box.minX, centerX: (box.minX + box.maxX) / 2, right: box.maxX,
+        top: box.minY, centerY: (box.minY + box.maxY) / 2, bottom: box.maxY,
+      };
+      for (const edge of ["left", "centerX", "right"]) {
+        const delta = other[edge] - dragged[edge];
+        if (Math.abs(delta) <= WB_ALIGN_SNAP_PX && (!bestX || Math.abs(delta) < Math.abs(bestX.delta))) {
+          bestX = { delta, at: other[edge], y1: Math.min(dragged.top, other.top), y2: Math.max(dragged.bottom, other.bottom), kind: edge === "centerX" ? "center" : "edge" };
+        }
+      }
+      for (const edge of ["top", "centerY", "bottom"]) {
+        const delta = other[edge] - dragged[edge];
+        if (Math.abs(delta) <= WB_ALIGN_SNAP_PX && (!bestY || Math.abs(delta) < Math.abs(bestY.delta))) {
+          bestY = { delta, at: other[edge], x1: Math.min(dragged.left, other.left), x2: Math.max(dragged.right, other.right), kind: edge === "centerY" ? "center" : "edge" };
+        }
+      }
+    }
+  }
+  const guideLines = [];
+  if (bestX) guideLines.push({ x1: bestX.at, y1: bestX.y1 - 20, x2: bestX.at, y2: bestX.y2 + 20, kind: bestX.kind });
+  if (bestY) guideLines.push({ x1: bestY.x1 - 20, y1: bestY.at, x2: bestY.x2 + 20, y2: bestY.at, kind: bestY.kind });
+  let dx = bestX ? bestX.delta : 0, dy = bestY ? bestY.delta : 0;
+
+  // Equal-spacing guides ("same spacing", asked for directly): only tried on
+  // an axis the edge/center snap above didn't already claim, so a card never
+  // fights between "line up with this edge" and "match this gap" mid-drag.
+  // Scoped to the single nearest neighbour each side, not every possible
+  // triple — that is what draw.io and PowerPoint show too, and it keeps this
+  // O(n) per drag frame like the alignment pass above it, not O(n^2).
+  if (!bestX) {
+    const rowMates = others.filter((b) => b.minY < dragged.bottom && b.maxY > dragged.top);
+    const left = rowMates.filter((b) => b.maxX <= dragged.left + WB_ALIGN_SNAP_PX).sort((a, b) => b.maxX - a.maxX)[0];
+    const right = rowMates.filter((b) => b.minX >= dragged.right - WB_ALIGN_SNAP_PX).sort((a, b) => a.minX - b.minX)[0];
+    if (left && right) {
+      const gapLeft = dragged.left - left.maxX, gapRight = right.minX - dragged.right;
+      if (gapLeft >= 0 && gapRight >= 0 && Math.abs(gapLeft - gapRight) <= WB_ALIGN_SNAP_PX) {
+        const avgGap = (gapLeft + gapRight) / 2;
+        dx = left.maxX + avgGap - dragged.left;
+        const midY = (Math.max(left.minY, dragged.top) + Math.min(left.maxY, dragged.bottom)) / 2;
+        guideLines.push({ x1: left.maxX, y1: midY, x2: dragged.left + dx, y2: midY, kind: "spacing" });
+        guideLines.push({ x1: dragged.right + dx, y1: midY, x2: right.minX, y2: midY, kind: "spacing" });
+      }
+    }
+  }
+  if (!bestY) {
+    const colMates = others.filter((b) => b.minX < dragged.right && b.maxX > dragged.left);
+    const above = colMates.filter((b) => b.maxY <= dragged.top + WB_ALIGN_SNAP_PX).sort((a, b) => b.maxY - a.maxY)[0];
+    const below = colMates.filter((b) => b.minY >= dragged.bottom - WB_ALIGN_SNAP_PX).sort((a, b) => a.minY - b.minY)[0];
+    if (above && below) {
+      const gapAbove = dragged.top - above.maxY, gapBelow = below.minY - dragged.bottom;
+      if (gapAbove >= 0 && gapBelow >= 0 && Math.abs(gapAbove - gapBelow) <= WB_ALIGN_SNAP_PX) {
+        const avgGap = (gapAbove + gapBelow) / 2;
+        dy = above.maxY + avgGap - dragged.top;
+        const midX = (Math.max(above.minX, dragged.left) + Math.min(above.maxX, dragged.right)) / 2;
+        guideLines.push({ x1: midX, y1: above.maxY, x2: midX, y2: dragged.top + dy, kind: "spacing" });
+        guideLines.push({ x1: midX, y1: dragged.bottom + dy, x2: midX, y2: below.minY, kind: "spacing" });
+      }
+    }
+  }
+
+  return { dx, dy, guideLines };
+}
+
+//: Default guide colours, one per `kind` `wbAlignmentGuides` can report —
+//: "edge" (an outer border lining up with another), "center" (mid-points
+//: lining up, the draw.io/PowerPoint convention of a *different* colour so
+//: the two are never confused at a glance), and "spacing" (equal gaps).
+//: Overridable per the direct ask ("colours should be alterable"); the
+//: picker lives in the whiteboard's own shape-menu dropdown rather than a
+//: new top menu bar — see HISTORY.md for why that redesign is deferred.
+const WB_ALIGN_GUIDE_COLORS = { edge: "#ff00ff", center: "#00c8ff", spacing: "#3ddc84" };
+function wbAlignGuideColor(kind) {
+  return localStorage.getItem(`wb-guide-color-${kind}`) || WB_ALIGN_GUIDE_COLORS[kind] || WB_ALIGN_GUIDE_COLORS.edge;
+}
+
+//: Draws (or clears) the dashed guide lines `wbAlignmentGuides` found —
+//: shared by every drag handler that uses it, same reasoning as
+//: `wbShowAnchorHints`'s own shared group.
+function wbShowAlignmentGuides(lines) {
+  const zoomGroup = document.getElementById("wb-zoom-group");
+  if (!zoomGroup) return;
+  let group = document.getElementById("wb-align-guides");
+  if (!group) {
+    group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.setAttribute("id", "wb-align-guides");
+    group.setAttribute("pointer-events", "none");
+    zoomGroup.appendChild(group);
+  }
+  group.innerHTML = "";
+  for (const line of lines) {
+    const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    el.setAttribute("x1", line.x1);
+    el.setAttribute("y1", line.y1);
+    el.setAttribute("x2", line.x2);
+    el.setAttribute("y2", line.y2);
+    el.setAttribute("class", `wb-align-guide-line wb-align-guide-${line.kind || "edge"}`);
+    el.setAttribute("stroke", wbAlignGuideColor(line.kind || "edge"));
+    group.appendChild(el);
+  }
+}
+
+function wbClearAlignmentGuides() {
+  document.getElementById("wb-align-guides")?.remove();
+}
+
 function wbApplyGrid() {
   const el = document.getElementById("whiteboard-container");
   if (!el) return;
@@ -23222,6 +23361,21 @@ function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
 // text — and is scoped separately rather than force-fit into this list).
 const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow", "triangle", "diamond"]);
 const WB_HIGHLIGHTER_ALPHA = 0.35; // matches the sketch pad's own SKETCH_HIGHLIGHTER_ALPHA
+
+//: The four closed shape tools fill applies to — a pen/highlighter/line/
+//: arrow stroke has no enclosed area a fill would read as filling. Module
+//: scope (not inside `initWhiteboard`) since both the live-draw handlers
+//: and `renderWhiteboard` (a separate top-level function) need it.
+const WB_FILLABLE_SHAPES = new Set(["rect", "circle", "triangle", "diamond"]);
+
+//: SVG `stroke-dasharray` for each style, scaled to the actual stroke width
+//: so a thick dashed line doesn't look like a row of dots. `null` (solid)
+//: means "don't set the attribute at all", not "set it to empty".
+function wbDashArray(style, width) {
+  if (style === "dashed") return `${width * 3} ${width * 2}`;
+  if (style === "dotted") return `${width} ${width * 1.6}`;
+  return null;
+}
 
 //: Two head-stroke subpaths meeting at `(tipX, tipY)`, angled back from
 //: `approachAngle` (the direction the shaft arrives *from*, in radians) —
@@ -23275,6 +23429,7 @@ function wbCursorForTool(tool, strokeColor) {
     return `${wbCursorUrl(inner, { hx: 13, hy: 3 })}, not-allowed`;
   }
   if (tool === "link-straight" || tool === "link-curved") return "crosshair";
+  if (tool === "lasso") return "crosshair";
   return ""; // pan: the CSS grab/grabbing pair already says it
 }
 
@@ -23356,6 +23511,143 @@ function wbItemBBox(kind, item) {
   const w = item.width || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
   const h = item.height || (kind === "node" ? WB_CARD_DEFAULT_SIZE.h : WB_OBJECT_MIN_SIZE);
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
+}
+
+//: Real anchor/connection points for links (asked for directly, "take
+//: inspiration from draw.io", named "worth its own session" three sessions
+//: running — HANDOVER.md §53-55). Eight **fixed** points (corners + edge
+//: midpoints), as fractions of the shape's own bounding box so a resize
+//: carries an anchor with it for free, no migration needed — these two
+//: fractions just live as `sourceAnchor`/`targetAnchor` keys in the link
+//: sketch's existing `data` JSON blob. Omitting either key is the **free**
+//: case: that end "floats", auto-following the rectangle border facing
+//: whatever the other end resolves to, every render — draw.io's own
+//: behaviour, not a fixed centre-point offset.
+const WB_FIXED_ANCHORS = [
+  { x: 0, y: 0 }, { x: 0.5, y: 0 }, { x: 1, y: 0 },
+  { x: 1, y: 0.5 }, { x: 1, y: 1 }, { x: 0.5, y: 1 },
+  { x: 0, y: 1 }, { x: 0, y: 0.5 },
+];
+
+//: A link only ever connects nodes (cards) today — see `dragEndNode`'s own
+//: hit-test — but takes `kind` rather than assuming "node" so a future
+//: object-to-object link doesn't need this rewritten.
+function wbAnchorPoint(kind, item, anchor) {
+  if (!anchor) return null;
+  const box = wbItemBBox(kind, item);
+  if (!box) return null;
+  return { x: box.minX + anchor.x * (box.maxX - box.minX), y: box.minY + anchor.y * (box.maxY - box.minY) };
+}
+
+//: The nearest of the 8 fixed points to a board-coordinate click, or `null`
+//: if none is within `thresholdPx` — `null` is the caller's cue to persist
+//: no anchor at all (the free/floating case) rather than a distant one.
+function wbNearestAnchor(kind, item, px, py, thresholdPx = 16) {
+  const box = wbItemBBox(kind, item);
+  if (!box) return null;
+  const w = box.maxX - box.minX, h = box.maxY - box.minY;
+  let best = null, bestDist = thresholdPx;
+  for (const a of WB_FIXED_ANCHORS) {
+    const d = Math.hypot(px - (box.minX + a.x * w), py - (box.minY + a.y * h));
+    if (d <= bestDist) { bestDist = d; best = a; }
+  }
+  return best;
+}
+
+//: The standard rectangle/ray intersection: where the line from this box's
+//: centre toward `(towardX, towardY)` crosses the box's own border. This is
+//: what a "floating" end actually resolves to each render — aimed at the
+//: other end's real point, not always the other shape's centre.
+function wbBoxRayIntersection(box, towardX, towardY) {
+  const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
+  const dx = towardX - cx, dy = towardY - cy;
+  if (!dx && !dy) return { x: cx, y: cy };
+  const halfW = (box.maxX - box.minX) / 2, halfH = (box.maxY - box.minY) / 2;
+  const t = Math.min(dx ? halfW / Math.abs(dx) : Infinity, dy ? halfH / Math.abs(dy) : Infinity);
+  return { x: cx + dx * t, y: cy + dy * t };
+}
+
+//: The two real endpoints of a link, shared by the render path
+//: (`sketchUpdate.each`) and the per-drag-frame follow (`wbUpdateLinkedSketches`)
+//: so the two can't drift apart — same reasoning as that function's own
+//: comment, just extended to real anchors instead of a hardcoded centre.
+//: A fixed end resolves to its own point regardless of the other end; a
+//: floating end resolves toward whatever the *other* end actually is (its
+//: fixed point if it has one, its centre otherwise), not always the centre.
+function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
+  const sourceBox = wbItemBBox("node", sourceItem);
+  const targetBox = wbItemBBox("node", targetItem);
+  const sourceCenter = { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
+  const targetCenter = { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
+  const fixedSource = wbAnchorPoint("node", sourceItem, sourceAnchor);
+  const fixedTarget = wbAnchorPoint("node", targetItem, targetAnchor);
+  return {
+    source: fixedSource || wbBoxRayIntersection(sourceBox, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y),
+    target: fixedTarget || wbBoxRayIntersection(targetBox, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y),
+  };
+}
+
+//: Shared by the render path and the live drag preview so a straight vs.
+//: curved link can't compute its path two different ways. `endStyle`
+//: ("end"/"start"/"both", same values the sketch Arrow tool's own control
+//: uses) is optional — asked for directly ("customisable links...
+//: connection endpoint designs") — a link had no endpoint marker option at
+//: all before this. The approach angle for the arrowhead is the straight
+//: line to the *other* endpoint, which is exact for a straight link and a
+//: reasonable approximation for a curved one (the curve's own tangent at
+//: the endpoint, not attempted — this app's curves are gentle enough that
+//: the difference is small).
+function wbLinkPathD(type, sPt, tPt, endStyle, width) {
+  const base = type === "link-straight"
+    ? `M ${sPt.x} ${sPt.y} L ${tPt.x} ${tPt.y}`
+    : (() => {
+        const dx = tPt.x - sPt.x;
+        return `M ${sPt.x} ${sPt.y} C ${sPt.x + dx / 2} ${sPt.y}, ${tPt.x - dx / 2} ${tPt.y}, ${tPt.x} ${tPt.y}`;
+      })();
+  if (!endStyle || endStyle === "none") return base;
+  const headLen = (width || 3) * 4 + 6;
+  const angle = Math.atan2(tPt.y - sPt.y, tPt.x - sPt.x);
+  let d = base;
+  if (endStyle === "end" || endStyle === "both") d += " " + wbArrowHeadPath(tPt.x, tPt.y, angle, headLen);
+  if (endStyle === "start" || endStyle === "both") d += " " + wbArrowHeadPath(sPt.x, sPt.y, angle + Math.PI, headLen);
+  return d;
+}
+
+//: A small SVG dot at each of a shape's 8 fixed anchors, shown while a link
+//: drag is in progress so the snap targets are actually discoverable rather
+//: than a silent hit-test — draw.io shows the same thing on hover. The
+//: nearest one to the live pointer (if within snapping range) renders larger
+//: and filled, so "this is where it'll land" is visible before release.
+function wbShowAnchorHints(kind, item, nearAnchor) {
+  const zoomGroup = document.getElementById("wb-zoom-group");
+  if (!zoomGroup) return;
+  let hints = document.getElementById("wb-anchor-hints");
+  if (!hints) {
+    hints = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    hints.setAttribute("id", "wb-anchor-hints");
+    hints.setAttribute("pointer-events", "none");
+    zoomGroup.appendChild(hints);
+  }
+  hints.innerHTML = "";
+  if (!item) return;
+  const box = wbItemBBox(kind, item);
+  if (!box) return;
+  const w = box.maxX - box.minX, h = box.maxY - box.minY;
+  for (const a of WB_FIXED_ANCHORS) {
+    const near = nearAnchor && nearAnchor.x === a.x && nearAnchor.y === a.y;
+    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    dot.setAttribute("cx", box.minX + a.x * w);
+    dot.setAttribute("cy", box.minY + a.y * h);
+    dot.setAttribute("r", near ? 6 : 4);
+    dot.setAttribute("fill", near ? "var(--accent)" : "var(--card)");
+    dot.setAttribute("stroke", "var(--accent)");
+    dot.setAttribute("stroke-width", "1.5");
+    hints.appendChild(dot);
+  }
+}
+
+function wbClearAnchorHints() {
+  document.getElementById("wb-anchor-hints")?.remove();
 }
 
 //: Resolves `wbMultiSelection` into {kind, id, item, bbox} entries, dropping
@@ -23506,6 +23798,10 @@ function wbUpdatePropertiesPanel() {
     border: document.getElementById("wb-prop-border-row"),
     fontsize: document.getElementById("wb-prop-fontsize-row"),
     multi: document.getElementById("wb-prop-multi-row"),
+    mindmap: document.getElementById("wb-prop-mindmap-row"),
+    dash: document.getElementById("wb-prop-dash-row"),
+    nostroke: document.getElementById("wb-prop-nostroke-row"),
+    shapefill: document.getElementById("wb-prop-shapefill-row"),
   };
   Object.values(rows).forEach((r) => r?.classList.add("hidden"));
 
@@ -23529,9 +23825,30 @@ function wbUpdatePropertiesPanel() {
   }
 
   if (kind === "sketch") {
+    // A link has no `.d` of its own (`wbSketchParsedData` only recognises
+    // real drawn shapes), so it needs its own branch here — asked for
+    // directly ("customisable links and lines, colour, connection endpoint
+    // designs"), previously not editable at all once created.
+    let linkParsed = null;
+    try {
+      const candidate = JSON.parse(item.data);
+      if (candidate && (candidate.type || "").startsWith("link-")) linkParsed = candidate;
+    } catch { /* not JSON — not a link either */ }
+    if (linkParsed) {
+      panel.classList.remove("hidden");
+      rows.color.classList.remove("hidden");
+      rows.width.classList.remove("hidden");
+      rows.arrowhead.classList.remove("hidden");
+      rows.dash.classList.remove("hidden");
+      document.getElementById("wb-prop-color").value = linkParsed.color || "#ffffff";
+      document.getElementById("wb-prop-width").value = linkParsed.width || 3;
+      document.getElementById("wb-prop-arrowhead").value = linkParsed.endStyle || "none";
+      document.getElementById("wb-prop-dash").value = linkParsed.dash || "solid";
+      return;
+    }
     const parsed = wbSketchParsedData(item);
     if (!parsed) {
-      panel.classList.add("hidden"); // a link sketch — nothing here is its own to edit
+      panel.classList.add("hidden");
       return;
     }
     panel.classList.remove("hidden");
@@ -23543,6 +23860,18 @@ function wbUpdatePropertiesPanel() {
       rows.arrowhead.classList.remove("hidden");
       document.getElementById("wb-prop-arrowhead").value = window.currentArrowStyle || "end";
     }
+    // Stroke style/no-stroke apply to any drawn shape/line; fill only to
+    // the four closed shapes — asked for directly ("stroke width, style,
+    // and colour... fill colour/transparency... no border/stroke").
+    rows.dash.classList.remove("hidden");
+    rows.nostroke.classList.remove("hidden");
+    document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
+    document.getElementById("wb-prop-nostroke").checked = Boolean(parsed.noStroke);
+    if (WB_FILLABLE_SHAPES.has(parsed.shape)) {
+      rows.shapefill.classList.remove("hidden");
+      document.getElementById("wb-prop-shapefill").value = parsed.fill || "#3355ff";
+      document.getElementById("wb-prop-shapefill-none").checked = !parsed.fill;
+    }
   } else if (kind === "object" && item.kind === "text") {
     panel.classList.remove("hidden");
     rows.color.classList.remove("hidden");
@@ -23550,12 +23879,236 @@ function wbUpdatePropertiesPanel() {
     rows.border.classList.remove("hidden");
     rows.fontsize.classList.remove("hidden");
     document.getElementById("wb-prop-color").value = item.data.color || "#1f2430";
-    document.getElementById("wb-prop-bg").value = item.data.bg || "#ffffff";
-    document.getElementById("wb-prop-border").value = item.data.border_color || "#8888aa";
+    document.getElementById("wb-prop-bg").value = item.data.bg === "transparent" ? "#ffffff" : (item.data.bg || "#ffffff");
+    document.getElementById("wb-prop-bg-none").checked = item.data.bg === "transparent";
+    document.getElementById("wb-prop-border").value = item.data.border_color === "transparent" ? "#8888aa" : (item.data.border_color || "#8888aa");
+    document.getElementById("wb-prop-border-none").checked = item.data.border_color === "transparent";
     document.getElementById("wb-prop-fontsize").value = item.data.font_size || 16;
+  } else if (kind === "node") {
+    // Mind-mapping (item 25): only worth offering once the card actually
+    // has something to arrange — a card with no links is already exactly
+    // where a "mind map of one" would put it.
+    const hasLink = wbState.sketches.some((s) => {
+      try {
+        const p = JSON.parse(s.data);
+        return p.type && p.type.startsWith("link-") && (p.sourceId === item.id || p.targetId === item.id);
+      } catch {
+        return false;
+      }
+    });
+    if (hasLink) {
+      panel.classList.remove("hidden");
+      rows.mindmap.classList.remove("hidden");
+    } else {
+      panel.classList.add("hidden");
+    }
   } else {
     panel.classList.add("hidden");
   }
+}
+
+//: Mind-mapping (ROADMAP item 25): "Arrange as mind map" auto-positions
+//: everything reachable from a selected card via the whiteboard's own
+//: links into a Tree or Radial layout — reusing the Graph tab's own
+//: `d3.hierarchy`/`d3.tree` approach (see `layoutHierarchy` above) rather
+//: than a second layout engine, just against the whiteboard's plain
+//: node/link data instead of the notebook's category/reply structure (no
+//: categories here, so none of that grouping machinery is needed). A link
+//: graph isn't necessarily a tree — cycles, a card linked to two others
+//: that are themselves linked — so a BFS from the root turns whatever is
+//: reachable into a real spanning tree (first link found wins the "parent"
+//: slot), which is the only sense "arrange everything connected to it" can
+//: have for a layout that needs one parent per node.
+const WB_MINDMAP_TREE_ROW = 170; // spacing across the fan-out axis
+const WB_MINDMAP_TREE_COL = 320; // spacing per depth level, left → right
+const WB_MINDMAP_RADIAL_STEP = 260; // ring spacing per depth level
+
+//: The undirected adjacency every mind-map operation starts from — every
+//: link sketch touching two *currently real* nodes (a stale link to an
+//: already-deleted card is silently excluded, same as the render path
+//: already does).
+function wbLinkAdjacency() {
+  const adjacency = new Map();
+  const addEdge = (a, b) => {
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    if (!adjacency.has(b)) adjacency.set(b, new Set());
+    adjacency.get(a).add(b);
+    adjacency.get(b).add(a);
+  };
+  const nodeIds = new Set(wbState.nodes.map((n) => n.id));
+  for (const sketch of wbState.sketches) {
+    let parsed;
+    try {
+      parsed = JSON.parse(sketch.data);
+    } catch {
+      continue;
+    }
+    if (!parsed.type || !parsed.type.startsWith("link-")) continue;
+    if (nodeIds.has(parsed.sourceId) && nodeIds.has(parsed.targetId)) addEdge(parsed.sourceId, parsed.targetId);
+  }
+  return adjacency;
+}
+
+//: A BFS spanning tree from `rootId`, in the `{parentOf, childrenOf}` shape
+//: both `wbArrangeMindMap` and the Tab/Enter branch-entry commands share.
+function wbMindMapSpanningTree(rootId) {
+  const adjacency = wbLinkAdjacency();
+  const parentOf = new Map([[rootId, null]]);
+  const childrenOf = new Map([[rootId, []]]);
+  const queue = [rootId];
+  while (queue.length) {
+    const current = queue.shift();
+    for (const neighbour of adjacency.get(current) || []) {
+      if (parentOf.has(neighbour)) continue;
+      parentOf.set(neighbour, current);
+      childrenOf.get(current).push(neighbour);
+      childrenOf.set(neighbour, []);
+      queue.push(neighbour);
+    }
+  }
+  return { parentOf, childrenOf };
+}
+
+async function wbArrangeMindMap(rootId, kind) {
+  const root = wbState.nodes.find((n) => n.id === rootId);
+  if (!root) return;
+  const { parentOf, childrenOf } = wbMindMapSpanningTree(rootId);
+  if (parentOf.size < 2) {
+    toast("Nothing linked to this card to arrange.");
+    return;
+  }
+
+  // d3.hierarchy wants a tree of plain objects with a `children` accessor —
+  // built once, keyed by node id, the same shape `layoutHierarchy` above
+  // builds from `children`/`groups`.
+  const buildTree = (id) => ({ id, children: (childrenOf.get(id) || []).map(buildTree) });
+  const laid = d3.hierarchy(buildTree(rootId));
+
+  const positions = new Map();
+  if (kind === "radial") {
+    // Same `d3.tree().size([2*Math.PI, 1])` call `layoutHierarchy`'s own
+    // radial branch uses; ring spacing is a plain fixed step per depth
+    // here rather than that function's label-aware `radialRings` sizing,
+    // since a mind map has no per-ring label-width category to budget for.
+    d3.tree().size([2 * Math.PI, 1])(laid);
+    laid.each((point) => {
+      const radius = point.depth * WB_MINDMAP_RADIAL_STEP;
+      positions.set(point.data.id, {
+        x: radius * Math.cos(point.x - Math.PI / 2),
+        y: radius * Math.sin(point.x - Math.PI / 2),
+      });
+    });
+  } else {
+    d3.tree().nodeSize([WB_MINDMAP_TREE_ROW, WB_MINDMAP_TREE_COL])(laid);
+    laid.each((point) => {
+      positions.set(point.data.id, { x: point.depth * WB_MINDMAP_TREE_COL, y: point.x });
+    });
+  }
+
+  // The layout is computed around (0,0) at the root — shift the whole
+  // result so the root card itself doesn't move, only what's connected to
+  // it, which is what "arrange everything connected to it" (not "recentre
+  // my board") actually asked for.
+  const rootPos = positions.get(rootId);
+  const dx = root.x - rootPos.x, dy = root.y - rootPos.y;
+  for (const [id, pos] of positions) {
+    if (id === rootId) continue;
+    const node = wbState.nodes.find((n) => n.id === id);
+    if (!node) continue;
+    node.x = wbSnap(pos.x + dx);
+    node.y = wbSnap(pos.y + dy);
+    await wbSaveNode(node);
+  }
+
+  // Cached for the Tab/Enter branch-entry commands below, so a card added
+  // right after an arrange lands in the layout it was just shown, not a
+  // freshly re-derived (and possibly different, since BFS parent choice
+  // isn't unique when a card has more than one link back toward the root)
+  // spanning tree.
+  window.wbMindMap = { rootId, parentOf, childrenOf, kind };
+  renderWhiteboard();
+  toast(`Arranged ${parentOf.size} cards as a ${kind === "radial" ? "radial" : "tree"} mind map.`);
+}
+
+//: Tab/Enter branch entry (item 25's second piece) needs to know a card's
+//: "parent" in mind-map terms, which a whiteboard link doesn't carry on its
+//: own (just two ids, no direction). Reuses the cached map from a prior
+//: `wbArrangeMindMap` run when the given card is part of it; otherwise
+//: seeds one lazily, rooted at the card itself, from the board's current
+//: links — so Tab/Enter still work sensibly on a board nobody has arranged
+//: yet, not only right after clicking Tree/Radial.
+function wbMindMapEnsureMap(fromId) {
+  if (!window.wbMindMap || !window.wbMindMap.parentOf.has(fromId)) {
+    const { parentOf, childrenOf } = wbMindMapSpanningTree(fromId);
+    window.wbMindMap = { rootId: fromId, parentOf, childrenOf, kind: window.wbMindMap?.kind || "radial" };
+  }
+  return window.wbMindMap;
+}
+
+//: Creates a real note, a whiteboard card for it, and a link from
+//: `parentId` — the one operation both Tab and Enter reduce to, differing
+//: only in which card counts as the parent.
+async function wbMindMapAddCard(parentId, x, y) {
+  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch" }) });
+  const nodeRes = await apiJson("/whiteboard/nodes", {
+    method: "POST",
+    body: JSON.stringify({ entry_id: entry.id, board_id: window.currentBoardId ?? null, x: wbSnap(x), y: wbSnap(y), z: 1 }),
+  });
+  wbState.nodes.push(nodeRes);
+  const sketchRes = await apiJson("/whiteboard/sketches", {
+    method: "POST",
+    body: JSON.stringify({
+      data: JSON.stringify({
+        type: "link-curved",
+        sourceId: parentId,
+        targetId: nodeRes.id,
+        color: window.currentStrokeColor || "#ffffff",
+      }),
+      x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null,
+    }),
+  });
+  wbState.sketches.push(sketchRes);
+
+  const map = wbMindMapEnsureMap(parentId);
+  map.parentOf.set(nodeRes.id, parentId);
+  if (!map.childrenOf.has(parentId)) map.childrenOf.set(parentId, []);
+  map.childrenOf.get(parentId).push(nodeRes.id);
+  map.childrenOf.set(nodeRes.id, []);
+
+  selectWbItem("node", nodeRes.id);
+  renderWhiteboard();
+  return nodeRes;
+}
+
+//: Tab — a new child of the selected card, at "the next open radial slot":
+//: evenly spaced by angle among the parent's existing children (plus the
+//: one about to be added, so a lone first child doesn't land straight on
+//: top of the parent), one ring further out.
+async function wbMindMapAddChild(parentId) {
+  const parent = wbState.nodes.find((n) => n.id === parentId);
+  if (!parent) return;
+  const map = wbMindMapEnsureMap(parentId);
+  const existing = (map.childrenOf.get(parentId) || []).length;
+  const slots = Math.max(existing + 1, 3);
+  const angle = (existing / slots) * 2 * Math.PI - Math.PI / 2;
+  const parentBox = wbItemBBox("node", parent);
+  const cx = (parentBox.minX + parentBox.maxX) / 2, cy = (parentBox.minY + parentBox.maxY) / 2;
+  const w = parent.width || WB_CARD_DEFAULT_SIZE.w, h = parent.height || WB_CARD_DEFAULT_SIZE.h;
+  await wbMindMapAddCard(
+    parentId,
+    cx + WB_MINDMAP_RADIAL_STEP * Math.cos(angle) - w / 2,
+    cy + WB_MINDMAP_RADIAL_STEP * Math.sin(angle) - h / 2
+  );
+}
+
+//: Enter — a new sibling of the selected card (a child of *its* parent).
+//: A card with no known parent (the mind map's own root, or one never
+//: linked to anything) has no sibling slot to fill — falls back to adding
+//: a child of the card itself, the only branch that makes sense there.
+async function wbMindMapAddSibling(cardId) {
+  const map = wbMindMapEnsureMap(cardId);
+  const parentId = map.parentOf.get(cardId);
+  await wbMindMapAddChild(parentId == null ? cardId : parentId);
 }
 
 function wbApplySelectionHighlight() {
@@ -24138,6 +24691,31 @@ function wbBoardBounds() {
   };
 }
 
+//: Bounds of the current selection — asked for directly ("an export selection
+//: feature"). Reuses `wbSelectionEntries()` (already shared by
+//: align/distribute/nudge) for a real multi-selection; a lone
+//: `wbSelectedItem` falls back to `wbItemBBox` directly since that path
+//: never populates `wbMultiSelection`. A link sketch has no bbox of its
+//: own (`wbItemBBox` returns null for one) — `null` here means "nothing
+//: exportable selected", which the export menu's own gating already checks.
+function wbSelectionBounds() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const boxes = wbMultiSelection.size > 0
+    ? wbSelectionEntries().map((e) => e.bbox)
+    : wbSelectedItem
+      ? [wbItemBBox(wbSelectedItem.kind, (wbState[WB_LIST_BY_KIND[wbSelectedItem.kind]] || []).find((i) => i.id === wbSelectedItem.id))].filter(Boolean)
+      : [];
+  for (const box of boxes) {
+    minX = Math.min(minX, box.minX);
+    minY = Math.min(minY, box.minY);
+    maxX = Math.max(maxX, box.maxX);
+    maxY = Math.max(maxY, box.maxY);
+  }
+  if (!Number.isFinite(minX)) return null;
+  const pad = 40;
+  return { minX: minX - pad, minY: minY - pad, width: maxX - minX + pad * 2, height: maxY - minY + pad * 2 };
+}
+
 // What's actually framed on screen right now, in board-space coordinates —
 // the inverse of the pan/zoom transform the container itself carries.
 function wbVisibleBounds() {
@@ -24152,8 +24730,22 @@ function wbVisibleBounds() {
   };
 }
 
+//: Which items an "export selection" pass should include — everything else
+//: in `wbBuildExportSvg` only needs a membership check, so this is the one
+//: place that reads `wbSelectedItem`/`wbMultiSelection` for it. `null` (not
+//: scope "selection") means "no filter", i.e. every other scope keeps
+//: exporting the whole board it always did.
+function wbSelectedKeys() {
+  if (wbMultiSelection.size > 0) return wbMultiSelection;
+  if (wbSelectedItem) return new Set([wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id)]);
+  return new Set();
+}
+
 function wbBuildExportSvg(scope) {
-  const { minX, minY, width, height } = scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
+  const bounds = scope === "selection" ? wbSelectionBounds()
+    : scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
+  const { minX, minY, width, height } = bounds || wbBoardBounds();
+  const onlyKeys = scope === "selection" ? wbSelectedKeys() : null;
   const container = document.getElementById("whiteboard-container");
   const bgColor = container ? getComputedStyle(container).backgroundColor : "#1b1f2c";
 
@@ -24167,6 +24759,7 @@ function wbBuildExportSvg(scope) {
   // reinterpreted, so a stroke's colour/width/opacity (including the
   // highlighter's own translucency) survives into the export untouched.
   for (const sketch of wbState.sketches) {
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("sketch", sketch.id))) continue;
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     if (!el) continue;
     const clone = el.cloneNode(true);
@@ -24178,8 +24771,10 @@ function wbBuildExportSvg(scope) {
   // way real SVG does — a simplified rect + label stands in for the live
   // card, matching what the live card itself shows (raw content, truncated;
   // it has no private-note masking of its own to match either).
+  const exportEntriesById = new Map(allEntries.map((e) => [String(e.id), e]));
   for (const node of wbState.nodes) {
-    const entry = allEntries.find((e) => String(e.id) === String(node.entry_id));
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
+    const entry = exportEntriesById.get(String(node.entry_id));
     const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
     const w = el ? el.offsetWidth : 250;
     const h = el ? el.offsetHeight : 150;
@@ -24199,6 +24794,7 @@ function wbBuildExportSvg(scope) {
   // but honours the colour/size it was actually given rather than a fixed
   // look, since those are the whole point of a text box.
   for (const obj of wbState.objects || []) {
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) continue;
     parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
     if (obj.kind === "image" && obj.data.url) {
       // `mediaSrc`, not the bare url: rasterizing this SVG loads it through
@@ -24331,12 +24927,20 @@ function wbExportBoard() {
     menu.appendChild(btn);
   };
 
+  // Asked for directly ("an export selection feature") — only offered when
+  // something is actually selected, same reasoning as every other
+  // selection-gated control in this toolbar (align/distribute/delete).
+  const hasSelection = wbMultiSelection.size > 0 || !!wbSelectedItem;
+
   addHeading("Image (PNG)");
+  if (hasSelection) addOption("Just the selection", () => wbExportPng("selection"));
   addOption("What's on screen now", () => wbExportPng("visible"));
   addOption("The whole board", () => wbExportPng("whole"));
   addHeading("Vector (SVG)");
+  if (hasSelection) addOption("Just the selection", () => wbExportSvg("selection"));
   addOption("The whole board", () => wbExportSvg("whole"));
   addHeading("PDF");
+  if (hasSelection) addOption("Just the selection, via Print", () => wbExportPdf("selection"));
   addOption("The whole board, via Print", () => wbExportPdf("whole"));
 
   document.body.appendChild(menu);
@@ -24646,8 +25250,22 @@ async function initWhiteboard() {
   window.currentStrokeColor =
     savedStroke || (document.documentElement.dataset.mode === "dark" ? "#ffffff" : "#000000");
   // Shared with the mousedown handler below, so the cursor preview drawn
-  // here is never a different size than what actually gets drawn.
-  const WB_STROKE_WIDTH = 3;
+  // here is never a different size than what actually gets drawn. Was a
+  // fixed `const` (asked about directly: "does the whiteboard have a tool
+  // for adjusting pen size... line/shape width?" — it didn't) — now `let`,
+  // driven by `#wb-stroke-width` below, so every closure over this variable
+  // (the highlighter's own 4x multiplier, arrowhead length, the saved
+  // sketch's own width) picks up a change without needing to be rewired.
+  let WB_STROKE_WIDTH = Number(localStorage.getItem("wb-stroke-width")) || 3;
+  const strokeWidthInput = document.getElementById("wb-stroke-width");
+  if (strokeWidthInput) {
+    strokeWidthInput.value = String(WB_STROKE_WIDTH);
+    strokeWidthInput.addEventListener("input", (e) => {
+      WB_STROKE_WIDTH = Number(e.target.value) || 3;
+      localStorage.setItem("wb-stroke-width", String(WB_STROKE_WIDTH));
+      updateWbCursor();
+    });
+  }
 
   const toolGroup = document.getElementById("wb-tool-group");
   const colorPicker = document.getElementById("wb-color-picker");
@@ -24658,6 +25276,72 @@ async function initWhiteboard() {
     arrowStyleSelect.addEventListener("change", (e) => {
       window.currentArrowStyle = e.target.value;
       localStorage.setItem("wb-arrow-style", e.target.value);
+    });
+  }
+
+  // Fill/stroke-style controls for the shape tools — asked for directly
+  // ("stroke width, style, and colour... fill colour/transparency...
+  // options for no border/stroke or background"). Persisted the same way
+  // every other drawing preference here already is, so a choice survives a
+  // reload instead of resetting to "no fill, solid" every session.
+  const fillColorInput = document.getElementById("wb-fill-color");
+  const fillOpacityInput = document.getElementById("wb-fill-opacity");
+  const fillNoneInput = document.getElementById("wb-fill-none");
+  const strokeStyleSelect = document.getElementById("wb-stroke-style");
+  const strokeNoneInput = document.getElementById("wb-stroke-none");
+
+  window.currentFillColor = localStorage.getItem("wb-fill-color") || "#3355ff";
+  window.currentFillOpacity = Number(localStorage.getItem("wb-fill-opacity") ?? 100);
+  window.currentFillNone = localStorage.getItem("wb-fill-none") !== "off"; // default on (no fill)
+  window.currentDashStyle = localStorage.getItem("wb-stroke-style") || "solid";
+  window.currentStrokeNone = localStorage.getItem("wb-stroke-none") === "on";
+
+  if (fillColorInput) {
+    fillColorInput.value = window.currentFillColor;
+    fillColorInput.addEventListener("input", (e) => {
+      window.currentFillColor = e.target.value;
+      localStorage.setItem("wb-fill-color", e.target.value);
+    });
+  }
+  if (fillOpacityInput) {
+    fillOpacityInput.value = String(window.currentFillOpacity);
+    fillOpacityInput.addEventListener("input", (e) => {
+      window.currentFillOpacity = Number(e.target.value);
+      localStorage.setItem("wb-fill-opacity", e.target.value);
+    });
+  }
+  if (fillNoneInput) {
+    fillNoneInput.checked = window.currentFillNone;
+    fillNoneInput.addEventListener("change", (e) => {
+      window.currentFillNone = e.target.checked;
+      localStorage.setItem("wb-fill-none", e.target.checked ? "on" : "off");
+    });
+  }
+  if (strokeStyleSelect) {
+    strokeStyleSelect.value = window.currentDashStyle;
+    strokeStyleSelect.addEventListener("change", (e) => {
+      window.currentDashStyle = e.target.value;
+      localStorage.setItem("wb-stroke-style", e.target.value);
+    });
+  }
+  if (strokeNoneInput) {
+    strokeNoneInput.checked = window.currentStrokeNone;
+    strokeNoneInput.addEventListener("change", (e) => {
+      window.currentStrokeNone = e.target.checked;
+      localStorage.setItem("wb-stroke-none", e.target.checked ? "on" : "off");
+    });
+  }
+
+  // Alignment-guide colours — asked for directly ("colours should be
+  // alterable"). `wbAlignGuideColor` already reads localStorage on every
+  // guide redraw, so these listeners only need to persist the choice; no
+  // live guide is showing while this dropdown is open to also repaint.
+  for (const kind of ["edge", "center", "spacing"]) {
+    const input = document.getElementById(`wb-guide-color-${kind}`);
+    if (!input) continue;
+    input.value = wbAlignGuideColor(kind);
+    input.addEventListener("input", (e) => {
+      localStorage.setItem(`wb-guide-color-${kind}`, e.target.value);
     });
   }
 
@@ -24696,7 +25380,21 @@ async function initWhiteboard() {
   });
   document.getElementById("wb-prop-arrowhead")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
-    const parsed = sketch && wbSketchParsedData(sketch);
+    if (!sketch) return;
+    let linkParsed = null;
+    try {
+      const candidate = JSON.parse(sketch.data);
+      if (candidate && (candidate.type || "").startsWith("link-")) linkParsed = candidate;
+    } catch { /* not a link */ }
+    if (linkParsed) {
+      // A link's arrowhead is computed at render time from `endStyle`
+      // (`wbLinkPathD`), not baked into a stored path the way a drawn
+      // arrow's is — nothing to regenerate, just persist the choice.
+      await wbSaveSketchProps(sketch, { endStyle: e.target.value === "none" ? undefined : e.target.value });
+      renderWhiteboard();
+      return;
+    }
+    const parsed = wbSketchParsedData(sketch);
     if (!parsed || !wbSketchIsArrow(parsed.d)) return;
     const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
     const newD = wbRegenerateArrowHeads(parsed.d, e.target.value, headLen);
@@ -24707,6 +25405,18 @@ async function initWhiteboard() {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
     obj.data = { ...obj.data, bg: e.target.value };
+    document.getElementById("wb-prop-bg-none").checked = false;
+    await wbSaveObject(obj);
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-bg-none")?.addEventListener("change", async (e) => {
+    const obj = wbSelectedTextObjectOrNull();
+    if (!obj) return;
+    // "transparent" is a real, distinguishable value — `bg || ""` (the
+    // render path) would otherwise fall back to the CSS default translucent
+    // panel look for an empty string, not the "no fill at all" this asks
+    // for. Asked for directly: "options for no border/stroke or background".
+    obj.data = { ...obj.data, bg: e.target.checked ? "transparent" : document.getElementById("wb-prop-bg").value };
     await wbSaveObject(obj);
     renderWhiteboard();
   });
@@ -24714,7 +25424,40 @@ async function initWhiteboard() {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
     obj.data = { ...obj.data, border_color: e.target.value };
+    document.getElementById("wb-prop-border-none").checked = false;
     await wbSaveObject(obj);
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-border-none")?.addEventListener("change", async (e) => {
+    const obj = wbSelectedTextObjectOrNull();
+    if (!obj) return;
+    obj.data = { ...obj.data, border_color: e.target.checked ? "transparent" : document.getElementById("wb-prop-border").value };
+    await wbSaveObject(obj);
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-dash")?.addEventListener("change", async (e) => {
+    const sketch = wbSelectedSketchOrNull();
+    if (!sketch) return;
+    await wbSaveSketchProps(sketch, { dash: e.target.value === "solid" ? undefined : e.target.value });
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-nostroke")?.addEventListener("change", async (e) => {
+    const sketch = wbSelectedSketchOrNull();
+    if (!sketch) return;
+    await wbSaveSketchProps(sketch, { noStroke: e.target.checked || undefined });
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-shapefill")?.addEventListener("change", async (e) => {
+    const sketch = wbSelectedSketchOrNull();
+    if (!sketch) return;
+    document.getElementById("wb-prop-shapefill-none").checked = false;
+    await wbSaveSketchProps(sketch, { fill: e.target.value, fillOpacity: 1 });
+    renderWhiteboard();
+  });
+  document.getElementById("wb-prop-shapefill-none")?.addEventListener("change", async (e) => {
+    const sketch = wbSelectedSketchOrNull();
+    if (!sketch) return;
+    await wbSaveSketchProps(sketch, { fill: e.target.checked ? undefined : document.getElementById("wb-prop-shapefill").value });
     renderWhiteboard();
   });
   document.getElementById("wb-prop-fontsize")?.addEventListener("change", async (e) => {
@@ -24735,6 +25478,12 @@ async function initWhiteboard() {
   document.getElementById("wb-align-bottom")?.addEventListener("click", () => wbAlignSelection("bottom"));
   document.getElementById("wb-distribute-h")?.addEventListener("click", () => wbDistributeSelection("horizontal"));
   document.getElementById("wb-distribute-v")?.addEventListener("click", () => wbDistributeSelection("vertical"));
+  document.getElementById("wb-mindmap-tree")?.addEventListener("click", () => {
+    if (wbSelectedItem?.kind === "node") wbArrangeMindMap(wbSelectedItem.id, "tree");
+  });
+  document.getElementById("wb-mindmap-radial")?.addEventListener("click", () => {
+    if (wbSelectedItem?.kind === "node") wbArrangeMindMap(wbSelectedItem.id, "radial");
+  });
 
   const containerEl = document.getElementById("whiteboard-container");
   const undoBtn = document.getElementById("wb-undo");
@@ -24743,6 +25492,23 @@ async function initWhiteboard() {
     containerEl.setAttribute("data-current-tool", window.currentTool);
     containerEl.style.cursor = wbCursorForTool(window.currentTool, window.currentStrokeColor);
   }
+
+  // The six shape tools folded into the toolbar's own dropdown — asked for
+  // directly ("the tool bar is getting quite long"). Kept as one list so
+  // the toggle button's own icon/active-state and the arrow-style control's
+  // relevance can both key off it without drifting apart.
+  const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond"]);
+  const shapeToggle = document.getElementById("wb-shape-toggle");
+  const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
+  const shapeMenu = document.getElementById("wb-shape-menu");
+
+  // Same dropdown pattern, for the two selection tools — asked for directly
+  // ("have the selection tools as their own dropdown... like with the
+  // shapes and lines").
+  const WB_SELECT_TOOLS = new Set(["select", "lasso"]);
+  const selectToggle = document.getElementById("wb-select-toggle");
+  const selectToggleIcon = document.getElementById("wb-select-toggle-icon");
+  const selectMenu = document.getElementById("wb-select-menu");
 
   // The one place a tool switch happens, so the toolbar click and the
   // keyboard shortcuts below can never drift out of sync with each other.
@@ -24758,10 +25524,28 @@ async function initWhiteboard() {
     } else {
       container.call(wbZoom).on("dblclick.zoom", null);
     }
-    // Reported directly: "can't change arrow heads" — only shown while the
-    // arrow tool itself is selected, the same way the colour picker is
-    // always relevant but this control only makes sense for one tool.
-    document.getElementById("wb-arrow-style")?.classList.toggle("hidden", tool !== "arrow");
+    // The toggle shows whichever shape is actually active (and reads as
+    // "on" the same way any other tool button does) instead of a fixed
+    // icon — picking "circle" from the menu should look exactly like
+    // picking "circle" used to when it was its own top-level button.
+    if (shapeToggle && WB_SHAPE_TOOLS.has(tool)) {
+      const chosen = shapeMenu?.querySelector(`button[data-tool="${tool}"] svg`);
+      if (chosen && shapeToggleIcon) shapeToggleIcon.innerHTML = chosen.innerHTML;
+      shapeToggle.classList.add("active");
+    } else if (shapeToggle) {
+      shapeToggle.classList.remove("active");
+    }
+    shapeMenu?.classList.add("hidden");
+    shapeToggle?.setAttribute("aria-expanded", "false");
+    if (selectToggle && WB_SELECT_TOOLS.has(tool)) {
+      const chosen = selectMenu?.querySelector(`button[data-tool="${tool}"] svg`);
+      if (chosen && selectToggleIcon) selectToggleIcon.innerHTML = chosen.innerHTML;
+      selectToggle.classList.add("active");
+    } else if (selectToggle) {
+      selectToggle.classList.remove("active");
+    }
+    selectMenu?.classList.add("hidden");
+    selectToggle?.setAttribute("aria-expanded", "false");
     updateWbCursor();
   }
 
@@ -24771,6 +25555,60 @@ async function initWhiteboard() {
     toolGroup.addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-tool]");
       if (btn) selectWbTool(btn.dataset.tool);
+    });
+  }
+
+  if (shapeToggle && shapeMenu) {
+    shapeToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = shapeMenu.classList.toggle("hidden") === false;
+      shapeToggle.setAttribute("aria-expanded", String(open));
+    });
+    // No stopPropagation here: a tool-button click inside the menu has to
+    // keep bubbling up to #wb-tool-group's own delegated listener (real bug,
+    // caught live — stopping it here silently broke every shape pick, the
+    // menu just stayed open with nothing selected). The outside-click
+    // closer below already leaves clicks *inside* #wb-shape-picker alone
+    // via its own `closest` check, so nothing here needs to guard against
+    // the line-ends select/label closing the menu either.
+    document.addEventListener("click", (e) => {
+      if (!shapeMenu.classList.contains("hidden") && !e.target.closest("#wb-shape-picker")) {
+        shapeMenu.classList.add("hidden");
+        shapeToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  if (selectToggle && selectMenu) {
+    selectToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = selectMenu.classList.toggle("hidden") === false;
+      selectToggle.setAttribute("aria-expanded", String(open));
+    });
+    document.addEventListener("click", (e) => {
+      if (!selectMenu.classList.contains("hidden") && !e.target.closest("#wb-select-picker")) {
+        selectMenu.classList.add("hidden");
+        selectToggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  // Asked for directly: the toolbar should be adjustable as a sidebar, not
+  // only a bottom bar. `data-dock` drives the CSS (row vs. column layout,
+  // which edge it's pinned to); persisted so the choice survives a reload
+  // the same way panel positions already do.
+  const toolsPanel = document.getElementById("wb-tools-panel");
+  const dockToggle = document.getElementById("wb-dock-toggle");
+  if (toolsPanel && dockToggle) {
+    const applyDock = (dock) => {
+      toolsPanel.dataset.dock = dock;
+      dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
+    };
+    applyDock(localStorage.getItem("wb-toolbar-dock") || "bottom");
+    dockToggle.addEventListener("click", () => {
+      const next = toolsPanel.dataset.dock === "bottom" ? "side" : "bottom";
+      localStorage.setItem("wb-toolbar-dock", next);
+      applyDock(next);
     });
   }
 
@@ -24806,6 +25644,7 @@ async function initWhiteboard() {
     v: "pan",
     h: "pan",
     s: "select",
+    k: "lasso",
     p: "draw",
     m: "highlighter",
     l: "line",
@@ -24868,6 +25707,23 @@ async function initWhiteboard() {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbGroupSelection();
+      return;
+    }
+    // Mind-mapping's keyboard-driven branch entry (item 25's second piece,
+    // asked for directly): Tab adds a linked child of the selected card,
+    // Enter adds a sibling. The actual ergonomic difference between "a
+    // whiteboard you can draw a mind map on" and "a mind-mapping tool" —
+    // dragging cards one at a time to fake this defeats the point of
+    // having it. Guarded to a single selected *card* — a sketch or object
+    // has no "branch" of its own to add one to.
+    if (e.key === "Tab" && wbSelectedItem?.kind === "node") {
+      e.preventDefault();
+      wbMindMapAddChild(wbSelectedItem.id);
+      return;
+    }
+    if (e.key === "Enter" && wbSelectedItem?.kind === "node") {
+      e.preventDefault();
+      wbMindMapAddSibling(wbSelectedItem.id);
       return;
     }
     // Arrow-key nudge, asked for directly. Grid step while snap is on (the
@@ -24968,7 +25824,7 @@ async function initWhiteboard() {
   // one-shot flag that stops it from wiping out the selection the marquee
   // just made.
   containerEl.addEventListener("click", (e) => {
-    if (window.currentTool === "select") {
+    if (window.currentTool === "select" || window.currentTool === "lasso") {
       if (wbMarqueeJustSelected) {
         wbMarqueeJustSelected = false;
       } else {
@@ -25064,6 +25920,76 @@ async function initWhiteboard() {
     wbApplySelectionHighlight();
   });
 
+  // Freeform lasso select — asked for directly ("all the selection tools
+  // (e.g. rectangle select and lasso)"). Same shape as the marquee just
+  // above (empty-canvas-only pointerdown, shift to add, `wbMarqueeJustSelected`
+  // shared so the trailing native "click" doesn't wipe the result) but hit-
+  // tests each item's *centre point* against the traced polygon rather than
+  // rectangle-intersecting its bounding box — a lasso is a freeform loop, so
+  // "is this item's middle inside the loop" is the one test that stays
+  // cheap (one ray-cast per item, not a polygon-clip against every edge) and
+  // still matches what a user visually circled.
+  function wbPointInPolygon(px, py, points) {
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      const [xi, yi] = points[i], [xj, yj] = points[j];
+      const crosses = yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+      if (crosses) inside = !inside;
+    }
+    return inside;
+  }
+  let wbLassoPoints = null;
+  let wbLassoEl = null;
+  let wbLassoShift = false;
+  containerEl.addEventListener("pointerdown", (e) => {
+    if (window.currentTool !== "lasso" || !wbIsEmptyCanvasTarget(e.target)) return;
+    const [x, y] = getLogicalMouse(e);
+    wbLassoPoints = [[x, y]];
+    wbLassoShift = e.shiftKey;
+    wbLassoEl = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    wbLassoEl.setAttribute("class", "wb-lasso");
+    wbLassoEl.setAttribute("points", `${x},${y}`);
+    document.getElementById("wb-zoom-group").appendChild(wbLassoEl);
+  });
+  containerEl.addEventListener("pointermove", (e) => {
+    if (!wbLassoPoints) return;
+    const [x, y] = getLogicalMouse(e);
+    wbLassoPoints.push([x, y]);
+    wbLassoEl.setAttribute("points", wbLassoPoints.map(([px, py]) => `${px},${py}`).join(" "));
+  });
+  containerEl.addEventListener("pointerup", () => {
+    if (!wbLassoPoints) return;
+    const points = wbLassoPoints, shiftKey = wbLassoShift;
+    wbLassoEl?.remove();
+    wbLassoEl = null;
+    wbLassoPoints = null;
+    if (points.length < 3) return; // a tap, not a loop — nothing to select
+    if (!shiftKey) wbMultiSelection.clear();
+    for (const node of wbState.nodes) {
+      const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
+      const w = el?.offsetWidth || 250, h = el?.offsetHeight || 150;
+      if (wbPointInPolygon(node.x + w / 2, node.y + h / 2, points)) {
+        wbMultiSelection.add(wbMultiKey("node", node.id));
+      }
+    }
+    for (const obj of wbState.objects || []) {
+      if (wbPointInPolygon(obj.x + obj.width / 2, obj.y + obj.height / 2, points)) {
+        wbMultiSelection.add(wbMultiKey("object", obj.id));
+      }
+    }
+    for (const sketch of wbState.sketches) {
+      const parsed = wbSketchParsedData(sketch);
+      if (!parsed) continue; // a link sketch — nothing here to select as a shape
+      const bbox = wbPathBBox(parsed.d);
+      if (bbox && wbPointInPolygon(bbox.minX + bbox.width / 2, bbox.minY + bbox.height / 2, points)) {
+        wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
+      }
+    }
+    wbSelectedItem = null;
+    wbMarqueeJustSelected = true;
+    wbApplySelectionHighlight();
+  });
+
   // Images: paste, drag-and-drop, or the upload button — asked for
   // directly, and all three funnel through the same upload+place path
   // `handleFileUpload` already established for notes (POST /media/upload,
@@ -25140,8 +26066,16 @@ async function initWhiteboard() {
     
     currentDrawData = [[x, y]];
     currentDrawPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    currentDrawPath.setAttribute("fill", "none");
-    currentDrawPath.setAttribute("stroke", window.currentStrokeColor);
+    // Fill only applies to the four closed shapes, and only when "no fill"
+    // isn't checked — asked for directly ("fill colour/transparency...
+    // options for no border/stroke or background").
+    if (WB_FILLABLE_SHAPES.has(window.currentTool) && !window.currentFillNone) {
+      currentDrawPath.setAttribute("fill", window.currentFillColor);
+      currentDrawPath.setAttribute("fill-opacity", String(window.currentFillOpacity / 100));
+    } else {
+      currentDrawPath.setAttribute("fill", "none");
+    }
+    currentDrawPath.setAttribute("stroke", window.currentStrokeNone ? "none" : window.currentStrokeColor);
     // A highlighter needs to be visibly wider and translucent, or it isn't a
     // highlighter — the sketch pad's own version of this exact control had
     // its opacity so low it was reported as invisible (HISTORY.md §46).
@@ -25156,6 +26090,8 @@ async function initWhiteboard() {
       currentDrawPath.setAttribute("stroke-linecap", "round");
     }
     currentDrawPath.setAttribute("stroke-linejoin", "round");
+    const dashArray = wbDashArray(window.currentDashStyle, WB_STROKE_WIDTH);
+    if (dashArray) currentDrawPath.setAttribute("stroke-dasharray", dashArray);
     currentDrawPath.setAttribute("d", `M ${x} ${y}`);
     document.getElementById("wb-zoom-group").appendChild(currentDrawPath);
   });
@@ -25172,15 +26108,16 @@ async function initWhiteboard() {
     } else {
       // Shape tools: only start and current point matter
       const [sx, sy] = currentDrawData[0];
-      if (window.currentTool === "line") {
-        currentDrawPath.setAttribute("d", `M ${sx} ${sy} L ${x} ${y}`);
-      } else if (window.currentTool === "arrow") {
+      if (window.currentTool === "line" || window.currentTool === "arrow") {
         // One path, one or more subpaths — a plain SVG `d` string can hold
         // more than one `M`, and every subpath in it shares the same
         // stroke, so this is the shaft plus whichever head strokes
         // `window.currentArrowStyle` calls for in a single element, rather
         // than several sketches that would each need their own undo entry
-        // and could drift apart.
+        // and could drift apart. Asked for directly: "regular lines should
+        // also get line end options... arrow heads" — the Line and Arrow
+        // tools now share the same "Line ends" control (in the shape
+        // dropdown), so a plain line can carry an arrowhead too.
         const angle = Math.atan2(y - sy, x - sx);
         const headLen = WB_STROKE_WIDTH * 4 + 6;
         let d = `M ${sx} ${sy} L ${x} ${y}`;
@@ -25243,17 +26180,34 @@ async function initWhiteboard() {
       return;
     }
     
-    // Save sketch to API. The backend schema has no width/opacity columns, so
-    // a highlighter's thick/translucent look has to travel inside `data` too
-    // — otherwise a saved highlighter reloads as a plain full-opacity line
-    // (see HISTORY.md: this exact loss was caught before shipping).
+    // Save sketch to API. The backend schema has no width/opacity/fill/dash
+    // columns, so all of it has to travel inside `data` — otherwise a saved
+    // stroke reloads at the hardcoded 3px default regardless of what
+    // #wb-stroke-width was actually set to when it was drawn (a real bug,
+    // caught while wiring that control up: only the highlighter branch here
+    // ever saved its own width; a plain pen/line/shape stroke silently lost
+    // whatever size it was actually drawn at the moment the page reloaded).
     const d = currentDrawPath.getAttribute("d");
+    const isHighlighter = window.currentTool === "highlighter";
+    const isFillable = WB_FILLABLE_SHAPES.has(window.currentTool);
+    const blob = {
+      d,
+      color: currentStrokeColor,
+      width: isHighlighter ? WB_STROKE_WIDTH * 4 : WB_STROKE_WIDTH,
+      shape: window.currentTool,
+    };
+    if (isHighlighter) {
+      blob.opacity = WB_HIGHLIGHTER_ALPHA;
+    } else {
+      if (window.currentDashStyle !== "solid") blob.dash = window.currentDashStyle;
+      if (window.currentStrokeNone) blob.noStroke = true;
+      if (isFillable && !window.currentFillNone) {
+        blob.fill = window.currentFillColor;
+        blob.fillOpacity = window.currentFillOpacity / 100;
+      }
+    }
     const sketchData = {
-      data: JSON.stringify(
-        window.currentTool === "highlighter"
-          ? { d, color: currentStrokeColor, width: WB_STROKE_WIDTH * 4, opacity: WB_HIGHLIGHTER_ALPHA }
-          : { d, color: currentStrokeColor }
-      ),
+      data: JSON.stringify(blob),
       x: 0,
       y: 0,
       z: 5,
@@ -25547,9 +26501,24 @@ function wbSketchParsedData(sketch) {
 
 //: Merges `partial` into the sketch's own parsed data blob and saves the
 //: whole thing back — the general form `wbSaveSketchD` (move/resize) and
-//: the properties panel (colour/width/arrowhead) both reduce to.
+//: the properties panel (colour/width/arrowhead) both reduce to. Unlike
+//: `wbSketchParsedData` (which deliberately stays strict to `.d`-shaped
+//: data for the move/resize code that assumes it), this also accepts a
+//: link sketch — asked for directly ("customisable links... colour"),
+//: which silently did nothing before this: the colour/width properties-
+//: panel rows already called this function for *any* selected sketch, but
+//: a link has no `.d`, so `wbSketchParsedData` returned null and the save
+//: was a silent no-op.
 async function wbSaveSketchProps(sketch, partial) {
-  const parsed = wbSketchParsedData(sketch);
+  let parsed;
+  try {
+    const candidate = JSON.parse(sketch.data);
+    if (candidate && (typeof candidate.d === "string" || (candidate.type || "").startsWith("link-"))) {
+      parsed = candidate;
+    }
+  } catch {
+    parsed = null;
+  }
   if (!parsed) return;
   Object.assign(parsed, partial);
   sketch.data = JSON.stringify(parsed);
@@ -25669,6 +26638,14 @@ function wbRenderSketchHandles() {
 }
 
 function renderWhiteboard() {
+  // Built once per render, not once per card: `allEntries.find(...)` inside
+  // a per-card callback is O(cards × notebook size) on every single render
+  // — for a large notebook that is real, measurable work paid on every
+  // whiteboard update, not just once. A note's id never changes shape
+  // (string vs number) across a session, so this Map stays valid for the
+  // whole render pass below.
+  const entriesById = new Map(allEntries.map((e) => [String(e.id), e]));
+
   document
     .getElementById("wb-empty-hint")
     ?.classList.toggle(
@@ -25843,30 +26820,38 @@ function renderWhiteboard() {
     let stroke = "var(--text-color)";
     let strokeWidth = "3";
     let strokeOpacity = 1;
+    let fill = "none";
+    let fillOpacity = 1;
+    let dashArray = null;
     try {
       const parsed = JSON.parse(d.data);
       if (parsed.d) {
         pathData = parsed.d;
-        stroke = parsed.color || stroke;
+        stroke = parsed.noStroke ? "none" : (parsed.color || stroke);
         // Highlighter strokes carry their own width/opacity (see the mouseup
         // handler that writes them) — everything else keeps the defaults
         // above, set explicitly every render so a reused element can't keep
         // a stale highlighter width after its data changes.
         if (parsed.width) strokeWidth = String(parsed.width);
         if (parsed.opacity != null) strokeOpacity = parsed.opacity;
+        // Fill/dash — asked for directly ("fill colour/transparency...
+        // stroke width, style, and colour"). Absent on any sketch drawn
+        // before this existed, which is exactly why these default to "no
+        // fill, solid" rather than reading undefined.
+        if (parsed.fill) {
+          fill = parsed.fill;
+          fillOpacity = parsed.fillOpacity != null ? parsed.fillOpacity : 1;
+        }
+        dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
       } else if (parsed.type && parsed.type.startsWith("link-")) {
         stroke = parsed.color || stroke;
+        strokeWidth = String(parsed.width || 3);
+        dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
         const source = wbState.nodes.find(n => n.id === parsed.sourceId);
         const target = wbState.nodes.find(n => n.id === parsed.targetId);
         if (source && target) {
-           const sx = source.x + 125, sy = source.y + 75;
-           const tx = target.x + 125, ty = target.y + 75;
-           if (parsed.type === "link-straight") {
-              pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
-           } else {
-              const dx = tx - sx;
-              pathData = `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${tx - dx/2} ${ty}, ${tx} ${ty}`;
-           }
+           const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
+           pathData = wbLinkPathD(parsed.type, sPt, tPt, parsed.endStyle, parsed.width);
         } else {
            pathData = "";
         }
@@ -25877,7 +26862,14 @@ function renderWhiteboard() {
       .attr("d", pathData)
       .attr("stroke", stroke)
       .attr("stroke-width", strokeWidth)
-      .attr("stroke-opacity", strokeOpacity);
+      .attr("stroke-opacity", strokeOpacity)
+      .attr("fill", fill)
+      .attr("fill-opacity", fillOpacity)
+      // `null` removes the attribute entirely (d3's own convention) rather
+      // than setting `stroke-dasharray=""`, which some renderers treat as
+      // "zero-length dashes" instead of "solid" — a reused element from a
+      // dashed sketch must not leave a stale dasharray on a solid one.
+      .attr("stroke-dasharray", dashArray);
   });
     
   sketchSelection.exit().remove();
@@ -26047,7 +27039,7 @@ function renderWhiteboard() {
   nodeEnter.append("div")
     .attr("class", "wb-card-content")
     .html(d => {
-      const entry = allEntries.find(e => String(e.id) === String(d.entry_id));
+      const entry = entriesById.get(String(d.entry_id));
       const text = entry ? (entry.content || entry.preview || "") : "";
       return entry ? (text ? escapeHtml(text.length > 100 ? text.substring(0, 100) + "..." : text) : "Empty note") : "Loading...";
     });
@@ -26155,65 +27147,113 @@ function renderWbObjects(canvas) {
   }
   wbDeleteObjectRef = deleteObject;
 
+  // Shared by both `objDrag` (bound to the whole `.wb-object`) and
+  // `gripDrag` (bound only to `.wb-object-grip`, see below) — `this` is
+  // whichever element the gesture actually started on, so every DOM write
+  // goes through `this.closest(".wb-object")` rather than `this` directly,
+  // the same convention `resizeDrag`'s own "drag" handler already uses.
+  function objDragStart(event, d) {
+    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    // `.raise()` deliberately does NOT happen here — moved to objDragMove.
+    // See the matching comment on the card drag's own `dragging` for the
+    // real bug this caused (raising mid-`start` breaks the browser's click
+    // synthesis, so a plain click-to-select on an object never fired).
+    // See the matching comment on the card drag's own `dragStart`: a raw,
+    // never-snapped running position, so small per-frame deltas actually
+    // accumulate instead of being rounded away against the previous
+    // frame's already-snapped value.
+    d._rawX = d.x;
+    d._rawY = d.y;
+    d._dragOriginX = d.x;
+    d._dragOriginY = d.y;
+    d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
+    // Bulk-move detection is deliberately deferred to the first real
+    // "drag" frame below, not decided here — see the matching comment on
+    // the sketch drag's own "start" for the click-toggle bug that caused.
+  }
+  function objDragMove(event, d) {
+    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    if (d._bulkOrigin === undefined) {
+      d._bulkOrigin = wbDragIsBulkMove("object", d.id)
+        ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
+        : null;
+    }
+    d3.select(this.closest(".wb-object")).raise();
+    // d3.drag's dx/dy are raw screen pixels, not board-space — the
+    // resize handles below already divide by the zoom scale for exactly
+    // this reason; a plain drag has to as well, or a card/object moves
+    // faster than the cursor when zoomed out and slower when zoomed in.
+    const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
+    d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+    const bypassSnap = event.sourceEvent?.altKey;
+    d.x = wbSnap(d._rawX, bypassSnap);
+    d.y = wbSnap(d._rawY, bypassSnap);
+    // Smart alignment guides — asked for directly ("draw.io and Microsoft
+    // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
+    // grid-snap just above: holding it means "no snap assistance at all
+    // for this drag", one concept, not two separate modifier keys to learn.
+    if (!bypassSnap && !d._bulkOrigin) {
+      const { dx, dy, guideLines } = wbAlignmentGuides("object", d.id, d.x, d.y, d.width, d.height);
+      d.x += dx;
+      d.y += dy;
+      wbShowAlignmentGuides(guideLines);
+    } else {
+      wbClearAlignmentGuides();
+    }
+    d3.select(this.closest(".wb-object")).style("transform", wbItemTransform(d));
+    if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
+  }
+  async function objDragEnd(event, d) {
+    if (window.currentTool === "eraser" || window.currentTool === "delete") return;
+    wbClearAlignmentGuides();
+    const bulkOrigin = d._bulkOrigin;
+    // Reset unconditionally — a solo drag sets this to `null` (see
+    // "drag" above), and leaving it there would make the *next* gesture's
+    // `=== undefined` check think bulk-move was already decided and skip
+    // redetecting it, permanently treating this object as "never bulk"
+    // even after it later joins a multi-selection.
+    delete d._bulkOrigin;
+    await wbSaveObject(d);
+    const moveBefore = d._moveUndoBefore;
+    delete d._moveUndoBefore;
+    if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
+      wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
+    }
+    if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
+  }
+
   const objDrag = d3.drag()
     // A resize handle owns its own drag (below); a text box's own text
     // needs plain clicks/selection to reach it, not a canvas-wide drag. And,
     // same reasoning as the card drag's own filter above: a brush tool must
-    // be able to draw over an image/text object, not drag it.
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content"))
+    // be able to draw over an image/text object, not drag it. `.wb-object-grip`
+    // has its own separate drag instance (`gripDrag`, below) — excluded here
+    // so a grip grab doesn't *also* start this instance for the same
+    // gesture. A real bug caught live: excluding it here alone isn't enough
+    // — `objDrag` is one shared behaviour object bound to both the object
+    // and the grip, so its filter runs for *both* elements' own pointerdown,
+    // and target-closest can't tell "the grip's own listener" from "the
+    // object's listener catching a bubbled grip click" apart. `gripDrag`
+    // below exists precisely because that distinction needs two behaviour
+    // objects, not one filter.
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
+    .on("start", objDragStart)
+    .on("drag", objDragMove)
+    .on("end", objDragEnd);
+
+  // The grip's own drag instance (see the comment above) — `stopPropagation`
+  // on start is the same fix `resizeDrag`/`objectRotateDrag` already use to
+  // keep their own handle grabs from also bubbling into the object's own
+  // `objDrag` listener.
+  const gripDrag = d3.drag()
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool))
     .on("start", function (event, d) {
-      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      d3.select(this).raise();
-      // See the matching comment on the card drag's own `dragStart`: a raw,
-      // never-snapped running position, so small per-frame deltas actually
-      // accumulate instead of being rounded away against the previous
-      // frame's already-snapped value.
-      d._rawX = d.x;
-      d._rawY = d.y;
-      d._dragOriginX = d.x;
-      d._dragOriginY = d.y;
-      d._moveUndoBefore = WB_KIND_INFO.object.payload(d);
-      // Bulk-move detection is deliberately deferred to the first real
-      // "drag" frame below, not decided here — see the matching comment on
-      // the sketch drag's own "start" for the click-toggle bug that caused.
+      event.sourceEvent.stopPropagation();
+      objDragStart.call(this, event, d);
     })
-    .on("drag", function (event, d) {
-      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      if (d._bulkOrigin === undefined) {
-        d._bulkOrigin = wbDragIsBulkMove("object", d.id)
-          ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
-          : null;
-      }
-      // d3.drag's dx/dy are raw screen pixels, not board-space — the
-      // resize handles below already divide by the zoom scale for exactly
-      // this reason; a plain drag has to as well, or a card/object moves
-      // faster than the cursor when zoomed out and slower when zoomed in.
-      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-      d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
-      d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
-      const bypassSnap = event.sourceEvent?.altKey;
-      d.x = wbSnap(d._rawX, bypassSnap);
-      d.y = wbSnap(d._rawY, bypassSnap);
-      d3.select(this).style("transform", wbItemTransform(d));
-      if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
-    })
-    .on("end", async function (event, d) {
-      if (window.currentTool === "eraser" || window.currentTool === "delete") return;
-      const bulkOrigin = d._bulkOrigin;
-      // Reset unconditionally — a solo drag sets this to `null` (see
-      // "drag" above), and leaving it there would make the *next* gesture's
-      // `=== undefined` check think bulk-move was already decided and skip
-      // redetecting it, permanently treating this object as "never bulk"
-      // even after it later joins a multi-selection.
-      delete d._bulkOrigin;
-      await wbSaveObject(d);
-      const moveBefore = d._moveUndoBefore;
-      delete d._moveUndoBefore;
-      if (moveBefore && (moveBefore.x !== d.x || moveBefore.y !== d.y)) {
-        wbPushUndo({ action: "move", kind: "object", id: d.id, before: moveBefore });
-      }
-      if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
-    });
+    .on("drag", objDragMove)
+    .on("end", objDragEnd);
 
   function resizeDrag(handle) {
     return d3.drag()
@@ -26314,6 +27354,23 @@ function renderWbObjects(canvas) {
       // background/border style, so an unset value falls back to the CSS
       // default rather than an empty override.
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
+      // Asked for directly ("objects are also difficult and annoying to
+      // move around"): `.wb-text-content` fills the entire box and both
+      // the filter above and its own pointerdown handler below correctly
+      // keep drag away from it while typing — which meant the *only*
+      // draggable surface left was the ~0.5rem padding strip around the
+      // text, the same width as the resize handles that sit right on top
+      // of it. A dedicated grip, same convention as the panels' own
+      // `.wb-panel-grip`, gives a guaranteed, adequately-sized place to
+      // grab regardless of how much text is in the box. Text objects only —
+      // an image has no competing contenteditable claim on its body, so it
+      // was already fully draggable once the resize-handle bug above was
+      // fixed.
+      el.append("div")
+        .attr("class", "wb-object-grip")
+        .attr("title", "Drag to move")
+        .text("⠿")
+        .call(gripDrag);
       const content = el.append("div")
         .attr("class", "wb-text-content")
         .attr("contenteditable", "true")
@@ -26392,15 +27449,8 @@ function wbUpdateLinkedSketches(nodeId) {
     const source = wbState.nodes.find((n) => n.id === parsed.sourceId);
     const target = wbState.nodes.find((n) => n.id === parsed.targetId);
     if (!source || !target) continue;
-    const sx = source.x + 125, sy = source.y + 75;
-    const tx = target.x + 125, ty = target.y + 75;
-    let pathData;
-    if (parsed.type === "link-straight") {
-      pathData = `M ${sx} ${sy} L ${tx} ${ty}`;
-    } else {
-      const dx = tx - sx;
-      pathData = `M ${sx} ${sy} C ${sx + dx / 2} ${sy}, ${tx - dx / 2} ${ty}, ${tx} ${ty}`;
-    }
+    const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
+    const pathData = wbLinkPathD(parsed.type, sPt, tPt, parsed.endStyle, parsed.width);
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
     el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
@@ -26412,14 +27462,25 @@ function dragStart(event, d) {
   // must not also drag the first one it touches out from under the pointer.
   if (window.currentTool === "eraser" || window.currentTool === "delete") return;
   if (window.currentTool && window.currentTool.startsWith("link-")) {
-    d.linkStartPos = { x: d.x + 125, y: d.y + 75 }; // approx center of the ~250×150 default card
+    // Real anchors: snap the link's own start to whichever of the source
+    // card's 8 fixed points the drag actually began near, so a link from a
+    // specific corner stays pinned there through a later resize — `null`
+    // (nothing near enough) is the free/floating case, resolved fresh every
+    // render in `wbLinkEndpoints` instead of frozen at drag-start.
+    const startTransform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+    const startRect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+    const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
+    const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
+    d.linkSourceAnchor = wbNearestAnchor("node", d, startX, startY);
+    wbShowAnchorHints("node", d, d.linkSourceAnchor);
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     d.linkingPath.setAttribute("fill", "none");
     d.linkingPath.setAttribute("stroke", window.currentStrokeColor || "#ffffff");
     d.linkingPath.setAttribute("stroke-width", "3");
     document.getElementById("wb-zoom-group").appendChild(d.linkingPath);
   } else {
-    d3.select(this).raise();
+    // `.raise()` deliberately does NOT happen here — see the matching
+    // comment in `dragging` below for a real bug this caused.
     // Reported directly: "hard to move notes diagonally when on grid lock".
     // `dragging` below used to re-snap the *already-snapped* `d.x`/`d.y`
     // every frame — each small per-frame delta got rounded straight back to
@@ -26450,14 +27511,24 @@ function dragging(event, d) {
     const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
-    
-    const sx = d.linkStartPos.x, sy = d.linkStartPos.y;
-    if (window.currentTool === "link-straight") {
-      d.linkingPath.setAttribute("d", `M ${sx} ${sy} L ${mx} ${my}`);
-    } else {
-      const dx = mx - sx;
-      d.linkingPath.setAttribute("d", `M ${sx} ${sy} C ${sx + dx/2} ${sy}, ${mx - dx/2} ${my}, ${mx} ${my}`);
+
+    // A fixed source anchor stays put; a floating one re-aims at the live
+    // pointer every frame — the same rectangle-intersection the render path
+    // uses, not the old fixed centre-point.
+    const fixedStart = wbAnchorPoint("node", d, d.linkSourceAnchor);
+    const start = fixedStart || wbBoxRayIntersection(wbItemBBox("node", d), mx, my);
+    d.linkingPath.setAttribute("d", wbLinkPathD(window.currentTool, start, { x: mx, y: my }));
+
+    // Anchor hints follow whichever node the pointer is currently over, so
+    // the drop target's own snap points are visible before release.
+    let hoverNode = null;
+    for (const node of wbState.nodes) {
+      if (node.id === d.id) continue;
+      const box = wbItemBBox("node", node);
+      if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) { hoverNode = node; break; }
     }
+    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, mx, my));
+    else wbShowAnchorHints("node", d, d.linkSourceAnchor);
   } else {
     // Pre-existing gap, not introduced this session, caught while adding
     // snap-to-grid here: event.dx/dy are raw screen pixels — the
@@ -26470,6 +27541,19 @@ function dragging(event, d) {
         ? wbCaptureBulkMoveOrigin(wbMultiKey("node", d.id))
         : null;
     }
+    // Real bug, found live while testing click-to-select on a card: this
+    // used to run in `dragStart`, unconditionally, on *every* pointerdown —
+    // including a plain click with zero movement. `.raise()` reappends the
+    // node as its parent's last child (for z-order while actively
+    // dragging), and doing that mid-gesture is enough to make the browser
+    // never synthesize the following "click" event at all — confirmed by
+    // instrumenting both the card's own click handler and the container's
+    // "empty canvas" one and seeing *neither* fire, while an ordinary
+    // sketch (whose own drag "start" never calls `.raise()`) selected
+    // correctly the same way. Moved here, into `dragging`, which — unlike
+    // `dragStart` — only ever runs after real movement has already
+    // happened, so a plain click's click event is never touched.
+    d3.select(this).raise();
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
     d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
@@ -26479,6 +27563,18 @@ function dragging(event, d) {
     const bypassSnap = event.sourceEvent?.altKey;
     d.x = wbSnap(d._rawX, bypassSnap);
     d.y = wbSnap(d._rawY, bypassSnap);
+    // Smart alignment guides — asked for directly ("draw.io and Microsoft
+    // PowerPoint have... dotted alignment rule guides"). Same Alt bypass as
+    // grid-snap just above: one modifier, "no snap assistance", not two.
+    if (!bypassSnap && !d._bulkOrigin) {
+      const w = d.width || WB_CARD_DEFAULT_SIZE.w, h = d.height || WB_CARD_DEFAULT_SIZE.h;
+      const { dx, dy, guideLines } = wbAlignmentGuides("node", d.id, d.x, d.y, w, h);
+      d.x += dx;
+      d.y += dy;
+      wbShowAlignmentGuides(guideLines);
+    } else {
+      wbClearAlignmentGuides();
+    }
     d3.select(this).style("transform", wbItemTransform(d));
     // Update this card's own link lines directly rather than a full
     // renderWhiteboard() — see wbUpdateLinkedSketches's own comment for why
@@ -26492,27 +27588,35 @@ async function dragEndNode(event, d) {
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     if (d.linkingPath) d.linkingPath.remove();
     d.linkingPath = null;
-    
+    wbClearAnchorHints();
+
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
     const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
     const mx = (event.sourceEvent.clientX - rect.left - transform.x) / transform.k;
     const my = (event.sourceEvent.clientY - rect.top - transform.y) / transform.k;
-    
+
     let targetNode = null;
     for (const node of wbState.nodes) {
        if (node.id === d.id) continue;
-       if (mx >= node.x && mx <= node.x + 250 && my >= node.y && my <= node.y + 150) {
+       const box = wbItemBBox("node", node);
+       if (mx >= box.minX && mx <= box.maxX && my >= box.minY && my <= box.maxY) {
            targetNode = node; break;
        }
     }
-    
+
     if (targetNode) {
+       // The release point's own nearest anchor on the target, same as the
+       // source got at drag-start — `null` (nothing near enough) persists
+       // as a free/floating end, same as the source's own case.
+       const targetAnchor = wbNearestAnchor("node", targetNode, mx, my);
        const sketchData = {
          data: JSON.stringify({
             type: window.currentTool,
             sourceId: d.id,
             targetId: targetNode.id,
-            color: window.currentStrokeColor || "#ffffff"
+            color: window.currentStrokeColor || "#ffffff",
+            sourceAnchor: d.linkSourceAnchor || undefined,
+            targetAnchor: targetAnchor || undefined,
          }),
          x: 0, y: 0, z: 1,
          board_id: window.currentBoardId
@@ -26526,7 +27630,9 @@ async function dragEndNode(event, d) {
          console.error(err);
        }
     }
+    d.linkSourceAnchor = null;
   } else {
+    wbClearAlignmentGuides();
     // Sync back to API.
     //
     // `board_id` has to go with it. The server takes the whole node on a PUT,
@@ -27027,7 +28133,18 @@ const cmdPaletteInput = $("command-palette-input");
 const cmdPaletteResults = $("command-palette-results");
 
 document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+  // Real bug, found live while testing an unrelated command-palette change:
+  // this "ask the agent anything" overlay and the *other*, separately-built
+  // navigation palette (`openPalette`, `#palette-overlay`, wired to Ctrl+K
+  // at the shortcut dispatcher and in the shortcuts help text) both bound
+  // the identical Ctrl+K keydown on `document`, independently, neither
+  // aware the other existed. Both toggled open at once, and since this
+  // overlay sits later in the DOM it silently ate every click meant for the
+  // "real" one underneath — a fully built, previously-fixed feature (see
+  // this handler's own XSS-fix comment below) made unusable by a shortcut
+  // collision, not by anything wrong in either implementation. Ctrl+Shift+K
+  // here, Ctrl+K stays with the older/more-integrated navigation palette.
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "k") {
     e.preventDefault();
     if (cmdPaletteOverlay.classList.contains("hidden")) {
       cmdPaletteOverlay.classList.remove("hidden");

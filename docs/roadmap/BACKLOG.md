@@ -2264,6 +2264,110 @@ them are close to being built:
   a browser extension is its own packaging problem on top of anything
   MemoryMap does today.
 
+## 29c. Whiteboard, brainstormed — not yet triaged
+
+Asked for directly (make the whiteboard "the best fusion of Microsoft
+Whiteboard, OneNote, Draw.io, and Mermaid.js"), after ROADMAP item 11/25's
+own confirmed list was cleared (HISTORY.md §56–§57). None of this is
+scoped or decided — recorded so it isn't lost, same reasoning as §29
+above, and specifically so it doesn't get rebuilt from scratch by a
+session that only reads ROADMAP.md's live list.
+
+- **Mermaid.js text-to-diagram, both directions.** Paste Mermaid syntax
+  (flowchart/sequence/mindmap) and have it render as real cards/links on a
+  board — a deterministic, syntax-driven sibling to the AI-guided
+  generation already built (item 11), appealing to anyone who already
+  thinks in Mermaid rather than prose. Export the other way (a board →
+  Mermaid markdown) makes a diagram portable into a note, a doc, or a
+  GitHub README — this app already renders Mermaid fences in note/doc
+  markdown (grep `mermaid` in app.js) if that's still true by the time
+  this is picked up, worth checking first rather than assuming.
+- **Frames/swimlanes** — a named, resizable container a card can be
+  dropped into (Draw.io/Miro's own primitive), for process diagrams and
+  Kanban-shaped boards. Distinct from grouping (§55, `group_id`): a group
+  is "move these together"; a frame is a visible, labelled region that
+  cards *belong to*, and reads in an export.
+- **Board templates** — a gallery of starting layouts (retrospective,
+  SWOT, Kanban, a blank mind-map with just a root card) instead of every
+  board starting empty. Needs a decision on where templates live (shipped
+  JSON fixtures vs. "save this board as a template").
+- **A layers panel** — toggle visibility/lock of a named subset of items,
+  the way Draw.io's own layers work. Cheap to want, not cheap to build:
+  needs a `layer` concept added to three tables (nodes/sketches/objects)
+  and a real UI, not a quick pass.
+- ~~**Smart alignment guides while dragging**~~ **Done — see HISTORY.md
+  §58** (edge/centre/spacing, colour-coded, Alt bypass).
+- **Ink-to-text (handwriting OCR) on sketches** — OneNote's own
+  differentiator. A real ML dependency (on-device OCR), so it collides
+  with this project's own "don't install torch" constraint unless a
+  lightweight option exists; needs research before it's even a maybe.
+- **Presentation/step-through mode** — number a sequence of cards or
+  frames and step through them full-screen, Miro's own "presentation
+  mode." Distinct from the existing zoom/pan/export; nothing here reuses.
+- **A board version history**, separate from the undo stack (which is
+  in-memory, gone on reload) — notes already have this (History tab);
+  boards don't. Needs a real design decision (snapshot-on-interval vs.
+  a change log like `AuditLog` already gives notes) before scoping.
+
+## 29d. Whiteboard — scoped and next, not brainstormed
+
+Unlike §29c above, these three are specific asks from the same session
+(HISTORY.md §58) with a clear shape, just not built yet — not raw
+brainstorm, next in line for the whiteboard.
+
+- **Rename a board.** No `PUT /whiteboard/boards/{id}` endpoint exists yet.
+  A board's title is its underlying note's first `# heading` line
+  (`routes_whiteboard.py`'s `create_board`), so renaming means rewriting
+  that line and needs to handle the one board that isn't a note at all —
+  `board_id=None`, "Default board." Frontend: a rename control (pencil
+  icon) next to `#wb-board-select`.
+- **A Library gallery of boards, mind-maps, and uploaded images.** Both
+  read endpoints already exist and are unused by any gallery UI —
+  `GET /whiteboard/boards` (title + item counts) and `GET /whiteboard/images`
+  (every image object across every board, added §57). Today the *only*
+  way to see "what boards exist" is the whiteboard's own board-switcher
+  dropdown; there is no Library-tab view at all. Natural home: a new
+  section alongside `library-view-documents`/`library-view-skills`, or a
+  sub-view of `library-view-whiteboard`.
+- **A structured, small-model-friendly diagram-generation tool.** Raised
+  directly: `add_whiteboard_card`/`add_whiteboard_link` (§57) make the AI
+  *capable* of building a connected diagram, but push coordinate math onto
+  the model — `x`/`y` are free-form, defaulting to `(100, 100)` if omitted,
+  so a multi-note hierarchy needs the model to invent non-overlapping
+  positions across many chained calls. Small (2–8B) tool-calling models are
+  exactly where that bookkeeping breaks first. The fix is a single bulk
+  tool (e.g. `generate_diagram(nodes: [{note_id, parent_id?}], layout:
+  "tree"|"radial")`) that creates every card and link server-side in one
+  call and computes layout itself — which means porting `wbArrangeMindMap`
+  /`wbMindMapSpanningTree`'s tree/radial math from `app.js` into Python, since
+  today that logic only exists client-side, behind keyboard shortcuts, with
+  no AI-callable path to it at all.
+- **Links that can reach an object (image/text box), not just a card.**
+  Asked about directly (HISTORY.md §58): the border/anchor math itself
+  (`wbAnchorPoint`/`wbLinkEndpoints`/`wbBoxRayIntersection`) is generic —
+  it already takes a `kind`, and `wbItemBBox("object", ...)` already
+  works — but every actual entry point to "what can a link end on" is
+  hardcoded to cards only:
+  - `dragEndNode`'s own hit-test (app.js) loops `for (const node of
+    wbState.nodes)` — an object is never even considered as a drop target
+    for the live drag-to-link gesture.
+  - `add_whiteboard_link` (`src/memorymap/ai/tools.py`) does
+    `session.get(WhiteboardNode, ...)` for both ends — passing an object's
+    id raises "No whiteboard card with id …", not a working link.
+  - The link sketch's own data shape (`sourceId`/`targetId`) has no
+    `sourceKind`/`targetKind` — every render-time lookup
+    (`sketchUpdate.each`, `wbUpdateLinkedSketches`) assumes both ends are
+    nodes and would need a kind tag to know which state array to resolve
+    an id against.
+  Scoped shape: add `sourceKind`/`targetKind` (default `"node"` for every
+  existing link, so this doesn't need a migration), extend the hit-tests
+  above to also check `wbState.objects`, and give `add_whiteboard_link`
+  optional `from_kind`/`to_kind` args. The board/self-link guards just
+  added this session (`source.board_id != target.board_id`, `source.id ==
+  target.id`) will need the same kind-awareness — comparing a node's id to
+  an object's id is meaningless without also checking they're the same
+  `kind`.
+
 ---
 
 

@@ -13190,7 +13190,7 @@ textarea.autogrow {
   min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
-  row-gap: 0.2rem;
+  row-gap: var(--space-1);
 }
 
 .wb-shape-toggle-icon {

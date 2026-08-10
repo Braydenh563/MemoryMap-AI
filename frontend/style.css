@@ -10,15 +10,29 @@
    `color-scheme` telling it which palette to use, it defaults to light
    regardless of the app's own dark theme, so a dark-themed <select>'s pale
    text landed on that light popup with almost no contrast. Reported
-   directly ("combo boxes... bad colour contrast"). Mirrors the same
-   light-default/OS-dark/manual-override logic the colour variables below
-   already use, so it never drifts out of sync with the actual theme. */
+   directly ("combo boxes... bad colour contrast").
+   Keyed off `data-mode`, not `data-theme`: `data-mode` is what app.js
+   actually sets on <html> (`resolvedTheme()`, always "light" or "dark",
+   already resolved from the OS under "System") and what the palette
+   variables below key off unconditionally — `data-theme` only ever holds
+   the user's raw *choice* ("light"/"dark"/absent-for-system), which is
+   why a first version of this fix keyed off it and did nothing under the
+   default "System" setting. `color-scheme` alone also wasn't enough on
+   its own here — Chromium still drew the popup with this app's own
+   (light, inherited-from-`select`) text colour, so `option`/`optgroup`
+   get their background/text set directly below too, belt and suspenders. */
 :root {
   color-scheme: light;
 }
 
-:root[data-theme="dark"] {
+:root[data-mode="dark"] {
   color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: var(--modal-bg);
+  color: var(--ink);
 }
 
 :root {
@@ -13009,12 +13023,13 @@ textarea.autogrow {
 }
 
 /* Below the "library"/top-right panel, so a shown properties panel never
-   overlaps it. Bumped from 6rem: the top-right panel's own `flex-wrap`
-   fix (above) lets its 8 controls wrap onto 2-3 rows on a narrow board,
-   growing taller than the single-row height this value was first tuned
-   against — reported directly as the two panels visually clashing. */
+   overlaps it. Bumped from 6rem, then again from 10rem: the top-right
+   panel's own `flex-wrap` fix (above) lets its 8 controls wrap onto 2-3
+   rows on a narrow board, growing taller than the single-row height this
+   value was first tuned against — reported directly, twice, as the two
+   panels visually touching with no gap between them. */
 .whiteboard-floating-panel.mid-right {
-  top: 10rem;
+  top: 12.5rem;
   right: 1rem;
   flex-direction: column;
   align-items: stretch;

@@ -34,34 +34,51 @@ if [ -z "${MM_CHILD:-}" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
   exec "$0" "$@"
 fi
 
+# Colour, only when talking to a real terminal - a redirected/piped run
+# (a log file, a CI step) should never end up with raw escape codes in it.
+if [ -t 1 ]; then
+  TEAL=$'\033[1;38;5;73m'
+  RED=$'\033[1;31m'
+  YELLOW=$'\033[1;33m'
+  RESET=$'\033[0m'
+else
+  TEAL="" ; RED="" ; YELLOW="" ; RESET=""
+fi
+
 echo
-echo " =========================================="
-echo "  MemoryMap AI - starting up"
-echo " =========================================="
-echo
+printf '%s' "$TEAL"
+cat <<'MM_LOGO'
+    __  ___                                __  ___               ___    ____
+   /  |/  /__  ____ ___  ____  _______  __/  |/  /___ _____     /   |  /  _/
+  / /|_/ / _ \/ __ `__ \/ __ \/ ___/ / / / /|_/ / __ `/ __ \   / /| |  / /
+ / /  / /  __/ / / / / / /_/ / /  / /_/ / /  / / /_/ / /_/ /  / ___ |_/ /
+/_/  /_/\___/_/ /_/ /_/\____/_/   \__, /_/  /_/\__,_/ .___/  /_/  |_/___/
+                                 /____/            /_/
+MM_LOGO
+printf '           your notebook, on your machine%s\n\n' "$RESET"
 
 VENV_PY=".venv/bin/python"
 
 # --- 1. Build the venv if it doesn't exist yet ----------------------
 # Only the first run needs a system Python; later launches use .venv.
 if [ ! -x "$VENV_PY" ]; then
-  echo " [1/4] First-time setup - looking for Python to build the environment..."
+  echo " ${TEAL}[1/4]${RESET} First-time setup - looking for Python to build the environment..."
   PYTHON=""
   if command -v python3 >/dev/null 2>&1; then PYTHON=python3
   elif command -v python >/dev/null 2>&1; then PYTHON=python
   fi
   if [ -z "$PYTHON" ]; then
-    echo " [X] No Python found. Install Python 3.11+ and run this again."
+    echo " ${RED}[X]${RESET} No Python found. Install Python 3.11+ and run this again."
     exit 1
   fi
   echo "       Using $($PYTHON --version) to create the virtual environment..."
   "$PYTHON" -m venv .venv
 else
-  echo " [1/4] Using the app's virtual environment."
+  echo " ${TEAL}[1/4]${RESET} Using the app's virtual environment."
 fi
 
 if [ ! -x "$VENV_PY" ]; then
-  echo " [X] The virtual environment looks incomplete - delete .venv and re-run."
+  echo " ${RED}[X]${RESET} The virtual environment looks incomplete - delete .venv and re-run."
   exit 1
 fi
 
@@ -83,18 +100,18 @@ fi
 # Asking the venv directly costs one interpreter start and catches a move, a
 # rename, and a half-deleted venv alike.
 if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
-  echo " [2/4] The app folder moved since it was installed - relinking it..."
+  echo " ${TEAL}[2/4]${RESET} The app folder moved since it was installed - relinking it..."
   NEED_INSTALL=1
 fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
-  echo " [2/4] Installing dependencies - this can take a few minutes the first time..."
+  echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time..."
   "$VENV_PY" -m pip install --upgrade pip
   "$VENV_PY" -m pip install -r requirements.txt
   "$VENV_PY" -m pip install -e .
   cksum requirements.txt | awk '{print $1}' > ".venv/.mm_installed"
 else
-  echo " [2/4] Dependencies already up to date - skipping install."
+  echo " ${TEAL}[2/4]${RESET} Dependencies already up to date - skipping install."
 fi
 
 # pywebview is optional and only the app window needs it, so it installs
@@ -103,7 +120,7 @@ fi
 if [ -n "${MM_DESKTOP:-}" ]; then
   echo "       Checking desktop window support..."
   if ! "$VENV_PY" -m pip install --quiet pywebview; then
-    echo " [!] pywebview would not install - opening a browser tab instead."
+    echo " ${YELLOW}[!]${RESET} pywebview would not install - opening a browser tab instead."
     unset MM_DESKTOP
   fi
 fi
@@ -111,20 +128,20 @@ fi
 # --- 3. First-run .env ----------------------------------------------
 if [ ! -f ".env" ] && [ -f ".env.example" ]; then
   cp ".env.example" ".env"
-  echo " [3/4] Created .env from .env.example."
+  echo " ${TEAL}[3/4]${RESET} Created .env from .env.example."
 else
-  echo " [3/4] Configuration found."
+  echo " ${TEAL}[3/4]${RESET} Configuration found."
 fi
 
 # --- 4. Launch -------------------------------------------------------
 if [ -n "${MM_DESKTOP:-}" ]; then
-  echo " [4/4] Starting MemoryMap AI in its own window."
+  echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI in its own window."
   echo "       Close the window to stop it."
   echo
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
-echo " [4/4] Starting MemoryMap AI at http://localhost:8000"
+echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI at http://localhost:8000"
 echo "       A browser tab opens in a moment. Press Ctrl+C to stop."
 echo
 

@@ -342,6 +342,48 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
     return boards
 
 
+class BoardImageOut(BaseModel):
+    id: int
+    board_id: int | None
+    board_title: str
+    url: str
+
+
+@router.get("/images", response_model=list[BoardImageOut])
+def list_images(db: Session = Depends(get_session)) -> list[BoardImageOut]:
+    """Every image object across every board — asked for directly ("what
+    about uploaded images" in the Library). Whiteboard images already have
+    a real row (`WhiteboardObject`, unlike an image pasted into a note's own
+    markdown, which has none — see ROADMAP item 20a for that still-open
+    gap), so this is a flat query, not new plumbing.
+    """
+    objects = db.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "image")).all()
+    if not objects:
+        return []
+    board_ids = {o.board_id for o in objects if o.board_id is not None}
+    titles: dict[int | None, str] = {None: "Default board"}
+    if board_ids:
+        for entry in db.scalars(select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))):
+            titles[entry.id] = extract_title(entry.content) or entry.content.strip()[:40] or f"Note {entry.id}"
+    out = []
+    for obj in objects:
+        try:
+            url = json.loads(obj.data).get("url")
+        except (TypeError, ValueError):
+            url = None
+        if not url:
+            continue
+        out.append(
+            BoardImageOut(
+                id=obj.id,
+                board_id=obj.board_id,
+                board_title=titles.get(obj.board_id, f"Note {obj.board_id}"),
+                url=url,
+            )
+        )
+    return out
+
+
 @router.post("/boards", response_model=BoardOut, status_code=201)
 def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> BoardOut:
     """A fresh, empty board — a plain note whose whole job is to be one.

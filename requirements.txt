@@ -51,7 +51,7 @@ sentence-transformers>=5.6.1,<6.0
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.2,<3.0 ; sys_platform == "win32"
 
-fsspec[http]>=2024.2.0,<=2026.2.0
+fsspec[http]<=2026.7.0,>=2026.7.0
 
 # Auth (Phase 4) — single-user unlock
 bcrypt>=5.0.0,<6.0

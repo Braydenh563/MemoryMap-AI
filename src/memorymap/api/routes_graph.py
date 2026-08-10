@@ -178,7 +178,11 @@ def _centrality(session: Session, index: paths.Connections, similarity: bool) ->
 
 
 @router.get("/graph")
-def graph(similarity: bool = False, session: Session = Depends(get_session)) -> dict:
+def graph(
+    similarity: bool = False,
+    include_entities: bool = False,
+    session: Session = Depends(get_session),
+) -> dict:
     entries = list(
         session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
     )
@@ -267,7 +271,47 @@ def graph(similarity: bool = False, session: Session = Depends(get_session)) -> 
     # Attach PageRank centrality to nodes for dynamic sizing
     for n in nodes:
         n["centrality"] = centrality_scores.get(n["id"], 0)
-        
+
+    # ROADMAP.md item 34 — off by default (the frontend has to ask for it),
+    # since every existing consumer of this endpoint assumes every node id
+    # is an Entry id. An entity node's id is prefixed ("entity:5") so it can
+    # never collide with one; the frontend's own node-shape code is what
+    # tells the two apart, not a numeric range.
+    if include_entities:
+        from memorymap.core.database import Entity, EntityMention
+
+        mentions = list(
+            session.execute(
+                select(EntityMention.entity_id, EntityMention.entry_id).where(
+                    EntityMention.entry_id.in_(node_ids)
+                )
+            )
+        )
+        entity_ids = {m.entity_id for m in mentions}
+        if entity_ids:
+            entities = {
+                e.id: e for e in session.scalars(select(Entity).where(Entity.id.in_(entity_ids)))
+            }
+            for entity_id, entity in entities.items():
+                nodes.append(
+                    {
+                        "id": f"entity:{entity_id}",
+                        "type": "entity",
+                        "preview": entity.name,
+                        "category": "Entity",
+                        "created_at": entity.created_at.isoformat(),
+                    }
+                )
+            for mention in mentions:
+                if mention.entity_id in entities:
+                    edges.append(
+                        {
+                            "source": f"entity:{mention.entity_id}",
+                            "target": mention.entry_id,
+                            "kind": "entity",
+                        }
+                    )
+
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
 @router.get("/graph/local/{entry_id}")

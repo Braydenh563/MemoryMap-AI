@@ -1,8 +1,74 @@
 # Session handover
 
-> **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
+> **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Next session: start here — §58's three scoped whiteboard items closed out, a live bug list worked through as it arrived, and a second whiteboard architecture bug found the same way the first one was
+## Next session: start here — a second odysseus read (§60), Tier 3 items 32/33/34 built, item 36 half-built, and ~20 live-reported UI bugs fixed in one long sitting
+
+**Read [ANALYSIS.md §60](ANALYSIS.md) first if picking up the odysseus/Tier-3
+thread** — it records what changed since §33/34's read (odysseus tripled to
+~200k lines) and the concrete findings (a real non-atomic-write bug, an MCP
+shape worth copying, its own admission the backend isn't better-organised).
+
+**Tier 3, done and tested:**
+- **Item 32** (ROADMAP.md) — keyword search rebuilt on an FTS5 external-content
+  table + `bm25()` ranking, replacing the leading-wildcard `ILIKE` scan.
+  `core/database.py`'s `_ensure_fts5`, `search/search_manager.py`.
+- **Item 33** — `graph_expansion` now walks an automatic, weaker second hop
+  (`GRAPH_EXPANSION_HOP2_LIMIT=2`), tagged `connected_2hop` in `match_info`
+  rather than merged into `connected`. The one open decision in that item
+  ("automatic vs. a search-deeper button") was made without asking —
+  automatic needs no new UI — noted so it's easy to revisit if wrong.
+- **Item 34** — a real entity/concept layer: `Entity`/`EntityMention`
+  (membership only), `ai/entities.py`'s per-note extraction behind a new
+  `auto_entities_enabled` toggle (default off), `GET /graph?include_entities=true`,
+  a graph "Entities" checkbox rendering a dashed-ring node. `tests/test_entities.py`.
+
+**Item 36 — backend only, said so in ROADMAP.md rather than claimed whole.**
+`ai/grounding.py` grounds each sentence of a direct Q&A answer to the note
+that backs it (word-overlap, not a second LLM call), wired into `POST /chat`
+as `sentence_grounding`. **The live Ask box uses `/chat/stream`, not `/chat`
+— nothing renders in the UI yet.** Streaming the grounding as its own NDJSON
+event type, then a frontend badge, are the next two steps, in that order.
+
+**The trap that cost the most time this session, worth repeating so it isn't
+re-learned the hard way:** the dev server was started once at the top of the
+session and never restarted despite ~15 backend Python edits after that.
+Every one of those changes was correctly proven by `pytest` (which imports
+fresh code every run) but was **not actually live** in the running app until
+a live entity-graph check came back suspiciously empty and forced the
+question. Restarted, then re-verified. **Restart uvicorn after every backend
+edit, immediately** — don't wait for something to look wrong first.
+
+**~20 live-reported UI/UX bugs, each verified with Playwright before/after,
+not reasoned about** (see commit history on this branch for the full list;
+highlights): the timeline note popup escaping the window (a CSS
+`position:absolute` vs `offsetParent` mismatch, not what it looked like);
+the Image Gallery rendering with no margins (a stray extra `</div>` in the
+whiteboard markup closing `#tab-library` three sub-views early); graph edges
+were genuinely hard to click (1.6px visible line *was* the entire hit area —
+added an invisible 14px hit-stroke, the same shape as a same-session
+whiteboard fix for closed-shape click targets); the graph's "Remove link"
+button had invisible text (two CSS rules of equal specificity landed on the
+same red for both text and background); the whiteboard grid `<select>`
+rendered "No grid" as "No arid" (a clipped descender, not a typo anywhere);
+the timeline grid's 3-line CSS clamp still wasn't engaging in whatever
+engine renders this for real (third report of the same underlying bug —
+replaced with a JS `scrollHeight`-measured binary-search clamp that every
+engine agrees on); uploaded images render with a real thumbnail now and
+actually delete the underlying file on remove (previously just detached the
+markdown reference).
+
+**Not done, flagged rather than silently dropped:** the timeline's own
+larger visual/UX redesign (ROADMAP §4 area); a widgets management hub
+(ROADMAP item 26 — identified what was meant, not built); item 36's
+streaming/frontend half above; a systematic semantic-search "make it as
+efficient/optimal as possible" audit, asked for at the very end of the
+session with no budget left to act on it — worth a dedicated pass, not a
+rushed one.
+
+---
+
+## Previous: §58's three scoped whiteboard items closed out, a live bug list worked through as it arrived, and a second whiteboard architecture bug found the same way the first one was
 
 Full detail is [HISTORY.md §59](HISTORY.md). This section is the condensed
 version: what changed, what's verified vs. reasoned, the traps, and what's

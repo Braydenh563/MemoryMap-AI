@@ -13,7 +13,7 @@ code comments and tests still resolve via HISTORY.md's index.
 | [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | **The last session's handover.** What changed, what couldn't be checked and why. Read this first. |
 | [roadmap/HISTORY.md](roadmap/HISTORY.md) | Everything already built, and every backlog item already closed — with the reasoning, condensed. **Check here before building anything.** Four sessions have rebuilt something that already existed. |
 | [roadmap/BACKLOG.md](roadmap/BACKLOG.md) | Standing backlog items not yet promoted to this file's live list. |
-| [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below. |
+| [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below, and §60: a second odysseus read after the repo tripled in size — a real non-atomic-write bug it found, an MCP shape worth copying, and its own admission that the backend isn't better designed. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
 
 **The standing caveat:** every provider test runs against a fake transport —
@@ -896,49 +896,47 @@ Worth doing, and worth doing after the above.
     letting a saved skill run on the same schedule instead of only the three
     fixed tasks. Needs a real "which of these, and why" before building —
     "expand the capabilities" alone isn't a spec.
-32. **Keyword search has no IDF weighting and can't use an index.**
-    `keyword_search`'s `Entry.content.ilike(f"%{term}%")` (`search_manager.py`)
-    is a full-column substring scan with a leading wildcard, so no SQL index
-    can serve it, and `_keyword_score`'s hand-rolled weights (phrase/tag/
-    opening-position) treat a rare, distinctive word the same as a common
-    one — the wrong direction as the notebook grows. Found reading a sibling
-    project's stdlib BM25 index against this file directly, not assumed
-    (ANALYSIS.md §59). SQLite's own FTS5 virtual table plus its built-in
-    `bm25()` ranking function is the fix that fits — already in SQLite, no
-    new dependency — not a ported implementation. Needs a shadow FTS5 table
-    kept in sync with `entries` (additive, per this project's own migration
-    convention) and `_rank`'s fusion weights re-tuned once keyword scores are
-    on a different scale than today's ad-hoc integer score.
-33. **`graph_expansion` is hard-capped at one hop, on purpose** —
-    `GRAPH_EXPANSION_SEEDS`/`GRAPH_EXPANSION_LIMIT` (`search_manager.py`)
-    exist so a question two links away from what matched is reachable only
-    if the agent thinks to walk there itself; a direct search answer never
-    sees it. Surfaced weighing a sibling project's multi-hop, chain-of-thought
-    graph retrieval against this file's own already-stated principle
-    (ANALYSIS.md §59) — the same reasoning that ruled out Leiden clustering
-    ("an answer the user cannot verify by clicking two notes is one they
-    cannot trust") argues against an unbounded walk here too, so this is not
-    "just add hops." The version worth building is bounded and still
-    verifiable: an opt-in second hop, still carrying the same link `reason`/
-    Trace provenance the first hop already has, shown as a visibly weaker
-    tier in the answer panel rather than merged into the main matches. Needs
-    a decision — automatic (a slightly larger `GRAPH_EXPANSION_LIMIT`) or a
-    user-visible "search deeper" action — before building either.
-34. **No entity/concept layer above notes — only note-to-note links.** Every
-    edge in the graph today connects two whole notes; there is no node for
-    "this person" or "this project" that exists independent of any one note
-    mentioning them, so a name mentioned in passing across a dozen notes is a
-    dozen separate matches, not one thing with a dozen mentions. The one
-    genuine capability gap a sibling project's LLM-driven entity extraction
-    has that this app doesn't (ANALYSIS.md §59), and the piece most directly
-    in the way of finding things by following concepts through the graph.
-    Scope before building, deliberately smaller than the sibling project's
-    full ontology-grounded version: a lightweight local-LLM pass (the janitor
-    already runs one per note) pulling a short entity list per note into a
-    table, entity→note membership as the only edge kind at first (no
-    entity-to-entity graph yet — a second, harder step), and a way to see one
-    in the existing D3 graph — a differently-shaped node or a filter/lens on
-    the current view, not a second graph engine.
+32. ~~**Keyword search has no IDF weighting and can't use an index.**~~
+    **Done.** An external-content FTS5 table (`entries_fts`, kept in sync by
+    triggers, `core/database.py`) replaced the leading-wildcard `ILIKE`
+    scan; ranked by `bm25()` with tags weighted above body text, an exact
+    contiguous phrase still breaking ties in front of everything else
+    (checked against the small already-narrowed candidate set, not a
+    second index). Full suite green.
+33. ~~**`graph_expansion` is hard-capped at one hop, on purpose.**~~ **Done
+    — automatic, not a "search deeper" action.** That was the one open
+    decision; made it automatic because it needs no new UI and the roadmap
+    text's own "shown as a visibly weaker tier" already implied no control
+    was required to see it. `GRAPH_EXPANSION_HOP2_LIMIT = 2` (smaller than
+    the first hop's 3), walked from the first hop's own neighbours, tagged
+    `connected_2hop` in `match_info` rather than merged into `connected` —
+    its own badge text and ~0.65 opacity vs ~0.85 for a direct connection.
+34. ~~**No entity/concept layer above notes — only note-to-note links.**~~
+    **Done, at the scoped-down size this item asked for.** `Entity` +
+    `EntityMention` (membership only, no entity-to-entity graph), extracted
+    by `ai/entities.py`'s `suggest_entities` — one `suggest_tags`-shaped
+    completion per note, run a few at a time by the autonomous pass behind
+    its own `auto_entities_enabled` toggle (default off), skipping notes
+    under 20 chars and never re-scanning one already marked
+    (`Entry.entities_extracted_at`). Same-name mentions merge within a pass
+    via a case-folded lookup — two real different "Sarah"s colliding into
+    one entity is an accepted gap, not an oversight (the item's own scope
+    cut). `GET /graph?include_entities=true` (off by default; every
+    existing consumer of that endpoint assumes a numeric Entry id, so an
+    entity node's id is prefixed `entity:N`) adds entity nodes and
+    membership edges; the graph's own "Entities" checkbox asks for them,
+    and a matched node renders with a dashed ring rather than a second SVG
+    shape. Seven tests (`tests/test_entities.py`) cover extraction,
+    merging, the skip-short/skip-already-scanned paths, and the endpoint
+    shape — all against a faked model, this suite runs with no LLM. The
+    graph rendering was checked live (seeded an entity by hand, confirmed
+    the dashed node paints) after catching a real trap the hard way: the
+    dev server had been running since the start of the session and was
+    serving stale Python for every backend change up to that point,
+    including this one — restarted, then re-verified. Nothing else in this
+    session's backend work was re-checked live after that restart; the
+    pytest suite (unaffected by server staleness, since it imports fresh)
+    is what stands behind items 32/33 and the earlier bug fixes instead.
 35. **No vision-capable image understanding.** Confirmed by grep, not
     assumed: `ollama_client.py` already reads a model's `vision` capability
     alongside `tools`/`thinking` from the same `/api/show` call §6 built, but
@@ -957,31 +955,88 @@ Worth doing, and worth doing after the above.
     where the description is stored (a note field vs. a side table) and
     whether the agent narrates "generated from an image" the way whiteboard
     AI actions already disclose their own source.
-36. **Q&A answers cite which notes matched, not which claim inside the
-    answer's prose came from which note.** `match_info` (search results'
+36. ~~**Q&A answers cite which notes matched, not which claim inside the
+    answer's prose came from which note.**~~ **Backend done and tested;
+    frontend badge not built — say so plainly rather than claim the whole
+    item.** `ai/grounding.py`'s `ground_answer_sentences` splits the
+    answer into sentences and scores each against every retrieved note by
+    shared meaningful words (the same signal `search_manager`'s own
+    keyword ranking uses) — deliberately not a second LLM call, so the
+    already-answered turn isn't made slower to explain itself. Attaches a
+    note only above `MIN_OVERLAP_RATIO`; omits the sentence rather than
+    guessing when nothing clears it, on purpose (a wrong claim-ledger
+    entry is worse than a missing one). Wired into `POST /chat` (the
+    direct Q&A path, non-conversational turns only) as a new
+    `sentence_grounding` field, empty-list default so older clients see no
+    change. Seven tests (`test_grounding.py`): sentence splitting, code-
+    fence stripping, correct grounding, an ungrounded sentence correctly
+    omitted, the short-sentence floor, and the endpoint carrying the field.
+    **Not done: the Ask box uses `/chat/stream` (NDJSON), not this
+    endpoint** — so nothing renders yet in the actual UI, and the "badge,
+    not an interruption" half of this item is still open. Streaming the
+    grounding as its own event type, and the frontend badge itself, are
+    the next two steps, in that order.
+
+    Original scope, for the next session: `match_info` (search results'
     per-row "why this matched" badge) already covers "which notes were
     retrieved"; `unsupported_claims` (Tier 1 item 7) already covers the
     agent's own narrated actions; link `reason`/`reason_confidence` (Tier 2
     item 9) already covers grounding a connection between two notes. None of
     the three covers a sentence inside a direct Q&A answer. Narrower than a
     full claim-ledger (ANALYSIS.md §59) precisely because those three already
-    exist: a lightweight per-sentence "which retrieved note backs this" pass
-    over the librarian's own answer, surfaced the same understated way
-    `match_info` already is — a badge, not an interruption — and scoped to
-    the direct Q&A path only, not the full agentic chat, where
+    exist, surfaced the same understated way `match_info` already is — a
+    badge, not an interruption — and scoped to the direct Q&A path only, not
+    the full agentic chat, where
     `unsupported_claims` already does the related job.
+37. **`preferences.json` isn't crash-safe** (ANALYSIS.md §60). Found by the
+    second odysseus read: `ConfigManager.set_preference` persists it with a
+    plain `write_text()` — no tmp file, no fsync, no atomic rename — so a
+    crash mid-write can truncate or corrupt the one file holding
+    `llm_api_key` and every saved setting, contradicting its own docstring's
+    promise that "a crash never loses a settings change." §59 already looked
+    at this class of fix once (claude-obsidian's transaction layer) and
+    correctly ruled it unnecessary because SQLite's own transactions cover
+    concurrent note writes — but `preferences.json` sits outside the
+    database, so that dismissal doesn't reach this file. Fix is odysseus's
+    own `atomic_write_json`/`atomic_write_text` shape (write-to-tmp + fsync +
+    `os.replace`), ~15 lines, applied at the one call site in `core/config.py`.
+38. **MCP support, now with a concrete shape to build from** (ANALYSIS.md
+    §60, narrowing BACKLOG §29). Expose first: a stdio MCP server over the
+    existing tool registry (search/create/tag a note) needs no new trust
+    model — it's the same local-process boundary the app already has, reachable
+    from Claude Desktop or any other MCP client on the machine. Consuming
+    external MCP servers is a separate, harder feature that needs the trust
+    model BACKLOG §29 already flagged as missing; it should wait until that
+    exists rather than ship alongside the expose direction.
+39. **Passive capture: a fifth autonomous-tasks job that mines chat for
+    un-filed facts** (ANALYSIS.md §60). Today a note is only filed on an
+    explicit instruction or an explicit tool call — something mentioned in
+    passing during an ordinary Q&A turn is never captured. An
+    `auto_capture_enabled` job alongside the existing `auto_tag`/`auto_link`/
+    `auto_dedupe` three, default off for the same reason those are ("it runs
+    the agent against the whole notebook with nobody watching"). Needs
+    measuring before it ships, the same discipline already applied to §33's
+    semantic-tool-retrieval item — a background job that mis-files something
+    nobody asked to capture is a worse failure than one that misses something.
 
 ### Tier 4 — deferred, with the reason
 
 Not a dump: each says why it is not Tier 3.
 
-- **`app.js` module split** (~20.7k lines) and the same for `style.css`. Worth
-  doing and worth doing *deliberately* — a mechanical split makes review
-  harder for a session and gains nothing on its own. There is no longer a
-  natural ride-along feature to split it against, so it needs a scoping
-  decision (which module first, how to keep it reviewable) before a session
-  starts, not a default pull. The `tests-e2e/` Playwright smoke suite is the
-  safety net when someone does.
+- **`app.js` module split** (29.1k lines now, up from the 20.7k this entry
+  was last written against — §60's session). Still worth doing
+  *deliberately*, and now with an actual first candidate instead of "pick
+  something": the whiteboard is a single unbroken, clearly-marked 5,300-line
+  block (`// === WHITEBOARD LOGIC ===` at line 23292 through the next marked
+  section at 28586) — the largest coherent subsystem in the file by a wide
+  margin, and one a session could plausibly extract to `whiteboard.js` in
+  one sitting with the `tests-e2e/` Playwright smoke suite as the safety
+  net. Not attempted this session — the risk isn't the extraction itself,
+  it's doing it *in the same sitting* as live edits to that exact code (this
+  session's whiteboard bug fixes), where a half-done split and a bug fix
+  landing in the same diff is much harder to review or revert than either
+  alone. Do the split on a quiet day, not appended to a bug-fix session.
+  Same for `style.css`, unscoped.
 - **A second React frontend.** A second implementation of every screen, kept
   in step by hand, for an app whose brief is "no build step". The cost is not
   the first version — it is every change afterwards having two homes. If the
@@ -998,18 +1053,21 @@ Not a dump: each says why it is not Tier 3.
 - **The "full UI audit" umbrella.** Break into dated sub-items as capacity
   allows. The concrete pieces left: a colour-scale pass to match the existing
   spacing/type work, and a widget-density sweep.
-- **"Clean up, consolidate and refactor the test files."** 106 files, and the
-  suite is fully green — there is no known duplication or staleness to point
-  at, just a general request. Doing this blind risks the opposite of the
-  goal: this project's own tests are written as *narrative* (each docstring
-  is a reported bug or a design decision, not a spec), and a mechanical
-  consolidation pass — merging `test_x.py` and `test_x_more.py` because the
-  names look related — is exactly how that history gets flattened into
-  generic assertions nobody can trace back to why they exist. Worth doing
-  *with a concrete finding first*: run coverage, look for genuinely
-  duplicated setup (a fixture reinvented under a different name in three
-  files is a real, safe consolidation), or split a file that actually is
-  too large — not a scheduled tidy with no target.
+- **"Clean up, consolidate and refactor the test files."** Asked again
+  (§60's session), so this time checked with the actual method the entry
+  above calls for, not re-deferred on the same reasoning twice: grepped
+  every `@pytest.fixture` across all 107 files for a name reused in more
+  than one — none found. The two closest near-misses (`ollama()` in both
+  `test_presets.py` and `test_model_specs.py`) build genuinely different
+  mocks, not a copy-paste duplicate. **The finding is that there is no
+  finding** — no reinvented fixture, no `test_x`/`test_x_more` pair sharing
+  setup, nothing a mechanical merge would safely collapse. The four largest
+  files (`test_skills.py` 881 lines, `test_wavef_api.py` 764,
+  `test_searxng_install.py` 755, `test_antigravity_regressions.py` 733) are
+  each single-topic and coherent, not grab-bags — a size-triggered split
+  would separate a fixture from the twenty tests that share it for no
+  reason but the line count. Still nothing to do here until a real
+  duplication turns up.
 
 ### The rule this section exists to enforce
 

@@ -2702,6 +2702,7 @@ async function saveEntry() {
     }
     contentBox.value = "";
     if (titleBox) titleBox.value = "";
+    renderEntryAttachmentChips();
     autoGrow(contentBox); // the box shrinks back with its content
     localStorage.removeItem("captureDraft"); // it's saved for real now
     $("entry-count").textContent = "0 characters";
@@ -2942,6 +2943,7 @@ function renderChatMeta(meta) {
     const badge = matchReasonBadge(matchInfo[entry.id]);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
       row.appendChild(badge);
     }
     rawList.appendChild(row);
@@ -2967,6 +2969,16 @@ const MATCH_REASON_LABEL = {
     title: info.reason
       ? `This note didn't match your question — it's here because it's linked to one that did: ${info.reason}.`
       : "This note didn't match your question — it's here because it is linked to one that did.",
+  }),
+  // ROADMAP.md item 33: an opt-in second hop — linked to something linked
+  // to a match, not to the match itself. Real evidence, weaker evidence;
+  // its own badge text says so rather than reading identically to a direct
+  // connection, and `.result-connected-2hop` (style.css) renders it dimmer.
+  connected_2hop: (info) => ({
+    text: info.reason ? `🔗🔗 Two steps away (${info.reason})` : "🔗🔗 Two steps from a match",
+    title: info.reason
+      ? `This note is linked to a note that's linked to a match, not to the match itself: ${info.reason}.`
+      : "This note is linked to a note that's linked to a match, not to the match itself — weaker evidence than a direct connection.",
   }),
   semantic: (info) => ({
     text: `🎯 ${Math.round(info.score * 100)}% similar`,
@@ -12087,9 +12099,13 @@ let graphFocusModeId = null;
 
 async function renderGraph() {
   const wantSimilarity = $("graph-similarity").checked;
-  const endpoint = graphFocusModeId 
-    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}` 
-    : `/graph${wantSimilarity ? "?similarity=true" : ""}`;
+  // ROADMAP.md item 34 — off by default and only on the top-level graph, not
+  // the local/focus view: entities are membership edges to *notes*, and
+  // /graph/local's own depth-limited walk has no equivalent concept yet.
+  const wantEntities = $("graph-entities")?.checked;
+  const endpoint = graphFocusModeId
+    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
+    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true" : ""}`;
     
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) return;
@@ -12363,26 +12379,48 @@ async function renderGraph() {
   // A tree's edges are curves between fixed points; the web's are lines that
   // move on every tick. Different elements, so each can be what it needs.
   const edgeLayer = canvas.append("g");
+  const edgePathD = (d) => (tree.arc ? arcPath(d) : hierarchyPath(d, tree.radial));
   const edgeLines = tree
     ? edgeLayer
-        .selectAll("path")
+        .selectAll("path.graph-edge")
         .data(edges)
         .join("path")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`)
         .attr("fill", "none")
-        .attr("d", (d) => (tree.arc ? arcPath(d) : hierarchyPath(d, tree.radial)))
+        .attr("d", edgePathD)
     : edgeLayer
-        .selectAll("line")
+        .selectAll("line.graph-edge")
         .data(edges)
         .join("line")
         .attr("class", (d) => `graph-edge graph-edge-${d.kind}`);
+
+  // Reported directly: the actual visible line (1.6px, thinner once dimmed)
+  // is a hard target to click precisely. A second, invisible, much wider
+  // stroke on the same path/line is the standard SVG way to grow a click
+  // target without also growing what's drawn — the same shape as the
+  // whiteboard's own `.sketch-hitbox` this session already added for the
+  // identical reason. Drawn *under* the visible line's join below so the
+  // tooltip/click listener attach to this wider element, not the thin one.
+  const edgeHitLines = tree
+    ? edgeLayer
+        .selectAll("path.graph-edge-hit")
+        .data(edges)
+        .join("path")
+        .attr("class", (d) => `graph-edge-hit graph-edge-${d.kind}`)
+        .attr("fill", "none")
+        .attr("d", edgePathD)
+    : edgeLayer
+        .selectAll("line.graph-edge-hit")
+        .data(edges)
+        .join("line")
+        .attr("class", (d) => `graph-edge-hit graph-edge-${d.kind}`);
 
   // A link's own reason ("why are these connected?" — asked for directly),
   // as a native SVG tooltip. `<title>` is the SVG way to get a hover
   // tooltip on a shape; there's no HTML `title` attribute equivalent for
   // `<line>`/`<path>`. Re-added after every join rather than left stale, so
   // a link edited or re-drawn on refresh doesn't keep showing an old reason.
-  edgeLines.each(function (d) {
+  edgeHitLines.each(function (d) {
     const el = d3.select(this);
     el.selectAll("title").remove();
     if (d.reason) {
@@ -12400,9 +12438,12 @@ async function renderGraph() {
   // directly: "a visual way to see the reasons... and a way to manage/add/
   // remove/edit them." A distinct edge style makes "this connection has a
   // documented reason" visible at a glance, not just on hover; a click
-  // opens the real management panel below.
-  edgeLines
-    .classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason)
+  // opens the real management panel below. The class also drives
+  // `.graph-edge-reasoned`'s stronger colour on the *visible* thin line —
+  // toggled on both selections so hover/reason styling and the click
+  // target agree on which edges are which.
+  edgeLines.classed("graph-edge-reasoned", (d) => d.kind === "link" && !!d.reason);
+  edgeHitLines
     .classed("graph-edge-manageable", (d) => d.kind === "link")
     .on("click", (event, d) => {
       if (d.kind !== "link") return;
@@ -12520,7 +12561,7 @@ async function renderGraph() {
         })
     )
     .on("click", (event, d) => {
-      if (d.isGroup) return; // a category heading, not a note to open
+      if (d.isGroup || d.type === "entity") return; // not a note to open
       // Trace is a *mode*: while it is on, clicking the map picks the two ends
       // rather than opening notes. This branch is the whole reason Trace was
       // unusable — `traceModeActive` was set and then consulted nowhere, so
@@ -12559,6 +12600,11 @@ async function renderGraph() {
     .append("circle")
     .attr("class", "graph-core")
     .classed("graph-group", (d) => Boolean(d.isGroup))
+    // A differently-shaped node was the roadmap's own suggestion (item 34)
+    // for telling an entity apart from a note at a glance; a dashed ring is
+    // the version that doesn't need a second SVG shape (a <rect> sized and
+    // centred to match graphNodeRadius) for one node kind.
+    .classed("graph-node-entity", (d) => d.type === "entity")
     .attr("r", graphNodeRadius)
     .attr("fill", nodeColour)
     .classed("graph-pinned", (d) => d.pinned)
@@ -12784,6 +12830,11 @@ async function renderGraph() {
       node.y = Math.max(worldTop + pad, Math.min(worldBottom - pad, node.y));
     }
     edgeLines
+      .attr("x1", (d) => d.source.x)
+      .attr("y1", (d) => d.source.y)
+      .attr("x2", (d) => d.target.x)
+      .attr("y2", (d) => d.target.y);
+    edgeHitLines
       .attr("x1", (d) => d.source.x)
       .attr("y1", (d) => d.source.y)
       .attr("x2", (d) => d.target.x)
@@ -13713,6 +13764,7 @@ async function renderTimeline() {
       grid.appendChild(cell);
     }
   }
+  clampTimelineDots();
   // The most recent column is the interesting one, so start there.
   $("timeline-scroll").scrollLeft = $("timeline-scroll").scrollWidth;
   void byId;
@@ -13972,6 +14024,7 @@ function timelineDot(note) {
   // typed. Without it the timeline quietly moves notes and looks wrong.
   dot.textContent =
     (note.placed_by === "mentioned" ? "🕓 " : "") + stripMarkdownPreview(note.preview);
+  dot.dataset.fullText = dot.textContent; // clampTimelineDots reads this back
   dot.title =
     note.placed_by === "mentioned"
       ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
@@ -13981,6 +14034,37 @@ function timelineDot(note) {
     openTimelinePopup(event, note);
   });
   return dot;
+}
+
+// Reported directly, more than once: the CSS 3-line clamp (`-webkit-line-
+// clamp` + a max-height safety net, right above `.timeline-dot` in
+// style.css) still cut text off with no "…" to say so. Root cause a live
+// measurement this sandbox's Chromium couldn't reproduce — the clamp not
+// actually engaging in whatever engine renders it for real, so the max-
+// height net was the only thing cropping, mid-line, past wherever the
+// clamp should have stopped. This replaces "hope the clamp works" with a
+// measurement every engine agrees on: does the card's content overflow its
+// own box? If so, shorten the actual text (not just how it's displayed)
+// until it fits, and add the ellipsis by hand. Runs once after the grid's
+// cards are all in the DOM — `clientHeight` reads 0 before that.
+function clampTimelineDots() {
+  const dots = document.querySelectorAll("#timeline-grid .timeline-dot");
+  for (const dot of dots) {
+    const full = dot.dataset.fullText || dot.textContent;
+    if (dot.scrollHeight <= dot.clientHeight + 1) continue; // +1: subpixel rounding
+    let lo = 0, hi = full.length;
+    // Binary search for the longest prefix that still fits with "…" appended —
+    // a handful of iterations regardless of note length, and exact rather than
+    // guessing a fixed character budget that a narrower column would still
+    // overflow or a wider one would under-fill.
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      dot.textContent = `${full.slice(0, mid).trimEnd()}…`;
+      if (dot.scrollHeight <= dot.clientHeight + 1) lo = mid;
+      else hi = mid - 1;
+    }
+    dot.textContent = lo > 0 ? `${full.slice(0, lo).trimEnd()}…` : "…";
+  }
 }
 
 // Matches routes_timeline.py's OTHER_BAND — the long-tail lane has no single
@@ -14036,26 +14120,44 @@ $("tab-timeline").addEventListener("click", (e) => {
 
 let timelinePopupId = null;
 
-// Clamp the popup inside the timeline, the same way `placeGraphPopup` does
-// for the graph's own note popup. Called on open and again once media has
-// loaded, since an attachment thumbnail makes the popup taller than the
-// size it was first positioned for.
+// Clamp the popup inside the timeline's visible area. Unlike `placeGraphPopup`
+// (#graph-box is a fixed-height box that never scrolls, so #graph-popup can
+// be positioned absolute relative to it directly and its own bounds are the
+// right clamp target), #tab-timeline is the page's own scrolling element and
+// #timeline-popup's real offsetParent is the <section> inside it — a taller
+// box with a different, scroll-dependent origin. The clamp used to measure
+// against #tab-timeline while positioning against that <section>, so the
+// popup could render past the visible window, clipped by the scrollbar.
+// (`position: fixed` looks like the obvious fix, but doesn't work here: the
+// <section> has `backdrop-filter`, which per spec makes it a containing
+// block for fixed descendants too — measured live, not assumed, after the
+// first attempt silently didn't change anything.) So: do the clamp in
+// viewport coordinates, matching timelinePopupAnchor (event.clientX/Y),
+// against #tab-timeline's own box (the part that's actually ever on
+// screen) — then convert the result into the offsetParent's coordinate
+// space, since that's what style.left/top are actually measured against.
+// Called on open and again once media has loaded, since an attachment
+// thumbnail makes the popup taller than the size it was first positioned for.
 let timelinePopupAnchor = null;
 function placeTimelinePopup() {
   const popup = $("timeline-popup");
   if (!timelinePopupAnchor || popup.classList.contains("hidden")) return;
-  const bounds = $("tab-timeline").getBoundingClientRect();
+  const container = popup.offsetParent;
+  if (!container) return;
+  const origin = container.getBoundingClientRect();
+  const visible = $("tab-timeline").getBoundingClientRect();
   const size = popup.getBoundingClientRect();
-  const left = Math.min(
-    Math.max(timelinePopupAnchor.x - bounds.left + 12, 8),
-    Math.max(8, bounds.width - size.width - 8)
-  );
-  const top = Math.min(
-    Math.max(timelinePopupAnchor.y - bounds.top + 12, 8),
-    Math.max(8, bounds.height - size.height - 8)
-  );
-  popup.style.left = `${left}px`;
-  popup.style.top = `${top}px`;
+
+  const minLeft = visible.left + 8;
+  const maxLeft = Math.max(minLeft, visible.right - size.width - 8);
+  const minTop = visible.top + 8;
+  const maxTop = Math.max(minTop, visible.bottom - size.height - 8);
+
+  const leftViewport = Math.min(Math.max(timelinePopupAnchor.x + 12, minLeft), maxLeft);
+  const topViewport = Math.min(Math.max(timelinePopupAnchor.y + 12, minTop), maxTop);
+
+  popup.style.left = `${leftViewport - origin.left}px`;
+  popup.style.top = `${topViewport - origin.top}px`;
 }
 
 // Reported directly: unlike the note card and the graph's own popup, this
@@ -21586,6 +21688,7 @@ $("graph-refresh").addEventListener("click", () => {
   renderGraph();
 });
 $("graph-similarity").addEventListener("change", renderGraph);
+$("graph-entities")?.addEventListener("change", renderGraph);
 // The tuned-once controls, folded away. Remembered, because whether you want
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit — and because a panel that reopens closed every time is one
@@ -23049,6 +23152,61 @@ $("note-sort").addEventListener("change", (e) => {
   noteSort = e.target.value;
   renderEntries();
 });
+// Reported directly: an image just pasted/dropped/attached only shows as
+// raw `![name](/media/hash.ext)` text in the plain <textarea> — which reads
+// as "the image isn't rendered", and there was no way to remove one short of
+// hand-editing the markdown. Parses every image reference currently in the
+// box and renders a real thumbnail per one, each with its own ✕ that strips
+// just that reference back out of the text (the upload itself is untouched,
+// same as deleting any other line of text doesn't delete a file).
+function renderEntryAttachmentChips() {
+  const box = $("entry-attachment-chips");
+  const textarea = $("entry-content");
+  if (!box || !textarea) return;
+  const pattern = /!\[([^\]]{0,200})\]\((\/media\/[^)\s]{1,500})\)/g;
+  const matches = [...textarea.value.matchAll(pattern)];
+  box.replaceChildren();
+  box.classList.toggle("hidden", matches.length === 0);
+  for (const match of matches) {
+    const [full, name, url] = match;
+    const chip = document.createElement("span");
+    chip.className = "chip attachment-chip attachment-chip-image";
+    const img = document.createElement("img");
+    img.src = mediaSrc(url);
+    img.alt = name;
+    img.loading = "lazy";
+    img.addEventListener("click", () => openLightbox(mediaSrc(url), name));
+    const label = document.createElement("span");
+    label.textContent = name || url;
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = `Remove "${name || url}" from this note`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", async () => {
+      textarea.value = textarea.value.replace(full, "").replace(/\n{3,}/g, "\n\n");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      // Asked for directly: removing it here should delete the underlying
+      // upload too, not just detach the markdown reference — a note being
+      // drafted (never saved, so nothing else could reference this image
+      // yet) is exactly the case where leaving an orphan file behind in
+      // data/media serves no one. `/media` isn't filterable by url, so this
+      // resolves the id by listing and matching — one request, only when a
+      // chip is actually removed, not on every render.
+      try {
+        const uploads = await apiJson("/media");
+        const match = uploads.find((u) => u.url === url);
+        if (match) await apiJson(`/media/${match.id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Couldn't delete the underlying upload", err);
+      }
+    });
+    chip.append(img, label, remove);
+    box.appendChild(chip);
+  }
+}
+
 $("entry-content").addEventListener("input", (e) => {
   const n = e.target.value.length;
   $("entry-count").textContent = `${n} character${n === 1 ? "" : "s"}`;
@@ -23056,6 +23214,7 @@ $("entry-content").addEventListener("input", (e) => {
   // switch — losing one is the most annoying thing this app could do.
   if (n) localStorage.setItem("captureDraft", e.target.value);
   else localStorage.removeItem("captureDraft");
+  renderEntryAttachmentChips();
   // The "go to it" link belongs to the note you just saved, not the one you
   // are now writing — drop it as soon as typing starts.
   $("save-status").querySelector(".jump-to-note")?.remove();
@@ -23069,6 +23228,7 @@ $("entry-content").addEventListener("input", (e) => {
   box.value = draft;
   autoGrow(box); // a long restored draft shouldn't arrive in a one-line box
   $("entry-count").textContent = `${draft.length} character${draft.length === 1 ? "" : "s"}`;
+  renderEntryAttachmentChips();
   const status = $("save-status");
   if (status) status.textContent = "Restored your unsaved draft.";
 })();
@@ -23231,6 +23391,7 @@ initAuth();
 // ======================= WHITEBOARD LOGIC =======================
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
 let wbState = { nodes: [], sketches: [], objects: [] };
+let wbHintForcedOpen = false; // the "?" help button's override — see renderWhiteboard
 let wbInitialized = false;
 // ROADMAP.md Tier 2 §11: Select was folded into Pan, with no visible
 // "this is selected" state and no way to delete without switching to the
@@ -23594,18 +23755,24 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
   return `${tick(headLen * 0.35)} ${tick(headLen * 0.75)}`;
 }
 
-function wbCursorForTool(tool, strokeColor) {
+function wbCursorForTool(tool, strokeColor, strokeWidth) {
   const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
   if (WB_BRUSH_TOOLS.has(tool)) {
     // A crosshair with a dot in the actual stroke colour at its centre — a
-    // plain crosshair can't say what colour is about to land.
+    // plain crosshair can't say what colour is about to land. The dot's own
+    // radius now tracks the stroke-width slider too (asked for directly:
+    // "the size should be represented on the cursor tip") — clamped to what
+    // a 32x32 cursor image can actually show and still stay a browser-legal
+    // cursor size cross-platform (Safari caps well below Chrome/Firefox).
+    const size = 32, c = size / 2;
+    const r = Math.max(3, Math.min(13, Math.round((Number(strokeWidth) || 3) / 2) + 2));
     const inner =
-      `<line x1="13" y1="1" x2="13" y2="9" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
-      `<line x1="13" y1="17" x2="13" y2="25" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
-      `<line x1="1" y1="13" x2="9" y2="13" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
-      `<line x1="17" y1="13" x2="25" y2="13" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
-      `<circle cx="13" cy="13" r="4" fill="${color}" stroke="#000" stroke-opacity=".45"/>`;
-    return `${wbCursorUrl(inner, { hx: 13, hy: 13 })}, crosshair`;
+      `<line x1="${c}" y1="1" x2="${c}" y2="${c - r - 2}" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="${c}" y1="${c + r + 2}" x2="${c}" y2="${size - 1}" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="1" y1="${c}" x2="${c - r - 2}" y2="${c}" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<line x1="${c + r + 2}" y1="${c}" x2="${size - 1}" y2="${c}" stroke="#000" stroke-opacity=".55" stroke-width="1.5"/>` +
+      `<circle cx="${c}" cy="${c}" r="${r}" fill="${color}" stroke="#000" stroke-opacity=".45"/>`;
+    return `${wbCursorUrl(inner, { size, hx: c, hy: c })}, crosshair`;
   }
   if (tool === "eraser") {
     const inner =
@@ -25275,7 +25442,15 @@ async function initWhiteboard() {
   $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
   $("wb-empty-hint-dismiss")?.addEventListener("click", () => {
     localStorage.setItem("wbEmptyHintDismissed", "1");
+    wbHintForcedOpen = false;
     $("wb-empty-hint")?.classList.add("hidden");
+  });
+  // Asked for directly: a way back after "Don't show this again". Overrides
+  // both the dismissed flag and the has-content check below, since without
+  // that override this button would do nothing on a board that isn't empty.
+  $("wb-help-btn")?.addEventListener("click", () => {
+    wbHintForcedOpen = true;
+    $("wb-empty-hint")?.classList.remove("hidden");
   });
 
   // Board background colour, asked for directly — the ambient generative-art
@@ -25540,12 +25715,25 @@ async function initWhiteboard() {
   // sketch's own width) picks up a change without needing to be rewired.
   let WB_STROKE_WIDTH = Number(localStorage.getItem("wb-stroke-width")) || 3;
   const strokeWidthInput = document.getElementById("wb-stroke-width");
+  const strokeWidthBadge = document.getElementById("wb-stroke-width-badge");
+  let strokeWidthBadgeTimer = null;
+  function showStrokeWidthBadge() {
+    if (!strokeWidthBadge || !strokeWidthInput) return;
+    const r = strokeWidthInput.getBoundingClientRect();
+    strokeWidthBadge.textContent = `${WB_STROKE_WIDTH}px`;
+    strokeWidthBadge.style.left = `${r.left + r.width / 2}px`;
+    strokeWidthBadge.style.top = `${r.top - 8}px`;
+    strokeWidthBadge.classList.remove("hidden");
+    clearTimeout(strokeWidthBadgeTimer);
+    strokeWidthBadgeTimer = setTimeout(() => strokeWidthBadge.classList.add("hidden"), 900);
+  }
   if (strokeWidthInput) {
     strokeWidthInput.value = String(WB_STROKE_WIDTH);
     strokeWidthInput.addEventListener("input", (e) => {
       WB_STROKE_WIDTH = Number(e.target.value) || 3;
       localStorage.setItem("wb-stroke-width", String(WB_STROKE_WIDTH));
       updateWbCursor();
+      showStrokeWidthBadge();
     });
   }
 
@@ -25811,7 +25999,7 @@ async function initWhiteboard() {
 
   function updateWbCursor() {
     containerEl.setAttribute("data-current-tool", window.currentTool);
-    containerEl.style.cursor = wbCursorForTool(window.currentTool, window.currentStrokeColor);
+    containerEl.style.cursor = wbCursorForTool(window.currentTool, window.currentStrokeColor, WB_STROKE_WIDTH);
   }
 
   // The six shape tools folded into the toolbar's own dropdown — asked for
@@ -26902,13 +27090,24 @@ function wbPathBBox(d) {
 //: corner/edge from whichever handle moved stays fixed, mirroring
 //: `resizeDrag`'s own width/height-and-floor logic for image/text objects.
 const WB_SKETCH_MIN_SIZE = 10;
-function wbSketchResizeTransform(bbox, handle, dx, dy) {
+function wbSketchResizeTransform(bbox, handle, dx, dy, shiftKey) {
   const { minX, minY, maxX, maxY } = bbox;
   let newMinX = minX, newMaxX = maxX, newMinY = minY, newMaxY = maxY;
   if (handle.includes("e")) newMaxX = Math.max(minX + WB_SKETCH_MIN_SIZE, maxX + dx);
   if (handle.includes("w")) newMinX = Math.min(maxX - WB_SKETCH_MIN_SIZE, minX + dx);
   if (handle.includes("s")) newMaxY = Math.max(minY + WB_SKETCH_MIN_SIZE, maxY + dy);
   if (handle.includes("n")) newMinY = Math.min(maxY - WB_SKETCH_MIN_SIZE, minY + dy);
+  // Reported directly: shift while resizing didn't snap to a square. Only a
+  // corner handle ("nw"/"ne"/"se"/"sw" — length 2) has two free axes to lock
+  // together; the larger of the two free-form extents wins, and the corner
+  // *opposite* the one being dragged stays anchored, matching `anchorX`/
+  // `anchorY` below rather than recentring the shape.
+  const isCorner = handle.length === 2;
+  if (isCorner && shiftKey) {
+    const size = Math.max(newMaxX - newMinX, newMaxY - newMinY, WB_SKETCH_MIN_SIZE);
+    if (handle.includes("e")) newMaxX = newMinX + size; else newMinX = newMaxX - size;
+    if (handle.includes("s")) newMaxY = newMinY + size; else newMinY = newMaxY - size;
+  }
   const oldW = maxX - minX || 1, oldH = maxY - minY || 1;
   const sx = handle.includes("e") || handle.includes("w") ? (newMaxX - newMinX) / oldW : 1;
   const sy = handle.includes("n") || handle.includes("s") ? (newMaxY - newMinY) / oldH : 1;
@@ -26919,6 +27118,17 @@ function wbSketchResizeTransform(bbox, handle, dx, dy) {
 //: `{d, color, width, opacity}` a highlighter carries (HISTORY.md) — parsed
 //: once so move/resize can rewrite just `d` and leave every other field
 //: (colour, the highlighter's width/opacity) exactly as it was.
+// Detected from the path data itself, not a stored "kind" field (sketches
+// don't have one): rect/triangle/diamond's own preview-drawing code (above,
+// in the pointermove handler) closes its path with Z; circle instead
+// returns to its start point via two arc ("a") commands. Line/arrow/pen/
+// highlighter never do either.
+function wbSketchIsClosedShape(sketch) {
+  const d = wbSketchParsedData(sketch)?.d || "";
+  const trimmed = d.trim();
+  return /[Zz]\s*$/.test(trimmed) || /\ba\s/i.test(trimmed);
+}
+
 function wbSketchParsedData(sketch) {
   try {
     const parsed = JSON.parse(sketch.data);
@@ -27174,7 +27384,7 @@ function wbRenderSketchHandles() {
             const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
             rawDX += event.dx / transform.k;
             rawDY += event.dy / transform.k;
-            const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY);
+            const t = wbSketchResizeTransform(bbox, handle, rawDX, rawDY, event.sourceEvent.shiftKey);
             const newD = wbTransformPathD(parsed.d, t);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
@@ -27263,10 +27473,13 @@ function renderWhiteboard() {
       // Asked for directly: an option to turn the hint off entirely, once
       // it's served its purpose — `localStorage`, the same durability the
       // onboarding tour's own "don't show again" already uses.
-      (wbState.nodes?.length || 0) +
-        (wbState.sketches?.length || 0) +
-        (wbState.objects?.length || 0) >
-        0 || localStorage.getItem("wbEmptyHintDismissed") === "1"
+      // `wbHintForcedOpen` overrides both checks — the "?" help button's way
+      // back after a dismiss, or on a board that already has content.
+      !wbHintForcedOpen &&
+        ((wbState.nodes?.length || 0) +
+          (wbState.sketches?.length || 0) +
+          (wbState.objects?.length || 0) >
+          0 || localStorage.getItem("wbEmptyHintDismissed") === "1")
     );
 
   // Render Sketches (SVG)
@@ -27414,7 +27627,13 @@ function renderWhiteboard() {
     .attr("fill", "none")
     .attr("stroke", "transparent")
     .attr("stroke-width", "20")
-    .attr("pointer-events", "stroke");
+    // A closed shape (rect/circle/triangle/diamond) reads as solid, so
+    // clicking its interior should select it — not just the ~20px band
+    // around its outline that's the only sensible hit-area an open pen/line
+    // squiggle has. Reported directly ("shapes are hard to select"): every
+    // sketch used `pointer-events: stroke`, so a rectangle's hollow middle
+    // silently didn't count as a click on it.
+    .attr("pointer-events", (d) => wbSketchIsClosedShape(d) ? "all" : "stroke");
 
   sketchEnter.append("path")
     .attr("class", "sketch-path")
@@ -27532,15 +27751,19 @@ function renderWhiteboard() {
         const startY = d._resizeStartY ?? (d._resizeStartY = d.y);
         let width = startW, height = startH, x = startX, y = startY;
         if (handle.includes("e")) width = Math.max(WB_OBJECT_MIN_SIZE, startW + rawDX);
+        if (handle.includes("w")) width = Math.max(WB_OBJECT_MIN_SIZE, startW - rawDX);
         if (handle.includes("s")) height = Math.max(WB_OBJECT_MIN_SIZE, startH + rawDY);
-        if (handle.includes("w")) {
-          width = Math.max(WB_OBJECT_MIN_SIZE, startW - rawDX);
-          x = startX + (startW - width);
+        if (handle.includes("n")) height = Math.max(WB_OBJECT_MIN_SIZE, startH - rawDY);
+        // Reported directly: shift while resizing didn't snap to a square.
+        // Only a corner handle has two free axes to lock together — the
+        // larger of the two free-form sizes wins. Computed before the x/y
+        // anchor adjustment below so a w/n handle's anchor math sees the
+        // final, square-constrained size rather than the pre-shift one.
+        if (handle.length === 2 && event.sourceEvent.shiftKey) {
+          width = height = Math.max(width, height);
         }
-        if (handle.includes("n")) {
-          height = Math.max(WB_OBJECT_MIN_SIZE, startH - rawDY);
-          y = startY + (startH - height);
-        }
+        if (handle.includes("w")) x = startX + (startW - width);
+        if (handle.includes("n")) y = startY + (startH - height);
         d.width = width;
         d.height = height;
         d.x = x;
@@ -27877,18 +28100,20 @@ function renderWbObjects(canvas) {
         const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
         const dx = event.dx / transform.k;
         const dy = event.dy / transform.k;
-        if (handle.includes("e")) d.width = Math.max(WB_OBJECT_MIN_SIZE, d.width + dx);
-        if (handle.includes("s")) d.height = Math.max(WB_OBJECT_MIN_SIZE, d.height + dy);
-        if (handle.includes("w")) {
-          const newWidth = Math.max(WB_OBJECT_MIN_SIZE, d.width - dx);
-          d.x += d.width - newWidth;
-          d.width = newWidth;
+        let newWidth = d.width, newHeight = d.height;
+        if (handle.includes("e")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, d.width + dx);
+        if (handle.includes("w")) newWidth = Math.max(WB_OBJECT_MIN_SIZE, d.width - dx);
+        if (handle.includes("s")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, d.height + dy);
+        if (handle.includes("n")) newHeight = Math.max(WB_OBJECT_MIN_SIZE, d.height - dy);
+        // Reported directly: shift while resizing didn't snap to a square —
+        // same fix as nodeResizeDrag's own copy just above.
+        if (handle.length === 2 && event.sourceEvent.shiftKey) {
+          newWidth = newHeight = Math.max(newWidth, newHeight);
         }
-        if (handle.includes("n")) {
-          const newHeight = Math.max(WB_OBJECT_MIN_SIZE, d.height - dy);
-          d.y += d.height - newHeight;
-          d.height = newHeight;
-        }
+        if (handle.includes("w")) d.x += d.width - newWidth;
+        if (handle.includes("n")) d.y += d.height - newHeight;
+        d.width = newWidth;
+        d.height = newHeight;
         const el = d3.select(this.closest(".wb-object"));
         el.style("width", `${d.width}px`)
           .style("height", `${d.height}px`)

@@ -275,6 +275,14 @@ Link to another note with [[its first few words]]."></textarea>
           <ul id="wiki-suggest" class="wiki-suggest hidden" role="listbox"
             aria-label="Notes you can link to"></ul>
           <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
+          <!-- Reported directly: an uploaded/pasted image only shows as raw
+               `![name](/media/...)` text while composing, which reads as
+               "the image isn't rendered". A plain <textarea> genuinely can't
+               show an inline image — this is the actual preview, and its own
+               ✕ per chip is the "and can't be deleted" half: it detaches the
+               reference from this note's text (the underlying upload stays,
+               same as removing any other text does not delete a file). -->
+          <div id="entry-attachment-chips" class="attachment-chips hidden"></div>
           <input id="entry-tags" type="text" list="tag-suggestions"
             placeholder="Optional tags, comma separated (e.g. joke, work)">
           <datalist id="tag-suggestions"></datalist>
@@ -935,6 +943,9 @@ Link to another note with [[its first few words]]."></textarea>
           <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
             <input type="checkbox" id="graph-similarity"> Similarity
           </label>
+          <label class="muted tools-toggle" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
+            <input type="checkbox" id="graph-entities"> Entities
+          </label>
           <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
             <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
           </label>
@@ -1456,15 +1467,25 @@ Link to another note with [[its first few words]]."></textarea>
            told you it was, and a blank canvas with an eight-icon toolbar
            and no words on it is not where that gets discovered. -->
       <div id="wb-empty-hint" class="wb-empty-hint hidden">
-        <p class="wb-empty-hint-title">This board is a note — draw on it, or drag one in</p>
-        <p>📝 <strong>Library</strong> (top right) drops an existing note here as a card.</p>
-        <p>✏️ <strong>Pen</strong>, 📏 <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
-        <p>🔗 A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
-        <p>🅃 <strong>Text</strong> drops a box you can type in; 🖼 <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
-        <p>🧽 <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
-        <p>🧠 Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
-        <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Tab new branch · Enter new sibling · Esc back to pan</p>
-        <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this again</button>
+        <!-- Its own scrolling region, separate from the outer inset:0 box.
+             The outer box stays pointer-events:none so an empty canvas is
+             still click-through-able to start drawing; this inner one is the
+             part with actual content, so it's the part that needs to catch
+             the wheel/drag a scroll requires and needs a height ceiling that
+             doesn't depend on guessing the docked toolbar's exact height —
+             asked for directly ("the text and button... is overflowing and
+             covered by the tool UI"). -->
+        <div class="wb-empty-hint-inner">
+          <p class="wb-empty-hint-title">This board is a note — draw on it, or drag one in</p>
+          <p>📝 <strong>Library</strong> (top right) drops an existing note here as a card.</p>
+          <p>✏️ <strong>Pen</strong>, 📏 <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
+          <p>🔗 A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
+          <p>🅃 <strong>Text</strong> drops a box you can type in; 🖼 <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
+          <p>🧽 <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
+          <p>🧠 Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
+          <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Tab new branch · Enter new sibling · Esc back to pan</p>
+          <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this again</button>
+        </div>
       </div>
     </div>
     <div class="whiteboard-floating-panel top-left card glass" data-panel-id="board">
@@ -1688,6 +1709,12 @@ Link to another note with [[its first few words]]."></textarea>
              for a sketch already on the board, via the properties panel's
              own Width field). -->
         <input type="range" id="wb-stroke-width" min="1" max="24" step="1" value="3" title="Pen / shape / eraser size">
+        <!-- Asked for directly: a visual size readout while dragging, since
+             a bare range input gives no idea what "8" actually looks like
+             until you draw with it. `position: fixed`, positioned from JS —
+             the timeline popup bug this same session found is the reason
+             this doesn't use position:absolute against a card ancestor. -->
+        <span id="wb-stroke-width-badge" class="wb-stroke-width-badge hidden"></span>
       </div>
     </div>
 
@@ -1696,6 +1723,7 @@ Link to another note with [[its first few words]]."></textarea>
       <button id="wb-zoom-in" class="ghost small" title="Zoom In">➕</button>
       <button id="wb-zoom-out" class="ghost small" title="Zoom Out">➖</button>
       <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen">⛶</button>
+      <button id="wb-help-btn" class="ghost small" title="Show the whiteboard help again">?</button>
     </div>
 
     <!-- A properties panel for the current single selection — asked for
@@ -1832,7 +1860,6 @@ Link to another note with [[its first few words]]."></textarea>
     </aside>
   </div>
   </div>
-  </div>
 
   <!-- Every uploaded image — note-inline, document, or whiteboard alike,
        tracked by `MediaUpload` — asked for directly ("images can also be
@@ -1849,6 +1876,13 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="library-images-grid" class="library-image-grid"></div>
       <p id="library-images-empty" class="muted hidden">No images yet.</p>
     </section>
+  </div>
+  <!-- Closes #tab-library, opened near the top of this tab's markup. A stray
+       extra `</div>` used to sit right after the whiteboard sidebar instead
+       of here, which closed #tab-library three sub-views early — the gallery
+       view above rendered as a direct child of <body>, outside the flex
+       column and its padding, which is why it had no margins and didn't
+       sit at the top. Keep this as the LAST thing inside #tab-library. -->
   </div>
 
   <!-- ======================= STATUS BAR (§36D) ============================

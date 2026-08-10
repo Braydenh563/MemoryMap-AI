@@ -157,6 +157,47 @@ class Entry(Base):
     # the additive auto-migrator backfills every existing row as not-private.
     is_private: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    # ROADMAP.md item 34. Null means "never scanned"; set (even with zero
+    # entities found) after a pass, so a note that genuinely mentions none
+    # isn't rescanned by every autonomous pass forever. A plain timestamp
+    # rather than a boolean so a future re-scan policy ("older than 30
+    # days") has something to compare against without a second column.
+    entities_extracted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+class Entity(Base):
+    """A person/project/thing worth naming, independent of any one note.
+
+    ROADMAP.md item 34: every edge in the graph used to connect two whole
+    notes; a name mentioned in passing across a dozen notes was a dozen
+    separate matches, not one thing with a dozen mentions. Deliberately
+    smaller than a full ontology — no entity-to-entity graph, no type
+    system beyond the free-text `name` a local model already extracted.
+    Membership (`EntityMention`) is the only edge kind, on purpose (see
+    `ai/entities.py`).
+    """
+
+    __tablename__ = "entities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # Not unique at the DB level: two different models/passes proposing
+    # "Sarah" for two actually-different Sarahs is a real ambiguity this
+    # MVP doesn't try to resolve, matching the roadmap item's own explicit
+    # scope cut. `entities.py` still merges exact, case-folded name matches
+    # within one pass so the same note doesn't create the same entity twice.
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class EntityMention(Base):
+    """One note mentioning one entity — membership, not a graph edge kind."""
+
+    __tablename__ = "entity_mentions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity_id: Mapped[int] = mapped_column(ForeignKey("entities.id"))
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class EntryLink(Base):
@@ -492,9 +533,76 @@ class DatabaseManager:
 
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()
+        self._ensure_fts5()
         self._session_factory = sessionmaker(
             bind=self.engine, expire_on_commit=False
         )
+
+    def _ensure_fts5(self) -> None:
+        """An FTS5 index over `entries`, kept in sync by triggers.
+
+        ROADMAP.md item 32: `keyword_search` used to be a leading-wildcard
+        `ILIKE`, which no index can serve, plus a hand-rolled integer score
+        that treats a rare word the same as a common one. FTS5's own
+        `bm25()` gives real IDF-weighted relevance — already in SQLite, no
+        new dependency — for the cost of one virtual table.
+
+        `content='entries', content_rowid='id'` makes this an *external
+        content* table: FTS5 stores only its own index, not a second copy
+        of the text, and `entries.id` already is the SQLite rowid (a plain
+        `INTEGER PRIMARY KEY` column is a rowid alias). The three triggers
+        are what an external-content table needs instead of the automatic
+        upkeep a normal table gets from the ORM — SQLite doesn't have
+        anything that reaches into a virtual table on its own, so every
+        write path (the ORM, a raw migration script, anything future) stays
+        in sync for free rather than needing to remember to call something.
+        `IF NOT EXISTS` throughout makes this safe to run on every startup,
+        the same additive convention `_add_missing_columns` already uses.
+        """
+        with self.engine.begin() as connection:
+            connection.exec_driver_sql(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5("
+                "content, tags, content='entries', content_rowid='id'"
+                ")"
+            )
+            # A fresh virtual table starts empty even when `entries` already
+            # has rows (a database from before this existed) — the
+            # external-content trick means FTS5 never scanned the real table
+            # on its own. `INSERT INTO ... SELECT` once, guarded by the
+            # trigger's own existence so it can't re-run and duplicate rows
+            # on every subsequent startup.
+            already_wired = connection.exec_driver_sql(
+                "SELECT count(*) FROM sqlite_master "
+                "WHERE type='trigger' AND name='entries_fts_ai'"
+            ).scalar()
+            if not already_wired:
+                connection.exec_driver_sql(
+                    "INSERT INTO entries_fts(rowid, content, tags) "
+                    "SELECT id, content, tags FROM entries"
+                )
+            connection.exec_driver_sql(
+                "CREATE TRIGGER IF NOT EXISTS entries_fts_ai "
+                "AFTER INSERT ON entries BEGIN "
+                "INSERT INTO entries_fts(rowid, content, tags) "
+                "VALUES (new.id, new.content, new.tags); "
+                "END"
+            )
+            connection.exec_driver_sql(
+                "CREATE TRIGGER IF NOT EXISTS entries_fts_ad "
+                "AFTER DELETE ON entries BEGIN "
+                "INSERT INTO entries_fts(entries_fts, rowid, content, tags) "
+                "VALUES ('delete', old.id, old.content, old.tags); "
+                "END"
+            )
+            connection.exec_driver_sql(
+                "CREATE TRIGGER IF NOT EXISTS entries_fts_au "
+                "AFTER UPDATE ON entries BEGIN "
+                "INSERT INTO entries_fts(entries_fts, rowid, content, tags) "
+                "VALUES ('delete', old.id, old.content, old.tags); "
+                "INSERT INTO entries_fts(rowid, content, tags) "
+                "VALUES (new.id, new.content, new.tags); "
+                "END"
+            )
 
     def _add_missing_columns(self) -> None:
         """Additive auto-migration for existing databases.

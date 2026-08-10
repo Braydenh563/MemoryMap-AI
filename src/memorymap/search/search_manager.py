@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime, time
 
 import numpy as np
-from sqlalchemy import and_, or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import (
@@ -75,10 +75,16 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
     contained both words, because the order didn't match. Word order is not
     something anyone should have to guess.
 
-    Now every word must appear somewhere (content or tags), in any order, and
-    results are ranked rather than just listed newest-first. When no note has
-    all the words, it falls back to notes with *some* of them — a partial
-    answer beats an empty page.
+    Now every word must appear somewhere (content or tags), in any order.
+    Ranked by SQLite's own FTS5 `bm25()` — real IDF-weighted relevance
+    (ROADMAP.md item 32: the previous hand-rolled integer score treated a
+    rare, distinctive word the same as a common one) — with tag matches
+    weighted above a plain content mention, and an exact contiguous phrase
+    (checked in Python against the small candidate set FTS already
+    narrowed things to, not a second index) breaking ties in front of
+    everything else, the same way the old +25 phrase bonus did. When no
+    note has all the words, it falls back to notes with *some* of them — a
+    partial answer beats an empty page.
 
     This matters most with no AI running: keyword search is then the whole of
     search, not a fallback.
@@ -95,22 +101,37 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
         Entry.is_private == False,  # noqa: E712
     )
 
-    def matching(require_all: bool) -> list[Entry]:
-        clauses = [
-            or_(Entry.content.ilike(f"%{t}%"), Entry.tags.ilike(f"%{t}%")) for t in terms
-        ]
-        combined = and_(*clauses) if require_all else or_(*clauses)
-        return list(
-            session.scalars(
-                # Over-fetch so ranking has something to choose between; the
-                # cut to `limit` happens after scoring, not before it.
-                select(Entry).where(*base, combined).limit(max(limit * 5, 50))
-            )
-        )
+    def matching(require_all: bool) -> dict[int, float]:
+        # `terms` are pre-filtered to \W-stripped words by `_meaningful_terms`,
+        # so none of them can contain FTS5 query-syntax characters — safe to
+        # join directly rather than needing to quote/escape each one.
+        match_expr = (" AND " if require_all else " OR ").join(terms)
+        rows = session.execute(
+            text(
+                "SELECT rowid, bm25(entries_fts, 1.0, 4.0) AS score "
+                "FROM entries_fts WHERE entries_fts MATCH :expr "
+                # Over-fetch so ranking (below) has something to choose
+                # between; the cut to `limit` happens after, not before.
+                "ORDER BY score LIMIT :n"
+            ),
+            {"expr": match_expr, "n": max(limit * 5, 50)},
+        ).all()
+        # bm25() is *lower is better* — more negative means more relevant.
+        return {row.rowid: row.score for row in rows}
 
-    rows = matching(require_all=True) or matching(require_all=False)
-    rows.sort(key=lambda e: (-_keyword_score(e, terms), -e.id))
-    return rows[:limit]
+    scores = matching(require_all=True) or matching(require_all=False)
+    if not scores:
+        return []
+
+    entries = list(session.scalars(select(Entry).where(*base, Entry.id.in_(scores))))
+    phrase = " ".join(terms)
+
+    def sort_key(entry: Entry) -> tuple[int, float, int]:
+        has_phrase = phrase in re.sub(r"\W+", " ", (entry.content or "").lower())
+        return (0 if has_phrase else 1, scores.get(entry.id, 0.0), -entry.id)
+
+    entries.sort(key=sort_key)
+    return entries[:limit]
 
 
 # Words that carry no signal in a search. Matching on them is worse than
@@ -135,35 +156,6 @@ def _meaningful_terms(query: str) -> list[str]:
     # An all-stopword query ("how do I") has no keywords in it; don't invent
     # some by falling back to the raw words.
     return kept
-
-
-def _keyword_score(entry: Entry, terms: list[str]) -> int:
-    """How well one entry answers this query. Higher is better.
-
-    The weights encode what a person means by "best match": the exact phrase
-    beats scattered words, a tag beats a passing mention in the body (you
-    chose the tag deliberately), and the title-ish opening of a note beats
-    something buried at the end.
-    """
-    content = (entry.content or "").lower()
-    tags = (entry.tags or "").lower()
-    opening = content[:80]
-
-    score = 0
-    # Compare phrases with punctuation stripped from BOTH sides, so
-    # "bread, proving!" ranks exactly like "bread proving" — the reader meant
-    # the same thing, and the comma shouldn't reorder their results.
-    phrase = " ".join(terms)
-    if phrase and phrase in re.sub(r"\W+", " ", content):
-        score += 25  # the whole query, in order
-    for term in terms:
-        if term in tags:
-            score += 8
-        if term in opening:
-            score += 4
-        if term in content:
-            score += 2 + min(content.count(term) - 1, 3)  # a little for repeats
-    return score
 
 
 def semantic_search(
@@ -333,33 +325,30 @@ def _fuse(ranked_lists: list[list[Entry]], limit: int) -> list[Entry]:
 # notes nobody searched for.
 GRAPH_EXPANSION_SEEDS = 3
 GRAPH_EXPANSION_LIMIT = 3
+# ROADMAP.md item 33: a second hop, opt-in by being small and automatic
+# rather than a user-visible "search deeper" action — the roadmap left that
+# choice open; automatic is the one that needs no new UI and degrades to
+# "just doesn't add much" rather than "a control nobody found". Smaller than
+# the first hop on purpose: a neighbour-of-a-neighbour is weaker evidence
+# again, verified the same way (still a real link, still carries its own
+# reason if it has one) but two links removed from what was actually asked.
+GRAPH_EXPANSION_HOP2_LIMIT = 2
 
 
-def graph_expansion(
-    session: Session, matches: list[Entry], limit: int = GRAPH_EXPANSION_LIMIT
-) -> tuple[list[Entry], dict[int, str]]:
-    """Notes directly connected to the best matches, nearest first, plus
-    *why* — a link's own reason, keyed by neighbour id, for the ones that
-    have one. Only the one caller (`_retrieve`) reads the second half; it's
-    what lets the "linked to a match" badge say what the link actually is
-    instead of just that one exists (asked for directly: "does the reason
-    in the links show in [connected results] as well?" — it didn't, this is
-    that gap closed).
-
-    Links and reply threads only — not shared tags. A tag is a filing label
-    that can put fifty unrelated notes one hop apart, and the same reasoning
-    that made `entry/paths.py` weight tag steps down applies with more force
-    here: this list goes straight into a prompt, where a weak connection is
-    indistinguishable from a strong one.
+def _linked_neighbours(
+    session: Session, seeds: list[int], exclude: set[int]
+) -> tuple[list[int], dict[int, str]]:
+    """One hop of `graph_expansion`'s own walk — links plus reply threads,
+    in the order found. Factored out so a second hop can call it again
+    starting from the first hop's own results, rather than duplicating the
+    walk.
     """
-    if not matches:
-        return [], {}
     from memorymap.core.database import EntryLink
 
-    have = {entry.id for entry in matches}
-    seeds = [entry.id for entry in matches[:GRAPH_EXPANSION_SEEDS]]
     neighbours: list[int] = []
     reasons: dict[int, str] = {}
+    if not seeds:
+        return neighbours, reasons
 
     links = session.scalars(
         select(EntryLink).where(
@@ -371,7 +360,7 @@ def graph_expansion(
     )
     for link in links:
         for end in (link.source_entry_id, link.target_entry_id):
-            if end not in have and end not in neighbours:
+            if end not in exclude and end not in neighbours:
                 neighbours.append(end)
                 if link.reason:
                     reasons[end] = link.reason
@@ -380,19 +369,63 @@ def graph_expansion(
     for entry in session.scalars(
         select(Entry).where(Entry.parent_id.in_(seeds), Entry.is_deleted == False)  # noqa: E712
     ):
-        if entry.id not in have and entry.id not in neighbours:
+        if entry.id not in exclude and entry.id not in neighbours:
             neighbours.append(entry.id)
-    for entry in matches[:GRAPH_EXPANSION_SEEDS]:
-        if entry.parent_id and entry.parent_id not in have:
-            if entry.parent_id not in neighbours:
-                neighbours.append(entry.parent_id)
+    # The seeds' own parents, in one query rather than one `session.get` each
+    # — same reasoning as `semantic_search`'s own docstring on avoiding
+    # per-row fetches.
+    for parent_id in session.scalars(
+        select(Entry.parent_id).where(Entry.id.in_(seeds), Entry.parent_id.is_not(None))
+    ):
+        if parent_id not in exclude and parent_id not in neighbours:
+            neighbours.append(parent_id)
+    return neighbours, reasons
 
+
+def graph_expansion(
+    session: Session, matches: list[Entry], limit: int = GRAPH_EXPANSION_LIMIT
+) -> tuple[list[Entry], dict[int, str], dict[int, int]]:
+    """Notes connected to the best matches, nearest first, plus *why* — a
+    link's own reason, keyed by neighbour id, for the ones that have one —
+    and *how far*, keyed the same way (1 = directly linked to a match, 2 =
+    linked to one of those). Only the one caller (`_retrieve`) reads either
+    extra dict; the reason is what lets the "linked to a match" badge say
+    what the link actually is instead of just that one exists (asked for
+    directly: "does the reason in the links show in [connected results] as
+    well?" — it didn't, this is that gap closed), and the hop count is what
+    lets a second-hop note render as a visibly weaker tier rather than
+    merged in with the first hop's (ROADMAP.md item 33).
+
+    Links and reply threads only — not shared tags. A tag is a filing label
+    that can put fifty unrelated notes one hop apart, and the same reasoning
+    that made `entry/paths.py` weight tag steps down applies with more force
+    here: this list goes straight into a prompt, where a weak connection is
+    indistinguishable from a strong one.
+    """
+    if not matches:
+        return [], {}, {}
+
+    have = {entry.id for entry in matches}
+    seeds = [entry.id for entry in matches[:GRAPH_EXPANSION_SEEDS]]
+    hop1, reasons = _linked_neighbours(session, seeds, have)
+
+    hop2: list[int] = []
+    if hop1 and GRAPH_EXPANSION_HOP2_LIMIT:
+        hop2_all, hop2_reasons = _linked_neighbours(
+            session, hop1[:GRAPH_EXPANSION_SEEDS], have | set(hop1)
+        )
+        hop2 = hop2_all[:GRAPH_EXPANSION_HOP2_LIMIT]
+        for note_id in hop2:
+            if note_id in hop2_reasons:
+                reasons[note_id] = hop2_reasons[note_id]
+
+    neighbours = hop1 + hop2
     if not neighbours:
-        return [], {}
+        return [], {}, {}
     found = list(
         session.scalars(
             select(Entry).where(
-                Entry.id.in_(neighbours[: limit * 3]),
+                Entry.id.in_(neighbours),
                 Entry.is_deleted == False,  # noqa: E712
                 Entry.is_private == False,  # noqa: E712
             )
@@ -401,8 +434,17 @@ def graph_expansion(
     # Back into the order the walk found them, so the nearest neighbour of the
     # best match comes first rather than whatever the database returned.
     by_id = {entry.id: entry for entry in found}
-    ordered = [by_id[note_id] for note_id in neighbours if note_id in by_id][:limit]
-    return ordered, {e.id: reasons[e.id] for e in ordered if e.id in reasons}
+    hop_of = {note_id: 1 for note_id in hop1} | {note_id: 2 for note_id in hop2}
+    ordered_hop1 = [by_id[note_id] for note_id in hop1 if note_id in by_id][:limit]
+    ordered_hop2 = [
+        by_id[note_id] for note_id in hop2 if note_id in by_id
+    ][:GRAPH_EXPANSION_HOP2_LIMIT]
+    ordered = ordered_hop1 + ordered_hop2
+    return (
+        ordered,
+        {e.id: reasons[e.id] for e in ordered if e.id in reasons},
+        {e.id: hop_of[e.id] for e in ordered},
+    )
 
 
 def in_range(
@@ -714,12 +756,17 @@ def _retrieve(
         # Appended, never interleaved: a connected note is context and a match
         # is an answer, and a prompt that has to drop something should drop the
         # context first. The order encodes that.
-        neighbours, neighbour_reasons = graph_expansion(session, entries)
+        neighbours, neighbour_reasons, neighbour_hops = graph_expansion(session, entries)
         for neighbour in neighbours:
             if all(neighbour.id != entry.id for entry in entries):
                 entries.append(neighbour)
                 found["connected"].add(neighbour.id)
-                info = {"type": "connected"}
+                # A second-hop note (item 33) is real evidence but weaker —
+                # linked to something linked to a match, not to the match
+                # itself — so it gets its own badge type rather than being
+                # indistinguishable from a direct neighbour.
+                two_hops = neighbour_hops.get(neighbour.id) == 2
+                info = {"type": "connected_2hop" if two_hops else "connected"}
                 if neighbour.id in neighbour_reasons:
                     info["reason"] = neighbour_reasons[neighbour.id]
                 match_info[neighbour.id] = info

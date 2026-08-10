@@ -1432,11 +1432,35 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile {
+  position: relative;
   margin: 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--card);
+}
+
+/* Had no styling at all before — a plain inline button between the image
+   and caption, not the corner overlay a delete control on a tile usually
+   is anywhere else in this app. Hover/focus-revealed so a grid of images
+   doesn't carry a permanent row of trash-can icons; the button itself
+   stays in the DOM (not display:none) so it's still keyboard-reachable
+   without hovering. */
+.library-image-tile .library-image-delete {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.library-image-tile:hover .library-image-delete,
+.library-image-tile:focus-within .library-image-delete,
+.library-image-tile .library-image-delete:focus-visible {
+  opacity: 1;
 }
 
 .library-image-tile img {
@@ -4550,6 +4574,24 @@ html.modal-open body {
   stroke-width: 2.2;
 }
 
+/* The invisible, much wider click target laid over each thin visible edge —
+   reported directly: "the links are hard to click on". `stroke: transparent`
+   still hit-tests (unlike `fill: none` with no stroke at all), and only a
+   link edge (`.graph-edge-manageable`) actually wants a pointer/click; every
+   other kind stays pointer-events:none so it can't steal a click meant for
+   whatever's underneath it. */
+.graph-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: none;
+}
+
+.graph-edge-hit.graph-edge-manageable {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
 .graph-link-panel-reason {
   width: 100%;
   resize: vertical;
@@ -4640,6 +4682,20 @@ button.ghost.danger {
 .graph-node .graph-core.graph-hub {
   stroke: var(--accent);
   stroke-width: 2.5px;
+}
+
+/* An entity (ROADMAP.md item 34) isn't a note — a dashed ring says so at a
+   glance without needing a second SVG shape for one node kind. Not a
+   pointer cursor either: clicking one is a no-op (app.js), there's no note
+   underneath it to open. */
+.graph-node .graph-core.graph-node-entity {
+  stroke: var(--ink);
+  stroke-width: 2px;
+  stroke-dasharray: 3 2;
+}
+
+.graph-node:has(.graph-node-entity) {
+  cursor: default;
 }
 
 .graph-node:hover .graph-core {
@@ -6919,6 +6975,12 @@ html {
   opacity: 0.85;
 }
 
+/* One tier weaker again (ROADMAP.md item 33's second hop): linked to a note
+   that's linked to a match, not to the match itself. */
+.result-connected-2hop {
+  opacity: 0.65;
+}
+
 /* Why a result showed up. Was a chip on the connected case alone
    (`.result-connected-chip`) and nothing at all on an ordinary match — the
    minority of rows had an explanation and the majority, the actual hits,
@@ -6936,6 +6998,12 @@ html {
 .result-reason-connected {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.result-reason-connected_2hop {
+  background: var(--accent-soft);
+  color: var(--accent);
+  opacity: 0.75;
 }
 
 .result-reason-semantic,
@@ -9176,6 +9244,41 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Bumped from a 1.5rem icon-sized thumbnail — reported directly as needing
+   to read as an actual image preview, not a small generic file-attached
+   icon. Large enough to recognise the picture at a glance, still well
+   short of the note's own composing area. */
+.attachment-chip-image {
+  max-width: 8rem;
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-2);
+  gap: var(--space-2);
+}
+
+.attachment-chip-image img {
+  width: 100%;
+  height: 5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+}
+
+.attachment-chip-image>span:first-of-type {
+  font-size: var(--text-xs);
+}
+
+.attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 var(--space-3);
+}
+
+.attachment-chips.hidden {
+  display: none;
 }
 
 .attachment-remove {
@@ -12002,13 +12105,21 @@ textarea.autogrow {
 /* The destructive choice is coloured as destructive. It is also NOT the
    focused button — cancel takes focus, so a stray Enter arriving with the
    dialog can't be the thing that empties the recycle bin. */
-.confirm-actions .danger {
+/* `button.danger` (type + 2 classes) so this beats `button.ghost.danger`
+   (also type + 2 classes) on specificity via source order rather than
+   losing to it — reported directly, with a screenshot: unreadable text,
+   because the graph link panel's "Remove link" button carries both
+   `ghost` and `danger` (`openGraphLinkPanel` in app.js), and
+   `button.ghost.danger`'s `color: var(--error)` was winning over this
+   rule's own `color: #fff`, painting the text the exact same red as the
+   background it was sitting on. */
+.confirm-actions button.danger {
   background: var(--error);
   border-color: var(--error);
   color: #fff;
 }
 
-.confirm-actions .danger:hover {
+.confirm-actions button.danger:hover {
   filter: brightness(1.1);
 }
 
@@ -12809,12 +12920,32 @@ textarea.autogrow {
   align-items: center;
   justify-content: center;
   padding: calc(var(--space-9) * 2.5) var(--space-8) calc(var(--space-9) * 3);
-  overflow-y: auto;
   z-index: 1;
   pointer-events: none;
 }
 
-.wb-empty-hint > * {
+/* The padding above reserves the top/bottom panels' strips *most* of the
+   time, but it's a guess at their height, not a measurement of it — the
+   tools panel grows when a shape submenu opens, and a short window has less
+   room to begin with. Previously the text itself sat directly in the padded
+   box with `overflow-y: auto` there, which should have let it scroll past
+   either case — except that box is `pointer-events: none` (deliberately, so
+   an empty canvas stays click-through-able to start drawing), which also
+   blocks the wheel/drag a scroll needs. Reported directly: the text and
+   button overflowing, covered by the tool UI, with no way to reach them.
+   This inner box is the fix — it's the only part that's actually
+   `pointer-events: auto`, so scrolling and clicking both work, and its own
+   `max-height` + `overflow-y` mean content that doesn't fit scrolls inside
+   it rather than spilling into the reserved strip. */
+.wb-empty-hint-inner {
+  pointer-events: auto;
+  max-width: 26rem;
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.wb-empty-hint-inner>* {
   max-width: 26rem;
   text-align: center;
   color: var(--muted);
@@ -12843,12 +12974,22 @@ textarea.autogrow {
   position: absolute;
   z-index: 10;
   display: flex;
-  gap: 0.5rem;
-  padding: 0.5rem;
+  gap: var(--space-3);
+  padding: var(--space-3);
   align-items: center;
   border-radius: var(--radius);
   background: var(--card-bg);
   box-shadow: var(--shadow-sm);
+}
+
+/* Reported directly, with a screenshot: the colour swatch and the
+   stroke-width slider read as touching, and the slider ran up against the
+   zoom cluster's own grip handle at the row's end — the panel's own
+   `gap` gives even spacing between simple icon buttons, but a slider is
+   wide enough that the same gap reads as none at all next to it. A little
+   extra room on both sides of the one control that isn't icon-sized. */
+#wb-stroke-width {
+  margin-inline: var(--space-2);
 }
 
 /* The Export button's own dropdown — six format/scope combinations, small
@@ -12909,6 +13050,19 @@ textarea.autogrow {
 .whiteboard-floating-panel.top-right {
   top: 1rem;
   right: 1rem;
+  /* Eight controls (library toggle, colour, grid, snap, background image,
+     reset, clear, export) in one un-wrapped row reached ~666px wide, which
+     at any viewport under ~1330px overlapped #wb-back-to-boards's own
+     centred position — reported directly ("top right panel clashes with
+     the boards back button"). Wrapping to a second row instead of growing
+     further left is a smaller change than redesigning the toolbar, and
+     right-aligning the wrap keeps it flush with the panel's own `right`
+     anchor instead of drifting toward centre. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  /* Live-measured, not guessed: 26rem still overlapped the centred back
+     button down to ~950px wide. 18rem clears it down to ~700px. */
+  max-width: min(18rem, 34vw);
 }
 
 .whiteboard-floating-panel.bottom-right {
@@ -12916,10 +13070,12 @@ textarea.autogrow {
   right: 1rem;
 }
 
+/* Bottom-left by default (asked for directly) — the class name predates the
+   move and is left as-is since it's also the drag/reset storage key
+   (`wb-panel-pos-tools`) and the [data-dock="side"] override below. */
 .whiteboard-floating-panel.bottom-center {
   bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 1rem;
   border-radius: var(--radius-pill);
 }
 
@@ -13003,6 +13159,18 @@ textarea.autogrow {
    font. */
 #wb-grid-select {
   min-width: 9rem;
+}
+
+/* Reported directly, with a screenshot: "No grid" rendered as "No arid" —
+   the "g"'s descender was being clipped. The base select/input rule's own
+   vertical padding (var(--space-4) each side) plus one line of text
+   overflowed the panel's fixed 2.25rem control height above, so the box's
+   own bottom edge cut off exactly the letters with a tail (g/y/p/q).
+   Smaller vertical padding leaves room for the full glyph without
+   changing the box height every other control in the row shares. */
+.whiteboard-floating-panel select {
+  padding-block: var(--space-2);
+  line-height: 1.3;
 }
 
 #wb-board-select {
@@ -13105,13 +13273,32 @@ textarea.autogrow {
    source order alone and silently pin the "sidebar" to the bottom edge. */
 .whiteboard-floating-panel.bottom-center[data-dock="side"] {
   bottom: auto;
+  /* Anchored from the top, not vertically centred — a column of ~12 tools
+     plus the stroke-width slider is tall enough that centring it pushed the
+     top edge up into the top-left board-picker panel's own 1rem-4rem strip.
+     Matches `.whiteboard-sidebar`'s own top/max-height pair below, which
+     solved the same "panel taller than the canvas" problem the same way. */
   left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 5.5rem;
+  transform: none;
   flex-direction: column;
   border-radius: var(--radius);
-  max-height: calc(100% - 2rem);
+  max-height: calc(100% - 7rem);
   overflow-y: auto;
+}
+
+/* The stroke-width slider is a plain <input type="range"> with no width of
+   its own, so it took the browser default (~150px) — far wider than the
+   36px tool buttons around it, which is what actually forced the docked
+   sidebar "very wide" (reported directly). `writing-mode: vertical-lr` turns
+   it into a vertical slider matching the column it now sits in, the same
+   trick used to build a vertical range input without a custom control. */
+.whiteboard-floating-panel[data-dock="side"] #wb-stroke-width {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 28px;
+  height: 5.5rem;
+  margin: var(--space-2) auto;
 }
 
 .whiteboard-floating-panel[data-dock="side"] .wb-tool-group {
@@ -13160,6 +13347,25 @@ textarea.autogrow {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+}
+
+.wb-stroke-width-badge {
+  position: fixed;
+  z-index: 50;
+  transform: translate(-50%, -100%);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.wb-stroke-width-badge.hidden {
+  display: none;
 }
 
 .wb-tool-group button.active {

@@ -1,7 +1,7 @@
 # Analysis and outside reads
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34 and §59, including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59 and §60, including the licence constraint — MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. These sections are **reference, not work** — they
 record judgements, a competitor read, and what was deliberately *not* taken, so
@@ -833,3 +833,162 @@ of the three repos individually, closing the one real gap in it:
   do. The gap left after those two is narrower than a full claim ledger:
   per-sentence grounding inside a direct Q&A answer specifically. →
   ROADMAP.md item 36.
+
+---
+
+## 60. Odysseus, re-read — the repo tripled in size, and this time the question was answered from its own words
+
+Asked again, directly: a fresh full read of odysseus, what it does better, what
+this app has overlooked, and whether its backend is better designed. §33/§34
+already did this once, in depth — read those first; nothing there is repeated
+below. This section exists because the attached repo is not the one §33 read.
+
+**It's grown roughly 3.3×.** §33 measured ~60k lines; this checkout
+(`Braydenh563/odysseus`, `dev`, commit `c80462e` — a fork of
+`pewdiepie-archdaemon/odysseus`, same project) is **~200,700 lines of Python**.
+Whole subsystems exist now that weren't there to read before: an MCP client
+*and* four MCP servers of its own, a mobile "companion" pairing flow, a
+chat-derived passive memory extractor, multi-user privileges with optional
+TOTP, a vault, contacts, signatures, workspace routes, STT/TTS, face
+recognition, YouTube, and bridges to ChatGPT/Copilot/Codex. Everything below
+is new material; §33's "adopted"/"not taken" lists still stand and weren't
+re-litigated.
+
+### Is its backend better designed? No — and it says so about itself
+
+Odysseus carries its own Phase-0 refactor audit,
+`specs/architecture-runtime-inventory.md` (dated 2026-06-16, written for its
+own issue #4082, *"codebase readability improvements"*). Its numbers, not a
+guess:
+
+| | Odysseus (its own audit) | MemoryMap (this repo) |
+| --- | --- | --- |
+| `src/`-equivalent flat files | 95 (`src/`), no domain grouping | 5 subpackages (`ai/api/core/entry/search`) |
+| Route handlers | 54 flat files in `routes/` | grouped by domain under `api/` |
+| Largest single Python file | `src/tool_implementations.py`, 4,032 lines, rated **HIGH risk** | none over ~1,900 |
+| DB model file | `core/database.py`, 2,265 lines, **imported by 102 files** — their own words: *"the highest-risk refactor... should be tackled last, never first"* | `core/database.py`, one model module, no comparable fan-in reported |
+| Single largest CSS file | `static/style.css`, **36,653 lines**, tracked separately (#2617) | governed by `docs/DESIGN.md` + `tests/test_style_scale.py`, which exists specifically to prevent this |
+
+This is the hard evidence for what §33 already suspected on softer grounds
+(*"almost everything odysseus does better, it does by being bigger"*) — now
+with the target's own internal audit on record instead of an outside
+impression. A 200k-line app with 95 ungrouped files and a 36k-line stylesheet
+is not a design to import; it is the specific failure `test_style_scale.py`
+and this app's five-subpackage `src/` layout already exist to avoid. Bigger
+is not the same axis as better-organised, and here they've come apart.
+
+One narrower design comparison, checked by grep rather than assumed: odysseus's
+agent tools reach the app's own HTTP API via a **loopback bearer token**
+(`core/middleware.py`'s `INTERNAL_TOOL_TOKEN` / `X-Odysseus-Internal-Token`,
+because *"the agent's tool calls don't carry the admin user's session
+cookie"*) — an internal auth-bypass surface that has to be kept secret and
+kept in sync with every admin-gated route. MemoryMap's tools
+(`ai/tools.py`) call the same `Session`/manager objects the routes call,
+in-process, with no HTTP hop and nothing to leak. Not a gap; a simpler
+architecture that happens to also be safer, worth naming so it doesn't get
+"improved" toward odysseus's shape later.
+
+### A real, narrow bug this comparison surfaced
+
+`core/atomic_io.py` — `atomic_write_json`/`atomic_write_text`, write-to-tmp +
+`fsync` + `os.replace` — is used for every piece of live JSON state odysseus
+persists outside its database, `auth.json` included. §59 already looked at
+this *idea* once (claude-obsidian's transaction/dirfd layer) and correctly
+judged it solved a problem this app doesn't have, because SQLite's own
+transactions cover concurrent note writes. **That dismissal doesn't reach
+this case.** `core.config.ConfigManager.set_preference`
+(`src/memorymap/core/config.py:148`) persists preferences with a plain
+`self.preferences_path.write_text(json.dumps(...))` — no tmp file, no fsync,
+no atomic rename — and `preferences.json` holds `llm_api_key`, a secret, plus
+every setting the user has ever changed. It is the one piece of live state in
+this app that sits *outside* the database's transaction boundary, which is
+exactly the condition under which a `kill -9` or power loss mid-write leaves
+a truncated or half-written file. The docstring one line above the write
+already promises *"a crash never loses a settings change"* — the promise and
+the code disagree. Fix is odysseus's own two functions, ~15 lines, applied at
+this one call site; grepped for other direct `write_text`/`open(..., "w")`
+calls in `src/memorymap/` and found none else touching live user state (the
+other three are a searxng pid file and a source-bootstrap shim, not user
+data).
+
+### Worth building — features, ranked by fit
+
+1. **MCP support, now with a real shape to copy instead of a blank BACKLOG
+   §29 entry.** Odysseus's `mcp_servers/` is four small stdio servers, one per
+   capability domain (`memory_server.py`, `rag_server.py`,
+   `image_gen_server.py`, `email_server.py`), each built on the plain
+   `mcp.server.Server` + `stdio_server` pair with lazy-initialised managers —
+   and separately, `src/mcp_manager.py` on the *consuming* side, recently
+   hardened for concurrent server connections and connection timeouts (its
+   last three commits in this checkout are all reliability fixes to exactly
+   that file). Two different features, and they should ship separately:
+   - **Expose first.** A `memorymap-mcp` stdio server over the existing tool
+     registry (search/create/tag a note) needs no new trust model — it's the
+     same local process boundary the app already has, reachable from Claude
+     Desktop or any other MCP client on the same machine. This is the
+     low-risk half BACKLOG §29 didn't distinguish from the other one.
+   - **Consume, later, and carefully.** Odysseus's own newest commit in this
+     checkout (`c80462e`, *"block private SSRF targets and revalidate
+     redirects in importer"*) is a live reminder of what "an external MCP
+     server is exactly the kind of thing design principle 1 doesn't have a
+     category for" (BACKLOG §29's own words) actually costs in practice —
+     worth reading before scoping this half.
+
+2. **Passive memory extraction from chat, as a fifth opt-in background-librarian
+   job.** Odysseus's `services/memory/memory_extractor.py` sends the last few
+   turns of a conversation to the LLM after each reply, asking it to pull out
+   memorable facts, and periodically re-audits the whole memory list to merge
+   duplicates and drop junk — short-circuited by a SHA-256 fingerprint of the
+   current entries so an already-clean list doesn't re-run the LLM (their own
+   comment: this was costing 30–120s per call before the fingerprint).
+   Grepped this app for anything equivalent and found nothing: MemoryMap
+   files a note only on an explicit instruction or an explicit tool call —
+   something mentioned in passing during an ordinary Q&A turn is never
+   captured. That's a real gap for an app whose whole pitch is "a local AI
+   files your notes," and `autonomous_tasks_enabled`'s existing job list
+   (`auto_tag_enabled`, `auto_link_enabled`, `auto_dedupe_enabled` in
+   `core/config.py`) is already exactly the right home for a fifth
+   `auto_capture_enabled` job — same infrastructure, same default-off
+   reasoning (*"it runs the agent against the whole notebook with nobody
+   watching, which is a thing to opt into rather than discover"*), same need
+   for a fingerprint-style short-circuit so it doesn't re-run on an unchanged
+   conversation. Needs the same measurement discipline as §33's item 3 before
+   shipping — a background job that mis-files something nobody asked to
+   capture is a worse failure than one that misses something.
+
+3. **QR + LAN pairing for a phone companion** (`companion/pairing.py`) — a
+   bcrypt-hashed pairing token plus a UDP-connect trick to guess the LAN-facing
+   IP, no cloud relay involved. Minor, and not blocking anything: the PWA
+   already exists. Worth keeping on file as the onboarding pattern *if* a
+   phone companion is ever built on purpose, since "type in your laptop's IP
+   address" is real friction a QR code removes.
+
+### Looked at and not recommended
+
+- **Multi-user privileges + optional TOTP** (`core/auth.py`'s
+  `DEFAULT_PRIVILEGES`, per-user `allowed_models`/`max_messages_per_day`,
+  `pyotp`). Out of scope for the same reason §33's sub-sessions/pipelines
+  item was: this is deliberately a single-user local notebook. TOTP itself is
+  orthogonal to multi-user-ness, but `routes_auth.py`'s existing model —
+  idle + max-age token expiry, a global exponential-backoff throttle on wrong
+  guesses, no cookie to leak — is already reasoned through for this app's
+  actual threat model (someone with access to the machine), and adding a
+  second factor to a single local password doesn't clearly strengthen that.
+  Recorded so it isn't re-evaluated from nothing.
+- **Face recognition, STT/TTS, YouTube, email/calendar/ChatGPT/Copilot/Codex
+  bridging.** Different product, same call as §33 made on odysseus's email
+  and calendar integrations the first time — a notebook doesn't need to
+  become a workspace to stay itself.
+
+### The one-line answers to the three questions asked
+
+- **Does it do anything better?** Not on the axis it looked like it might —
+  the backend is bigger, not better-organised, by its own audit. The two real
+  wins are narrow: `atomic_write_json` (a real bug found in this app because
+  of it) and a working MCP shape to copy.
+- **Any features overlooked?** One real one: nothing in this app turns an
+  offhand mention in ordinary chat into a filed note. Everything else new in
+  odysseus is out of this app's stated scope on purpose.
+- **Is its backend better designed?** No, and now there's their own
+  refactor-planning document saying so about itself, not just this file's
+  opinion of it.

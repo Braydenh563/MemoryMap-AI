@@ -23552,6 +23552,48 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
   return `M ${tipX} ${tipY} L ${h1x} ${h1y} M ${tipX} ${tipY} L ${h2x} ${h2y}`;
 }
 
+//: Every cap kind a line/arrow/link end can wear, asked for directly ("a
+//: full line/arrow end-cap system... circle/square/multi-line ends,
+//: independently per end") — the shared arrowhead control only ever grew
+//: from Arrow-only to Line-and-Arrow, still one shape. Each is its own
+//: closed subpath appended to the shaft's own `d`, same convention
+//: `wbArrowHeadPath` already established (a stroked path, no separate SVG
+//: element, so hit-testing/move/resize/export keep treating the whole
+//: sketch as the one path they already know how to handle) — "arrow" here
+//: is exactly `wbArrowHeadPath`'s own two-line V, kept for a single call
+//: site to switch on.
+const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline"];
+
+function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
+  if (!kind || kind === "none") return "";
+  if (kind === "arrow") return wbArrowHeadPath(tipX, tipY, approachAngle, headLen);
+  if (kind === "circle") {
+    const r = headLen / 3;
+    // Centred a radius back from the tip along the shaft, so the circle
+    // sits *at* the end rather than half hanging past it.
+    const cx = tipX - r * Math.cos(approachAngle), cy = tipY - r * Math.sin(approachAngle);
+    return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+  }
+  if (kind === "square") {
+    const s = headLen / 2.6;
+    const cx = tipX - s * Math.cos(approachAngle), cy = tipY - s * Math.sin(approachAngle);
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    const corner = (dx, dy) => `${cx + dx * cos - dy * sin} ${cy + dx * sin + dy * cos}`;
+    return `M ${corner(-s, -s)} L ${corner(s, -s)} L ${corner(s, s)} L ${corner(-s, s)} Z`;
+  }
+  // "multiline": two short perpendicular ticks near the tip — the
+  // ER-diagram "many" mark, and a visually distinct third option from a
+  // filled dot or square rather than a second arrow variant.
+  const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+  const perpX = -sin, perpY = cos;
+  const half = headLen * 0.4;
+  const tick = (back) => {
+    const bx = tipX - cos * back, by = tipY - sin * back;
+    return `M ${bx - perpX * half} ${by - perpY * half} L ${bx + perpX * half} ${by + perpY * half}`;
+  };
+  return `${tick(headLen * 0.35)} ${tick(headLen * 0.75)}`;
+}
+
 function wbCursorForTool(tool, strokeColor) {
   const color = /^#[0-9a-fA-F]{3,8}$/.test(strokeColor || "") ? strokeColor : "#ffffff";
   if (WB_BRUSH_TOOLS.has(tool)) {
@@ -23772,29 +23814,48 @@ function wbResolveLinkEndpoints(parsed) {
   };
 }
 
+//: Reads a link's own start/end cap kinds — the new independent-per-end
+//: fields (`startCap`/`endCap`, one of `WB_CAP_KINDS`) if it has them, or
+//: translated from the older single `endStyle` (start/end/both/none,
+//: always an arrow) for a link saved before the full end-cap system
+//: existed. No migration needed: this is the only place either shape gets
+//: read, so an old link keeps rendering exactly as it always did until its
+//: caps are actually changed.
+function wbLinkCaps(parsed) {
+  if (parsed.startCap !== undefined || parsed.endCap !== undefined) {
+    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none" };
+  }
+  const style = parsed.endStyle;
+  return {
+    startCap: style === "start" || style === "both" ? "arrow" : "none",
+    endCap: style === "end" || style === "both" ? "arrow" : "none",
+  };
+}
+
 //: Shared by the render path and the live drag preview so a straight vs.
-//: curved link can't compute its path two different ways. `endStyle`
-//: ("end"/"start"/"both", same values the sketch Arrow tool's own control
-//: uses) is optional — asked for directly ("customisable links...
-//: connection endpoint designs") — a link had no endpoint marker option at
-//: all before this. The approach angle for the arrowhead is the straight
-//: line to the *other* endpoint, which is exact for a straight link and a
-//: reasonable approximation for a curved one (the curve's own tangent at
-//: the endpoint, not attempted — this app's curves are gentle enough that
-//: the difference is small).
-function wbLinkPathD(type, sPt, tPt, endStyle, width) {
+//: curved link can't compute its path two different ways. `caps` (from
+//: `wbLinkCaps`) is optional — asked for directly ("customisable links...
+//: connection endpoint designs", later extended to "circle/square/multi-
+//: line ends, independently per end") — a link had no endpoint marker
+//: option at all before the first version of this. The approach angle for
+//: a cap is the straight line to the *other* endpoint, which is exact for
+//: a straight link and a reasonable approximation for a curved one (the
+//: curve's own tangent at the endpoint, not attempted — this app's curves
+//: are gentle enough that the difference is small).
+function wbLinkPathD(type, sPt, tPt, caps, width) {
   const base = type === "link-straight"
     ? `M ${sPt.x} ${sPt.y} L ${tPt.x} ${tPt.y}`
     : (() => {
         const dx = tPt.x - sPt.x;
         return `M ${sPt.x} ${sPt.y} C ${sPt.x + dx / 2} ${sPt.y}, ${tPt.x - dx / 2} ${tPt.y}, ${tPt.x} ${tPt.y}`;
       })();
-  if (!endStyle || endStyle === "none") return base;
+  const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
+  if (startCap === "none" && endCap === "none") return base;
   const headLen = (width || 3) * 4 + 6;
   const angle = Math.atan2(tPt.y - sPt.y, tPt.x - sPt.x);
   let d = base;
-  if (endStyle === "end" || endStyle === "both") d += " " + wbArrowHeadPath(tPt.x, tPt.y, angle, headLen);
-  if (endStyle === "start" || endStyle === "both") d += " " + wbArrowHeadPath(sPt.x, sPt.y, angle + Math.PI, headLen);
+  if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, angle, headLen);
+  if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, angle + Math.PI, headLen);
   return d;
 }
 
@@ -23982,7 +24043,8 @@ function wbUpdatePropertiesPanel() {
   const rows = {
     color: document.getElementById("wb-prop-color-row"),
     width: document.getElementById("wb-prop-width-row"),
-    arrowhead: document.getElementById("wb-prop-arrowhead-row"),
+    startcap: document.getElementById("wb-prop-startcap-row"),
+    endcap: document.getElementById("wb-prop-endcap-row"),
     bg: document.getElementById("wb-prop-bg-row"),
     border: document.getElementById("wb-prop-border-row"),
     fontsize: document.getElementById("wb-prop-fontsize-row"),
@@ -24027,11 +24089,14 @@ function wbUpdatePropertiesPanel() {
       panel.classList.remove("hidden");
       rows.color.classList.remove("hidden");
       rows.width.classList.remove("hidden");
-      rows.arrowhead.classList.remove("hidden");
+      rows.startcap.classList.remove("hidden");
+      rows.endcap.classList.remove("hidden");
       rows.dash.classList.remove("hidden");
       document.getElementById("wb-prop-color").value = linkParsed.color || "#ffffff";
       document.getElementById("wb-prop-width").value = linkParsed.width || 3;
-      document.getElementById("wb-prop-arrowhead").value = linkParsed.endStyle || "none";
+      const linkCaps = wbLinkCaps(linkParsed);
+      document.getElementById("wb-prop-startcap").value = linkCaps.startCap;
+      document.getElementById("wb-prop-endcap").value = linkCaps.endCap;
       document.getElementById("wb-prop-dash").value = linkParsed.dash || "solid";
       return;
     }
@@ -24046,12 +24111,15 @@ function wbUpdatePropertiesPanel() {
     document.getElementById("wb-prop-color").value = parsed.color || "#000000";
     document.getElementById("wb-prop-width").value = parsed.width || 3;
     if (wbSketchIsArrow(parsed.d)) {
-      rows.arrowhead.classList.remove("hidden");
+      rows.startcap.classList.remove("hidden");
+      rows.endcap.classList.remove("hidden");
       // The sketch's own actual style, not the active drawing tool's current
       // default — live-reported bug, same root cause as Line always drawing
       // with a head: this used to show `window.currentArrowStyle` instead
       // of what was really on the selected line/arrow.
-      document.getElementById("wb-prop-arrowhead").value = wbDetectArrowStyle(parsed.d);
+      const caps = wbSketchCaps(parsed);
+      document.getElementById("wb-prop-startcap").value = caps.startCap;
+      document.getElementById("wb-prop-endcap").value = caps.endCap;
     }
     // Stroke style/no-stroke apply to any drawn shape/line; fill only to
     // the four closed shapes — asked for directly ("stroke width, style,
@@ -25601,7 +25669,13 @@ async function initWhiteboard() {
     await wbSaveSketchProps(sketch, { width });
     renderWhiteboard();
   });
-  document.getElementById("wb-prop-arrowhead")?.addEventListener("change", async (e) => {
+  // Start/end cap dropdowns — independently per end (asked for directly),
+  // replacing the single shared "which end gets an arrowhead" control.
+  // Shared by both: reads the *other* end's current cap first (from
+  // whichever field it's actually stored in — the explicit new one, or
+  // the legacy `endStyle` for a link that predates it) so changing one end
+  // never silently resets the other.
+  async function wbSetCap(which, value) {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
     let linkParsed = null;
@@ -25610,20 +25684,28 @@ async function initWhiteboard() {
       if (candidate && (candidate.type || "").startsWith("link-")) linkParsed = candidate;
     } catch { /* not a link */ }
     if (linkParsed) {
-      // A link's arrowhead is computed at render time from `endStyle`
+      // A link's caps are computed at render time from `startCap`/`endCap`
       // (`wbLinkPathD`), not baked into a stored path the way a drawn
       // arrow's is — nothing to regenerate, just persist the choice.
-      await wbSaveSketchProps(sketch, { endStyle: e.target.value === "none" ? undefined : e.target.value });
+      const current = wbLinkCaps(linkParsed);
+      current[which] = value;
+      await wbSaveSketchProps(sketch, {
+        startCap: current.startCap, endCap: current.endCap, endStyle: undefined,
+      });
       renderWhiteboard();
       return;
     }
     const parsed = wbSketchParsedData(sketch);
     if (!parsed || !wbSketchIsArrow(parsed.d)) return;
+    const current = wbSketchCaps(parsed);
+    current[which] = value;
     const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
-    const newD = wbRegenerateArrowHeads(parsed.d, e.target.value, headLen);
-    await wbSaveSketchProps(sketch, { d: newD });
+    const newD = wbRegenerateShapeCaps(parsed.d, current.startCap, current.endCap, headLen);
+    await wbSaveSketchProps(sketch, { d: newD, startCap: current.startCap, endCap: current.endCap });
     renderWhiteboard();
-  });
+  }
+  document.getElementById("wb-prop-startcap")?.addEventListener("change", (e) => wbSetCap("startCap", e.target.value));
+  document.getElementById("wb-prop-endcap")?.addEventListener("change", (e) => wbSetCap("endCap", e.target.value));
   document.getElementById("wb-prop-bg")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
@@ -26833,19 +26915,21 @@ function wbSketchIsArrow(d) {
   return (d.match(/M/g) || []).length > 1;
 }
 
-//: Rebuilds an arrow's head stroke(s) at `style` from its own shaft — the
-//: shaft is always the sketch's first subpath, `M sx sy L ex ey` (every
-//: arrow this app draws starts that way), so head style can be changed
-//: after the fact without needing to have stored which style was originally
-//: chosen.
-function wbRegenerateArrowHeads(d, style, headLen) {
+//: Rebuilds a line/arrow's own two end caps from its shaft — the shaft is
+//: always the sketch's first subpath, `M sx sy L ex ey` (every arrow this
+//: app draws starts that way), so either end's cap can be changed after
+//: the fact without needing to have stored which shape was originally
+//: chosen. Independently per end (`WB_CAP_KINDS` each) — asked for
+//: directly ("a full line/arrow end-cap system... circle/square/multi-line
+//: ends"), replacing the single shared arrowhead-only version.
+function wbRegenerateShapeCaps(d, startCap, endCap, headLen) {
   const m = d.match(/^M\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)\s+L\s*(-?[\d.]+(?:e-?\d+)?)\s+(-?[\d.]+(?:e-?\d+)?)/);
   if (!m) return d;
   const sx = parseFloat(m[1]), sy = parseFloat(m[2]), ex = parseFloat(m[3]), ey = parseFloat(m[4]);
   const angle = Math.atan2(ey - sy, ex - sx);
   let out = `M ${sx} ${sy} L ${ex} ${ey}`;
-  if (style === "end" || style === "both") out += " " + wbArrowHeadPath(ex, ey, angle, headLen);
-  if (style === "start" || style === "both") out += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
+  if (endCap && endCap !== "none") out += " " + wbCapPath(endCap, ex, ey, angle, headLen);
+  if (startCap && startCap !== "none") out += " " + wbCapPath(startCap, sx, sy, angle + Math.PI, headLen);
   return out;
 }
 
@@ -26872,6 +26956,26 @@ function wbDetectArrowStyle(d) {
   if (hasEnd) return "end";
   if (hasStart) return "start";
   return "none";
+}
+
+//: A drawn line/arrow's own two cap kinds — the explicit `startCap`/
+//: `endCap` fields (any of `WB_CAP_KINDS`) if this sketch has them, or
+//: `wbDetectArrowStyle`'s older binary read translated to "arrow"/"none"
+//: for one saved before the full end-cap system existed. Explicit fields
+//: rather than shape-sniffing every cap kind out of the raw path: circle
+//: and square are geometrically ambiguous with plenty of things a pen
+//: stroke could also draw, where an arrow's two-line V (`wbDetectArrowStyle`)
+//: is not — so a *new* cap choice is trusted and stored, and only a link
+//: with no stored choice at all falls back to inferring one.
+function wbSketchCaps(parsed) {
+  if (parsed.startCap !== undefined || parsed.endCap !== undefined) {
+    return { startCap: parsed.startCap || "none", endCap: parsed.endCap || "none" };
+  }
+  const legacy = wbDetectArrowStyle(parsed.d);
+  return {
+    startCap: legacy === "start" || legacy === "both" ? "arrow" : "none",
+    endCap: legacy === "end" || legacy === "both" ? "arrow" : "none",
+  };
 }
 
 //: Two draggable handles at a selected link's own resolved endpoints —
@@ -26919,7 +27023,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             live.y += event.dy / transform.k;
             d3.select(this).attr("cx", live.x).attr("cy", live.y);
             const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
-            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], parsed.endStyle, parsed.width);
+            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
 
@@ -27240,7 +27344,7 @@ function renderWhiteboard() {
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
         const endpoints = wbResolveLinkEndpoints(parsed);
-        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, parsed.endStyle, parsed.width) : "";
+        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width) : "";
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
@@ -27860,7 +27964,7 @@ function wbUpdateLinkedSketches(nodeId) {
     if (parsed.sourceId !== nodeId && parsed.targetId !== nodeId) continue;
     const endpoints = wbResolveLinkEndpoints(parsed);
     if (!endpoints) continue;
-    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, parsed.endStyle, parsed.width);
+    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width);
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
     el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);

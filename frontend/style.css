@@ -6990,6 +6990,27 @@ html {
    one case this app should visually say "different kind of result"). Bold
    and its own colour rather than the base `.chip`'s quiet grey, because the
    report was specifically that the existing one read as too easy to miss. */
+.answer-grounding {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.answer-grounding.hidden {
+  display: none;
+}
+
+.answer-grounding-label {
+  font-size: var(--text-xs);
+}
+
+.answer-grounding-chip {
+  cursor: pointer;
+  border: none;
+}
+
 .result-reason-chip {
   font-size: var(--text-xs);
   font-weight: 650;

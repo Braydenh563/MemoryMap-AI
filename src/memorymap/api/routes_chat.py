@@ -700,8 +700,22 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 pass
             else:
                 events = chain([first], agent_events)
+        # ROADMAP.md item 36's frontend half: the non-streaming /chat already
+        # grounds its answer, but the live Ask box only ever calls this
+        # streaming route. Accumulated here (not computed per-delta — the
+        # sentence splitter needs the whole answer, and this is a handful of
+        # deltas' worth of string concatenation, not a hot loop) and sent as
+        # its own event once the answer is fully in, direct-Q&A only.
+        answer_text = ""
         for payload in events:
+            if payload.get("type") == "answer":
+                answer_text += payload.get("delta") or ""
             yield event(payload)
+        conversational = not intent.needs_retrieval(prepared["intent"])
+        if not conversational and prepared["notes"] and answer_text:
+            grounding = ground_answer_sentences(answer_text, prepared["notes"])
+            if grounding:
+                yield event({"type": "grounding", "sentences": grounding})
         yield event({"type": "done"})
 
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the

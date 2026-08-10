@@ -2856,6 +2856,44 @@ function clickableResult(entry) {
   return li;
 }
 
+// ROADMAP.md item 36: which retrieved note backs which sentence of a direct
+// Q&A answer — surfaced the same understated way `match_info`'s own badges
+// already are (a strip of small chips, not a rewrite of the answer's own
+// text). One chip per *note* (not per sentence — several grounded sentences
+// often share a note, and a chip per sentence would repeat itself), the
+// chip's title carrying the actual sentence(s) it backs. Clicking a chip
+// opens that note, same as a search result row already does.
+function renderAnswerGrounding(box, sentences, rawResults) {
+  const target = $("ai-answer-grounding");
+  if (!target) return;
+  target.replaceChildren();
+  if (!sentences || !sentences.length) {
+    target.classList.add("hidden");
+    return;
+  }
+  const byId = new Map((rawResults || []).map((entry) => [entry.id, entry]));
+  const byNote = new Map(); // note_id -> sentences[]
+  for (const g of sentences) {
+    if (!byNote.has(g.note_id)) byNote.set(g.note_id, []);
+    byNote.get(g.note_id).push(g.sentence);
+  }
+  const label = document.createElement("span");
+  label.className = "muted answer-grounding-label";
+  label.textContent = "Grounded in:";
+  target.appendChild(label);
+  for (const [noteId, forSentences] of byNote) {
+    const entry = byId.get(noteId);
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
+    chip.textContent = `📄 ${noteLabel({ content: entry?.content || "" }, 30)}`;
+    chip.title = forSentences.join(" ");
+    chip.addEventListener("click", () => flashEntry(noteId));
+    target.appendChild(chip);
+  }
+  target.classList.remove("hidden");
+}
+
 // The Ask box's "that isn't a question about your notes" card (§35A).
 //
 // Deliberately not rendered as an answer. Reported after the first version:
@@ -3043,6 +3081,7 @@ async function streamChat({
   onCompressReview,
   onHint,
   onStats,
+  onGrounding,
 }) {
   const body = { question, history: history || [] };
   if (persona) body.persona = persona;
@@ -3173,6 +3212,9 @@ async function streamChat({
       else if (event.type === "compress_review" && onCompressReview) onCompressReview(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
+      // ROADMAP.md item 36: which retrieved note backs which sentence of a
+      // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
+      else if (event.type === "grounding" && onGrounding) onGrounding(event);
       else if (event.type === "error") {
         // The server caught something mid-stream and said so. Surfacing it
         // beats the silent truncation this used to be.
@@ -3288,12 +3330,15 @@ async function askQuestion(preset) {
   renderAskedQuestion(question);
   answerBox.textContent = "";
   answerBox.appendChild(typingDots()); // until the first token arrives
+  $("ai-answer-grounding").replaceChildren();
+  $("ai-answer-grounding").classList.add("hidden");
   thinkingText.textContent = "";
   thinkingBox.classList.add("hidden");
   thinkingBox.open = false;
 
   let answerRaw = "";
   let stopped = false;
+  let groundingRawResults = []; // set by onMeta, read by onGrounding
   // The box explained itself instead of answering — so the final markdown
   // pass, the saved turn and the answer actions all sit this one out.
   let hinted = false;
@@ -3317,6 +3362,7 @@ async function askQuestion(preset) {
       signal: askController.signal,
       onMeta: (meta) => {
         renderChatMeta(meta);
+        groundingRawResults = meta.raw_results || [];
         status.textContent = "The model is writing…";
       },
       onThinking: (delta) => {
@@ -3340,6 +3386,9 @@ async function askQuestion(preset) {
         hinted = true;
         renderAskHint(answerBox, event);
         status.textContent = "";
+      },
+      onGrounding: (event) => {
+        renderAnswerGrounding(answerBox, event.sentences, groundingRawResults);
       },
     });
 

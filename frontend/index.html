@@ -411,6 +411,11 @@ Link to another note with [[its first few words]]."></textarea>
                 <div id="ai-thinking" class="thinking"></div>
               </details>
               <div id="ai-answer" class="answer"></div>
+              <!-- ROADMAP.md item 36: which note backs which sentence of a
+                   direct Q&A answer, one badge per grounded sentence — never
+                   inside #ai-answer, which the final renderMarkdown() call
+                   replaces wholesale after the stream ends. -->
+              <div id="ai-answer-grounding" class="answer-grounding hidden"></div>
             </div>
             <div class="chat-half">
               <h3>Matching records <span id="search-mode" class="chip"></span></h3>

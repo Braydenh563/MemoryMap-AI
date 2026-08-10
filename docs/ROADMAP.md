@@ -258,7 +258,7 @@ into a good one.
    `POST /entries/links/backfill-reasons` (`manager.backfill_link_reasons`)
    runs it once over every existing reason-less link, behind a button next
    to Suggest links. ~~**Asked again this session: "can there be a way to
-   visually see link reasons in the graph?"**~~ **Done (HISTORY.md §59).**
+   visually see link reasons in the graph?"**~~ **Done (HISTORY.md §61).**
    A manual link edge with a reason now carries `.graph-edge-reasoned` —
    visibly distinct weight/colour, not just a hover tooltip — and clicking
    any manual-link edge opens a real management panel: both note previews,
@@ -348,7 +348,7 @@ into a good one.
       `pointer-events: none`, so an invisible handle intercepted drags at
       *every* card/object corner for *any* tool, not just while selected;
       this is very likely why a link-from-corner drag felt unreliable even
-      before anchors existed. **Extended (HISTORY.md §59), asked for
+      before anchors existed. **Extended (HISTORY.md §61), asked for
       directly** ("their anchor points should display... and I should be
       able to move the points... or even make it a dangling unattached
       point"): hovering a card with a link tool selected now shows its
@@ -382,7 +382,7 @@ into a good one.
       **Not verified against a live model** — this sandbox's standing
       caveat about provider behaviour applies here too; the tool logic is
       real-database-tested, not watched being chosen mid-conversation.
-    - ~~**Sketch rotation.**~~ **Done, verified live (HISTORY.md §59).**
+    - ~~**Sketch rotation.**~~ **Done, verified live (HISTORY.md §61).**
       `wbTransformPathD` gained a `rotate` parameter: `M`/`L`/`C` rotate
       normally, `h`/`v` (the rect tool's own axis-aligned relative lines)
       become absolute `L` since a rotated line can't stay axis-aligned, and
@@ -398,7 +398,7 @@ into a good one.
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
     - ~~**Uploaded images showing in the Library, and a way to delete
-      one.**~~ **Done (HISTORY.md §59).** New `MediaUpload` table tracks
+      one.**~~ **Done (HISTORY.md §61).** New `MediaUpload` table tracks
       every `/media/upload` regardless of destination (note, document, or
       whiteboard); `GET /media`/`DELETE /media/{id}` back the Library's
       Image Gallery, one delete button per tile. Both a note's own inline
@@ -422,14 +422,14 @@ into a good one.
       dropdown (`#wb-select-picker`, same pattern as the shape dropdown).
       Export gained a "Just the selection" option (PNG/SVG/PDF) that
       filters to the selected item(s) and crops to their bounds, not just
-      the whole board. **Bug found and fixed (HISTORY.md §59):** the lasso
+      the whole board. **Bug found and fixed (HISTORY.md §61):** the lasso
       was live-reported as "doesn't work properly" — the card/object/grip
       drag filters excluded every other tool while the lasso was active
       *except* the lasso's own pointerdown guard, so dragging a lasso stroke
       across a card moved the card instead of drawing the lasso. Fixed by
       adding the lasso to the three drag filters.
     - ~~**Renaming a board, and a Library gallery of every board/mind-map
-      and every uploaded image.**~~ **Done (HISTORY.md §59).** `PUT
+      and every uploaded image.**~~ **Done (HISTORY.md §61).** `PUT
       /whiteboard/boards/{id}` renames a board (rewrites its note's `#
       heading` line). The Library's Whiteboard area is now two sub-tabs —
       "Whiteboards" (a board gallery plus "+ New board", replacing the old
@@ -439,7 +439,7 @@ into a good one.
       single combined tab after feedback that the whiteboard canvas itself
       should be reachable from the same page.
     - ~~**A structured, small-model-friendly "generate a diagram from my
-      notes" tool.**~~ **Done (HISTORY.md §59).** `generate_diagram` takes
+      notes" tool.**~~ **Done (HISTORY.md §61).** `generate_diagram` takes
       a flat list of nodes (each a title-or-`note_id`, plus a `parent_ref`)
       and a `layout` (`tree` or `radial`), and does the BFS depth/slot
       placement server-side in one call — reusing the existing
@@ -462,7 +462,7 @@ into a good one.
       many-hundred-item board (nothing this session was measured against
       one) — the fixes above are reasoned from reading the code's own
       complexity, not from a before/after timing.
-    - ~~**A full line/arrow end-cap system**~~ **Done (HISTORY.md §59).**
+    - ~~**A full line/arrow end-cap system**~~ **Done (HISTORY.md §61).**
       Independent start/end cap pickers (none/arrow/circle/square/
       multiline) replace the old single shared arrowhead control, for both
       the Line and Arrow tools. Caps are computed from the path's own
@@ -807,13 +807,13 @@ Worth doing, and worth doing after the above.
 
 20. **Files and images on notes, and standalone in the Library.** The plumbing
     exists (`/media`, attachments); an images-only Library gallery now exists
-    (20a, HISTORY.md §59). **Still not built:** a gallery over *note
+    (20a, HISTORY.md §61). **Still not built:** a gallery over *note
     attachments* specifically (files attached to a note but not images —
     asked for directly this session as "separate from the whiteboard gallery
     I just built"), and drag-to-attach.
 20a. ~~**A Library "Media/Images" gallery tab**~~, **and garbage-collecting
     orphaned `/media/` files** (still open). The decision this item asked
-    for is made and built (HISTORY.md §59): every `/media/upload` now gets
+    for is made and built (HISTORY.md §61): every `/media/upload` now gets
     a `MediaUpload` row (filename, original name, timestamp), which is
     what the new Library "Image Gallery" sub-tab lists, and what
     `DELETE /media/{id}` uses to remove a file plus its row. A note's own
@@ -830,7 +830,7 @@ Worth doing, and worth doing after the above.
     pass — not the tracking/gallery/delete plumbing — is what remains of
     this item.
 20b. ~~**An "Agent Activity" background-task popup cleanup pass.**~~ **Done
-    (HISTORY.md §59).** The concrete overlap this item asked for a list of
+    (HISTORY.md §61).** The concrete overlap this item asked for a list of
     turned out to be one bug: `.agent-monitor` was pinned to `right: 20px`,
     the same corner several whiteboard floating panels anchor to, so the
     monitor toast sat on top of them at some viewport sizes. Moved to
@@ -956,26 +956,27 @@ Worth doing, and worth doing after the above.
     whether the agent narrates "generated from an image" the way whiteboard
     AI actions already disclose their own source.
 36. ~~**Q&A answers cite which notes matched, not which claim inside the
-    answer's prose came from which note.**~~ **Backend done and tested;
-    frontend badge not built — say so plainly rather than claim the whole
-    item.** `ai/grounding.py`'s `ground_answer_sentences` splits the
-    answer into sentences and scores each against every retrieved note by
-    shared meaningful words (the same signal `search_manager`'s own
-    keyword ranking uses) — deliberately not a second LLM call, so the
+    answer's prose came from which note.**~~ **Done, backend and frontend.**
+    `ai/grounding.py`'s `ground_answer_sentences` splits the answer into
+    sentences and scores each against every retrieved note by shared
+    meaningful words (the same signal `search_manager`'s own keyword
+    ranking uses) — deliberately not a second LLM call, so the
     already-answered turn isn't made slower to explain itself. Attaches a
     note only above `MIN_OVERLAP_RATIO`; omits the sentence rather than
-    guessing when nothing clears it, on purpose (a wrong claim-ledger
-    entry is worse than a missing one). Wired into `POST /chat` (the
-    direct Q&A path, non-conversational turns only) as a new
-    `sentence_grounding` field, empty-list default so older clients see no
-    change. Seven tests (`test_grounding.py`): sentence splitting, code-
-    fence stripping, correct grounding, an ungrounded sentence correctly
-    omitted, the short-sentence floor, and the endpoint carrying the field.
-    **Not done: the Ask box uses `/chat/stream` (NDJSON), not this
-    endpoint** — so nothing renders yet in the actual UI, and the "badge,
-    not an interruption" half of this item is still open. Streaming the
-    grounding as its own event type, and the frontend badge itself, are
-    the next two steps, in that order.
+    guessing when nothing clears it (a wrong claim-ledger entry is worse
+    than a missing one). `POST /chat` carries it as `sentence_grounding`;
+    the Ask box's actual live path, `/chat/stream`, carries it as its own
+    `grounding` NDJSON event, sent once after the answer finishes
+    streaming (needs the whole answer, not per-delta). The badge itself
+    (`renderAnswerGrounding`, a new `#ai-answer-grounding` strip below the
+    answer, one small chip per *source note* — several grounded sentences
+    sharing a note collapse into one chip rather than repeating it, the
+    sentence(s) it backs in the hover title) opens that note on click,
+    same as a search-result row already does. Seven backend tests
+    (`test_grounding.py`) plus a live Playwright smoke check (no console
+    errors driving the real Ask box; the actual "a chip renders and says
+    the right thing" path needs a running Ollama to reach, which this
+    sandbox doesn't have — say so rather than claim it was watched).
 
     Original scope, for the next session: `match_info` (search results'
     per-row "why this matched" badge) already covers "which notes were

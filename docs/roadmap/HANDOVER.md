@@ -70,7 +70,7 @@ rushed one.
 
 ## Previous: §58's three scoped whiteboard items closed out, a live bug list worked through as it arrived, and a second whiteboard architecture bug found the same way the first one was
 
-Full detail is [HISTORY.md §59](HISTORY.md). This section is the condensed
+Full detail is [HISTORY.md §61](HISTORY.md). This section is the condensed
 version: what changed, what's verified vs. reasoned, the traps, and what's
 next.
 

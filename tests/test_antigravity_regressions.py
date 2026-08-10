@@ -463,7 +463,11 @@ def test_an_upload_is_tracked_listed_and_deletable(ai_client):
 
 
 def test_deleting_an_unknown_upload_404s(ai_client):
-    assert ai_client.delete("/media/999999").status_code == 404
+    # CodeQL py/side-effect-in-assert: the DELETE call is a side effect, and
+    # an assert's own expression is skipped entirely under `python -O` —
+    # split so the request always fires regardless of optimization flags.
+    response = ai_client.delete("/media/999999")
+    assert response.status_code == 404
 
 
 def test_media_is_served_with_a_disposition_header(ai_client):

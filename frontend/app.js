@@ -15623,6 +15623,7 @@ function paletteCommands() {
         switchTab("library");
         const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
         wbSubtab?.click();
+        wbShowCanvasView();
         await createNewBoard();
       },
     },
@@ -26536,6 +26537,12 @@ async function createNewBoard() {
       body: JSON.stringify({ name: name.trim() }),
     });
     window.currentBoardId = board.id;
+    // `list_boards` only lists a board once something is actually placed on
+    // it (see its own docstring) — an empty new one is invisible to both
+    // this dropdown (already handled below via `justCreated`) and the
+    // landing gallery, which would otherwise make a board someone just
+    // created appear to vanish the moment they go back to the list.
+    window.wbLastCreatedBoard = board;
     const url = `/whiteboard/?board_id=${board.id}`;
     wbState = await apiJson(url);
     await refreshBoardList(board);
@@ -27994,23 +28001,40 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (targetId === "library-view-whiteboard") {
-          setTimeout(initWhiteboard, 50);
+          // Lands on the boards gallery, not straight onto a canvas — one
+          // door onto the whiteboard, asked for directly, replacing the
+          // old always-opens-the-last-board behaviour.
+          wbShowBoardsLanding();
         } else if (targetId === "library-view-media") {
-          renderLibraryMedia();
+          renderLibraryImagesGallery();
         }
       });
     });
   }
-  $("library-media-refresh")?.addEventListener("click", renderLibraryMedia);
+  $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("wb-boards-new")?.addEventListener("click", async () => {
+    wbShowCanvasView();
+    await createNewBoard();
+  });
+  $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
 });
 
-// A gallery over the whiteboard's own boards and images — asked for
-// directly (HANDOVER.md §53/§56), read-only consumers of the same
-// GET /whiteboard/boards and GET /whiteboard/images the board picker and
-// AI tools already use. Not a second canvas: picking a board jumps to the
-// real Whiteboard subtab with that board loaded.
-async function renderLibraryMedia() {
-  await Promise.all([renderLibraryBoardsGallery(), renderLibraryImagesGallery()]);
+// The Whiteboards tab has two views sharing one subtab: a boards gallery
+// (the landing view) and the actual canvas — asked for directly, replacing
+// two separate doors onto the whiteboard (a bare canvas tab defaulting to
+// whatever board was last open, plus a picker tab) with one. Canvas init
+// is lazy and idempotent (`wbInitialized` guards it), so switching between
+// the two views repeatedly costs nothing after the first time.
+function wbShowCanvasView() {
+  $("wb-boards-landing")?.classList.add("hidden");
+  $("wb-canvas-view")?.classList.remove("hidden");
+  setTimeout(initWhiteboard, 50);
+}
+
+function wbShowBoardsLanding() {
+  $("wb-canvas-view")?.classList.add("hidden");
+  $("wb-boards-landing")?.classList.remove("hidden");
+  renderLibraryBoardsGallery();
 }
 
 async function renderLibraryBoardsGallery() {
@@ -28018,8 +28042,15 @@ async function renderLibraryBoardsGallery() {
   const empty = $("library-boards-empty");
   if (!grid) return;
   const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); return; }
+  // See `createNewBoard`'s own comment: a board with nothing on it yet
+  // doesn't come back from the server at all.
+  const created = window.wbLastCreatedBoard;
+  if (created && !boards.some((b) => b.id === created.id)) {
+    boards.push({ ...created, node_count: 0, sketch_count: 0, object_count: 0 });
+  }
   grid.replaceChildren();
-  if (!boards || !boards.length) {
+  if (!boards.length) {
     empty?.classList.remove("hidden");
     return;
   }
@@ -28089,13 +28120,12 @@ async function renderLibraryImagesGallery() {
   }
 }
 
-// Jump to the real whiteboard canvas with a specific board loaded — the
-// same subtab-click + board-select pattern the command palette's "New
-// whiteboard board" entry already uses, minus the creation step.
+// Jump to the real whiteboard canvas with a specific board loaded.
 async function openWhiteboardBoard(boardId) {
   switchTab("library");
   const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
   wbSubtab?.click();
+  wbShowCanvasView();
   await new Promise((resolve) => setTimeout(resolve, 60));
   window.currentBoardId = boardId ?? null;
   await fetchWhiteboardState();

@@ -1297,8 +1297,8 @@ Link to another note with [[its first few words]]."></textarea>
     <div class="seg library-subtabs" id="library-subtabs" role="tablist">
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
-      <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboard</button>
-      <button role="tab" aria-selected="false" data-target="library-view-media">Boards &amp; Images</button>
+      <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
+      <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -1405,6 +1405,27 @@ Link to another note with [[its first few words]]."></textarea>
 
   <!-- ======================= WHITEBOARD TAB ======================= -->
   <div id="library-view-whiteboard" class="library-view-section library-view-whiteboard hidden">
+    <!-- The landing view — asked for directly: one door onto the
+         whiteboard rather than two (a bare canvas defaulting to whatever
+         board was last open, plus a separate picker tab). Shown by
+         default; picking a board (or "+ New board") swaps in
+         `#wb-canvas-view` below. -->
+    <div id="wb-boards-landing">
+      <section class="card glass">
+        <div class="row space-between library-head">
+          <h2>Whiteboards</h2>
+          <span class="row">
+            <button id="wb-boards-new" class="small" type="button">＋ New board</button>
+            <button id="library-media-refresh" class="ghost small" type="button" title="Reload">↻</button>
+          </span>
+        </div>
+        <p class="muted">Every board something has been placed on. Pick one to open it.</p>
+        <div id="library-boards-grid" class="library-grid"></div>
+        <p id="library-boards-empty" class="muted hidden">No boards yet — create one, or draw on the default board below.</p>
+      </section>
+    </div>
+    <div id="wb-canvas-view" class="hidden">
+      <button id="wb-back-to-boards" class="ghost small" type="button">← Boards</button>
     <div class="whiteboard-container" id="whiteboard-container">
       <!-- The SVG layer for drawing, fills the container -->
       <svg id="wb-svg-layer" class="wb-svg-layer">
@@ -1797,26 +1818,22 @@ Link to another note with [[its first few words]]."></textarea>
     </aside>
   </div>
   </div>
+  </div>
 
-  <!-- Every board and every whiteboard image, one gallery — asked for
-       directly (HANDOVER.md §53/§56). The whiteboard canvas itself already
-       has its own subtab; this is a jumping-off point onto it, not a second
-       canvas. -->
+  <!-- Every uploaded image — note-inline, document, or whiteboard alike,
+       tracked by `MediaUpload` — asked for directly ("images can also be
+       managed (delete, rename etc) in the gallery"). The board picker used
+       to live in this same tab; it's the Whiteboards tab's own landing
+       view now, so this is images only. -->
   <div id="library-view-media" class="library-view-section hidden">
     <section class="card glass">
       <div class="row space-between library-head">
-        <h2>Boards</h2>
-        <button id="library-media-refresh" class="ghost small" type="button" title="Reload">↻</button>
+        <h2>Image Gallery</h2>
+        <button id="library-images-refresh" class="ghost small" type="button" title="Reload">↻</button>
       </div>
-      <p class="muted">Every board something has been placed on. Pick one to open it on the Whiteboard tab.</p>
-      <div id="library-boards-grid" class="library-grid"></div>
-      <p id="library-boards-empty" class="muted hidden">No boards yet — draw or drop a card on the whiteboard to make one.</p>
-    </section>
-    <section class="card glass">
-      <h2>Images</h2>
-      <p class="muted">Every image pasted, dropped, or uploaded onto any board.</p>
+      <p class="muted">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard.</p>
       <div id="library-images-grid" class="library-image-grid"></div>
-      <p id="library-images-empty" class="muted hidden">No whiteboard images yet.</p>
+      <p id="library-images-empty" class="muted hidden">No images yet.</p>
     </section>
   </div>
 

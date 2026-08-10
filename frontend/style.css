@@ -12656,6 +12656,20 @@ textarea.autogrow {
   overflow: hidden;
 }
 
+/* `#wb-canvas-view`'s own back button — top-centre, since every other
+   corner is already a floating panel (board picker top-left, library
+   top-right, tools bottom-centre, zoom bottom-right, properties mid-right)
+   and a plain in-flow button before `.whiteboard-container` (absolutely
+   positioned, ignores flow entirely) rendered exactly under the board
+   picker panel, which then ate every click meant for it. */
+#wb-back-to-boards {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+}
+
 .whiteboard-container {
   width: 100%;
   height: 100%;

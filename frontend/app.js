@@ -24688,6 +24688,22 @@ function wbItemTransform(d) {
 //: 0 — so an untouched handle already reads as the item's actual rotation.
 //: `shiftSnap` rounds to the nearest 15°, the same modifier convention as
 //: shift-to-constrain while drawing a shape.
+//: `wbAngleFromCenterDeg`, but for a sketch's rotate handle specifically —
+//: the center it's given is in *board* space (the same coordinate space
+//: `d` itself uses), while the pointer only ever arrives in *screen*
+//: space (`clientX`/`clientY`). The resize-handle drag just above this
+//: function divides `event.dx` by the zoom scale by hand for the same
+//: reason: an SVG child's d3.drag coordinates are not auto-corrected for
+//: an ancestor `<g transform>` in this app's actual DOM, so the two
+//: spaces have to be reconciled explicitly rather than assumed to match.
+function wbSketchAngleFromCenterDeg(boardCx, boardCy, sourceEvent, shiftSnap) {
+  const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+  const rect = document.getElementById("wb-svg-layer").getBoundingClientRect();
+  const screenCx = boardCx * transform.k + transform.x + rect.left;
+  const screenCy = boardCy * transform.k + transform.y + rect.top;
+  return wbAngleFromCenterDeg(screenCx, screenCy, sourceEvent.clientX, sourceEvent.clientY, shiftSnap);
+}
+
 function wbAngleFromCenterDeg(cx, cy, px, py, shiftSnap) {
   let deg = Math.atan2(py - cy, px - cx) * (180 / Math.PI) + 90;
   deg = ((deg % 360) + 360) % 360;
@@ -26753,30 +26769,79 @@ async function createNewBoard() {
 // curves, `h`/`v`/`Z` for rect, `a` for circle) — a path from anywhere else
 // was never a possibility, so there is no reason to handle SVG's full
 // command set.
-function wbTransformPathD(d, { dx = 0, dy = 0, sx = 1, sy = 1, anchorX = 0, anchorY = 0 } = {}) {
-  const mapX = (x) => anchorX + (x - anchorX) * sx + dx;
-  const mapY = (y) => anchorY + (y - anchorY) * sy + dy;
+//: `rotate` (degrees, about `anchorX`/`anchorY`) is what a sketch didn't
+//: have — cards and objects rotate (a drag handle + a stored `rotation`
+//: column), but a sketch *is* its path data, and rotating a path correctly
+//: needs care `dx`/`sx` alone don't: `h`/`v` (a purely horizontal/vertical
+//: relative line — this app's own rect tool emits them) can't represent a
+//: rotated line at all, since rotating "purely horizontal" by anything
+//: other than a multiple of 90° makes it not horizontal any more, so each
+//: becomes an absolute `L` instead once rotation is non-zero. `a` (the
+//: circle tool's arc pairs) stays relative — a rotation adds straight onto
+//: the arc's own `x-axis-rotation` parameter and rotates its endpoint
+//: delta; `rx`/`ry`/large-arc/sweep are unchanged, which is exact for a
+//: *pure* rotation (no reflection) — this app never emits a negative
+//: scale, so that combination doesn't need handling here.
+function wbTransformPathD(d, { dx = 0, dy = 0, sx = 1, sy = 1, rotate = 0, anchorX = 0, anchorY = 0 } = {}) {
+  const theta = (rotate * Math.PI) / 180;
+  const cos = Math.cos(theta), sin = Math.sin(theta);
+  const mapPoint = (x, y) => {
+    const scaledX = anchorX + (x - anchorX) * sx;
+    const scaledY = anchorY + (y - anchorY) * sy;
+    const relX = scaledX - anchorX, relY = scaledY - anchorY;
+    return [anchorX + relX * cos - relY * sin + dx, anchorY + relX * sin + relY * cos + dy];
+  };
+  // A relative delta scales the same way a point's offset from the anchor
+  // does, but never translates (dx/dy are a position's own change, not a
+  // vector's).
+  const mapDelta = (ddx, ddy) => {
+    const scaledX = ddx * sx, scaledY = ddy * sy;
+    return [scaledX * cos - scaledY * sin, scaledX * sin + scaledY * cos];
+  };
   const tokens = d.match(/[MLCHVAZmlchvaz]|-?\d*\.?\d+(?:[eE]-?\d+)?/g);
   if (!tokens) return d;
-  let i = 0;
+  let i = 0, px = 0, py = 0; // current point, tracked only for h/v → L under rotation
   const out = [];
   while (i < tokens.length) {
     const cmd = tokens[i++];
     if (cmd === "M" || cmd === "L") {
-      out.push(cmd, mapX(parseFloat(tokens[i++])), mapY(parseFloat(tokens[i++])));
+      const x = parseFloat(tokens[i++]), y = parseFloat(tokens[i++]);
+      const [mx, my] = mapPoint(x, y);
+      out.push(cmd, mx, my);
+      px = x; py = y;
     } else if (cmd === "C") {
       const n = [];
       for (let k = 0; k < 6; k++) n.push(parseFloat(tokens[i++]));
-      out.push(cmd, mapX(n[0]), mapY(n[1]), mapX(n[2]), mapY(n[3]), mapX(n[4]), mapY(n[5]));
+      const [x1, y1] = mapPoint(n[0], n[1]);
+      const [x2, y2] = mapPoint(n[2], n[3]);
+      const [x3, y3] = mapPoint(n[4], n[5]);
+      out.push(cmd, x1, y1, x2, y2, x3, y3);
+      px = n[4]; py = n[5];
     } else if (cmd === "h") {
-      out.push(cmd, parseFloat(tokens[i++]) * sx);
+      const ddx = parseFloat(tokens[i++]);
+      if (rotate) {
+        const [mx, my] = mapPoint(px + ddx, py);
+        out.push("L", mx, my);
+      } else {
+        out.push(cmd, ddx * sx);
+      }
+      px += ddx;
     } else if (cmd === "v") {
-      out.push(cmd, parseFloat(tokens[i++]) * sy);
+      const ddy = parseFloat(tokens[i++]);
+      if (rotate) {
+        const [mx, my] = mapPoint(px, py + ddy);
+        out.push("L", mx, my);
+      } else {
+        out.push(cmd, ddy * sy);
+      }
+      py += ddy;
     } else if (cmd === "a") {
       const rx = parseFloat(tokens[i++]) * sx, ry = parseFloat(tokens[i++]) * sy;
-      const rot = tokens[i++], large = tokens[i++], sweep = tokens[i++];
-      const ex = parseFloat(tokens[i++]) * sx, ey = parseFloat(tokens[i++]) * sy;
-      out.push(cmd, rx, ry, rot, large, sweep, ex, ey);
+      const rot = parseFloat(tokens[i++]) + rotate, large = tokens[i++], sweep = tokens[i++];
+      const edx = parseFloat(tokens[i++]), edy = parseFloat(tokens[i++]);
+      const [mdx, mdy] = mapDelta(edx, edy);
+      out.push(cmd, rx, ry, rot, large, sweep, mdx, mdy);
+      px += edx; py += edy;
     } else if (cmd === "Z" || cmd === "z") {
       out.push(cmd);
     } else {
@@ -27128,6 +27193,56 @@ function wbRenderSketchHandles() {
           })
       );
   }
+
+  // Rotation — asked for directly, the one thing cards/objects already had
+  // (a drag handle above the item, Shift snaps to 15°) that a sketch
+  // didn't, since its "shape" is its path data rather than a stored
+  // rotation column. Baked into `d` on release via `wbTransformPathD`'s new
+  // `rotate` support, the same "commit into the path" convention move and
+  // resize already use for a sketch — not a live CSS transform, which
+  // would need a rotation to remember and re-apply on every future edit
+  // instead of just being the shape's own coordinates.
+  const centerX = (bbox.minX + bbox.maxX) / 2, centerY = (bbox.minY + bbox.maxY) / 2;
+  const handleY = bbox.minY - 28;
+  group.append("line")
+    .attr("class", "wb-rotate-handle-stem")
+    .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
+  // Absolute, not incremental — the handle sits straight above the shape's
+  // centre (0°, the same reference `wbAngleFromCenterDeg` uses), so the
+  // rotation applied is exactly the pointer's own angle from vertical, the
+  // same "the handle follows your cursor" feel `nodeRotateDrag` above
+  // already established for cards.
+  let rotateOriginalD = null, rotateLiveD = null;
+  group.append("circle")
+    .attr("class", "wb-sketch-rotate-handle")
+    .attr("cx", centerX).attr("cy", handleY).attr("r", 7)
+    .style("cursor", "grab")
+    .call(
+      d3.drag()
+        .on("start", (event) => {
+          event.sourceEvent.stopPropagation();
+          rotateOriginalD = parsed.d;
+          sketch._rotateUndoBefore = WB_KIND_INFO.sketch.payload(sketch);
+        })
+        .on("drag", (event) => {
+          const currentAngle = wbSketchAngleFromCenterDeg(centerX, centerY, event.sourceEvent, event.sourceEvent.shiftKey);
+          const newD = wbTransformPathD(rotateOriginalD, { rotate: currentAngle, anchorX: centerX, anchorY: centerY });
+          rotateLiveD = newD;
+          document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", newD);
+          document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", newD);
+        })
+        .on("end", async () => {
+          const before = sketch._rotateUndoBefore;
+          delete sketch._rotateUndoBefore;
+          if (rotateLiveD) {
+            const finalD = rotateLiveD;
+            rotateLiveD = null;
+            await wbSaveSketchD(sketch, finalD);
+            if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+          }
+          renderWhiteboard();
+        })
+    );
 }
 
 function renderWhiteboard() {

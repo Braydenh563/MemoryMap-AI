@@ -13489,6 +13489,24 @@ aside[data-resizable="1"] {
   stroke-width: 1px;
 }
 
+/* A sketch's own rotate handle — asked for directly. Round like the
+   card/object handles' own `.wb-rotate-handle` (an HTML element; sketches
+   are SVG, hence a separate class here rather than sharing it), connected
+   to the shape with a thin stem the same way every other drawing app's
+   rotate handle reads. */
+.wb-rotate-handle-stem {
+  stroke: var(--accent);
+  stroke-width: 1px;
+  stroke-opacity: 0.7;
+}
+
+.wb-sketch-rotate-handle {
+  fill: var(--accent);
+  stroke: var(--card);
+  stroke-width: 1px;
+  cursor: grab;
+}
+
 /* A link's own two endpoints — round, not the square resize handles above,
    so the two read as a different kind of control (reattach/detach an end,
    not resize a shape). */

@@ -2071,6 +2071,24 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
         img.alt = imageAlt || "";
         img.className = "entry-inline-image";
         img.loading = "lazy";
+        // Asked for directly: a deleted image left a broken-image glyph in
+        // the note that referenced it — a closable "deleted" box instead.
+        // Only dismisses the placeholder from this render; the note's own
+        // markdown line is left alone; editing it back out is a further,
+        // separate feature.
+        img.addEventListener("error", () => {
+          const placeholder = document.createElement("span");
+          placeholder.className = "entry-inline-image-deleted";
+          placeholder.append(document.createTextNode(`🖼 ${imageAlt || "Image"} deleted`));
+          const dismiss = document.createElement("button");
+          dismiss.type = "button";
+          dismiss.className = "ghost small icon-button";
+          dismiss.title = "Dismiss";
+          dismiss.textContent = "✕";
+          dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
+          placeholder.appendChild(dismiss);
+          img.replaceWith(placeholder);
+        });
         element.appendChild(img);
       } else {
         element.appendChild(document.createTextNode(match[0]));
@@ -17297,11 +17315,28 @@ function libraryActions(item) {
   // An activity row is a record of something that already happened. There is
   // nothing to do to it, so it gets no menu at all rather than an empty one.
   if (item.kind === "activity") return [];
-  return [
-    makeMenuItem("⬇ Download", "Save this file", () => {
-      window.open(`/files/${item.id}`, "_blank");
-    }),
-  ];
+  if (item.kind === "file") {
+    return [
+      // `window.open` never attaches the `X-Auth-Token` header a plain
+      // navigation can't carry — the same gap `mediaSrc` already exists to
+      // close for `<img src>`, just missed here. Every notebook with a
+      // password set (the normal case) 401'd on Download until this.
+      makeMenuItem("⬇ Download", "Save this file", () => {
+        window.open(mediaSrc(`/files/${item.id}`), "_blank");
+      }),
+      // Live-reported: an uploaded file "can't be deleted" — true for its
+      // own ⋯ menu specifically; bulk-select delete already worked
+      // (`library-bulk-delete` already has a `file` branch), but nothing
+      // offered it from the one place someone looks first.
+      makeMenuItem("🗑 Delete", "Remove this file permanently", async () => {
+        if (!(await confirmDialog(`Delete "${item.title}"?\n\nThis cannot be undone.`))) return;
+        await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        toast("Deleted.");
+        reload();
+      }),
+    ];
+  }
+  return [];
 }
 
 // The two strips that only appear when they have something to say.
@@ -27593,7 +27628,26 @@ function renderWbObjects(canvas) {
   objectEnter.each(function (d) {
     const el = d3.select(this);
     if (d.kind === "image") {
-      el.append("img").attr("src", mediaSrc(d.data.url) || "").attr("alt", "");
+      // Asked for directly: an image deleted out from under a board (via
+      // the Library gallery's own delete, or by hand off disk) left a
+      // plain broken-image glyph — "there should probably be a placeholder
+      // or closable box that says it is deleted in its place." The close
+      // button removes the object outright rather than leaving a
+      // permanently-broken box on the board.
+      el.append("img").attr("src", mediaSrc(d.data.url) || "").attr("alt", "")
+        .on("error", function () {
+          d3.select(this).remove();
+          if (el.select(".wb-object-deleted").empty()) {
+            const placeholder = el.append("div").attr("class", "wb-object-deleted");
+            placeholder.append("span").text("🖼 Image deleted");
+            placeholder.append("button")
+              .attr("type", "button")
+              .attr("class", "ghost small icon-button")
+              .attr("title", "Remove this")
+              .text("✕")
+              .on("click", (event) => { event.stopPropagation(); deleteObject(d); });
+          }
+        });
     } else {
       // Fill/border, asked for directly (the properties panel) — set on the
       // outer object div, which is what `.wb-object-text`'s own default
@@ -27987,11 +28041,20 @@ async function renderLibraryBoardsGallery() {
   }
 }
 
+// Every `/media/upload` has ever produced — note-inline images, document
+// images, and whiteboard image objects alike, since all three funnel
+// through the same upload endpoint and (asked for directly) "images can be
+// managed (delete, rename etc) in the gallery as well." A file whose bytes
+// are gone (deleted from here, or off-disk by hand) leaves a broken-image
+// glyph — same guard `libraryCard`'s own thumbnail already uses — but a
+// note or whiteboard still referencing a *deleted* url gets its own
+// placeholder instead of a broken glyph; see `renderInlineMarkdown`'s own
+// image `error` handler and `wbRenderObjects`'s image-object one.
 async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
-  const images = await apiJson("/whiteboard/images", { silent: true }).catch(() => null);
+  const images = await apiJson("/media", { silent: true }).catch(() => null);
   grid.replaceChildren();
   if (!images || !images.length) {
     empty?.classList.remove("hidden");
@@ -28003,17 +28066,25 @@ async function renderLibraryImagesGallery() {
     fig.className = "library-image-tile";
     const img = document.createElement("img");
     img.src = mediaSrc(image.url);
-    img.alt = image.board_title;
+    img.alt = image.original_name;
     img.loading = "lazy";
-    // A file whose bytes are gone leaves a broken-image glyph, the same
-    // trap `libraryCard`'s own thumbnail already guards against.
     img.addEventListener("error", () => fig.remove());
-    img.addEventListener("click", () => openLightbox(mediaSrc(image.url), image.board_title));
+    img.addEventListener("click", () => openLightbox(mediaSrc(image.url), image.original_name));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "ghost small icon-button library-image-delete";
+    del.title = "Delete this image";
+    del.textContent = "🗑";
+    del.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
+      await apiJson(`/media/${image.id}`, { method: "DELETE" }).catch((err) => toast(err.message, true));
+      fig.remove();
+      if (!grid.children.length) empty?.classList.remove("hidden");
+    });
     const cap = document.createElement("figcaption");
-    cap.textContent = image.board_title;
-    cap.title = "Open this board";
-    cap.addEventListener("click", () => openWhiteboardBoard(image.board_id));
-    fig.append(img, cap);
+    cap.textContent = image.original_name;
+    fig.append(img, del, cap);
     grid.appendChild(fig);
   }
 }

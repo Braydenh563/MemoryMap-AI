@@ -9559,6 +9559,21 @@ button.ai-unavailable {
   object-fit: contain;
 }
 
+/* Swapped in for a note's own inline image once its file is gone —
+   a closable box instead of a broken-image glyph, asked for directly. */
+.entry-inline-image-deleted {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  border: 1px dashed var(--glass-border);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 .entry-content mark {
   background: var(--accent-soft);
   color: inherit;
@@ -13264,6 +13279,25 @@ aside[data-resizable="1"] {
   border-radius: var(--radius-sm);
   pointer-events: none; /* the object div itself owns drag, not the <img> */
   background: rgba(0, 0, 0, 0.08);
+}
+
+/* Swapped in for an image object whose file is gone (deleted via the
+   Library gallery, or off disk by hand) — a closable box in its place
+   rather than a broken-image glyph, asked for directly. */
+.wb-object-deleted {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  border: 1px dashed var(--glass-border);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-align: center;
 }
 
 .wb-object-text {

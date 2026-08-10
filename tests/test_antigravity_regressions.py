@@ -440,6 +440,32 @@ def test_media_upload_still_takes_a_png(ai_client):
     assert response.json()["url"].startswith("/media/")
 
 
+def test_an_upload_is_tracked_listed_and_deletable(ai_client):
+    """An image pasted into a note's own markdown had no DB row at all — it
+    could not be listed in a gallery, could not be deleted, and there was
+    no way to tell "still referenced" apart from "already gone off disk"
+    (ROADMAP.md item 20a). `MediaUpload` closes that gap for every upload,
+    not just whiteboard image objects."""
+    uploaded = ai_client.post(
+        "/media/upload", files={"file": ("photo.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()
+
+    listed = ai_client.get("/media").json()
+    assert any(row["url"] == uploaded["url"] and row["original_name"] == "photo.png" for row in listed)
+
+    upload_id = next(row["id"] for row in listed if row["url"] == uploaded["url"])
+    deleted = ai_client.delete(f"/media/{upload_id}")
+    assert deleted.status_code == 200
+
+    # The row and the file are both gone.
+    assert not any(row["id"] == upload_id for row in ai_client.get("/media").json())
+    assert ai_client.get(uploaded["url"]).status_code == 404
+
+
+def test_deleting_an_unknown_upload_404s(ai_client):
+    assert ai_client.delete("/media/999999").status_code == 404
+
+
 def test_media_is_served_with_a_disposition_header(ai_client):
     url = ai_client.post(
         "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}

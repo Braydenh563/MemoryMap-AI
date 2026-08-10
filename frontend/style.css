@@ -6961,6 +6961,12 @@ html {
   opacity: 0.85;
 }
 
+/* One tier weaker again (ROADMAP.md item 33's second hop): linked to a note
+   that's linked to a match, not to the match itself. */
+.result-connected-2hop {
+  opacity: 0.65;
+}
+
 /* Why a result showed up. Was a chip on the connected case alone
    (`.result-connected-chip`) and nothing at all on an ordinary match — the
    minority of rows had an explanation and the majority, the actual hits,
@@ -6978,6 +6984,12 @@ html {
 .result-reason-connected {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.result-reason-connected_2hop {
+  background: var(--accent-soft);
+  color: var(--accent);
+  opacity: 0.75;
 }
 
 .result-reason-semantic,

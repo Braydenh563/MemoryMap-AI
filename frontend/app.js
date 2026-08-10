@@ -2943,6 +2943,7 @@ function renderChatMeta(meta) {
     const badge = matchReasonBadge(matchInfo[entry.id]);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
       row.appendChild(badge);
     }
     rawList.appendChild(row);
@@ -2968,6 +2969,16 @@ const MATCH_REASON_LABEL = {
     title: info.reason
       ? `This note didn't match your question — it's here because it's linked to one that did: ${info.reason}.`
       : "This note didn't match your question — it's here because it is linked to one that did.",
+  }),
+  // ROADMAP.md item 33: an opt-in second hop — linked to something linked
+  // to a match, not to the match itself. Real evidence, weaker evidence;
+  // its own badge text says so rather than reading identically to a direct
+  // connection, and `.result-connected-2hop` (style.css) renders it dimmer.
+  connected_2hop: (info) => ({
+    text: info.reason ? `🔗🔗 Two steps away (${info.reason})` : "🔗🔗 Two steps from a match",
+    title: info.reason
+      ? `This note is linked to a note that's linked to a match, not to the match itself: ${info.reason}.`
+      : "This note is linked to a note that's linked to a match, not to the match itself — weaker evidence than a direct connection.",
   }),
   semantic: (info) => ({
     text: `🎯 ${Math.round(info.score * 100)}% similar`,

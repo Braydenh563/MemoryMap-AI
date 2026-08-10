@@ -59,15 +59,34 @@ def _to_out(
     entry,  # noqa: ANN001
     filed_by: str | None = None,
     similar: SimilarOut | None = None,
+    *,
+    category_name: str | None = None,
+    dates: list | None = None,
+    documents: list | None = None,
+    links: list | None = None,
 ) -> EntryOut:
     # Decrypted here if private and the vault is open — every read of a
     # note's text goes through this one helper.
+    #
+    # The four `category_name`/`dates`/`documents`/`links` overrides let a
+    # list endpoint pass in pre-fetched, bulk-queried values instead of this
+    # function issuing one query per entry per field (ROADMAP.md #0 priority,
+    # item 1 — `GET /entries` was doing exactly that). Single-entry callers
+    # (create/update/get) pass none of them and keep the original per-entry
+    # queries below, unchanged.
     content = manager.readable_content(entry)
+    resolved_dates = manager.entry_dates(session, entry) if dates is None else dates
+    resolved_documents = (
+        manager.documents_for_entry(session, entry) if documents is None else documents
+    )
+    resolved_links = manager.links_for_entry(session, entry) if links is None else links
     return EntryOut(
         id=entry.id,
         content=content,
         title=manager.extract_title(content),
-        category=manager.category_name_for(session, entry),
+        category=(
+            manager.category_name_for(session, entry) if category_name is None else category_name
+        ),
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
         access_count=entry.access_count,
@@ -79,11 +98,10 @@ def _to_out(
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         dates=[
             EntryDateOut(phrase=d.phrase, at=d.at.date(), precision=d.precision)
-            for d in manager.entry_dates(session, entry)
+            for d in resolved_dates
         ],
         documents=[
-            DocumentRefOut(id=doc.id, title=doc.title)
-            for doc in manager.documents_for_entry(session, entry)
+            DocumentRefOut(id=doc.id, title=doc.title) for doc in resolved_documents
         ],
         links=[
             LinkOut(
@@ -93,7 +111,7 @@ def _to_out(
                 reason=link.reason,
                 reason_confidence=link.reason_confidence,
             )
-            for link, other in manager.links_for_entry(session, entry)
+            for link, other in resolved_links
         ],
         attachments=[
             AttachmentOut(
@@ -107,6 +125,27 @@ def _to_out(
         filed_by=filed_by,
         similar=similar,
     )
+
+
+def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
+    """`_to_out` for a whole list-endpoint page in a fixed number of queries
+    instead of ~4 per entry (ROADMAP.md #0 priority, item 1)."""
+    ids = [e.id for e in entries]
+    category_names = manager.bulk_category_names(session, entries)
+    dates_by_id = manager.entry_dates_bulk(session, ids)
+    documents_by_id = manager.documents_for_entries_bulk(session, ids)
+    links_by_id = manager.links_for_entries_bulk(session, ids)
+    return [
+        _to_out(
+            session,
+            e,
+            category_name=category_names.get(e.category_id, manager.UNCATEGORISED),
+            dates=dates_by_id.get(e.id, []),
+            documents=documents_by_id.get(e.id, []),
+            links=links_by_id.get(e.id, []),
+        )
+        for e in entries
+    ]
 
 
 def _find_near_duplicate(session: Session, entry) -> SimilarOut | None:  # noqa: ANN001
@@ -521,9 +560,9 @@ def list_entries(
         # `semantic_search` already drops anything under MIN_SIMILARITY; a
         # second threshold here was a different number for the same job.
         allowed = {e.id for e in entries}
-        return [_to_out(session, e) for e, _score in results if e.id in allowed]
+        return _to_out_bulk(session, [e for e, _score in results if e.id in allowed])
 
-    return [_to_out(session, e) for e in entries]
+    return _to_out_bulk(session, entries)
 
 
 # Declared before /{entry_id} so "most-accessed" isn't parsed as an id.
@@ -532,7 +571,7 @@ def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
     """Top entries by how often they've been opened or matched a
     question — the Phase 5 quick-access dashboard."""
     entries = manager.most_accessed_entries(session, limit=5)
-    return [_to_out(session, e) for e in entries]
+    return _to_out_bulk(session, entries)
 
 
 @router.get("/{entry_id}", response_model=EntryOut)

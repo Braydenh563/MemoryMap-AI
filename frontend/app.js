@@ -15455,13 +15455,6 @@ function renderCopyLogsLabel() {
 // Jump straight from "something failed while I was elsewhere" to the failures
 // themselves. The badge is the only place an error announces itself, so it
 // should also be the way to reach one.
-function showOnlyLogErrors() {
-  $("log-source").value = "all";
-  $("log-level").value = "error";
-  $("log-filter").value = "";
-  renderLogList();
-}
-
 async function clearLogs() {
   const source = $("log-source").value;
   if (source !== "browser") {
@@ -21533,18 +21526,6 @@ $("persona-peek").addEventListener("click", togglePersonaPrompt);
 // out loud, because a list that silently stops at eight is a list that has
 // lost your chats.
 
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
-
 function escapeHtml(str) {
   if (!str) return "";
   return String(str)
@@ -26056,6 +26037,7 @@ async function initWhiteboard() {
   // the toggle button's own icon/active-state and the arrow-style control's
   // relevance can both key off it without drifting apart.
   const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond"]);
+  let lastShapeTool = "line"; // what a plain click on the toggle (not the caret) selects
   const shapeToggle = document.getElementById("wb-shape-toggle");
   const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
   const shapeMenu = document.getElementById("wb-shape-menu");
@@ -26064,6 +26046,7 @@ async function initWhiteboard() {
   // ("have the selection tools as their own dropdown... like with the
   // shapes and lines").
   const WB_SELECT_TOOLS = new Set(["select", "lasso"]);
+  let lastSelectTool = "select"; // what a plain click on the toggle (not the caret) selects
   const selectToggle = document.getElementById("wb-select-toggle");
   const selectToggleIcon = document.getElementById("wb-select-toggle-icon");
   const selectMenu = document.getElementById("wb-select-menu");
@@ -26087,6 +26070,7 @@ async function initWhiteboard() {
     // icon — picking "circle" from the menu should look exactly like
     // picking "circle" used to when it was its own top-level button.
     if (shapeToggle && WB_SHAPE_TOOLS.has(tool)) {
+      lastShapeTool = tool;
       const chosen = shapeMenu?.querySelector(`button[data-tool="${tool}"] svg`);
       if (chosen && shapeToggleIcon) shapeToggleIcon.innerHTML = chosen.innerHTML;
       shapeToggle.classList.add("active");
@@ -26096,6 +26080,7 @@ async function initWhiteboard() {
     shapeMenu?.classList.add("hidden");
     shapeToggle?.setAttribute("aria-expanded", "false");
     if (selectToggle && WB_SELECT_TOOLS.has(tool)) {
+      lastSelectTool = tool;
       const chosen = selectMenu?.querySelector(`button[data-tool="${tool}"] svg`);
       if (chosen && selectToggleIcon) selectToggleIcon.innerHTML = chosen.innerHTML;
       selectToggle.classList.add("active");
@@ -26117,11 +26102,62 @@ async function initWhiteboard() {
     });
   }
 
+  // Docked as a sidebar, the toolbar panel scrolls (`overflow-y: auto`, so a
+  // tall tool column fits above the canvas) — and a scrolling ancestor clips
+  // any absolutely-positioned descendant to its own box, so the shape/select
+  // dropdown's CSS "open to the right" offset (`left: calc(100% + 0.5rem)`)
+  // was rendering squashed inside that scroll area instead of escaping it.
+  // Reported directly. Fixed by switching the open dropdown to
+  // `position: fixed` with a real viewport offset read from the toggle
+  // button's own rect — fixed positioning isn't clipped by an ancestor's
+  // overflow (only a transformed ancestor would trap it, and this panel
+  // doesn't use one). Bottom-docked mode is untouched: it never set
+  // `overflow-y: auto`, so the existing CSS-only positioning still applies.
+  function wbPositionDockedMenu(menu, toggle) {
+    const panel = toggle.closest(".whiteboard-floating-panel");
+    if (panel?.dataset.dock === "side") {
+      const rect = toggle.getBoundingClientRect();
+      menu.style.position = "fixed";
+      menu.style.left = `${rect.right + 8}px`;
+      menu.style.top = `${rect.top}px`;
+      menu.style.bottom = "auto";
+      menu.style.transform = "none";
+    } else {
+      menu.style.position = "";
+      menu.style.left = "";
+      menu.style.top = "";
+      menu.style.bottom = "";
+      menu.style.transform = "";
+    }
+  }
+
+  // Asked for directly: a plain click on the toggle's icon should select
+  // that tool outright (the toggle already shows whichever shape/select
+  // tool is active); only the caret — or a double-click anywhere on the
+  // toggle — should open the picker. `dblclick` fires after two `click`s
+  // (the browser default), so the plain-click handler runs twice first
+  // (harmless — reselecting the same tool) and this fires last, forcing
+  // the menu open regardless of where the two clicks landed.
+  function wbToggleClickSelectsOrOpens(e, toggle, menu, lastTool) {
+    e.stopPropagation();
+    if (e.target.closest(".wb-shape-caret")) {
+      const open = menu.classList.toggle("hidden") === false;
+      toggle.setAttribute("aria-expanded", String(open));
+      if (open) wbPositionDockedMenu(menu, toggle);
+    } else {
+      selectWbTool(lastTool);
+    }
+  }
+
   if (shapeToggle && shapeMenu) {
-    shapeToggle.addEventListener("click", (e) => {
+    shapeToggle.addEventListener("click", (e) =>
+      wbToggleClickSelectsOrOpens(e, shapeToggle, shapeMenu, lastShapeTool)
+    );
+    shapeToggle.addEventListener("dblclick", (e) => {
       e.stopPropagation();
-      const open = shapeMenu.classList.toggle("hidden") === false;
-      shapeToggle.setAttribute("aria-expanded", String(open));
+      shapeMenu.classList.remove("hidden");
+      shapeToggle.setAttribute("aria-expanded", "true");
+      wbPositionDockedMenu(shapeMenu, shapeToggle);
     });
     // No stopPropagation here: a tool-button click inside the menu has to
     // keep bubbling up to #wb-tool-group's own delegated listener (real bug,
@@ -26139,10 +26175,14 @@ async function initWhiteboard() {
   }
 
   if (selectToggle && selectMenu) {
-    selectToggle.addEventListener("click", (e) => {
+    selectToggle.addEventListener("click", (e) =>
+      wbToggleClickSelectsOrOpens(e, selectToggle, selectMenu, lastSelectTool)
+    );
+    selectToggle.addEventListener("dblclick", (e) => {
       e.stopPropagation();
-      const open = selectMenu.classList.toggle("hidden") === false;
-      selectToggle.setAttribute("aria-expanded", String(open));
+      selectMenu.classList.remove("hidden");
+      selectToggle.setAttribute("aria-expanded", "true");
+      wbPositionDockedMenu(selectMenu, selectToggle);
     });
     document.addEventListener("click", (e) => {
       if (!selectMenu.classList.contains("hidden") && !e.target.closest("#wb-select-picker")) {
@@ -28755,90 +28795,6 @@ async function openWhiteboardBoard(boardId) {
 }
 
 // ======================= FLOATING FORMAT MENU =======================
-function initFloatingFormatMenu() {
-  const menu = document.getElementById("floating-format-menu");
-  if (!menu) return;
-
-  const validTargets = ["doc-content", "entry-content", "chat-input", "draft-text"];
-  let activeTextarea = null;
-
-  document.addEventListener("selectionchange", () => {
-    const active = document.activeElement;
-    if (active && active.tagName === "TEXTAREA" && validTargets.includes(active.id)) {
-      if (active.selectionStart !== active.selectionEnd) {
-        // Text is selected
-        activeTextarea = active;
-        // Approximation for popup: center top of textarea or near mouse
-        // We'll use getBoundingClientRect of textarea as a fallback
-        const rect = active.getBoundingClientRect();
-        // Just put it above the textarea for simplicity, or ideally above the selection.
-        // Doing exact caret coords in textarea requires a library, so we center it on the textarea horizontally,
-        // and place it near the top of the textarea.
-        menu.style.left = `${rect.left + rect.width / 2}px`;
-        menu.style.top = `${rect.top}px`;
-        menu.classList.remove("hidden");
-      } else {
-        menu.classList.add("hidden");
-        activeTextarea = null;
-      }
-    } else {
-      menu.classList.add("hidden");
-    }
-  });
-
-  menu.addEventListener("mousedown", (e) => {
-    // Prevent menu mousedown from stealing focus from the textarea
-    e.preventDefault();
-  });
-
-  menu.addEventListener("click", (e) => {
-    const btn = e.target.closest("button");
-    if (!btn || !activeTextarea) return;
-    
-    const format = btn.dataset.format;
-    const start = activeTextarea.selectionStart;
-    const end = activeTextarea.selectionEnd;
-    const text = activeTextarea.value;
-    const selectedText = text.substring(start, end);
-    let wrapped = selectedText;
-    let offset = 0;
-
-    switch (format) {
-      case "bold":
-        wrapped = `**${selectedText}**`;
-        offset = 2;
-        break;
-      case "italic":
-        wrapped = `*${selectedText}*`;
-        offset = 1;
-        break;
-      case "strikethrough":
-        wrapped = `~~${selectedText}~~`;
-        offset = 2;
-        break;
-      case "code":
-        wrapped = `\`${selectedText}\``;
-        offset = 1;
-        break;
-      case "link":
-        wrapped = `[${selectedText}](url)`;
-        offset = 1;
-        break;
-    }
-
-    activeTextarea.setRangeText(wrapped, start, end, "select");
-    // Move selection inside the markdown tags
-    if (format === "link") {
-      activeTextarea.setSelectionRange(start + selectedText.length + 3, start + selectedText.length + 6);
-    } else {
-      activeTextarea.setSelectionRange(start + offset, start + offset + selectedText.length);
-    }
-    
-    // Trigger input event so React/app knows it changed
-    activeTextarea.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
-
 
 
 // ======================= SKILLS DASHBOARD TAB =======================

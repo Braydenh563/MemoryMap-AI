@@ -6,6 +6,12 @@ bug, every "decided against," every dead end) has been condensed into
 now *only* what's still open, ranked by what it unlocks. Section numbers in
 code comments and tests still resolve via HISTORY.md's index.
 
+**The standing caveat:** every provider test runs against a fake transport —
+SSE framing and tool-call parsing are implemented from the spec, not verified
+against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
+in the sandbox); model *behaviour* claims are not — reproduce or say plainly
+you couldn't.
+
 ## #0 priority — codebase quality review (this session) — full report, agreed, act on before anything else below
 
 A full dead-code/duplication/complexity pass across backend, `app.js`,
@@ -243,12 +249,6 @@ them fixed.
 | [roadmap/BACKLOG.md](roadmap/BACKLOG.md) | Standing backlog items not yet promoted to this file's live list. |
 | [roadmap/ANALYSIS.md](roadmap/ANALYSIS.md) | Judgements: the odysseus read, and the licence constraint — **this project is AGPL-3.0 now, not MIT**, so §34a's "no code crosses either way" is half-lifted. What was deliberately not taken. Also §59: the claude-obsidian/cognee/graphify read behind items 32–36 below, and §60: a second odysseus read after the repo tripled in size — a real non-atomic-write bug it found, an MCP shape worth copying, and its own admission that the backend isn't better designed. |
 | [DESIGN.md](DESIGN.md) | The design system. `tests/test_style_scale.py` enforces it. |
-
-**The standing caveat:** every provider test runs against a fake transport —
-SSE framing and tool-call parsing are implemented from the spec, not verified
-against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
-in the sandbox); model *behaviour* claims are not — reproduce or say plainly
-you couldn't.
 
 ## Next up, ranked by what it unlocks
 

@@ -277,6 +277,70 @@ def documents_for_entry(session: Session, entry: Entry) -> list:
     )
 
 
+def documents_for_entries_bulk(session: Session, entry_ids: list[int]) -> dict[int, list]:
+    """`documents_for_entry` for several notes in one query, grouped by note id.
+
+    Same batched-form pattern as `entry_dates_bulk` — built for `GET /entries`,
+    which called `documents_for_entry` once per row via `_to_out` (ROADMAP.md
+    #0 priority, item 1). Single-note callers keep using the function above.
+    """
+    from memorymap.core.database import Document
+
+    if not entry_ids:
+        return {}
+    out: dict[int, list] = {}
+    rows = session.execute(
+        select(DocumentLink.entry_id, Document)
+        .join(Document, DocumentLink.document_id == Document.id)
+        .where(DocumentLink.entry_id.in_(entry_ids))
+        .order_by(DocumentLink.id)
+    )
+    for entry_id, document in rows:
+        out.setdefault(entry_id, []).append(document)
+    return out
+
+
+def links_for_entries_bulk(
+    session: Session, entry_ids: list[int]
+) -> dict[int, list[tuple[EntryLink, Entry]]]:
+    """`links_for_entry` for several notes in one query, grouped by note id.
+
+    Same batched-form pattern as `entry_dates_bulk` — built for `GET /entries`
+    (ROADMAP.md #0 priority, item 1), which resolved each link's other-side
+    entry with a separate `session.get` per link inside `_to_out`.
+    """
+    if not entry_ids:
+        return {}
+    id_set = set(entry_ids)
+    links = list(
+        session.scalars(
+            select(EntryLink).where(
+                or_(
+                    EntryLink.source_entry_id.in_(id_set),
+                    EntryLink.target_entry_id.in_(id_set),
+                )
+            )
+        )
+    )
+    touched_ids = set()
+    for link in links:
+        touched_ids.add(link.target_entry_id)
+        touched_ids.add(link.source_entry_id)
+    entries_by_id = {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(touched_ids)))}
+
+    out: dict[int, list[tuple[EntryLink, Entry]]] = {}
+    for link in links:
+        if link.source_entry_id in id_set:
+            other = entries_by_id.get(link.target_entry_id)
+            if other is not None:
+                out.setdefault(link.source_entry_id, []).append((link, other))
+        if link.target_entry_id in id_set and link.target_entry_id != link.source_entry_id:
+            other = entries_by_id.get(link.source_entry_id)
+            if other is not None:
+                out.setdefault(link.target_entry_id, []).append((link, other))
+    return out
+
+
 def entries_for_document(session: Session, document_id: int) -> list[Entry]:
     """The notes attached to this document. Binned notes drop out on their
     own — a note in the recycle bin should not still be feeding a draft."""

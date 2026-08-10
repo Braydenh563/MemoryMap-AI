@@ -15455,13 +15455,6 @@ function renderCopyLogsLabel() {
 // Jump straight from "something failed while I was elsewhere" to the failures
 // themselves. The badge is the only place an error announces itself, so it
 // should also be the way to reach one.
-function showOnlyLogErrors() {
-  $("log-source").value = "all";
-  $("log-level").value = "error";
-  $("log-filter").value = "";
-  renderLogList();
-}
-
 async function clearLogs() {
   const source = $("log-source").value;
   if (source !== "browser") {
@@ -21532,18 +21525,6 @@ $("persona-peek").addEventListener("click", togglePersonaPrompt);
 // the files and the bin, and with sort beside it. This is the way there, said
 // out loud, because a list that silently stops at eight is a list that has
 // lost your chats.
-
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
 
 function escapeHtml(str) {
   if (!str) return "";
@@ -28755,90 +28736,6 @@ async function openWhiteboardBoard(boardId) {
 }
 
 // ======================= FLOATING FORMAT MENU =======================
-function initFloatingFormatMenu() {
-  const menu = document.getElementById("floating-format-menu");
-  if (!menu) return;
-
-  const validTargets = ["doc-content", "entry-content", "chat-input", "draft-text"];
-  let activeTextarea = null;
-
-  document.addEventListener("selectionchange", () => {
-    const active = document.activeElement;
-    if (active && active.tagName === "TEXTAREA" && validTargets.includes(active.id)) {
-      if (active.selectionStart !== active.selectionEnd) {
-        // Text is selected
-        activeTextarea = active;
-        // Approximation for popup: center top of textarea or near mouse
-        // We'll use getBoundingClientRect of textarea as a fallback
-        const rect = active.getBoundingClientRect();
-        // Just put it above the textarea for simplicity, or ideally above the selection.
-        // Doing exact caret coords in textarea requires a library, so we center it on the textarea horizontally,
-        // and place it near the top of the textarea.
-        menu.style.left = `${rect.left + rect.width / 2}px`;
-        menu.style.top = `${rect.top}px`;
-        menu.classList.remove("hidden");
-      } else {
-        menu.classList.add("hidden");
-        activeTextarea = null;
-      }
-    } else {
-      menu.classList.add("hidden");
-    }
-  });
-
-  menu.addEventListener("mousedown", (e) => {
-    // Prevent menu mousedown from stealing focus from the textarea
-    e.preventDefault();
-  });
-
-  menu.addEventListener("click", (e) => {
-    const btn = e.target.closest("button");
-    if (!btn || !activeTextarea) return;
-    
-    const format = btn.dataset.format;
-    const start = activeTextarea.selectionStart;
-    const end = activeTextarea.selectionEnd;
-    const text = activeTextarea.value;
-    const selectedText = text.substring(start, end);
-    let wrapped = selectedText;
-    let offset = 0;
-
-    switch (format) {
-      case "bold":
-        wrapped = `**${selectedText}**`;
-        offset = 2;
-        break;
-      case "italic":
-        wrapped = `*${selectedText}*`;
-        offset = 1;
-        break;
-      case "strikethrough":
-        wrapped = `~~${selectedText}~~`;
-        offset = 2;
-        break;
-      case "code":
-        wrapped = `\`${selectedText}\``;
-        offset = 1;
-        break;
-      case "link":
-        wrapped = `[${selectedText}](url)`;
-        offset = 1;
-        break;
-    }
-
-    activeTextarea.setRangeText(wrapped, start, end, "select");
-    // Move selection inside the markdown tags
-    if (format === "link") {
-      activeTextarea.setSelectionRange(start + selectedText.length + 3, start + selectedText.length + 6);
-    } else {
-      activeTextarea.setSelectionRange(start + offset, start + offset + selectedText.length);
-    }
-    
-    // Trigger input event so React/app knows it changed
-    activeTextarea.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-}
-
 
 
 // ======================= SKILLS DASHBOARD TAB =======================

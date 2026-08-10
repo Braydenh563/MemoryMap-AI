@@ -1723,16 +1723,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: 0 0 var(--space-6);
 }
 
-.sidebar-tools {
-  margin-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.sidebar-tools button {
-  text-align: left;
-}
 
 .layout {
   display: grid;
@@ -1933,31 +1923,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .card.collapsed {
   padding-bottom: 0.6rem;
-}
-
-.collapse-chevron {
-  display: inline-block;
-  width: 1.1em;
-  margin-right: 0.15rem;
-  color: var(--muted);
-  transition: transform 0.15s ease;
-  font-size: 0.85em;
-}
-
-h2.collapsible-title {
-  cursor: pointer;
-  user-select: none;
-}
-
-h2.collapsible-title:hover .collapse-chevron {
-  color: var(--accent);
-}
-
-/* It's focusable now, so it needs a visible focus ring. */
-h2.collapsible-title:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius-sm);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3504,19 +3469,6 @@ html.modal-open body {
   margin-bottom: 0;
 }
 
-/* A "wide" widget spans two grid columns to act as a larger section. The
-   grid auto-packs the remaining normal-size widgets around it. */
-.dash-widget.dash-wide {
-  grid-column: span 2;
-}
-
-@media (max-width: 720px) {
-  .dash-widget.dash-wide {
-    grid-column: span 1;
-  }
-
-  /* single column on mobile */
-}
 
 .dash-widget.dash-hidden {
   opacity: 0.45;
@@ -3890,10 +3842,6 @@ html.modal-open body {
 
 .chat-empty .empty-title {
   margin: 0.4rem 0 0.25rem;
-}
-
-.chat-empty-icon {
-  font-size: 2.2rem;
 }
 
 #conversation-list {
@@ -4617,13 +4565,6 @@ button.ghost.danger {
   pointer-events: none;
 }
 
-/* A tag step is a weaker kind of join and says so — same colour, dashed, so
-   the chain still reads as one path. */
-.graph-path-line.graph-path-tag {
-  stroke-dasharray: 6 4;
-  stroke-opacity: 0.6;
-}
-
 .graph-node.graph-on-path .graph-core {
   stroke: var(--accent);
   stroke-width: 3.5px;
@@ -5006,10 +4947,6 @@ button.recording {
   }
 }
 
-.bubble-speak {
-  margin-top: 0.4rem;
-}
-
 /* --- meeting notes (§17) ---------------------------------------------------------- */
 .meeting-timer {
   font-variant-numeric: tabular-nums;
@@ -5131,30 +5068,6 @@ kbd {
   flex-shrink: 0;
 }
 
-.browse-header {
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-/* One control height for the row, the same fix `.library-toolbar` needed.
-   `#note-search` took its height from the shared input rule's padding,
-   `#note-sort` from the shared select rule, and `#search-help` / `#select-btn`
-   from `button.small` — three different rules, none of them agreeing, so the
-   row read as four controls of four heights rather than one toolbar. */
-.browse-tools {
-  gap: 0.4rem;
-  flex: 0 1 auto;
-  --control-h: 2.3rem;
-}
-
-.browse-tools input,
-.browse-tools select,
-.browse-tools button {
-  height: var(--control-h);
-  padding-block: 0;
-}
-
 #note-search {
   margin-bottom: 0;
   min-width: 8rem;
@@ -5185,10 +5098,6 @@ kbd {
 }
 
 @media (max-width: 720px) {
-  .browse-tools {
-    width: 100%;
-  }
-
   #note-sort {
     max-width: none;
   }
@@ -5937,7 +5846,6 @@ html {
 :root[data-glass="off"] .chat-toolbar,
 :root[data-glass="off"] .graph-toolbar,
 :root[data-glass="off"] .library-toolbar,
-:root[data-glass="off"] .browse-tools,
 :root[data-glass="off"] .graph-options,
 :root[data-glass="off"] .glass {
   backdrop-filter: none !important;
@@ -7717,18 +7625,6 @@ html {
    size: it is the least important thing on the row, so it is the first to give
    its space back to the pickers, and it drops out entirely rather than wrapping
    the strip onto a second line for a sentence. */
-.graph-trace-hint {
-  font-size: var(--text-sm);
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-@media (max-width: 1080px) {
-  .graph-trace-hint {
-    display: none;
-  }
-}
-
 .graph-trace-result {
   margin: 0 0 var(--space-3);
   font-size: var(--text-md);
@@ -12914,15 +12810,6 @@ textarea.autogrow {
   background-repeat: repeat, repeat, var(--wb-bg-image-repeat);
 }
 
-.whiteboard-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  transform-origin: 0 0;
-}
-
 /* An empty board explaining itself, asked for as part of the wider
    usability pass. `pointer-events: none` so it never intercepts a click
    meant for the canvas underneath — including the moment the first thing
@@ -13513,12 +13400,6 @@ aside[data-resizable="1"] {
   position: relative;
 }
 
-.wb-card-sketch {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
 /* --- whiteboard objects: images and text boxes, neither tied to a note ---
    Asked for directly: images pasted/dropped/uploaded straight onto the
    canvas, and a real text box ("I want the whiteboard to basically be like
@@ -13541,15 +13422,6 @@ aside[data-resizable="1"] {
   outline-offset: 2px;
 }
 
-.wb-object-image img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  border-radius: var(--radius-sm);
-  pointer-events: none; /* the object div itself owns drag, not the <img> */
-  background: rgba(0, 0, 0, 0.08);
-}
 
 /* Swapped in for an image object whose file is gone (deleted via the
    Library gallery, or off disk by hand) — a closable box in its place

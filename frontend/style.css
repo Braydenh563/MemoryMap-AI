@@ -13029,7 +13029,7 @@ textarea.autogrow {
    value was first tuned against — reported directly, twice, as the two
    panels visually touching with no gap between them. */
 .whiteboard-floating-panel.mid-right {
-  top: 12.5rem;
+  top: 11rem;
   right: 1rem;
   flex-direction: column;
   align-items: stretch;

@@ -26134,13 +26134,29 @@ async function initWhiteboard() {
     if (panel?.dataset.dock === "side" && !menu._wbHome) {
       menu._wbHome = { parent: menu.parentNode, next: menu.nextSibling };
       document.body.appendChild(menu);
-      const rect = toggle.getBoundingClientRect();
+      const toggleRect = toggle.getBoundingClientRect();
       menu.style.position = "fixed";
-      menu.style.left = `${rect.right + 8}px`;
-      menu.style.top = `${rect.top}px`;
+      menu.style.left = `${toggleRect.right + 8}px`;
+      menu.style.top = `${toggleRect.top}px`;
       menu.style.bottom = "auto";
       menu.style.transform = "none";
       menu.style.zIndex = "200";
+      // The menu can be bigger than the toggle it opened from — the shape
+      // menu's fill/stroke/guide-colour rows run well past the toolbar's
+      // own height, and a toggle near the bottom of a tall docked column
+      // put `top: toggleRect.top` most of the way down the screen already.
+      // Reported directly ("go out of the window"). Clamped against the
+      // real viewport rather than just the toggle's position — measured
+      // after being placed, since its actual rendered size isn't known
+      // until it's in the DOM and visible.
+      const margin = 8;
+      const menuRect = menu.getBoundingClientRect();
+      if (menuRect.right > window.innerWidth - margin) {
+        menu.style.left = `${Math.max(margin, window.innerWidth - menuRect.width - margin)}px`;
+      }
+      if (menuRect.bottom > window.innerHeight - margin) {
+        menu.style.top = `${Math.max(margin, window.innerHeight - menuRect.height - margin)}px`;
+      }
     }
   }
 

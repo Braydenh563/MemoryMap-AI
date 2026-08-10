@@ -26047,7 +26047,13 @@ async function initWhiteboard() {
   let wbLassoEl = null;
   let wbLassoShift = false;
   containerEl.addEventListener("pointerdown", (e) => {
-    if (window.currentTool !== "lasso" || !wbIsEmptyCanvasTarget(e.target)) return;
+    // Unlike the marquee (`wbIsEmptyCanvasTarget`, above — empty canvas
+    // only, since a drag starting *on* a card there means "move it"), a
+    // lasso loop is drawn freeform and routinely starts right at the edge
+    // of the first thing it means to circle — reported directly as "the
+    // lasso tool doesn't work properly". Still excludes an actual handle,
+    // which needs its own drag gesture to keep working.
+    if (window.currentTool !== "lasso" || e.target.closest?.(".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-link-endpoint-handle")) return;
     const [x, y] = getLogicalMouse(e);
     wbLassoPoints = [[x, y]];
     wbLassoShift = e.shiftKey;
@@ -27250,7 +27256,14 @@ function renderWhiteboard() {
       // exact same pointerdown, and whichever one's gesture-tracking the
       // browser resolved first silently won, so a resize handle drag never
       // visibly resized anything.
-      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle"))
+      // `currentTool !== "lasso"`: reported directly ("the lasso tool
+      // doesn't work properly") — a lasso loop is meant to start from
+      // anywhere, including right at a card's own edge, but this filter
+      // (unlike the lasso's own pointerdown listener) never excluded the
+      // lasso tool the way it already excludes the brush tools, so a lasso
+      // gesture begun on top of a card silently moved the card instead of
+      // ever reaching the lasso's own draw logic.
+      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle"))
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
@@ -27470,7 +27483,7 @@ function renderWbObjects(canvas) {
     // object's listener catching a bubbled grip click" apart. `gripDrag`
     // below exists precisely because that distinction needs two behaviour
     // objects, not one filter.
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-text-content, .wb-object-grip"))
     .on("start", objDragStart)
     .on("drag", objDragMove)
     .on("end", objDragEnd);
@@ -27480,7 +27493,7 @@ function renderWbObjects(canvas) {
   // keep their own handle grabs from also bubbling into the object's own
   // `objDrag` listener.
   const gripDrag = d3.drag()
-    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool))
+    .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       objDragStart.call(this, event, d);

@@ -5,6 +5,22 @@
    Theming: light is the default; dark kicks in either from the OS
    preference or from the manual toggle (data-theme on <html>). */
 
+/* Native form-control chrome (a <select>'s popped-open option list, in
+   particular) is drawn by the OS/browser, not this stylesheet — without
+   `color-scheme` telling it which palette to use, it defaults to light
+   regardless of the app's own dark theme, so a dark-themed <select>'s pale
+   text landed on that light popup with almost no contrast. Reported
+   directly ("combo boxes... bad colour contrast"). Mirrors the same
+   light-default/OS-dark/manual-override logic the colour variables below
+   already use, so it never drifts out of sync with the actual theme. */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 :root {
   /* --- the spacing scale (§35L) --------------------------------------------
      Extracted, not invented. This file had 667 margin/padding/gap
@@ -308,6 +324,7 @@ select,
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
     --blob-a: rgba(123, 144, 247, 0.16);
     --scrim: rgba(5, 7, 14, 0.60);

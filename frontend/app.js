@@ -26037,6 +26037,7 @@ async function initWhiteboard() {
   // the toggle button's own icon/active-state and the arrow-style control's
   // relevance can both key off it without drifting apart.
   const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond"]);
+  let lastShapeTool = "line"; // what a plain click on the toggle (not the caret) selects
   const shapeToggle = document.getElementById("wb-shape-toggle");
   const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
   const shapeMenu = document.getElementById("wb-shape-menu");
@@ -26045,6 +26046,7 @@ async function initWhiteboard() {
   // ("have the selection tools as their own dropdown... like with the
   // shapes and lines").
   const WB_SELECT_TOOLS = new Set(["select", "lasso"]);
+  let lastSelectTool = "select"; // what a plain click on the toggle (not the caret) selects
   const selectToggle = document.getElementById("wb-select-toggle");
   const selectToggleIcon = document.getElementById("wb-select-toggle-icon");
   const selectMenu = document.getElementById("wb-select-menu");
@@ -26068,6 +26070,7 @@ async function initWhiteboard() {
     // icon — picking "circle" from the menu should look exactly like
     // picking "circle" used to when it was its own top-level button.
     if (shapeToggle && WB_SHAPE_TOOLS.has(tool)) {
+      lastShapeTool = tool;
       const chosen = shapeMenu?.querySelector(`button[data-tool="${tool}"] svg`);
       if (chosen && shapeToggleIcon) shapeToggleIcon.innerHTML = chosen.innerHTML;
       shapeToggle.classList.add("active");
@@ -26077,6 +26080,7 @@ async function initWhiteboard() {
     shapeMenu?.classList.add("hidden");
     shapeToggle?.setAttribute("aria-expanded", "false");
     if (selectToggle && WB_SELECT_TOOLS.has(tool)) {
+      lastSelectTool = tool;
       const chosen = selectMenu?.querySelector(`button[data-tool="${tool}"] svg`);
       if (chosen && selectToggleIcon) selectToggleIcon.innerHTML = chosen.innerHTML;
       selectToggle.classList.add("active");
@@ -26127,12 +26131,33 @@ async function initWhiteboard() {
     }
   }
 
+  // Asked for directly: a plain click on the toggle's icon should select
+  // that tool outright (the toggle already shows whichever shape/select
+  // tool is active); only the caret — or a double-click anywhere on the
+  // toggle — should open the picker. `dblclick` fires after two `click`s
+  // (the browser default), so the plain-click handler runs twice first
+  // (harmless — reselecting the same tool) and this fires last, forcing
+  // the menu open regardless of where the two clicks landed.
+  function wbToggleClickSelectsOrOpens(e, toggle, menu, lastTool) {
+    e.stopPropagation();
+    if (e.target.closest(".wb-shape-caret")) {
+      const open = menu.classList.toggle("hidden") === false;
+      toggle.setAttribute("aria-expanded", String(open));
+      if (open) wbPositionDockedMenu(menu, toggle);
+    } else {
+      selectWbTool(lastTool);
+    }
+  }
+
   if (shapeToggle && shapeMenu) {
-    shapeToggle.addEventListener("click", (e) => {
+    shapeToggle.addEventListener("click", (e) =>
+      wbToggleClickSelectsOrOpens(e, shapeToggle, shapeMenu, lastShapeTool)
+    );
+    shapeToggle.addEventListener("dblclick", (e) => {
       e.stopPropagation();
-      const open = shapeMenu.classList.toggle("hidden") === false;
-      shapeToggle.setAttribute("aria-expanded", String(open));
-      if (open) wbPositionDockedMenu(shapeMenu, shapeToggle);
+      shapeMenu.classList.remove("hidden");
+      shapeToggle.setAttribute("aria-expanded", "true");
+      wbPositionDockedMenu(shapeMenu, shapeToggle);
     });
     // No stopPropagation here: a tool-button click inside the menu has to
     // keep bubbling up to #wb-tool-group's own delegated listener (real bug,
@@ -26150,11 +26175,14 @@ async function initWhiteboard() {
   }
 
   if (selectToggle && selectMenu) {
-    selectToggle.addEventListener("click", (e) => {
+    selectToggle.addEventListener("click", (e) =>
+      wbToggleClickSelectsOrOpens(e, selectToggle, selectMenu, lastSelectTool)
+    );
+    selectToggle.addEventListener("dblclick", (e) => {
       e.stopPropagation();
-      const open = selectMenu.classList.toggle("hidden") === false;
-      selectToggle.setAttribute("aria-expanded", String(open));
-      if (open) wbPositionDockedMenu(selectMenu, selectToggle);
+      selectMenu.classList.remove("hidden");
+      selectToggle.setAttribute("aria-expanded", "true");
+      wbPositionDockedMenu(selectMenu, selectToggle);
     });
     document.addEventListener("click", (e) => {
       if (!selectMenu.classList.contains("hidden") && !e.target.closest("#wb-select-picker")) {

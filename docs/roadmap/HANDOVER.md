@@ -2,6 +2,29 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
+## #0 priority — start here: a codebase quality review, not yet acted on
+
+Full ranked action list is in [ROADMAP.md's own #0 section](../ROADMAP.md) —
+don't duplicate it here. Short version: the repo is unusually clean (no
+TODO/FIXME markers, `ruff` clean, no orphaned routes/modules), but has one
+real N+1 (`GET /entries`), a confirmed-dead-code list in `app.js`/`style.css`
+(all grep+corroboration-verified, safe to delete), `ai/tools.py` now past
+this project's own "no file over ~1,900 lines" claim (4,195 lines, wide not
+deep — split by domain), the `app.js` whiteboard block (23292-28586) still
+the best module-split candidate, two unmerged markdown renderers, and a
+narrow, concrete test-file consolidation (content-overlap, not fixture
+duplication — a different finding than the prior session's "nothing to do
+here"). **None of it has been acted on except four same-session live UI
+fixes**: the whiteboard properties panel overlapping the top-right panel
+(`.mid-right`'s `top` was tuned for a since-grown panel height), the
+fill-none checkbox reading as inverted (missing its "None" label — the
+toolbar's identical control already had one), a new paint-bucket fill tool
+(`B` key), and a delete-confirmation dialog letting a long filename overflow
+the card (`.confirm-text` had no `overflow-wrap`). None of these four were
+verified live in a browser this session — reasoned from the CSS/JS and the
+screenshots reported, not screenshotted after the fix. Do that first if
+picking this up.
+
 ## Next session: start here — a second odysseus read (§60), Tier 3 items 32/33/34 built, item 36 half-built, and ~20 live-reported UI bugs fixed in one long sitting
 
 **Read [ANALYSIS.md §60](ANALYSIS.md) first if picking up the odysseus/Tier-3

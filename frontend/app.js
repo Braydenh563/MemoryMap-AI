@@ -25003,6 +25003,7 @@ async function initWhiteboard() {
     });
   }
   $("wb-new-board")?.addEventListener("click", createNewBoard);
+  $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
 
   // Board background colour, asked for directly — the ambient generative-art
   // canvas showed straight through the board before this (`--wb-board-bg`,
@@ -26391,6 +26392,28 @@ async function refreshBoardList(justCreated = null) {
     select.appendChild(opt);
   }
   select.value = window.currentBoardId || "";
+  // The default scratch board (`board_id=null`) has no underlying note to
+  // rename — `rename_board` 404s on anything that isn't a real positive id.
+  const renameBtn = document.getElementById("wb-rename-board");
+  if (renameBtn) renameBtn.disabled = !window.currentBoardId;
+}
+
+async function renameCurrentBoard() {
+  if (!window.currentBoardId) return;
+  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.textContent
+    .replace(/\s*\(\d+ items?\)$/, "") || "";
+  const name = await promptDialog("Rename this board:", current);
+  if (!name || !name.trim()) return;
+  try {
+    const board = await apiJson(`/whiteboard/boards/${window.currentBoardId}`, {
+      method: "PUT",
+      body: JSON.stringify({ title: name.trim() }),
+    });
+    await refreshBoardList(board);
+    toast(`Board renamed to "${board.title}".`);
+  } catch (err) {
+    toast(err.message || "Couldn't rename that board.", true);
+  }
 }
 
 async function createNewBoard() {
@@ -27729,8 +27752,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const librarySubtabs = document.getElementById("library-subtabs");
   if (librarySubtabs) {
     const buttons = librarySubtabs.querySelectorAll("button");
-    const sections = ["library-view-documents", "library-view-skills", "library-view-whiteboard"];
-    
+    const sections = [
+      "library-view-documents", "library-view-skills", "library-view-whiteboard", "library-view-media",
+    ];
+
     buttons.forEach(btn => {
       btn.addEventListener("click", () => {
         buttons.forEach(b => {
@@ -27739,7 +27764,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         btn.classList.add("active");
         btn.setAttribute("aria-selected", "true");
-        
+
         const targetId = btn.getAttribute("data-target");
         sections.forEach(id => {
           const el = document.getElementById(id);
@@ -27751,14 +27776,99 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }
         });
-        
+
         if (targetId === "library-view-whiteboard") {
           setTimeout(initWhiteboard, 50);
+        } else if (targetId === "library-view-media") {
+          renderLibraryMedia();
         }
       });
     });
   }
+  $("library-media-refresh")?.addEventListener("click", renderLibraryMedia);
 });
+
+// A gallery over the whiteboard's own boards and images — asked for
+// directly (HANDOVER.md §53/§56), read-only consumers of the same
+// GET /whiteboard/boards and GET /whiteboard/images the board picker and
+// AI tools already use. Not a second canvas: picking a board jumps to the
+// real Whiteboard subtab with that board loaded.
+async function renderLibraryMedia() {
+  await Promise.all([renderLibraryBoardsGallery(), renderLibraryImagesGallery()]);
+}
+
+async function renderLibraryBoardsGallery() {
+  const grid = $("library-boards-grid");
+  const empty = $("library-boards-empty");
+  if (!grid) return;
+  const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
+  grid.replaceChildren();
+  if (!boards || !boards.length) {
+    empty?.classList.remove("hidden");
+    return;
+  }
+  empty?.classList.add("hidden");
+  for (const board of boards) {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "library-card library-board-card";
+    const title = document.createElement("strong");
+    title.className = "library-card-title";
+    title.textContent = board.title;
+    const count = board.node_count + board.sketch_count + (board.object_count || 0);
+    const meta = document.createElement("span");
+    meta.className = "muted";
+    meta.textContent = `${count} item${count === 1 ? "" : "s"}`;
+    card.append(title, meta);
+    card.addEventListener("click", () => openWhiteboardBoard(board.id));
+    grid.appendChild(card);
+  }
+}
+
+async function renderLibraryImagesGallery() {
+  const grid = $("library-images-grid");
+  const empty = $("library-images-empty");
+  if (!grid) return;
+  const images = await apiJson("/whiteboard/images", { silent: true }).catch(() => null);
+  grid.replaceChildren();
+  if (!images || !images.length) {
+    empty?.classList.remove("hidden");
+    return;
+  }
+  empty?.classList.add("hidden");
+  for (const image of images) {
+    const fig = document.createElement("figure");
+    fig.className = "library-image-tile";
+    const img = document.createElement("img");
+    img.src = mediaSrc(image.url);
+    img.alt = image.board_title;
+    img.loading = "lazy";
+    // A file whose bytes are gone leaves a broken-image glyph, the same
+    // trap `libraryCard`'s own thumbnail already guards against.
+    img.addEventListener("error", () => fig.remove());
+    img.addEventListener("click", () => openLightbox(mediaSrc(image.url), image.board_title));
+    const cap = document.createElement("figcaption");
+    cap.textContent = image.board_title;
+    cap.title = "Open this board";
+    cap.addEventListener("click", () => openWhiteboardBoard(image.board_id));
+    fig.append(img, cap);
+    grid.appendChild(fig);
+  }
+}
+
+// Jump to the real whiteboard canvas with a specific board loaded — the
+// same subtab-click + board-select pattern the command palette's "New
+// whiteboard board" entry already uses, minus the creation step.
+async function openWhiteboardBoard(boardId) {
+  switchTab("library");
+  const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
+  wbSubtab?.click();
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  window.currentBoardId = boardId ?? null;
+  await fetchWhiteboardState();
+  renderWhiteboard();
+  wbApplyBgImage();
+}
 
 // ======================= FLOATING FORMAT MENU =======================
 function initFloatingFormatMenu() {

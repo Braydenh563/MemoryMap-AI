@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from memorymap.core import deps
 from memorymap.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import extract_title
+from memorymap.entry.manager import apply_title, extract_title, update_entry
 
 router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 
@@ -399,6 +399,39 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
     db.commit()
     db.refresh(entry)
     return BoardOut(id=entry.id, title=name, node_count=0, sketch_count=0)
+
+
+class BoardRename(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+
+
+@router.put("/boards/{board_id}", response_model=BoardOut)
+def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_session)) -> BoardOut:
+    """A board's title is its underlying note's own first `#` heading line
+    (`list_boards`'s own `extract_title` read, above) — so renaming a board
+    is the same `apply_title` edit any other note's title goes through, not
+    a second stored field. The default scratch board (`board_id=None`) has
+    no underlying note to rename; `board_id=0` and negative ids can't
+    resolve to a real note either, so both 404 the same way a stale or
+    guessed id does.
+    """
+    entry = db.get(Entry, board_id) if board_id > 0 else None
+    if entry is None or entry.is_deleted:
+        raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+    title = body.title.strip()
+    update_entry(db, entry, content=apply_title(entry.content, title))
+    node_count = db.scalar(
+        select(func.count()).select_from(WhiteboardNode).where(WhiteboardNode.board_id == board_id)
+    )
+    sketch_count = db.scalar(
+        select(func.count()).select_from(WhiteboardSketch).where(WhiteboardSketch.board_id == board_id)
+    )
+    object_count = db.scalar(
+        select(func.count()).select_from(WhiteboardObject).where(WhiteboardObject.board_id == board_id)
+    )
+    return BoardOut(
+        id=board_id, title=title, node_count=node_count, sketch_count=sketch_count, object_count=object_count
+    )
 
 
 @router.post("/nodes", response_model=WhiteboardNodeOut)

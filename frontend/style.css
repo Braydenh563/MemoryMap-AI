@@ -1404,6 +1404,55 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: var(--space-6) 0 0;
 }
 
+/* The Boards & Images gallery (HANDOVER.md §53/§56) — a board card is a
+   plain button, not the note/document `<article>` `.library-card` already
+   is, so it needs its own text alignment and cursor rather than inheriting
+   everything from that selector. */
+.library-board-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.library-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-6);
+}
+
+.library-image-tile {
+  margin: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.library-image-tile img {
+  display: block;
+  width: 100%;
+  height: 9rem;
+  object-fit: cover;
+  cursor: zoom-in;
+}
+
+.library-image-tile figcaption {
+  padding: var(--space-3);
+  font-size: var(--text-md);
+  color: var(--muted);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-image-tile figcaption:hover {
+  color: var(--accent);
+}
+
 @media (max-width: 720px) {
   .library-toolbar {
     gap: var(--space-2);

@@ -1298,6 +1298,7 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboard</button>
+      <button role="tab" aria-selected="false" data-target="library-view-media">Boards &amp; Images</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -1435,6 +1436,7 @@ Link to another note with [[its first few words]]."></textarea>
       <select id="wb-board-select" class="ghost small" title="Switch Board">
         <option value="">Default board</option>
       </select>
+      <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board">✎</button>
       <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board">＋</button>
     </div>
 
@@ -1779,6 +1781,28 @@ Link to another note with [[its first few words]]."></textarea>
       <ul id="wb-library-list" class="wb-library-list"></ul>
     </aside>
   </div>
+  </div>
+
+  <!-- Every board and every whiteboard image, one gallery — asked for
+       directly (HANDOVER.md §53/§56). The whiteboard canvas itself already
+       has its own subtab; this is a jumping-off point onto it, not a second
+       canvas. -->
+  <div id="library-view-media" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="row space-between library-head">
+        <h2>Boards</h2>
+        <button id="library-media-refresh" class="ghost small" type="button" title="Reload">↻</button>
+      </div>
+      <p class="muted">Every board something has been placed on. Pick one to open it on the Whiteboard tab.</p>
+      <div id="library-boards-grid" class="library-grid"></div>
+      <p id="library-boards-empty" class="muted hidden">No boards yet — draw or drop a card on the whiteboard to make one.</p>
+    </section>
+    <section class="card glass">
+      <h2>Images</h2>
+      <p class="muted">Every image pasted, dropped, or uploaded onto any board.</p>
+      <div id="library-images-grid" class="library-image-grid"></div>
+      <p id="library-images-empty" class="muted hidden">No whiteboard images yet.</p>
+    </section>
   </div>
 
   <!-- ======================= STATUS BAR (§36D) ============================

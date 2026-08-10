@@ -388,8 +388,16 @@ body {
   --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif;
 }
 
+/* `monospace` (the final fallback) resolves to whatever the OS/browser
+   picks when none of the named fonts above it are installed — in one
+   sandbox this project has tested in, that resolution visually glitched a
+   handful of glyphs (see HANDOVER.md) despite `getComputedStyle` reporting
+   the same value as a font that rendered correctly. Two more broadly
+   pre-installed fonts, ahead of the bare generic keyword, give the browser
+   an earlier real match instead of falling all the way through to that
+   platform guess on more systems. */
 :root[data-font="mono"] {
-  --ui-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  --ui-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
 }
 
 /* Ambient background art: behind everything, ignores clicks (Wave J). */
@@ -12732,17 +12740,41 @@ textarea.autogrow {
    usability pass. `pointer-events: none` so it never intercepts a click
    meant for the canvas underneath — including the moment the first thing
    lands on it, when this is still fading/being hidden. */
+/* Reported live, with a screenshot: the hint's own text sat under the
+   top-right floating panel, cut off by it. `top: 50%` centred the hint in
+   the *whole* canvas, which is exactly wrong when the top-left/top-right
+   panels already claim the first ~4rem of it — a truly centred box and an
+   occupied top strip only don't collide by luck of viewport height. Padding
+   on a full-inset flex box (rather than a transform-centred one) reserves
+   that strip unconditionally: the content centres in whatever's left, and
+   `overflow-y: auto` is the fallback for a viewport too short even for
+   that. `max-width` is capped well inside the side panels' own columns
+   too, not just the top ones. */
 .wb-empty-hint {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--space-9) * 2.5) var(--space-8) calc(var(--space-9) * 3);
+  overflow-y: auto;
   z-index: 1;
   pointer-events: none;
-  max-width: 30rem;
+}
+
+.wb-empty-hint > * {
+  max-width: 26rem;
   text-align: center;
   color: var(--muted);
-  padding: var(--space-5);
+}
+
+/* Part of the content flow, not absolutely positioned over it — an
+   absolutely-placed corner is exactly the "sits under a floating panel"
+   problem this hint was just fixed for, just moved to a different corner. */
+.wb-empty-hint-close {
+  pointer-events: auto;
+  margin-top: var(--space-2);
 }
 
 .wb-empty-hint-title {
@@ -12910,6 +12942,22 @@ textarea.autogrow {
   align-items: center;
   justify-content: center;
   white-space: nowrap;
+}
+
+/* A defensive floor, not a measured fix for one font: the browser sizes a
+   `<select>` from its own font metrics, and a custom/fallback font's
+   metrics don't always agree with what it actually paints (reported live —
+   cut-off text in the grid and board pickers). A fixed minimum stops the
+   box from ever being sized tighter than its longest real option, in any
+   font. */
+#wb-grid-select {
+  min-width: 9rem;
+}
+
+#wb-board-select {
+  min-width: 8rem;
+  max-width: 14rem;
+  text-overflow: ellipsis;
 }
 
 .whiteboard-floating-panel select {
@@ -13369,6 +13417,23 @@ aside[data-resizable="1"] {
   fill: var(--accent);
   stroke: var(--card);
   stroke-width: 1px;
+}
+
+/* A link's own two endpoints — round, not the square resize handles above,
+   so the two read as a different kind of control (reattach/detach an end,
+   not resize a shape). */
+.wb-link-endpoint-handle {
+  fill: var(--card);
+  stroke: var(--accent);
+  stroke-width: 2px;
+  cursor: crosshair;
+  /* The overlay SVG root is `pointer-events: none` (it must never block a
+     card underneath it) — each handle opts back in individually. */
+  pointer-events: auto;
+}
+
+.wb-link-endpoint-handle:hover {
+  fill: var(--accent);
 }
 
 /* The rectangle marquee-select drag draws while it's active — reported
@@ -13922,6 +13987,16 @@ textarea.drag-over {
 .wb-svg-layer {
   width: 100%;
   height: 100%;
+}
+
+/* Above the card layer in DOM order (index.html), not the base drawing
+   layer — anchor hints and a selected link's endpoint handles have to be
+   seen and clicked over a card, not under it. `pointer-events: none` so it
+   never blocks a card underneath; each interactive child re-enables its
+   own (`.wb-link-endpoint-handle`). The app's CSP blocks inline `style=`
+   attributes, hence a real rule here rather than one on the element. */
+#wb-overlay-layer {
+  pointer-events: none;
 }
 
 .wb-html-layer {

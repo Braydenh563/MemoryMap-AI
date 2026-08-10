@@ -1416,11 +1416,25 @@ Link to another note with [[its first few words]]."></textarea>
       </svg>
       <!-- The HTML layer for cards, pannable/zoomable -->
       <div id="wb-html-layer" class="wb-html-layer"></div>
+      <!-- A second SVG layer, *above* the card layer (DOM order, no z-index
+           needed) — for anything that has to be seen and clicked over a
+           card rather than under it: anchor-point hints, and a selected
+           link's own two endpoint-drag handles. `#wb-svg-layer` above draws
+           strokes under the cards on purpose; this is the opposite case,
+           real, not theoretical — a link's anchor sits *on a card's own
+           border*, and every hover/drag test against it silently missed
+           the card's own DOM element sitting on top of that exact pixel
+           until this layer existed. `pointer-events: none` at the root so
+           it never blocks a card underneath; each interactive child
+           (a handle circle) opts back in with its own `pointer-events: auto`. -->
+      <svg id="wb-overlay-layer" class="wb-svg-layer">
+        <g id="wb-overlay-zoom-group"></g>
+      </svg>
       <!-- Shown only while the board is empty, cleared the moment anything
            real lands on it (renderWhiteboard). A board is a note nobody
            told you it was, and a blank canvas with an eight-icon toolbar
            and no words on it is not where that gets discovered. -->
-      <div id="wb-empty-hint" class="wb-empty-hint hidden" aria-hidden="true">
+      <div id="wb-empty-hint" class="wb-empty-hint hidden">
         <p class="wb-empty-hint-title">This board is a note — draw on it, or drag one in</p>
         <p>📝 <strong>Library</strong> (top right) drops an existing note here as a card.</p>
         <p>✏️ <strong>Pen</strong>, 📏 <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
@@ -1429,6 +1443,7 @@ Link to another note with [[its first few words]]."></textarea>
         <p>🧽 <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
         <p>🧠 Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
         <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Tab new branch · Enter new sibling · Esc back to pan</p>
+        <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this again</button>
       </div>
     </div>
     <div class="whiteboard-floating-panel top-left card glass" data-panel-id="board">
@@ -1883,7 +1898,7 @@ Link to another note with [[its first few words]]."></textarea>
                layout. Searching the sections' actual contents turns that guess
                into typing the word you already have in mind (§36B). -->
           <input id="settings-search" type="search" class="settings-search"
-            placeholder="🔎 Find a setting…" aria-label="Search settings"
+            placeholder="🔎 Search…" aria-label="Search settings"
             aria-describedby="settings-search-count">
           <p id="settings-search-count" class="muted settings-search-count hidden"
             role="status"></p>

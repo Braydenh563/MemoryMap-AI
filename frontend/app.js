@@ -23126,6 +23126,11 @@ let wbRefreshArrowStyleControlRef = null;
 // the pointer crosses while held, so it needs a "currently held" flag the
 // per-item hover handlers in renderWhiteboard can check.
 let wbErasing = false;
+// True for the span of an in-progress link drag (dragStart → dragEndNode on
+// a card, with a link-type tool selected) — lets the plain hover listener
+// in initWhiteboard step aside rather than fight the drag's own per-frame
+// anchor-hint redraw with a second, slightly-stale one.
+let wbLinkDragActive = false;
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -23146,6 +23151,7 @@ const wbDeleting = new Set();
 function handleWbZoom(e) {
   d3.select("#wb-html-layer").style("transform", `translate(${e.transform.x}px, ${e.transform.y}px) scale(${e.transform.k})`);
   d3.select("#wb-zoom-group").attr("transform", e.transform);
+  d3.select("#wb-overlay-zoom-group").attr("transform", e.transform);
   wbSyncGridToTransform(e.transform);
 }
 
@@ -23591,6 +23597,40 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor) {
   };
 }
 
+//: A link end is either attached to a card (`sourceId`/`targetId`, plus an
+//: optional fixed `sourceAnchor`/`targetAnchor` fraction — the existing
+//: shape) or a free "dangling" point in board space with no card at all
+//: (`sourcePoint`/`targetPoint`, `{x, y}` — asked for directly: "even make
+//: it a dangling unattached point not attached to an object"). Both ends
+//: independently resolved here so any combination — node/node (the
+//: original case), node/free, or free/free — renders through one path.
+//: Returns `null` for a stale reference (a card end whose id no longer
+//: exists), same as the two call sites already treated a missing node.
+function wbResolveLinkEndpoints(parsed) {
+  const sourceNode = parsed.sourceId != null ? wbState.nodes.find((n) => n.id === parsed.sourceId) : null;
+  const targetNode = parsed.targetId != null ? wbState.nodes.find((n) => n.id === parsed.targetId) : null;
+  if (parsed.sourceId != null && !sourceNode) return null;
+  if (parsed.targetId != null && !targetNode) return null;
+  if (!sourceNode && !parsed.sourcePoint) return null;
+  if (!targetNode && !parsed.targetPoint) return null;
+  if (sourceNode && targetNode) return wbLinkEndpoints(sourceNode, parsed.sourceAnchor, targetNode, parsed.targetAnchor);
+
+  const sourceBox = sourceNode ? wbItemBBox("node", sourceNode) : null;
+  const targetBox = targetNode ? wbItemBBox("node", targetNode) : null;
+  // A free point is always fixed — there's no card border for it to "aim
+  // toward" the way a floating card-end resolves. A card-end with no fixed
+  // anchor of its own still floats toward whatever the other end actually
+  // is, same as the node/node case.
+  const sourceFixed = sourceNode ? wbAnchorPoint("node", sourceNode, parsed.sourceAnchor) : parsed.sourcePoint;
+  const targetFixed = targetNode ? wbAnchorPoint("node", targetNode, parsed.targetAnchor) : parsed.targetPoint;
+  const targetCenter = targetBox && { x: (targetBox.minX + targetBox.maxX) / 2, y: (targetBox.minY + targetBox.maxY) / 2 };
+  const sourceCenter = sourceBox && { x: (sourceBox.minX + sourceBox.maxX) / 2, y: (sourceBox.minY + sourceBox.maxY) / 2 };
+  return {
+    source: sourceFixed || wbBoxRayIntersection(sourceBox, (targetFixed || targetCenter).x, (targetFixed || targetCenter).y),
+    target: targetFixed || wbBoxRayIntersection(targetBox, (sourceFixed || sourceCenter).x, (sourceFixed || sourceCenter).y),
+  };
+}
+
 //: Shared by the render path and the live drag preview so a straight vs.
 //: curved link can't compute its path two different ways. `endStyle`
 //: ("end"/"start"/"both", same values the sketch Arrow tool's own control
@@ -23623,7 +23663,11 @@ function wbLinkPathD(type, sPt, tPt, endStyle, width) {
 //: nearest one to the live pointer (if within snapping range) renders larger
 //: and filled, so "this is where it'll land" is visible before release.
 function wbShowAnchorHints(kind, item, nearAnchor) {
-  const zoomGroup = document.getElementById("wb-zoom-group");
+  // The overlay layer, not the base SVG's own `#wb-zoom-group` — cards
+  // render in an HTML layer *above* that SVG (see `#wb-overlay-layer`'s own
+  // comment in index.html), so a hint drawn there for a hovered card would
+  // be painted directly underneath it, invisible exactly when it matters.
+  const zoomGroup = document.getElementById("wb-overlay-zoom-group");
   if (!zoomGroup) return;
   let hints = document.getElementById("wb-anchor-hints");
   if (!hints) {
@@ -25004,6 +25048,10 @@ async function initWhiteboard() {
   }
   $("wb-new-board")?.addEventListener("click", createNewBoard);
   $("wb-rename-board")?.addEventListener("click", renameCurrentBoard);
+  $("wb-empty-hint-dismiss")?.addEventListener("click", () => {
+    localStorage.setItem("wbEmptyHintDismissed", "1");
+    $("wb-empty-hint")?.classList.add("hidden");
+  });
 
   // Board background colour, asked for directly — the ambient generative-art
   // canvas showed straight through the board before this (`--wb-board-bg`,
@@ -25917,6 +25965,28 @@ async function initWhiteboard() {
     wbMarqueeEl.setAttribute("width", w);
     wbMarqueeEl.setAttribute("height", h);
   });
+  // Anchor points weren't discoverable until a link drag was already under
+  // way — asked for directly: "when I hover over objects, their anchor
+  // points should display... so I can connect them." A plain hover with a
+  // link-type tool selected, no drag started yet, now shows the same 8
+  // fixed-point hints the in-progress drag already draws (`wbShowAnchorHints`,
+  // shared so the two can't drift visually apart). Skips while an actual
+  // link drag is running (`wbLinkDragActive`) — that path already redraws
+  // hints every frame from the live pointer position, and this would just
+  // be a second, slightly-stale write to the same DOM nodes.
+  containerEl.addEventListener("pointermove", (e) => {
+    if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
+    if (wbLinkDragActive) return;
+    const [x, y] = getLogicalMouse(e);
+    let hoverNode = null;
+    for (const node of wbState.nodes || []) {
+      const box = wbItemBBox("node", node);
+      if (box && x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY) { hoverNode = node; break; }
+    }
+    if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, x, y));
+    else wbClearAnchorHints();
+  });
+
   containerEl.addEventListener("pointerup", (e) => {
     if (!wbMarqueeStart) return;
     const [x, y] = getLogicalMouse(e);
@@ -26651,6 +26721,81 @@ function wbDetectArrowStyle(d) {
   return "none";
 }
 
+//: Two draggable handles at a selected link's own resolved endpoints —
+//: asked for directly: "I should be able to move the points where lines,
+//: arrows and links connect on objects to other points or even make it a
+//: dangling unattached point not attached to an object." Dragging one
+//: rewrites *that end's* own reference (`sourceId`/`sourceAnchor` or
+//: `targetId`/`targetAnchor` — reattach, snapping to the nearest of the
+//: hovered card's 8 fixed anchors the same way creating a link already
+//: does) or, released over empty canvas, `sourcePoint`/`targetPoint` — a
+//: fixed board-space point with no card at all. `wbResolveLinkEndpoints`
+//: already reads both shapes, so nothing else needs to change to render one.
+function wbRenderLinkEndpointHandles(sketch, parsed) {
+  const endpoints = wbResolveLinkEndpoints(parsed);
+  if (!endpoints) return;
+  // The overlay layer (see its own comment in index.html) — an endpoint
+  // sits *on a card's own border* by definition, which the base SVG layer
+  // paints underneath the card's HTML element. A handle there would be
+  // both invisible and unclickable exactly where it's needed most.
+  const group = d3.select("#wb-overlay-zoom-group").append("g").attr("class", "wb-sketch-handle-group");
+
+  const hoveredNodeAt = (px, py) => {
+    for (const node of wbState.nodes) {
+      const box = wbItemBBox("node", node);
+      if (px >= box.minX && px <= box.maxX && py >= box.minY && py <= box.maxY) return node;
+    }
+    return null;
+  };
+
+  for (const end of ["source", "target"]) {
+    const other = end === "source" ? "target" : "source";
+    const live = { x: endpoints[end].x, y: endpoints[end].y };
+    group.append("circle")
+      .attr("class", "wb-link-endpoint-handle")
+      .attr("data-end", end)
+      .attr("cx", live.x).attr("cy", live.y)
+      .attr("r", 7)
+      .style("cursor", "crosshair")
+      .call(
+        d3.drag()
+          .on("start", (event) => event.sourceEvent.stopPropagation())
+          .on("drag", function (event) {
+            const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+            live.x += event.dx / transform.k;
+            live.y += event.dy / transform.k;
+            d3.select(this).attr("cx", live.x).attr("cy", live.y);
+            const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
+            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], parsed.endStyle, parsed.width);
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
+            document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
+
+            const hoverNode = hoveredNodeAt(live.x, live.y);
+            if (hoverNode) wbShowAnchorHints("node", hoverNode, wbNearestAnchor("node", hoverNode, live.x, live.y));
+            else wbClearAnchorHints();
+          })
+          .on("end", async () => {
+            wbClearAnchorHints();
+            const before = WB_KIND_INFO.sketch.payload(sketch);
+            const hoverNode = hoveredNodeAt(live.x, live.y);
+            const partial = {};
+            if (hoverNode) {
+              partial[end + "Id"] = hoverNode.id;
+              partial[end + "Anchor"] = wbNearestAnchor("node", hoverNode, live.x, live.y) || undefined;
+              partial[end + "Point"] = undefined;
+            } else {
+              partial[end + "Id"] = undefined;
+              partial[end + "Anchor"] = undefined;
+              partial[end + "Point"] = { x: live.x, y: live.y };
+            }
+            await wbSaveSketchProps(sketch, partial);
+            wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+            renderWhiteboard();
+          })
+      );
+  }
+}
+
 // The handles themselves — a fresh SVG group per selection, since (unlike a
 // card/object's own always-present handles) a sketch has no fixed element to
 // attach 8 children to; it's rebuilt on every selection change and after
@@ -26659,11 +26804,18 @@ function wbRenderSketchHandles() {
   d3.select("#wb-zoom-group").selectAll(".wb-sketch-handle-group").remove();
   if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return;
   const sketch = wbState.sketches.find((s) => s.id === wbSelectedItem.id);
-  const parsed = sketch && wbSketchParsedData(sketch);
-  // Link sketches (a curve/line between two cards) are computed fresh from
-  // the cards' own positions on every render — dragging a handle on one
-  // would be undone the instant either card moves again, so they don't get
-  // handles at all; move/delete the cards instead.
+  if (!sketch) return;
+  // A link sketch has no `.d` of its own — `wbSketchParsedData` returns
+  // null for it, and the 8-point bbox resize handles below make no sense
+  // for a path recomputed fresh from its endpoints every render anyway.
+  // It gets its own two endpoint handles instead (below).
+  let rawParsed;
+  try { rawParsed = JSON.parse(sketch.data); } catch { rawParsed = null; }
+  if (rawParsed && (rawParsed.type || "").startsWith("link-")) {
+    wbRenderLinkEndpointHandles(sketch, rawParsed);
+    return;
+  }
+  const parsed = wbSketchParsedData(sketch);
   if (!parsed) return;
   const bbox = wbPathBBox(parsed.d);
   if (!bbox) return;
@@ -26736,10 +26888,13 @@ function renderWhiteboard() {
       "hidden",
       // Objects count too — a board holding only a text box or an image is
       // not empty, and left out of this sum the hint sat on top of them.
+      // Asked for directly: an option to turn the hint off entirely, once
+      // it's served its purpose — `localStorage`, the same durability the
+      // onboarding tour's own "don't show again" already uses.
       (wbState.nodes?.length || 0) +
         (wbState.sketches?.length || 0) +
         (wbState.objects?.length || 0) >
-        0
+        0 || localStorage.getItem("wbEmptyHintDismissed") === "1"
     );
 
   // Render Sketches (SVG)
@@ -26931,14 +27086,8 @@ function renderWhiteboard() {
         stroke = parsed.color || stroke;
         strokeWidth = String(parsed.width || 3);
         dashArray = wbDashArray(parsed.dash || "solid", parsed.width || 3);
-        const source = wbState.nodes.find(n => n.id === parsed.sourceId);
-        const target = wbState.nodes.find(n => n.id === parsed.targetId);
-        if (source && target) {
-           const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
-           pathData = wbLinkPathD(parsed.type, sPt, tPt, parsed.endStyle, parsed.width);
-        } else {
-           pathData = "";
-        }
+        const endpoints = wbResolveLinkEndpoints(parsed);
+        pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, parsed.endStyle, parsed.width) : "";
       }
     } catch(e) {}
     d3.select(this).select(".sketch-hitbox").attr("d", pathData);
@@ -27530,11 +27679,9 @@ function wbUpdateLinkedSketches(nodeId) {
     }
     if (!parsed.type || !parsed.type.startsWith("link-")) continue;
     if (parsed.sourceId !== nodeId && parsed.targetId !== nodeId) continue;
-    const source = wbState.nodes.find((n) => n.id === parsed.sourceId);
-    const target = wbState.nodes.find((n) => n.id === parsed.targetId);
-    if (!source || !target) continue;
-    const { source: sPt, target: tPt } = wbLinkEndpoints(source, parsed.sourceAnchor, target, parsed.targetAnchor);
-    const pathData = wbLinkPathD(parsed.type, sPt, tPt, parsed.endStyle, parsed.width);
+    const endpoints = wbResolveLinkEndpoints(parsed);
+    if (!endpoints) continue;
+    const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, parsed.endStyle, parsed.width);
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     el?.querySelector(".sketch-path")?.setAttribute("d", pathData);
     el?.querySelector(".sketch-hitbox")?.setAttribute("d", pathData);
@@ -27556,6 +27703,7 @@ function dragStart(event, d) {
     const startX = (event.sourceEvent.clientX - startRect.left - startTransform.x) / startTransform.k;
     const startY = (event.sourceEvent.clientY - startRect.top - startTransform.y) / startTransform.k;
     d.linkSourceAnchor = wbNearestAnchor("node", d, startX, startY);
+    wbLinkDragActive = true;
     wbShowAnchorHints("node", d, d.linkSourceAnchor);
     d.linkingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
     d.linkingPath.setAttribute("fill", "none");
@@ -27672,6 +27820,7 @@ async function dragEndNode(event, d) {
   if (window.currentTool && window.currentTool.startsWith("link-")) {
     if (d.linkingPath) d.linkingPath.remove();
     d.linkingPath = null;
+    wbLinkDragActive = false;
     wbClearAnchorHints();
 
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));

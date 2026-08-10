@@ -12395,6 +12395,16 @@ textarea.autogrow {
   border-color: var(--accent);
 }
 
+/* Live-reported: the emoji+label ("🔕 Mute") was just wide enough to not
+   fit on one line at this button's width, and default `white-space: normal`
+   let it wrap — the second line then spilled past the button's own fixed
+   height/border, reading as broken text rather than a two-line button.
+   Confirmed via computed style (`scrollHeight` 35px vs. `clientHeight`
+   30px) before fixing, not guessed from the screenshot alone. */
+#notif-mute-toggle {
+  white-space: nowrap;
+}
+
 .notif-list {
   list-style: none;
   margin: 0;

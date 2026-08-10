@@ -956,26 +956,27 @@ Worth doing, and worth doing after the above.
     whether the agent narrates "generated from an image" the way whiteboard
     AI actions already disclose their own source.
 36. ~~**Q&A answers cite which notes matched, not which claim inside the
-    answer's prose came from which note.**~~ **Backend done and tested;
-    frontend badge not built — say so plainly rather than claim the whole
-    item.** `ai/grounding.py`'s `ground_answer_sentences` splits the
-    answer into sentences and scores each against every retrieved note by
-    shared meaningful words (the same signal `search_manager`'s own
-    keyword ranking uses) — deliberately not a second LLM call, so the
+    answer's prose came from which note.**~~ **Done, backend and frontend.**
+    `ai/grounding.py`'s `ground_answer_sentences` splits the answer into
+    sentences and scores each against every retrieved note by shared
+    meaningful words (the same signal `search_manager`'s own keyword
+    ranking uses) — deliberately not a second LLM call, so the
     already-answered turn isn't made slower to explain itself. Attaches a
     note only above `MIN_OVERLAP_RATIO`; omits the sentence rather than
-    guessing when nothing clears it, on purpose (a wrong claim-ledger
-    entry is worse than a missing one). Wired into `POST /chat` (the
-    direct Q&A path, non-conversational turns only) as a new
-    `sentence_grounding` field, empty-list default so older clients see no
-    change. Seven tests (`test_grounding.py`): sentence splitting, code-
-    fence stripping, correct grounding, an ungrounded sentence correctly
-    omitted, the short-sentence floor, and the endpoint carrying the field.
-    **Not done: the Ask box uses `/chat/stream` (NDJSON), not this
-    endpoint** — so nothing renders yet in the actual UI, and the "badge,
-    not an interruption" half of this item is still open. Streaming the
-    grounding as its own event type, and the frontend badge itself, are
-    the next two steps, in that order.
+    guessing when nothing clears it (a wrong claim-ledger entry is worse
+    than a missing one). `POST /chat` carries it as `sentence_grounding`;
+    the Ask box's actual live path, `/chat/stream`, carries it as its own
+    `grounding` NDJSON event, sent once after the answer finishes
+    streaming (needs the whole answer, not per-delta). The badge itself
+    (`renderAnswerGrounding`, a new `#ai-answer-grounding` strip below the
+    answer, one small chip per *source note* — several grounded sentences
+    sharing a note collapse into one chip rather than repeating it, the
+    sentence(s) it backs in the hover title) opens that note on click,
+    same as a search-result row already does. Seven backend tests
+    (`test_grounding.py`) plus a live Playwright smoke check (no console
+    errors driving the real Ask box; the actual "a chip renders and says
+    the right thing" path needs a running Ollama to reach, which this
+    sandbox doesn't have — say so rather than claim it was watched).
 
     Original scope, for the next session: `match_info` (search results'
     per-row "why this matched" badge) already covers "which notes were

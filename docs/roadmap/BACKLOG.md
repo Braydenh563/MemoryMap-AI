@@ -2342,6 +2342,31 @@ brainstorm, next in line for the whiteboard.
   /`wbMindMapSpanningTree`'s tree/radial math from `app.js` into Python, since
   today that logic only exists client-side, behind keyboard shortcuts, with
   no AI-callable path to it at all.
+- **Links that can reach an object (image/text box), not just a card.**
+  Asked about directly (HISTORY.md §58): the border/anchor math itself
+  (`wbAnchorPoint`/`wbLinkEndpoints`/`wbBoxRayIntersection`) is generic —
+  it already takes a `kind`, and `wbItemBBox("object", ...)` already
+  works — but every actual entry point to "what can a link end on" is
+  hardcoded to cards only:
+  - `dragEndNode`'s own hit-test (app.js) loops `for (const node of
+    wbState.nodes)` — an object is never even considered as a drop target
+    for the live drag-to-link gesture.
+  - `add_whiteboard_link` (`src/memorymap/ai/tools.py`) does
+    `session.get(WhiteboardNode, ...)` for both ends — passing an object's
+    id raises "No whiteboard card with id …", not a working link.
+  - The link sketch's own data shape (`sourceId`/`targetId`) has no
+    `sourceKind`/`targetKind` — every render-time lookup
+    (`sketchUpdate.each`, `wbUpdateLinkedSketches`) assumes both ends are
+    nodes and would need a kind tag to know which state array to resolve
+    an id against.
+  Scoped shape: add `sourceKind`/`targetKind` (default `"node"` for every
+  existing link, so this doesn't need a migration), extend the hit-tests
+  above to also check `wbState.objects`, and give `add_whiteboard_link`
+  optional `from_kind`/`to_kind` args. The board/self-link guards just
+  added this session (`source.board_id != target.board_id`, `source.id ==
+  target.id`) will need the same kind-awareness — comparing a node's id to
+  an object's id is meaningless without also checking they're the same
+  `kind`.
 
 ---
 

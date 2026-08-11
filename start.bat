@@ -43,9 +43,7 @@ if not defined MM_CHILD (
     echo  Checking for updates...
     git pull --ff-only
     if errorlevel 1 (
-      echo  !ESC![1;31m[X]!ESC![0m Update failed. You may have conflicting local changes.
-      pause
-      exit /b 1
+      echo  !ESC![1;31m[X]!ESC![0m Update failed - no internet or local conflicts. Skipping...
     )
     call "%~f0"
     exit /b !errorlevel!
@@ -54,12 +52,12 @@ if not defined MM_CHILD (
 
 echo.
 echo !ESC![1;38;5;73m    __  ___                                __  ___               ___    ____
-echo    /  ^|/  /__  ____ ___  ____  _______  __/  ^|/  /___ _____     /   ^|  /  _/
-echo   / /^|_/ / _ \/ __ `__ \/ __ \/ ___/ / / / /^|_/ / __ `/ __ \   / /^| ^|  / /
+echo    /  ^|/  /__  ____ ___  ____  _______  __/  ^|/  /___ _____    /   ^|  /  _/
+echo   / /^|_/ / _ \/ __ `__ \/ __ \/ ___/ / / / /^|_/ / __ `/ __ \  / /^| ^|  / /
 echo  / /  / /  __/ / / / / / /_/ / /  / /_/ / /  / / /_/ / /_/ /  / ___ ^|_/ /
 echo /_/  /_/\___/_/ /_/ /_/\____/_/   \__, /_/  /_/\__,_/ .___/  /_/  ^|_/___/
 echo                                  /____/            /_/
-echo            your notebook, on your machine!ESC![0m
+echo             your notebook, on your machine!ESC![0m
 echo.
 
 set "VENV_PY=.venv\Scripts\python.exe"
@@ -133,20 +131,28 @@ if "!NEED_INSTALL!"=="0" (
 
 if "!NEED_INSTALL!"=="1" (
   echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models...
+  
+  set "PIP_FAILED=0"
   "%VENV_PY%" -m pip install --upgrade pip --quiet
   "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --quiet
-  if errorlevel 1 (
-    echo  !ESC![1;31m[X]!ESC![0m Dependency install failed. Check your requirements file for errors.
-    pause
-    exit /b 1
-  )
+  if errorlevel 1 set "PIP_FAILED=1"
+  
   "%VENV_PY%" -m pip install -e . --quiet
-  if errorlevel 1 (
-    echo  !ESC![1;31m[X]!ESC![0m Installing the app failed.
-    pause
-    exit /b 1
+  if errorlevel 1 set "PIP_FAILED=1"
+
+  if "!PIP_FAILED!"=="1" (
+    echo  !ESC![1;33m[!]!ESC![0m Could not update dependencies - offline or network error.
+    "%VENV_PY%" -c "import memorymap" >nul 2>nul
+    if errorlevel 1 (
+      echo  !ESC![1;31m[X]!ESC![0m First-time setup requires an internet connection to install dependencies.
+      pause
+      exit /b 1
+    ) else (
+      echo         Launching with existing installation...
+    )
+  ) else (
+    for %%A in ("requirements.txt") do echo %%~tA>".venv\.mm_installed"
   )
-  for %%A in ("requirements.txt") do echo %%~tA>".venv\.mm_installed"
 ) else (
   echo  !ESC![1;38;5;73m[2/4]!ESC![0m Dependencies already up to date - skipping install.
 )

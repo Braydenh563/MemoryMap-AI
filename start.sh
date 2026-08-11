@@ -29,7 +29,7 @@ done
 # The MM_CHILD guard prevents an endless loop.
 if [ -z "${MM_CHILD:-}" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
   echo " Checking for updates..."
-  git pull --ff-only || echo "       (skipped update - staying on the current version)"
+  git pull --ff-only || echo "        (skipped update - staying on the current version)"
   export MM_CHILD=1
   exec "$0" "$@"
 fi
@@ -49,13 +49,13 @@ echo
 printf '%s' "$TEAL"
 cat <<'MM_LOGO'
     __  ___                                __  ___               ___    ____
-   /  |/  /__  ____ ___  ____  _______  __/  |/  /___ _____     /   |  /  _/
-  / /|_/ / _ \/ __ `__ \/ __ \/ ___/ / / / /|_/ / __ `/ __ \   / /| |  / /
- / /  / /  __/ / / / / / /_/ / /  / /_/ / /  / / /_/ / /_/ /  / ___ |_/ /
-/_/  /_/\___/_/ /_/ /_/\____/_/   \__, /_/  /_/\__,_/ .___/  /_/  |_/___/
+   /  |/  /___  ____ ___  ____  _______  __/  |/  /___ _____    /   |  / _/
+  / /|_/ / _ \/ __ `__ \/ __ \/ ___/ / / / /|_/ / __ `/ __ \  / /| |  / /
+ / /  / /  __/ / / / / / /_/ / /  / /_/ / /  / / /_/ / /_/ / / ___ |_/ /
+/_/  /_/\___/_/ /_/ /_/\____/_/   \__, /_/  /_/\__,_/ .___/ /_/  |_/___/
                                  /____/            /_/
 MM_LOGO
-printf '           your notebook, on your machine%s\n\n' "$RESET"
+printf '            your notebook, on your machine%s\n\n' "$RESET"
 
 VENV_PY=".venv/bin/python"
 
@@ -71,7 +71,7 @@ if [ ! -x "$VENV_PY" ]; then
     echo " ${RED}[X]${RESET} No Python found. Install Python 3.11+ and run this again."
     exit 1
   fi
-  echo "       Using $($PYTHON --version) to create the virtual environment..."
+  echo "        Using $($PYTHON --version) to create the virtual environment..."
   "$PYTHON" -m venv .venv
 else
   echo " ${TEAL}[1/4]${RESET} Using the app's virtual environment."
@@ -90,15 +90,6 @@ if [ -f ".venv/.mm_installed" ]; then
   [ "$REQ_HASH" = "$LAST_HASH" ] && NEED_INSTALL=0
 fi
 
-# The marker only answers "have requirements.txt changed?". The question that
-# matters at launch is "can this venv actually import the app?", and the two
-# come apart the moment the project folder is renamed or moved: `pip install
-# -e .` records an ABSOLUTE path into the venv, so the old path stops
-# resolving while requirements.txt keeps its checksum. The marker then says
-# "up to date", the reinstall is skipped, and the launch dies with "No module
-# named memorymap" — reported on Windows after renaming the project folder.
-# Asking the venv directly costs one interpreter start and catches a move, a
-# rename, and a half-deleted venv alike.
 if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
   echo " ${TEAL}[2/4]${RESET} The app folder moved since it was installed - relinking it..."
   NEED_INSTALL=1
@@ -106,10 +97,19 @@ fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
   echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time..."
-  "$VENV_PY" -m pip install --upgrade pip
-  "$VENV_PY" -m pip install -r requirements.txt
-  "$VENV_PY" -m pip install -e .
-  cksum requirements.txt | awk '{print $1}' > ".venv/.mm_installed"
+  if "$VENV_PY" -m pip install --upgrade pip && \
+     "$VENV_PY" -m pip install -r requirements.txt && \
+     "$VENV_PY" -m pip install -e .; then
+    cksum requirements.txt | awk '{print $1}' > ".venv/.mm_installed"
+  else
+    echo " ${YELLOW}[!]${RESET} Could not update dependencies (offline or network error)."
+    if "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
+      echo "        Launching with existing installation..."
+    else
+      echo " ${RED}[X]${RESET} First-time setup requires an internet connection to install dependencies."
+      exit 1
+    fi
+  fi
 else
   echo " ${TEAL}[2/4]${RESET} Dependencies already up to date - skipping install."
 fi
@@ -118,7 +118,7 @@ fi
 # on demand rather than for everyone. A failure is not fatal - the app
 # falls back to a browser tab.
 if [ -n "${MM_DESKTOP:-}" ]; then
-  echo "       Checking desktop window support..."
+  echo "        Checking desktop window support..."
   if ! "$VENV_PY" -m pip install --quiet pywebview; then
     echo " ${YELLOW}[!]${RESET} pywebview would not install - opening a browser tab instead."
     unset MM_DESKTOP
@@ -136,13 +136,13 @@ fi
 # --- 4. Launch -------------------------------------------------------
 if [ -n "${MM_DESKTOP:-}" ]; then
   echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI in its own window."
-  echo "       Close the window to stop it."
+  echo "        Close the window to stop it."
   echo
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
 echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI at http://localhost:8000"
-echo "       A browser tab opens in a moment. Press Ctrl+C to stop."
+echo "        A browser tab opens in a moment. Press Ctrl+C to stop."
 echo
 
 (

@@ -708,6 +708,19 @@ function entryItem(entry, options = {}) {
     entry.title ? bodyWithoutTitleLine(entry.content) : entry.content,
     searchHighlightTerms()
   );
+  content.addEventListener("remove-inline-image", async (e) => {
+    e.stopPropagation();
+    if (!(await confirmDialog("Remove this image from the note?"))) return;
+    entry.content = entry.content.replace(e.detail.originalText, "").replace(/\n{3,}/g, "\n\n").trim();
+    try {
+      await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ content: entry.content }) });
+      await loadEntries();
+      flashEntry(entry.id);
+      toast("Image removed.");
+    } catch(err) {
+      toast(err.message || "Failed to remove image", true);
+    }
+  });
   li.appendChild(content);
   if (isLong) {
     const toggle = document.createElement("button");
@@ -1135,6 +1148,7 @@ async function toggleEntryPrivacy(entry) {
 
 async function generateEntryTitle(entry) {
   try {
+    toast("Generating title...");
     await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
     await loadEntries();
     flashEntry(entry.id);
@@ -1986,7 +2000,7 @@ function isRenderableUrl(url) {
 
 // LaTeX escapes that models reach for when they want a symbol (§35H).
 //
-// Screenshotted: a bullet reading "Jokes $\\rightarrow$ Social Skills", with
+// Screenshotted: a bullet reading "Jokes $\rightarrow$ Social Skills", with
 // the LaTeX printed literally. That is not a markdown gap — the model was
 // asked for an arrow and reached for the notation it saw most in training.
 // Rendering a whole maths engine for this would be absurd; translating the
@@ -2066,11 +2080,31 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
       if (compact) {
         element.appendChild(document.createTextNode(imageAlt || "🖼"));
       } else if (isRenderableUrl(imageUrl)) {
+        const wrapper = document.createElement("span");
+        wrapper.className = "thumb-wrap";
         const img = document.createElement("img");
         img.src = mediaSrc(imageUrl);
         img.alt = imageAlt || "";
-        img.className = "entry-inline-image";
+        img.className = "attachment-thumb";
         img.loading = "lazy";
+        img.style.cursor = "zoom-in";
+        img.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openLightbox(mediaSrc(imageUrl), imageAlt || "Image");
+        });
+        const dismissBtn = document.createElement("span");
+        dismissBtn.className = "unlink";
+        dismissBtn.title = "Remove image from note";
+        dismissBtn.textContent = "×";
+        dismissBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          wrapper.dispatchEvent(new CustomEvent("remove-inline-image", {
+            bubbles: true,
+            detail: { originalText: match[0] }
+          }));
+        });
+        wrapper.appendChild(img);
+        wrapper.appendChild(dismissBtn);
         // Asked for directly: a deleted image left a broken-image glyph in
         // the note that referenced it — a closable "deleted" box instead.
         // Only dismisses the placeholder from this render; the note's own
@@ -2080,16 +2114,15 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
           const placeholder = document.createElement("span");
           placeholder.className = "entry-inline-image-deleted";
           placeholder.append(document.createTextNode(`🖼 ${imageAlt || "Image"} deleted`));
-          const dismiss = document.createElement("button");
-          dismiss.type = "button";
-          dismiss.className = "ghost small icon-button";
+          const dismiss = document.createElement("span");
+          dismiss.className = "unlink";
           dismiss.title = "Dismiss";
-          dismiss.textContent = "✕";
+          dismiss.textContent = "×";
           dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
           placeholder.appendChild(dismiss);
-          img.replaceWith(placeholder);
+          wrapper.replaceWith(placeholder);
         });
-        element.appendChild(img);
+        element.appendChild(wrapper);
       } else {
         element.appendChild(document.createTextNode(match[0]));
       }
@@ -9683,6 +9716,7 @@ function safeMdSlice(text, maxChars) {
 // mode, the same as every other label-sized surface in this app.
 function notePreviewText(content) {
   return (content || "")
+    .replace(/^#{1,6}\s+/gm, "")
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
     .replace(
       new RegExp(INLINE_MD.source, "g"),
@@ -17691,7 +17725,10 @@ function libraryCard(item) {
   // A note's title is its first line, so it carries the note's own markup too.
   // Everything else has a real title and renders as plain text through the
   // same call, which is harmless.
-  renderInlineMarkdown(title, item.title, []);
+  // Strip block markdown (like headings) from the title before inline rendering,
+  // so a note starting with `# Title` doesn't show the raw `# `.
+  const cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+  renderInlineMarkdown(title, cleanTitle, []);
   top.append(icon, title);
   if (item.pinned) {
     const pin = document.createElement("span");
@@ -17711,7 +17748,7 @@ function libraryCard(item) {
   // every note card lost its preview entirely — leaving 60 characters of a
   // 420-character card. The question is not whether the preview begins with
   // the title, it is whether it goes on to say anything more.
-  const bare = item.title.replace(/…$/, "").trim();
+  const bare = cleanTitle.replace(/…$/, "").trim();
   const sameAsTitle =
     item.preview &&
     bare &&
@@ -17725,7 +17762,8 @@ function libraryCard(item) {
     // backticks here, which is the Library rendering the *source* of a note
     // while every other surface renders the note. Inline only — block elements
     // would turn a card into a document, which is what the clamp is for.
-    renderInlineMarkdown(preview, item.preview, []);
+    const cleanPreview = item.preview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+    renderInlineMarkdown(preview, cleanPreview, []);
     card.appendChild(preview);
   }
 
@@ -19992,6 +20030,21 @@ function applyCustomAccent(hex) {
   root.style.setProperty("--blob-a", `rgba(${parts}, 0.30)`);
 }
 
+function updateIcons() {
+  const style = appearancePref("iconstyle");
+  const icons = document.querySelectorAll('.ui-icon');
+  for (const icon of icons) {
+    if (style === "svg") {
+      icon.innerHTML = `<i data-lucide="${icon.dataset.lucide}"></i>`;
+    } else {
+      icon.innerHTML = icon.dataset.emoji;
+    }
+  }
+  if (style === "svg" && window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
 function applyPageBackground(hex) {
   const root = document.documentElement;
   if (hex) root.style.setProperty("--page", hex);
@@ -20057,6 +20110,7 @@ function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
   root.dataset.font = appearancePref("font");
+  root.dataset.iconstyle = appearancePref("iconstyle");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
   root.dataset.glassSheen = appearancePref("glass-sheen");
@@ -21422,6 +21476,10 @@ $("doc-content").addEventListener("keydown", (event) => {
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
 });
 // Leaving with unsaved edits would lose them; autosave hasn't fired yet.
+window.addEventListener("offline", () => $("offline-indicator")?.classList.remove("hidden"));
+window.addEventListener("online", () => $("offline-indicator")?.classList.add("hidden"));
+if (!navigator.onLine) $("offline-indicator")?.classList.remove("hidden");
+
 window.addEventListener("beforeunload", (event) => {
   if (!docDirty) return;
   event.preventDefault();

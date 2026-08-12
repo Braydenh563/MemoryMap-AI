@@ -1556,6 +1556,21 @@ header#top-bar.tabs-wrapped #tab-bar {
   cursor: zoom-in;
 }
 
+/* The caption becomes the rename field in place, so the field has to occupy
+   exactly the caption's box — a full-width input that changed the tile's
+   height would make the whole grid reflow while you type in one cell of it. */
+.library-image-rename-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+}
+
 .library-image-tile figcaption {
   padding: var(--space-3);
   font-size: var(--text-md);

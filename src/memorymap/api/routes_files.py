@@ -314,13 +314,29 @@ class MediaRenameBody(BaseModel):
 
 
 @router.put("/media/{upload_id}", response_model=MediaUploadOut)
-def rename_media(upload_id: int, body: MediaRenameBody, session: Session = Depends(get_session)) -> MediaUploadOut:
+def rename_media(
+    upload_id: int, body: MediaRenameBody, session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """Rename a Library image — the display name only.
+
+    `original_name` is a label, exactly like `Attachment.filename`: the bytes
+    live under `upload.filename`, a generated name, and nothing here touches
+    the disk. So it goes through the same validator rather than a laxer one of
+    its own — two "rename a file" endpoints in one module with two different
+    ideas of what a filename may contain is how the strict one quietly stops
+    being the rule.
+    """
     upload = session.get(MediaUpload, upload_id)
     if upload is None:
         raise HTTPException(status_code=404, detail="No upload with that id")
-    upload.original_name = body.original_name
+    try:
+        upload.original_name = manager.validate_attachment_filename(body.original_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     session.commit()
-    return MediaUploadOut(id=upload.id, url=f"/media/{upload.filename}", original_name=upload.original_name)
+    return MediaUploadOut(
+        id=upload.id, url=f"/media/{upload.filename}", original_name=upload.original_name
+    )
 
 
 @media_router.get("/media/{filename}")

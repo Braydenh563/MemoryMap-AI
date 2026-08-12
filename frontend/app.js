@@ -1229,13 +1229,35 @@ async function toggleEntryPrivacy(entry) {
   }
 }
 
+// Reported: no popup shows when a title is regenerated.
+//
+// There WAS a toast, and it was being swallowed. `toast()` drops anything
+// that is not an error while notifications are muted — which is right for
+// background chatter and wrong here: this is the result of a button the user
+// just pressed, and a direct action that reports nothing reads as a broken
+// button. Muting is about noise you did not ask for.
+//
+// The "Generating…" toast is also worth keeping distinct from the settled one:
+// this call waits on the model, so it can take seconds, and a control that
+// looks inert for seconds gets pressed again.
 async function generateEntryTitle(entry) {
+  const regenerating = Boolean(entry.title);
   try {
-    toast("Generating title...");
-    await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
+    toast(regenerating ? "Regenerating the title…" : "Generating a title…", false, {
+      exempt: true,
+    });
+    const updated = await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
     await loadEntries();
     flashEntry(entry.id);
-    toast("Titled.");
+    const title = updated && updated.title;
+    toast(title ? `Titled “${title}”.` : "Titled.", false, { exempt: true });
+    // And in the notification centre, so the result survives the 5.5 seconds
+    // the toast lives for — the model can finish while you are on another tab.
+    recordNotification({
+      kind: "task",
+      title: regenerating ? "Title regenerated" : "Title generated",
+      detail: title ? `“${title}”` : `Note #${entry.id}`,
+    });
   } catch (error) {
     toast(error.message || "Couldn't generate a title.", true);
   }
@@ -1246,6 +1268,9 @@ async function removeEntryTitle(entry) {
     await apiJson(`/entries/${entry.id}/remove-title`, { method: "POST" });
     await loadEntries();
     flashEntry(entry.id);
+    // Said out loud for the same reason as above: it was silent, so the only
+    // feedback was noticing the title had gone.
+    toast("Title removed.", false, { exempt: true });
   } catch (error) {
     toast(error.message || "Couldn't remove the title.", true);
   }
@@ -29201,7 +29226,7 @@ async function renderLibraryImagesGallery() {
     const del = document.createElement("button");
     del.type = "button";
     del.className = "ghost small icon-button library-image-delete";
-    del.title = "Delete this image";
+    del.title = `Delete “${image.original_name}”`;
     setLabel(del, "ph:trash");
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -29210,9 +29235,80 @@ async function renderLibraryImagesGallery() {
       fig.remove();
       if (!grid.children.length) empty?.classList.remove("hidden");
     });
+    // Rename. Reported as simply missing: there was no way to rename an image
+    // in the Library at all. The stylesheet already had `.library-image-edit`
+    // from an earlier attempt — the CSS shipped and the button that would have
+    // used it never did, so the rule sat there styling nothing.
+    //
+    // Renamed in place rather than through a dialog: a gallery is a wall of
+    // captions and the one you are changing should stay where it is, next to
+    // the picture it names.
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "ghost small icon-button library-image-edit";
+    rename.title = `Rename “${image.original_name}”`;
+    rename.setAttribute("aria-label", `Rename ${image.original_name}`);
+    setLabel(rename, "ph:pencil-simple");
+
     const cap = document.createElement("figcaption");
     cap.textContent = image.original_name;
-    fig.append(img, del, cap);
+
+    rename.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (cap.querySelector("input")) return; // already editing
+      const box = document.createElement("input");
+      box.type = "text";
+      box.className = "library-image-rename-input";
+      box.value = image.original_name;
+      box.setAttribute("aria-label", "New name for this image");
+      box.maxLength = 255;
+      cap.replaceChildren(box);
+      box.focus();
+      box.select();
+
+      let settled = false;
+      const finish = (text) => {
+        if (settled) return;
+        settled = true;
+        cap.replaceChildren(document.createTextNode(text));
+      };
+      const cancel = () => finish(image.original_name);
+      const save = async () => {
+        const next = box.value.trim();
+        if (!next || next === image.original_name) return cancel();
+        // Optimistic, then corrected: the server is the authority on what a
+        // name may contain, and it rejects with a reason worth showing.
+        finish(next);
+        try {
+          const saved = await apiJson(`/media/${image.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ original_name: next }),
+          });
+          image.original_name = saved.original_name;
+          cap.replaceChildren(document.createTextNode(saved.original_name));
+          img.alt = saved.original_name;
+          rename.title = `Rename “${saved.original_name}”`;
+          del.title = `Delete “${saved.original_name}”`;
+        } catch (error) {
+          cap.replaceChildren(document.createTextNode(image.original_name));
+          toast(error.message, true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter") {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      // Clicking away commits, which is what every other inline rename in this
+      // app does; Escape is the way out.
+      box.addEventListener("blur", save);
+    });
+
+    fig.append(img, rename, del, cap);
     grid.appendChild(fig);
   }
 }

@@ -2160,15 +2160,43 @@ input[type="datetime-local"] {
    chat dock uses — replaces the platform arrow with one that is always inside
    its own reserved space and always the same colour as the text, so it dims
    and brightens with the control instead of staying the OS's grey. */
+/* Reserving the space was not enough on its own, and this is the measurement
+   that showed why. `#llm-provider-select` renders 280px wide because its
+   container constrains it; its longest option needs 270px of TEXT and the
+   control leaves 241px. The option is 29px too wide for the box, so on a
+   select whose width is set by its container rather than by its content, the
+   text runs straight under the caret no matter how much end padding is
+   reserved — reserving more just moves where it collides.
+
+   Two things fix it together:
+     - a wider reserve, so a caret never sits tight against the last glyph;
+     - `text-overflow: ellipsis`, so an option too long for its box is cut with
+       a visible "…" BEFORE the reserve instead of sliding under the caret.
+   The second is the one that actually closes the bug; the first is what makes
+   the result look deliberate. */
 select {
   appearance: none;
   -webkit-appearance: none;
-  padding-inline-end: var(--space-8);
+  padding-inline-end: var(--space-9);
+  /* Never narrower than a couple of words plus the caret's lane. A select that
+     shrink-wraps to "Day" reads as a broken button. */
+  min-width: 7rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
-  background-position: right 0.85rem center, right 0.65rem center;
+  background-position: right 1.05rem center, right 0.85rem center;
   background-repeat: no-repeat;
+}
+
+/* The dropdown list itself. A native popup is drawn by the OS and mostly
+   ignores CSS, but padding on an option is one of the few things Chromium and
+   Firefox both honour — and it is exactly the reported problem, option text
+   sitting flush against the edge of the list with no breathing room. */
+select option {
+  padding: var(--space-2) var(--space-3);
 }
 
 /* Firefox draws its own focus ring inside the control on top of the painted
@@ -11499,20 +11527,32 @@ textarea.autogrow {
 }
 
 
+/* --- Timeline: the grid view -------------------------------------------------
+   A band per row, a time bucket per column, and a card per note. The previous
+   pass turned the cards into strips of bare preview text with a border, which
+   is a list rendered as a table; this gives each one a header, a title and a
+   body, and gives the grid the two sticky edges that make a table of this
+   shape navigable at all. */
 .timeline-grid {
   display: grid;
-  gap: var(--space-4);
+  /* Column gap wider than row gap: columns are DIFFERENT DATES and the gap is
+     the only thing saying so, while rows are already separated by the band
+     label at their left edge. Equal gaps read as a uniform mesh with no
+     structure, which is what "looks like a calendar" was describing. */
+  column-gap: var(--space-5);
+  row-gap: var(--space-6);
   align-items: start;
   min-width: min-content;
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-2) var(--space-6);
 }
 
+/* The corner sits over both sticky edges, so it needs to out-stack both. */
 .timeline-corner {
   position: sticky;
   top: 0;
   left: 0;
-  background: var(--bg);
   z-index: 3;
+  background: var(--bg);
 }
 
 .timeline-head {
@@ -11521,40 +11561,57 @@ textarea.autogrow {
   z-index: 2;
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--text);
+  color: var(--ink);
   text-align: left;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-2) var(--space-3);
   white-space: nowrap;
   background: var(--bg);
-  border-bottom: 2px solid var(--border);
+  /* An accent underline rather than a heavy border: the date row is a scale,
+     and a 2px grey rule under it read as a table header from a spreadsheet. */
+  border-bottom: 2px solid var(--accent-soft);
 }
 
+/* The band label is a sticky first column, so scrolling a year sideways never
+   loses which row you are on. It was rendering as a pill floating in the
+   middle of a tall row — `align-items: start` on the grid plus a rounded
+   background and no height. It is a full-height rail now, aligned to the top
+   of its own row's cards. */
 .timeline-band {
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--bg);
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text);
-  text-align: left;
-  padding: var(--space-4);
-  border: none;
-  border-radius: var(--radius-lg);
   display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   width: 100%;
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  padding: var(--space-3);
+  border: 0;
+  /* A left accent bar instead of a filled pill: it names the row without
+     competing with the cards for attention, and it lines up with the top of
+     the first card rather than floating mid-row. */
+  border-left: 3px solid var(--accent-soft);
+  border-radius: 0;
+  background: var(--bg);
   cursor: pointer;
 }
 
 .timeline-band:hover,
 .timeline-band:focus-visible {
   color: var(--accent);
-  background: var(--card-bg-hover);
+  border-left-color: var(--accent);
+  background: var(--inner);
   outline: none;
+}
+
+.timeline-band .muted {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .timeline-cell {
@@ -11571,46 +11628,67 @@ textarea.autogrow {
   width: 100%;
   text-align: left;
   font: inherit;
-  font-size: var(--text-sm);
-  line-height: 1.5;
+  line-height: 1.45;
   padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
-  color: var(--text);
+  color: var(--ink);
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
   overflow: hidden;
 }
 
-.timeline-dot:hover {
+.timeline-dot:hover,
+.timeline-dot:focus-visible {
   transform: translateY(-2px);
   border-color: var(--accent);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
+  outline: none;
 }
 
 .timeline-dot-header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 500;
+  color: var(--muted);
 }
 
-.timeline-dot-content {
+.timeline-dot-when {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-
-.timeline-dot:hover,
-.timeline-dot:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-  outline: none;
+.timeline-dot-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
+  /* One line. A note whose first line is a paragraph is not a title, and
+     letting it wrap to four lines is how every card in a column became the
+     same height and the same shape. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.timeline-dot-preview {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  /* Three lines. The clamp is belt-and-braces — clampTimelineDots() shortens
+     the text itself, because this property has been observed not to engage in
+     the engine that actually renders the app, which is what left the text cut
+     mid-word with no ellipsis. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: calc(1.45em * 3);
+}
+
+/* Search Highlighting */
 /* Search Highlighting */
 .timeline-dim {
   opacity: 0.2;

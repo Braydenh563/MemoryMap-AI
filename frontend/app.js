@@ -14184,54 +14184,116 @@ function stripMarkdownPreview(text) {
     .replace(/!?\[([^\]]*)\]\([^)]*\)?/g, "$1");
 }
 
+// A note on the timeline grid.
+//
+// It was one flat strip of preview text per note: no date, no title, no way to
+// tell a note placed by what it SAYS from one placed by when it was written,
+// and nothing to separate one note from the next but a border. Reported as
+// "lacks features and the UI aesthetic and usability is sub par", which is
+// fair — a grid cell that is only truncated body text is a list with extra
+// steps.
+//
+// Three parts now, in the order you read them:
+//
+//   header   when it is, and why it is there
+//   title    the note's first heading or first line, in the app's own weight
+//   preview  the rest, clamped by measurement (see clampTimelineDots)
+//
+// The header is what earns the card its place: `placed_by === "mentioned"`
+// means the note is sitting on a date it TALKS about rather than the date it
+// was typed, and without saying so the timeline looks like it has quietly
+// moved your notes.
 function timelineDot(note) {
   const dot = document.createElement("button");
-  dot.className = `timeline-dot${note.placed_by === "mentioned" ? " timeline-dot-mentioned" : ""}`;
+  const mentioned = note.placed_by === "mentioned";
+  dot.className = `timeline-dot${mentioned ? " timeline-dot-mentioned" : ""}`;
   dot.type = "button";
-  // Recent marks a note that is here because of what it says, not when it was
-  // typed. Without it the timeline quietly moves notes and looks wrong.
-  dot.textContent =
-    (note.placed_by === "mentioned" ? "ph:clock " : "") + stripMarkdownPreview(note.preview);
-  dot.dataset.fullText = dot.textContent; // clampTimelineDots reads this back
-  dot.title =
-    note.placed_by === "mentioned"
-      ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
-        `\nWritten ${new Date(note.written_at).toLocaleDateString()}.`
-      : `Written ${new Date(note.written_at).toLocaleString()}`;
+
+  const header = document.createElement("span");
+  header.className = "timeline-dot-header";
+  const glyph = document.createElement("i");
+  glyph.className = mentioned ? "ph ph-clock-countdown" : "ph ph-calendar-blank";
+  glyph.setAttribute("aria-hidden", "true");
+  const when = document.createElement("span");
+  when.className = "timeline-dot-when";
+  when.textContent = mentioned
+    ? note.phrase || "mentioned here"
+    : relativeTime(note.written_at) || shortDate(note.written_at);
+  header.append(glyph, when);
+  dot.appendChild(header);
+
+  // The first line of a note is what a person calls it, whether or not they
+  // wrote it as a heading. Splitting it out gives the card something to lead
+  // with and stops every card in a column starting with the same three words.
+  const flat = stripMarkdownPreview(note.preview || "").trim();
+  const split = flat.indexOf("\n");
+  const heading = (split === -1 ? flat : flat.slice(0, split)).trim();
+  const rest = split === -1 ? "" : flat.slice(split + 1).replace(/\s+/g, " ").trim();
+
+  const title = document.createElement("span");
+  title.className = "timeline-dot-title";
+  title.textContent = heading || "Untitled note";
+  dot.appendChild(title);
+
+  if (rest) {
+    const preview = document.createElement("span");
+    preview.className = "timeline-dot-preview";
+    preview.textContent = rest;
+    // clampTimelineDots shortens THIS, not the whole card — clamping the card
+    // would eat the header and title first.
+    preview.dataset.fullText = rest;
+    dot.appendChild(preview);
+  }
+
+  dot.title = mentioned
+    ? `“${note.phrase}” in this note meant ${shortDate(note.at)}.` +
+      `\nWritten ${shortDate(note.written_at)}.`
+    : `Written ${new Date(note.written_at).toLocaleString()}`;
   dot.addEventListener("click", (event) => {
     openTimelinePopup(event, note);
   });
   return dot;
 }
 
+// A date with no time, in the reader's locale. Used where a full timestamp is
+// noise — a card header, a tooltip's second line.
+function shortDate(iso) {
+  const date = parseServerTime(iso) || new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 // Reported directly, more than once: the CSS 3-line clamp (`-webkit-line-
-// clamp` + a max-height safety net, right above `.timeline-dot` in
-// style.css) still cut text off with no "…" to say so. Root cause a live
-// measurement this sandbox's Chromium couldn't reproduce — the clamp not
-// actually engaging in whatever engine renders it for real, so the max-
-// height net was the only thing cropping, mid-line, past wherever the
+// clamp` + a max-height safety net) still cut text off with no "…" to say so.
+// Root cause a live measurement this sandbox's Chromium couldn't reproduce —
+// the clamp not actually engaging in whatever engine renders it for real, so
+// the max-height net was the only thing cropping, mid-line, past wherever the
 // clamp should have stopped. This replaces "hope the clamp works" with a
-// measurement every engine agrees on: does the card's content overflow its
-// own box? If so, shorten the actual text (not just how it's displayed)
-// until it fits, and add the ellipsis by hand. Runs once after the grid's
-// cards are all in the DOM — `clientHeight` reads 0 before that.
+// measurement every engine agrees on: does the element overflow its own box?
+// If so, shorten the actual text until it fits, and add the ellipsis by hand.
+//
+// It measures the PREVIEW now, not the whole card. Clamping the card shortened
+// whichever child happened to be last, which after the card gained a header
+// and a title was the wrong one — and on a short note it deleted the title.
+// Runs once after the grid is in the DOM; clientHeight reads 0 before that.
 function clampTimelineDots() {
-  const dots = document.querySelectorAll("#timeline-grid .timeline-dot");
-  for (const dot of dots) {
-    const full = dot.dataset.fullText || dot.textContent;
-    if (dot.scrollHeight <= dot.clientHeight + 1) continue; // +1: subpixel rounding
-    let lo = 0, hi = full.length;
+  for (const preview of document.querySelectorAll("#timeline-grid .timeline-dot-preview")) {
+    const full = preview.dataset.fullText || preview.textContent;
+    preview.textContent = full;
+    if (preview.scrollHeight <= preview.clientHeight + 1) continue; // +1: subpixel
+    let lo = 0;
+    let hi = full.length;
     // Binary search for the longest prefix that still fits with "…" appended —
     // a handful of iterations regardless of note length, and exact rather than
-    // guessing a fixed character budget that a narrower column would still
-    // overflow or a wider one would under-fill.
+    // guessing a character budget a narrower column would still overflow.
     while (lo < hi) {
       const mid = Math.ceil((lo + hi) / 2);
-      dot.textContent = `${full.slice(0, mid).trimEnd()}…`;
-      if (dot.scrollHeight <= dot.clientHeight + 1) lo = mid;
+      preview.textContent = `${full.slice(0, mid).trimEnd()}…`;
+      if (preview.scrollHeight <= preview.clientHeight + 1) lo = mid;
       else hi = mid - 1;
     }
-    dot.textContent = lo > 0 ? `${full.slice(0, lo).trimEnd()}…` : "…";
+    preview.textContent = lo > 0 ? `${full.slice(0, lo).trimEnd()}…` : "…";
   }
 }
 

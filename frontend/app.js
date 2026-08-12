@@ -7942,8 +7942,85 @@ async function loadChatSkills() {
     select.title = chosen ? skillSummary(chosen) : "Run one of your saved skills";
   });
 
-  box.append(label, select, skillPacePill(), run);
+  // **One "Skills" dropdown, not four controls loose in the strip.** Asked for
+  // directly, twice: the selector, the Auto|Manual pill and Run belong inside
+  // a Skills menu, not spread across the dock competing with Ask/Request/Web/
+  // Plan for width. Running a skill is one job; it should occupy one control
+  // until you are actually doing it.
+  //
+  // Built on the same trigger-plus-panel shape as the gear popup two groups
+  // along (.chat-dock-more), because a second popup pattern in one strip is
+  // how a toolbar starts looking assembled rather than designed.
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.id = "chat-skills-btn";
+  trigger.className = "ghost small";
+  trigger.setAttribute("aria-haspopup", "dialog");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.setAttribute("aria-controls", "chat-skills-panel");
+  trigger.title = "Skills — saved jobs you can run over your notes";
+  setLabel(trigger, "ph:lightning Skills");
+
+  const panel = document.createElement("div");
+  panel.id = "chat-skills-panel";
+  panel.className = "chat-skills-panel hidden";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Run a skill");
+
+  const pickRow = document.createElement("label");
+  pickRow.className = "chat-skills-row";
+  const pickLabel = document.createElement("span");
+  pickLabel.className = "muted";
+  pickLabel.textContent = "Skill";
+  pickRow.append(pickLabel, select);
+
+  const paceRow = document.createElement("div");
+  paceRow.className = "chat-skills-row";
+  const paceLabel = document.createElement("span");
+  paceLabel.className = "muted";
+  paceLabel.textContent = "Pace";
+  paceRow.append(paceLabel, skillPacePill());
+
+  const runRow = document.createElement("div");
+  runRow.className = "chat-skills-run";
+  runRow.appendChild(run);
+
+  panel.append(pickRow, paceRow, runRow);
+
+  const close = () => {
+    panel.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = trigger.getAttribute("aria-expanded") === "true";
+    trigger.setAttribute("aria-expanded", String(!open));
+    panel.classList.toggle("hidden", open);
+    if (!open) select.focus();
+  });
+  document.addEventListener("click", (event) => {
+    if (!box.contains(event.target)) close();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") close();
+  });
+  // Running one is the end of the interaction, so the menu gets out of the way.
+  run.addEventListener("click", close);
+
+  // The trigger says which skill is armed, so the dock still answers "what is
+  // this about to do?" without being opened.
+  select.addEventListener("change", () => {
+    setLabel(
+      trigger,
+      select.value && select.value !== SKILL_MANAGE_VALUE
+        ? `ph:lightning ${select.selectedOptions[0].textContent}`
+        : "ph:lightning Skills"
+    );
+  });
+
+  box.append(trigger, panel);
   box.classList.remove("hidden");
+  void label; // the group's mark is the trigger's own icon now
 }
 
 // Auto | Manual, over the hidden #skill-manual-toggle checkbox that the rest of
@@ -13480,20 +13557,39 @@ function initGraphKeyboard() {
 
 // Zoom/pan so every node fits with a margin (Wave N).
 function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
-  const xs = nodes.map((n) => n.x);
-  const ys = nodes.map((n) => n.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  if (!nodes.length) return;
+  // Reported: fit-to-view "zooms out like crazy so you only see the generic
+  // cluster blobs". Two bugs, both in how the old version measured the map:
+  // it bounded only the node *centres* (a node's halo, ring and the label
+  // drawn below it all extend past that point, so a real graph always
+  // rendered a bit outside the box this used to fit), and its scale had no
+  // floor — `Math.min(3, ...)` clamps how far it can zoom IN but not how far
+  // it can zoom OUT, so one node that drifted far from the rest (the collide
+  // simulation allows this) could shrink everything else to specks trying to
+  // fit it in frame too.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    // Same pad the force simulation's own world-clamp uses (see the comment
+    // above it): node radius, the halo ring (+6) and the label drawn below
+    // the circle, so a fitted node's own name is never left outside frame.
+    const pad = graphNodeRadius(n) + 34;
+    minX = Math.min(minX, n.x - pad);
+    maxX = Math.max(maxX, n.x + pad);
+    minY = Math.min(minY, n.y - pad);
+    maxY = Math.max(maxY, n.y + pad);
+  }
   const spanX = Math.max(maxX - minX, 1);
   const spanY = Math.max(maxY - minY, 1);
-  const margin = 60;
-  const scale = Math.min(
-    3,
+  // A comfortable margin scales with the container instead of a flat 60px,
+  // which was a sliver of a 1400px-wide window and most of a 300px panel.
+  const margin = Math.min(width, height) * 0.09;
+  const rawScale = Math.min(
     (width - margin * 2) / spanX,
     (height - margin * 2) / spanY
   );
+  // The floor is the actual fix for "zooms out like crazy": no single
+  // outlier can push the whole map below a still-readable scale.
+  const scale = Math.max(0.25, Math.min(2.5, rawScale));
   const tx = width / 2 - scale * (minX + maxX) / 2;
   const ty = height / 2 - scale * (minY + maxY) / 2;
   svg
@@ -19524,79 +19620,124 @@ async function loadLinkSuggestions() {
       "No new links to suggest — either everything related is already linked, or semantic search is off.";
     return;
   }
+  // Was a bare space-between over three children, which put the backfill
+  // button in the MIDDLE of the row between the sentence and the close
+  // button — reported as "weirdly spaced". A heading and its actions is two
+  // groups, not three peers: the sentence takes the slack, the buttons sit
+  // together on the right.
   const heading = document.createElement("div");
-  heading.style.display = "flex";
-  heading.style.justifyContent = "space-between";
-  heading.style.alignItems = "center";
-  heading.style.marginBottom = "var(--space-3)";
-  
+  heading.className = "row link-suggest-head";
+
   const headingText = document.createElement("span");
-  headingText.className = "muted";
+  headingText.className = "muted link-suggest-title";
   headingText.textContent = "Notes that look related — link the ones you agree with:";
 
+  const actions = document.createElement("div");
+  actions.className = "row link-suggest-actions";
+
   // Asked directly: "none of my notes have a linked reason yet — is there an
-  // easy way to give them all a reason?" There wasn't, since `_deduce_reason`
-  // only ever ran when a link was first made. This runs it once over every
-  // existing reason-less link instead of leaving them mute forever.
+  // easy way to give them all a reason?"
+  //
+  // It ran only the embedding pass, which can compare two vectors and has no
+  // WORDS for what it found, so every reason it wrote was the literal string
+  // "similar in meaning" — the button looked like it worked and produced
+  // reasons that said nothing. The endpoint runs the model over those
+  // afterwards now, and this reports both numbers so it is obvious which
+  // half did the work.
   const backfill = smallButton(
-    "ph:lightbulb Give existing links a reason",
-    "Deduce a reason for every link that doesn't have one yet, from how alike the two notes' meanings are",
+    "ph:lightbulb Give links a reason",
+    "Work out why each link exists — first from how alike the notes are, then by asking the AI to name the actual connection",
     async () => {
+      backfill.disabled = true;
+      setLabel(backfill, "ph:lightbulb Working…");
       const result = await apiJson("/entries/links/backfill-reasons", {
         method: "POST",
+        body: JSON.stringify({ ai: true }),
       }).catch((e) => {
         toast(e.message, true);
         return null;
       });
+      backfill.disabled = false;
+      setLabel(backfill, "ph:lightbulb Give links a reason");
       if (!result) return;
-      toast(
-        result.updated
-          ? `Gave ${result.updated} of ${result.checked} link${result.checked === 1 ? "" : "s"} a reason.`
-          : result.checked
-            ? "None of them were similar enough to guess a reason for."
-            : "Every link already has a reason."
-      );
+      const parts = [];
+      if (result.updated) parts.push(`marked ${result.updated}`);
+      if (result.rewritten) parts.push(`wrote a real reason for ${result.rewritten}`);
+      if (parts.length) {
+        toast(`Links: ${parts.join(", ")}.`);
+        loadLinkSuggestions();
+      } else if (result.ai_unavailable) {
+        toast("Marked what I could — the AI isn't running, so none could be put into words yet.", true);
+      } else if (result.checked) {
+        toast("Nothing left to explain — every link already has a reason.");
+      } else {
+        toast("Every link already has a reason.");
+      }
     }
   );
 
-  const closeAll = smallButton("✕", "Close suggestions", () => {
+  const closeAll = smallButton("ph:x", "Close suggestions", () => {
     box.classList.add("hidden");
     box.replaceChildren();
   });
 
-  heading.append(headingText, backfill, closeAll);
+  actions.append(backfill, closeAll);
+  heading.append(headingText, actions);
   box.appendChild(heading);
   for (const s of suggestions) {
     const row = document.createElement("div");
     row.className = "link-suggestion";
     const text = document.createElement("span");
+    text.className = "link-suggestion-text";
     text.append(
-      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” — ${s.reason} `)
+      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}”`)
     );
+
+    // **A reason you can type before you link.** Every suggestion offered
+    // "similar in meaning" and there was no way to say anything else without
+    // linking first, finding the link, and editing it — reported as the
+    // suggestions refusing to offer reasons. Left blank, the server deduces
+    // one exactly as before, so the fast path is unchanged.
+    const reason = document.createElement("input");
+    reason.type = "text";
+    reason.className = "link-suggestion-reason";
+    reason.maxLength = 80;
+    reason.placeholder = s.reason && s.reason !== "similar in meaning"
+      ? s.reason
+      : "Why? (optional — the AI will work it out)";
+    reason.setAttribute("aria-label", "Reason for this link");
+
     const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
     const link = smallButton("ph:link Link", "Connect these two notes", async () => {
+      const given = reason.value.trim();
       await apiJson(`/entries/${s.source_id}/links`, {
         method: "POST",
-        body: JSON.stringify({ target_id: s.target_id }),
-        // No `reason` here on purpose: this suggestion came from the same
-        // embeddings `create_link` checks when nobody gives it a reason, so
-        // leaving it out gets the same "similar in meaning" text and a real
-        // confidence score back, instead of a hand-built duplicate of it.
+        // Only sent when the user typed one. Left out, the server runs the
+        // same deduction it always did and returns a real confidence score,
+        // rather than a hand-built duplicate of it.
+        body: JSON.stringify(given ? { target_id: s.target_id, reason: given } : { target_id: s.target_id }),
       }).catch((e) => toast(e.message, true));
       row.remove();
-      toast("Linked.");
+      toast(given ? "Linked, with your reason." : "Linked.");
       loadEntries().catch(() => {});
       if (!box.querySelector(".link-suggestion")) {
         box.classList.add("hidden");
       }
     });
-    const dismiss = smallButton("✕", "Dismiss this suggestion", () => {
+    // Enter in the reason box links, which is what you have just described.
+    reason.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        link.click();
+      }
+    });
+    const dismiss = smallButton("ph:x", "Dismiss this suggestion", () => {
       row.remove();
       if (!box.querySelector(".link-suggestion")) {
         box.classList.add("hidden");
       }
     });
-    row.append(text, score, link, dismiss);
+    row.append(text, reason, score, link, dismiss);
     box.appendChild(row);
   }
 }
@@ -21882,6 +22023,11 @@ $("doc-browse-all").addEventListener("click", () => {
   renderLibraryFilters();
   renderLibrary();
 });
+// Used to be an open-by-default <details> in the sidebar; its body was tall
+// enough to push the document list down, so it is a dialog now. The Close
+// button and Escape both close it — Close via the generic [data-close-dialog]
+// delegation set up below, Escape for free from <dialog>.showModal().
+$("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 for (const button of document.querySelectorAll("#doc-toolbar button")) {
@@ -24001,6 +24147,11 @@ let wbErasing = false;
 // in initWhiteboard step aside rather than fight the drag's own per-frame
 // anchor-hint redraw with a second, slightly-stale one.
 let wbLinkDragActive = false;
+// Which attached-note cards are expanded past their clamp — keyed by node id
+// (the whiteboard attachment, not the note itself), same "remember per card
+// for the session" shape as `expandedNotes` on the Notes list. A plain `let`
+// module-level Set, not persisted: reopening the board later re-clamps.
+const wbExpandedNodes = new Set();
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -28559,7 +28710,11 @@ function renderWhiteboard() {
       // lasso tool the way it already excludes the brush tools, so a lasso
       // gesture begun on top of a card silently moved the card instead of
       // ever reaching the lasso's own draw logic.
-      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle"))
+      // `.wb-card-more`: the Show more/less toggle added below — without this
+      // exclusion its pointerdown started a card drag the same way a resize
+      // handle's did before it was excluded (see that comment above), so the
+      // click never registered and the toggle silently did nothing.
+      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-card-more"))
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
@@ -28578,13 +28733,45 @@ function renderWhiteboard() {
       if (window.currentTool === "eraser" && wbErasing) deleteNode(d);
     });
       
-  nodeEnter.append("div")
-    .attr("class", "wb-card-content")
-    .html(d => {
-      const entry = entriesById.get(String(d.entry_id));
-      const text = entry ? (entry.content || entry.preview || "") : "";
-      return entry ? (text ? escapeHtml(text.length > 100 ? text.substring(0, 100) + "..." : text) : "Empty note") : "Loading...";
+  // Reported directly: "when I attach notes to a whiteboard I want to see
+  // the WHOLE note, not a cut-off version". This used to hard-truncate to
+  // 100 plain-text characters with no way back to the rest — worse than the
+  // Notes list's own long-note handling, which this now matches: render the
+  // full note through the app's real markdown renderer (not textContent —
+  // a note can have headings, code, links), clamp it only past a height cap,
+  // and give it the same "Show more"/"Show less" control and wording as
+  // `.entry-more`, keyed by this whiteboard node's id in `wbExpandedNodes`
+  // (not the note's own id — the same note can sit on the board twice).
+  nodeEnter.each(function (d) {
+    const card = d3.select(this);
+    const contentEl = card.append("div").attr("class", "wb-card-content").node();
+    const entry = entriesById.get(String(d.entry_id));
+    if (!entry) {
+      contentEl.textContent = "Loading...";
+      return;
+    }
+    const text = entry.content || entry.preview || "";
+    if (!text) {
+      contentEl.textContent = "Empty note";
+      return;
+    }
+    renderMarkdown(contentEl, text);
+    const isLong = text.length > LONG_NOTE_CHARS || text.split("\n").length > LONG_NOTE_LINES;
+    if (!isLong) return;
+    const expanded = () => wbExpandedNodes.has(d.id);
+    contentEl.classList.toggle("wb-card-content-clamped", !expanded());
+    const toggle = card.append("button")
+      .attr("type", "button")
+      .attr("class", "entry-more wb-card-more")
+      .text(expanded() ? "Show less" : "Show more");
+    toggle.on("click", (event) => {
+      event.stopPropagation();
+      if (expanded()) wbExpandedNodes.delete(d.id);
+      else wbExpandedNodes.add(d.id);
+      contentEl.classList.toggle("wb-card-content-clamped", !expanded());
+      toggle.text(expanded() ? "Show less" : "Show more");
     });
+  });
 
   for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
     nodeEnter.append("div")

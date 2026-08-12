@@ -5931,9 +5931,39 @@ html {
   font-size: 0.92rem;
 }
 
-.link-suggestion span:first-child {
-  flex: 1;
+.link-suggestion-text {
+  flex: 1 1 16rem;
   min-width: 12rem;
+}
+
+/* The reason box. Sized so it is obviously a field you may type in rather
+   than a label — the whole complaint was that every suggestion said "similar
+   in meaning" and there was no way to say anything else without linking
+   first, hunting the link down and editing it. */
+.link-suggestion-reason {
+  flex: 1 1 14rem;
+  min-width: 10rem;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* A heading and its actions are two groups, not three peers sharing a
+   space-between — which is what put the backfill button in the middle of the
+   row and read as broken spacing. */
+.link-suggest-head {
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  align-items: center;
+}
+
+.link-suggest-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.link-suggest-actions {
+  flex: 0 0 auto;
+  gap: var(--space-2);
 }
 
 #link-suggestions {
@@ -8429,6 +8459,76 @@ html {
   min-width: 0;
 }
 
+/* --- the Skills dropdown ------------------------------------------------------
+   Same trigger-plus-panel shape as .chat-dock-more at the other end of the
+   strip: one popup pattern in the dock, not two. */
+.chat-tool-group-skills {
+  position: relative;
+}
+
+.chat-skills-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 45;
+  width: max-content;
+  min-width: 18rem;
+  max-width: min(24rem, calc(100vw - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.chat-skills-panel.hidden {
+  display: none;
+}
+
+.chat-skills-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+/* A fixed label column, so "Skill" and "Pace" line their controls up instead
+   of each setting its own left edge. */
+.chat-skills-row>.muted {
+  flex: 0 0 3.5rem;
+}
+
+.chat-skills-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Run is the action the panel exists for, so it gets the full width and the
+   emphasis rather than sitting as a third peer in a row of settings. */
+.chat-skills-run {
+  display: flex;
+}
+
+.chat-skills-run>button {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* The trigger names the armed skill, which can be long. */
+#chat-skills-btn {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+}
+
 .chat-tool-group-skills select {
   /* Shrinks before anything else in the strip does — the skill names are the
      longest text in the dock and the group has the most controls, so it is the
@@ -10656,17 +10756,12 @@ body.resizing-sidebar {
   white-space: nowrap;
 }
 
-.doc-storage {
+/* Replaces what used to be an open-by-default <details> disclosure in the
+   sidebar — its body was tall enough to push the document list down. Same
+   content, now behind #doc-storage-dialog; this is just the door to it. */
+.doc-storage-toggle {
+  display: block;
   margin-top: 1rem;
-  font-size: 0.85rem;
-}
-
-.doc-storage summary {
-  cursor: pointer;
-}
-
-.doc-storage p {
-  margin: 0.4rem 0;
   font-size: 0.8rem;
 }
 
@@ -13925,11 +14020,24 @@ textarea.autogrow {
 .wb-card-content {
   font-size: var(--text-lg);
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* Reported: an attached note showed "a cut-off version" with no way to see
+   the rest. The card now renders the whole note (see renderWhiteboard in
+   app.js) and only clamps past a height cap, with a Show more/less toggle
+   below to get past it — this rule used to apply unconditionally at 3 lines
+   with nothing pointing at what was missing. Line-count rather than a pixel
+   max-height for the same reason `.entry-clamped` uses it: it scales with
+   the reading-size setting instead of pinning a font-independent height. */
+.wb-card-content.wb-card-content-clamped {
   display: -webkit-box;
-  line-clamp: 3;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+  overflow: hidden;
+}
+
+.wb-card-more {
+  align-self: flex-start;
 }
 
 aside[data-resizable="1"] {

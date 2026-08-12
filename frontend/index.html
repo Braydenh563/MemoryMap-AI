@@ -273,6 +273,28 @@
     </div>
   </dialog>
 
+  <!-- "Where are they stored?" was a <details> disclosure that lived in the
+       Documents sidebar; open, its body was tall enough to push the document
+       list down. Same content, now a dialog opened from a link-styled button
+       so the sidebar height goes back to the list. -->
+  <dialog id="doc-storage-dialog" class="card space-dialog">
+    <h3>Where are my documents kept?</h3>
+    <p class="muted">
+      Every document is saved automatically as you type — there's no
+      save button to forget. They live in your notebook's database file
+      on this machine, along with your notes:
+    </p>
+    <code id="doc-storage-path" class="storage-path">…</code>
+    <p class="muted">
+      Nothing is ever uploaded. Use <strong>⬇ .md</strong> to keep a copy
+      as an ordinary file anywhere you like, or Settings → Import &amp;
+      export to back up or export everything at once.
+    </p>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="doc-storage-dialog">Close</button>
+    </div>
+  </dialog>
+
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
@@ -1196,21 +1218,11 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
 
         <!-- "Where are they stored?" was asked outright, and the app had no
-             answer anywhere. For a local-first app that's most of the promise. -->
-        <details id="doc-storage" class="doc-storage">
-          <summary class="muted">Where are my documents kept?</summary>
-          <p class="muted">
-            Every document is saved automatically as you type — there's no
-            save button to forget. They live in your notebook's database file
-            on this machine, along with your notes:
-          </p>
-          <code id="doc-storage-path" class="storage-path">…</code>
-          <p class="muted">
-            Nothing is ever uploaded. Use <strong>⬇ .md</strong> to keep a copy
-            as an ordinary file anywhere you like, or Settings → Import &amp;
-            export to back up or export everything at once.
-          </p>
-        </details>
+             answer anywhere. For a local-first app that's most of the promise.
+             Used to be an open-by-default <details> here; its body was tall
+             enough to push the document list down, so the same content now
+             lives in #doc-storage-dialog and this is just the door to it. -->
+        <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle">Where are my documents kept?</button>
       </aside>
 
       <section class="card doc-main">

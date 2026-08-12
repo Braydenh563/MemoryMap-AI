@@ -247,3 +247,45 @@ def test_creating_a_link_does_not_call_the_model(session, fake_ollama, fake_embe
     assert link.reason == manager.AUTO_REASON_TEXT
     assert link.reason_confidence == 1.0
     assert fake_ollama.chat_calls == []
+
+
+def test_backfill_endpoint_runs_the_ai_pass_over_the_reasons_it_just_deduced(
+    ai_client, fake_ollama
+):
+    """The whole point of the button, and the thing it did not do.
+
+    The embedding pass compares two vectors and has no words for what it
+    found, so every reason it can write is the literal string "similar in
+    meaning". A notebook that pressed "Give links a reason" therefore ended up
+    with every link saying nothing — reported as the button appearing to work
+    and producing reasons that were useless.
+
+    So the endpoint runs both passes: deduce, then ask the model to name the
+    actual connection. This pins that the second one happens, and that its
+    result is what ends up on the link.
+    """
+    fake_ollama.librarian_reply = "both about the Tuesday gym session"
+    a = ai_client.post("/entries", json={"content": "a funny scarecrow joke"}).json()
+    b = ai_client.post("/entries", json={"content": "another funny pun"}).json()
+    ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    result = ai_client.post("/entries/links/backfill-reasons").json()
+    assert result["rewritten"] >= 1
+
+    links = ai_client.get(f"/entries/{a['id']}").json()["links"]
+    reasons = [link["reason"] for link in links]
+    assert "similar in meaning" not in reasons
+    assert any("Tuesday gym" in (r or "") for r in reasons)
+
+
+def test_backfill_endpoint_can_skip_the_ai_pass(ai_client, fake_ollama):
+    """`ai=false` is for when the model is known to be down and you just want
+    the links marked — the cheap pass still runs and still commits."""
+    a = ai_client.post("/entries", json={"content": "a funny scarecrow joke"}).json()
+    b = ai_client.post("/entries", json={"content": "another funny pun"}).json()
+    ai_client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+
+    result = ai_client.post(
+        "/entries/links/backfill-reasons", json={"ai": False}
+    ).json()
+    assert result["rewritten"] == 0

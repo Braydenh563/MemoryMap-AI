@@ -191,7 +191,13 @@ select optgroup {
      literal in one rule and a guess in the other, the two drifted apart by
      exactly this much, which is the reported misalignment. */
   --sidebar-toggle-inset: 0.5rem;
-  --sidebar-toggle-lane: calc(var(--sidebar-toggle-size) + 1rem + var(--space-3));
+  /* The lane a heading row keeps clear on its right for the collapse toggle.
+     It was toggle + 1rem + a gap, which over-reserved: the toggle overhangs
+     the card's content box by only a few pixels, so the extra 1rem left the
+     "New" button stranded a full toggle's width short of it, reading as a
+     control floating in the middle of the header rather than one grouped with
+     the toggle. Toggle plus one small gap is the whole reserve. */
+  --sidebar-toggle-lane: calc(var(--sidebar-toggle-size) + var(--space-2));
   --page-gutter: var(--space-9);
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
@@ -15371,24 +15377,61 @@ textarea.drag-over {
    row without an image keeps its old single-line layout untouched. */
 .dash-list li.dash-has-thumb {
   display: flex;
-  align-items: center;
+  /* `center` when the row was one line; a two-line row (title + preview)
+     against a square thumbnail wants the picture at the top of the text, not
+     floating against its middle. */
+  align-items: flex-start;
   gap: var(--space-3);
 }
 
 .dash-list-thumb {
-  width: 2em;
-  height: 2em;
-  min-width: 2em;
+  /* 2em was a favicon beside a line of text. These rows carry a title and a
+     preview now, so the thumbnail can be worth looking at — still small
+     enough that six rows fit a widget. */
+  width: 2.75em;
+  height: 2.75em;
+  min-width: 2.75em;
   object-fit: cover;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--inner);
 }
 
 .dash-list-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* The note's first line. One line, ellipsised — a note whose first line is a
+   paragraph is not a title, and letting it wrap makes every row the same
+   height and the same shape. */
+.dash-list-title {
+  font-weight: 600;
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
+}
+
+/* Two lines of body under it. Enough to be a preview, not enough to turn the
+   widget into the note list. */
+.dash-list-preview {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A widget row is now two lines tall, so the single-line ellipsis the list
+   carried has to go — it clipped the title and hid the preview entirely. */
+.dash-list li {
+  white-space: normal;
 }
 
 /* Note images inside dashboard widgets (Rediscover, Weekly digest) — the

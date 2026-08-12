@@ -9923,16 +9923,45 @@ async function renderStatsWidget(body) {
 //: marker first (`**`/`~~` before `*`) so a bold pair isn't mistaken for two
 //: stray italics. Not a full CommonMark-safe truncator — good enough for a
 //: short label, which is the only place this is used.
+// A preview slice that never cuts through markdown syntax — and, since it is
+// the only thing standing between a note and a widget row, never returns
+// nothing.
+//
+// **It returned the empty string for a whole class of note.** Balancing an
+// unpaired marker was done with `cut.slice(0, cut.lastIndexOf(marker))`, and
+// when the marker was the FIRST character that index is 0, so the slice was
+// empty and the row rendered as a bare "…" with no text at all. One stray `*`
+// in the first hundred characters was enough — reported on the Most-used
+// widget, where long notes showed as nothing but an ellipsis.
+//
+// Two changes:
+//   - the balanced cut is only accepted if something survives it, and the
+//     fallback is a plain-text slice with the markers stripped, because a
+//     preview with visible asterisks still beats an empty row;
+//   - the cut prefers a sentence end inside the budget. Asked for: show the
+//     first sentence like the rest of the list does. A preview that stops on a
+//     full stop reads as a summary; one that stops mid-word reads as damage.
 function safeMdSlice(text, maxChars) {
   if (text.length <= maxChars) return { text, truncated: false };
-  let cut = text.slice(0, maxChars);
+
+  // Look for a sentence end in the back half of the budget, so a very long
+  // first sentence still gets cut at the budget rather than swallowing it.
+  const window = text.slice(0, maxChars);
+  const sentence = window.search(/[.!?…](?=\s|$)(?![^\s]*[.!?])/);
+  let cut =
+    sentence >= Math.floor(maxChars * 0.4) ? window.slice(0, sentence + 1) : window;
+
   for (const marker of ["**", "~~", "`", "*"]) {
-    if ((cut.split(marker).length - 1) % 2 === 1) {
-      cut = cut.slice(0, cut.lastIndexOf(marker));
-      break;
-    }
+    if ((cut.split(marker).length - 1) % 2 !== 1) continue;
+    const balanced = cut.slice(0, cut.lastIndexOf(marker));
+    // Only if it leaves something to show. Otherwise drop the markers and
+    // keep the words.
+    if (balanced.trim()) cut = balanced;
+    else cut = cut.replace(/[*~`]/g, "");
+    break;
   }
-  return { text: cut, truncated: true };
+  if (!cut.trim()) cut = window.replace(/[*~`]/g, "");
+  return { text: cut, truncated: cut.length < text.length };
 }
 
 // One line of a note, as plain text — used wherever a preview genuinely
@@ -10003,9 +10032,37 @@ function miniEntryList(body, entries, emptyText) {
     }
     const textEl = document.createElement("span");
     textEl.className = "dash-list-text";
-    const { text, truncated } = safeMdSlice(raw, 100);
-    renderInlineMarkdown(textEl, text, [], true);
-    if (truncated) textEl.appendChild(document.createTextNode("…"));
+    // Block syntax first. renderInlineMarkdown is exactly that — INLINE — so a
+    // note beginning "# Groceries" rendered the hash as literal text, which is
+    // the reported "markdown still isn't rendering" on these widgets: the bold
+    // and italics worked and the headings, bullets and quote marks did not, so
+    // it looked like nothing was rendering at all.
+    //
+    // The first line becomes the row's title instead of being flattened into
+    // the preview, the same shape the timeline card uses. It is what a person
+    // calls the note, and without it every row in a widget starts with the
+    // same three words of body text.
+    const flat = raw.replace(/^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "").trim();
+    const split = flat.indexOf("\n");
+    const heading = (split === -1 ? flat : flat.slice(0, split)).trim();
+    const rest = split === -1 ? "" : flat.slice(split + 1).replace(/\s+/g, " ").trim();
+
+    if (heading) {
+      const title = document.createElement("span");
+      title.className = "dash-list-title";
+      const cut = safeMdSlice(heading, 70);
+      renderInlineMarkdown(title, cut.text, [], true);
+      if (cut.truncated) title.appendChild(document.createTextNode("…"));
+      textEl.appendChild(title);
+    }
+    if (rest) {
+      const preview = document.createElement("span");
+      preview.className = "dash-list-preview";
+      const cut = safeMdSlice(rest, 110);
+      renderInlineMarkdown(preview, cut.text, [], true);
+      if (cut.truncated) preview.appendChild(document.createTextNode("…"));
+      textEl.appendChild(preview);
+    }
     li.appendChild(textEl);
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));

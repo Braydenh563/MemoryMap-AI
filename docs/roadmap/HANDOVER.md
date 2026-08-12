@@ -2,6 +2,110 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
+## Last session — work recovery: the app shipped with no icons at all
+
+> **Not the next thing to do.** [ROADMAP.md's #0 section](../ROADMAP.md) — the
+> full codebase-quality refactor — is still the priority and is what the next
+> session should pick up. This is the record of what changed underneath it, so
+> that refactor starts from an accurate picture rather than a stale one.
+
+A previous session's work was lost and a recovery attempt had left the repo
+**actively broken in ways nothing reported**. If you read one thing before
+touching the frontend, read this section: four of the five worst bugs were
+invisible at every line of source involved, and every one of them was found by
+pointing a browser at the app rather than by reading the code.
+
+### The five silent ones, and the shape each of them has
+
+1. **Not a single icon in the app rendered.** The Phosphor font and its
+   stylesheet were vendored and committed, every `<i class="ph …">` was in
+   place, and `index.html` never linked the stylesheet. Nothing logged,
+   nothing threw — a missing `<link>` is silent. *Shape: an asset that is
+   present, referenced and never loaded.*
+2. **Five invented CSS tokens** (`--surface-2`, `--text-main`, `--card-hover`,
+   `--radius-3`, `--accent-alpha-1`) were declared nowhere. An undeclared
+   custom property invalidates its **whole declaration**, so the workspace
+   menu had no background and the timeline cards no radius. *Shape: the
+   CLAUDE.md classic — a value invalid where it is used, not where it is set.*
+3. **A literal `\n` inside a CSS selector list** (from a Python patch script
+   whose `'\\n'` was never interpreted) invalidated the entire
+   `:root[data-glass="off"]` rule. Turning glass off did nothing at all.
+   *Shape: one bad selector in a comma list kills the rule, silently.*
+4. **The link-reason feature had never run once.** `links.py` called
+   `provider.run_prompt`, which does not exist, and `manager._deduce_reason`
+   imported `OllamaError` from a module that does not define it — an
+   ImportError on every link creation past the similarity threshold. Both
+   were swallowed by broad `except` blocks. That was **six of the sixteen
+   failing tests** at the start of the session. *Shape: CLAUDE.md's "features
+   that never ran once" — grep the definition of anything new before
+   believing it works.*
+5. **`safeMdSlice` returned the empty string** whenever an unpaired markdown
+   marker was the *first* character, because it balanced with
+   `cut.slice(0, cut.lastIndexOf(marker))` and that index is 0. One stray `*`
+   in a note's first hundred characters made the dashboard widget row render
+   as a bare `…`. *Shape: an edge case at index 0.*
+
+**The baseline was 16 failing tests, not 2.** Running the suite before
+starting is what made "everything else here is new" a fact rather than a
+guess — do it.
+
+### What was built
+
+Icons: the emoji set is gone app-wide (367 of them). Because most were string
+literals passed to functions that assign `textContent`, the label grammar
+gained one form — a leading `ph:name` marker that `setLabel()` turns into a
+real `<i>` element. `chip()`, `smallButton()`, the menu-item, dashboard-tile
+and status-bar renderers all route through it. **Prose never carries a
+marker**: a toast, a tooltip, an OS notification and anything sent to the
+model are sentences, and three of those were about to read `ph:link` out loud.
+An `<option>` cannot contain an element, so option text stays plain words.
+
+Frontend: a rebuilt space switcher (the previous regex had deleted its markup
+and left its CSS and JS behind); an offline badge (`app.js` had the listeners,
+the markup did not exist); one shared sidebar heading row across Categories,
+Chats and Recent; a timeline card with header/title/clamped preview plus
+column banding; `text-overflow: ellipsis` on selects, which is what actually
+stops a long option running under the painted caret; plan mode as a toggle
+applied in `sendChatMessage` on the way out, so Enter and suggestion chips get
+it too; the Skills controls folded into one dropdown; a Library image rename;
+a dashboard widget picker modal (ROADMAP item 26).
+
+Backend: the link-reason audit rewritten onto `librarian.generate_link_reason`
+with a vague-reason denylist, one commit per batch instead of per link, and a
+retry guard; `_deduce_reason` no longer makes a blocking LLM call inside the
+link-creation request path; hardened Spaces CRUD; vault key rotation
+(all-or-nothing, with a test proving an interrupted rotation leaves every note
+readable with the old key); offline-resilient launchers.
+
+Security: **`_unlink_notes` bypassed the private-note guard** that `link_notes`
+immediately above it enforces. Its two error paths were an oracle for whether
+a private note exists and whether it is linked to one you can read. This is
+exactly CLAUDE.md's "a guard removed while the shape around it was kept" — and
+`link_notes` still looked correct sitting right next to it.
+
+### Two process traps worth more than any of the above
+
+- **Subagents ran `git stash` to check whether a failure was pre-existing, and
+  did not restore it.** That wiped the working tree twice. If you delegate,
+  say explicitly: never `git stash`/`checkout`/`restore`/`reset` in a shared
+  tree; use `git diff <file>` instead. Both times it was recovered from
+  `git stash list`, but only because it was noticed within minutes.
+- **A stale service worker served the old `style.css`** after a change, so a
+  fix looked like it had not applied. `getComputedStyle` in a *fresh* browser
+  said otherwise. Measure in a new context before concluding a CSS change
+  failed.
+
+### What was not verified
+
+- `start.bat` / `start-desktop.bat` and the Windows taskbar-icon
+  (`SetCurrentProcessExplicitAppUserModelID`) path — **cannot be run on
+  Linux at all.** Only the Linux `start.sh` was exercised.
+- The whiteboard note card's "Show less" collapse: expand-to-full-height was
+  observed in a browser, the collapse back was not (an overlay intercepted the
+  second click). The toggle is symmetric by inspection.
+- Everything visual claimed above *was* screenshotted and measured, with those
+  two exceptions.
+
 ## #0 priority — start here: a codebase quality review, not yet acted on
 
 Full ranked action list is in [ROADMAP.md's own #0 section](../ROADMAP.md) —

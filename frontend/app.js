@@ -1336,7 +1336,10 @@ function buildMenuGroupButton(label, subItems) {
   trigger.setAttribute("aria-expanded", "false");
   trigger.className = "menu-item has-submenu";
   const labelSpan = document.createElement("span");
-  labelSpan.textContent = label;
+  // setLabel, not textContent — these three group triggers ("AI actions",
+  // "Connect", "Add") were the one label sink the sweep missed, so the note
+  // kebab menu rendered the literal text "ph:magic-wand AI actions".
+  setLabel(labelSpan, label);
   const arrow = document.createElement("span");
   arrow.className = "menu-submenu-arrow";
   arrow.setAttribute("aria-hidden", "true");
@@ -3700,7 +3703,8 @@ function continueRunControls({ label, hint, onClick }) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "small";
-  button.textContent = label;
+  // continueRunControls is called with "ph:arrow-clockwise Resume from step N".
+  setLabel(button, label);
   button.addEventListener("click", () => {
     // One press only: a second would start a duplicate run over the same
     // notes, and every step of it writes.
@@ -14070,17 +14074,20 @@ async function renderTimeline() {
   const corner = document.createElement("div");
   corner.className = "timeline-corner";
   grid.appendChild(corner);
-  for (const bucket of buckets) {
+  for (const [column, bucket] of buckets.entries()) {
     const head = document.createElement("div");
     head.className = "timeline-head";
+    head.dataset.col = column % 2 === 0 ? "even" : "odd";
     head.textContent = bucketLabel(bucket, body.scale);
     grid.appendChild(head);
   }
 
+  let rowIndex = 0;
   for (const band of body.bands) {
     const name = document.createElement("button");
     name.type = "button";
     name.className = "timeline-band";
+    name.dataset.row = rowIndex % 2 === 0 ? "even" : "odd";
     name.title = `Show the ${band.name} notes`;
     name.append(band.name);
     const count = document.createElement("span");
@@ -14091,15 +14098,31 @@ async function renderTimeline() {
     grid.appendChild(name);
 
     const inBand = new Set(band.ids);
-    for (const bucket of buckets) {
+    // One pass over the notes per band, into a bucket -> notes map, instead of
+    // re-scanning every note once per bucket. That inner filter made the build
+    // O(bands x buckets x notes) — a year of daily buckets over a few hundred
+    // notes across a handful of bands is millions of comparisons to draw one
+    // screen, and it grows with all three.
+    const byBucket = new Map();
+    for (const note of body.notes) {
+      if (!inBand.has(note.id)) continue;
+      const list = byBucket.get(note.bucket);
+      if (list) list.push(note);
+      else byBucket.set(note.bucket, [note]);
+    }
+    for (const [column, bucket] of buckets.entries()) {
       const cell = document.createElement("div");
       cell.className = "timeline-cell";
-      const here = body.notes.filter(
-        (note) => note.bucket === bucket && inBand.has(note.id)
-      );
-      for (const note of here) cell.appendChild(timelineDot(note));
+      // Banding is done with parity attributes rather than :nth-child,
+      // because the grid is one flat list of children — every row's cells and
+      // every header share one child index, so nth-child cannot tell a column
+      // from a row. These say which is which.
+      cell.dataset.col = column % 2 === 0 ? "even" : "odd";
+      cell.dataset.row = rowIndex % 2 === 0 ? "even" : "odd";
+      for (const note of byBucket.get(bucket) || []) cell.appendChild(timelineDot(note));
       grid.appendChild(cell);
     }
+    rowIndex += 1;
   }
   clampTimelineDots();
   // The most recent column is the interesting one, so start there.
@@ -20494,8 +20517,30 @@ function resolvedTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+// The theme button shows the mode you will GET, not the one you are in.
+//
+// Reported as "the toggle light/dark button doesn't change". It was a fixed
+// half-filled circle in both modes, so the one control whose entire job is to
+// say which way it will flip looked identical either way — and there was no
+// way to tell from it whether pressing it would darken or lighten.
+//
+// Showing the destination rather than the current state is the convention
+// worth following here: a sun means "press for light", and it is the thing you
+// are choosing, not a redundant restatement of the background you can already
+// see.
+function renderThemeToggle() {
+  const button = $("theme-btn");
+  if (!button) return;
+  const dark = resolvedTheme() === "dark";
+  setLabel(button, dark ? "ph:sun" : "ph:moon");
+  const next = dark ? "light" : "dark";
+  button.title = `Switch to ${next} mode`;
+  button.setAttribute("aria-label", `Switch to ${next} mode`);
+}
+
 function applyResolvedMode() {
   document.documentElement.dataset.mode = resolvedTheme();
+  renderThemeToggle();
   // Light and dark can want different custom backgrounds, and the stored one
   // is written inline — so it has to be re-picked here rather than left to the
   // stylesheet, which cannot outrank it.

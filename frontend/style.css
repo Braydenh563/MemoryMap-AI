@@ -11729,11 +11729,64 @@ textarea.autogrow {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- banding ------------------------------------------------------------------
+   Asked for: subtle colour differences for rows, columns and headers so the
+   grid is easier to read, without looking like a spreadsheet.
+
+   Three rules, and the restraint is the point:
+
+   - COLUMNS get the tint, because a column is a date and tracing "what
+     happened on the 22nd" down a wide grid is the read that actually needs
+     help. It is `--ink` at 3%, i.e. whatever the theme's text colour is
+     softened almost to nothing — so it darkens a light theme and lightens a
+     dark one without either needing its own value.
+   - ROWS get a hairline, not a fill. Two tints crossing would produce four
+     different cell colours and a chequerboard, which is the spreadsheet look.
+     A rule between bands says the same thing and stays quiet.
+   - HEADERS get slightly more of the same column tint, so the date sits on
+     top of its own column rather than floating above the whole grid.
+
+   Painted with a gradient rather than `background-color` so it composites
+   over the page's own art instead of blocking it out. */
 .timeline-cell {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  /* The tint has to reach the full height of the row, not just the cards. */
+  align-self: stretch;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.timeline-cell[data-col="odd"],
+.timeline-head[data-col="odd"] {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--ink) 3%, transparent),
+    color-mix(in srgb, var(--ink) 3%, transparent)
+  );
+}
+
+.timeline-head[data-col="odd"] {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--ink) 6%, transparent),
+    color-mix(in srgb, var(--ink) 6%, transparent)
+  );
+}
+
+/* One hairline per band, drawn on the label and every cell in its row so it
+   runs the full width of a grid wider than the window. Not on the first row:
+   the date header above it is already a divider. */
+.timeline-cell[data-row="odd"],
+.timeline-band[data-row="odd"],
+.timeline-cell[data-row="even"],
+.timeline-band[data-row="even"] {
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.timeline-grid>.timeline-band[data-row="even"]:first-of-type,
+.timeline-grid>.timeline-band[data-row="even"]:first-of-type~.timeline-cell[data-row="even"] {
+  border-top: 0;
 }
 
 .timeline-dot {

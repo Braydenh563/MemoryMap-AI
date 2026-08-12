@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import io
 
+import pytest
+
 from memorymap.core import deps
 
 
@@ -93,6 +95,122 @@ def test_hard_delete_removes_attachment_files(client):
     client.delete(f"/entries/{entry['id']}")
     client.post("/recycle-bin/empty")
     assert list(deps.get_config().uploads_dir.iterdir()) == []
+
+
+# --- rename a file in the library ---------------------------------------------------
+#
+# `stored_name` (a uuid) and `mime` never change here — only the display
+# `filename` does, so a rename can never touch the bytes on disk or what the
+# download is served as. That is what these tests are checking: the good name
+# lands, the bad ones are refused with a reason, two files on the same note
+# can't end up sharing a name, and the two things that gate every other
+# per-item file route (the right workspace, a note that isn't private) gate
+# this one too.
+
+
+def _upload(client, entry_id, filename="hello.txt", content=b"hi"):
+    upload = client.post(
+        f"/entries/{entry_id}/files",
+        files={"file": (filename, io.BytesIO(content), "text/plain")},
+    )
+    assert upload.status_code == 201
+    return upload.json()["attachments"][-1]
+
+
+def test_rename_file_happy_path(client):
+    entry = _save(client, "note with a file")
+    attachment = _upload(client, entry["id"])
+
+    renamed = client.put(f"/files/{attachment['id']}", json={"filename": "renamed.txt"})
+    assert renamed.status_code == 200
+    names = [a["filename"] for a in renamed.json()["attachments"]]
+    assert names == ["renamed.txt"]
+
+    # The bytes on disk didn't move — the same stored file still downloads.
+    download = client.get(f"/files/{attachment['id']}")
+    assert download.status_code == 200
+    assert download.content == b"hi"
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    [
+        "",
+        "   ",
+        "a/b.txt",
+        "a\\b.txt",
+        "..",
+        "../escape.txt",
+        "/etc/passwd",
+        "C:\\Windows\\system32",
+        "bad\x00name.txt",
+        "bad\x01name.txt",
+        ".hidden",
+        "CON",
+        "con.txt",
+        "COM1",
+        "lpt3.log",
+        "a" * 300,
+    ],
+)
+def test_rename_file_rejects_unsafe_names(client, bad_name):
+    entry = _save(client, "note with a file")
+    attachment = _upload(client, entry["id"])
+
+    response = client.put(f"/files/{attachment['id']}", json={"filename": bad_name})
+    assert response.status_code == 422, bad_name
+    # The stored file is untouched by a rejected rename.
+    assert client.get(f"/files/{attachment['id']}").status_code == 200
+
+
+def test_rename_file_collision_is_rejected(client):
+    entry = _save(client, "note with two files")
+    first = _upload(client, entry["id"], filename="one.txt")
+    second = _upload(client, entry["id"], filename="two.txt")
+
+    response = client.put(f"/files/{second['id']}", json={"filename": "one.txt"})
+    assert response.status_code == 409
+    # Renaming onto its own current name is not a collision with itself.
+    same = client.put(f"/files/{first['id']}", json={"filename": "one.txt"})
+    assert same.status_code == 200
+
+
+def test_rename_file_on_private_note_is_refused(client, session):
+    from memorymap.core import vault
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    try:
+        entry = _save(client, "a private note with a file")
+        attachment = _upload(client, entry["id"])
+        made_private = client.post(f"/entries/{entry['id']}/privacy", json={"private": True})
+        assert made_private.status_code == 200
+
+        response = client.put(f"/files/{attachment['id']}", json={"filename": "renamed.txt"})
+        assert response.status_code == 403
+    finally:
+        vault.close()
+
+
+def test_rename_file_in_another_workspace_404s(client):
+    entry = _save(client, "note in the default workspace")
+    attachment = _upload(client, entry["id"])
+
+    response = client.put(
+        f"/files/{attachment['id']}",
+        json={"filename": "renamed.txt"},
+        headers={"X-Workspace-ID": "someone-elses-workspace"},
+    )
+    assert response.status_code == 404
+    # Untouched from the workspace that actually owns it.
+    still = client.get(f"/files/{attachment['id']}")
+    assert still.status_code == 200
+
+
+def test_rename_file_missing_attachment_404s(client):
+    response = client.put("/files/999999", json={"filename": "x.txt"})
+    assert response.status_code == 404
 
 
 # --- pins + duplicates + related ---------------------------------------------------

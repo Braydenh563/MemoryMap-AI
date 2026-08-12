@@ -125,13 +125,27 @@ async function api(path, options = {}) {
   let response;
   try {
     response = await fetch(path, {
-      headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": authToken(),
+        // Which space this request is scoped to. The server reads it in
+        // get_session() and adds a loader criterion for it, so leaving it off
+        // means every request silently sees every space — the switcher would
+        // change the label in the header and nothing else.
+        "X-Workspace-ID": activeSpaceId(),
+      },
       ...fetchOptions,
     });
   } catch (networkErr) {
     // fetch() itself threw — this is a real network failure (offline, CORS,
     // connection refused). Log it explicitly so it always appears in Logs.
-    if (!networkErr?.name === 'AbortError') {
+    //
+    // `!networkErr?.name === 'AbortError'` is what this said, which parses as
+    // `(!networkErr?.name) === 'AbortError'` — a boolean compared to a string,
+    // so it was always false and no network failure was ever logged. The one
+    // case the check exists to skip (our own timeout abort) was being logged
+    // and everything else was too.
+    if (networkErr?.name !== "AbortError") {
       recordBrowserLog("ERROR", [
         `[Network] ${fetchOptions.method || 'GET'} ${path} — ${networkErr.message}`
       ]);
@@ -9737,6 +9751,19 @@ function notePreviewText(content) {
 // list row already uses everywhere else in this app for the same reason
 // (link chips, the document sidebar) — swap to it here too rather than the
 // stripped-text path.
+// First image in a note's raw markdown, if it has one and the URL is safe to
+// load. `renderInlineMarkdown`'s `compact` mode (used below) deliberately
+// swaps every image for its alt text — right for a label-sized chip, but a
+// dashboard row has room for the real picture, so this widget-only path
+// pulls the first one out for a thumbnail instead.
+const FIRST_MD_IMAGE = /!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)/;
+function firstNoteImage(content) {
+  const m = FIRST_MD_IMAGE.exec(content || "");
+  if (!m) return null;
+  const [, alt, url] = m;
+  return isRenderableUrl(url) ? { alt, url } : null;
+}
+
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -9752,9 +9779,22 @@ function miniEntryList(body, entries, emptyText) {
     // The wiki-link unwrap notePreviewText also did — renderInlineMarkdown
     // itself doesn't know `[[...]]`, only the full note-body renderer does.
     const raw = (entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+    const image = firstNoteImage(raw);
+    if (image) {
+      li.classList.add("dash-has-thumb");
+      const thumb = document.createElement("img");
+      thumb.src = mediaSrc(image.url);
+      thumb.alt = image.alt || "";
+      thumb.loading = "lazy";
+      thumb.className = "dash-list-thumb";
+      li.appendChild(thumb);
+    }
+    const textEl = document.createElement("span");
+    textEl.className = "dash-list-text";
     const { text, truncated } = safeMdSlice(raw, 100);
-    renderInlineMarkdown(li, text, [], true);
-    if (truncated) li.appendChild(document.createTextNode("…"));
+    renderInlineMarkdown(textEl, text, [], true);
+    if (truncated) textEl.appendChild(document.createTextNode("…"));
+    li.appendChild(textEl);
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
     ul.appendChild(li);
@@ -21460,9 +21500,20 @@ $("doc-content").addEventListener("keydown", (event) => {
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
 });
 // Leaving with unsaved edits would lose them; autosave hasn't fired yet.
-window.addEventListener("offline", () => $("offline-indicator")?.classList.remove("hidden"));
-window.addEventListener("online", () => $("offline-indicator")?.classList.add("hidden"));
-if (!navigator.onLine) $("offline-indicator")?.classList.remove("hidden");
+// --- offline badge -----------------------------------------------------------
+//
+// Being offline is not an error here — the app is built to run that way. What
+// the badge says is narrower: web search and any cloud model will not answer
+// right now. `navigator.onLine` is the browser's own answer and is only ever
+// a hint (it reports "online" for a machine on a LAN with no route out), but
+// a false negative is impossible and a false positive costs nothing, which is
+// the right way round for a passive indicator.
+function reflectOnlineState() {
+  $("offline-indicator")?.classList.toggle("hidden", navigator.onLine);
+}
+window.addEventListener("offline", reflectOnlineState);
+window.addEventListener("online", reflectOnlineState);
+reflectOnlineState();
 
 window.addEventListener("beforeunload", (event) => {
   if (!docDirty) return;
@@ -29327,3 +29378,308 @@ cmdPaletteInput.addEventListener("keydown", async (e) => {
     }
   }
 });
+
+
+// --- spaces ------------------------------------------------------------------
+//
+// A space partitions notes, categories, links and documents. It is soft
+// separation, not separate databases: every row carries a `workspace_id` and
+// the server adds a loader criterion for the one named in `X-Workspace-ID`.
+// That header is added in `api()` above, which is the only reason switching
+// spaces changes what you see rather than just the label in the header.
+//
+// The id is kept in localStorage rather than on the server on purpose: which
+// space you were last in is a property of this window, not of the notebook,
+// and syncing it would mean two open windows fighting over one value.
+const SPACE_ALL = "all";
+
+// The icons a space may be given. A closed set, because the value is
+// interpolated into a class name — an arbitrary string there is CSS class
+// injection, and it is also how you end up with a space whose icon is a
+// typo that renders as an empty box.
+const SPACE_ICONS = [
+  "ph-folder", "ph-briefcase", "ph-house", "ph-user", "ph-kanban",
+  "ph-code", "ph-flask", "ph-heart", "ph-book-open", "ph-graduation-cap",
+  "ph-game-controller", "ph-terminal-window", "ph-camera", "ph-music-notes",
+  "ph-airplane", "ph-shopping-cart", "ph-tree", "ph-lightbulb",
+];
+
+let spacesCache = [];
+
+function activeSpaceId() {
+  return localStorage.getItem("spaceId") || SPACE_ALL;
+}
+
+function setActiveSpace(id) {
+  localStorage.setItem("spaceId", id);
+  // A full reload rather than a re-fetch of everything on the page. Every list,
+  // count, graph and sidebar in the app is scoped by the header, so a partial
+  // refresh would leave whichever one we forgot showing the old space — and a
+  // space that is half-switched is worse than one that took a second.
+  window.location.reload();
+}
+
+function spaceIconPicker(container, hiddenInput) {
+  container.replaceChildren();
+  for (const name of SPACE_ICONS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", String(hiddenInput.value === name));
+    button.setAttribute("aria-label", name.replace("ph-", "").replace(/-/g, " "));
+    button.innerHTML = "";
+    const icon = document.createElement("i");
+    icon.className = `ph ${name}`;
+    icon.setAttribute("aria-hidden", "true");
+    button.appendChild(icon);
+    button.addEventListener("click", () => {
+      hiddenInput.value = name;
+      for (const sibling of container.children) {
+        sibling.setAttribute("aria-checked", String(sibling === button));
+      }
+    });
+    container.appendChild(button);
+  }
+}
+
+function spaceMenuOption({ id, name, icon, deletable }) {
+  const option = document.createElement("button");
+  option.type = "button";
+  option.className = "space-option";
+  option.setAttribute("role", "option");
+  option.dataset.spaceId = id;
+  option.setAttribute("aria-selected", String(id === activeSpaceId()));
+
+  const glyph = document.createElement("i");
+  glyph.className = `ph ${icon}`;
+  glyph.setAttribute("aria-hidden", "true");
+
+  const label = document.createElement("span");
+  label.className = "space-option-name";
+  label.textContent = name;
+
+  option.append(glyph, label);
+  option.addEventListener("click", () => setActiveSpace(id));
+
+  if (deletable) {
+    const actions = document.createElement("span");
+    actions.className = "space-option-actions";
+
+    // Nested <button> is invalid HTML, so these are spans with a button role.
+    // The click handlers stop propagation: without it, "rename" would also
+    // trip the row's own switch-to-this-space handler and reload the page out
+    // from under the dialog that was about to open.
+    for (const [glyphName, title, run] of [
+      ["ph-pencil-simple", "Rename this space", () => openSpaceEdit(id, name, icon)],
+      ["ph-trash", "Delete this space", () => openSpaceDelete(id)],
+    ]) {
+      const action = document.createElement("span");
+      action.className = "ghost small";
+      action.setAttribute("role", "button");
+      action.tabIndex = 0;
+      action.title = title;
+      action.setAttribute("aria-label", title);
+      const actionIcon = document.createElement("i");
+      actionIcon.className = `ph ${glyphName}`;
+      actionIcon.setAttribute("aria-hidden", "true");
+      action.appendChild(actionIcon);
+      const fire = (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        closeSpaceMenu();
+        run();
+      };
+      action.addEventListener("click", fire);
+      action.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") fire(event);
+      });
+      actions.appendChild(action);
+    }
+    option.appendChild(actions);
+  }
+  return option;
+}
+
+function renderSpaceMenu() {
+  const menu = $("space-menu");
+  if (!menu) return;
+  menu.replaceChildren();
+
+  menu.appendChild(spaceMenuOption({
+    id: SPACE_ALL,
+    name: "All spaces",
+    icon: "ph-circles-four",
+    deletable: false,
+  }));
+  for (const space of spacesCache) {
+    menu.appendChild(spaceMenuOption({
+      id: space.id,
+      name: space.name,
+      icon: space.icon,
+      // "default" is where a deleted space's notes go, so it cannot itself be
+      // deleted — the server refuses it too, but offering a button that always
+      // errors is not a UI.
+      deletable: space.id !== "default",
+    }));
+  }
+
+  const divider = document.createElement("div");
+  divider.className = "space-menu-divider";
+  menu.appendChild(divider);
+
+  const create = document.createElement("button");
+  create.type = "button";
+  create.className = "space-option";
+  create.id = "space-create-open";
+  const plus = document.createElement("i");
+  plus.className = "ph ph-plus";
+  plus.setAttribute("aria-hidden", "true");
+  const createLabel = document.createElement("span");
+  createLabel.className = "space-option-name";
+  createLabel.textContent = "New space…";
+  create.append(plus, createLabel);
+  create.addEventListener("click", () => {
+    closeSpaceMenu();
+    openSpaceCreate();
+  });
+  menu.appendChild(create);
+
+  // The button's own label follows whatever is selected.
+  const current = spacesCache.find((space) => space.id === activeSpaceId());
+  const nameEl = $("space-current-name");
+  const iconEl = $("space-current-icon");
+  if (nameEl) nameEl.textContent = current ? current.name : "All spaces";
+  if (iconEl) iconEl.className = `ph ${current ? current.icon : "ph-circles-four"}`;
+}
+
+function closeSpaceMenu() {
+  $("space-menu")?.classList.add("hidden");
+  $("space-switcher-btn")?.setAttribute("aria-expanded", "false");
+}
+
+function openSpaceCreate() {
+  $("space-create-name").value = "";
+  $("space-create-icon").value = "ph-folder";
+  $("space-create-error").textContent = "";
+  spaceIconPicker($("space-create-icon-picker"), $("space-create-icon"));
+  $("space-create-dialog").showModal();
+  $("space-create-name").focus();
+}
+
+function openSpaceEdit(id, name, icon) {
+  $("space-edit-id").value = id;
+  $("space-edit-name").value = name;
+  $("space-edit-icon").value = icon;
+  $("space-edit-error").textContent = "";
+  spaceIconPicker($("space-edit-icon-picker"), $("space-edit-icon"));
+  $("space-edit-dialog").showModal();
+  $("space-edit-name").focus();
+}
+
+function openSpaceDelete(id) {
+  $("space-delete-id").value = id;
+  $("space-delete-error").textContent = "";
+  $("space-delete-dialog").showModal();
+}
+
+async function loadSpaces() {
+  if (!$("space-switcher-btn")) return;
+  try {
+    spacesCache = await apiJson("/spaces", { silent: true });
+  } catch {
+    // A notebook that has never had a space made still has to work. Failing to
+    // list them leaves the switcher on "All spaces", which is exactly right.
+    spacesCache = [];
+  }
+  renderSpaceMenu();
+}
+
+function initSpaceSwitcher() {
+  const button = $("space-switcher-btn");
+  const menu = $("space-menu");
+  if (!button || !menu) return;
+
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!open));
+    menu.classList.toggle("hidden", open);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!menu.contains(event.target) && !button.contains(event.target)) closeSpaceMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeSpaceMenu();
+  });
+
+  // Cancel buttons. These were `onclick` attributes, which this app's CSP
+  // refuses outright, so every one of them was dead markup.
+  for (const closer of document.querySelectorAll("[data-close-dialog]")) {
+    closer.addEventListener("click", () => {
+      document.getElementById(closer.dataset.closeDialog)?.close();
+    });
+  }
+
+  $("space-create-submit")?.addEventListener("click", async () => {
+    const name = $("space-create-name").value.trim();
+    const error = $("space-create-error");
+    error.textContent = "";
+    if (!name) {
+      error.textContent = "Give the space a name.";
+      return;
+    }
+    try {
+      const space = await apiJson("/spaces", {
+        method: "POST",
+        body: JSON.stringify({ name, icon: $("space-create-icon").value }),
+      });
+      $("space-create-dialog").close();
+      setActiveSpace(space.id);
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  $("space-edit-submit")?.addEventListener("click", async () => {
+    const id = $("space-edit-id").value;
+    const name = $("space-edit-name").value.trim();
+    const error = $("space-edit-error");
+    error.textContent = "";
+    if (!name) {
+      error.textContent = "Give the space a name.";
+      return;
+    }
+    try {
+      await apiJson(`/spaces/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        body: JSON.stringify({ name, icon: $("space-edit-icon").value }),
+      });
+      $("space-edit-dialog").close();
+      await loadSpaces();
+      toast(`Renamed to “${name}”.`);
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  $("space-delete-submit")?.addEventListener("click", async () => {
+    const id = $("space-delete-id").value;
+    const error = $("space-delete-error");
+    error.textContent = "";
+    try {
+      await apiJson(`/spaces/${encodeURIComponent(id)}`, { method: "DELETE" });
+      $("space-delete-dialog").close();
+      // Standing in the space you just deleted has to move you somewhere real,
+      // and reload() alone would leave the header naming a space that is gone.
+      if (activeSpaceId() === id) setActiveSpace("default");
+      else await loadSpaces();
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  loadSpaces();
+}
+
+initSpaceSwitcher();

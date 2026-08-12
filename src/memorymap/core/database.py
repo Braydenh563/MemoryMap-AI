@@ -95,9 +95,26 @@ class Space(Base):
 
 
 class WorkspaceMixin:
-    """Soft separation of notes and data. 
+    """Soft separation of notes and data.
     Added to every major model so querying can be scoped globally by workspace."""
     workspace_id: Mapped[str] = mapped_column(String, server_default="default", index=True, default="default")
+
+
+def workspace_scoped_models() -> tuple[type, ...]:
+    """Every mapped class that carries WorkspaceMixin.
+
+    Discovered from the mapper registry instead of hand-listed, so
+    delete_space's "reassign every workspace-scoped row to default" pass
+    (routes_spaces.py) can't silently skip a model that gets WorkspaceMixin
+    added after this list was last updated — a class missed there leaves
+    rows pointing at a space id that no longer exists, which reads back as
+    data that just vanished.
+    """
+    return tuple(
+        mapper.class_
+        for mapper in Base.registry.mappers
+        if issubclass(mapper.class_, WorkspaceMixin)
+    )
 
 @event.listens_for(Session, "do_orm_execute")
 def _add_workspace_filter(execute_state):

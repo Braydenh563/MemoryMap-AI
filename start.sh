@@ -23,13 +23,76 @@ for arg in "$@"; do
   esac
 done
 
+# --- Network helpers --------------------------------------------------
+# Every network call in this script (the self-update `git pull` below, and
+# pip in step 2) goes through these two so "no internet" behaves the same
+# way everywhere: a short, bounded wait, a one-line explanation, and the
+# launch continues. Nothing here may ever be allowed to hang - a DNS lookup
+# that never returns or a proxy that accepts the connection and then says
+# nothing both stall past any timeout a well-behaved server would need,
+# which is exactly why a hard wall-clock timeout (not just pip's own
+# `--timeout`, which only bounds a single socket read) wraps every call.
+#
+# `timeout`/`gtimeout` (GNU coreutils) cover Linux and a Homebrew-equipped
+# Mac; the manual fallback below covers a stock macOS with neither, using a
+# background watcher that SIGTERMs the job if it outlives its budget.
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$secs" "$@"
+    return $?
+  fi
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$secs" "$@"
+    return $?
+  fi
+  "$@" &
+  local cmd_pid=$!
+  ( sleep "$secs" 2>/dev/null; kill -TERM "$cmd_pid" 2>/dev/null ) &
+  local watcher_pid=$!
+  local status=0
+  wait "$cmd_pid" 2>/dev/null || status=$?
+  kill "$watcher_pid" 2>/dev/null || true
+  wait "$watcher_pid" 2>/dev/null || true
+  return "$status"
+}
+
+# Recognises the shapes "no internet" actually takes on the command line -
+# DNS failure, connection refused/timed out, a proxy that errors or hangs,
+# TLS failing to negotiate - so those get a calm one-liner instead of a wall
+# of the tool's own retry/traceback text. Anything that does NOT match this
+# (a real dependency conflict, a corrupt requirements.txt, disk full) falls
+# through to printing the tool's actual error, on purpose - CLAUDE.md is
+# explicit that swallowing a genuine failure behind "offline?" costs the
+# next session an hour finding out it wasn't.
+is_network_error() {
+  grep -qiE \
+    'could not resolve host|temporary failure in name resolution|name or service not known|nodename nor servname|node name.*not known|connection timed out|connection refused|network is unreachable|failed to establish a new connection|read timed out|newconnectionerror|max retries exceeded|no route to host|could not connect to server|couldn.t connect to server|ssl.*(handshake|certificate)|proxy (error|authentication)|getaddrinfo failed|unable to connect|connection reset by peer|no address associated with hostname|could not fetch url|unreachable network' \
+    "$1" 2>/dev/null
+}
+
 # --- 0. Self-update, then re-exec a fresh copy ----------------------
 # Pull first so a launch always runs the latest code, then re-exec the
 # (possibly updated) script so a changed file can't corrupt this run.
 # The MM_CHILD guard prevents an endless loop.
 if [ -z "${MM_CHILD:-}" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
   echo " Checking for updates..."
-  git pull --ff-only || echo "        (skipped update - staying on the current version)"
+  GIT_LOG="$(mktemp 2>/dev/null || echo "/tmp/mm_git_$$.log")"
+  # `http.lowSpeedLimit`/`http.lowSpeedTime` abort a connection that has
+  # gone quiet mid-transfer (a proxy that stalls after accepting bytes);
+  # `run_with_timeout` is the hard wall-clock backstop for a connect phase
+  # that never gets that far - a DNS query or a proxy handshake that hangs
+  # before a single byte comes back, which the low-speed options don't see.
+  if ! run_with_timeout 8 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
+       pull --ff-only >"$GIT_LOG" 2>&1; then
+    if is_network_error "$GIT_LOG"; then
+      echo "        No internet - skipping update check."
+    else
+      echo "        (skipped update - staying on the current version)"
+      tail -n 5 "$GIT_LOG" | sed 's/^/        /'
+    fi
+  fi
+  rm -f "$GIT_LOG" 2>/dev/null || true
   export MM_CHILD=1
   exec "$0" "$@"
 fi

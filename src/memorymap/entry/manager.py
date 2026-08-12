@@ -556,6 +556,96 @@ def delete_attachment(
     session.commit()
 
 
+#: Windows treats these as reserved regardless of extension — `CON.txt` is as
+#: unusable as `CON`. Checked against the name's stem, case-insensitively,
+#: because this app runs on Windows via start.bat and a name that is fine on
+#: Linux but unusable the moment someone opens the same data folder there is
+#: the kind of bug that only shows up on the other platform.
+_RESERVED_WINDOWS_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
+
+#: Matches `Attachment.filename`'s own column width — a name the DB would
+#: truncate silently is rejected instead, before it is ever stored half-cut.
+MAX_ATTACHMENT_FILENAME = 255
+
+
+def validate_attachment_filename(name: str) -> str:
+    """A display name safe to store and to echo into a download header.
+
+    This is the *label* a person sees and renames — `stored_name` (a random
+    uuid) is what the disk and every path on disk actually use, and never
+    changes here. That split is what makes this a strict reject-and-explain
+    check rather than `routes_files.safe_filename`'s silent rewrite: nothing
+    here is ever written to a filesystem path, so there is no "make it safe"
+    fallback to reach for, only "tell the user why their name didn't work."
+
+    Still validated as if it *were* a path component, because the failure
+    mode of skipping that is not hypothetical for this app specifically: the
+    name is handed to Starlette's `FileResponse(filename=...)` on every
+    download, which puts it straight into a `Content-Disposition` header, and
+    a control character or a name that is just `..` is exactly the kind of
+    input that check is supposed to catch before it reaches a header or a
+    person's screen.
+    """
+    if name is None or not name.strip():
+        raise ValueError("A filename is required.")
+    if "\x00" in name:
+        raise ValueError("Filenames can't contain null bytes.")
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in name):
+        raise ValueError("Filenames can't contain control characters.")
+    cleaned = name.strip()
+    if len(cleaned) > MAX_ATTACHMENT_FILENAME:
+        raise ValueError(f"Filenames can't be longer than {MAX_ATTACHMENT_FILENAME} characters.")
+    if "/" in cleaned or "\\" in cleaned:
+        raise ValueError("Filenames can't contain a path separator.")
+    if ".." in cleaned:
+        raise ValueError("Filenames can't contain '..'.")
+    if re.match(r"^[A-Za-z]:[/\\]?", cleaned):
+        raise ValueError("Filenames can't be an absolute path.")
+    if cleaned.startswith("."):
+        raise ValueError("Filenames can't start with a dot.")
+    stem = cleaned.split(".", 1)[0].strip().upper()
+    if stem in _RESERVED_WINDOWS_NAMES:
+        raise ValueError(f"'{cleaned}' is a reserved system name and can't be used.")
+    return cleaned
+
+
+def rename_attachment(session: Session, attachment: Attachment, new_filename: str) -> Attachment:
+    """Change what a file is *called*, never what it *is* on disk.
+
+    Only `filename` — the Library label and the download's suggested name —
+    changes. `stored_name` (the uuid on disk) and `mime` (recorded at upload,
+    from the browser's own `Content-Type`) are left alone, which is what lets
+    `validate_attachment_filename` above be a strict allowlist instead of an
+    extension allowlist: the bytes `/files/{id}` serves back and the
+    `Content-Type` it serves them as never change because of a rename, only
+    the label on the download dialog does.
+
+    Raises `ValueError` for a name `validate_attachment_filename` rejects,
+    and `FileExistsError` if another file on the *same* note already has that
+    name — collisions are scoped per-note, the same boundary the Library
+    already draws around what's confusable with what.
+    """
+    cleaned = validate_attachment_filename(new_filename)
+    collision = session.scalar(
+        select(Attachment).where(
+            Attachment.entry_id == attachment.entry_id,
+            Attachment.id != attachment.id,
+            Attachment.filename == cleaned,
+        )
+    )
+    if collision is not None:
+        raise FileExistsError(f"'{cleaned}' is already used on this note.")
+    if cleaned != attachment.filename:
+        attachment.filename = cleaned
+        log_action(session, "renamed", "entry", attachment.entry_id, f"renamed a file to {cleaned}")
+        session.commit()
+    return attachment
+
+
 # --- tags (Wave B tag manager) --------------------------------------------------
 
 

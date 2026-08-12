@@ -89,6 +89,27 @@
   <header id="top-bar">
     <img id="brand-logo" src="/favicon.svg" alt="" aria-hidden="true" width="34" height="34">
     <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
+    <!-- Space switcher. It sits next to the wordmark, not among the controls
+         on the right, because it is not a control — it says WHICH notebook
+         everything else on the page is showing. Scope reads left, actions
+         read right.
+
+         Deliberately built from the app's own `.ghost .small` button and the
+         same popup treatment as the other docked menus, rather than the
+         bespoke pill it replaced: a one-off control in the chrome is exactly
+         what made it look bolted on. The label is hidden on narrow windows
+         (the icon carries it) so it never competes with the tabs for room. -->
+    <div class="space-switcher">
+      <button id="space-switcher-btn" class="ghost small space-switcher-btn" type="button"
+        aria-haspopup="listbox" aria-expanded="false" aria-controls="space-menu"
+        title="Switch space">
+        <i id="space-current-icon" class="ph ph-circles-four" aria-hidden="true"></i>
+        <span id="space-current-name" class="space-switcher-name">All spaces</span>
+        <i class="ph ph-caret-down space-switcher-caret" aria-hidden="true"></i>
+      </button>
+      <div id="space-menu" class="space-menu glass hidden" role="listbox"
+        aria-label="Spaces" tabindex="-1"></div>
+    </div>
     <nav id="tab-bar" role="tablist" aria-label="App sections">
       <button role="tab" id="tab-btn-dashboard" data-tab="dashboard"
         aria-selected="false" aria-controls="tab-dashboard" tabindex="-1">Dashboard</button>
@@ -288,8 +309,10 @@
   <div class="tab-page hidden" id="tab-notes" role="tabpanel" aria-labelledby="tab-btn-notes" tabindex="-1">
     <div class="layout">
       <!-- Category sidebar: built from the loaded entries, click to filter -->
-      <aside class="card" id="sidebar">
-        <h2>Categories</h2>
+      <aside class="card sidebar-panel" id="sidebar">
+        <div class="row space-between sidebar-head">
+          <h2>Categories</h2>
+        </div>
         <ul id="category-list"></ul>
         <div id="most-used-box" class="hidden">
           <h2>Most used</h2>
@@ -565,10 +588,18 @@ Link to another note with [[its first few words]]."></textarea>
            So the search box moved to the Library and the list is capped — and
            the link at the foot says where the rest went, because a list that
            silently stops at eight is a list that has lost your chats. -->
-      <aside class="card" id="chat-sidebar" style="position: relative;">
-        <!-- The sidebar collapse toggle is absolutely positioned at top right by JS -->
-        <h2 style="margin-top: 0.25rem; margin-bottom: 1.25rem; font-size: 1.125rem; letter-spacing: 0;">Chats</h2>
-        <button id="chat-new" class="accent" style="width: 100%; justify-content: center; margin-bottom: 1.5rem;" title="Start a fresh conversation"><i class="ph ph-plus"></i> New Chat</button>
+      <!-- The collapse toggle is positioned absolutely by JS, so this needs to
+           be its containing block. It was an inline position:relative attribute, which
+           the CSP refuses — so the toggle was positioning against the page
+           instead, which is the reported "the elements at the top of the
+           sidebars are misaligned". The class does the same thing and is not
+           silently dropped. -->
+      <aside class="card sidebar-panel" id="chat-sidebar">
+        <div class="row space-between sidebar-head">
+          <h2>Chats</h2>
+          <button id="chat-new" class="small" type="button" title="Start a fresh conversation"
+            aria-label="Start a fresh conversation"><i class="ph ph-plus" aria-hidden="true"></i> New</button>
+        </div>
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
@@ -1136,10 +1167,11 @@ Link to another note with [[its first few words]]."></textarea>
            page. So the filter box moved to the Library, the list is capped,
            and the rest of this sidebar is about the document you have *open*:
            its outline, the notes it draws on, and where it is kept. -->
-      <aside class="card doc-sidebar" id="doc-sidebar">
-        <div class="row space-between">
+      <aside class="card doc-sidebar sidebar-panel" id="doc-sidebar">
+        <div class="row space-between sidebar-head">
           <h2>Recent</h2>
-          <button id="doc-new" class="small" type="button" title="Start a new document">＋ New</button>
+          <button id="doc-new" class="small" type="button" title="Start a new document"
+            aria-label="Start a new document"><i class="ph ph-plus" aria-hidden="true"></i> New</button>
         </div>
         <ul id="doc-list" class="doc-list"></ul>
         <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
@@ -1997,6 +2029,17 @@ Link to another note with [[its first few words]]."></textarea>
          about; a slot that appears is a thing you notice. -->
     <button id="status-task" class="status-item status-task hidden" type="button"></button>
     <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full" aria-hidden="true"></i> Saver On</span>
+    <!-- Offline badge. MemoryMap works offline by design — that is the whole
+         point of it — so this is not an error state and must not read as one.
+         What it tells you is narrower and genuinely useful: the two things
+         that DO need the network (web search, and any cloud model you have
+         configured) will not answer right now. Hence the neutral/warning
+         chip rather than the error colour.
+         `role="status"` so a screen reader hears it when it appears; the
+         markup for it was missing entirely while app.js already had the
+         online/offline listeners, so the feature could never show. -->
+    <span id="offline-indicator" class="chip warning hidden" role="status"
+      title="No internet connection — web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash" aria-hidden="true"></i> Offline</span>
     <span class="status-spacer"></span>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>

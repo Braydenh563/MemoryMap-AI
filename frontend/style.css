@@ -179,6 +179,14 @@ select optgroup {
   --page-viewport: calc(100dvh - var(--header-h) - var(--status-bar-h));
 
   /* The page shell. One inset for every tab — see .tab-page. */
+  /* The sidebar collapse toggle's own size, and the lane a heading row must
+     leave clear for it: the toggle plus its inset plus a gap. Declared here so
+     the reserve and the thing being reserved for cannot drift apart — they
+     did, by ~6px, and that was the misaligned sidebar headers. Not spacing
+     tokens: a hit target is a control's size and must not shift with the
+     density setting. */
+  --sidebar-toggle-size: 28px;
+  --sidebar-toggle-lane: calc(var(--sidebar-toggle-size) + 1rem + var(--space-3));
   --page-gutter: var(--space-9);
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);
@@ -5964,7 +5972,8 @@ html {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 
-:root[data-glass="off"] .workspace-dropdown-menu,\n:root[data-glass="off"] .card,
+:root[data-glass="off"] .space-menu,
+:root[data-glass="off"] .card,
 :root[data-glass="off"] header#top-bar,
 :root[data-glass="off"] input,
 :root[data-glass="off"] textarea,
@@ -9420,24 +9429,6 @@ button {
    over two lines and took "＋ New" with it, so the sidebar opened with a
    three-line header above a three-item list. The heading is the part that
    gives way — the button is a fixed hit target. */
-.doc-sidebar .row.space-between,
-#chat-sidebar .row.space-between {
-  flex-wrap: nowrap;
-  gap: var(--space-3);
-}
-
-.doc-sidebar .row.space-between h2,
-#chat-sidebar .row.space-between h2 {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.doc-sidebar .row.space-between button,
-#chat-sidebar .row.space-between button {
-  flex: 0 0 auto;
-}
 
 .doc-sidebar {
   position: sticky;
@@ -9588,9 +9579,60 @@ button {
   gap: 0.5rem;
 }
 
-#chat-sidebar .row.space-between,
-.doc-sidebar .row.space-between {
-  padding-right: 48px;
+/* --- sidebar heading rows ----------------------------------------------------
+   All three sidebars (Categories, Chats, Recent documents) now open with the
+   same row: a heading on the left, at most one action on the right, and a
+   reserved lane past it for the collapse toggle.
+
+   That reserve was `padding-right: 48px` — a number picked to clear the
+   toggle, and wrong, because the toggle is 28px wide sitting 1rem from the
+   right edge, i.e. it needs 28px + 1rem + a gap. Being wrong by a few pixels
+   in one direction let the toggle sit on top of the "＋ New" button in the
+   Documents sidebar, and being wrong in the other left the Chats heading
+   floating oddly short of the edge — which is the reported misalignment
+   between these three headers. The geometry is a token now, declared once
+   beside the toggle's own size, so the reserve cannot drift from the thing it
+   is reserving for.
+
+   The collapse toggle itself is untouched: it was in the right place. */
+.sidebar-head {
+  flex-wrap: nowrap;
+  gap: var(--space-3);
+  align-items: center;
+  /* Same optical top as the toggle (0.5rem), so the heading and the toggle
+     sit on one line rather than the heading riding above it. */
+  min-height: var(--sidebar-toggle-size);
+  margin-bottom: var(--space-5);
+  padding-right: var(--sidebar-toggle-lane);
+}
+
+.sidebar-head h2 {
+  /* The heading is the part that gives way in a 14rem column; the button is a
+     fixed hit target. */
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-head>button {
+  flex: 0 0 auto;
+}
+
+/* A collapsed sidebar is 48px wide and the toggle moves to its left edge, so
+   the reserve on the right is not only unnecessary there, it is most of the
+   remaining width. */
+.sidebar-collapsed .sidebar-head {
+  padding-right: 0;
+}
+
+/* The toggle is positioned against these, so they have to be the containing
+   block. This was an inline `style="position: relative"` on #chat-sidebar,
+   which the CSP drops — so the toggle escaped to the nearest positioned
+   ancestor and landed in the wrong place on that one sidebar only. */
+.sidebar-panel {
+  position: relative;
 }
 
 @media (max-width: 900px) {
@@ -13939,8 +13981,8 @@ aside[data-resizable="1"] {
   top: 0.5rem;
   right: 1rem;
   z-index: 20;
-  width: 28px;
-  height: 28px;
+  width: var(--sidebar-toggle-size);
+  height: var(--sidebar-toggle-size);
   border-radius: var(--radius-sm);
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -14816,85 +14858,207 @@ textarea.drag-over {
 
 
 
-.workspace-switcher-wrapper {
+/* --- space switcher (top bar) ------------------------------------------------
+   Which notebook you are looking at, next to the wordmark. Built out of the
+   app's existing `.ghost .small` button so it reads as part of the chrome —
+   the bespoke pill it replaced was the reported "ugly" here, a control with
+   its own height, its own radius and its own hover colour sitting in a bar
+   where nothing else had any of those. */
+.space-switcher {
   position: relative;
-  display: inline-block;
-  margin-left: var(--space-4);
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
-.workspace-switcher-btn {
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
+.space-switcher-btn {
+  /* max-width + the ellipsis below is what stops a long space name pushing
+     the tabs off the bar; the old one let its label wrap onto a second line
+     inside a bar that is explicitly one row, which is what made the icon and
+     the text sit on top of each other. */
+  max-width: 12rem;
 }
 
-
-
-.ws-icon {
-  color: var(--accent);
-  display: flex;
-  align-items: center;
+.space-switcher-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ws-caret {
+.space-switcher-caret {
+  /* Smaller than the leading icon and muted: a caret is an affordance, not
+     information, and at full weight it read as a second icon. */
+  font-size: 0.85em;
   color: var(--muted);
-  font-size: 10px;
-  margin-left: 4px;
+  margin-left: calc(var(--space-1) * -1);
 }
 
-.workspace-dropdown-menu {
+.space-switcher-btn[aria-expanded="true"] .space-switcher-caret {
+  transform: rotate(180deg);
+}
+
+/* Below the wordmark breakpoint the icon alone carries it — the switcher is
+   the first thing that should give up width to the tabs, not the last. */
+@media (max-width: 900px) {
+  .space-switcher-name {
+    display: none;
+  }
+}
+
+.space-menu {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--space-3));
   left: 0;
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
+  z-index: 60;
+  /* Wide enough that a name never sits against the edge, and wide enough that
+     the row's trailing edit/delete buttons do not crowd it. Reported: popup
+     text with no gap from the edge. */
+  min-width: 15rem;
+  max-width: min(20rem, calc(100vw - var(--space-8)));
+  max-height: 60vh;
+  overflow-y: auto;
   padding: var(--space-2);
-  min-width: 180px;
-  box-shadow: var(--shadow-md);
-  z-index: 100;
-  list-style: none;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  /* --modal-bg, not --card: this floats over arbitrary page content and has
+     to be legible against all of it. Same reasoning as .notif-panel. */
+  background: var(--modal-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
 }
 
-.workspace-dropdown-menu.hidden {
+.space-menu.hidden {
   display: none;
 }
 
-.workspace-dropdown-menu li {
+.space-option {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  width: 100%;
+  /* The trailing padding is bigger than the leading one because the row's
+     hover actions live in it; without the reserve, the actions appear on
+     hover and shove the name sideways. */
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 0;
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--text-sm);
+  background: none;
+  font: inherit;
+  font-size: var(--text-md);
   color: var(--ink);
-  transition: background 0.1s;
+  text-align: left;
+  cursor: pointer;
 }
 
-.workspace-dropdown-menu li i {
-  color: var(--muted);
-  font-size: 16px;
-}
-
-.workspace-dropdown-menu li:hover,
-.workspace-dropdown-menu li:focus {
+.space-option:hover,
+.space-option:focus-visible {
   background: var(--inner);
   outline: none;
 }
 
-.workspace-dropdown-menu li.selected {
+.space-option>.ph:first-child {
+  color: var(--muted);
+}
+
+.space-option[aria-selected="true"] {
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.workspace-dropdown-menu li.selected i {
+.space-option[aria-selected="true"]>.ph:first-child {
+  color: var(--accent);
+}
+
+.space-option-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rename/delete for a space, revealed on hover or keyboard focus. Kept in the
+   flow with opacity rather than display:none so the row does not change width
+   when they appear. */
+.space-option-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.space-option:hover .space-option-actions,
+.space-option:focus-within .space-option-actions,
+.space-option-actions:focus-within {
+  opacity: 1;
+}
+
+/* Touch and keyboard have no hover, so hiding the actions there hides the
+   feature. Reveal them permanently where hover is not available. */
+@media (hover: none) {
+  .space-option-actions {
+    opacity: 1;
+  }
+}
+
+.space-menu-divider {
+  height: 1px;
+  margin: var(--space-2) var(--space-1);
+  background: var(--border);
+}
+
+.space-menu-empty {
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* --- space dialogs ----------------------------------------------------------- */
+.space-dialog {
+  min-width: min(26rem, calc(100vw - var(--space-8)));
+}
+
+.space-dialog label {
+  display: block;
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.space-dialog input[type="text"] {
+  width: 100%;
+}
+
+.space-dialog-actions {
+  margin-top: var(--space-5);
+  gap: var(--space-2);
+}
+
+/* Picking an icon from a grid rather than typing "ph-briefcase" into a text
+   box, which is what the first version asked for and which nobody outside
+   this repo could possibly know how to fill in. */
+.space-icon-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.25rem, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.space-icon-picker button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.space-icon-picker button[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -14920,4 +15084,40 @@ textarea.drag-over {
 :root[data-margins="uniform"] {
   --page-gutter: var(--page-top);
   --page-bottom: var(--page-top);
+}
+
+/* Dashboard mini-list thumbnails (Pinned / Most used / Recently added / On
+   this day) — see `firstNoteImage` + `miniEntryList` in app.js. A new
+   selector, not a change to the existing `.dash-list li` rule above, so a
+   row without an image keeps its old single-line layout untouched. */
+.dash-list li.dash-has-thumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dash-list-thumb {
+  width: 2em;
+  height: 2em;
+  min-width: 2em;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.dash-list-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Note images inside dashboard widgets (Rediscover, Weekly digest) — the
+   general .attachment-thumb ceiling (110x180px) is sized for a note's own
+   detail view; a widget card is narrower, so cap it tighter here rather than
+   touch that shared rule. */
+.dash-widget .attachment-thumb {
+  max-height: 80px;
+  max-width: 100%;
+  object-fit: cover;
 }

@@ -259,6 +259,14 @@ async function initAuth() {
 }
 
 function startApp() {
+  // Whatever the shell was last saying about being unable to reach the server
+  // is now provably false — we are about to talk to it. Left uncleared, the
+  // "check it's running, then refresh" line sat under the capture form for the
+  // whole session after one slow start, telling the user the app was broken
+  // while it worked perfectly. Screenshotted.
+  const shellStatus = $("save-status");
+  if (shellStatus) shellStatus.textContent = "";
+
   // A failed load must be visible, not a silently empty page — and one
   // broken endpoint must never stop the rest of the app from coming up.
   // Every bootstrap step is isolated so a single rejection surfaces a toast
@@ -334,6 +342,14 @@ function startApp() {
     })
   );
   step("load answer-length options", loadResponseModes);
+  // Here, not at module level beside initSpaceSwitcher(). The switcher's
+  // LISTENERS can be bound before there is a token — nothing about a click
+  // handler needs the server — but the LIST cannot: /spaces 401s before
+  // unlock, the catch leaves spacesCache empty, and nothing ever asks again.
+  // The menu would then offer "All spaces" and nothing else, for the whole
+  // session, on every fresh start. This is the same shape as the comment
+  // below about switchTab painting from a pile of 401s.
+  step("load spaces", loadSpaces);
   step("tell the server your timezone", reportTimezone);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
@@ -525,11 +541,21 @@ function setLabel(el, label) {
   const icon = document.createElement("i");
   icon.className = `ph ph-${match[1]}`;
   icon.setAttribute("aria-hidden", "true");
-  el.replaceChildren(icon);
   const rest = text.slice(match[0].length);
-  // The space is a text node rather than CSS margin so an icon-only label
-  // stays exactly as tight as it was.
-  if (rest) el.append(" ", rest);
+  // **The gap is a margin, not a space, and it has to be.** A plain " " text
+  // node between the icon and the label is what this did first, and it worked
+  // everywhere except in a flex container — where CSS discards anonymous
+  // whitespace-only children outright. Half the labels in this app live in
+  // flex rows (chips, buttons, status items), so half of them rendered with
+  // the glyph jammed against the first letter and the other half did not,
+  // which reads as a random inconsistency rather than a rule.
+  //
+  // Only when there IS following text: an icon-only button must stay exactly
+  // as tight as it was, or every icon button in the app gains trailing space
+  // and stops being square.
+  if (rest) icon.classList.add("ph-lead");
+  el.replaceChildren(icon);
+  if (rest) el.append(rest);
   return el;
 }
 
@@ -20299,6 +20325,12 @@ function renderCustomThemes() {
   if (!box) return;
   const themes = savedThemes();
   box.replaceChildren();
+  // The container is a grid of `minmax(104px, 1fr)` swatch columns, so a
+  // paragraph dropped straight into it becomes a grid ITEM in a 104px track
+  // and wraps to roughly one word per line. Screenshotted looking exactly like
+  // that. The empty state turns the grid off for as long as it is the only
+  // thing in there.
+  box.classList.toggle("theme-presets-empty", !themes.length);
   if (!themes.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
@@ -30060,7 +30092,8 @@ function initSpaceSwitcher() {
     }
   });
 
-  loadSpaces();
+  // Deliberately NOT loading the list here — see the "load spaces" step in
+  // startApp(), which runs once there is a token.
 }
 
 initSpaceSwitcher();

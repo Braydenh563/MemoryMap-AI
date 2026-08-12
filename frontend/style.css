@@ -3324,6 +3324,27 @@ li.link-source {
   margin: 0.5rem 0;
 }
 
+/* An empty grid is not a grid. See renderCustomThemes(): its empty message is
+   a paragraph, and as a grid item in a 104px track it wrapped to about one
+   word per line. */
+.theme-presets-empty {
+  display: block;
+}
+
+/* The name box and its button. The row let the input keep its intrinsic size
+   and the button overflowed on top of it — reported as the text box clashing
+   with what is next to it. The input takes the slack; the button is a fixed
+   hit target, as everywhere else in this app. */
+#custom-theme-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#custom-theme-save {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .theme-swatch {
   height: 38px;
   border-radius: var(--radius-md);
@@ -15003,6 +15024,14 @@ textarea.drag-over {
    it. The old `.ui-icon` swap system (emoji <-> lucide SVG) is gone with them —
    lucide.min.js had been deleted from vendor/ while the code still branched on
    `window.lucide`, so the "svg" style silently rendered nothing at all. */
+/* An icon with a label after it. See setLabel() in app.js: the space used to
+   be a text node, which CSS deletes inside a flex container — so the same
+   label rendered with a gap in a block context and without one in a flex row.
+   A margin survives both. */
+.ph-lead {
+  margin-inline-end: 0.4em;
+}
+
 .ph {
   /* Optical size: Phosphor's glyphs sit slightly small against text at 1em. */
   font-size: 1.15em;
@@ -15279,4 +15308,29 @@ textarea.drag-over {
   max-height: 80px;
   max-width: 100%;
   object-fit: cover;
+}
+
+
+/* --- Capture: the two labelled rows under the note box -----------------------
+   "Add to document" and "File under" each set their own label width, so the
+   controls beside them started at two different x positions and the form had a
+   ragged left edge down its lower half. Reported as spacing and alignment
+   between elements in a row, and between the rows themselves.
+
+   One shared label column fixes it without a grid: the label is the only thing
+   that varies, so pinning its width lines every control up. `ch` rather than a
+   spacing token because it is sized to the TEXT it holds, which is what a
+   label column is — a spacing step would be a coincidence that broke the first
+   time a label was reworded. */
+.capture-field-label {
+  flex: 0 0 auto;
+  min-width: 8.5rem;
+}
+
+/* Rows of controls sit on one rhythm, and wrap as whole controls rather than
+   letting one drop half a step. */
+.capture-field-row {
+  gap: var(--space-3);
+  row-gap: var(--space-3);
+  align-items: center;
 }

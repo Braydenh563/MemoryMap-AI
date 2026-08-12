@@ -295,6 +295,19 @@
     </div>
   </dialog>
 
+  <!-- Widget picker (roadmap §26): a dedicated surface for the same
+       dashboard_layout preference the inline "Edit layout" mode writes.
+       Rows are built by renderDashWidgetsList() in app.js. -->
+  <dialog id="dash-widgets-dialog" class="card space-dialog dash-widgets-dialog">
+    <h3>Widgets</h3>
+    <p class="muted">Add, remove or widen any dashboard widget. Changes save right away.</p>
+    <input type="search" id="dash-widgets-search" placeholder="Filter widgets…" autocomplete="off">
+    <div id="dash-widgets-list" class="dash-widgets-list"></div>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="dash-widgets-dialog">Done</button>
+    </div>
+  </dialog>
+
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
@@ -322,6 +335,7 @@
     <div class="dash-toolbar">
       <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <i class="ph ph-x ph-lead" aria-hidden="true"></i>Remove widgets · ▭Wide makes a full-width section — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
+      <button id="dash-widgets-open" class="ghost small"><i class="ph ph-squares-four" aria-hidden="true"></i> Widgets</button>
       <button id="dash-edit" class="ghost small">Edit layout</button>
     </div>
     <div id="dash-grid"></div>

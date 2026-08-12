@@ -15576,3 +15576,75 @@ textarea.drag-over {
   row-gap: var(--space-3);
   align-items: center;
 }
+
+/* --- widget picker modal (roadmap §26) --------------------------------------------
+   A dedicated surface for the same dashboard_layout preference the inline
+   "Edit layout" grid writes — see dashWidgetRow()/renderDashWidgetsList() in
+   app.js. Wider than the other .space-dialog uses because it holds a
+   scrolling list rather than a couple of fields. */
+.dash-widgets-dialog {
+  width: min(34rem, calc(100vw - var(--space-8)));
+}
+
+#dash-widgets-search {
+  width: 100%;
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-5);
+}
+
+#dash-widgets-search:focus {
+  border-color: var(--accent);
+}
+
+.dash-widgets-list {
+  max-height: min(28rem, 60vh);
+  overflow-y: auto;
+  /* Scrollbar space reserved up front so a row's controls don't jump
+     sideways the moment the list grows past one screenful. */
+  scrollbar-gutter: stable;
+  padding-right: var(--space-2);
+}
+
+.dash-widgets-group-label {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dash-widgets-group-label:first-child {
+  margin-top: 0;
+}
+
+.dash-widget-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-widget-row:last-child {
+  border-bottom: none;
+}
+
+.dash-widget-row-main {
+  min-width: 0;
+}
+
+.dash-widget-row-title {
+  font-weight: 600;
+}
+
+.dash-widget-row-desc {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.dash-widget-row-controls {
+  flex: 0 0 auto;
+}

@@ -8471,24 +8471,26 @@ let dashEditMode = false;
 let dragWidget = null; // widget name being dragged
 
 // Widget registry: name → title + async renderer that fills a body div.
+// `description` is a one-line, plain-text (no ph: marker) summary shown only
+// in the widget picker modal — the on-dashboard header just uses `title`.
 const DASH_WIDGETS = {
-  stats: { title: "ph:chart-bar Stats", render: renderStatsWidget },
-  streak: { title: "ph:flame Streak", render: renderStreakWidget },
-  art: { title: "ph:palette Notebook constellation", render: renderArtWidget },
-  pinned: { title: "ph:push-pin Pinned notes", render: renderPinnedWidget },
-  "recent-notes": { title: "ph:clock Recently added", render: renderRecentNotesWidget },
-  "most-used": { title: "ph:flame Most used", render: renderMostUsedWidget },
-  "top-tags": { title: "ph:tag Top tags", render: renderTopTagsWidget },
-  questions: { title: "ph:chat-circle Recent questions", render: renderQuestionsWidget },
-  "on-this-day": { title: "ph:calendar-blank On this day", render: renderOnThisDayWidget },
-  digest: { title: "ph:newspaper Weekly digest", render: renderDigestWidget },
-  capture: { title: "ph:pencil-simple Quick capture", render: renderQuickCaptureWidget },
-  reminders: { title: "ph:alarm Reminders", render: renderRemindersWidget },
-  focus: { title: "ph:timer Focus timer", render: renderFocusTimerWidget },
-  heatmap: { title: "ph:calendar-check Activity heatmap", render: renderHeatmapWidget },
-  "tag-cloud": { title: "ph:cloud Tag cloud", render: renderTagCloudWidget },
-  categories: { title: "ph:folders Categories", render: renderCategoriesWidget },
-  random: { title: "ph:dice-five Rediscover", render: renderRandomNoteWidget },
+  stats: { title: "ph:chart-bar Stats", description: "Note count, tags, categories and other totals at a glance.", render: renderStatsWidget },
+  streak: { title: "ph:flame Streak", description: "How many days in a row you've added or edited a note.", render: renderStreakWidget },
+  art: { title: "ph:palette Notebook constellation", description: "A generative starfield: one cluster per category, sized by note count.", render: renderArtWidget },
+  pinned: { title: "ph:push-pin Pinned notes", description: "Notes you've pinned, so they're always one click away.", render: renderPinnedWidget },
+  "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
+  "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
+  "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
+  questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
+  "on-this-day": { title: "ph:calendar-blank On this day", description: "Notes from this date in previous years.", render: renderOnThisDayWidget },
+  digest: { title: "ph:newspaper Weekly digest", description: "A short roundup of what you wrote and did this week.", render: renderDigestWidget },
+  capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
+  reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
+  focus: { title: "ph:timer Focus timer", description: "A start/stop timer for focused writing sessions.", render: renderFocusTimerWidget },
+  heatmap: { title: "ph:calendar-check Activity heatmap", description: "A calendar-style heatmap of note activity over the past months.", render: renderHeatmapWidget },
+  "tag-cloud": { title: "ph:cloud Tag cloud", description: "All your tags sized by how often they're used.", render: renderTagCloudWidget },
+  categories: { title: "ph:folders Categories", description: "Every category with its note count, click to filter.", render: renderCategoriesWidget },
+  random: { title: "ph:dice-five Rediscover", description: "A random older note, to resurface something you'd forgotten.", render: renderRandomNoteWidget },
 };
 
 function dashLayout() {
@@ -8513,6 +8515,26 @@ async function saveDashLayout(layout) {
     method: "PUT",
     body: JSON.stringify({ dashboard_layout: layout }),
   }).catch(() => prefsCache);
+}
+
+// Add/remove and wide/narrow, factored out of the inline "Edit layout" grid
+// so the widget-picker modal (dash-widgets-dialog) can flip the same
+// `dashboard_layout` preference instead of growing a second copy of this
+// logic. Both surfaces call these, then re-render themselves.
+async function toggleDashWidgetHidden(name) {
+  const next = dashLayout();
+  next.hidden = next.hidden.includes(name)
+    ? next.hidden.filter((n) => n !== name)
+    : [...next.hidden, name];
+  await saveDashLayout(next);
+}
+
+async function toggleDashWidgetWide(name) {
+  const next = dashLayout();
+  next.wide = next.wide.includes(name)
+    ? next.wide.filter((n) => n !== name)
+    : [...next.wide, name];
+  await saveDashLayout(next);
 }
 
 // --- live clock + dashboard welcome ------------------------------------------------
@@ -9611,11 +9633,7 @@ async function renderDashboard() {
       // the same job. One control, one place it's stored.
       controls.appendChild(
         smallButton(hidden ? "ph:plus Add" : "ph:x Remove", hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard", async () => {
-          const next = dashLayout();
-          next.hidden = hidden
-            ? next.hidden.filter((n) => n !== name)
-            : [...next.hidden, name];
-          await saveDashLayout(next);
+          await toggleDashWidgetHidden(name);
           renderDashboard();
         })
       );
@@ -9624,11 +9642,7 @@ async function renderDashboard() {
           isWide ? "ph:rows Narrow" : "ph:arrows-out-line-horizontal Wide",
           isWide ? "Show in one column" : "Span two columns",
           async () => {
-            const next = dashLayout();
-            next.wide = isWide
-              ? next.wide.filter((n) => n !== name)
-              : [...next.wide, name];
-            await saveDashLayout(next);
+            await toggleDashWidgetWide(name);
             renderDashboard();
           }
         )
@@ -9685,6 +9699,99 @@ async function renderDashboard() {
   // async widget bodies fill in.
   grid.classList.remove("spans-ready");
   watchDashWidgets();
+}
+
+// --- widget picker modal ------------------------------------------------------------
+// A dedicated "Widgets" surface (roadmap §26) alongside the inline "Edit
+// layout" mode — not a replacement for it. Both read/write the same
+// `dashboard_layout` preference through dashLayout()/saveDashLayout() and the
+// toggleDashWidget* helpers above; this modal just gives ~17 widgets a
+// searchable, browsable list instead of only being reachable by scrolling
+// the live grid in edit mode.
+
+function dashWidgetRow(name, layout) {
+  const widget = DASH_WIDGETS[name];
+  const hidden = layout.hidden.includes(name);
+  const isWide = layout.wide.includes(name);
+
+  const row = document.createElement("div");
+  row.className = "dash-widget-row";
+  row.dataset.widget = name;
+
+  const main = document.createElement("div");
+  main.className = "dash-widget-row-main";
+  const title = document.createElement("div");
+  title.className = "dash-widget-row-title";
+  setLabel(title, widget.title);
+  main.appendChild(title);
+  if (widget.description) {
+    const desc = document.createElement("p");
+    desc.className = "dash-widget-row-desc muted";
+    desc.textContent = widget.description;
+    main.appendChild(desc);
+  }
+  row.appendChild(main);
+
+  const controls = document.createElement("div");
+  controls.className = "dash-widget-row-controls entry-actions";
+  controls.appendChild(
+    smallButton(
+      hidden ? "ph:plus Add" : "ph:x Remove",
+      hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard",
+      async () => {
+        await toggleDashWidgetHidden(name);
+        renderDashboard();
+        renderDashWidgetsList($("dash-widgets-search").value);
+      }
+    )
+  );
+  if (!hidden) {
+    controls.appendChild(
+      smallButton(
+        isWide ? "ph:rows Narrow" : "ph:arrows-out-line-horizontal Wide",
+        isWide ? "Show in one column" : "Span two columns",
+        async () => {
+          await toggleDashWidgetWide(name);
+          renderDashboard();
+          renderDashWidgetsList($("dash-widgets-search").value);
+        }
+      )
+    );
+  }
+  row.appendChild(controls);
+  return row;
+}
+
+// Two groups — "On your dashboard" and "Available" — rather than a single
+// list with a per-row status chip: with ~17 widgets, seeing at a glance how
+// many are already on the dashboard is more useful than reading each row.
+function renderDashWidgetsList(filterText = "") {
+  const container = $("dash-widgets-list");
+  container.replaceChildren();
+  const layout = dashLayout();
+  const q = filterText.trim().toLowerCase();
+  const names = Object.keys(DASH_WIDGETS).filter((name) => {
+    if (!q) return true;
+    return DASH_WIDGETS[name].title.replace(PH_LABEL, "").toLowerCase().includes(q);
+  });
+
+  const addGroup = (label, list) => {
+    if (!list.length) return;
+    const heading = document.createElement("h4");
+    heading.className = "dash-widgets-group-label";
+    heading.textContent = `${label} (${list.length})`;
+    container.appendChild(heading);
+    for (const name of list) container.appendChild(dashWidgetRow(name, layout));
+  };
+  addGroup("On your dashboard", names.filter((n) => !layout.hidden.includes(n)));
+  addGroup("Available", names.filter((n) => layout.hidden.includes(n)));
+
+  if (!names.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No widgets match that search.";
+    container.appendChild(empty);
+  }
 }
 
 // --- Wave J: generative art (p5.js, vendored locally) -------------------------------
@@ -22673,6 +22780,14 @@ $("dash-edit").addEventListener("click", () => {
   $("dash-edit").textContent = dashEditMode ? "Done" : "Edit layout";
   renderDashboard();
 });
+// Widget picker modal (roadmap §26): a dedicated surface alongside "Edit
+// layout" above, not a replacement for it.
+$("dash-widgets-open").addEventListener("click", () => {
+  $("dash-widgets-search").value = "";
+  renderDashWidgetsList();
+  $("dash-widgets-dialog").showModal();
+});
+$("dash-widgets-search").addEventListener("input", (e) => renderDashWidgetsList(e.target.value));
 $("reminder-add").addEventListener("click", async () => {
   const ok = await addReminder($("reminder-text").value.trim(), $("reminder-due").value, null, {
     priority: $("reminder-priority").value,

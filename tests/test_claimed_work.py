@@ -169,7 +169,7 @@ def test_the_warning_names_the_unsupported_claim(ai_client, fake_ollama):
     fake_ollama.librarian_reply = REPORTED_ANSWER
     events = _events(ai_client, "link my social skills notes together", use_tools=True)
     text = "".join(e["delta"] for e in events if e["type"] == "answer")
-    assert "⚠️" in text
+    assert "Heads up" in text
     assert "linked notes" in text
     assert "unlinked notes" in text
 
@@ -192,7 +192,7 @@ def test_no_warning_when_the_tool_really_ran(ai_client, fake_ollama, session):
     fake_ollama.librarian_reply = "I linked those two notes for you."
     events = _events(ai_client, "link my two bean notes", use_tools=True)
     text = "".join(e["delta"] for e in events if e["type"] == "answer")
-    assert "⚠️" not in text
+    assert "Heads up" not in text
 
 
 def test_a_read_only_answer_is_never_warned_about(ai_client, fake_ollama):
@@ -200,4 +200,4 @@ def test_a_read_only_answer_is_never_warned_about(ai_client, fake_ollama):
     fake_ollama.librarian_reply = "You have three notes about beans, saved in March."
     events = _events(ai_client, "what did I write about beans", use_tools=True)
     text = "".join(e["delta"] for e in events if e["type"] == "answer")
-    assert "⚠️" not in text
+    assert "Heads up" not in text

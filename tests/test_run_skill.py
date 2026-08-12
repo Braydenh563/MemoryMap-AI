@@ -55,15 +55,22 @@ def test_a_built_in_skill_resolves_by_name(app_state):
     assert event["skill"] == wanted
 
 
-def test_the_emoji_prefix_may_be_dropped(app_state):
-    """The built-ins are named "🏷 Auto-tag my notes". A model asked to pass
-    that back drops the emoji, changes the case, or both — the single most
-    likely mistake, and free to recover from."""
-    catalog = skills.catalog(deps.get_config(), set(tools.TOOLS))
-    real = next(s["name"] for s in catalog if not s["name"][0].isalnum())
-    stripped = "".join(ch for ch in real if ch.isalnum() or ch.isspace()).strip()
-    assert stripped != real  # the test would prove nothing otherwise
-    assert tools.validate_run_skill({"name": stripped.lower()})["skill"] == real
+def test_decoration_in_a_skill_name_may_be_dropped(app_state):
+    """A model asked to pass a skill's name back drops the punctuation in it,
+    changes the case, or both — the single most likely mistake, and free to
+    recover from.
+
+    This used to reach into the catalogue for a built-in whose name began with
+    an emoji, because every audit skill was named "🏷 Auto-tag my notes". The
+    emoji are gone app-wide (a skill name lands in an `<option>`, which cannot
+    hold an icon element), so there is no such built-in left and the lookup
+    raised StopIteration. The behaviour under test never depended on emoji
+    specifically — it is about forgiving decoration of any kind — so the test
+    now makes its own decorated skill instead of borrowing one.
+    """
+    _save({"name": "★ Weekly tidy-up!", "prompt": "Tidy the notebook."})
+    stripped = "Weekly tidy up"
+    assert tools.validate_run_skill({"name": stripped.lower()})["skill"] == "★ Weekly tidy-up!"
 
 
 def test_an_exact_name_wins_over_the_forgiving_match(app_state):

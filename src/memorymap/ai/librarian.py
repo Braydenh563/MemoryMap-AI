@@ -507,18 +507,41 @@ def generate_title(text: str, model_manager: ModelManager, ollama: OllamaClient)
 
 
 def generate_link_reason(source_text: str, target_text: str, model_manager: ModelManager, ollama: OllamaClient) -> str:
-    """Generate a very short reason (3-8 words) for why two notes are linked.
-    Uses the utility model. Raises OllamaError if the model is unavailable.
+    """Generate a very short, SPECIFIC reason (3-8 words) for why two notes
+    are linked. Uses the utility model. Raises OllamaError if the model is
+    unavailable.
+
+    This exists to fix a reported complaint: the reason shown for almost
+    every link was the literal string "similar in meaning"
+    (`entry.manager.AUTO_REASON_TEXT`) — true of any two notes an embedding
+    thought were close, and useless for telling *which* two. The system
+    prompt below asks for the concrete thing the two notes share, not a
+    restatement that they're related; the caller (`ai.links.audit_vague_links`)
+    is the other half — it rejects a reply that comes back vague anyway
+    rather than trust the instruction alone.
     """
     system = (
-        "You write very short reasons explaining how two notes are related. "
-        "Reply with ONLY the reason — 3 to 8 words, no quotes, no trailing punctuation. "
-        "For example: 'Both mention studying techniques' or 'Related programming concepts'."
+        "You write short, SPECIFIC reasons explaining why two notes are "
+        "connected. Name the concrete thing they share: a project, person, "
+        "place, tool, decision, or date that appears in both notes. Do NOT "
+        "just assert that they are similar or related — that is exactly the "
+        "kind of vague answer to avoid.\n\n"
+        "Bad (too vague, never write these): 'similar in meaning', 'both "
+        "notes discuss this', 'related programming concepts', 'both mention "
+        "studying techniques'.\n"
+        "Good (names the specific thing): 'both about the Denver move', "
+        "'shared deadline: 12 May', 'both mention Sarah', 'same client: "
+        "Riverside project'.\n\n"
+        "If you can't find anything specific two notes share, still name "
+        "the closest concrete overlap you can see — never fall back to a "
+        "generic 'they are related' sentence.\n\n"
+        "Reply with ONLY the reason — 3 to 8 words, no quotes, no leading "
+        "'because', no trailing punctuation."
     )
     prompt = (
         f"Note 1:\n{source_text[:1000]}\n\n"
         f"Note 2:\n{target_text[:1000]}\n\n"
-        "How are these two notes related?"
+        "What specific thing do these two notes share?"
     )
     reply = ollama.chat(
         model_manager.utility_model(),

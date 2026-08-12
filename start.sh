@@ -67,7 +67,7 @@ run_with_timeout() {
 # next session an hour finding out it wasn't.
 is_network_error() {
   grep -qiE \
-    'could not resolve host|temporary failure in name resolution|name or service not known|nodename nor servname|node name.*not known|connection timed out|connection refused|network is unreachable|failed to establish a new connection|read timed out|newconnectionerror|max retries exceeded|no route to host|could not connect to server|couldn.t connect to server|ssl.*(handshake|certificate)|proxy (error|authentication)|getaddrinfo failed|unable to connect|connection reset by peer|no address associated with hostname|could not fetch url|unreachable network' \
+    'could not resolve host|temporary failure in name resolution|name or service not known|nodename nor servname|node name.*not known|connection timed out|connection refused|network is unreachable|failed to establish a new connection|read timed out|newconnectionerror|max retries exceeded|no route to host|could not connect to server|couldn.t connect to server|ssl.*(handshake|certificate)|proxy (error|authentication)|getaddrinfo failed|unable to connect|connection reset by peer|no address associated with hostname|could not fetch url|unreachable network|operation too slow|bytes/sec transferred|unable to access|could not resolve proxy|empty reply from server|timed out waiting' \
     "$1" 2>/dev/null
 }
 
@@ -83,8 +83,13 @@ if [ -z "${MM_CHILD:-}" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
   # `run_with_timeout` is the hard wall-clock backstop for a connect phase
   # that never gets that far - a DNS query or a proxy handshake that hangs
   # before a single byte comes back, which the low-speed options don't see.
-  if ! run_with_timeout 8 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
+  if run_with_timeout 8 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 \
        pull --ff-only >"$GIT_LOG" 2>&1; then
+    # git's own progress line ("Already up to date." / "Fast-forward...") is
+    # genuinely useful - captured above only so a *failure* can be
+    # classified, not to hide it on the success path.
+    cat "$GIT_LOG"
+  else
     if is_network_error "$GIT_LOG"; then
       echo "        No internet - skipping update check."
     else
@@ -160,12 +165,28 @@ fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
   echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time..."
-  if "$VENV_PY" -m pip install --upgrade pip && \
-     "$VENV_PY" -m pip install -r requirements.txt && \
-     "$VENV_PY" -m pip install -e .; then
+  # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
+  # its default (a 15s socket timeout retried 5 times, which is several
+  # minutes of silence on a dead network before the venv check even runs);
+  # `run_with_timeout` is still the outer backstop for the one phase pip's
+  # own flags don't bound - resolving the index host in the first place.
+  PIP_LOG="$(mktemp 2>/dev/null || echo "/tmp/mm_pip_$$.log")"
+  if run_with_timeout 20 "$VENV_PY" -m pip install --upgrade pip --timeout 5 --retries 0 >"$PIP_LOG" 2>&1 && \
+     run_with_timeout 180 "$VENV_PY" -m pip install -r requirements.txt --timeout 5 --retries 0 >>"$PIP_LOG" 2>&1 && \
+     run_with_timeout 60 "$VENV_PY" -m pip install -e . --timeout 5 --retries 0 >>"$PIP_LOG" 2>&1; then
     cksum requirements.txt | awk '{print $1}' > ".venv/.mm_installed"
   else
-    echo " ${YELLOW}[!]${RESET} Could not update dependencies (offline or network error)."
+    if is_network_error "$PIP_LOG"; then
+      echo " ${YELLOW}[!]${RESET} No internet - skipping dependency update."
+    else
+      # Not a network shape - show the real reason rather than guessing.
+      # A silently-mislabelled dependency failure is the trap CLAUDE.md
+      # calls out: it reads as "offline" and costs the next session an hour
+      # finding out the real cause was a broken requirements.txt.
+      echo " ${YELLOW}[!]${RESET} Could not update dependencies:"
+      tail -n 8 "$PIP_LOG" | sed 's/^/        /'
+    fi
+    rm -f "$PIP_LOG" 2>/dev/null || true
     if "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
       echo "        Launching with existing installation..."
     else
@@ -173,17 +194,21 @@ if [ "$NEED_INSTALL" = "1" ]; then
       exit 1
     fi
   fi
+  rm -f "$PIP_LOG" 2>/dev/null || true
 else
   echo " ${TEAL}[2/4]${RESET} Dependencies already up to date - skipping install."
 fi
 
 # pywebview is optional and only the app window needs it, so it installs
 # on demand rather than for everyone. A failure is not fatal - the app
-# falls back to a browser tab.
+# falls back to a browser tab, and it needs the same timeout treatment as
+# the rest of step 2: this can run even when NEED_INSTALL was 0, so it is
+# the one bit of network work that isn't skipped just because the venv
+# already has everything else.
 if [ -n "${MM_DESKTOP:-}" ]; then
   echo "        Checking desktop window support..."
-  if ! "$VENV_PY" -m pip install --quiet pywebview; then
-    echo " ${YELLOW}[!]${RESET} pywebview would not install - opening a browser tab instead."
+  if ! run_with_timeout 20 "$VENV_PY" -m pip install --quiet --timeout 5 --retries 0 pywebview; then
+    echo " ${YELLOW}[!]${RESET} pywebview would not install (offline, or a real error) - opening a browser tab instead."
     unset MM_DESKTOP
   fi
 fi

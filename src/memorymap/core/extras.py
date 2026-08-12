@@ -5,7 +5,7 @@ faster whisper and other things like maybe markitdown, llama.cpp or smth in the
 settings."*
 
 Every one of these is a feature the app already has a button for and cannot
-run: the 🎙 dictation buttons need `faster-whisper`, `python -m memorymap
+run: the dictation buttons need `faster-whisper`, `python -m memorymap
 --desktop` needs `pywebview`, semantic search falls back to keywords without
 `sentence-transformers`. Until now the only way to turn one on was a terminal
 and a README, which for a local-first app aimed at somebody who is not a
@@ -81,7 +81,7 @@ EXTRAS: tuple[Extra, ...] = (
     Extra(
         id="voice",
         label="Voice notes (faster-whisper)",
-        enables="The 🎙 buttons: speak a note or a question and have it typed "
+        enables="The dictation buttons: speak a note or a question and have it typed "
         "out, transcribed on this machine.",
         packages=("faster-whisper",),
         module="faster_whisper",

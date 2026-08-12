@@ -3739,8 +3739,12 @@ html.modal-open body {
   width: 4.5rem;
 }
 
-/* In-chat web-search toggle active state */
-#web-search-toggle.active {
+/* In-chat toggles that are ON. Plan joins Web here rather than getting its own
+   look: they are the same kind of control — a mode that stays armed across
+   messages — and two different "on" treatments in one strip is how a user
+   learns that one of them means something else. */
+#web-search-toggle.active,
+#chat-plan.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
@@ -8379,8 +8383,23 @@ html {
 }
 
 .chat-tool-group-skills select {
-  flex: 0 1 20rem;
-  max-width: 20rem;
+  /* Shrinks before anything else in the strip does — the skill names are the
+     longest text in the dock and the group has the most controls, so it is the
+     right one to give up width first. */
+  flex: 0 1 18rem;
+  min-width: 9rem;
+  max-width: 18rem;
+}
+
+/* Auto | Manual, beside the skill it applies to. This preference used to live
+   in the gear popup three controls away, which is why nobody found it. */
+.chat-skill-pace {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.chat-skill-pace button {
+  white-space: nowrap;
 }
 
 /* The group's mark, not a label. Sized and centred with the controls rather
@@ -9448,9 +9467,28 @@ button {
 .doc-layout {
   display: grid;
   grid-template-columns: minmax(14rem, 18rem) 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-6);
-  align-items: start;
+  /* `start` here is what shrink-wrapped the sidebar. `stretch` makes both
+     columns the height of the row, which the flex chain below makes the height
+     of the page — the same arrangement #tab-chat already uses. */
+  align-items: stretch;
+  min-height: 0;
   padding: 0;
+}
+
+/* The flex chain from the page down to the layout, so `height: 100%` on a grid
+   item has a definite size to resolve against. Copied deliberately from
+   #tab-chat rather than invented: two pages with the same two-column
+   full-height shape should not have two different ways of getting there. */
+#tab-documents {
+  display: flex;
+  flex-direction: column;
+}
+
+#tab-documents>.doc-layout {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* The heading row does not wrap. In a 260px column "Recent documents" broke
@@ -9458,6 +9496,19 @@ button {
    three-line header above a three-item list. The heading is the part that
    gives way — the button is a fixed hit target. */
 
+/* Reported: the Documents sidebar does not stretch the full height the way the
+   other two do, and does not stay put on the left.
+   Both came from the same thing. `align-self: start` shrink-wraps a grid item
+   to its content, and `max-height` only ever CAPS it — a three-item list gave
+   a three-item-tall card floating beside a full-height editor. Chat's sidebar
+   solved this ages ago (`#tab-chat > .layout` gets `height: 100%` and the
+   sidebar takes `height: 100%` of its grid area); Documents never got the same
+   treatment, so it was the odd one out.
+
+   `align-self: stretch` is what makes a sticky grid item full-height AND keeps
+   it sticky: a stretched item is exactly as tall as its row, and here the row
+   is the page, so the item is the page. The list inside scrolls; the card does
+   not move. */
 .doc-sidebar {
   position: sticky;
   /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
@@ -9465,11 +9516,24 @@ button {
      the header sits outside it — so there is nothing to clear, and offsetting
      by the header height would push the sidebar down by that much again. */
   top: 0;
-  align-self: start;
+  align-self: stretch;
+  height: 100%;
   max-height: var(--page-sticky-h);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* The card is the frame; the lists inside it are what scroll. Without this
+     a long document list stretches the card past the viewport and takes the
+     sticky behaviour with it. */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The lists are the scrolling part, not the card. */
+.doc-sidebar .doc-list,
+.doc-sidebar .doc-outline-wrap {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .doc-list {
@@ -10141,10 +10205,12 @@ button.ai-unavailable {
 }
 
 #chat-sidebar,
+/* Was a duplicate of .doc-sidebar above that re-set `align-self: start` — and
+   being later in the file, it won, which is why fixing the rule above alone
+   changed nothing. The one rule is .doc-sidebar. */
 #doc-sidebar {
   position: sticky;
   top: 0;
-  align-self: start;
 }
 
 .sidebar-resize {

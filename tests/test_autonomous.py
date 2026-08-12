@@ -260,7 +260,7 @@ def test_a_pass_records_what_it_changed_so_it_can_be_undone(app_state, monkeypat
     """
     change = {
         "tool": "tag_note",
-        "label": "🏷 Retagged note #4",
+        "label": "Retagged note #4",
         "note_id": 4,
         "undo": {"tool": "edit_note", "arguments": {"note_id": 4, "tags": []}},
     }

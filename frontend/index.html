@@ -788,16 +788,19 @@ Link to another note with [[its first few words]]."></textarea>
                   <button id="persona-peek" class="ghost small" type="button"
                     aria-expanded="false"
                     title="Show the instructions this persona gives the AI"><i class="ph ph-eye" aria-hidden="true"></i> What this persona tells the AI</button>
-                  <!-- Manual (step-through) mode, asked for directly: a pause
-                       after every completed step with a Continue button and a
-                       text box, rather than a skill running straight through
-                       five steps unattended. Lives here rather than per-launch
-                       because it's a standing preference about how runs
-                       behave, the same shape as Length/Persona beside it. -->
-                  <label class="chat-dock-more-row" title="Pause after each step of a skill or planned run so you can add anything before it continues">
-                    <span class="muted">Run skills step-by-step</span>
-                    <input type="checkbox" id="skill-manual-toggle">
-                  </label>
+                  <!-- Manual (step-through) mode: a pause after every completed
+                       step with a Continue button and a text box, rather than a
+                       skill running straight through five steps unattended.
+                       The control for it is the Auto|Manual pill in the skills
+                       group, beside the skill it applies to — it lived here,
+                       three controls away behind a disclosure, and nobody found
+                       it. This checkbox stays as the stored state the rest of
+                       the app reads (sendChatMessage reads .checked); the pill
+                       writes to it and fires a change event so the two cannot
+                       drift. Hidden, not deleted: deleting it would mean
+                       teaching four call sites about a new state shape. -->
+                  <input type="checkbox" id="skill-manual-toggle" class="visually-hidden"
+                    tabindex="-1" aria-hidden="true">
                 </div>
               </div>
             </div>
@@ -2094,6 +2097,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-you">Your notebook</p>
           <div role="group" aria-labelledby="nav-group-you">
             <button data-section="appearance">Appearance</button>
+            <button data-section="templates">Templates</button>
             <button data-section="shortcuts">Keyboard shortcuts</button>
             <button data-section="preferences">Preferences</button>
             <button data-section="data">Import &amp; export</button>
@@ -2318,6 +2322,29 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="skill-export" class="ghost small">Export JSON</button>
               <button id="skill-import" class="ghost small">Import JSON</button>
               <input id="skill-import-file" type="file" accept=".json" class="hidden">
+            </div>
+          </section>
+
+          <!-- Templates (Wave B, extended): prefills for the Capture box -->
+          <section class="settings-section hidden" id="settings-templates">
+            <p class="muted">
+              A template fills the Capture box with a starting shape — a
+              recipe's ingredient list, a meeting's agenda. The built-in ones
+              can't be edited or removed; your own can. Picking one from the
+              Capture tab's dropdown never throws away text you've already
+              typed there without asking first.
+            </p>
+            <ul id="template-list" class="entry-list"></ul>
+            <h3>Add your own</h3>
+            <input id="template-name" type="text" maxlength="40" placeholder="Name (e.g. Book notes)">
+            <input id="template-description" type="text" maxlength="200"
+              placeholder="One line about what it's for (optional)">
+            <textarea id="template-body" rows="4" maxlength="2000"
+              placeholder="Book: &#10;Author: &#10;Started: &#10;Thoughts:"></textarea>
+            <div class="row">
+              <button id="template-add" class="small">Add template</button>
+              <button id="template-cancel" class="ghost small hidden">Cancel edit</button>
+              <span id="template-status" class="status"></span>
             </div>
           </section>
 

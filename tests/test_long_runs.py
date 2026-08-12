@@ -173,7 +173,7 @@ def test_a_stalled_step_is_not_ticked_off(ai_client, fake_ollama):
         [{"name": "tag_note", "arguments": {"note_id": note_id, "tags": [f"t{n}"]}}]
         for n in range(rounds)
     ]
-    events = _events(ai_client, "⚡ Big tidy", skill="Big tidy", use_tools=True)
+    events = _events(ai_client, "ph:lightning Big tidy", skill="Big tidy", use_tools=True)
     states = {e["index"]: e["state"] for e in events if e["type"] == "step"}
     assert states[0] == "stalled"
     assert 1 not in states  # and the run stopped rather than carrying on
@@ -190,7 +190,7 @@ def test_the_result_says_which_step_it_stopped_on(ai_client, fake_ollama):
         [{"name": "tag_note", "arguments": {"note_id": note_id, "tags": [f"t{n}"]}}]
         for n in range(rounds)
     ]
-    events = _events(ai_client, "⚡ Big tidy", skill="Big tidy", use_tools=True)
+    events = _events(ai_client, "ph:lightning Big tidy", skill="Big tidy", use_tools=True)
     result = next(e for e in events if e["type"] == "result")
     assert result["stopped_at"] == 0
     assert result["steps"] == 3
@@ -199,7 +199,7 @@ def test_the_result_says_which_step_it_stopped_on(ai_client, fake_ollama):
 def test_a_run_that_finishes_stopped_at_nothing(ai_client, fake_ollama):
     _stalling_skill()
     # No script: every step's turn answers in words on its first round.
-    events = _events(ai_client, "⚡ Big tidy", skill="Big tidy", use_tools=True)
+    events = _events(ai_client, "ph:lightning Big tidy", skill="Big tidy", use_tools=True)
     result = next(e for e in events if e["type"] == "result")
     assert result["stopped_at"] is None
     states = {e["index"]: e["state"] for e in events if e["type"] == "step"}
@@ -215,7 +215,7 @@ def test_resuming_does_not_re_run_the_earlier_steps(ai_client, fake_ollama):
     plan with the first two steps missing is not the plan the user watched."""
     _stalling_skill()
     events = _events(
-        ai_client, "⚡ Big tidy", skill="Big tidy", skill_from_step=2, use_tools=True
+        ai_client, "ph:lightning Big tidy", skill="Big tidy", skill_from_step=2, use_tools=True
     )
     states = {e["index"]: e["state"] for e in events if e["type"] == "step"}
     assert states[0] == "earlier"
@@ -229,7 +229,7 @@ def test_resuming_does_not_re_run_the_earlier_steps(ai_client, fake_ollama):
 def test_the_plan_says_where_a_resumed_run_starts(ai_client, fake_ollama):
     _stalling_skill()
     events = _events(
-        ai_client, "⚡ Big tidy", skill="Big tidy", skill_from_step=1, use_tools=True
+        ai_client, "ph:lightning Big tidy", skill="Big tidy", skill_from_step=1, use_tools=True
     )
     plan = next(e for e in events if e["type"] == "plan")
     assert plan["start_at"] == 1
@@ -244,7 +244,7 @@ def test_an_out_of_range_resume_point_runs_nothing_rather_than_raising(
     request that means something perfectly sensible."""
     _stalling_skill()
     events = _events(
-        ai_client, "⚡ Big tidy", skill="Big tidy", skill_from_step=9, use_tools=True
+        ai_client, "ph:lightning Big tidy", skill="Big tidy", skill_from_step=9, use_tools=True
     )
     states = {e["index"]: e["state"] for e in events if e["type"] == "step"}
     assert set(states.values()) == {"earlier"}

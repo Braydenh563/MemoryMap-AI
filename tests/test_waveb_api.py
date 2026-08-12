@@ -268,11 +268,88 @@ def test_tag_rename_merge_delete(client):
 
 
 def test_custom_templates_roundtrip(client):
+    # Not "Journal" — that's one of the four built-in names (BUILTIN_TEMPLATE_NAMES
+    # in routes_settings.py, kept in sync by hand with BUILTIN_TEMPLATES in
+    # app.js) and a custom template can no longer claim it; see
+    # test_custom_template_cannot_shadow_a_builtin below.
     updated = client.put(
         "/preferences",
-        json={"custom_templates": [{"name": "Journal", "content": "Today I…"}]},
+        json={"custom_templates": [{"name": "Reading log", "content": "Today I…"}]},
     ).json()
-    assert updated["custom_templates"] == [{"name": "Journal", "content": "Today I…"}]
+    assert updated["custom_templates"] == [
+        {"name": "Reading log", "content": "Today I…", "description": ""}
+    ]
+
+
+def test_custom_template_add_edit_delete(client):
+    """The happy path: add one, edit it in place (a rename counts), then
+    delete it — exactly the sequence the Settings pane drives."""
+    added = client.put(
+        "/preferences",
+        json={
+            "custom_templates": [
+                {"name": "Trip log", "description": "Where I went", "content": "Where: \nWho: "}
+            ]
+        },
+    ).json()
+    assert added["custom_templates"] == [
+        {"name": "Trip log", "description": "Where I went", "content": "Where: \nWho: "}
+    ]
+
+    edited = client.put(
+        "/preferences",
+        json={
+            "custom_templates": [
+                {"name": "Travel log", "description": "Where I went", "content": "Where: \nWho: \nCost: "}
+            ]
+        },
+    ).json()
+    assert [t["name"] for t in edited["custom_templates"]] == ["Travel log"]
+
+    deleted = client.put("/preferences", json={"custom_templates": []}).json()
+    assert deleted["custom_templates"] == []
+
+
+def test_custom_template_cannot_shadow_a_builtin(client):
+    """Deleting a built-in isn't a real operation (it never lived in
+    `custom_templates`) — but saving a custom one *named* like a built-in
+    would let it silently win wherever the merged list is drawn, so the
+    server refuses the name outright."""
+    response = client.put(
+        "/preferences",
+        json={"custom_templates": [{"name": "Journal", "content": "Dear diary…"}]},
+    )
+    assert response.status_code == 422
+    assert "built-in" in response.json()["detail"]
+
+
+def test_custom_template_name_collision_is_rejected_not_deduped(client):
+    """Two customs can't share a name either — rejected, not silently
+    de-duplicated, because de-duping would mean deleting whichever one
+    lost, without the user ever having asked for that."""
+    response = client.put(
+        "/preferences",
+        json={
+            "custom_templates": [
+                {"name": "Book notes", "content": "Title: "},
+                {"name": "Book notes", "content": "Something else entirely"},
+            ]
+        },
+    )
+    assert response.status_code == 422
+    assert "already used" in response.json()["detail"]
+
+
+def test_custom_template_bad_payload_rejected(client):
+    # No name at all.
+    assert client.put(
+        "/preferences", json={"custom_templates": [{"content": "no name here"}]}
+    ).status_code == 422
+    # Content over the 2000-char cap.
+    assert client.put(
+        "/preferences",
+        json={"custom_templates": [{"name": "Too long", "content": "x" * 2001}]},
+    ).status_code == 422
 
 
 # --- saved appearance looks (§33 / IDEAS.md) ---------------------------------

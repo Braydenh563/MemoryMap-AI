@@ -203,9 +203,9 @@ def test_only_the_skills_that_write_are_marked_as_changing_your_notes(client, ap
     """A marker on all ten says nothing. Nearly every skill uses tools; the
     question the user is asking is which ones act."""
     listed = {skill["name"]: skill for skill in client.get("/skills").json()["skills"]}
-    assert listed["🏷 Auto-tag my notes"]["changes"] is True  # tag_note
-    assert listed["🧹 Find loose ends"]["changes"] is False  # reads only
-    assert listed["🗂 Tidy suggestions"]["changes"] is False  # proposes, never applies
+    assert listed["Auto-tag my notes"]["changes"] is True  # tag_note
+    assert listed["Find loose ends"]["changes"] is False  # reads only
+    assert listed["Tidy suggestions"]["changes"] is False  # proposes, never applies
 
 
 def test_saving_a_skill_naming_an_unknown_tool_is_refused(client, app_state):
@@ -281,7 +281,7 @@ def test_the_agent_refuses_a_tool_the_skill_did_not_declare(
 
 
 def test_running_a_skill_sends_its_instruction_not_its_name(ai_client, fake_ollama):
-    events = _stream_events(ai_client, "🏷 Auto-tag my notes", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "Auto-tag my notes", skill="Auto-tag my notes")
     plan = [e for e in events if e["type"] == "plan"][0]
     assert plan["steps"]
 
@@ -313,13 +313,13 @@ def test_running_a_skill_narrows_the_tools_on_the_wire(ai_client, fake_ollama, s
         return original(model, messages, offered)
 
     fake_ollama.chat_tools = spy
-    _stream_events(ai_client, "🏷 Auto-tag my notes", skill="🏷 Auto-tag my notes")
+    _stream_events(ai_client, "Auto-tag my notes", skill="Auto-tag my notes")
     assert captured["names"] == {"list_notes", "get_note", "list_tags", "tag_note"}
 
 
 def test_a_skill_with_a_missing_input_is_refused_rather_than_run_blank(ai_client):
     response = ai_client.post(
-        "/chat/stream", json={"question": "x", "skill": "🔎 Catch up on a topic"}
+        "/chat/stream", json={"question": "x", "skill": "Catch up on a topic"}
     )
     assert response.status_code == 422
     assert "topic" in response.json()["detail"]
@@ -328,8 +328,8 @@ def test_a_skill_with_a_missing_input_is_refused_rather_than_run_blank(ai_client
 def test_a_skill_input_reaches_the_model(ai_client, fake_ollama):
     _stream_events(
         ai_client,
-        "🔎 Catch up on a topic",
-        skill="🔎 Catch up on a topic",
+        "Catch up on a topic",
+        skill="Catch up on a topic",
         skill_inputs={"topic": "sailing"},
     )
     sent = fake_ollama.tool_rounds[-1][-1]["content"]
@@ -367,7 +367,7 @@ def test_a_network_failure_mid_step_stops_the_run_instead_of_repeating(
         yield {"type": "answer", "delta": "Ollama doesn't seem to be running.", "offline": True}
 
     monkeypatch.setattr(agent, "run_agent", offline)
-    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
     steps = [e for e in events if e["type"] == "step"]
     result = [e for e in events if e["type"] == "result"][0]
 
@@ -385,7 +385,7 @@ def test_each_step_is_its_own_turn_and_is_ticked_off(ai_client, fake_ollama):
     """Handing a 3B model four instructions at once gets the first one done
     and the rest narrated. One step per turn is what makes "step 2 happened"
     something the app knows rather than hopes."""
-    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
     plan = [e for e in events if e["type"] == "plan"][0]
     steps = [e for e in events if e["type"] == "step"]
 
@@ -408,7 +408,7 @@ def test_a_step_that_produces_nothing_is_not_ticked_done(ai_client, fake_ollama)
     must stop and report the step as failed instead, so Resume — not the
     next step — picks it back up."""
     fake_ollama.librarian_reply = ""  # the model says and does nothing
-    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
     steps = [e for e in events if e["type"] == "step"]
     result = [e for e in events if e["type"] == "result"][0]
 
@@ -419,7 +419,7 @@ def test_a_step_that_produces_nothing_is_not_ticked_done(ai_client, fake_ollama)
 
 
 def test_a_step_only_sees_what_the_earlier_steps_said(ai_client, fake_ollama):
-    _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    _stream_events(ai_client, "run", skill="Auto-tag my notes")
     last_turn = fake_ollama.tool_rounds[-1]
     # The history the last step was given carries the earlier steps as turns.
     earlier = [m for m in last_turn if m.get("role") == "user"]
@@ -440,7 +440,7 @@ def test_a_later_step_sees_which_notes_an_earlier_step_actually_touched(
     fake_ollama.tool_script = [
         [{"name": "tag_note", "arguments": {"note_id": note["id"], "add": ["filed"]}}]
     ]
-    _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    _stream_events(ai_client, "run", skill="Auto-tag my notes")
     last_turn = fake_ollama.tool_rounds[-1]
     history_text = " ".join(
         str(m.get("content", "")) for m in last_turn if m.get("role") == "assistant"
@@ -515,7 +515,7 @@ def test_what_changed_comes_back_as_a_list_with_a_way_to_undo_it(
     fake_ollama.tool_script = [
         [{"name": "tag_note", "arguments": {"note_id": note["id"], "add": ["filed"]}}]
     ]
-    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
 
     result = [e for e in events if e["type"] == "result"][-1]
     assert len(result["changes"]) == 1
@@ -543,7 +543,7 @@ def test_manual_mode_pauses_after_the_first_step_instead_of_continuing(
     ai_client, fake_ollama
 ):
     events = _stream_events(
-        ai_client, "run", skill="🏷 Auto-tag my notes", skill_manual=True
+        ai_client, "run", skill="Auto-tag my notes", skill_manual=True
     )
     steps = [e for e in events if e["type"] == "step"]
     result = [e for e in events if e["type"] == "result"][0]
@@ -554,7 +554,7 @@ def test_manual_mode_pauses_after_the_first_step_instead_of_continuing(
 
 
 def test_manual_mode_off_runs_straight_through_as_before(ai_client, fake_ollama):
-    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
     result = [e for e in events if e["type"] == "result"][0]
     assert result["stopped_at"] is None
     assert result["paused"] is False
@@ -565,7 +565,7 @@ def test_manual_mode_does_not_pause_after_the_last_step(ai_client, fake_ollama):
     events = _stream_events(
         ai_client,
         "run",
-        skill="🏷 Auto-tag my notes",
+        skill="Auto-tag my notes",
         skill_manual=True,
         skill_from_step=4,  # the last of the five steps
     )
@@ -576,7 +576,7 @@ def test_manual_mode_does_not_pause_after_the_last_step(ai_client, fake_ollama):
 
 def test_a_paused_run_is_never_reported_as_failed_or_stalled(ai_client, fake_ollama):
     events = _stream_events(
-        ai_client, "run", skill="🏷 Auto-tag my notes", skill_manual=True
+        ai_client, "run", skill="Auto-tag my notes", skill_manual=True
     )
     steps = [e for e in events if e["type"] == "step"]
     assert not any(s["state"] in ("failed", "stalled") for s in steps)
@@ -591,7 +591,7 @@ def test_manual_note_is_folded_into_the_next_steps_own_instruction(
     _stream_events(
         ai_client,
         "run",
-        skill="🏷 Auto-tag my notes",
+        skill="Auto-tag my notes",
         skill_manual=True,
         skill_from_step=1,
         skill_manual_note="focus on the work notes only",
@@ -607,7 +607,7 @@ def test_manual_note_only_reaches_the_step_it_was_added_before(ai_client, fake_o
     events = _stream_events(
         ai_client,
         "run",
-        skill="🏷 Auto-tag my notes",
+        skill="Auto-tag my notes",
         skill_manual=True,
         skill_from_step=1,
         skill_manual_note="focus on the work notes only",
@@ -618,7 +618,7 @@ def test_manual_note_only_reaches_the_step_it_was_added_before(ai_client, fake_o
     later = _stream_events(
         ai_client,
         "run",
-        skill="🏷 Auto-tag my notes",
+        skill="Auto-tag my notes",
         skill_manual=True,
         skill_from_step=2,
     )
@@ -633,7 +633,7 @@ def test_the_undo_never_reaches_the_model(ai_client, session, fake_ollama):
     fake_ollama.tool_script = [
         [{"name": "pin_note", "arguments": {"note_id": note["id"]}}]
     ]
-    _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    _stream_events(ai_client, "run", skill="Auto-tag my notes")
     tool_messages = [
         m
         for turn in fake_ollama.tool_rounds
@@ -651,10 +651,10 @@ def test_a_step_that_produces_nothing_is_reported_as_the_failure(
     from memorymap.ai import agent
 
     def only_failures(session, question, notes, *args, **kwargs):
-        yield {"type": "tool", "label": "⚠️ nope", "ok": False, "error": "it broke"}
+        yield {"type": "tool", "label": "nope", "ok": False, "error": "it broke"}
 
     monkeypatch.setattr(agent, "run_agent", only_failures)
-    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
 
     failed = [e for e in events if e["type"] == "step" and e["state"] == "failed"]
     assert failed and failed[0]["index"] == 0
@@ -669,7 +669,7 @@ def test_a_model_that_cannot_use_tools_still_falls_back_to_a_plain_answer(
     """The runner's first event has to mean what the agent's did, or the
     fallback that keeps this app usable without tool support breaks."""
     fake_ollama.supports_tools = False
-    events = _stream_events(ai_client, "run", skill="🏷 Auto-tag my notes")
+    events = _stream_events(ai_client, "run", skill="Auto-tag my notes")
 
     assert not [e for e in events if e["type"] == "plan"]
     assert any(e["type"] == "answer" for e in events)
@@ -680,8 +680,8 @@ def test_an_action_skill_acts_even_with_agent_mode_off(ai_client, fake_ollama):
     leave it ticked. A skill that acts brings its own permission."""
     events = _stream_events(
         ai_client,
-        "🏷 Auto-tag my notes",
-        skill="🏷 Auto-tag my notes",
+        "Auto-tag my notes",
+        skill="Auto-tag my notes",
         use_tools=False,
     )
     assert any(e["type"] == "plan" for e in events)
@@ -785,11 +785,11 @@ def test_the_agent_can_save_a_when_to_use(app_state, session):
 
 
 AUDIT_SKILLS = [
-    "🩺 Notebook health check",
-    "🏷 Clean up my tags",
-    "🗂 Reorganise my categories",
-    "🔗 Fix my links",
-    "🧬 Find notes worth combining",
+    "Notebook health check",
+    "Clean up my tags",
+    "Reorganise my categories",
+    "Fix my links",
+    "Find notes worth combining",
 ]
 
 
@@ -831,14 +831,14 @@ def test_the_health_check_cannot_change_anything():
     write, so a model that ignores "do not change anything" still can't."""
     from memorymap.ai import tools
 
-    skill = _builtin("🩺 Notebook health check")
+    skill = _builtin("Notebook health check")
     assert not (set(skill["tools"]) & tools.WRITE_TOOLS)
 
 
 def test_the_health_check_points_at_the_skills_that_do_the_work():
     """A report that names problems and not their fix leaves the person to
     guess which skill to reach for."""
-    steps = " ".join(_builtin("🩺 Notebook health check")["steps"]).lower()
+    steps = " ".join(_builtin("Notebook health check")["steps"]).lower()
     assert "skill" in steps
 
 
@@ -852,7 +852,7 @@ def test_no_audit_skill_can_delete_a_note():
 def test_combining_notes_proposes_rather_than_merges():
     """It reports the combined note it would write and links the group, so the
     person accepts the merge. Nothing is destroyed on its say-so."""
-    skill = _builtin("🧬 Find notes worth combining")
+    skill = _builtin("Find notes worth combining")
     assert "delete_note" not in skill["tools"]
     assert "link_notes" in skill["tools"]
 
@@ -861,7 +861,7 @@ def test_reorganising_categories_merges_rather_than_deletes():
     """`delete_category` is destructive, so it would stop a bulk run for a
     confirm card — and merging is what was wanted anyway, since it keeps the
     notes together instead of scattering them into Uncategorised."""
-    skill = _builtin("🗂 Reorganise my categories")
+    skill = _builtin("Reorganise my categories")
     assert "merge_categories" in skill["tools"]
     assert "delete_category" not in skill["tools"]
 
@@ -869,7 +869,7 @@ def test_reorganising_categories_merges_rather_than_deletes():
 def test_fixing_links_can_both_add_and_remove():
     """The whole point: before `unlink_notes` existed, an audit could add a
     connection and never correct one."""
-    tools_used = _builtin("🔗 Fix my links")["tools"]
+    tools_used = _builtin("Fix my links")["tools"]
     assert {"link_notes", "unlink_notes", "related_notes"} <= set(tools_used)
 
 

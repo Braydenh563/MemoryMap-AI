@@ -243,7 +243,7 @@ def test_read_url_returns_the_page_text(app_state, session, monkeypatch):
     # passes for "example.com.evil.test", which is the shape of check this
     # codebase must never learn by habit.
     assert result["domain"] == "example.com"
-    assert result["label"] == "📖 Read example.com"
+    assert result["label"] == "ph:book-open Read example.com"
 
 
 def test_read_url_says_when_it_only_read_part_of_a_page(app_state, session, monkeypatch):

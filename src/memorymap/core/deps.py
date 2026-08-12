@@ -11,8 +11,10 @@ import logging
 import os
 import sys
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
+from fastapi import Request
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import EmbeddingService
@@ -275,8 +277,6 @@ def get_embeddings() -> EmbeddingService:
     return _embeddings
 
 
-from fastapi import Request
-
 def get_session(request: Request = None) -> Iterator[Session]:
     """FastAPI dependency: one session per request, always closed."""
     session = get_db().session()
@@ -316,8 +316,6 @@ def store_quietly(session: Session, entry: Entry) -> bool:
             exc_info=True,
         )
         return False
-
-from contextlib import contextmanager
 
 @contextmanager
 def impersonate_workspace(session: Session, workspace_id: str):

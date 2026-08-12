@@ -37,14 +37,35 @@ REM  A running .bat is read from disk by byte offset, so a git pull that
 REM  rewrites this file mid-run would corrupt it. To stay safe we pull,
 REM  then re-launch the (possibly updated) script in a child process and
 REM  stop this one. The MM_CHILD guard prevents an endless loop.
+REM
+REM  `http.lowSpeedLimit`/`http.lowSpeedTime` are git's own "abort a
+REM  connection that has gone quiet" option - the same flags start.sh
+REM  uses, and the same ones that turned a black-holed connection (a
+REM  listener that accepts and never answers) into a five-second failure
+REM  instead of a long stall when tested against one. They don't bound the
+REM  very first connect, so a proxy that never completes even a handshake
+REM  still falls back to git's own much longer default - rare next to "no
+REM  internet" or "a slow/stalled proxy", which is what these are for.
+REM
+REM  Output is captured to a temp file rather than left to print live, so
+REM  a failure can be told apart from a real internet connection - but the
+REM  same file is shown either way (see below), so nothing that used to
+REM  print here goes missing.
 if not defined MM_CHILD (
   where git >nul 2>nul && if exist ".git" (
     set "MM_CHILD=1"
     echo  Checking for updates...
-    git pull --ff-only
-    if errorlevel 1 (
-      echo  !ESC![1;31m[X]!ESC![0m Update failed - no internet or local conflicts. Skipping...
-    )
+    set "MM_GIT_LOG=%TEMP%\mm_git_update_%RANDOM%.log"
+    git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 pull --ff-only > "!MM_GIT_LOG!" 2>&1
+    set "MM_GIT_STATUS=!errorlevel!"
+    if "!MM_GIT_STATUS!"=="0" type "!MM_GIT_LOG!"
+    set "MM_GIT_NET=0"
+    if not "!MM_GIT_STATUS!"=="0" findstr /I /C:"could not resolve" /C:"unable to access" /C:"timed out" /C:"connection refused" /C:"connection reset" /C:"network is unreachable" /C:"could not connect" /C:"bytes/sec" /C:"proxy" /C:"ssl certificate" /C:"getaddrinfo" "!MM_GIT_LOG!" >nul 2>nul
+    if not "!MM_GIT_STATUS!"=="0" if not errorlevel 1 set "MM_GIT_NET=1"
+    if not "!MM_GIT_STATUS!"=="0" if "!MM_GIT_NET!"=="1" echo         No internet - skipping update check.
+    if not "!MM_GIT_STATUS!"=="0" if "!MM_GIT_NET!"=="0" echo  !ESC![1;31m[X]!ESC![0m Update failed - staying on the current version:
+    if not "!MM_GIT_STATUS!"=="0" if "!MM_GIT_NET!"=="0" type "!MM_GIT_LOG!" 2>nul
+    del /q "!MM_GIT_LOG!" >nul 2>nul
     call "%~f0"
     exit /b !errorlevel!
   )
@@ -131,17 +152,30 @@ if "!NEED_INSTALL!"=="0" (
 
 if "!NEED_INSTALL!"=="1" (
   echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models...
-  
+
+  REM  `--timeout 5 --retries 0` makes pip give up on a dead connection in
+  REM  seconds instead of its default (a 15s socket timeout retried 5
+  REM  times per package - several minutes of silence on a dead network).
+  REM  Output goes to a log so a real failure can be told apart from "no
+  REM  internet" below, the same reasoning as the update check above.
+  set "PIP_LOG=%TEMP%\mm_pip_install_%RANDOM%.log"
   set "PIP_FAILED=0"
-  "%VENV_PY%" -m pip install --upgrade pip --quiet
-  "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --quiet
+  "%VENV_PY%" -m pip install --upgrade pip --quiet --timeout 5 --retries 0 > "!PIP_LOG!" 2>&1
   if errorlevel 1 set "PIP_FAILED=1"
-  
-  "%VENV_PY%" -m pip install -e . --quiet
+  "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --quiet --timeout 5 --retries 0 >> "!PIP_LOG!" 2>&1
+  if errorlevel 1 set "PIP_FAILED=1"
+
+  "%VENV_PY%" -m pip install -e . --quiet --timeout 5 --retries 0 >> "!PIP_LOG!" 2>&1
   if errorlevel 1 set "PIP_FAILED=1"
 
   if "!PIP_FAILED!"=="1" (
-    echo  !ESC![1;33m[!]!ESC![0m Could not update dependencies - offline or network error.
+    set "MM_PIP_NET=0"
+    findstr /I /C:"could not resolve" /C:"unable to access" /C:"timed out" /C:"connection refused" /C:"connection reset" /C:"network is unreachable" /C:"could not connect" /C:"newconnectionerror" /C:"max retries exceeded" /C:"proxy" /C:"ssl" /C:"getaddrinfo" "!PIP_LOG!" >nul 2>nul
+    if not errorlevel 1 set "MM_PIP_NET=1"
+    if "!MM_PIP_NET!"=="1" echo  !ESC![1;33m[!]!ESC![0m No internet - skipping dependency update.
+    if "!MM_PIP_NET!"=="0" echo  !ESC![1;33m[!]!ESC![0m Could not update dependencies:
+    if "!MM_PIP_NET!"=="0" type "!PIP_LOG!" 2>nul
+    del /q "!PIP_LOG!" >nul 2>nul
     "%VENV_PY%" -c "import memorymap" >nul 2>nul
     if errorlevel 1 (
       echo  !ESC![1;31m[X]!ESC![0m First-time setup requires an internet connection to install dependencies.
@@ -151,6 +185,7 @@ if "!NEED_INSTALL!"=="1" (
       echo         Launching with existing installation...
     )
   ) else (
+    del /q "!PIP_LOG!" >nul 2>nul
     for %%A in ("requirements.txt") do echo %%~tA>".venv\.mm_installed"
   )
 ) else (
@@ -159,12 +194,15 @@ if "!NEED_INSTALL!"=="1" (
 
 REM  pywebview is optional and only needed for the app window, so it is
 REM  installed on demand rather than for everyone. Cheap after the first
-REM  time - pip exits immediately when it is already present.
+REM  time - pip exits immediately when it is already present. Same
+REM  `--timeout`/`--retries` as step 2, since this runs even when
+REM  NEED_INSTALL was 0 - it's the one bit of network work that isn't
+REM  skipped just because everything else is already installed.
 if defined MM_DESKTOP (
   echo        Checking desktop window support...
-  "%VENV_PY%" -m pip install --quiet pywebview
+  "%VENV_PY%" -m pip install --quiet --timeout 5 --retries 0 pywebview
   if errorlevel 1 (
-    echo  !ESC![1;33m[!]!ESC![0m pywebview would not install - opening a browser tab instead.
+    echo  !ESC![1;33m[!]!ESC![0m pywebview would not install - offline, or a real error - opening a browser tab instead.
     set "MM_DESKTOP="
   )
 )

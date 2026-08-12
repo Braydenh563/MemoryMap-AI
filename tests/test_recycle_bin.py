@@ -153,7 +153,7 @@ def test_a_note_with_every_kind_of_attached_row_can_still_be_destroyed(client, s
     three of the seven tables that point at an entry — so a row left in any of
     the other four made `DELETE FROM entries` raise IntegrityError, which the
     API returned as a 500 and the bin was left exactly as it had been. The two
-    notes in the report both carried a resolved time phrase (the `🕓 this week
+    notes in the report both carried a resolved time phrase (the `ph:clock this week
     → week of 27 July` chip is an `entry_dates` row), which is why those two
     and not the rest.
 

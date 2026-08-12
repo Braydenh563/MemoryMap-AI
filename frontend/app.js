@@ -431,24 +431,48 @@ async function loadTemplates() {
   none.value = "";
   none.textContent = "No template";
   select.appendChild(none);
-  for (const template of [...BUILTIN_TEMPLATES, ...custom]) {
-    const option = document.createElement("option");
-    option.value = template.name;
-    option.textContent = template.name;
-    option.dataset.content = template.content;
-    select.appendChild(option);
+  // Grouped the same way the chat skill picker groups "Yours" ahead of
+  // "Built-in" (§entry-template extension) — one recognisable shape for
+  // "your stuff first, then what shipped" instead of a flat, unsorted list.
+  for (const [templates, title] of [[custom, "Yours"], [BUILTIN_TEMPLATES, "Built-in"]]) {
+    if (!templates.length) continue;
+    const group = document.createElement("optgroup");
+    group.label = title;
+    for (const template of templates) {
+      const option = document.createElement("option");
+      option.value = template.name;
+      option.textContent = template.name;
+      option.dataset.content = template.content;
+      if (template.description) option.title = template.description;
+      group.appendChild(option);
+    }
+    select.appendChild(group);
   }
 }
 
-function applyTemplate() {
+async function applyTemplate() {
   const select = $("entry-template");
   const option = select.selectedOptions[0];
   if (!option || !option.dataset.content) return;
-  $("entry-content").value = option.dataset.content.replace(
+  const box = $("entry-content");
+  // Never silently overwrite what's already been typed — ask first, and put
+  // the dropdown back to blank on "keep my text" so it doesn't sit there
+  // showing a template name that was never actually applied.
+  if (box.value.trim()) {
+    const replace = await confirmDialog(
+      `Replace what you've already written with the “${option.textContent}” template?`,
+      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
+    );
+    if (!replace) {
+      select.value = "";
+      return;
+    }
+  }
+  box.value = option.dataset.content.replace(
     "{date}",
     new Date().toLocaleDateString()
   );
-  $("entry-content").focus();
+  box.focus();
 }
 
 function refreshTagSuggestions() {
@@ -6126,8 +6150,19 @@ function closeChatDockMore() {
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
-  const question = (preset ?? input.value).trim();
-  if (!question) return;
+  const typed = (preset ?? input.value).trim();
+  if (!typed) return;
+
+  // Plan mode is applied here, on the way out, rather than by whatever control
+  // was pressed — so Send, Enter and a suggestion chip all get planned when the
+  // mode is on. `opts.plan` means this message IS a plan already (the plan
+  // runner re-sends through here), so it must not be planned again.
+  //
+  // The user's own words go in the bubble; the planning instruction is appended
+  // for the model only. `displayText` already exists for exactly this.
+  const planned = opts.plan || opts.skipPlanMode ? null : applyPlanMode(typed);
+  const question = planned || typed;
+  if (planned && !opts.displayText) opts = { ...opts, displayText: typed };
   lastChatQuestion = question;
 
   // Consumed once: this send — button click or free-typed reply alike — is
@@ -6495,6 +6530,7 @@ async function sendChatMessage(preset, opts = {}) {
             skillFromStep: stoppedAtStep,
             skillManual: true,
             skillManualNote: note,
+            skipPlanMode: true,
           }),
       })
     );
@@ -6508,6 +6544,7 @@ async function sendChatMessage(preset, opts = {}) {
             skill: opts.skill,
             skillInputs: opts.skillInputs || {},
             skillFromStep: stoppedAtStep,
+            skipPlanMode: true,
           }),
       })
     );
@@ -7669,7 +7706,7 @@ function runSkill(skill) {
 // reload, and the run is a message in the conversation like any other.
 function startPlannedRun(goal, steps) {
   switchTab("chat"); // same reason as startSkill: the run happens in the chat
-  sendChatMessage(`ph:compass ${goal}`, { plan: { goal, steps } });
+  sendChatMessage(goal, { plan: { goal, steps }, skipPlanMode: true });
 }
 
 function startSkill(skill, values) {
@@ -7685,9 +7722,12 @@ function startSkill(skill, values) {
   // the Skill dropdown, where you are already here, this is a no-op.
   switchTab("chat");
   const given = Object.values(values).filter(Boolean).join(", ");
-  sendChatMessage(`ph:lightning ${skill.name}${given ? ` — ${given}` : ""}`, {
+  sendChatMessage(`${skill.name}${given ? ` — ${given}` : ""}`, {
     skill: skill.name,
     skillInputs: values,
+    // A skill is its own instruction. Wrapping it in "plan this first" would
+    // plan a thing that already has steps.
+    skipPlanMode: true,
   });
 }
 
@@ -7754,30 +7794,40 @@ function askSkillInputs(skill, done) {
 // while reaching for the text area. A select is one line, groups "yours" apart
 // from the built-ins, and — the part that matters — leaves room to say what a
 // skill DOES next to its name instead of hiding it in a hover.
+// The skills group in the chat dock: everything about running a saved job,
+// in one place.
+//
+// It was a lightning mark, a select, a Run button and a bare "＋" that opened
+// Settings — with the "run skills step-by-step" preference stranded three
+// controls away inside the gear popup, where nobody found it. Asked for
+// directly: fold the "+" into the combobox as an option, put the step-by-step
+// choice next to the skill it applies to as a two-option pill, and keep Run.
+//
+// The pill and the hidden checkbox is the same pattern the Ask/Request pair
+// already uses in this strip: the checkbox stays as the thing the rest of the
+// app reads and stores (`sendChatMessage` reads `#skill-manual-toggle`), and
+// the pill is what a person operates. Two named options rather than a tickbox,
+// because a tickbox states one mode and leaves the other implied — "not
+// step-by-step" had no name and no description.
+const SKILL_MANAGE_VALUE = "__manage__";
+
 async function loadChatSkills() {
   await loadSkills();
   const box = $("chat-skills");
   box.replaceChildren();
 
-  // "Skill" alone, not "Skill Skill:". The select's own placeholder already reads
-  // "Choose a skill…", so the label was saying it twice in a strip where every
-  // character costs width.
   const label = document.createElement("span");
   label.className = "muted chat-skill-mark";
-  // With the emoji variation selector: bare U+26A1 renders as a thin
-  // text-style glyph on any platform whose default presentation for it is
-  // text, which beside a colour Web and robot in the same strip looks like a mark
-  // that failed to load. Screenshotted in Chromium on Linux, where it does.
   setLabel(label, "ph:lightning");
   label.title = "Skills — saved jobs you can run over your notes";
 
   const select = document.createElement("select");
-  select.className = "small-select";
+  select.className = "small-select chat-skill-select";
   select.id = "chat-skill-select";
-  select.setAttribute("aria-label", "Run a skill");
+  select.setAttribute("aria-label", "Activate a skill");
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = "Choose a skill…";
+  placeholder.textContent = "Activate a skill…";
   select.appendChild(placeholder);
 
   const groups = { builtin: [], mine: [] };
@@ -7791,41 +7841,103 @@ async function loadChatSkills() {
     for (const skill of groups[key]) {
       const option = document.createElement("option");
       option.value = skill.name;
-      // gear means "this one changes your notebook", not "this one uses tools" —
-      // nearly every skill uses tools, and a marker on all of them says nothing.
-      setLabel(option, skill.name + (skill.changes ? " ph:gear" : ""));
+      // An <option> cannot contain an element, so the "this one changes your
+      // notebook" marker has to be a word. It was an emoji, and then briefly a
+      // `ph:` marker — which would have rendered as the literal text
+      // "ph:gear" in the list, since setLabel has no element to build into.
+      option.textContent = skill.name + (skill.changes ? "  (edits notes)" : "");
       option.title = skillSummary(skill);
       group.appendChild(option);
     }
     select.appendChild(group);
   }
 
+  // Managing skills is one of the things you come to this control to do, so it
+  // is in the list rather than beside it as an unlabelled "＋". Its own group,
+  // at the bottom, so it never sits among the runnable options.
+  const manageGroup = document.createElement("optgroup");
+  manageGroup.label = "Manage";
+  const manage = document.createElement("option");
+  manage.value = SKILL_MANAGE_VALUE;
+  manage.textContent = "Add or edit skills…";
+  manageGroup.appendChild(manage);
+  select.appendChild(manageGroup);
+
   // Chosen, then run — rather than running on change. A dropdown that fires an
   // action the instant it changes cannot be browsed, and these actions edit
-  // the notebook.
-  const run = smallButton("Run", "Run the selected skill", () => {
+  // the notebook. "Add or edit skills…" is the exception: it opens a settings
+  // pane, which is safe and is the whole reason to pick it.
+  const run = smallButton("ph:play Run", "Run the selected skill", () => {
     const chosen = allSkills().find((s) => s.name === select.value);
     if (chosen) runSkill(chosen);
   });
   run.disabled = true;
   select.addEventListener("change", () => {
+    if (select.value === SKILL_MANAGE_VALUE) {
+      select.value = "";
+      run.disabled = true;
+      openSettingsModal("skills");
+      return;
+    }
     run.disabled = !select.value;
-    // What the skill does moves to the select's own tooltip rather than a line
-    // of prose beside it. It was a sentence of running text in a control
-    // strip — the widest thing in the dock, and unreadable at a glance because
-    // it was clipped to 120 characters anyway. `skillSummary` already puts the
-    // full description, the steps and the tools on every option's title.
+    // What the skill does lives in the select's own tooltip rather than a line
+    // of prose beside it — it was the widest thing in the dock and clipped at
+    // 120 characters anyway.
     const chosen = allSkills().find((s) => s.name === select.value);
     select.title = chosen ? skillSummary(chosen) : "Run one of your saved skills";
   });
 
-  const manage = smallButton("＋", "Add or edit skills in Settings", () =>
-    openSettingsModal("skills")
-  );
-  manage.classList.add("ghost");
-
-  box.append(label, select, run, manage);
+  box.append(label, select, skillPacePill(), run);
   box.classList.remove("hidden");
+}
+
+// Auto | Manual, over the hidden #skill-manual-toggle checkbox that the rest of
+// the app reads. Kept in sync both ways: Settings can still flip the checkbox,
+// and the pill follows.
+function skillPacePill() {
+  const seg = document.createElement("div");
+  seg.className = "seg seg-compact chat-skill-pace";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "How a skill runs");
+
+  const toggle = $("skill-manual-toggle");
+  const options = [
+    ["auto", "Auto", "Run every step straight through without stopping."],
+    ["manual", "Manual", "Pause after each step so you can add something before it continues."],
+  ];
+  const buttons = [];
+  for (const [value, text, title] of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.pace = value;
+    button.textContent = text;
+    button.title = title;
+    button.addEventListener("click", () => {
+      if (toggle) {
+        toggle.checked = value === "manual";
+        // `change`, so anything else listening to the stored preference — the
+        // Settings row, a future autosave — hears it. Setting .checked in JS
+        // does not fire one on its own, which is the classic way a pill and
+        // the thing it controls drift apart.
+        toggle.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      paint();
+    });
+    buttons.push(button);
+    seg.appendChild(button);
+  }
+
+  function paint() {
+    const manual = Boolean(toggle?.checked);
+    for (const button of buttons) {
+      const on = (button.dataset.pace === "manual") === manual;
+      button.classList.toggle("active", on);
+      button.setAttribute("aria-pressed", String(on));
+    }
+  }
+  toggle?.addEventListener("change", paint);
+  paint();
+  return seg;
 }
 
 function skillSummary(skill) {
@@ -13792,6 +13904,12 @@ function switchTab(name) {
   // this is a deliberate reset rather than a side effect of one shared one.
   scrollingPage()?.scrollTo({ top: 0, behavior: "auto" });
   scrollTopUpdate?.();
+  // Any autogrow box that was measured while hidden gets its real height now
+  // that its page is on screen. See autoGrow() for why a hidden measurement is
+  // refused rather than applied.
+  for (const box of document.querySelectorAll("textarea.autogrow")) {
+    if (box.offsetParent !== null) autoGrow(box);
+  }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
@@ -14760,7 +14878,7 @@ async function renderMemorySettings() {
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -14813,6 +14931,29 @@ function autoGrowLimit(el) {
 
 function autoGrow(el) {
   if (!el) return;
+  // **A hidden textarea reports scrollHeight 0, and sizing to that collapses
+  // it.** This is the reported "the capture box is short at the bottom and
+  // only opens up when I click in it": the box was measured while its section
+  // was display:none, sized to nothing, and the first `focus` re-ran this with
+  // the box finally on screen, which looked like clicking made it grow.
+  //
+  // One caller already re-measured after a sub-tab switch, which fixed that
+  // one route in. It did not fix arriving from another TAB with Capture
+  // already the remembered section, and it never could — the bug is that a
+  // measurement taken while invisible is meaningless, and the right place to
+  // say so is here, once, rather than at every call site that might run early.
+  //
+  // `offsetParent` is null for a display:none element and for any element
+  // inside one, which is exactly the condition. (It is also null for
+  // position:fixed elements — none of the app's autogrow boxes are fixed, and
+  // the cost of being wrong would be one un-resized box, not a collapsed one.)
+  if (el.offsetParent === null) {
+    // Marked so the box gets its size the moment it becomes visible, instead
+    // of waiting for a focus that may never come.
+    el.dataset.autogrowPending = "1";
+    return;
+  }
+  delete el.dataset.autogrowPending;
   // Reset first: without it the height only ever ratchets upwards, because
   // scrollHeight is measured against the height already set.
   el.style.height = "auto";
@@ -15001,6 +15142,7 @@ function showSettingsSection(name) {
   if (name === "websearch") renderWebSearch().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
+  if (name === "templates") renderTemplateSettings();
   if (name === "tools") renderToolSettings();
   if (name === "memory") renderMemorySettings().catch(() => {});
   if (name === "tasks") renderAutonomousReview().catch(() => {});
@@ -22119,22 +22261,58 @@ const PLAN_PREFIX =
   "Plan this before you do any of it. Call make_plan with the goal and the " +
   "steps, then carry the plan out.";
 
+// Plan mode is a TOGGLE, not a second send button.
+//
+// It was: type your request, then press Plan instead of Send. That put the
+// decision in the wrong place — you had to remember, after writing, to use a
+// different button, and pressing Enter (which is how anyone sends a message)
+// silently skipped planning. Asked for directly: "the user should be able to
+// select it as a togglable mode, so that when they write in their prompt and
+// press the send button or enter etc, it will use the plan mode".
+//
+// So it arms instead. Turn it on, write, send however you like. It stays on
+// across messages the same way Web does, because "I am working on something
+// that needs planning" is a state you are in for a while, not a one-off.
+let planModeOn = false;
+
+function renderPlanToggle() {
+  const button = $("chat-plan");
+  if (!button) return;
+  button.setAttribute("aria-pressed", String(planModeOn));
+  button.classList.toggle("active", planModeOn);
+  button.title = planModeOn
+    ? "Plan mode is on — your next message is planned first, and the steps are shown before anything touches your notes. Click to turn off."
+    : "Plan mode: plan the request first — the Librarian draws the steps and shows them before it starts";
+}
+
+// Applied by sendChatMessage on the way out, so every route into it — the Send
+// button, Enter, a suggestion chip — goes through planning when the mode is on.
+// Reading the flag at send time rather than at click time is the whole point.
+function applyPlanMode(question) {
+  if (!planModeOn) return null;
+  return `${question}\n\n${PLAN_PREFIX}`;
+}
+
 $("chat-plan").addEventListener("click", async () => {
-  const input = $("chat-input");
-  const question = input.value.trim();
-  if (!question) {
-    toast("Type what you want done, then press Plan.", true);
-    input.focus();
+  planModeOn = !planModeOn;
+  renderPlanToggle();
+  if (!planModeOn) {
+    toast("Plan mode off.");
     return;
   }
+  // A plan whose steps cannot be carried out is a list, so arming the mode
+  // arms what it needs. Announced rather than silent: a mode that changed
+  // under you and said so beats "why did nothing happen?".
   if (!$("tools-toggle").checked) {
     await setChatMode("agent");
-    toast("Switched to Request — a plan needs to be able to act.");
+    toast("Plan mode on, and switched to Request — a plan needs to be able to act.");
+  } else {
+    toast("Plan mode on — your next message gets planned first.");
   }
-  input.value = "";
-  autoGrow(input);
-  sendChatMessage(`${question}\n\n${PLAN_PREFIX}`, { displayText: question });
+  $("chat-input").focus();
 });
+
+renderPlanToggle();
 
 // Start the user's own engine with the app. See the markup for why this is the
 // answer to "web search keeps disabling itself" — it was the container going
@@ -29790,3 +29968,128 @@ function initSpaceSwitcher() {
 }
 
 initSpaceSwitcher();
+
+// --- capture templates, Settings pane (extends Wave B) ------------------------------
+//
+// Built-ins (BUILTIN_TEMPLATES, declared near the Capture form) are read-only
+// here — same shape as skills, where a built-in shows in the list but never
+// grows Edit/Delete buttons because there is genuinely nothing in
+// `custom_templates` to remove. The server enforces the name-collision half
+// of that (routes_settings._validated_templates); this pane just avoids
+// offering an action that would only come back as a 422.
+
+// Which custom template (by name) the editor is currently editing, if any —
+// same tracking `editingSkillName` does, so Save updates in place on a
+// rename instead of leaving a duplicate behind.
+let editingTemplateName = null;
+
+function customTemplates() {
+  return (prefsCache && prefsCache.custom_templates) || [];
+}
+
+function startEditingTemplate(template) {
+  editingTemplateName = template.name;
+  $("template-name").value = template.name;
+  $("template-description").value = template.description || "";
+  $("template-body").value = template.content;
+  $("template-add").textContent = "Save changes";
+  $("template-cancel").classList.remove("hidden");
+  $("template-status").textContent = `Editing “${template.name}”…`;
+  $("template-name").focus();
+}
+
+function stopEditingTemplate() {
+  editingTemplateName = null;
+  for (const id of ["template-name", "template-description", "template-body"]) {
+    $(id).value = "";
+  }
+  $("template-add").textContent = "Add template";
+  $("template-cancel").classList.add("hidden");
+  $("template-status").textContent = "";
+}
+
+async function saveTemplateList(templates) {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ custom_templates: templates }),
+  });
+  await loadTemplates();
+  renderTemplateSettings();
+}
+
+async function addTemplate() {
+  const name = $("template-name").value.trim();
+  const body = $("template-body").value.trim();
+  const status = $("template-status");
+  status.classList.remove("error");
+  if (!name || !body) {
+    status.classList.add("error");
+    status.textContent = "Both a name and a template body are needed.";
+    return;
+  }
+  // Only the entry being edited is dropped before the push — a genuine
+  // rename. A name that instead collides with a DIFFERENT template, custom
+  // or built-in, is left in place and the save is rejected server-side
+  // (§_validated_templates) rather than silently replacing someone else's
+  // saved text the way a same-named skill would.
+  const custom = customTemplates().filter((t) => t.name !== editingTemplateName);
+  custom.push({
+    name,
+    description: $("template-description").value.trim(),
+    content: body,
+  });
+  const wasEditing = editingTemplateName;
+  try {
+    await saveTemplateList(custom);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  stopEditingTemplate();
+  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
+}
+
+// One row in the Settings list — deliberately the same shape as `skillRow`
+// (same classes, same chip-then-blurb-then-actions layout) so the two panes
+// that manage a "named, user-editable list of markdown" read as one pattern
+// rather than two. `textContent` throughout: template bodies are untrusted
+// user text and are never rendered as HTML.
+function templateRow(template, builtin) {
+  const li = document.createElement("li");
+  const row = document.createElement("div");
+  row.className = "entry-meta skill-row";
+  row.appendChild(chip(template.name));
+  if (builtin) row.appendChild(chip("built-in", "tag"));
+  const note = document.createElement("span");
+  note.className = "muted skill-blurb";
+  note.textContent = template.description || template.content;
+  row.appendChild(note);
+  if (!builtin) {
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Edit", "Edit this template", () => startEditingTemplate(template))
+    );
+    actions.appendChild(
+      smallButton("Delete", "Remove this template", async () => {
+        if (!(await confirmDialog(`Delete the “${template.name}” template?`))) return;
+        await saveTemplateList(customTemplates().filter((t) => t.name !== template.name));
+      })
+    );
+    row.appendChild(actions);
+  }
+  li.appendChild(row);
+  return li;
+}
+
+async function renderTemplateSettings() {
+  await loadTemplates();
+  const list = $("template-list");
+  list.replaceChildren();
+  for (const template of customTemplates()) list.appendChild(templateRow(template, false));
+  for (const template of BUILTIN_TEMPLATES) list.appendChild(templateRow(template, true));
+}
+
+$("template-add")?.addEventListener("click", addTemplate);
+$("template-cancel")?.addEventListener("click", stopEditingTemplate);

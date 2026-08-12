@@ -407,7 +407,7 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     # left behind in *any* of these tables makes `DELETE FROM entries` raise
     # IntegrityError, which surfaces as a 500 and leaves the bin exactly as it
     # was. The notes in the report both carried a resolved time phrase — the
-    # `🕓 this week → week of 27 July` chip is an `entry_dates` row — which is
+    # `this week → week of 27 July` chip is an `entry_dates` row — which is
     # why those two and not the rest.
     #
     # These four were added to the schema after `_hard_delete` was written, and
@@ -712,6 +712,15 @@ def _deduce_reason(
 
     A private note has no embedding (`set_private` deletes it), so this is
     naturally a no-op for one rather than needing its own guard.
+
+    Deliberately cheap — no model call. This used to also ask the AI for a
+    specific reason here, synchronously, which meant `create_link` (and so
+    every note-linking request, human or agent) stalled on a chat round-trip.
+    Wording a *specific* reason is the background audit's job now
+    (`ai.links.audit_vague_links`, driven from `ai.autonomous`): this always
+    returns immediately with the embedding score's own verdict, the generic
+    `AUTO_REASON_TEXT`, and leaves the wording to be upgraded later without
+    the person who made the link ever waiting on it.
     """
     from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
 
@@ -726,29 +735,7 @@ def _deduce_reason(
     score = cosine_similarity(vectors[source_id], vectors[target_id])
     if score < AUTO_REASON_THRESHOLD:
         return None, None
-
-    # Threshold met: generate a reason with the AI
-    from memorymap.ai.librarian import generate_link_reason
-    from memorymap.core.deps import get_ollama, get_model_manager
-    from memorymap.ai.provider import OllamaError
-    from memorymap.core.database import Entry
-
-    source_entry = session.get(Entry, source_id)
-    target_entry = session.get(Entry, target_id)
-    if not source_entry or not target_entry:
-        return AUTO_REASON_TEXT, round(score, 2)
-
-    try:
-        ollama = get_ollama()
-        model_manager = get_model_manager()
-        reason = generate_link_reason(source_entry.content, target_entry.content, model_manager, ollama)
-        if not reason:
-            return AUTO_REASON_TEXT, round(score, 2)
-        return reason, round(score, 2)
-    except Exception as e:
-        # Fall back gracefully if model is offline or throws an error
-        print(f"Failed to generate link reason: {e}")
-        return AUTO_REASON_TEXT, round(score, 2)
+    return AUTO_REASON_TEXT, round(score, 2)
 
 
 def create_link(
@@ -873,6 +860,28 @@ def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> En
     log_action(session, "relinked", "entry", link.source_entry_id, detail)
     session.commit()
     return link
+
+
+def apply_audited_reason(link: EntryLink, reason: str) -> None:
+    """Set a link's reason from the background audit — field mutation only,
+    no commit, no audit-log row.
+
+    `set_link_reason` is right for a person editing one link: they did one
+    thing, so one commit and one "relinked" row is an honest record. The
+    background audit (`ai.links.audit_vague_links`) is the opposite shape —
+    up to a `limit` of links rewritten in one pass — and calling
+    `set_link_reason` per link there was the bug: a 500-link backfill did 500
+    commits and left 500 near-identical "relinked" rows in the user's
+    activity log, drowning out the log entries a person actually made. This
+    just sets the fields; the caller commits once for the whole batch and
+    writes one summary log row.
+
+    Same field-level meaning as `set_link_reason`: `reason_confidence` is
+    cleared because a reason the AI wrote out in words is no longer a guess
+    from embedding similarity — see `EntryLink.reason_confidence`.
+    """
+    link.reason = (reason or "").strip() or None
+    link.reason_confidence = None
 
 
 def delete_link(session: Session, link: EntryLink) -> None:
@@ -1048,13 +1057,13 @@ def readable_content(entry: Entry) -> str:
         return entry.content
     key = vault.key()
     if key is None:
-        return "🔒 Private note — unlock to read it."
+        return "Private note — unlock to read it."
     try:
         return crypto.decrypt(key, entry.content)
     except crypto.DecryptionError:
         # Kept deliberately non-fatal. The stored bytes are still there, so a
         # key problem is recoverable; crashing the list is not.
-        return "🔒 This private note couldn't be decrypted."
+        return "This private note couldn't be decrypted."
 
 
 def _heading_text(stripped: str) -> str | None:

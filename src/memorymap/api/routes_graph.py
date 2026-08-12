@@ -2,7 +2,7 @@
 one call, so the frontend can draw an Obsidian-style map.
 
 Nodes are non-deleted entries; edges come from three places:
-- manual links (the 🔗 button / link_notes tool),
+- manual links (the link button / link_notes tool),
 - train-of-thought threads (parent_id, Wave B),
 - optionally, semantic similarity between stored vectors (?similarity=true)
   — computed on demand from the embeddings we already have, never stored.
@@ -196,7 +196,7 @@ def graph(
             # it with a base64 blob. `readable_content` names the graph in its
             # own docstring as one of the places that must not break on a
             # private note — it decrypts while the vault is open and hands back
-            # "🔒 Private note — unlock to read it." while it is locked.
+            # "Private note — unlock to read it." while it is locked.
             "preview": _preview(manager.readable_content(e)),
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "access_count": e.access_count,

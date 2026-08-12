@@ -271,7 +271,7 @@ def _refresh_embedding(session: Session, entry: Entry) -> None:
 
 # --- handlers (session, args) -> result dict -----------------------------------
 # Results always include a human "label" on success; the UI shows it
-# inline in the chat ("✏️ Created note #12 in Shopping").
+# inline in the chat ("Created note #12 in Shopping").
 
 
 def _search_notes(session: Session, args: dict) -> dict:
@@ -307,7 +307,7 @@ def _search_notes(session: Session, args: dict) -> dict:
         "search_mode": found.mode,
         "notes": notes,
         "how_to_read_more": _READ_MORE,
-        "label": f"🔍 Searched notes for “{_clip(str(args['query']), 40)}”",
+        "label": f"ph:magnifying-glass Searched notes for “{_clip(str(args['query']), 40)}”",
     }
     if found.when_phrase:
         # The question carried a date range and it was applied. Said out loud
@@ -329,7 +329,7 @@ def _get_note_tool(session: Session, args: dict) -> dict:
     result["links"] = [
         other.id for _link, other in manager.links_for_entry(session, entry)
     ]
-    result["label"] = f"📄 Read note #{entry.id} in full"
+    result["label"] = f"ph:file-text Read note #{entry.id} in full"
     return result
 
 
@@ -591,7 +591,7 @@ def _related_notes(session: Session, args: dict) -> dict:
         # holds twelve rows spends tokens restating something the previews
         # themselves imply — each row is 90 characters and an id.
         "label": (
-            f"🕸 Found {len(found)} note{'' if len(found) == 1 else 's'} "
+            f"ph:graph Found {len(found)} note{'' if len(found) == 1 else 's'} "
             f"connected to #{entry.id}"
         ),
     }
@@ -638,7 +638,7 @@ def _find_similar_notes(session: Session, args: dict) -> dict:
     return {
         "note_id": entry.id,
         "similar": suggestions,
-        "label": f"🧠 Found {len(suggestions)} similar notes to #{entry.id}",
+        "label": f"ph:brain Found {len(suggestions)} similar notes to #{entry.id}",
         "how_to_read_more": (
             "These notes share conceptual similarities based on their semantic "
             "embeddings, even if they don't share exact keywords. Use link_notes "
@@ -679,7 +679,7 @@ def _path_between(session: Session, args: dict) -> dict:
             "found": False,
             "from": source.id,
             "to": target.id,
-            "label": f"🚫 No path between #{source.id} and #{target.id}",
+            "label": f"ph:prohibit No path between #{source.id} and #{target.id}",
             "note": (
                 "These two notes are not connected — not by a link, not by a "
                 "reply, and not by a shared tag, within "
@@ -728,7 +728,7 @@ def _path_between(session: Session, args: dict) -> dict:
         ],
         "steps": hops,
         "label": (
-            f"🛣 {len(chain)} step{'' if len(chain) == 1 else 's'} from "
+            f"ph:path {len(chain)} step{'' if len(chain) == 1 else 's'} from "
             f"#{source.id} to #{target.id}"
         ),
         "how_to_read_more": (
@@ -800,7 +800,7 @@ def _notebook_structure(session: Session, args: dict) -> dict:
         ],
         "orphans": [row(note_id) for note_id in loose[:MAX_STRUCTURE_ROWS]],
         "label": (
-            f"🕸 {len(index.entries)} notes, {len(groups)} cluster"
+            f"ph:graph {len(index.entries)} notes, {len(groups)} cluster"
             f"{'' if len(groups) == 1 else 's'}, {len(loose)} unconnected"
         ),
         "how_to_read_more": (
@@ -897,7 +897,7 @@ def _list_notes(session: Session, args: dict) -> dict:
         "has_more": has_more,
         "previews_only": True,
         "how_to_read_more": _READ_MORE,
-        "label": f"📚 Listed notes{f' ({described})' if described else ''}",
+        "label": f"ph:books Listed notes{f' ({described})' if described else ''}",
     }
     if has_more:
         result["next_offset"] = offset + len(rows)
@@ -936,7 +936,7 @@ def _count_notes(session: Session, args: dict) -> dict:
             "tag": tag,
             "category": wanted or None,
             "count": count,
-            "label": f"🔢 Counted notes tagged #{tag}",
+            "label": f"ph:list-numbers Counted notes tagged #{tag}",
         }
 
     if wanted:
@@ -948,7 +948,7 @@ def _count_notes(session: Session, args: dict) -> dict:
         return {
             "category": wanted,
             "count": count,
-            "label": f"🔢 Counted notes in {wanted}",
+            "label": f"ph:list-numbers Counted notes in {wanted}",
         }
 
     # Total + per-category breakdown entirely in SQL.
@@ -967,7 +967,7 @@ def _count_notes(session: Session, args: dict) -> dict:
     if uncategorised:
         counts[manager.UNCATEGORISED] = uncategorised
     total = sum(counts.values())
-    return {"total": total, "by_category": counts, "label": "🔢 Counted your notes"}
+    return {"total": total, "by_category": counts, "label": "ph:list-numbers Counted your notes"}
 
 
 def _list_categories(session: Session, args: dict) -> dict:
@@ -990,7 +990,7 @@ def _list_categories(session: Session, args: dict) -> dict:
     return {
         "categories": categories,
         "total_notes": sum(c["notes"] for c in categories),
-        "label": "🗂 Listed your categories",
+        "label": "ph:folders Listed your categories",
     }
 
 
@@ -1012,7 +1012,7 @@ def _list_tags(session: Session, args: dict) -> dict:
     ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0].lower()))
     return {
         "tags": [{"name": name, "notes": count} for name, count in ordered],
-        "label": "🏷 Listed your tags",
+        "label": "ph:tag Listed your tags",
     }
 
 
@@ -1029,7 +1029,7 @@ def _get_current_time(session: Session, args: dict) -> dict:
     return {
         "iso": now.isoformat(),
         "human": now.strftime("%A %d %B %Y, %H:%M"),
-        "label": "🕐 Checked the current time",
+        "label": "ph:clock Checked the current time",
     }
 
 
@@ -1061,7 +1061,7 @@ def _summarize_notes(session: Session, args: dict) -> dict:
         "count": len(rows),
         "notes": [_note_summary(session, e, dates=dates_by_id.get(e.id, [])) for e in rows],
         "how_to_read_more": _READ_MORE,
-        "label": "📝 Gathered notes to summarise",
+        "label": "ph:note-pencil Gathered notes to summarise",
     }
     if capped:
         result["note_to_model"] = (
@@ -1121,7 +1121,7 @@ def _list_documents(session: Session, args: dict) -> dict:
         "how_to_read_more": (
             "Previews only. Call get_document with an id to read one in full."
         ),
-        "label": f"📚 Listed documents{f' matching “{_clip(term, 30)}”' if term else ''}",
+        "label": f"ph:books Listed documents{f' matching “{_clip(term, 30)}”' if term else ''}",
     }
 
 
@@ -1139,7 +1139,7 @@ def _get_document(session: Session, args: dict) -> dict:
         "content": clipped,
         "truncated": len(clipped) < len(text),
         "words": len(text.split()),
-        "label": f"📄 Read the document “{_clip(document.title, 40)}”",
+        "label": f"ph:file-text Read the document “{_clip(document.title, 40)}”",
     }
 
 
@@ -1193,7 +1193,7 @@ def _create_document(session: Session, args: dict) -> dict:
         "id": document.id,
         "title": document.title,
         "words": len(content.split()),
-        "label": f"📄 Created the document “{_clip(title, 40)}”",
+        "label": f"ph:file-text Created the document “{_clip(title, 40)}”",
         # Same contract every other write follows, so the run summary can offer
         # an Undo beside it rather than listing a change nobody can take back.
         "undo": {"tool": "delete_document", "arguments": {"document_id": document.id}},
@@ -1216,7 +1216,7 @@ def _delete_document(session: Session, args: dict) -> dict:
     session.delete(document)
     manager.log_action(session, "deleted", "document", None, title[:80])
     session.commit()
-    return {"title": title, "label": f"🗑 Deleted the document “{_clip(title, 40)}”"}
+    return {"title": title, "label": f"ph:trash Deleted the document “{_clip(title, 40)}”"}
 
 
 def _whiteboard_board_filter(model, board_id: int | None):
@@ -1293,7 +1293,7 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         "text_boxes": text_boxes,
         "image_count": image_count,
         "links": links,
-        "label": f"🗂️ Read whiteboard board “{board_title}”",
+        "label": f"ph:folders Read whiteboard board “{board_title}”",
     }
 
 
@@ -1343,7 +1343,7 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
     return {
         "matches": matches[:limit],
         "total_matching": len(matches),
-        "label": f"🔍 Searched whiteboards for “{_clip(term, 30)}”",
+        "label": f"ph:magnifying-glass Searched whiteboards for “{_clip(term, 30)}”",
     }
 
 
@@ -1372,7 +1372,7 @@ def _add_whiteboard_card(session: Session, args: dict) -> dict:
             "card_id": existing.id,
             "note_id": entry.id,
             "already_there": True,
-            "label": f"🗂️ “{_clip(entry.content, 40)}” is already on that board",
+            "label": f"ph:folders “{_clip(entry.content, 40)}” is already on that board",
         }
 
     node = WhiteboardNode(board_id=board_id, entry_id=entry.id, x=x, y=y, z=1)
@@ -1385,7 +1385,7 @@ def _add_whiteboard_card(session: Session, args: dict) -> dict:
         "note_id": entry.id,
         "x": node.x,
         "y": node.y,
-        "label": f"🗂️ Placed “{_clip(entry.content, 40)}” on the whiteboard",
+        "label": f"ph:folders Placed “{_clip(entry.content, 40)}” on the whiteboard",
     }
 
 
@@ -1423,7 +1423,7 @@ def _add_whiteboard_link(session: Session, args: dict) -> dict:
         "link_id": sketch.id,
         "from_card_id": source.id,
         "to_card_id": target.id,
-        "label": "🔗 Linked the two cards",
+        "label": "ph:link Linked the two cards",
     }
 
 
@@ -1611,7 +1611,7 @@ def _generate_diagram(session: Session, args: dict) -> dict:
             for ref, card in cards.items()
         ],
         "links_created": link_count,
-        "label": f"🗺️ Placed {len(cards)} cards as a {layout} diagram",
+        "label": f"ph:map-trifold Placed {len(cards)} cards as a {layout} diagram",
     }
 
 
@@ -1687,7 +1687,7 @@ def _search_chat_history(session: Session, args: dict) -> dict:
             "one. Say when you're relying on something said in a past "
             "conversation rather than presenting it as the user's notes."
         ),
-        "label": f"💬 Searched past chats{f' for “{_clip(term, 30)}”' if term else ''}",
+        "label": f"ph:chat-circle Searched past chats{f' for “{_clip(term, 30)}”' if term else ''}",
     }
 
 
@@ -1733,7 +1733,7 @@ def _list_skills(session: Session, args: dict) -> dict:
             "Only start one that matches what was asked; a skill that changes "
             "notes is not the way to answer a question."
         ),
-        "label": "⚡ Listed the saved skills",
+        "label": "ph:lightning Listed the saved skills",
     }
 
 
@@ -1778,7 +1778,7 @@ def _save_skill(session: Session, args: dict) -> dict:
         "updated": existed,
         "steps": len(skill["steps"]),
         "tools": skill["tools"],
-        "label": f"⚡ {'Updated' if existed else 'Created'} the “{skill['name']}” skill",
+        "label": f"ph:lightning {'Updated' if existed else 'Created'} the “{skill['name']}” skill",
     }
 
 
@@ -1792,7 +1792,7 @@ def _delete_skill(session: Session, args: dict) -> dict:
             raise ToolError(f"“{name}” is a built-in skill and can't be deleted")
         raise ToolError(f"There's no saved skill called “{name}”")
     config.set_preference("skills", remaining)
-    return {"name": name, "label": f"⚡ Deleted the “{name}” skill"}
+    return {"name": name, "label": f"ph:lightning Deleted the “{name}” skill"}
 
 
 def _create_note(session: Session, args: dict) -> dict:
@@ -1824,7 +1824,7 @@ def _create_note(session: Session, args: dict) -> dict:
         )
     deps.store_quietly(session, entry)
     result = _note_summary(session, entry)
-    result["label"] = f"✏️ Created note #{entry.id} in {result['category']}"
+    result["label"] = f"ph:pencil-simple Created note #{entry.id} in {result['category']}"
     result["undo"] = {"tool": "delete_note", "arguments": {"note_id": entry.id}}
     return result
 
@@ -1844,7 +1844,7 @@ def _edit_note(session: Session, args: dict) -> dict:
     if content_changed:
         _refresh_embedding(session, entry)
     result = _note_summary(session, entry)
-    result["label"] = f"📝 Updated note #{entry.id}"
+    result["label"] = f"ph:note-pencil Updated note #{entry.id}"
     result["undo"] = undo
     return result
 
@@ -1916,7 +1916,7 @@ def _tag_note(session: Session, args: dict) -> dict:
 
     result: dict = {
         "tagged": tagged,
-        "label": f"🏷 Retagged {len(results)} note(s): {', '.join(results)}",
+        "label": f"ph:tag Retagged {len(results)} note(s): {', '.join(results)}",
         # Every note's undo, not just the first. The batch version originally
         # kept `undos[0] if len(undos) == 1 else None`, which meant tagging
         # two notes at once could not be undone at all.
@@ -1943,7 +1943,7 @@ def _pin_note(session: Session, args: dict) -> dict:
         )
         session.commit()
     result = _note_summary(session, entry)
-    result["label"] = f"📌 {'Pinned' if pinned else 'Unpinned'} note #{entry.id}"
+    result["label"] = f"ph:push-pin {'Pinned' if pinned else 'Unpinned'} note #{entry.id}"
     result["undo"] = {
         "tool": "pin_note",
         "arguments": {"note_id": entry.id, "pinned": not pinned},
@@ -1986,7 +1986,7 @@ def _link_notes(session: Session, args: dict) -> dict:
     return {
         "linked": [source.id] + linked,
         "label": (
-            f"🔗 Linked note #{source.id} to {len(linked)} other note(s): "
+            f"ph:link Linked note #{source.id} to {len(linked)} other note(s): "
             f"{', '.join(map(str, linked))}"
         ),
     }
@@ -2007,8 +2007,21 @@ def _unlink_notes(session: Session, args: dict) -> dict:
     run, which is how people learn to click through confirm cards.
     """
     source = _require_note(session, args)
-    target = manager.get_entry(session, int(args["other_note_id"]))
-    if target is None or target.is_deleted:
+    # The target goes through the private guard too, exactly as it does in
+    # `_link_notes` above — and for the same reason, which is easy to lose
+    # because unlinking *feels* like it reveals less than linking.
+    #
+    # It does not. `manager.get_entry` was what this called, which answers for
+    # a private note like any other, so the two error paths below were an
+    # oracle: "no note with id N" versus "notes #A and #B aren't linked" tells
+    # you whether a private note exists AND whether it is linked to a note you
+    # can read — and on the success path it edits the link table for a note the
+    # caller is not allowed to see at all.
+    #
+    # This is the shape CLAUDE.md flags: a guard removed while the code around
+    # it kept its shape. `_link_notes` still looked correct beside it.
+    target = _require_note(session, {"note_id": int(args["other_note_id"])})
+    if target.is_deleted:
         raise ToolError(f"No note with id {args.get('other_note_id')}")
     removed = manager.remove_link(session, source, target)
     if not removed:
@@ -2019,7 +2032,7 @@ def _unlink_notes(session: Session, args: dict) -> dict:
             "tool": "link_notes",
             "arguments": {"note_id": source.id, "other_note_id": target.id},
         },
-        "label": f"✂️ Unlinked note #{source.id} from note #{target.id}",
+        "label": f"ph:scissors Unlinked note #{source.id} from note #{target.id}",
     }
 
 
@@ -2030,7 +2043,7 @@ def _delete_note(session: Session, args: dict) -> dict:
         "deleted": entry.id,
         "recoverable": True,
         "undo": {"tool": "restore_note", "arguments": {"note_id": entry.id}},
-        "label": f"🗑 Moved note #{entry.id} to the recycle bin",
+        "label": f"ph:trash Moved note #{entry.id} to the recycle bin",
     }
 
 
@@ -2041,7 +2054,7 @@ def _restore_note(session: Session, args: dict) -> dict:
     if entry.is_deleted:
         manager.restore_entry(session, entry)
     result = _note_summary(session, entry)
-    result["label"] = f"♻️ Restored note #{entry.id} from the recycle bin"
+    result["label"] = f"ph:recycle Restored note #{entry.id} from the recycle bin"
     result["undo"] = {"tool": "delete_note", "arguments": {"note_id": entry.id}}
     return result
 
@@ -2106,7 +2119,7 @@ def _complete_reminder(session: Session, args: dict) -> dict:
     return {
         "id": reminder.id,
         "done": done,
-        "label": f"✅ Marked reminder #{reminder.id} {'done' if done else 'not done'}",
+        "label": f"ph:check-circle Marked reminder #{reminder.id} {'done' if done else 'not done'}",
     }
 
 
@@ -2114,7 +2127,7 @@ def _rename_tag(session: Session, args: dict) -> dict:
     changed = manager.rename_tag(session, str(args["old"]), str(args["new"]))
     return {
         "entries_changed": changed,
-        "label": f"🏷 Renamed tag “{args['old']}” → “{args['new']}” ({changed} notes)",
+        "label": f"ph:tag Renamed tag “{args['old']}” → “{args['new']}” ({changed} notes)",
         "undo": {
             "tool": "rename_tag",
             "arguments": {"old": str(args["new"]), "new": str(args["old"])},
@@ -2147,7 +2160,7 @@ def _web_search(session: Session, args: dict) -> dict:
     return {
         "results": results,
         "provider": provider,
-        "label": f"🌐 Searched the web for “{_clip(str(args['query']), 40)}”",
+        "label": f"ph:globe Searched the web for “{_clip(str(args['query']), 40)}”",
     }
 
 
@@ -2203,7 +2216,7 @@ def _read_url(session: Session, args: dict) -> dict:
             if truncated
             else ""
         ),
-        "label": f"📖 Read {page.get('domain') or url}",
+        "label": f"ph:book-open Read {page.get('domain') or url}",
     }
 
 
@@ -2211,7 +2224,7 @@ def _delete_tag(session: Session, args: dict) -> dict:
     changed = manager.delete_tag(session, str(args["name"]))
     return {
         "entries_changed": changed,
-        "label": f"🏷 Removed the tag “{args['name']}” from {changed} notes",
+        "label": f"ph:tag Removed the tag “{args['name']}” from {changed} notes",
     }
 
 
@@ -2270,7 +2283,7 @@ def _create_category(session: Session, args: dict) -> dict:
         return {
             "name": existing.name,
             "created": False,
-            "label": f"📁 “{existing.name}” already exists",
+            "label": f"ph:folder “{existing.name}” already exists",
         }
     category = manager.get_or_create_category(session, name)
     description = str(args.get("description") or "").strip()
@@ -2281,7 +2294,7 @@ def _create_category(session: Session, args: dict) -> dict:
     return {
         "name": category.name,
         "created": True,
-        "label": f"📁 Created the category “{category.name}”",
+        "label": f"ph:folder Created the category “{category.name}”",
         # Safe to reverse: a category made a moment ago holds nothing, so
         # removing it cannot strand any notes.
         "undo": {"tool": "delete_category", "arguments": {"name": category.name}},
@@ -2309,7 +2322,7 @@ def _rename_category(session: Session, args: dict) -> dict:
             "merged": True,
             "notes_moved": result["moved"],
             "label": (
-                f"📁 Merged “{old_name}” into “{new_name}” "
+                f"ph:folder Merged “{old_name}” into “{new_name}” "
                 f"({result['moved']} notes moved)"
             ),
         }
@@ -2317,7 +2330,7 @@ def _rename_category(session: Session, args: dict) -> dict:
         "name": new_name,
         "merged": False,
         "notes_moved": 0,
-        "label": f"📁 Renamed “{old_name}” → “{new_name}”",
+        "label": f"ph:folder Renamed “{old_name}” → “{new_name}”",
         "undo": {
             "tool": "rename_category",
             "arguments": {"old": new_name, "new": old_name},
@@ -2347,7 +2360,7 @@ def _merge_categories(session: Session, args: dict) -> dict:
         "into": target_name,
         "notes_moved": result["moved"],
         "label": (
-            f"📁 Merged “{source_name}” into “{target_name}” "
+            f"ph:folder Merged “{source_name}” into “{target_name}” "
             f"({result['moved']} notes moved)"
         ),
     }
@@ -2371,7 +2384,7 @@ def _delete_category(session: Session, args: dict) -> dict:
         "name": name,
         "notes_moved": result["moved"],
         "label": (
-            f"📁 Deleted the category “{name}” — {result['moved']} "
+            f"ph:folder Deleted the category “{name}” — {result['moved']} "
             f"note{'' if result['moved'] == 1 else 's'} kept, now Uncategorised"
         ),
     }
@@ -2462,7 +2475,7 @@ def _run_skill(session: Session, args: dict) -> dict:
 def _skill_key(name: str) -> str:
     """A skill name reduced to what a model can be relied on to reproduce.
 
-    The built-ins are named "🏷 Auto-tag my notes", and a model asked to pass
+    The built-ins are named "Auto-tag my notes", and a model asked to pass
     that back will drop the emoji, change the case, or both. Matching on
     letters and digits alone costs nothing and turns the single most likely
     mistake into a run that works.
@@ -2544,7 +2557,7 @@ def validate_run_skill(arguments: dict) -> dict:
         # What the user is about to watch start, in the words the chip UI
         # would have used. The run itself announces its plan; this is the line
         # that says *the model chose it*, which the plan cannot say.
-        "label": f"⚡ Running “{skill['name']}”"
+        "label": f"ph:lightning Running “{skill['name']}”"
         + (f" — {', '.join(v for v in values.values() if v)}" if any(values.values()) else ""),
         "changes_notes": bool(set(skill.get("tools") or []) & WRITE_TOOLS),
     }
@@ -2748,7 +2761,7 @@ def validate_make_plan(arguments: dict) -> dict:
         # What the user is about to watch start. The plan card lists the steps
         # a moment later; this is the chip in the timeline that says the model
         # chose to plan rather than answer.
-        "label": f"🧭 Planned {len(steps)} steps: {_clip(goal, 60)}",
+        "label": f"ph:compass Planned {len(steps)} steps: {_clip(goal, 60)}",
     }
 
 
@@ -2828,7 +2841,7 @@ def _save_user_preference(session: Session, args: dict) -> dict:
     if any((row.content or "").strip().lower() == pref.lower() for row in active):
         return {
             "already_known": True,
-            "label": "🧠 Already remembered",
+            "label": "ph:brain Already remembered",
             "message": f"That preference was already saved: {pref}",
         }
     if len(active) >= MAX_ACTIVE_PREFERENCES:
@@ -2839,7 +2852,7 @@ def _save_user_preference(session: Session, args: dict) -> dict:
 
     session.add(UserPreference(content=pref))
     session.commit()
-    return {"label": "🧠 Remembered", "message": f"Saved preference: {pref}"}
+    return {"label": "ph:brain Remembered", "message": f"Saved preference: {pref}"}
 
 
 # --- the registry ---------------------------------------------------------------
@@ -2857,13 +2870,23 @@ _NOTE_ID = {"type": "integer", "description": "The note's id number"}
 # `_save_skill`'s own docstring argues.
 
 
-def _audit_link_reasons(session, args: dict) -> dict:
-    from memorymap.ai import links, model_manager, ollama_client
-    from memorymap.core import config
-    model = model_manager.ModelManager(config.get_config())
-    ollama = ollama_client.OllamaClient(config.get_config())
+def _audit_link_reasons(session: Session, args: dict) -> dict:
+    """Rewrite a batch of vague link reasons (see `ai.links.audit_vague_links`).
+
+    Uses `deps.get_model_manager()` / `deps.get_ollama()`, the same source
+    every other tool handler in this module gets its model deps from (e.g.
+    `_create_note`'s janitor call, `summarise_turns` above) — not a fresh
+    `ModelManager`/`OllamaClient` built from `config.get_config()`, which was
+    the previous version here and doesn't even exist as a call
+    (`memorymap.core.config` has no `get_config`): this tool raised
+    `AttributeError` on every single invocation and had never actually run.
+    Going through `deps` also means a test's `deps.override_ai(...)` fake
+    reaches this tool the same way it reaches every other one.
+    """
+    from memorymap.ai import links
+
     limit = int(args.get("limit", 50))
-    updated = links.audit_vague_links(session, model, ollama, limit)
+    updated = links.audit_vague_links(session, deps.get_model_manager(), deps.get_ollama(), limit)
     return {"updated": updated, "message": f"Successfully audited and rewrote {updated} link reasons."}
 
 TOOLS: dict[str, ToolSpec] = {

@@ -80,6 +80,18 @@ def open_with(session: Session, password: str) -> bool:
     return True
 
 
+def set_key(dek: bytes) -> None:
+    """Replace the in-memory DEK after a key rotation.
+
+    Only ever called AFTER the rotation's database commit has already
+    succeeded. Swapping the key first — or on any path that might still
+    fail — would leave memory holding a key that disagrees with what is
+    actually on disk if the process died between the two.
+    """
+    global _dek
+    _dek = dek
+
+
 def rewrap(session: Session, new_password: str) -> bool:
     """Point the vault at a new password. Notes are never re-encrypted.
 

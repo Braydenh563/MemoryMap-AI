@@ -180,6 +180,8 @@ select optgroup {
 
   /* The page shell. One inset for every tab — see .tab-page. */
   --page-gutter: var(--space-9);
+  --page-left: var(--page-gutter);
+  --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
   --page-top: var(--space-6);
   --page-bottom: var(--space-9);
@@ -1783,7 +1785,12 @@ header#top-bar.tabs-wrapped #tab-bar {
 .tab-page {
   display: flex;
   flex-direction: column;
-  padding: var(--page-top) var(--page-right, var(--page-gutter)) var(--page-bottom) var(--page-left, var(--page-gutter));
+  padding: var(--page-top) var(--page-gutter) var(--page-bottom);
+  /* Custom margins (below) override the side halves with longhands rather
+     than a four-value shorthand, so the one declaration the shell test
+     pins stays the only place the page inset is set for everyone else. */
+  padding-left: var(--page-left);
+  padding-right: var(--page-right);
   /* The page is the scrolling element, not the window (§36A). `min-height: 0`
      is what lets a flex item shrink below its content and therefore scroll at
      all — without it the item grows to fit and the overflow never engages. */
@@ -3937,7 +3944,7 @@ html.modal-open body {
 }
 
 .chat-sidebar-header strong {
-  font-size: 1.1rem;
+  font-size: var(--text-h3);
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -7442,7 +7449,7 @@ html {
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
   gap: 0.4rem;
-  padding-top: 0.2rem;
+  padding-top: var(--space-1);
   border-top: 1px solid var(--border);
   align-items: flex-end;
 }
@@ -11263,7 +11270,7 @@ textarea.autogrow {
 /* Magic add sits in a row beside its button, so it must not stretch that row. */
 #reminder-magic-row {
   align-items: flex-start;
-  margin-top: 0.3rem;
+  margin-top: var(--space-1);
 }
 
 #reminder-magic {
@@ -11492,7 +11499,7 @@ textarea.autogrow {
   text-align: left;
   padding: var(--space-4);
   border: none;
-  border-radius: var(--radius-3);
+  border-radius: var(--radius-lg);
   display: flex;
   justify-content: space-between;
   gap: var(--space-4);
@@ -11504,7 +11511,7 @@ textarea.autogrow {
 .timeline-band:hover,
 .timeline-band:focus-visible {
   color: var(--accent);
-  background: var(--card-hover);
+  background: var(--card-bg-hover);
   outline: none;
 }
 
@@ -14787,23 +14794,23 @@ textarea.drag-over {
   white-space: pre-wrap;
 }
 
-/* --- Icon Style System --- */
-.ui-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-:root[data-iconstyle="monochrome"] .ui-icon,
-:root[data-iconstyle="monochrome"] button {
-  filter: grayscale(1) contrast(1.1);
-}
-
-.lucide {
-  width: 1.2em;
-  height: 1.2em;
-  vertical-align: -0.2em;
-  stroke-width: 2;
+/* --- Icons --- */
+/* Every icon in the app is a Phosphor glyph from the vendored font. It draws
+   in `currentColor` at the surrounding text size, which is the whole reason
+   the colour-emoji set went away: an emoji is a bitmap that ignores the theme,
+   so a dark-mode button got a light-mode icon and no amount of CSS could fix
+   it. The old `.ui-icon` swap system (emoji <-> lucide SVG) is gone with them —
+   lucide.min.js had been deleted from vendor/ while the code still branched on
+   `window.lucide`, so the "svg" style silently rendered nothing at all. */
+.ph {
+  /* Optical size: Phosphor's glyphs sit slightly small against text at 1em. */
+  font-size: 1.15em;
+  line-height: 1;
+  /* Icons are decorative next to a label; they must never be the thing that
+     sets a button's line box height, or every labelled button grows by the
+     icon's overshoot. */
+  vertical-align: -0.12em;
+  flex: none;
 }
 
 
@@ -14863,11 +14870,11 @@ textarea.drag-over {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--text-sm);
-  color: var(--text-main);
+  color: var(--ink);
   transition: background 0.1s;
 }
 
@@ -14878,12 +14885,12 @@ textarea.drag-over {
 
 .workspace-dropdown-menu li:hover,
 .workspace-dropdown-menu li:focus {
-  background: var(--surface-2);
+  background: var(--inner);
   outline: none;
 }
 
 .workspace-dropdown-menu li.selected {
-  background: var(--accent-alpha-1);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -14902,21 +14909,15 @@ textarea.drag-over {
 }
 
 
-/* Margins settings */
-:root[data-margins="classic"] {
-  /* Uses defaults: --page-top (space-6), --page-bottom (space-9), --page-gutter (space-9) */
-}
+/* --- page margins (Appearance > Page Margins) --------------------------------
+   Three presets over the shell tokens above. The sliders write --page-* on the
+   root element directly from JS, which is why "custom" declares no values of
+   its own: a rule here would out-specify the inline style and the sliders
+   would appear to do nothing.
 
+   --page-left/--page-right exist so a custom setting can break the left/right
+   symmetry; they default to --page-gutter so every other mode is unaffected. */
 :root[data-margins="uniform"] {
   --page-gutter: var(--page-top);
   --page-bottom: var(--page-top);
-  --page-right: var(--page-top);
-  --page-left: var(--page-top);
-}
-
-:root[data-margins="custom"] {
-  --page-top: var(--custom-margin-top, 32px);
-  --page-right: var(--custom-margin-right, 64px);
-  --page-bottom: var(--custom-margin-bottom, 64px);
-  --page-left: var(--custom-margin-left, 64px);
 }

@@ -12,6 +12,15 @@
   <!-- PWA (Wave F): installable, and the shell loads from cache -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#4f6df5">
+  <!-- Phosphor is the app's only icon set, vendored like d3 and p5 — the
+       offline rule means no CDN, ever. It ships as an icon FONT rather than
+       SVG sprites so an icon inherits colour and size from the text beside
+       it for free, which is what the emoji set could never do.
+       This link was missing for an entire release: the font and its CSS were
+       committed, every <i class="ph …"> was in place, and not one icon in the
+       app rendered. Nothing logged and nothing threw — a missing stylesheet
+       is silent. If icons ever vanish again, look here first. -->
+  <link rel="stylesheet" href="/vendor/phosphor/style.css">
   <link rel="stylesheet" href="/style.css">
   <script>
     // Everything visual is applied before first paint, so the app never
@@ -128,16 +137,16 @@
       <span class="notif-wrap">
         <button id="notif-btn" class="ghost small" title="Notifications"
           aria-label="Notifications" aria-expanded="false"
-          aria-controls="notif-panel"><span class="ui-icon" data-emoji="🔔" data-lucide="bell">🔔</span></button>
+          aria-controls="notif-panel"><i class="ph ph-bell" aria-hidden="true"></i></button>
         <div id="notif-panel" class="notif-panel hidden" role="dialog"
           aria-label="Notifications">
           <div class="row space-between notif-head">
             <strong>Notifications</strong>
             <span class="row">
               <button id="notif-mute-toggle" class="ghost small" aria-pressed="false"
-                title="Mute notifications except reminders"><span class="ui-icon" data-emoji="🔕" data-lucide="bell-off">🔕</span> Mute</button>
+                title="Mute notifications except reminders"><i class="ph ph-bell-slash" aria-hidden="true"></i> Mute</button>
               <button id="notif-clear" class="ghost small">Clear</button>
-              <button id="notif-close" class="ghost small" aria-label="Close"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+              <button id="notif-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
             </span>
           </div>
           <ul id="notif-list" class="notif-list"></ul>
@@ -147,12 +156,16 @@
           </p>
         </div>
       </span>
-      <button id="theme-btn" class="ghost small" title="Toggle light/dark" aria-label="Toggle light or dark theme"><span class="ui-icon" data-emoji="🌓" data-lucide="moon">🌓</span></button>
-      <button id="lock-btn" class="ghost small hidden" title="Lock the app" aria-label="Lock the app"><span class="ui-icon" data-emoji="🔒" data-lucide="lock">🔒</span></button>
-      <button id="settings-btn" class="ghost small" title="Settings"><span class="ui-icon" data-emoji="⚙" data-lucide="settings">⚙</span> Settings</button>
+      <button id="theme-btn" class="ghost small icon-only" title="Toggle light/dark" aria-label="Toggle light or dark theme"><i class="ph ph-circle-half" aria-hidden="true"></i></button>
+      <button id="settings-btn" class="ghost small icon-only" title="Settings" aria-label="Settings"><i class="ph ph-gear" aria-hidden="true"></i></button>
       <span class="header-divider" aria-hidden="true"></span>
-      <button id="quit-btn" class="ghost small" title="Quit MemoryMap — stops the app and its server"
-        aria-label="Quit MemoryMap">⏻</button>
+      <!-- Lock and Quit are the two that END your session, so they sit together
+           past the divider, away from the everyday toggles. Locking beside the
+           theme button is how you reach for light mode and get a password
+           prompt instead. -->
+      <button id="lock-btn" class="ghost small icon-only hidden" title="Lock the app" aria-label="Lock the app"><i class="ph ph-lock" aria-hidden="true"></i></button>
+      <button id="quit-btn" class="ghost small icon-only" title="Quit MemoryMap — stops the app and its server"
+        aria-label="Quit MemoryMap"><i class="ph ph-power" aria-hidden="true"></i></button>
     </div>
   </header>
 
@@ -172,7 +185,7 @@
   <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden">
     <div class="card glass command-palette-card">
       <div class="command-palette-bar">
-        <span class="command-palette-icon"><span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span></span>
+        <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
         <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Ctrl+Shift+K to open, Esc to close)">
       </div>
       <div id="command-palette-results" class="command-palette-results">
@@ -184,89 +197,58 @@
   <!-- Agent Monitor (Twitch-style) -->
   <aside id="agent-monitor" class="card glass agent-monitor hidden">
     <div class="row space-between monitor-header">
-      <h3 class="monitor-title"><span class="ui-icon" data-emoji="🤖" data-lucide="bot">🤖</span> Agent Activity</h3>
-      <button id="agent-monitor-close" class="ghost small"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+      <h3 class="monitor-title"><i class="ph ph-robot" aria-hidden="true"></i> Agent Activity</h3>
+      <button id="agent-monitor-close" class="ghost small"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
     <div id="agent-monitor-logs" class="monitor-logs"></div>
   </aside>
 
 
-  <dialog id="space-create-dialog" class="card">
-    <h3>Create New Space</h3>
-    <label>Name
-      <input type="text" id="space-create-name" placeholder="e.g. Work" />
-    </label>
-    <label>Icon (Phosphor class)
-      <input type="text" id="space-create-icon" placeholder="ph-briefcase" value="ph-folder" />
-    </label>
-    <div class="row right mt-4">
-      <button type="button" class="ghost" onclick="document.getElementById('space-create-dialog').close()">Cancel</button>
-      <button type="button" class="accent" id="space-create-submit">Create</button>
-    </div>
-  </dialog>
-  
-  <dialog id="space-edit-dialog" class="card">
-    <h3>Edit Space</h3>
-    <input type="hidden" id="space-edit-id" />
-    <label>Name
-      <input type="text" id="space-edit-name" />
-    </label>
-    <label>Icon (Phosphor class)
-      <input type="text" id="space-edit-icon" />
-    </label>
-    <div class="row right mt-4">
-      <button type="button" class="ghost" onclick="document.getElementById('space-edit-dialog').close()">Cancel</button>
-      <button type="button" class="accent" id="space-edit-submit">Save</button>
-    </div>
-  </dialog>
-  
-  <dialog id="space-delete-dialog" class="card">
-    <h3>Delete Space?</h3>
-    <p>Are you sure you want to delete this space? All its notes will be moved to the Default Space.</p>
-    <input type="hidden" id="space-delete-id" />
-    <div class="row right mt-4">
-      <button type="button" class="ghost" onclick="document.getElementById('space-delete-dialog').close()">Cancel</button>
-      <button type="button" class="danger" id="space-delete-submit">Delete</button>
+  <!-- Space create / rename / delete.
+       One set of these, not two: the generator that wrote them ran twice, so
+       every id here existed twice and getElementById always reached the first
+       copy while showModal() was called on whichever the code had last found.
+       The Cancel buttons were `onclick="…"` attributes, which this app's CSP
+       (script-src 'self', no unsafe-inline) refuses outright — they were dead
+       markup. Every handler is bound in app.js now. -->
+  <dialog id="space-create-dialog" class="card space-dialog">
+    <h3>New space</h3>
+    <p class="muted">A space keeps a set of notes, tags and chats apart from the rest. Your settings, models and skills stay shared.</p>
+    <label for="space-create-name">Name</label>
+    <input type="text" id="space-create-name" placeholder="e.g. Work" maxlength="60" autocomplete="off">
+    <label for="space-create-icon">Icon</label>
+    <div id="space-create-icon-picker" class="space-icon-picker" role="radiogroup" aria-labelledby="space-create-icon"></div>
+    <input type="hidden" id="space-create-icon" value="ph-folder">
+    <p id="space-create-error" class="status error" role="alert"></p>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="space-create-dialog">Cancel</button>
+      <button type="button" class="accent" id="space-create-submit">Create space</button>
     </div>
   </dialog>
 
-
-  <dialog id="space-create-dialog" class="card">
-    <h3>Create New Space</h3>
-    <label>Name
-      <input type="text" id="space-create-name" placeholder="e.g. Work" />
-    </label>
-    <label>Icon (Phosphor class)
-      <input type="text" id="space-create-icon" placeholder="ph-briefcase" value="ph-folder" />
-    </label>
-    <div class="row right mt-4">
-      <button type="button" class="ghost" onclick="document.getElementById('space-create-dialog').close()">Cancel</button>
-      <button type="button" class="accent" id="space-create-submit">Create</button>
-    </div>
-  </dialog>
-  
-  <dialog id="space-edit-dialog" class="card">
-    <h3>Edit Space</h3>
-    <input type="hidden" id="space-edit-id" />
-    <label>Name
-      <input type="text" id="space-edit-name" />
-    </label>
-    <label>Icon (Phosphor class)
-      <input type="text" id="space-edit-icon" />
-    </label>
-    <div class="row right mt-4">
-      <button type="button" class="ghost" onclick="document.getElementById('space-edit-dialog').close()">Cancel</button>
+  <dialog id="space-edit-dialog" class="card space-dialog">
+    <h3>Rename space</h3>
+    <input type="hidden" id="space-edit-id">
+    <label for="space-edit-name">Name</label>
+    <input type="text" id="space-edit-name" maxlength="60" autocomplete="off">
+    <label for="space-edit-icon">Icon</label>
+    <div id="space-edit-icon-picker" class="space-icon-picker" role="radiogroup" aria-labelledby="space-edit-icon"></div>
+    <input type="hidden" id="space-edit-icon">
+    <p id="space-edit-error" class="status error" role="alert"></p>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="space-edit-dialog">Cancel</button>
       <button type="button" class="accent" id="space-edit-submit">Save</button>
     </div>
   </dialog>
-  
-  <dialog id="space-delete-dialog" class="card">
-    <h3>Delete Space?</h3>
-    <p>Are you sure you want to delete this space? All its notes will be moved to the Default Space.</p>
-    <input type="hidden" id="space-delete-id" />
-    <div class="row right mt-4">
-      <button type="button" class="ghost" onclick="document.getElementById('space-delete-dialog').close()">Cancel</button>
-      <button type="button" class="danger" id="space-delete-submit">Delete</button>
+
+  <dialog id="space-delete-dialog" class="card space-dialog">
+    <h3>Delete this space?</h3>
+    <p>Its notes are not deleted — they move to the Default space, so nothing is lost. The space itself goes away.</p>
+    <input type="hidden" id="space-delete-id">
+    <p id="space-delete-error" class="status error" role="alert"></p>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="space-delete-dialog">Cancel</button>
+      <button type="button" class="danger" id="space-delete-submit">Move notes and delete</button>
     </div>
   </dialog>
 
@@ -295,7 +277,7 @@
     <!-- At-a-glance numbers: part of the page, not a widget you can hide -->
     <div class="dash-stats" id="dash-stats" role="group" aria-label="At a glance"></div>
     <div class="dash-toolbar">
-      <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span>Remove widgets · ▭Wide makes a full-width section — your layout is remembered.</span>
+      <span class="muted hidden" id="dash-hint">Drag to rearrange · ＋Add / <i class="ph ph-x" aria-hidden="true"></i>Remove widgets · ▭Wide makes a full-width section — your layout is remembered.</span>
       <span id="dash-hint-spacer"></span>
       <button id="dash-edit" class="ghost small">Edit layout</button>
     </div>
@@ -322,13 +304,13 @@
         <div class="notes-subtabs seg" id="notes-subtabs" role="tablist"
           aria-label="Notes sections">
           <button role="tab" data-section="browse" aria-selected="true"
-            aria-controls="browse"><span class="ui-icon" data-emoji="📚" data-lucide="book-open">📚</span> Your notes</button>
+            aria-controls="browse"><i class="ph ph-books" aria-hidden="true"></i> Your notes</button>
           <button role="tab" data-section="capture" aria-selected="false"
-            aria-controls="capture" tabindex="-1"><span class="ui-icon" data-emoji="<span class="ui-icon" data-emoji="✏" data-lucide="pencil">✏</span>️" data-lucide="pencil"><span class="ui-icon" data-emoji="✏" data-lucide="pencil">✏</span>️</span> Capture</button>
+            aria-controls="capture" tabindex="-1"><i class="ph ph-pencil-simple" aria-hidden="true"></i> Capture</button>
           <button role="tab" data-section="writing-room" aria-selected="false"
-            aria-controls="writing-room" tabindex="-1"><span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> Write with AI</button>
+            aria-controls="writing-room" tabindex="-1"><i class="ph ph-magic-wand" aria-hidden="true"></i> Write with AI</button>
           <button role="tab" data-section="ask" aria-selected="false"
-            aria-controls="ask" tabindex="-1"><span class="ui-icon" data-emoji="💬" data-lucide="message-circle">💬</span> Ask</button>
+            aria-controls="ask" tabindex="-1"><i class="ph ph-chat-circle" aria-hidden="true"></i> Ask</button>
         </div>
 
         <!-- Capture: the start of the core loop -->
@@ -359,7 +341,7 @@ Link to another note with [[its first few words]]."></textarea>
                `![name](/media/...)` text while composing, which reads as
                "the image isn't rendered". A plain <textarea> genuinely can't
                show an inline image — this is the actual preview, and its own
-               <span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span> per chip is the "and can't be deleted" half: it detaches the
+               <i class="ph ph-x" aria-hidden="true"></i> per chip is the "and can't be deleted" half: it detaches the
                reference from this note's text (the underlying upload stays,
                same as removing any other text does not delete a file). -->
           <div id="entry-attachment-chips" class="attachment-chips hidden"></div>
@@ -381,11 +363,11 @@ Link to another note with [[its first few words]]."></textarea>
             <label for="entry-category" class="muted">File under</label>
             <select id="entry-category"></select>
             <button id="save-btn">Save</button>
-            <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> Improve</button>
-            <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><span class="ui-icon" data-emoji="🎨" data-lucide="palette">🎨</span> Sketch</button>
-            <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><span class="ui-icon" data-emoji="🎙" data-lucide="mic">🎙</span></button>
+            <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand" aria-hidden="true"></i> Improve</button>
+            <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette" aria-hidden="true"></i> Sketch</button>
+            <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone" aria-hidden="true"></i></button>
             <button id="entry-attach-file" class="ghost" type="button"
-              title="Attach an image or file" aria-label="Attach an image or file"><span class="ui-icon" data-emoji="📎" data-lucide="paperclip">📎</span> Attach</button>
+              title="Attach an image or file" aria-label="Attach an image or file"><i class="ph ph-paperclip" aria-hidden="true"></i> Attach</button>
             <input id="entry-attach-file-input" type="file" multiple class="hidden">
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
@@ -414,7 +396,7 @@ Link to another note with [[its first few words]]."></textarea>
               <textarea id="draft-thoughts" rows="7"
                 placeholder="Just get it down — order doesn't matter…"></textarea>
               <div class="row draft-controls">
-                <button id="draft-compose"><span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> Draft it</button>
+                <button id="draft-compose"><i class="ph ph-magic-wand" aria-hidden="true"></i> Draft it</button>
                 <button id="draft-cancel" class="ghost hidden" type="button"
                   title="Stop the AI — nothing you've written is changed">■ Stop</button>
                 <button id="draft-undo" class="ghost" type="button" disabled
@@ -433,7 +415,7 @@ Link to another note with [[its first few words]]."></textarea>
               <textarea id="draft-text" rows="14"
                 placeholder="Your draft will appear here. You can edit it directly."></textarea>
               <div class="row draft-controls">
-                <button id="draft-save"><span class="ui-icon" data-emoji="💾" data-lucide="save">💾</span> Save as note</button>
+                <button id="draft-save"><i class="ph ph-floppy-disk" aria-hidden="true"></i> Save as note</button>
                 <input id="draft-tags" type="text" maxlength="200"
                   placeholder="Optional tags, comma separated"
                   aria-label="Tags for the saved note">
@@ -481,7 +463,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <button id="copy-btn" class="ghost small hidden"
                     title="Copy the answer">⧉ Copy</button>
                   <button id="speak-btn" class="ghost small hidden"
-                    title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud"><span class="ui-icon" data-emoji="🔊" data-lucide="volume-2">🔊</span></button>
+                    title="Read the answer aloud (uses your computer's voices)" aria-label="Read the answer aloud"><i class="ph ph-speaker-high" aria-hidden="true"></i></button>
                 </span>
               </h3>
               <!-- What was asked, echoed above the answer it produced. -->
@@ -511,16 +493,16 @@ Link to another note with [[its first few words]]."></textarea>
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
             <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All entries</span></h2>
-            <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><span class="ui-icon" data-emoji="<span class="ui-icon" data-emoji="☑" data-lucide="check-square">☑</span>️" data-lucide="check-square"><span class="ui-icon" data-emoji="☑" data-lucide="check-square">☑</span>️</span> Select</button>
+            <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square" aria-hidden="true"></i> Select</button>
             <input id="note-search" class="library-search" type="search"
               placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
               aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
               aria-describedby="search-help-hint">
             <label class="row align-center checkbox-label semantic-toggle" title="Search by concept instead of exact keywords">
-              <input type="checkbox" id="semantic-search-toggle"> <span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> Semantic
+              <input type="checkbox" id="semantic-search-toggle"> <i class="ph ph-magic-wand" aria-hidden="true"></i> Semantic
             </label>
             <button id="save-search" class="ghost small hidden" type="button"
-              title="Save this filter so you can come back to it"><span class="ui-icon" data-emoji="☆" data-lucide="star">☆</span> Save filter</button>
+              title="Save this filter so you can come back to it"><i class="ph ph-star" aria-hidden="true"></i> Save filter</button>
             <button id="search-help" class="ghost small" type="button"
               aria-expanded="false" aria-controls="search-help-hint"
               title="What can I type here?">?</button>
@@ -537,7 +519,7 @@ Link to another note with [[its first few words]]."></textarea>
             <select id="batch-category" aria-label="Move selected notes to category"></select>
             <button id="batch-move" class="small">Move</button>
             <button id="batch-tag" class="ghost small">＋ Tag</button>
-            <button id="batch-delete" class="ghost small"><span class="ui-icon" data-emoji="🗑" data-lucide="trash-2">🗑</span> Delete</button>
+            <button id="batch-delete" class="ghost small"><i class="ph ph-trash" aria-hidden="true"></i> Delete</button>
             <button id="batch-cancel" class="ghost small">Done</button>
           </div>
           <!-- Filters you've named and kept. -->
@@ -557,12 +539,12 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <ul id="entry-list" class="entry-list"></ul>
           <div id="empty-message" class="empty-state hidden">
-            <span class="empty-icon" aria-hidden="true"><span class="ui-icon" data-emoji="📝" data-lucide="file-text">📝</span></span>
+            <span class="empty-icon" aria-hidden="true"><i class="ph ph-note-pencil" aria-hidden="true"></i></span>
             <p class="empty-title">Your notebook is empty</p>
             <p class="muted">Type a thought above and the AI files it for you.</p>
           </div>
           <div id="no-match-message" class="empty-state hidden">
-            <span class="empty-icon" aria-hidden="true"><span class="ui-icon" data-emoji="🔍" data-lucide="search">🔍</span></span>
+            <span class="empty-icon" aria-hidden="true"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
             <p class="empty-title">No notes match your filter</p>
             <p class="muted">Try a different word, or clear the search box.</p>
           </div>
@@ -590,7 +572,7 @@ Link to another note with [[its first few words]]."></textarea>
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
-          title="Search and sort everything you have ever asked"><span class="ui-icon" data-emoji="📚" data-lucide="book-open">📚</span> Browse all in Library →</button>
+          title="Search and sort everything you have ever asked"><i class="ph ph-books" aria-hidden="true"></i> Browse all in Library →</button>
       </aside>
       <main>
         <section class="card" id="chat-main">
@@ -636,7 +618,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="chat-tool-group chat-tool-group-end" role="group" aria-label="This conversation">
               <button id="chat-compress" class="ghost small"
-                title="Summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><span class="ui-icon" data-emoji="🗜" data-lucide="folder">🗜</span> Compress</button>
+                title="Summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in" aria-hidden="true"></i> Compress</button>
               <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
             </div>
           </div>
@@ -718,18 +700,18 @@ Link to another note with [[its first few words]]."></textarea>
                        instead of as two settings. -->
                   <button data-chat-mode="chat" type="button"
                     title="Ask the Librarian about your notes. It reads and answers; it never changes anything."
-                    aria-label="Ask the Librarian"><span class="ui-icon" data-emoji="💬" data-lucide="message-circle">💬</span> Ask<span class="chat-mode-long"> the Librarian</span></button>
+                    aria-label="Ask the Librarian"><i class="ph ph-chat-circle" aria-hidden="true"></i> Ask<span class="chat-mode-long"> the Librarian</span></button>
                   <button data-chat-mode="agent" type="button"
                     title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
-                    aria-label="Request the Librarian"><span class="ui-icon" data-emoji="🤖" data-lucide="bot">🤖</span> Request<span class="chat-mode-long"> the Librarian</span></button>
+                    aria-label="Request the Librarian"><i class="ph ph-robot" aria-hidden="true"></i> Request<span class="chat-mode-long"> the Librarian</span></button>
                 </div>
                 <label class="muted tools-toggle agent-toggle hidden"
                   title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
                   <input type="checkbox" id="tools-toggle">
-                  <span class="agent-toggle-label"><span class="ui-icon" data-emoji="🤖" data-lucide="bot">🤖</span> Agent mode</span>
+                  <span class="agent-toggle-label"><i class="ph ph-robot" aria-hidden="true"></i> Agent mode</span>
                 </label>
                 <button id="web-search-toggle" class="ghost small" aria-pressed="false"
-                  title="Search the web here, and let the AI search when you ask it to"><span class="ui-icon" data-emoji="🌐" data-lucide="globe">🌐</span> Web</button>
+                  title="Search the web here, and let the AI search when you ask it to"><i class="ph ph-globe" aria-hidden="true"></i> Web</button>
                 <!-- Plan first (§35K). The `make_plan` tool has existed since
                      §35K and the only way to reach it was to hope the model
                      chose it — a capability with no control is a capability
@@ -742,7 +724,7 @@ Link to another note with [[its first few words]]."></textarea>
                      every later question through a planning round it did not
                      need, and planning costs a model round-trip. -->
                 <button id="chat-plan" class="ghost small" type="button"
-                  title="Plan this request first — the Librarian draws the steps and shows them before it starts"><span class="ui-icon" data-emoji="🧭" data-lucide="compass">🧭</span> Plan</button>
+                  title="Plan this request first — the Librarian draws the steps and shows them before it starts"><i class="ph ph-compass" aria-hidden="true"></i> Plan</button>
               </div>
 
               <!-- How the answer comes out: who is speaking, and how hard they
@@ -757,7 +739,7 @@ Link to another note with [[its first few words]]."></textarea>
                   aria-haspopup="dialog" aria-expanded="false"
                   aria-controls="chat-dock-more-panel"
                   aria-label="Settings"
-                  title="Answer length and persona"><span class="ui-icon" data-emoji="⚙" data-lucide="settings">⚙</span></button>
+                  title="Answer length and persona"><i class="ph ph-gear" aria-hidden="true"></i></button>
                 <div id="chat-dock-more-panel" class="chat-dock-more-panel hidden"
                   role="dialog" aria-label="How it answers">
                   <label class="chat-dock-more-row">
@@ -774,7 +756,7 @@ Link to another note with [[its first few words]]."></textarea>
                        told the model to do. -->
                   <button id="persona-peek" class="ghost small" type="button"
                     aria-expanded="false"
-                    title="Show the instructions this persona gives the AI"><span class="ui-icon" data-emoji="👁" data-lucide="eye">👁</span> What this persona tells the AI</button>
+                    title="Show the instructions this persona gives the AI"><i class="ph ph-eye" aria-hidden="true"></i> What this persona tells the AI</button>
                   <!-- Manual (step-through) mode, asked for directly: a pause
                        after every completed step with a Continue button and a
                        text box, rather than a skill running straight through
@@ -793,7 +775,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="attach-note" class="ghost" type="button"
                 aria-haspopup="dialog" aria-expanded="false"
                 title="Attach notes as references for this question"
-                aria-label="Attach notes"><span class="ui-icon" data-emoji="📎" data-lucide="paperclip">📎</span></button>
+                aria-label="Attach notes"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
               <div id="note-picker-panel" class="note-picker-panel hidden"
                 role="dialog" aria-label="Choose notes to reference">
                 <input id="note-picker-search" type="search"
@@ -813,7 +795,7 @@ Link to another note with [[its first few words]]."></textarea>
                  is a newline, which an <input> could not offer at all. -->
             <textarea id="chat-input" rows="1" class="autogrow chat-input"
               placeholder="Ask your notebook anything…"></textarea>
-            <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><span class="ui-icon" data-emoji="🎙" data-lucide="mic">🎙</span></button>
+            <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
             <button id="chat-send">Send</button>
             <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
             </div>
@@ -853,8 +835,8 @@ Link to another note with [[its first few words]]."></textarea>
         <aside id="web-panel" class="card web-panel hidden"
           aria-label="Web search">
           <div class="row space-between web-panel-head">
-            <strong id="web-panel-title"><span class="ui-icon" data-emoji="🌐" data-lucide="globe">🌐</span> Web</strong>
-            <button id="web-panel-close" class="ghost small" aria-label="Close web panel"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+            <strong id="web-panel-title"><i class="ph ph-globe" aria-hidden="true"></i> Web</strong>
+            <button id="web-panel-close" class="ghost small" aria-label="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <div class="row web-panel-search">
             <input id="web-query" type="text" placeholder="Search the web…"
@@ -871,7 +853,7 @@ Link to another note with [[its first few words]]."></textarea>
             <p class="muted" id="web-reader-source"></p>
             <div class="row web-reader-actions">
               <button id="web-reader-ask" class="ghost small"
-                title="Ask the AI about this page"><span class="ui-icon" data-emoji="💬" data-lucide="message-circle">💬</span> Ask about this</button>
+                title="Ask the AI about this page"><i class="ph ph-chat-circle" aria-hidden="true"></i> Ask about this</button>
               <button id="web-reader-save" class="ghost small">＋ Save as note</button>
             </div>
             <div id="web-reader-text" class="web-reader-text"></div>
@@ -944,7 +926,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="timeline-popup" class="graph-popup hidden" role="dialog" aria-label="View note">
         <div class="row space-between">
           <strong id="timeline-popup-title">Note</strong>
-          <button id="timeline-popup-close" class="ghost small" aria-label="Close"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+          <button id="timeline-popup-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div id="timeline-popup-info" class="graph-popup-info timeline-popup-info"></div>
         <div id="timeline-popup-media" class="graph-popup-media hidden"></div>
@@ -989,7 +971,7 @@ Link to another note with [[its first few words]]."></textarea>
           title="Add a new note straight onto the map">＋ New note</button>
         <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
           aria-controls="graph-options"
-          title="Physics, labels, similarity lines and link suggestions"><span class="ui-icon" data-emoji="⚙" data-lucide="settings">⚙</span> Options</button>
+          title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear" aria-hidden="true"></i> Options</button>
         <!-- §37F: Trace used to be a permanently-drawn second row — the one
              control here that is a distinct mode (finding a path between two
              named notes) rather than a setting left on, so it gets the same
@@ -997,10 +979,10 @@ Link to another note with [[its first few words]]."></textarea>
              nothing removed. -->
         <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
           aria-controls="graph-trace"
-          title="Find how two notes connect"><span class="ui-icon" data-emoji="🛣" data-lucide="wrench">🛣</span> Trace</button>
-        <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span> Exit Focus</button>
+          title="Find how two notes connect"><i class="ph ph-path" aria-hidden="true"></i> Trace</button>
+        <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x" aria-hidden="true"></i> Exit Focus</button>
         <button id="graph-refresh" class="ghost small">↻ Refresh</button>
-        <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span> Close Full Screen</button>
+        <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x" aria-hidden="true"></i> Close Full Screen</button>
       </div>
       <!-- The tuned-once controls. One row, one control height, margins
            zeroed — the control-strip rule in DESIGN.md. -->
@@ -1038,7 +1020,7 @@ Link to another note with [[its first few words]]."></textarea>
           </label>
         </span>
         <button id="link-suggest-btn" class="ghost small"
-          title="Let the AI suggest links between notes that mean similar things"><span class="ui-icon" data-emoji="🔗" data-lucide="link">🔗</span> Suggest links</button>
+          title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link" aria-hidden="true"></i> Suggest links</button>
       </div>
       <!-- Trace: the one question a graph answers better than any list —
            "how are these two related?" (§9). Its own strip rather than a
@@ -1047,7 +1029,7 @@ Link to another note with [[its first few words]]."></textarea>
            margins zeroed, per DESIGN.md. -->
       <div class="graph-trace hidden" id="graph-trace" role="group"
         aria-label="Trace the connection between two notes">
-        <span class="graph-trace-label"><span class="ui-icon" data-emoji="🔍" data-lucide="search">🔍</span> Trace</span>
+        <span class="graph-trace-label"><i class="ph ph-magnifying-glass" aria-hidden="true"></i> Trace</span>
         <!-- Two chips and, once both ends are picked, Swap and Undo. These
              replaced two <select>s that listed every note in the notebook by
              its opening words — the reason Trace was reported as unusable. The
@@ -1081,7 +1063,7 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Edit note">
           <div class="row space-between">
             <strong id="graph-popup-title">Note</strong>
-            <button id="graph-popup-close" class="ghost small" aria-label="Close"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+            <button id="graph-popup-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <!-- At-a-glance facts about this note -->
           <div id="graph-popup-info" class="graph-popup-info"></div>
@@ -1107,7 +1089,7 @@ Link to another note with [[its first few words]]."></textarea>
           aria-label="Add a note to the map">
           <div class="row space-between">
             <strong id="graph-new-title">＋ New note</strong>
-            <button id="graph-new-close" class="ghost small" aria-label="Close"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+            <button id="graph-new-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <p class="muted" id="graph-new-hint"></p>
           <input id="graph-new-note-title" type="text" maxlength="200"
@@ -1125,13 +1107,13 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
           <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
-          <button id="graph-fullscreen" class="graph-zoom-btn" title="Toggle Full Screen" aria-label="Toggle full screen"><span class="ui-icon" data-emoji="⛶" data-lucide="box">⛶</span></button>
+          <button id="graph-fullscreen" class="graph-zoom-btn" title="Toggle Full Screen" aria-label="Toggle full screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
           <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
           <p class="empty-title">Nothing to map yet</p>
           <p class="muted">
-            Save a few notes and link some together (<span class="ui-icon" data-emoji="🔗" data-lucide="link">🔗</span> on any entry) —
+            Save a few notes and link some together (<i class="ph ph-link" aria-hidden="true"></i> on any entry) —
             they'll appear here as a constellation.
           </p>
         </div>
@@ -1162,7 +1144,7 @@ Link to another note with [[its first few words]]."></textarea>
         <ul id="doc-list" class="doc-list"></ul>
         <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
         <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
-          title="Search, sort and manage every document"><span class="ui-icon" data-emoji="📚" data-lucide="book-open">📚</span> Browse all in Library →</button>
+          title="Search, sort and manage every document"><i class="ph ph-books" aria-hidden="true"></i> Browse all in Library →</button>
 
         <!-- Built from the document's own headings: past two screens of text
              the scrollbar stops being a way to navigate. -->
@@ -1205,15 +1187,15 @@ Link to another note with [[its first few words]]."></textarea>
               title="Words, and roughly how long this takes to read"></span>
             <span id="doc-saved" class="muted" role="status"></span>
             <button id="doc-preview-toggle" class="ghost small" type="button"
-              aria-pressed="false" title="Show a rendered preview beside the editor"><span class="ui-icon" data-emoji="👁" data-lucide="eye">👁</span> Preview</button>
+              aria-pressed="false" title="Show a rendered preview beside the editor"><i class="ph ph-eye" aria-hidden="true"></i> Preview</button>
             <button id="doc-ai" class="ghost small" type="button"
-              title="Ask the AI to rewrite this document, or the text you've selected"><span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> AI edit</button>
+              title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand" aria-hidden="true"></i> AI edit</button>
             <button id="doc-export-md" class="ghost small" type="button"
               title="Download as a .md file">⬇ .md</button>
             <button id="doc-export-pdf" class="ghost small" type="button"
               title="Print or save as PDF">⬇ PDF</button>
             <button id="doc-delete" class="ghost small" type="button"
-              title="Delete this document"><span class="ui-icon" data-emoji="🗑" data-lucide="trash-2">🗑</span></button>
+              title="Delete this document"><i class="ph ph-trash" aria-hidden="true"></i></button>
           </span>
         </div>
         <!-- Formatting without remembering the syntax. Everything here is
@@ -1230,10 +1212,10 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" data-md="ul" title="Bulleted list">• List</button>
           <button type="button" data-md="ol" title="Numbered list">1. List</button>
-          <button type="button" data-md="task" title="Task list"><span class="ui-icon" data-emoji="<span class="ui-icon" data-emoji="☑" data-lucide="check-square">☑</span>️" data-lucide="check-square"><span class="ui-icon" data-emoji="☑" data-lucide="check-square">☑</span>️</span> Task</button>
-          <button type="button" data-md="quote" title="Quote"><span class="ui-icon" data-emoji="❝" data-lucide="quote">❝</span></button>
+          <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square" aria-hidden="true"></i> Task</button>
+          <button type="button" data-md="quote" title="Quote"><i class="ph ph-quotes" aria-hidden="true"></i></button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" data-md="link" title="Link"><span class="ui-icon" data-emoji="🔗" data-lucide="link">🔗</span></button>
+          <button type="button" data-md="link" title="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
           <button type="button" data-md="codeblock" title="Code block">▤</button>
           <button type="button" data-md="table" title="Table">▦</button>
           <button type="button" data-md="hr" title="Divider">—</button>
@@ -1258,14 +1240,14 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="card modal-card doc-ai-card">
         <div class="row space-between">
           <h2>AI edit</h2>
-          <button id="doc-ai-close" class="ghost small" aria-label="Close"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+          <button id="doc-ai-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <p class="muted" id="doc-ai-scope"></p>
         <input id="doc-ai-instruction" type="text" maxlength="500"
           placeholder="e.g. “tighten this”, “make it more formal”, “add a conclusion”"
           aria-label="What should the AI do?">
         <div class="row">
-          <button id="doc-ai-run"><span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> Suggest an edit</button>
+          <button id="doc-ai-run"><i class="ph ph-magic-wand" aria-hidden="true"></i> Suggest an edit</button>
           <button id="doc-ai-cancel-run" class="ghost hidden" type="button"
             title="Stop the AI — the document is untouched">■ Stop</button>
           <span id="doc-ai-status" class="status" role="status"></span>
@@ -1300,7 +1282,7 @@ Link to another note with [[its first few words]]."></textarea>
              break) so the quick path stays quick. -->
         <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow"
           placeholder="✨ Magic add — e.g. “Call mum tomorrow evening, high priority”"></textarea>
-        <button id="reminder-magic-add" class="ghost"><span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> Add</button>
+        <button id="reminder-magic-add" class="ghost"><i class="ph ph-magic-wand" aria-hidden="true"></i> Add</button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
@@ -1366,7 +1348,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button data-filter="done">Done</button>
         </div>
         <button id="reminder-clear-done" class="ghost small"
-          title="Delete every completed reminder"><span class="ui-icon" data-emoji="🧹" data-lucide="broom">🧹</span> Clear done</button>
+          title="Delete every completed reminder"><i class="ph ph-broom" aria-hidden="true"></i> Clear done</button>
       </div>
       <div id="reminder-groups"></div>
       <div id="reminders-empty" class="empty-state hidden">
@@ -1442,7 +1424,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="seg seg-compact library-view" id="library-view" role="group"
               aria-label="How to show the library">
               <button data-library-view="grid" type="button" title="Cards">▦</button>
-              <button data-library-view="list" type="button" title="Rows"><span class="ui-icon" data-emoji="☰" data-lucide="menu">☰</span></button>
+              <button data-library-view="list" type="button" title="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
           </div>
           <!-- Filled by renderLibraryFilters: one chip per kind, each with its
@@ -1457,7 +1439,7 @@ Link to another note with [[its first few words]]."></textarea>
             <span class="muted" id="library-bin-note"></span>
             <span class="library-contextbar-end">
               <button id="library-bin-empty" class="ghost small" type="button"
-                title="Permanently delete everything in the bin"><span class="ui-icon" data-emoji="🗑" data-lucide="trash-2">🗑</span> Empty the bin</button>
+                title="Permanently delete everything in the bin"><i class="ph ph-trash" aria-hidden="true"></i> Empty the bin</button>
             </span>
           </div>
           <div id="library-selectbar" class="library-contextbar hidden" role="group"
@@ -1466,7 +1448,7 @@ Link to another note with [[its first few words]]."></textarea>
             <span class="library-contextbar-end">
               <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
               <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
-              <button id="library-bulk-delete" class="ghost small" type="button"><span class="ui-icon" data-emoji="🗑" data-lucide="trash-2">🗑</span> Delete</button>
+              <button id="library-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash" aria-hidden="true"></i> Delete</button>
               <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
             </span>
           </div>
@@ -1561,12 +1543,12 @@ Link to another note with [[its first few words]]."></textarea>
              covered by the tool UI"). -->
         <div class="wb-empty-hint-inner">
           <p class="wb-empty-hint-title">This board is a note — draw on it, or drag one in</p>
-          <p><span class="ui-icon" data-emoji="📝" data-lucide="file-text">📝</span> <strong>Library</strong> (top right) drops an existing note here as a card.</p>
-          <p><span class="ui-icon" data-emoji="<span class="ui-icon" data-emoji="✏" data-lucide="pencil">✏</span>️" data-lucide="pencil"><span class="ui-icon" data-emoji="✏" data-lucide="pencil">✏</span>️</span> <strong>Pen</strong>, <span class="ui-icon" data-emoji="📏" data-lucide="ruler">📏</span> <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
-          <p><span class="ui-icon" data-emoji="🔗" data-lucide="link">🔗</span> A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
-          <p><span class="ui-icon" data-emoji="🅃" data-lucide="type">🅃</span> <strong>Text</strong> drops a box you can type in; <span class="ui-icon" data-emoji="🖼" data-lucide="image">🖼</span> <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
-          <p><span class="ui-icon" data-emoji="🧽" data-lucide="spray-can">🧽</span> <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
-          <p><span class="ui-icon" data-emoji="🧠" data-lucide="brain">🧠</span> Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
+          <p><i class="ph ph-note-pencil" aria-hidden="true"></i> <strong>Library</strong> (top right) drops an existing note here as a card.</p>
+          <p><i class="ph ph-pencil-simple" aria-hidden="true"></i> <strong>Pen</strong>, <i class="ph ph-ruler" aria-hidden="true"></i> <strong>Line</strong>, ⬜ <strong>Rectangle</strong>, ⭕ <strong>Circle</strong> sketch on the canvas.</p>
+          <p><i class="ph ph-link" aria-hidden="true"></i> A <strong>link</strong> tool connects two cards — drag from one to the other.</p>
+          <p><i class="ph ph-text-t" aria-hidden="true"></i> <strong>Text</strong> drops a box you can type in; <i class="ph ph-image" aria-hidden="true"></i> <strong>Image</strong> adds a picture — or just paste/drag one onto the board.</p>
+          <p><i class="ph ph-eraser" aria-hidden="true"></i> <strong>Eraser</strong> removes whatever it drags across; ⟲ <strong>Undo</strong> (Ctrl+Z) brings it back.</p>
+          <p><i class="ph ph-brain" aria-hidden="true"></i> Select a linked card, then <strong>Tab</strong> for a new branch, <strong>Enter</strong> for a sibling — or use "Arrange as mind map" in Properties to lay out everything it's linked to.</p>
           <p class="muted">Shortcuts: V pan · S select · P pen · L line · A arrow · R rectangle · O circle · T text · E eraser · X delete · Tab new branch · Enter new sibling · Esc back to pan</p>
           <button id="wb-empty-hint-dismiss" class="ghost small wb-empty-hint-close" type="button">Don't show this again</button>
         </div>
@@ -1583,7 +1565,7 @@ Link to another note with [[its first few words]]."></textarea>
 
     <div class="whiteboard-floating-panel top-right card glass" data-panel-id="library">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button id="wb-add-note" class="ghost small" title="Toggle Library"><span class="ui-icon" data-emoji="📝" data-lucide="file-text">📝</span> Library</button>
+      <button id="wb-add-note" class="ghost small" title="Toggle Library"><i class="ph ph-note-pencil" aria-hidden="true"></i> Library</button>
       <input
         type="color"
         id="wb-bg-color-picker"
@@ -1602,10 +1584,10 @@ Link to another note with [[its first few words]]."></textarea>
         <input type="checkbox" id="wb-snap-toggle">
         <span>Snap</span>
       </label>
-      <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image"><span class="ui-icon" data-emoji="🖼" data-lucide="image">🖼</span></button>
+      <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
       <input type="file" id="wb-bg-image-input" accept="image/*" class="hidden" aria-hidden="true">
       <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions">⟲</button>
-      <button id="wb-clear-board" class="ghost small icon-button" type="button" title="Clear this board"><span class="ui-icon" data-emoji="🗑" data-lucide="trash-2">🗑</span></button>
+      <button id="wb-clear-board" class="ghost small icon-button" type="button" title="Clear this board"><i class="ph ph-trash" aria-hidden="true"></i></button>
       <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board">⬇</button>
     </div>
 
@@ -1807,9 +1789,9 @@ Link to another note with [[its first few words]]."></textarea>
 
     <div class="whiteboard-floating-panel bottom-right card glass" data-panel-id="zoom">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button id="wb-zoom-in" class="ghost small" title="Zoom In"><span class="ui-icon" data-emoji="➕" data-lucide="plus">➕</span></button>
-      <button id="wb-zoom-out" class="ghost small" title="Zoom Out"><span class="ui-icon" data-emoji="➖" data-lucide="minus">➖</span></button>
-      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen"><span class="ui-icon" data-emoji="⛶" data-lucide="box">⛶</span></button>
+      <button id="wb-zoom-in" class="ghost small" title="Zoom In"><i class="ph ph-plus" aria-hidden="true"></i></button>
+      <button id="wb-zoom-out" class="ghost small" title="Zoom Out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
       <button id="wb-help-btn" class="ghost small" title="Show the whiteboard help again">?</button>
     </div>
 
@@ -1907,8 +1889,8 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="wb-properties-row wb-prop-mindmap hidden" id="wb-prop-mindmap-row">
         <span>Arrange as mind map</span>
         <div class="wb-multi-actions">
-          <button type="button" id="wb-mindmap-tree" class="ghost small" title="Tree layout, root on the left"><span class="ui-icon" data-emoji="🌳" data-lucide="tree-pine">🌳</span> Tree</button>
-          <button type="button" id="wb-mindmap-radial" class="ghost small" title="Radial layout, root at the centre"><span class="ui-icon" data-emoji="🎯" data-lucide="target">🎯</span> Radial</button>
+          <button type="button" id="wb-mindmap-tree" class="ghost small" title="Tree layout, root on the left"><i class="ph ph-tree" aria-hidden="true"></i> Tree</button>
+          <button type="button" id="wb-mindmap-radial" class="ghost small" title="Radial layout, root at the centre"><i class="ph ph-target" aria-hidden="true"></i> Radial</button>
         </div>
       </div>
       <!-- Multi-selection tools: grouping and alignment. Asked for directly
@@ -1917,8 +1899,8 @@ Link to another note with [[its first few words]]."></textarea>
            rows above rather than sitting alongside them. -->
       <div class="wb-properties-row wb-prop-multi hidden" id="wb-prop-multi-row">
         <div class="wb-multi-actions">
-          <button type="button" id="wb-multi-group" class="ghost small" title="Group (Ctrl+G)"><span class="ui-icon" data-emoji="🔗" data-lucide="link">🔗</span> Group</button>
-          <button type="button" id="wb-multi-ungroup" class="ghost small" title="Ungroup (Ctrl+Shift+G)"><span class="ui-icon" data-emoji="<span class="ui-icon" data-emoji="✂" data-lucide="scissors">✂</span>️" data-lucide="scissors"><span class="ui-icon" data-emoji="✂" data-lucide="scissors">✂</span>️</span> Ungroup</button>
+          <button type="button" id="wb-multi-group" class="ghost small" title="Group (Ctrl+G)"><i class="ph ph-link" aria-hidden="true"></i> Group</button>
+          <button type="button" id="wb-multi-ungroup" class="ghost small" title="Ungroup (Ctrl+Shift+G)"><i class="ph ph-scissors" aria-hidden="true"></i> Ungroup</button>
         </div>
         <div class="wb-multi-actions">
           <button type="button" id="wb-align-left" class="ghost small" title="Align left edges">⇤</button>
@@ -1943,7 +1925,7 @@ Link to another note with [[its first few words]]."></textarea>
            that would have dismissed it. -->
       <div class="row space-between wb-sidebar-head">
         <h3>Library</h3>
-        <button id="wb-library-close" class="ghost small" title="Close the library"><span class="ui-icon" data-emoji="✕" data-lucide="x">✕</span></button>
+        <button id="wb-library-close" class="ghost small" title="Close the library"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
       <ul id="wb-library-list" class="wb-library-list"></ul>
     </aside>
@@ -2014,7 +1996,7 @@ Link to another note with [[its first few words]]."></textarea>
          is happening" for hours is the decoration the caveat above warns
          about; a slot that appears is a thing you notice. -->
     <button id="status-task" class="status-item status-task hidden" type="button"></button>
-    <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><span class="ui-icon" data-emoji="🔋" data-lucide="battery-full">🔋</span> Saver On</span>
+    <span id="power-saver-indicator" class="chip warning hidden" title="Power Saver Mode is On"><i class="ph ph-battery-full" aria-hidden="true"></i> Saver On</span>
     <span class="status-spacer"></span>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>
@@ -2037,7 +2019,7 @@ Link to another note with [[its first few words]]."></textarea>
                is what keeps it announced as a toggle for a screen reader. -->
           <button type="button" class="ghost small hidden" id="settings-peek"
             aria-pressed="false"
-            title="Hold the panel back so you can see your colour changes on the page behind it"><span class="ui-icon" data-emoji="👁" data-lucide="eye">👁</span> Peek</button>
+            title="Hold the panel back so you can see your colour changes on the page behind it"><i class="ph ph-eye" aria-hidden="true"></i> Peek</button>
           <button id="settings-close" class="ghost small">Close</button>
         </div>
       </div>
@@ -2416,9 +2398,9 @@ Link to another note with [[its first few words]]."></textarea>
                   <small class="muted">System follows your device's light/dark setting.</small>
                 </div>
                 <div class="seg" id="theme-seg" role="group" aria-label="Theme">
-                  <button data-theme-choice="light"><span class="ui-icon" data-emoji="<span class="ui-icon" data-emoji="☀" data-lucide="sun">☀</span>️" data-lucide="sun"><span class="ui-icon" data-emoji="☀" data-lucide="sun">☀</span>️</span> Light</button>
-                  <button data-theme-choice="dark"><span class="ui-icon" data-emoji="🌙" data-lucide="moon">🌙</span> Dark</button>
-                  <button data-theme-choice="system"><span class="ui-icon" data-emoji="🖥" data-lucide="monitor">🖥</span> System</button>
+                  <button data-theme-choice="light"><i class="ph ph-sun" aria-hidden="true"></i> Light</button>
+                  <button data-theme-choice="dark"><i class="ph ph-moon" aria-hidden="true"></i> Dark</button>
+                  <button data-theme-choice="system"><i class="ph ph-monitor" aria-hidden="true"></i> System</button>
                 </div>
               </div>
 
@@ -2881,7 +2863,7 @@ Link to another note with [[its first few words]]."></textarea>
               <input id="pref-searxng" type="text" maxlength="200"
                 placeholder="http://localhost:8888">
               <button id="searxng-detect" class="ghost small"
-                title="Look for a SearXNG on the usual local ports"><span class="ui-icon" data-emoji="🔍" data-lucide="search">🔍</span> Auto-detect</button>
+                title="Look for a SearXNG on the usual local ports"><i class="ph ph-magnifying-glass" aria-hidden="true"></i> Auto-detect</button>
             </div>
             <p id="searxng-status" class="status" role="status"></p>
             <p class="muted">
@@ -3072,7 +3054,7 @@ Link to another note with [[its first few words]]."></textarea>
               replaces go to the recycle bin, so nothing is destroyed.
             </p>
             <div class="row">
-              <button id="find-duplicates" class="small"><span class="ui-icon" data-emoji="🔍" data-lucide="search">🔍</span> Find duplicates</button>
+              <button id="find-duplicates" class="small"><i class="ph ph-magnifying-glass" aria-hidden="true"></i> Find duplicates</button>
               <label for="duplicate-threshold" class="muted">How alike</label>
               <input id="duplicate-threshold" type="range" min="50" max="100" value="72"
                 aria-label="How similar two notes must be to count as duplicates">
@@ -3165,7 +3147,7 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               <div class="row">
                 <button id="account-lock-all" class="ghost small">
-                  <span class="ui-icon" data-emoji="🔒" data-lucide="lock">🔒</span> Lock everywhere now</button>
+                  <i class="ph ph-lock" aria-hidden="true"></i> Lock everywhere now</button>
               </div>
             </div>
 
@@ -3228,19 +3210,19 @@ Link to another note with [[its first few words]]."></textarea>
             <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
             <div class="help-accordion">
               <details>
-                <summary><span class="ui-icon" data-emoji="📝" data-lucide="file-text">📝</span> Capturing notes</summary>
-                <p>In the <strong>Notes</strong> tab, type anything into “Capture a thought” and Save. A local AI files it into a category and suggests tags — you can always re-file or edit. Use a template, dictate with <span class="ui-icon" data-emoji="🎙" data-lucide="mic">🎙</span>, sketch with <span class="ui-icon" data-emoji="🎨" data-lucide="palette">🎨</span>, or let <span class="ui-icon" data-emoji="✨" data-lucide="wand-2">✨</span> Improve proofread it first.</p>
+                <summary><i class="ph ph-note-pencil" aria-hidden="true"></i> Capturing notes</summary>
+                <p>In the <strong>Notes</strong> tab, type anything into “Capture a thought” and Save. A local AI files it into a category and suggests tags — you can always re-file or edit. Use a template, dictate with <i class="ph ph-microphone" aria-hidden="true"></i>, sketch with <i class="ph ph-palette" aria-hidden="true"></i>, or let <i class="ph ph-magic-wand" aria-hidden="true"></i> Improve proofread it first.</p>
               </details>
               <details>
-                <summary><span class="ui-icon" data-emoji="💬" data-lucide="message-circle">💬</span> Asking &amp; chatting</summary>
+                <summary><i class="ph ph-chat-circle" aria-hidden="true"></i> Asking &amp; chatting</summary>
                 <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on <strong>Agent mode</strong> to let the assistant use its tools — searching and reading your notes, opening a web page, creating, tagging, linking and organising. Destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
               </details>
               <details>
-                <summary><span class="ui-icon" data-emoji="⚡" data-lucide="zap">⚡</span>️ Skills</summary>
+                <summary><i class="ph ph-lightning" aria-hidden="true"></i> Skills</summary>
                 <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <em>Settings → Skills</em>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
               </details>
               <details>
-                <summary><span class="ui-icon" data-emoji="🕸" data-lucide="network">🕸</span> Graph</summary>
+                <summary><i class="ph ph-graph" aria-hidden="true"></i> Graph</summary>
                 <p>The <strong>Graph</strong> tab shows your notes as a network — links, threads, and (optionally) AI similarity lines. Search to highlight, drag to rearrange, toggle categories in the legend, and use the zoom controls to explore.</p>
               </details>
               <details>
@@ -3248,11 +3230,11 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>The <strong>Reminders</strong> tab groups items by Overdue / Today / Upcoming / Done. Set a priority, snooze, edit inline, or make one recurring. Notifications fire while the app is open.</p>
               </details>
               <details>
-                <summary><span class="ui-icon" data-emoji="📊" data-lucide="bar-chart-2">📊</span> Dashboard</summary>
+                <summary><i class="ph ph-chart-bar" aria-hidden="true"></i> Dashboard</summary>
                 <p>The <strong>Dashboard</strong> is your at-a-glance home: streaks, stats, pinned notes, reminders, a weekly digest, and more. Click “Edit layout” to show/hide and rearrange widgets — your layout is remembered.</p>
               </details>
               <details>
-                <summary><span class="ui-icon" data-emoji="🎨" data-lucide="palette">🎨</span> Appearance</summary>
+                <summary><i class="ph ph-palette" aria-hidden="true"></i> Appearance</summary>
                 <p><em>Settings → Appearance</em> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
               </details>
               <details>
@@ -3319,7 +3301,7 @@ Link to another note with [[its first few words]]."></textarea>
     aria-modal="true" aria-label="Note history">
     <div class="card modal-card" id="history-card">
       <div class="row space-between">
-        <h2><span class="ui-icon" data-emoji="🕘" data-lucide="clock">🕘</span> Earlier versions</h2>
+        <h2><i class="ph ph-clock" aria-hidden="true"></i> Earlier versions</h2>
         <button id="history-close" class="ghost small">Close</button>
       </div>
       <p id="history-status" class="status" role="status"></p>
@@ -3343,14 +3325,14 @@ Link to another note with [[its first few words]]."></textarea>
     aria-modal="true" aria-label="A note in the bin">
     <div class="card modal-card" id="binned-card">
       <div class="row space-between">
-        <h2><span class="ui-icon" data-emoji="🗑" data-lucide="trash-2">🗑</span> In the bin</h2>
+        <h2><i class="ph ph-trash" aria-hidden="true"></i> In the bin</h2>
         <button id="binned-close" class="ghost small">Close</button>
       </div>
       <p id="binned-meta" class="muted"></p>
       <div id="binned-body" class="binned-body"></div>
       <div class="row">
         <button id="binned-restore" class="small">↩ Restore</button>
-        <button id="binned-purge" class="ghost small"><span class="ui-icon" data-emoji="🗑" data-lucide="trash-2">🗑</span> Delete for good</button>
+        <button id="binned-purge" class="ghost small"><i class="ph ph-trash" aria-hidden="true"></i> Delete for good</button>
       </div>
     </div>
   </div>
@@ -3535,7 +3517,7 @@ Link to another note with [[its first few words]]."></textarea>
     aria-modal="true" aria-label="Meeting notes">
     <div class="card modal-card" id="meeting-card">
       <div class="row space-between">
-        <h2><span class="ui-icon" data-emoji="🎙" data-lucide="mic">🎙</span>️ Meeting notes</h2>
+        <h2><i class="ph ph-microphone" aria-hidden="true"></i> Meeting notes</h2>
         <button id="meeting-close" class="ghost small">Close</button>
       </div>
       <p class="muted">
@@ -3567,7 +3549,7 @@ Link to another note with [[its first few words]]."></textarea>
     aria-modal="true" aria-label="Tools and features">
     <div class="card modal-card" id="features-card">
       <div class="row space-between">
-        <h2><span class="ui-icon" data-emoji="🧰" data-lucide="toolbox">🧰</span> Tools &amp; features</h2>
+        <h2><i class="ph ph-toolbox" aria-hidden="true"></i> Tools &amp; features</h2>
         <button id="features-close" class="ghost small">Close</button>
       </div>
       <input id="features-search" type="text" autocomplete="off"

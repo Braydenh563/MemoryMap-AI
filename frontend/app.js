@@ -20030,21 +20030,6 @@ function applyCustomAccent(hex) {
   root.style.setProperty("--blob-a", `rgba(${parts}, 0.30)`);
 }
 
-function updateIcons() {
-  const style = appearancePref("iconstyle");
-  const icons = document.querySelectorAll('.ui-icon');
-  for (const icon of icons) {
-    if (style === "svg") {
-      icon.innerHTML = `<i data-lucide="${icon.dataset.lucide}"></i>`;
-    } else {
-      icon.innerHTML = icon.dataset.emoji;
-    }
-  }
-  if (style === "svg" && window.lucide) {
-    window.lucide.createIcons();
-  }
-}
-
 function applyPageBackground(hex) {
   const root = document.documentElement;
   if (hex) root.style.setProperty("--page", hex);
@@ -20110,7 +20095,6 @@ function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
   root.dataset.font = appearancePref("font");
-  root.dataset.iconstyle = appearancePref("iconstyle");
   root.dataset.density = appearancePref("density");
   root.dataset.glass = appearancePref("glass");
   root.dataset.glassSheen = appearancePref("glass-sheen");

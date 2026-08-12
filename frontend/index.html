@@ -482,7 +482,7 @@ Link to another note with [[its first few words]]."></textarea>
                 AI answer <span id="answered-by" class="chip"></span>
                 <span class="answer-actions">
                   <button id="retry-btn" class="ghost small hidden"
-                    title="Ask this question again">↻ Retry</button>
+                    title="Ask this question again"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Retry</button>
                   <button id="copy-btn" class="ghost small hidden"
                     title="Copy the answer">⧉ Copy</button>
                   <button id="speak-btn" class="ghost small hidden"
@@ -518,7 +518,7 @@ Link to another note with [[its first few words]]."></textarea>
             <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All entries</span></h2>
             <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square" aria-hidden="true"></i> Select</button>
             <input id="note-search" class="library-search" type="search"
-              placeholder="🔎 Filter — try tag:work or &quot;exact phrase&quot;"
+              placeholder="Filter — try tag:work or &quot;exact phrase&quot;"
               aria-label="Filter notes. Supports tag:, cat:, is:pinned, -exclude and quoted phrases"
               aria-describedby="search-help-hint">
             <label class="row align-center checkbox-label semantic-toggle" title="Search by concept instead of exact keywords">
@@ -810,7 +810,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="note-picker-panel" class="note-picker-panel hidden"
                 role="dialog" aria-label="Choose notes to reference">
                 <input id="note-picker-search" type="search"
-                  placeholder="🔎 Search your notes…" aria-label="Search notes to attach">
+                  placeholder="Search your notes…" aria-label="Search notes to attach">
                 <ul id="note-picker-list" class="note-picker-list"></ul>
                 <div class="row space-between note-picker-foot">
                   <span id="note-picker-count" class="muted"></span>
@@ -841,7 +841,7 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- Web search and the page reader, as a **column beside the
              conversation** rather than a drawer inside the dock.
 
-             It lived in the dock because the 🌐 button that opens it is there,
+             It lived in the dock because the Web button that opens it is there,
              and that reasoning was right about the button and wrong about the
              panel. The dock is a strip: it holds the controls for the message
              you are about to send, and it has to stay short or the
@@ -938,7 +938,7 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <p class="muted">
         A note sits where it is <em>about</em> when it says so — "the deadline
-        is next Friday" plots on that Friday, marked 🕓 — and at when it was
+        is next Friday" plots on that Friday, marked with a clock — and at when it was
         written otherwise. Click any note to open it.
       </p>
       <div id="timeline-scroll" class="timeline-scroll">
@@ -978,11 +978,11 @@ Link to another note with [[its first few words]]."></textarea>
            Up here: the four things you change while reading the map — what you
            are looking for, how it is arranged, what the colours mean, and
            adding a note. Everything that is tuned once and left (physics,
-           three display toggles, the AI's link suggestions) is behind ⚙, which
+           three display toggles, the AI's link suggestions) is behind the gear button, which
            remembers whether it was open. Nothing was removed. -->
       <div class="graph-toolbar">
         <h2>Graph</h2>
-        <input id="graph-search" type="search" placeholder="🔎 Highlight notes…"
+        <input id="graph-search" type="search" placeholder="Highlight notes…"
           aria-label="Highlight matching notes in the graph">
         <label class="muted" for="graph-layout">Layout</label>
         <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
@@ -1006,13 +1006,13 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- §37F: Trace used to be a permanently-drawn second row — the one
              control here that is a distinct mode (finding a path between two
              named notes) rather than a setting left on, so it gets the same
-             ⚙ Options treatment: folded away, remembered whether it was open,
+             Options treatment: folded away, remembered whether it was open,
              nothing removed. -->
         <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
           aria-controls="graph-trace"
           title="Find how two notes connect"><i class="ph ph-path" aria-hidden="true"></i> Trace</button>
         <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x" aria-hidden="true"></i> Exit Focus</button>
-        <button id="graph-refresh" class="ghost small">↻ Refresh</button>
+        <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Refresh</button>
         <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x" aria-hidden="true"></i> Close Full Screen</button>
       </div>
       <!-- The tuned-once controls. One row, one control height, margins
@@ -1248,8 +1248,8 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" data-md="quote" title="Quote"><i class="ph ph-quotes" aria-hidden="true"></i></button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" data-md="link" title="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
-          <button type="button" data-md="codeblock" title="Code block">▤</button>
-          <button type="button" data-md="table" title="Table">▦</button>
+          <button type="button" data-md="codeblock" title="Code block" aria-label="Code block"><i class="ph ph-code-block" aria-hidden="true"></i></button>
+          <button type="button" data-md="table" title="Table" aria-label="Table"><i class="ph ph-table" aria-hidden="true"></i></button>
           <button type="button" data-md="hr" title="Divider">—</button>
         </div>
         <div class="doc-panes" id="doc-panes">
@@ -1313,7 +1313,7 @@ Link to another note with [[its first few words]]."></textarea>
              with the text, and Enter still submits (Shift+Enter for a line
              break) so the quick path stays quick. -->
         <textarea id="reminder-magic" maxlength="1000" rows="1" class="autogrow"
-          placeholder="✨ Magic add — e.g. “Call mum tomorrow evening, high priority”"></textarea>
+          placeholder="Magic add — e.g. “Call mum tomorrow evening, high priority”"></textarea>
         <button id="reminder-magic-add" class="ghost"><i class="ph ph-magic-wand" aria-hidden="true"></i> Add</button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
@@ -1325,7 +1325,7 @@ Link to another note with [[its first few words]]."></textarea>
              the worst of the native controls. Two plain fields are each easy,
              and a <time> input offers the OS clock picker. #reminder-due stays
              as the single hidden source of truth so every existing caller
-             (presets, nudges, the note ⏰ button) keeps working unchanged. -->
+             (presets, nudges, the note Remind button) keeps working unchanged. -->
         <input id="reminder-date" type="date" aria-label="Due date">
         <input id="reminder-time" type="time" aria-label="Due time" step="300">
         <input id="reminder-due" type="hidden">
@@ -1366,7 +1366,7 @@ Link to another note with [[its first few words]]."></textarea>
           title="A day earlier" aria-label="A day earlier">−1d</button>
         <button id="reminder-due-day-up" class="ghost small"
           title="A day later" aria-label="A day later">+1d</button>
-        <span class="muted reminder-hint">Notifications fire while the app is open — or hit ⏰ on any note.</span>
+        <span class="muted reminder-hint">Notifications fire while the app is open — or hit Remind on any note.</span>
       </div>
     </section>
 
@@ -1384,9 +1384,9 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div id="reminder-groups"></div>
       <div id="reminders-empty" class="empty-state hidden">
-        <span class="empty-icon" aria-hidden="true">⏰</span>
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm" aria-hidden="true"></i></span>
         <p class="empty-title">No reminders yet</p>
-        <p class="muted">Add one above, or hit ⏰ on any note.</p>
+        <p class="muted">Add one above, or hit Remind on any note.</p>
       </div>
     </section>
   </div>
@@ -1418,7 +1418,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="library-new-doc" class="small" type="button"
                 title="Start a new document">＋ New document</button>
               <button id="library-refresh" class="ghost small" type="button"
-                title="Reload the list">↻</button>
+                title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             </span>
           </div>
           <!-- The state of the notebook, as the numbers a management screen opens
@@ -1428,7 +1428,7 @@ Link to another note with [[its first few words]]."></textarea>
             aria-label="Your notebook at a glance"></div>
           <div class="library-toolbar">
             <input id="library-search" type="search" class="library-search"
-              placeholder="🔎 Search titles and previews…"
+              placeholder="Search titles and previews…"
               aria-label="Search the library">
             <!-- Binned things are out of "Everything" unless you ask for them:
                  the Library is where you find what you have, and what you threw
@@ -1455,7 +1455,7 @@ Link to another note with [[its first few words]]."></textarea>
                  columns, which is what you want when the job is tidying up. -->
             <div class="seg seg-compact library-view" id="library-view" role="group"
               aria-label="How to show the library">
-              <button data-library-view="grid" type="button" title="Cards">▦</button>
+              <button data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               <button data-library-view="list" type="button" title="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
           </div>
@@ -1525,7 +1525,7 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>Whiteboards</h2>
           <span class="row">
             <button id="wb-boards-new" class="small" type="button">＋ New board</button>
-            <button id="library-media-refresh" class="ghost small" type="button" title="Reload">↻</button>
+            <button id="library-media-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           </span>
         </div>
         <p class="muted">Every board something has been placed on. Pick one to open it.</p>
@@ -1591,7 +1591,7 @@ Link to another note with [[its first few words]]."></textarea>
       <select id="wb-board-select" class="ghost small" title="Switch Board">
         <option value="">Default board</option>
       </select>
-      <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board">✎</button>
+      <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
       <button id="wb-new-board" class="ghost small icon-button" type="button" title="Create a new board">＋</button>
     </div>
 
@@ -1605,7 +1605,7 @@ Link to another note with [[its first few words]]."></textarea>
         title="Board background colour"
         class="wb-color-picker"
       >
-      <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset to theme default">↺</button>
+      <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset to theme default" aria-label="Reset to theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
       <select id="wb-grid-select" class="ghost small" title="Grid">
         <option value="none">No grid</option>
         <option value="lines">Grid: lines</option>
@@ -1953,7 +1953,7 @@ Link to another note with [[its first few words]]."></textarea>
     
     <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
       <!-- Its own close button. The panel sits at top-right, which is exactly
-           where the 📝 Library toggle is, so the list covered the only control
+           where the Library toggle is, so the list covered the only control
            that would have dismissed it. -->
       <div class="row space-between wb-sidebar-head">
         <h3>Library</h3>
@@ -1973,7 +1973,7 @@ Link to another note with [[its first few words]]."></textarea>
     <section class="card glass">
       <div class="row space-between library-head">
         <h2>Image Gallery</h2>
-        <button id="library-images-refresh" class="ghost small" type="button" title="Reload">↻</button>
+        <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
       </div>
       <p class="muted">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard.</p>
       <div id="library-images-grid" class="library-image-grid"></div>
@@ -2077,7 +2077,7 @@ Link to another note with [[its first few words]]."></textarea>
                layout. Searching the sections' actual contents turns that guess
                into typing the word you already have in mind (§36B). -->
           <input id="settings-search" type="search" class="settings-search"
-            placeholder="🔎 Search…" aria-label="Search settings"
+            placeholder="Search…" aria-label="Search settings"
             aria-describedby="settings-search-count">
           <p id="settings-search-count" class="muted settings-search-count hidden"
             role="status"></p>
@@ -2806,7 +2806,7 @@ Link to another note with [[its first few words]]."></textarea>
             <p id="shortcut-status-settings" class="status" role="status"></p>
             <div class="row">
               <button id="shortcuts-reset-settings" class="ghost small" type="button">
-                ↺ Reset to defaults
+                <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Reset to defaults
               </button>
             </div>
 
@@ -2935,10 +2935,10 @@ Link to another note with [[its first few words]]."></textarea>
                    and check, which was the only advice a failed start had. -->
               <p class="muted" id="searxng-port"></p>
               <div class="row">
-                <button id="searxng-start" class="small">▶️ Start SearXNG</button>
+                <button id="searxng-start" class="small"><i class="ph ph-play" aria-hidden="true"></i> Start SearXNG</button>
                 <button id="searxng-stop" class="ghost small">■ Stop</button>
                 <button id="searxng-reinstall" class="ghost small"
-                  title="Delete the SearXNG install and set it up again from scratch">↻ Reinstall</button>
+                  title="Delete the SearXNG install and set it up again from scratch"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Reinstall</button>
                 <span id="searxng-host-status" class="status" role="status"></span>
               </div>
               <!-- Reported as web search "disabling itself". It was not the
@@ -3043,7 +3043,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </select>
                 
                 <div class="row row-top-gap">
-                  <button id="autonomous-trigger" class="small ghost">▶ Run optimization now</button>
+                  <button id="autonomous-trigger" class="small ghost"><i class="ph ph-play" aria-hidden="true"></i> Run optimization now</button>
                 </div>
 
                 <!-- What the last pass actually did. This is the answer to
@@ -3077,7 +3077,7 @@ Link to another note with [[its first few words]]."></textarea>
               Stops the app and its server properly, so nothing is left running
               in the background and the next start finds its port free.
             </p>
-            <button id="app-quit" class="ghost small">⏻ Quit the app</button>
+            <button id="app-quit" class="ghost small"><i class="ph ph-power" aria-hidden="true"></i> Quit the app</button>
           </section>
 
           <!-- Data (Wave F: markdown + backups join the exports) -->
@@ -3225,7 +3225,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="warning">Warnings &amp; errors</option>
                 <option value="error">Errors only</option>
               </select>
-              <input id="log-filter" type="search" placeholder="🔎 Filter…"
+              <input id="log-filter" type="search" placeholder="Filter…"
                 aria-label="Only show records containing this text">
               <label class="muted tools-toggle" id="log-follow-label"
                 title="Keep the newest records in view. Scroll up to pause.">
@@ -3248,7 +3248,7 @@ Link to another note with [[its first few words]]."></textarea>
           <section class="settings-section hidden" id="settings-help">
             <div class="row space-between">
               <h3 class="flush">Help &amp; guide</h3>
-              <button id="show-guide-btn" class="small">▶️ Replay welcome tour</button>
+              <button id="show-guide-btn" class="small"><i class="ph ph-play" aria-hidden="true"></i> Replay welcome tour</button>
             </div>
             <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
             <div class="help-accordion">
@@ -3269,7 +3269,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>The <strong>Graph</strong> tab shows your notes as a network — links, threads, and (optionally) AI similarity lines. Search to highlight, drag to rearrange, toggle categories in the legend, and use the zoom controls to explore.</p>
               </details>
               <details>
-                <summary>⏰ Reminders</summary>
+                <summary><i class="ph ph-alarm" aria-hidden="true"></i> Reminders</summary>
                 <p>The <strong>Reminders</strong> tab groups items by Overdue / Today / Upcoming / Done. Set a priority, snooze, edit inline, or make one recurring. Notifications fire while the app is open.</p>
               </details>
               <details>
@@ -3281,7 +3281,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p><em>Settings → Appearance</em> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
               </details>
               <details>
-                <summary>⌨ Keyboard shortcuts</summary>
+                <summary><i class="ph ph-keyboard" aria-hidden="true"></i> Keyboard shortcuts</summary>
                 <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes.</p>
               </details>
             </div>
@@ -3313,7 +3313,7 @@ Link to another note with [[its first few words]]."></textarea>
               or open the list here.
             </p>
             <div class="row">
-              <button id="about-shortcuts" class="small" type="button">⌨ Change keyboard shortcuts</button>
+              <button id="about-shortcuts" class="small" type="button"><i class="ph ph-keyboard" aria-hidden="true"></i> Change keyboard shortcuts</button>
             </div>
           </section>
 
@@ -3402,14 +3402,14 @@ Link to another note with [[its first few words]]."></textarea>
     aria-modal="true" aria-label="Keyboard shortcuts">
     <div class="card modal-card" id="shortcuts-card">
       <div class="row space-between">
-        <h2>⌨ Keyboard shortcuts</h2>
+        <h2><i class="ph ph-keyboard" aria-hidden="true"></i> Keyboard shortcuts</h2>
         <button id="shortcuts-close" class="ghost small">Close</button>
       </div>
       <p class="muted">Click <strong>Change</strong> and press the keys you want.</p>
       <ul class="shortcut-list" id="shortcut-list"></ul>
       <p id="shortcut-status" class="status" role="status"></p>
       <div class="row">
-        <button id="shortcuts-reset" class="ghost small" type="button">↺ Reset to defaults</button>
+        <button id="shortcuts-reset" class="ghost small" type="button"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Reset to defaults</button>
       </div>
 
       <h3>Always available</h3>
@@ -3548,7 +3548,7 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <!-- Meeting notes (§17, the backlog's own "highest-value single addition
-       still unbuilt"): a longer recording than the quick 🎙 dictation button
+       still unbuilt"): a longer recording than the quick dictation button
        in the composer is built for, transcribed locally, then handed back
        for review before it becomes a note — the same "capture, then look at
        what came out" shape the sketch pad's caption step already uses.
@@ -3569,7 +3569,7 @@ Link to another note with [[its first few words]]."></textarea>
         button. Nothing leaves this machine.
       </p>
       <div class="row" id="meeting-controls">
-        <button id="meeting-record" type="button">⏺ Record</button>
+        <button id="meeting-record" type="button"><i class="ph ph-record" aria-hidden="true"></i> Record</button>
         <span id="meeting-timer" class="meeting-timer muted" aria-live="polite">0:00</span>
       </div>
       <p id="meeting-status" class="status" role="status"></p>

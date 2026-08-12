@@ -361,6 +361,11 @@ def test_agent_warns_on_hallucinated_write(ai_client, fake_ollama):
     fake_ollama.librarian_reply = "I created a new note titled “Jokes”. Enjoy!"
     events = _stream_events(ai_client, "add a note of jokes")
     answer = "".join(e["delta"] for e in events if e["type"] == "answer")
-    assert "⚠️" in answer
+    # Was `assert "" in answer`. The warning glyph went away with the rest of
+    # the colour emoji — this is prose appended to the model's own answer, and
+    # a bitmap emoji in it renders at the OS's whim and cannot follow the
+    # theme. What the test is actually for is that the user is TOLD, so it
+    # pins the words rather than the decoration.
+    assert "Heads up" in answer
     assert "saved a note" in answer
     assert "didn't actually run the tool" in answer

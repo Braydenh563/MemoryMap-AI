@@ -179,7 +179,28 @@ select optgroup {
   --page-viewport: calc(100dvh - var(--header-h) - var(--status-bar-h));
 
   /* The page shell. One inset for every tab — see .tab-page. */
+  /* The sidebar collapse toggle's own size, and the lane a heading row must
+     leave clear for it: the toggle plus its inset plus a gap. Declared here so
+     the reserve and the thing being reserved for cannot drift apart — they
+     did, by ~6px, and that was the misaligned sidebar headers. Not spacing
+     tokens: a hit target is a control's size and must not shift with the
+     density setting. */
+  --sidebar-toggle-size: 28px;
+  /* Where the toggle sits inside its card. A token because the heading row
+     beside it is aligned to it by arithmetic (see .sidebar-head) — as a
+     literal in one rule and a guess in the other, the two drifted apart by
+     exactly this much, which is the reported misalignment. */
+  --sidebar-toggle-inset: 0.5rem;
+  /* The lane a heading row keeps clear on its right for the collapse toggle.
+     It was toggle + 1rem + a gap, which over-reserved: the toggle overhangs
+     the card's content box by only a few pixels, so the extra 1rem left the
+     "New" button stranded a full toggle's width short of it, reading as a
+     control floating in the middle of the header rather than one grouped with
+     the toggle. Toggle plus one small gap is the whole reserve. */
+  --sidebar-toggle-lane: calc(var(--sidebar-toggle-size) + var(--space-2));
   --page-gutter: var(--space-9);
+  --page-left: var(--page-gutter);
+  --page-right: var(--page-gutter);
   /* 2rem, the inset five rules had by hand */
   --page-top: var(--space-6);
   --page-bottom: var(--space-9);
@@ -429,6 +450,40 @@ body {
    platform guess on more systems. */
 :root[data-font="mono"] {
   --ui-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+
+:root[data-font="arial"] {
+  --ui-font: Arial, Helvetica, sans-serif;
+}
+
+:root[data-font="georgia"] {
+  --ui-font: Georgia, serif;
+}
+
+:root[data-font="times"] {
+  --ui-font: "Times New Roman", Times, serif;
+}
+
+:root[data-font="verdana"] {
+  --ui-font: Verdana, Geneva, sans-serif;
+}
+
+:root[data-font="tahoma"] {
+  --ui-font: Tahoma, Geneva, sans-serif;
+}
+
+:root[data-font="trebuchet"] {
+  --ui-font: "Trebuchet MS", Helvetica, sans-serif;
+}
+
+:root[data-font="helvetica"] {
+  --ui-font: Helvetica, Arial, sans-serif;
+}
+
+/* --- Sans-serif system font override (macOS fix) --- */
+/* Force a sans-serif font on the entire page to fix the “italic bug” on macOS */
+:root {
+  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 /* Ambient background art: behind everything, ignores clicks (Wave J). */
@@ -1477,10 +1532,10 @@ header#top-bar.tabs-wrapped #tab-bar {
    doesn't carry a permanent row of trash-can icons; the button itself
    stays in the DOM (not display:none) so it's still keyboard-reachable
    without hovering. */
+.library-image-tile .library-image-edit,
 .library-image-tile .library-image-delete {
   position: absolute;
   top: var(--space-2);
-  right: var(--space-2);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
@@ -1488,6 +1543,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   transition: opacity 0.15s ease;
 }
 
+.library-image-tile .library-image-edit {
+  right: calc(var(--space-2) + 2.2rem);
+}
+.library-image-tile .library-image-delete {
+  right: var(--space-2);
+}
+
+.library-image-tile:hover .library-image-edit,
+.library-image-tile:focus-within .library-image-edit,
+.library-image-tile .library-image-edit:focus-visible,
 .library-image-tile:hover .library-image-delete,
 .library-image-tile:focus-within .library-image-delete,
 .library-image-tile .library-image-delete:focus-visible {
@@ -1500,6 +1565,21 @@ header#top-bar.tabs-wrapped #tab-bar {
   height: 9rem;
   object-fit: cover;
   cursor: zoom-in;
+}
+
+/* The caption becomes the rename field in place, so the field has to occupy
+   exactly the caption's box — a full-width input that changed the tile's
+   height would make the whole grid reflow while you type in one cell of it. */
+.library-image-rename-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
 }
 
 .library-image-tile figcaption {
@@ -1737,7 +1817,14 @@ header#top-bar.tabs-wrapped #tab-bar {
    One shell owns the inset now. A page's own container contributes only its
    internal gap, never its distance from the window. */
 .tab-page {
+  display: flex;
+  flex-direction: column;
   padding: var(--page-top) var(--page-gutter) var(--page-bottom);
+  /* Custom margins (below) override the side halves with longhands rather
+     than a four-value shorthand, so the one declaration the shell test
+     pins stays the only place the page inset is set for everyone else. */
+  padding-left: var(--page-left);
+  padding-right: var(--page-right);
   /* The page is the scrolling element, not the window (§36A). `min-height: 0`
      is what lets a flex item shrink below its content and therefore scroll at
      all — without it the item grows to fit and the overflow never engages. */
@@ -1757,6 +1844,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .layout {
   display: grid;
+  flex: 1 0 auto;
   /* A starting point only — each sidebar remembers its own width, set on the
      grid by initResizableSidebars. 230px left about four characters of a chat
      title visible, which is no title at all. */
@@ -1848,11 +1936,9 @@ header#top-bar.tabs-wrapped #tab-bar {
    100% ceiling, not a baseline it adds to. */
 :root[data-glass-sheen="on"]:not([data-glass="off"]) .card {
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%
-    ),
+      rgba(255, 255, 255, 0) 45%),
     var(--card);
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
@@ -2050,6 +2136,8 @@ input[type="tel"],
 input[type="date"],
 input[type="time"],
 input[type="datetime-local"] {
+  box-sizing: border-box;
+  line-height: 1.5;
   width: 100%;
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-4);
@@ -2098,15 +2186,43 @@ input[type="datetime-local"] {
    chat dock uses — replaces the platform arrow with one that is always inside
    its own reserved space and always the same colour as the text, so it dims
    and brightens with the control instead of staying the OS's grey. */
+/* Reserving the space was not enough on its own, and this is the measurement
+   that showed why. `#llm-provider-select` renders 280px wide because its
+   container constrains it; its longest option needs 270px of TEXT and the
+   control leaves 241px. The option is 29px too wide for the box, so on a
+   select whose width is set by its container rather than by its content, the
+   text runs straight under the caret no matter how much end padding is
+   reserved — reserving more just moves where it collides.
+
+   Two things fix it together:
+     - a wider reserve, so a caret never sits tight against the last glyph;
+     - `text-overflow: ellipsis`, so an option too long for its box is cut with
+       a visible "…" BEFORE the reserve instead of sliding under the caret.
+   The second is the one that actually closes the bug; the first is what makes
+   the result look deliberate. */
 select {
   appearance: none;
   -webkit-appearance: none;
-  padding-inline-end: var(--space-8);
+  padding-inline-end: var(--space-9);
+  /* Never narrower than a couple of words plus the caret's lane. A select that
+     shrink-wraps to "Day" reads as a broken button. */
+  min-width: 7rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
-  background-position: right 0.85rem center, right 0.65rem center;
+  background-position: right 1.05rem center, right 0.85rem center;
   background-repeat: no-repeat;
+}
+
+/* The dropdown list itself. A native popup is drawn by the OS and mostly
+   ignores CSS, but padding on an option is one of the few things Chromium and
+   Firefox both honour — and it is exactly the reported problem, option text
+   sitting flush against the edge of the list with no breathing room. */
+select option {
+  padding: var(--space-2) var(--space-3);
 }
 
 /* Firefox draws its own focus ring inside the control on top of the painted
@@ -3219,6 +3335,27 @@ li.link-source {
   margin: 0.5rem 0;
 }
 
+/* An empty grid is not a grid. See renderCustomThemes(): its empty message is
+   a paragraph, and as a grid item in a 104px track it wrapped to about one
+   word per line. */
+.theme-presets-empty {
+  display: block;
+}
+
+/* The name box and its button. The row let the input keep its intrinsic size
+   and the button overflowed on top of it — reported as the text box clashing
+   with what is next to it. The input takes the slack; the button is a fixed
+   hit target, as everywhere else in this app. */
+#custom-theme-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#custom-theme-save {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .theme-swatch {
   height: 38px;
   border-radius: var(--radius-md);
@@ -3649,8 +3786,12 @@ html.modal-open body {
   width: 4.5rem;
 }
 
-/* In-chat web-search toggle active state */
-#web-search-toggle.active {
+/* In-chat toggles that are ON. Plan joins Web here rather than getting its own
+   look: they are the same kind of control — a mode that stays armed across
+   messages — and two different "on" treatments in one strip is how a user
+   learns that one of them means something else. */
+#web-search-toggle.active,
+#chat-plan.active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
@@ -3881,6 +4022,21 @@ html.modal-open body {
   padding: 0;
 }
 
+
+.chat-sidebar-header {
+  padding-bottom: 0.8rem;
+  margin-bottom: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+
+.chat-sidebar-header strong {
+  font-size: var(--text-h3);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 #conversation-list li {
   display: flex;
   justify-content: space-between;
@@ -3979,7 +4135,7 @@ html.modal-open body {
 }
 
 .small-select {
-  max-width: 11rem;
+  max-width: 16rem;
   margin-bottom: 0;
 }
 
@@ -5516,6 +5672,7 @@ html {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
+    margin-top: 2rem;
   }
 
   #sidebar ul#category-list li {
@@ -5626,6 +5783,18 @@ html {
   display: grid;
   place-content: center;
   cursor: pointer;
+  background: var(--page);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.thumb-wrap .unlink:hover {
+  opacity: 1;
 }
 
 .lightbox {
@@ -5706,10 +5875,28 @@ html {
   color: #fff;
 }
 
+#improve-custom-row {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-4);
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+#improve-custom-input {
+  flex: 1;
+  margin: 0;
+}
+
+#improve-custom-go {
+  margin: 0;
+  height: auto;
+}
+
 .improve-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.8rem;
+  margin-top: var(--space-4);
 }
 
 @media (max-width: 640px) {
@@ -5744,9 +5931,39 @@ html {
   font-size: 0.92rem;
 }
 
-.link-suggestion span:first-child {
-  flex: 1;
+.link-suggestion-text {
+  flex: 1 1 16rem;
   min-width: 12rem;
+}
+
+/* The reason box. Sized so it is obviously a field you may type in rather
+   than a label — the whole complaint was that every suggestion said "similar
+   in meaning" and there was no way to say anything else without linking
+   first, hunting the link down and editing it. */
+.link-suggestion-reason {
+  flex: 1 1 14rem;
+  min-width: 10rem;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* A heading and its actions are two groups, not three peers sharing a
+   space-between — which is what put the backfill button in the middle of the
+   row and read as broken spacing. */
+.link-suggest-head {
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  align-items: center;
+}
+
+.link-suggest-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.link-suggest-actions {
+  flex: 0 0 auto;
+  gap: var(--space-2);
 }
 
 #link-suggestions {
@@ -5864,6 +6081,7 @@ html {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 
+:root[data-glass="off"] .space-menu,
 :root[data-glass="off"] .card,
 :root[data-glass="off"] header#top-bar,
 :root[data-glass="off"] input,
@@ -6534,6 +6752,7 @@ html {
 
 .quick-link {
   display: flex;
+  padding: 0.8rem 1rem;
   align-items: center;
   gap: var(--space-3);
   background: var(--card);
@@ -6567,12 +6786,21 @@ html {
 /* The label truncates; the icon never does. Without this the flex row shrinks
    both, and an icon squeezed to nothing is a chip that looks broken rather
    than one that looks abbreviated. The full text is in the title attribute. */
-.quick-link-label,
-.quick-link-hint {
+.quick-link-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.quick-link-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Allow wrapping to raise button height */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .quick-link-hint {
@@ -7339,8 +7567,9 @@ html {
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
   gap: 0.4rem;
-  padding-top: 0.6rem;
+  padding-top: var(--space-1);
   border-top: 1px solid var(--border);
+  align-items: flex-end;
 }
 
 .chat-composer #chat-input {
@@ -7361,7 +7590,7 @@ html {
 
 /* Conversation list: a clear active row with an accent spine. */
 #chat-sidebar h2 {
-  margin-bottom: 0.5rem;
+  margin: 0;
 }
 
 #conversation-list li {
@@ -8159,11 +8388,12 @@ html {
 .chat-dock-controls .seg {
   display: inline-flex;
   align-items: center;
-  padding-block: 0;
+  padding: 0;
+  gap: 0;
 }
 
 .chat-dock-controls select {
-  max-width: 9rem;
+  max-width: 14rem;
 }
 
 /* **One family, not four.** Asked for: *"redesign the docked ui control
@@ -8189,6 +8419,7 @@ html {
   border: 1px solid var(--glass-border);
   background: var(--card);
   box-shadow: none;
+  overflow: hidden;
 }
 
 .chat-dock-controls select {
@@ -8197,7 +8428,7 @@ html {
   /* Room on the right for the caret below, which is painted rather than laid
      out — a real element would have to be inserted into every select in the
      strip, including the one built at runtime for skills. */
-  padding-inline: var(--space-4) var(--space-7);
+  padding-inline: var(--space-4) var(--space-8);
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
@@ -8228,9 +8459,102 @@ html {
   min-width: 0;
 }
 
+/* --- the Skills dropdown ------------------------------------------------------
+   Same trigger-plus-panel shape as .chat-dock-more at the other end of the
+   strip: one popup pattern in the dock, not two. */
+.chat-tool-group-skills {
+  position: relative;
+}
+
+.chat-skills-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 45;
+  width: max-content;
+  min-width: 18rem;
+  max-width: min(24rem, calc(100vw - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.chat-skills-panel.hidden {
+  display: none;
+}
+
+.chat-skills-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+/* A fixed label column, so "Skill" and "Pace" line their controls up instead
+   of each setting its own left edge. */
+.chat-skills-row>.muted {
+  flex: 0 0 3.5rem;
+}
+
+.chat-skills-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Run is the action the panel exists for, so it gets the full width and the
+   emphasis rather than sitting as a third peer in a row of settings. */
+.chat-skills-run {
+  display: flex;
+}
+
+.chat-skills-run>button {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* The trigger names the armed skill, which can be long. */
+#chat-skills-btn {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* An inline-flex box with the default `align-items: normal` STRETCHES its
+     children, so the icon and the label were sized by the button's height
+     rather than centred in it — which is why this one control's text sat a
+     little high against Ask/Web/Plan beside it, all of which centre. Both
+     axes stated explicitly rather than inherited from a shared rule that does
+     not reach this button. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .chat-tool-group-skills select {
-  flex: 0 1 11rem;
-  max-width: 11rem;
+  /* Shrinks before anything else in the strip does — the skill names are the
+     longest text in the dock and the group has the most controls, so it is the
+     right one to give up width first. */
+  flex: 0 1 18rem;
+  min-width: 9rem;
+  max-width: 18rem;
+}
+
+/* Auto | Manual, beside the skill it applies to. This preference used to live
+   in the gear popup three controls away, which is why nobody found it. */
+.chat-skill-pace {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.chat-skill-pace button {
+  white-space: nowrap;
 }
 
 /* The group's mark, not a label. Sized and centred with the controls rather
@@ -8295,7 +8619,9 @@ html {
   width: auto;
 }
 
-#chat-dock-more-btn[aria-expanded="true"] {
+#chat-dock-more-btn[aria-expanded="true"],
+#chat-dock-skills-btn[aria-expanded="true"],
+#persona-peek[aria-expanded="true"] {
   background-color: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -8314,7 +8640,7 @@ html {
    last line, where the caret is. Centring makes them drift upward as you
    type. */
 .chat-dock .chat-composer {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
   align-items: end;
   --composer-h: 2.75rem;
   /* One hairline for the block, not two. `.chat-composer` draws its own
@@ -9296,34 +9622,48 @@ button {
 .doc-layout {
   display: grid;
   grid-template-columns: minmax(14rem, 18rem) 1fr;
+  grid-template-rows: minmax(0, 1fr);
   gap: var(--space-6);
-  align-items: start;
+  /* `start` here is what shrink-wrapped the sidebar. `stretch` makes both
+     columns the height of the row, which the flex chain below makes the height
+     of the page — the same arrangement #tab-chat already uses. */
+  align-items: stretch;
+  min-height: 0;
   padding: 0;
+}
+
+/* The flex chain from the page down to the layout, so `height: 100%` on a grid
+   item has a definite size to resolve against. Copied deliberately from
+   #tab-chat rather than invented: two pages with the same two-column
+   full-height shape should not have two different ways of getting there. */
+#tab-documents {
+  display: flex;
+  flex-direction: column;
+}
+
+#tab-documents>.doc-layout {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* The heading row does not wrap. In a 260px column "Recent documents" broke
    over two lines and took "＋ New" with it, so the sidebar opened with a
    three-line header above a three-item list. The heading is the part that
    gives way — the button is a fixed hit target. */
-.doc-sidebar .row.space-between,
-#chat-sidebar .row.space-between {
-  flex-wrap: nowrap;
-  gap: var(--space-3);
-}
 
-.doc-sidebar .row.space-between h2,
-#chat-sidebar .row.space-between h2 {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* Reported: the Documents sidebar does not stretch the full height the way the
+   other two do, and does not stay put on the left.
+   Both came from the same thing. `align-self: start` shrink-wraps a grid item
+   to its content, and `max-height` only ever CAPS it — a three-item list gave
+   a three-item-tall card floating beside a full-height editor. Chat's sidebar
+   solved this ages ago (`#tab-chat > .layout` gets `height: 100%` and the
+   sidebar takes `height: 100%` of its grid area); Documents never got the same
+   treatment, so it was the odd one out.
 
-.doc-sidebar .row.space-between button,
-#chat-sidebar .row.space-between button {
-  flex: 0 0 auto;
-}
-
+   `align-self: stretch` is what makes a sticky grid item full-height AND keeps
+   it sticky: a stretched item is exactly as tall as its row, and here the row
+   is the page, so the item is the page. The list inside scrolls; the card does
+   not move. */
 .doc-sidebar {
   position: sticky;
   /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
@@ -9331,11 +9671,24 @@ button {
      the header sits outside it — so there is nothing to clear, and offsetting
      by the header height would push the sidebar down by that much again. */
   top: 0;
-  align-self: start;
+  align-self: stretch;
+  height: 100%;
   max-height: var(--page-sticky-h);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* The card is the frame; the lists inside it are what scroll. Without this
+     a long document list stretches the card past the viewport and takes the
+     sticky behaviour with it. */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The lists are the scrolling part, not the card. */
+.doc-sidebar .doc-list,
+.doc-sidebar .doc-outline-wrap {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .doc-list {
@@ -9473,9 +9826,80 @@ button {
   gap: 0.5rem;
 }
 
-#chat-sidebar .row.space-between,
-.doc-sidebar .row.space-between {
-  padding-right: 48px;
+/* --- sidebar heading rows ----------------------------------------------------
+   All three sidebars (Categories, Chats, Recent documents) now open with the
+   same row: a heading on the left, at most one action on the right, and a
+   reserved lane past it for the collapse toggle.
+
+   That reserve was `padding-right: 48px` — a number picked to clear the
+   toggle, and wrong, because the toggle is 28px wide sitting 1rem from the
+   right edge, i.e. it needs 28px + 1rem + a gap. Being wrong by a few pixels
+   in one direction let the toggle sit on top of the "＋ New" button in the
+   Documents sidebar, and being wrong in the other left the Chats heading
+   floating oddly short of the edge — which is the reported misalignment
+   between these three headers. The geometry is a token now, declared once
+   beside the toggle's own size, so the reserve cannot drift from the thing it
+   is reserving for.
+
+   The collapse toggle itself is untouched: it was in the right place. */
+.sidebar-head {
+  flex-wrap: nowrap;
+  gap: var(--space-3);
+  align-items: center;
+  /* Both the heading and its one action are the toggle's height, so the row
+     is too — that is what puts all three on one centre line instead of the
+     heading floating a few pixels high next to a taller button. */
+  min-height: var(--sidebar-toggle-size);
+  /* And the row starts where the toggle starts. The toggle is positioned
+     against the CARD (top: --sidebar-toggle-inset from its border box) while
+     the row starts at the card's CONTENT box, which is --space-6 lower. The
+     difference is the gap that made "Chats", "Categories" and "Recent" all
+     sit below the collapse button rather than level with it. The toggle is
+     not moved — it was in the right place; the row comes up to meet it. */
+  margin-top: calc(var(--sidebar-toggle-inset) - var(--space-6));
+  margin-bottom: var(--space-5);
+  padding-right: var(--sidebar-toggle-lane);
+}
+
+/* One weight, one size, one shape for all three. The Chats header shipped its
+   action as a filled accent pill while Documents' was a plain small button, so
+   two sidebars that do the same thing looked like different features. */
+.sidebar-head h2 {
+  font-size: var(--text-h3);
+  line-height: 1;
+}
+
+.sidebar-head>button {
+  height: var(--sidebar-toggle-size);
+}
+
+.sidebar-head h2 {
+  /* The heading is the part that gives way in a 14rem column; the button is a
+     fixed hit target. */
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-head>button {
+  flex: 0 0 auto;
+}
+
+/* A collapsed sidebar is 48px wide and the toggle moves to its left edge, so
+   the reserve on the right is not only unnecessary there, it is most of the
+   remaining width. */
+.sidebar-collapsed .sidebar-head {
+  padding-right: 0;
+}
+
+/* The toggle is positioned against these, so they have to be the containing
+   block. This was an inline `style="position: relative"` on #chat-sidebar,
+   which the CSP drops — so the toggle escaped to the nearest positioned
+   ancestor and landed in the wrong place on that one sidebar only. */
+.sidebar-panel {
+  position: relative;
 }
 
 @media (max-width: 900px) {
@@ -9610,6 +10034,42 @@ button.ai-unavailable {
   /* Without this, one long backticked path widens the note, the list and the
      page — the same automatic-minimum-sizing trap as everywhere else. */
   overflow-wrap: anywhere;
+}
+
+.entry-content .thumb-wrap {
+  margin: var(--space-3) 0;
+  display: block;
+  width: fit-content;
+}
+
+.chip .attachment-thumb {
+  display: inline;
+  max-height: 1.1em;
+  max-width: 3em;
+  vertical-align: text-bottom;
+  margin: 0 0.15em;
+}
+
+.chip .thumb-wrap {
+  display: inline-block;
+  vertical-align: text-bottom;
+  line-height: 0;
+}
+
+.chip .thumb-wrap .unlink {
+  display: none;
+  background: var(--page);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+}
+
+.thumb-wrap .unlink:hover {
+  opacity: 1;
 }
 
 .entry-content s {
@@ -9920,10 +10380,12 @@ button.ai-unavailable {
 }
 
 #chat-sidebar,
+/* Was a duplicate of .doc-sidebar above that re-set `align-self: start` — and
+   being later in the file, it won, which is why fixing the rule above alone
+   changed nothing. The one rule is .doc-sidebar. */
 #doc-sidebar {
   position: sticky;
   top: 0;
-  align-self: start;
 }
 
 .sidebar-resize {
@@ -10302,17 +10764,12 @@ body.resizing-sidebar {
   white-space: nowrap;
 }
 
-.doc-storage {
+/* Replaces what used to be an open-by-default <details> disclosure in the
+   sidebar — its body was tall enough to push the document list down. Same
+   content, now behind #doc-storage-dialog; this is just the door to it. */
+.doc-storage-toggle {
+  display: block;
   margin-top: 1rem;
-  font-size: 0.85rem;
-}
-
-.doc-storage summary {
-  cursor: pointer;
-}
-
-.doc-storage p {
-  margin: 0.4rem 0;
   font-size: 0.8rem;
 }
 
@@ -11119,6 +11576,7 @@ textarea.autogrow {
 /* Magic add sits in a row beside its button, so it must not stretch that row. */
 #reminder-magic-row {
   align-items: flex-start;
+  margin-top: var(--space-1);
 }
 
 #reminder-magic {
@@ -11304,123 +11762,235 @@ textarea.autogrow {
   padding-bottom: 0.4rem;
 }
 
+
+/* --- Timeline: the grid view -------------------------------------------------
+   A band per row, a time bucket per column, and a card per note. The previous
+   pass turned the cards into strips of bare preview text with a border, which
+   is a list rendered as a table; this gives each one a header, a title and a
+   body, and gives the grid the two sticky edges that make a table of this
+   shape navigable at all. */
 .timeline-grid {
   display: grid;
-  gap: 2px;
-  align-items: stretch;
+  /* Column gap wider than row gap: columns are DIFFERENT DATES and the gap is
+     the only thing saying so, while rows are already separated by the band
+     label at their left edge. Equal gaps read as a uniform mesh with no
+     structure, which is what "looks like a calendar" was describing. */
+  column-gap: var(--space-5);
+  row-gap: var(--space-6);
+  align-items: start;
   min-width: min-content;
+  padding: var(--space-4) var(--space-2) var(--space-6);
 }
 
+/* The corner sits over both sticky edges, so it needs to out-stack both. */
 .timeline-corner {
   position: sticky;
+  top: 0;
   left: 0;
-  background: var(--card);
-  z-index: 2;
+  z-index: 3;
+  background: var(--bg);
 }
 
 .timeline-head {
-  font-size: 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--muted);
-  text-align: center;
-  padding: 0.25rem 0.25rem;
-  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
   white-space: nowrap;
+  background: var(--bg);
+  /* An accent underline rather than a heavy border: the date row is a scale,
+     and a 2px grey rule under it read as a table header from a spreadsheet. */
+  border-bottom: 2px solid var(--accent-soft);
 }
 
-/* A band names a category or a tag (§37J) — clicking it filters Notes →
-   Browse to that band, the same "clicking a grouping opens what's in it"
-   pattern the sidebar's category rows and a Library tag card already use.
-   It's a <button> now rather than a <div>, so every rule a plain block got
-   for free (font, border, background, text alignment) needs restating. */
+/* The band label is a sticky first column, so scrolling a year sideways never
+   loses which row you are on. It was rendering as a pill floating in the
+   middle of a tall row — `align-items: start` on the grid plus a rounded
+   background and no height. It is a full-height rail now, aligned to the top
+   of its own row's cards. */
 .timeline-band {
   position: sticky;
   left: 0;
+  /* Sticky DOWN as well as across. A band's row is as tall as its tallest
+     stack of cards — twelve notes in one day is an 800px row — and a label
+     pinned only to the left edge scrolled out of sight after the third card,
+     so most of the row had nothing saying which band it was. The offset
+     clears the sticky date header above it. */
+  top: calc(var(--space-8) + var(--space-3));
+  align-self: start;
   z-index: 1;
-  background: var(--card);
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text);
-  text-align: left;
-  padding: 0.4rem 0.5rem 0.4rem 0;
-  border: none;
-  border-right: 1px solid var(--border);
-  border-radius: 0;
+  /* Generic `button` styling gave it a shadow, which against a transparent
+     background read as a floating pill sitting in the middle of the row —
+     which is exactly what it was reported as looking like. */
+  box-shadow: none;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.4rem;
-  align-items: baseline;
+  gap: var(--space-3);
   width: 100%;
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  padding: var(--space-3);
+  border: 0;
+  /* A left accent bar instead of a filled pill: it names the row without
+     competing with the cards for attention, and it lines up with the top of
+     the first card rather than floating mid-row. */
+  border-left: 3px solid var(--accent-soft);
+  border-radius: 0;
+  /* Opaque: it now travels over the cards to its right when the grid is
+     scrolled sideways, and a transparent label over a card is unreadable. */
+  background: var(--modal-bg);
   cursor: pointer;
 }
 
 .timeline-band:hover,
 .timeline-band:focus-visible {
   color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--inner);
   outline: none;
 }
 
+.timeline-band .muted {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- banding ------------------------------------------------------------------
+   Asked for: subtle colour differences for rows, columns and headers so the
+   grid is easier to read, without looking like a spreadsheet.
+
+   Three rules, and the restraint is the point:
+
+   - COLUMNS get the tint, because a column is a date and tracing "what
+     happened on the 22nd" down a wide grid is the read that actually needs
+     help. It is `--ink` at 3%, i.e. whatever the theme's text colour is
+     softened almost to nothing — so it darkens a light theme and lightens a
+     dark one without either needing its own value.
+   - ROWS get a hairline, not a fill. Two tints crossing would produce four
+     different cell colours and a chequerboard, which is the spreadsheet look.
+     A rule between bands says the same thing and stays quiet.
+   - HEADERS get slightly more of the same column tint, so the date sits on
+     top of its own column rather than floating above the whole grid.
+
+   Painted with a gradient rather than `background-color` so it composites
+   over the page's own art instead of blocking it out. */
 .timeline-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0.25rem;
+  gap: var(--space-3);
   min-width: 0;
-  border-bottom: 1px solid var(--border);
+  /* The tint has to reach the full height of the row, not just the cards. */
+  align-self: stretch;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.timeline-cell[data-col="odd"],
+.timeline-head[data-col="odd"] {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--ink) 3%, transparent),
+    color-mix(in srgb, var(--ink) 3%, transparent)
+  );
+}
+
+.timeline-head[data-col="odd"] {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--ink) 6%, transparent),
+    color-mix(in srgb, var(--ink) 6%, transparent)
+  );
+}
+
+/* One hairline per band, drawn on the label and every cell in its row so it
+   runs the full width of a grid wider than the window. Not on the first row:
+   the date header above it is already a divider. */
+.timeline-cell[data-row="odd"],
+.timeline-band[data-row="odd"],
+.timeline-cell[data-row="even"],
+.timeline-band[data-row="even"] {
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.timeline-grid>.timeline-band[data-row="even"]:first-of-type,
+.timeline-grid>.timeline-band[data-row="even"]:first-of-type~.timeline-cell[data-row="even"] {
+  border-top: 0;
 }
 
 .timeline-dot {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   width: 100%;
   text-align: left;
   font: inherit;
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  padding: var(--space-5);
+  line-height: 1.45;
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
-  color: var(--text);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  color: var(--ink);
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
-  /* Reported as text cut off with no ellipsis. It was worse than missing
-     the "…" — the unprefixed `line-clamp` here paired with a `-webkit-box`
-     display doesn't do anything in this Chromium (`-webkit-line-clamp`
-     computed to `none`), so nothing was actually clamping to 3 lines at
-     all; the card just happened to render one row tall and hard-cropped
-     whatever didn't fit via `overflow: hidden`, mid-word, with no visual
-     sign there was more. `-webkit-line-clamp` is the property this display
-     mode actually reads; kept alongside the standard property for whatever
-     future engine wants that one instead. */
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
   overflow: hidden;
-  /* Re-reported after the fix above: still cut off, this time four full
-     lines with no ellipsis rather than one. Not reproduced in this
-     sandbox's Chromium (a live check found `scrollHeight === clientHeight`
-     — nothing overflowing at all), so the runtime doing this is not the one
-     available to test against here. A plain `max-height`, independent of
-     `-webkit-line-clamp` support or of the grid row's own height, is a
-     safety net rather than a diagnosis: it cannot add the missing "…" in
-     whatever engine doesn't honour the clamp, but it guarantees every card
-     is the same, predictable three lines tall regardless of what a
-     neighbouring cell in the same grid row is doing — which a clamp with no
-     explicit height behind it does not. */
-  max-height: calc(3 * 1.4em + 2 * var(--space-5));
 }
 
 .timeline-dot:hover,
 .timeline-dot:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
   outline: none;
 }
 
+.timeline-dot-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.timeline-dot-when {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-dot-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--ink);
+  /* One line. A note whose first line is a paragraph is not a title, and
+     letting it wrap to four lines is how every card in a column became the
+     same height and the same shape. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-dot-preview {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  /* Three lines. The clamp is belt-and-braces — clampTimelineDots() shortens
+     the text itself, because this property has been observed not to engage in
+     the engine that actually renders the app, which is what left the text cut
+     mid-word with no ellipsis. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-height: calc(1.45em * 3);
+}
+
+/* Search Highlighting */
 /* Search Highlighting */
 .timeline-dim {
   opacity: 0.2;
@@ -11598,12 +12168,10 @@ textarea.autogrow {
    the button is the way to it. Sized in lines so it scales with the reading
    size setting instead of being pinned to a pixel height. */
 .entry-content.entry-clamped {
-  max-height: 11.5em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
   overflow: hidden;
-  /* The fade is a mask rather than a gradient overlay, so it works on every
-     surface — a solid-colour overlay would show as a band on a themed card. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
 }
 
 .entry-more {
@@ -12173,7 +12741,6 @@ textarea.autogrow {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--card);
 }
 
 /* The changelog inside Settings → About (§36E). Capped and scrollable: it is
@@ -12554,7 +13121,7 @@ textarea.autogrow {
   row-gap: var(--space-1);
 }
 
-.notif-head > .row {
+.notif-head>.row {
   flex: 1 1 auto;
   min-width: 0;
   flex-wrap: wrap;
@@ -13409,7 +13976,8 @@ textarea.autogrow {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-height: 0; /* Fix flex overflow */
+  min-height: 0;
+  /* Fix flex overflow */
 }
 
 .wb-library-item {
@@ -13460,11 +14028,24 @@ textarea.autogrow {
 .wb-card-content {
   font-size: var(--text-lg);
   line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+/* Reported: an attached note showed "a cut-off version" with no way to see
+   the rest. The card now renders the whole note (see renderWhiteboard in
+   app.js) and only clamps past a height cap, with a Show more/less toggle
+   below to get past it — this rule used to apply unconditionally at 3 lines
+   with nothing pointing at what was missing. Line-count rather than a pixel
+   max-height for the same reason `.entry-clamped` uses it: it scales with
+   the reading-size setting instead of pinning a font-independent height. */
+.wb-card-content.wb-card-content-clamped {
   display: -webkit-box;
-  line-clamp: 3;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+  overflow: hidden;
+}
+
+.wb-card-more {
+  align-self: flex-start;
 }
 
 aside[data-resizable="1"] {
@@ -13636,7 +14217,8 @@ aside[data-resizable="1"] {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cpath d='M17 6a7 7 0 1 0 1.6 7.3' fill='none' stroke='%23000' stroke-opacity='.6' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M14 3l3.6 2-1 4' fill='none' stroke='%23000' stroke-opacity='.6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 11 11, grab;
   z-index: 5;
   opacity: 0;
-  pointer-events: none; /* see .wb-resize-handle's own comment above */
+  pointer-events: none;
+  /* see .wb-resize-handle's own comment above */
   transition: opacity 0.1s ease;
 }
 
@@ -13738,23 +14320,62 @@ aside[data-resizable="1"] {
   pointer-events: none;
 }
 
-.wb-resize-handle[data-handle="nw"] { top: -5px; left: -5px; cursor: nwse-resize; }
-.wb-resize-handle[data-handle="n"]  { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.wb-resize-handle[data-handle="ne"] { top: -5px; right: -5px; cursor: nesw-resize; }
-.wb-resize-handle[data-handle="e"]  { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
-.wb-resize-handle[data-handle="se"] { bottom: -5px; right: -5px; cursor: nwse-resize; }
-.wb-resize-handle[data-handle="s"]  { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.wb-resize-handle[data-handle="sw"] { bottom: -5px; left: -5px; cursor: nesw-resize; }
-.wb-resize-handle[data-handle="w"]  { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
+.wb-resize-handle[data-handle="nw"] {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+.wb-resize-handle[data-handle="n"] {
+  top: -5px;
+  left: calc(50% - 5px);
+  cursor: ns-resize;
+}
+
+.wb-resize-handle[data-handle="ne"] {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.wb-resize-handle[data-handle="e"] {
+  top: calc(50% - 5px);
+  right: -5px;
+  cursor: ew-resize;
+}
+
+.wb-resize-handle[data-handle="se"] {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
+.wb-resize-handle[data-handle="s"] {
+  bottom: -5px;
+  left: calc(50% - 5px);
+  cursor: ns-resize;
+}
+
+.wb-resize-handle[data-handle="sw"] {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+.wb-resize-handle[data-handle="w"] {
+  top: calc(50% - 5px);
+  left: -5px;
+  cursor: ew-resize;
+}
 
 /* ======================= SIDEBAR COLLAPSE & PEEK ======================= */
 .sidebar-collapse-toggle {
   position: absolute;
-  top: 1rem;
+  top: var(--sidebar-toggle-inset);
   right: 1rem;
   z-index: 20;
-  width: 28px;
-  height: 28px;
+  width: var(--sidebar-toggle-size);
+  height: var(--sidebar-toggle-size);
   border-radius: var(--radius-sm);
   background: var(--card-bg);
   border: 1px solid var(--border);
@@ -13995,6 +14616,7 @@ textarea.drag-over {
     transform: translateY(0);
   }
 }
+
 /* --- rules recovered from inline style attributes (audit of §40) ------------
    Thirty-five `style="…"` attributes arrived on index.html in the antigravity
    pass. Every one of them was dead on arrival: this app sends
@@ -14566,7 +15188,8 @@ textarea.drag-over {
    0px the instant the disclosure opened. */
 .doc-outline-wrap {
   flex: 1 1 auto;
-  min-height: 4rem; /* enough for a few entries even when squeezed */
+  min-height: 4rem;
+  /* enough for a few entries even when squeezed */
   display: flex;
   flex-direction: column;
 }
@@ -14580,7 +15203,7 @@ textarea.drag-over {
 /* Now genuinely last in the queue for space — shrinkable, so the outline's
    own floor above actually gets honoured, and scrollable rather than
    clipped once it's smaller than its own paragraph text needs. */
-.doc-sidebar > details {
+.doc-sidebar>details {
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -14604,4 +15227,432 @@ textarea.drag-over {
 .doc-sidebar pre {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+/* --- Icons --- */
+/* Every icon in the app is a Phosphor glyph from the vendored font. It draws
+   in `currentColor` at the surrounding text size, which is the whole reason
+   the colour-emoji set went away: an emoji is a bitmap that ignores the theme,
+   so a dark-mode button got a light-mode icon and no amount of CSS could fix
+   it. The old `.ui-icon` swap system (emoji <-> lucide SVG) is gone with them —
+   lucide.min.js had been deleted from vendor/ while the code still branched on
+   `window.lucide`, so the "svg" style silently rendered nothing at all. */
+/* An icon with a label after it. See setLabel() in app.js: the space used to
+   be a text node, which CSS deletes inside a flex container — so the same
+   label rendered with a gap in a block context and without one in a flex row.
+   A margin survives both. */
+.ph-lead {
+  margin-inline-end: 0.4em;
+}
+
+.ph {
+  /* Optical size: Phosphor's glyphs sit slightly small against text at 1em. */
+  font-size: 1.15em;
+  line-height: 1;
+  /* Icons are decorative next to a label; they must never be the thing that
+     sets a button's line box height, or every labelled button grows by the
+     icon's overshoot. */
+  vertical-align: -0.12em;
+  flex: none;
+}
+
+
+
+
+/* --- space switcher (top bar) ------------------------------------------------
+   Which notebook you are looking at, next to the wordmark. Built out of the
+   app's existing `.ghost .small` button so it reads as part of the chrome —
+   the bespoke pill it replaced was the reported "ugly" here, a control with
+   its own height, its own radius and its own hover colour sitting in a bar
+   where nothing else had any of those. */
+.space-switcher {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.space-switcher-btn {
+  /* max-width + the ellipsis below is what stops a long space name pushing
+     the tabs off the bar; the old one let its label wrap onto a second line
+     inside a bar that is explicitly one row, which is what made the icon and
+     the text sit on top of each other. */
+  max-width: 12rem;
+}
+
+.space-switcher-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.space-switcher-caret {
+  /* Smaller than the leading icon and muted: a caret is an affordance, not
+     information, and at full weight it read as a second icon. */
+  font-size: 0.85em;
+  color: var(--muted);
+  margin-left: calc(var(--space-1) * -1);
+}
+
+.space-switcher-btn[aria-expanded="true"] .space-switcher-caret {
+  transform: rotate(180deg);
+}
+
+/* Below the wordmark breakpoint the icon alone carries it — the switcher is
+   the first thing that should give up width to the tabs, not the last. */
+@media (max-width: 900px) {
+  .space-switcher-name {
+    display: none;
+  }
+}
+
+.space-menu {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  left: 0;
+  z-index: 60;
+  /* Wide enough that a name never sits against the edge, and wide enough that
+     the row's trailing edit/delete buttons do not crowd it. Reported: popup
+     text with no gap from the edge. */
+  min-width: 15rem;
+  max-width: min(20rem, calc(100vw - var(--space-8)));
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  /* --modal-bg, not --card: this floats over arbitrary page content and has
+     to be legible against all of it. Same reasoning as .notif-panel. */
+  background: var(--modal-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+.space-menu.hidden {
+  display: none;
+}
+
+.space-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  /* The trailing padding is bigger than the leading one because the row's
+     hover actions live in it; without the reserve, the actions appear on
+     hover and shove the name sideways. */
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.space-option:hover,
+.space-option:focus-visible {
+  background: var(--inner);
+  outline: none;
+}
+
+.space-option>.ph:first-child {
+  color: var(--muted);
+}
+
+.space-option[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.space-option[aria-selected="true"]>.ph:first-child {
+  color: var(--accent);
+}
+
+.space-option-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rename/delete for a space, revealed on hover or keyboard focus. Kept in the
+   flow with opacity rather than display:none so the row does not change width
+   when they appear. */
+.space-option-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.space-option:hover .space-option-actions,
+.space-option:focus-within .space-option-actions,
+.space-option-actions:focus-within {
+  opacity: 1;
+}
+
+/* Touch and keyboard have no hover, so hiding the actions there hides the
+   feature. Reveal them permanently where hover is not available. */
+@media (hover: none) {
+  .space-option-actions {
+    opacity: 1;
+  }
+}
+
+.space-menu-divider {
+  height: 1px;
+  margin: var(--space-2) var(--space-1);
+  background: var(--border);
+}
+
+.space-menu-empty {
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* --- space dialogs ----------------------------------------------------------- */
+.space-dialog {
+  min-width: min(26rem, calc(100vw - var(--space-8)));
+}
+
+.space-dialog label {
+  display: block;
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.space-dialog input[type="text"] {
+  width: 100%;
+}
+
+.space-dialog-actions {
+  margin-top: var(--space-5);
+  gap: var(--space-2);
+}
+
+/* Picking an icon from a grid rather than typing "ph-briefcase" into a text
+   box, which is what the first version asked for and which nobody outside
+   this repo could possibly know how to fill in. */
+.space-icon-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.25rem, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.space-icon-picker button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--inner);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.space-icon-picker button[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+#tab-timeline > .card {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.timeline-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+
+/* --- page margins (Appearance > Page Margins) --------------------------------
+   Three presets over the shell tokens above. The sliders write --page-* on the
+   root element directly from JS, which is why "custom" declares no values of
+   its own: a rule here would out-specify the inline style and the sliders
+   would appear to do nothing.
+
+   --page-left/--page-right exist so a custom setting can break the left/right
+   symmetry; they default to --page-gutter so every other mode is unaffected. */
+:root[data-margins="uniform"] {
+  --page-gutter: var(--page-top);
+  --page-bottom: var(--page-top);
+}
+
+/* Dashboard mini-list thumbnails (Pinned / Most used / Recently added / On
+   this day) — see `firstNoteImage` + `miniEntryList` in app.js. A new
+   selector, not a change to the existing `.dash-list li` rule above, so a
+   row without an image keeps its old single-line layout untouched. */
+.dash-list li.dash-has-thumb {
+  display: flex;
+  /* `center` when the row was one line; a two-line row (title + preview)
+     against a square thumbnail wants the picture at the top of the text, not
+     floating against its middle. */
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.dash-list-thumb {
+  /* 2em was a favicon beside a line of text. These rows carry a title and a
+     preview now, so the thumbnail can be worth looking at — still small
+     enough that six rows fit a widget. */
+  width: 2.75em;
+  height: 2.75em;
+  min-width: 2.75em;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  background: var(--inner);
+}
+
+.dash-list-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* The note's first line. One line, ellipsised — a note whose first line is a
+   paragraph is not a title, and letting it wrap makes every row the same
+   height and the same shape. */
+.dash-list-title {
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Two lines of body under it. Enough to be a preview, not enough to turn the
+   widget into the note list. */
+.dash-list-preview {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A widget row is now two lines tall, so the single-line ellipsis the list
+   carried has to go — it clipped the title and hid the preview entirely. */
+.dash-list li {
+  white-space: normal;
+}
+
+/* Note images inside dashboard widgets (Rediscover, Weekly digest) — the
+   general .attachment-thumb ceiling (110x180px) is sized for a note's own
+   detail view; a widget card is narrower, so cap it tighter here rather than
+   touch that shared rule. */
+.dash-widget .attachment-thumb {
+  max-height: 80px;
+  max-width: 100%;
+  object-fit: cover;
+}
+
+
+/* --- Capture: the two labelled rows under the note box -----------------------
+   "Add to document" and "File under" each set their own label width, so the
+   controls beside them started at two different x positions and the form had a
+   ragged left edge down its lower half. Reported as spacing and alignment
+   between elements in a row, and between the rows themselves.
+
+   One shared label column fixes it without a grid: the label is the only thing
+   that varies, so pinning its width lines every control up. `ch` rather than a
+   spacing token because it is sized to the TEXT it holds, which is what a
+   label column is — a spacing step would be a coincidence that broke the first
+   time a label was reworded. */
+.capture-field-label {
+  flex: 0 0 auto;
+  min-width: 8.5rem;
+}
+
+/* Rows of controls sit on one rhythm, and wrap as whole controls rather than
+   letting one drop half a step. */
+.capture-field-row {
+  gap: var(--space-3);
+  row-gap: var(--space-3);
+  align-items: center;
+}
+
+/* --- widget picker modal (roadmap §26) --------------------------------------------
+   A dedicated surface for the same dashboard_layout preference the inline
+   "Edit layout" grid writes — see dashWidgetRow()/renderDashWidgetsList() in
+   app.js. Wider than the other .space-dialog uses because it holds a
+   scrolling list rather than a couple of fields. */
+.dash-widgets-dialog {
+  width: min(34rem, calc(100vw - var(--space-8)));
+}
+
+#dash-widgets-search {
+  width: 100%;
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-5);
+}
+
+#dash-widgets-search:focus {
+  border-color: var(--accent);
+}
+
+.dash-widgets-list {
+  max-height: min(28rem, 60vh);
+  overflow-y: auto;
+  /* Scrollbar space reserved up front so a row's controls don't jump
+     sideways the moment the list grows past one screenful. */
+  scrollbar-gutter: stable;
+  padding-right: var(--space-2);
+}
+
+.dash-widgets-group-label {
+  margin: var(--space-5) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dash-widgets-group-label:first-child {
+  margin-top: 0;
+}
+
+.dash-widget-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-widget-row:last-child {
+  border-bottom: none;
+}
+
+.dash-widget-row-main {
+  min-width: 0;
+}
+
+.dash-widget-row-title {
+  font-weight: 600;
+}
+
+.dash-widget-row-desc {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.dash-widget-row-controls {
+  flex: 0 0 auto;
 }

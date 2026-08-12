@@ -7,6 +7,68 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Done last session — a work-recovery pass, not on the #0 refactor
+
+> Full detail is in [HANDOVER.md](HANDOVER.md) and [CHANGELOG.md](../../CHANGELOG.md);
+> this is the checklist for "has X been done" so a future session doesn't
+> re-verify or re-build any of it. **[ROADMAP.md's #0 codebase-quality
+> refactor](../ROADMAP.md) is still next — this session worked around it, not
+> instead of it.**
+
+A previous session's work had been lost, and the recovery attempt left the app
+with a broken icon system and a link-reason feature that had never run once.
+Baseline was 16 failing tests, not 2.
+
+- **Icons.** Phosphor stylesheet now linked (was vendored, never loaded — no
+  icon in the app rendered). All 367 colour emoji replaced app-wide, frontend
+  and backend, via a `ph:name` label-marker grammar (`setLabel()` in
+  `app.js`) for the ~300 that are JS string literals rather than markup.
+  `lucide.min.js` and its dead code path removed.
+- **CSS bugs found by measuring, not reading**: five custom properties used
+  but never declared; a literal `\n` inside a `:root[data-glass="off"]`
+  selector list that invalidated the whole rule.
+- **Spaces**: switcher rebuilt (markup had been deleted, CSS/JS left behind);
+  CRUD hardened — reserved-id and icon-class-injection guards, delete
+  reassigns every `WorkspaceMixin` model via introspection rather than a
+  hardcoded four.
+- **Timeline grid**: cards rebuilt (header/title/clamped preview), column
+  banding, sticky band label, O(bands×buckets×notes) build fixed to one pass.
+- **Chat dock**: Skills folded into one dropdown; Plan is now a toggle
+  applied in `sendChatMessage` so Enter and suggestion chips honour it.
+- **Link reasons**: `audit_vague_links` rewritten onto a function that
+  actually exists; the backfill endpoint now runs the AI pass so "similar in
+  meaning" isn't the permanent answer; per-suggestion reason field; the
+  background pass is now proven (by test) to reach the audit, which it was
+  not before.
+- **Security**: `_unlink_notes` bypassed the private-note guard `link_notes`
+  enforces right above it — fixed.
+- **Dashboard**: `safeMdSlice` returning `""` on a leading unpaired marker
+  (rendered as a bare "…") fixed; widgets render block markdown and a
+  title/preview split instead of the inline-only renderer's literal syntax;
+  a widget-picker modal (roadmap item 26) added on the existing
+  `dashboard_layout` preference.
+- **Graph**: fit-to-view no longer collapses to a scale of 0.07 on one
+  outlier — bounding box now padded by rendered node extent, margin
+  container-relative, scale clamped both directions.
+- **Whiteboard**: a note card shows the full note with real markdown and a
+  Show more/less control, not 100 characters of escaped plain text.
+- **Documents**: sidebar is genuinely full-height and sticky now (a
+  duplicate `#doc-sidebar` rule later in the file was winning and
+  overriding the fix); storage-path info moved into a dialog, ~370px back
+  to the list.
+- **Sidebars**: Categories/Chats/Recent headers level with their collapse
+  toggle (the toggle's inset and the row's own margin had no arithmetic
+  relationship before).
+- Misc fixed: a boolean-precedence bug that silenced all network-error
+  logging; the Capture textarea sizing itself to zero while its tab was
+  hidden; the theme toggle not changing icon between light/dark; Library
+  image rename (missing entirely); a title-regeneration toast being eaten
+  by the notification-mute filter.
+
+**Not verified**: `start.bat`/`start-desktop.bat` and the Windows
+taskbar-icon path (no Windows runtime available); the whiteboard card's
+collapse-back click (expand was confirmed live, collapse only by inspection).
+
 ## Done in the most recent session — read this first
 
 **This session: the notebook became a graph the whole app can walk, retrieval

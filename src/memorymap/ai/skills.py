@@ -393,7 +393,7 @@ _READING_TOOLS = ["search_notes", "list_notes", "get_note", "count_notes"]
 # to do is not a thing anyone means to do twice.
 _AUDIT_SKILLS: list[dict] = [
     {
-        "name": "🩺 Notebook health check",
+        "name": "Notebook health check",
         "description": "A full audit — reports what needs fixing, changes nothing.",
         "when_to_use": "before a clean-up, or when the notebook feels disorganised",
         "prompt": (
@@ -418,7 +418,7 @@ _AUDIT_SKILLS: list[dict] = [
         "tools": [*_READING_TOOLS, "list_categories", "list_tags"],
     },
     {
-        "name": "🏷 Clean up my tags",
+        "name": "Clean up my tags",
         "description": "Merges duplicate tags and removes ones that don't fit.",
         "when_to_use": "when tags have drifted — plurals, synonyms, one-offs",
         "prompt": "Go through my tags, merge the duplicates, and remove the ones that don't fit.",
@@ -438,7 +438,7 @@ _AUDIT_SKILLS: list[dict] = [
         "tools": ["list_notes", "get_note", "list_tags", "rename_tag", "tag_note"],
     },
     {
-        "name": "🗂 Reorganise my categories",
+        "name": "Reorganise my categories",
         "description": "Proposes a category structure, then moves notes into it.",
         "when_to_use": "when Uncategorised is full or categories have stopped fitting",
         "prompt": "Reorganise my categories so they actually fit what I write about.",
@@ -470,7 +470,7 @@ _AUDIT_SKILLS: list[dict] = [
         ],
     },
     {
-        "name": "🔗 Fix my links",
+        "name": "Fix my links",
         "description": "Removes connections that don't hold up, and adds ones that should exist.",
         "when_to_use": "when the graph has links that no longer make sense",
         "prompt": "Check the links between my notes: remove the ones that don't hold up, add the ones that should be there.",
@@ -495,7 +495,7 @@ _AUDIT_SKILLS: list[dict] = [
         ],
     },
     {
-        "name": "🧬 Find notes worth combining",
+        "name": "Find notes worth combining",
         "description": "Spots fragments and duplicates that should be one note. Reports only.",
         "when_to_use": "when the same thing has been written down several times",
         "prompt": (
@@ -521,9 +521,24 @@ _AUDIT_SKILLS: list[dict] = [
 ]
 
 BUILTIN_SKILLS: list[dict] = [
+    {
+        "name": "Audit link reasons",
+        "prompt": (
+            "Audit the graph for links that have vague reasons (like 'similar in meaning') "
+            "and rewrite them to be more accurate based on the notes' contents."
+        ),
+        "description": "Rewrites vague 'similar in meaning' links into specific reasons.",
+        "when_to_use": "When I ask you to clean up or audit my links, or when the graph feels too vague.",
+        "tools": ["audit_link_reasons"],
+        "steps": [
+            "Run the audit_link_reasons tool to process a batch of vague links.",
+            "Report back how many links were updated."
+        ],
+    },
+
     *_AUDIT_SKILLS,
     {
-        "name": "📋 Summarise my week",
+        "name": "Summarise my week",
         "description": "The last seven days, in a paragraph.",
         "prompt": "Summarise what I saved in the last 7 days.",
         "steps": [
@@ -536,7 +551,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": [*_READING_TOOLS, "summarize_notes"],
     },
     {
-        "name": "🧹 Find loose ends",
+        "name": "Find loose ends",
         "description": "Unfinished things you wrote down and left.",
         "prompt": "Find the loose ends in my notes and list them.",
         "steps": [
@@ -549,7 +564,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": _READING_TOOLS,
     },
     {
-        "name": "🏷 Auto-tag my notes",
+        "name": "Auto-tag my notes",
         "description": "Adds 2–3 tags to notes that have none.",
         "prompt": "Tag the notes in my notebook that have no tags yet.",
         "steps": [
@@ -564,7 +579,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": ["list_notes", "get_note", "list_tags", "tag_note"],
     },
     {
-        "name": "🔗 Link related notes",
+        "name": "Link related notes",
         "description": "Connects notes that are clearly about the same thing.",
         "prompt": "Connect the notes in my notebook that belong together.",
         "steps": [
@@ -578,7 +593,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": ["search_notes", "list_notes", "get_note", "link_notes"],
     },
     {
-        "name": "🗂 Tidy suggestions",
+        "name": "Tidy suggestions",
         "description": "Proposes tidy-ups. Changes nothing on its own.",
         "prompt": "Suggest how I could tidy my notebook, without changing it.",
         "steps": [
@@ -591,7 +606,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": ["list_categories", "list_tags", "count_notes", "list_notes"],
     },
     {
-        "name": "🔎 Catch up on a topic",
+        "name": "Catch up on a topic",
         "description": "Everything you've written about one thing.",
         "prompt": "Pull together everything I have written about {{topic}}.",
         "steps": [
@@ -604,7 +619,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": _READING_TOOLS,
     },
     {
-        "name": "📓 Daily review",
+        "name": "Daily review",
         "description": "Today's notes, turned into tomorrow's list.",
         "prompt": "Review what I captured today and tell me what needs doing.",
         "steps": [
@@ -617,7 +632,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": [*_READING_TOOLS, "get_current_time", "set_reminder"],
     },
     {
-        "name": "✉️ Draft an email",
+        "name": "Draft an email",
         "description": "A clear first draft you can edit.",
         "prompt": "Draft an email to {{to}} about {{about}}.",
         "steps": [
@@ -633,7 +648,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": ["search_notes", "get_note"],
     },
     {
-        "name": "💡 Brainstorm ideas",
+        "name": "Brainstorm ideas",
         "description": "A varied list, drawing on your notes.",
         "prompt": "Brainstorm ideas about {{topic}} with me.",
         "steps": [
@@ -646,7 +661,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": ["search_notes", "get_note"],
     },
     {
-        "name": "📖 Explain a concept",
+        "name": "Explain a concept",
         "description": "Plain English, with an example.",
         "prompt": "Explain {{concept}} to me clearly and simply.",
         "steps": [
@@ -659,7 +674,7 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": ["search_notes", "get_note", "create_note"],
     },
     {
-        "name": "🗓 Create a study plan",
+        "name": "Create a study plan",
         "description": "A realistic plan, with reminders set.",
         "prompt": "Help me plan how to get {{goal}} done by {{deadline}}.",
         "steps": [

@@ -195,7 +195,7 @@ def test_a_plan_run_ticks_off_its_steps(ai_client, fake_ollama, app_state):
     plan card, then a step at a time, each one its own turn."""
     events = _events(
         ai_client,
-        "🧭 Fix my categories",
+        "ph:compass Fix my categories",
         plan={"goal": "Fix my categories", "steps": ["List them", "Merge duplicates"]},
         use_tools=True,
     )
@@ -211,7 +211,7 @@ def test_each_step_is_its_own_turn(ai_client, fake_ollama, app_state):
     model, not one call carrying a numbered list it is free to ignore."""
     _events(
         ai_client,
-        "🧭 Tidy up",
+        "ph:compass Tidy up",
         plan={"goal": "Tidy up", "steps": ["Find them", "Tag them", "Report"]},
         use_tools=True,
     )
@@ -224,7 +224,7 @@ def test_a_step_is_told_which_step_it_is(ai_client, fake_ollama, app_state):
     reports that there isn't one."""
     _events(
         ai_client,
-        "🧭 Tidy up",
+        "ph:compass Tidy up",
         plan={"goal": "Tidy up", "steps": ["Find them", "Tag them"]},
         use_tools=True,
     )
@@ -248,7 +248,7 @@ def test_a_plan_run_cannot_start_another_run(ai_client, fake_ollama, app_state):
     ]
     events = _events(
         ai_client,
-        "🧭 Tidy up",
+        "ph:compass Tidy up",
         plan={"goal": "Tidy up", "steps": ["Find them", "Tag them"]},
         use_tools=True,
     )

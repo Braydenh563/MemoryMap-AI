@@ -284,8 +284,13 @@ def test_backfill_deduces_reasons_for_links_made_before_the_feature_existed(
     )  # unrelated — should not
     session.commit()
 
-    result = ai_client.post("/entries/links/backfill-reasons").json()
-    assert result == {"checked": 2, "updated": 1}
+    result = ai_client.post("/entries/links/backfill-reasons", json={"ai": False}).json()
+    # The endpoint reports a third number now: `rewritten`, the links the AI
+    # pass turned from "similar in meaning" into an actual reason. Asserted as
+    # a subset rather than an exact dict, so adding a counter is not a test
+    # failure — what this test is about is the deduction, not the shape.
+    assert result["checked"] == 2
+    assert result["updated"] == 1
 
     links = ai_client.get(f"/entries/{a['id']}").json()["links"]
     by_target = {link["entry_id"]: link for link in links}
@@ -306,8 +311,9 @@ def test_backfill_never_touches_a_reason_someone_already_gave(ai_client, session
     )
     session.commit()
 
-    result = ai_client.post("/entries/links/backfill-reasons").json()
-    assert result == {"checked": 0, "updated": 0}
+    result = ai_client.post("/entries/links/backfill-reasons", json={"ai": False}).json()
+    assert result["checked"] == 0
+    assert result["updated"] == 0
 
     link = ai_client.get(f"/entries/{a['id']}").json()["links"][0]
     assert link["reason"] == "written by hand"

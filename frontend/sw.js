@@ -10,11 +10,16 @@
 // Bumped with the icon set: a stale cache would keep serving the old favicon
 // long after the new one shipped, which is exactly the class of bug the
 // version in this name exists to prevent.
-const CACHE = "memorymap-shell-v5";
+const CACHE = "memorymap-shell-v6";
 const SHELL = [
   "/",
   "/app.js",
   "/style.css",
+  // The icon font and its stylesheet are shell, not decoration: without them
+  // every button in the app is a blank square. Precached so a cold offline
+  // start still draws icons.
+  "/vendor/phosphor/style.css",
+  "/vendor/phosphor/Phosphor.woff2",
   "/favicon.svg",
   "/icon-maskable.svg",
   "/apple-touch-icon.png",

@@ -243,7 +243,7 @@ def _notes(session: Session) -> list[dict]:
             {
                 "kind": "note",
                 "id": entry.id,
-                "title": (_clip(text)[:60] if text else "🔒 Private note") or "Empty note",
+                "title": (_clip(text)[:60] if text else "Private note") or "Empty note",
                 "preview": "" if private else _clip(text, NOTE_PREVIEW_CHARS),
                 "updated_at": entry.created_at.isoformat(),
                 "detail": category or "Uncategorised",

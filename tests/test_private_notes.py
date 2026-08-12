@@ -187,7 +187,7 @@ def test_a_locked_vault_shows_a_placeholder_rather_than_breaking(client, session
     listed = client.get("/entries").json()
     private = next(e for e in listed if e["id"] == marked["id"])
     assert "secret text" not in private["content"]
-    assert "🔒" in private["content"]
+    assert "Private note" in private["content"]
     # Everything else still lists normally.
     assert isinstance(listed, list)
 
@@ -212,7 +212,7 @@ def test_exports_do_not_leak_when_locked(client, session):
 
     as_json = client.get("/export/json").json()
     assert all(secret not in e["content"] for e in as_json["entries"])
-    assert any("🔒" in e["content"] for e in as_json["entries"])
+    assert any("Private note" in e["content"] for e in as_json["entries"])
 
 
 def test_an_existing_notebook_upgrades_without_a_reset(tmp_path):

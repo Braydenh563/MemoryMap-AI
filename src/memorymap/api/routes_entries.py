@@ -16,7 +16,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import janitor, librarian
+from memorymap.ai import janitor, librarian, links
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import (
     AttachmentOut,
@@ -41,6 +41,8 @@ from memorymap.entry import manager
 from memorymap.search import search_manager
 
 router = APIRouter(prefix="/entries", tags=["entries"])
+
+logger = logging.getLogger("memorymap.api.entries")
 
 
 def _preview(text: str, length: int = 60) -> str:
@@ -491,16 +493,54 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     return suggestions
 
 
+class BackfillReasonsBody(BaseModel):
+    """`ai=False` runs only the cheap embedding pass — useful when the model
+    is known to be down and you just want the links marked."""
+
+    ai: bool = True
+    limit: int = Field(default=100, ge=1, le=500)
+
+
 @router.post("/links/backfill-reasons")
-def backfill_link_reasons(session: Session = Depends(get_session)) -> dict:
+def backfill_link_reasons(
+    body: BackfillReasonsBody | None = None, session: Session = Depends(get_session)
+) -> dict:
     """"None of my notes have a linked reason yet — is there an easy way to
     give them all a reason?" There wasn't: `_deduce_reason` only ever ran at
     the moment a link was *made*, so every link from before that shipped, or
     made while the embedding backend was off, stays mute forever with
     nothing to revisit it. One pass over every reason-less link, same rule
     as a fresh one — a link that still can't be deduced is left alone rather
-    than given a manufactured answer."""
-    return manager.backfill_link_reasons(session)
+    than given a manufactured answer.
+
+    **Two passes, not one, and the second is the one the user actually
+    wanted.** The first (embeddings) can only ever write the literal string
+    "similar in meaning" — it compares two vectors and has no words for what
+    it found. So a notebook that ran this ended up with every link reading
+    *"similar in meaning"*, which is what was reported: the button appeared to
+    work and the reasons it produced said nothing.
+
+    The second pass hands those to the model and asks it to name the actual
+    connection. It is best-effort: if the model is down, the embedding pass
+    has still marked the links and the audit can be re-run later — which is
+    why a failure here is reported in the result rather than raised.
+    """
+    options = body or BackfillReasonsBody()
+    result = manager.backfill_link_reasons(session)
+
+    result["rewritten"] = 0
+    if not options.ai:
+        return result
+    try:
+        result["rewritten"] = links.audit_vague_links(
+            session, deps.get_model_manager(), deps.get_ollama(), limit=options.limit
+        )
+    except Exception as exc:  # model offline, or no model configured
+        # Not an error the caller should see as a failure: the cheap pass
+        # succeeded and its work is committed.
+        logger.info("link reason audit skipped: %s", exc)
+        result["ai_unavailable"] = True
+    return result
 
 
 @router.get("/{entry_id}/related", response_model=list[EntryOut])

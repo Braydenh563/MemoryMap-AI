@@ -106,7 +106,7 @@ def test_a_skill_run_streams_its_events(ai_client, fake_ollama, app_state):
     with ai_client.stream(
         "POST",
         "/chat/stream",
-        json={"question": "⚡ Two steps", "skill": "Two steps", "use_tools": True},
+        json={"question": "ph:lightning Two steps", "skill": "Two steps", "use_tools": True},
     ) as response:
         events = [json.loads(line) for line in response.iter_lines() if line.strip()]
 

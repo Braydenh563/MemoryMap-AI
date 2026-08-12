@@ -101,6 +101,48 @@ def delete_file(attachment_id: int, session: Session = Depends(get_session)) -> 
     return _to_out(session, entry)
 
 
+class AttachmentRenameBody(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+
+
+@router.put("/files/{attachment_id}", response_model=EntryOut)
+def rename_file(
+    attachment_id: int, body: AttachmentRenameBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Rename a file in the Library — the display name only, never the bytes.
+
+    Mirrors `delete_file` above for the two checks that make this safe to
+    expose per-item rather than globally:
+
+    - `_existing_attachment` then `_existing_entry(attachment.entry_id)`, in
+      that order, the same as `delete_file`. `Attachment` carries no
+      workspace column of its own — its note does, so re-fetching the note
+      through the same workspace-filtered query every other route uses is
+      what makes an attachment in a workspace this request isn't in 404
+      rather than quietly renaming across the boundary.
+    - a private note's attachment is refused outright (403), matching the
+      Library's own listing (`routes_library._images`), which already hides
+      a private note's files from view entirely — renaming one from a
+      surface that can't show it would be a hole the same shape as the ones
+      CLAUDE.md's review section warns about: the guard here is new, but the
+      boundary it enforces already exists elsewhere in the app.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    entry = _existing_entry(session, attachment.entry_id)
+    if entry.is_private:
+        raise HTTPException(
+            status_code=403,
+            detail="This file is on a private note and can't be renamed until the note is readable.",
+        )
+    try:
+        manager.rename_attachment(session, attachment, body.filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _to_out(session, entry)
+
+
 # --- saving a file the app generated (§35E) ---------------------------------------
 #
 # Every export in this app builds a Blob in the browser and clicks a hidden
@@ -265,6 +307,36 @@ def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dic
     session.delete(upload)
     session.commit()
     return {"status": "ok"}
+
+
+class MediaRenameBody(BaseModel):
+    original_name: str = Field(min_length=1, max_length=300)
+
+
+@router.put("/media/{upload_id}", response_model=MediaUploadOut)
+def rename_media(
+    upload_id: int, body: MediaRenameBody, session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """Rename a Library image — the display name only.
+
+    `original_name` is a label, exactly like `Attachment.filename`: the bytes
+    live under `upload.filename`, a generated name, and nothing here touches
+    the disk. So it goes through the same validator rather than a laxer one of
+    its own — two "rename a file" endpoints in one module with two different
+    ideas of what a filename may contain is how the strict one quietly stops
+    being the rule.
+    """
+    upload = session.get(MediaUpload, upload_id)
+    if upload is None:
+        raise HTTPException(status_code=404, detail="No upload with that id")
+    try:
+        upload.original_name = manager.validate_attachment_filename(body.original_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    session.commit()
+    return MediaUploadOut(
+        id=upload.id, url=f"/media/{upload.filename}", original_name=upload.original_name
+    )
 
 
 @media_router.get("/media/{filename}")

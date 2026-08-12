@@ -41,6 +41,18 @@ router = APIRouter(tags=["settings"])
 class TemplateItem(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     content: str = Field(max_length=2000)
+    # Optional one-liner shown in the Settings list and as the entry-template
+    # option's tooltip — same shape as SkillItem.description below.
+    description: str = Field(default="", max_length=200)
+
+
+# Kept in sync by hand with BUILTIN_TEMPLATES in app.js. The templates
+# themselves (their markdown bodies) only ever lived in the frontend — Wave
+# B never gave the server a reason to know their content — but the NAMES
+# have to be known here too, or a custom template called "Journal" would
+# save fine and only collide with the shipped one client-side, in whichever
+# session happens to render the <select> next.
+BUILTIN_TEMPLATE_NAMES = {"Journal", "Recipe", "Contact", "Meeting"}
 
 
 class PersonaItem(BaseModel):
@@ -345,6 +357,8 @@ def update_preferences(
             # the AI can write is a skill the UI can write, and neither can
             # store one that won't run.
             value = _validated_skills(value)
+        if key == "custom_templates":
+            value = _validated_templates(value)
         config.set_preference(key, value)
         changed_keys.add(key)
         # Don't copy profile text into the audit log — it's personal.
@@ -378,6 +392,37 @@ def _validated_skills(raw: list[dict]) -> list[dict]:
                 detail=f"“{skill['name']}” is a built-in skill — pick another name",
             )
         out.append(skill)
+    return out
+
+
+def _validated_templates(raw: list[dict]) -> list[dict]:
+    """Every custom template, name-checked — or a 422 naming the collision.
+
+    Mirrors `_validated_skills` immediately above: a name that shadows a
+    built-in is refused rather than silently allowed to win wherever the
+    merged list is drawn next, and two customs can't collide with each other
+    either. Rejecting (rather than de-duping, the way `addSkill` on the
+    frontend quietly does for skills) was the deliberate choice here —
+    silently dropping a *different* saved template because its name was
+    reused would be a surprise deletion of someone's own text, which a
+    skill's shorter prompt doesn't risk in the same way.
+    """
+    seen: set[str] = set()
+    out = []
+    for item in raw:
+        name = (item.get("name") or "").strip()
+        if name in BUILTIN_TEMPLATE_NAMES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"“{name}” is a built-in template — pick another name",
+            )
+        if name in seen:
+            raise HTTPException(
+                status_code=422,
+                detail=f"“{name}” is already used by another template",
+            )
+        seen.add(name)
+        out.append(item)
     return out
 
 

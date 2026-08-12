@@ -103,6 +103,21 @@ function mediaSrc(url) {
   return `${url}${sep}token=${encodeURIComponent(token)}`;
 }
 
+// A page-load-order bug lived here: this was declared down in the spaces
+// section (appended at the end of the file), and `api()` — called from
+// `initAuth()` at module load, long before that point in the script runs —
+// reads it via `activeSpaceId()` on every request's headers below. A `const`
+// is in the temporal dead zone until its own declaration executes, so the
+// very first request the app ever made threw `ReferenceError: Cannot access
+// 'SPACE_ALL' before initialization`, caught by api()'s own try/catch and
+// surfaced only as "Can't reach the MemoryMap server" — the lock screen
+// never appeared, with no console error and no failed network request,
+// because the fetch was never reached. `node --check` cannot catch this: the
+// file is syntactically valid, only wrong in execution order. Declared here,
+// before `api()` is ever callable, so this cannot happen again regardless of
+// what gets appended below.
+const SPACE_ALL = "all";
+
 async function api(path, options = {}) {
   // `silent`: a background poll (model status, reminders) — a 401 must not
   // yank the user to the lock screen mid-session (Wave O fix for a
@@ -125,13 +140,27 @@ async function api(path, options = {}) {
   let response;
   try {
     response = await fetch(path, {
-      headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Auth-Token": authToken(),
+        // Which space this request is scoped to. The server reads it in
+        // get_session() and adds a loader criterion for it, so leaving it off
+        // means every request silently sees every space — the switcher would
+        // change the label in the header and nothing else.
+        "X-Workspace-ID": activeSpaceId(),
+      },
       ...fetchOptions,
     });
   } catch (networkErr) {
     // fetch() itself threw — this is a real network failure (offline, CORS,
     // connection refused). Log it explicitly so it always appears in Logs.
-    if (!networkErr?.name === 'AbortError') {
+    //
+    // `!networkErr?.name === 'AbortError'` is what this said, which parses as
+    // `(!networkErr?.name) === 'AbortError'` — a boolean compared to a string,
+    // so it was always false and no network failure was ever logged. The one
+    // case the check exists to skip (our own timeout abort) was being logged
+    // and everything else was too.
+    if (networkErr?.name !== "AbortError") {
       recordBrowserLog("ERROR", [
         `[Network] ${fetchOptions.method || 'GET'} ${path} — ${networkErr.message}`
       ]);
@@ -245,6 +274,14 @@ async function initAuth() {
 }
 
 function startApp() {
+  // Whatever the shell was last saying about being unable to reach the server
+  // is now provably false — we are about to talk to it. Left uncleared, the
+  // "check it's running, then refresh" line sat under the capture form for the
+  // whole session after one slow start, telling the user the app was broken
+  // while it worked perfectly. Screenshotted.
+  const shellStatus = $("save-status");
+  if (shellStatus) shellStatus.textContent = "";
+
   // A failed load must be visible, not a silently empty page — and one
   // broken endpoint must never stop the rest of the app from coming up.
   // Every bootstrap step is isolated so a single rejection surfaces a toast
@@ -320,6 +357,14 @@ function startApp() {
     })
   );
   step("load answer-length options", loadResponseModes);
+  // Here, not at module level beside initSpaceSwitcher(). The switcher's
+  // LISTENERS can be bound before there is a token — nothing about a click
+  // handler needs the server — but the LIST cannot: /spaces 401s before
+  // unlock, the catch leaves spacesCache empty, and nothing ever asks again.
+  // The menu would then offer "All spaces" and nothing else, for the whole
+  // session, on every fresh start. This is the same shape as the comment
+  // below about switchTab painting from a pile of 401s.
+  step("load spaces", loadSpaces);
   step("tell the server your timezone", reportTimezone);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
@@ -417,24 +462,48 @@ async function loadTemplates() {
   none.value = "";
   none.textContent = "No template";
   select.appendChild(none);
-  for (const template of [...BUILTIN_TEMPLATES, ...custom]) {
-    const option = document.createElement("option");
-    option.value = template.name;
-    option.textContent = template.name;
-    option.dataset.content = template.content;
-    select.appendChild(option);
+  // Grouped the same way the chat skill picker groups "Yours" ahead of
+  // "Built-in" (§entry-template extension) — one recognisable shape for
+  // "your stuff first, then what shipped" instead of a flat, unsorted list.
+  for (const [templates, title] of [[custom, "Yours"], [BUILTIN_TEMPLATES, "Built-in"]]) {
+    if (!templates.length) continue;
+    const group = document.createElement("optgroup");
+    group.label = title;
+    for (const template of templates) {
+      const option = document.createElement("option");
+      option.value = template.name;
+      option.textContent = template.name;
+      option.dataset.content = template.content;
+      if (template.description) option.title = template.description;
+      group.appendChild(option);
+    }
+    select.appendChild(group);
   }
 }
 
-function applyTemplate() {
+async function applyTemplate() {
   const select = $("entry-template");
   const option = select.selectedOptions[0];
   if (!option || !option.dataset.content) return;
-  $("entry-content").value = option.dataset.content.replace(
+  const box = $("entry-content");
+  // Never silently overwrite what's already been typed — ask first, and put
+  // the dropdown back to blank on "keep my text" so it doesn't sit there
+  // showing a template name that was never actually applied.
+  if (box.value.trim()) {
+    const replace = await confirmDialog(
+      `Replace what you've already written with the “${option.textContent}” template?`,
+      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
+    );
+    if (!replace) {
+      select.value = "";
+      return;
+    }
+  }
+  box.value = option.dataset.content.replace(
     "{date}",
     new Date().toLocaleDateString()
   );
-  $("entry-content").focus();
+  box.focus();
 }
 
 function refreshTagSuggestions() {
@@ -451,10 +520,64 @@ function refreshTagSuggestions() {
 
 // --- rendering ---------------------------------------------------------------
 
+// --- icon-aware labels -------------------------------------------------------
+//
+// Most of the app's small controls are built in JS and take a plain string
+// label — chip("Notes"), smallButton("Delete", …), { label: "Improve" }. That
+// is why the emoji reform kept missing three hundred icons: they are not in
+// index.html, they are string literals passed to functions that assign
+// textContent, and you cannot put an <i> in a textContent.
+//
+// So the label grammar gains one form: a leading `ph:name ` marker.
+//
+//     chip("ph:file-text Notes")   ->   <i class="ph ph-file-text"></i> Notes
+//     smallButton("ph:trash", …)   ->   <i class="ph ph-trash"></i>
+//
+// Everything else about a label is unchanged, and a label with no marker is
+// still set with textContent, so nothing here can turn user text into markup.
+// The marker is matched with an anchored, bounded pattern and the captured
+// name is rebuilt into a class — a caller cannot smuggle a second class or a
+// closing tag through it.
+//
+// Prose never carries a marker. A toast, a tooltip and anything sent to the
+// model are sentences, and `ph:link` in the middle of one is just noise the
+// reader has to decode.
+const PH_LABEL = /^ph:([a-z0-9-]{1,40})\s*/;
+
+// Fills `el` with a label, turning a leading `ph:` marker into a real icon
+// element. Returns the element, so it composes.
+function setLabel(el, label) {
+  const text = String(label ?? "");
+  const match = PH_LABEL.exec(text);
+  if (!match) {
+    el.textContent = text;
+    return el;
+  }
+  const icon = document.createElement("i");
+  icon.className = `ph ph-${match[1]}`;
+  icon.setAttribute("aria-hidden", "true");
+  const rest = text.slice(match[0].length);
+  // **The gap is a margin, not a space, and it has to be.** A plain " " text
+  // node between the icon and the label is what this did first, and it worked
+  // everywhere except in a flex container — where CSS discards anonymous
+  // whitespace-only children outright. Half the labels in this app live in
+  // flex rows (chips, buttons, status items), so half of them rendered with
+  // the glyph jammed against the first letter and the other half did not,
+  // which reads as a random inconsistency rather than a rule.
+  //
+  // Only when there IS following text: an icon-only button must stay exactly
+  // as tight as it was, or every icon button in the app gains trailing space
+  // and stops being square.
+  if (rest) icon.classList.add("ph-lead");
+  el.replaceChildren(icon);
+  if (rest) el.append(rest);
+  return el;
+}
+
 function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
-  span.textContent = text;
+  setLabel(span, text);
   // An interactive chip must be reachable and operable by keyboard, not just
   // the mouse. Passing onClick makes it a real button in the a11y tree.
   if (onClick) {
@@ -636,7 +759,7 @@ function smallButton(label, title, onClick, ghost = true) {
   // title doubles as one.
   const button = document.createElement("button");
   button.className = ghost ? "ghost small" : "small";
-  button.textContent = label;
+  setLabel(button, label);
   button.title = title;
   if (title) button.setAttribute("aria-label", title);
   button.addEventListener("click", onClick);
@@ -708,6 +831,19 @@ function entryItem(entry, options = {}) {
     entry.title ? bodyWithoutTitleLine(entry.content) : entry.content,
     searchHighlightTerms()
   );
+  content.addEventListener("remove-inline-image", async (e) => {
+    e.stopPropagation();
+    if (!(await confirmDialog("Remove this image from the note?"))) return;
+    entry.content = entry.content.replace(e.detail.originalText, "").replace(/\n{3,}/g, "\n\n").trim();
+    try {
+      await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ content: entry.content }) });
+      await loadEntries();
+      flashEntry(entry.id);
+      toast("Image removed.");
+    } catch(err) {
+      toast(err.message || "Failed to remove image", true);
+    }
+  });
   li.appendChild(content);
   if (isLong) {
     const toggle = document.createElement("button");
@@ -752,7 +888,7 @@ function entryItem(entry, options = {}) {
   // The documents this note feeds. Notes and documents are separate things
   // on purpose; this is the one place that says they are about the same one.
   for (const doc of entry.documents || []) {
-    const mark = chip(`📄 ${doc.title}`, "tag", () => openDocumentFromNote(doc.id));
+    const mark = chip(`ph:file-text ${doc.title}`, "tag", () => openDocumentFromNote(doc.id));
     mark.title = `Open “${doc.title}”`;
     if (options.actions) {
       // Detach from the note's side too. The document editor has had this
@@ -784,7 +920,7 @@ function entryItem(entry, options = {}) {
       when.precision === "day"
         ? day.toLocaleDateString(undefined, { day: "numeric", month: "short" })
         : `${when.precision} of ${day.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
-    const mark = chip(`🕓 ${when.phrase} → ${label}`, "when");
+    const mark = chip(`ph:clock ${when.phrase} → ${label}`, "when");
     mark.title =
       `“${when.phrase}” meant ${day.toLocaleDateString(undefined, {
         weekday: "long", day: "numeric", month: "long", year: "numeric",
@@ -822,7 +958,7 @@ function entryItem(entry, options = {}) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
-      smallButton(entry.pinned ? "📌" : "📍", entry.pinned ? "Unpin" : "Pin to top", async () => {
+      smallButton(entry.pinned ? "ph:push-pin" : "ph:map-pin", entry.pinned ? "Unpin" : "Pin to top", async () => {
         await api(`/entries/${entry.id}`, {
           method: "PUT",
           body: JSON.stringify({ pinned: !entry.pinned }),
@@ -831,12 +967,12 @@ function entryItem(entry, options = {}) {
       })
     );
     actions.appendChild(
-      smallButton("📋", "Copy this note's text", async () => {
+      smallButton("ph:clipboard", "Copy this note's text", async () => {
         if (await copyToClipboard(entry.content)) toast("Note copied.");
       })
     );
     actions.appendChild(
-      smallButton("✎", "Edit this entry", () => {
+      smallButton("ph:pencil-simple", "Edit this entry", () => {
         editingId = entry.id;
         renderEntries();
       })
@@ -844,8 +980,8 @@ function entryItem(entry, options = {}) {
     actions.appendChild(entryOverflowMenu(entry));
     metaEnd.appendChild(actions);
   }
-  if (entry.is_private) meta.insertBefore(chip("🔒 private"), meta.firstChild);
-  if (entry.pinned) meta.insertBefore(chip("📌 pinned"), meta.firstChild);
+  if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
+  if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
   li.appendChild(meta);
 
   // Attachments (Wave B; images become thumbnails in Wave M).
@@ -885,7 +1021,7 @@ function entryItem(entry, options = {}) {
         if (options.actions) wrap.appendChild(removeButton());
         fileRow.appendChild(wrap);
       } else {
-        const fileChip = chip(`📄 ${attachment.filename}`, "link", () =>
+        const fileChip = chip(`ph:file-text ${attachment.filename}`, "link", () =>
           downloadAttachment(attachment)
         );
         fileChip.title = `Download (${Math.max(1, Math.round(attachment.size / 1024))} KB)`;
@@ -924,7 +1060,8 @@ function entryItem(entry, options = {}) {
       // which can carry the same **bold**/`code` a reader would expect to
       // see rendered, the way the note's own body already does.
       const linkChip = chip("", "link");
-      linkChip.appendChild(document.createTextNode("↔ "));
+      linkChip.appendChild(setLabel(document.createElement("span"), "ph:arrows-left-right"));
+    linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
       renderInlineMarkdown(linkPreview, short, [], true);
       linkChip.appendChild(linkPreview);
@@ -944,7 +1081,7 @@ function entryItem(entry, options = {}) {
       if (options.actions) {
         const editReason = document.createElement("span");
         editReason.className = "unlink reason-edit";
-        editReason.textContent = "✎";
+        setLabel(editReason, "ph:pencil-simple");
         editReason.title = link.reason ? "Edit this link's reason" : "Add a reason for this link";
         editReason.addEventListener("click", async (e) => {
           e.stopPropagation();
@@ -1090,7 +1227,7 @@ async function openEntryHistory(entry) {
     head.textContent = `Before ${new Date(revision.created_at).toLocaleString()}`;
     const body = document.createElement("p");
     body.textContent = notePreviewText(revision.content);
-    const restore = smallButton("↩ Put this back", "Restore this version", async () => {
+    const restore = smallButton("ph:arrow-u-up-left Put this back", "Restore this version", async () => {
       if (!(await confirmDialog("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable."))) return;
       try {
         await apiJson(`/entries/${entry.id}/history/${revision.id}/restore`, { method: "POST" });
@@ -1133,12 +1270,35 @@ async function toggleEntryPrivacy(entry) {
   }
 }
 
+// Reported: no popup shows when a title is regenerated.
+//
+// There WAS a toast, and it was being swallowed. `toast()` drops anything
+// that is not an error while notifications are muted — which is right for
+// background chatter and wrong here: this is the result of a button the user
+// just pressed, and a direct action that reports nothing reads as a broken
+// button. Muting is about noise you did not ask for.
+//
+// The "Generating…" toast is also worth keeping distinct from the settled one:
+// this call waits on the model, so it can take seconds, and a control that
+// looks inert for seconds gets pressed again.
 async function generateEntryTitle(entry) {
+  const regenerating = Boolean(entry.title);
   try {
-    await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
+    toast(regenerating ? "Regenerating the title…" : "Generating a title…", false, {
+      exempt: true,
+    });
+    const updated = await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
     await loadEntries();
     flashEntry(entry.id);
-    toast("Titled.");
+    const title = updated && updated.title;
+    toast(title ? `Titled “${title}”.` : "Titled.", false, { exempt: true });
+    // And in the notification centre, so the result survives the 5.5 seconds
+    // the toast lives for — the model can finish while you are on another tab.
+    recordNotification({
+      kind: "task",
+      title: regenerating ? "Title regenerated" : "Title generated",
+      detail: title ? `“${title}”` : `Note #${entry.id}`,
+    });
   } catch (error) {
     toast(error.message || "Couldn't generate a title.", true);
   }
@@ -1149,6 +1309,9 @@ async function removeEntryTitle(entry) {
     await apiJson(`/entries/${entry.id}/remove-title`, { method: "POST" });
     await loadEntries();
     flashEntry(entry.id);
+    // Said out loud for the same reason as above: it was silent, so the only
+    // feedback was noticing the title had gone.
+    toast("Title removed.", false, { exempt: true });
   } catch (error) {
     toast(error.message || "Couldn't remove the title.", true);
   }
@@ -1161,7 +1324,7 @@ function buildMenuItemButton(item) {
   const button = document.createElement("button");
   button.setAttribute("role", "menuitem");
   button.className = "menu-item" + (item.danger ? " menu-danger" : "");
-  button.textContent = item.label;
+  setLabel(button, item.label);
   if (item.title) button.title = item.title;
   button.addEventListener("click", () => {
     closeActionMenus();
@@ -1170,7 +1333,7 @@ function buildMenuItemButton(item) {
   return button;
 }
 
-// A grouped trigger ("✨ AI actions ›") that opens a side flyout of its own
+// A grouped trigger ("AI AI actions ›") that opens a side flyout of its own
 // items — asked for directly, to cut a 15-item flat list down to something
 // scannable. Hover opens it on a device that has hover; click/tap opens it
 // everywhere, which is the only way in on a touchscreen. Below
@@ -1188,7 +1351,10 @@ function buildMenuGroupButton(label, subItems) {
   trigger.setAttribute("aria-expanded", "false");
   trigger.className = "menu-item has-submenu";
   const labelSpan = document.createElement("span");
-  labelSpan.textContent = label;
+  // setLabel, not textContent — these three group triggers ("AI actions",
+  // "Connect", "Add") were the one label sink the sweep missed, so the note
+  // kebab menu rendered the literal text "ph:magic-wand AI actions".
+  setLabel(labelSpan, label);
   const arrow = document.createElement("span");
   arrow.className = "menu-submenu-arrow";
   arrow.setAttribute("aria-hidden", "true");
@@ -1288,14 +1454,14 @@ function entryOverflowMenu(entry) {
   // asked for directly, to cut what had grown into a 15-item flat list.
   const topLevel = [
     {
-      label: entry.is_private ? "🔓 Make readable" : "🔒 Make private",
+      label: entry.is_private ? "ph:lock-open Make readable" : "ph:lock Make private",
       title: entry.is_private
         ? "Decrypt this note so search and the AI can use it again"
         : "Encrypt this note at rest, and keep it out of search and the AI",
       run: () => toggleEntryPrivacy(entry),
     },
     {
-      label: "🕘 History",
+      label: "ph:clock-counter-clockwise History",
       title: "See earlier versions of this note, and put one back",
       run: () => openEntryHistory(entry),
     },
@@ -1303,12 +1469,12 @@ function entryOverflowMenu(entry) {
 
   const aiItems = [
     {
-      label: "🔄 Re-evaluate",
+      label: "ph:arrows-clockwise Re-evaluate",
       title: "Refresh this note's AI confidence and suggest tags & links",
       run: () => reevaluateEntry(entry),
     },
     {
-      label: "✨ Improve writing",
+      label: "ph:magic-wand Improve writing",
       title: "Proofread or rewrite this note with AI",
       run: () => {
         editingId = entry.id;
@@ -1322,7 +1488,7 @@ function entryOverflowMenu(entry) {
       // Recognising a title the note already wrote (a leading `# Heading`)
       // is free; writing one costs a real model call, so it's this
       // separate, on-request action rather than something automatic.
-      label: entry.title ? "✨ Regenerate title" : "✨ Generate title",
+      label: entry.title ? "ph:magic-wand Regenerate title" : "ph:magic-wand Generate title",
       title: "Write a short title for this note with AI",
       run: () => generateEntryTitle(entry),
     },
@@ -1339,7 +1505,7 @@ function entryOverflowMenu(entry) {
 
   const connectItems = [
     {
-      label: "📄 Add to a document",
+      label: "ph:file-text Add to a document",
       title: "Attach this note to a document you have already started",
       run: () => {
         inlineAction = inlineActionIs(entry.id, "document")
@@ -1349,17 +1515,17 @@ function entryOverflowMenu(entry) {
       },
     },
     {
-      label: "📄 Expand into a document",
+      label: "ph:file-text Expand into a document",
       title: "Start a document from this note — the note stays where it is",
       run: () => expandNoteIntoDocument(entry),
     },
-    { label: "🔗 Link to another", run: () => beginOrCompleteLink(entry) },
+    { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
     { label: "≈ Similar notes", run: () => toggleRelated(entry) },
   ];
 
   const addItems = [
     {
-      label: "➕ Add context",
+      label: "ph:plus Add context",
       title: "Append detail — the AI may refile it",
       run: () => {
         inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
@@ -1375,17 +1541,17 @@ function entryOverflowMenu(entry) {
       },
     },
     {
-      label: "⏰ Remind me",
+      label: "ph:alarm Remind me",
       run: () => {
         inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
         renderEntries();
       },
     },
-    { label: "📎 Attach a file", run: () => attachFileTo(entry) },
+    { label: "ph:paperclip Attach a file", run: () => attachFileTo(entry) },
   ];
 
   const danger = {
-    label: "🗑 Move to bin",
+    label: "ph:trash Move to bin",
     danger: true,
     // Instant + one-click Undo, soft delete underneath (Wave J).
     run: async () => {
@@ -1400,9 +1566,9 @@ function entryOverflowMenu(entry) {
   };
 
   for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
-  menu.appendChild(buildMenuGroupButton("✨ AI actions", aiItems));
-  menu.appendChild(buildMenuGroupButton("🔗 Connect", connectItems));
-  menu.appendChild(buildMenuGroupButton("➕ Add", addItems));
+  menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
+  menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
+  menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
   menu.appendChild(buildMenuItemButton(danger));
 
   // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move
@@ -1437,7 +1603,7 @@ function entryOverflowMenu(entry) {
   return wrap;
 }
 
-// The ➕ context / ⤵ continue / ⏰ remind boxes inside an entry card.
+// The Add context / continue / remind boxes inside an entry card.
 // Ask the AI to re-evaluate one note, then show its suggestions inline.
 async function reevaluateEntry(entry) {
   closeActionMenus();
@@ -1520,7 +1686,7 @@ function renderReevaluateResult(entry, wrap) {
       renderInlineMarkdown(preview, link.preview, [], true);
       row.appendChild(preview);
       row.appendChild(
-        smallButton("🔗 Link", "Link these two notes", async () => {
+        smallButton("ph:link Link", "Link these two notes", async () => {
           try {
             await api(`/entries/${entry.id}/links`, {
               method: "POST",
@@ -1827,7 +1993,7 @@ async function resolveCategoryChoice(select) {
 function beginOrCompleteLink(entry) {
   if (linkSource === null) {
     linkSource = entry.id;
-    toast("Now click 🔗 on the entry you want to connect it to (Esc cancels).");
+    toast("Now click Link on the entry you want to connect it to (Esc cancels).");
     renderEntries();
     return;
   }
@@ -1986,7 +2152,7 @@ function isRenderableUrl(url) {
 
 // LaTeX escapes that models reach for when they want a symbol (§35H).
 //
-// Screenshotted: a bullet reading "Jokes $\\rightarrow$ Social Skills", with
+// Screenshotted: a bullet reading "Jokes $\rightarrow$ Social Skills", with
 // the LaTeX printed literally. That is not a markdown gap — the model was
 // asked for an arrow and reached for the notation it saw most in training.
 // Rendering a whole maths engine for this would be absurd; translating the
@@ -2064,13 +2230,33 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
     // a code span's is).
     if (imageUrl !== undefined) {
       if (compact) {
-        element.appendChild(document.createTextNode(imageAlt || "🖼"));
+        element.appendChild(document.createTextNode(imageAlt || "Image"));
       } else if (isRenderableUrl(imageUrl)) {
+        const wrapper = document.createElement("span");
+        wrapper.className = "thumb-wrap";
         const img = document.createElement("img");
         img.src = mediaSrc(imageUrl);
         img.alt = imageAlt || "";
-        img.className = "entry-inline-image";
+        img.className = "attachment-thumb";
         img.loading = "lazy";
+        img.style.cursor = "zoom-in";
+        img.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openLightbox(mediaSrc(imageUrl), imageAlt || "Image");
+        });
+        const dismissBtn = document.createElement("span");
+        dismissBtn.className = "unlink";
+        dismissBtn.title = "Remove image from note";
+        dismissBtn.textContent = "×";
+        dismissBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          wrapper.dispatchEvent(new CustomEvent("remove-inline-image", {
+            bubbles: true,
+            detail: { originalText: match[0] }
+          }));
+        });
+        wrapper.appendChild(img);
+        wrapper.appendChild(dismissBtn);
         // Asked for directly: a deleted image left a broken-image glyph in
         // the note that referenced it — a closable "deleted" box instead.
         // Only dismisses the placeholder from this render; the note's own
@@ -2079,17 +2265,16 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
         img.addEventListener("error", () => {
           const placeholder = document.createElement("span");
           placeholder.className = "entry-inline-image-deleted";
-          placeholder.append(document.createTextNode(`🖼 ${imageAlt || "Image"} deleted`));
-          const dismiss = document.createElement("button");
-          dismiss.type = "button";
-          dismiss.className = "ghost small icon-button";
+          placeholder.append(document.createTextNode(`${imageAlt || "Image"} deleted`));
+          const dismiss = document.createElement("span");
+          dismiss.className = "unlink";
           dismiss.title = "Dismiss";
-          dismiss.textContent = "✕";
+          dismiss.textContent = "×";
           dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
           placeholder.appendChild(dismiss);
-          img.replaceWith(placeholder);
+          wrapper.replaceWith(placeholder);
         });
-        element.appendChild(img);
+        element.appendChild(wrapper);
       } else {
         element.appendChild(document.createTextNode(match[0]));
       }
@@ -2354,11 +2539,11 @@ function renderSidebar() {
       const actions = document.createElement("span");
       actions.className = "category-actions";
       actions.append(
-        smallButton("✎", `Rename ${category}`, (event) => {
+        smallButton("ph:pencil-simple", `Rename ${category}`, (event) => {
           event.stopPropagation();
           renameCategory(meta, category);
         }),
-        smallButton("🗑", `Delete ${category}`, (event) => {
+        smallButton("ph:trash", `Delete ${category}`, (event) => {
           event.stopPropagation();
           deleteCategory(meta, category, count);
         })
@@ -2468,7 +2653,7 @@ function offerJumpToNewNote(saved, status) {
   const jump = document.createElement("button");
   jump.type = "button";
   jump.className = "ghost small jump-to-note";
-  jump.textContent = "↦ Go to it";
+  setLabel(jump, "ph:arrow-right Go to it");
   jump.title = "Open this note in your list";
   jump.addEventListener("click", () => flashEntry(saved.id));
   status.append(" ", jump);
@@ -2553,7 +2738,7 @@ function renderCaptureDocuments(documents) {
   const box = $("entry-document-chips");
   box.replaceChildren();
   for (const id of captureDocuments) {
-    const chipEl = chip(`📄 ${captureDocumentTitles.get(String(id)) || id} ✕`, "tag", () => {
+    const chipEl = chip(`ph:file-text ${captureDocumentTitles.get(String(id)) || id} ✕`, "tag", () => {
       captureDocuments.delete(id);
       renderCaptureDocuments();
     });
@@ -2886,7 +3071,7 @@ function renderAnswerGrounding(box, sentences, rawResults) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip result-reason-chip result-reason-connected answer-grounding-chip";
-    chip.textContent = `📄 ${noteLabel({ content: entry?.content || "" }, 30)}`;
+    setLabel(chip, `ph:file-text ${noteLabel({ content: entry?.content || "" }, 30)}`);
     chip.title = forSentences.join(" ");
     chip.addEventListener("click", () => flashEntry(noteId));
     target.appendChild(chip);
@@ -2990,7 +3175,7 @@ function renderChatMeta(meta) {
 }
 
 // Why a result showed up, as a badge — not a footnote. Reported directly:
-// the one existing explanation ("🔗 linked to a match") was a muted chip
+// the one existing explanation ("Link linked to a match") was a muted chip
 // easy to miss, and every *other* result — the actual matches — carried no
 // reason at all, so "why is this here?" only had an answer for the minority
 // of rows that arrived by connection rather than by matching. `match_info`
@@ -3003,7 +3188,7 @@ const MATCH_REASON_LABEL = {
   // reason show up here too, not just on the graph and in Trace. It does
   // now (search_manager.graph_expansion carries it through).
   connected: (info) => ({
-    text: info.reason ? `🔗 Linked (${info.reason})` : "🔗 Linked to a match",
+    text: info.reason ? `ph:link Linked (${info.reason})` : "ph:link Linked to a match",
     title: info.reason
       ? `This note didn't match your question — it's here because it's linked to one that did: ${info.reason}.`
       : "This note didn't match your question — it's here because it is linked to one that did.",
@@ -3013,21 +3198,21 @@ const MATCH_REASON_LABEL = {
   // its own badge text says so rather than reading identically to a direct
   // connection, and `.result-connected-2hop` (style.css) renders it dimmer.
   connected_2hop: (info) => ({
-    text: info.reason ? `🔗🔗 Two steps away (${info.reason})` : "🔗🔗 Two steps from a match",
+    text: info.reason ? `ph:link Two steps away (${info.reason})` : "ph:link Two steps from a match",
     title: info.reason
       ? `This note is linked to a note that's linked to a match, not to the match itself: ${info.reason}.`
       : "This note is linked to a note that's linked to a match, not to the match itself — weaker evidence than a direct connection.",
   }),
   semantic: (info) => ({
-    text: `🎯 ${Math.round(info.score * 100)}% similar`,
+    text: `ph:target ${Math.round(info.score * 100)}% similar`,
     title: `Matched by meaning, not exact words — ${Math.round(info.score * 100)}% cosine similarity to your question.`,
   }),
   keyword: (info) => ({
-    text: `🔎 Matched “${info.terms.join("”, “")}”`,
+    text: `ph:magnifying-glass Matched “${info.terms.join("”, “")}”`,
     title: `Matched the word(s) “${info.terms.join(", ")}” in your question.`,
   }),
   hybrid: (info) => ({
-    text: `🎯 ${Math.round(info.score * 100)}% similar · “${info.terms.join("”, “")}”`,
+    text: `ph:target ${Math.round(info.score * 100)}% similar · “${info.terms.join("”, “")}”`,
     title: `Matched both by meaning (${Math.round(info.score * 100)}% similarity) and by the word(s) “${info.terms.join(", ")}”.`,
   }),
 };
@@ -3510,7 +3695,7 @@ function chatMessageActions(actions) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "msg-action";
-    button.textContent = action.label;
+    setLabel(button, action.label);
     button.title = action.title;
     button.setAttribute("aria-label", action.title);
     button.addEventListener("click", action.onClick);
@@ -3533,7 +3718,8 @@ function continueRunControls({ label, hint, onClick }) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "small";
-  button.textContent = label;
+  // continueRunControls is called with "ph:arrow-clockwise Resume from step N".
+  setLabel(button, label);
   button.addEventListener("click", () => {
     // One press only: a second would start a duplicate run over the same
     // notes, and every step of it writes.
@@ -3565,7 +3751,7 @@ function manualPauseControls({ onContinue }) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "small";
-  button.textContent = "▶ Continue";
+  setLabel(button, "ph:play Continue");
   button.addEventListener("click", () => {
     button.disabled = true;
     note.disabled = true;
@@ -3648,7 +3834,7 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
         "context window was used by this turn." +
         (fill >= 80
           ? "\n\nPast about 80%, the next turn is the one that starts dropping " +
-            "the oldest part of its own prompt — 🗜 Compress in the header " +
+            "the oldest part of its own prompt — Compress in the header " +
             "summarises the conversation so far instead."
           : ""),
       kind: "window",
@@ -3673,7 +3859,7 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
   if (toolCount) {
     row.appendChild(
       metaItem(String(toolCount), {
-        icon: "🔧",
+        icon: "ph:wrench",
         title:
           `${toolCount} tool call${toolCount === 1 ? "" : "s"}` +
           (rounds > 1 ? ` over ${rounds} rounds` : "") +
@@ -4094,7 +4280,7 @@ async function runWebSearch() {
     // The actions, in the row's corner and revealed on hover — the same
     // pattern the note cards use, and for the same reason. Measured before:
     // three labelled buttons under every result made each one 127px tall, so
-    // barely two and a half results fitted in the panel. **"📖 Read here" is
+    // barely two and a half results fitted in the panel. **"Read here Read here" is
     // gone entirely**: the title does exactly that, one line above, which
     // makes it a button whose whole job was to repeat the thing next to it.
     const actions = document.createElement("div");
@@ -4104,11 +4290,11 @@ async function runWebSearch() {
     open.target = "_blank";
     open.rel = "noopener noreferrer";
     open.className = "ghost small web-open-link";
-    open.textContent = "↗";
+    setLabel(open, "ph:arrow-square-out");
     open.title = "Open in your browser";
     open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
     actions.appendChild(open);
-    const ask = smallButton("💬", "Open this page and ask the AI about it", () =>
+    const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
       askAboutPage(result.url, result.title)
     );
     ask.setAttribute("aria-label", "Ask the AI about this page");
@@ -4126,7 +4312,7 @@ async function runWebSearch() {
 // first and offered rather than failing silently.
 async function askAboutPage(url, title) {
   if (!(prefsCache && prefsCache.web_search_enabled)) {
-    toast("Turn on 🌐 Web first — reading a page needs it.", true);
+    toast("Turn on Web search first — reading a page needs it.", true);
     return;
   }
   // Reading a page is a tool call, so agent mode has to be on for this turn.
@@ -4368,7 +4554,7 @@ function personaOptions() {
   }
   // Also surface the active persona's description on the closed select itself.
   select.title = describe(active);
-  // The full prompt, not the hover excerpt: the 👁 panel exists precisely so
+  // The full prompt, not the hover excerpt: the preview panel exists precisely so
   // the instructions the model is given aren't a 200-character preview.
   const fullPrompt = (name) =>
     (overrides.get(name) || {}).prompt || BUILTIN_PERSONAS[name] || "";
@@ -4473,7 +4659,7 @@ function renderCompressionState() {
   if (!badge) return;
   badge.classList.toggle("hidden", !chatSummary);
   if (chatSummary) {
-    badge.firstElementChild.textContent = `🗜 first ${chatSummary.covered} summarised`;
+    setLabel(badge.firstElementChild, `ph:arrows-in first ${chatSummary.covered} summarised`);
   }
 }
 
@@ -4593,8 +4779,8 @@ function addBubble(role, text) {
     bubble.appendChild(
       chatMessageActions([
         { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
-        { label: "✎", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
-        { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
+        { label: "ph:pencil-simple", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
+        { label: "ph:trash", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
     );
   }
@@ -4666,11 +4852,11 @@ function agentTimeline(holder) {
     el.open = true;
     const summary = document.createElement("summary");
     // A saved skill and a plan the model drew for this one request run through
-    // the same code, so the card has to say which it is — "⚡ Weekly review" is
-    // a job the user set up, "🧭 fix my categories" is one the model worked out
+    // the same code, so the card has to say which it is — "Skill Weekly review" is
+    // a job the user set up, "Plan fix my categories" is one the model worked out
     // just now, and confusing the two makes the skill list look like it has
     // entries nobody added.
-    summary.textContent = `${plan.kind === "plan" ? "🧭" : "⚡️"} ${plan.skill}`;
+    setLabel(summary, `${plan.kind === "plan" ? "ph:compass" : "ph:lightning"} ${plan.skill}`);
     el.appendChild(summary);
     const items = [];
     if (plan.steps && plan.steps.length) {
@@ -4973,7 +5159,7 @@ function changeRow(change, options = {}) {
 function toolChip(label, ok = true) {
   const item = document.createElement("div");
   item.className = `tool-chip ${ok ? "" : "tool-chip-error"}`.trim();
-  item.textContent = label;
+  setLabel(item, label);
   return item;
 }
 
@@ -4983,7 +5169,7 @@ function renderToolConfirm(holder, event) {
   const card = document.createElement("div");
   card.className = "tool-confirm";
   const text = document.createElement("p");
-  text.textContent = `⚠️ The AI wants to: ${event.label || event.name}`;
+  setLabel(text, `ph:warning The AI wants to: ${event.label || event.name}`);
   
   const contentArea = document.createElement("div");
   
@@ -5013,7 +5199,7 @@ function renderToolConfirm(holder, event) {
             method: "POST",
             body: JSON.stringify({ name: event.name, arguments: event.arguments }),
           });
-          card.replaceWith(toolChip(`✅ ${result.label || event.label || event.name}`));
+          card.replaceWith(toolChip(`ph:check-circle ${result.label || event.label || event.name}`));
           toast("Done — check Activity for the audit trail.");
           refreshAfterToolChanges();
         } catch (error) {
@@ -5025,7 +5211,7 @@ function renderToolConfirm(holder, event) {
   );
   row.appendChild(
     smallButton("Cancel", "Don't do this", () => {
-      card.replaceWith(toolChip("✖️ Cancelled — nothing was changed."));
+      card.replaceWith(toolChip("ph:x Cancelled — nothing was changed."));
     })
   );
   card.append(text, contentArea, row);
@@ -5042,7 +5228,7 @@ function renderAgentQuestion(holder, event) {
   const card = document.createElement("div");
   card.className = "tool-confirm agent-ask";
   const text = document.createElement("p");
-  text.textContent = `❓ ${event.question}`;
+  setLabel(text, `ph:question ${event.question}`);
   const row = document.createElement("div");
   row.className = "row agent-ask-options";
 
@@ -5052,7 +5238,7 @@ function renderAgentQuestion(holder, event) {
     answered = true;
     // Replace the card rather than leave dead buttons: the exchange is
     // already about to appear as a normal user message below.
-    card.replaceWith(toolChip(`❓ ${event.question} → ${choice}`));
+    card.replaceWith(toolChip(`ph:question ${event.question} → ${choice}`));
     sendChatMessage(choice);
   };
 
@@ -5199,7 +5385,7 @@ function renderDocNotes() {
     open.type = "button";
     open.className = "outline-link";
     if (note.is_private) {
-      open.textContent = "🔒 (private note)";
+      setLabel(open, "ph:lock (private note)");
     } else {
       renderInlineMarkdown(open, note.preview, [], true);
     }
@@ -5631,7 +5817,7 @@ async function runDocAiEdit() {
     return;
   }
   status.classList.remove("error");
-  status.textContent = "✨ Thinking…";
+  setLabel(status, "ph:magic-wand Thinking…");
   docAiController = new AbortController();
   $("doc-ai-run").classList.add("hidden");
   $("doc-ai-cancel-run").classList.remove("hidden");
@@ -5800,7 +5986,7 @@ async function composeDraft() {
     return;
   }
   status.classList.remove("error");
-  status.textContent = draft.trim() ? "✨ Revising…" : "✨ Drafting…";
+  setLabel(status, draft.trim() ? "ph:magic-wand Revising…" : "ph:magic-wand Drafting…");
   draftController = new AbortController();
   setDraftBusy(true);
   try {
@@ -5920,7 +6106,7 @@ function renderAttachments() {
     chipEl.className = "chip attachment-chip";
     chipEl.title = entry.content;
     const label = document.createElement("span");
-    label.textContent = `📎 ${noteLabel(entry)}`;
+    setLabel(label, `ph:paperclip ${noteLabel(entry)}`);
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
@@ -6034,8 +6220,19 @@ function closeChatDockMore() {
 async function sendChatMessage(preset, opts = {}) {
   const input = $("chat-input");
   const status = $("chat-status");
-  const question = (preset ?? input.value).trim();
-  if (!question) return;
+  const typed = (preset ?? input.value).trim();
+  if (!typed) return;
+
+  // Plan mode is applied here, on the way out, rather than by whatever control
+  // was pressed — so Send, Enter and a suggestion chip all get planned when the
+  // mode is on. `opts.plan` means this message IS a plan already (the plan
+  // runner re-sends through here), so it must not be planned again.
+  //
+  // The user's own words go in the bubble; the planning instruction is appended
+  // for the model only. `displayText` already exists for exactly this.
+  const planned = opts.plan || opts.skipPlanMode ? null : applyPlanMode(typed);
+  const question = planned || typed;
+  if (planned && !opts.displayText) opts = { ...opts, displayText: typed };
   lastChatQuestion = question;
 
   // Consumed once: this send — button click or free-typed reply alike — is
@@ -6069,7 +6266,7 @@ async function sendChatMessage(preset, opts = {}) {
   // Regenerate re-runs the same question without adding a duplicate "you".
   //
   // `displayText` is what the *user* said when the message carries an
-  // instruction they did not type — 🧭 Plan appends one. Showing the appended
+  // instruction they did not type — Plan Plan appends one. Showing the appended
   // sentence back to them would read as the app putting words in their mouth,
   // and hiding the request entirely would leave the plan looking as though it
   // came from nowhere; the button they pressed is the explanation.
@@ -6237,7 +6434,7 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onTool: (event) => {
         clearPending();
-        const label = event.ok ? event.label : `⚠️ ${event.error || event.label}`;
+        const label = event.ok ? event.label : `ph:warning ${event.error || event.label}`;
         timeline.tool(toolChip(label, event.ok));
         toolEvents.push({ label, ok: event.ok }); // remember for persistence
         if (event.ok) toolsActed = true;
@@ -6287,7 +6484,7 @@ async function sendChatMessage(preset, opts = {}) {
         // used only if the user presses Apply there. Not set on `handoff`:
         // that path always starts something; this one waits for a person.
         clearPending();
-        const label = "🗜 Suggested compressing the earlier messages";
+        const label = "ph:arrows-in Suggested compressing the earlier messages";
         timeline.tool(toolChip(label, true));
         toolEvents.push({ label, ok: true });
         showCompressReview(event, event.turns);
@@ -6397,25 +6594,27 @@ async function sendChatMessage(preset, opts = {}) {
     bubble.appendChild(
       manualPauseControls({
         onContinue: (note) =>
-          sendChatMessage(`⚡️ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
+          sendChatMessage(`${opts.skill} — from step ${stoppedAtStep + 1}`, {
             skill: opts.skill,
             skillInputs: opts.skillInputs || {},
             skillFromStep: stoppedAtStep,
             skillManual: true,
             skillManualNote: note,
+            skipPlanMode: true,
           }),
       })
     );
   } else if (!stopped && stoppedAtStep !== null && opts.skill) {
     bubble.appendChild(
       continueRunControls({
-        label: `↻ Resume from step ${stoppedAtStep + 1}`,
+        label: `ph:arrow-clockwise Resume from step ${stoppedAtStep + 1}`,
         hint: "Earlier steps are not repeated.",
         onClick: () =>
-          sendChatMessage(`⚡️ ${opts.skill} — from step ${stoppedAtStep + 1}`, {
+          sendChatMessage(`${opts.skill} — from step ${stoppedAtStep + 1}`, {
             skill: opts.skill,
             skillInputs: opts.skillInputs || {},
             skillFromStep: stoppedAtStep,
+            skipPlanMode: true,
           }),
       })
     );
@@ -6437,7 +6636,7 @@ async function sendChatMessage(preset, opts = {}) {
   chatScrollToEnd();
   if (toolsActed) refreshAfterToolChanges(); // the AI changed real data
   if (handoff) {
-    // Start the run as its own message, down the same path the ⚡ dropdown
+    // Start the run as its own message, down the same path the Skill dropdown
     // uses — so the plan, the ticked steps, the change list and every Undo
     // work here exactly as they do when the user picks the skill themselves.
     // Deferred by a task because this turn is still finishing: it re-enables
@@ -6474,8 +6673,8 @@ async function sendChatMessage(preset, opts = {}) {
       // Retry and delete at minimum, so there's always a way forward.
       bubble.appendChild(
         chatMessageActions([
-          { label: "↻", title: "Try again", onClick: () => regenerateLastAnswer() },
-          { label: "🗑", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
+          { label: "ph:arrow-clockwise", title: "Try again", onClick: () => regenerateLastAnswer() },
+          { label: "ph:trash", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
         ])
       );
       chatScrollToEnd();
@@ -6486,9 +6685,9 @@ async function sendChatMessage(preset, opts = {}) {
   bubble.appendChild(
     chatMessageActions([
       { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
-      { label: "↻", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
-      { label: "🔊", title: "Read aloud", onClick: () => speakText(answerRaw) },
-      { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
+      { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
+      { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(answerRaw) },
+      { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
     ])
   );
 
@@ -6936,7 +7135,7 @@ function kebabMenu(items, ariaLabel) {
   menu.className = "action-menu hidden";
   menu.setAttribute("role", "menu");
 
-  const opener = smallButton("⋯", ariaLabel, () => {
+  const opener = smallButton("ph:dots-three", ariaLabel, () => {
     const willOpen = menu.classList.contains("hidden");
     if (willOpen) openActionMenu(menu, opener);
     else closeActionMenus();
@@ -6948,7 +7147,7 @@ function kebabMenu(items, ariaLabel) {
     const button = document.createElement("button");
     button.className = "menu-item";
     button.setAttribute("role", "menuitem");
-    button.textContent = item.label;
+    setLabel(button, item.label);
     button.title = item.title;
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
@@ -7047,7 +7246,7 @@ async function loadConversationList() {
 
     const name = document.createElement("span");
     name.className = "conv-name";
-    name.textContent = `${conversation.pinned ? "📌 " : ""}${conversation.title}`;
+    setLabel(name, `${conversation.pinned ? "ph:push-pin " : ""}${conversation.title}`);
     const meta = document.createElement("span");
     meta.className = "conv-meta muted";
     const bits = [relativeTime(conversation.updated_at)];
@@ -7072,7 +7271,7 @@ async function loadConversationList() {
     const items = [];
     items.push(
       makeMenuItem(
-        conversation.pinned ? "📌 Unpin" : "📌 Pin",
+        conversation.pinned ? "ph:push-pin Unpin" : "ph:push-pin Pin",
         conversation.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
         async () => {
           await apiJson(`/conversations/${conversation.id}/pin`, {
@@ -7084,7 +7283,7 @@ async function loadConversationList() {
       )
     );
     items.push(
-      makeMenuItem("✎ Rename", "Rename this chat", async () => {
+      makeMenuItem("ph:pencil-simple Rename", "Rename this chat", async () => {
         const next = await promptDialog("Rename this chat:", conversation.title);
         if (!next || !next.trim()) return;
         await apiJson(`/conversations/${conversation.id}`, {
@@ -7095,7 +7294,7 @@ async function loadConversationList() {
       })
     );
     items.push(
-      makeMenuItem("✨ Name with AI", "Let the AI name this chat", async () => {
+      makeMenuItem("ph:magic-wand Name with AI", "Let the AI name this chat", async () => {
         const named = await apiJson(`/conversations/${conversation.id}/retitle`, {
           method: "POST",
         }).catch((e) => {
@@ -7109,7 +7308,7 @@ async function loadConversationList() {
       })
     );
     items.push(
-      makeMenuItem("🗑 Delete", "Delete this chat", async () => {
+      makeMenuItem("ph:trash Delete", "Delete this chat", async () => {
         if (!(await confirmDialog("Delete this saved chat?"))) return;
         await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
         if (chatConv.id === conversation.id) newChatConversation();
@@ -7261,12 +7460,12 @@ async function openConversation(id) {
         chatMessageActions([
           { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
           {
-            label: "✎",
+            label: "ph:pencil-simple",
             title: "Edit this answer",
             onClick: () => editChatAnswer(handles, turnIndex, message.content),
           },
-          { label: "🔊", title: "Read aloud", onClick: () => speakText(message.content) },
-          { label: "🗑", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
+          { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(message.content) },
+          { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
       );
       if (lastQuestionText !== null) {
@@ -7577,25 +7776,28 @@ function runSkill(skill) {
 // reload, and the run is a message in the conversation like any other.
 function startPlannedRun(goal, steps) {
   switchTab("chat"); // same reason as startSkill: the run happens in the chat
-  sendChatMessage(`🧭 ${goal}`, { plan: { goal, steps } });
+  sendChatMessage(goal, { plan: { goal, steps }, skipPlanMode: true });
 }
 
 function startSkill(skill, values) {
-  // Both entry points land here — the ⚡ dropdown and a run the agent started
+  // Both entry points land here — the Skill dropdown and a run the agent started
   // itself (§33) — so the dashboard's recent-skill buttons cover both.
   noteSkillRun(skill.name);
-  // **And so does the dashboard's ⚡ chip, which is why this is here.**
+  // **And so does the dashboard's Skill chip, which is why this is here.**
   // Reported: *"when I click on the suggested skills in the dashboard, it runs
   // the skill but doesn't navigate me to it."* Exactly right — the run started,
   // the answer streamed into a tab nobody was looking at, and the dashboard sat
   // there as though the button had done nothing. A skill *is* a message in the
   // conversation, so starting one has to take you to the conversation. From
-  // the ⚡ dropdown, where you are already here, this is a no-op.
+  // the Skill dropdown, where you are already here, this is a no-op.
   switchTab("chat");
   const given = Object.values(values).filter(Boolean).join(", ");
-  sendChatMessage(`⚡️ ${skill.name}${given ? ` — ${given}` : ""}`, {
+  sendChatMessage(`${skill.name}${given ? ` — ${given}` : ""}`, {
     skill: skill.name,
     skillInputs: values,
+    // A skill is its own instruction. Wrapping it in "plan this first" would
+    // plan a thing that already has steps.
+    skipPlanMode: true,
   });
 }
 
@@ -7662,30 +7864,40 @@ function askSkillInputs(skill, done) {
 // while reaching for the text area. A select is one line, groups "yours" apart
 // from the built-ins, and — the part that matters — leaves room to say what a
 // skill DOES next to its name instead of hiding it in a hover.
+// The skills group in the chat dock: everything about running a saved job,
+// in one place.
+//
+// It was a lightning mark, a select, a Run button and a bare "＋" that opened
+// Settings — with the "run skills step-by-step" preference stranded three
+// controls away inside the gear popup, where nobody found it. Asked for
+// directly: fold the "+" into the combobox as an option, put the step-by-step
+// choice next to the skill it applies to as a two-option pill, and keep Run.
+//
+// The pill and the hidden checkbox is the same pattern the Ask/Request pair
+// already uses in this strip: the checkbox stays as the thing the rest of the
+// app reads and stores (`sendChatMessage` reads `#skill-manual-toggle`), and
+// the pill is what a person operates. Two named options rather than a tickbox,
+// because a tickbox states one mode and leaves the other implied — "not
+// step-by-step" had no name and no description.
+const SKILL_MANAGE_VALUE = "__manage__";
+
 async function loadChatSkills() {
   await loadSkills();
   const box = $("chat-skills");
   box.replaceChildren();
 
-  // "⚡" alone, not "⚡ Skill:". The select's own placeholder already reads
-  // "Choose a skill…", so the label was saying it twice in a strip where every
-  // character costs width.
   const label = document.createElement("span");
   label.className = "muted chat-skill-mark";
-  // With the emoji variation selector: bare U+26A1 renders as a thin
-  // text-style glyph on any platform whose default presentation for it is
-  // text, which beside a colour 🌐 and 🤖 in the same strip looks like a mark
-  // that failed to load. Screenshotted in Chromium on Linux, where it does.
-  label.textContent = "⚡️";
+  setLabel(label, "ph:lightning");
   label.title = "Skills — saved jobs you can run over your notes";
 
   const select = document.createElement("select");
-  select.className = "small-select";
+  select.className = "small-select chat-skill-select";
   select.id = "chat-skill-select";
-  select.setAttribute("aria-label", "Run a skill");
+  select.setAttribute("aria-label", "Activate a skill");
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = "Choose a skill…";
+  placeholder.textContent = "Activate a skill…";
   select.appendChild(placeholder);
 
   const groups = { builtin: [], mine: [] };
@@ -7699,41 +7911,180 @@ async function loadChatSkills() {
     for (const skill of groups[key]) {
       const option = document.createElement("option");
       option.value = skill.name;
-      // ⚙ means "this one changes your notebook", not "this one uses tools" —
-      // nearly every skill uses tools, and a marker on all of them says nothing.
-      option.textContent = skill.name + (skill.changes ? " ⚙" : "");
+      // An <option> cannot contain an element, so the "this one changes your
+      // notebook" marker has to be a word. It was an emoji, and then briefly a
+      // `ph:` marker — which would have rendered as the literal text
+      // "ph:gear" in the list, since setLabel has no element to build into.
+      option.textContent = skill.name + (skill.changes ? "  (edits notes)" : "");
       option.title = skillSummary(skill);
       group.appendChild(option);
     }
     select.appendChild(group);
   }
 
+  // Managing skills is one of the things you come to this control to do, so it
+  // is in the list rather than beside it as an unlabelled "＋". Its own group,
+  // at the bottom, so it never sits among the runnable options.
+  const manageGroup = document.createElement("optgroup");
+  manageGroup.label = "Manage";
+  const manage = document.createElement("option");
+  manage.value = SKILL_MANAGE_VALUE;
+  manage.textContent = "Add or edit skills…";
+  manageGroup.appendChild(manage);
+  select.appendChild(manageGroup);
+
   // Chosen, then run — rather than running on change. A dropdown that fires an
   // action the instant it changes cannot be browsed, and these actions edit
-  // the notebook.
-  const run = smallButton("Run", "Run the selected skill", () => {
+  // the notebook. "Add or edit skills…" is the exception: it opens a settings
+  // pane, which is safe and is the whole reason to pick it.
+  const run = smallButton("ph:play Run", "Run the selected skill", () => {
     const chosen = allSkills().find((s) => s.name === select.value);
     if (chosen) runSkill(chosen);
   });
   run.disabled = true;
   select.addEventListener("change", () => {
+    if (select.value === SKILL_MANAGE_VALUE) {
+      select.value = "";
+      run.disabled = true;
+      openSettingsModal("skills");
+      return;
+    }
     run.disabled = !select.value;
-    // What the skill does moves to the select's own tooltip rather than a line
-    // of prose beside it. It was a sentence of running text in a control
-    // strip — the widest thing in the dock, and unreadable at a glance because
-    // it was clipped to 120 characters anyway. `skillSummary` already puts the
-    // full description, the steps and the tools on every option's title.
+    // What the skill does lives in the select's own tooltip rather than a line
+    // of prose beside it — it was the widest thing in the dock and clipped at
+    // 120 characters anyway.
     const chosen = allSkills().find((s) => s.name === select.value);
     select.title = chosen ? skillSummary(chosen) : "Run one of your saved skills";
   });
 
-  const manage = smallButton("＋", "Add or edit skills in Settings", () =>
-    openSettingsModal("skills")
-  );
-  manage.classList.add("ghost");
+  // **One "Skills" dropdown, not four controls loose in the strip.** Asked for
+  // directly, twice: the selector, the Auto|Manual pill and Run belong inside
+  // a Skills menu, not spread across the dock competing with Ask/Request/Web/
+  // Plan for width. Running a skill is one job; it should occupy one control
+  // until you are actually doing it.
+  //
+  // Built on the same trigger-plus-panel shape as the gear popup two groups
+  // along (.chat-dock-more), because a second popup pattern in one strip is
+  // how a toolbar starts looking assembled rather than designed.
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.id = "chat-skills-btn";
+  trigger.className = "ghost small";
+  trigger.setAttribute("aria-haspopup", "dialog");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.setAttribute("aria-controls", "chat-skills-panel");
+  trigger.title = "Skills — saved jobs you can run over your notes";
+  setLabel(trigger, "ph:lightning Skills");
 
-  box.append(label, select, run, manage);
+  const panel = document.createElement("div");
+  panel.id = "chat-skills-panel";
+  panel.className = "chat-skills-panel hidden";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Run a skill");
+
+  const pickRow = document.createElement("label");
+  pickRow.className = "chat-skills-row";
+  const pickLabel = document.createElement("span");
+  pickLabel.className = "muted";
+  pickLabel.textContent = "Skill";
+  pickRow.append(pickLabel, select);
+
+  const paceRow = document.createElement("div");
+  paceRow.className = "chat-skills-row";
+  const paceLabel = document.createElement("span");
+  paceLabel.className = "muted";
+  paceLabel.textContent = "Pace";
+  paceRow.append(paceLabel, skillPacePill());
+
+  const runRow = document.createElement("div");
+  runRow.className = "chat-skills-run";
+  runRow.appendChild(run);
+
+  panel.append(pickRow, paceRow, runRow);
+
+  const close = () => {
+    panel.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = trigger.getAttribute("aria-expanded") === "true";
+    trigger.setAttribute("aria-expanded", String(!open));
+    panel.classList.toggle("hidden", open);
+    if (!open) select.focus();
+  });
+  document.addEventListener("click", (event) => {
+    if (!box.contains(event.target)) close();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") close();
+  });
+  // Running one is the end of the interaction, so the menu gets out of the way.
+  run.addEventListener("click", close);
+
+  // The trigger says which skill is armed, so the dock still answers "what is
+  // this about to do?" without being opened.
+  select.addEventListener("change", () => {
+    setLabel(
+      trigger,
+      select.value && select.value !== SKILL_MANAGE_VALUE
+        ? `ph:lightning ${select.selectedOptions[0].textContent}`
+        : "ph:lightning Skills"
+    );
+  });
+
+  box.append(trigger, panel);
   box.classList.remove("hidden");
+  void label; // the group's mark is the trigger's own icon now
+}
+
+// Auto | Manual, over the hidden #skill-manual-toggle checkbox that the rest of
+// the app reads. Kept in sync both ways: Settings can still flip the checkbox,
+// and the pill follows.
+function skillPacePill() {
+  const seg = document.createElement("div");
+  seg.className = "seg seg-compact chat-skill-pace";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "How a skill runs");
+
+  const toggle = $("skill-manual-toggle");
+  const options = [
+    ["auto", "Auto", "Run every step straight through without stopping."],
+    ["manual", "Manual", "Pause after each step so you can add something before it continues."],
+  ];
+  const buttons = [];
+  for (const [value, text, title] of options) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.pace = value;
+    button.textContent = text;
+    button.title = title;
+    button.addEventListener("click", () => {
+      if (toggle) {
+        toggle.checked = value === "manual";
+        // `change`, so anything else listening to the stored preference — the
+        // Settings row, a future autosave — hears it. Setting .checked in JS
+        // does not fire one on its own, which is the classic way a pill and
+        // the thing it controls drift apart.
+        toggle.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      paint();
+    });
+    buttons.push(button);
+    seg.appendChild(button);
+  }
+
+  function paint() {
+    const manual = Boolean(toggle?.checked);
+    for (const button of buttons) {
+      const on = (button.dataset.pace === "manual") === manual;
+      button.classList.toggle("active", on);
+      button.setAttribute("aria-pressed", String(on));
+    }
+  }
+  toggle?.addEventListener("change", paint);
+  paint();
+  return seg;
 }
 
 function skillSummary(skill) {
@@ -8135,24 +8486,26 @@ let dashEditMode = false;
 let dragWidget = null; // widget name being dragged
 
 // Widget registry: name → title + async renderer that fills a body div.
+// `description` is a one-line, plain-text (no ph: marker) summary shown only
+// in the widget picker modal — the on-dashboard header just uses `title`.
 const DASH_WIDGETS = {
-  stats: { title: "📊 Stats", render: renderStatsWidget },
-  streak: { title: "🔥 Streak", render: renderStreakWidget },
-  art: { title: "🎨 Notebook constellation", render: renderArtWidget },
-  pinned: { title: "📌 Pinned notes", render: renderPinnedWidget },
-  "recent-notes": { title: "🕐 Recently added", render: renderRecentNotesWidget },
-  "most-used": { title: "🔥 Most used", render: renderMostUsedWidget },
-  "top-tags": { title: "🏷 Top tags", render: renderTopTagsWidget },
-  questions: { title: "💬 Recent questions", render: renderQuestionsWidget },
-  "on-this-day": { title: "📅 On this day", render: renderOnThisDayWidget },
-  digest: { title: "📰 Weekly digest", render: renderDigestWidget },
-  capture: { title: "✏️ Quick capture", render: renderQuickCaptureWidget },
-  reminders: { title: "⏰ Reminders", render: renderRemindersWidget },
-  focus: { title: "⏱ Focus timer", render: renderFocusTimerWidget },
-  heatmap: { title: "📆 Activity heatmap", render: renderHeatmapWidget },
-  "tag-cloud": { title: "☁️ Tag cloud", render: renderTagCloudWidget },
-  categories: { title: "🗂 Categories", render: renderCategoriesWidget },
-  random: { title: "🎲 Rediscover", render: renderRandomNoteWidget },
+  stats: { title: "ph:chart-bar Stats", description: "Note count, tags, categories and other totals at a glance.", render: renderStatsWidget },
+  streak: { title: "ph:flame Streak", description: "How many days in a row you've added or edited a note.", render: renderStreakWidget },
+  art: { title: "ph:palette Notebook constellation", description: "A generative starfield: one cluster per category, sized by note count.", render: renderArtWidget },
+  pinned: { title: "ph:push-pin Pinned notes", description: "Notes you've pinned, so they're always one click away.", render: renderPinnedWidget },
+  "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
+  "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
+  "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
+  questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
+  "on-this-day": { title: "ph:calendar-blank On this day", description: "Notes from this date in previous years.", render: renderOnThisDayWidget },
+  digest: { title: "ph:newspaper Weekly digest", description: "A short roundup of what you wrote and did this week.", render: renderDigestWidget },
+  capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
+  reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
+  focus: { title: "ph:timer Focus timer", description: "A start/stop timer for focused writing sessions.", render: renderFocusTimerWidget },
+  heatmap: { title: "ph:calendar-check Activity heatmap", description: "A calendar-style heatmap of note activity over the past months.", render: renderHeatmapWidget },
+  "tag-cloud": { title: "ph:cloud Tag cloud", description: "All your tags sized by how often they're used.", render: renderTagCloudWidget },
+  categories: { title: "ph:folders Categories", description: "Every category with its note count, click to filter.", render: renderCategoriesWidget },
+  random: { title: "ph:dice-five Rediscover", description: "A random older note, to resurface something you'd forgotten.", render: renderRandomNoteWidget },
 };
 
 function dashLayout() {
@@ -8177,6 +8530,26 @@ async function saveDashLayout(layout) {
     method: "PUT",
     body: JSON.stringify({ dashboard_layout: layout }),
   }).catch(() => prefsCache);
+}
+
+// Add/remove and wide/narrow, factored out of the inline "Edit layout" grid
+// so the widget-picker modal (dash-widgets-dialog) can flip the same
+// `dashboard_layout` preference instead of growing a second copy of this
+// logic. Both surfaces call these, then re-render themselves.
+async function toggleDashWidgetHidden(name) {
+  const next = dashLayout();
+  next.hidden = next.hidden.includes(name)
+    ? next.hidden.filter((n) => n !== name)
+    : [...next.hidden, name];
+  await saveDashLayout(next);
+}
+
+async function toggleDashWidgetWide(name) {
+  const next = dashLayout();
+  next.wide = next.wide.includes(name)
+    ? next.wide.filter((n) => n !== name)
+    : [...next.wide, name];
+  await saveDashLayout(next);
 }
 
 // --- live clock + dashboard welcome ------------------------------------------------
@@ -8389,7 +8762,7 @@ function renderNameNudge(greetingEl) {
   const add = document.createElement("button");
   add.type = "button";
   add.className = "ghost small";
-  add.textContent = "👋 Add your name";
+  setLabel(add, "ph:hand-waving Add your name");
   add.title = "Let the greeting call you by name";
   add.addEventListener("click", async () => {
     await openSettingsModal("preferences");
@@ -8649,13 +9022,13 @@ async function renderDashStats() {
   const tiles = [
     // Both of these are counts of notes, so they belong on the list that
     // shows them — not on whichever Notes sub-tab happened to be open last.
-    { icon: "📝", value: stats ? stats.total_entries : "–", label: "notes",
+    { icon: "ph:note-pencil", value: stats ? stats.total_entries : "–", label: "notes",
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "🗓", value: thisWeek, label: "this week",
+    { icon: "ph:calendar", value: thisWeek, label: "this week",
       go: () => { switchTab("notes"); showNotesSection("browse"); } },
-    { icon: "🔥", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
+    { icon: "ph:flame", value: streak, label: streak === 1 ? "day streak" : "day streak", go: () => switchTab("dashboard") },
     {
-      icon: due ? "⏰" : "✅",
+      icon: due ? "ph:alarm" : "ph:check-circle",
       value: due || open.length,
       label: due ? "due now" : "reminders",
       go: () => switchTab("reminders"),
@@ -8670,14 +9043,14 @@ async function renderDashStats() {
     button.className = "stat-tile" + (tile.alert ? " stat-alert" : "");
     const icon = document.createElement("span");
     icon.className = "stat-icon";
-    icon.textContent = tile.icon;
+    setLabel(icon, tile.icon);
     icon.setAttribute("aria-hidden", "true");
     const value = document.createElement("span");
     value.className = "stat-value";
-    value.textContent = tile.value;
+    setLabel(value, tile.value);
     const label = document.createElement("span");
     label.className = "stat-label";
-    label.textContent = tile.label;
+    setLabel(label, tile.label);
     button.append(icon, value, label);
     button.addEventListener("click", tile.go);
     box.appendChild(button);
@@ -8701,7 +9074,7 @@ async function renderDashStats() {
 //
 // What was there was one grid of seven identical chips. "Graph" only changes
 // which tab you are looking at; "New note" puts a cursor in an empty box;
-// "⚡ Clean up my tags" sends a message to a model and waits for it. Those are
+// "Skill Clean up my tags" sends a message to a model and waits for it. Those are
 // three different commitments and they were drawn the same, in one row, sorted
 // by a use counter that mixed them together — so the row said nothing about
 // what pressing anything in it would do, and the only way to find out was to
@@ -8710,7 +9083,7 @@ async function renderDashStats() {
 // Now: **Start** something (an action, and the row that owns the accent),
 // **Jump to** somewhere (navigation, quiet pills — nothing happens that you
 // cannot undo by pressing the tab you came from), and **Run a skill** (the
-// expensive one, marked ⚡, and the only group that talks to the model).
+// expensive one, marked Skill, and the only group that talks to the model).
 //
 // The use-ordering that was here stays, but it is applied *inside* Jump to
 // only. That was the point of it — the middle of a navigation row is exactly
@@ -8718,7 +9091,7 @@ async function renderDashStats() {
 // whole strip is what let an action drift into the middle of the navigation.
 const QUICK_START = [
   {
-    icon: "✏️",
+    icon: "ph:pencil-simple",
     label: "New note",
     hint: "Capture a thought — the AI files it",
     primary: true,
@@ -8729,7 +9102,7 @@ const QUICK_START = [
     },
   },
   {
-    icon: "💬",
+    icon: "ph:chat-circle",
     label: "Ask AI",
     hint: "A question answered from your own notes",
     run: () => {
@@ -8737,9 +9110,9 @@ const QUICK_START = [
       $("chat-input").focus();
     },
   },
-  { icon: "🎨", label: "Sketch", hint: "Draw something and save it as a note", run: () => openSketch() },
+  { icon: "ph:palette", label: "Sketch", hint: "Draw something and save it as a note", run: () => openSketch() },
   {
-    icon: "⏰",
+    icon: "ph:alarm",
     label: "Remind me",
     hint: "Type it in plain English and the AI schedules it",
     run: () => {
@@ -8748,7 +9121,7 @@ const QUICK_START = [
     },
   },
   {
-    icon: "🎙️",
+    icon: "ph:microphone",
     label: "Meeting notes",
     hint: "Record something longer and file the transcript",
     run: () => openMeetingRecorder(),
@@ -8757,7 +9130,7 @@ const QUICK_START = [
 
 const QUICK_GO = [
   {
-    icon: "🔍",
+    icon: "ph:magnifying-glass",
     label: "Search notes",
     run: () => {
       switchTab("notes");
@@ -8767,19 +9140,19 @@ const QUICK_GO = [
       $("note-search").focus();
     },
   },
-  { icon: "📚", label: "Notes", run: () => { switchTab("notes"); showNotesSection("browse"); } },
-  { icon: "💬", label: "Chat", run: () => switchTab("chat") },
+  { icon: "ph:books", label: "Notes", run: () => { switchTab("notes"); showNotesSection("browse"); } },
+  { icon: "ph:chat-circle", label: "Chat", run: () => switchTab("chat") },
   // The Library, the Timeline and Reminders were all reachable only from the
   // tab bar. A "quick access" strip that skips three of the app's seven tabs
   // is a strip that has stopped being an index of the app.
-  { icon: "📖", label: "Library", run: () => switchTab("library") },
-  { icon: "🕸", label: "Graph", run: () => switchTab("graph") },
-  { icon: "🗓", label: "Timeline", run: () => switchTab("timeline") },
-  { icon: "⏰", label: "Reminders", run: () => switchTab("reminders") },
-  { icon: "🧰", label: "Tools & features", run: () => openFeatures() },
+  { icon: "ph:book-open", label: "Library", run: () => switchTab("library") },
+  { icon: "ph:graph", label: "Graph", run: () => switchTab("graph") },
+  { icon: "ph:calendar", label: "Timeline", run: () => switchTab("timeline") },
+  { icon: "ph:alarm", label: "Reminders", run: () => switchTab("reminders") },
+  { icon: "ph:toolbox", label: "Tools & features", run: () => openFeatures() },
   // The palette is the fastest route to anything at all, and it was findable
   // only by already knowing Ctrl+K. A button is how you learn a shortcut.
-  { icon: "⌘", label: "Commands", run: () => openPalette() },
+  { icon: "ph:command", label: "Commands", run: () => openPalette() },
 ];
 
 // --- quick access that follows what you actually do (§36D) ------------------------
@@ -8830,14 +9203,14 @@ function noteSkillRun(name) {
   localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
 }
 
-//: A skill's name usually starts with its own emoji — "🩺 Notebook health
-//: check", "🏷 Clean up my tags" — and the quick-link then put ⚡ in front of
+//: A skill's name usually starts with its own emoji — "stethoscope Notebook health
+//: check", "tag Clean up my tags" — and the quick-link then put Skill in front of
 //: it, so those two chips wore two icons each while every other chip in the
 //: row wore one. Reported as clutter, and it was: measured at 224px and 216px
 //: against 107–169px for the fixed chips, i.e. the two least important buttons
 //: in the row were the two widest.
 //:
-//: The ⚡ is the one that stays, because it carries what the row does not
+//: The Skill is the one that stays, because it carries what the row does not
 //: otherwise say — this chip *runs* something rather than opening a page. The
 //: skill's own emoji is still on it everywhere skills are listed.
 const LEADING_EMOJI = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u;
@@ -8857,7 +9230,7 @@ function recentSkillLinks() {
     return [];
   }
   return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
-    icon: "⚡️",
+    icon: "ph:lightning",
     label: withoutLeadingEmoji(name),
     // The full name, unaltered, is what the button remembers itself by: the
     // use counter and `runSkill` both key off it, and stripping the emoji from
@@ -8899,13 +9272,13 @@ function quickLinkButton(link, className) {
     : link.hint || link.label;
   const icon = document.createElement("span");
   icon.className = "quick-link-icon";
-  icon.textContent = link.icon;
+  setLabel(icon, link.icon);
   icon.setAttribute("aria-hidden", "true");
   const text = document.createElement("span");
   text.className = "quick-link-text";
   const label = document.createElement("span");
   label.className = "quick-link-label";
-  label.textContent = link.label;
+  setLabel(label, link.label);
   text.appendChild(label);
   // The hint is what turns a row of verbs into a row you can choose from
   // without pressing anything. Only the Start group carries one — the
@@ -8914,7 +9287,7 @@ function quickLinkButton(link, className) {
   if (link.hint) {
     const hint = document.createElement("span");
     hint.className = "quick-link-hint";
-    hint.textContent = link.hint;
+    setLabel(hint, link.hint);
     text.appendChild(hint);
   }
   button.append(icon, text);
@@ -8967,9 +9340,9 @@ function renderQuickLinks() {
     skillGroup.row.appendChild(
       quickLinkButton(
         {
-          icon: "⚡️",
+          icon: "ph:lightning",
           label: "All skills…",
-          hint: "Every skill, in the chat's ⚡️ picker",
+          hint: "Every skill, in the chat's skill picker",
           run: () => switchTab("chat"),
         },
         "quick-link quick-pill quick-link-more"
@@ -9106,10 +9479,10 @@ function renderFeatures(query) {
       row.className = "feature-row";
       const name = document.createElement("span");
       name.className = "feature-name";
-      name.textContent = item.name;
+      setLabel(name, item.name);
       const desc = document.createElement("span");
       desc.className = "feature-desc muted";
-      desc.textContent = item.desc;
+      setLabel(desc, item.desc);
       row.append(name, desc);
       row.addEventListener("click", () => {
         closeFeatures();
@@ -9156,7 +9529,7 @@ function gettingStartedCard() {
   steps.className = "start-steps";
   const actions = [
     {
-      icon: "✏️",
+      icon: "ph:pencil-simple",
       label: "Write your first note",
       note: "Anything at all — a half sentence is fine.",
       run: () => {
@@ -9165,7 +9538,7 @@ function gettingStartedCard() {
       },
     },
     {
-      icon: "💬",
+      icon: "ph:chat-circle",
       label: "Ask your notebook",
       note: "Works on keywords even with no AI running.",
       run: () => {
@@ -9174,13 +9547,13 @@ function gettingStartedCard() {
       },
     },
     {
-      icon: "🎒",
+      icon: "ph:backpack",
       label: "Bring notes in",
       note: "Import from a file in Settings → Import & export.",
       run: () => openSettingsModal("data"),
     },
     {
-      icon: "🧭",
+      icon: "ph:compass",
       label: "Take the tour",
       note: "Two minutes through what's here.",
       run: () => openOnboarding(),
@@ -9192,14 +9565,14 @@ function gettingStartedCard() {
     button.className = "start-step";
     const icon = document.createElement("span");
     icon.className = "start-step-icon";
-    icon.textContent = action.icon;
+    setLabel(icon, action.icon);
     icon.setAttribute("aria-hidden", "true");
     const text = document.createElement("span");
     const label = document.createElement("strong");
-    label.textContent = action.label;
+    setLabel(label, action.label);
     const note = document.createElement("span");
     note.className = "muted";
-    note.textContent = action.note;
+    setLabel(note, action.note);
     text.append(label, note);
     button.append(icon, text);
     button.addEventListener("click", action.run);
@@ -9262,7 +9635,7 @@ async function renderDashboard() {
     const header = document.createElement("div");
     header.className = "row space-between";
     const title = document.createElement("h2");
-    title.textContent = widget.title;
+    setLabel(title, widget.title);
     header.appendChild(title);
     if (dashEditMode) {
       const controls = document.createElement("span");
@@ -9274,25 +9647,17 @@ async function renderDashboard() {
       // silently stopped — and until then the row showed two controls doing
       // the same job. One control, one place it's stored.
       controls.appendChild(
-        smallButton(hidden ? "＋ Add" : "✕ Remove", hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard", async () => {
-          const next = dashLayout();
-          next.hidden = hidden
-            ? next.hidden.filter((n) => n !== name)
-            : [...next.hidden, name];
-          await saveDashLayout(next);
+        smallButton(hidden ? "ph:plus Add" : "ph:x Remove", hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard", async () => {
+          await toggleDashWidgetHidden(name);
           renderDashboard();
         })
       );
       if (!hidden) controls.appendChild(
         smallButton(
-          isWide ? "▤ Narrow" : "▭ Wide",
+          isWide ? "ph:rows Narrow" : "ph:arrows-out-line-horizontal Wide",
           isWide ? "Show in one column" : "Span two columns",
           async () => {
-            const next = dashLayout();
-            next.wide = isWide
-              ? next.wide.filter((n) => n !== name)
-              : [...next.wide, name];
-            await saveDashLayout(next);
+            await toggleDashWidgetWide(name);
             renderDashboard();
           }
         )
@@ -9349,6 +9714,99 @@ async function renderDashboard() {
   // async widget bodies fill in.
   grid.classList.remove("spans-ready");
   watchDashWidgets();
+}
+
+// --- widget picker modal ------------------------------------------------------------
+// A dedicated "Widgets" surface (roadmap §26) alongside the inline "Edit
+// layout" mode — not a replacement for it. Both read/write the same
+// `dashboard_layout` preference through dashLayout()/saveDashLayout() and the
+// toggleDashWidget* helpers above; this modal just gives ~17 widgets a
+// searchable, browsable list instead of only being reachable by scrolling
+// the live grid in edit mode.
+
+function dashWidgetRow(name, layout) {
+  const widget = DASH_WIDGETS[name];
+  const hidden = layout.hidden.includes(name);
+  const isWide = layout.wide.includes(name);
+
+  const row = document.createElement("div");
+  row.className = "dash-widget-row";
+  row.dataset.widget = name;
+
+  const main = document.createElement("div");
+  main.className = "dash-widget-row-main";
+  const title = document.createElement("div");
+  title.className = "dash-widget-row-title";
+  setLabel(title, widget.title);
+  main.appendChild(title);
+  if (widget.description) {
+    const desc = document.createElement("p");
+    desc.className = "dash-widget-row-desc muted";
+    desc.textContent = widget.description;
+    main.appendChild(desc);
+  }
+  row.appendChild(main);
+
+  const controls = document.createElement("div");
+  controls.className = "dash-widget-row-controls entry-actions";
+  controls.appendChild(
+    smallButton(
+      hidden ? "ph:plus Add" : "ph:x Remove",
+      hidden ? "Add this widget to the dashboard" : "Remove this widget from the dashboard",
+      async () => {
+        await toggleDashWidgetHidden(name);
+        renderDashboard();
+        renderDashWidgetsList($("dash-widgets-search").value);
+      }
+    )
+  );
+  if (!hidden) {
+    controls.appendChild(
+      smallButton(
+        isWide ? "ph:rows Narrow" : "ph:arrows-out-line-horizontal Wide",
+        isWide ? "Show in one column" : "Span two columns",
+        async () => {
+          await toggleDashWidgetWide(name);
+          renderDashboard();
+          renderDashWidgetsList($("dash-widgets-search").value);
+        }
+      )
+    );
+  }
+  row.appendChild(controls);
+  return row;
+}
+
+// Two groups — "On your dashboard" and "Available" — rather than a single
+// list with a per-row status chip: with ~17 widgets, seeing at a glance how
+// many are already on the dashboard is more useful than reading each row.
+function renderDashWidgetsList(filterText = "") {
+  const container = $("dash-widgets-list");
+  container.replaceChildren();
+  const layout = dashLayout();
+  const q = filterText.trim().toLowerCase();
+  const names = Object.keys(DASH_WIDGETS).filter((name) => {
+    if (!q) return true;
+    return DASH_WIDGETS[name].title.replace(PH_LABEL, "").toLowerCase().includes(q);
+  });
+
+  const addGroup = (label, list) => {
+    if (!list.length) return;
+    const heading = document.createElement("h4");
+    heading.className = "dash-widgets-group-label";
+    heading.textContent = `${label} (${list.length})`;
+    container.appendChild(heading);
+    for (const name of list) container.appendChild(dashWidgetRow(name, layout));
+  };
+  addGroup("On your dashboard", names.filter((n) => !layout.hidden.includes(n)));
+  addGroup("Available", names.filter((n) => layout.hidden.includes(n)));
+
+  if (!names.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No widgets match that search.";
+    container.appendChild(empty);
+  }
 }
 
 // --- Wave J: generative art (p5.js, vendored locally) -------------------------------
@@ -9453,13 +9911,13 @@ async function renderArtWidget(body) {
   const controls = document.createElement("div");
   controls.className = "row art-controls";
   controls.appendChild(
-    smallButton("🎲 Regenerate", "A fresh arrangement of the same notes", () => {
+    smallButton("ph:dice-five Regenerate", "A fresh arrangement of the same notes", () => {
       artNonce += 1;
       startArt(holder);
     })
   );
   controls.appendChild(
-    smallButton("💾 Save PNG", "Save this artwork as an image", () => {
+    smallButton("ph:floppy-disk Save PNG", "Save this artwork as an image", () => {
       if (artInstance) artInstance.saveCanvas("memorymap-constellation", "png");
     })
   );
@@ -9609,7 +10067,7 @@ async function renderStreakWidget(body) {
 
   const big = document.createElement("p");
   big.className = "dash-big";
-  big.textContent = current > 0 ? `🔥 ${current}-day streak` : "No streak yet";
+  setLabel(big, current > 0 ? `ph:flame ${current}-day streak` : "No streak yet");
   body.appendChild(big);
 
   const sub = document.createElement("p");
@@ -9664,16 +10122,45 @@ async function renderStatsWidget(body) {
 //: marker first (`**`/`~~` before `*`) so a bold pair isn't mistaken for two
 //: stray italics. Not a full CommonMark-safe truncator — good enough for a
 //: short label, which is the only place this is used.
+// A preview slice that never cuts through markdown syntax — and, since it is
+// the only thing standing between a note and a widget row, never returns
+// nothing.
+//
+// **It returned the empty string for a whole class of note.** Balancing an
+// unpaired marker was done with `cut.slice(0, cut.lastIndexOf(marker))`, and
+// when the marker was the FIRST character that index is 0, so the slice was
+// empty and the row rendered as a bare "…" with no text at all. One stray `*`
+// in the first hundred characters was enough — reported on the Most-used
+// widget, where long notes showed as nothing but an ellipsis.
+//
+// Two changes:
+//   - the balanced cut is only accepted if something survives it, and the
+//     fallback is a plain-text slice with the markers stripped, because a
+//     preview with visible asterisks still beats an empty row;
+//   - the cut prefers a sentence end inside the budget. Asked for: show the
+//     first sentence like the rest of the list does. A preview that stops on a
+//     full stop reads as a summary; one that stops mid-word reads as damage.
 function safeMdSlice(text, maxChars) {
   if (text.length <= maxChars) return { text, truncated: false };
-  let cut = text.slice(0, maxChars);
+
+  // Look for a sentence end in the back half of the budget, so a very long
+  // first sentence still gets cut at the budget rather than swallowing it.
+  const window = text.slice(0, maxChars);
+  const sentence = window.search(/[.!?…](?=\s|$)(?![^\s]*[.!?])/);
+  let cut =
+    sentence >= Math.floor(maxChars * 0.4) ? window.slice(0, sentence + 1) : window;
+
   for (const marker of ["**", "~~", "`", "*"]) {
-    if ((cut.split(marker).length - 1) % 2 === 1) {
-      cut = cut.slice(0, cut.lastIndexOf(marker));
-      break;
-    }
+    if ((cut.split(marker).length - 1) % 2 !== 1) continue;
+    const balanced = cut.slice(0, cut.lastIndexOf(marker));
+    // Only if it leaves something to show. Otherwise drop the markers and
+    // keep the words.
+    if (balanced.trim()) cut = balanced;
+    else cut = cut.replace(/[*~`]/g, "");
+    break;
   }
-  return { text: cut, truncated: true };
+  if (!cut.trim()) cut = window.replace(/[*~`]/g, "");
+  return { text: cut, truncated: cut.length < text.length };
 }
 
 // One line of a note, as plain text — used wherever a preview genuinely
@@ -9683,6 +10170,7 @@ function safeMdSlice(text, maxChars) {
 // mode, the same as every other label-sized surface in this app.
 function notePreviewText(content) {
   return (content || "")
+    .replace(/^#{1,6}\s+/gm, "")
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
     .replace(
       new RegExp(INLINE_MD.source, "g"),
@@ -9703,6 +10191,19 @@ function notePreviewText(content) {
 // list row already uses everywhere else in this app for the same reason
 // (link chips, the document sidebar) — swap to it here too rather than the
 // stripped-text path.
+// First image in a note's raw markdown, if it has one and the URL is safe to
+// load. `renderInlineMarkdown`'s `compact` mode (used below) deliberately
+// swaps every image for its alt text — right for a label-sized chip, but a
+// dashboard row has room for the real picture, so this widget-only path
+// pulls the first one out for a thumbnail instead.
+const FIRST_MD_IMAGE = /!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)/;
+function firstNoteImage(content) {
+  const m = FIRST_MD_IMAGE.exec(content || "");
+  if (!m) return null;
+  const [, alt, url] = m;
+  return isRenderableUrl(url) ? { alt, url } : null;
+}
+
 function miniEntryList(body, entries, emptyText) {
   if (!entries.length) {
     const p = document.createElement("p");
@@ -9718,9 +10219,50 @@ function miniEntryList(body, entries, emptyText) {
     // The wiki-link unwrap notePreviewText also did — renderInlineMarkdown
     // itself doesn't know `[[...]]`, only the full note-body renderer does.
     const raw = (entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
-    const { text, truncated } = safeMdSlice(raw, 100);
-    renderInlineMarkdown(li, text, [], true);
-    if (truncated) li.appendChild(document.createTextNode("…"));
+    const image = firstNoteImage(raw);
+    if (image) {
+      li.classList.add("dash-has-thumb");
+      const thumb = document.createElement("img");
+      thumb.src = mediaSrc(image.url);
+      thumb.alt = image.alt || "";
+      thumb.loading = "lazy";
+      thumb.className = "dash-list-thumb";
+      li.appendChild(thumb);
+    }
+    const textEl = document.createElement("span");
+    textEl.className = "dash-list-text";
+    // Block syntax first. renderInlineMarkdown is exactly that — INLINE — so a
+    // note beginning "# Groceries" rendered the hash as literal text, which is
+    // the reported "markdown still isn't rendering" on these widgets: the bold
+    // and italics worked and the headings, bullets and quote marks did not, so
+    // it looked like nothing was rendering at all.
+    //
+    // The first line becomes the row's title instead of being flattened into
+    // the preview, the same shape the timeline card uses. It is what a person
+    // calls the note, and without it every row in a widget starts with the
+    // same three words of body text.
+    const flat = raw.replace(/^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "").trim();
+    const split = flat.indexOf("\n");
+    const heading = (split === -1 ? flat : flat.slice(0, split)).trim();
+    const rest = split === -1 ? "" : flat.slice(split + 1).replace(/\s+/g, " ").trim();
+
+    if (heading) {
+      const title = document.createElement("span");
+      title.className = "dash-list-title";
+      const cut = safeMdSlice(heading, 70);
+      renderInlineMarkdown(title, cut.text, [], true);
+      if (cut.truncated) title.appendChild(document.createTextNode("…"));
+      textEl.appendChild(title);
+    }
+    if (rest) {
+      const preview = document.createElement("span");
+      preview.className = "dash-list-preview";
+      const cut = safeMdSlice(rest, 110);
+      renderInlineMarkdown(preview, cut.text, [], true);
+      if (cut.truncated) preview.appendChild(document.createTextNode("…"));
+      textEl.appendChild(preview);
+    }
+    li.appendChild(textEl);
     li.title = "Open this note";
     li.addEventListener("click", () => flashEntry(entry.id));
     ul.appendChild(li);
@@ -9730,7 +10272,7 @@ function miniEntryList(body, entries, emptyText) {
 
 async function renderPinnedWidget(body) {
   const entries = (await apiJson("/entries")).filter((e) => e.pinned);
-  miniEntryList(body, entries.slice(0, 5), "Pin a note (📌) and it shows up here.");
+  miniEntryList(body, entries.slice(0, 5), "Pin a note and it shows up here.");
 }
 
 async function renderMostUsedWidget(body) {
@@ -9889,7 +10431,7 @@ async function renderDigestWidget(body) {
     const controls = document.createElement("div");
     controls.className = "row";
     controls.appendChild(
-      smallButton("🔄 Regenerate", "Rebuild this week's digest now", () => {
+      smallButton("ph:arrows-clockwise Regenerate", "Rebuild this week's digest now", () => {
         localStorage.removeItem(DIGEST_KEY);
         runGeneration();
       })
@@ -10171,7 +10713,7 @@ async function renderRandomNoteWidget(body) {
 
     const row = document.createElement("div");
     row.className = "row";
-    const another = smallButton("🎲 Another", "Show a different note", paint);
+    const another = smallButton("ph:dice-five Another", "Show a different note", paint);
     if (entries.length < 2) {
       // There is no other note to show. A live-looking button that cannot do
       // anything is the exact shape of "this control is broken" — say why
@@ -10181,7 +10723,7 @@ async function renderRandomNoteWidget(body) {
     }
     row.appendChild(another);
     row.appendChild(
-      smallButton("📝 Open", "Open this note in the Notes tab", () => flashEntry(note.id))
+      smallButton("ph:note-pencil Open", "Open this note in the Notes tab", () => flashEntry(note.id))
     );
     body.appendChild(row);
   };
@@ -10244,7 +10786,7 @@ function focusTimerTick() {
     paintFocusTimer();
     if (focusTimer.remaining === 0) {
       stopFocusTimer();
-      toast("⏱ Focus session complete — nice work!");
+      toast("Focus session complete — nice work!");
       notify("MemoryMap", "Focus session complete — nice work!");
     }
   }
@@ -10460,7 +11002,7 @@ function reminderItem(reminder, label) {
         method: "PUT",
         body: JSON.stringify({ due_at: next.toISOString(), done: false }),
       });
-      toast(`🔁 Rescheduled to ${next.toLocaleString()}.`);
+      toast(`Rescheduled to ${next.toLocaleString()}.`);
       loadReminders();
       return;
     }
@@ -10479,7 +11021,7 @@ function reminderItem(reminder, label) {
   row.appendChild(text);
 
   if (reminder.recurring && reminder.recurring !== "none") {
-    const repeat = chip(`🔁 ${reminder.recurring}`, "tag");
+    const repeat = chip(`ph:repeat ${reminder.recurring}`, "tag");
     repeat.title = `Repeats ${reminder.recurring}`;
     row.appendChild(repeat);
   }
@@ -10505,7 +11047,7 @@ function reminderItem(reminder, label) {
     );
   }
   actions.appendChild(
-    smallButton("✎", "Edit this reminder", () => {
+    smallButton("ph:pencil-simple", "Edit this reminder", () => {
       editingReminderId = reminder.id;
       loadReminders();
     })
@@ -10537,7 +11079,7 @@ function reminderItem(reminder, label) {
   if (reminder.entry_preview) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
-    const noteChip = chip(`📝 ${reminder.entry_preview}`, "link", () =>
+    const noteChip = chip(`ph:note-pencil ${reminder.entry_preview}`, "link", () =>
       flashEntry(reminder.entry_id)
     );
     linkRow.appendChild(noteChip);
@@ -10706,7 +11248,7 @@ function updateDueReadout() {
     const days = Math.round(minutes / (60 * 24));
     relative = `in ${days} day${days === 1 ? "" : "s"}`;
   }
-  readout.textContent = `⏰ ${relative} — ${pretty}`;
+  setLabel(readout, `ph:alarm ${relative} — ${pretty}`);
   readout.classList.toggle("error", minutes < 0);
 }
 
@@ -10843,7 +11385,7 @@ async function magicAddReminder() {
   const text = input.value.trim();
   if (!text) return;
   status.classList.remove("error");
-  status.textContent = "✨ Parsing…";
+  setLabel(status, "ph:magic-wand Parsing…");
   try {
     const reminder = await apiJson("/reminders/parse", {
       method: "POST",
@@ -11791,7 +12333,7 @@ function renderTraceState() {
     const swap = document.createElement("button");
     swap.type = "button";
     swap.className = "ghost small";
-    swap.textContent = "⇄ Swap";
+    setLabel(swap, "ph:arrows-left-right Swap");
     swap.title = "Trace the other way round";
     swap.addEventListener("click", () => {
       [traceFromNode, traceToNode] = [traceToNode, traceFromNode];
@@ -11804,7 +12346,7 @@ function renderTraceState() {
     const back = document.createElement("button");
     back.type = "button";
     back.className = "ghost small";
-    back.textContent = "↩ Undo";
+    setLabel(back, "ph:arrow-u-up-left Undo");
     back.title = "Unpick the last note";
     back.addEventListener("click", () => {
       // One step back, not a reset. Mis-clicking the second note should not
@@ -11952,7 +12494,7 @@ function renderTraceReadout(result) {
   // intended emphasis. A real class with real tokens, per DESIGN.md.
   const storyBtn = document.createElement("button");
   storyBtn.className = "graph-trace-note story-mode-btn";
-  storyBtn.textContent = "✨ Generate Story from Path";
+  setLabel(storyBtn, "ph:magic-wand Generate Story from Path");
   storyBtn.title = "Weave these notes into a cohesive narrative using the AI locally";
   storyBtn.addEventListener("click", () => {
     switchTab("chat");
@@ -12050,7 +12592,7 @@ function drawTrace() {
 
 // --- drag one note onto another to link them (§9) ----------------------------
 //
-// The map already had a link gesture — 🔗 in the popup, then click the other
+// The map already had a link gesture — Link in the popup, then click the other
 // note — which works and is two dialogs deep. Dropping one note on another is
 // the gesture people try first, and it costs nothing to support: the drag
 // behaviour is already there to move nodes about.
@@ -12674,7 +13216,7 @@ async function renderGraph() {
     .append("text")
     .attr("class", "graph-pin-badge")
     .attr("dy", (d) => -graphNodeRadius(d) - 4)
-    .text("📌");
+    .text("Pinned");
   // Native tooltip: full preview + category + how connected it is.
   nodeGroups.append("title").text((d) => {
     const links = graphAdjacency.get(d.id)?.size || 0;
@@ -13137,20 +13679,39 @@ function initGraphKeyboard() {
 
 // Zoom/pan so every node fits with a margin (Wave N).
 function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
-  const xs = nodes.map((n) => n.x);
-  const ys = nodes.map((n) => n.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  if (!nodes.length) return;
+  // Reported: fit-to-view "zooms out like crazy so you only see the generic
+  // cluster blobs". Two bugs, both in how the old version measured the map:
+  // it bounded only the node *centres* (a node's halo, ring and the label
+  // drawn below it all extend past that point, so a real graph always
+  // rendered a bit outside the box this used to fit), and its scale had no
+  // floor — `Math.min(3, ...)` clamps how far it can zoom IN but not how far
+  // it can zoom OUT, so one node that drifted far from the rest (the collide
+  // simulation allows this) could shrink everything else to specks trying to
+  // fit it in frame too.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const n of nodes) {
+    // Same pad the force simulation's own world-clamp uses (see the comment
+    // above it): node radius, the halo ring (+6) and the label drawn below
+    // the circle, so a fitted node's own name is never left outside frame.
+    const pad = graphNodeRadius(n) + 34;
+    minX = Math.min(minX, n.x - pad);
+    maxX = Math.max(maxX, n.x + pad);
+    minY = Math.min(minY, n.y - pad);
+    maxY = Math.max(maxY, n.y + pad);
+  }
   const spanX = Math.max(maxX - minX, 1);
   const spanY = Math.max(maxY - minY, 1);
-  const margin = 60;
-  const scale = Math.min(
-    3,
+  // A comfortable margin scales with the container instead of a flat 60px,
+  // which was a sliver of a 1400px-wide window and most of a 300px panel.
+  const margin = Math.min(width, height) * 0.09;
+  const rawScale = Math.min(
     (width - margin * 2) / spanX,
     (height - margin * 2) / spanY
   );
+  // The floor is the actual fix for "zooms out like crazy": no single
+  // outlier can push the whole map below a still-readable scale.
+  const scale = Math.max(0.25, Math.min(2.5, rawScale));
   const tx = width / 2 - scale * (minX + maxX) / 2;
   const ty = height / 2 - scale * (minY + maxY) / 2;
   svg
@@ -13327,7 +13888,7 @@ function openGraphLinkPanel(edge, nodes) {
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
   removeBtn.className = "ghost danger";
-  removeBtn.textContent = "🗑 Remove link";
+  setLabel(removeBtn, "ph:trash Remove link");
   removeBtn.addEventListener("click", async () => {
     if (!(await confirmDialog("Remove this connection entirely?\n\nThe two notes are untouched — only the link between them goes."))) return;
     await apiJson(`/entries/${sourceId}/links/${edge.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
@@ -13411,14 +13972,14 @@ function renderGraphPopupInfo(entry, node) {
   const box = $("graph-popup-info");
   box.replaceChildren();
   const facts = [
-    ["🗂", entry.category || node.category || "Uncategorised"],
-    ["🕐", new Date(entry.created_at).toLocaleDateString()],
-    ["🔗", `${(entry.links || []).length} link${(entry.links || []).length === 1 ? "" : "s"}`],
-    ["👁", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
+    ["ph:folders", entry.category || node.category || "Uncategorised"],
+    ["ph:clock", new Date(entry.created_at).toLocaleDateString()],
+    ["ph:link", `${(entry.links || []).length} link${(entry.links || []).length === 1 ? "" : "s"}`],
+    ["ph:eye", `${entry.access_count || 0} view${entry.access_count === 1 ? "" : "s"}`],
   ];
-  if (entry.pinned) facts.push(["📌", "Pinned"]);
+  if (entry.pinned) facts.push(["ph:push-pin", "Pinned"]);
   if (typeof entry.ai_confidence === "number") {
-    facts.push(["🎯", `${entry.ai_confidence}% confident`]);
+    facts.push(["ph:target", `${entry.ai_confidence}% confident`]);
   }
   for (const [icon, text] of facts) {
     const item = chip(`${icon} ${text}`, "tag");
@@ -13434,7 +13995,7 @@ function renderGraphPopupActions(entry) {
   box.replaceChildren();
 
   box.appendChild(
-    smallButton(entry.pinned ? "📌 Unpin" : "📌 Pin", "Pin or unpin this note", async () => {
+    smallButton(entry.pinned ? "ph:push-pin Unpin" : "ph:push-pin Pin", "Pin or unpin this note", async () => {
       await apiJson(`/entries/${entry.id}`, {
         method: "PUT",
         body: JSON.stringify({ pinned: !entry.pinned }),
@@ -13446,14 +14007,14 @@ function renderGraphPopupActions(entry) {
     })
   );
   box.appendChild(
-    smallButton("🌱 Grow", "Add a new note linked to this one", (event) =>
+    smallButton("ph:plant Grow", "Add a new note linked to this one", (event) =>
       openGraphNewNote(event, entry.id)
     )
   );
   
   if (graphFocusModeId !== entry.id) {
     box.appendChild(
-      smallButton("🎯 Focus", "Isolate this note's neighborhood", () => {
+      smallButton("ph:target Focus", "Isolate this note's neighborhood", () => {
         graphFocusModeId = entry.id;
         $("graph-focus-clear")?.classList.remove("hidden");
         closeGraphPopup();
@@ -13477,32 +14038,32 @@ function renderGraphPopupActions(entry) {
     })
   );
   box.appendChild(
-    smallButton("🔗 Link", "Start linking this note to another", () => {
+    smallButton("ph:link Link", "Start linking this note to another", () => {
       closeGraphPopup();
       beginOrCompleteLink(entry);
       toast("Now click another note on the map to link them.");
     })
   );
-  // Two clicks, the same shape as 🔗 Link: this note becomes one end of the
+  // Two clicks, the same shape as Link Link: this note becomes one end of the
   // trace, and the next one you pick becomes the other. The label says which
   // end it will be, because a button that does two different things without
   // saying which is a button you have to try to understand.
   const tracingFrom = Boolean(traceFromNode);
   box.appendChild(
     smallButton(
-      tracingFrom ? "🛣 Trace to here" : "🛣 Trace from here",
+      tracingFrom ? "ph:path Trace to here" : "ph:path Trace from here",
       tracingFrom
         ? "Find how this note connects to the one you started from"
         : "Start tracing a path from this note",
       () => {
         closeGraphPopup();
         setTraceEnd(tracingFrom ? "to" : "from", entry.id);
-        if (!tracingFrom) toast("Now pick the other note — 🛣 Trace to here.");
+        if (!tracingFrom) toast("Now pick the other note — use Trace to here.");
       }
     )
   );
   box.appendChild(
-    smallButton("⏰ Remind", "Set a reminder about this note", () => {
+    smallButton("ph:alarm Remind", "Set a reminder about this note", () => {
       closeGraphPopup();
       switchTab("reminders");
       $("reminder-text").value = `Follow up: ${entry.content.slice(0, 60)}`;
@@ -13511,14 +14072,14 @@ function renderGraphPopupActions(entry) {
     })
   );
   box.appendChild(
-    smallButton("📝 Open", "Open this note in the Notes tab", () => {
+    smallButton("ph:note-pencil Open", "Open this note in the Notes tab", () => {
       const id = entry.id;
       closeGraphPopup();
       flashEntry(id);
     })
   );
   box.appendChild(
-    smallButton("🗑 Bin", "Move this note to the recycle bin", async () => {
+    smallButton("ph:trash Bin", "Move this note to the recycle bin", async () => {
       if (!(await confirmDialog("Move this note to the recycle bin?"))) return;
       await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
         toast(e.message, true)
@@ -13673,6 +14234,12 @@ function switchTab(name) {
   // this is a deliberate reset rather than a side effect of one shared one.
   scrollingPage()?.scrollTo({ top: 0, behavior: "auto" });
   scrollTopUpdate?.();
+  // Any autogrow box that was measured while hidden gets its real height now
+  // that its page is on screen. See autoGrow() for why a hidden measurement is
+  // refused rather than applied.
+  for (const box of document.querySelectorAll("textarea.autogrow")) {
+    if (box.offsetParent !== null) autoGrow(box);
+  }
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
@@ -13782,17 +14349,20 @@ async function renderTimeline() {
   const corner = document.createElement("div");
   corner.className = "timeline-corner";
   grid.appendChild(corner);
-  for (const bucket of buckets) {
+  for (const [column, bucket] of buckets.entries()) {
     const head = document.createElement("div");
     head.className = "timeline-head";
+    head.dataset.col = column % 2 === 0 ? "even" : "odd";
     head.textContent = bucketLabel(bucket, body.scale);
     grid.appendChild(head);
   }
 
+  let rowIndex = 0;
   for (const band of body.bands) {
     const name = document.createElement("button");
     name.type = "button";
     name.className = "timeline-band";
+    name.dataset.row = rowIndex % 2 === 0 ? "even" : "odd";
     name.title = `Show the ${band.name} notes`;
     name.append(band.name);
     const count = document.createElement("span");
@@ -13803,15 +14373,31 @@ async function renderTimeline() {
     grid.appendChild(name);
 
     const inBand = new Set(band.ids);
-    for (const bucket of buckets) {
+    // One pass over the notes per band, into a bucket -> notes map, instead of
+    // re-scanning every note once per bucket. That inner filter made the build
+    // O(bands x buckets x notes) — a year of daily buckets over a few hundred
+    // notes across a handful of bands is millions of comparisons to draw one
+    // screen, and it grows with all three.
+    const byBucket = new Map();
+    for (const note of body.notes) {
+      if (!inBand.has(note.id)) continue;
+      const list = byBucket.get(note.bucket);
+      if (list) list.push(note);
+      else byBucket.set(note.bucket, [note]);
+    }
+    for (const [column, bucket] of buckets.entries()) {
       const cell = document.createElement("div");
       cell.className = "timeline-cell";
-      const here = body.notes.filter(
-        (note) => note.bucket === bucket && inBand.has(note.id)
-      );
-      for (const note of here) cell.appendChild(timelineDot(note));
+      // Banding is done with parity attributes rather than :nth-child,
+      // because the grid is one flat list of children — every row's cells and
+      // every header share one child index, so nth-child cannot tell a column
+      // from a row. These say which is which.
+      cell.dataset.col = column % 2 === 0 ? "even" : "odd";
+      cell.dataset.row = rowIndex % 2 === 0 ? "even" : "odd";
+      for (const note of byBucket.get(bucket) || []) cell.appendChild(timelineDot(note));
       grid.appendChild(cell);
     }
+    rowIndex += 1;
   }
   clampTimelineDots();
   // The most recent column is the interesting one, so start there.
@@ -14065,54 +14651,116 @@ function stripMarkdownPreview(text) {
     .replace(/!?\[([^\]]*)\]\([^)]*\)?/g, "$1");
 }
 
+// A note on the timeline grid.
+//
+// It was one flat strip of preview text per note: no date, no title, no way to
+// tell a note placed by what it SAYS from one placed by when it was written,
+// and nothing to separate one note from the next but a border. Reported as
+// "lacks features and the UI aesthetic and usability is sub par", which is
+// fair — a grid cell that is only truncated body text is a list with extra
+// steps.
+//
+// Three parts now, in the order you read them:
+//
+//   header   when it is, and why it is there
+//   title    the note's first heading or first line, in the app's own weight
+//   preview  the rest, clamped by measurement (see clampTimelineDots)
+//
+// The header is what earns the card its place: `placed_by === "mentioned"`
+// means the note is sitting on a date it TALKS about rather than the date it
+// was typed, and without saying so the timeline looks like it has quietly
+// moved your notes.
 function timelineDot(note) {
   const dot = document.createElement("button");
-  dot.className = `timeline-dot${note.placed_by === "mentioned" ? " timeline-dot-mentioned" : ""}`;
+  const mentioned = note.placed_by === "mentioned";
+  dot.className = `timeline-dot${mentioned ? " timeline-dot-mentioned" : ""}`;
   dot.type = "button";
-  // 🕓 marks a note that is here because of what it says, not when it was
-  // typed. Without it the timeline quietly moves notes and looks wrong.
-  dot.textContent =
-    (note.placed_by === "mentioned" ? "🕓 " : "") + stripMarkdownPreview(note.preview);
-  dot.dataset.fullText = dot.textContent; // clampTimelineDots reads this back
-  dot.title =
-    note.placed_by === "mentioned"
-      ? `“${note.phrase}” in this note meant ${new Date(note.at).toLocaleDateString()}.` +
-        `\nWritten ${new Date(note.written_at).toLocaleDateString()}.`
-      : `Written ${new Date(note.written_at).toLocaleString()}`;
+
+  const header = document.createElement("span");
+  header.className = "timeline-dot-header";
+  const glyph = document.createElement("i");
+  glyph.className = mentioned ? "ph ph-clock-countdown" : "ph ph-calendar-blank";
+  glyph.setAttribute("aria-hidden", "true");
+  const when = document.createElement("span");
+  when.className = "timeline-dot-when";
+  when.textContent = mentioned
+    ? note.phrase || "mentioned here"
+    : relativeTime(note.written_at) || shortDate(note.written_at);
+  header.append(glyph, when);
+  dot.appendChild(header);
+
+  // The first line of a note is what a person calls it, whether or not they
+  // wrote it as a heading. Splitting it out gives the card something to lead
+  // with and stops every card in a column starting with the same three words.
+  const flat = stripMarkdownPreview(note.preview || "").trim();
+  const split = flat.indexOf("\n");
+  const heading = (split === -1 ? flat : flat.slice(0, split)).trim();
+  const rest = split === -1 ? "" : flat.slice(split + 1).replace(/\s+/g, " ").trim();
+
+  const title = document.createElement("span");
+  title.className = "timeline-dot-title";
+  title.textContent = heading || "Untitled note";
+  dot.appendChild(title);
+
+  if (rest) {
+    const preview = document.createElement("span");
+    preview.className = "timeline-dot-preview";
+    preview.textContent = rest;
+    // clampTimelineDots shortens THIS, not the whole card — clamping the card
+    // would eat the header and title first.
+    preview.dataset.fullText = rest;
+    dot.appendChild(preview);
+  }
+
+  dot.title = mentioned
+    ? `“${note.phrase}” in this note meant ${shortDate(note.at)}.` +
+      `\nWritten ${shortDate(note.written_at)}.`
+    : `Written ${new Date(note.written_at).toLocaleString()}`;
   dot.addEventListener("click", (event) => {
     openTimelinePopup(event, note);
   });
   return dot;
 }
 
+// A date with no time, in the reader's locale. Used where a full timestamp is
+// noise — a card header, a tooltip's second line.
+function shortDate(iso) {
+  const date = parseServerTime(iso) || new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 // Reported directly, more than once: the CSS 3-line clamp (`-webkit-line-
-// clamp` + a max-height safety net, right above `.timeline-dot` in
-// style.css) still cut text off with no "…" to say so. Root cause a live
-// measurement this sandbox's Chromium couldn't reproduce — the clamp not
-// actually engaging in whatever engine renders it for real, so the max-
-// height net was the only thing cropping, mid-line, past wherever the
+// clamp` + a max-height safety net) still cut text off with no "…" to say so.
+// Root cause a live measurement this sandbox's Chromium couldn't reproduce —
+// the clamp not actually engaging in whatever engine renders it for real, so
+// the max-height net was the only thing cropping, mid-line, past wherever the
 // clamp should have stopped. This replaces "hope the clamp works" with a
-// measurement every engine agrees on: does the card's content overflow its
-// own box? If so, shorten the actual text (not just how it's displayed)
-// until it fits, and add the ellipsis by hand. Runs once after the grid's
-// cards are all in the DOM — `clientHeight` reads 0 before that.
+// measurement every engine agrees on: does the element overflow its own box?
+// If so, shorten the actual text until it fits, and add the ellipsis by hand.
+//
+// It measures the PREVIEW now, not the whole card. Clamping the card shortened
+// whichever child happened to be last, which after the card gained a header
+// and a title was the wrong one — and on a short note it deleted the title.
+// Runs once after the grid is in the DOM; clientHeight reads 0 before that.
 function clampTimelineDots() {
-  const dots = document.querySelectorAll("#timeline-grid .timeline-dot");
-  for (const dot of dots) {
-    const full = dot.dataset.fullText || dot.textContent;
-    if (dot.scrollHeight <= dot.clientHeight + 1) continue; // +1: subpixel rounding
-    let lo = 0, hi = full.length;
+  for (const preview of document.querySelectorAll("#timeline-grid .timeline-dot-preview")) {
+    const full = preview.dataset.fullText || preview.textContent;
+    preview.textContent = full;
+    if (preview.scrollHeight <= preview.clientHeight + 1) continue; // +1: subpixel
+    let lo = 0;
+    let hi = full.length;
     // Binary search for the longest prefix that still fits with "…" appended —
     // a handful of iterations regardless of note length, and exact rather than
-    // guessing a fixed character budget that a narrower column would still
-    // overflow or a wider one would under-fill.
+    // guessing a character budget a narrower column would still overflow.
     while (lo < hi) {
       const mid = Math.ceil((lo + hi) / 2);
-      dot.textContent = `${full.slice(0, mid).trimEnd()}…`;
-      if (dot.scrollHeight <= dot.clientHeight + 1) lo = mid;
+      preview.textContent = `${full.slice(0, mid).trimEnd()}…`;
+      if (preview.scrollHeight <= preview.clientHeight + 1) lo = mid;
       else hi = mid - 1;
     }
-    dot.textContent = lo > 0 ? `${full.slice(0, lo).trimEnd()}…` : "…";
+    preview.textContent = lo > 0 ? `${full.slice(0, lo).trimEnd()}…` : "…";
   }
 }
 
@@ -14252,7 +14900,7 @@ async function openTimelinePopup(event, noteSummary) {
   const dateStr = noteSummary.placed_by === "mentioned"
       ? `“${noteSummary.phrase}” meant ${new Date(noteSummary.at).toLocaleDateString()}. Written ${new Date(noteSummary.written_at).toLocaleDateString()}.`
       : `Written ${new Date(noteSummary.written_at).toLocaleString()}`;
-  box.appendChild(chip(`🕐 ${dateStr}`, "tag"));
+  box.appendChild(chip(`ph:clock ${dateStr}`, "tag"));
 
   popup.classList.remove("hidden");
   timelinePopupAnchor = { x: event.clientX, y: event.clientY };
@@ -14579,7 +15227,7 @@ async function renderMemorySettings() {
 //: `showSettingsSection` un-hides by iterating it, so a section left out is
 //: rendered, in the DOM, and never shown. Found by driving it: the Extras
 //: panel had five rows in it and a nav button that appeared to do nothing.
-const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
+const SETTINGS_SECTIONS = ["models", "personas", "skills", "tools", "memory", "websearch", "appearance", "templates", "shortcuts", "preferences", "account", "extras", "tasks", "data", "logs", "help", "about"];
 
 // Where to send focus back when a dialog closes (Wave L).
 let overlayReturnFocus = null;
@@ -14632,6 +15280,29 @@ function autoGrowLimit(el) {
 
 function autoGrow(el) {
   if (!el) return;
+  // **A hidden textarea reports scrollHeight 0, and sizing to that collapses
+  // it.** This is the reported "the capture box is short at the bottom and
+  // only opens up when I click in it": the box was measured while its section
+  // was display:none, sized to nothing, and the first `focus` re-ran this with
+  // the box finally on screen, which looked like clicking made it grow.
+  //
+  // One caller already re-measured after a sub-tab switch, which fixed that
+  // one route in. It did not fix arriving from another TAB with Capture
+  // already the remembered section, and it never could — the bug is that a
+  // measurement taken while invisible is meaningless, and the right place to
+  // say so is here, once, rather than at every call site that might run early.
+  //
+  // `offsetParent` is null for a display:none element and for any element
+  // inside one, which is exactly the condition. (It is also null for
+  // position:fixed elements — none of the app's autogrow boxes are fixed, and
+  // the cost of being wrong would be one un-resized box, not a collapsed one.)
+  if (el.offsetParent === null) {
+    // Marked so the box gets its size the moment it becomes visible, instead
+    // of waiting for a focus that may never come.
+    el.dataset.autogrowPending = "1";
+    return;
+  }
+  delete el.dataset.autogrowPending;
   // Reset first: without it the height only ever ratchets upwards, because
   // scrollHeight is measured against the height already set.
   el.style.height = "auto";
@@ -14755,7 +15426,7 @@ function initAutoGrow() {
     if (el.dataset.autogrowReady) continue;
     el.dataset.autogrowReady = "1";
     el.addEventListener("input", () => autoGrow(el));
-    // Also on programmatic changes — templates, the ⏰ button, a cleared form.
+    // Also on programmatic changes — templates, the Remind button, a cleared form.
     el.addEventListener("focus", () => autoGrow(el));
     autoGrow(el);
   }
@@ -14820,6 +15491,7 @@ function showSettingsSection(name) {
   if (name === "websearch") renderWebSearch().catch(() => {});
   if (name === "personas") renderPersonas().catch(() => {});
   if (name === "skills") renderSkillSettings();
+  if (name === "templates") renderTemplateSettings();
   if (name === "tools") renderToolSettings();
   if (name === "memory") renderMemorySettings().catch(() => {});
   if (name === "tasks") renderAutonomousReview().catch(() => {});
@@ -15202,7 +15874,7 @@ function logRow(record) {
   const copy = document.createElement("button");
   copy.type = "button";
   copy.className = "log-copy ghost small";
-  copy.textContent = "📋";
+  setLabel(copy, "ph:clipboard");
   copy.title = "Copy this record (with its traceback)";
   copy.setAttribute("aria-label", `Copy this ${record.level} record`);
   copy.addEventListener("click", async (event) => {
@@ -15709,7 +16381,7 @@ async function renderBackups() {
     const row = document.createElement("div");
     row.className = "entry-meta";
     const name = document.createElement("span");
-    name.textContent = item.name;
+    setLabel(name, item.name);
     const size = document.createElement("span");
     size.className = "muted";
     size.textContent = `${(item.size / 1024).toFixed(0)} KB`;
@@ -15831,28 +16503,28 @@ let paletteIndex = 0;
 // Static commands; note search results are appended live as you type.
 function paletteCommands() {
   return [
-    { label: "📋 Go to Dashboard", run: () => switchTab("dashboard") },
-    { label: "📝 Go to Notes", run: () => switchTab("notes") },
-    { label: "💬 Go to Chat", run: () => switchTab("chat") },
-    { label: "🕸 Go to Graph", run: () => switchTab("graph") },
-    { label: "📄 Go to Documents", run: () => switchTab("documents") },
-    { label: "⏰ Go to Reminders", run: () => switchTab("reminders") },
+    { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
+    { label: "ph:note-pencil Go to Notes", run: () => switchTab("notes") },
+    { label: "ph:chat-circle Go to Chat", run: () => switchTab("chat") },
+    { label: "ph:graph Go to Graph", run: () => switchTab("graph") },
+    { label: "ph:file-text Go to Documents", run: () => switchTab("documents") },
+    { label: "ph:alarm Go to Reminders", run: () => switchTab("reminders") },
     {
-      label: "✏️ New note",
+      label: "ph:pencil-simple New note",
       run: () => {
         switchTab("notes");
         $("entry-content").focus();
       },
     },
     {
-      label: "📄 New document",
+      label: "ph:file-text New document",
       run: () => {
         switchTab("documents");
         createDocument();
       },
     },
     {
-      label: "✨ Write a note from rough thoughts",
+      label: "ph:magic-wand Write a note from rough thoughts",
       run: () => {
         switchTab("notes");
         // It's a sub-tab now, so select it rather than unfolding a card.
@@ -15860,14 +16532,14 @@ function paletteCommands() {
         $("draft-thoughts")?.focus();
       },
     },
-    { label: "🆕 New chat", run: () => { switchTab("chat"); newChatConversation(); } },
-    { label: "🎨 New sketch", run: openSketch },
+    { label: "ph:sparkle New chat", run: () => { switchTab("chat"); newChatConversation(); } },
+    { label: "ph:palette New sketch", run: openSketch },
     {
       // Asked for directly: "add creating a new board to the command
       // palette and tools and features as well" — the only way in before
-      // this was the ➕ button inside the whiteboard's own board-picker
+      // this was the Add button inside the whiteboard's own board-picker
       // panel, unreachable without already being on that tab.
-      label: "🗂️ New whiteboard board",
+      label: "ph:folders New whiteboard board",
       run: async () => {
         switchTab("library");
         const wbSubtab = document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]');
@@ -15879,10 +16551,10 @@ function paletteCommands() {
     // Filters as commands: the fastest route to "the notes I mean" without
     // remembering the operator syntax.
     ...[
-      ["📌 Show pinned notes", "is:pinned"],
-      ["🏷 Show untagged notes", "is:untagged"],
-      ["🔒 Show private notes", "is:private"],
-      ["🔗 Show linked notes", "is:linked"],
+      ["ph:push-pin Show pinned notes", "is:pinned"],
+      ["ph:tag Show untagged notes", "is:untagged"],
+      ["ph:lock Show private notes", "is:private"],
+      ["ph:link Show linked notes", "is:linked"],
     ].map(([label, query]) => ({
       label,
       run: () => {
@@ -15893,7 +16565,7 @@ function paletteCommands() {
       },
     })),
     {
-      label: "🔎 What can I type in the filter?",
+      label: "ph:magnifying-glass What can I type in the filter?",
       run: () => {
         switchTab("notes");
         $("search-help-hint").classList.remove("hidden");
@@ -15901,19 +16573,19 @@ function paletteCommands() {
         $("note-search").focus();
       },
     },
-    { label: "⚙️ Settings → Models", run: () => openSettingsModal("models") },
-    { label: "🎭 Settings → Personas", run: () => openSettingsModal("personas") },
-    { label: "⚡️ Settings → Skills", run: () => openSettingsModal("skills") },
-    { label: "🧰 Settings → Tools it can use", run: () => openSettingsModal("tools") },
-    { label: "🎨 Settings → Appearance", run: () => openSettingsModal("appearance") },
-    { label: "🎛 Settings → Preferences", run: () => openSettingsModal("preferences") },
-    { label: "💾 Settings → Data & backups", run: () => openSettingsModal("data") },
-    { label: "🪵 Settings → Logs", run: () => openSettingsModal("logs") },
-    { label: "🗄 Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
-    { label: "📤 Export markdown", run: () => downloadExport("markdown") },
-    { label: "🌓 Toggle light/dark", run: toggleTheme },
-    { label: "⌨️ Keyboard shortcuts", run: () => { closePalette(); openShortcuts(); } },
-    { label: "🔒 Lock MemoryMap", run: lockNow },
+    { label: "ph:gear Settings → Models", run: () => openSettingsModal("models") },
+    { label: "ph:mask-happy Settings → Personas", run: () => openSettingsModal("personas") },
+    { label: "ph:lightning Settings → Skills", run: () => openSettingsModal("skills") },
+    { label: "ph:toolbox Settings → Tools it can use", run: () => openSettingsModal("tools") },
+    { label: "ph:palette Settings → Appearance", run: () => openSettingsModal("appearance") },
+    { label: "ph:sliders Settings → Preferences", run: () => openSettingsModal("preferences") },
+    { label: "ph:floppy-disk Settings → Data & backups", run: () => openSettingsModal("data") },
+    { label: "ph:tree-evergreen Settings → Logs", run: () => openSettingsModal("logs") },
+    { label: "ph:archive Back up now", run: () => { openSettingsModal("data"); backupNow(); } },
+    { label: "ph:export Export markdown", run: () => downloadExport("markdown") },
+    { label: "ph:circle-half Toggle light/dark", run: toggleTheme },
+    { label: "ph:keyboard Keyboard shortcuts", run: () => { closePalette(); openShortcuts(); } },
+    { label: "ph:lock Lock MemoryMap", run: lockNow },
   ];
 }
 
@@ -15943,7 +16615,7 @@ function paletteMatches(query) {
         .filter((e) => e.content.toLowerCase().includes(lowered))
         .slice(0, 6)
         .map((e) => ({
-          label: `📄 ${e.content.slice(0, 60)}${e.content.length > 60 ? "…" : ""}`,
+          label: `ph:file-text ${e.content.slice(0, 60)}${e.content.length > 60 ? "…" : ""}`,
           run: () => flashEntry(e.id),
         }))
     : [];
@@ -16314,7 +16986,7 @@ async function toggleDictation(button, targetInput) {
   recorder.addEventListener("stop", async () => {
     stream.getTracks().forEach((t) => t.stop());
     button.classList.remove("recording");
-    button.textContent = "🎙";
+    setLabel(button, "ph:microphone");
     recorder = null;
     const blob = new Blob(chunks, { type: chunks[0]?.type || "audio/webm" });
     const form = new FormData();
@@ -16337,13 +17009,13 @@ async function toggleDictation(button, targetInput) {
   });
   recorder.start();
   button.classList.add("recording");
-  button.textContent = "⏹";
+  setLabel(button, "ph:stop");
 }
 
 // --- meeting notes (§17) -------------------------------------------------------------
 //
 // The backlog's own "highest-value single addition still unbuilt": the quick
-// 🎙 button above is sized for a spoken note (server caps it at 25MB,
+// microphone button above is sized for a spoken note (server caps it at 25MB,
 // `routes_voice.py`'s own comment says "a spoken note, not a podcast") — a
 // meeting or a lecture needs a separate flow with its own recording cap, a
 // visible elapsed timer so a long recording doesn't feel stalled, and a
@@ -16388,7 +17060,7 @@ function resetMeetingUI() {
   $("meeting-save-row").classList.add("hidden");
   $("meeting-record").disabled = false;
   $("meeting-record").classList.remove("recording");
-  $("meeting-record").textContent = "⏺ Record";
+  setLabel($("meeting-record"), "ph:record Record");
 }
 
 async function openMeetingRecorder() {
@@ -16446,7 +17118,7 @@ async function toggleMeetingRecording() {
     meetingRecorder = null;
     stopMeetingTimer();
     button.classList.remove("recording");
-    button.textContent = "⏺ Record";
+    setLabel(button, "ph:record Record");
     button.disabled = false;
     const blob = new Blob(meetingChunks, { type: meetingChunks[0]?.type || "audio/webm" });
     const form = new FormData();
@@ -16479,7 +17151,7 @@ async function toggleMeetingRecording() {
     $("meeting-timer").textContent = meetingElapsedText();
   }, 1000);
   button.classList.add("recording");
-  button.textContent = "⏹ Stop";
+  setLabel(button, "ph:stop Stop");
   $("meeting-status").textContent = "";
   $("meeting-status").classList.remove("error");
 }
@@ -16649,7 +17321,7 @@ function renderNotificationBadge() {
   // The bell itself says whether anything but a reminder will actually get
   // through — asked for directly, so muting isn't a setting you have to
   // remember you turned on three screens away.
-  button.textContent = muted ? "🔕" : "🔔";
+  setLabel(button, muted ? "ph:bell-slash" : "ph:bell");
   button.setAttribute(
     "aria-label",
     (count ? `Notifications — ${count} unread` : "Notifications") +
@@ -16663,8 +17335,8 @@ function renderNotifMuteToggle() {
   const button = $("notif-mute-toggle");
   if (!button) return;
   const muted = notificationsMuted();
-  button.textContent = muted ? "🔕" : "🔔";
-  // button.textContent = muted ? "🔔 Unmute" : "🔕 Mute";
+  setLabel(button, muted ? "ph:bell-slash" : "ph:bell");
+  // button.textContent = muted ? "Bell Unmute" : "bell slash Mute";
   button.title = muted
     ? "Stop muting — everything will notify again"
     : "Mute notifications except reminders";
@@ -16685,10 +17357,10 @@ async function toggleNotificationMute() {
 //: Which icon a kind gets. Colour alone is never the signal (DESIGN.md), and
 //: these read as a list of *kinds* rather than a list of times.
 const NOTIFICATION_ICONS = {
-  reminder: "⏰",
-  task: "⚙",
-  run: "⚡️",
-  error: "⚠️",
+  reminder: "ph:alarm",
+  task: "ph:gear",
+  run: "ph:lightning",
+  error: "ph:warning",
   info: "•",
 };
 
@@ -16740,7 +17412,7 @@ async function openNotifications() {
     body.className = "notif-body";
     const title = document.createElement("div");
     title.className = "notif-title";
-    title.textContent = item.title;
+    setLabel(title, item.title);
     const meta = document.createElement("div");
     meta.className = "notif-meta muted";
     meta.textContent = [item.detail, relativeTime(new Date(item.at).toISOString())]
@@ -16842,16 +17514,16 @@ async function checkDueReminders() {
   // separate system notifications for three reminders is worse than one.
   if (fresh.length === 1) {
     const text = fresh[0].text;
-    if (!notify("⏰ Reminder", text)) toast(`⏰ ${text}`, false, { exempt: true });
+    if (!notify("Reminder", text)) toast(text, false, { exempt: true });
   } else {
     const summary = `${fresh.length} reminders are due`;
-    if (!notify("⏰ MemoryMap", summary)) toast(`⏰ ${summary}`, false, { exempt: true });
+    if (!notify("MemoryMap", summary)) toast(summary, false, { exempt: true });
   }
   // Always in-app as well as out: a system notification can be suppressed by
   // Do Not Disturb without the app ever knowing.
   if ("Notification" in window && Notification.permission === "granted") {
     toast(
-      fresh.length === 1 ? `⏰ ${fresh[0].text}` : `⏰ ${fresh.length} reminders are due`,
+      fresh.length === 1 ? fresh[0].text : `${fresh.length} reminders are due`,
       false,
       { exempt: true }
     );
@@ -16947,7 +17619,13 @@ async function loadMostUsed() {
     // its closing backtick) left a stray `` ` `` sitting in the rendered
     // text — `safeMdSlice` drops the dangling marker instead of the plain
     // `slice(0, 25)` this used to do.
-    const { text: sliced, truncated } = safeMdSlice(entry.content, 25);
+    //
+    // Block syntax stripped first. renderInlineMarkdown is inline-only, so a
+    // note beginning "# Groceries" rendered the literal "# Groceries" — the
+    // same gap the dashboard's mini-lists had, here too since this list uses
+    // the same two-function combination.
+    const flat = entry.content.replace(/^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "");
+    const { text: sliced, truncated } = safeMdSlice(flat, 25);
     renderInlineMarkdown(text, sliced, [], true);
     if (truncated) text.appendChild(document.createTextNode("…"));
     const count = document.createElement("span");
@@ -17024,7 +17702,7 @@ document.addEventListener("visibilitychange", () => {
 
 // Controls that can only do their job with a chat model running. Left
 // enabled, they look available and only fail once you've committed to them —
-// you type a note, press ✨ Improve, wait, and get an apology. Disabling them
+// you type a note, press AI Improve, wait, and get an apology. Disabling them
 // with a reason attached says the same thing before you spend the effort.
 //
 // Deliberately NOT in here: Save, Ask, search, tags, categories, the graph,
@@ -17211,14 +17889,14 @@ let libraryKind = "all";
 //: the kind — a document is something you sat down to write, a binned note is
 //: something you threw away.
 const LIBRARY_KINDS = [
-  { key: "all", icon: "📚", label: "Everything" },
-  { key: "note", icon: "📝", label: "Notes" },
-  { key: "document", icon: "📄", label: "Documents" },
-  { key: "chat", icon: "💬", label: "Chats" },
-  { key: "file", icon: "📎", label: "Files" },
-  { key: "tag", icon: "🏷", label: "Tags" },
-  { key: "archived", icon: "🗑", label: "Bin" },
-  { key: "activity", icon: "📜", label: "Activity" },
+  { key: "all", icon: "ph:books", label: "Everything" },
+  { key: "note", icon: "ph:note-pencil", label: "Notes" },
+  { key: "document", icon: "ph:file-text", label: "Documents" },
+  { key: "chat", icon: "ph:chat-circle", label: "Chats" },
+  { key: "file", icon: "ph:paperclip", label: "Files" },
+  { key: "tag", icon: "ph:tag", label: "Tags" },
+  { key: "archived", icon: "ph:trash", label: "Bin" },
+  { key: "activity", icon: "ph:scroll", label: "Activity" },
 ];
 
 //: The overview strip. Each tile is a *state worth knowing*, and each one goes
@@ -17226,11 +17904,11 @@ const LIBRARY_KINDS = [
 //: a number you cannot act on is decoration, and a management screen made of
 //: decoration is a dashboard nobody opens twice.
 const LIBRARY_OVERVIEW_TILES = [
-  { key: "notes", icon: "📝", label: "notes", kind: "note" },
-  { key: "documents", icon: "📄", label: "documents", kind: "document" },
-  { key: "chats", icon: "💬", label: "chats", kind: "chat" },
-  { key: "tags", icon: "🏷", label: "tags", kind: "tag" },
-  { key: "binned", icon: "🗑", label: "in the bin", kind: "archived" },
+  { key: "notes", icon: "ph:note-pencil", label: "notes", kind: "note" },
+  { key: "documents", icon: "ph:file-text", label: "documents", kind: "document" },
+  { key: "chats", icon: "ph:chat-circle", label: "chats", kind: "chat" },
+  { key: "tags", icon: "ph:tag", label: "tags", kind: "tag" },
+  { key: "binned", icon: "ph:trash", label: "in the bin", kind: "archived" },
 ];
 
 //: What is ticked. Ids alone would collide — a tag's id 3 and a note's id 3 are
@@ -17283,14 +17961,14 @@ function renderLibraryOverview() {
     button.className = "library-stat" + (libraryKind === tile.kind ? " active" : "");
     const icon = document.createElement("span");
     icon.className = "library-stat-icon";
-    icon.textContent = tile.icon;
+    setLabel(icon, tile.icon);
     icon.setAttribute("aria-hidden", "true");
     const number = document.createElement("strong");
     number.className = "library-stat-value";
     number.textContent = value;
     const label = document.createElement("span");
     label.className = "library-stat-label";
-    label.textContent = tile.label;
+    setLabel(label, tile.label);
     button.append(icon, number, label);
     button.title = `Show ${tile.label}`;
     // Every tile is a filter. That is what stops it being decoration.
@@ -17334,10 +18012,10 @@ function renderLibraryFilters() {
       "library-chip" + (libraryKind === kind.key ? " active" : "");
     button.setAttribute("aria-pressed", String(libraryKind === kind.key));
     const icon = document.createElement("span");
-    icon.textContent = kind.icon;
+    setLabel(icon, kind.icon);
     icon.setAttribute("aria-hidden", "true");
     const label = document.createElement("span");
-    label.textContent = kind.label;
+    setLabel(label, kind.label);
     // The count is on the chip, not discovered by pressing it. A filter you
     // have to try before you learn it is empty is a filter that wastes a click
     // every time — and with five of them that is most of the toolbar.
@@ -17447,7 +18125,7 @@ function libraryActions(item) {
   if (item.kind === "chat") {
     return [
       makeMenuItem(
-        item.pinned ? "📌 Unpin" : "📌 Pin",
+        item.pinned ? "ph:push-pin Unpin" : "ph:push-pin Pin",
         item.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
         async () => {
           await apiJson(`/conversations/${item.id}/pin`, {
@@ -17457,7 +18135,7 @@ function libraryActions(item) {
           reload();
         }
       ),
-      makeMenuItem("✎ Rename", "Rename this chat", async () => {
+      makeMenuItem("ph:pencil-simple Rename", "Rename this chat", async () => {
         const next = await promptDialog("Rename this chat:", item.title);
         if (!next) return;
         await apiJson(`/conversations/${item.id}`, {
@@ -17467,7 +18145,7 @@ function libraryActions(item) {
         reload();
         loadConversationList();
       }),
-      makeMenuItem("🗑 Delete", "Delete this chat", async () => {
+      makeMenuItem("ph:trash Delete", "Delete this chat", async () => {
         if (!(await confirmDialog("Delete this saved chat?"))) return;
         await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) =>
           toast(e.message, true)
@@ -17480,7 +18158,7 @@ function libraryActions(item) {
   }
   if (item.kind === "document") {
     return [
-      makeMenuItem("✎ Rename", "Rename this document", async () => {
+      makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
         const next = await promptDialog("Rename this document:", item.title);
         if (!next) return;
         await apiJson(`/documents/${item.id}`, {
@@ -17492,7 +18170,7 @@ function libraryActions(item) {
       makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
         window.open(`/documents/${item.id}/export.md`, "_blank");
       }),
-      makeMenuItem("🗑 Delete", "Delete this document", async () => {
+      makeMenuItem("ph:trash Delete", "Delete this document", async () => {
         if (!(await confirmDialog(`Delete “${item.title}”? This cannot be undone.`))) return;
         await apiJson(`/documents/${item.id}`, { method: "DELETE" }).catch((e) =>
           toast(e.message, true)
@@ -17503,7 +18181,7 @@ function libraryActions(item) {
   }
   if (item.kind === "archived") {
     return [
-      makeMenuItem("↩ Restore", "Put this note back in your notebook", async () => {
+      makeMenuItem("ph:arrow-u-up-left Restore", "Put this note back in your notebook", async () => {
         await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch((e) =>
           toast(e.message, true)
         );
@@ -17514,7 +18192,7 @@ function libraryActions(item) {
       // The bin's other half. Without it the Library can show you a binned
       // note and take you back to the old panel to get rid of it, which is the
       // two-places problem the move was for.
-      makeMenuItem("🗑 Delete for good", "Permanently delete this note", async () => {
+      makeMenuItem("ph:trash Delete for good", "Permanently delete this note", async () => {
         if (!(await confirmDialog("Delete this note permanently?\n\nThis cannot be undone."))) return;
         await apiJson(`/entries/${item.id}/purge`, { method: "DELETE" }).catch((e) =>
           toast(e.message, true)
@@ -17525,8 +18203,8 @@ function libraryActions(item) {
   }
   if (item.kind === "note") {
     return [
-      makeMenuItem("↗ Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
-      makeMenuItem("🗑 Move to bin", "Bin this note — recoverable", async () => {
+      makeMenuItem("ph:arrow-square-out Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      makeMenuItem("ph:trash Move to bin", "Bin this note — recoverable", async () => {
         await apiJson(`/entries/${item.id}`, { method: "DELETE" }).catch((e) =>
           toast(e.message, true)
         );
@@ -17538,7 +18216,7 @@ function libraryActions(item) {
   }
   if (item.kind === "tag") {
     return [
-      makeMenuItem("✎ Rename", "Rename this tag everywhere (merge if it exists)", async () => {
+      makeMenuItem("ph:pencil-simple Rename", "Rename this tag everywhere (merge if it exists)", async () => {
         const next = await promptDialog(`Rename tag “${item.title}” to:`, item.title);
         if (!next || next === item.title) return;
         const result = await apiJson("/tags/rename", {
@@ -17552,7 +18230,7 @@ function libraryActions(item) {
         reload();
         loadEntries();
       }),
-      makeMenuItem("🗑 Remove everywhere", "Take this tag off every note", async () => {
+      makeMenuItem("ph:trash Remove everywhere", "Take this tag off every note", async () => {
         if (!(await confirmDialog(`Remove the tag “${item.title}” from every note?\n\nThe notes are untouched.`))) return;
         await apiJson("/tags/delete", {
           method: "POST",
@@ -17579,7 +18257,7 @@ function libraryActions(item) {
       // own ⋯ menu specifically; bulk-select delete already worked
       // (`library-bulk-delete` already has a `file` branch), but nothing
       // offered it from the one place someone looks first.
-      makeMenuItem("🗑 Delete", "Remove this file permanently", async () => {
+      makeMenuItem("ph:trash Delete", "Remove this file permanently", async () => {
         if (!(await confirmDialog(`Delete "${item.title}"?\n\nThis cannot be undone.`))) return;
         await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
         toast("Deleted.");
@@ -17679,7 +18357,7 @@ function libraryCard(item) {
   }
   const icon = document.createElement("span");
   icon.className = "library-card-icon";
-  icon.textContent = meta ? meta.icon : "•";
+  setLabel(icon, meta ? meta.icon : "•");
   if (meta && meta.label) {
     icon.setAttribute("role", "img");
     icon.setAttribute("aria-label", meta.label);
@@ -17691,11 +18369,14 @@ function libraryCard(item) {
   // A note's title is its first line, so it carries the note's own markup too.
   // Everything else has a real title and renders as plain text through the
   // same call, which is harmless.
-  renderInlineMarkdown(title, item.title, []);
+  // Strip block markdown (like headings) from the title before inline rendering,
+  // so a note starting with `# Title` doesn't show the raw `# `.
+  const cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+  renderInlineMarkdown(title, cleanTitle, []);
   top.append(icon, title);
   if (item.pinned) {
     const pin = document.createElement("span");
-    pin.textContent = "📌";
+    setLabel(pin, "ph:push-pin");
     pin.title = "Pinned";
     top.appendChild(pin);
   }
@@ -17711,7 +18392,7 @@ function libraryCard(item) {
   // every note card lost its preview entirely — leaving 60 characters of a
   // 420-character card. The question is not whether the preview begins with
   // the title, it is whether it goes on to say anything more.
-  const bare = item.title.replace(/…$/, "").trim();
+  const bare = cleanTitle.replace(/…$/, "").trim();
   const sameAsTitle =
     item.preview &&
     bare &&
@@ -17725,14 +18406,15 @@ function libraryCard(item) {
     // backticks here, which is the Library rendering the *source* of a note
     // while every other surface renders the note. Inline only — block elements
     // would turn a card into a document, which is what the clamp is for.
-    renderInlineMarkdown(preview, item.preview, []);
+    const cleanPreview = item.preview.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
+    renderInlineMarkdown(preview, cleanPreview, []);
     card.appendChild(preview);
   }
 
   const foot = document.createElement("div");
   foot.className = "library-card-meta";
   const detail = document.createElement("span");
-  detail.textContent = item.detail;
+  setLabel(detail, item.detail);
   const when = document.createElement("span");
   when.textContent = relativeTime(item.updated_at);
   when.title = new Date(item.updated_at).toLocaleString();
@@ -17929,7 +18611,7 @@ function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
   button.replaceChildren();
   if (icon) {
     const glyph = document.createElement("span");
-    glyph.textContent = icon;
+    setLabel(glyph, icon);
     glyph.setAttribute("aria-hidden", "true");
     button.appendChild(glyph);
   }
@@ -17955,7 +18637,7 @@ function renderStatusBar() {
   // this is exact and costs nothing. Before the first load it says nothing
   // rather than "0 notes", which would be a lie for the second it is up.
   paintStatusItem("status-notes", {
-    icon: "📝",
+    icon: "ph:note-pencil",
     value: entriesEverLoaded ? allEntries.length : "–",
     label: allEntries.length === 1 && entriesEverLoaded ? "note" : "notes",
     title: "Your notebook — click to browse it",
@@ -17966,7 +18648,7 @@ function renderStatusBar() {
   // is worse than either alone.
   const { open, due } = reminderCounts;
   paintStatusItem("status-reminders", {
-    icon: due ? "⏰" : "✅",
+    icon: due ? "ph:alarm" : "ph:check-circle",
     value: due || open,
     label: due ? "due" : "open",
     title: due
@@ -17984,7 +18666,7 @@ function renderStatusBar() {
   if (task) {
     const others = backgroundTasks.length - 1;
     paintStatusItem("status-task", {
-      icon: "⚙",
+      icon: "ph:gear",
       label: others > 0 ? `${task.label} (+${others})` : task.label,
       title:
         `${task.label}${task.detail ? ` — ${task.detail}` : ""}` +
@@ -18041,7 +18723,7 @@ function renderSearchEngineHealth(status) {
   } else if (status.embedding_warming) {
     state = "… warming up";
   } else if (status.embedding_error) {
-    state = "⚠️ unavailable — using keyword search (details below)";
+    state = "Unavailable — using keyword search (details below)";
     cls = "error";
   }
   el.textContent = `Search engine: ${engine} — ${state}`;
@@ -18244,7 +18926,7 @@ async function refreshBackgroundTasks() {
 
 // --- optional extras (Settings → Optional extras) -----------------------------
 //
-// Each of these is a feature the app already offers and cannot run: the 🎙
+// Each of these is a feature the app already offers and cannot run: the microphone
 // buttons need faster-whisper, the desktop window needs pywebview, search by
 // meaning needs sentence-transformers. The only way to switch one on was a
 // terminal and a README.
@@ -18288,7 +18970,7 @@ async function renderExtras() {
       // …except when nothing calls the package. Reinstalling a library the app
       // never imports cannot fix anything, because there is nothing to fix.
       if (!extra.unavailable) actions.appendChild(
-        smallButton("↻ Reinstall", `Reinstall ${extra.label}`, async () => {
+        smallButton("ph:arrow-clockwise Reinstall", `Reinstall ${extra.label}`, async () => {
           const ok = await confirmDialog(
             `Reinstall ${extra.label}?\n\nUse this if the feature is switched ` +
               "on but not working — it downloads the package again from " +
@@ -18303,7 +18985,7 @@ async function renderExtras() {
         })
       );
       actions.appendChild(
-        smallButton("🗑 Remove", `Uninstall ${extra.label}`, async () => {
+        smallButton("ph:trash Remove", `Uninstall ${extra.label}`, async () => {
           const ok = await confirmDialog(
             `Remove ${extra.label}?\n\nThe feature it turns on stops working. ` +
               "Only the package itself is removed — anything it pulled in is " +
@@ -18371,7 +19053,7 @@ async function renderExtras() {
     if (extra.caveat) {
       const caveat = document.createElement("p");
       caveat.className = "muted extras-caveat";
-      caveat.textContent = `⚠️ ${extra.caveat}`;
+      setLabel(caveat, `ph:warning ${extra.caveat}`);
       li.appendChild(caveat);
     }
     // The reason the button is grey, in full. Same shape as the caveat because
@@ -18381,7 +19063,7 @@ async function renderExtras() {
     if (extra.unavailable) {
       const why = document.createElement("p");
       why.className = "muted extras-caveat";
-      why.textContent = `🚧 ${extra.unavailable}`;
+      setLabel(why, `ph:traffic-cone ${extra.unavailable}`);
       li.appendChild(why);
     }
     list.appendChild(li);
@@ -18449,7 +19131,7 @@ async function renderEmbedModels() {
       // the top of it resumes the same broken files — so this removes first.
       if (body.can_download) {
         actions.appendChild(
-          smallButton("↻ Re-download", `Fetch ${model.label} again from scratch`, async () => {
+          smallButton("ph:arrow-clockwise Re-download", `Fetch ${model.label} again from scratch`, async () => {
             if (!(await confirmDialog(
               `Download ${model.label} again?\n\nThe copy on this machine is ` +
                 "deleted first, so this is the fix for one that arrived broken."
@@ -18464,7 +19146,7 @@ async function renderEmbedModels() {
         );
       }
       actions.appendChild(
-        smallButton("🗑 Remove", `Delete ${model.label} from this machine`, async () => {
+        smallButton("ph:trash Remove", `Delete ${model.label} from this machine`, async () => {
           if (!(await confirmDialog(
             `Remove ${model.label}?\n\nIt frees ${model.on_disk}. Nothing is ` +
               "lost that a download cannot bring back — but if this is the " +
@@ -18627,11 +19309,11 @@ async function renderTasks(payload) {
 // mixing them means a finished job and a running one look alike at a glance,
 // and the question this screen answers most often is "is it still going?".
 const TASK_OUTCOMES = {
-  completed: { icon: "✅", className: "" },
-  failed: { icon: "⚠️", className: "task-failed" },
+  completed: { icon: "ph:check-circle", className: "" },
+  failed: { icon: "ph:warning", className: "task-failed" },
   // Not an error. Reporting a user's own decision in red is how people learn
   // to ignore red.
-  cancelled: { icon: "✖️", className: "muted" },
+  cancelled: { icon: "ph:x", className: "muted" },
 };
 
 function renderTaskHistory(history) {
@@ -18646,7 +19328,7 @@ function renderTaskHistory(history) {
   for (const item of history) {
     recordNotification({
       kind: item.outcome === "failed" ? "error" : "task",
-      title: `${(TASK_OUTCOMES[item.outcome] || TASK_OUTCOMES.completed).icon} ${item.label}`,
+      title: item.label,
       detail: item.detail || "",
       // Keyed on the job and when it stopped, so the three-second re-render
       // does not add the same finished job over and over.
@@ -18664,7 +19346,7 @@ function renderTaskHistory(history) {
     const row = document.createElement("div");
     row.className = "entry-meta";
     const name = document.createElement("strong");
-    name.textContent = `${style.icon} ${item.label}`;
+    setLabel(name, `${style.icon} ${item.label}`);
     const when = document.createElement("span");
     when.className = "muted";
     when.textContent = relativeTime(item.at);
@@ -18676,7 +19358,7 @@ function renderTaskHistory(history) {
     if (item.detail) {
       const detail = document.createElement("p");
       detail.className = "muted task-detail";
-      detail.textContent = item.detail;
+      setLabel(detail, item.detail);
       li.appendChild(detail);
     }
     list.appendChild(li);
@@ -19066,79 +19748,124 @@ async function loadLinkSuggestions() {
       "No new links to suggest — either everything related is already linked, or semantic search is off.";
     return;
   }
+  // Was a bare space-between over three children, which put the backfill
+  // button in the MIDDLE of the row between the sentence and the close
+  // button — reported as "weirdly spaced". A heading and its actions is two
+  // groups, not three peers: the sentence takes the slack, the buttons sit
+  // together on the right.
   const heading = document.createElement("div");
-  heading.style.display = "flex";
-  heading.style.justifyContent = "space-between";
-  heading.style.alignItems = "center";
-  heading.style.marginBottom = "var(--space-3)";
-  
+  heading.className = "row link-suggest-head";
+
   const headingText = document.createElement("span");
-  headingText.className = "muted";
+  headingText.className = "muted link-suggest-title";
   headingText.textContent = "Notes that look related — link the ones you agree with:";
 
+  const actions = document.createElement("div");
+  actions.className = "row link-suggest-actions";
+
   // Asked directly: "none of my notes have a linked reason yet — is there an
-  // easy way to give them all a reason?" There wasn't, since `_deduce_reason`
-  // only ever ran when a link was first made. This runs it once over every
-  // existing reason-less link instead of leaving them mute forever.
+  // easy way to give them all a reason?"
+  //
+  // It ran only the embedding pass, which can compare two vectors and has no
+  // WORDS for what it found, so every reason it wrote was the literal string
+  // "similar in meaning" — the button looked like it worked and produced
+  // reasons that said nothing. The endpoint runs the model over those
+  // afterwards now, and this reports both numbers so it is obvious which
+  // half did the work.
   const backfill = smallButton(
-    "💡 Give existing links a reason",
-    "Deduce a reason for every link that doesn't have one yet, from how alike the two notes' meanings are",
+    "ph:lightbulb Give links a reason",
+    "Work out why each link exists — first from how alike the notes are, then by asking the AI to name the actual connection",
     async () => {
+      backfill.disabled = true;
+      setLabel(backfill, "ph:lightbulb Working…");
       const result = await apiJson("/entries/links/backfill-reasons", {
         method: "POST",
+        body: JSON.stringify({ ai: true }),
       }).catch((e) => {
         toast(e.message, true);
         return null;
       });
+      backfill.disabled = false;
+      setLabel(backfill, "ph:lightbulb Give links a reason");
       if (!result) return;
-      toast(
-        result.updated
-          ? `Gave ${result.updated} of ${result.checked} link${result.checked === 1 ? "" : "s"} a reason.`
-          : result.checked
-            ? "None of them were similar enough to guess a reason for."
-            : "Every link already has a reason."
-      );
+      const parts = [];
+      if (result.updated) parts.push(`marked ${result.updated}`);
+      if (result.rewritten) parts.push(`wrote a real reason for ${result.rewritten}`);
+      if (parts.length) {
+        toast(`Links: ${parts.join(", ")}.`);
+        loadLinkSuggestions();
+      } else if (result.ai_unavailable) {
+        toast("Marked what I could — the AI isn't running, so none could be put into words yet.", true);
+      } else if (result.checked) {
+        toast("Nothing left to explain — every link already has a reason.");
+      } else {
+        toast("Every link already has a reason.");
+      }
     }
   );
 
-  const closeAll = smallButton("✕", "Close suggestions", () => {
+  const closeAll = smallButton("ph:x", "Close suggestions", () => {
     box.classList.add("hidden");
     box.replaceChildren();
   });
 
-  heading.append(headingText, backfill, closeAll);
+  actions.append(backfill, closeAll);
+  heading.append(headingText, actions);
   box.appendChild(heading);
   for (const s of suggestions) {
     const row = document.createElement("div");
     row.className = "link-suggestion";
     const text = document.createElement("span");
+    text.className = "link-suggestion-text";
     text.append(
-      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}” — ${s.reason} `)
+      document.createTextNode(`“${s.source_preview}” ↔ “${s.target_preview}”`)
     );
+
+    // **A reason you can type before you link.** Every suggestion offered
+    // "similar in meaning" and there was no way to say anything else without
+    // linking first, finding the link, and editing it — reported as the
+    // suggestions refusing to offer reasons. Left blank, the server deduces
+    // one exactly as before, so the fast path is unchanged.
+    const reason = document.createElement("input");
+    reason.type = "text";
+    reason.className = "link-suggestion-reason";
+    reason.maxLength = 80;
+    reason.placeholder = s.reason && s.reason !== "similar in meaning"
+      ? s.reason
+      : "Why? (optional — the AI will work it out)";
+    reason.setAttribute("aria-label", "Reason for this link");
+
     const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
-    const link = smallButton("🔗 Link", "Connect these two notes", async () => {
+    const link = smallButton("ph:link Link", "Connect these two notes", async () => {
+      const given = reason.value.trim();
       await apiJson(`/entries/${s.source_id}/links`, {
         method: "POST",
-        body: JSON.stringify({ target_id: s.target_id }),
-        // No `reason` here on purpose: this suggestion came from the same
-        // embeddings `create_link` checks when nobody gives it a reason, so
-        // leaving it out gets the same "similar in meaning" text and a real
-        // confidence score back, instead of a hand-built duplicate of it.
+        // Only sent when the user typed one. Left out, the server runs the
+        // same deduction it always did and returns a real confidence score,
+        // rather than a hand-built duplicate of it.
+        body: JSON.stringify(given ? { target_id: s.target_id, reason: given } : { target_id: s.target_id }),
       }).catch((e) => toast(e.message, true));
       row.remove();
-      toast("Linked.");
+      toast(given ? "Linked, with your reason." : "Linked.");
       loadEntries().catch(() => {});
       if (!box.querySelector(".link-suggestion")) {
         box.classList.add("hidden");
       }
     });
-    const dismiss = smallButton("✕", "Dismiss this suggestion", () => {
+    // Enter in the reason box links, which is what you have just described.
+    reason.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        link.click();
+      }
+    });
+    const dismiss = smallButton("ph:x", "Dismiss this suggestion", () => {
       row.remove();
       if (!box.querySelector(".link-suggestion")) {
         box.classList.add("hidden");
       }
     });
-    row.append(text, score, link, dismiss);
+    row.append(text, reason, score, link, dismiss);
     box.appendChild(row);
   }
 }
@@ -19947,6 +20674,12 @@ function renderCustomThemes() {
   if (!box) return;
   const themes = savedThemes();
   box.replaceChildren();
+  // The container is a grid of `minmax(104px, 1fr)` swatch columns, so a
+  // paragraph dropped straight into it becomes a grid ITEM in a 104px track
+  // and wraps to roughly one word per line. Screenshotted looking exactly like
+  // that. The empty state turns the grid off for as long as it is the only
+  // thing in there.
+  box.classList.toggle("theme-presets-empty", !themes.length);
   if (!themes.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
@@ -20110,8 +20843,30 @@ function resolvedTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+// The theme button shows the mode you will GET, not the one you are in.
+//
+// Reported as "the toggle light/dark button doesn't change". It was a fixed
+// half-filled circle in both modes, so the one control whose entire job is to
+// say which way it will flip looked identical either way — and there was no
+// way to tell from it whether pressing it would darken or lighten.
+//
+// Showing the destination rather than the current state is the convention
+// worth following here: a sun means "press for light", and it is the thing you
+// are choosing, not a redundant restatement of the background you can already
+// see.
+function renderThemeToggle() {
+  const button = $("theme-btn");
+  if (!button) return;
+  const dark = resolvedTheme() === "dark";
+  setLabel(button, dark ? "ph:sun" : "ph:moon");
+  const next = dark ? "light" : "dark";
+  button.title = `Switch to ${next} mode`;
+  button.setAttribute("aria-label", `Switch to ${next} mode`);
+}
+
 function applyResolvedMode() {
   document.documentElement.dataset.mode = resolvedTheme();
+  renderThemeToggle();
   // Light and dark can want different custom backgrounds, and the stored one
   // is written inline — so it has to be re-picked here rather than left to the
   // stylesheet, which cannot outrank it.
@@ -21396,6 +22151,11 @@ $("doc-browse-all").addEventListener("click", () => {
   renderLibraryFilters();
   renderLibrary();
 });
+// Used to be an open-by-default <details> in the sidebar; its body was tall
+// enough to push the document list down, so it is a dialog now. The Close
+// button and Escape both close it — Close via the generic [data-close-dialog]
+// delegation set up below, Escape for free from <dialog>.showModal().
+$("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 for (const button of document.querySelectorAll("#doc-toolbar button")) {
@@ -21422,6 +22182,21 @@ $("doc-content").addEventListener("keydown", (event) => {
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
 });
 // Leaving with unsaved edits would lose them; autosave hasn't fired yet.
+// --- offline badge -----------------------------------------------------------
+//
+// Being offline is not an error here — the app is built to run that way. What
+// the badge says is narrower: web search and any cloud model will not answer
+// right now. `navigator.onLine` is the browser's own answer and is only ever
+// a hint (it reports "online" for a machine on a LAN with no route out), but
+// a false negative is impossible and a false positive costs nothing, which is
+// the right way round for a passive indicator.
+function reflectOnlineState() {
+  $("offline-indicator")?.classList.toggle("hidden", navigator.onLine);
+}
+window.addEventListener("offline", reflectOnlineState);
+window.addEventListener("online", reflectOnlineState);
+reflectOnlineState();
+
 window.addEventListener("beforeunload", (event) => {
   if (!docDirty) return;
   event.preventDefault();
@@ -21903,7 +22678,7 @@ function renderWebSearchToggle() {
   button.classList.toggle("active", on);
   button.setAttribute("aria-pressed", on ? "true" : "false");
 }
-// 🧭 Plan — send what is in the box as a request that must be planned first.
+// Plan Plan — send what is in the box as a request that must be planned first.
 //
 // The instruction is a sentence rather than a flag on the request because the
 // planning path is the model's own `make_plan` tool: the server already knows
@@ -21919,22 +22694,58 @@ const PLAN_PREFIX =
   "Plan this before you do any of it. Call make_plan with the goal and the " +
   "steps, then carry the plan out.";
 
+// Plan mode is a TOGGLE, not a second send button.
+//
+// It was: type your request, then press Plan instead of Send. That put the
+// decision in the wrong place — you had to remember, after writing, to use a
+// different button, and pressing Enter (which is how anyone sends a message)
+// silently skipped planning. Asked for directly: "the user should be able to
+// select it as a togglable mode, so that when they write in their prompt and
+// press the send button or enter etc, it will use the plan mode".
+//
+// So it arms instead. Turn it on, write, send however you like. It stays on
+// across messages the same way Web does, because "I am working on something
+// that needs planning" is a state you are in for a while, not a one-off.
+let planModeOn = false;
+
+function renderPlanToggle() {
+  const button = $("chat-plan");
+  if (!button) return;
+  button.setAttribute("aria-pressed", String(planModeOn));
+  button.classList.toggle("active", planModeOn);
+  button.title = planModeOn
+    ? "Plan mode is on — your next message is planned first, and the steps are shown before anything touches your notes. Click to turn off."
+    : "Plan mode: plan the request first — the Librarian draws the steps and shows them before it starts";
+}
+
+// Applied by sendChatMessage on the way out, so every route into it — the Send
+// button, Enter, a suggestion chip — goes through planning when the mode is on.
+// Reading the flag at send time rather than at click time is the whole point.
+function applyPlanMode(question) {
+  if (!planModeOn) return null;
+  return `${question}\n\n${PLAN_PREFIX}`;
+}
+
 $("chat-plan").addEventListener("click", async () => {
-  const input = $("chat-input");
-  const question = input.value.trim();
-  if (!question) {
-    toast("Type what you want done, then press Plan.", true);
-    input.focus();
+  planModeOn = !planModeOn;
+  renderPlanToggle();
+  if (!planModeOn) {
+    toast("Plan mode off.");
     return;
   }
+  // A plan whose steps cannot be carried out is a list, so arming the mode
+  // arms what it needs. Announced rather than silent: a mode that changed
+  // under you and said so beats "why did nothing happen?".
   if (!$("tools-toggle").checked) {
     await setChatMode("agent");
-    toast("Switched to Request — a plan needs to be able to act.");
+    toast("Plan mode on, and switched to Request — a plan needs to be able to act.");
+  } else {
+    toast("Plan mode on — your next message gets planned first.");
   }
-  input.value = "";
-  autoGrow(input);
-  sendChatMessage(`${question}\n\n${PLAN_PREFIX}`, { displayText: question });
+  $("chat-input").focus();
 });
+
+renderPlanToggle();
 
 // Start the user's own engine with the app. See the markup for why this is the
 // answer to "web search keeps disabling itself" — it was the container going
@@ -21990,6 +22801,14 @@ $("dash-edit").addEventListener("click", () => {
   $("dash-edit").textContent = dashEditMode ? "Done" : "Edit layout";
   renderDashboard();
 });
+// Widget picker modal (roadmap §26): a dedicated surface alongside "Edit
+// layout" above, not a replacement for it.
+$("dash-widgets-open").addEventListener("click", () => {
+  $("dash-widgets-search").value = "";
+  renderDashWidgetsList();
+  $("dash-widgets-dialog").showModal();
+});
+$("dash-widgets-search").addEventListener("input", (e) => renderDashWidgetsList(e.target.value));
 $("reminder-add").addEventListener("click", async () => {
   const ok = await addReminder($("reminder-text").value.trim(), $("reminder-due").value, null, {
     priority: $("reminder-priority").value,
@@ -22287,7 +23106,7 @@ function renderSavedSearches() {
     const apply = document.createElement("button");
     apply.type = "button";
     apply.className = "saved-search-apply";
-    apply.textContent = `☆ ${item.name}`;
+    setLabel(apply, `ph:star ${item.name}`);
     apply.title = `Filter: ${item.query}`;
     apply.addEventListener("click", () => {
       $("note-search").value = item.query;
@@ -22452,7 +23271,7 @@ async function refreshSearxngHost() {
   badge.className = `chip ${running ? "confidence" : ""}`.trim();
   start.disabled = running;
   stop.disabled = info.state === "absent";
-  start.textContent = info.state === "absent" ? "▶️ Install & start" : "▶️ Start SearXNG";
+  setLabel(start, info.state === "absent" ? "ph:play Install & start" : "ph:play Start SearXNG");
   // Keep polling while it's starting, so "Starting…" can't stick forever with
   // no way to tell whether anything is still happening.
   if (info.state === "running" && !info.responding) {
@@ -22764,7 +23583,7 @@ function activeOverlay() {
 
 const ONBOARDING_SLIDES = [
   {
-    icon: "🧠",
+    icon: "ph:brain",
     title: "Welcome to MemoryMap",
     text: "A 100% offline notebook where a local AI files your thoughts and answers questions about them. Nothing ever leaves this computer.",
   },
@@ -22775,17 +23594,17 @@ const ONBOARDING_SLIDES = [
   // reusing /models/status and /storage rather than a new endpoint — both
   // already exist and are already polled elsewhere in the app.
   {
-    icon: "🩺",
+    icon: "ph:stethoscope",
     title: "Your setup",
     dynamic: true,
   },
   {
-    icon: "📝",
+    icon: "ph:note-pencil",
     title: "Capture your thoughts",
     text: "Jot anything into the Notes tab and hit Save — the AI files it into a category and suggests tags. No folders to fuss over.",
   },
   {
-    icon: "💬",
+    icon: "ph:chat-circle",
     title: "Ask your notebook",
     text: "Ask questions in plain English and get answers grounded in your own notes. Switch on Agent mode and it can use its tools — searching your notes, opening a web page, and organising things for you.",
   },
@@ -22794,12 +23613,12 @@ const ONBOARDING_SLIDES = [
   // leaving a first-time user to discover the Timeline's Line view (§10C) on
   // their own is not (ANALYSIS §30's "product differentiation" note).
   {
-    icon: "🗺️",
+    icon: "ph:map-trifold",
     title: "Explore your map",
     text: "The Graph tab draws how your notes connect; the Timeline's Line view draws the shape of one thread over time. Together, they're the map MemoryMap is named for — search, drag and zoom to rediscover things you'd forgotten you saved.",
   },
   {
-    icon: "🎨",
+    icon: "ph:palette",
     title: "Make it yours",
     text: "Settings → Appearance has themes, accent colours, fonts, and more. Press ? any time for keyboard shortcuts. Enjoy!",
   },
@@ -22828,8 +23647,8 @@ async function loadOnboardingDiagnostics(forSlide) {
   const lines = [];
   lines.push(
     models && models.ollama_running
-      ? "✅ Ollama is running, so the AI will file your notes and answer questions."
-      : "⚠️ Ollama isn't running right now — MemoryMap still works without it. " +
+      ? "Ollama is running, so the AI will file your notes and answer questions."
+      : "Ollama isn't running right now — MemoryMap still works without it. " +
           "Notes are still searched by keyword, and everything catches up the moment it's on."
   );
   if (storage) {
@@ -22847,7 +23666,7 @@ async function loadOnboardingDiagnostics(forSlide) {
 
 function renderOnboardingSlide() {
   const slide = ONBOARDING_SLIDES[onboardingIndex];
-  $("onboarding-icon").textContent = slide.icon;
+  setLabel($("onboarding-icon"), slide.icon);
   $("onboarding-title").textContent = slide.title;
   if (slide.dynamic) {
     $("onboarding-text").textContent = "Checking Ollama and where your notebook lives…";
@@ -23076,7 +23895,7 @@ function buildShortcutList(list) {
       const revert = document.createElement("button");
       revert.className = "ghost small";
       revert.type = "button";
-      revert.textContent = "↺";
+      setLabel(revert, "ph:arrow-counter-clockwise");
       revert.title = `Back to ${DEFAULT_SHORTCUTS[id].keys}`;
       revert.setAttribute("aria-label", revert.title);
       revert.addEventListener("click", () => {
@@ -23464,6 +24283,11 @@ let wbErasing = false;
 // in initWhiteboard step aside rather than fight the drag's own per-frame
 // anchor-hint redraw with a second, slightly-stale one.
 let wbLinkDragActive = false;
+// Which attached-note cards are expanded past their clamp — keyed by node id
+// (the whiteboard attachment, not the note itself), same "remember per card
+// for the session" shape as `expandedNotes` on the Notes list. A plain `let`
+// module-level Set, not persisted: reopening the board later re-clamps.
+const wbExpandedNodes = new Set();
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -28022,7 +28846,11 @@ function renderWhiteboard() {
       // lasso tool the way it already excludes the brush tools, so a lasso
       // gesture begun on top of a card silently moved the card instead of
       // ever reaching the lasso's own draw logic.
-      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle"))
+      // `.wb-card-more`: the Show more/less toggle added below — without this
+      // exclusion its pointerdown started a card drag the same way a resize
+      // handle's did before it was excluded (see that comment above), so the
+      // click never registered and the toggle silently did nothing.
+      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-card-more"))
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
@@ -28041,13 +28869,45 @@ function renderWhiteboard() {
       if (window.currentTool === "eraser" && wbErasing) deleteNode(d);
     });
       
-  nodeEnter.append("div")
-    .attr("class", "wb-card-content")
-    .html(d => {
-      const entry = entriesById.get(String(d.entry_id));
-      const text = entry ? (entry.content || entry.preview || "") : "";
-      return entry ? (text ? escapeHtml(text.length > 100 ? text.substring(0, 100) + "..." : text) : "Empty note") : "Loading...";
+  // Reported directly: "when I attach notes to a whiteboard I want to see
+  // the WHOLE note, not a cut-off version". This used to hard-truncate to
+  // 100 plain-text characters with no way back to the rest — worse than the
+  // Notes list's own long-note handling, which this now matches: render the
+  // full note through the app's real markdown renderer (not textContent —
+  // a note can have headings, code, links), clamp it only past a height cap,
+  // and give it the same "Show more"/"Show less" control and wording as
+  // `.entry-more`, keyed by this whiteboard node's id in `wbExpandedNodes`
+  // (not the note's own id — the same note can sit on the board twice).
+  nodeEnter.each(function (d) {
+    const card = d3.select(this);
+    const contentEl = card.append("div").attr("class", "wb-card-content").node();
+    const entry = entriesById.get(String(d.entry_id));
+    if (!entry) {
+      contentEl.textContent = "Loading...";
+      return;
+    }
+    const text = entry.content || entry.preview || "";
+    if (!text) {
+      contentEl.textContent = "Empty note";
+      return;
+    }
+    renderMarkdown(contentEl, text);
+    const isLong = text.length > LONG_NOTE_CHARS || text.split("\n").length > LONG_NOTE_LINES;
+    if (!isLong) return;
+    const expanded = () => wbExpandedNodes.has(d.id);
+    contentEl.classList.toggle("wb-card-content-clamped", !expanded());
+    const toggle = card.append("button")
+      .attr("type", "button")
+      .attr("class", "entry-more wb-card-more")
+      .text(expanded() ? "Show less" : "Show more");
+    toggle.on("click", (event) => {
+      event.stopPropagation();
+      if (expanded()) wbExpandedNodes.delete(d.id);
+      else wbExpandedNodes.add(d.id);
+      contentEl.classList.toggle("wb-card-content-clamped", !expanded());
+      toggle.text(expanded() ? "Show less" : "Show more");
     });
+  });
 
   for (const handle of ["nw", "n", "ne", "e", "se", "s", "sw", "w"]) {
     nodeEnter.append("div")
@@ -28365,7 +29225,7 @@ function renderWbObjects(canvas) {
           d3.select(this).remove();
           if (el.select(".wb-object-deleted").empty()) {
             const placeholder = el.append("div").attr("class", "wb-object-deleted");
-            placeholder.append("span").text("🖼 Image deleted");
+            placeholder.append("span").text("Image deleted");
             placeholder.append("button")
               .attr("type", "button")
               .attr("class", "ghost small icon-button")
@@ -28823,8 +29683,8 @@ async function renderLibraryImagesGallery() {
     const del = document.createElement("button");
     del.type = "button";
     del.className = "ghost small icon-button library-image-delete";
-    del.title = "Delete this image";
-    del.textContent = "🗑";
+    del.title = `Delete “${image.original_name}”`;
+    setLabel(del, "ph:trash");
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
@@ -28832,9 +29692,80 @@ async function renderLibraryImagesGallery() {
       fig.remove();
       if (!grid.children.length) empty?.classList.remove("hidden");
     });
+    // Rename. Reported as simply missing: there was no way to rename an image
+    // in the Library at all. The stylesheet already had `.library-image-edit`
+    // from an earlier attempt — the CSS shipped and the button that would have
+    // used it never did, so the rule sat there styling nothing.
+    //
+    // Renamed in place rather than through a dialog: a gallery is a wall of
+    // captions and the one you are changing should stay where it is, next to
+    // the picture it names.
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "ghost small icon-button library-image-edit";
+    rename.title = `Rename “${image.original_name}”`;
+    rename.setAttribute("aria-label", `Rename ${image.original_name}`);
+    setLabel(rename, "ph:pencil-simple");
+
     const cap = document.createElement("figcaption");
     cap.textContent = image.original_name;
-    fig.append(img, del, cap);
+
+    rename.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (cap.querySelector("input")) return; // already editing
+      const box = document.createElement("input");
+      box.type = "text";
+      box.className = "library-image-rename-input";
+      box.value = image.original_name;
+      box.setAttribute("aria-label", "New name for this image");
+      box.maxLength = 255;
+      cap.replaceChildren(box);
+      box.focus();
+      box.select();
+
+      let settled = false;
+      const finish = (text) => {
+        if (settled) return;
+        settled = true;
+        cap.replaceChildren(document.createTextNode(text));
+      };
+      const cancel = () => finish(image.original_name);
+      const save = async () => {
+        const next = box.value.trim();
+        if (!next || next === image.original_name) return cancel();
+        // Optimistic, then corrected: the server is the authority on what a
+        // name may contain, and it rejects with a reason worth showing.
+        finish(next);
+        try {
+          const saved = await apiJson(`/media/${image.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ original_name: next }),
+          });
+          image.original_name = saved.original_name;
+          cap.replaceChildren(document.createTextNode(saved.original_name));
+          img.alt = saved.original_name;
+          rename.title = `Rename “${saved.original_name}”`;
+          del.title = `Delete “${saved.original_name}”`;
+        } catch (error) {
+          cap.replaceChildren(document.createTextNode(image.original_name));
+          toast(error.message, true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter") {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      // Clicking away commits, which is what every other inline rename in this
+      // app does; Escape is the way out.
+      box.addEventListener("blur", save);
+    });
+
+    fig.append(img, rename, del, cap);
     grid.appendChild(fig);
   }
 }
@@ -29285,3 +30216,436 @@ cmdPaletteInput.addEventListener("keydown", async (e) => {
     }
   }
 });
+
+
+// --- spaces ------------------------------------------------------------------
+//
+// A space partitions notes, categories, links and documents. It is soft
+// separation, not separate databases: every row carries a `workspace_id` and
+// the server adds a loader criterion for the one named in `X-Workspace-ID`.
+// That header is added in `api()` above, which is the only reason switching
+// spaces changes what you see rather than just the label in the header.
+//
+// The id is kept in localStorage rather than on the server on purpose: which
+// space you were last in is a property of this window, not of the notebook,
+// and syncing it would mean two open windows fighting over one value.
+//
+// `SPACE_ALL` itself is declared up near `api()`, not here — see the comment
+// there for why.
+
+// The icons a space may be given. A closed set, because the value is
+// interpolated into a class name — an arbitrary string there is CSS class
+// injection, and it is also how you end up with a space whose icon is a
+// typo that renders as an empty box.
+const SPACE_ICONS = [
+  "ph-folder", "ph-briefcase", "ph-house", "ph-user", "ph-kanban",
+  "ph-code", "ph-flask", "ph-heart", "ph-book-open", "ph-graduation-cap",
+  "ph-game-controller", "ph-terminal-window", "ph-camera", "ph-music-notes",
+  "ph-airplane", "ph-shopping-cart", "ph-tree", "ph-lightbulb",
+];
+
+let spacesCache = [];
+
+function activeSpaceId() {
+  return localStorage.getItem("spaceId") || SPACE_ALL;
+}
+
+function setActiveSpace(id) {
+  localStorage.setItem("spaceId", id);
+  // A full reload rather than a re-fetch of everything on the page. Every list,
+  // count, graph and sidebar in the app is scoped by the header, so a partial
+  // refresh would leave whichever one we forgot showing the old space — and a
+  // space that is half-switched is worse than one that took a second.
+  window.location.reload();
+}
+
+function spaceIconPicker(container, hiddenInput) {
+  container.replaceChildren();
+  for (const name of SPACE_ICONS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", String(hiddenInput.value === name));
+    button.setAttribute("aria-label", name.replace("ph-", "").replace(/-/g, " "));
+    button.innerHTML = "";
+    const icon = document.createElement("i");
+    icon.className = `ph ${name}`;
+    icon.setAttribute("aria-hidden", "true");
+    button.appendChild(icon);
+    button.addEventListener("click", () => {
+      hiddenInput.value = name;
+      for (const sibling of container.children) {
+        sibling.setAttribute("aria-checked", String(sibling === button));
+      }
+    });
+    container.appendChild(button);
+  }
+}
+
+function spaceMenuOption({ id, name, icon, deletable }) {
+  const option = document.createElement("button");
+  option.type = "button";
+  option.className = "space-option";
+  option.setAttribute("role", "option");
+  option.dataset.spaceId = id;
+  option.setAttribute("aria-selected", String(id === activeSpaceId()));
+
+  const glyph = document.createElement("i");
+  glyph.className = `ph ${icon}`;
+  glyph.setAttribute("aria-hidden", "true");
+
+  const label = document.createElement("span");
+  label.className = "space-option-name";
+  label.textContent = name;
+
+  option.append(glyph, label);
+  option.addEventListener("click", () => setActiveSpace(id));
+
+  if (deletable) {
+    const actions = document.createElement("span");
+    actions.className = "space-option-actions";
+
+    // Nested <button> is invalid HTML, so these are spans with a button role.
+    // The click handlers stop propagation: without it, "rename" would also
+    // trip the row's own switch-to-this-space handler and reload the page out
+    // from under the dialog that was about to open.
+    for (const [glyphName, title, run] of [
+      ["ph-pencil-simple", "Rename this space", () => openSpaceEdit(id, name, icon)],
+      ["ph-trash", "Delete this space", () => openSpaceDelete(id)],
+    ]) {
+      const action = document.createElement("span");
+      action.className = "ghost small";
+      action.setAttribute("role", "button");
+      action.tabIndex = 0;
+      action.title = title;
+      action.setAttribute("aria-label", title);
+      const actionIcon = document.createElement("i");
+      actionIcon.className = `ph ${glyphName}`;
+      actionIcon.setAttribute("aria-hidden", "true");
+      action.appendChild(actionIcon);
+      const fire = (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        closeSpaceMenu();
+        run();
+      };
+      action.addEventListener("click", fire);
+      action.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") fire(event);
+      });
+      actions.appendChild(action);
+    }
+    option.appendChild(actions);
+  }
+  return option;
+}
+
+function renderSpaceMenu() {
+  const menu = $("space-menu");
+  if (!menu) return;
+  menu.replaceChildren();
+
+  menu.appendChild(spaceMenuOption({
+    id: SPACE_ALL,
+    name: "All spaces",
+    icon: "ph-circles-four",
+    deletable: false,
+  }));
+  for (const space of spacesCache) {
+    menu.appendChild(spaceMenuOption({
+      id: space.id,
+      name: space.name,
+      icon: space.icon,
+      // "default" is where a deleted space's notes go, so it cannot itself be
+      // deleted — the server refuses it too, but offering a button that always
+      // errors is not a UI.
+      deletable: space.id !== "default",
+    }));
+  }
+
+  const divider = document.createElement("div");
+  divider.className = "space-menu-divider";
+  menu.appendChild(divider);
+
+  const create = document.createElement("button");
+  create.type = "button";
+  create.className = "space-option";
+  create.id = "space-create-open";
+  const plus = document.createElement("i");
+  plus.className = "ph ph-plus";
+  plus.setAttribute("aria-hidden", "true");
+  const createLabel = document.createElement("span");
+  createLabel.className = "space-option-name";
+  createLabel.textContent = "New space…";
+  create.append(plus, createLabel);
+  create.addEventListener("click", () => {
+    closeSpaceMenu();
+    openSpaceCreate();
+  });
+  menu.appendChild(create);
+
+  // The button's own label follows whatever is selected.
+  const current = spacesCache.find((space) => space.id === activeSpaceId());
+  const nameEl = $("space-current-name");
+  const iconEl = $("space-current-icon");
+  if (nameEl) nameEl.textContent = current ? current.name : "All spaces";
+  if (iconEl) iconEl.className = `ph ${current ? current.icon : "ph-circles-four"}`;
+}
+
+function closeSpaceMenu() {
+  $("space-menu")?.classList.add("hidden");
+  $("space-switcher-btn")?.setAttribute("aria-expanded", "false");
+}
+
+function openSpaceCreate() {
+  $("space-create-name").value = "";
+  $("space-create-icon").value = "ph-folder";
+  $("space-create-error").textContent = "";
+  spaceIconPicker($("space-create-icon-picker"), $("space-create-icon"));
+  $("space-create-dialog").showModal();
+  $("space-create-name").focus();
+}
+
+function openSpaceEdit(id, name, icon) {
+  $("space-edit-id").value = id;
+  $("space-edit-name").value = name;
+  $("space-edit-icon").value = icon;
+  $("space-edit-error").textContent = "";
+  spaceIconPicker($("space-edit-icon-picker"), $("space-edit-icon"));
+  $("space-edit-dialog").showModal();
+  $("space-edit-name").focus();
+}
+
+function openSpaceDelete(id) {
+  $("space-delete-id").value = id;
+  $("space-delete-error").textContent = "";
+  $("space-delete-dialog").showModal();
+}
+
+async function loadSpaces() {
+  if (!$("space-switcher-btn")) return;
+  try {
+    spacesCache = await apiJson("/spaces", { silent: true });
+  } catch {
+    // A notebook that has never had a space made still has to work. Failing to
+    // list them leaves the switcher on "All spaces", which is exactly right.
+    spacesCache = [];
+  }
+  renderSpaceMenu();
+}
+
+function initSpaceSwitcher() {
+  const button = $("space-switcher-btn");
+  const menu = $("space-menu");
+  if (!button || !menu) return;
+
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!open));
+    menu.classList.toggle("hidden", open);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!menu.contains(event.target) && !button.contains(event.target)) closeSpaceMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeSpaceMenu();
+  });
+
+  // Cancel buttons. These were `onclick` attributes, which this app's CSP
+  // refuses outright, so every one of them was dead markup.
+  for (const closer of document.querySelectorAll("[data-close-dialog]")) {
+    closer.addEventListener("click", () => {
+      document.getElementById(closer.dataset.closeDialog)?.close();
+    });
+  }
+
+  $("space-create-submit")?.addEventListener("click", async () => {
+    const name = $("space-create-name").value.trim();
+    const error = $("space-create-error");
+    error.textContent = "";
+    if (!name) {
+      error.textContent = "Give the space a name.";
+      return;
+    }
+    try {
+      const space = await apiJson("/spaces", {
+        method: "POST",
+        body: JSON.stringify({ name, icon: $("space-create-icon").value }),
+      });
+      $("space-create-dialog").close();
+      setActiveSpace(space.id);
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  $("space-edit-submit")?.addEventListener("click", async () => {
+    const id = $("space-edit-id").value;
+    const name = $("space-edit-name").value.trim();
+    const error = $("space-edit-error");
+    error.textContent = "";
+    if (!name) {
+      error.textContent = "Give the space a name.";
+      return;
+    }
+    try {
+      await apiJson(`/spaces/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        body: JSON.stringify({ name, icon: $("space-edit-icon").value }),
+      });
+      $("space-edit-dialog").close();
+      await loadSpaces();
+      toast(`Renamed to “${name}”.`);
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  $("space-delete-submit")?.addEventListener("click", async () => {
+    const id = $("space-delete-id").value;
+    const error = $("space-delete-error");
+    error.textContent = "";
+    try {
+      await apiJson(`/spaces/${encodeURIComponent(id)}`, { method: "DELETE" });
+      $("space-delete-dialog").close();
+      // Standing in the space you just deleted has to move you somewhere real,
+      // and reload() alone would leave the header naming a space that is gone.
+      if (activeSpaceId() === id) setActiveSpace("default");
+      else await loadSpaces();
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  // Deliberately NOT loading the list here — see the "load spaces" step in
+  // startApp(), which runs once there is a token.
+}
+
+initSpaceSwitcher();
+
+// --- capture templates, Settings pane (extends Wave B) ------------------------------
+//
+// Built-ins (BUILTIN_TEMPLATES, declared near the Capture form) are read-only
+// here — same shape as skills, where a built-in shows in the list but never
+// grows Edit/Delete buttons because there is genuinely nothing in
+// `custom_templates` to remove. The server enforces the name-collision half
+// of that (routes_settings._validated_templates); this pane just avoids
+// offering an action that would only come back as a 422.
+
+// Which custom template (by name) the editor is currently editing, if any —
+// same tracking `editingSkillName` does, so Save updates in place on a
+// rename instead of leaving a duplicate behind.
+let editingTemplateName = null;
+
+function customTemplates() {
+  return (prefsCache && prefsCache.custom_templates) || [];
+}
+
+function startEditingTemplate(template) {
+  editingTemplateName = template.name;
+  $("template-name").value = template.name;
+  $("template-description").value = template.description || "";
+  $("template-body").value = template.content;
+  $("template-add").textContent = "Save changes";
+  $("template-cancel").classList.remove("hidden");
+  $("template-status").textContent = `Editing “${template.name}”…`;
+  $("template-name").focus();
+}
+
+function stopEditingTemplate() {
+  editingTemplateName = null;
+  for (const id of ["template-name", "template-description", "template-body"]) {
+    $(id).value = "";
+  }
+  $("template-add").textContent = "Add template";
+  $("template-cancel").classList.add("hidden");
+  $("template-status").textContent = "";
+}
+
+async function saveTemplateList(templates) {
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ custom_templates: templates }),
+  });
+  await loadTemplates();
+  renderTemplateSettings();
+}
+
+async function addTemplate() {
+  const name = $("template-name").value.trim();
+  const body = $("template-body").value.trim();
+  const status = $("template-status");
+  status.classList.remove("error");
+  if (!name || !body) {
+    status.classList.add("error");
+    status.textContent = "Both a name and a template body are needed.";
+    return;
+  }
+  // Only the entry being edited is dropped before the push — a genuine
+  // rename. A name that instead collides with a DIFFERENT template, custom
+  // or built-in, is left in place and the save is rejected server-side
+  // (§_validated_templates) rather than silently replacing someone else's
+  // saved text the way a same-named skill would.
+  const custom = customTemplates().filter((t) => t.name !== editingTemplateName);
+  custom.push({
+    name,
+    description: $("template-description").value.trim(),
+    content: body,
+  });
+  const wasEditing = editingTemplateName;
+  try {
+    await saveTemplateList(custom);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  stopEditingTemplate();
+  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
+}
+
+// One row in the Settings list — deliberately the same shape as `skillRow`
+// (same classes, same chip-then-blurb-then-actions layout) so the two panes
+// that manage a "named, user-editable list of markdown" read as one pattern
+// rather than two. `textContent` throughout: template bodies are untrusted
+// user text and are never rendered as HTML.
+function templateRow(template, builtin) {
+  const li = document.createElement("li");
+  const row = document.createElement("div");
+  row.className = "entry-meta skill-row";
+  row.appendChild(chip(template.name));
+  if (builtin) row.appendChild(chip("built-in", "tag"));
+  const note = document.createElement("span");
+  note.className = "muted skill-blurb";
+  note.textContent = template.description || template.content;
+  row.appendChild(note);
+  if (!builtin) {
+    const actions = document.createElement("span");
+    actions.className = "entry-actions";
+    actions.appendChild(
+      smallButton("Edit", "Edit this template", () => startEditingTemplate(template))
+    );
+    actions.appendChild(
+      smallButton("Delete", "Remove this template", async () => {
+        if (!(await confirmDialog(`Delete the “${template.name}” template?`))) return;
+        await saveTemplateList(customTemplates().filter((t) => t.name !== template.name));
+      })
+    );
+    row.appendChild(actions);
+  }
+  li.appendChild(row);
+  return li;
+}
+
+async function renderTemplateSettings() {
+  await loadTemplates();
+  const list = $("template-list");
+  list.replaceChildren();
+  for (const template of customTemplates()) list.appendChild(templateRow(template, false));
+  for (const template of BUILTIN_TEMPLATES) list.appendChild(templateRow(template, true));
+}
+
+$("template-add")?.addEventListener("click", addTemplate);
+$("template-cancel")?.addEventListener("click", stopEditingTemplate);

@@ -7,6 +7,32 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 
+
+class SpaceCreate(BaseModel):
+    # `id` is accepted for backward compatibility with older frontend
+    # payloads but is always ignored — the server slugifies `name` instead
+    # (routes_spaces.create_space). A client-chosen id was how "all" and
+    # "default" could be created and break the reserved sentinels, so the
+    # server no longer trusts it at all rather than merely validating it.
+    id: str | None = None
+    name: str = Field(min_length=1)
+    icon: str = Field(min_length=1, default="ph-circles-four")
+
+class SpaceUpdate(BaseModel):
+    # Optional: update_space only writes fields the caller actually sent,
+    # so omitting one (e.g. renaming without touching the icon) can't
+    # blank out the other with None (see routes_spaces.update_space).
+    name: str | None = Field(default=None, min_length=1)
+    icon: str | None = Field(default=None, min_length=1)
+
+class SpaceResponse(BaseModel):
+    id: str
+    name: str
+    icon: str
+    
+    class Config:
+        from_attributes = True
+
 class EntryCreate(BaseModel):
     content: str = Field(min_length=1, description="The thought to store")
     tags: list[str] = Field(default_factory=list)

@@ -1003,7 +1003,7 @@ def run_agent(
                 yield {
                     "type": "answer",
                     "delta": (
-                        f"\n\n⚠️ Heads up: I said I {listed}, but I didn't "
+                        f"\n\nHeads up: I said I {listed}, but I didn't "
                         "actually run the tool that does it — so that part did "
                         "not happen and nothing was changed by it. Ask me again "
                         "and I'll do it properly."
@@ -1016,7 +1016,7 @@ def run_agent(
                 yield {
                     "type": "answer",
                     "delta": (
-                        "\n\n⚠️ Heads up: I described that, but it looks like I "
+                        "\n\nHeads up: I described that, but it looks like I "
                         "didn't actually save it (my model didn't run the tool). "
                         "Nothing was changed — try again, or paste the text into "
                         "a new note yourself."
@@ -1078,7 +1078,7 @@ def run_agent(
                 )
                 yield {
                     "type": "tool",
-                    "label": f"⚠️ {name.replace('_', ' ')} isn't available here",
+                    "label": f"ph:warning {name.replace('_', ' ')} isn't available here",
                     "ok": False,
                     "error": f"{name} cannot be used inside a run",
                 }
@@ -1096,7 +1096,7 @@ def run_agent(
                 failed_calls.add(signature)
                 yield {
                     "type": "tool",
-                    "label": f"⚠️ {name} isn't part of this skill",
+                    "label": f"ph:warning {name} isn't part of this skill",
                     "ok": False,
                     "error": result["error"],
                 }
@@ -1136,7 +1136,7 @@ def run_agent(
                     )
                     yield {
                         "type": "tool",
-                        "label": f"⚠️ couldn't {name.replace('_', ' ')}",
+                        "label": f"ph:warning couldn't {name.replace('_', ' ')}",
                         "ok": False,
                         "error": str(exc),
                     }
@@ -1170,7 +1170,7 @@ def run_agent(
                 }
                 yield {
                     "type": "tool",
-                    "label": f"⚠️ {name.replace('_', ' ')} — repeated failure",
+                    "label": f"ph:warning {name.replace('_', ' ')} — repeated failure",
                     "ok": False,
                     "error": "Repeated failure intercepted",
                 }
@@ -1187,7 +1187,7 @@ def run_agent(
                 }
                 yield {
                     "type": "tool",
-                    "label": f"⚠️ {name.replace('_', ' ')} — already done",
+                    "label": f"ph:warning {name.replace('_', ' ')} — already done",
                     "ok": False,
                     "error": "Duplicate write intercepted",
                 }

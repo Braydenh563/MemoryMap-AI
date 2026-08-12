@@ -160,11 +160,11 @@ def test_conversation_persists_tool_chips(client):
         json={
             "question": "tidy my tags",
             "answer": "Done.",
-            "tools": [{"label": "🏷 Merged 2 tags", "ok": True}],
+            "tools": [{"label": "Merged 2 tags", "ok": True}],
         },
     ).json()
     full = client.get(f"/conversations/{created['id']}").json()
-    assert full["messages"][1]["tools"][0]["label"] == "🏷 Merged 2 tags"
+    assert full["messages"][1]["tools"][0]["label"] == "Merged 2 tags"
     assert full["messages"][1]["tools"][0]["ok"] is True
 
 
@@ -315,7 +315,7 @@ def test_a_turn_can_record_the_agent_run_step_by_step(client):
     """
     steps = [
         {"kind": "thinking", "text": "I should look this up."},
-        {"kind": "tool", "label": "🔍 Searched notes", "ok": True},
+        {"kind": "tool", "label": "ph:magnifying-glass Searched notes", "ok": True},
         {"kind": "answer", "text": "You have three notes about it."},
     ]
     created = client.post(
@@ -324,7 +324,7 @@ def test_a_turn_can_record_the_agent_run_step_by_step(client):
             "question": "what do I know?",
             "answer": "You have three notes about it.",
             "thinking": "I should look this up.",
-            "tools": [{"label": "🔍 Searched notes", "ok": True}],
+            "tools": [{"label": "ph:magnifying-glass Searched notes", "ok": True}],
             "steps": steps,
         },
     ).json()
@@ -334,7 +334,7 @@ def test_a_turn_can_record_the_agent_run_step_by_step(client):
     assert assistant["steps"] == steps
     # The flattened fields stay, so nothing that reads them breaks.
     assert assistant["content"] == "You have three notes about it."
-    assert assistant["tools"] == [{"label": "🔍 Searched notes", "ok": True}]
+    assert assistant["tools"] == [{"label": "ph:magnifying-glass Searched notes", "ok": True}]
 
 
 def test_a_turn_without_steps_still_saves(client):

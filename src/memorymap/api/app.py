@@ -37,6 +37,7 @@ from memorymap.api import (
     routes_models,
     routes_reminders,
     routes_settings,
+    routes_spaces,
     routes_tasks,
     routes_timeline,
     routes_tags,
@@ -207,6 +208,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_chat.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    app.include_router(routes_spaces.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
     # A plain `<img src>` (or a note's own inline `![]()` markdown) never
     # attaches the X-Auth-Token header — only these two routes need a

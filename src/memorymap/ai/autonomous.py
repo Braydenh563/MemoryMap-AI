@@ -57,6 +57,12 @@ _JOIN_TIMEOUT = 5.0
 #: spend a night's CPU.
 MAX_ROUNDS = 15
 
+#: How many vague link reasons `audit_vague_links` may rewrite in one
+#: background tick. Same reasoning as `MAX_ROUNDS`: this runs unattended on
+#: every interval, so a bound keeps one tick's model calls to a handful
+#: rather than however many vague links happen to exist.
+AUDIT_BATCH_SIZE = 20
+
 _lock = threading.Lock()
 _stop_event: threading.Event | None = None
 #: Interrupts the interval sleep without stopping the loop — set by `wake()`
@@ -146,6 +152,35 @@ def _run_optimization() -> None:
                     logger.info("entity extraction: scanned %d note(s)", processed)
             except Exception as exc:  # noqa: BLE001 — top of a worker thread
                 logger.error("entity extraction failed: %s", exc, exc_info=True)
+
+        # Its own preference, deliberately separate from `auto_link_enabled`:
+        # that toggle is "should the agent create/remove links at all", and
+        # this one is "should already-existing links get their vague reason
+        # rewritten" — someone who wants the agent to stop making new
+        # judgement calls about their links but is happy for existing vague
+        # reasons to keep improving (or vice versa) can't say that with one
+        # shared flag. Defaults to True, matching every other auto_* toggle
+        # here — opt-out, not opt-in.
+        if config.get_preference("auto_link_reason_audit", True):
+            try:
+                from memorymap.ai.links import audit_vague_links
+                db = deps.get_db()
+                with db.session() as session:
+                    # A small, fixed batch per tick — this runs on every
+                    # interval for as long as the server is up, so an
+                    # unbounded pass over a big notebook would mean one tick
+                    # never finishes before the next is due. `AUDIT_BATCH_SIZE`
+                    # keeps each tick short; a large backlog is worked through
+                    # a bit at a time, one interval per batch.
+                    updated = audit_vague_links(
+                        session, deps.get_model_manager(), deps.get_ollama(),
+                        limit=AUDIT_BATCH_SIZE,
+                    )
+                if updated:
+                    logger.info("link reason audit: updated %d link(s)", updated)
+            except Exception as exc:
+                logger.error("link reason audit failed: %s", exc, exc_info=True)
+
 
         tasks = _enabled_tasks(config)
         if not tasks:

@@ -21,9 +21,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import vault
+from memorymap.core import crypto, vault
 from memorymap.core.deps import get_session
-from memorymap.core.database import User
+from memorymap.core.database import Entry, User, Vault
 from memorymap.entry.manager import log_action
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -288,6 +288,124 @@ def change_password(
     signed_out = len(_active_tokens)
     _active_tokens.clear()
     return {"changed": True, "token": _issue_token(), "other_sessions_ended": signed_out}
+
+
+class RotateVaultKeyBody(BaseModel):
+    current_password: str = Field(min_length=1)
+
+
+@router.post("/rotate-vault-key", dependencies=[Depends(require_unlock)])
+def rotate_vault_key(
+    body: RotateVaultKeyBody,
+    session: Session = Depends(get_session),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
+    """Re-key the vault: a fresh DEK, with every private note moved onto it.
+
+    `/change-password` deliberately does NOT do this — see crypto.py's own
+    design note. It only re-wraps the DEK (32 bytes); the DEK ITSELF never
+    changes, on purpose, so an ordinary password change can't touch a single
+    note. That is the right trade for that endpoint, but it leaves exactly
+    one long-lived secret in this app that nothing ever rotates: the key
+    that actually encrypts every private note. If an old wrapped-DEK ever
+    got out — a stolen backup made before a password change, a copied
+    database file — it still opens *today's* notes, because they are still
+    under the very same DEK the backup was wrapped around. This endpoint is
+    the fix for that: generate a new DEK and move every note onto it, so an
+    old exposure stops mattering.
+
+    All-or-nothing, deliberately paranoid (this is the HIGH RISK direction
+    CLAUDE.md calls out for this exact feature): every note is decrypted
+    with the OLD key and re-encrypted with the NEW one entirely in memory
+    first; nothing is written to the database, and the in-memory key is not
+    swapped, until every note round-trips cleanly under the new key AND the
+    vault row's re-wrap succeeds — all inside the one commit below. A
+    DecryptionError, a crash, or any other exception before that commit
+    leaves the OLD key and OLD ciphertext exactly as they were; there is no
+    step where a note is only half-migrated.
+    """
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password set yet — use setup")
+    if not bcrypt.checkpw(body.current_password.encode(), user.password_hash.encode()):
+        raise HTTPException(status_code=401, detail="That isn't your current password")
+
+    if not vault.exists(session):
+        raise HTTPException(status_code=400, detail="There's no vault to rotate yet")
+    old_key = vault.key()
+    if old_key is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Unlock the app before rotating the encryption key.",
+        )
+
+    # "all": every note in every workspace, deleted or not — a note this
+    # misses would be left encrypted under the OLD key forever, because the
+    # vault row (and therefore the only wrapped copy of that key) is about to
+    # point at the NEW one instead.
+    session.info["workspace_id"] = "all"
+    private_entries = [
+        entry
+        for entry in session.scalars(select(Entry))
+        if crypto.is_encrypted(entry.content)
+    ]
+
+    new_key = crypto.new_dek()
+
+    # Decrypt with the OLD key and re-encrypt with the NEW one, entirely in
+    # memory, before a single ORM object is touched — so a DecryptionError
+    # partway through leaves nothing staged that would need undoing.
+    try:
+        rewritten = [
+            (entry, plaintext, crypto.encrypt(new_key, plaintext))
+            for entry in private_entries
+            for plaintext in [crypto.decrypt(old_key, entry.content)]
+        ]
+    except crypto.DecryptionError:
+        raise HTTPException(
+            status_code=500,
+            detail="Couldn't read one of your private notes with the current "
+            "key — nothing was changed.",
+        )
+
+    # Verify the round trip against the REAL ciphertext just produced, not a
+    # throwaway marker, before any of it becomes the only copy on disk.
+    for entry, plaintext, new_ciphertext in rewritten:
+        if crypto.decrypt(new_key, new_ciphertext) != plaintext:
+            raise HTTPException(
+                status_code=500,
+                detail="Re-encryption didn't verify — nothing was changed.",
+            )
+
+    for entry, _plaintext, new_ciphertext in rewritten:
+        entry.content = new_ciphertext
+
+    vault_row = session.scalar(select(Vault))
+    new_salt = crypto.new_salt()
+    vault_row.kdf_salt = new_salt
+    vault_row.wrapped_dek = crypto.wrap_dek(new_key, body.current_password, new_salt)
+
+    log_action(
+        session, "edited", "vault",
+        detail=f"encryption key rotated ({len(rewritten)} note(s) re-encrypted)",
+    )
+    session.commit()  # one transaction: every note and the vault row, or none
+
+    # Only now, after the commit that made it real, does memory follow.
+    vault.set_key(new_key)
+
+    # Same reasoning as change-password: rotating a key you suspect is
+    # compromised should not leave anything already open still trusted on
+    # the old one.
+    _active_tokens.pop(x_auth_token or "", None)
+    ended = len(_active_tokens)
+    _active_tokens.clear()
+    return {
+        "rotated": True,
+        "notes_reencrypted": len(rewritten),
+        "token": _issue_token(),
+        "other_sessions_ended": ended,
+    }
 
 
 @router.post("/lock-all", dependencies=[Depends(require_unlock)])

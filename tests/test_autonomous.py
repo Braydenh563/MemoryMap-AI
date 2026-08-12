@@ -16,7 +16,7 @@ import pytest
 from sqlalchemy import text
 
 from memorymap.ai import autonomous
-from memorymap.core import taskhistory
+from memorymap.core import deps, taskhistory
 
 
 @pytest.fixture(autouse=True)
@@ -260,7 +260,7 @@ def test_a_pass_records_what_it_changed_so_it_can_be_undone(app_state, monkeypat
     """
     change = {
         "tool": "tag_note",
-        "label": "🏷 Retagged note #4",
+        "label": "Retagged note #4",
         "note_id": 4,
         "undo": {"tool": "edit_note", "arguments": {"note_id": 4, "tags": []}},
     }
@@ -351,3 +351,46 @@ def test_editing_a_note_never_stops_an_unattended_pass(app_state):
 
     assert tools.TOOLS["edit_note"].destructive is False
     assert tools.TOOLS["delete_note"].destructive is True
+
+
+# --- the link-reason audit runs on the background pass ------------------------
+#
+# The whole module's original bug was that nothing called `start()`, and the
+# link-reason audit arrived by exactly the route CLAUDE.md warns about: a
+# feature written inside `_run_optimization` with nothing proving the pass
+# reaches it. `audit_vague_links` itself is tested in test_link_reasons.py;
+# what these two pin is that the BACKGROUND JOB calls it, and that its own
+# preference actually switches it off.
+
+
+def test_the_background_pass_runs_the_link_reason_audit(app_state, monkeypatch):
+    calls: list[int] = []
+
+    def fake_audit(session, model, ollama, limit=50):
+        calls.append(limit)
+        return 0
+
+    monkeypatch.setattr("memorymap.ai.links.audit_vague_links", fake_audit)
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    assert calls, "the background pass never reached the link reason audit"
+    # Bounded, or one tick over a big notebook never finishes before the next
+    # is due.
+    assert calls[0] == autonomous.AUDIT_BATCH_SIZE
+
+
+def test_the_link_reason_audit_has_its_own_off_switch(app_state, monkeypatch):
+    """Separate from `auto_link_enabled`, which is "may the agent create and
+    remove links at all" — a different question from "may existing vague
+    reasons keep being rewritten"."""
+    calls: list[int] = []
+    monkeypatch.setattr(
+        "memorymap.ai.links.audit_vague_links",
+        lambda session, model, ollama, limit=50: calls.append(limit),
+    )
+    deps.get_config().set_preference("auto_link_reason_audit", False)
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    assert not calls

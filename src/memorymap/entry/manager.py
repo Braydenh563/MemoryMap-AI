@@ -407,7 +407,7 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     # left behind in *any* of these tables makes `DELETE FROM entries` raise
     # IntegrityError, which surfaces as a 500 and leaves the bin exactly as it
     # was. The notes in the report both carried a resolved time phrase — the
-    # `🕓 this week → week of 27 July` chip is an `entry_dates` row — which is
+    # `this week → week of 27 July` chip is an `entry_dates` row — which is
     # why those two and not the rest.
     #
     # These four were added to the schema after `_hard_delete` was written, and
@@ -556,6 +556,96 @@ def delete_attachment(
     session.commit()
 
 
+#: Windows treats these as reserved regardless of extension — `CON.txt` is as
+#: unusable as `CON`. Checked against the name's stem, case-insensitively,
+#: because this app runs on Windows via start.bat and a name that is fine on
+#: Linux but unusable the moment someone opens the same data folder there is
+#: the kind of bug that only shows up on the other platform.
+_RESERVED_WINDOWS_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+)
+
+#: Matches `Attachment.filename`'s own column width — a name the DB would
+#: truncate silently is rejected instead, before it is ever stored half-cut.
+MAX_ATTACHMENT_FILENAME = 255
+
+
+def validate_attachment_filename(name: str) -> str:
+    """A display name safe to store and to echo into a download header.
+
+    This is the *label* a person sees and renames — `stored_name` (a random
+    uuid) is what the disk and every path on disk actually use, and never
+    changes here. That split is what makes this a strict reject-and-explain
+    check rather than `routes_files.safe_filename`'s silent rewrite: nothing
+    here is ever written to a filesystem path, so there is no "make it safe"
+    fallback to reach for, only "tell the user why their name didn't work."
+
+    Still validated as if it *were* a path component, because the failure
+    mode of skipping that is not hypothetical for this app specifically: the
+    name is handed to Starlette's `FileResponse(filename=...)` on every
+    download, which puts it straight into a `Content-Disposition` header, and
+    a control character or a name that is just `..` is exactly the kind of
+    input that check is supposed to catch before it reaches a header or a
+    person's screen.
+    """
+    if name is None or not name.strip():
+        raise ValueError("A filename is required.")
+    if "\x00" in name:
+        raise ValueError("Filenames can't contain null bytes.")
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in name):
+        raise ValueError("Filenames can't contain control characters.")
+    cleaned = name.strip()
+    if len(cleaned) > MAX_ATTACHMENT_FILENAME:
+        raise ValueError(f"Filenames can't be longer than {MAX_ATTACHMENT_FILENAME} characters.")
+    if "/" in cleaned or "\\" in cleaned:
+        raise ValueError("Filenames can't contain a path separator.")
+    if ".." in cleaned:
+        raise ValueError("Filenames can't contain '..'.")
+    if re.match(r"^[A-Za-z]:[/\\]?", cleaned):
+        raise ValueError("Filenames can't be an absolute path.")
+    if cleaned.startswith("."):
+        raise ValueError("Filenames can't start with a dot.")
+    stem = cleaned.split(".", 1)[0].strip().upper()
+    if stem in _RESERVED_WINDOWS_NAMES:
+        raise ValueError(f"'{cleaned}' is a reserved system name and can't be used.")
+    return cleaned
+
+
+def rename_attachment(session: Session, attachment: Attachment, new_filename: str) -> Attachment:
+    """Change what a file is *called*, never what it *is* on disk.
+
+    Only `filename` — the Library label and the download's suggested name —
+    changes. `stored_name` (the uuid on disk) and `mime` (recorded at upload,
+    from the browser's own `Content-Type`) are left alone, which is what lets
+    `validate_attachment_filename` above be a strict allowlist instead of an
+    extension allowlist: the bytes `/files/{id}` serves back and the
+    `Content-Type` it serves them as never change because of a rename, only
+    the label on the download dialog does.
+
+    Raises `ValueError` for a name `validate_attachment_filename` rejects,
+    and `FileExistsError` if another file on the *same* note already has that
+    name — collisions are scoped per-note, the same boundary the Library
+    already draws around what's confusable with what.
+    """
+    cleaned = validate_attachment_filename(new_filename)
+    collision = session.scalar(
+        select(Attachment).where(
+            Attachment.entry_id == attachment.entry_id,
+            Attachment.id != attachment.id,
+            Attachment.filename == cleaned,
+        )
+    )
+    if collision is not None:
+        raise FileExistsError(f"'{cleaned}' is already used on this note.")
+    if cleaned != attachment.filename:
+        attachment.filename = cleaned
+        log_action(session, "renamed", "entry", attachment.entry_id, f"renamed a file to {cleaned}")
+        session.commit()
+    return attachment
+
+
 # --- tags (Wave B tag manager) --------------------------------------------------
 
 
@@ -622,6 +712,15 @@ def _deduce_reason(
 
     A private note has no embedding (`set_private` deletes it), so this is
     naturally a no-op for one rather than needing its own guard.
+
+    Deliberately cheap — no model call. This used to also ask the AI for a
+    specific reason here, synchronously, which meant `create_link` (and so
+    every note-linking request, human or agent) stalled on a chat round-trip.
+    Wording a *specific* reason is the background audit's job now
+    (`ai.links.audit_vague_links`, driven from `ai.autonomous`): this always
+    returns immediately with the embedding score's own verdict, the generic
+    `AUTO_REASON_TEXT`, and leaves the wording to be upgraded later without
+    the person who made the link ever waiting on it.
     """
     from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
 
@@ -761,6 +860,28 @@ def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> En
     log_action(session, "relinked", "entry", link.source_entry_id, detail)
     session.commit()
     return link
+
+
+def apply_audited_reason(link: EntryLink, reason: str) -> None:
+    """Set a link's reason from the background audit — field mutation only,
+    no commit, no audit-log row.
+
+    `set_link_reason` is right for a person editing one link: they did one
+    thing, so one commit and one "relinked" row is an honest record. The
+    background audit (`ai.links.audit_vague_links`) is the opposite shape —
+    up to a `limit` of links rewritten in one pass — and calling
+    `set_link_reason` per link there was the bug: a 500-link backfill did 500
+    commits and left 500 near-identical "relinked" rows in the user's
+    activity log, drowning out the log entries a person actually made. This
+    just sets the fields; the caller commits once for the whole batch and
+    writes one summary log row.
+
+    Same field-level meaning as `set_link_reason`: `reason_confidence` is
+    cleared because a reason the AI wrote out in words is no longer a guess
+    from embedding similarity — see `EntryLink.reason_confidence`.
+    """
+    link.reason = (reason or "").strip() or None
+    link.reason_confidence = None
 
 
 def delete_link(session: Session, link: EntryLink) -> None:
@@ -936,13 +1057,13 @@ def readable_content(entry: Entry) -> str:
         return entry.content
     key = vault.key()
     if key is None:
-        return "🔒 Private note — unlock to read it."
+        return "Private note — unlock to read it."
     try:
         return crypto.decrypt(key, entry.content)
     except crypto.DecryptionError:
         # Kept deliberately non-fatal. The stored bytes are still there, so a
         # key problem is recoverable; crashing the list is not.
-        return "🔒 This private note couldn't be decrypted."
+        return "This private note couldn't be decrypted."
 
 
 def _heading_text(stripped: str) -> str | None:

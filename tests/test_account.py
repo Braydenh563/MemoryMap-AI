@@ -8,6 +8,8 @@ and unrecoverably.
 
 from __future__ import annotations
 
+import pytest
+
 
 def _setup(client, password="first-pass"):
     token = client.post("/auth/setup", json={"password": password}).json()["token"]
@@ -127,6 +129,138 @@ def test_lock_all_ends_every_session(client):
     ended = client.post("/auth/lock-all", headers=headers)
     assert ended.status_code == 200
     assert client.get("/auth/account", headers=headers).status_code == 401
+
+
+def test_rotate_vault_key_invalidates_old_tokens_and_unlock_still_works(client):
+    headers = _setup(client)
+    other = client.post("/auth/unlock", json={"password": "first-pass"}).json()
+    other_headers = {"X-Auth-Token": other["token"]}
+    assert client.get("/auth/account", headers=other_headers).status_code == 200
+
+    rotated = client.post(
+        "/auth/rotate-vault-key",
+        json={"current_password": "first-pass"},
+        headers=headers,
+    )
+    assert rotated.status_code == 200
+    assert rotated.json()["rotated"] is True
+
+    # Every session live before the rotation is gone, including the caller's
+    # old token — a fresh one came back in the response instead.
+    assert client.get("/auth/account", headers=other_headers).status_code == 401
+    assert client.get("/auth/account", headers=headers).status_code == 401
+    fresh_headers = {"X-Auth-Token": rotated.json()["token"]}
+    assert client.get("/auth/account", headers=fresh_headers).status_code == 200
+
+    # The password didn't change, so unlocking with it still works.
+    client.post("/auth/lock", headers=fresh_headers)
+    reopened = client.post("/auth/unlock", json={"password": "first-pass"})
+    assert reopened.status_code == 200
+
+
+def test_rotate_vault_key_keeps_private_notes_readable(client):
+    """The point of the whole endpoint: notes survive under the new key."""
+    headers = _setup(client)
+    entry = client.post(
+        "/entries", json={"content": "a private thought"}, headers=headers
+    ).json()
+    client.post(
+        f"/entries/{entry['id']}/privacy", json={"private": True}, headers=headers
+    )
+
+    rotated = client.post(
+        "/auth/rotate-vault-key",
+        json={"current_password": "first-pass"},
+        headers=headers,
+    )
+    assert rotated.status_code == 200
+    assert rotated.json()["notes_reencrypted"] == 1
+
+    fresh_headers = {"X-Auth-Token": rotated.json()["token"]}
+    after = client.get(f"/entries/{entry['id']}", headers=fresh_headers).json()
+    assert after["content"] == "a private thought"
+    assert after["is_private"] is True
+
+    # And after a lock/unlock cycle, i.e. from the wrapped key stored on disk.
+    client.post("/auth/lock", headers=fresh_headers)
+    reopened = client.post("/auth/unlock", json={"password": "first-pass"}).json()
+    assert reopened["vault_open"] is True
+    again = client.get(
+        f"/entries/{entry['id']}", headers={"X-Auth-Token": reopened["token"]}
+    ).json()
+    assert again["content"] == "a private thought"
+
+
+def test_rotate_vault_key_refuses_a_wrong_current_password(client):
+    headers = _setup(client)
+    entry = client.post(
+        "/entries", json={"content": "a private thought"}, headers=headers
+    ).json()
+    client.post(
+        f"/entries/{entry['id']}/privacy", json={"private": True}, headers=headers
+    )
+
+    response = client.post(
+        "/auth/rotate-vault-key",
+        json={"current_password": "not-it"},
+        headers=headers,
+    )
+    assert response.status_code == 401
+    # The session survives a refused rotation — nothing was touched.
+    assert client.get("/auth/account", headers=headers).status_code == 200
+    still_there = client.get(f"/entries/{entry['id']}", headers=headers).json()
+    assert still_there["content"] == "a private thought"
+
+
+def test_rotate_vault_key_refuses_an_unauthenticated_caller(client):
+    _setup(client)
+    response = client.post(
+        "/auth/rotate-vault-key", json={"current_password": "first-pass"}
+    )
+    assert response.status_code == 401
+
+
+def test_rotate_vault_key_interrupted_leaves_notes_readable_with_the_old_key(
+    client, monkeypatch
+):
+    """Simulates a failure partway through re-encryption (a corrupt row, a
+    crash mid-loop) and proves nothing was committed: the vault row and every
+    note's ciphertext are untouched, and the OLD password still opens them."""
+    from memorymap.api import routes_auth
+    from memorymap.core import crypto
+
+    headers = _setup(client)
+    entry = client.post(
+        "/entries", json={"content": "a private thought"}, headers=headers
+    ).json()
+    client.post(
+        f"/entries/{entry['id']}/privacy", json={"private": True}, headers=headers
+    )
+
+    real_encrypt = crypto.encrypt
+    calls = {"n": 0}
+
+    def _boom(dek, plaintext):
+        calls["n"] += 1
+        raise RuntimeError("simulated crash mid-rotation")
+
+    monkeypatch.setattr(routes_auth.crypto, "encrypt", _boom)
+    with pytest.raises(RuntimeError):
+        client.post(
+            "/auth/rotate-vault-key",
+            json={"current_password": "first-pass"},
+            headers=headers,
+        )
+    assert calls["n"] >= 1
+    monkeypatch.setattr(routes_auth.crypto, "encrypt", real_encrypt)
+
+    # The session token from before the crash is still valid — commit never
+    # ran — and the note is still readable under the untouched, old key.
+    still_there = client.get(f"/entries/{entry['id']}", headers=headers).json()
+    assert still_there["content"] == "a private thought"
+
+    client.post("/auth/lock", headers=headers)
+    assert client.post("/auth/unlock", json={"password": "first-pass"}).status_code == 200
 
 
 def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):

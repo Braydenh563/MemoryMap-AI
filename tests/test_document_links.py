@@ -119,7 +119,7 @@ def test_attaching_afterwards_shows_up_on_the_note_straight_away(client):
 
 
 def test_detaching_from_the_note_side_leaves_the_note_alone(client):
-    """The × on the note's 📄 chip removes a connection. Losing the note to it
+    """The × on the note's ph:file-text chip removes a connection. Losing the note to it
     would be the worst possible reading of that button."""
     document = _doc(client, "Iceland trip")
     note = _note(client, "the ferry leaves at 8", document_ids=[document["id"]])

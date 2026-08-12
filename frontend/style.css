@@ -186,6 +186,11 @@ select optgroup {
      tokens: a hit target is a control's size and must not shift with the
      density setting. */
   --sidebar-toggle-size: 28px;
+  /* Where the toggle sits inside its card. A token because the heading row
+     beside it is aligned to it by arithmetic (see .sidebar-head) — as a
+     literal in one rule and a guess in the other, the two drifted apart by
+     exactly this much, which is the reported misalignment. */
+  --sidebar-toggle-inset: 0.5rem;
   --sidebar-toggle-lane: calc(var(--sidebar-toggle-size) + 1rem + var(--space-3));
   --page-gutter: var(--space-9);
   --page-left: var(--page-gutter);
@@ -9727,11 +9732,31 @@ button {
   flex-wrap: nowrap;
   gap: var(--space-3);
   align-items: center;
-  /* Same optical top as the toggle (0.5rem), so the heading and the toggle
-     sit on one line rather than the heading riding above it. */
+  /* Both the heading and its one action are the toggle's height, so the row
+     is too — that is what puts all three on one centre line instead of the
+     heading floating a few pixels high next to a taller button. */
   min-height: var(--sidebar-toggle-size);
+  /* And the row starts where the toggle starts. The toggle is positioned
+     against the CARD (top: --sidebar-toggle-inset from its border box) while
+     the row starts at the card's CONTENT box, which is --space-6 lower. The
+     difference is the gap that made "Chats", "Categories" and "Recent" all
+     sit below the collapse button rather than level with it. The toggle is
+     not moved — it was in the right place; the row comes up to meet it. */
+  margin-top: calc(var(--sidebar-toggle-inset) - var(--space-6));
   margin-bottom: var(--space-5);
   padding-right: var(--sidebar-toggle-lane);
+}
+
+/* One weight, one size, one shape for all three. The Chats header shipped its
+   action as a filled accent pill while Documents' was a plain small button, so
+   two sidebars that do the same thing looked like different features. */
+.sidebar-head h2 {
+  font-size: var(--text-h3);
+  line-height: 1;
+}
+
+.sidebar-head>button {
+  height: var(--sidebar-toggle-size);
 }
 
 .sidebar-head h2 {
@@ -14224,7 +14249,7 @@ aside[data-resizable="1"] {
 /* ======================= SIDEBAR COLLAPSE & PEEK ======================= */
 .sidebar-collapse-toggle {
   position: absolute;
-  top: 0.5rem;
+  top: var(--sidebar-toggle-inset);
   right: 1rem;
   z-index: 20;
   width: var(--sidebar-toggle-size);

@@ -11681,7 +11681,18 @@ textarea.autogrow {
 .timeline-band {
   position: sticky;
   left: 0;
+  /* Sticky DOWN as well as across. A band's row is as tall as its tallest
+     stack of cards — twelve notes in one day is an 800px row — and a label
+     pinned only to the left edge scrolled out of sight after the third card,
+     so most of the row had nothing saying which band it was. The offset
+     clears the sticky date header above it. */
+  top: calc(var(--space-8) + var(--space-3));
+  align-self: start;
   z-index: 1;
+  /* Generic `button` styling gave it a shadow, which against a transparent
+     background read as a floating pill sitting in the middle of the row —
+     which is exactly what it was reported as looking like. */
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -11699,7 +11710,9 @@ textarea.autogrow {
      the first card rather than floating mid-row. */
   border-left: 3px solid var(--accent-soft);
   border-radius: 0;
-  background: var(--bg);
+  /* Opaque: it now travels over the cards to its right when the grid is
+     scrolled sideways, and a transparent label over a card is unreadable. */
+  background: var(--modal-bg);
   cursor: pointer;
 }
 

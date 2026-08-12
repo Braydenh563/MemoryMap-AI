@@ -275,9 +275,15 @@ def get_embeddings() -> EmbeddingService:
     return _embeddings
 
 
-def get_session() -> Iterator[Session]:
+from fastapi import Request
+
+def get_session(request: Request = None) -> Iterator[Session]:
     """FastAPI dependency: one session per request, always closed."""
     session = get_db().session()
+    if request is not None:
+        workspace_id = request.headers.get("X-Workspace-ID")
+        if workspace_id:
+            session.info["workspace_id"] = workspace_id
     try:
         yield session
     finally:
@@ -310,3 +316,18 @@ def store_quietly(session: Session, entry: Entry) -> bool:
             exc_info=True,
         )
         return False
+
+from contextlib import contextmanager
+
+@contextmanager
+def impersonate_workspace(session: Session, workspace_id: str):
+    """Run a block of code as if in a specific workspace."""
+    old = session.info.get("workspace_id")
+    session.info["workspace_id"] = workspace_id
+    try:
+        yield
+    finally:
+        if old is None:
+            del session.info["workspace_id"]
+        else:
+            session.info["workspace_id"] = old

@@ -35,6 +35,7 @@ from sqlalchemy.orm import (
     Session,
     mapped_column,
     sessionmaker,
+    with_loader_criteria,
 )
 
 
@@ -84,6 +85,44 @@ class DateTime(TypeDecorator):
 class Base(DeclarativeBase):
     pass
 
+class Space(Base):
+    """A workspace container for entries."""
+    __tablename__ = "spaces"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    icon: Mapped[str] = mapped_column(String, nullable=False, default="ph-circles-four")
+
+
+
+class WorkspaceMixin:
+    """Soft separation of notes and data. 
+    Added to every major model so querying can be scoped globally by workspace."""
+    workspace_id: Mapped[str] = mapped_column(String, server_default="default", index=True, default="default")
+
+@event.listens_for(Session, "do_orm_execute")
+def _add_workspace_filter(execute_state):
+    # Only filter if the statement is a select() or similar ORM statement
+    if execute_state.is_select or execute_state.is_update or execute_state.is_delete:
+        workspace_id = execute_state.session.info.get("workspace_id")
+        if workspace_id and workspace_id != "all":
+            # Add criteria to all entities that have a workspace_id column
+            execute_state.statement = execute_state.statement.options(
+                with_loader_criteria(
+                    WorkspaceMixin,
+                    lambda cls: cls.workspace_id == workspace_id,
+                    include_aliases=True
+                )
+            )
+
+@event.listens_for(Session, "before_flush")
+def _set_workspace(session, flush_context, instances):
+    workspace_id = session.info.get("workspace_id")
+    if workspace_id and workspace_id != "all":
+        for obj in session.new:
+            if isinstance(obj, WorkspaceMixin):
+                # Ensure we don't overwrite if manually set elsewhere
+                if not obj.__dict__.get("workspace_id"):
+                    obj.workspace_id = workspace_id
 
 class User(Base):
     """Single-user unlock (Phase 4). One row, bcrypt password hash."""
@@ -112,7 +151,7 @@ class Vault(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Category(Base):
+class Category(Base, WorkspaceMixin):
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -121,7 +160,7 @@ class Category(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Entry(Base):
+class Entry(Base, WorkspaceMixin):
     __tablename__ = "entries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -200,7 +239,7 @@ class EntityMention(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class EntryLink(Base):
+class EntryLink(Base, WorkspaceMixin):
     """A user- or AI-made connection between two entries."""
 
     __tablename__ = "entry_links"
@@ -333,7 +372,7 @@ class EntryDate(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Document(Base):
+class Document(Base, WorkspaceMixin):
     """A long-form document (the editor tab).
 
     Kept separate from Entry on purpose. A note is a captured thought — short,
@@ -537,6 +576,21 @@ class DatabaseManager:
         self._session_factory = sessionmaker(
             bind=self.engine, expire_on_commit=False
         )
+        self._ensure_default_spaces()
+
+    def _ensure_default_spaces(self) -> None:
+        """Seed default spaces if none exist."""
+        with self.session() as session:
+            if session.query(Space).first() is None:
+                defaults = [
+                    Space(id="default", name="Default Space", icon="ph-house"),
+                    Space(id="work", name="Work", icon="ph-briefcase"),
+                    Space(id="personal", name="Personal", icon="ph-user"),
+                    Space(id="projects", name="Projects", icon="ph-kanban")
+                ]
+                session.add_all(defaults)
+                session.commit()
+
 
     def _ensure_fts5(self) -> None:
         """An FTS5 index over `entries`, kept in sync by triggers.

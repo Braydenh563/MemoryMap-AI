@@ -7,6 +7,24 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 
+
+class SpaceCreate(BaseModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    icon: str = Field(min_length=1, default="ph-circles-four")
+
+class SpaceUpdate(BaseModel):
+    name: str = Field(min_length=1)
+    icon: str = Field(min_length=1)
+
+class SpaceResponse(BaseModel):
+    id: str
+    name: str
+    icon: str
+    
+    class Config:
+        from_attributes = True
+
 class EntryCreate(BaseModel):
     content: str = Field(min_length=1, description="The thought to store")
     tags: list[str] = Field(default_factory=list)

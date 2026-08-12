@@ -72,6 +72,18 @@ def _run_desktop() -> None:
     _icon_path = Path(__file__).resolve().parents[2] / "frontend" / "icon.ico"
     _icon = str(_icon_path) if _icon_path.is_file() else None
 
+    import sys
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            # Setting a custom AppUserModelID tells Windows this is a distinct app,
+            # decoupling the taskbar icon from the Python executable's default snake.
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                "memorymap.desktop.app.1"
+            )
+        except Exception:
+            pass
+
     storage = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
     try:

@@ -431,6 +431,40 @@ body {
   --ui-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
 }
 
+:root[data-font="arial"] {
+  --ui-font: Arial, Helvetica, sans-serif;
+}
+
+:root[data-font="georgia"] {
+  --ui-font: Georgia, serif;
+}
+
+:root[data-font="times"] {
+  --ui-font: "Times New Roman", Times, serif;
+}
+
+:root[data-font="verdana"] {
+  --ui-font: Verdana, Geneva, sans-serif;
+}
+
+:root[data-font="tahoma"] {
+  --ui-font: Tahoma, Geneva, sans-serif;
+}
+
+:root[data-font="trebuchet"] {
+  --ui-font: "Trebuchet MS", Helvetica, sans-serif;
+}
+
+:root[data-font="helvetica"] {
+  --ui-font: Helvetica, Arial, sans-serif;
+}
+
+/* --- Sans-serif system font override (macOS fix) --- */
+/* Force a sans-serif font on the entire page to fix the “italic bug” on macOS */
+:root {
+  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 /* Ambient background art: behind everything, ignores clicks (Wave J). */
 .bg-art-canvas {
   position: fixed;
@@ -1477,10 +1511,10 @@ header#top-bar.tabs-wrapped #tab-bar {
    doesn't carry a permanent row of trash-can icons; the button itself
    stays in the DOM (not display:none) so it's still keyboard-reachable
    without hovering. */
+.library-image-tile .library-image-edit,
 .library-image-tile .library-image-delete {
   position: absolute;
   top: var(--space-2);
-  right: var(--space-2);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
@@ -1488,6 +1522,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   transition: opacity 0.15s ease;
 }
 
+.library-image-tile .library-image-edit {
+  right: calc(var(--space-2) + 2.2rem);
+}
+.library-image-tile .library-image-delete {
+  right: var(--space-2);
+}
+
+.library-image-tile:hover .library-image-edit,
+.library-image-tile:focus-within .library-image-edit,
+.library-image-tile .library-image-edit:focus-visible,
 .library-image-tile:hover .library-image-delete,
 .library-image-tile:focus-within .library-image-delete,
 .library-image-tile .library-image-delete:focus-visible {
@@ -1737,7 +1781,9 @@ header#top-bar.tabs-wrapped #tab-bar {
    One shell owns the inset now. A page's own container contributes only its
    internal gap, never its distance from the window. */
 .tab-page {
-  padding: var(--page-top) var(--page-gutter) var(--page-bottom);
+  display: flex;
+  flex-direction: column;
+  padding: var(--page-top) var(--page-right, var(--page-gutter)) var(--page-bottom) var(--page-left, var(--page-gutter));
   /* The page is the scrolling element, not the window (§36A). `min-height: 0`
      is what lets a flex item shrink below its content and therefore scroll at
      all — without it the item grows to fit and the overflow never engages. */
@@ -1757,6 +1803,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .layout {
   display: grid;
+  flex: 1 0 auto;
   /* A starting point only — each sidebar remembers its own width, set on the
      grid by initResizableSidebars. 230px left about four characters of a chat
      title visible, which is no title at all. */
@@ -1848,11 +1895,9 @@ header#top-bar.tabs-wrapped #tab-bar {
    100% ceiling, not a baseline it adds to. */
 :root[data-glass-sheen="on"]:not([data-glass="off"]) .card {
   background:
-    linear-gradient(
-      135deg,
+    linear-gradient(135deg,
       color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%
-    ),
+      rgba(255, 255, 255, 0) 45%),
     var(--card);
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
@@ -2050,6 +2095,8 @@ input[type="tel"],
 input[type="date"],
 input[type="time"],
 input[type="datetime-local"] {
+  box-sizing: border-box;
+  line-height: 1.5;
   width: 100%;
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-4);
@@ -3881,6 +3928,21 @@ html.modal-open body {
   padding: 0;
 }
 
+
+.chat-sidebar-header {
+  padding-bottom: 0.8rem;
+  margin-bottom: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+
+.chat-sidebar-header strong {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 #conversation-list li {
   display: flex;
   justify-content: space-between;
@@ -3979,7 +4041,7 @@ html.modal-open body {
 }
 
 .small-select {
-  max-width: 11rem;
+  max-width: 16rem;
   margin-bottom: 0;
 }
 
@@ -5516,6 +5578,7 @@ html {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
+    margin-top: 2rem;
   }
 
   #sidebar ul#category-list li {
@@ -5635,6 +5698,7 @@ html {
   justify-content: center;
   opacity: 0.8;
 }
+
 .thumb-wrap .unlink:hover {
   opacity: 1;
 }
@@ -5893,7 +5957,7 @@ html {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 
-:root[data-glass="off"] .card,
+:root[data-glass="off"] .workspace-dropdown-menu,\n:root[data-glass="off"] .card,
 :root[data-glass="off"] header#top-bar,
 :root[data-glass="off"] input,
 :root[data-glass="off"] textarea,
@@ -6563,6 +6627,7 @@ html {
 
 .quick-link {
   display: flex;
+  padding: 0.8rem 1rem;
   align-items: center;
   gap: var(--space-3);
   background: var(--card);
@@ -6596,12 +6661,21 @@ html {
 /* The label truncates; the icon never does. Without this the flex row shrinks
    both, and an icon squeezed to nothing is a chip that looks broken rather
    than one that looks abbreviated. The full text is in the title attribute. */
-.quick-link-label,
-.quick-link-hint {
+.quick-link-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.quick-link-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Allow wrapping to raise button height */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .quick-link-hint {
@@ -7368,8 +7442,9 @@ html {
 /* The composer reads as one control rather than three loose boxes. */
 .chat-composer {
   gap: 0.4rem;
-  padding-top: 0.6rem;
+  padding-top: 0.2rem;
   border-top: 1px solid var(--border);
+  align-items: flex-end;
 }
 
 .chat-composer #chat-input {
@@ -7390,7 +7465,7 @@ html {
 
 /* Conversation list: a clear active row with an accent spine. */
 #chat-sidebar h2 {
-  margin-bottom: 0.5rem;
+  margin: 0;
 }
 
 #conversation-list li {
@@ -8188,11 +8263,12 @@ html {
 .chat-dock-controls .seg {
   display: inline-flex;
   align-items: center;
-  padding-block: 0;
+  padding: 0;
+  gap: 0;
 }
 
 .chat-dock-controls select {
-  max-width: 9rem;
+  max-width: 14rem;
 }
 
 /* **One family, not four.** Asked for: *"redesign the docked ui control
@@ -8218,6 +8294,7 @@ html {
   border: 1px solid var(--glass-border);
   background: var(--card);
   box-shadow: none;
+  overflow: hidden;
 }
 
 .chat-dock-controls select {
@@ -8226,7 +8303,7 @@ html {
   /* Room on the right for the caret below, which is painted rather than laid
      out — a real element would have to be inserted into every select in the
      strip, including the one built at runtime for skills. */
-  padding-inline: var(--space-4) var(--space-7);
+  padding-inline: var(--space-4) var(--space-8);
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
@@ -8258,8 +8335,8 @@ html {
 }
 
 .chat-tool-group-skills select {
-  flex: 0 1 11rem;
-  max-width: 11rem;
+  flex: 0 1 20rem;
+  max-width: 20rem;
 }
 
 /* The group's mark, not a label. Sized and centred with the controls rather
@@ -8324,7 +8401,9 @@ html {
   width: auto;
 }
 
-#chat-dock-more-btn[aria-expanded="true"] {
+#chat-dock-more-btn[aria-expanded="true"],
+#chat-dock-skills-btn[aria-expanded="true"],
+#persona-peek[aria-expanded="true"] {
   background-color: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -8343,7 +8422,7 @@ html {
    last line, where the caret is. Centring makes them drift upward as you
    type. */
 .chat-dock .chat-composer {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
   align-items: end;
   --composer-h: 2.75rem;
   /* One hairline for the block, not two. `.chat-composer` draws its own
@@ -9672,6 +9751,7 @@ button.ai-unavailable {
   justify-content: center;
   opacity: 0.8;
 }
+
 .thumb-wrap .unlink:hover {
   opacity: 1;
 }
@@ -11183,6 +11263,7 @@ textarea.autogrow {
 /* Magic add sits in a row beside its button, so it must not stretch that row. */
 #reminder-magic-row {
   align-items: flex-start;
+  margin-top: 0.3rem;
 }
 
 #reminder-magic {
@@ -11368,53 +11449,54 @@ textarea.autogrow {
   padding-bottom: 0.4rem;
 }
 
+
 .timeline-grid {
   display: grid;
-  gap: 2px;
-  align-items: stretch;
+  gap: var(--space-4);
+  align-items: start;
   min-width: min-content;
+  padding: var(--space-4);
 }
 
 .timeline-corner {
   position: sticky;
+  top: 0;
   left: 0;
-  background: var(--card);
-  z-index: 2;
+  background: var(--bg);
+  z-index: 3;
 }
 
 .timeline-head {
-  font-size: 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--muted);
-  text-align: center;
-  padding: 0.25rem 0.25rem;
-  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-align: left;
+  padding: var(--space-3) var(--space-2);
   white-space: nowrap;
+  background: var(--bg);
+  border-bottom: 2px solid var(--border);
 }
 
-/* A band names a category or a tag (§37J) — clicking it filters Notes →
-   Browse to that band, the same "clicking a grouping opens what's in it"
-   pattern the sidebar's category rows and a Library tag card already use.
-   It's a <button> now rather than a <div>, so every rule a plain block got
-   for free (font, border, background, text alignment) needs restating. */
 .timeline-band {
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--card);
+  background: var(--bg);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text);
   text-align: left;
-  padding: 0.4rem 0.5rem 0.4rem 0;
+  padding: var(--space-4);
   border: none;
-  border-right: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-3);
   display: flex;
   justify-content: space-between;
-  gap: 0.4rem;
-  align-items: baseline;
+  gap: var(--space-4);
+  align-items: center;
   width: 100%;
   cursor: pointer;
 }
@@ -11422,60 +11504,55 @@ textarea.autogrow {
 .timeline-band:hover,
 .timeline-band:focus-visible {
   color: var(--accent);
+  background: var(--card-hover);
   outline: none;
 }
 
 .timeline-cell {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 0.25rem;
+  gap: var(--space-3);
   min-width: 0;
-  border-bottom: 1px solid var(--border);
 }
 
 .timeline-dot {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   width: 100%;
   text-align: left;
   font: inherit;
   font-size: var(--text-sm);
-  line-height: 1.4;
-  padding: var(--space-5);
+  line-height: 1.5;
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--card);
   color: var(--text);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
-  /* Reported as text cut off with no ellipsis. It was worse than missing
-     the "…" — the unprefixed `line-clamp` here paired with a `-webkit-box`
-     display doesn't do anything in this Chromium (`-webkit-line-clamp`
-     computed to `none`), so nothing was actually clamping to 3 lines at
-     all; the card just happened to render one row tall and hard-cropped
-     whatever didn't fit via `overflow: hidden`, mid-word, with no visual
-     sign there was more. `-webkit-line-clamp` is the property this display
-     mode actually reads; kept alongside the standard property for whatever
-     future engine wants that one instead. */
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s, background 0.2s, box-shadow 0.2s;
   overflow: hidden;
-  /* Re-reported after the fix above: still cut off, this time four full
-     lines with no ellipsis rather than one. Not reproduced in this
-     sandbox's Chromium (a live check found `scrollHeight === clientHeight`
-     — nothing overflowing at all), so the runtime doing this is not the one
-     available to test against here. A plain `max-height`, independent of
-     `-webkit-line-clamp` support or of the grid row's own height, is a
-     safety net rather than a diagnosis: it cannot add the missing "…" in
-     whatever engine doesn't honour the clamp, but it guarantees every card
-     is the same, predictable three lines tall regardless of what a
-     neighbouring cell in the same grid row is doing — which a clamp with no
-     explicit height behind it does not. */
-  max-height: calc(3 * 1.4em + 2 * var(--space-5));
 }
+
+.timeline-dot:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-dot-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.timeline-dot-content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
 .timeline-dot:hover,
 .timeline-dot:focus-visible {
@@ -11662,12 +11739,10 @@ textarea.autogrow {
    the button is the way to it. Sized in lines so it scales with the reading
    size setting instead of being pinned to a pixel height. */
 .entry-content.entry-clamped {
-  max-height: 11.5em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
   overflow: hidden;
-  /* The fade is a mask rather than a gradient overlay, so it works on every
-     surface — a solid-colour overlay would show as a band on a themed card. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
 }
 
 .entry-more {
@@ -12237,7 +12312,6 @@ textarea.autogrow {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--card);
 }
 
 /* The changelog inside Settings → About (§36E). Capped and scrollable: it is
@@ -12618,7 +12692,7 @@ textarea.autogrow {
   row-gap: var(--space-1);
 }
 
-.notif-head > .row {
+.notif-head>.row {
   flex: 1 1 auto;
   min-width: 0;
   flex-wrap: wrap;
@@ -13473,7 +13547,8 @@ textarea.autogrow {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-height: 0; /* Fix flex overflow */
+  min-height: 0;
+  /* Fix flex overflow */
 }
 
 .wb-library-item {
@@ -13700,7 +13775,8 @@ aside[data-resizable="1"] {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cpath d='M17 6a7 7 0 1 0 1.6 7.3' fill='none' stroke='%23000' stroke-opacity='.6' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M14 3l3.6 2-1 4' fill='none' stroke='%23000' stroke-opacity='.6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 11 11, grab;
   z-index: 5;
   opacity: 0;
-  pointer-events: none; /* see .wb-resize-handle's own comment above */
+  pointer-events: none;
+  /* see .wb-resize-handle's own comment above */
   transition: opacity 0.1s ease;
 }
 
@@ -13802,19 +13878,58 @@ aside[data-resizable="1"] {
   pointer-events: none;
 }
 
-.wb-resize-handle[data-handle="nw"] { top: -5px; left: -5px; cursor: nwse-resize; }
-.wb-resize-handle[data-handle="n"]  { top: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.wb-resize-handle[data-handle="ne"] { top: -5px; right: -5px; cursor: nesw-resize; }
-.wb-resize-handle[data-handle="e"]  { top: calc(50% - 5px); right: -5px; cursor: ew-resize; }
-.wb-resize-handle[data-handle="se"] { bottom: -5px; right: -5px; cursor: nwse-resize; }
-.wb-resize-handle[data-handle="s"]  { bottom: -5px; left: calc(50% - 5px); cursor: ns-resize; }
-.wb-resize-handle[data-handle="sw"] { bottom: -5px; left: -5px; cursor: nesw-resize; }
-.wb-resize-handle[data-handle="w"]  { top: calc(50% - 5px); left: -5px; cursor: ew-resize; }
+.wb-resize-handle[data-handle="nw"] {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+
+.wb-resize-handle[data-handle="n"] {
+  top: -5px;
+  left: calc(50% - 5px);
+  cursor: ns-resize;
+}
+
+.wb-resize-handle[data-handle="ne"] {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+
+.wb-resize-handle[data-handle="e"] {
+  top: calc(50% - 5px);
+  right: -5px;
+  cursor: ew-resize;
+}
+
+.wb-resize-handle[data-handle="se"] {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
+.wb-resize-handle[data-handle="s"] {
+  bottom: -5px;
+  left: calc(50% - 5px);
+  cursor: ns-resize;
+}
+
+.wb-resize-handle[data-handle="sw"] {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+
+.wb-resize-handle[data-handle="w"] {
+  top: calc(50% - 5px);
+  left: -5px;
+  cursor: ew-resize;
+}
 
 /* ======================= SIDEBAR COLLAPSE & PEEK ======================= */
 .sidebar-collapse-toggle {
   position: absolute;
-  top: 1rem;
+  top: 0.5rem;
   right: 1rem;
   z-index: 20;
   width: 28px;
@@ -14059,6 +14174,7 @@ textarea.drag-over {
     transform: translateY(0);
   }
 }
+
 /* --- rules recovered from inline style attributes (audit of §40) ------------
    Thirty-five `style="…"` attributes arrived on index.html in the antigravity
    pass. Every one of them was dead on arrival: this app sends
@@ -14630,7 +14746,8 @@ textarea.drag-over {
    0px the instant the disclosure opened. */
 .doc-outline-wrap {
   flex: 1 1 auto;
-  min-height: 4rem; /* enough for a few entries even when squeezed */
+  min-height: 4rem;
+  /* enough for a few entries even when squeezed */
   display: flex;
   flex-direction: column;
 }
@@ -14644,7 +14761,7 @@ textarea.drag-over {
 /* Now genuinely last in the queue for space — shrinkable, so the outline's
    own floor above actually gets honoured, and scrollable rather than
    clipped once it's smaller than its own paragraph text needs. */
-.doc-sidebar > details {
+.doc-sidebar>details {
   flex: 0 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -14670,11 +14787,6 @@ textarea.drag-over {
   white-space: pre-wrap;
 }
 
-/* --- Anthropic Sans Font Option --- */
-:root[data-font="anthropic"] {
-  --ui-font: "Anthropic Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-
 /* --- Icon Style System --- */
 .ui-icon {
   display: inline-flex;
@@ -14694,242 +14806,117 @@ textarea.drag-over {
   stroke-width: 2;
 }
 
-/* --- Anthropic Fonts --- */
-@font-face {
-  font-family: "Anthropic Sans";
-  font-weight: 300;
-  src: url("vendor/fonts/anthropic/AnthropicSans@300.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Anthropic Sans";
-  font-weight: 400;
-  src: url("vendor/fonts/anthropic/AnthropicSans@400.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Anthropic Sans";
-  font-weight: 500;
-  src: url("vendor/fonts/anthropic/AnthropicSans@500.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Anthropic Sans";
-  font-weight: 600;
-  src: url("vendor/fonts/anthropic/AnthropicSans@600.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Anthropic Sans";
-  font-weight: 700;
-  src: url("vendor/fonts/anthropic/AnthropicSans@700.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Anthropic Sans";
-  font-weight: 800;
-  src: url("vendor/fonts/anthropic/AnthropicSans@800.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Anthropic Sans";
-  font-weight: 900;
-  src: url("vendor/fonts/anthropic/AnthropicSans@900.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Anthropic Mono";
-  font-weight: 400;
-  src: url("vendor/fonts/anthropic/AnthropicMono@400.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+
+
+
+.workspace-switcher-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-left: var(--space-4);
+  flex-shrink: 0;
 }
 
-/* --- Montserrat Font Option --- */
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WRhyzbi.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459W1hyzbi.woff2) format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WZhyzbi.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wdhyzbi.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WRhyzbi.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459W1hyzbi.woff2) format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WZhyzbi.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wdhyzbi.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WRhyzbi.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459W1hyzbi.woff2) format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WZhyzbi.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wdhyzbi.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WRhyzbi.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-/* cyrillic */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459W1hyzbi.woff2) format('woff2');
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-/* vietnamese */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459WZhyzbi.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
-}
-/* latin-ext */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wdhyzbi.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-/* latin */
-@font-face {
-  font-family: 'Montserrat';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(vendor/fonts/montserrat/JTUSjIg1_i6t8kCHKm459Wlhyw.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+.workspace-switcher-btn {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-:root[data-font="montserrat"] {
-  --ui-font: "Montserrat", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+
+.ws-icon {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
 }
 
-:root[data-font="arial"] {
-  --ui-font: Arial, "Helvetica Neue", Helvetica, sans-serif;
+.ws-caret {
+  color: var(--muted);
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.workspace-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  min-width: 180px;
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  list-style: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspace-dropdown-menu.hidden {
+  display: none;
+}
+
+.workspace-dropdown-menu li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-main);
+  transition: background 0.1s;
+}
+
+.workspace-dropdown-menu li i {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.workspace-dropdown-menu li:hover,
+.workspace-dropdown-menu li:focus {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.workspace-dropdown-menu li.selected {
+  background: var(--accent-alpha-1);
+  color: var(--accent);
+}
+
+.workspace-dropdown-menu li.selected i {
+  color: var(--accent);
+}
+
+#tab-timeline > .card {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.timeline-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+
+/* Margins settings */
+:root[data-margins="classic"] {
+  /* Uses defaults: --page-top (space-6), --page-bottom (space-9), --page-gutter (space-9) */
+}
+
+:root[data-margins="uniform"] {
+  --page-gutter: var(--page-top);
+  --page-bottom: var(--page-top);
+  --page-right: var(--page-top);
+  --page-left: var(--page-top);
+}
+
+:root[data-margins="custom"] {
+  --page-top: var(--custom-margin-top, 32px);
+  --page-right: var(--custom-margin-right, 64px);
+  --page-bottom: var(--custom-margin-bottom, 64px);
+  --page-left: var(--custom-margin-left, 64px);
 }

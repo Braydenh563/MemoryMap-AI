@@ -636,7 +636,29 @@ def _deduce_reason(
     score = cosine_similarity(vectors[source_id], vectors[target_id])
     if score < AUTO_REASON_THRESHOLD:
         return None, None
-    return AUTO_REASON_TEXT, round(score, 2)
+
+    # Threshold met: generate a reason with the AI
+    from memorymap.ai.librarian import generate_link_reason
+    from memorymap.core.deps import get_ollama, get_model_manager
+    from memorymap.ai.provider import OllamaError
+    from memorymap.core.database import Entry
+
+    source_entry = session.get(Entry, source_id)
+    target_entry = session.get(Entry, target_id)
+    if not source_entry or not target_entry:
+        return AUTO_REASON_TEXT, round(score, 2)
+
+    try:
+        ollama = get_ollama()
+        model_manager = get_model_manager()
+        reason = generate_link_reason(source_entry.content, target_entry.content, model_manager, ollama)
+        if not reason:
+            return AUTO_REASON_TEXT, round(score, 2)
+        return reason, round(score, 2)
+    except Exception as e:
+        # Fall back gracefully if model is offline or throws an error
+        print(f"Failed to generate link reason: {e}")
+        return AUTO_REASON_TEXT, round(score, 2)
 
 
 def create_link(

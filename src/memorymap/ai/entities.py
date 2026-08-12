@@ -12,6 +12,7 @@ background pass (`ai/autonomous.py`) when `auto_entities_enabled` is on.
 """
 
 from __future__ import annotations
+from memorymap.core.deps import impersonate_workspace
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session

@@ -15,6 +15,7 @@ cheap embedding shortcut (plan §2, resolution 2). Order of attempts:
 """
 
 from __future__ import annotations
+from memorymap.core.deps import impersonate_workspace
 
 import json
 import logging

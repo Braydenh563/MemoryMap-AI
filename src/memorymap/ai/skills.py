@@ -521,6 +521,21 @@ _AUDIT_SKILLS: list[dict] = [
 ]
 
 BUILTIN_SKILLS: list[dict] = [
+    {
+        "name": "Audit link reasons",
+        "prompt": (
+            "Audit the graph for links that have vague reasons (like 'similar in meaning') "
+            "and rewrite them to be more accurate based on the notes' contents."
+        ),
+        "description": "Rewrites vague 'similar in meaning' links into specific reasons.",
+        "when_to_use": "When I ask you to clean up or audit my links, or when the graph feels too vague.",
+        "tools": ["audit_link_reasons"],
+        "steps": [
+            "Run the audit_link_reasons tool to process a batch of vague links.",
+            "Report back how many links were updated."
+        ],
+    },
+
     *_AUDIT_SKILLS,
     {
         "name": "📋 Summarise my week",

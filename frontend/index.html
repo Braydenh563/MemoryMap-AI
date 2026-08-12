@@ -190,6 +190,86 @@
     <div id="agent-monitor-logs" class="monitor-logs"></div>
   </aside>
 
+
+  <dialog id="space-create-dialog" class="card">
+    <h3>Create New Space</h3>
+    <label>Name
+      <input type="text" id="space-create-name" placeholder="e.g. Work" />
+    </label>
+    <label>Icon (Phosphor class)
+      <input type="text" id="space-create-icon" placeholder="ph-briefcase" value="ph-folder" />
+    </label>
+    <div class="row right mt-4">
+      <button type="button" class="ghost" onclick="document.getElementById('space-create-dialog').close()">Cancel</button>
+      <button type="button" class="accent" id="space-create-submit">Create</button>
+    </div>
+  </dialog>
+  
+  <dialog id="space-edit-dialog" class="card">
+    <h3>Edit Space</h3>
+    <input type="hidden" id="space-edit-id" />
+    <label>Name
+      <input type="text" id="space-edit-name" />
+    </label>
+    <label>Icon (Phosphor class)
+      <input type="text" id="space-edit-icon" />
+    </label>
+    <div class="row right mt-4">
+      <button type="button" class="ghost" onclick="document.getElementById('space-edit-dialog').close()">Cancel</button>
+      <button type="button" class="accent" id="space-edit-submit">Save</button>
+    </div>
+  </dialog>
+  
+  <dialog id="space-delete-dialog" class="card">
+    <h3>Delete Space?</h3>
+    <p>Are you sure you want to delete this space? All its notes will be moved to the Default Space.</p>
+    <input type="hidden" id="space-delete-id" />
+    <div class="row right mt-4">
+      <button type="button" class="ghost" onclick="document.getElementById('space-delete-dialog').close()">Cancel</button>
+      <button type="button" class="danger" id="space-delete-submit">Delete</button>
+    </div>
+  </dialog>
+
+
+  <dialog id="space-create-dialog" class="card">
+    <h3>Create New Space</h3>
+    <label>Name
+      <input type="text" id="space-create-name" placeholder="e.g. Work" />
+    </label>
+    <label>Icon (Phosphor class)
+      <input type="text" id="space-create-icon" placeholder="ph-briefcase" value="ph-folder" />
+    </label>
+    <div class="row right mt-4">
+      <button type="button" class="ghost" onclick="document.getElementById('space-create-dialog').close()">Cancel</button>
+      <button type="button" class="accent" id="space-create-submit">Create</button>
+    </div>
+  </dialog>
+  
+  <dialog id="space-edit-dialog" class="card">
+    <h3>Edit Space</h3>
+    <input type="hidden" id="space-edit-id" />
+    <label>Name
+      <input type="text" id="space-edit-name" />
+    </label>
+    <label>Icon (Phosphor class)
+      <input type="text" id="space-edit-icon" />
+    </label>
+    <div class="row right mt-4">
+      <button type="button" class="ghost" onclick="document.getElementById('space-edit-dialog').close()">Cancel</button>
+      <button type="button" class="accent" id="space-edit-submit">Save</button>
+    </div>
+  </dialog>
+  
+  <dialog id="space-delete-dialog" class="card">
+    <h3>Delete Space?</h3>
+    <p>Are you sure you want to delete this space? All its notes will be moved to the Default Space.</p>
+    <input type="hidden" id="space-delete-id" />
+    <div class="row right mt-4">
+      <button type="button" class="ghost" onclick="document.getElementById('space-delete-dialog').close()">Cancel</button>
+      <button type="button" class="danger" id="space-delete-submit">Delete</button>
+    </div>
+  </dialog>
+
   <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
@@ -503,11 +583,10 @@ Link to another note with [[its first few words]]."></textarea>
            So the search box moved to the Library and the list is capped — and
            the link at the foot says where the rest went, because a list that
            silently stops at eight is a list that has lost your chats. -->
-      <aside class="card" id="chat-sidebar">
-        <div class="row space-between">
-          <h2>Recent chats</h2>
-          <button id="chat-new" class="ghost small" title="Start a fresh conversation">+ New</button>
-        </div>
+      <aside class="card" id="chat-sidebar" style="position: relative;">
+        <!-- The sidebar collapse toggle is absolutely positioned at top right by JS -->
+        <h2 style="margin-top: 0.25rem; margin-bottom: 1.25rem; font-size: 1.125rem; letter-spacing: 0;">Chats</h2>
+        <button id="chat-new" class="accent" style="width: 100%; justify-content: center; margin-bottom: 1.5rem;" title="Start a fresh conversation"><i class="ph ph-plus"></i> New Chat</button>
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"

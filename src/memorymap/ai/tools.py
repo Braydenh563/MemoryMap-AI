@@ -2856,10 +2856,32 @@ _NOTE_ID = {"type": "integer", "description": "The note's id number"}
 # unchecked" was the part that mattered. One tool for one job, as
 # `_save_skill`'s own docstring argues.
 
+
+def _audit_link_reasons(session, args: dict) -> dict:
+    from memorymap.ai import links, model_manager, ollama_client
+    from memorymap.core import config
+    model = model_manager.ModelManager(config.get_config())
+    ollama = ollama_client.OllamaClient(config.get_config())
+    limit = int(args.get("limit", 50))
+    updated = links.audit_vague_links(session, model, ollama, limit)
+    return {"updated": updated, "message": f"Successfully audited and rewrote {updated} link reasons."}
+
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
+        
         ToolSpec(
+            "audit_link_reasons",
+            "Audits vague graph link reasons (like 'similar in meaning') and rewrites them by deducing a specific reason based on both notes.",
+            {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Max number of links to process (default 50)"}
+                }
+            },
+            _audit_link_reasons,
+        ),
+ToolSpec(
             "save_user_preference",
             "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
             "Use this when the user tells you about their preferences, work style, or rules they want you to remember.",
@@ -3688,6 +3710,7 @@ TOOLS: dict[str, ToolSpec] = {
 # it but never called a write tool" safety net, and by the skill list to say
 # which skills act rather than answer — one list, so the two can't disagree.
 WRITE_TOOLS = {
+    "audit_link_reasons",
     "create_note",
     "edit_note",
     "tag_note",

@@ -506,6 +506,32 @@ def generate_title(text: str, model_manager: ModelManager, ollama: OllamaClient)
     return title[:GENERATED_TITLE_MAX_CHARS].strip()
 
 
+def generate_link_reason(source_text: str, target_text: str, model_manager: ModelManager, ollama: OllamaClient) -> str:
+    """Generate a very short reason (3-8 words) for why two notes are linked.
+    Uses the utility model. Raises OllamaError if the model is unavailable.
+    """
+    system = (
+        "You write very short reasons explaining how two notes are related. "
+        "Reply with ONLY the reason — 3 to 8 words, no quotes, no trailing punctuation. "
+        "For example: 'Both mention studying techniques' or 'Related programming concepts'."
+    )
+    prompt = (
+        f"Note 1:\n{source_text[:1000]}\n\n"
+        f"Note 2:\n{target_text[:1000]}\n\n"
+        "How are these two notes related?"
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt},
+        ],
+    )
+    reason = reply["content"].strip().strip("\"'").strip()
+    return reason
+
+
+
 def suggest_tags(
     text: str,
     existing: list[str],

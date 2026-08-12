@@ -267,6 +267,20 @@ def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dic
     return {"status": "ok"}
 
 
+class MediaRenameBody(BaseModel):
+    original_name: str = Field(min_length=1, max_length=300)
+
+
+@router.put("/media/{upload_id}", response_model=MediaUploadOut)
+def rename_media(upload_id: int, body: MediaRenameBody, session: Session = Depends(get_session)) -> MediaUploadOut:
+    upload = session.get(MediaUpload, upload_id)
+    if upload is None:
+        raise HTTPException(status_code=404, detail="No upload with that id")
+    upload.original_name = body.original_name
+    session.commit()
+    return MediaUploadOut(id=upload.id, url=f"/media/{upload.filename}", original_name=upload.original_name)
+
+
 @media_router.get("/media/{filename}")
 def get_media(filename: str) -> FileResponse:
     """Serve generic uploaded media.

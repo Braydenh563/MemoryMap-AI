@@ -147,6 +147,20 @@ def _run_optimization() -> None:
             except Exception as exc:  # noqa: BLE001 — top of a worker thread
                 logger.error("entity extraction failed: %s", exc, exc_info=True)
 
+        if config.get_preference("auto_link_enabled", True):
+            try:
+                from memorymap.ai.links import audit_vague_links
+                db = deps.get_db()
+                with db.session() as session:
+                    updated = audit_vague_links(
+                        session, deps.get_model_manager(), deps.get_ollama()
+                    )
+                if updated:
+                    logger.info("link reason audit: updated %d link(s)", updated)
+            except Exception as exc:
+                logger.error("link reason audit failed: %s", exc, exc_info=True)
+
+
         tasks = _enabled_tasks(config)
         if not tasks:
             logger.info("skipped: every autonomous task is switched off in Settings")

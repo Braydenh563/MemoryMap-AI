@@ -7,6 +7,91 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed / Added — work-recovery session: icon system, spaces, timeline, chat dock, link reasons
+
+A previous session's work was lost; the recovery attempt had left the app
+with a broken icon system and several silently-dead features. Baseline was
+16 failing tests, not 2 — six of them because the link-reason feature had
+never run once (`provider.run_prompt` does not exist).
+
+- **Icons.** The Phosphor stylesheet was vendored but never linked — no icon
+  in the app rendered. All 367 colour emoji replaced app-wide (frontend and
+  backend tool/skill labels) with Phosphor glyphs via a `ph:name` label
+  marker (`setLabel()`) for the ~300 that live in JS string literals rather
+  than markup. `lucide.min.js` and its dead branch removed.
+- **CSS correctness.** Five custom properties used but never declared
+  (`--surface-2`, `--text-main`, `--card-hover`, `--radius-3`,
+  `--accent-alpha-1`) — an undeclared property invalidates its whole
+  declaration, so the workspace menu had no background and timeline cards no
+  radius. A literal `\n` inside a `:root[data-glass="off"]` selector list
+  invalidated that entire rule.
+- **Spaces.** Rebuilt switcher (markup had been deleted by a bad regex, CSS
+  and JS left behind); create/rename/delete hardened — reserved ids can no
+  longer be claimed, icon values are validated (were interpolated unescaped
+  into a class name), delete reassigns every `WorkspaceMixin` model instead
+  of four hardcoded ones and no longer reads a deleted ORM row.
+- **Timeline grid.** Cards rebuilt with a header (when, and why), a title
+  (the note's first line) and a clamped preview measured by scrollHeight,
+  not a CSS clamp that does not engage in the real engine. Column banding
+  and a full-height sticky band label. Grid build was O(bands × buckets ×
+  notes); now one pass per band into a Map.
+- **Chat dock.** Skills folded into one dropdown (selector, Auto|Manual
+  pace, Run) instead of four loose controls. Plan is a toggle applied on
+  the way out of `sendChatMessage`, so Enter and suggestion chips honour it
+  too — previously only its own button sent a plan.
+- **Link reasons.** `audit_vague_links` rewritten onto
+  `librarian.generate_link_reason` (the old call target did not exist);
+  rejects reasons that are themselves vague; commits once per batch instead
+  of once per link; retry-limited. `_deduce_reason` no longer makes a
+  blocking model call inside the link-creation request path. The backfill
+  endpoint now runs the AI pass after the embedding pass, so "Give links a
+  reason" writes an actual reason instead of the literal string "similar in
+  meaning" for every link. Each suggestion row gets its own editable reason
+  field. Background audit confirmed reached from `_run_optimization` with a
+  dedicated `auto_link_reason_audit` preference (was previously untested
+  that the pass reached the audit at all).
+- **Security.** `_unlink_notes` bypassed the private-note guard that
+  `link_notes` immediately above it enforces — it could unlink and reveal
+  the existence of a private note the caller cannot read.
+- **Dashboard.** Widget preview rows: `safeMdSlice` returned the empty
+  string whenever an unpaired markdown marker was the first character
+  (`cut.slice(0, cut.lastIndexOf(marker))` with index 0), rendering as a
+  bare "…" — now falls back to a plain-text slice. Block markdown (headings,
+  lists) rendered as literal syntax because the widgets used the inline-only
+  renderer; now strip block syntax and show the note's first line as a
+  title. A widget-picker modal (roadmap item 26) on top of the existing
+  `dashboard_layout` preference and inline edit mode, not a second store.
+- **Graph.** Fit-to-view computed its bounding box from node centres
+  (ignoring radius/halo/label), used a flat 60px margin regardless of
+  container size, and clamped only the zoom-in direction — one distant
+  outlier collapsed the whole graph to a scale of 0.07. Padded by rendered
+  node extent, container-relative margin, clamped both directions.
+- **Whiteboard.** A note card showed 100 characters of escaped plain text
+  with no way to see the rest. Now full note, real markdown, clamped past a
+  height cap with a Show more/less control matching the notes list.
+- **Documents.** Full-height sticky sidebar (was shrink-wrapped to its
+  content by a duplicate `#doc-sidebar` rule later in the file that re-set
+  `align-self: start`). The storage-path disclosure moved into a dialog
+  behind a link-styled button — ~370px back to the document list.
+- **Sidebars.** Categories, Chats and Recent headers now sit level with
+  their collapse toggle — the toggle is positioned against the card's
+  border box, the heading row started at the content box, `--space-6`
+  lower, with nothing keeping the two in step.
+- **Misc.** `!err?.name === "AbortError"` parsed as `(!err?.name) ===
+  "AbortError"`, always false, so no network failure was ever logged to
+  Settings → Logs. The Capture textarea reported `scrollHeight: 0` while its
+  tab was hidden and sized itself to nothing, only correcting on focus. The
+  theme toggle showed a fixed half-circle in both modes; now shows the mode
+  you will get (sun for light, moon for dark). Vault key rotation, added
+  all-or-nothing with a test proving an interrupted rotation leaves every
+  note readable under the old key. Launchers give every network call an
+  explicit timeout and tell a network failure apart from a real one, so no
+  internet degrades to a one-line message instead of a hang. Library image
+  rename (was entirely missing) and a title-regeneration notification (was
+  silently dropped by the mute filter, since it is the result of a button
+  the user just pressed, not background chatter).
+
+
 ### Fixed / Added — whiteboard redo & select, highlighter persistence, arc-label spacing, touch input (roadmap §11, §15)
 
 - Whiteboard: a redo stack (Ctrl+Y / Ctrl+Shift+Z, toolbar button), and a

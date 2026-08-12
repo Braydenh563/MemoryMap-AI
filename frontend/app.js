@@ -103,6 +103,21 @@ function mediaSrc(url) {
   return `${url}${sep}token=${encodeURIComponent(token)}`;
 }
 
+// A page-load-order bug lived here: this was declared down in the spaces
+// section (appended at the end of the file), and `api()` — called from
+// `initAuth()` at module load, long before that point in the script runs —
+// reads it via `activeSpaceId()` on every request's headers below. A `const`
+// is in the temporal dead zone until its own declaration executes, so the
+// very first request the app ever made threw `ReferenceError: Cannot access
+// 'SPACE_ALL' before initialization`, caught by api()'s own try/catch and
+// surfaced only as "Can't reach the MemoryMap server" — the lock screen
+// never appeared, with no console error and no failed network request,
+// because the fetch was never reached. `node --check` cannot catch this: the
+// file is syntactically valid, only wrong in execution order. Declared here,
+// before `api()` is ever callable, so this cannot happen again regardless of
+// what gets appended below.
+const SPACE_ALL = "all";
+
 async function api(path, options = {}) {
   // `silent`: a background poll (model status, reminders) — a 401 must not
   // yank the user to the lock screen mid-session (Wave O fix for a
@@ -17604,7 +17619,13 @@ async function loadMostUsed() {
     // its closing backtick) left a stray `` ` `` sitting in the rendered
     // text — `safeMdSlice` drops the dangling marker instead of the plain
     // `slice(0, 25)` this used to do.
-    const { text: sliced, truncated } = safeMdSlice(entry.content, 25);
+    //
+    // Block syntax stripped first. renderInlineMarkdown is inline-only, so a
+    // note beginning "# Groceries" rendered the literal "# Groceries" — the
+    // same gap the dashboard's mini-lists had, here too since this list uses
+    // the same two-function combination.
+    const flat = entry.content.replace(/^\s*(?:#{1,6}\s+|>\s?|[-*+]\s+|\d+\.\s+)/gm, "");
+    const { text: sliced, truncated } = safeMdSlice(flat, 25);
     renderInlineMarkdown(text, sliced, [], true);
     if (truncated) text.appendChild(document.createTextNode("…"));
     const count = document.createElement("span");
@@ -30208,7 +30229,9 @@ cmdPaletteInput.addEventListener("keydown", async (e) => {
 // The id is kept in localStorage rather than on the server on purpose: which
 // space you were last in is a property of this window, not of the notebook,
 // and syncing it would mean two open windows fighting over one value.
-const SPACE_ALL = "all";
+//
+// `SPACE_ALL` itself is declared up near `api()`, not here — see the comment
+// there for why.
 
 // The icons a space may be given. A closed set, because the value is
 // interpolated into a class name — an arbitrary string there is CSS class

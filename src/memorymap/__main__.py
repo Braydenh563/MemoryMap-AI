@@ -7,6 +7,7 @@
 """
 
 import argparse
+import logging
 import os
 import threading
 import time
@@ -15,6 +16,8 @@ from pathlib import Path
 import uvicorn
 
 from memorymap.api.app import create_app
+
+logger = logging.getLogger("memorymap.launcher")
 
 HOST, PORT = "127.0.0.1", 8000  # local only — this is a private app
 
@@ -81,8 +84,15 @@ def _run_desktop() -> None:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
                 "memorymap.desktop.app.1"
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            # Best-effort cosmetic fix — a wrong or missing taskbar icon is not
+            # worth blocking the window over, so this must never crash the
+            # launcher. But CodeQL is right that a silent `except: pass` here
+            # hides a real failure mode too: an unexpected `ctypes.windll`
+            # shape (a Windows build this wasn't tested against) would fail
+            # every time with no way to tell a cosmetic no-op from a bug.
+            # Logged, not swallowed.
+            logger.warning("could not set the Windows AppUserModelID: %s", exc)
 
     storage = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve() / "webview"
     storage.mkdir(parents=True, exist_ok=True)

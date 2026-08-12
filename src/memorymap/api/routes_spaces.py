@@ -14,11 +14,6 @@ router = APIRouter(tags=["Spaces"])
 # with either id would break both, so neither can ever be created or deleted.
 RESERVED_SPACE_IDS = {"all", "default"}
 
-# No path separators, no dots, no unicode — this id gets interpolated into
-# frontend URLs and (per the frontend) a CSS class, so keep it to the same
-# safe alphabet a slug already produces.
-_SPACE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,48}$")
-
 # Phosphor icon names only. The frontend does `class="ph " + icon` with no
 # escaping, so an unvalidated icon is a CSS class injection into the page.
 _ICON_RE = re.compile(r"^ph-[a-z0-9-]{1,40}$")

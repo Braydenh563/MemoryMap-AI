@@ -8526,7 +8526,15 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* An inline-flex box with the default `align-items: normal` STRETCHES its
+     children, so the icon and the label were sized by the button's height
+     rather than centred in it — which is why this one control's text sat a
+     little high against Ask/Web/Plan beside it, all of which centre. Both
+     axes stated explicitly rather than inherited from a shared rule that does
+     not reach this button. */
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chat-tool-group-skills select {

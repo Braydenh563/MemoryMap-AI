@@ -131,6 +131,8 @@ async function api(path, options = {}) {
   // your current password" — a typo there must show a message beside the
   // field, not throw the user out to the lock screen.
   const { silent, timeoutMs, ownsAuthErrors, ...fetchOptions } = options;
+  // Any write invalidates the read cache above — see clearApiCache().
+  if (fetchOptions.method && fetchOptions.method !== "GET") clearApiCache();
   let timer = null;
   if (timeoutMs) {
     const controller = new AbortController();
@@ -198,7 +200,34 @@ async function api(path, options = {}) {
   return response;
 }
 
+// A short-lived cache for GET responses, opt-in per call.
+//
+// Every dashboard widget fetches its own data, and switching away from the
+// Dashboard and back re-ran all of them against data that is, in practice,
+// seconds old — a network round trip and a re-render for nothing new to
+// show. Opt-in (`cacheMs`) rather than global: silently serving a stale
+// answer to something that must be current the instant it changes (reminder
+// due-times, model status) would be a worse bug than the one this fixes.
+//
+// Invalidated wholesale by any mutating request (see `api()` below) rather
+// than tracked per-endpoint — simpler, and correct: the common case this
+// exists for is "nothing changed since I was last on this tab", and any
+// write at all means that's no longer true.
+const _apiCache = new Map();
+
+function clearApiCache() {
+  _apiCache.clear();
+}
+
 async function apiJson(path, options = {}) {
+  const { cacheMs, ...rest } = options;
+  if (cacheMs && (!rest.method || rest.method === "GET")) {
+    const hit = _apiCache.get(path);
+    if (hit && Date.now() - hit.at < cacheMs) return hit.data;
+    const data = await (await api(path, rest)).json();
+    _apiCache.set(path, { data, at: Date.now() });
+    return data;
+  }
   return (await api(path, options)).json();
 }
 
@@ -10271,7 +10300,7 @@ function miniEntryList(body, entries, emptyText) {
 }
 
 async function renderPinnedWidget(body) {
-  const entries = (await apiJson("/entries")).filter((e) => e.pinned);
+  const entries = (await apiJson("/entries", { cacheMs: 4000 })).filter((e) => e.pinned);
   miniEntryList(body, entries.slice(0, 5), "Pin a note and it shows up here.");
 }
 
@@ -10281,7 +10310,7 @@ async function renderMostUsedWidget(body) {
 }
 
 async function renderRecentNotesWidget(body) {
-  const entries = await apiJson("/entries");
+  const entries = await apiJson("/entries", { cacheMs: 4000 });
   const newest = [...entries].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
@@ -10289,7 +10318,7 @@ async function renderRecentNotesWidget(body) {
 }
 
 async function renderTopTagsWidget(body) {
-  const entries = await apiJson("/entries");
+  const entries = await apiJson("/entries", { cacheMs: 4000 });
   const counts = new Map();
   for (const entry of entries) {
     for (const tag of entry.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
@@ -10661,7 +10690,7 @@ async function renderCategoriesWidget(body) {
 async function renderRandomNoteWidget(body) {
   const entries = allEntries.length
     ? allEntries
-    : await apiJson("/entries").catch(() => []);
+    : await apiJson("/entries", { cacheMs: 4000 }).catch(() => []);
   if (!entries.length) {
     body.textContent = "Save some notes and one will resurface here.";
     body.classList.add("muted"); // not `className +=`, which stacks on re-render

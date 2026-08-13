@@ -9756,6 +9756,25 @@ button {
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
+  /* .doc-layout stretches both columns to one row height (so the sidebar can
+     be full-height), which fixes THIS card's height too — but #doc-content's
+     `min-height: 60vh` below didn't know that, and asked for more room than
+     the stretched card actually had. The status line and hint below the
+     editor then had nowhere left to go but past the card's own bottom edge,
+     which is the reported "text below the panel, not at the bottom of it".
+     min-height: 0 is what lets a flex child (#doc-panes) shrink to fit the
+     space that's actually left, instead of overflowing it. */
+  min-height: 0;
+}
+
+/* The editor/preview area is the one part of this card that should give up
+   height when the chrome around it needs it — everything else (title,
+   toolbar, status, hint) is a fixed-height row. */
+#doc-panes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .doc-toolbar {
@@ -9803,7 +9822,14 @@ button {
 }
 
 #doc-content {
-  min-height: 60vh;
+  /* Was the actual cause of the overflow: a flat 60vh asked for more room
+     than the card's stretched height had left once the title, toolbar,
+     status line and hint below it took their share. flex:1 fills whatever
+     #doc-panes actually has; the min-height is only a floor for a very
+     short window, well under what 60vh used to force. `resize: vertical`
+     still lets a person drag it taller by hand, same as before. */
+  flex: 1 1 auto;
+  min-height: 12rem;
   resize: vertical;
   font-family: var(--mono, ui-monospace, monospace);
   font-size: 0.92rem;
@@ -9811,8 +9837,12 @@ button {
 }
 
 .doc-preview {
+  /* Same reasoning as #doc-content just above: fills whatever #doc-panes has
+     rather than a flat viewport fraction that didn't know about the rest of
+     the card's chrome. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  max-height: 75vh;
   padding: 0.8rem 1rem;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -15307,10 +15337,12 @@ textarea.drag-over {
 
 .space-switcher-caret {
   /* Smaller than the leading icon and muted: a caret is an affordance, not
-     information, and at full weight it read as a second icon. */
+     information, and at full weight it read as a second icon. Was a
+     NEGATIVE margin pulling it in tight against the name — reported as too
+     tight — now a small positive gap instead. */
   font-size: 0.85em;
   color: var(--muted);
-  margin-left: calc(var(--space-1) * -1);
+  margin-left: var(--space-1);
 }
 
 .space-switcher-btn[aria-expanded="true"] .space-switcher-caret {

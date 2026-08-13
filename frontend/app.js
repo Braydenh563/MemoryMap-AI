@@ -26183,11 +26183,34 @@ async function wbExportSvg(scope) {
   toast("Board exported as SVG.");
 }
 
+// Shared with the background-image picker above, which inlines the same
+// three lines — pulled out here because this is the second call site and a
+// third (this one) is exactly when a copy-pasted upload stops being fine.
+async function uploadToLibrary(filename, blob) {
+  const formData = new FormData();
+  formData.append("file", new File([blob], filename, { type: blob.type }));
+  return apiJson("/media/upload", {
+    method: "POST",
+    headers: { "X-Auth-Token": authToken() },
+    body: formData,
+  });
+}
+
 async function wbExportPng(scope) {
   const { svg, width, height } = wbBuildExportSvg(scope);
   const blob = await wbRasterizeSvg(svg, width, height, "image/png");
-  await saveFile(`whiteboard-${scope}.png`, blob);
-  toast("Board exported as PNG.");
+  const filename = `whiteboard-${scope}.png`;
+  await saveFile(filename, blob);
+  // Asked for directly: an exported board should show up in the Library's
+  // Images gallery, not only as a file on disk that the app has no record
+  // of. Best-effort — a failed upload must not make the export itself look
+  // like it failed, since the download above already succeeded.
+  try {
+    await uploadToLibrary(filename, blob);
+    toast("Board exported as PNG, and added to your image library.");
+  } catch {
+    toast("Board exported as PNG.");
+  }
 }
 
 async function wbExportPdf(scope) {

@@ -2575,12 +2575,16 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="setting-row">
                 <div class="setting-label"><span>Font</span></div>
                 <div class="seg" id="font-seg" role="group" aria-label="Font">
+                  <!-- Anthropic and Montserrat removed: neither ever had a
+                       vendored font file or an @font-face rule backing it
+                       (both were added and then deleted from vendor/fonts
+                       earlier in this project's history) — picking either
+                       did nothing but silently fall back to the system
+                       font, which reads as a broken setting. -->
                   <button data-font="system">System</button>
                   <button data-font="serif">Serif</button>
                   <button data-font="mono">Mono</button>
-                  <button data-font="anthropic">Anthropic</button>
                   <button data-font="arial">Arial</button>
-                  <button data-font="montserrat">Montserrat</button>
                 </div>
               </div>
 

@@ -15287,7 +15287,7 @@ textarea.drag-over {
    label rendered with a gap in a block context and without one in a flex row.
    A margin survives both. */
 .ph-lead {
-  margin-inline-end: 0.4em;
+  margin-inline-end: 1em;
 }
 
 .ph {
@@ -15333,6 +15333,7 @@ textarea.drag-over {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-inline-start: var(--space-1);
 }
 
 .space-switcher-caret {

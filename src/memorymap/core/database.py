@@ -312,11 +312,20 @@ class Attachment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Conversation(Base):
+class Conversation(Base, WorkspaceMixin):
     """A saved chat (Wave C). Turns are a JSON list of
     {"role": "user"|"assistant", "content": str, "thinking": str|None}
     — one blob per conversation is the boring right size for a
-    single-user app."""
+    single-user app.
+
+    Was missing WorkspaceMixin entirely — reported directly: the Library
+    showed every chat regardless of which space was active, while notes and
+    documents (which do carry it) correctly scoped to zero. Chat history is
+    named explicitly as space-specific in the spaces design notes; this was
+    the one model that shipped without the mixin the feature depends on.
+    Existing rows get `workspace_id="default"` from the additive
+    auto-migrator's column default, same as every other backfilled column
+    on this table."""
 
     __tablename__ = "conversations"
 

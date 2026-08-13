@@ -137,3 +137,65 @@ def test_delete_reassigns_every_workspace_scoped_model_to_default(client, sessio
     assert session.get(Entry, other_entry.id).workspace_id == "default"
     assert session.get(EntryLink, link.id).workspace_id == "default"
     assert session.get(Document, document.id).workspace_id == "default"
+
+
+# --- chats are workspace-scoped too -------------------------------------------
+#
+# Reported directly, with a screenshot: the Library showed every chat
+# regardless of which space was active — 13 chats and 200 activity rows on a
+# space that should have had zero of either — while Notes and Documents
+# (which already carried WorkspaceMixin) correctly scoped to zero. Conversation
+# was the one model that had shipped without the mixin the whole feature
+# depends on.
+
+
+def test_a_chat_made_in_one_space_is_invisible_from_another(client):
+    created = client.post("/spaces", json={"name": "Focus Room"}).json()
+    space_id = created["id"]
+
+    resp = client.post(
+        "/conversations",
+        json={"question": "a question asked in Focus Room", "answer": "an answer"},
+        headers={"X-Workspace-ID": space_id},
+    )
+    assert resp.status_code == 201
+    conversation_id = resp.json()["id"]
+
+    # Visible from its own space, and from "all".
+    assert conversation_id in [
+        c["id"] for c in client.get("/conversations", headers={"X-Workspace-ID": space_id}).json()
+    ]
+    assert conversation_id in [
+        c["id"] for c in client.get("/conversations", headers={"X-Workspace-ID": "all"}).json()
+    ]
+
+    # Not visible from an unrelated space, or the default one. (No header at
+    # all means unfiltered — same as "all" — so that is not the negative case
+    # here; a *named* space that isn't this one is.)
+    assert conversation_id not in [
+        c["id"]
+        for c in client.get("/conversations", headers={"X-Workspace-ID": "default"}).json()
+    ]
+    other = client.post("/spaces", json={"name": "Somewhere Else"}).json()
+    assert conversation_id not in [
+        c["id"]
+        for c in client.get(
+            "/conversations", headers={"X-Workspace-ID": other["id"]}
+        ).json()
+    ]
+
+
+def test_deleting_a_space_reassigns_its_chats_to_default(client, session):
+    from memorymap.core.database import Conversation
+
+    created = client.post("/spaces", json={"name": "Temporary"}).json()
+    space_id = created["id"]
+    conversation = _row(
+        session, Conversation, title="doomed chat", messages="[]", workspace_id=space_id
+    )
+
+    resp = client.delete(f"/spaces/{space_id}")
+    assert resp.status_code == 200
+
+    session.expire_all()
+    assert session.get(Conversation, conversation.id).workspace_id == "default"

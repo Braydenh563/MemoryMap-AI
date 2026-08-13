@@ -3584,11 +3584,26 @@ html.modal-open body {
 
 .dash-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: var(--space-6);
   /* No side inset: .tab-page's --page-gutter is the only one. See .dash-stats. */
   padding: 0 0 var(--space-3);
+}
+
+/* Was `justify-content: space-between` over three loose children (spacer,
+   Widgets, Edit layout) — with the hint hidden outside edit mode that put
+   Widgets floating alone in the middle with a big empty gap either side.
+   The spacer eats the slack instead; Widgets and Edit layout sit together as
+   one group, pinned to the end. */
+#dash-hint-spacer {
+  flex: 1 1 auto;
+}
+
+.dash-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 auto;
 }
 
 /* Masonry-style packing: a fine row unit plus a JS-measured row span per card
@@ -15271,14 +15286,20 @@ textarea.drag-over {
 }
 
 .space-switcher-btn {
-  /* max-width + the ellipsis below is what stops a long space name pushing
-     the tabs off the bar; the old one let its label wrap onto a second line
-     inside a bar that is explicitly one row, which is what made the icon and
-     the text sit on top of each other. */
+  /* The ellipsis on .space-switcher-name below only truncates a box with a
+     BOUNDED width — and a plain inline span next to icons has none, so it
+     sized to its own text and overflowed this button's max-width, which
+     wrapped the whole button onto two lines and inflated its height. This
+     is what actually enforces the width the comment below promises:
+     inline-flex bounds every child to the row, and min-width:0 on the name
+     (below) is what lets IT shrink instead of forcing the row wider. */
+  display: inline-flex;
+  align-items: center;
   max-width: 12rem;
 }
 
 .space-switcher-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

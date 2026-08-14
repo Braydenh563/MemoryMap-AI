@@ -394,6 +394,14 @@ select,
    between the gradient and the app content (Wave J). */
 html {
   min-height: 100%;
+  /* Pre-paint fallback for the WebView shell (pywebview/WebView2): before
+     CSS variables resolve and before the gradient layers paint, the canvas
+     is whatever `background-color` says. Without this it is transparent,
+     which the shell renders as black — visible as a brief black flash on
+     space-switch (window.location.reload()) and on first load.
+     The dark fallback matches the darker of the two modes so the flash is
+     never jarring on a dark desktop; light-mode users see it for <50 ms. */
+  background-color: #0f1219;
   background:
     radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
     radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
@@ -2674,7 +2682,13 @@ progress {
 }
 
 .chip {
-  display: inline-block;
+  /* inline-flex rather than inline-block: status-bar chips (offline, power-saver)
+     carry a .ph-lead icon and a text label; inline-block leaves vertical alignment
+     to line-height, which centres neither the icon nor the text reliably at 0.75rem.
+     gap replaces the icon's margin-inline-end for precise, density-independent spacing. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
   padding: 0.1rem 0.6rem;
   border-radius: var(--radius-pill);
   font-size: 0.75rem;
@@ -8537,10 +8551,13 @@ html {
 
 /* The trigger names the armed skill, which can be long. */
 #chat-skills-btn {
-  max-width: 14rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wider than the old 14rem: skill names like "Audit link reasons (edits
+     notes)" were clipped mid-word at that width. 18rem gives the full panel's
+     min-width of 18rem so the button never wraps the panel it opens, and
+     text-overflow still kicks in for anything longer. */
+  /* Removed text-overflow from here, applied to .ph-text child instead */
+  max-width: 18rem;
+  
   /* An inline-flex box with the default `align-items: normal` STRETCHES its
      children, so the icon and the label were sized by the button's height
      rather than centred in it — which is why this one control's text sat a
@@ -8550,6 +8567,14 @@ html {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+#chat-skills-btn .ph-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Flex items need min-width: 0 to shrink smaller than their content */
+  min-width: 0;
 }
 
 .chat-tool-group-skills select {
@@ -8635,7 +8660,7 @@ html {
 }
 
 #chat-dock-more-btn[aria-expanded="true"],
-#chat-dock-skills-btn[aria-expanded="true"],
+#chat-skills-btn[aria-expanded="true"],
 #persona-peek[aria-expanded="true"] {
   background-color: var(--accent-soft);
   border-color: var(--accent);
@@ -15286,8 +15311,14 @@ textarea.drag-over {
    be a text node, which CSS deletes inside a flex container — so the same
    label rendered with a gap in a block context and without one in a flex row.
    A margin survives both. */
+/* Leading icon in a labelled button or flex row: gives breathing room between
+   the glyph and its text. Scoped to flex/inline-flex children only — a 1em
+   margin on an inline-block element (like a .chip span) creates a huge gap
+   because the chip's font-size is small and 1em is relative to it, making the
+   gap far wider than the icon. Chips with a leading icon set their own gap via
+   the chip's flex layout instead. */
 .ph-lead {
-  margin-inline-end: 1em;
+  margin-inline-end: 0.35em;
 }
 
 .ph {

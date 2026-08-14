@@ -918,5 +918,10 @@ def update_link_reason(
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="Link not found")
-    manager.set_link_reason(session, link, body.reason)
-    return _to_out(session, entry)
+    try:
+        manager.set_link_reason(session, link, body.reason)
+        return _to_out(session, entry)
+    except Exception as exc:
+        import logging
+        logging.getLogger("memorymap.api").error("Failed to update link reason", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))

@@ -2900,7 +2900,8 @@ TOOLS: dict[str, ToolSpec] = {
                 "type": "object",
                 "properties": {
                     "limit": {"type": "integer", "description": "Max number of links to process (default 50)"}
-                }
+                },
+                "required": ["limit"]
             },
             _audit_link_reasons,
         ),

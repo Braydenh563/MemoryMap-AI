@@ -34,6 +34,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,14 @@ EXTRAS: tuple[Extra, ...] = (
         "OpenAI-compatible server are the supported paths today, so this "
         "would install a library nothing asks for. It compiles on some "
         "platforms, which makes it an expensive thing to install for nothing.",
+    ),
+    Extra(
+        id="requirements",
+        label="Base Requirements (requirements.txt)",
+        enables="Restores the core packages to their correct versions. Use this if a plugin installation broke your dependencies.",
+        packages=("-r", str(Path(__file__).resolve().parents[3] / "requirements.txt")),
+        module="fastapi",
+        size="~30 MB",
     ),
 )
 
@@ -248,6 +257,10 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         # running inside a venv whose pip is not the one on PATH, and installing
         # into the wrong environment looks exactly like an install that did
         # nothing.
+        # Prevent optional extras from breaking base dependencies (like tokenizers)
+        req_path = Path(__file__).resolve().parents[3] / "requirements.txt"
+        constraint = ["-c", str(req_path)] if req_path.is_file() and extra.id != "requirements" else []
+        
         command = [
             sys.executable,
             "-m",
@@ -263,6 +276,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             # cached wheel would otherwise be reinstalled faithfully.
             *(["--force-reinstall", "--no-cache-dir"] if reinstall else []),
             *extra.packages,
+            *constraint,
         ]
         _state.step = f"pip install {' '.join(extra.packages)}"
         process = subprocess.Popen(  # noqa: S603 — fixed args from the allowlist, no shell

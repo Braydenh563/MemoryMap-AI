@@ -599,7 +599,12 @@ function setLabel(el, label) {
   // and stops being square.
   if (rest) icon.classList.add("ph-lead");
   el.replaceChildren(icon);
-  if (rest) el.append(rest);
+  if (rest) {
+    const textSpan = document.createElement("span");
+    textSpan.className = "ph-text";
+    textSpan.textContent = rest;
+    el.append(textSpan);
+  }
   return el;
 }
 
@@ -14246,8 +14251,14 @@ function switchTab(name) {
   for (const tab of TABS) {
     $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
   }
+  // `documents` is a sub-view of Library — there is no `data-tab="documents"`
+  // button in the tab bar, so the name that determines which button is active
+  // must be "library" whenever we are showing the documents pane. Without this,
+  // switchTab("documents") leaves every tab button deactivated, making it look
+  // as though nothing is selected while the Documents page is visible.
+  const activeTabName = name === "documents" ? "library" : name;
   for (const button of document.querySelectorAll("#tab-bar button")) {
-    const active = button.dataset.tab === name;
+    const active = button.dataset.tab === activeTabName;
     button.classList.toggle("active", active);
     // Real tab semantics (Wave L): one tab stop for the whole list
     // (roving tabindex), arrow keys move between tabs.
@@ -17434,7 +17445,7 @@ async function openNotifications() {
 
     const icon = document.createElement("span");
     icon.className = "notif-icon";
-    icon.textContent = NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info;
+    setLabel(icon, NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info);
     icon.setAttribute("aria-hidden", "true");
 
     const body = document.createElement("div");

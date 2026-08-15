@@ -26,20 +26,28 @@ fresh session should pick them up:
    instead of at the bottom of the card. Needs a live Chromium session to
    verify any structural fix — do not ship one unverified, per this file's
    own repeated CSS-regression history below.
-2. **`app.js`/`index.html` are still monolithic** (30.7k / 3.7k lines).
-   `style.css` (was 15.8k lines) is no longer part of this — it is now split
-   into eight files under `frontend/css/`, cut only at its own section-comment
-   banners so the byte order (and therefore the cascade) matches the old
-   single file exactly; `index.html` links them in that order, and
-   `tests/_css_paths.py` is the one place that order is declared for tests
-   that used to read `frontend/style.css` directly. The single remaining
-   highest-value, lowest-risk piece is the `whiteboard.js` extraction
-   (~3,400+ lines from `app.js:26356`, classic `<script src>` not a module —
-   no `state.js` promotion needed, since classic scripts in one document
-   already share one global scope; see "Frontend refactor path" a few
-   sections down for the seam map). `index.html` cannot be split without a
-   template/build step, which conflicts with this project's stated
-   no-bundler architecture — don't attempt it the same way as the other two.
+2. ~~`app.js`/`style.css`/`index.html` are still monolithic~~ **Both
+   mechanically-splittable pieces are now done.** `style.css` (was 15.8k
+   lines) is split into eight files under `frontend/css/`, cut only at its
+   own section-comment banners so the byte order (and therefore the cascade)
+   matches the old single file exactly; `tests/_css_paths.py` is the one
+   place that load order is declared for tests that used to read
+   `frontend/style.css` directly. `app.js` (was 30.7k lines) had its
+   whiteboard subsystem — board/card CRUD, sketch drawing, export,
+   move/resize/grouping — extracted into `frontend/whiteboard.js` (~5,600
+   lines), loaded via a second `<script>` tag after `app.js`; both share one
+   global scope since neither is a module, so no `state.js` promotion was
+   needed. `app.js` is down to ~25.3k lines. Verified live: fresh-data-dir
+   Playwright run with zero console/page errors, the Whiteboards sub-tab
+   opens, a board's SVG canvas renders with its full toolbar. A red herring
+   surfaced during that check — a burst of 401s on dashboard/insights
+   endpoints — reproduced identically against the pre-split `app.js` on a
+   *reused* data directory and vanished on both sides with a fresh one, so
+   it's a pre-existing timing bug unrelated to this split; see item 13 below.
+   `index.html` (3.7k lines) still can't be split without a template/build
+   step, which conflicts with this project's stated no-bundler
+   architecture — leave it alone, it was never going to get the same
+   treatment as the other two.
 3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
    fully scoped, not started. One open decision before building: preview
    before commit, or commit straight through (recommendation in §62: preview).
@@ -110,9 +118,23 @@ fresh session should pick them up:
     refine the frontend's visual design and UI/UX.** Broad and
     high-risk — will likely touch every CSS file and much of `index.html`,
     so it should run *last*, after every other structural frontend change
-    in this list (whiteboard.js, the markdown-renderer merge, the timeline
-    and document-editor work) has landed, not concurrently with any of
-    them.
+    in this list (the markdown-renderer merge, item 18 below, and the
+    timeline and document-editor work, items 10-11) has landed, not
+    concurrently with any of them.
+13. **A burst of 401s on dashboard/insights endpoints (`/preferences`,
+    `/insights/stats`, `/reminders`, `/entries`, etc.) on page load,
+    found live while verifying the whiteboard.js extraction (item 2).**
+    Confirmed unrelated to that split — reproduces identically against the
+    unmodified `app.js` too, but only when the server's data directory has
+    already been through one unlock cycle (a *reused* `MEMORYMAP_DATA_DIR`);
+    a completely fresh data directory shows zero errors on either side. Not
+    investigated further — likely several of these requests (dashboard
+    widgets, reminders poll, model-status poll) firing before the
+    just-issued auth token has actually been applied to `apiJson`'s default
+    headers on a page that still has an existing session/reminders/prefs
+    state to render immediately after unlock, but that's a guess, not a
+    traced root cause. Reproduce with: unlock once, reload the page (not a
+    fresh data dir), watch the browser console.
 
 ## #0 priority — codebase quality review, still-open items
 

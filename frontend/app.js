@@ -2172,8 +2172,13 @@ function matchesSearch(entry) {
 // pattern already bounds itself (`{1,120}`) for exactly this reason. The
 // caps are far past any real link (200 characters of link text, 500 of
 // URL) and turn the per-position work into a constant.
+// Superset of what `renderInlineMarkdown` and (the now-merged) `appendInline`
+// each used to match on their own: `**bold**`/`__bold__`, `*italic*`/
+// `_italic_` (word-boundary-guarded so `file_name` doesn't turn into
+// `file<em>name</em>`), code, image, link, and a bare `https://` URL —
+// appendInline's own auto-link, absent here before the merge.
 const INLINE_MD =
-  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|~~([^~\n]+?)~~|\*([^*\n]+?)\*|(?<!\w)_([^_\n]+?)_(?!\w)|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)|(https?:\/\/[^\s)]+)/g;
 
 // Same allowlist an <img src> or <a href> built from note text has to pass:
 // an absolute http(s) URL, or a same-origin relative path (one leading
@@ -2243,7 +2248,15 @@ function unlatex(text) {
 // sized for a line of text. The note card's own body always gets the real
 // image; everywhere smaller gets the same treatment `notePreviewText`
 // already gives one to a plain-text preview.
-function renderInlineMarkdown(element, text, terms, compact = false) {
+// `options.dismissible` (default true): an image gets the delete/lightbox
+// chrome note cards use. `appendInline`'s callers (chat, documents, table
+// cells) pass `dismissible: false` — there is no note markdown line for a
+// "remove this image" click to edit there.
+// `options.autolinkBareUrls` (default false): a plain `https://…` in the
+// text becomes a real link. Off by default (renderInlineMarkdown's original
+// behaviour); `appendInline`'s callers turn it on, matching what it always did.
+function renderInlineMarkdown(element, text, terms, compact = false, options = {}) {
+  const { dismissible = true, autolinkBareUrls = false, strikeTag = "s" } = options;
   element.replaceChildren();
   text = unlatex(text);
   const pattern = new RegExp(INLINE_MD.source, "g");
@@ -2255,7 +2268,12 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
       highlightInto(before, text.slice(cursor, match.index), terms);
       element.appendChild(before);
     }
-    const [, code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+    const [
+      , code, boldStar, boldUnderscore, strike, italicStar, italicUnderscore,
+      imageAlt, imageUrl, linkText, linkUrl, bareUrl,
+    ] = match;
+    const bold = boldStar ?? boldUnderscore;
+    const italic = italicStar ?? italicUnderscore;
     // Images and links are their own element kinds, not a wrap-in-a-tag like
     // the four above — built and appended directly rather than falling
     // through to the generic `tag`/`node` shape below, since neither one
@@ -2266,6 +2284,16 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
       if (compact) {
         element.appendChild(document.createTextNode(imageAlt || "Image"));
       } else if (isRenderableUrl(imageUrl)) {
+        if (!dismissible) {
+          const img = document.createElement("img");
+          img.src = mediaSrc(imageUrl);
+          img.alt = imageAlt || "";
+          img.className = "entry-inline-image";
+          img.loading = "lazy";
+          element.appendChild(img);
+          cursor = pattern.lastIndex;
+          continue;
+        }
         const wrapper = document.createElement("span");
         wrapper.className = "thumb-wrap";
         const img = document.createElement("img");
@@ -2331,7 +2359,23 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
       cursor = pattern.lastIndex;
       continue;
     }
-    const tag = code ? "code" : bold ? "strong" : strike ? "s" : "em";
+    if (bareUrl !== undefined) {
+      if (autolinkBareUrls) {
+        const a = document.createElement("a");
+        a.href = bareUrl;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = bareUrl;
+        element.appendChild(a);
+      } else {
+        const span = document.createElement("span");
+        highlightInto(span, bareUrl, terms);
+        element.appendChild(span);
+      }
+      cursor = pattern.lastIndex;
+      continue;
+    }
+    const tag = code ? "code" : bold ? "strong" : strike ? strikeTag : "em";
     const node = document.createElement(tag);
     // A code span is literal by definition, so it is never searched-highlighted
     // into pieces — the rest still is, or filtering would stop marking any
@@ -2346,6 +2390,25 @@ function renderInlineMarkdown(element, text, terms, compact = false) {
     highlightInto(rest, text.slice(cursor), terms);
     element.appendChild(rest);
   }
+}
+
+// `appendInline`'s own syntax (underscore emphasis, bare-URL autolinking, no
+// dismiss/lightbox chrome) is now just renderInlineMarkdown with a different
+// set of options — the two hand-rolled ~150 lines of near-identical
+// bold/italic/link/image parsing this used to be are merged into one parser
+// with one security gate (`isRenderableUrl`) instead of two maintained
+// separately. Kept as its own name: every call site (renderMarkdown, table
+// cells) already says `appendInline`, and the name still describes what it
+// does here — append parsed inline markdown into an existing parent.
+function appendInline(parent, text) {
+  renderInlineMarkdown(parent, text, [], false, {
+    dismissible: false,
+    autolinkBareUrls: true,
+    // `.answer del`/`.bubble-answer del`/`.dash-body del` (style.css) style
+    // this tag specifically — appendInline's own callers always used <del>,
+    // not the note-card renderer's <s>, and the CSS was written for that.
+    strikeTag: "del",
+  });
 }
 
 // Mirrors manager.extract_title's own rule (the first non-blank line, and
@@ -11738,86 +11801,6 @@ function renderMarkdown(container, text) {
     container.appendChild(p);
   }
   closeList();
-}
-
-// Inline formatting: **bold**, *italic*, `code`, ~~strike~~,
-// [text](http…url), and bare http(s) URLs. Built with textContent only —
-// note/answer text can never inject markup.
-function appendInline(parent, text) {
-  // Images and a link's URL used to require an absolute http(s) address —
-  // fine for chat answers and documents linking *out*, wrong for a note's
-  // own `![name](/media/hash.ext)` (exactly what pasting/dropping/attaching
-  // an image writes, per `handleFileUpload`), which is same-origin and
-  // relative. Both alternatives now accept anything; `isRenderableUrl` is
-  // the actual safety gate at render time below, same guard renderInlineMarkdown
-  // (the note-card list's own renderer) uses for the identical gap there.
-  // Length-bounded for the same reason INLINE_MD's are — see the comment
-  // there: an unclosed `[` otherwise costs O(n²) against user-written text.
-  const pattern =
-    /(\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|(?<![\w])_[^_]+_(?![\w])|`[^`]+`|!\[[^\]]{0,200}\]\(([^)\s]{1,500})\)|\[[^\]]{1,200}\]\(([^)\s]{1,500})\)|https?:\/\/[^\s)]+)/g;
-  let last = 0;
-  let match;
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > last) {
-      parent.appendChild(document.createTextNode(text.slice(last, match.index)));
-    }
-    const token = match[0];
-    if (token.startsWith("**") || token.startsWith("__")) {
-      const el = document.createElement("strong");
-      el.textContent = token.slice(2, -2);
-      parent.appendChild(el);
-    } else if (token.startsWith("~~")) {
-      const el = document.createElement("del");
-      el.textContent = token.slice(2, -2);
-      parent.appendChild(el);
-    } else if (token.startsWith("`")) {
-      const el = document.createElement("code");
-      el.textContent = token.slice(1, -1);
-      parent.appendChild(el);
-    } else if (token.startsWith("![")) {
-      const url = match[2];
-      if (isRenderableUrl(url)) {
-        const el = document.createElement("img");
-        el.src = mediaSrc(url);
-        el.alt = token.slice(2, token.indexOf("]"));
-        el.className = "entry-inline-image";
-        el.loading = "lazy";
-        parent.appendChild(el);
-      } else {
-        parent.appendChild(document.createTextNode(token));
-      }
-    } else if (token.startsWith("[")) {
-      const linkText = token.slice(1, token.indexOf("]"));
-      const url = match[3];
-      if (isRenderableUrl(url)) {
-        const el = document.createElement("a");
-        el.href = url;
-        if (/^https?:\/\//i.test(url)) {
-          el.target = "_blank";
-          el.rel = "noopener";
-        }
-        el.textContent = linkText;
-        parent.appendChild(el);
-      } else {
-        parent.appendChild(document.createTextNode(token));
-      }
-    } else if (token.startsWith("http")) {
-      const el = document.createElement("a");
-      el.href = token;
-      el.target = "_blank";
-      el.rel = "noopener";
-      el.textContent = token;
-      parent.appendChild(el);
-    } else {
-      const el = document.createElement("em");
-      el.textContent = token.slice(1, -1);
-      parent.appendChild(el);
-    }
-    last = pattern.lastIndex;
-  }
-  if (last < text.length) {
-    parent.appendChild(document.createTextNode(text.slice(last)));
-  }
 }
 
 // --- graph view (Wave E) ----------------------------------------------------------

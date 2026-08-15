@@ -1554,6 +1554,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-tile .library-image-edit {
   right: calc(var(--space-2) + 2.2rem);
 }
+
 .library-image-tile .library-image-delete {
   right: var(--space-2);
 }
@@ -3132,7 +3133,8 @@ li.link-source {
 
 #toast-box {
   position: fixed;
-  right: 1rem;
+  left: 21rem;
+  /* Clear of the left chats sidebar */
   /* Clear of the status bar for the same reason the back-to-top button is: a
      toast is a message you are meant to read, and half of one behind the bar
      is a message you are meant to guess at. */
@@ -3140,7 +3142,8 @@ li.link-source {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  z-index: 60;
+  z-index: 1050;
+  /* Bring above sidebar which is usually high z-index */
 }
 
 .toast {
@@ -6125,6 +6128,7 @@ html {
 :root[data-glass="off"] .graph-toolbar,
 :root[data-glass="off"] .library-toolbar,
 :root[data-glass="off"] .graph-options,
+:root[data-glass="off"] .timeline-band,
 :root[data-glass="off"] .glass {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -6135,11 +6139,6 @@ html {
 }
 
 /* --- Wave O: AI Tools toggles --------------------------------------------------- */
-#task-list li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
 #task-list .entry-meta {
   align-items: center;
   gap: 0.6rem;
@@ -8557,7 +8556,7 @@ html {
      text-overflow still kicks in for anything longer. */
   /* Removed text-overflow from here, applied to .ph-text child instead */
   max-width: 18rem;
-  
+
   /* An inline-flex box with the default `align-items: normal` STRETCHES its
      children, so the icon and the label were sized by the button's height
      rather than centred in it — which is why this one control's text sat a
@@ -11885,52 +11884,57 @@ textarea.autogrow {
 .timeline-band {
   position: sticky;
   left: 0;
-  /* Sticky DOWN as well as across. A band's row is as tall as its tallest
-     stack of cards — twelve notes in one day is an 800px row — and a label
-     pinned only to the left edge scrolled out of sight after the third card,
-     so most of the row had nothing saying which band it was. The offset
-     clears the sticky date header above it. */
+  /* Sticky DOWN as well as across. */
   top: calc(var(--space-8) + var(--space-3));
   align-self: start;
   z-index: 1;
-  /* Generic `button` styling gave it a shadow, which against a transparent
-     background read as a floating pill sitting in the middle of the row —
-     which is exactly what it was reported as looking like. */
-  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  width: 100%;
+  /* slight margin to avoid sitting perfectly flush when rounded */
+  width: calc(100% - 0.5rem);
+  margin-left: 0.25rem;
   font: inherit;
-  font-size: var(--text-md);
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--ink);
   text-align: left;
-  padding: var(--space-3);
-  border: 0;
-  /* A left accent bar instead of a filled pill: it names the row without
-     competing with the cards for attention, and it lines up with the top of
-     the first card rather than floating mid-row. */
-  border-left: 3px solid var(--accent-soft);
-  border-radius: 0;
-  /* Opaque: it now travels over the cards to its right when the grid is
-     scrolled sideways, and a transparent label over a card is unreadable. */
+  padding: 0.6rem 0.8rem;
+
+  /* Modern card aesthetic */
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent-soft);
+  border-radius: var(--radius);
   background: var(--modal-bg);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
+
+  /* Glassmorphism and animations */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline-band:hover,
 .timeline-band:focus-visible {
   color: var(--accent);
+  border-color: var(--accent-soft);
   border-left-color: var(--accent);
-  background: var(--inner);
+  background: var(--bg);
+  box-shadow: var(--shadow-md);
   outline: none;
 }
 
 .timeline-band .muted {
-  font-weight: 400;
+  font-weight: 500;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
+  /* Pill badge for the count */
+  background: var(--chip-bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
 }
 
 /* --- banding ------------------------------------------------------------------
@@ -11965,17 +11969,13 @@ textarea.autogrow {
 
 .timeline-cell[data-col="odd"],
 .timeline-head[data-col="odd"] {
-  background-image: linear-gradient(
-    color-mix(in srgb, var(--ink) 3%, transparent),
-    color-mix(in srgb, var(--ink) 3%, transparent)
-  );
+  background-image: linear-gradient(color-mix(in srgb, var(--ink) 3%, transparent),
+      color-mix(in srgb, var(--ink) 3%, transparent));
 }
 
 .timeline-head[data-col="odd"] {
-  background-image: linear-gradient(
-    color-mix(in srgb, var(--ink) 6%, transparent),
-    color-mix(in srgb, var(--ink) 6%, transparent)
-  );
+  background-image: linear-gradient(color-mix(in srgb, var(--ink) 6%, transparent),
+      color-mix(in srgb, var(--ink) 6%, transparent));
 }
 
 /* One hairline per band, drawn on the label and every cell in its row so it
@@ -12688,8 +12688,17 @@ textarea.autogrow {
 
 .confirm-actions {
   justify-content: flex-end;
+  align-items: center;
   gap: 0.5rem;
   margin: 0;
+}
+
+.confirm-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  gap: 0.4rem;
 }
 
 /* The destructive choice is coloured as destructive. It is also NOT the
@@ -14699,6 +14708,27 @@ textarea.drag-over {
 
    Same declarations, on the scale, in the one place a CSP allows them. */
 
+.chat-input {
+  /* the box is not tall, let standard text wrap around onto a new line, but
+     if it runs on so long it scrolls vertically, scrolling is a valid state */
+  overflow: auto;
+  min-height: 2lh;
+  max-height: 15lh;
+  /* 0 removes the textarea's own browser-default inset that pushes it off-centre
+     from the button padding */
+  padding: 0;
+  border: 0;
+  background: transparent;
+  flex: 1;
+}
+
+.chat-skill-select {
+  max-width: 15rem;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* The command palette: a dialog pinned near the top rather than centred, so a
    growing result list doesn't shift the input under the cursor. */
 .command-palette-overlay {
@@ -15548,11 +15578,12 @@ textarea.drag-over {
   color: var(--accent);
 }
 
-#tab-timeline > .card {
+#tab-timeline>.card {
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
 }
+
 .timeline-scroll {
   flex: 1 1 auto;
   min-height: 0;

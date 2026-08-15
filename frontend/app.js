@@ -13909,6 +13909,25 @@ function openGraphLinkPanel(edge, nodes) {
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
   saveBtn.textContent = "Save";
+
+  const generateBtn = document.createElement("button");
+  generateBtn.type = "button";
+  generateBtn.className = "ghost";
+  setLabel(generateBtn, "ph:magic-wand Generate");
+  generateBtn.addEventListener("click", async () => {
+    generateBtn.disabled = true;
+    generateBtn.textContent = "Generating…";
+    try {
+      const res = await apiJson(`/entries/${sourceId}/links/${edge.id}/generate-reason`, { method: "POST" });
+      textarea.value = res.reason;
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      generateBtn.disabled = false;
+      setLabel(generateBtn, "ph:magic-wand Generate");
+    }
+  });
+
   saveBtn.addEventListener("click", async () => {
     await apiJson(`/entries/${sourceId}/links/${edge.id}/reason`, {
       method: "PUT",
@@ -13937,7 +13956,7 @@ function openGraphLinkPanel(edge, nodes) {
   cancelBtn.textContent = "Close";
   cancelBtn.addEventListener("click", close);
 
-  row.append(saveBtn, removeBtn, cancelBtn);
+  row.append(saveBtn, generateBtn, removeBtn, cancelBtn);
   card.appendChild(row);
   overlay.appendChild(card);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
@@ -19040,9 +19059,27 @@ async function renderExtras() {
         })
       );
     } else if (extra.installing) {
-      const busy = document.createElement("span");
+      const busy = document.createElement("div");
       busy.className = "muted";
-      busy.textContent = "Installing…";
+      busy.style.display = "flex";
+      busy.style.flexDirection = "column";
+      busy.style.alignItems = "flex-end";
+      busy.style.gap = "0.2rem";
+      
+      const text = document.createElement("span");
+      text.textContent = extra.step || "Installing…";
+      text.style.fontSize = "0.8rem";
+      text.style.maxWidth = "15rem";
+      text.style.whiteSpace = "nowrap";
+      text.style.overflow = "hidden";
+      text.style.textOverflow = "ellipsis";
+      
+      const bar = document.createElement("progress");
+      bar.className = "task-progress";
+      bar.style.width = "10rem";
+      bar.style.margin = "0";
+      
+      busy.append(text, bar);
       actions.appendChild(busy);
     } else if (extra.unavailable) {
       // Greyed out rather than hidden. The row still earns its place — it says
@@ -19337,8 +19374,20 @@ async function renderTasks(payload) {
       pre.textContent = job.log.join("\n");
       fold.append(summary, pre);
       li.appendChild(fold);
-      // Follow the tail, the way a terminal does.
-      if (fold.open) pre.scrollTop = pre.scrollHeight;
+
+      // Listen for scroll events to track if the user has scrolled up from the bottom
+      pre.addEventListener("scroll", () => {
+        const isAtBottom = Math.abs(pre.scrollHeight - pre.scrollTop - pre.clientHeight) < 5;
+        taskLogScrollStates.set(job.kind, isAtBottom);
+      });
+
+      // Follow the tail, the way a terminal does, unless the user scrolled up
+      if (fold.open && taskLogScrollStates.get(job.kind) !== false) {
+        // Use a slight timeout to ensure rendering is complete before scrolling
+        requestAnimationFrame(() => {
+          pre.scrollTop = pre.scrollHeight;
+        });
+      }
     }
     list.appendChild(li);
   }
@@ -19408,6 +19457,7 @@ function renderTaskHistory(history) {
 // Which task logs the user has opened, kept across the 3-second re-render so
 // a fold doesn't slam shut under them.
 const taskLogsOpen = new Set(["searxng"]);
+const taskLogScrollStates = new Map();
 
 // Model pickers (rewritten, Wave O). The old version let the status poll
 // (every ~3s while Settings is open) reset the dropdown to the SAVED

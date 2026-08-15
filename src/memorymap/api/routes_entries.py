@@ -33,6 +33,7 @@ from memorymap.core import deps
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     Document,
     EmbeddingRecord,
+    Entry,
     EntryLink,
     EntryRevision,
 )
@@ -924,4 +925,32 @@ def update_link_reason(
     except Exception as exc:
         import logging
         logging.getLogger("memorymap.api").error("Failed to update link reason", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@router.post("/{entry_id}/links/{link_id}/generate-reason")
+def generate_link_reason_endpoint(
+    entry_id: int, link_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Ask the model to generate a specific reason why these two notes are connected."""
+    entry = _existing_entry(session, entry_id)
+    link = session.get(EntryLink, link_id)
+    if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    source = session.get(Entry, link.source_entry_id)
+    target = session.get(Entry, link.target_entry_id)
+    if not source or not target:
+        raise HTTPException(status_code=404, detail="Notes not found")
+
+    try:
+        reason = librarian.generate_link_reason(
+            manager.readable_content(source),
+            manager.readable_content(target),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+        )
+        return {"reason": reason}
+    except Exception as exc:
+        import logging
+        logging.getLogger("memorymap.api").error("Failed to generate link reason", exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))

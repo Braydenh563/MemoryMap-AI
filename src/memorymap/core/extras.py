@@ -194,6 +194,7 @@ def status() -> list[dict]:
             "packages": list(extra.packages),
             "installed": is_installed(extra),
             "installing": _state.running and _state.extra_id == extra.id,
+            "step": _state.step if _state.running and _state.extra_id == extra.id else "",
         }
         for extra in EXTRAS
     ]

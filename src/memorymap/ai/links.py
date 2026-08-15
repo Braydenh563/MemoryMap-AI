@@ -31,7 +31,6 @@ logger = logging.getLogger("memorymap.ai.links")
 # wording spelled out.
 VAGUE_PHRASES = (
     "similar in meaning",
-    "both notes",
     "related to each other",
     "they are related",
     "they relate",

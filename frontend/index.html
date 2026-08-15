@@ -9,7 +9,7 @@
        also composites onto white, so the mark carries its own tile. -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <!-- PWA (Wave F): installable, and the shell loads from cache -->
+  <!-- PWA: installable, and the shell loads from cache -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#4f6df5">
   <!-- Phosphor is the app's only icon set, vendored like d3 and p5 — the
@@ -82,10 +82,10 @@
   </script>
 </head>
 <body>
-  <!-- Keyboard users can jump straight past the chrome (Wave L). -->
+  <!-- Keyboard users can jump straight past the chrome. -->
   <a href="#" id="skip-link" class="skip-link">Skip to content</a>
 
-  <!-- One compact, sticky top bar: brand · tabs · controls (Wave L). -->
+  <!-- One compact, sticky top bar: brand · tabs · controls. -->
   <header id="top-bar">
     <img id="brand-logo" src="/favicon.svg" alt="" aria-hidden="true" width="34" height="34">
     <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
@@ -190,7 +190,7 @@
     </div>
   </header>
 
-  <!-- Unlock / first-run setup gate (Phase 4) -->
+  <!-- Unlock / first-run setup gate -->
   <div id="lock-overlay" class="lock-overlay hidden">
     <div class="card lock-card">
       <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
@@ -308,7 +308,7 @@
     </div>
   </dialog>
 
-  <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
+  <!-- ======================= DASHBOARD TAB ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
          with a live clock on the right. -->
@@ -574,7 +574,7 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="most-used">Most used</option>
             </select>
           </div>
-          <!-- Batch actions bar (Wave M): appears in select mode -->
+          <!-- Batch actions bar: appears in select mode -->
           <div id="batch-bar" class="row hidden">
             <span id="batch-count" class="muted" role="status">0 selected</span>
             <select id="batch-category" aria-label="Move selected notes to category"></select>
@@ -614,7 +614,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- ======================= CHAT TAB (Wave C) ============================ -->
+  <!-- ======================= CHAT TAB ====================================== -->
   <div class="tab-page hidden" id="tab-chat" role="tabpanel" aria-labelledby="tab-btn-chat" tabindex="-1">
     <div class="layout">
       <!-- **Recent chats, not every chat (§36F).** Browsing what you have ever
@@ -935,7 +935,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
+  <!-- ======================= GRAPH TAB ===================================== -->
   <!-- Timeline (§10B): the notebook on a time axis, in bands. The axis is
        time; the bands are what make it a map of what happened rather than a
        sorted list. -->
@@ -1325,7 +1325,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
+  <!-- ======================= REMINDERS TAB ================================= -->
   <div class="tab-page hidden" id="tab-reminders" role="tabpanel" aria-labelledby="tab-btn-reminders" tabindex="-1">
     <!-- Compose: the two ways to add a reminder, kept apart from the list -->
     <section class="card reminders-card" id="reminder-compose">
@@ -2075,7 +2075,7 @@ Link to another note with [[its first few words]]."></textarea>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>
 
-  <!-- ======================= SETTINGS MODAL (Wave A) ====================== -->
+  <!-- ======================= SETTINGS MODAL ================================ -->
   <div id="settings-modal" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Settings">
     <div class="card modal-card">
@@ -2147,7 +2147,7 @@ Link to another note with [[its first few words]]."></textarea>
         </nav>
         <div class="modal-content">
 
-          <!-- Models (Phase 3.5, moved here in Wave A) -->
+          <!-- Models -->
           <section class="settings-section" id="settings-models">
             <p id="ollama-status" class="status"></p>
             <p id="search-engine-health" class="status"></p>
@@ -2284,7 +2284,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- Personas (Wave C): who the AI is when it answers -->
+          <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
             <p class="muted">
               A persona changes the AI's voice — answers always stay grounded
@@ -2353,7 +2353,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- Templates (Wave B, extended): prefills for the Capture box -->
+          <!-- Templates: prefills for the Capture box -->
           <section class="settings-section hidden" id="settings-templates">
             <p class="muted">
               A template fills the Capture box with a starting shape — a
@@ -2376,7 +2376,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- AI Tools (Wave O): toggle what the chat AI is allowed to do -->
+          <!-- AI Tools: toggle what the chat AI is allowed to do -->
           <section class="settings-section hidden" id="settings-memory">
             <p class="muted">
               The AI can save itself standing instructions — say
@@ -2430,7 +2430,7 @@ Link to another note with [[its first few words]]."></textarea>
             <ul id="tool-list" class="entry-list"></ul>
           </section>
 
-          <!-- Appearance (Wave J): grouped into scannable setting rows -->
+          <!-- Appearance: grouped into scannable setting rows -->
           <section class="settings-section hidden" id="settings-appearance">
 
             <!-- ---------- Curated themes ---------- -->
@@ -2883,7 +2883,7 @@ Link to another note with [[its first few words]]."></textarea>
             </ul>
           </section>
 
-          <!-- Preferences (Phase 4/5, moved here in Wave A) -->
+          <!-- Preferences -->
           <section class="settings-section hidden" id="settings-preferences">
             <h3>Your name</h3>
             <div class="row">
@@ -3045,7 +3045,7 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
           </section>
 
-          <!-- Tasks (Wave N): see and quit background jobs -->
+          <!-- Tasks: see and quit background jobs -->
           <section class="settings-section hidden" id="settings-tasks">
             <p class="muted">
               Everything the app is doing in the background right now —
@@ -3139,7 +3139,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
           </section>
 
-          <!-- Data (Wave F: markdown + backups join the exports) -->
+          <!-- Data: markdown + backups join the exports -->
           <section class="settings-section hidden" id="settings-data">
             <h3>Export your data</h3>
             <div class="row">
@@ -3202,7 +3202,7 @@ Link to another note with [[its first few words]]."></textarea>
             </p>
           </section>
 
-          <!-- Logs (Wave A) -->
+          <!-- Logs -->
           <!-- Account & security: the one place credentials are managed. -->
           <section class="settings-section hidden" id="settings-account">
             <p class="muted">
@@ -3381,12 +3381,12 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- aria-live so screen readers hear saves, undos, and errors (Wave L) -->
+  <!-- aria-live so screen readers hear saves, undos, and errors -->
   <div id="toast-box" aria-live="polite"></div>
   <!-- Off-screen announcements for things with no visible message of their
        own — jumping to a note, for instance, is only a colour change. -->
   <div id="live-region" class="visually-hidden" role="status" aria-live="polite"></div>
-  <!-- Command palette (Wave F): Ctrl/Cmd-K anywhere -->
+  <!-- Command palette: Ctrl/Cmd-K anywhere -->
   <div id="palette-overlay" class="hidden" role="dialog" aria-label="Command palette">
     <div class="card" id="palette-card">
       <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
@@ -3487,8 +3487,8 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- Whiteboard-lite (Wave F): sketch → PNG attached to a new note -->
-  <!-- AI improve-writing (Wave N): before/after, user approves -->
+  <!-- Whiteboard-lite: sketch → PNG attached to a new note -->
+  <!-- AI improve-writing: before/after, user approves -->
   <div id="improve-overlay" class="hidden" role="dialog" aria-label="Improve writing">
     <div class="card" id="improve-card">
       <div class="row space-between">

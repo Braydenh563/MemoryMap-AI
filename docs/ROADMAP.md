@@ -65,10 +65,16 @@ as needing to be done alone, and nothing above changed that:
   the single biggest lever on the file (~3,400+ contiguous lines from
   `app.js:26356`), still explicitly "do on its own, not alongside a
   bug-fix session" — this session was already the latter, many times over.
-- **CSS consolidation** (§2's `.msg`/media-query duplication). Needs a
-  real before/after browser check per this project's own history of
-  invisible-until-rendered CSS regressions; not something to rush at the
-  end of a long session.
+
+**CSS consolidation — done, on the same "verify live, don't assume" basis.**
+§2 now has the full writeup: one real merge (the `.msg`/`.msg.user`/
+`.msg.assistant` doubled selectors inside the "chat polish" pass),
+verified with a live `getComputedStyle` check in Chromium, and a corrected
+finding that the other two `.msg` sections and all 23 of the 720px media
+queries are legitimately scoped (per-bug-fix, per-component) rather than
+duplicated — merging them would cost the co-location that makes each one
+findable, for no rendering change. The `.dash-widget.dash-wide` dead-code
+claim was already stale (grepped, doesn't exist anywhere in the frontend).
 
 ### 1. Dead code — DONE (`993e639`)
 
@@ -104,20 +110,48 @@ reached via dynamic id/template construction (`` `tab-${tab}` ``,
   `routes_documents.py`, `routes_entries.py`, `routes_files.py`,
   `routes_reminders.py`, `routes_settings.py`, `routes_whiteboard.py`).
   **Impact:** modest (~20-30 lines), mostly readability — low priority.
-- **CSS**: `.msg` styling split across three non-adjacent blocks
-  (`style.css:3739, 7321, 7364`); `.dash-widget.dash-wide` (3509-3517) is a
-  byte-for-byte duplicate of the live `.dash-widget.wide` (3493-3501) —
-  confirmed the JS only ever adds class `"wide"` (`app.js:9259`), so
-  `dash-wide` is pure leftover from a rename. **Impact:** ~50-100 lines
-  mergeable.
-- **41 `@media (max-width: …)` blocks**, 25 at the identical 720px
-  breakpoint, scattered rather than co-located — DESIGN.md's stated
-  philosophy ("narrow-screen tightening happens once") was applied to
-  spacing tokens but not component layout. **Impact:** could shrink
-  meaningfully but touches rendering across many unrelated sections —
-  needs a Playwright pass before touching, per this project's own history
-  of invisible-until-rendered CSS regressions (the borderless-card
-  incident).
+- **CSS `.msg` styling — checked directly and partly done, partly not real.**
+  `.dash-widget.dash-wide` does not exist anywhere in `style.css`/`app.js`/
+  `index.html` any more — grepped, not assumed; this line's citation was
+  already stale, resolved in some earlier pass with no note left behind.
+  `.msg`/`.msg.user`/`.msg.assistant` genuinely were re-opened twice each,
+  back-to-back with nothing but a comment between them, inside the "chat
+  polish" pass (was `style.css:7534-7579`) — merged into one declaration
+  each per selector, verified live: started the app, sent a real chat
+  message, read `getComputedStyle` on both `.msg.user` and `.msg.assistant`
+  in Chromium, confirmed every property (gradient background, box-shadow,
+  border-radius, `animation-name: msg-in`, border-left) still resolves
+  exactly as before. **The other two `.msg` sections are not the same kind
+  of duplication and were deliberately left alone**: the base rules
+  (`:3913`) and a later "assistant message layout" bug-fix block
+  (`:11742`, its own "Asked for:" comment) each carry the specific
+  reported-bug context that motivated them — collapsing them into one
+  block would erase that provenance for no functional gain, and one real
+  cascade interaction lives here already (the later block's
+  `.msg { max-width: 100% }` currently beats the base's `.msg { max-width:
+  82% }` for `.msg.user` specifically, since `.msg.assistant`'s own
+  82% at line 3948 has higher specificity and wins there instead) — whether
+  that's the intended width for a user bubble is a real question, but a
+  behavioural one, out of scope for a pure reorg pass.
+- **41 `@media (max-width: …)` blocks, 23 at the 720px breakpoint —
+  checked directly, and this is not the duplication it looked like.**
+  Read every 720px block, including the two closest together
+  (`:5677`/`:5700`, 23 lines apart) and a third pair sharing a file region
+  (`:3594`/`:3680`). Each one is scoped to a single component or a single
+  reported bug, immediately below the rule it overrides, with its own
+  explanatory comment (`.action-menu.submenu` going static below phone
+  width, `.dash-widget.wide` collapsing to one column, global touch-input
+  sizing) — this is the idiomatic co-location pattern, not copy-paste
+  duplication, and DESIGN.md's §120 rule this was measured against
+  ("narrow-screen tightening happens once, in a single media query on
+  `:root`") is scoped to the shared spacing/gap value specifically, not to
+  every component-level responsive rule in the file — rereading it, it
+  never claimed the latter. Merging blocks that happen to share a
+  breakpoint into fewer blocks would not change what a browser renders
+  (there is no per-block parse cost worth chasing) and would only remove
+  the co-location that makes each override easy to find next to the rule
+  it modifies. **Nothing to do here** — correcting a prior session's
+  assumption rather than re-deferring it a third time.
 
 ### 3. Unused UI components
 

@@ -7531,36 +7531,6 @@ html {
   scroll-behavior: smooth;
 }
 
-.msg {
-  box-shadow: 0 1px 3px rgba(31, 38, 135, 0.06);
-  line-height: 1.55;
-}
-
-.msg.user {
-  border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
-}
-
-.msg.assistant {
-  border-radius: var(--radius) var(--radius) var(--radius) var(--radius-sm);
-  background: var(--card);
-}
-
-/* Give the two voices real visual identity rather than two grey boxes. */
-.msg.user {
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #7c3aed));
-  box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 32%, transparent);
-}
-
-.msg.assistant {
-  border-left: 3px solid var(--accent-soft);
-}
-
-.msg.assistant .msg-role {
-  letter-spacing: 0.01em;
-  color: var(--accent);
-  font-weight: 650;
-}
-
 /* A quiet entrance so replies feel like they arrive. */
 @keyframes msg-in {
   from {
@@ -7575,7 +7545,28 @@ html {
 }
 
 .msg {
+  box-shadow: 0 1px 3px rgba(31, 38, 135, 0.06);
+  line-height: 1.55;
   animation: msg-in 0.18s ease-out;
+}
+
+/* Give the two voices real visual identity rather than two grey boxes. */
+.msg.user {
+  border-radius: var(--radius) var(--radius) var(--radius-sm) var(--radius);
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #7c3aed));
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.msg.assistant {
+  border-radius: var(--radius) var(--radius) var(--radius) var(--radius-sm);
+  background: var(--card);
+  border-left: 3px solid var(--accent-soft);
+}
+
+.msg.assistant .msg-role {
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  font-weight: 650;
 }
 
 .msg.assistant .bubble-answer {

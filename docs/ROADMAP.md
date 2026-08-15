@@ -58,6 +58,45 @@ fresh session should pick them up:
 5. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
    fully scoped, not started. One open decision before building: preview
    before commit, or commit straight through (recommendation in §62: preview).
+6. **A live visual indicator when the mic picks up sound**, for the dictation
+   buttons — asked for directly, explicitly deferred by the user this
+   session ("that can wait"). Not scoped yet: likely a small level-meter off
+   `AnalyserNode`/`getByteFrequencyData` on the same `MediaStream` the
+   recorder already opens in `toggleDictation()` (`app.js:17050`) — no new
+   permission, no new stream.
+
+### Two real bugs found and fixed this session, from a live user report with logs
+
+Not from this sandbox — this sandbox's network policy blocks huggingface.co
+outright (see the standing caveat), so neither of these could have been
+found here. A user ran the app for real on Windows and reported the actual
+failures with logs attached, which is what surfaced them:
+
+- **Dictation errored on every recording on Windows**: `[Errno 13]
+  Permission denied` on the temp file. `routes_voice.py`'s
+  `_transcribe_upload` held the clip open under `NamedTemporaryFile`'s own
+  handle for the whole `with` block while also handing that same path to
+  `voice.transcribe()` to open a second time — fine on POSIX, where a
+  second handle can open a file another handle already has open; refused on
+  Windows, which locks a file exclusively while any handle is open. Fixed:
+  write, close by hand, transcribe, delete in `finally`. This sandbox is
+  Linux, so this class of bug — same shape as the `os.kill(pid, 0)` one in
+  the traps list — could never have reproduced here even with faster-whisper
+  actually installed and a real model downloaded.
+- **Reinstall/Remove on the voice extra silently failed after the mic had
+  been used once**: not confirmed with the same certainty (no log was seen
+  for this specific failure, only inferred from the shape of the report),
+  but root-caused as far as it can be without a Windows machine —
+  `voice._loaded` caches the loaded `WhisperModel` in this process for as
+  long as it runs, and Windows locks its native `.pyd`/DLL while any process
+  has it mapped in, so `pip uninstall`/`--force-reinstall` can spawn, run,
+  and still fail to actually replace those files. `extras.start()`/`remove()`
+  now refuse up front for "voice" specifically when a model is loaded,
+  naming the restart as the fix, rather than surfacing pip's own cryptic
+  error. **If this reproduces again with the actual pip error text visible
+  in Settings → Packages → "What pip is doing," that text is worth capturing
+  here** — the diagnosis above is inference from a known Windows file-locking
+  pattern, not a confirmed root cause the way the temp-file bug is.
 
 ## #0 priority — codebase quality review (this session) — full report, agreed, act on before anything else below
 

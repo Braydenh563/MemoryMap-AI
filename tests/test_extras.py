@@ -211,3 +211,48 @@ def test_removal_is_never_blocked(client, monkeypatch):
     )
     body = client.post("/extras/localllm/uninstall").json()
     assert body["started"] is True
+
+
+# --- reported: remove/reinstall of faster-whisper silently failed on Windows
+# once the dictation buttons had been used once this session --------------------
+
+
+def test_reinstalling_voice_while_its_model_is_loaded_is_refused(monkeypatch):
+    """Windows locks the loaded .pyd/DLL exclusively; pip can run and still
+    fail to replace it. Refusing up front says why, instead of a cryptic pip
+    error nobody reading it would connect to "I used the mic earlier"."""
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", ("base", object()))
+    started, message = extras.start("voice", reinstall=True)
+    assert started is False
+    assert "restart" in message.lower()
+
+
+def test_removing_voice_while_its_model_is_loaded_is_refused(monkeypatch):
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", ("base", object()))
+    started, message = extras.remove("voice")
+    assert started is False
+    assert "restart" in message.lower()
+
+
+def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch):
+    """The common case — nobody has recorded anything yet, or the process is
+    fresh — must not be caught by the same guard."""
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", None)
+    started, message = extras.remove("voice")
+    assert started is True
+
+
+def test_the_guard_leaves_other_extras_alone(monkeypatch):
+    """Only voice caches a loaded native model across requests; nothing about
+    another extra should ever be refused for this reason."""
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", ("base", object()))
+    started, message = extras.start("desktop", reinstall=True)
+    assert started is True

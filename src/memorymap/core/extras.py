@@ -326,6 +326,10 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
     # nothing calls is not made installable by asking twice.
     if extra.unavailable:
         return False, f"{extra.label} isn't ready to install yet. {extra.unavailable}"
+    if reinstall:
+        blocked = _loaded_in_process_reason(extra)
+        if blocked:
+            return False, blocked
     with _lock:
         if _state.running:
             return False, "Another install is already running."
@@ -351,6 +355,9 @@ def remove(extra_id: str) -> tuple[bool, str]:
     extra = EXTRAS_BY_ID.get(extra_id)
     if extra is None:
         return False, "No such extra."
+    blocked = _loaded_in_process_reason(extra)
+    if blocked:
+        return False, blocked
     with _lock:
         if _state.running:
             return False, "Another install is already running."
@@ -362,6 +369,35 @@ def remove(extra_id: str) -> tuple[bool, str]:
         _state.started = time.time()
     threading.Thread(target=_run_uninstall, args=(extra,), daemon=True).start()
     return True, f"Removing {extra.label}."
+
+
+def _loaded_in_process_reason(extra: Extra) -> str:
+    """Reported: faster-whisper install/reinstall/remove all silently failed
+    on Windows after the dictation buttons had already been used once.
+
+    A used model stays loaded in this process's memory for as long as it
+    runs (`voice._loaded`) — the whole point, since reloading one per request
+    would be far too slow. Windows locks a native `.pyd`/DLL exclusively
+    while any process has it mapped in, so pip can spawn, run, and still fail
+    to actually replace those files; the failure then surfaces as a cryptic
+    pip error in the install log rather than as this sentence. POSIX allows
+    replacing a file that is still open elsewhere, which is why this was
+    never seen from this sandbox.
+
+    Only "voice" holds a native model like this today — the other extras
+    either aren't native libraries or aren't cached across requests.
+    """
+    if extra.id != "voice":
+        return ""
+    from memorymap.ai import voice
+
+    if voice._loaded is not None:  # noqa: SLF001 — this module's whole job is knowing this
+        return (
+            "Restart MemoryMap first. The voice model is loaded in memory from "
+            "an earlier recording, and Windows can't replace those files while "
+            "they're in use — a restart releases them."
+        )
+    return ""
 
 
 def reset_for_tests() -> None:

@@ -48,9 +48,18 @@ def _transcribe_upload(
         raise HTTPException(status_code=400, detail="The recording is empty")
 
     suffix = Path(file.filename or "clip.webm").suffix[:8] or ".webm"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as clip:
+    # delete=True keeps the file open under this handle for the `with` block's
+    # whole lifetime — harmless on POSIX, where a second handle can still open
+    # the same path, but Windows locks a file exclusively while any handle on
+    # it is open. faster-whisper's own reader opening that path for decoding
+    # then failed with "Permission denied" on every Windows machine, which
+    # this sandbox is not, so nothing here had ever seen it fail. Closed by
+    # hand and cleaned up in `finally` instead, so nothing holds it open while
+    # `voice.transcribe` reads it.
+    clip = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    try:
         clip.write(data)
-        clip.flush()
+        clip.close()
         try:
             text = voice.transcribe(
                 Path(clip.name),
@@ -62,6 +71,8 @@ def _transcribe_upload(
             raise HTTPException(
                 status_code=422, detail=f"Couldn't transcribe that recording: {exc}"
             ) from exc
+    finally:
+        Path(clip.name).unlink(missing_ok=True)
 
     log_action(session, "transcribed", "voice", detail=f"{len(data)} bytes")
     session.commit()

@@ -11975,6 +11975,7 @@ textarea.autogrow {
   padding: 0.15rem 0.4rem;
   border-radius: 1rem;
   border: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 
 /* --- banding ------------------------------------------------------------------

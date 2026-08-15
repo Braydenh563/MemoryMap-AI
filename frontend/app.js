@@ -14450,7 +14450,10 @@ async function renderTimeline() {
   // them, so "wider" wasn't wide enough to matter. 13rem + a 3-line clamp
   // (below, .timeline-dot) gets close to the full preview for a typical
   // note instead of a marginal improvement on the same shape of cut-off.
-  grid.style.gridTemplateColumns = `minmax(7rem, auto) repeat(${buckets.length}, minmax(13rem, 1fr))`;
+  // 7rem was sized before category names like "Communication & Connection"
+  // were tried against it — every band longer than one short word wrapped to
+  // two cramped lines with its count badge squeezed against the edge.
+  grid.style.gridTemplateColumns = `minmax(11rem, auto) repeat(${buckets.length}, minmax(13rem, 1fr))`;
 
   const corner = document.createElement("div");
   corner.className = "timeline-corner";

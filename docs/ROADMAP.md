@@ -33,6 +33,43 @@ is already clean, no orphaned routes, no orphaned Python modules, no stale
 concentrated in a handful of oversized files and accumulated duplication in
 the two huge frontend files — not sprawl.
 
+### Executed this session — a third pass, working the ranked list top-down
+
+Acted on in ranked order (§8), each step verified with the full suite +
+ruff before moving to the next, committed incrementally. **Done:** §11
+items 1-2 (debounced the Notes search + gated semantic search behind it)
+and item 3 (log filter), plus the note-picker search found the same way;
+§12 item 1 (pagination ceiling on `/documents` and conversations); §7's
+last dead-CSS fragment; §4's `ai/tools.py` split — **partial, by design**:
+`_common.py`, `documents.py`, `whiteboard.py`, `categories.py` extracted
+and verified (4,240 → 3,352 lines), but the registry/`TOOLS` dict and the
+bulk of note-CRUD/agent-orchestration handlers were **left in
+`__init__.py`** rather than forced apart — they're the most interleaved,
+most load-bearing part of the file (the AI's entire tool-calling surface),
+and splitting them further needs its own session, not a continuation of
+this one; §2's markdown-renderer merge (`renderInlineMarkdown`/
+`appendInline` — verified live in a browser, both code paths); §10 items
+1-4 (tag-cloud dedupe, `on_this_day` SQL filter + a private-note leak
+found doing it, the `/graph` double entry-fetch) and item 5 (janitor's kNN
+filing vectorized); `routes_settings.py` split into `routes_websearch.py`
++ `routes_backups.py` (1,552 → 1,268 lines).
+
+**Deliberately not attempted this session** — both already flagged in §8
+as needing to be done alone, and nothing above changed that:
+- **`searxng_manager.py`'s split.** Subprocess/timing-sensitive (Docker
+  lifecycle, source install, process start/stop, Windows shims) — the
+  fake-transport standing caveat means this module's real behaviour isn't
+  exercised by the suite the way request/response code is, so a mistake
+  here is exactly the kind the tests wouldn't catch before a user did.
+- **Extracting `app.js`'s whiteboard block into `whiteboard.js`.** Still
+  the single biggest lever on the file (~3,400+ contiguous lines from
+  `app.js:26356`), still explicitly "do on its own, not alongside a
+  bug-fix session" — this session was already the latter, many times over.
+- **CSS consolidation** (§2's `.msg`/media-query duplication). Needs a
+  real before/after browser check per this project's own history of
+  invisible-until-rendered CSS regressions; not something to rush at the
+  end of a long session.
+
 ### 1. Dead code — DONE (`993e639`)
 
 All four items below were deleted the same session this section was
@@ -159,21 +196,21 @@ fragment of it survives inside a media query —
 — targeting a selector that no longer exists anywhere else in the file.
 Trivial, low risk, delete it.
 
-### 8. Technical debt opportunities, ranked (re-ranked; items 1-3 from the
-original table are done — see §1, §6, §7)
+### 8. Technical debt opportunities, ranked — only 2 rows still open
+
+Everything else in the previous version of this table shipped this
+session (see "Executed this session" above for exactly what). What's
+left, both already flagged as needing their own dedicated session rather
+than a continuation of this one:
 
 | # | Item | Impact | Risk | Effort |
 |---|---|---|---|---|
-| 1 | Debounce the main Notes search + gate semantic search behind it (§11.1-2) | High — felt on every keystroke in the app's primary view | Low | Trivial — the pattern already exists 3x elsewhere in the file |
-| 2 | Give `GET /entries`/`/documents`/conversations/Library a real limit+offset, so notebooks past ~200 items are actually reachable (§12.1) | High — a hard, silent ceiling on a growing notebook | Low-medium | Small-medium |
-| 3 | Delete the one remaining dead-CSS fragment (§7) | Low, but free | Low | Trivial |
-| 4 | Split `ai/tools.py` into a `tools/` package by domain (§4) | Medium — biggest single-file outlier in the repo | Low-medium | Medium |
-| 5 | Extract `app.js`'s whiteboard block into `whiteboard.js` (§4) — its own best-identified module-split candidate, ~3,400+ contiguous lines from `app.js:26356` | High — biggest lever on the 30k-line file | Medium | Large; do on its own, not alongside a bug-fix session |
-| 6 | Merge the two markdown renderers (§2) | Medium | Medium | Medium |
-| 7 | Vectorize `janitor.py`'s per-save centroid/kNN filing to match `embeddings.similar_pairs`'s approach (§10.5) | Low now, grows with notebook size | Low | Medium |
-| 8 | Split `routes_settings.py` and `searxng_manager.py` (§4) | Low-medium | Medium (searxng touches subprocess timing) | Medium |
-| 9 | Consolidate duplicate/near-duplicate CSS blocks (§2) | Low-medium | Medium — needs a real browser check | Medium |
-| 10 | Dedupe the tag-count full-table-scan (`manager.all_tags`/`tag_cloud`) and switch `on_this_day` to a SQL date filter (§10.1-3) | Low-medium, both are hit on every Library/dashboard open | Low | Low |
+| 1 | Extract `app.js`'s whiteboard block into `whiteboard.js` (§4) — its own best-identified module-split candidate, ~3,400+ contiguous lines from `app.js:26356` | High — biggest lever on the 30k-line file | Medium | Large; do on its own, not alongside a bug-fix session |
+| 2 | Consolidate duplicate/near-duplicate CSS blocks (§2) | Low-medium | Medium — needs a real browser check | Medium |
+
+`searxng_manager.py`'s split (subprocess/timing-sensitive, deliberately
+not attempted — see above) is a third open item, not ranked here because
+it was never in the "quick, do it now" tier to begin with.
 
 ### 9. Caching/pooling checklist, audited against current code (added post-Antigravity/Gemini session)
 

@@ -76,6 +76,43 @@ fresh session should pick them up:
    Settings → Logs should now show it (search "memorymap.extras"); that
    text is what a fresh session needs to actually fix the install rather
    than guess again.
+8. **faster-whisper still fails to install, re-reported with a screenshot**:
+   the Background-tasks history card still says "pip exited with code 1.
+   The log above says why" with no actual pip output visible above it —
+   meaning item 7's `logging` fix (routed into Settings → Logs) has not yet
+   been confirmed to actually surface the real error either, or the log
+   line itself only ever held the summary sentence, never the detail. Not
+   yet investigated this session — the `logging`-routing fix landed but
+   nobody has since captured the real Settings → Logs output for a live
+   failure to confirm it works. Start there before changing anything else.
+9. **Asked for directly: extras install/reinstall/remove, embedding-model
+   downloads, AI-model downloads, and the `start.bat`/`start.sh` launch
+   scripts should all retry and fall back automatically on failure**,
+   rather than surfacing a bare pip/download error. Not scoped. Needs a
+   design pass before building: what counts as a retryable failure
+   (network blip) vs. one that needs a different approach entirely (wrong
+   platform wheel, disk full) vs. one that just needs to be reported
+   clearly (bad credentials, no internet at all) — a retry loop around the
+   wrong failure mode wastes the user's time and bandwidth instead of
+   saving it. Should share findings with item 8 above rather than being
+   built separately from it.
+10. **Timeline tab's "line/branch" view — asked for a redesign, "more
+    professional" look.** Not scoped, not started. Built around
+    `app.js:14517`'s "Timeline: the branch/line view" section; queue after
+    the whiteboard.js extraction (item 2) lands, since both touch `app.js`
+    and running them concurrently risks a merge conflict.
+11. **Document editor — asked to "improve and expand."** Not scoped: no
+    specific gaps were named, so a fresh session should look at what it
+    currently does (BACKLOG.md §64 already flags it as "behind the rest of
+    the app, needs its own pass" — read that first) before proposing
+    additions. Same app.js overlap caution as item 10.
+12. **Asked directly: run a full pass with the `apple-design` skill to
+    refine the frontend's visual design and UI/UX.** Broad and
+    high-risk — will likely touch every CSS file and much of `index.html`,
+    so it should run *last*, after every other structural frontend change
+    in this list (whiteboard.js, the markdown-renderer merge, the timeline
+    and document-editor work) has landed, not concurrently with any of
+    them.
 
 ## #0 priority — codebase quality review, still-open items
 

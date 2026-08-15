@@ -87,10 +87,7 @@ def _linked_notes(session: Session, document_id: int) -> list[dict]:
 
 
 def _existing(session: Session, document_id: int) -> Document:
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return document
+    return deps.get_or_404(session, Document, document_id, "Document not found")
 
 
 @router.get("")

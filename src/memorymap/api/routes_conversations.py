@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from memorymap.core import deps
 from memorymap.core.database import Conversation, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
@@ -106,10 +107,7 @@ def _summary(conversation: Conversation) -> dict:
 
 
 def _existing(session: Session, conversation_id: int) -> Conversation:
-    conversation = session.get(Conversation, conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return conversation
+    return deps.get_or_404(session, Conversation, conversation_id, "Conversation not found")
 
 
 def conversation_matches(conversation: Conversation, term: str) -> bool:

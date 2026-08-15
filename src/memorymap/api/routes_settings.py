@@ -565,9 +565,7 @@ def update_memory(
 ) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = session.get(UserPreference, preference_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
     if body.content is not None:
         text_ = body.content.strip()
         if not text_:
@@ -584,9 +582,7 @@ def update_memory(
 def forget_memory(preference_id: int, session: Session = Depends(get_session)) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = session.get(UserPreference, preference_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
     session.delete(row)
     session.commit()
     return {"status": "ok"}

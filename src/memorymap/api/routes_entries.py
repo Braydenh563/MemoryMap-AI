@@ -169,10 +169,10 @@ def _find_near_duplicate(session: Session, entry) -> SimilarOut | None:  # noqa:
 
 
 def _existing_entry(session: Session, entry_id: int):  # noqa: ANN202
-    entry = manager.get_entry(session, entry_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Entry not found")
-    return entry
+    # `manager.get_entry` is `session.get(Entry, entry_id)` under the hood
+    # (memorymap/entry/manager.py); going through `deps.get_or_404` directly
+    # is equivalent and consolidates the 404.
+    return deps.get_or_404(session, Entry, entry_id, "Entry not found")
 
 
 @router.post("", response_model=EntryOut, status_code=201)

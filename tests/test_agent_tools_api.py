@@ -1,4 +1,6 @@
-"""Wave G: agentic tools — registry, agent loop, confirm flow, skills."""
+"""Agentic tools: the registry, the tool-calling agent loop over the
+streaming chat endpoint, the destructive-call confirm flow, skills
+preferences, and hallucinated-write recovery."""
 
 from __future__ import annotations
 
@@ -369,3 +371,39 @@ def test_agent_warns_on_hallucinated_write(ai_client, fake_ollama):
     assert "Heads up" in answer
     assert "saved a note" in answer
     assert "didn't actually run the tool" in answer
+
+
+# --- per-tool enable/disable toggles ---------------------------------------------
+
+
+def test_tool_catalog_lists_tools(client):
+    catalog = client.get("/chat/tools").json()
+    names = {t["name"] for t in catalog}
+    assert {"create_note", "delete_note", "set_reminder"} <= names
+    delete = next(t for t in catalog if t["name"] == "delete_note")
+    assert delete["destructive"] is True
+
+
+def test_disabled_tool_is_hidden_and_refused(ai_client):
+    from memorymap.ai import tools
+
+    # Disable create_note via the preference.
+    ai_client.put("/preferences", json={"disabled_tools": ["create_note"]})
+    offered = [t["function"]["name"] for t in tools.ollama_tools()]
+    assert "create_note" not in offered
+
+    # And the execute endpoint refuses it too.
+    from memorymap.core import deps
+
+    session = deps.get_db().session()
+    try:
+        result = tools.execute_tool(session, "create_note", {"content": "x"})
+        assert "error" in result and "turned off" in result["error"]
+    finally:
+        session.close()
+
+
+def test_disabled_tools_preference_roundtrips(client):
+    body = client.put("/preferences", json={"disabled_tools": ["delete_tag"]}).json()
+    assert body["disabled_tools"] == ["delete_tag"]
+    assert client.get("/preferences").json()["disabled_tools"] == ["delete_tag"]

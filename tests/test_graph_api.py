@@ -1,4 +1,4 @@
-"""Wave E: the graph endpoint — nodes, link/thread edges, similarity."""
+"""The graph endpoint — nodes, link/thread edges, similarity."""
 
 from __future__ import annotations
 
@@ -176,3 +176,28 @@ def test_graph_previews_show_words_not_markdown_markers(client):
     client.post("/entries", json={"content": "## **Seraphine build** for _mid_ lane"})
     nodes = client.get("/graph").json()["nodes"]
     assert nodes[0]["preview"] == "Seraphine build for mid lane"
+
+
+# --- the physics sliders, checked against the frontend source directly -------
+#
+# Not an API test — Gravity/Spread only make sense under the force layout, and
+# the only way to check the toggle actually disables them under the others is
+# to read app.js, the same way test_frontend_ids.py/test_style_scale.py do for
+# their own DOM-invisible-to-pytest checks.
+
+
+def test_the_physics_sliders_are_disabled_under_tree_layouts():
+    """Gravity and Spread scale the force simulation, and the tree layouts do
+    not run one. Left enabled they are two controls that move, save, and change
+    nothing — which reads as a broken app rather than a setting that does not
+    apply here."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    start = source.index("function setGraphPhysicsEnabled(")
+    body = source[start : start + 1400]
+    assert 'layoutKind === "force"' in body
+    assert "disabled" in body
+    # Called on arrival as well as on change, or a notebook left on Tree comes
+    # back with two live-looking dead sliders.
+    assert source.count("setGraphPhysicsEnabled(") >= 3

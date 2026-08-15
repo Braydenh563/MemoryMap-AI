@@ -1,4 +1,4 @@
-"""Phase 3.5: the Model Manager endpoints, fully offline via fakes."""
+"""The Model Manager endpoints, fully offline via fakes."""
 
 from __future__ import annotations
 
@@ -6,8 +6,10 @@ import time
 
 from sqlalchemy import select
 
+from memorymap.ai.embeddings import EmbeddingService
 from memorymap.core import deps
 from memorymap.core.database import EmbeddingRecord
+from tests.fakes import FakeOllama
 
 
 def _wait_for(client, check, timeout: float = 5.0) -> dict:
@@ -36,6 +38,32 @@ def test_suggested_catalog(client):
     body = client.get("/models/suggested").json()
     assert "llama3.2" in [m["name"] for m in body["chat"]]
     assert "nomic-embed-text" in [m["name"] for m in body["embedding"]]
+
+
+# --- the status pill: warming vs failed -----------------------------------------
+
+
+def test_status_reports_embedding_error(client):
+    body = client.get("/models/status").json()
+    assert "embedding_warming" in body
+    assert "embedding_error" in body
+
+
+def test_embedding_failure_is_recorded_not_swallowed(app_state, monkeypatch):
+    # Force the model load to fail deterministically. An offline machine
+    # fails because the model isn't cached, but a networked CI runner would
+    # download the real model and succeed — which isn't what this test is
+    # about. We're checking that a genuine failure is RECORDED (last_error)
+    # and not swallowed into a forever "warming up…" state (user-reported bug).
+    service = EmbeddingService(deps.get_model_manager(), FakeOllama(running=False))
+
+    def boom():
+        raise RuntimeError("no embedding model available (forced for test)")
+
+    monkeypatch.setattr(service, "_load_st_model", boom)
+    assert service.embed_text("hello") is None
+    assert service.last_error is not None
+    assert service.is_ready() is False
 
 
 def test_set_chat_model_requires_installed(ai_client):
@@ -92,3 +120,40 @@ def test_switch_embedding_backend_reindexes_everything(ai_client, fake_embedding
 def test_embedding_switch_requires_model_for_ollama(ai_client):
     response = ai_client.post("/models/embedding-backend", json={"backend": "ollama"})
     assert response.status_code == 400
+
+
+# --- the utility model (separate from the chat model, for cheap background jobs) --
+
+
+def _save(client, content, **extra):
+    response = client.post("/entries", json={"content": content, **extra})
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_utility_model_defaults_to_chat_model(app_state):
+    manager = deps.get_model_manager()
+    assert manager.utility_model() == manager.chat_model()
+    manager.set_utility_model("phi3.5")
+    assert manager.utility_model() == "phi3.5"
+    manager.set_utility_model("")  # back to "same as chat"
+    assert manager.utility_model() == manager.chat_model()
+
+
+def test_status_reports_utility_model(client):
+    body = client.get("/models/status").json()
+    assert "utility_model" in body
+    assert body["utility_model"] == ""  # unset by default
+
+
+def test_set_utility_model_offline_still_saves(client):
+    # Ollama unavailable in this fixture — an empty name always applies.
+    assert client.post("/models/utility-model", json={"name": ""}).status_code == 200
+
+
+def test_digest_uses_utility_model(ai_client, fake_ollama):
+    deps.get_model_manager().set_utility_model("phi3.5")
+    _save(ai_client, "a funny scarecrow joke")
+    ai_client.post("/insights/digest")
+    # The last chat call went to the utility model, not the chat model.
+    assert fake_ollama.chat_models[-1] == "phi3.5"

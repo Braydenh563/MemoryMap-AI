@@ -1,4 +1,9 @@
-"""Phase 2 units: embeddings, janitor, librarian, search — all offline."""
+"""Core AI-module unit tests, all offline: vector helpers, janitor filing's
+basic decision paths, librarian's message-building, and search retrieval.
+
+(test_janitor_knn.py and test_keyword_search.py cover the same two modules'
+edge cases and thorough behavior in more depth — this file is the basic
+per-module coverage underneath both.)"""
 
 from __future__ import annotations
 

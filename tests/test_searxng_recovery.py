@@ -319,3 +319,147 @@ def test_a_searxng_already_answering_wins_over_a_free_port(monkeypatch):
     )
     monkeypatch.setattr(searxng_manager, "_port_free", lambda port: True)
     assert searxng_manager.choose_port() == searxng_manager.DEFAULT_PORT
+
+
+# --- which backend is available: Docker, source, or neither -------------------
+
+
+def test_searxng_status_without_docker_falls_back_to_source(client, monkeypatch):
+    """No Docker isn't a dead end — SearXNG also runs from a virtualenv."""
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
+    body = client.get("/websearch/searxng/status").json()
+    assert body["docker"] is False
+    assert body["source"] is True
+    assert body["backend"] == "source"
+
+
+def test_searxng_installs_without_docker_or_git(client, monkeypatch):
+    """Neither Docker nor git is a dead end any more.
+
+    This is what "I can't download searxng" meant: `source_available` required
+    the git binary, so a machine with neither Docker nor git was offered an
+    install button that could never work. pip fetches a source tarball over
+    HTTPS on its own, so Python and a network connection are the only real
+    requirements.
+    """
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: False)
+    body = client.get("/websearch/searxng/status").json()
+    assert body["source"] is True
+    assert body["backend"] == "source"
+
+
+def test_searxng_status_with_no_backend_at_all(client, monkeypatch):
+    """Only reachable if source installs are disabled outright."""
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
+    body = client.get("/websearch/searxng/status").json()
+    assert body["backend"] is None
+    assert "run yourself" in body["detail"]
+
+
+def test_docker_installed_but_not_running_is_not_treated_as_available(client, monkeypatch):
+    """The reported failure: Docker Desktop installed but never started.
+
+    Only checking that the binary exists made the app choose the Docker
+    backend, fail to reach the daemon, and never consider the from-source
+    backend that would have worked.
+    """
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: True)
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
+
+    body = client.get("/websearch/searxng/status").json()
+    assert body["backend"] == "source"  # fell through instead of failing
+    assert "not running" in body["detail"]
+
+
+def test_docker_installed_but_stopped_and_no_git_says_which_problem(client, monkeypatch):
+    """"Docker isn't installed" and "Docker isn't started" need different fixes."""
+    monkeypatch.setattr(searxng_manager, "docker_installed", lambda: True)
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
+
+    detail = client.get("/websearch/searxng/status").json()["detail"]
+    assert "daemon isn't running" in detail
+    assert "Docker Desktop" in detail
+
+
+def test_docker_availability_checks_the_daemon_not_just_the_binary(monkeypatch):
+    monkeypatch.setattr(searxng_manager.shutil, "which", lambda name: "/usr/bin/docker")
+
+    class Failed:
+        returncode = 1
+
+    monkeypatch.setattr(searxng_manager.subprocess, "run", lambda *a, **k: Failed())
+    assert searxng_manager.docker_installed() is True
+    assert searxng_manager.docker_available() is False
+
+
+# --- starting and stopping through the HTTP API --------------------------------
+
+
+def test_searxng_start_without_any_backend_is_a_clear_503(client, monkeypatch):
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: False)
+    response = client.post("/websearch/searxng/start")
+    assert response.status_code == 503
+    assert "run yourself" in response.json()["detail"]
+
+
+def test_searxng_start_from_source_installs_first(client, monkeypatch):
+    """The first Start kicks off the install and says so, rather than hanging."""
+    calls = []
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
+    monkeypatch.setattr(searxng_manager, "source_installed", lambda data_dir: False)
+    monkeypatch.setattr(
+        searxng_manager,
+        "install_source",
+        lambda data_dir, on_ready=None: calls.append(data_dir),
+    )
+
+    response = client.post("/websearch/searxng/start")
+    assert response.status_code == 503
+    assert "few minutes" in response.json()["detail"]
+    assert len(calls) == 1  # the install really was kicked off
+
+
+def test_searxng_start_from_source_spawns_the_process(client, monkeypatch):
+    monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)
+    monkeypatch.setattr(searxng_manager, "source_available", lambda: True)
+    monkeypatch.setattr(searxng_manager, "source_installed", lambda data_dir: True)
+    monkeypatch.setattr(searxng_manager, "_source_state", lambda data_dir: "stopped")
+    monkeypatch.setattr(
+        searxng_manager,
+        "_start_source",
+        lambda data_dir: {"url": searxng_manager.BASE_URL, "started": True, "backend": "source"},
+    )
+    monkeypatch.setattr(searxng_manager, "_wait_until_ready", lambda *a, **k: True)
+
+    body = client.post("/websearch/searxng/start").json()
+    assert body["running"] is True
+    assert body["backend"] == "source"
+    assert client.get("/preferences").json()["searxng_url"] == searxng_manager.BASE_URL
+
+
+def test_searxng_start_saves_the_url(client, monkeypatch):
+    monkeypatch.setattr(
+        searxng_manager,
+        "start",
+        lambda data_dir, on_ready=None: {"url": "http://localhost:8888", "started": True},
+    )
+    body = client.post("/websearch/searxng/start").json()
+    assert body["running"] is True
+    assert client.get("/preferences").json()["searxng_url"] == "http://localhost:8888"
+
+
+def test_searxng_stop_reverts_to_duckduckgo(client, monkeypatch):
+    client.put("/preferences", json={"searxng_url": "http://localhost:8888"})
+    monkeypatch.setattr(searxng_manager, "stop", lambda data_dir=None: {"stopped": True})
+    body = client.post("/websearch/searxng/stop").json()
+    assert body["running"] is False
+    # The dead instance must not stay configured.
+    assert client.get("/preferences").json()["searxng_url"] == ""

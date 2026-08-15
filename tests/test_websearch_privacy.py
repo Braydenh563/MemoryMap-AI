@@ -281,3 +281,39 @@ def test_read_url_reports_a_refused_address_to_the_model(app_state, session, mon
     result = tools.execute_tool(session, "read_url", {"url": "http://127.0.0.1/"})
     # An error comes back as data the model can act on, never as a crash.
     assert "local address" in result["error"]
+
+
+# --- the same guard, one layer up: probing/searching a configured SearXNG -----
+#
+# (test_a_searxng_address_that_is_not_local_is_refused above covers the lower-
+# level `_searxng_target` helper; these cover `probe_searxng`/`_search_searxng`,
+# which call it.)
+
+
+def test_searxng_probe_rejects_a_public_address(monkeypatch):
+    """SearXNG is self-hosted, so a public URL is refused rather than probed."""
+
+    def boom(*args, **kwargs):  # pragma: no cover — must never be reached
+        raise AssertionError("the guard should have stopped this request")
+
+    monkeypatch.setattr(websearch.requests, "get", boom)
+    assert websearch.probe_searxng("https://searx.example.com") is False
+    assert websearch.probe_searxng("not-a-url") is False
+
+
+def test_searxng_search_rejects_a_public_address():
+    with pytest.raises(websearch.WebSearchError, match="this machine or your own network"):
+        websearch._search_searxng("anything", 5, "https://searx.example.com")
+
+
+def test_searxng_probe_still_allows_localhost(monkeypatch):
+    """The guard must not break the instance the app itself starts."""
+
+    class FakeResponse:
+        status_code = 200
+
+        def json(self):
+            return {"results": []}
+
+    monkeypatch.setattr(websearch.requests, "get", lambda *a, **k: FakeResponse())
+    assert websearch.probe_searxng("http://localhost:8888") is True

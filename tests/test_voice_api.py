@@ -1,4 +1,4 @@
-"""Wave H: voice endpoints — graceful without Whisper, working with it."""
+"""Voice endpoints — graceful without Whisper, working with it."""
 
 from __future__ import annotations
 

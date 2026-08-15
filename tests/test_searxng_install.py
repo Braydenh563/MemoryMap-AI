@@ -375,6 +375,50 @@ def test_engines_borrowing_a_removed_network_are_removed_too(app_state):
     assert "- harmless" not in removes
 
 
+def test_autocomplete_is_pinned_off(app_state):
+    """The one thing in a search UI that leaks even when no search is run: a
+    fragment of every query goes to a third-party suggestion endpoint as it is
+    typed. SearXNG defaults it off; pinning it means a changed upstream default
+    or a hand-edited file cannot turn it back on."""
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    search_block = text.split("\nsearch:", 1)[1].split("\noutgoing:", 1)[0]
+    assert 'autocomplete: ""' in search_block
+
+
+def test_result_images_are_proxied_rather_than_fetched_by_the_browser(app_state):
+    """Without this, merely rendering a result page tells every pictured site
+    that someone searched and got them back — before anything is clicked."""
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    server_block = text.split("\nserver:", 1)[1].split("\nsearch:", 1)[0]
+    assert "image_proxy: true" in server_block
+
+
+def test_the_generated_settings_still_have_every_section(app_state):
+    """The failure mode this guards is specific: SearXNG reads this file before
+    it writes a line of its own log, so a broken one presents as "started but
+    never answered" with nothing to go on."""
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    for section in ("server:", "search:", "engines:", "plugins:", "outgoing:"):
+        assert f"\n{section}" in text, f"{section} went missing from the template"
+    # Tabs are the classic way to make a YAML file unparseable without it
+    # looking wrong; YAML forbids them for indentation outright.
+    code = [line for line in text.splitlines() if not line.strip().startswith("#")]
+    assert not any("\t" in line for line in code)
+
+
+def test_the_limiter_being_off_is_tied_to_the_loopback_bind(app_state):
+    """It is only safe because nothing off this machine can reach the port.
+    The comment is the link between the two decisions; if the bind is ever
+    widened this is what should stop it being widened silently."""
+    text = searxng_manager.ensure_settings(app_state.data_dir).read_text()
+    assert "limiter: false" in text
+    assert "loopback" in text.lower()
+
+
+def test_the_docker_container_is_still_published_to_loopback_only():
+    assert searxng_manager._publish_spec().startswith("127.0.0.1:")
+
+
 def _passing_install(monkeypatch, tmp_path, data_dir):
     """Every command succeeds, so the install runs through to the end."""
     _fake_venv(data_dir)
@@ -753,3 +797,30 @@ def test_a_live_process_reads_as_live_and_a_dead_one_does_not():
     dead.wait()
     # A zombie is still reapable here, so wait() above is what makes this real.
     assert searxng_manager._alive(999999) is False
+
+
+def test_searxng_settings_enable_the_json_api(tmp_path):
+    """The JSON format is the step people miss — we must always write it."""
+    path = searxng_manager.ensure_settings(tmp_path)
+    text = path.read_text()
+    assert "json" in text
+    assert "use_default_settings:" in text
+
+    # Rewritten on each start, so fixes to the managed defaults reach
+    # installs made before those fixes existed — but the secret key
+    # survives the rewrite, or every start would invalidate sessions.
+    assert searxng_manager._existing_secret_key(path)  # one was generated
+    # A stand-in rather than the generated secret: the property under test is
+    # "whatever key is in the file survives the rewrite", and writing a real
+    # one back here would be storing a credential in the test suite.
+    marker = "not-a-real-secret-0123456789"
+    path.write_text(f'server:\n  secret_key: "{marker}"\n# edited by hand\n')
+    searxng_manager.ensure_settings(tmp_path)
+    refreshed = path.read_text()
+    assert "# edited by hand" not in refreshed
+    assert marker in refreshed
+
+    # rewrite=False is the escape hatch that keeps a hand-edited file as-is.
+    path.write_text("# edited by hand\n")
+    searxng_manager.ensure_settings(tmp_path, rewrite=False)
+    assert path.read_text() == "# edited by hand\n"

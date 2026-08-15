@@ -306,38 +306,78 @@ restated here so a session picking up "the priority-0 refactor" doesn't
 rebuild the graph cache or the client-side GET cache from scratch, the
 mistake CLAUDE.md's opening section exists to prevent.
 
-### Test suite: a concrete finding, on a different axis than the prior "nothing to do" pass
+### Test suite consolidation — done, a session later, wider than first scoped
 
-A prior session already investigated test consolidation and found nothing
-to act on — it grepped every `@pytest.fixture` across all 107 files for
-reuse and found none. **That conclusion still holds** — fixture hygiene is
-clean (only one harmless same-named-but-different fixture, in
-`test_thinking_budget.py`). What that pass didn't check was **test-content
-overlap between oddly-named batch files and domain files** — a different
-axis, with a real finding:
+The finding two sessions back (Wave-lettered batch files overlapping domain
+files) was executed, and — asked again, explicitly, for the *whole*
+directory rather than just the flagged files — extended well past its
+original scope. Every `test_wave*.py`/`test_phase*.py` file is gone; each
+was either a real grab-bag (split by domain, one section at a time) or
+misnamed-but-coherent (renamed with no content move). Organization only —
+no test-logic changes, verified by asserting the collected test count held
+constant (1811 → 1810) across the whole pass except for one real duplicate
+dropped (below).
 
-- `test_waveb_api.py`'s `test_duplicate_detection_on_save`/
-  `test_related_entries` overlap `test_duplicates.py`/`test_related_notes.py`;
-  its tag tests overlap `test_categories_api.py`.
-- `test_phase4_api.py`'s bin/restore tests duplicate the more thorough
-  `test_recycle_bin.py`; its auth-flow test overlaps `test_account.py`.
-  Fold `test_phase5_api.py` (5 tests) into `test_account.py` too.
-- `test_tier1_refinements.py` (29 tests) is a grab-bag spanning
-  log-console, SearXNG attribution, and worker-count guards with no
-  single home.
-- `test_wavee_graph.py`/`test_waveh_voice.py` aren't duplicative, just
-  misnamed — rename to `test_graph_api.py`/`test_voice_api.py`, no
-  content move.
-- Fold `test_round1_chat.py` (6 tests) into `test_chat_api.py`.
-- **Leave `test_antigravity_regressions.py`/`test_claimed_work.py`
-  alone** — deliberate "one test per audited bug" logs named directly in
-  `CLAUDE.md`; folding them into domain files would lose their value as
-  an audit trail.
+What moved, by original file:
 
-**Proposed scope** (organization only, no test-logic changes — suite must
-stay green and ~3 minutes per CLAUDE.md): merge the overlapping tests
-above into their domain files, rename 2 files, leave grab-bag-but-coherent
-and regression-log files as-is. Net: 106 → ~100-102 files.
+- `test_waveb_api.py` → `test_notes_extras_api.py` (attachments, threads,
+  pins, tag manager, capture templates, saved looks); its two AI-adjacent
+  tests moved into `test_duplicates.py`/`test_related_notes.py`.
+- `test_wavec_api.py` → `test_conversations_api.py`; its 2 embedding-status
+  tests moved into `test_models_api.py`.
+- `test_waved_api.py` → gone. Reminders CRUD/Magic-Add split into new
+  `test_reminders_api.py` (kept apart from `test_reminder_times.py`'s
+  clock-bug narrative rather than merged into it); insights/greeting/tag
+  cloud/heatmap/dashboard-layout into new `test_insights_api.py`; the
+  digest HTTP+streaming tests folded into `test_digest_structure.py`
+  (which already covered the digest's content logic); timezone/timestamp
+  tests into new `test_timezone.py`.
+- `test_wavee_graph.py`/`test_waveh_voice.py` → renamed only, to
+  `test_graph_api.py`/`test_voice_api.py`.
+- `test_wavef_api.py` → gone. Markdown export/import into new
+  `test_markdown_export_import.py`; backups into new `test_backups_api.py`;
+  the core `/websearch` endpoint + DDG parsing + SearXNG hand-off/caching +
+  instance detection into new `test_websearch_api.py`; the page reader +
+  its SSRF guards into new `test_websearch_reader.py`; SearXNG
+  backend-detection and start/stop-via-API tests folded into
+  `test_searxng_recovery.py`; its `ensure_settings` JSON-API test folded
+  into `test_searxng_install.py`; the log-noise-filter test into
+  `test_log_console.py`; tool-gating tests into `test_search_provider.py`;
+  three SSRF probe-guard tests into `test_websearch_privacy.py`; one
+  stray uploads-folder test into `test_notes_extras_api.py`.
+  **One test dropped as a genuine duplicate**, not merged:
+  `test_the_source_install_never_shells_out_to_git` asserted the exact
+  same guarantee, with weaker mocking, as `test_searxng_install.py`'s
+  pre-existing `test_the_install_downloads_an_archive_and_never_shells_out_to_git`.
+- `test_waveg_agent.py` → renamed only, to `test_agent_tools_api.py`.
+- `test_waven_api.py` → gone. Utility-model tests into `test_models_api.py`;
+  improve-writing + generate/remove-title into new
+  `test_note_editing_api.py`; link-suggestions + link-reason-deduction
+  folded into `test_link_reasons.py` (which already covered the AI audit
+  pass over existing reasons — different layer, same domain); job
+  cancellation + finished-jobs history folded into `test_tasks.py`; the
+  agent-prompt time/reminder-hint test into `test_timezone.py`; tool
+  enable/disable toggles into `test_agent_tools_api.py`.
+- `test_logs.py` → folded into `test_log_console.py` (misnamed "Wave A",
+  not actually distinct from the rest of the log-buffer coverage already
+  there).
+- `test_round1_chat.py` → folded into `test_chat_api.py`, as originally
+  scoped.
+- `test_tier1_refinements.py` → split by actual topic: log-buffer tests
+  into `test_log_console.py`, SearXNG-attribution tests into
+  `test_websearch_diagnosis.py`, worker-count guards into new
+  `test_worker_guard.py`, the one graph-physics-slider frontend-source
+  check into `test_graph_api.py`.
+- Three remaining `"""Phase N: ..."""`-labeled docstrings
+  (`test_ai.py`/`test_api_entries.py`/`test_core.py`) rewritten to describe
+  actual scope rather than a build-phase number; `test_ai.py` renamed to
+  `test_ai_core.py` (too generic a name otherwise, given how many other
+  files also cover "ai").
+- **Left alone, as before**: `test_antigravity_regressions.py`/
+  `test_claimed_work.py` (deliberate one-test-per-audited-bug logs, named
+  directly in `CLAUDE.md`), and the fixture-hygiene finding ("no reinvented
+  fixture" from the fixture-reuse grep) — that check was about a different
+  axis than this one and still holds.
 
 ### Frontend refactor path for `app.js` (no bundler, no build step)
 

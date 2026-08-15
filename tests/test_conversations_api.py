@@ -1,43 +1,18 @@
-"""Wave C: pill status fields, conversations, personas."""
+"""Conversations: lifecycle, turns, retitling, personas.
+
+(The embedding status-pill tests that used to live here moved to
+test_models_api.py — same domain as the rest of /models/status's
+coverage.)"""
 
 from __future__ import annotations
 
 from memorymap.ai import librarian
-from memorymap.ai.embeddings import EmbeddingService
-from memorymap.core import deps
-from tests.fakes import FakeOllama
 
 
 def _save(client, content, **extra):
     response = client.post("/entries", json={"content": content, **extra})
     assert response.status_code == 201
     return response.json()
-
-
-# --- pill fix: warming vs failed --------------------------------------------------
-
-
-def test_status_reports_embedding_error(client):
-    body = client.get("/models/status").json()
-    assert "embedding_warming" in body
-    assert "embedding_error" in body
-
-
-def test_embedding_failure_is_recorded_not_swallowed(app_state, monkeypatch):
-    # Force the model load to fail deterministically. An offline machine
-    # fails because the model isn't cached, but a networked CI runner would
-    # download the real model and succeed — which isn't what this test is
-    # about. We're checking that a genuine failure is RECORDED (last_error)
-    # and not swallowed into a forever "warming up…" state (user-reported bug).
-    service = EmbeddingService(deps.get_model_manager(), FakeOllama(running=False))
-
-    def boom():
-        raise RuntimeError("no embedding model available (forced for test)")
-
-    monkeypatch.setattr(service, "_load_st_model", boom)
-    assert service.embed_text("hello") is None
-    assert service.last_error is not None
-    assert service.is_ready() is False
 
 
 # --- conversations ----------------------------------------------------------------

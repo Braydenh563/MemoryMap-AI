@@ -15,7 +15,9 @@ bin already, so permanent loss is always the second deliberate step.
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
+from memorymap.core import deps
 from memorymap.core.database import (
     Attachment,
     Document,
@@ -294,3 +296,47 @@ def test_reading_a_live_note_still_counts_as_using_it(client, session):
     client.get(f"/entries/{entry.id}?deleted=true")
     session.expire_all()
     assert session.get(Entry, entry.id).access_count == before + 1
+
+
+# --- delete/restore/empty via the HTTP API (vs. the ORM-level tests above) ----
+
+
+def test_delete_restore_and_bin_view(client):
+    saved = client.post("/entries", json={"content": "bin me"}).json()
+    # Outside the assert on purpose: `python -O` drops assert statements, and
+    # with the delete inside one the test would pass without ever deleting.
+    deleted = client.delete(f"/entries/{saved['id']}")
+    assert deleted.status_code == 200
+
+    assert client.get("/entries").json() == []
+    binned = client.get("/entries", params={"deleted": True}).json()
+    assert [e["id"] for e in binned] == [saved["id"]]
+    assert binned[0]["deleted_at"] is not None
+
+    client.post(f"/entries/{saved['id']}/restore")
+    assert [e["id"] for e in client.get("/entries").json()] == [saved["id"]]
+    assert client.get("/entries", params={"deleted": True}).json() == []
+
+
+def test_empty_bin_now(client):
+    saved = client.post("/entries", json={"content": "gone forever"}).json()
+    client.delete(f"/entries/{saved['id']}")
+    assert client.post("/recycle-bin/empty").json() == {"removed": 1}
+    assert client.get("/entries", params={"deleted": True}).json() == []
+    assert client.get(f"/entries/{saved['id']}").status_code == 404
+
+
+def test_expired_bin_entries_purged(client):
+    from memorymap.entry import manager
+
+    saved = client.post("/entries", json={"content": "ancient history"}).json()
+    client.delete(f"/entries/{saved['id']}")
+
+    # Pretend it was deleted 40 days ago, then run the startup purge.
+    session = deps.get_db().session()
+    try:
+        session.get(Entry, saved["id"]).deleted_at = utcnow() - timedelta(days=40)
+        session.commit()
+        assert manager.purge_expired_deleted(session, days=30) == 1
+    finally:
+        session.close()

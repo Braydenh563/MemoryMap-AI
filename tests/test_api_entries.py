@@ -1,4 +1,5 @@
-"""Phase 1: the walking skeleton responds over HTTP."""
+"""The basic entries API responds over HTTP: health check, create/read,
+missing-entry 404, the frontend mount, and validation."""
 
 from __future__ import annotations
 

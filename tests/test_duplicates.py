@@ -171,3 +171,16 @@ def test_private_notes_cannot_be_merged(client, session):
     response = client.post("/duplicates/merge", json={"ids": [a["id"], b["id"]]})
     assert response.status_code == 400
     vault.close()
+
+
+# --- detection at save time (semantic, not the /duplicates scan) --------------
+
+
+def test_duplicate_detection_on_save(ai_client):
+    ai_client.post("/entries", json={"content": "a funny scarecrow joke"})
+    second = ai_client.post(
+        "/entries", json={"content": "a funny scarecrow joke, again"}
+    ).json()
+    # The fake embedder maps both onto the joke axis → similarity 1.0.
+    assert second["similar"] is not None
+    assert second["similar"]["similarity"] >= 0.9

@@ -1,4 +1,4 @@
-"""Phase 5: recent questions, most-accessed entries, user profile."""
+"""Recent questions, most-accessed entries, user profile."""
 
 from __future__ import annotations
 

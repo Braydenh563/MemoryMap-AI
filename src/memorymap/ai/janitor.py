@@ -209,14 +209,27 @@ def _knn_match(
     if not rows:
         return None
 
-    scored = sorted(
-        (
-            (cosine_similarity(note_vector, bytes_to_vector(blob)), name)
-            for name, blob in rows
-        ),
-        key=lambda pair: pair[0],
-        reverse=True,
-    )[:KNN_NEIGHBOURS]
+    # Was a Python loop calling `cosine_similarity` once per candidate note —
+    # every save paid an unvectorized per-row cost that `embeddings.similar_pairs`
+    # already avoids for the equivalent all-pairs comparison. One query vector
+    # against N candidates is a single matrix-vector product, not a block sweep
+    # (no N² blow-up to guard against the way `similar_pairs` does).
+    names = [name for name, _blob in rows]
+    matrix = np.stack([bytes_to_vector(blob) for _name, blob in rows]).astype("float32")
+    query_vec = note_vector.astype("float32")
+    query_norm = float(np.linalg.norm(query_vec))
+    if query_norm == 0.0:
+        return None  # every pair would score 0, same as the old per-row path
+    row_norms = np.linalg.norm(matrix, axis=1)
+    similarities = np.divide(
+        matrix @ query_vec,
+        row_norms * query_norm,
+        out=np.zeros(len(rows), dtype="float32"),
+        where=row_norms != 0,
+    )
+
+    order = np.argsort(-similarities)[:KNN_NEIGHBOURS]
+    scored = [(float(similarities[i]), names[i]) for i in order]
 
     if not scored or scored[0][0] < KNN_MIN_SIMILARITY:
         return None

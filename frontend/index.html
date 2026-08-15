@@ -21,7 +21,24 @@
        app rendered. Nothing logged and nothing threw — a missing stylesheet
        is silent. If icons ever vanish again, look here first. -->
   <link rel="stylesheet" href="/vendor/phosphor/style.css">
-  <link rel="stylesheet" href="/style.css">
+  <!-- style.css split into multiple files (ROADMAP.md Priority 0 item 2,
+       "mechanically low-risk"): plain <link> tags, no bundler, no @import
+       (an extra request behind the scenes for no benefit here). Order is
+       load-bearing — this is the exact byte order the single file used to
+       be in, split only on the section-comment banners inside it, so no
+       selector's cascade/specificity position changes. 00-tokens-shell.css
+       is first because it holds :root and other global-scope declarations
+       every later file's var() calls depend on. See
+       tests/test_style_scale.py's STYLE_FILES for the list the design-token
+       lint reads instead of a single style.css path. -->
+  <link rel="stylesheet" href="/css/00-tokens-shell.css">
+  <link rel="stylesheet" href="/css/01-forms-settings.css">
+  <link rel="stylesheet" href="/css/02-chat-graph.css">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css">
   <script>
     // Everything visual is applied before first paint, so the app never
     // flashes the default look and then corrects itself.

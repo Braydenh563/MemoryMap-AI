@@ -26,16 +26,20 @@ fresh session should pick them up:
    instead of at the bottom of the card. Needs a live Chromium session to
    verify any structural fix — do not ship one unverified, per this file's
    own repeated CSS-regression history below.
-2. **`app.js`/`style.css`/`index.html` are still monolithic** (30.7k / 15.8k
-   / 3.7k lines). The single highest-value, lowest-risk piece is still the
-   `whiteboard.js` extraction (~3,400+ lines from `app.js:26356`, classic
-   `<script src>` not a module — no `state.js` promotion needed, since
-   classic scripts in one document already share one global scope; see
-   "Frontend refactor path" a few sections down for the seam map). CSS
-   splitting into multiple linked `<link>` files is mechanically low-risk
-   and untried. `index.html` cannot be split without a template/build step,
-   which conflicts with this project's stated no-bundler architecture —
-   don't attempt it the same way as the other two.
+2. **`app.js`/`index.html` are still monolithic** (30.7k / 3.7k lines).
+   `style.css` (was 15.8k lines) is no longer part of this — it is now split
+   into eight files under `frontend/css/`, cut only at its own section-comment
+   banners so the byte order (and therefore the cascade) matches the old
+   single file exactly; `index.html` links them in that order, and
+   `tests/_css_paths.py` is the one place that order is declared for tests
+   that used to read `frontend/style.css` directly. The single remaining
+   highest-value, lowest-risk piece is the `whiteboard.js` extraction
+   (~3,400+ lines from `app.js:26356`, classic `<script src>` not a module —
+   no `state.js` promotion needed, since classic scripts in one document
+   already share one global scope; see "Frontend refactor path" a few
+   sections down for the seam map). `index.html` cannot be split without a
+   template/build step, which conflicts with this project's stated
+   no-bundler architecture — don't attempt it the same way as the other two.
 3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
    fully scoped, not started. One open decision before building: preview
    before commit, or commit straight through (recommendation in §62: preview).
@@ -1149,7 +1153,8 @@ Not a dump: each says why it is not Tier 3.
   session's whiteboard bug fixes), where a half-done split and a bug fix
   landing in the same diff is much harder to review or revert than either
   alone. Do the split on a quiet day, not appended to a bug-fix session.
-  Same for `style.css`, unscoped.
+  (`style.css`'s own split is done — see Priority 0 item 2 above — and was
+  exactly this: its own dedicated pass, not appended to anything else.)
 - **A second React frontend.** A second implementation of every screen, kept
   in step by hand, for an app whose brief is "no build step". The cost is not
   the first version — it is every change afterwards having two homes. If the
@@ -1226,8 +1231,9 @@ told to open first.
    `display: none`.
 6. **The app sends a strict CSP; a violation is reported only in the console.**
    No failed request, no thrown error. An injected `<style>` tag won't apply
-   (use `adoptedStyleSheets`), `style=""` in `index.html` won't apply (use
-   `style.css`), and a script from off-origin is refused outright.
+   (use `adoptedStyleSheets`), `style=""` in `index.html` won't apply (use a
+   class in one of `frontend/css/*.css`), and a script from off-origin is
+   refused outright.
 7. **CSS automatic minimum sizing is the usual cause of a wide page.** A
    `1fr` grid track or a flex item with default `min-width: auto` refuses to
    shrink below its content; `overflow-x: auto` on the child does nothing

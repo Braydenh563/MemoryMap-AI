@@ -28,6 +28,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._css_paths import css_text
+
 INDEX = Path(__file__).resolve().parents[1] / "frontend" / "index.html"
 
 #: Controls that decide what happens to the *next* message.
@@ -91,11 +93,8 @@ def test_the_header_keeps_only_the_conversation_level_controls():
     )
 
 
-CSS = INDEX.parent / "style.css"
-
-
 def _styles() -> str:
-    return re.sub(r"/\*.*?\*/", "", CSS.read_text(encoding="utf-8"), flags=re.S)
+    return re.sub(r"/\*.*?\*/", "", css_text(), flags=re.S)
 
 
 def test_the_dock_neutralises_the_margins_its_controls_arrive_with():

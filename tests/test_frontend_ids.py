@@ -17,6 +17,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from tests._css_paths import css_text
+
 INDEX = Path(__file__).resolve().parents[1] / "frontend" / "index.html"
 
 # Ids that app.js creates at runtime rather than finding in the markup.
@@ -92,7 +94,7 @@ def test_the_prepaint_theme_table_matches_app_js():
 def test_every_theme_names_a_palette_that_exists():
     """A theme selecting a palette with no CSS silently renders as default."""
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
-    css = (INDEX.parent / "style.css").read_text(encoding="utf-8")
+    css = css_text()
 
     used = set(re.findall(r'palette: "(\w+)"', app))
     defined = set(re.findall(r':root\[data-palette="(\w+)"\]', css))

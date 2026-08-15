@@ -887,8 +887,10 @@ def test_a_skill_description_is_not_clipped_to_one_line():
     width was left after five chips."""
     from memorymap.api.app import FRONTEND_DIR
 
+    from tests._css_paths import css_text
+
     app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
-    css = (FRONTEND_DIR / "style.css").read_text(encoding="utf-8")
+    css = css_text()
     assert 'note.className = "muted skill-blurb"' in app_js
     blurb = css[css.index(".skill-blurb {") :][: css[css.index(".skill-blurb {") :].index("}")]
     assert "white-space: normal" in blurb

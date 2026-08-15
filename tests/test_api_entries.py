@@ -3,6 +3,8 @@ missing-entry 404, the frontend mount, and validation."""
 
 from __future__ import annotations
 
+from tests._css_paths import CSS_FILES
+
 
 def test_health(client):
     response = client.get("/health")
@@ -39,7 +41,11 @@ def test_frontend_served_at_root(client):
     assert response.status_code == 200
     assert "MemoryMap AI" in response.text
     assert client.get("/app.js").status_code == 200
-    assert client.get("/style.css").status_code == 200
+    # style.css split into multiple linked files (ROADMAP.md Priority 0 item
+    # 2) — every one of them has to actually be reachable at the path
+    # index.html's <link> tags use, not just the directory that holds them.
+    for name in CSS_FILES:
+        assert client.get(f"/css/{name.name}").status_code == 200
 
 
 def test_empty_content_rejected(client):

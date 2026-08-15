@@ -24,8 +24,14 @@ from __future__ import annotations
 
 import pytest
 
-
-@pytest.mark.parametrize("path", ["/", "/app.js", "/style.css", "/index.html"])
+# style.css split into multiple linked files (ROADMAP.md Priority 0 item 2);
+# one representative path under /css/ stands in for what "/style.css" used to
+# check here — this test is about RevalidatedStatic's header behaviour for
+# any static path, not about that one file's content, and test_api_entries.py
+# separately confirms every split file individually resolves to 200.
+@pytest.mark.parametrize(
+    "path", ["/", "/app.js", "/css/00-tokens-shell.css", "/index.html"]
+)
 def test_the_frontend_must_be_revalidated(ai_client, path):
     response = ai_client.get(path)
     assert response.status_code == 200

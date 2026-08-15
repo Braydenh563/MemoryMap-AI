@@ -149,11 +149,15 @@ def list_conversations(
         query = query.where(
             Conversation.title.ilike(like) | Conversation.messages.ilike(like)
         )
+    # Same cap either way: browsing without a search term shouldn't see
+    # fewer conversations than searching does — a 50-row default cap with no
+    # way past it made anything older than the 50 most-recently-updated
+    # chats unreachable from the sidebar list.
     rows = list(
         session.scalars(
             query.order_by(
                 Conversation.pinned.desc(), Conversation.updated_at.desc()
-            ).limit(200 if term else 50)
+            ).limit(200)
         )
     )
     if term:

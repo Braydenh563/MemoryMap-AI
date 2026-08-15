@@ -22182,7 +22182,11 @@ $("autonomous-trigger").addEventListener("click", () => {
 // one mid-incident cannot lose the records you were looking at.
 $("log-source").addEventListener("change", renderLogList);
 $("log-level").addEventListener("change", renderLogList);
-$("log-filter").addEventListener("input", renderLogList);
+let logFilterDebounceTimeout;
+$("log-filter").addEventListener("input", () => {
+  clearTimeout(logFilterDebounceTimeout);
+  logFilterDebounceTimeout = setTimeout(renderLogList, 150);
+});
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);
 $("logs-bundle").addEventListener("click", downloadSupportBundle);
@@ -22333,7 +22337,11 @@ $("attach-note").addEventListener("click", () => {
   if (notePickerOpen()) closeNotePicker();
   else openNotePicker();
 });
-$("note-picker-search").addEventListener("input", renderNotePickerList);
+let notePickerSearchDebounceTimeout;
+$("note-picker-search").addEventListener("input", () => {
+  clearTimeout(notePickerSearchDebounceTimeout);
+  notePickerSearchDebounceTimeout = setTimeout(renderNotePickerList, 150);
+});
 $("note-picker-done").addEventListener("click", () => {
   closeNotePicker();
   $("chat-input").focus();
@@ -24071,12 +24079,21 @@ document.addEventListener("keydown", (e) => {
 // --- Wave F wiring ------------------------------------------------------------------
 
 // Wave J: note search + sort, capture char count.
+// Debounced (150ms, same as Library/Timeline/Graph search): this box was the
+// one search input in the app with no debounce, so every keystroke tore down
+// and rebuilt the whole visible note list — and with semantic search on, also
+// fired a backend embedding-compare request per character typed.
+let noteSearchDebounceTimeout;
 $("note-search").addEventListener("input", (e) => {
   noteSearch = e.target.value.trim();
-  if ($("semantic-search-toggle")?.checked) loadEntries(); // trigger semantic backend search
   // Nothing to save when the box is empty; the button appears when it isn't.
+  // Cheap, so it stays immediate rather than waiting on the debounce below.
   $("save-search").classList.toggle("hidden", !noteSearch);
-  renderEntries();
+  clearTimeout(noteSearchDebounceTimeout);
+  noteSearchDebounceTimeout = setTimeout(() => {
+    if ($("semantic-search-toggle")?.checked) loadEntries(); // trigger semantic backend search
+    renderEntries();
+  }, 150);
 });
 $("note-sort").addEventListener("change", (e) => {
   noteSort = e.target.value;

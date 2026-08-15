@@ -67,6 +67,15 @@ def test_conversation_lifecycle(client):
     assert client.get("/conversations").json() == []
 
 
+def test_browsing_conversations_sees_as_many_as_searching_does(client):
+    """The no-search-term branch capped at 50 while the with-term branch
+    capped at 200 — browsing without typing a search saw fewer chats than
+    searching for one did, with no way to reach the rest either way."""
+    for i in range(60):
+        client.post("/conversations", json={"question": f"q{i}", "answer": "a"})
+    assert len(client.get("/conversations").json()) == 60
+
+
 def test_retitle_uses_ai(ai_client, fake_ollama):
     created = ai_client.post(
         "/conversations", json={"question": "what jokes have I saved?", "answer": "A few."}

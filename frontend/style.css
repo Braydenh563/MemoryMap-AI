@@ -2077,12 +2077,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding-bottom: 0.6rem;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .collapse-chevron {
-    transition: none;
-  }
-}
-
 #sidebar ul {
   list-style: none;
   margin: 0;

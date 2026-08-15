@@ -159,6 +159,23 @@ def test_on_this_day_resurfaces_old_notes(client):
     assert [m["content"] for m in matches] == ["a year ago today"]
 
 
+def test_on_this_day_excludes_private_notes(client):
+    """Every other view filters `is_private` before a note reaches the
+    caller; this one didn't, and read `entry.content` straight off the
+    column — ciphertext, for a private note — instead of through
+    `readable_content`."""
+    session = deps.get_db().session()
+    try:
+        old = Entry(content="a year ago today", tags="[]", is_private=True)
+        old.created_at = utcnow() - timedelta(days=365)
+        session.add(old)
+        session.commit()
+    finally:
+        session.close()
+
+    assert client.get("/insights/on-this-day").json() == []
+
+
 def test_digest_empty_week(client):
     assert "Nothing was saved" in client.post("/insights/digest").json()["digest"]
 

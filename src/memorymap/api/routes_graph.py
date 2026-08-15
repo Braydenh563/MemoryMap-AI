@@ -262,7 +262,7 @@ def graph(
     if with_similarity:
         edges.extend(_similarity_edges(session, node_ids, taken))
 
-    index = paths.build(session, extra_edges=edges)
+    index = paths.build(session, extra_edges=edges, entries=entries)
     centrality_scores = _centrality(session, index, with_similarity)
 
     # Stable category order so the frontend assigns stable colours.

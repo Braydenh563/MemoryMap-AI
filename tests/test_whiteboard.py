@@ -456,6 +456,9 @@ def test_the_frontend_sends_the_board_when_it_moves_a_card():
     """The guard for the half of that bug that lives in the browser."""
     from memorymap.api.app import FRONTEND_DIR
 
-    app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
-    save = app_js[app_js.index("// Sync back to API.") :][:900]
+    # The whiteboard subsystem moved out of app.js into its own file, loaded
+    # by a second <script> tag — see index.html — so this comment now lives
+    # in whiteboard.js, not app.js.
+    whiteboard_js = (FRONTEND_DIR / "whiteboard.js").read_text(encoding="utf-8")
+    save = whiteboard_js[whiteboard_js.index("// Sync back to API.") :][:900]
     assert "board_id" in save, "the coordinate save must carry the card's board"

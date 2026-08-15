@@ -30,7 +30,7 @@ import pytest
 # any static path, not about that one file's content, and test_api_entries.py
 # separately confirms every split file individually resolves to 200.
 @pytest.mark.parametrize(
-    "path", ["/", "/app.js", "/css/00-tokens-shell.css", "/index.html"]
+    "path", ["/", "/app.js", "/whiteboard.js", "/css/00-tokens-shell.css", "/index.html"]
 )
 def test_the_frontend_must_be_revalidated(ai_client, path):
     response = ai_client.get(path)

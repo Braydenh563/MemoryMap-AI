@@ -41,6 +41,9 @@ def test_frontend_served_at_root(client):
     assert response.status_code == 200
     assert "MemoryMap AI" in response.text
     assert client.get("/app.js").status_code == 200
+    # Whiteboard subsystem split out of app.js into its own file (ROADMAP.md
+    # Priority 0 item 2), loaded by a second <script> tag in index.html.
+    assert client.get("/whiteboard.js").status_code == 200
     # style.css split into multiple linked files (ROADMAP.md Priority 0 item
     # 2) — every one of them has to actually be reachable at the path
     # index.html's <link> tags use, not just the directory that holds them.

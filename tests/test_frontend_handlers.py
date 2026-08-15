@@ -26,6 +26,7 @@ from collections import Counter
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
+WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs — the settings overlay has a backdrop-click-to-close and a delegated
@@ -48,13 +49,20 @@ BINDING = re.compile(r'\$\("([\w-]+)"\)\??\.addEventListener\(\s*"(\w+)"')
 
 
 def _source() -> str:
-    """app.js with block comments and strings' worth of noise left alone.
+    """app.js and whiteboard.js, with block comments left alone.
+
+    The whiteboard subsystem (board/card CRUD, sketch drawing, export,
+    move/resize) moved out of app.js into its own file, loaded by a second
+    <script> tag — see index.html — so a duplicate-registration bug inside
+    it, or a registration split across the two files, needs both scanned
+    together to be caught.
 
     Only comments are stripped: a `$("x").addEventListener` inside a comment is
     documentation of the pattern, not a second registration — this test's own
     docstring would otherwise be quoted back at it.
     """
-    return re.sub(r"/\*.*?\*/", "", APP.read_text(encoding="utf-8"), flags=re.S)
+    combined = APP.read_text(encoding="utf-8") + "\n" + WHITEBOARD.read_text(encoding="utf-8")
+    return re.sub(r"/\*.*?\*/", "", combined, flags=re.S)
 
 
 def test_no_element_is_bound_to_the_same_event_twice():

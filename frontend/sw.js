@@ -14,10 +14,15 @@
 // single-file "/style.css" no longer exists on disk, and precaching a 404
 // would fail the whole addAll() call, taking the entire shell offline-cache
 // with it — not a soft failure, install() rejects and nothing gets cached.
-const CACHE = "memorymap-shell-v7";
+// Bumped a third time for the app.js/whiteboard.js split (same roadmap
+// item's other half): the whiteboard tab is now served from a second file
+// that also has to be in this list, or a page loaded offline gets app.js
+// from the cache but a 404 for whiteboard.js and the tab renders blank.
+const CACHE = "memorymap-shell-v8";
 const SHELL = [
   "/",
   "/app.js",
+  "/whiteboard.js",
   // style.css split into eight files, in load order — see index.html's
   // <link> tags for why the order matters (00 holds :root and other
   // global-scope declarations later files' var() calls depend on).

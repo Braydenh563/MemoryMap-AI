@@ -42,6 +42,20 @@ def _markup() -> str:
     return re.sub(r"<!--.*?-->", "", INDEX.read_text(encoding="utf-8"), flags=re.S)
 
 
+def _frontend_js() -> str:
+    """app.js and whiteboard.js concatenated.
+
+    The whiteboard subsystem (board/card CRUD, sketch drawing, export,
+    move/resize) moved out of app.js into its own file, loaded by a second
+    <script> tag - see index.html. A check that only read app.js would go on
+    passing while silently covering none of the moved file's own
+    $("...") lookups.
+    """
+    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
+    return app + "\n" + whiteboard
+
+
 def test_no_duplicate_element_ids():
     ids = re.findall(r'\sid="([^"]+)"', _markup())
     duplicates = {name: n for name, n in Counter(ids).items() if n > 1}
@@ -50,13 +64,13 @@ def test_no_duplicate_element_ids():
 
 def test_every_id_the_app_looks_up_actually_exists():
     """A typo'd id is `null`, and the failure lands wherever it is next used."""
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    app = _frontend_js()
     declared = set(re.findall(r'\sid="([^"]+)"', _markup()))
     # Only the literal $("…") lookups; anything built from a variable can't be
     # checked statically and is skipped rather than guessed at.
     looked_up = set(re.findall(r'\$\("([a-z0-9-]+)"\)', app))
     missing = sorted(looked_up - declared - RUNTIME_IDS)
-    assert not missing, f"app.js looks up ids that aren't in index.html: {missing}"
+    assert not missing, f"app.js/whiteboard.js look up ids that aren't in index.html: {missing}"
 
 
 def test_the_prepaint_theme_table_matches_app_js():

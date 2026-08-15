@@ -3730,5 +3730,12 @@ Link to another note with [[its first few words]]."></textarea>
   <script src="/vendor/d3.v7.min.js"></script>
   <script src="/vendor/p5.min.js"></script>
   <script src="/app.js"></script>
+  <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
+       2). Loaded after app.js and shares its global scope; every
+       cross-file call between the two happens at runtime (inside a
+       function or event listener), never at parse time, so this order is
+       not load-bearing for correctness — it just keeps app.js as the
+       first, larger script, matching the split's own diff. -->
+  <script src="/whiteboard.js"></script>
 </body>
 </html>

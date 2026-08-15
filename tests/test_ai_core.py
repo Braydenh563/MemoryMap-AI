@@ -148,6 +148,33 @@ def test_semantic_search_ranks_same_topic_first(session):
     assert contents == ["a funny scarecrow joke"]  # shopping is below the floor
 
 
+def test_semantic_search_returns_its_matches_in_rank_order(ai_client, session):
+    """`?semantic=true` rebuilt its result as "every note that matched, in
+    notebook order", throwing away the ranking that is the whole point — so
+    the best match landed wherever it happened to sit in the list."""
+    for text_ in ("kayak repair", "sourdough starter", "kayak paddle"):
+        ai_client.post("/entries", json={"content": text_})
+
+    response = ai_client.get("/entries", params={"q": "kayak", "semantic": "true"})
+    assert response.status_code == 200
+    # Whatever the fake embedder ranks first must come back first.
+    expected = [
+        e.id
+        for e, _ in search_manager.semantic_search(
+            session, "kayak", deps.get_embeddings(), limit=25
+        )
+    ]
+    assert [row["id"] for row in response.json()] == expected
+
+
+def test_a_cold_embedding_model_says_so_instead_of_dumping_the_notebook(client):
+    """The failure was swallowed with a bare `except: pass`, which left the
+    caller holding every note in the notebook labelled as a search result."""
+    client.post("/entries", json={"content": "anything"})
+    response = client.get("/entries", params={"q": "anything", "semantic": "true"})
+    assert response.status_code == 503
+
+
 def test_retrieve_falls_back_to_keyword(session):
     manager.create_entry(session, "remember the milk")
     entries, mode = search_manager.retrieve(

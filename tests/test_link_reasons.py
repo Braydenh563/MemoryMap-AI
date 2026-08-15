@@ -509,3 +509,38 @@ def test_editing_a_reason_on_someone_elses_link_id_is_404(client):
 
     response = client.put(f"/entries/{c['id']}/links/{link_id}/reason", json={"reason": "x"})
     assert response.status_code == 404
+
+
+def test_generate_link_reason_refuses_a_private_note(ai_client, fake_ollama, session):
+    """The `/links/{id}/generate-reason` endpoint decrypted both linked notes
+    and sent them to the model with no `is_private` check — the one guard
+    every other AI-facing read path in this codebase enforces (see
+    `test_generate_title_refuses_a_private_note`, search, embeddings, janitor,
+    chat linking). A private note's content must not reach the model this
+    way."""
+    from memorymap.core import crypto, vault
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    try:
+        public = ai_client.post("/entries", json={"content": "a public note"}).json()
+        private = ai_client.post("/entries", json={"content": "codeword ELDERFLOWER"}).json()
+        privacy = ai_client.post(f"/entries/{private['id']}/privacy", json={"private": True})
+        assert privacy.status_code == 200
+
+        linked = ai_client.post(
+            f"/entries/{public['id']}/links", json={"target_id": private["id"]}
+        ).json()
+        link_id = next(
+            e["link_id"] for e in linked["links"] if e["entry_id"] == private["id"]
+        )
+
+        fake_ollama.librarian_reply = "a generated reason"
+        response = ai_client.post(f"/entries/{public['id']}/links/{link_id}/generate-reason")
+        assert response.status_code == 400
+
+        stored = session.get(Entry, private["id"])
+        assert crypto.is_encrypted(stored.content)
+    finally:
+        vault.close()

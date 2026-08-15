@@ -36,42 +36,28 @@ fresh session should pick them up:
    and untried. `index.html` cannot be split without a template/build step,
    which conflicts with this project's stated no-bundler architecture —
    don't attempt it the same way as the other two.
-3. **`test_antigravity_regressions.py` is half-migrated.** 5 of its ~13
-   domains moved out this session (see the test-suite section below for the
-   full done/left table); still inside it: memory stream + memory-stream
-   preferences CRUD (~15 tests, home: new `test_memory_stream.py`),
-   embeddings mixed-dimension/orphaned-vector tests (4, new
-   `test_embeddings_core.py`), the rest of the API-surface section (3,
-   split across `test_ai_core.py`/`test_preferences_api.py`/
-   `test_graph_paths.py`), media uploads (6, new `test_media_api.py`),
-   whiteboard card purge (1, `test_autonomous.py`) and card-moving (2,
-   `test_whiteboard.py`), skill-description CSS check (1, `test_skills.py`),
-   graph caching (4, `test_graph_api.py`), and security scanner findings (2,
-   `test_security_hardening.py`). Mapping is already worked out — see the
-   full table in the test-suite section; this is transcription, not
-   re-analysis.
-4. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
+3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
    fully scoped, not started. One open decision before building: preview
    before commit, or commit straight through (recommendation in §62: preview).
-5. **A live visual indicator when the mic picks up sound**, for the dictation
+4. **A live visual indicator when the mic picks up sound**, for the dictation
    buttons — asked for directly, explicitly deferred by the user this
    session ("that can wait"). Not scoped yet: likely a small level-meter off
    `AnalyserNode`/`getByteFrequencyData` on the same `MediaStream` the
    recorder already opens in `toggleDictation()` (`app.js:17050`) — no new
    permission, no new stream.
-6. **The graph tab's traced-path text visualisation at the top of the canvas
+5. **The graph tab's traced-path text visualisation at the top of the canvas
    needs a redesign** — asked for directly ("the text ui visualisation of the
    trace path... needs improving and potential redesign"), not scoped. See
    the `.graph-traced-path`/§9 block a little further down this file for
    where it's built; no specific direction was given, so a fresh session
    should look at what it currently renders before proposing a shape.
-7. **Idea, not yet scoped: recent searches / search history / past results
+6. **Idea, not yet scoped: recent searches / search history / past results
    in the Ask (chat) tab** — asked for directly. Needs a decision on where it
    lives (a dropdown under the ask box? a sidebar list, like the conversation
    history already has?) and what "past results" means beyond the existing
    conversation history the sidebar already keeps — worth checking against
    that existing feature first so this doesn't rebuild it under a new name.
-8. **faster-whisper reported still failing to install**, pip exiting non-zero,
+7. **faster-whisper reported still failing to install**, pip exiting non-zero,
    from the same live Windows session as the temp-file bug below. Two things
    were fixed blind this session, without seeing the actual pip error: (a)
    `_run_install`/`_run_uninstall` in `core/extras.py` now also log the
@@ -80,26 +66,12 @@ fresh session should pick them up:
    reported as invisible on the Logs page, and it was: `logbuffer.py` only
    ever sees records that went through Python's `logging` module, and pip's
    captured output never did. (b) unrelated to this pip failure but same
-   report: the pin icon was fixed (see below). **The pip install failure
-   itself is still unexplained** — no error text was seen, only "pip exited
-   with code 1." If it recurs, Settings → Logs should now show it (search
-   "memorymap.extras"); that text is what a fresh session needs to actually
-   fix the install rather than guess again.
-9. ~~The link-reason dialog's button row, re-reported as "still visually
-   broken."~~ **Fixed, root cause found.** Not text wrapping inside a button
-   (that was already prevented, `white-space: nowrap`) — the dialog itself
-   inherited `.confirm-card`'s width, `min(30rem, 92vw)` (~480px), sized for
-   its usual two-button row. This one carries four (Save, Generate, Remove
-   link, Close), whose combined content alone is ~482px — already wider than
-   the card. `justify-content: flex-end` had nothing left to push against,
-   so the row rendered edge-to-edge with zero breathing room, which is what
-   "broken" actually looked like. `.confirm-card.graph-link-panel` now
-   widens just this dialog to `min(34rem, 94vw)`, matching the precedent
-   `.dash-widgets-dialog` already set for the same reason. First attempt at
-   this fix used `.graph-link-panel` alone and silently lost to
-   `.confirm-card` on source order (equal specificity, `.confirm-card`
-   defined later) — caught by re-screenshotting after the "fix," which is
-   the only reason it isn't still broken. Verified live at 1400px.
+   report: the pin/unpin icon was also fixed — see HISTORY.md's "UI polish
+   batch" entry. **The pip install failure itself is still unexplained** —
+   no error text was seen, only "pip exited with code 1." If it recurs,
+   Settings → Logs should now show it (search "memorymap.extras"); that
+   text is what a fresh session needs to actually fix the install rather
+   than guess again.
 
 ## #0 priority — codebase quality review, still-open items
 
@@ -1202,13 +1174,16 @@ Not a dump: each says why it is not Tier 3.
   `test_presets.py` and `test_model_specs.py`) build genuinely different
   mocks, not a copy-paste duplicate. **The finding is that there is no
   finding** — no reinvented fixture, no `test_x`/`test_x_more` pair sharing
-  setup, nothing a mechanical merge would safely collapse. The four largest
-  files (`test_skills.py` 881 lines, `test_wavef_api.py` 764,
-  `test_searxng_install.py` 755, `test_antigravity_regressions.py` 733) are
-  each single-topic and coherent, not grab-bags — a size-triggered split
-  would separate a fixture from the twenty tests that share it for no
-  reason but the line count. Still nothing to do here until a real
-  duplication turns up.
+  setup, nothing a mechanical merge would safely collapse. The largest files
+  at the time (`test_skills.py`, then in the 850-900 line range, and a
+  handful of others past 700) were each single-topic and coherent, not
+  grab-bags — a size-triggered split would separate a fixture from the
+  twenty tests that share it for no reason but the line count. Still
+  nothing to do here until a real duplication turns up. (Two of the four
+  files originally named here no longer exist under those names — one
+  renamed, one split by domain in a later pass — so file names are not
+  repeated verbatim; the conclusion doesn't depend on which specific files
+  happened to be biggest that day.)
 
 ### The rule this section exists to enforce
 

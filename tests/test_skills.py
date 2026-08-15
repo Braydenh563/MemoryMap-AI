@@ -879,3 +879,16 @@ def test_the_audit_skills_are_offered_alongside_the_others(app_state, session):
     listed = tools.TOOLS["list_skills"].handler(session, {})
     names = {s["name"] for s in listed["skills"]}
     assert set(AUDIT_SKILLS) <= names
+
+
+def test_a_skill_description_is_not_clipped_to_one_line():
+    """Reported twice. The row reused `.persona-preview`, which is nowrap with
+    an ellipsis — so the only field saying what a skill *does* got whatever
+    width was left after five chips."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    css = (FRONTEND_DIR / "style.css").read_text(encoding="utf-8")
+    assert 'note.className = "muted skill-blurb"' in app_js
+    blurb = css[css.index(".skill-blurb {") :][: css[css.index(".skill-blurb {") :].index("}")]
+    assert "white-space: normal" in blurb

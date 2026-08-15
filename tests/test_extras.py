@@ -256,3 +256,16 @@ def test_the_guard_leaves_other_extras_alone(monkeypatch):
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
     started, message = extras.start("desktop", reinstall=True)
     assert started is True
+
+
+def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
+    """A "Base Requirements (requirements.txt)" extra was added with
+    `packages=("-r", "requirements.txt")` and `module="fastapi"`. Since
+    fastapi is always importable (the app runs on it), `is_installed()` was
+    permanently True, so the UI only ever offered Reinstall/Remove — and
+    Remove ran `pip uninstall -y -r requirements.txt`, stripping fastapi,
+    uvicorn, SQLAlchemy and every other base dependency from the interpreter
+    the app itself is running in. No extra's package list may equal (or
+    contain) the project's own requirements file."""
+    for extra in extras.EXTRAS:
+        assert "-r" not in extra.packages, f"{extra.id} installs from a requirements file"

@@ -27,6 +27,7 @@ from memorymap.api import (
     routes_chat,
     routes_conversations,
     routes_documents,
+    routes_backups,
     routes_duplicates,
     routes_drafts,
     routes_entries,
@@ -42,6 +43,7 @@ from memorymap.api import (
     routes_timeline,
     routes_tags,
     routes_voice,
+    routes_websearch,
     routes_whiteboard,
 )
 from memorymap.api.routes_auth import require_unlock
@@ -208,6 +210,8 @@ def create_app() -> FastAPI:
     app.include_router(routes_chat.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    app.include_router(routes_websearch.router, dependencies=locked)
+    app.include_router(routes_backups.router, dependencies=locked)
     app.include_router(routes_spaces.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
     # A plain `<img src>` (or a note's own inline `![]()` markdown) never

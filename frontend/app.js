@@ -992,7 +992,7 @@ function entryItem(entry, options = {}) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
-      smallButton(entry.pinned ? "ph:push-pin" : "ph:map-pin", entry.pinned ? "Unpin" : "Pin to top", async () => {
+      smallButton("ph:push-pin", entry.pinned ? "Unpin" : "Pin to top", async () => {
         await api(`/entries/${entry.id}`, {
           method: "PUT",
           body: JSON.stringify({ pinned: !entry.pinned }),
@@ -13895,7 +13895,16 @@ function openGraphLinkPanel(edge, nodes) {
   const targetId = typeof edge.target === "object" ? edge.target.id : edge.target;
   const sourceNode = nodes.find((n) => n.id === sourceId);
   const targetNode = nodes.find((n) => n.id === targetId);
-  const label = (n, id) => (n?.preview ? n.preview.slice(0, 60) : `Note ${id}`);
+  // A raw slice cut mid-word with nothing to say so ("This g" from "This
+  // guide") reads as broken text, not a shortened title — trim to the last
+  // whole word instead, and only add the ellipsis when something was
+  // actually cut.
+  const label = (n, id) => {
+    const text = n?.preview || `Note ${id}`;
+    if (text.length <= 60) return text;
+    const cut = text.slice(0, 60);
+    return `${cut.slice(0, cut.lastIndexOf(" ") + 1 || 60).trimEnd()}…`;
+  };
 
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay confirm-overlay";
@@ -13906,9 +13915,19 @@ function openGraphLinkPanel(edge, nodes) {
   const card = document.createElement("div");
   card.className = "card modal-card confirm-card graph-link-panel";
 
-  const title = document.createElement("p");
-  title.className = "confirm-text";
-  title.textContent = `${label(sourceNode, sourceId)}  ↔  ${label(targetNode, targetId)}`;
+  // Two notes on their own lines, not one run-on sentence joined by an
+  // arrow — reported as unreadable once both previews ran long enough to
+  // wrap, since nothing showed which half belonged to which note.
+  const title = document.createElement("div");
+  title.className = "confirm-text graph-link-panel-title";
+  const sourceLine = document.createElement("div");
+  sourceLine.textContent = label(sourceNode, sourceId);
+  const arrow = document.createElement("div");
+  arrow.className = "muted graph-link-panel-arrow";
+  arrow.textContent = "↕ connected to";
+  const targetLine = document.createElement("div");
+  targetLine.textContent = label(targetNode, targetId);
+  title.append(sourceLine, arrow, targetLine);
   card.appendChild(title);
 
   if (edge.reason_confidence != null) {

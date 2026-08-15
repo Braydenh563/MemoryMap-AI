@@ -3270,6 +3270,11 @@ li.link-source {
      dialog taller than the viewport. */
   overflow-y: auto;
   min-height: 0;
+  /* `overflow-y: auto` computes `overflow-x` to `auto` too (CSS Overflow
+     §3), so with zero horizontal padding the focus ring's own
+     `outline-offset` (2px, on top of a 2px outline) was clipped flat
+     against the left edge on the active/focused section button. */
+  padding: 2px 4px;
 }
 
 .modal-nav>div {
@@ -4780,6 +4785,19 @@ html.modal-open body {
 .graph-link-panel-reason {
   width: 100%;
   resize: vertical;
+}
+
+/* Two note titles stacked, not run together as one sentence — see the
+   comment where this is built in app.js for the report that caused it. */
+.graph-link-panel-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+}
+
+.graph-link-panel-arrow {
+  font-size: 0.75rem;
 }
 
 button.ghost.danger {
@@ -9850,16 +9868,12 @@ button {
   color: #fff;
 }
 
-/* One pane by default; two side by side when the preview is on. */
+/* One pane by default; two side by side when the preview is on. `#doc-panes`
+   (same element, higher specificity, below) sets the layout that actually
+   applies — flex column, not grid — so this rule's own `display`/`min-height`
+   were dead and never noticed; only `gap` was live. */
 .doc-panes {
-  display: grid;
-  grid-template-columns: 1fr;
   gap: 0.8rem;
-  min-height: 60vh;
-}
-
-.doc-panes.split {
-  grid-template-columns: 1fr 1fr;
 }
 
 #doc-content {

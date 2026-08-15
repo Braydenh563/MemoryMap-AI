@@ -3063,3 +3063,165 @@ was still answering; and `pkill -f` matching this shell's own invocation
 the calling shell itself more than once. All ~1,700+ tests pass (29
 added this session), `ruff check .` is clean, `node --check
 frontend/app.js` is clean.
+
+## The "#0 priority" codebase quality review — completed items archived here
+
+ROADMAP.md carried a long, standing "#0 priority — codebase quality review"
+section for several sessions: a dead-code/duplication/complexity audit across
+backend, `app.js`, `style.css` and `tests/`, worked top-down over multiple
+sittings. Asked directly — "if things are completed in the roadmap, shouldn't
+they be removed and moved to history... otherwise just saying they are done
+might get confusing" — so the parts confirmed done are moved here, and
+ROADMAP.md keeps only what's re-verified as still open. Every item below was
+re-checked against current source before being archived, not trusted from the
+prose that originally claimed it (that prose had already gone stale once,
+mid-session, which is exactly the failure mode this move is meant to stop).
+
+**Dead code — done.** `initFloatingFormatMenu()`, `showOnlyLogErrors()`, the
+unused `debounce()` utility, `#wb-search`, and the orphaned
+`.collapse-chevron` fragment inside a `prefers-reduced-motion` media query
+(`style.css`) are all gone — confirmed by grep, zero hits for any of the five
+names. Backend: nothing dead was ever found; every `_xxx` tool handler, every
+route, every module resolves to a real call site (some via dynamic id/template
+construction rather than a static reference, which is why they looked dead on
+a first pass).
+
+**Duplicate logic — the CSS half.** `.msg`/`.msg.user`/`.msg.assistant` were
+each declared twice, back-to-back, inside the "chat polish" pass
+(`style.css`) — merged into one declaration per selector, verified live with
+`getComputedStyle` in Chromium against a real chat message (gradient
+background, box-shadow, border-radius, `animation-name`, border-left all
+still resolve exactly as before the merge). The 41 `@media (max-width: …)`
+blocks (23 at 720px) were checked directly, every one read — this is **not**
+duplication: each is scoped to one component or one reported bug, immediately
+below the rule it overrides, with its own comment. Nothing to do there.
+`.dash-widget.dash-wide` (once flagged as dead CSS) does not exist anywhere
+in the frontend — that finding was already stale when it was written.
+
+**Redundant DB queries — done.** `GET /entries`'s N+1 (`routes_entries.py`,
+`list_entries`) is fixed: `manager.bulk_category_names`,
+`entry_dates_bulk`, `documents_for_entries_bulk`, `links_for_entries_bulk`
+replaced 4+ per-note queries with one bulk query per field. `tag_cloud()`
+(`routes_insights.py`) no longer runs its own independent full-table tag
+scan — it now calls `manager.all_tags()`, the same function `all_tags()`
+itself, ending the duplicate computation. `on_this_day()`
+(`routes_insights.py`) moved its day-of-month/age filter from a Python loop
+over every entry into the SQL `WHERE` clause, and — found doing that —
+also started excluding private notes, which it had uniquely been leaking
+(reading `entry.content` as ciphertext straight off the column). `janitor.py`'s
+per-save centroid + kNN auto-filing is vectorized now, reusing the numpy
+approach `embeddings.similar_pairs()` already used elsewhere, replacing two
+separate Python `for`-loop cosine-similarity passes.
+`entry/paths.build()` accepts an already-fetched `entries` list instead of
+unconditionally re-querying the table `/graph` had just read.
+
+**Backend module splits — one done, two still open (kept in ROADMAP.md).**
+`src/memorymap/api/routes_settings.py` split into `routes_websearch.py` +
+`routes_backups.py` (was 1,552 lines). `ai/tools.py` split into a package
+(`ai/tools/_common.py`, `categories.py`, `documents.py`, `whiteboard.py`
+extracted, 4,240 → 3,352 lines at the time) — **partial by design**:
+`ai/tools/__init__.py` still holds ~3,360 lines (the `TOOLS` registry and
+the bulk of note-CRUD/agent-orchestration handlers), left there deliberately
+as the most interleaved, most load-bearing part of the file. Confirmed still
+true by a later re-check. `searxng_manager.py` (1,734 lines, four unrelated
+jobs) was **not** split — deliberately deferred every time it came up,
+subprocess/timing-sensitive code the fake-transport standing caveat means
+the test suite doesn't really exercise. Still open; see ROADMAP.md.
+
+**Frontend algorithmic complexity, items 1-2 (Notes search) — done.** The
+Notes-tab search box was the only search input in the app with no debounce
+and fired an uncached network + semantic-search request per keystroke;
+Library/Timeline/Graph already debounced ~150ms. Notes search now debounces
+the same way and gates the semantic-search request behind it.
+
+**Feature gaps §12 — item 1, the pagination ceiling, done.** `GET /entries`
+had no limit at all; `GET /documents` hard-capped at 200 with no offset and
+no way, UI or API, to reach anything past it. `GET /documents` is now
+explicitly unbounded (comment at the route: the Documents tab loads once and
+filters client-side, the same pattern `GET /entries` already used) rather
+than silently truncating a notebook past 200 documents.
+
+**Caching/pooling checklist — items 1, 2, 5 confirmed already-right, no
+changes.** DB connection pooling: one `Engine` for the process's lifetime,
+which is the correct shape for a single-user local SQLite app, not a
+PgBouncer-style pool. In-memory cache for slow reads: graph pagerank/
+similarity already cached and invalidated on notebook/embedding-model
+change. Inlining critical SVGs: the icon system is one shared Phosphor
+webfont, not per-icon SVGs — nothing to inline. Item 3 (client-side request
+cache) and item 4 (the N+1, now fixed above) are covered elsewhere in this
+entry; item 3's one open question — whether Library/Timeline/Graph should
+opt into the same `cacheMs` pattern the dashboard uses — was never acted on
+and isn't re-opened here since nobody has asked for it since.
+
+**Test suite consolidation — done, wider than first scoped.** Every
+`test_wave*.py`/`test_phase*.py` file is gone, split by actual domain into
+the files that already covered that area, or renamed where the content was
+already coherent. Full before/after test-count check (1811 → 1810, one
+confirmed real duplicate dropped) rather than assumed. See git history
+(`993e639` and the commits immediately after) for the exact file-by-file
+mapping if it's ever needed again — it is not repeated here, since the
+files it names are the map now.
+
+**What's still genuinely open from this review** — kept in ROADMAP.md, not
+archived here: the `whiteboard.js` extraction, the two markdown renderers
+(`renderInlineMarkdown`/`appendInline`) still unmerged, ~39 inline
+`HTTPException(404, ...)` checks across 12 route files instead of a shared
+helper, `searxng_manager.py`'s split, `ai/tools/__init__.py`'s remaining
+size, `all_tags()`'s uncapped full-table scan, and the frontend/backend
+Big-O findings and feature-gap items this pass did not re-verify one way or
+the other (re-check against source before trusting either the "still open"
+or a "done" label — this section exists because that assumption failed
+once already).
+
+## UI polish batch, and two real Windows bugs from a live user report — done
+
+Also moved out of ROADMAP.md's Priority 0 once shipped, same reasoning as
+the entry above. All verified live via Playwright/Chromium against a
+running server unless stated otherwise.
+
+**UI fixes**, each reported directly with a screenshot: Settings →
+Background tasks' live task list now sits in its own `.settings-group`
+("Running now"), matching the boxed treatment of the settings panels below
+it instead of blending into them. The pin/unpin toggle used the same icon
+(`ph-push-pin`) for both states, differing only in tooltip text — now
+`ph-push-pin` (pin) vs `ph-push-pin-slash` (unpin) at every toggle site
+(entry cards, the graph popup, Library, conversations). Native `<dialog>`
+popups (New/Rename/Delete space, doc-storage, the Widgets picker) had no
+`::backdrop` rule and inherited `.card`'s translucent, glass-opacity-scaled
+background, unreadable over the dashboard — they now get the same dimmed
+backdrop and near-opaque `--modal-bg` fill the Settings modal already used
+for the same reason; the icon picker inside these dialogs was re-checked
+through the real open-dialog click path after the change, not assumed.
+Input/textarea/select borders now mix in `--ink` so they stay visible
+regardless of the glass-opacity slider — `--input-bg`'s alpha scales with
+that slider, `--border` didn't, so a field could lose both its fill and its
+outline over a busy background at low glass settings. The graph link-reason
+dialog's four-button row (Save/Generate/Remove link/Close) overflowed
+`.confirm-card`'s default two-button width edge-to-edge with no
+right-align breathing room — `.confirm-card.graph-link-panel` widens just
+that dialog; the first attempt used `.graph-link-panel` alone and silently
+lost to `.confirm-card` on source order, caught only by re-screenshotting
+after the "fix," which is the reason it isn't still broken.
+
+**Two Windows bugs, from a live user report with real logs** — neither
+could have been found in this sandbox (network policy blocks
+huggingface.co outright, and the sandbox is Linux, so Windows-only
+file-locking bugs never reproduce here regardless of whether faster-whisper
+is installed). Dictation errored on every recording with `[Errno 13]
+Permission denied` on the temp file: `routes_voice.py`'s
+`_transcribe_upload` held the clip open under `NamedTemporaryFile`'s own
+handle for the whole `with` block while also handing that same path to
+`voice.transcribe()` to open a second time — fine on POSIX, refused on
+Windows, which locks a file exclusively while any handle is open. Fixed:
+write, close by hand, transcribe, delete in `finally`. Separately,
+reinstall/remove on the voice extra was reported as silently failing after
+the mic had been used once — root-caused as far as possible without a
+Windows machine (`voice._loaded` caches the loaded `WhisperModel` for the
+process's lifetime; Windows locks its native `.pyd`/DLL while mapped in, so
+pip can spawn, run, and still fail to replace those files), and
+`extras.start()`/`remove()` now refuse up front for "voice" when a model is
+loaded, naming the restart as the fix rather than surfacing pip's own
+cryptic error. **This one was never confirmed with the same certainty as
+the temp-file bug** — no specific pip error text was seen for it, only
+inferred from the shape of the report; see ROADMAP.md's faster-whisper
+entry, still open, for the follow-up this needs if it recurs.

@@ -12,6 +12,53 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
+## Priority 0 — left unfinished this session, read before anything else
+
+Ended on session-usage limits, not on running out of work. In the order a
+fresh session should pick them up:
+
+1. **The document-textarea resize gap.** Manually dragging `#doc-content`
+   shorter via its `resize: vertical` handle leaves dead space below it,
+   between the textarea and `.doc-hint`. Root cause traced but not fixed: a
+   manually resized flex item stops participating in `#doc-panes`'
+   `flex: 1 1 auto` the way it does before any resize, so the flex parent
+   keeps the pre-resize height and the slack collects below the textarea
+   instead of at the bottom of the card. Needs a live Chromium session to
+   verify any structural fix — do not ship one unverified, per this file's
+   own repeated CSS-regression history below.
+2. **`app.js`/`style.css`/`index.html` are still monolithic** (30.7k / 15.8k
+   / 3.7k lines). The single highest-value, lowest-risk piece is still the
+   `whiteboard.js` extraction (~3,400+ lines from `app.js:26356`, classic
+   `<script src>` not a module — no `state.js` promotion needed, since
+   classic scripts in one document already share one global scope; see
+   "Frontend refactor path" a few sections down for the seam map). CSS
+   splitting into multiple linked `<link>` files is mechanically low-risk
+   and untried. `index.html` cannot be split without a template/build step,
+   which conflicts with this project's stated no-bundler architecture —
+   don't attempt it the same way as the other two.
+3. **`test_antigravity_regressions.py` is half-migrated.** 5 of its ~13
+   domains moved out this session (see the test-suite section below for the
+   full done/left table); still inside it: memory stream + memory-stream
+   preferences CRUD (~15 tests, home: new `test_memory_stream.py`),
+   embeddings mixed-dimension/orphaned-vector tests (4, new
+   `test_embeddings_core.py`), the rest of the API-surface section (3,
+   split across `test_ai_core.py`/`test_preferences_api.py`/
+   `test_graph_paths.py`), media uploads (6, new `test_media_api.py`),
+   whiteboard card purge (1, `test_autonomous.py`) and card-moving (2,
+   `test_whiteboard.py`), skill-description CSS check (1, `test_skills.py`),
+   graph caching (4, `test_graph_api.py`), and security scanner findings (2,
+   `test_security_hardening.py`). Mapping is already worked out — see the
+   full table in the test-suite section; this is transcription, not
+   re-analysis.
+4. **Settings → Background tasks: live task cards read as one continuous
+   block with the settings sections below them** — reported directly, with
+   a screenshot, not yet acted on. Needs a visual break (border, background
+   shift, or a heading) between "what's running right now" and the
+   Autonomous Background AI settings that follow it in the same panel.
+5. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
+   fully scoped, not started. One open decision before building: preview
+   before commit, or commit straight through (recommendation in §62: preview).
+
 ## #0 priority — codebase quality review (this session) — full report, agreed, act on before anything else below
 
 A full dead-code/duplication/complexity pass across backend, `app.js`,

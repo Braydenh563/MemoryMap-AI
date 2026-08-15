@@ -6038,6 +6038,15 @@ html {
   margin: 0.5rem 0;
 }
 
+/* Unbounded before: a notebook with enough related-but-unlinked notes grew
+   this list past the bottom of its container with nothing to scroll it, so
+   everything past the fold was simply unreachable. Only the rows scroll —
+   the heading (with the two buttons in it) stays put above them. */
+.link-suggest-rows {
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
 /* --- Wave O: brand logo + a more present background ------------------------------ */
 #brand-logo {
   width: 34px;

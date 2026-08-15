@@ -19911,9 +19911,18 @@ async function loadLinkSuggestions() {
   // reasons that said nothing. The endpoint runs the model over those
   // afterwards now, and this reports both numbers so it is obvious which
   // half did the work.
+  //
+  // **Not the same list as the rows below.** This explains links that
+  // already exist elsewhere in the notebook; the rows here are proposed
+  // links that don't exist yet. Reported as "doesn't work right" because
+  // sitting directly above a list of unlinked suggestions, with nothing
+  // distinguishing it, reads as if it should fill in *their* reason boxes —
+  // it can't, since a reason for a link that isn't made yet is exactly the
+  // per-row box already offers (typed by hand, or left for the Link button's
+  // own deduction). Labelled for what it actually touches instead.
   const backfill = smallButton(
-    "ph:lightbulb Give links a reason",
-    "Work out why each link exists — first from how alike the notes are, then by asking the AI to name the actual connection",
+    "ph:lightbulb Explain your existing links",
+    "For links you've already made elsewhere: work out why each one exists — first from how alike the notes are, then by asking the AI to name the actual connection. Doesn't touch the suggestions below, which aren't links yet.",
     async () => {
       backfill.disabled = true;
       setLabel(backfill, "ph:lightbulb Working…");
@@ -19925,7 +19934,7 @@ async function loadLinkSuggestions() {
         return null;
       });
       backfill.disabled = false;
-      setLabel(backfill, "ph:lightbulb Give links a reason");
+      setLabel(backfill, "ph:lightbulb Explain your existing links");
       if (!result) return;
       const parts = [];
       if (result.updated) parts.push(`marked ${result.updated}`);
@@ -19951,6 +19960,12 @@ async function loadLinkSuggestions() {
   actions.append(backfill, closeAll);
   heading.append(headingText, actions);
   box.appendChild(heading);
+
+  // Only this list scrolls when it's long — the heading above stays put.
+  const rowsWrap = document.createElement("div");
+  rowsWrap.className = "link-suggest-rows";
+  box.appendChild(rowsWrap);
+
   for (const s of suggestions) {
     const row = document.createElement("div");
     row.className = "link-suggestion";
@@ -20005,7 +20020,7 @@ async function loadLinkSuggestions() {
       }
     });
     row.append(text, reason, score, link, dismiss);
-    box.appendChild(row);
+    rowsWrap.appendChild(row);
   }
 }
 

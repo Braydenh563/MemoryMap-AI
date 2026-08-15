@@ -1,4 +1,4 @@
-"""Dashboard insights (Wave D): stats, on-this-day, weekly digest."""
+"""Dashboard insights: stats, on-this-day, weekly digest."""
 
 from __future__ import annotations
 
@@ -436,7 +436,7 @@ def weekly_digest(session: Session = Depends(get_session)) -> dict:
     config = deps.get_config()
     # Only a genuine AI answer is worth caching — if Ollama is down the
     # digest is just the offline notice, which should be retried, not
-    # frozen for the day (Wave J follow-up).
+    # frozen for the day.
     ollama_running = deps.get_ollama().is_running()
     digest, thinking = librarian.answer(
         DIGEST_QUESTION + digest_structure_note(session),

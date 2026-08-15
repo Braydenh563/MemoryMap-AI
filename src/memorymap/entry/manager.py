@@ -1,7 +1,7 @@
 """Create/read/update/soft-delete entries, links, and audit logging.
 
 Deliberately AI-free: the API layer decides the category (by asking the
-janitor in Phase 2) and this module just stores what it's told. That
+janitor) and this module just stores what it's told. That
 keeps capture working even when every AI piece is down (plan §4).
 """
 
@@ -93,7 +93,7 @@ def create_entry(
 
 def list_entries(session: Session, include_deleted: bool = False) -> list[Entry]:
     """Pinned first, then newest first. Deleted entries stay hidden until
-    the recycle bin UI (Phase 4) asks for them explicitly."""
+    the recycle bin UI asks for them explicitly."""
     query = select(Entry).order_by(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
@@ -136,7 +136,7 @@ def update_entry(
     category_name: str | None = None,
     tags: list[str] | None = None,
 ) -> Entry:
-    """Manual override (plan Phase 4): the user can change anything the
+    """Manual override: the user can change anything the
     AI decided. Only the provided fields change. Commits."""
     changed = []
     if content is not None and content != entry.content:
@@ -147,7 +147,7 @@ def update_entry(
         if category.id != entry.category_id:
             entry.category_id = category.id
             # A manual move means the user decided — the janitor stays
-            # out of this entry's filing from now on (Wave B).
+            # out of this entry's filing from now on.
             entry.user_filed = True
             changed.append(f"category={category_name}")
     if tags is not None:
@@ -479,7 +479,7 @@ def purge_entries(
 
 
 def empty_recycle_bin(session: Session, uploads_dir: Path | None = None) -> int:
-    """Manual 'empty now' (plan Phase 4). Commits."""
+    """Manual 'empty now'. Commits."""
     binned = list(session.scalars(select(Entry).where(Entry.is_deleted == True)))  # noqa: E712
     count = _hard_delete(session, binned, uploads_dir=uploads_dir)
     if count:
@@ -509,7 +509,7 @@ def purge_expired_deleted(
     return count
 
 
-# --- attachments (Wave B) ------------------------------------------------------
+# --- attachments ------------------------------------------------------
 
 
 def add_attachment(
@@ -646,7 +646,7 @@ def rename_attachment(session: Session, attachment: Attachment, new_filename: st
     return attachment
 
 
-# --- tags (Wave B tag manager) --------------------------------------------------
+# --- tags (tag manager) --------------------------------------------------
 
 
 def all_tags(session: Session) -> dict[str, int]:

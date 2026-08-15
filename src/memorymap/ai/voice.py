@@ -1,4 +1,4 @@
-"""Local speech-to-text (Wave H) — optional, like everything AI here.
+"""Local speech-to-text — optional, like everything AI here.
 
 Uses faster-whisper (Whisper running on CPU via CTranslate2) when the
 user has installed it:  pip install faster-whisper

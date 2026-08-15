@@ -152,7 +152,7 @@ def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
 
 
 def _find_near_duplicate(session: Session, entry) -> SimilarOut | None:  # noqa: ANN001
-    """Warn about a saved note that says almost the same thing (Wave B).
+    """Warn about a saved note that says almost the same thing.
     Purely informational — the save has already happened."""
     try:
         results = search_manager.semantic_search(
@@ -185,7 +185,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         # Guided mode: the user chose — the AI stays out of it entirely.
         category, confidence, filed_by = body.category, 100, "user"
     elif parent is not None:
-        # Continuing a thread (Wave B): a train of thought stays in its
+        # Continuing a thread: a train of thought stays in its
         # parent's category — predictable beats clever here.
         category = manager.category_name_for(session, parent)
         confidence, filed_by = 75, "thread"
@@ -247,7 +247,7 @@ def add_context(
     entry_id: int, body: ContextBody, session: Session = Depends(get_session)
 ) -> EntryOut:
     """Append context to an existing note and let the janitor rethink the
-    category with the fuller picture (Wave B). If the user filed this
+    category with the fuller picture. If the user filed this
     entry themselves, the category is left alone — their call stands."""
     entry = _existing_entry(session, entry_id)
     entry.content = f"{entry.content}\n\n--- added context ---\n{body.text.strip()}"
@@ -391,7 +391,7 @@ class ImproveBody(BaseModel):
 @router.post("/improve")
 def improve_writing(body: ImproveBody) -> dict:
     """Return an AI-polished version of some note text without saving it —
-    the UI shows a before/after and the user decides (Wave N). Never
+    the UI shows a before/after and the user decides. Never
     touches the note itself; the AI is a servant, not a gatekeeper."""
     text = body.text.strip()
     if not text:
@@ -430,7 +430,7 @@ SEMANTIC_LIST_LIMIT = 25
 @router.get("/link-suggestions")
 def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     """Pairs of notes that mean similar things but aren't linked yet —
-    the auto-linker (Wave N). Suggestion-only: it never links anything on
+    the auto-linker. Suggestion-only: it never links anything on
     its own, it hands the pairs to the UI to approve. Empty when the
     embedding backend is unavailable (semantic search off).
 
@@ -546,7 +546,7 @@ def backfill_link_reasons(
 
 @router.get("/{entry_id}/related", response_model=list[EntryOut])
 def related_entries(entry_id: int, session: Session = Depends(get_session)) -> list[EntryOut]:
-    """Semantic neighbours of one entry ("see also", Wave B)."""
+    """Semantic neighbours of one entry ("see also")."""
     entry = _existing_entry(session, entry_id)
     try:
         results = search_manager.semantic_search(
@@ -610,7 +610,7 @@ def list_entries(
 @router.get("/most-accessed", response_model=list[EntryOut])
 def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
     """Top entries by how often they've been opened or matched a
-    question — the Phase 5 quick-access dashboard."""
+    question — the quick-access dashboard."""
     entries = manager.most_accessed_entries(session, limit=5)
     return _to_out_bulk(session, entries)
 

@@ -85,7 +85,7 @@ def categorise(
     (embedding centroid, no LLM), 'llm' (asked the chat model), or
     'none' (no AI available).
 
-    When RE-categorising an existing note (add-context, Wave B), pass
+    When RE-categorising an existing note (add-context), pass
     `exclude_entry_id` — otherwise the note's own stored vector anchors
     it to its old category and it can never move."""
     match = _best_centroid_match(
@@ -275,7 +275,7 @@ def _ask_llm(
     try:
         reply = ollama.chat(
             # Filing is a quick background job — use the utility model so a
-            # big slow chat model isn't tied up on every save (Wave N).
+            # big slow chat model isn't tied up on every save.
             model_manager.utility_model(),
             [
                 {"role": "system", "content": SYSTEM_PROMPT},

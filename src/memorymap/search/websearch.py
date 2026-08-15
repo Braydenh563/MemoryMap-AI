@@ -1,4 +1,4 @@
-"""Opt-in web search (Wave F) — the ONE feature that leaves the machine.
+"""Opt-in web search — the ONE feature that leaves the machine.
 
 It's off by default, gated behind the "web_search_enabled" preference, and the
 UI labels results clearly as coming from the internet.

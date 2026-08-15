@@ -1,9 +1,9 @@
-"""The graph view's data (Wave E): every note and its connections in
+"""The graph view's data: every note and its connections in
 one call, so the frontend can draw an Obsidian-style map.
 
 Nodes are non-deleted entries; edges come from three places:
 - manual links (the link button / link_notes tool),
-- train-of-thought threads (parent_id, Wave B),
+- train-of-thought threads (parent_id),
 - optionally, semantic similarity between stored vectors (?similarity=true)
   — computed on demand from the embeddings we already have, never stored.
 """

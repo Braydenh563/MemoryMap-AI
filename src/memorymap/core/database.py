@@ -142,7 +142,7 @@ def _set_workspace(session, flush_context, instances):
                     obj.workspace_id = workspace_id
 
 class User(Base):
-    """Single-user unlock (Phase 4). One row, bcrypt password hash."""
+    """Single-user unlock. One row, bcrypt password hash."""
 
     __tablename__ = "users"
 
@@ -190,9 +190,9 @@ class Entry(Base, WorkspaceMixin):
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
     # Bumped every time this entry is opened or returned by a chat
-    # question — feeds the "most used" dashboard (Phase 5).
+    # question — feeds the "most used" dashboard.
     access_count: Mapped[int] = mapped_column(Integer, default=0)
-    # Train-of-thought threads (Wave B): a child continues its parent.
+    # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs — the FK
     # constraint only exists on freshly created databases.)
     parent_id: Mapped[int | None] = mapped_column(
@@ -207,7 +207,7 @@ class Entry(Base, WorkspaceMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
     )
-    # Soft delete = recycle bin (Phase 4 adds restore/auto-clear).
+    # Soft delete = recycle bin (adds restore/auto-clear).
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     # Private notes have their content encrypted at rest. Scalar default so
     # the additive auto-migrator backfills every existing row as not-private.
@@ -297,7 +297,7 @@ class EmbeddingRecord(Base):
 
 
 class Attachment(Base):
-    """A file the user attached to an entry (Wave B). The bytes live in
+    """A file the user attached to an entry. The bytes live in
     the uploads/ folder under a random stored_name; the original
     filename is kept for downloads."""
 
@@ -313,7 +313,7 @@ class Attachment(Base):
 
 
 class Conversation(Base, WorkspaceMixin):
-    """A saved chat (Wave C). Turns are a JSON list of
+    """A saved chat. Turns are a JSON list of
     {"role": "user"|"assistant", "content": str, "thinking": str|None}
     — one blob per conversation is the boring right size for a
     single-user app.
@@ -343,7 +343,7 @@ class Conversation(Base, WorkspaceMixin):
 
 
 class Reminder(Base):
-    """A reminder, optionally attached to an entry (Wave D)."""
+    """A reminder, optionally attached to an entry."""
 
     __tablename__ = "reminders"
 
@@ -553,7 +553,7 @@ class UserPreference(Base):
 
 
 class AuditLog(Base):
-    """Every meaningful action, from Phase 1 onward (plan §4)."""
+    """Every meaningful action, logged from the start (plan §4)."""
 
     __tablename__ = "audit_log"
 

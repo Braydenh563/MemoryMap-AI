@@ -1,4 +1,4 @@
-"""Voice capture endpoints (Wave H): the browser records, the server
+"""Voice capture endpoints: the browser records, the server
 transcribes with local Whisper — nothing is sent anywhere.
 """
 

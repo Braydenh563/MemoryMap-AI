@@ -1,4 +1,4 @@
-"""File attachments on entries (Wave B).
+"""File attachments on entries.
 
 Bytes live in the uploads folder under a random name (no path traversal
 possible); the original filename is kept only for downloads.

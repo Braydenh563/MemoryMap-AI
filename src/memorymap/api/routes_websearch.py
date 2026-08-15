@@ -1,7 +1,7 @@
 """Web search: the opt-in DuckDuckGo/SearXNG lookup, page reader, and
 SearXNG process admin (install/start/stop/reinstall).
 
-Split out of `routes_settings.py`'s "web search (Wave F)" section
+Split out of `routes_settings.py`'s "web search" section
 (ROADMAP.md §0/§4) — self-contained apart from the app-wide `router`
 pattern every route module follows.
 """

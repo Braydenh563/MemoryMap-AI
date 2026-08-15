@@ -1,5 +1,5 @@
 """Preferences, audit-log viewer, data export, and recycle-bin
-maintenance (plan Phase 4).
+maintenance.
 """
 
 from __future__ import annotations
@@ -124,23 +124,23 @@ class PreferencesBody(BaseModel):
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
-    # Optional context about the user for the librarian (Phase 5).
+    # Optional context about the user for the librarian.
     # profile_enabled is the opt-out switch; the delete button in the UI
     # simply saves an empty string.
     user_profile: str | None = Field(default=None, max_length=2000)
     profile_enabled: bool | None = None
-    # Capture templates (Wave B): user-defined prefills for the note box.
+    # Capture templates: user-defined prefills for the note box.
     custom_templates: list[TemplateItem] | None = Field(default=None, max_length=20)
-    # Personas (Wave C): custom system prompts + which one is active.
+    # Personas: custom system prompts + which one is active.
     personas: list[PersonaItem] | None = Field(default=None, max_length=20)
     active_persona: str | None = Field(default=None, max_length=40)
     # Saved appearance looks. Server-side rather than in the browser because a
     # theme someone built by hand is a thing they would be upset to lose to a
     # cleared cache — and here it rides along in the daily backup too.
     custom_themes: list[CustomThemeItem] | None = Field(default=None, max_length=20)
-    # Dashboard layout (Wave D): widget order + hidden widgets.
+    # Dashboard layout: widget order + hidden widgets.
     dashboard_layout: "DashboardLayout | None" = None
-    # Wave G: user-defined skills, and whether the chat AI may use tools.
+    # User-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
     # The local-AI lock (§33). On by default; see core.config.
@@ -149,7 +149,7 @@ class PreferencesBody(BaseModel):
     # what it plausibly needs (§11a — the schemas are most of the per-round
     # cost); "all" sends the whole registry, as it always did.
     tool_focus: Literal["auto", "all"] | None = None
-    # Wave F: the ONE feature that goes online — off unless the user opts in.
+    # The ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
     searxng_autostart: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
@@ -174,7 +174,7 @@ class PreferencesBody(BaseModel):
     # background jobs, agent runs and general activity while a due reminder
     # still gets through either way.
     notifications_muted_except_reminders: bool | None = None
-    # Wave O: agent tools the user has switched off (by tool name).
+    # Agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
     # Which faster-whisper model size the dictation buttons load. Read by
     # `routes_voice.py` since the feature shipped; nothing ever let a user set

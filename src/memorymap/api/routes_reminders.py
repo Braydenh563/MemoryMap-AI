@@ -1,4 +1,4 @@
-"""Reminders (Wave D): create, list, tick off, delete.
+"""Reminders: create, list, tick off, delete.
 
 Local-only — the browser fires the notification while the app is open;
 nothing runs in the cloud.

@@ -1,6 +1,6 @@
 """Storage location and backup CRUD (backup/restore/delete).
 
-Split out of `routes_settings.py`'s "backups (Wave F)" section
+Split out of `routes_settings.py`'s "backups" section
 (ROADMAP.md §0/§4).
 """
 

@@ -175,7 +175,7 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
 
 def reload_db() -> None:
     """Close every connection and reopen the database file — needed
-    after a backup restore replaces the file underneath us (Wave F)."""
+    after a backup restore replaces the file underneath us."""
     global _db
     assert _config is not None
     if _db is not None:

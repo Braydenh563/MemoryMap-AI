@@ -90,7 +90,7 @@ class RevalidatedStatic(StaticFiles):
 
 
 def _purge_expired_bin_entries() -> None:
-    """Recycle-bin auto-clear (plan Phase 4): permanently drop entries
+    """Recycle-bin auto-clear: permanently drop entries
     binned longer than the user's configured number of days."""
     try:
         session = deps.get_db().session()
@@ -109,7 +109,7 @@ def _purge_expired_bin_entries() -> None:
 
 
 def _backup_if_due() -> None:
-    """Scheduled local backups (Wave F): one consistent snapshot per day,
+    """Scheduled local backups: one consistent snapshot per day,
     taken at startup. Failure must never stop the app."""
     try:
         config = deps.get_config()

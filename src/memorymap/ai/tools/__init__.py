@@ -1,4 +1,4 @@
-"""Agentic tools (Wave G): actions the chat model can take on the
+"""Agentic tools: actions the chat model can take on the
 notebook, offered to Ollama's native tool-calling API.
 
 Rules of the registry:
@@ -3139,8 +3139,8 @@ def focus_for(question: str, recent: str = "") -> list[str] | None:
 
 
 def tool_enabled(name: str) -> bool:
-    """A tool is offered unless the user turned it off in Settings → Tools
-    (Wave O). web_search additionally requires the online opt-in."""
+    """A tool is offered unless the user turned it off in Settings → Tools.
+    web_search additionally requires the online opt-in."""
     config = deps.get_config()
     if name in ("web_search", "read_url") and not config.get_preference(
         "web_search_enabled", False
@@ -3270,7 +3270,7 @@ def budget_for_window(context_tokens: int) -> int:
 
 
 def tool_catalog() -> list[dict]:
-    """Metadata for the Settings → Tools toggles (Wave O)."""
+    """Metadata for the Settings → Tools toggles."""
     return [
         {
             "name": spec.name,

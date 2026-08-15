@@ -1,4 +1,4 @@
-"""Saved chats (Wave C).
+"""Saved chats.
 
 The frontend streams answers via /chat/stream, then records the finished
 turn here — keeping the streaming path simple and the history durable.
@@ -25,7 +25,7 @@ class TurnBody(BaseModel):
     question: str = Field(min_length=1)
     answer: str
     thinking: str | None = None
-    # Tool-activity chips shown in the bubble (Wave G) — persisted so they
+    # Tool-activity chips shown in the bubble — persisted so they
     # survive a reload instead of vanishing. Each item is {label, ok}.
     tools: list[dict] | None = None
     # The agent's work in the order it happened: thinking, tool calls and

@@ -1,7 +1,7 @@
 """The ONE active embedding backend (plan §2, resolution 1).
 
 Default: sentence-transformers `BAAI/bge-small-en-v1.5` — no Ollama needed.
-Optional: an Ollama embedding model (user's choice, Phase 3.5).
+Optional: an Ollama embedding model (user's choice).
 
 Both hide behind `embed_text()`, which returns None whenever embeddings
 are unavailable. Callers must treat None as "skip semantic features",
@@ -375,7 +375,7 @@ class EmbeddingService:
     def store_for_entry(self, session: Session, entry: Entry) -> bool:
         """Save an entry's vector. Returns False on failure — which only
         means no semantic search for this entry; it never blocks the
-        entry save itself (plan Phase 2).
+        entry save itself.
 
         Private notes are never embedded. A vector derived from the text
         encodes what the note is about, so storing one beside the ciphertext

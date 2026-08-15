@@ -29,12 +29,20 @@ Three properties this deliberately has:
 from __future__ import annotations
 
 import importlib.util
+import logging
 import subprocess  # noqa: S404 — fixed args, no shell; see _install below
 import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+#: Reported: a failed install showed "pip exited with code 1" in the
+#: Background tasks panel (which reads `_state.log` directly) but nothing in
+#: Settings → Logs, because that viewer only ever sees records that went
+#: through `logging` — see `core/logbuffer.py`. pip's own output was captured
+#: for the panel and never routed there.
+_logger = logging.getLogger("memorymap.extras")
 
 
 @dataclass(frozen=True)
@@ -241,6 +249,15 @@ def _run_uninstall(extra: Extra) -> None:
         _state.step = f"Couldn't run pip: {exc}"
     finally:
         _state.running = False
+        if _state.outcome == "failed":
+            _logger.error(
+                "Removing %s failed: %s\n%s",
+                extra.label,
+                _state.step,
+                "\n".join(_state.log[-40:]),
+            )
+        else:
+            _logger.info("Removed %s.", extra.label)
 
 
 def _run_install(extra: Extra, reinstall: bool = False) -> None:

@@ -3063,26 +3063,34 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Tasks: see and quit background jobs -->
           <section class="settings-section hidden" id="settings-tasks">
-            <p class="muted">
-              Everything the app is doing in the background right now —
-              re-indexing your notes, downloading a model, loading the
-              embedding model, setting up SearXNG. Jobs that can be stopped
-              safely have a Quit button; the rest are left to finish.
-            </p>
-            <ul id="task-list" class="entry-list"></ul>
-            <p id="tasks-empty" class="muted">Nothing running right now.</p>
-
-            <!-- What stopped. The half that was missing: a job that FAILS used
-                 to vanish at the moment it became interesting, leaving the
-                 same empty list as one that finished. -->
-            <div id="task-history-box" class="hidden">
-              <h3>Recently finished</h3>
+            <!-- Boxed like the settings-groups below it (§ reported: a live
+                 task card visually blended into "Autonomous Background AI"
+                 underneath, with nothing to show where one ended and the
+                 other began). Its own group makes the running-now list read
+                 as status, not as another setting. -->
+            <div class="settings-group" id="tasks-live-group">
+              <h3>Running now</h3>
               <p class="muted">
-                What has stopped since the app started, and how it went. Kept in
-                memory only — it clears itself when you restart.
+                Everything the app is doing in the background right now —
+                re-indexing your notes, downloading a model, loading the
+                embedding model, setting up SearXNG. Jobs that can be stopped
+                safely have a Quit button; the rest are left to finish.
               </p>
-              <ul id="task-history" class="entry-list"></ul>
-              <button id="task-history-clear" class="ghost small">Clear this list</button>
+              <ul id="task-list" class="entry-list"></ul>
+              <p id="tasks-empty" class="muted">Nothing running right now.</p>
+
+              <!-- What stopped. The half that was missing: a job that FAILS used
+                   to vanish at the moment it became interesting, leaving the
+                   same empty list as one that finished. -->
+              <div id="task-history-box" class="hidden">
+                <h3>Recently finished</h3>
+                <p class="muted">
+                  What has stopped since the app started, and how it went. Kept in
+                  memory only — it clears itself when you restart.
+                </p>
+                <ul id="task-history" class="entry-list"></ul>
+                <button id="task-history-clear" class="ghost small">Clear this list</button>
+              </div>
             </div>
 
             <div class="settings-group">

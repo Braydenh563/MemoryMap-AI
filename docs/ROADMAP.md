@@ -50,20 +50,82 @@ fresh session should pick them up:
    `test_security_hardening.py`). Mapping is already worked out — see the
    full table in the test-suite section; this is transcription, not
    re-analysis.
-4. **Settings → Background tasks: live task cards read as one continuous
-   block with the settings sections below them** — reported directly, with
-   a screenshot, not yet acted on. Needs a visual break (border, background
-   shift, or a heading) between "what's running right now" and the
-   Autonomous Background AI settings that follow it in the same panel.
-5. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
+4. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
    fully scoped, not started. One open decision before building: preview
    before commit, or commit straight through (recommendation in §62: preview).
-6. **A live visual indicator when the mic picks up sound**, for the dictation
+5. **A live visual indicator when the mic picks up sound**, for the dictation
    buttons — asked for directly, explicitly deferred by the user this
    session ("that can wait"). Not scoped yet: likely a small level-meter off
    `AnalyserNode`/`getByteFrequencyData` on the same `MediaStream` the
    recorder already opens in `toggleDictation()` (`app.js:17050`) — no new
    permission, no new stream.
+6. **The graph tab's traced-path text visualisation at the top of the canvas
+   needs a redesign** — asked for directly ("the text ui visualisation of the
+   trace path... needs improving and potential redesign"), not scoped. See
+   the `.graph-traced-path`/§9 block a little further down this file for
+   where it's built; no specific direction was given, so a fresh session
+   should look at what it currently renders before proposing a shape.
+7. **Idea, not yet scoped: recent searches / search history / past results
+   in the Ask (chat) tab** — asked for directly. Needs a decision on where it
+   lives (a dropdown under the ask box? a sidebar list, like the conversation
+   history already has?) and what "past results" means beyond the existing
+   conversation history the sidebar already keeps — worth checking against
+   that existing feature first so this doesn't rebuild it under a new name.
+8. **faster-whisper reported still failing to install**, pip exiting non-zero,
+   from the same live Windows session as the temp-file bug below. Two things
+   were fixed blind this session, without seeing the actual pip error: (a)
+   `_run_install`/`_run_uninstall` in `core/extras.py` now also log the
+   outcome through `logging` (`memorymap.extras`), not just into the
+   Background-tasks panel's own `_state.log` — the install failure was
+   reported as invisible on the Logs page, and it was: `logbuffer.py` only
+   ever sees records that went through Python's `logging` module, and pip's
+   captured output never did. (b) unrelated to this pip failure but same
+   report: the pin icon was fixed (see below). **The pip install failure
+   itself is still unexplained** — no error text was seen, only "pip exited
+   with code 1." If it recurs, Settings → Logs should now show it (search
+   "memorymap.extras"); that text is what a fresh session needs to actually
+   fix the install rather than guess again.
+9. ~~The link-reason dialog's button row, re-reported as "still visually
+   broken."~~ **Fixed, root cause found.** Not text wrapping inside a button
+   (that was already prevented, `white-space: nowrap`) — the dialog itself
+   inherited `.confirm-card`'s width, `min(30rem, 92vw)` (~480px), sized for
+   its usual two-button row. This one carries four (Save, Generate, Remove
+   link, Close), whose combined content alone is ~482px — already wider than
+   the card. `justify-content: flex-end` had nothing left to push against,
+   so the row rendered edge-to-edge with zero breathing room, which is what
+   "broken" actually looked like. `.confirm-card.graph-link-panel` now
+   widens just this dialog to `min(34rem, 94vw)`, matching the precedent
+   `.dash-widgets-dialog` already set for the same reason. First attempt at
+   this fix used `.graph-link-panel` alone and silently lost to
+   `.confirm-card` on source order (equal specificity, `.confirm-card`
+   defined later) — caught by re-screenshotting after the "fix," which is
+   the only reason it isn't still broken. Verified live at 1400px.
+
+### Fixed this session, following up on the above
+
+- **Settings → Background tasks** now wraps the live task list (`#task-list`,
+  `#tasks-empty`, `#task-history-box`) in its own `.settings-group`, headed
+  "Running now" — the same boxed treatment as "Autonomous Background AI" and
+  "Battery Efficient Mode" below it, so the three read as separate panels
+  instead of one continuous block. Verified live (Playwright screenshot).
+- **The pin/unpin icon used the same glyph (`ph-push-pin`) for both states**,
+  differing only in tooltip text — reported as "incorrect." Now
+  `ph-push-pin` (pin) vs `ph-push-pin-slash` (unpin) at every toggle site
+  (entry cards, the graph popup, Library, conversations).
+- **Native `<dialog>` popups** (New/Rename/Delete space, the document-storage
+  note, the Widgets picker) had no `::backdrop` rule and inherited `.card`'s
+  translucent, glass-opacity-scaled background — reported as unreadable over
+  the dashboard's own background, with screenshots. They now get the same
+  dimmed backdrop and near-opaque `--modal-bg` fill the Settings modal
+  already used for the same reason. Verified live; the icon picker inside
+  these dialogs still renders correctly through the real open-dialog click
+  path (checked after the change, not assumed).
+- **Text-box contrast**: `--input-bg`'s alpha scales with the glass-opacity
+  slider, `--border` doesn't, so at low glass settings a field could lose
+  both its fill and its outline over a busy background — reported directly.
+  Input/textarea/select borders now mix in `--ink` so they stay visible
+  regardless of glass settings, in every theme, without a second border
+  token to keep in sync per theme.
 
 ### Two real bugs found and fixed this session, from a live user report with logs
 

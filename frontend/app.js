@@ -992,7 +992,7 @@ function entryItem(entry, options = {}) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
-      smallButton("ph:push-pin", entry.pinned ? "Unpin" : "Pin to top", async () => {
+      smallButton(entry.pinned ? "ph:push-pin-slash" : "ph:push-pin", entry.pinned ? "Unpin" : "Pin to top", async () => {
         await api(`/entries/${entry.id}`, {
           method: "PUT",
           body: JSON.stringify({ pinned: !entry.pinned }),
@@ -7413,7 +7413,7 @@ async function loadConversationList() {
     const items = [];
     items.push(
       makeMenuItem(
-        conversation.pinned ? "ph:push-pin Unpin" : "ph:push-pin Pin",
+        conversation.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin",
         conversation.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
         async () => {
           await apiJson(`/conversations/${conversation.id}/pin`, {
@@ -14095,7 +14095,7 @@ function renderGraphPopupActions(entry) {
   box.replaceChildren();
 
   box.appendChild(
-    smallButton(entry.pinned ? "ph:push-pin Unpin" : "ph:push-pin Pin", "Pin or unpin this note", async () => {
+    smallButton(entry.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin", "Pin or unpin this note", async () => {
       await apiJson(`/entries/${entry.id}`, {
         method: "PUT",
         body: JSON.stringify({ pinned: !entry.pinned }),
@@ -18234,7 +18234,7 @@ function libraryActions(item) {
   if (item.kind === "chat") {
     return [
       makeMenuItem(
-        item.pinned ? "ph:push-pin Unpin" : "ph:push-pin Pin",
+        item.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin",
         item.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
         async () => {
           await apiJson(`/conversations/${item.id}/pin`, {

@@ -2170,7 +2170,14 @@ input[type="datetime-local"] {
   width: 100%;
   padding: var(--space-4) var(--space-5);
   margin-bottom: var(--space-4);
-  border: 1px solid var(--border);
+  /* Reported: "text boxes are hard to see... the colour's nearly the same
+     and there is no border difference." `--input-bg`'s alpha is scaled by
+     the glass-opacity slider (down to near-transparent at low settings);
+     `--border` is a fixed, already-faint 10% and does not compensate, so a
+     field can lose both its fill and its outline over a busy background at
+     once. Mixing in `--ink` keeps the outline legible at any glass setting,
+     in every theme, without a second border token to keep in sync. */
+  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
   border-radius: var(--radius-lg);
   font: inherit;
   background: var(--input-bg);
@@ -4780,6 +4787,23 @@ html.modal-open body {
 .graph-edge-hit.graph-edge-manageable {
   pointer-events: stroke;
   cursor: pointer;
+}
+
+/* `.confirm-card`'s width (min(30rem, 92vw), ~480px) is sized for its usual
+   two buttons (Cancel/Confirm). This panel carries four (Save, Generate,
+   Remove link, Close) whose combined content width alone is ~482px — wider
+   than the card, before its own padding — so `.confirm-actions`'
+   `justify-content: flex-end` had nothing to push against and the row
+   rendered edge-to-edge with no breathing room, reported as "still visually
+   broken." Matches `.dash-widgets-dialog`'s own wider override for the same
+   reason: more content than the generic dialog width was sized for.
+   `.confirm-card.graph-link-panel`, not `.graph-link-panel` alone: same
+   specificity as `.confirm-card` itself means source order would decide the
+   winner, and `.confirm-card` is defined later in this file — a plain single
+   class here would have lost silently (confirmed live: it did, until this
+   compound selector replaced it). */
+.confirm-card.graph-link-panel {
+  width: min(34rem, 94vw);
 }
 
 .graph-link-panel-reason {
@@ -15572,8 +15596,24 @@ textarea.drag-over {
 }
 
 /* --- space dialogs ----------------------------------------------------------- */
+/* Reported: "New space", "Rename space" and the Widgets picker read as
+   near-illegible over the dashboard's animated background — text sitting
+   directly on whatever colours were behind it. These are native <dialog>
+   elements; with no ::backdrop rule of their own they got the browser's
+   default (barely-there) dimming, and `.card` on top of that is deliberately
+   translucent glass, scaled by the user's own glass-opacity setting — right
+   for a page card, wrong for a popup that has to stay readable regardless.
+   `.modal-card` (Settings) solved the same problem the same way; this gives
+   every native dialog in the app that same dimmed backdrop and near-opaque
+   panel instead of reinventing it per-dialog. */
+dialog::backdrop {
+  background: rgba(10, 12, 18, 0.45);
+  backdrop-filter: blur(4px);
+}
+
 .space-dialog {
   min-width: min(26rem, calc(100vw - var(--space-8)));
+  background: var(--modal-bg);
 }
 
 .space-dialog label {

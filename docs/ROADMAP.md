@@ -176,6 +176,28 @@ total, low risk.**
 | 7 | Split `routes_settings.py` and `searxng_manager.py` (§4) | Low-medium | Medium (searxng touches subprocess timing) | Medium |
 | 8 | Consolidate duplicate/near-duplicate CSS blocks (§2) | Low-medium | Medium — needs a real browser check | Medium |
 
+### 9. Caching/pooling checklist, audited against current code (added post-Antigravity/Gemini session)
+
+Requested as five generic web-app perf tasks (pooling, in-memory cache,
+client-side cache, cached reads, inline critical SVGs). Checked each against
+this codebase — a single-user, local-first SQLite app, not a multi-instance
+web service — before adding anything, per this file's own standing rule.
+**Three of five are already built; one item's premise doesn't apply here.**
+
+| # | Ask | Status | Evidence |
+|---|---|---|---|
+| 1 | DB connection pooling | Already the shape that fits this app | `DatabaseManager.__init__` (`core/database.py:568-599`) creates **one** `Engine` for the process's lifetime and hands out sessions from it — not a fresh engine/connection per request. WAL mode + `busy_timeout` are set so concurrent readers don't block. A traditional sized pool (PgBouncer-style) doesn't apply: this is one process talking to one local SQLite file, not many app instances sharing a remote DB. Nothing to do. |
+| 2 | In-memory cache for slow, frequently-read data | Already built for the one thing that needed it | `routes_graph.py:60-105` — pagerank/similarity results cached by a notebook fingerprint, invalidated on notebook change or embedding-model switch (`reset_graph_cache`, `deps.register_cache_reset`). Covered by `test_pagerank_is_not_recomputed_for_an_unchanged_notebook` etc. in `test_antigravity_regressions.py`. Nothing else in the app is both this expensive and this hot. |
+| 3 | Client-side request cache | Already built, narrowly scoped | `app.js:203-232` — `apiJson(path, { cacheMs })`, opt-in per call, invalidated wholesale by `clearApiCache()` on any mutating request. Currently used on 4 dashboard call sites (`app.js:10308,10318,10326,10698`), all `GET /entries` at `cacheMs: 4000`. **Real remaining work, if any:** decide whether more read-heavy tabs (Library, Timeline, Graph) should opt in the same way — not build the mechanism, which already exists. |
+| 4 | Cache repeated read queries | Partly done, one gap already tracked | Graph derivations: done (#2 above). The other candidate is §6/§8-item-1's `GET /entries` N+1 — bulk helpers (`entry_dates_bulk`, `bulk_category_names`) exist but were never wired into `_to_out`/`list_entries`. That's the real, already-identified item here — see §6, unchanged by this addition. |
+| 5 | Inline tiny critical SVGs | Premise doesn't apply | The app's icon system is a vendored Phosphor **webfont** (`vendor/phosphor/style.css` + one `.woff2`), not per-icon SVG files — icons are one shared glyph request, not many. The only standalone SVG is `favicon.svg`, referenced twice (`<link rel="icon">` and `#brand-logo`) and browser-cached after the first fetch. Nothing to inline. |
+
+**Net effect on the ranked table above:** no new rows. The only genuine
+open item this pass surfaces is already §8 row 1 (`GET /entries` N+1) —
+restated here so a session picking up "the priority-0 refactor" doesn't
+rebuild the graph cache or the client-side GET cache from scratch, the
+mistake CLAUDE.md's opening section exists to prevent.
+
 ### Test suite: a concrete finding, on a different axis than the prior "nothing to do" pass
 
 A prior session already investigated test consolidation and found nothing

@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 
 import numpy as np
-import pytest
 
 from memorymap.ai import agent, embeddings, tools
 from memorymap.core.database import Entry, UserPreference
@@ -27,149 +26,13 @@ def _note(session, content="a note", tags=None, private=False):
     return entry
 
 
-# --- the chat transport ----------------------------------------------------------
-
-
-def test_the_chat_stream_is_a_plain_post_not_a_websocket(ai_client):
-    """`/chat/stream` was rewritten as a WebSocket and reverted.
-
-    Worth a guard rather than a note: the rewrite needed the request's
-    SQLAlchemy Session on a second thread, had to be mounted outside the
-    `locked` dependency and hand-roll its auth, and a WS handshake is not
-    subject to the same-origin policy that protects this POST — so any page
-    the user had open could have driven the agent. It also took ~70 tests with
-    it, all reporting 405.
-    """
-    with ai_client.stream("POST", "/chat/stream", json={"question": "hello"}) as r:
-        assert r.status_code == 200
-        assert "ndjson" in r.headers["content-type"]
-
-
-def test_the_frontend_streams_chat_over_fetch(request):
-    from memorymap.api.app import FRONTEND_DIR
-
-    app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
-    assert 'fetch("/chat/stream"' in app_js
-    assert "new WebSocket(" not in app_js
-
-
-# --- tools.py: the private-note boundary -----------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("name", "extra"),
-    [("tag_note", {"add": ["snooped"]}), ("link_notes", {})],
-)
-def test_the_batch_write_tools_still_refuse_a_private_note(session, name, extra):
-    """`tag_note` and `link_notes` grew batch arguments and, in doing so,
-    stopped calling `_require_note` for the notes in the batch — which is the
-    single place that refuses a private note. Tagging one worked; linking to
-    one leaked its existence into the graph."""
-    public = _note(session, "public")
-    private = _note(session, "codeword ELDERFLOWER", private=True)
-
-    args = {"note_id": private.id, **extra}
-    if name == "link_notes":
-        args = {"note_id": public.id, "other_note_ids": [private.id]}
-    result = tools.execute_tool(session, name, args)
-    assert "error" in result and "private" in result["error"].lower()
-
-
-def test_a_batch_tag_does_not_rewrite_the_callers_arguments(session):
-    """The id list was built by appending to `args["note_ids"]` in place.
-
-    The agent loop fingerprints a call as `json.dumps(arguments)` *before*
-    running it, to spot repeats — so a tool that edits that dict leaves the
-    ledger holding a fingerprint the arguments no longer match, and the
-    repeated-call guard stops recognising the repeat.
-    """
-    first, second = _note(session, "one"), _note(session, "two")
-    args = {"note_ids": [first.id], "note_id": second.id, "add": ["x"]}
-    before = json.dumps(args, sort_keys=True)
-
-    tools.execute_tool(session, "tag_note", dict(args))
-    assert json.dumps(args, sort_keys=True) == before
-
-
-def test_tagging_several_notes_at_once_can_still_be_undone(session):
-    """Only single-note calls kept an undo (`undos[0] if len(undos) == 1`), so
-    a batch retag of twenty notes was a change with no way back."""
-    notes = [_note(session, f"note {i}") for i in range(3)]
-    result = tools.execute_tool(
-        session,
-        "tag_note",
-        {"note_ids": [n.id for n in notes], "add": ["batch"]},
-    )
-    assert result["tagged"] == [n.id for n in notes]
-    assert result["undo"] and result["undo"]["steps"]
-    assert len(result["undo"]["steps"]) == len(notes)
-
-
-def test_a_single_note_tag_still_reports_its_id_and_tags(session):
-    entry = _note(session, "one")
-    result = tools.execute_tool(session, "tag_note", {"note_id": entry.id, "add": ["a"]})
-    assert result["id"] == entry.id
-    assert result["tags"] == ["a"]
-    # The change list reads the note id back out of the result; it must find one.
-    assert agent._change_note_id("tag_note", result) == entry.id
-
-
-# --- tools.py: reads, writes and budgets -----------------------------------------
-
-
-def test_find_similar_notes_is_a_read_not_a_write():
-    """It was added to WRITE_TOOLS. A read listed there counts as work for the
-    "you claimed you saved it" checker, labels search-only skills as acting,
-    and — the expensive one — trips the write branch in `run_agent`, which
-    clears the read-dedup ledger and re-opens every answered read."""
-    assert "find_similar_notes" not in tools.WRITE_TOOLS
-
-
-def test_a_huge_context_window_does_not_buy_a_huge_search_result(session):
-    """The result *ceiling* was scaled with the window, not just the default,
-    so a 128k model could pull 768 previews — ~38k tokens — from one call."""
-    for i in range(40):
-        _note(session, f"kayak note number {i}")
-
-    result = tools.execute_tool(
-        session, "search_notes", {"query": "kayak"}, context_tokens=128_000
-    )
-    assert len(result.get("notes", [])) <= tools.MAX_LIST_LIMIT
-
-
-def test_a_small_model_can_still_ask_the_user_a_question():
-    """`ask_user` was culled from small windows as a "complex" tool. It is the
-    opposite: one question, a few options, and the only way the agent can say
-    "which did you mean?" instead of guessing."""
-    offered = [
-        {"function": {"name": name, "parameters": {}}}
-        for name in ("search_notes", "ask_user", "make_plan")
-    ]
-    kept, dropped = tools.within_budget(offered, tools.SMALL_WINDOW_CHARS - 1)
-    assert "ask_user" in [t["function"]["name"] for t in kept]
-    assert "make_plan" in dropped
-
-
-def test_notes_sharing_an_uppercase_tag_are_still_neighbours(session):
-    """The tag index was keyed lowercase and then intersected against tags at
-    their original case, so `#Work` matched the index, produced an empty
-    intersection, and the two notes were reported as unrelated."""
-    first = _note(session, "the first", tags=["Work"])
-    _note(session, "the second", tags=["Work"])
-
-    result = tools.execute_tool(session, "related_notes", {"note_id": first.id})
-    blob = json.dumps(result).lower()
-    assert "the second" in blob
-
-
-def test_there_is_only_one_skill_writing_tool():
-    """`generate_skill` wrote raw AI-authored dicts straight into preferences,
-    skipping `save_skill`'s schema check, its built-in-name guard, its
-    validation of every declared tool name, and MAX_SKILLS. It also called a
-    `config.save_preference` method that does not exist, so it could only ever
-    have raised."""
-    assert "generate_skill" not in tools.TOOLS
-    assert "save_skill" in tools.TOOLS
+# --- moved out of this file (organization only, logic unchanged) -----------------
+#
+# Chat transport -> test_streaming_laziness.py
+# tools.py private-note boundary -> test_private_notes.py
+# tools.py registry classification -> test_agent_tools_api.py
+# context/prompt budget tests -> test_context_budget.py / test_prompt_budget.py
+# uppercase-tag neighbours -> test_related_notes.py
 
 
 # --- the memory stream -----------------------------------------------------------

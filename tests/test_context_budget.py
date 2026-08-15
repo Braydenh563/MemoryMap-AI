@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import agent, context, librarian
+from memorymap.ai import agent, context, librarian, tools
 from memorymap.ai.ollama_client import OllamaClient
+from memorymap.core.database import Entry
 
 WINDOWS = [2048, 4096, 8192, 16384, 32768, 131072]
 
@@ -241,3 +242,22 @@ class _Models:
 
     def embedding_backend(self):
         return "sentence-transformers"
+
+
+def _note(session, content="a note"):
+    entry = Entry(content=content, tags="[]")
+    session.add(entry)
+    session.commit()
+    return entry
+
+
+def test_a_huge_context_window_does_not_buy_a_huge_search_result(session):
+    """The result *ceiling* was scaled with the window, not just the default,
+    so a 128k model could pull 768 previews — ~38k tokens — from one call."""
+    for i in range(40):
+        _note(session, f"kayak note number {i}")
+
+    result = tools.execute_tool(
+        session, "search_notes", {"query": "kayak"}, context_tokens=128_000
+    )
+    assert len(result.get("notes", [])) <= tools.MAX_LIST_LIMIT

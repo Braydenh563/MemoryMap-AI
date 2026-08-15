@@ -485,3 +485,17 @@ def test_related_entries_endpoint(ai_client):
     contents = [e["content"] for e in related]
     assert "another funny pun" in contents
     assert "buy milk and eggs" not in contents
+
+
+def test_notes_sharing_an_uppercase_tag_are_still_neighbours(session):
+    """The tag index was keyed lowercase and then intersected against tags at
+    their original case, so `#Work` matched the index, produced an empty
+    intersection, and the two notes were reported as unrelated."""
+    from memorymap.ai import tools
+
+    first = _note(session, "the first", tags=["Work"])
+    _note(session, "the second", tags=["Work"])
+
+    result = tools.execute_tool(session, "related_notes", {"note_id": first.id})
+    blob = json.dumps(result).lower()
+    assert "the second" in blob

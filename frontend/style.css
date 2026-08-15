@@ -9842,6 +9842,14 @@ button {
   text-align: right;
 }
 
+/* A goal that's set says so with the accent, the same way the chat dock's
+   own toggles do (`.chat-tool-group>button[aria-pressed="true"]` above). */
+#doc-word-goal[aria-pressed="true"] {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* One pane by default; two side by side when the preview is on. */
 .doc-panes {
   display: grid;

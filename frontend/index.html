@@ -1248,6 +1248,8 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="row doc-actions">
             <span id="doc-stats" class="muted doc-stats"
               title="Words, and roughly how long this takes to read"></span>
+            <button id="doc-word-goal" class="ghost small" type="button" aria-pressed="false"
+              title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
             <span id="doc-saved" class="muted" role="status"></span>
             <button id="doc-preview-toggle" class="ghost small" type="button"
               aria-pressed="false" title="Show a rendered preview beside the editor"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview</button>
@@ -2834,6 +2836,19 @@ Link to another note with [[its first few words]]."></textarea>
               <summary class="muted">What pip is doing</summary>
               <pre id="extras-log" class="task-log-lines"></pre>
             </details>
+
+            <!-- Shown once faster-whisper is installed. A bigger model is more
+                 accurate and slower; on a laptop CPU that difference is worth
+                 choosing rather than having decided for you. -->
+            <div class="row space-between setting-row hidden" id="voice-model-wrap">
+              <label for="voice-model-select">Dictation model size</label>
+              <select id="voice-model-select" class="small-select" aria-label="Dictation model size">
+                <option value="tiny">Tiny — fastest, least accurate</option>
+                <option value="base">Base — balanced (default)</option>
+                <option value="small">Small — more accurate, slower</option>
+                <option value="medium">Medium — most accurate, slowest</option>
+              </select>
+            </div>
 
             <!-- Embedding models. On this screen rather than its own, because
                  the question it answers — "what has this app put on my disk,

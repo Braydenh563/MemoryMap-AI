@@ -5617,11 +5617,40 @@ async function expandNoteIntoDocument(entry) {
 // anyone writing long-form actually wants on screen.
 const READING_WORDS_PER_MINUTE = 220;
 
+// A target word count, set per document and kept client-side — it's a
+// writing aid, not notebook data, so it doesn't need a column or to survive
+// a restore onto another machine the way the document's own content does.
+function docWordGoalKey(id) {
+  return `docWordGoal:${id}`;
+}
+
+function getDocWordGoal(id) {
+  if (!id) return 0;
+  return Number(localStorage.getItem(docWordGoalKey(id))) || 0;
+}
+
+function setDocWordGoal(id, goal) {
+  if (!id) return;
+  if (goal > 0) {
+    localStorage.setItem(docWordGoalKey(id), String(goal));
+  } else {
+    localStorage.removeItem(docWordGoalKey(id));
+  }
+}
+
 function renderDocStats() {
   const el = $("doc-stats");
   if (!el) return;
   const text = $("doc-content").value || "";
   const words = (text.match(/\S+/g) || []).length;
+  const goal = currentDoc ? getDocWordGoal(currentDoc.id) : 0;
+  const goalBtn = $("doc-word-goal");
+  if (goalBtn) {
+    goalBtn.title = goal
+      ? `Goal: ${goal.toLocaleString()} words — click to change`
+      : "Set a word-count goal";
+    goalBtn.setAttribute("aria-pressed", String(goal > 0));
+  }
   if (!words) {
     el.textContent = "";
     return;
@@ -5635,7 +5664,23 @@ function renderDocStats() {
       : minutes < 60
         ? `${Math.round(minutes)} min read`
         : `${(minutes / 60).toFixed(1)}h read`;
-  el.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"} · ${readTime}`;
+  const wordsPart = goal
+    ? `${words.toLocaleString()} / ${goal.toLocaleString()} words (${Math.min(100, Math.round((words / goal) * 100))}%)`
+    : `${words.toLocaleString()} word${words === 1 ? "" : "s"}`;
+  el.textContent = `${wordsPart} · ${readTime}`;
+}
+
+function promptDocWordGoal() {
+  if (!currentDoc) return;
+  const current = getDocWordGoal(currentDoc.id);
+  const answer = window.prompt(
+    "Word-count goal for this document (0 to clear):",
+    current || ""
+  );
+  if (answer === null) return;
+  const goal = Math.max(0, Math.round(Number(answer)) || 0);
+  setDocWordGoal(currentDoc.id, goal);
+  renderDocStats();
 }
 
 // A table of contents built from the document's own headings. Past a couple
@@ -19136,6 +19181,18 @@ async function renderExtras() {
     extrasPollTimer = setTimeout(renderExtras, 1500);
   }
   renderEmbedModels();
+
+  // The model-size choice only means anything once faster-whisper is
+  // actually there to load one.
+  const voiceExtra = body.extras.find((e) => e.id === "voice");
+  const wrap = $("voice-model-wrap");
+  if (wrap) {
+    wrap.classList.toggle("hidden", !voiceExtra?.installed);
+    if (voiceExtra?.installed) {
+      if (!prefsCache) prefsCache = await apiJson("/preferences").catch(() => null);
+      $("voice-model-select").value = prefsCache?.voice_model || "base";
+    }
+  }
 }
 
 // --- embedding models, on the same screen as the packages ------------------------
@@ -22228,6 +22285,10 @@ $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPrev
 for (const button of document.querySelectorAll("#doc-toolbar button")) {
   button.addEventListener("click", () => applyMarkdown(button.dataset.md));
 }
+$("voice-model-select").addEventListener("change", (e) =>
+  setPreference("voice_model", e.target.value)
+);
+$("doc-word-goal").addEventListener("click", promptDocWordGoal);
 $("doc-preview-toggle").addEventListener("click", toggleDocPreview);
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);

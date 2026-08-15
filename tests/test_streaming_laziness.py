@@ -114,3 +114,29 @@ def test_a_skill_run_streams_its_events(ai_client, fake_ollama, app_state):
     assert "plan" in kinds
     assert kinds.count("step") >= 4  # running + done, twice
     assert "result" in kinds
+
+
+# --- the transport itself: a plain POST, not a WebSocket -----------------------
+
+
+def test_the_chat_stream_is_a_plain_post_not_a_websocket(ai_client):
+    """`/chat/stream` was rewritten as a WebSocket and reverted.
+
+    Worth a guard rather than a note: the rewrite needed the request's
+    SQLAlchemy Session on a second thread, had to be mounted outside the
+    `locked` dependency and hand-roll its auth, and a WS handshake is not
+    subject to the same-origin policy that protects this POST — so any page
+    the user had open could have driven the agent. It also took ~70 tests with
+    it, all reporting 405.
+    """
+    with ai_client.stream("POST", "/chat/stream", json={"question": "hello"}) as r:
+        assert r.status_code == 200
+        assert "ndjson" in r.headers["content-type"]
+
+
+def test_the_frontend_streams_chat_over_fetch(request):
+    from memorymap.api.app import FRONTEND_DIR
+
+    app_js = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    assert 'fetch("/chat/stream"' in app_js
+    assert "new WebSocket(" not in app_js

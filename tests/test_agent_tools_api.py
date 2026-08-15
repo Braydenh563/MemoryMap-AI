@@ -407,3 +407,24 @@ def test_disabled_tools_preference_roundtrips(client):
     body = client.put("/preferences", json={"disabled_tools": ["delete_tag"]}).json()
     assert body["disabled_tools"] == ["delete_tag"]
     assert client.get("/preferences").json()["disabled_tools"] == ["delete_tag"]
+
+
+# --- registry classification: what counts as a read, a write, or a duplicate ---
+
+
+def test_find_similar_notes_is_a_read_not_a_write():
+    """It was added to WRITE_TOOLS. A read listed there counts as work for the
+    "you claimed you saved it" checker, labels search-only skills as acting,
+    and — the expensive one — trips the write branch in `run_agent`, which
+    clears the read-dedup ledger and re-opens every answered read."""
+    assert "find_similar_notes" not in tools.WRITE_TOOLS
+
+
+def test_there_is_only_one_skill_writing_tool():
+    """`generate_skill` wrote raw AI-authored dicts straight into preferences,
+    skipping `save_skill`'s schema check, its built-in-name guard, its
+    validation of every declared tool name, and MAX_SKILLS. It also called a
+    `config.save_preference` method that does not exist, so it could only ever
+    have raised."""
+    assert "generate_skill" not in tools.TOOLS
+    assert "save_skill" in tools.TOOLS

@@ -176,6 +176,11 @@ class PreferencesBody(BaseModel):
     notifications_muted_except_reminders: bool | None = None
     # Wave O: agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
+    # Which faster-whisper model size the dictation buttons load. Read by
+    # `routes_voice.py` since the feature shipped; nothing ever let a user set
+    # it, so every install has silently run "base" regardless of the box's
+    # speed or the length of what's being dictated.
+    voice_model: Literal["tiny", "base", "small", "medium"] | None = None
     # The user's IANA timezone, reported by the browser at startup. Anything
     # the AI reasons about in time ("in 10 minutes", "tomorrow at 9") is
     # resolved against this, because the server may be running in UTC while
@@ -280,6 +285,7 @@ def get_preferences() -> dict:
             config.get_preference("search_provider", websearch.DEFAULT_PROVIDER)
         ),
         "disabled_tools": config.get_preference("disabled_tools", []),
+        "voice_model": config.get_preference("voice_model", "base"),
         "saved_searches": config.get_preference("saved_searches", []),
         # Echoed back so the browser can tell whether the zone it just
         # detected is already the stored one, and skip a pointless write on

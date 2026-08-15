@@ -19060,25 +19060,15 @@ async function renderExtras() {
       );
     } else if (extra.installing) {
       const busy = document.createElement("div");
-      busy.className = "muted";
-      busy.style.display = "flex";
-      busy.style.flexDirection = "column";
-      busy.style.alignItems = "flex-end";
-      busy.style.gap = "0.2rem";
-      
+      busy.className = "muted extras-install-progress";
+
       const text = document.createElement("span");
+      text.className = "extras-install-progress-text";
       text.textContent = extra.step || "Installing…";
-      text.style.fontSize = "0.8rem";
-      text.style.maxWidth = "15rem";
-      text.style.whiteSpace = "nowrap";
-      text.style.overflow = "hidden";
-      text.style.textOverflow = "ellipsis";
-      
+
       const bar = document.createElement("progress");
-      bar.className = "task-progress";
-      bar.style.width = "10rem";
-      bar.style.margin = "0";
-      
+      bar.className = "task-progress extras-install-progress-bar";
+
       busy.append(text, bar);
       actions.appendChild(busy);
     } else if (extra.unavailable) {

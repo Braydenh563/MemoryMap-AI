@@ -897,6 +897,32 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-md);
 }
 
+/* The install-in-progress state: a step description over a progress bar,
+   right-aligned like every other row action. Its own class rather than
+   inline styles — the CSP's `style-src: 'self'` (no unsafe-inline) blocks
+   the style attribute regardless of whether it's written in markup or set
+   through the CSSOM (`el.style.x = ...`), the same class of bug the eight
+   inline `style=""` attributes in index.html were moved out for. */
+.extras-install-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.extras-install-progress-text {
+  font-size: 0.8rem;
+  max-width: 15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.extras-install-progress-bar {
+  width: 10rem;
+  margin: 0;
+}
+
 /* An extra the app cannot use yet. The whole row is dimmed, not just its
    button: the point is that this is a row you can read and not act on, and
    dimming only the control leaves a full-brightness description of a feature
@@ -3133,8 +3159,7 @@ li.link-source {
 
 #toast-box {
   position: fixed;
-  left: 21rem;
-  /* Clear of the left chats sidebar */
+  right: 1rem;
   /* Clear of the status bar for the same reason the back-to-top button is: a
      toast is a message you are meant to read, and half of one behind the bar
      is a message you are meant to guess at. */
@@ -3143,7 +3168,6 @@ li.link-source {
   flex-direction: column;
   gap: 0.5rem;
   z-index: 1050;
-  /* Bring above sidebar which is usually high z-index */
 }
 
 .toast {
@@ -11896,7 +11920,7 @@ textarea.autogrow {
   width: calc(100% - 0.5rem);
   margin-left: 0.25rem;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--ink);
   text-align: left;

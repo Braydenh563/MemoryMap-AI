@@ -131,14 +131,6 @@ EXTRAS: tuple[Extra, ...] = (
         "would install a library nothing asks for. It compiles on some "
         "platforms, which makes it an expensive thing to install for nothing.",
     ),
-    Extra(
-        id="requirements",
-        label="Base Requirements (requirements.txt)",
-        enables="Restores the core packages to their correct versions. Use this if a plugin installation broke your dependencies.",
-        packages=("-r", str(Path(__file__).resolve().parents[3] / "requirements.txt")),
-        module="fastapi",
-        size="~30 MB",
-    ),
 )
 
 EXTRAS_BY_ID = {extra.id: extra for extra in EXTRAS}
@@ -258,10 +250,12 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         # running inside a venv whose pip is not the one on PATH, and installing
         # into the wrong environment looks exactly like an install that did
         # nothing.
-        # Prevent optional extras from breaking base dependencies (like tokenizers)
+        # Constrain every extra install against requirements.txt so an optional
+        # package's own dependency resolution can't drag a base package (e.g.
+        # tokenizers, numpy) to a version the rest of the app doesn't expect.
         req_path = Path(__file__).resolve().parents[3] / "requirements.txt"
-        constraint = ["-c", str(req_path)] if req_path.is_file() and extra.id != "requirements" else []
-        
+        constraint = ["-c", str(req_path)] if req_path.is_file() else []
+
         command = [
             sys.executable,
             "-m",

@@ -687,6 +687,59 @@ def test_a_skill_description_is_not_clipped_to_one_line():
     assert "white-space: normal" in blurb
 
 
+# --- Antigravity/Gemini session, reviewed and fixed before merge -----------------
+
+
+def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
+    """A "Base Requirements (requirements.txt)" extra was added with
+    `packages=("-r", "requirements.txt")` and `module="fastapi"`. Since
+    fastapi is always importable (the app runs on it), `is_installed()` was
+    permanently True, so the UI only ever offered Reinstall/Remove — and
+    Remove ran `pip uninstall -y -r requirements.txt`, stripping fastapi,
+    uvicorn, SQLAlchemy and every other base dependency from the interpreter
+    the app itself is running in. No extra's package list may equal (or
+    contain) the project's own requirements file."""
+    from memorymap.core import extras
+
+    for extra in extras.EXTRAS:
+        assert "-r" not in extra.packages, f"{extra.id} installs from a requirements file"
+
+
+def test_generate_link_reason_refuses_a_private_note(ai_client, fake_ollama, session):
+    """The new `/links/{id}/generate-reason` endpoint decrypted both linked
+    notes and sent them to the model with no `is_private` check — the one
+    guard every other AI-facing read path in this codebase enforces (see
+    `test_generate_title_refuses_a_private_note`, search, embeddings, janitor,
+    chat linking). A private note's content must not reach the model this way."""
+    from memorymap.core import crypto, vault
+    from memorymap.core.database import Entry
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    try:
+        public = ai_client.post("/entries", json={"content": "a public note"}).json()
+        private = ai_client.post("/entries", json={"content": "codeword ELDERFLOWER"}).json()
+        privacy = ai_client.post(f"/entries/{private['id']}/privacy", json={"private": True})
+        assert privacy.status_code == 200
+
+        linked = ai_client.post(
+            f"/entries/{public['id']}/links", json={"target_id": private["id"]}
+        ).json()
+        link_id = next(
+            e["link_id"] for e in linked["links"] if e["entry_id"] == private["id"]
+        )
+
+        fake_ollama.librarian_reply = "a generated reason"
+        response = ai_client.post(f"/entries/{public['id']}/links/{link_id}/generate-reason")
+        assert response.status_code == 400
+
+        stored = session.get(Entry, private["id"])
+        assert crypto.is_encrypted(stored.content)
+    finally:
+        vault.close()
+
+
 # --- security scanner findings (§41) ---------------------------------------------
 
 

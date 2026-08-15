@@ -2892,7 +2892,6 @@ def _audit_link_reasons(session: Session, args: dict) -> dict:
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
-        
         ToolSpec(
             "audit_link_reasons",
             "Audits vague graph link reasons (like 'similar in meaning') and rewrites them by deducing a specific reason based on both notes.",
@@ -2901,11 +2900,10 @@ TOOLS: dict[str, ToolSpec] = {
                 "properties": {
                     "limit": {"type": "integer", "description": "Max number of links to process (default 50)"}
                 },
-                "required": ["limit"]
             },
             _audit_link_reasons,
         ),
-ToolSpec(
+        ToolSpec(
             "save_user_preference",
             "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
             "Use this when the user tells you about their preferences, work style, or rules they want you to remember.",

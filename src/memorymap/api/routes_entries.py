@@ -922,10 +922,12 @@ def update_link_reason(
     try:
         manager.set_link_reason(session, link, body.reason)
         return _to_out(session, entry)
-    except Exception as exc:
-        import logging
-        logging.getLogger("memorymap.api").error("Failed to update link reason", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        # The exception text can carry paths or content; only the log gets it
+        # (see test_removing_a_model_never_returns_the_filesystem_path).
+        logger.error("Failed to update link reason", exc_info=True)
+        raise HTTPException(status_code=500, detail="Couldn't save that reason.") from None
+
 
 @router.post("/{entry_id}/links/{link_id}/generate-reason")
 def generate_link_reason_endpoint(
@@ -936,11 +938,19 @@ def generate_link_reason_endpoint(
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="Link not found")
-    
+
     source = session.get(Entry, link.source_entry_id)
     target = session.get(Entry, link.target_entry_id)
     if not source or not target:
         raise HTTPException(status_code=404, detail="Notes not found")
+    # Same boundary generate-title and remove-title enforce: a private note's
+    # decrypted text must never reach the model. Every other AI-facing read
+    # path in this codebase (search, embeddings, janitor, chat linking...)
+    # excludes is_private notes for the same reason.
+    if source.is_private or target.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make both notes readable first — private notes can't be sent to the AI."
+        )
 
     try:
         reason = librarian.generate_link_reason(
@@ -950,7 +960,6 @@ def generate_link_reason_endpoint(
             deps.get_ollama(),
         )
         return {"reason": reason}
-    except Exception as exc:
-        import logging
-        logging.getLogger("memorymap.api").error("Failed to generate link reason", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        logger.error("Failed to generate link reason", exc_info=True)
+        raise HTTPException(status_code=500, detail="Couldn't generate a reason right now.") from None

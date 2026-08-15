@@ -11917,16 +11917,18 @@ textarea.autogrow {
 }
 
 /* The band label is a sticky first column, so scrolling a year sideways never
-   loses which row you are on. It was rendering as a pill floating in the
-   middle of a tall row — `align-items: start` on the grid plus a rounded
-   background and no height. It is a full-height rail now, aligned to the top
-   of its own row's cards. */
+   loses which row you are on. Reported as looking "ugly and awkward,
+   floating separately" — `align-self: start` sized it to its own text and
+   left it a short pill above the rest of the row's height, floating over
+   the cards rather than reading as that row's rail. `stretch` (the grid's
+   own default, explicitly restated here) fills the row instead; the label
+   and count stay vertically centred inside it via `align-items: center`. */
 .timeline-band {
   position: sticky;
   left: 0;
   /* Sticky DOWN as well as across. */
   top: calc(var(--space-8) + var(--space-3));
-  align-self: start;
+  align-self: stretch;
   z-index: 1;
   display: flex;
   align-items: center;

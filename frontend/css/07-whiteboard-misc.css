@@ -1096,10 +1096,21 @@ textarea.drag-over {
   z-index: 20;
 }
 
+/* Reported directly, with a screenshot, after the toggle-visibility fix
+   above: the sidebar itself still tied every OTHER floating panel (all
+   z-index 10 except top-right's own 20 bump) at the same z-index-10 the base
+   `.whiteboard-floating-panel` rule gives it — a tie that fell back to DOM
+   order, so a panel dragged over the sidebar's own screen area could still
+   paint on top of it and "appear behind again." Above every panel,
+   including top-right's 20: the sidebar is a primary, full-height surface
+   while it's open, not another draggable toolbar competing for the same
+   layer, and it already has its own close control (see the comment above
+   `.whiteboard-floating-panel.top-right`). */
 .whiteboard-sidebar {
   top: 4.5rem;
   height: calc(100% - 5.5rem);
   max-height: calc(100% - 5.5rem);
+  z-index: 25;
 }
 
 .wb-sidebar-head {

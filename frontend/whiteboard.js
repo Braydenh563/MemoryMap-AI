@@ -514,8 +514,26 @@ function wbItemBBox(kind, item) {
     if (!parsed) return null; // a link sketch — no shape of its own to align
     return wbPathBBox(parsed.d);
   }
-  const w = item.width || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
-  const h = item.height || (kind === "node" ? WB_CARD_DEFAULT_SIZE.h : WB_OBJECT_MIN_SIZE);
+  let w = item.width, h = item.height;
+  // A card with no stored size (never manually resized) grows to fit its own
+  // text — reported directly, with a screenshot: link anchor points sat well
+  // inside a tall card's real border, because every unresized card was
+  // assumed to be exactly WB_CARD_DEFAULT_SIZE.h (150px) regardless of how
+  // much taller its actual content rendered it. Measured from the live DOM
+  // instead, converted to board space with the same zoom-transform division
+  // every drag handler already uses (`transform.k`) — falls back to the
+  // fixed default below only when the element genuinely isn't rendered.
+  if ((!w || !h) && kind === "node") {
+    const el = document.querySelector(`.node-card[data-id="${item.id}"]`);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
+      w = w || rect.width / transform.k;
+      h = h || rect.height / transform.k;
+    }
+  }
+  w = w || (kind === "node" ? WB_CARD_DEFAULT_SIZE.w : WB_OBJECT_MIN_SIZE);
+  h = h || (kind === "node" ? WB_CARD_DEFAULT_SIZE.h : WB_OBJECT_MIN_SIZE);
   return { minX: item.x, minY: item.y, maxX: item.x + w, maxY: item.y + h };
 }
 

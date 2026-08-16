@@ -30,8 +30,11 @@ from __future__ import annotations
 
 import importlib.util
 import logging
+import os
+import re
 import subprocess  # noqa: S404 — fixed args, no shell; see _install below
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -319,8 +322,36 @@ def _run_uninstall(extra: Extra) -> None:
             _logger.info("Removed %s.", extra.label)
 
 
+#: Matches an extras marker in a requirement line, e.g. the `[standard]` in
+#: `uvicorn[standard]>=0.52.1,<1.0`. pip's `-c` constraints flag rejects
+#: extras outright — "ERROR: Constraints cannot have extras" — and that
+#: failure is for the *whole constraints file*, not just the offending line,
+#: which is why every extras install failed the same way `requirements.txt`
+#: itself has two: `uvicorn[standard]`, `fsspec[http]`.
+_REQUIREMENT_EXTRAS_RE = re.compile(r"\[[^\]]*\]")
+
+
+def _constraints_copy(req_path: Path) -> Path | None:
+    """A version of `req_path` pip will actually accept as a `-c` file.
+
+    A constraint only needs the version bound, not the extra, so this strips
+    `[...]` rather than dropping the affected lines — `uvicorn` and `fsspec`
+    still get pinned, just without the part `-c` can't parse. Written to a
+    temp file; the caller deletes it once pip has run.
+    """
+    try:
+        text = req_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    fd, tmp_path = tempfile.mkstemp(prefix="memorymap-pip-constraints-", suffix=".txt")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(_REQUIREMENT_EXTRAS_RE.sub("", text))
+    return Path(tmp_path)
+
+
 def _run_install(extra: Extra, reinstall: bool = False) -> None:
     """pip, in a worker thread, with its output kept for the panel."""
+    constraints_copy: Path | None = None
     try:
         # `sys.executable -m pip` and never a bare `pip`: the app may well be
         # running inside a venv whose pip is not the one on PATH, and installing
@@ -330,7 +361,8 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         # package's own dependency resolution can't drag a base package (e.g.
         # tokenizers, numpy) to a version the rest of the app doesn't expect.
         req_path = Path(__file__).resolve().parents[3] / "requirements.txt"
-        constraint = ["-c", str(req_path)] if req_path.is_file() else []
+        constraints_copy = _constraints_copy(req_path) if req_path.is_file() else None
+        constraint = ["-c", str(constraints_copy)] if constraints_copy else []
 
         command = [
             sys.executable,
@@ -400,6 +432,8 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             _state.outcome,
             _state.step,
         )
+        if constraints_copy is not None:
+            constraints_copy.unlink(missing_ok=True)
 
 
 def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:

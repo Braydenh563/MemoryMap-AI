@@ -7,6 +7,122 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Done last session — a first, scoped Apple-design pass, a real Library data bug, and a corrected doc claim about the 401 burst
+
+> Asked directly: audit the live app against Apple design principles
+> (clarity, deference, depth, generous whitespace, consistent corner radii,
+> restrained colour, purposeful motion) and fix the highest-impact issues
+> within `docs/DESIGN.md`'s existing token system. Screenshotted every tab
+> at 1400px with Playwright (light and dark), then a second pass with three
+> real notes captured through the app's own UI, since an empty notebook
+> hides most of what a card, chip or preview actually looks like.
+
+**Scope was deliberately narrow, not the full sweep ROADMAP item 12
+originally called for.** That item says the full pass should run last, after
+several other structural changes (the timeline/document-editor work) land,
+and specifically flags it as high-risk enough to want the user present. This
+session stayed CSS/consistency-focused and low-risk rather than touching
+every file, per this session's own instructions to prioritise usability bugs
+and cross-tab consistency over one-off cosmetic taste calls, and to skip
+anything needing a product decision.
+
+**Two shipped fixes:**
+
+1. **Library and Timeline had a different, worse empty state than every
+   other tab.** Dashboard, Notes, Chat, Graph and Reminders all use the same
+   pattern (`.empty-state`: a centred icon, a bold title, muted subtext).
+   Library and Timeline were each a single bare `<p class="muted">`, left-
+   aligned, no icon, no padding — "Nothing of this kind yet." and "Nothing
+   to plot yet." sat flush against the page edge like unstyled placeholder
+   text, reading as unfinished next to the other five tabs. Fixed by giving
+   both the same three-part structure (`frontend/index.html`): Timeline is
+   fully static markup (`ph-clock` icon, a real subtitle); Library's text is
+   set at runtime for three different empty states (nothing at all / no
+   search match / nothing of this filtered kind), so only its title line is
+   dynamic now (`app.js`'s `renderLibraryGrid`, one `$("library-empty-title")`
+   in place of `.textContent` on the whole block). No new CSS — both reuse
+   `.empty-state`/`.empty-icon`/`.empty-title`, already defined in
+   `frontend/css/02-chat-graph.css` and used by the other five tabs, so
+   `test_style_scale.py` needed no changes. **Verified live, light and dark**:
+   screenshotted before and after: `library.png`/`timeline.png` (light,
+   before), `dark-library.png`/`dark-timeline.png` (light-toggle pass,
+   after — the fix landed before the dark-mode screenshots were taken, so
+   both themes are confirmed, not just reasoned).
+
+2. **A real bug, not a cosmetic one: a titled note's Library card duplicated
+   its own title into its preview line.** Reported symptom you'd hit
+   immediately with real notes: a note titled "Design review notes" showed
+   a card whose preview line *also* started "Design review notes" before
+   the actual body text — found by capturing three real notes through the
+   app's own Capture form and looking at the populated Library grid, which
+   an empty-notebook audit would never have surfaced. Root cause in
+   `routes_library.py`'s `_notes()` (and the same shape in `_archive()`,
+   the bin): both computed `title` and `preview` by whitespace-collapsing
+   and clipping the entry's *raw* `content` column, which — for any note
+   with an explicit title — begins with that title's own `# Heading` line
+   (`manager.apply_title` prepends it). So `title` became a 60-character
+   clip that included the heading *and* however many words of the body fit
+   after it, and `preview` opened with the identical heading text again
+   right underneath. `app.js`'s Notes-tab entry list already solved this
+   correctly for its own cards, via `bodyWithoutTitleLine()`, but the
+   Library card function (`libraryCard()`) only ever received the server's
+   pre-mixed `preview` field and had no way to un-mix it — its "is the
+   preview just the title again" heuristic could only catch an *exact*
+   match, not "title, verbatim, followed by more." Fixed at the source: both
+   backend functions now call the entry manager's own `extract_title()` /
+   `remove_title()` (the same pair `POST /entries/{id}/generate-title` and
+   `/remove-title` already use) to split a titled note's raw content into a
+   clean title and a title-free preview before clipping either one.
+   Titleless notes are byte-for-byte unaffected — `extract_title` returns
+   `None` for them and the original clip-based fallback still runs.
+   **Verified**: `tests/test_library.py` (10/10, no changes needed — nothing
+   there asserted the old clipped-title shape) plus a live before/after
+   screenshot with three real captured notes (`library-populated.png` before,
+   `library-fixed.png` after) showing the duplication gone.
+
+**A finding, not a fix — flagged in ROADMAP.md item 13 rather than touched,
+since it's a functional/auth bug, not a design one, and the working fix
+already exists elsewhere:** the pre-auth 401 burst HANDOVER.md describes as
+"root-caused, fixed, and verified live" is **not present on this branch.**
+Reproduced cleanly this session with a fresh `MEMORYMAP_DATA_DIR` and zero
+login attempted — the same repro HANDOVER.md itself used — 20 requests
+401 before the lock screen is ever touched. `git merge-base --is-ancestor
+8b9b7f6 HEAD` fails: the commit that fixes this (`8b9b7f6`, "Fix pre-auth
+401 burst, doc-textarea resize gap, add chat delete" — splits `switchTab`
+into a DOM-only `revealTab()` plus data loading, moves `startReminderWatch()`
+into `startApp()`) exists but was never merged into the branch this
+worktree's `HEAD` (`bffa3c6`, a `Gemini-Additions-2` merge) descends from.
+Current `app.js` still calls `switchTab("dashboard")` and
+`startReminderWatch()` unconditionally at module load (~line 19833 and
+~19821) — there is no `revealTab` function anywhere in the file. Not fixed
+this session, deliberately: out of an Apple-design-audit's scope, and the
+right move is to cherry-pick/reapply `8b9b7f6`'s `app.js` diff against
+current source (checking for drift first) rather than re-diagnose from
+scratch or re-derive the same fix a second time.
+
+**What this session explicitly did not check, said plainly rather than
+reported as done:** the two fixes above are the only two shipped; the wider
+"every tab, every state" sweep the original ROADMAP item asked for did not
+happen. Not screenshotted or reasoned about at all: populated states for
+Chat (a real conversation with several turns), Graph and Timeline (with
+actual linked/dated notes on them, not the empty-map view), Reminders with
+real entries, or any tab at narrower-than-1400px widths. The floating
+"Agent Activity" monitor panel (bottom-left, showing "embedding backend
+failed" — expected in this sandbox, since CLAUDE.md's own setup skips
+`sentence-transformers`/torch) sat over the same screen corner in every
+screenshot; whether it can overlap real content once a notebook is large
+enough to fill the page was not checked, and is worth a look before calling
+that panel's positioning settled. Motion/transition polish and narrow-width
+layout were named in the ask and not audited at all this session.
+
+**Verified**: `python -m pytest tests/` (all green, exit 0 — includes
+`test_library.py` 10/10 and the four frontend lints
+`test_style_scale.py`/`test_frontend_ids.py`/`test_frontend_handlers.py`/
+`test_docs_layout.py`), `ruff check .` (clean), `node --check frontend/app.js`
+(clean). Screenshots for every tab at 1400px, light and dark, empty and
+(for Dashboard/Notes/Library) populated with three real captured notes, are
+in this session's scratchpad and described above by filename.
+
 ## Done last session — a work-recovery pass, not on the #0 refactor
 
 > Full detail is in [HANDOVER.md](HANDOVER.md) and [CHANGELOG.md](../../CHANGELOG.md);

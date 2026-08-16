@@ -36,6 +36,7 @@ from memorymap.core.database import (
     Entry,
 )
 from memorymap.core.deps import get_session
+from memorymap.entry.manager import extract_title, remove_title
 
 router = APIRouter(tags=["library"])
 
@@ -199,15 +200,22 @@ def _archive(session: Session) -> list[dict]:
     )
     items = []
     for entry in rows:
+        content = entry.content or ""
+        # Same fix as `_notes()` below, for the same reason: a note that wrote
+        # its own heading should be titled by that heading, not by a 60-char
+        # clip of the raw content — which quoted the heading into the title
+        # *and* opened the preview line with it again right underneath.
+        own_title = extract_title(content) if content else None
+        preview_source = remove_title(content) if own_title else content
         items.append(
             {
                 "kind": "archived",
                 "id": entry.id,
-                "title": _clip(entry.content)[:60] or "Empty note",
-                "preview": _clip(entry.content),
+                "title": own_title or (_clip(content)[:60] or "Empty note"),
+                "preview": _clip(preview_source),
                 "updated_at": entry.created_at.isoformat(),
                 "detail": "in the bin",
-                "size": len(entry.content or ""),
+                "size": len(content),
                 "entry_id": entry.id,
                 "mime": None,
                 "pinned": False,
@@ -239,12 +247,25 @@ def _notes(session: Session) -> list[dict]:
     for entry, category in rows:
         private = bool(getattr(entry, "is_private", False))
         text = "" if private else (entry.content or "")
+        # A note that gave itself a heading — Capture's "Optional title"
+        # field, or an AI-generated title — is titled by that heading,
+        # verbatim. The old title was a 60-character clip of the raw
+        # content instead, which (for a titled note) quoted the heading
+        # *and* however many words of the body fit in what was left, then
+        # the preview line underneath opened with the same heading text
+        # again — a note titled "Car insurance renewal" read as "Car
+        # insurance renewal Renew the car..." over "Car insurance renewal
+        # Renew the car insurance before...". Titleless notes are
+        # unaffected: `extract_title` returns None for them, same fallback
+        # as before.
+        own_title = extract_title(text) if text else None
+        preview_source = remove_title(text) if own_title else text
         items.append(
             {
                 "kind": "note",
                 "id": entry.id,
-                "title": (_clip(text)[:60] if text else "Private note") or "Empty note",
-                "preview": "" if private else _clip(text, NOTE_PREVIEW_CHARS),
+                "title": own_title or ((_clip(text)[:60] if text else "Private note") or "Empty note"),
+                "preview": "" if private else _clip(preview_source, NOTE_PREVIEW_CHARS),
                 "updated_at": entry.created_at.isoformat(),
                 "detail": category or "Uncategorised",
                 "size": len(text),

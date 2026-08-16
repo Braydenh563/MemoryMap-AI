@@ -126,21 +126,41 @@ fresh session should pick them up:
     so it should run *last*, after every other structural frontend change
     in this list (the markdown-renderer merge, item 18 below, and the
     timeline and document-editor work, items 10-11) has landed, not
-    concurrently with any of them.
+    concurrently with any of them. **A first, scoped pass done** — see
+    HISTORY.md's newest entry. Deliberately narrow rather than the full
+    sweep this item originally called for: two tabs' empty states brought
+    in line with the pattern the other five already use, and a real Library
+    data bug (a titled note's title duplicated into its own preview line)
+    fixed at the source. The broad "touch every CSS file" sweep — populated
+    non-empty states beyond a handful screenshotted this session, the
+    timeline/document-editor work (items 10-11), anything needing a
+    product/taste call — is still open and still belongs after those land,
+    per this item's own note above.
 13. **A burst of 401s on dashboard/insights endpoints (`/preferences`,
     `/insights/stats`, `/reminders`, `/entries`, etc.) on page load,
     found live while verifying the whiteboard.js extraction (item 2).**
-    Confirmed unrelated to that split — reproduces identically against the
-    unmodified `app.js` too, but only when the server's data directory has
-    already been through one unlock cycle (a *reused* `MEMORYMAP_DATA_DIR`);
-    a completely fresh data directory shows zero errors on either side. Not
-    investigated further — likely several of these requests (dashboard
-    widgets, reminders poll, model-status poll) firing before the
-    just-issued auth token has actually been applied to `apiJson`'s default
-    headers on a page that still has an existing session/reminders/prefs
-    state to render immediately after unlock, but that's a guess, not a
-    traced root cause. Reproduce with: unlock once, reload the page (not a
-    fresh data dir), watch the browser console.
+    **Still open on this branch — corrected during the apple-design-audit
+    session (docs/roadmap/HISTORY.md's newest entry).** The "only on a
+    reused data directory" theory above is wrong: reproduced cleanly with a
+    completely fresh `MEMORYMAP_DATA_DIR`, zero login attempted, `domcontentloaded`
+    + a 3s wait — 20 requests 401 before the lock screen is ever touched
+    (`/preferences`, `/insights/*`, `/reminders`, `/entries`, `/chat/recent`,
+    all with an empty `X-Auth-Token`). Root cause, confirmed by reading the
+    current `frontend/app.js`: `switchTab("dashboard")` and
+    `startReminderWatch()` both still run unconditionally at module load
+    (lines ~19833 and ~19821), before `initAuth()` ever checks for a token.
+    **This exact bug already has a written, tested fix** — commit `8b9b7f6`
+    ("Fix pre-auth 401 burst, doc-textarea resize gap, add chat delete"),
+    which splits `switchTab` into `revealTab()` (DOM-only) plus the
+    data-loading dispatch and moves `startReminderWatch()` into `startApp()`.
+    **That commit is not an ancestor of current `HEAD`** (`git merge-base
+    --is-ancestor 8b9b7f6 HEAD` fails) — it exists on a branch that was never
+    merged into the line of history this worktree descends from. HANDOVER.md
+    describes this fix as done and live-verified; that account is accurate
+    for the commit itself, but the commit isn't present in this codebase. A
+    fresh session should cherry-pick or reapply `8b9b7f6`'s `app.js` diff
+    (checking for drift against the current file first — several thousand
+    lines have moved since) rather than re-diagnosing from scratch.
 
 ## #0 priority — codebase quality review, still-open items
 

@@ -119,7 +119,7 @@
      whole of "objects are difficult and annoying to move", since a small
      object's clickable area is mostly covered by its own 8 handles. */
   pointer-events: none;
-  transition: opacity 0.1s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 /* Interactive (and visible) only in the Select tool — `:hover` alone fires
@@ -165,7 +165,7 @@
   opacity: 0;
   pointer-events: none;
   /* see .wb-resize-handle's own comment above */
-  transition: opacity 0.1s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 .wb-rotate-handle::before {
@@ -331,7 +331,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--motion-slow) ease;
   padding: 0;
 }
 
@@ -362,7 +362,7 @@
   width: 48px !important;
   white-space: nowrap;
   overflow: hidden !important;
-  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  transition: width var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1), box-shadow var(--motion-slow) ease;
   box-shadow: none;
   border-right: 1px solid var(--border);
 }
@@ -370,7 +370,7 @@
 .sidebar-collapsed>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.1s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 /* Hover-peek */
@@ -400,7 +400,7 @@
 .layout-sidebar-collapsed>.sidebar-collapsed:hover>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 0.2s ease 0.1s;
+  transition: opacity var(--motion-slow) ease var(--motion-fast);
 }
 
 /* Ensure the layout container creates a positioning context for the absolute peek */
@@ -416,11 +416,11 @@
   gap: 0.25rem;
   padding: 0.25rem;
   border-radius: var(--radius-pill);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   transform: translate(-50%, -100%);
   margin-top: -8px;
   align-items: center;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity var(--motion-base) ease, transform var(--motion-base) ease;
 }
 
 .floating-format-menu.hidden {
@@ -443,7 +443,7 @@
 .card.interactive,
 .wb-card,
 .library-chip {
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+  transition: transform var(--motion-slow) cubic-bezier(0.2, 0.8, 0.2, 1),
     box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.2s ease;
   will-change: transform, box-shadow;
@@ -452,13 +452,13 @@
 .card.interactive:hover,
 .wb-card:hover:not(.dragging) {
   transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 16px 48px rgba(31, 38, 135, calc(var(--shadow-intensity) * 1.8));
+  box-shadow: var(--shadow-lg);
   border-color: var(--accent);
 }
 
 .library-chip:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(31, 38, 135, calc(var(--shadow-intensity) * 1.5));
+  box-shadow: var(--shadow-md);
 }
 
 /* ======================= SKILLS TAB ======================= */
@@ -477,7 +477,7 @@
   background: var(--inner);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform var(--motion-slow) ease, border-color var(--motion-slow) ease;
 }
 
 .skill-card:hover {
@@ -531,7 +531,7 @@ textarea.drag-over {
   left: 20px;
   width: 350px;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   animation: slide-up 0.3s ease-out;
 }
 
@@ -1377,7 +1377,7 @@ textarea.drag-over {
   gap: var(--space-1);
   flex: 0 0 auto;
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 .space-option:hover .space-option-actions,

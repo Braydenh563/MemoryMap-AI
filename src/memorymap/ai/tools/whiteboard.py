@@ -50,12 +50,23 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
     entries = (
         {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(entry_ids)))} if entry_ids else {}
     )
+
+    def _card_preview(n) -> str:
+        entry = entries.get(n.entry_id)
+        if entry is None:
+            return "(note missing)"
+        # A card's note can be marked private *after* it was placed on the
+        # board — `_add_whiteboard_card` refuses a private note going in via
+        # `_require_note`, but that only guards the write. `entry.content` is
+        # ciphertext at rest for a private note, and this tool result becomes
+        # part of the agent's own context, so it needs the same refusal
+        # `_require_note` gives every other read.
+        if entry.is_private:
+            return "(private note — not available to the AI)"
+        return _clip(entry.content, PREVIEW_CHARS)
+
     cards = [
-        {
-            "card_id": n.id,
-            "note_id": n.entry_id,
-            "preview": _clip(entries[n.entry_id].content, PREVIEW_CHARS) if n.entry_id in entries else "(note missing)",
-        }
+        {"card_id": n.id, "note_id": n.entry_id, "preview": _card_preview(n)}
         for n in nodes
     ]
 
@@ -83,7 +94,9 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
     board_title = "Default board"
     if board_id is not None:
         board_entry = session.get(Entry, board_id)
-        if board_entry is not None:
+        # Same rule as a card's own note above: a board is itself an Entry,
+        # and it can be marked private after being used as one.
+        if board_entry is not None and not board_entry.is_private:
             board_title = manager.extract_title(board_entry.content) or _clip(board_entry.content, 40)
 
     return {
@@ -119,7 +132,12 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
     entries = {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(entry_ids)))} if entry_ids else {}
     for node in node_rows:
         entry = entries.get(node.entry_id)
-        if entry is not None and term in entry.content.lower():
+        # Skip a card whose note is private — its `content` is ciphertext at
+        # rest, so `term in entry.content.lower()` would only ever match by
+        # accident, and a match on the raw column is not one this tool may
+        # report back to the model regardless. Same guard as `_read_whiteboard`'s
+        # `_card_preview` above.
+        if entry is not None and not entry.is_private and term in entry.content.lower():
             matches.append({
                 "board_id": node.board_id,
                 "card_id": node.id,

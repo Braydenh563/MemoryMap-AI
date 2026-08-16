@@ -142,7 +142,8 @@ def test_deleting_one_turn(ai_client, fake_ollama):
     _ask(ai_client, "a question")
     turn_id = ai_client.get("/ask-history").json()["turns"][0]["id"]
 
-    assert ai_client.delete(f"/ask-history/{turn_id}").json() == {"deleted": True}
+    response = ai_client.delete(f"/ask-history/{turn_id}")
+    assert response.json() == {"deleted": True}
     assert ai_client.get("/ask-history").json()["total"] == 0
 
 

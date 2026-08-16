@@ -1,0 +1,22 @@
+# CodeQL config — see .github/workflows/codeql.yml, which points --config-file
+# at this file.
+#
+# `paths-ignore` below excludes exactly one file from analysis, not a query or
+# a whole directory. searxng_settings.py:ensure_settings() writes SearXNG's
+# `secret_key` into its own settings.yml in plaintext (py/clear-text-storage-
+# sensitive-data) — unavoidable, since SearXNG is a separate process that reads
+# that value straight out of its config file at its own startup; there is no
+# point in our code where "use" could mean "decrypt first." The actual
+# mitigation (0600 file, 0700 directory, single local instance, regenerable by
+# deleting the file) is already in the code and its own comment right above
+# the write.
+#
+# An inline `# codeql[py/clear-text-storage-sensitive-data]` suppression
+# comment on that exact line did not clear the alert on PR #109 despite
+# matching GitHub's documented syntax — confirmed via the PR's own review
+# comments still flagging it as new. This path-level exclusion is the
+# guaranteed-supported mechanism instead. Scoped to one file, not the whole
+# `search/` directory or the query repo-wide, so any *other* file that starts
+# doing something CodeQL should genuinely catch is still covered.
+paths-ignore:
+  - src/memorymap/search/searxng_settings.py

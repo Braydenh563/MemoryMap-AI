@@ -159,6 +159,39 @@ def test_a_reinstall_does_not_trust_the_cache(client, monkeypatch):
     assert "faster-whisper" in seen["command"]
 
 
+def test_the_pip_constraint_file_has_no_extras(client, monkeypatch):
+    """Reported live: every extras install failed with 'pip exited with code
+    1', and the real reason (only visible once logging was fixed) was
+    `ERROR: Constraints cannot have extras`. `-c` was pointed straight at
+    requirements.txt, which pins `uvicorn[standard]` and `fsspec[http]` —
+    pip's constraints parser rejects the whole file over those, not just
+    those two lines, so *no* extra could ever install. `_run_install` must
+    hand pip a stripped copy, not the real file."""
+    seen = {}
+
+    class _Capture:
+        def __init__(self, command, **kwargs):
+            seen["command"] = command
+            # Must read the constraint file *now*: `_run_install`'s `finally`
+            # deletes it right after `wait()` returns, before this test gets
+            # control back.
+            constraint_path = extras.Path(command[command.index("-c") + 1])
+            seen["constraint_path"] = constraint_path
+            seen["constraint_text"] = constraint_path.read_text()
+            self.stdout = []
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _Capture)
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    real_requirements = extras.Path(extras.__file__).resolve().parents[3] / "requirements.txt"
+    assert seen["constraint_path"] != real_requirements
+    assert "[" not in seen["constraint_text"]
+    assert not seen["constraint_path"].exists()  # cleaned up once pip has run
+
+
 # --- extras nothing calls yet -------------------------------------------------
 #
 # llama-cpp-python installs a library the chat backend does not know about
@@ -282,7 +315,7 @@ class _FailingPip:
             "Collecting faster-whisper\n",
             "  Downloading faster_whisper-1.0.0-py3-none-any.whl (2.0 kB)\n",
             "ERROR: Could not find a version that satisfies the requirement "
-            "faster-whisper (from versions: none)\n",
+            + "faster-whisper (from versions: none)\n",
             "ERROR: No matching distribution found for faster-whisper\n",
             "[notice] A new release of pip is available: 24.0 -> 26.2.1\n",
             "[notice] To update, run: python.exe -m pip install --upgrade pip\n",

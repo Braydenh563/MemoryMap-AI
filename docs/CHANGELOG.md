@@ -7,6 +7,34 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed / Added — CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
+
+- **Security.** All 81 open CodeQL alerts closed. Separately: a private
+  note's ciphertext was reaching the AI in four places once a link, card, or
+  reminder referencing it predated the note being marked private
+  (`set_private` doesn't touch existing references) — the weekly digest,
+  `audit_vague_links`, the whiteboard `read_whiteboard`/`search_whiteboard`
+  agent tools, and a reminder's entry preview. All four now respect the
+  private-note guard; each has a regression test.
+- **Extract notes** (new). Turn selected text — in the Writing Room, a
+  Document, or a whiteboard multi-selection — into one or more AI-drafted
+  notes, auto-filed and auto-linked with real generated reasons, previewed
+  before anything is written. Reuses the janitor's filing/merge judgement
+  and the librarian's link-reason generation rather than new logic.
+- **Design.** An elevation (`--shadow-sm/md/lg`) and motion
+  (`--motion-fast/base/slow`) token scale, replacing a dozen hand-written
+  `box-shadow` values and ten distinct transition durations app-wide. A
+  live mic-level meter on the dictation buttons, driven by `AnalyserNode`
+  off the same stream the recorder already opens. Library/Timeline empty
+  states brought in line with the rest of the app; a Library card no longer
+  duplicated a titled note's title into its own preview line.
+- **Perf.** Two O(n) full-table-scan-shaped bugs fixed: the reevaluate
+  endpoint's linked-entry lookup now queries ids instead of loading and
+  decrypting every note, and the whiteboard no longer re-parses every
+  sketch's JSON on every drag frame.
+- **Docs.** ~1,000 lines of resolved ROADMAP/BACKLOG items moved into
+  `docs/roadmap/HISTORY.md`; both live docs now hold only open work.
+
 ### Fixed / Added — work-recovery session: icon system, spaces, timeline, chat dock, link reasons
 
 A previous session's work was lost; the recovery attempt had left the app

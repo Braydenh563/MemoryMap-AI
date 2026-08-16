@@ -16,7 +16,7 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import janitor, librarian, links
+from memorymap.ai import extractor, janitor, librarian, links
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import (
     AttachmentOut,
@@ -300,9 +300,14 @@ def _linked_entry_ids(session: Session, entry) -> set[int]:  # noqa: ANN001
     linked = {other.id for _link, other in manager.links_for_entry(session, entry)}
     if entry.parent_id is not None:
         linked.add(entry.parent_id)
-    for child in manager.list_entries(session):
-        if child.parent_id == entry.id:
-            linked.add(child.id)
+    # Was `for child in manager.list_entries(session)` — loading and
+    # ORM-hydrating every non-deleted note in the notebook (decrypting private
+    # ones) just to find the handful whose parent_id matches. This entry has
+    # at most a few children; the notebook can have thousands of notes.
+    child_ids = session.scalars(
+        select(Entry.id).where(Entry.parent_id == entry.id, Entry.is_deleted == False)  # noqa: E712
+    )
+    linked.update(child_ids)
     return linked
 
 
@@ -963,3 +968,130 @@ def generate_link_reason_endpoint(
     except Exception:
         logger.error("Failed to generate link reason", exc_info=True)
         raise HTTPException(status_code=500, detail="Couldn't generate a reason right now.") from None
+
+
+# --- extract notes (BACKLOG.md §62) ------------------------------------------
+# Select a block of writing — the Writing Room's draft, a Document's body, or
+# several notes' content selected on the whiteboard — and turn it into one or
+# several AI-drafted notes, auto-linked with real reasons. Preview first,
+# matching `generate_diagram`'s own preview-before-commit convention (see
+# `ai.extractor`'s module docstring): nothing is written here until
+# `/extract/commit` is called with what the preview actually showed.
+
+
+class ExtractPreviewBody(BaseModel):
+    text: str = Field(min_length=1, max_length=extractor.EXTRACT_MAX_CHARS)
+    # A Graph/whiteboard selection's notes-in-context: existing notes this
+    # extraction should try to link every new note back to, regardless of
+    # how similar the wording is — the user already said they're connected
+    # by selecting them together.
+    source_entry_ids: list[int] = Field(default_factory=list)
+
+
+@router.post("/extract/preview")
+def extract_preview(body: ExtractPreviewBody, session: Session = Depends(get_session)) -> dict:
+    """Propose one or more notes from `body.text`, with the links they'd get
+    and why — nothing saved yet. See `ai.extractor.build_extraction`."""
+    try:
+        return extractor.build_extraction(
+            session,
+            body.text,
+            deps.get_embeddings(),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+            source_entry_ids=body.source_entry_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+class ExtractNoteIn(BaseModel):
+    """One note from a preview, as the user reviewed it — possibly edited,
+    possibly dropped (the caller just omits it) before commit."""
+
+    ref: str = Field(min_length=1, max_length=40)
+    title: str = Field(default="", max_length=200)
+    content: str = Field(min_length=1, max_length=extractor.EXTRACT_MAX_CHARS)
+    category: str = Field(default=manager.UNCATEGORISED, max_length=100)
+    tags: list[str] = Field(default_factory=list)
+
+
+class ExtractLinkIn(BaseModel):
+    """One proposed link, as shown in the preview. `source_ref`/`target_ref`
+    are either `nN` (one of this batch's own notes) or `existing:<id>` (a
+    note already in the notebook)."""
+
+    source_ref: str = Field(min_length=1, max_length=48)
+    target_ref: str = Field(min_length=1, max_length=48)
+    reason: str = Field(min_length=1, max_length=200)
+
+
+class ExtractCommitBody(BaseModel):
+    notes: list[ExtractNoteIn] = Field(min_length=1, max_length=extractor.MAX_EXTRACT_NOTES)
+    links: list[ExtractLinkIn] = Field(default_factory=list)
+    # When extracting from a Document's body, attach every note created here
+    # to it — the same connection `POST /documents/{id}/notes` makes by hand.
+    source_document_id: int | None = None
+
+
+@router.post("/extract/commit", status_code=201)
+def extract_commit(body: ExtractCommitBody, session: Session = Depends(get_session)) -> dict:
+    """Write exactly what a preview showed (possibly edited, possibly
+    trimmed) to the notebook: the notes, then the links between them —
+    `manager.create_link`'s own `reason=` bypasses the generic
+    `AUTO_REASON_TEXT` guess entirely, so every link gets the specific
+    reason the preview generated for it.
+    """
+    by_ref: dict[str, Entry] = {}
+    created = []
+    for note in body.notes:
+        if note.ref in by_ref:
+            raise HTTPException(status_code=400, detail=f"'{note.ref}' is used by more than one note")
+        entry = manager.create_entry(
+            session,
+            content=note.content,
+            category_name=note.category or manager.UNCATEGORISED,
+            tags=note.tags,
+            # Reviewed (and possibly edited) by the person before it was
+            # ever asked to save — the same confidence level a user-filed
+            # category gets in `create_entry` above, not the AI's own guess
+            # from the preview (which was about the SPLIT, not the filing).
+            ai_confidence=100,
+        )
+        by_ref[note.ref] = entry
+        deps.store_quietly(session, entry)
+        created.append(entry)
+
+    if body.source_document_id is not None:
+        document = session.get(Document, body.source_document_id)
+        # A document deleted between preview and commit is skipped rather
+        # than refused — the notes are the thing being saved, same reasoning
+        # `create_entry`'s own `document_ids` handling already uses.
+        if document is not None:
+            for entry in created:
+                manager.link_document(session, document.id, entry.id)
+
+    links_created = 0
+    for link in body.links:
+        source = by_ref.get(link.source_ref)
+        if source is None:
+            continue  # a ref that isn't among the notes just created — ignore rather than fail the whole save
+        if link.target_ref.startswith("existing:"):
+            try:
+                target_id = int(link.target_ref.removeprefix("existing:"))
+            except ValueError:
+                continue
+            target = manager.get_entry(session, target_id)
+            if target is None or target.is_deleted:
+                continue  # deleted between preview and commit
+        else:
+            target = by_ref.get(link.target_ref)
+            if target is None:
+                continue
+        if manager.create_link(session, source, target, reason=link.reason) is not None:
+            links_created += 1
+
+    return {
+        "notes": _to_out_bulk(session, created),
+        "links_created": links_created,
+    }

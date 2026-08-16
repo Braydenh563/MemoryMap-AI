@@ -55,3 +55,12 @@ line-length = 100
 # is intentionally left out — long strings/URLs in tests would flag noisily; run
 # `ruff format` locally if you want wrapping.
 select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# `__all__` lists names this module resolves lazily through a PEP 562
+# module `__getattr__` (see the comment above it) rather than binding them
+# with a real import — the whole point being to not import the four split
+# modules back at load time, which is what made this file part of a cyclic
+# import. Pyflakes has no way to see through `__getattr__`, so every one of
+# those names reads as undefined here; F822 is the tradeoff for that.
+"src/memorymap/search/searxng_manager.py" = ["F822"]

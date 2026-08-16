@@ -264,6 +264,10 @@ button.ai-unavailable {
   object-fit: contain;
 }
 
+.attachment-link-icon {
+  margin-right: var(--space-1);
+}
+
 /* Swapped in for a note's own inline image once its file is gone —
    a closable box instead of a broken-image glyph, asked for directly. */
 .entry-inline-image-deleted {
@@ -580,7 +584,7 @@ button.ai-unavailable {
   background: linear-gradient(to right, transparent 40%, var(--border) 40%, var(--border) 60%, transparent 60%);
   opacity: 0.5;
   border-radius: var(--radius-sm);
-  transition: background 0.12s ease, opacity 0.12s ease;
+  transition: background var(--motion-fast) ease, opacity var(--motion-fast) ease;
   touch-action: none;
 }
 
@@ -1265,7 +1269,7 @@ body.resizing-sidebar {
   text-align: left;
   box-shadow: none;
   color: var(--ink);
-  transition: border-color 0.14s ease, transform 0.14s ease;
+  transition: border-color var(--motion-base) ease, transform var(--motion-base) ease;
 }
 
 .theme-card:hover {
@@ -1395,7 +1399,7 @@ button.is-on {
   box-shadow: none;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.14s ease, transform 0.14s ease;
+  transition: border-color var(--motion-base) ease, transform var(--motion-base) ease;
 }
 
 .start-step:hover {
@@ -1693,7 +1697,7 @@ button.is-on {
   backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
   padding: var(--space-2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
 }
 
@@ -1710,14 +1714,14 @@ button.is-on {
   font-weight: 500;
   padding: 0.5rem 1.25rem;
   border-radius: var(--radius-md);
-  transition: background 0.2s, color 0.2s, transform 0.1s, box-shadow 0.2s;
+  transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
 }
 
 .notes-subtabs button.active {
   background: var(--accent);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
 

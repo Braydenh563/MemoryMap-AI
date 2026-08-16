@@ -139,3 +139,284 @@ what made "everything else here is new" a fact rather than a guess.
   this codebase is maintainable by a fresh session.
 - Prompt text is budgeted: `agent.PROSE_BUDGET_CHARS` is asserted, because
   every sentence added to the system prompt is resent on every round.
+
+---
+
+# Appendix: user-supplied token-budget policy (optional, removable)
+
+The user pasted this policy verbatim and asked it be kept here as a clearly
+separate block so it can be deleted on its own without touching anything
+above. It targets the interactive Claude Code CLI (`/usage`, `/compact`,
+`/model`, `/effort` as slash commands); this repo is also worked on through
+Claude Code on the web / CCR sessions, where those aren't literal commands
+you can shell out to — treat the mechanisms below as **intent**, mapped onto
+whatever the running surface actually offers (e.g. `ScheduleWakeup` fallback
+checks instead of a polled `/usage`, a real `/compact` where the CLI exposes
+one), not as literal command invocations that must resolve on every surface.
+The core rules — don't downgrade model/effort for quality-sensitive work
+just because quota is low, keep subagents terse (final-summary-only, no
+running commentary), compact proactively rather than hitting a hard limit —
+apply regardless of surface.
+
+# Claude Code Token Budget & Auto-Compaction Policy (v2)
+
+## Overview
+
+This policy instructs Claude Code to:
+1. Periodically check session usage with `/usage`
+2. Auto-compact context when it approaches 500k tokens
+3. **Preserve model/effort quality** — do NOT downgrade based on quota alone
+4. Adapt **only non-quality factors** when quota is low (subagents, images, verbosity for simple tasks)
+5. Enforce token-efficiency rules on subagents
+6. Suppress running commentary in subagents (final summary only)
+
+---
+
+## 1. Periodic Usage Checks
+
+**Trigger:** Every 10–15 turns, or before starting large tasks.
+
+**Action:**
+```bash
+/usage
+```
+
+**Parse the output** to extract:
+- Current session token count
+- Remaining quota (5-hour rolling window)
+- Weekly cap remaining
+
+**Log internally** (do not output to user unless asked):
+- `session_tokens_used`
+- `quota_remaining_pct`
+
+---
+
+## 2. Auto-Compaction Threshold
+
+**Condition:** If `session_tokens_used >= 500000` OR `context_tokens >= 450000`
+
+**Action:**
+```bash
+/compact
+```
+
+**Rationale:**
+- Prevents cache invalidation from runaway context growth
+- Keeps per-turn costs low (cache reads vs full rewrites)
+- Avoids hitting hard session limits mid-task
+
+**Exception:** Do NOT compact if:
+- User explicitly requested full history retention
+- Active debugging session where context is critical
+- Within 5 turns of a previous `/compact` (avoid thrashing)
+
+---
+
+## 3. Quality-First Behavior Adaptation
+
+### Core Principle
+**Do NOT change model or effort level based solely on token quota.** Quality and correctness take priority over cost savings.
+
+### Low Quota Adaptations (Quota <30%)
+
+When quota is low, adapt **only these non-quality factors**:
+
+| Factor | Normal Behavior | Low Quota Behavior |
+|--------|----------------|--------------------|
+| **Model selection** | Task-driven (Opus for complex, Sonnet for routine) | **Unchanged** — keep task-appropriate model |
+| **Effort level** | Task-driven (high for complex, low for simple) | **Unchanged for complex tasks**; may use low effort for trivial tasks only |
+| **Subagents** | Allowed if ROI justifies | **Disable** unless truly necessary |
+| **Images** | Allowed with resolution limits | **Avoid** unless vision is essential |
+| **Commentary verbosity** | Concise but complete | **More concise** for simple tasks; maintain full reasoning for complex tasks |
+| **Proactive warnings** | None | Notify user at 30%, 15%, and 5% quota |
+
+### Effort Adjustment Logic (Low Quota Only)
+
+```
+IF quota < 30%:
+    IF task_complexity == "trivial" (e.g., file rename, simple search):
+        SET effort = low
+    ELSE IF task_complexity == "moderate" (e.g., refactor, bug fix):
+        KEEP effort = medium (task-driven)
+    ELSE IF task_complexity == "complex" (e.g., architecture, novel algorithm):
+        KEEP effort = high (task-driven)
+        DO NOT downgrade
+```
+
+**Rationale:** Downgrading effort on complex tasks increases error risk, which leads to rework and higher token costs overall.
+
+---
+
+## 4. Subagent Token Efficiency Rules
+
+**When spawning subagents**, inject the following constraints:
+
+### 4.1 Inherit Core Rules
+Subagents must follow the same token-efficiency principles:
+- Avoid cache-invalidating actions
+- Minimize context size
+- Use appropriate model/effort for task complexity
+
+### 4.2 Commentary Suppression
+**Default subagent behavior:**
+- **NO running commentary** during execution
+- **NO intermediate "thinking out loud"**
+- **ONLY output:** Final summary with:
+  - Task completed (Y/N)
+  - Key results/artifacts produced
+  - Errors encountered (if any)
+  - Recommended next steps (if applicable)
+
+**Example subagent output format:**
+```
+## Task: [brief description]
+
+**Status:** ✅ Completed
+
+**Results:**
+- [artifact 1]
+- [artifact 2]
+
+**Errors:** None
+
+**Next steps:** [optional recommendation]
+```
+
+### 4.3 Subagent Usage Budget
+- Allocate **≤20% of remaining session quota** per subagent
+- If subagent approaches its budget, terminate and summarize
+- Report subagent token cost to parent agent for tracking
+
+### 4.4 Low Quota Subagent Restrictions
+
+```
+IF quota < 30%:
+    ALLOW subagents ONLY IF:
+        - Task is clearly parallelizable
+        - Estimated speedup > 2×·
+        - No viable single-agent alternative
+    OTHERWISE: disable subagents
+```
+
+---
+
+## 5. Implementation Pseudocode
+
+```python
+# Pseudocode for Claude Code internal logic
+
+def before_each_turn():
+    turn_count += 1
+    
+    # Check usage every 10–15 turns
+    if turn_count % 12 == 0:
+        usage = run_command("/usage")
+        session_tokens = parse_usage(usage)
+        
+        # Auto-compact if needed
+        if session_tokens >= 500000:
+            run_command("/compact")
+            turn_count = 0  # reset counter
+        
+        # Adapt behavior based on quota (quality-first)
+        quota_remaining = get_quota_remaining_pct()
+        adapt_behavior(quota_remaining, current_task_complexity)
+
+def adapt_behavior(quota_pct, task_complexity):
+    # Model: NEVER change based on quota
+    # Effort: task-driven, unchanged for complex tasks even at low quota
+    
+    if quota_pct < 30%:
+        # Low quota adaptations (non-quality factors only)
+        if task_complexity == "trivial":
+            set_effort("low")  # safe to reduce verbosity
+        # else: keep task-driven effort level
+        
+        # Restrict subagents
+        if task_complexity != "complex_parallel":
+            allow_subagents(False)
+        
+        # Avoid images
+        allow_images("essential_only")
+        
+        # Warn user
+        if quota_pct < 15%:
+            warn_user(f"Token quota low ({quota_pct}%). Consider /clear or ending session.")
+        if quota_pct < 5%:
+            warn_user("Token quota critical. Strongly recommend ending session.")
+    
+    # Normal behavior (quota >= 30%)
+    else:
+        allow_subagents(True)
+        allow_images(True)
+
+def spawn_subagent(task, quota_pct):
+    # Inject token efficiency rules
+    subagent_rules = load_token_efficiency_rules()
+    subagent_rules.commentary = "final_summary_only"
+    
+    # Budget allocation
+    subagent_budget = remaining_quota * 0.20
+    subagent_rules.budget = subagent_budget
+    
+    # Low quota restrictions
+    if quota_pct < 30%:
+        if not is_clearly_parallelizable(task):
+            raise Exception("Subagents disabled at low quota for non-parallel tasks")
+    
+    return create_subagent(task, rules=subagent_rules)
+```
+
+---
+
+## 6. User Notifications
+
+**Notify user when:**
+- Auto-compaction occurs: *"Context auto-compacted to reduce token usage."*
+- Quota drops below 30%: *"Token usage at 70%+. Subagents and images restricted. Model/effort unchanged for quality."*
+- Quota drops below 15%: *"Token quota low (~X%). Consider `/clear` or ending session soon."*
+- Quota drops below 5%: *"Token quota nearly exhausted. Strongly recommend ending session or upgrading plan."*
+- Subagent is spawned: *"Spawning subagent for [task] with token budget [X]."*
+
+**Do NOT notify for:**
+- Routine `/usage` checks (internal only)
+- Effort adjustments for trivial tasks (internal optimization)
+
+---
+
+## 7. Commands Reference
+
+| Command | Purpose |
+|---------|---------|
+| `/usage` | Check session token usage and quota |
+| `/compact` | Compress conversation history |
+| `/clear` | Clear entire conversation |
+| `/model <name>` | Switch model (sonnet/opus/haiku) |
+| `/effort <level>` | Set verbosity (low/medium/high) |
+
+---
+
+## 8. Sources & Rationale
+
+- Anthropic cache invalidation triggers (model switches, images, effort changes)
+- Community measurements: 246M tokens in 22h, 0.13% output, cache rewrites dominate cost
+- Vision token costs: ~1k–5k per image (resolution-dependent)
+- Subagent overhead: ~7×·token usage vs single agent
+- **Quality-first principle:** Downgrading model/effort on complex tasks increases error risk and rework costs
+
+---
+
+## 9. Integration Notes
+
+**To activate this policy:**
+1. Add this file to your `CLAUDE.md` or reference it in your rules
+2. Ensure Claude Code has permission to run `/usage` and `/compact`
+3. Test with a long-running session to verify auto-compaction triggers
+4. Monitor `/usage` output to confirm behavior adaptation
+
+**Optional enhancements:**
+- Log token usage to a file for post-session analysis
+- Add custom thresholds (e.g., compact at 400k instead of 500k)
+- Integrate with external usage monitoring tools
+- Add task complexity classification (trivial/moderate/complex) for effort logic

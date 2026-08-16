@@ -7,6 +7,208 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Done this session — the broad apple-design pass: an elevation + motion token scale, app-wide, plus a live look at the timeline and document editor
+
+The first pass (below) was deliberately narrow. This one is the broader
+sweep ROADMAP item 12 asked for, still CSS/consistency-focused rather than a
+structural rewrite, per the same "skip anything needing a product decision"
+instruction the first pass worked under.
+
+**Populated the app for real before auditing it** (own point in CLAUDE.md:
+audit populated states, not empty ones), via the API rather than clicking
+through the UI, to keep budget for the actual design work: 9 notes with real
+multi-paragraph content and a few explicit links between them, 3 reminders,
+1 document (102 words, headings, a list), and a whiteboard board with 3
+cards linked to real notes. Screenshotted every tab at 1400px, light and
+dark, before and after (`toggleTheme()` — the earlier attempt to fake dark
+mode via a `data-theme` attribute did nothing; the app keys off
+`data-mode`).
+
+**Found and fixed: no shared elevation or motion scale existed**, unlike
+spacing/type/radius/colour, which DESIGN.md already governs and
+`test_style_scale.py` already enforces. Twelve hand-written `box-shadow`
+values across 6 files ranged 0.05-0.5 opacity across six-plus blur radii,
+split between a purple-tinted family (matching `--glass-shadow`, which *is*
+dark-mode-aware) and a flat-black family (which mostly wasn't) — so a card's
+shadow and a dropdown's shadow and a dragged whiteboard card's shadow were
+all visually unrelated, and several went flat/invisible in dark mode.
+Consolidated into three tokens (`--shadow-sm/md/lg`, all dark-mode-aware) and
+every one-off value replaced with the nearest tier; two exceptions kept and
+documented (the lightbox's always-dark-backdrop shadow, and a button's
+accent-tinted glow, now fixed to `color-mix()` off `--accent` instead of a
+hardcoded RGB that ignored the user's chosen accent colour entirely).
+Separately, ten distinct transition durations (0.08s-0.25s, one written as
+`120ms`) collapsed into `--motion-fast/base/slow` the same way the spacing
+scale was originally extracted — the modes of the existing distribution, not
+invented numbers — and applied to every `transition:` declaration in
+`frontend/css/*.css`. `animation:` keyframe timings were left alone on
+purpose (each is tuned to its own specific effect, not drifting for no
+reason, and sweeping those too was a materially different and riskier
+claim than "this hover transition matches that one"). Both scales documented
+in DESIGN.md with the same "why" depth the rest of the file uses.
+
+**Timeline branch/line view (ROADMAP item 10) — looked at live, not fixed.**
+Screenshotted with real, populated data: the SVG canvas reserves a fixed
+height regardless of how much content is in it, so a normal note count
+leaves most of the card blank; the active band has no label painted on the
+canvas itself; and notes sharing a time bucket stack vertically with no
+jitter, connector, or other way to tell them apart short of hovering each
+one. All three are `renderTimelineBranch`'s own layout math (`app.js`
+§10C), not a colour or spacing problem the token system reaches — a real fix
+means changing what the function computes, not what it's styled with. Per
+this session's own instruction not to risk a half-implementation, this is
+written up (here and in DESIGN.md's "what is not done yet") rather than
+attempted. **Also worth naming honestly**: the specific screenshot taken had
+every seeded note plotted at the same point (today), which is a seeding
+artifact — the notes' own body text has relative-date phrases the timeline's
+"about" placement is supposed to pick up (§10A already resolves them) — not
+itself the design bug above, but it means the "notes pile with no
+differentiation" finding was observed at an extreme (9-way tie), not at a
+realistic middling density; the dead-canvas-space and missing-label findings
+hold regardless.
+
+**Document editor (ROADMAP item 11) — looked at live, found already
+consistent.** Title field, word count, outline, save status, the full
+formatting toolbar (headings/bold/italic/strike/code/lists/task/quote/
+link/table/rule), AI edit, extract-notes, and .md/.pdf export all render
+cleanly and match the rest of the app's visual language — no orphaned
+one-off styling found. BACKLOG.md §5 already has the real gap list (wiki
+links, a `/` command menu, drag-drop images, backlinks, live-preview
+editing, sub-pages) correctly flagged as a product decision, not a design
+one; nothing here changes that.
+
+**Verification:** `tests/test_style_scale.py` and the full suite
+(`python -m pytest tests/`, exit 0) pass unchanged — no lint had to be
+widened to let the new tokens in, since `--shadow-*`/`--motion-*` are
+declared in `:root` like every other token and consumed via `var()`
+everywhere they're used. `ruff check .` clean (no Python touched).
+`node --check` clean on all three JS files (also none touched — this pass
+was CSS + docs only). Every screenshot referenced above was actually taken
+and looked at, both themes, both before and after the shadow/motion changes,
+against the populated data described above — not reasoned from the diff.
+**Not done and not claimed:** a systematic per-component
+`prefers-reduced-motion` audit (still ad hoc, per-component `@media` blocks,
+same as before this session); Chat tab content (no local model is
+configured in this sandbox, so no real conversation history exists to
+screenshot — the tab was screenshotted empty, which is honestly what it is
+here, not what it looks like with real use).
+
+## Done last session — a first, scoped Apple-design pass, a real Library data bug, and a corrected doc claim about the 401 burst
+
+> Asked directly: audit the live app against Apple design principles
+> (clarity, deference, depth, generous whitespace, consistent corner radii,
+> restrained colour, purposeful motion) and fix the highest-impact issues
+> within `docs/DESIGN.md`'s existing token system. Screenshotted every tab
+> at 1400px with Playwright (light and dark), then a second pass with three
+> real notes captured through the app's own UI, since an empty notebook
+> hides most of what a card, chip or preview actually looks like.
+
+**Scope was deliberately narrow, not the full sweep ROADMAP item 12
+originally called for.** That item says the full pass should run last, after
+several other structural changes (the timeline/document-editor work) land,
+and specifically flags it as high-risk enough to want the user present. This
+session stayed CSS/consistency-focused and low-risk rather than touching
+every file, per this session's own instructions to prioritise usability bugs
+and cross-tab consistency over one-off cosmetic taste calls, and to skip
+anything needing a product decision.
+
+**Two shipped fixes:**
+
+1. **Library and Timeline had a different, worse empty state than every
+   other tab.** Dashboard, Notes, Chat, Graph and Reminders all use the same
+   pattern (`.empty-state`: a centred icon, a bold title, muted subtext).
+   Library and Timeline were each a single bare `<p class="muted">`, left-
+   aligned, no icon, no padding — "Nothing of this kind yet." and "Nothing
+   to plot yet." sat flush against the page edge like unstyled placeholder
+   text, reading as unfinished next to the other five tabs. Fixed by giving
+   both the same three-part structure (`frontend/index.html`): Timeline is
+   fully static markup (`ph-clock` icon, a real subtitle); Library's text is
+   set at runtime for three different empty states (nothing at all / no
+   search match / nothing of this filtered kind), so only its title line is
+   dynamic now (`app.js`'s `renderLibraryGrid`, one `$("library-empty-title")`
+   in place of `.textContent` on the whole block). No new CSS — both reuse
+   `.empty-state`/`.empty-icon`/`.empty-title`, already defined in
+   `frontend/css/02-chat-graph.css` and used by the other five tabs, so
+   `test_style_scale.py` needed no changes. **Verified live, light and dark**:
+   screenshotted before and after: `library.png`/`timeline.png` (light,
+   before), `dark-library.png`/`dark-timeline.png` (light-toggle pass,
+   after — the fix landed before the dark-mode screenshots were taken, so
+   both themes are confirmed, not just reasoned).
+
+2. **A real bug, not a cosmetic one: a titled note's Library card duplicated
+   its own title into its preview line.** Reported symptom you'd hit
+   immediately with real notes: a note titled "Design review notes" showed
+   a card whose preview line *also* started "Design review notes" before
+   the actual body text — found by capturing three real notes through the
+   app's own Capture form and looking at the populated Library grid, which
+   an empty-notebook audit would never have surfaced. Root cause in
+   `routes_library.py`'s `_notes()` (and the same shape in `_archive()`,
+   the bin): both computed `title` and `preview` by whitespace-collapsing
+   and clipping the entry's *raw* `content` column, which — for any note
+   with an explicit title — begins with that title's own `# Heading` line
+   (`manager.apply_title` prepends it). So `title` became a 60-character
+   clip that included the heading *and* however many words of the body fit
+   after it, and `preview` opened with the identical heading text again
+   right underneath. `app.js`'s Notes-tab entry list already solved this
+   correctly for its own cards, via `bodyWithoutTitleLine()`, but the
+   Library card function (`libraryCard()`) only ever received the server's
+   pre-mixed `preview` field and had no way to un-mix it — its "is the
+   preview just the title again" heuristic could only catch an *exact*
+   match, not "title, verbatim, followed by more." Fixed at the source: both
+   backend functions now call the entry manager's own `extract_title()` /
+   `remove_title()` (the same pair `POST /entries/{id}/generate-title` and
+   `/remove-title` already use) to split a titled note's raw content into a
+   clean title and a title-free preview before clipping either one.
+   Titleless notes are byte-for-byte unaffected — `extract_title` returns
+   `None` for them and the original clip-based fallback still runs.
+   **Verified**: `tests/test_library.py` (10/10, no changes needed — nothing
+   there asserted the old clipped-title shape) plus a live before/after
+   screenshot with three real captured notes (`library-populated.png` before,
+   `library-fixed.png` after) showing the duplication gone.
+
+**A finding, not a fix — flagged in ROADMAP.md item 13 rather than touched,
+since it's a functional/auth bug, not a design one, and the working fix
+already exists elsewhere:** the pre-auth 401 burst HANDOVER.md describes as
+"root-caused, fixed, and verified live" is **not present on this branch.**
+Reproduced cleanly this session with a fresh `MEMORYMAP_DATA_DIR` and zero
+login attempted — the same repro HANDOVER.md itself used — 20 requests
+401 before the lock screen is ever touched. `git merge-base --is-ancestor
+8b9b7f6 HEAD` fails: the commit that fixes this (`8b9b7f6`, "Fix pre-auth
+401 burst, doc-textarea resize gap, add chat delete" — splits `switchTab`
+into a DOM-only `revealTab()` plus data loading, moves `startReminderWatch()`
+into `startApp()`) exists but was never merged into the branch this
+worktree's `HEAD` (`bffa3c6`, a `Gemini-Additions-2` merge) descends from.
+Current `app.js` still calls `switchTab("dashboard")` and
+`startReminderWatch()` unconditionally at module load (~line 19833 and
+~19821) — there is no `revealTab` function anywhere in the file. Not fixed
+this session, deliberately: out of an Apple-design-audit's scope, and the
+right move is to cherry-pick/reapply `8b9b7f6`'s `app.js` diff against
+current source (checking for drift first) rather than re-diagnose from
+scratch or re-derive the same fix a second time.
+
+**What this session explicitly did not check, said plainly rather than
+reported as done:** the two fixes above are the only two shipped; the wider
+"every tab, every state" sweep the original ROADMAP item asked for did not
+happen. Not screenshotted or reasoned about at all: populated states for
+Chat (a real conversation with several turns), Graph and Timeline (with
+actual linked/dated notes on them, not the empty-map view), Reminders with
+real entries, or any tab at narrower-than-1400px widths. The floating
+"Agent Activity" monitor panel (bottom-left, showing "embedding backend
+failed" — expected in this sandbox, since CLAUDE.md's own setup skips
+`sentence-transformers`/torch) sat over the same screen corner in every
+screenshot; whether it can overlap real content once a notebook is large
+enough to fill the page was not checked, and is worth a look before calling
+that panel's positioning settled. Motion/transition polish and narrow-width
+layout were named in the ask and not audited at all this session.
+
+**Verified**: `python -m pytest tests/` (all green, exit 0 — includes
+`test_library.py` 10/10 and the four frontend lints
+`test_style_scale.py`/`test_frontend_ids.py`/`test_frontend_handlers.py`/
+`test_docs_layout.py`), `ruff check .` (clean), `node --check frontend/app.js`
+(clean). Screenshots for every tab at 1400px, light and dark, empty and
+(for Dashboard/Notes/Library) populated with three real captured notes, are
+in this session's scratchpad and described above by filename.
+
 ## Done last session — a work-recovery pass, not on the #0 refactor
 
 > Full detail is in [HANDOVER.md](HANDOVER.md) and [CHANGELOG.md](../../CHANGELOG.md);
@@ -3362,3 +3564,144 @@ view with an "N notes … no longer available" line rather than silently
 showing stale content. 14 new backend tests cover persistence, search,
 pagination, hydration (including the deleted/private-note drop), pin, and
 both clear-all variants.
+
+## BACKLOG.md's earliest bug-hunt sessions, consolidated — the launcher/theme/SearXNG fixes, the "reported as / actual cause" table, six real SearXNG install/start bugs, the tree/radial/arc label fixes, and relative-time resolution
+
+Moved out of BACKLOG.md §8/§8b/§9/§10 once each part landed; a short pointer
+is what stayed behind. Grouped here because they're all from the same
+early run of bug-hunting sessions, not because they share a subject.
+
+**§8's six standalone fixes.** Renaming the project folder broke the
+launcher: `pip install -e .` writes an absolute path into the venv, and the
+"do dependencies need reinstalling" skip marker checked `requirements.txt`'s
+timestamp/checksum — which a rename doesn't change — instead of asking the
+venv directly whether it could actually import the app; both launchers now
+ask it directly. Picking a theme did nothing about half the time: Appearance
+layers defaults → theme → manual tweaks in that order, so an earlier manual
+change silently outlived every theme picked after it; picking a theme now
+clears the manual keys that theme has an opinion about. Lagoon and Shallows
+were refined (Shallows was meant to read teal but was drawn mostly indigo;
+Lagoon's inset panels and secondary text were too low-contrast). Background
+tasks showed nothing while SearXNG started because a *start* (not an
+install) runs in the request thread and waits up to 90s with nothing on
+screen explaining the wait — `searxng_manager.starting()` now reports it
+with a progress bar. The AI emblem was cramped and only on two tabs (moved
+to one shared header spot beside the AI status dot). The dashboard's widgets
+were missing until a tab switch: `startApp` fired `loadEntries` and
+`refreshActiveTab` as two independent steps, so a cold load rendered the
+dashboard against an empty `allEntries` and drew the brand-new-notebook
+empty state — now gated on a flag that says the fetch actually happened.
+
+**§8's "reported as / what it actually was" table**, kept because in most
+cases the stated symptom pointed at the wrong component and the wasted
+effort is the expensive part to repeat: numbered lists always rendering
+`1.` (a blank line between items closed the `<ol>`, and models write
+`1.\n\n2.` more often than tightly); assistant content sitting too far
+right (the rail padded each step's own box instead of the container); the
+thinking-arrow marker sitting on the timeline circles (`list-style-position:
+outside` draws outside the summary's box, exactly where the rail's gutter
+is — removed and redrawn inside); thinking boxes "vanishing on reload" (not
+reproducible — the report predated the step-timeline work that already
+fixed it); a long URL escaping the chat bubble (`overflow-wrap: anywhere`);
+documents showing "Invalid Date" (a regression from the UTC fix —
+`relativeTime` appended a redundant `"Z"` to a timestamp already carrying
+`+00:00`); Dashboard "Search notes" going nowhere (focused a box inside the
+hidden `browse` sub-tab); the Capture textbox staying short until clicked
+(`autoGrow` measured `scrollHeight` while `display: none`); "Ask about
+this" wrecking the layout (CSS automatic minimum sizing — a `1fr` grid
+track and a `min-width: auto` flex item both refusing to shrink below
+their content, widening the whole column to 3425px at a 1280px viewport);
+desktop menu-bar buttons overlapping the title (a base rule below the
+media query redeclaring `flex` at equal specificity, pinning the tab strip
+rigid); not being able to switch search engines (the status poll reset the
+radios on every focus change, since picking one saves nothing until "Apply
+& re-index"); colour/font controls stuck under a theme (two causes —
+`[data-palette]` rules sitting below `[data-accent]` rules at equal
+specificity, and `applyAppearance` re-applying every setting except the
+accent); sketches not opening from the graph (the popup showed the caption
+but never the image); web search returning nothing (three different
+failures — no egress, a rate-limit challenge page, a genuine empty result —
+all surfacing identically, now logged and named separately).
+
+**Found while fixing the above, also fixed:** editing an answer reverted on
+reopen (the edit updated `content`, but replay renders `steps`); uploading
+a file 500'd if the uploads folder had gone missing; `APPEARANCE_DEFAULTS`
+declared `bg-motion` twice with different values; "New note" on the
+dashboard did nothing unless Notes was already on the capture sub-section
+(ten feature-catalog entries had the same hidden-sub-tab trap); `.entry-
+content`'s `pre-wrap` couldn't break inside a word, so one pasted URL
+widened the note list and the page; `pytest` didn't work in a fresh clone
+without an editable install.
+
+**§8b — six real bugs stood between "SearXNG install path exists" and
+"SearXNG actually works", found across two sessions.** Three
+platform-independent: **`git clone` can never work on Windows** — four
+files in SearXNG's own repo have a colon in the name (a drive-letter
+separator), so Windows refuses the checkout after fetching every object,
+leaving a half-written folder; fixed by downloading and unpacking the
+archive directly, skipping members the filesystem can't hold, git no
+longer used at all. **`pip install -e .` can never work, on any OS** —
+SearXNG's `setup.py` imports `searx`, which imports `msgspec`, and pip
+builds in an isolated environment that has neither; `requirements.txt` now
+installs first, with `--no-build-isolation`. **The `tracker_url_remover`
+plugin kills the process at boot** — it downloads a rules file from
+`rules1.clearurls.xyz` during `init` with no failure handling, so SearXNG
+exits before binding the port on any offline/proxied/slow machine;
+disabled in the generated `settings.yml` (MemoryMap strips tracking
+parameters itself, so nothing is lost). Three Windows-only: **`_alive()`
+was killing the process it checked** — `os.kill(pid, 0)` is the POSIX way
+to probe a process without touching it, but on Windows every signal except
+Ctrl+C/Break is handed to `TerminateProcess`, so the liveness check itself
+ended a freshly-started SearXNG within seconds, every time; now uses
+`OpenProcess`/`GetExitCodeProcess` on Windows. **A failed reinstall
+reproduced its own error** — `install_source` skipped the download when
+the checkout folder existed and handed it straight to `pip install -e`,
+but `uninstall_source`'s `shutil.rmtree(ignore_errors=True)` couldn't clear
+git's read-only `.git/objects` on Windows, so a "removed" folder was still
+there for the next install to find; `is_checkout()` now asks what's
+actually in the folder and `_remove_tree()` clears the read-only bit.
+**`import pwd`** — POSIX-only, the only such import in SearXNG, used only
+to name the current user in one unreachable-unless-Valkey-configured error
+message; a `pwd` stand-in is written into SearXNG's own venv rather than
+patching SearXNG's source (which upstream is free to change). All three
+Windows-only fixes were confirmed on the user's real Windows hardware, not
+just the sandboxed logic tests. Also fixed the same session: `_reason()`
+was reporting pip's parting "[notice] To update, run: … --upgrade pip" as
+an install failure's cause, since it took the last line and that notice is
+always last.
+
+**§9 — the tree and radial-tree graph layouts, re-fixed after a reported
+readability bug.** Both were first built handing d3 the panel's raw
+dimensions as a bounding box — `d3.tree().size([...])` divides the height
+by leaf count, so a 29-note notebook got eighteen pixels a row and printed
+labels on top of each other. The fix is rules about what a label needs, not
+what the panel has: the tree uses `nodeSize` and pans when taller than the
+panel (zooming out only once the whole thing nearly fits); the radial
+computes its rings from note/category count and rings *by depth* rather
+than by d3-cluster's height (cluster put a category containing a thread one
+ring closer in than its siblings, making the circle look ragged). Three
+further collisions only a browser could find: a stylesheet rule beating the
+`text-anchor` presentation attribute so no side-label ever moved, a flipped
+left-half label whose offset sent it back across its own node, and a
+55%-transparent label halo that let a thread edge show through the words it
+ran behind. All asserted on measured geometry — labels' real rotated
+corners, separated by a separating-axis test, since the axis-aligned box
+around diagonal text overlaps when the words do not. The arc-diagram layout
+(built on the filing hierarchy, sharing `layoutHierarchy`/`frameTree`/the
+tree and radial's drag-pin behaviour rather than a parallel rendering path
+for link-based arcs) was verified against a seeded notebook with categories
+and multi-level reply threads: no invalid paths, labels reading diagonally
+without colliding within a step, physics sliders correctly disabling, and
+switching away to force/tree/radial and back regressing none of them.
+
+**§10A — relative-time resolution, the full list of what's handled.**
+`entry/timewords.py` (deterministic regexes and arithmetic, not a model
+call, so it runs with Ollama off and never blocks a save) resolves: today ·
+tonight · this morning/afternoon/evening · tomorrow · yesterday · last
+night · the day before/after · this/last/next week, month, year · "in N
+days/weeks/months" · "N days/weeks ago" · "last/next/this/on <weekday>".
+Precision is kept ("last week" shows as a week, not flattened to a day),
+and the weekday rule is written down in the module since both readings of
+"next Friday" exist and consistency is the most that can be offered.
+Private notes are excluded, and marking a note private clears what was
+already stored — the same reasoning as dropping its embedding.

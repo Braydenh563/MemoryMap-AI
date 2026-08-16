@@ -2,8 +2,227 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Last session — the rest of the mechanical splits, three more live-reported bugs, and the Ask box rebuilt into a browsable history
+## Latest session — a security/correctness sweep, not a feature session: one bug shape found four times
 
+A codebase-wide read of `src/memorymap/**` and `frontend/**` for real bugs,
+not a feature build. Auth token handling, path traversal in file/attachment
+routes, `innerHTML`/CSP/XSS in the frontend, SQL construction, ReDoS-shaped
+regexes, and O(n²)/N+1 patterns were all checked and came back clean — this
+codebase has clearly been through this exercise before (see the CSP, path
+traversal and ReDoS write-ups already in the source, each naming the exact
+bug it closed). **The one real bug class found is a privacy leak, and it
+recurred four times in four different files because the same mistake is easy
+to make and nothing enforces the fix structurally.**
+
+**The shape:** `Entry.content` is a plain column, ciphertext at rest for a
+private note (`crypto.is_encrypted`/`readable_content` in
+`entry/manager.py`). The rule everywhere else in the app — stated outright in
+`ai/tools/_common.py`'s `_require_note` and `ai/embeddings.py`'s
+`store_for_entry` — is that a private note's content **never** reaches the
+AI, full stop, not even when the vault is unlocked. Four places read
+`entry.content` straight off the column without checking `is_private` first,
+each reachable **not** through the write path that already guards private
+notes (`_require_note`, checked first), but through an *existing* link,
+card, or reminder whose target note was marked private **after** the
+connection was made — `manager.set_private` drops the note's embedding and
+resolved dates for exactly this reason, but never touches links, whiteboard
+cards, or reminders pointing at it. Fixed, each with a reproducing regression
+test (confirmed red against the pre-fix code, green after):
+
+1. **`POST /insights/digest` and `/insights/digest/stream`**
+   (`api/routes_insights.py`, `_digest_notes` and `weekly_digest`) — the
+   weekly AI recap's own note query had no `is_private` filter, so a private
+   note's ciphertext went straight into the model's prompt and could surface
+   in the digest text a user then reads. `digest_structure_note` right next
+   to it already excluded private notes for its own sentence — this was the
+   one query that didn't.
+2. **The link-reason audit** (`ai/links.py`, `audit_vague_links`) — runs
+   automatically every few hours from `ai/autonomous.py` for as long as the
+   server is up, and is also exposed as the `audit_link_reasons` tool. It
+   fetches both ends of a link by id with no privacy check and hands
+   `source.content, target.content` to the model. Of the four, this is the
+   one most likely to actually fire in practice: linking two notes and later
+   marking one private is an ordinary sequence of actions, and this pass
+   revisits *every* vague-reason link on *every* tick.
+3. **`GET /reminders`** (`api/routes_reminders.py`, `_to_out`) — built
+   `entry_preview` from the raw column instead of `manager.readable_content`,
+   so a reminder attached to a note later marked private showed the
+   ciphertext blob in the UI instead of the "Private note — unlock to read
+   it." placeholder every other surface uses. Lower severity than the other
+   three (nothing left the local UI/process), but the same bug.
+4. **`read_whiteboard` / `search_whiteboard`** (`ai/tools/whiteboard.py`) —
+   `_add_whiteboard_card` already calls `_require_note` on the way in (this
+   file's own docstring names the CLAUDE.md regression class it was written
+   to avoid), but the two *read* tools rebuilt their card/board previews
+   from `entry.content` directly, with no equivalent check, so a card or
+   board note marked private after being placed still had its ciphertext
+   handed back as a tool result — which becomes part of the agent's own
+   context, the same leak `_require_note` exists to close.
+
+**Not fixed, only noted — lower confidence, out of a small-targeted-patch
+scope:** `api/routes_whiteboard.py`'s `list_boards`/`list_images` (HTTP
+routes, not AI tools) build a board's *title* from `entry.content` the same
+unguarded way — `extract_title(entry.content) or entry.content.strip()[:40]`
+— for a board whose underlying note was marked private after being used as
+one. Same bug shape, but this is a human-facing HTTP list rather than an
+AI-tool result or a background job's model prompt, and it's unclear whether
+a "board" note is ever realistically marked private in practice — flagged
+rather than patched blind.
+
+**Method, if the next session wants to extend the same sweep:** `grep -n
+"entry\.content\|e\.content\b" across src/memorymap/api/*.py
+src/memorymap/ai/*.py` and check each hit against one question — *does this
+entry come from `_require_note`/a query that already filters `is_private`,
+or from a raw `session.get`/id lookup with no such check?* Every hit that's
+clean already says so in a comment (`routes_duplicates.py`'s `_load`,
+`entities.py`'s query filter, `routes_library.py`'s `_clip` call) — the
+absence of that comment on a fresh hit is the signal to look closer, not the
+proof of a bug on its own.
+
+**Verification:** each fix has a small regression test in the same file as
+its neighbours (`test_digest_structure.py`, `test_reminders_api.py`,
+`test_link_reasons.py`, `test_ai_whiteboard_tools.py`), confirmed to fail
+against the pre-fix code via `git stash` before being confirmed to pass
+after. Full suite green (`python -m pytest tests/`), `ruff check .` clean,
+`node --check` clean on the three frontend files (untouched this session —
+the bug class here is entirely backend/tool-layer).
+
+## Last session — the rest of the mechanical splits, three more live-reported bugs, and the Ask box rebuilt into a browsable history
+## Last session — all 81 CodeQL alerts closed, a real pre-auth 401 burst root-caused and fixed, and a token-efficient pass through ROADMAP/BACKLOG
+
+Two parts. First: GitHub's code-scanning list had 81 open alerts — five
+independent findings (a clear-text-storage suppression on the wrong line, two
+stack-trace-exposure spots in `core/extras.py`, an assert-with-side-effect in
+a test, an implicit string concatenation) plus one 76-alert cluster, all from
+the same root cause: `searxng_manager.py`'s four sibling modules import each
+other in a cycle, deliberately, so tests can monkeypatch across them.
+Resolved with a PEP 562 lazy `__getattr__`/`__dir__` facade rather than
+breaking the cycle apart — user picked this option explicitly over "leave it"
+or a bigger shared-module extraction. **The trap that cost the most time
+here: PEP 562 only intercepts genuine attribute access (`module.attr`), never
+a bare name evaluated via `LOAD_GLOBAL`** — the four functions that used the
+facade names as bare identifiers needed every one of those references
+rewritten to `_self.<name>` (`_self = sys.modules[__name__]`) before it
+actually worked at runtime, and ruff needed a `per-file-ignores` for F822
+separately (it can't see `__getattr__`-populated names). Along the way: the
+faster-whisper install failure a user hit turned out to be the *actual* bug
+CLAUDE.md's extras-install note was gesturing at — `pip -c requirements.txt`
+rejects the whole constraints file over one `[extra]` bracket anywhere in it,
+not just the offending line — fixed by stripping extras into a throwaway
+constraints copy before the `-c` flag ever sees the real file.
+
+**Second, and the part worth reading closely: a live-reproduced, root-caused
+fix for ROADMAP's Priority-0 "401 burst" item, which every session before
+this one had only reported as reproducible.** `switchTab("dashboard")` and
+`startReminderWatch()` both ran unconditionally at module load — before
+`initAuth()` had even asked the server whether a token was needed — so
+*every* cold load fired dashboard's ~20 widget requests plus a reminders poll
+with an empty `X-Auth-Token` header, all of them 401ing before the lock
+screen was ever dismissed. Confirmed by a bare-page Playwright load with no
+login attempted at all: 20+ 401s, every header empty. Fix: `switchTab` split
+into `revealTab()` (DOM-only — which tab-page is visible, which button is
+active, no network) and the rest (per-tab data dispatch); the module-level
+boot call is `revealTab("dashboard")` now, and `startReminderWatch()` moved
+into `startApp()`, which only ever runs once a session is confirmed either
+way (fresh setup or unlock). **The investigation trap, documented so the next
+session doesn't re-spend the hour: this sandbox's `kill $PID` pattern
+self-matches its own invoking shell when the pattern text appears inside the
+command string being `eval`'d** (the Bash tool wraps every command through
+`bash -c 'eval "..."'`, so a `pgrep -f "uvicorn.*8781"` pattern that also
+appears literally in that same command's own argv matches the wrapper too) —
+several "restart the server, reproduce a stale-token bug" attempts silently
+killed the wrong process or nothing at all, and the *first* several "clean"
+non-repro results were an artifact of that, not evidence the bug was fixed.
+`lsof -t -i:8781` (find the actual port listener) sidesteps it entirely; use
+that, not `pgrep -f`, for anything that needs to know the real server PID in
+this sandbox.
+
+Also fixed and verified live: the document-textarea resize gap (Priority 0
+item 1 — root-caused by a previous session but left unfixed pending a live
+Chromium session, which this one had). Manually dragging `#doc-content`
+shorter pins the textarea's height but `#doc-panes` (`flex: 1 1 auto`)
+doesn't know to stop growing to fill the card, trapping the freed space
+between the textarea and `.doc-hint` instead of at the card's bottom. No
+CSS-only fix exists — nothing short of watching the user actually drag can
+tell "meant to track the flex layout" from "was just manually pinned" — so
+`app.js` now detects a real manual resize (`mousedown`→`mouseup` height diff)
+and relaxes `#doc-panes` to `flex: 0 1 auto` once one happens. **Caveat, said
+plainly rather than glossed over: I could not get Playwright to actually
+trigger the native resize-handle drag in this headless Chromium** — neither
+raw mouse events nor CDP-level ones budged the textarea's rendered height,
+and an isolated minimal repro of the same flex structure showed the same
+thing (the resize *does* register — the element's own `style` attribute gets
+an inline height — but flex-grow visibly re-absorbs it back to 100% in the
+same layout pass, at least in this browser build). The fix is shipped because
+the reasoning in ROADMAP's own root-cause note is sound and the change is
+inert if that reasoning doesn't hold here, but nobody has *watched* the gap
+close in this sandbox. Worth a real desktop-Chrome check before trusting this
+closed.
+
+Two algorithmic-complexity fixes from a full-codebase scan (nothing else
+found — search/graph/embeddings/timeline/reminder-poll/log-ring-buffers all
+already carry caps or batching from prior sessions' fixes): `reevaluate`'s
+`_linked_entry_ids` was loading and ORM-hydrating (decrypting, for private
+notes) every non-deleted entry in the notebook just to find one entry's
+children, on every "Re-evaluate" click — now a filtered `select(Entry.id)`.
+And the whiteboard's `wbUpdateLinkedSketches` was JSON-parsing every sketch
+on the board on every single `pointermove` frame of a card drag, to find the
+handful of link-lines touching the dragged card — now computed once at
+`dragStart` (a card's links can't change mid-drag, the pointer is captured
+for the whole gesture) and passed through. Same live-drag caveat as the
+resize gap applies here too: verified by code-reading (the parse/filter/path
+logic is byte-for-byte unchanged, only *when* it runs moved) and
+`node --check`, not by watching a link line track a drag in a browser — the
+whiteboard canvas didn't lay out at a size Playwright's synthetic mouse could
+usefully hit in this sandbox, for reasons not fully chased down.
+
+A full security-category scan (SQLi, path traversal, XSS, SSRF, auth-bypass
+coverage, hardcoded secrets, insecure deserialization, ReDoS) found nothing —
+everything checked was already mitigated, several with an explicit CodeQL
+query ID in a comment nearby. A full tab-by-tab live UI sweep (dashboard,
+notes, chat, graph, library, timeline, reminders, documents) found zero
+console errors; the one thing that looked like a bug — Dashboard/Notes
+showing "empty" while Library/Graph/Timeline correctly showed 3 notes — was
+a test-methodology artifact (notes seeded via raw API calls bypass the
+client-side `allEntries` cache that the app's own capture UI keeps in sync)
+and not a real bug, though it's worth naming as a **real, narrower edge
+case**: anything that creates entries server-side while the app is already
+open and NOT through the capture UI — multi-device sync, the passive-capture
+job in Tier 3, the autonomous background agent — would hit the same stale
+Dashboard/Notes-tab display until a manual refresh or tab switch. Not fixed
+this session; flagging for whoever builds one of those features next, since
+it'll surface for real then.
+
+Two backlog quick wins, both live-verified in Chromium: the unsaved/in-
+progress chat pane had no delete of its own (`+ New` silently abandoned it) —
+added a `Delete` button matching the sidebar's, silent reset for an empty
+pane and the sidebar's own confirm for a saved one. And a `g`-then-letter
+tab-jump chord (`g d/n/c/l/g/t/r`) for the seven tabs, on a 900ms window,
+correctly deferring to the existing typing-gate. **Also worth recording: two
+more BACKLOG.md §16/§22 items ("collapsible sidebars", "background tasks
+vanish when they finish") turned out already fully built when checked against
+the running app** — a third and fourth instance of the doc-staleness pattern
+CLAUDE.md already warns about twice. BACKLOG §1's "confirm nothing is
+silently dropped" and §5's "word-count goal" were *also* already built,
+found while chasing quick wins before delegating that pass — worth someone
+doing a dedicated BACKLOG.md accuracy pass at some point rather than
+rediscovering this one item at a time.
+
+**Where to start next.** ROADMAP Priority 0 still has: the "extract notes"
+feature (scoped, not started), the mic level-indicator for dictation
+(deferred twice now), a graph trace-path text redesign and a timeline
+line/branch view redesign (both un-scoped — need a design decision before
+building, not a good fit for an unattended/autonomous session), "improve and
+expand" the document editor (also un-scoped), and the `apple-design` skill
+pass over the frontend (deliberately last — the highest blast-radius item on
+the list, don't start this without the user present to review). Given that
+shape, a session picking this up cold should scope one of the un-scoped items
+with the user first rather than guess, or spend the session on BACKLOG.md's
+other numbered sections — but check the running app before building
+anything there, per this file's own standing rule and the four
+already-stale items this session found in §1/§2/§5/§16/§22 alone.
+
+## Previous session — the rest of the mechanical splits, three more live-reported bugs, and the Ask box rebuilt into a browsable history
 Picked up straight from this file's own "#0 priority" pointer below (the
 codebase-quality review) plus several live bug reports and one feature
 request that arrived mid-session. Long session, several background agents,

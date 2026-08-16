@@ -398,12 +398,19 @@ function startApp() {
   step("tell the server your timezone", reportTimezone);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
+  // Reminders poll on their own timer once running (see startReminderWatch);
+  // starting that here, not at module level, is the other half of the fix
+  // described above revealTab("dashboard")'s module-level call — the same
+  // pile of pre-auth 401s, one endpoint earlier.
+  step("watch reminders", startReminderWatch);
 
-  // Re-render whichever tab is on screen. switchTab() runs at module level —
-  // before initAuth() has a token — so a tab that fetches its own data painted
-  // itself from a pile of 401s and then never tried again. On the dashboard
-  // that meant an empty grid until you opened Edit layout and cancelled out of
-  // it, which re-ran renderDashboard by hand (user-reported).
+  // Re-render whichever tab is on screen. This used to be switchTab() itself,
+  // called at module level before initAuth() has a token, so a tab that
+  // fetches its own data painted itself from a pile of 401s and then never
+  // tried again. On the dashboard that meant an empty grid until you opened
+  // Edit layout and cancelled out of it, which re-ran renderDashboard by hand
+  // (user-reported). Now the module-level call is revealTab() — DOM only,
+  // no fetch — and this is the one place the real data load happens.
   // *After* the entries land, not alongside them. These two ran concurrently,
   // so on a cold load the dashboard rendered against an `allEntries` that was
   // still `[]` and drew its brand-new-notebook card instead of the widgets —
@@ -2201,6 +2208,29 @@ function isRenderableUrl(url) {
   return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
 }
 
+// A non-image attachment (handleFileUpload's link-syntax branch) previously
+// rendered as a bare link, indistinguishable at a glance from an ordinary
+// URL — BACKLOG §4's "genuinely still open" follow-up. Only applied to our
+// own /media/ uploads, not arbitrary external links, since a random web
+// page's URL extension says nothing reliable about its content.
+const ATTACHMENT_ICONS = {
+  pdf: "ph-file-pdf", doc: "ph-file-doc", docx: "ph-file-doc", rtf: "ph-file-doc",
+  xls: "ph-file-xls", xlsx: "ph-file-xls", csv: "ph-file-csv",
+  ppt: "ph-file-ppt", pptx: "ph-file-ppt",
+  zip: "ph-file-archive", rar: "ph-file-archive", "7z": "ph-file-archive",
+  mp3: "ph-file-audio", wav: "ph-file-audio", ogg: "ph-file-audio", m4a: "ph-file-audio", webm: "ph-file-audio",
+  mp4: "ph-file-video", mov: "ph-file-video",
+  txt: "ph-file-text", md: "ph-file-md", json: "ph-file-code",
+  png: "ph-file-image", jpg: "ph-file-image", jpeg: "ph-file-image",
+  gif: "ph-file-image", webp: "ph-file-image", heic: "ph-file-image", heif: "ph-file-image",
+};
+
+function attachmentIconClass(url) {
+  if (!url.startsWith("/media/")) return null;
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  return ATTACHMENT_ICONS[ext] || "ph-file";
+}
+
 // LaTeX escapes that models reach for when they want a symbol (§35H).
 //
 // Screenshotted: a bullet reading "Jokes $\rightarrow$ Social Skills", with
@@ -2405,6 +2435,13 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         if (/^https?:\/\//i.test(linkUrl)) {
           a.target = "_blank";
           a.rel = "noopener";
+        }
+        const iconClass = attachmentIconClass(linkUrl);
+        if (iconClass) {
+          const icon = document.createElement("i");
+          icon.className = `ph ${iconClass} attachment-link-icon`;
+          icon.setAttribute("aria-hidden", "true");
+          a.appendChild(icon);
         }
         highlightInto(a, linkText, terms);
         element.appendChild(a);
@@ -3380,7 +3417,7 @@ function matchReasonBadge(info) {
   const { text, title } = MATCH_REASON_LABEL[info.type](info);
   const badge = document.createElement("span");
   badge.className = `chip result-reason-chip result-reason-${info.type}`;
-  badge.textContent = text;
+  setLabel(badge, text);
   badge.title = title;
   return badge;
 }
@@ -6195,6 +6232,16 @@ function closeDocAiPanel() {
   $("doc-ai-panel").classList.add("hidden");
 }
 
+// Extract notes (BACKLOG.md §62): the same selection-or-whole-document scope
+// AI edit above already uses — select a passage first to extract from just
+// that, or leave nothing selected to extract from the whole document.
+function openDocExtractPreview() {
+  if (!currentDoc) return;
+  const box = $("doc-content");
+  const selection = box.value.slice(box.selectionStart, box.selectionEnd).trim();
+  openExtractPreview(selection || box.value, { sourceDocumentId: currentDoc.id });
+}
+
 async function runDocAiEdit() {
   const instruction = $("doc-ai-instruction").value.trim();
   const status = $("doc-ai-status");
@@ -6458,6 +6505,184 @@ async function saveDraftAsNote() {
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
+  }
+}
+
+// --- extract notes (BACKLOG.md §62) ---------------------------------------------
+// Select a block of writing — the Writing Room's draft, a Document's body, or
+// several notes' content selected on the whiteboard — and split it into one
+// or more AI-drafted notes, auto-linked with real reasons. Always a preview
+// first, matching Draft AI edit's own "read it, then accept" shape: nothing
+// is saved until "Save notes" is pressed, since this can silently multiply
+// one piece of writing into several permanent notes.
+
+// The last preview response, kept so commit can look up each kept note's
+// server-decided category and each kept link's server-generated reason —
+// the DOM only holds what the user is allowed to edit (title, content, tags,
+// keep/drop), not those.
+let extractProposal = null;
+
+async function openExtractPreview(text, { sourceEntryIds = [], sourceDocumentId = null } = {}) {
+  const trimmed = (text || "").trim();
+  if (!trimmed) {
+    toast("Select some text to extract notes from first.");
+    return;
+  }
+  extractProposal = { source_document_id: sourceDocumentId };
+  const panel = $("extract-panel");
+  panel.classList.remove("hidden");
+  $("extract-notes-list").innerHTML = "";
+  $("extract-links-list").innerHTML = "";
+  $("extract-commit").disabled = true;
+  const status = $("extract-status");
+  status.classList.remove("error");
+  setLabel(status, "ph:magic-wand Reading it over…");
+  try {
+    const body = await apiJson("/entries/extract/preview", {
+      method: "POST",
+      body: JSON.stringify({ text: trimmed, source_entry_ids: sourceEntryIds }),
+    });
+    extractProposal = { ...body, source_document_id: sourceDocumentId };
+    renderExtractPreview(body);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+// What a link's `kind` (from `ai.extractor`) reads as in the preview.
+const EXTRACT_LINK_KIND_LABEL = { sibling: "new note", source: "source", related: "related" };
+
+function extractRefLabel(ref, notes) {
+  if (ref.startsWith("existing:")) return "an existing note";
+  const note = notes.find((n) => n.ref === ref);
+  return note ? note.title || note.content.slice(0, 30) : ref;
+}
+
+function renderExtractPreview(body) {
+  const status = $("extract-status");
+  status.classList.remove("error");
+  status.textContent =
+    body.message ||
+    `${body.notes.length} note${body.notes.length === 1 ? "" : "s"} proposed — review, then save.`;
+
+  const list = $("extract-notes-list");
+  list.innerHTML = "";
+  for (const note of body.notes) {
+    const card = document.createElement("div");
+    card.className = "extract-note-card";
+    card.dataset.ref = note.ref;
+    card.innerHTML = `
+      <label class="row align-center checkbox-label">
+        <input type="checkbox" class="extract-note-keep" checked> Keep this note
+      </label>
+      <input type="text" class="extract-note-title" placeholder="Title (optional)"
+        aria-label="Note title" value="${escapeHtml(note.title || "")}">
+      <textarea class="extract-note-content" rows="6" aria-label="Note content">${escapeHtml(note.content)}</textarea>
+      <div class="row extract-note-meta">
+        <span class="muted extract-note-category">Filed under: ${escapeHtml(note.category)}</span>
+        <input type="text" class="extract-note-tags" placeholder="Tags, comma separated"
+          aria-label="Tags for this note">
+      </div>
+    `;
+    list.appendChild(card);
+  }
+
+  const linksBox = $("extract-links-list");
+  linksBox.innerHTML = "";
+  if (body.links.length) {
+    const heading = document.createElement("p");
+    heading.className = "muted";
+    heading.textContent = "Links";
+    linksBox.appendChild(heading);
+  }
+  for (const link of body.links) {
+    const row = document.createElement("label");
+    row.className = "row align-center extract-link-row checkbox-label";
+    row.dataset.sourceRef = link.source_ref;
+    row.dataset.targetRef = link.target_ref;
+    const kindLabel = EXTRACT_LINK_KIND_LABEL[link.kind] || "note";
+    const target = link.target_preview
+      ? escapeHtml(link.target_preview)
+      : escapeHtml(extractRefLabel(link.target_ref, body.notes));
+    row.innerHTML = `
+      <input type="checkbox" class="extract-link-keep" checked>
+      <span class="extract-link-desc">${escapeHtml(extractRefLabel(link.source_ref, body.notes))}
+        → ${target} <span class="muted">(${kindLabel}: ${escapeHtml(link.reason)})</span></span>
+    `;
+    linksBox.appendChild(row);
+  }
+
+  $("extract-commit").disabled = body.notes.length === 0;
+}
+
+function closeExtractPreview() {
+  $("extract-panel").classList.add("hidden");
+  extractProposal = null;
+}
+
+async function commitExtractPreview() {
+  if (!extractProposal) return;
+  const keptRefs = new Set();
+  const notes = [];
+  for (const card of $("extract-notes-list").querySelectorAll(".extract-note-card")) {
+    if (!card.querySelector(".extract-note-keep").checked) continue;
+    const ref = card.dataset.ref;
+    const original = extractProposal.notes.find((n) => n.ref === ref);
+    if (!original) continue;
+    const content = card.querySelector(".extract-note-content").value.trim();
+    if (!content) continue; // an edited-down-to-nothing note is dropped, not saved empty
+    keptRefs.add(ref);
+    notes.push({
+      ref,
+      title: card.querySelector(".extract-note-title").value.trim(),
+      content,
+      category: original.category,
+      tags: card
+        .querySelector(".extract-note-tags")
+        .value.split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    });
+  }
+  if (!notes.length) {
+    toast("Keep at least one note to save.");
+    return;
+  }
+
+  const links = [];
+  for (const row of $("extract-links-list").querySelectorAll(".extract-link-row")) {
+    if (!row.querySelector(".extract-link-keep").checked) continue;
+    const sourceRef = row.dataset.sourceRef;
+    const targetRef = row.dataset.targetRef;
+    if (!keptRefs.has(sourceRef)) continue; // its source note was dropped
+    if (!targetRef.startsWith("existing:") && !keptRefs.has(targetRef)) continue; // its sibling was dropped
+    const original = extractProposal.links.find(
+      (l) => l.source_ref === sourceRef && l.target_ref === targetRef
+    );
+    if (original) links.push({ source_ref: sourceRef, target_ref: targetRef, reason: original.reason });
+  }
+
+  $("extract-commit").disabled = true;
+  const status = $("extract-status");
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  try {
+    const result = await apiJson("/entries/extract/commit", {
+      method: "POST",
+      body: JSON.stringify({
+        notes,
+        links,
+        source_document_id: extractProposal.source_document_id || null,
+      }),
+    });
+    closeExtractPreview();
+    toast(`Saved ${result.notes.length} note${result.notes.length === 1 ? "" : "s"}.`);
+    await loadEntries();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    $("extract-commit").disabled = false;
   }
 }
 
@@ -7197,6 +7422,33 @@ function newChatConversation() {
   renderChatUsage(0);
   renderChatEmptyState();
   loadChatSuggestions();
+}
+
+// Delete the conversation open in the main pane — saved or not.
+//
+// Saved chats already had a delete (sidebar kebab menu) and deleting a
+// conversation's last turn deletes the conversation with it (deleteChatTurn
+// above). What was missing was the chat you're actually looking at: a
+// brand-new, never-sent pane had no affordance but "+ New", which resets it
+// without saying so. So: nothing saved yet (no id, no turns) just resets
+// silently — there is nothing to lose and nothing to confirm — and anything
+// that made it to the server asks first, the same confirm the sidebar uses.
+async function deleteCurrentChat() {
+  if (chatConv.id === null && !chatConv.turns.length) {
+    newChatConversation();
+    return;
+  }
+  if (!(await confirmDialog("Delete this chat?"))) return;
+  if (chatConv.id !== null) {
+    try {
+      await apiJson(`/conversations/${chatConv.id}`, { method: "DELETE" });
+    } catch {
+      toast("Couldn't delete this chat.", true);
+      return;
+    }
+  }
+  newChatConversation();
+  loadConversationList();
 }
 
 // Download the open conversation as clean Markdown (questions + answers).
@@ -12101,7 +12353,11 @@ function renderMarkdown(container, text) {
 // order comes from the bar's own buttons.
 const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
 
-function switchTab(name) {
+// The DOM-only half of switchTab: which panel is visible, which tab button
+// is active. No network calls here, so this is safe to run before a token
+// exists — see revealTab("dashboard")'s module-level call below, and why
+// it's this instead of a full switchTab().
+function revealTab(name) {
   for (const tab of TABS) {
     $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
   }
@@ -12134,6 +12390,10 @@ function switchTab(name) {
   for (const box of document.querySelectorAll("textarea.autogrow")) {
     if (box.offsetParent !== null) autoGrow(box);
   }
+}
+
+function switchTab(name) {
+  revealTab(name);
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
@@ -14857,6 +15117,38 @@ let voiceStatus = null; // cached /voice/status
 let recorder = null; // the active MediaRecorder, if any
 let recorderTarget = null; // which input gets the transcript
 
+// Live mic-level ring on a recording button, driven off the same MediaStream
+// the recorder already opened — no extra permission, no extra stream.
+// Returns a stop() that tears down the AudioContext; callers must invoke it
+// before the stream's tracks are stopped.
+function startMicLevelMeter(stream, button) {
+  let ctx;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    return () => {}; // no Web Audio support — recording still works, just no meter
+  }
+  const source = ctx.createMediaStreamSource(stream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  button.classList.add("live-level");
+  let frame = requestAnimationFrame(function tick() {
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
+    button.style.setProperty("--mic-level", (avg / 255).toFixed(3));
+    frame = requestAnimationFrame(tick);
+  });
+  return () => {
+    cancelAnimationFrame(frame);
+    button.classList.remove("live-level");
+    button.style.removeProperty("--mic-level");
+    source.disconnect();
+    ctx.close().catch(() => {});
+  };
+}
+
 async function toggleDictation(button, targetInput) {
   if (recorder) {
     recorder.stop(); // second press = stop → transcribe
@@ -14879,9 +15171,11 @@ async function toggleDictation(button, targetInput) {
   const chunks = [];
   recorder = new MediaRecorder(stream);
   recorderTarget = targetInput;
+  const stopLevelMeter = startMicLevelMeter(stream, button);
   recorder.addEventListener("dataavailable", (e) => chunks.push(e.data));
   recorder.addEventListener("stop", async () => {
     stream.getTracks().forEach((t) => t.stop());
+    stopLevelMeter();
     button.classList.remove("recording");
     setLabel(button, "ph:microphone");
     recorder = null;
@@ -15008,9 +15302,11 @@ async function toggleMeetingRecording() {
   }
   meetingChunks = [];
   meetingRecorder = new MediaRecorder(meetingStream);
+  const stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
   meetingRecorder.addEventListener("dataavailable", (e) => meetingChunks.push(e.data));
   meetingRecorder.addEventListener("stop", async () => {
     meetingStream?.getTracks().forEach((t) => t.stop());
+    stopMeetingLevelMeter();
     meetingStream = null;
     meetingRecorder = null;
     stopMeetingTimer();
@@ -15610,6 +15906,13 @@ const AI_ONLY_CONTROLS = [
   ["reminder-magic-add", "Reading a reminder from a sentence needs the local AI"],
   ["draft-compose", "Drafting needs the local AI"],
   ["doc-ai", "AI editing needs the local AI"],
+  // Extract notes (BACKLOG.md §62): without the AI it can only hand back
+  // the selection as one plain, unlinked note — a materially weaker result
+  // than what the button promises — so it's disabled here rather than left
+  // to explain that after the fact, same as Draft and AI edit above.
+  ["draft-extract", "Extracting notes needs the local AI"],
+  ["doc-extract", "Extracting notes needs the local AI"],
+  ["wb-extract-notes", "Extracting notes needs the local AI"],
 ];
 
 function syncAiOnlyControls() {
@@ -15901,8 +16204,14 @@ function renderLibraryFilters() {
   if (!box) return;
   box.replaceChildren();
   for (const kind of LIBRARY_KINDS) {
+    // Not `libraryItems.length`: activity is unconditionally excluded from
+    // the "Everything" view itself (see renderLibrary()'s own comment on
+    // why — it would be 93%+ log on a real notebook), so a count that
+    // included it disagreed with what pressing the chip actually shows.
     const count =
-      kind.key === "all" ? libraryItems.length : libraryCounts[kind.key] || 0;
+      kind.key === "all"
+        ? libraryItems.length - (libraryCounts.activity || 0)
+        : libraryCounts[kind.key] || 0;
     const button = document.createElement("button");
     button.type = "button";
     button.className =
@@ -15992,7 +16301,7 @@ function renderLibrary() {
     const empty = $("library-empty");
     empty.classList.toggle("hidden", items.length > 0);
     if (!items.length) {
-      empty.textContent = !libraryItems.length
+      $("library-empty-title").textContent = !libraryItems.length
         ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
         : query
           ? `Nothing matching “${$("library-search").value.trim()}”.`
@@ -19816,9 +20125,13 @@ $("skip-link").addEventListener("click", (e) => {
 });
 initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
-// Nothing used to check whether a reminder had come due, so one could pass
-// silently and stay silent (§36C).
-startReminderWatch();
+// Reminder watching moved into startApp() (below `_active_tokens` note in
+// api()'s own comment): this used to run unconditionally here, before
+// initAuth() has resolved whether a token even exists. A cold load —
+// lock screen up, nothing unlocked yet — fired /reminders anyway, one 401
+// with an empty X-Auth-Token header, joining the exact same pile as the
+// dashboard's below. See revealTab("dashboard")'s comment for the full
+// picture; both were part of one bug.
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
@@ -19830,7 +20143,25 @@ initAutoGrow(); // capture + magic-add boxes follow their content
 // writes it) for the things that read the *current* tab during a session —
 // the scroll-to-top button, keyboard tab-cycling — just not to decide where
 // a fresh load starts.
-switchTab("dashboard");
+//
+// revealTab, not switchTab: this runs before initAuth() has asked the server
+// whether a token is even needed yet, so switchTab("dashboard")'s dashboard
+// branch — renderDashboard(), which fetches stats/greeting/heatmap/tag-cloud/
+// on-this-day/entries/chat/recent/most-accessed — used to fire here every
+// cold load, token or not. With one already unlocked (stale-but-present, or
+// simply not yet re-checked this tab) that's one harmless early 401 caught by
+// api()'s isLockout path; with none at all — the common case, lock screen
+// still up — it was ~20 requests a load, every one with an empty
+// X-Auth-Token header, logged as browser console errors and, for the
+// non-silent calls among them, into Settings → Logs. None of it painted
+// anything (the lock overlay covers the tab), and startApp() already reloads
+// the real data once a session exists (`entriesReady.then(refreshActiveTab)`
+// above) — so the early fetch was pure waste, not a second source of truth.
+// The visual reveal still has to happen now, unconditionally: the tab-pages
+// default to `hidden` in the markup, and the lock overlay is the only thing
+// standing between a bare `hidden` class and a blank white app once it's
+// dismissed.
+revealTab("dashboard");
 
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());
@@ -20107,6 +20438,32 @@ $("doc-browse-all").addEventListener("click", () => {
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+// The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
+// native `resize: vertical` handle shorter pins the textarea's own height,
+// but #doc-panes — a flex item of .doc-main with `flex: 1 1 auto` — keeps
+// growing to fill the card exactly as before, because nothing about a CSS
+// resize tells a flex *parent* to stop growing to fit it. The freed space
+// used to be trapped inside #doc-panes, below the now-shorter textarea and
+// above .doc-hint — dead space in the middle of the card instead of at its
+// bottom, where a person would expect it. There's no CSS-only fix: nothing
+// short of a user dragging the handle can tell us the textarea's size is no
+// longer meant to track the flex layout, so this is the one place app.js
+// answers "did a person just resize this" with a real yes/no rather than a
+// CSS rule guessing at it. A mousedown that ends with a different height is
+// as close as the DOM gets to "yes" — ordinary typing or a value swap on
+// loading a different document never changes offsetHeight.
+{
+  const box = $("doc-content");
+  let heightBeforeDrag = null;
+  box.addEventListener("mousedown", () => { heightBeforeDrag = box.offsetHeight; });
+  document.addEventListener("mouseup", () => {
+    if (heightBeforeDrag === null) return;
+    if (box.offsetHeight !== heightBeforeDrag) {
+      $("doc-panes").classList.add("doc-panes-manual");
+    }
+    heightBeforeDrag = null;
+  });
+}
 for (const button of document.querySelectorAll("#doc-toolbar button")) {
   button.addEventListener("click", () => applyMarkdown(button.dataset.md));
 }
@@ -20127,6 +20484,7 @@ $("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
 $("doc-ai-instruction").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
 });
+$("doc-extract").addEventListener("click", openDocExtractPreview);
 $("doc-content").addEventListener("keydown", (event) => {
   if (!(event.ctrlKey || event.metaKey)) return;
   const key = event.key.toLowerCase();
@@ -20161,6 +20519,10 @@ $("draft-compose").addEventListener("click", composeDraft);
 $("draft-undo").addEventListener("click", undoDraft);
 $("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
+$("draft-extract").addEventListener("click", () => openExtractPreview($("draft-text").value));
+$("extract-close").addEventListener("click", closeExtractPreview);
+$("extract-cancel").addEventListener("click", closeExtractPreview);
+$("extract-commit").addEventListener("click", commitExtractPreview);
 $("draft-text").addEventListener("input", () => {
   updateDraftCount();
   saveDraftLocally();
@@ -20276,6 +20638,7 @@ $("conv-browse-all").addEventListener("click", () => {
   renderLibrary();
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
+$("chat-delete").addEventListener("click", deleteCurrentChat);
 $("chat-compress").addEventListener("click", compressChatContext);
 $("chat-compress-apply").addEventListener("click", applyCompression);
 $("chat-compress-cancel").addEventListener("click", () =>
@@ -21513,6 +21876,26 @@ document.addEventListener("keydown", (e) => {
         return;
       }
     }
+    // The second half of the "g" then a letter chord — armed below. Checked
+    // first so a stray letter within the window is consumed (matched or
+    // not) rather than falling through and re-arming on a later "g".
+    if (tabJumpArmedAt) {
+      const stillArmed = performance.now() - tabJumpArmedAt < TAB_JUMP_WINDOW_MS;
+      tabJumpArmedAt = 0;
+      const target = stillArmed && !e.ctrlKey && !e.metaKey && !e.altKey
+        ? TAB_JUMP_KEYS[e.key]
+        : undefined;
+      if (target) {
+        e.preventDefault();
+        switchTab(target);
+        return;
+      }
+      // Not a recognised second key (or the window lapsed) — fall through
+      // and let this keypress do whatever it would have done anyway.
+    } else if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      tabJumpArmedAt = performance.now();
+      return; // wait for the second key; a lone "g" does nothing on its own
+    }
   }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape") closeActionMenus();
@@ -21732,6 +22115,24 @@ function loadShortcuts() {
 }
 
 let shortcuts = loadShortcuts();
+
+// "g" then a letter jumps tabs — GitHub and Gmail's own "go to" chord, and
+// the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
+// somewhere to hold the first keypress while it waits for the second, and
+// that's state this file has to own regardless, so it lives beside the
+// other keys-every-app-shares (Escape, Tab, arrows) rather than pretending
+// it is a single rebindable key like the rest of the list.
+const TAB_JUMP_KEYS = {
+  d: "dashboard",
+  n: "notes",
+  c: "chat",
+  g: "graph", // "gg", the same double-tap vim uses for "go to top"
+  l: "library",
+  t: "timeline",
+  r: "reminders",
+};
+const TAB_JUMP_WINDOW_MS = 900;
+let tabJumpArmedAt = 0;
 
 function saveShortcutOverrides() {
   // Only store what differs from the defaults, so improving a default later
@@ -22441,8 +22842,16 @@ async function handleFileUpload(textarea, files) {
         headers: { "X-Auth-Token": authToken() },
         body: formData
       });
-      const imgMarkdown = `![${res.filename}](${res.url})\n`;
-      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, imgMarkdown);
+      // Image syntax (`![]()`) unconditionally became an <img> at render
+      // time (renderInlineMarkdown) — a non-image upload (PDF, docx, audio)
+      // failed to decode as an image and the img.onerror handler then
+      // reported it as "filename deleted", which is actively wrong: the
+      // file uploaded fine and is sitting at res.url. Link syntax for
+      // anything that isn't actually an image.
+      const fileMarkdown = file.type.startsWith("image/")
+        ? `![${res.filename}](${res.url})\n`
+        : `[${res.filename}](${res.url})\n`;
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     } catch (err) {
       console.error("Upload failed", err);

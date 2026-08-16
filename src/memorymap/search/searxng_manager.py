@@ -38,13 +38,10 @@ this package needs to change what it imports.
 from __future__ import annotations
 
 import os
-# Not used directly in this file any more (docker_installed's `shutil.which`
-# and _remove_tree's `shutil.rmtree` moved to searxng_docker/searxng_install),
-# but kept importable as `searxng_manager.shutil` — the test suite patches it
-# there, and it is the same module object either way.
-import shutil  # noqa: F401
+import shutil
 import socket
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -300,79 +297,110 @@ def _reason(result: subprocess.CompletedProcess, prefix: str) -> str:
     return f"{prefix}: {(named or useful)[-1]}"
 
 
-# --- the four concerns, imported back in so `searxng_manager.<name>` keeps
-# working exactly as it did before the split. Order matters: each of these
-# modules imports the shared primitives defined above back from this one
-# (settling the port, SearxngError, _run/_reason, the path helpers,
-# _wait_until_ready/_port_clash), and Python resolves that against this
-# module's already-partially-built namespace — so nothing above this comment
-# may depend on anything below it. ---
-from memorymap.search.searxng_settings import (  # noqa: E402
-    REMOVED_ENGINES,
-    SETTINGS_TEMPLATE,
-    _engines_sharing_removed_networks,
-    _existing_secret_key,
-    _extra_removes,
-    _PWD_SHIM,
-    _restrict,
-    _searxng_env,
-    _write_pwd_shim,
-    ensure_settings,
-    settings_path,
-)
-from memorymap.search.searxng_docker import (  # noqa: E402
-    CONTAINER_NAME,
-    DAEMON_PROBE_TIMEOUT,
-    IMAGE,
-    _docker_publishes_beyond_localhost,
-    _docker_state,
-    _publish_spec,
-    _remove_container,
-    _start_docker,
-    docker_available,
-    docker_installed,
-)
-from memorymap.search.searxng_install import (  # noqa: E402
-    DOWNLOAD_TIMEOUT,
-    INSTALL_STAGES,
-    INSTALL_TIMEOUT,
-    SOURCE_TARBALL,
-    _download,
-    _drop_readonly,
-    _fetch_source,
-    _import_ok,
-    _install_lock,
-    _install_log,
-    _install_progress,
-    _install_stage,
-    _install_state,
-    _install_steps,
-    _LOG_LINES,
-    _remove_tree,
-    _UNSAFE_CHARS,
-    _unpack,
-    _unsafe_member,
-    install_source,
-    is_checkout,
-    reinstall_source,
-    source_available,
-    source_installed,
-    uninstall_source,
-)
-from memorymap.search.searxng_process import (  # noqa: E402
-    _PROCESS_QUERY_LIMITED_INFORMATION,
-    _STILL_ACTIVE,
-    _alive,
-    _alive_windows,
-    _read_pid,
-    _source_state,
-    _start_from_source,
-    _start_source,
-    _stop_source,
-    _terminate,
-    log_path,
-    recent_output,
-)
+# --- the four concerns, resolved lazily so `searxng_manager.<name>` keeps
+# working exactly as it did before the split, without this file importing any
+# of them back at module level. It used to: each of those four modules
+# imports the shared primitives defined above back from this one, and this
+# file returned the favour with a plain `from ... import (...)` block here —
+# which is a real cyclic import (CodeQL: py/import-cycle), even though careful
+# ordering made it work. PEP 562's module `__getattr__` gets the same
+# attribute lookup — `searxng_manager.docker_available`, `from
+# memorymap.search.searxng_manager import install_source`, all of it — but
+# resolved (and cached into this module's namespace) on first use instead of
+# at import time, so there is no longer an edge from this file back to them.
+_FACADE_NAMES: dict[str, tuple[str, ...]] = {
+    "searxng_settings": (
+        "REMOVED_ENGINES",
+        "SETTINGS_TEMPLATE",
+        "_engines_sharing_removed_networks",
+        "_existing_secret_key",
+        "_extra_removes",
+        "_PWD_SHIM",
+        "_restrict",
+        "_searxng_env",
+        "_write_pwd_shim",
+        "ensure_settings",
+        "settings_path",
+    ),
+    "searxng_docker": (
+        "CONTAINER_NAME",
+        "DAEMON_PROBE_TIMEOUT",
+        "IMAGE",
+        "_docker_publishes_beyond_localhost",
+        "_docker_state",
+        "_publish_spec",
+        "_remove_container",
+        "_start_docker",
+        "docker_available",
+        "docker_installed",
+    ),
+    "searxng_install": (
+        "DOWNLOAD_TIMEOUT",
+        "INSTALL_STAGES",
+        "INSTALL_TIMEOUT",
+        "SOURCE_TARBALL",
+        "_download",
+        "_drop_readonly",
+        "_fetch_source",
+        "_import_ok",
+        "_install_lock",
+        "_install_log",
+        "_install_progress",
+        "_install_stage",
+        "_install_state",
+        "_install_steps",
+        "_LOG_LINES",
+        "_remove_tree",
+        "_UNSAFE_CHARS",
+        "_unpack",
+        "_unsafe_member",
+        "install_source",
+        "is_checkout",
+        "reinstall_source",
+        "source_available",
+        "source_installed",
+        "uninstall_source",
+    ),
+    "searxng_process": (
+        "_PROCESS_QUERY_LIMITED_INFORMATION",
+        "_STILL_ACTIVE",
+        "_alive",
+        "_alive_windows",
+        "_read_pid",
+        "_source_state",
+        "_start_from_source",
+        "_start_source",
+        "_stop_source",
+        "_terminate",
+        "log_path",
+        "recent_output",
+    ),
+}
+
+
+def __getattr__(name: str):
+    import importlib
+
+    for module_name, names in _FACADE_NAMES.items():
+        if name in names:
+            value = getattr(importlib.import_module(f"memorymap.search.{module_name}"), name)
+            globals()[name] = value  # cache: only the first lookup pays for the import
+            return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
+
+
+# This module's own live object, so the functions below can reach the four
+# concerns' names through `_self.<name>` — genuine attribute access, which
+# `__getattr__` above handles — rather than as bare names. A bare reference
+# (`docker_available()` instead of `_self.docker_available()`) compiles to
+# LOAD_GLOBAL, which reads this module's `__dict__` directly and never calls
+# `__getattr__`; it would also be indistinguishable from a typo to a linter,
+# since nothing establishes those names at module scope any more.
+_self = sys.modules[__name__]
 
 # Every name the four modules above exposed before the split, so ruff doesn't
 # flag this facade's whole reason for existing as "unused imports" — and so
@@ -407,6 +435,16 @@ __all__ = [
     "_write_pwd_shim",
     "ensure_settings",
     "settings_path",
+    # Not called directly in this file any more (docker_installed's
+    # `shutil.which` and _remove_tree's `shutil.rmtree` moved to
+    # searxng_docker/searxng_install) but the test suite still patches
+    # `searxng_manager.shutil.which`/`.rmtree` directly, so the name has to
+    # stay bound here. A prior `# noqa: F401  # codeql[py/unused-import]`
+    # inline suppression on the import line did not stop CodeQL flagging
+    # it — listing it in `__all__` is a real reference (pyflakes/ruff and
+    # CodeQL both treat `__all__` membership as usage), not a suppression,
+    # so it resolves the alert rather than asking a tool to ignore it.
+    "shutil",
     # searxng_docker
     "CONTAINER_NAME",
     "DAEMON_PROBE_TIMEOUT",
@@ -462,9 +500,9 @@ __all__ = [
 
 def preferred_backend() -> str | None:
     """Which way we'd run it: docker if present, else from source."""
-    if docker_available():
+    if _self.docker_available():
         return "docker"
-    if source_available():
+    if _self.source_available():
         return "source"
     return None
 
@@ -516,23 +554,24 @@ def port_report() -> dict:
 def status(data_dir: Path | None = None) -> dict:
     """Everything the settings screen needs to describe the instance."""
     backend = preferred_backend()
+    install_state = _self._install_state
     base = {
-        "docker": docker_available(),
-        "docker_installed": docker_installed(),
-        "source": source_available(),
+        "docker": _self.docker_available(),
+        "docker_installed": _self.docker_installed(),
+        "source": _self.source_available(),
         "backend": backend,
         "url": base_url(),
-        "installing": _install_state["running"],
-        "install_step": _install_state["step"],
-        "install_error": _install_state["error"],
+        "installing": install_state["running"],
+        "install_step": install_state["step"],
+        "install_error": install_state["error"],
         # An install runs for minutes; a step name that doesn't change for
         # four of them is indistinguishable from a hang. The stage numbers
         # give a bar something to move along, and the log is what the tools
         # are printing right now.
-        "install_stage": _install_state["stage"],
-        "install_stages": _install_state["stages"],
-        "install_progress": _install_state["progress"],
-        "install_log": list(_install_state["log"]),
+        "install_stage": install_state["stage"],
+        "install_stages": install_state["stages"],
+        "install_progress": install_state["progress"],
+        "install_log": list(install_state["log"]),
         "detail": "",
         # Answered rather than suggested: "check the port isn't in use" is
         # advice that assumes the person can check.
@@ -547,7 +586,7 @@ def status(data_dir: Path | None = None) -> dict:
         detail = (
             "Docker is installed but its daemon isn't running — start Docker "
             "Desktop, or MemoryMap will set SearXNG up in a virtualenv instead."
-            if docker_installed()
+            if _self.docker_installed()
             else "SearXNG can't be set up automatically here. Point MemoryMap "
             "at a SearXNG you run yourself."
         )
@@ -555,19 +594,19 @@ def status(data_dir: Path | None = None) -> dict:
             **base,
             "state": "absent",
             "responding": False,
-            "docker_installed": docker_installed(),
+            "docker_installed": _self.docker_installed(),
             "detail": detail,
         }
     if backend == "docker":
-        state = _docker_state()
+        state = _self._docker_state()
     else:
-        state = _source_state(Path(data_dir)) if data_dir else "absent"
+        state = _self._source_state(Path(data_dir)) if data_dir else "absent"
         if state == "absent" and not base["installing"]:
             base["detail"] = (
                 "Docker is installed but not running, so SearXNG will be set "
                 "up in a virtualenv of its own instead. The first start takes "
                 "a few minutes — or start Docker Desktop and try again."
-                if docker_installed()
+                if _self.docker_installed()
                 else "Docker isn't installed, so SearXNG will be set up in a "
                 "virtualenv of its own. The first start takes a few minutes."
             )
@@ -611,8 +650,8 @@ def start(data_dir: Path, on_ready=None) -> dict:
     _start_state.update({"running": True, "backend": backend, "since": time.time()})
     try:
         if backend == "source":
-            return _start_from_source(data_dir, on_ready=on_ready)
-        return _start_docker(data_dir)
+            return _self._start_from_source(data_dir, on_ready=on_ready)
+        return _self._start_docker(data_dir)
     finally:
         _start_state["running"] = False
 
@@ -625,10 +664,10 @@ def stop(data_dir: Path | None = None) -> dict:
     if backend == "source":
         if data_dir is None:
             raise SearxngError("Couldn't find the SearXNG install.")
-        return _stop_source(Path(data_dir))
-    if _docker_state() == "absent":
+        return _self._stop_source(Path(data_dir))
+    if _self._docker_state() == "absent":
         return {"stopped": False}
-    result = _run(["docker", "stop", CONTAINER_NAME], timeout=40)
+    result = _run(["docker", "stop", _self.CONTAINER_NAME], timeout=40)
     if result.returncode != 0:
         raise SearxngError(_reason(result, "Couldn't stop the container"))
     return {"stopped": True}

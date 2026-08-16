@@ -73,6 +73,39 @@ def test_search_whiteboard_requires_a_query(session):
         tools.TOOLS["search_whiteboard"].handler(session, {"query": "  "})
 
 
+def test_read_whiteboard_does_not_expose_a_card_whose_note_turned_private(session):
+    """`add_whiteboard_card` refuses a private note going in (the test below)
+    — but a note can be marked private *after* it is already a card, and
+    `WhiteboardNode` carries no privacy flag of its own to catch that later.
+    `entry.content` is ciphertext at rest for a private note; `read_whiteboard`
+    used to hand that straight back as the card's "preview", which becomes
+    part of the agent's own context — the same leak `_require_note` exists to
+    close on every other read."""
+    a = _note(session, "Kickoff plan")
+    node = WhiteboardNode(entry_id=a.id, x=0, y=0)
+    session.add(node)
+    session.commit()
+    a.is_private = True
+    a.content = "mmenc1:not-real-ciphertext"
+    session.commit()
+
+    result = tools.TOOLS["read_whiteboard"].handler(session, {})
+    assert len(result["cards"]) == 1
+    assert "not-real-ciphertext" not in result["cards"][0]["preview"]
+
+
+def test_search_whiteboard_does_not_match_a_card_whose_note_turned_private(session):
+    a = _note(session, "The quarterly roadmap draft")
+    session.add(WhiteboardNode(entry_id=a.id, x=0, y=0))
+    session.commit()
+    a.is_private = True
+    a.content = "mmenc1:roadmap-ciphertext"
+    session.commit()
+
+    result = tools.TOOLS["search_whiteboard"].handler(session, {"query": "roadmap"})
+    assert result["total_matching"] == 0
+
+
 def test_add_whiteboard_card_refuses_a_private_note(session):
     """The exact regression class CLAUDE.md's own review checklist names: a
     write tool that skips `_require_note` silently loses the one guard that

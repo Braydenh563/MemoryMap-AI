@@ -299,7 +299,7 @@ button {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(79, 109, 245, 0.25);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 button:hover {
@@ -309,7 +309,7 @@ button:hover {
 /* Subtle press feedback across every button — a small, consistent tactile
    cue. transition is disabled under Reduce motion / prefers-reduced-motion. */
 button {
-  transition: transform 0.08s ease, filter 0.12s ease;
+  transition: transform var(--motion-fast) ease, filter var(--motion-fast) ease;
 }
 
 button:active:not(:disabled) {
@@ -1076,7 +1076,7 @@ progress {
    covers a tabbed-to chip, and on touch because there is no hover there. */
 #entry-list .chip.link .unlink {
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 #entry-list li:hover .chip.link .unlink,
@@ -1200,7 +1200,7 @@ li.link-source {
   border-radius: var(--radius-md);
   background: var(--card-bg);
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
 }
 
 .ask-history-item:hover,

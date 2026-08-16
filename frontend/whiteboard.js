@@ -5146,15 +5146,15 @@ function renderWbObjects(canvas) {
   objectSelection.exit().remove();
 }
 
-//: Recomputes just the link-sketch paths touching `nodeId`, without a full
-//: `renderWhiteboard()` — reported directly as "resizing and drawing shapes
-//: is glitchy and slow to update". `dragging` below used to call the full
-//: render on every single mousemove frame of a card drag, purely to keep a
-//: link line's endpoint following the card — which re-binds *every* card,
-//: sketch and object on the board, dozens of times a second, for one card's
-//: own link. Mirrors the link-path maths in `renderWhiteboard`'s own
-//: `sketchUpdate.each` exactly, so the two can't drift apart.
-function wbUpdateLinkedSketches(nodeId) {
+//: The sketches touching `nodeId`, pre-parsed once. `wbUpdateLinkedSketches`
+//: used to do this same JSON.parse-and-scan of *every* sketch on the board on
+//: every single mousemove frame of a card drag — a board with a few hundred
+//: sketches (strokes plus link lines) turns a drag into dozens of full-board
+//: parses a second, visible as stutter on a busy board. `dragStart` below
+//: builds this list once per drag instead; a card gains or loses a link only
+//: between drags, never mid-drag, so it doesn't need to be live.
+function wbLinkedSketchesFor(nodeId) {
+  const found = [];
   for (const sketch of wbState.sketches) {
     let parsed;
     try {
@@ -5164,6 +5164,24 @@ function wbUpdateLinkedSketches(nodeId) {
     }
     if (!parsed.type || !parsed.type.startsWith("link-")) continue;
     if (parsed.sourceId !== nodeId && parsed.targetId !== nodeId) continue;
+    found.push({ sketch, parsed });
+  }
+  return found;
+}
+
+//: Recomputes just the link-sketch paths touching `nodeId`, without a full
+//: `renderWhiteboard()` — reported directly as "resizing and drawing shapes
+//: is glitchy and slow to update". `dragging` below used to call the full
+//: render on every single mousemove frame of a card drag, purely to keep a
+//: link line's endpoint following the card — which re-binds *every* card,
+//: sketch and object on the board, dozens of times a second, for one card's
+//: own link. Mirrors the link-path maths in `renderWhiteboard`'s own
+//: `sketchUpdate.each` exactly, so the two can't drift apart.
+//: `precomputed`, when given, skips the board-wide scan — see
+//: `wbLinkedSketchesFor`'s own comment for why `dragging` always passes one.
+function wbUpdateLinkedSketches(nodeId, precomputed) {
+  const pairs = precomputed || wbLinkedSketchesFor(nodeId);
+  for (const { sketch, parsed } of pairs) {
     const endpoints = wbResolveLinkEndpoints(parsed);
     if (!endpoints) continue;
     const pathData = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width);
@@ -5212,6 +5230,9 @@ function dragStart(event, d) {
     d._rawY = d.y;
     d._dragOriginX = d.x;
     d._dragOriginY = d.y;
+    // See wbLinkedSketchesFor's own comment: parsed once here rather than on
+    // every frame of the drag that's about to start.
+    d._linkedSketches = wbLinkedSketchesFor(d.id);
     // Asked for directly: undo should cover a move, not only create/delete.
     // Snapshotted before anything below can mutate `d`.
     d._moveUndoBefore = WB_KIND_INFO.node.payload(d);
@@ -5296,7 +5317,7 @@ function dragging(event, d) {
     // Update this card's own link lines directly rather than a full
     // renderWhiteboard() — see wbUpdateLinkedSketches's own comment for why
     // that was the "glitchy and slow to update" report.
-    wbUpdateLinkedSketches(d.id);
+    wbUpdateLinkedSketches(d.id, d._linkedSketches);
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
   }
 }

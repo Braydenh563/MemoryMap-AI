@@ -149,27 +149,11 @@ re-verified against current source before archiving rather than trusted from
 old prose (which had already gone stale once, mid-session — the reason this
 split exists at all). What's left, all re-checked against source this pass:
 
-- **`whiteboard.js` extraction** — see Priority 0 item 2 above; still the
-  single highest-value target, ~3,400+ lines from `app.js:26356`.
-- **Two markdown renderers still coexist and are still unmerged**:
-  `renderInlineMarkdown` (`app.js:2258`) and `appendInline` (`app.js:2403`)
-  hand-roll near-identical bold/italic/link/image parsing with separately
-  maintained security gates. **Risk:** medium — `renderInlineMarkdown`
-  supports search-term highlighting `appendInline`'s callers don't need, so
-  the merge needs an optional param, not a blind delete.
-- **~39 inline `HTTPException(404, ...)` checks**, re-counted this pass,
-  across 12 route files (`routes_backups.py`, `routes_chat.py`,
-  `routes_conversations.py`, `routes_documents.py`, `routes_duplicates.py`,
-  `routes_entries.py`, `routes_files.py`, `routes_models.py`,
-  `routes_reminders.py`, `routes_settings.py`, `routes_spaces.py`,
-  `routes_whiteboard.py`) instead of a shared `get_or_404` dependency.
-  Low priority, mostly readability.
-- **`src/memorymap/search/searxng_manager.py`** — still 1,734 lines doing
-  four unrelated jobs (Docker lifecycle, source install, process
-  start/stop, `settings.yml` generation). Natural split: `install.py` /
-  `process.py` / `settings.py` / `docker.py`. **Risk:** medium —
-  subprocess/timing-sensitive; don't do this extraction alongside a live
-  bug-fix session, same reasoning that deferred it every time before.
+- ~~`whiteboard.js` extraction~~, ~~markdown-renderer merge~~,
+  ~~HTTPException dedup~~, ~~`searxng_manager.py` split~~, ~~`all_tags()`
+  caching~~ — all done since this list was last written; see HISTORY.md's
+  newest entry for what each one actually found (two real bugs surfaced
+  fixing the markdown merge alone).
 - **`src/memorymap/ai/tools/__init__.py`** — still ~3,360 lines (the `TOOLS`
   registry and the bulk of note-CRUD/agent-orchestration handlers), left
   there deliberately when `_common.py`/`categories.py`/`documents.py`/

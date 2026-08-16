@@ -3225,3 +3225,76 @@ cryptic error. **This one was never confirmed with the same certainty as
 the temp-file bug** — no specific pip error text was seen for it, only
 inferred from the shape of the report; see ROADMAP.md's faster-whisper
 entry, still open, for the follow-up this needs if it recurs.
+
+## `whiteboard.js` lands, the markdown-renderer merge finds two real bugs, and the rest of the "#0 priority" backend splits close out
+
+The last of app.js's mechanically-splittable pieces, the remaining backend
+module splits, and the markdown-renderer merge all landed this session.
+Verified live throughout — this section exists because two of these turned
+out to hide real bugs that a purely mechanical read would have missed.
+
+**`app.js`'s whiteboard subsystem extracted into `frontend/whiteboard.js`**
+(~5,600 lines) — board/card CRUD, sketch drawing, export, move/resize/
+grouping, loaded via a second `<script>` tag after `app.js` (both share one
+global scope, so load order isn't load-bearing; documented at the tag).
+`app.js` is down to ~25.3k lines. `tests/test_frontend_ids.py`/
+`test_frontend_handlers.py` now read+concatenate both files instead of just
+`app.js`, so the moved code stays covered by those lints. Verified live:
+zero console/page errors on a fresh data directory, a board's SVG canvas
+renders with its full toolbar. A red herring surfaced during that check — a
+burst of 401s on dashboard endpoints — turned out to be a pre-existing bug
+tied to data-directory reuse across unlock cycles, unrelated to the split
+(reproduces identically on the pre-split `app.js` too); logged separately,
+still open.
+
+**The two markdown renderers, merged — the hard way, on the second
+attempt.** `renderInlineMarkdown` and `appendInline` hand-rolled near-
+identical bold/italic/link/image parsing with separately maintained
+security gates. A first merge attempt collapsed them onto one shared regex
+superset and shipped two real regressions, both caught only by live
+reproduction, not by reading the diff: (1) a task-list checkbox — appended
+to its `<li>` *before* `appendInline` ran on the rest of the line — got
+wiped every time, because the merged function called `element.
+replaceChildren()` unconditionally; (2) note cards started silently
+rendering `__init__`-shaped text as bold, since the shared regex now
+recognized underscore emphasis everywhere, changing behavior for a caller
+that never asked for it. The actual fix keeps `INLINE_MD` (note cards) and
+`INLINE_MD_LEGACY` (appendInline's own grammar: underscore emphasis, bare
+URLs) as two textually separate patterns selected by `options.
+underscoreSyntax`, so neither caller's matching behavior moves — merged
+only what should merge (the element-building logic, the `isRenderableUrl`
+gate, five behavior flags: `dismissible`, `autolinkBareUrls`,
+`underscoreSyntax`, `strikeTag`, `applyLatex`). Verified live: bold/italic/
+link/strikethrough/dismissible-image across Notes, Chat, and Dashboard;
+`appendInline`'s legacy path (underscore emphasis, bare-URL autolink, a
+task-list checkbox) in the Documents editor preview, checkbox confirmed
+present this time.
+
+**Backend splits.** `HTTPException(404, ...)` — 18 of ~39 inline checks
+consolidated into a new `deps.get_or_404()`; the other 21 are genuinely a
+different shape (soft-delete-aware lookups, relationship/ownership checks,
+filesystem/exception translation, non-DB lookups) and were correctly left
+alone rather than forced into a helper that doesn't fit them.
+`search/searxng_manager.py` (was 1,734 lines, four unrelated jobs) split
+into `searxng_docker.py`/`searxng_install.py`/`searxng_process.py`/
+`searxng_settings.py`, with `searxng_manager.py` kept as a thin
+orchestrator so nothing outside the module needed an import changed.
+`entry/manager.py`'s `all_tags()` — a full non-deleted-entry scan with a
+per-row `json.loads`, paid on every Library tab open, `tag_cloud()` call,
+and `/tags` call — now caches by the same notebook-fingerprint pattern
+`routes_graph.py` already used for pagerank/similarity (`Entry.updated_at`
+has `onupdate=utcnow`, so any tag edit invalidates it automatically).
+
+**Two more whiteboard bugs, reported live with screenshots, both root-
+caused and fixed the same sitting.** Link/anchor points ("border points")
+on a card that had never been manually resized used a hardcoded
+`WB_CARD_DEFAULT_SIZE` (250×150) regardless of the card's real rendered
+height — cards auto-grow to fit their own text — so anchors on anything
+taller or shorter than 150px landed nowhere near the actual border.
+`wbItemBBox` now measures the live `.node-card` element instead, whenever
+no explicit width/height is stored. Separately, the Library sidebar and
+every draggable whiteboard panel shared `z-index: 10` (a tie, aside from
+`top-right`'s own earlier +10 bump for a *different* fix), so a panel
+dragged over the sidebar's screen area could still paint on top of it —
+"appears behind again," a recurrence of an old report. Sidebar bumped to
+`z-index: 25`, above every panel including `top-right`'s 20.

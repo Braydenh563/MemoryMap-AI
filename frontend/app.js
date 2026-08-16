@@ -3380,7 +3380,7 @@ function matchReasonBadge(info) {
   const { text, title } = MATCH_REASON_LABEL[info.type](info);
   const badge = document.createElement("span");
   badge.className = `chip result-reason-chip result-reason-${info.type}`;
-  badge.textContent = text;
+  setLabel(badge, text);
   badge.title = title;
   return badge;
 }
@@ -15901,8 +15901,14 @@ function renderLibraryFilters() {
   if (!box) return;
   box.replaceChildren();
   for (const kind of LIBRARY_KINDS) {
+    // Not `libraryItems.length`: activity is unconditionally excluded from
+    // the "Everything" view itself (see renderLibrary()'s own comment on
+    // why — it would be 93%+ log on a real notebook), so a count that
+    // included it disagreed with what pressing the chip actually shows.
     const count =
-      kind.key === "all" ? libraryItems.length : libraryCounts[kind.key] || 0;
+      kind.key === "all"
+        ? libraryItems.length - (libraryCounts.activity || 0)
+        : libraryCounts[kind.key] || 0;
     const button = document.createElement("button");
     button.type = "button";
     button.className =

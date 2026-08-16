@@ -894,6 +894,15 @@
   width: min(34rem, 94vw);
 }
 
+/* Asked for directly: centre this panel's four buttons (Save, Generate,
+   Remove link, Close) rather than the generic `.confirm-actions` row's
+   `justify-content: flex-end` — right-alignment reads as "OK/Cancel in the
+   corner" with two buttons, but with four it just pins the row to one edge
+   with the same amount of visual weight either way. */
+.graph-link-panel .confirm-actions {
+  justify-content: center;
+}
+
 .graph-link-panel-reason {
   width: 100%;
   resize: vertical;

@@ -282,7 +282,7 @@ class _FailingPip:
             "Collecting faster-whisper\n",
             "  Downloading faster_whisper-1.0.0-py3-none-any.whl (2.0 kB)\n",
             "ERROR: Could not find a version that satisfies the requirement "
-            "faster-whisper (from versions: none)\n",
+            + "faster-whisper (from versions: none)\n",
             "ERROR: No matching distribution found for faster-whisper\n",
             "[notice] A new release of pip is available: 24.0 -> 26.2.1\n",
             "[notice] To update, run: python.exe -m pip install --upgrade pip\n",

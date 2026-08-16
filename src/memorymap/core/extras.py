@@ -297,9 +297,15 @@ def _run_uninstall(extra: Extra) -> None:
             if code == 0
             else _pip_reason(_state.log, f"pip exited with code {code}")
         )
-    except (OSError, subprocess.SubprocessError) as exc:
+    except (OSError, subprocess.SubprocessError):
+        # The exception text can carry a filesystem path or other local detail,
+        # and `_state.step` goes straight to the browser via `/extras` and
+        # `/tasks`. Flagged by CodeQL as `py/stack-trace-exposure` — same shape
+        # as `embedmodels.remove`. Full detail goes to the log, which only the
+        # owner of the machine reads; the caller gets the fact, not the internals.
+        _logger.exception("Couldn't run pip to remove %s", extra.label)
         _state.outcome = "failed"
-        _state.step = f"Couldn't run pip: {exc}"
+        _state.step = "Couldn't run pip — see Settings → Logs for why."
     finally:
         _state.running = False
         if _state.outcome == "failed":
@@ -365,9 +371,13 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             if code == 0
             else _pip_reason(_state.log, f"pip exited with code {code}")
         )
-    except (OSError, subprocess.SubprocessError) as exc:
+    except (OSError, subprocess.SubprocessError):
+        # See `_run_uninstall`'s except block: same CodeQL
+        # `py/stack-trace-exposure` shape, same fix — full detail to the log,
+        # a generic fact to `_state.step`, which is what `/extras` returns.
+        _logger.exception("Couldn't run pip to install %s", extra.label)
         _state.outcome = "failed"
-        _state.step = f"Couldn't run pip: {exc}"
+        _state.step = "Couldn't run pip — see Settings → Logs for why."
     finally:
         _state.running = False
         # See the module docstring's numbered note above `_logger`: this call

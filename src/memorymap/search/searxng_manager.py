@@ -42,7 +42,7 @@ import os
 # and _remove_tree's `shutil.rmtree` moved to searxng_docker/searxng_install),
 # but kept importable as `searxng_manager.shutil` — the test suite patches it
 # there, and it is the same module object either way.
-import shutil  # noqa: F401
+import shutil  # noqa: F401  # codeql[py/unused-import]
 import socket
 import subprocess
 import time

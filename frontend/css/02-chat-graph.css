@@ -1332,6 +1332,14 @@ button.recording.live-level {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* .live-level's own reduced-motion rule below already covers the case
+     once real mic signal arrives — this covers the gap before it does,
+     which pulse-rec never respected on its own. */
+  button.recording:not(.live-level) {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--warn-soft);
+  }
+
   button.recording.live-level {
     box-shadow: 0 0 0 4px var(--warn-soft);
     transition: none;

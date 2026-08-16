@@ -38,11 +38,7 @@ this package needs to change what it imports.
 from __future__ import annotations
 
 import os
-# Not used directly in this file any more (docker_installed's `shutil.which`
-# and _remove_tree's `shutil.rmtree` moved to searxng_docker/searxng_install),
-# but kept importable as `searxng_manager.shutil` — the test suite patches it
-# there, and it is the same module object either way.
-import shutil  # noqa: F401  # codeql[py/unused-import]
+import shutil
 import socket
 import subprocess
 import sys
@@ -439,6 +435,16 @@ __all__ = [
     "_write_pwd_shim",
     "ensure_settings",
     "settings_path",
+    # Not called directly in this file any more (docker_installed's
+    # `shutil.which` and _remove_tree's `shutil.rmtree` moved to
+    # searxng_docker/searxng_install) but the test suite still patches
+    # `searxng_manager.shutil.which`/`.rmtree` directly, so the name has to
+    # stay bound here. A prior `# noqa: F401  # codeql[py/unused-import]`
+    # inline suppression on the import line did not stop CodeQL flagging
+    # it — listing it in `__all__` is a real reference (pyflakes/ruff and
+    # CodeQL both treat `__all__` membership as usage), not a suppression,
+    # so it resolves the alert rather than asking a tool to ignore it.
+    "shutil",
     # searxng_docker
     "CONTAINER_NAME",
     "DAEMON_PROBE_TIMEOUT",

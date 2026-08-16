@@ -1943,6 +1943,16 @@ button {
   flex-direction: column;
 }
 
+/* Set by app.js the moment a person drags #doc-content's native resize
+   handle. Without it #doc-panes keeps flex-growing to fill .doc-main at its
+   pre-resize height regardless of the textarea now being shorter, and the
+   freed space is trapped between the textarea and .doc-hint instead of
+   showing up at the bottom of the card. See that listener for why this can't
+   just be a CSS rule. */
+#doc-panes.doc-panes-manual {
+  flex: 0 1 auto;
+}
+
 .doc-toolbar {
   gap: 0.5rem;
   flex-wrap: wrap;

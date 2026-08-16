@@ -93,12 +93,14 @@ def test_the_frontend_watches_the_keys_it_promises_to(client):
     # load now opens on Dashboard (user-requested — it used to restore
     # whichever tab was last active) rather than reading `activeTab` to
     # decide where to start, but the boot call still *writes* it via
-    # `switchTab`'s own `localStorage.setItem`, so the ordering still matters.
+    # `revealTab`'s own `localStorage.setItem`, so the ordering still matters.
+    # (The boot call used to be `switchTab("dashboard")` directly; it's
+    # `revealTab` now — switchTab's DOM-only half — so the boot doesn't fire
+    # renderDashboard()'s fetches before a token exists. See its own comment
+    # in app.js for the full story.)
     assert "watchMirroredUiKeys();" in source
-    # `\nswitchTab("dashboard");` (unindented, right after a newline) is the
-    # boot call specifically — the same literal call also appears indented
-    # inside a couple of "go to the dashboard" button handlers earlier in
-    # the file, which `str.index` would otherwise match instead.
+    # `\nrevealTab("dashboard");` (unindented, right after a newline) is the
+    # boot call specifically.
     assert source.index("watchMirroredUiKeys();") < source.index(
-        '\nswitchTab("dashboard");'
-    ), "the watch must be installed before the boot switchTab writes activeTab"
+        '\nrevealTab("dashboard");'
+    ), "the watch must be installed before the boot revealTab writes activeTab"

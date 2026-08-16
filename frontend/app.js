@@ -398,12 +398,19 @@ function startApp() {
   step("tell the server your timezone", reportTimezone);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
+  // Reminders poll on their own timer once running (see startReminderWatch);
+  // starting that here, not at module level, is the other half of the fix
+  // described above revealTab("dashboard")'s module-level call — the same
+  // pile of pre-auth 401s, one endpoint earlier.
+  step("watch reminders", startReminderWatch);
 
-  // Re-render whichever tab is on screen. switchTab() runs at module level —
-  // before initAuth() has a token — so a tab that fetches its own data painted
-  // itself from a pile of 401s and then never tried again. On the dashboard
-  // that meant an empty grid until you opened Edit layout and cancelled out of
-  // it, which re-ran renderDashboard by hand (user-reported).
+  // Re-render whichever tab is on screen. This used to be switchTab() itself,
+  // called at module level before initAuth() has a token, so a tab that
+  // fetches its own data painted itself from a pile of 401s and then never
+  // tried again. On the dashboard that meant an empty grid until you opened
+  // Edit layout and cancelled out of it, which re-ran renderDashboard by hand
+  // (user-reported). Now the module-level call is revealTab() — DOM only,
+  // no fetch — and this is the one place the real data load happens.
   // *After* the entries land, not alongside them. These two ran concurrently,
   // so on a cold load the dashboard rendered against an `allEntries` that was
   // still `[]` and drew its brand-new-notebook card instead of the widgets —
@@ -7199,6 +7206,33 @@ function newChatConversation() {
   loadChatSuggestions();
 }
 
+// Delete the conversation open in the main pane — saved or not.
+//
+// Saved chats already had a delete (sidebar kebab menu) and deleting a
+// conversation's last turn deletes the conversation with it (deleteChatTurn
+// above). What was missing was the chat you're actually looking at: a
+// brand-new, never-sent pane had no affordance but "+ New", which resets it
+// without saying so. So: nothing saved yet (no id, no turns) just resets
+// silently — there is nothing to lose and nothing to confirm — and anything
+// that made it to the server asks first, the same confirm the sidebar uses.
+async function deleteCurrentChat() {
+  if (chatConv.id === null && !chatConv.turns.length) {
+    newChatConversation();
+    return;
+  }
+  if (!(await confirmDialog("Delete this chat?"))) return;
+  if (chatConv.id !== null) {
+    try {
+      await apiJson(`/conversations/${chatConv.id}`, { method: "DELETE" });
+    } catch {
+      toast("Couldn't delete this chat.", true);
+      return;
+    }
+  }
+  newChatConversation();
+  loadConversationList();
+}
+
 // Download the open conversation as clean Markdown (questions + answers).
 async function exportChatMarkdown() {
   if (!chatConv.turns.length) {
@@ -12101,7 +12135,11 @@ function renderMarkdown(container, text) {
 // order comes from the bar's own buttons.
 const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
 
-function switchTab(name) {
+// The DOM-only half of switchTab: which panel is visible, which tab button
+// is active. No network calls here, so this is safe to run before a token
+// exists — see revealTab("dashboard")'s module-level call below, and why
+// it's this instead of a full switchTab().
+function revealTab(name) {
   for (const tab of TABS) {
     $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
   }
@@ -12134,6 +12172,10 @@ function switchTab(name) {
   for (const box of document.querySelectorAll("textarea.autogrow")) {
     if (box.offsetParent !== null) autoGrow(box);
   }
+}
+
+function switchTab(name) {
+  revealTab(name);
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
@@ -19822,9 +19864,13 @@ $("skip-link").addEventListener("click", (e) => {
 });
 initNotesSubtabs();
 scrollTopUpdate = initScrollTopButton();
-// Nothing used to check whether a reminder had come due, so one could pass
-// silently and stay silent (§36C).
-startReminderWatch();
+// Reminder watching moved into startApp() (below `_active_tokens` note in
+// api()'s own comment): this used to run unconditionally here, before
+// initAuth() has resolved whether a token even exists. A cold load —
+// lock screen up, nothing unlocked yet — fired /reminders anyway, one 401
+// with an empty X-Auth-Token header, joining the exact same pile as the
+// dashboard's below. See revealTab("dashboard")'s comment for the full
+// picture; both were part of one bug.
 initResizableSidebars();
 watchOverlays(); // page behind a dialog must not scroll
 initAutoGrow(); // capture + magic-add boxes follow their content
@@ -19836,7 +19882,25 @@ initAutoGrow(); // capture + magic-add boxes follow their content
 // writes it) for the things that read the *current* tab during a session —
 // the scroll-to-top button, keyboard tab-cycling — just not to decide where
 // a fresh load starts.
-switchTab("dashboard");
+//
+// revealTab, not switchTab: this runs before initAuth() has asked the server
+// whether a token is even needed yet, so switchTab("dashboard")'s dashboard
+// branch — renderDashboard(), which fetches stats/greeting/heatmap/tag-cloud/
+// on-this-day/entries/chat/recent/most-accessed — used to fire here every
+// cold load, token or not. With one already unlocked (stale-but-present, or
+// simply not yet re-checked this tab) that's one harmless early 401 caught by
+// api()'s isLockout path; with none at all — the common case, lock screen
+// still up — it was ~20 requests a load, every one with an empty
+// X-Auth-Token header, logged as browser console errors and, for the
+// non-silent calls among them, into Settings → Logs. None of it painted
+// anything (the lock overlay covers the tab), and startApp() already reloads
+// the real data once a session exists (`entriesReady.then(refreshActiveTab)`
+// above) — so the early fetch was pure waste, not a second source of truth.
+// The visual reveal still has to happen now, unconditionally: the tab-pages
+// default to `hidden` in the markup, and the lock overlay is the only thing
+// standing between a bare `hidden` class and a blank white app once it's
+// dismissed.
+revealTab("dashboard");
 
 // Settings modal (Wave A).
 $("settings-btn").addEventListener("click", () => openSettingsModal());
@@ -20113,6 +20177,32 @@ $("doc-browse-all").addEventListener("click", () => {
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
 $("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+// The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
+// native `resize: vertical` handle shorter pins the textarea's own height,
+// but #doc-panes — a flex item of .doc-main with `flex: 1 1 auto` — keeps
+// growing to fill the card exactly as before, because nothing about a CSS
+// resize tells a flex *parent* to stop growing to fit it. The freed space
+// used to be trapped inside #doc-panes, below the now-shorter textarea and
+// above .doc-hint — dead space in the middle of the card instead of at its
+// bottom, where a person would expect it. There's no CSS-only fix: nothing
+// short of a user dragging the handle can tell us the textarea's size is no
+// longer meant to track the flex layout, so this is the one place app.js
+// answers "did a person just resize this" with a real yes/no rather than a
+// CSS rule guessing at it. A mousedown that ends with a different height is
+// as close as the DOM gets to "yes" — ordinary typing or a value swap on
+// loading a different document never changes offsetHeight.
+{
+  const box = $("doc-content");
+  let heightBeforeDrag = null;
+  box.addEventListener("mousedown", () => { heightBeforeDrag = box.offsetHeight; });
+  document.addEventListener("mouseup", () => {
+    if (heightBeforeDrag === null) return;
+    if (box.offsetHeight !== heightBeforeDrag) {
+      $("doc-panes").classList.add("doc-panes-manual");
+    }
+    heightBeforeDrag = null;
+  });
+}
 for (const button of document.querySelectorAll("#doc-toolbar button")) {
   button.addEventListener("click", () => applyMarkdown(button.dataset.md));
 }
@@ -20282,6 +20372,7 @@ $("conv-browse-all").addEventListener("click", () => {
   renderLibrary();
 });
 $("chat-export").addEventListener("click", exportChatMarkdown);
+$("chat-delete").addEventListener("click", deleteCurrentChat);
 $("chat-compress").addEventListener("click", compressChatContext);
 $("chat-compress-apply").addEventListener("click", applyCompression);
 $("chat-compress-cancel").addEventListener("click", () =>
@@ -21519,6 +21610,26 @@ document.addEventListener("keydown", (e) => {
         return;
       }
     }
+    // The second half of the "g" then a letter chord — armed below. Checked
+    // first so a stray letter within the window is consumed (matched or
+    // not) rather than falling through and re-arming on a later "g".
+    if (tabJumpArmedAt) {
+      const stillArmed = performance.now() - tabJumpArmedAt < TAB_JUMP_WINDOW_MS;
+      tabJumpArmedAt = 0;
+      const target = stillArmed && !e.ctrlKey && !e.metaKey && !e.altKey
+        ? TAB_JUMP_KEYS[e.key]
+        : undefined;
+      if (target) {
+        e.preventDefault();
+        switchTab(target);
+        return;
+      }
+      // Not a recognised second key (or the window lapsed) — fall through
+      // and let this keypress do whatever it would have done anyway.
+    } else if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      tabJumpArmedAt = performance.now();
+      return; // wait for the second key; a lone "g" does nothing on its own
+    }
   }
   if (e.key === "Escape" && settingsModalOpen()) closeSettingsModal();
   if (e.key === "Escape") closeActionMenus();
@@ -21738,6 +21849,24 @@ function loadShortcuts() {
 }
 
 let shortcuts = loadShortcuts();
+
+// "g" then a letter jumps tabs — GitHub and Gmail's own "go to" chord, and
+// the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
+// somewhere to hold the first keypress while it waits for the second, and
+// that's state this file has to own regardless, so it lives beside the
+// other keys-every-app-shares (Escape, Tab, arrows) rather than pretending
+// it is a single rebindable key like the rest of the list.
+const TAB_JUMP_KEYS = {
+  d: "dashboard",
+  n: "notes",
+  c: "chat",
+  g: "graph", // "gg", the same double-tap vim uses for "go to top"
+  l: "library",
+  t: "timeline",
+  r: "reminders",
+};
+const TAB_JUMP_WINDOW_MS = 900;
+let tabJumpArmedAt = 0;
 
 function saveShortcutOverrides() {
   // Only store what differs from the defaults, so improving a default later

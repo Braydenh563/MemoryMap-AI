@@ -737,6 +737,15 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="chat-compress" class="ghost small"
                 title="Summarise the earlier messages, so the model keeps the gist instead of losing the start of a long chat"><i class="ph ph-arrows-in ph-lead" aria-hidden="true"></i> Compress</button>
               <button id="chat-export" class="ghost small" title="Download this chat as a Markdown file">⭳ Export</button>
+              <!-- The saved-chat list has its own Delete, and deleting a
+                   conversation's last turn deletes the conversation with it —
+                   but the chat you're looking at right now, including a
+                   brand-new one that hasn't sent a message yet, had no delete
+                   of its own; "+ New" abandons it but doesn't say so. This
+                   covers both: a fresh, empty pane resets silently (nothing
+                   was ever saved to lose), and a saved one asks first, same
+                   as the sidebar's Delete does. -->
+              <button id="chat-delete" class="ghost small danger" title="Delete this conversation"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
             </div>
           </div>
           <!-- The summary, before it is used. Editable on purpose: this is
@@ -3554,6 +3563,7 @@ Link to another note with [[its first few words]]."></textarea>
         <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
         <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
         <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+        <li><kbd>g</kbd> then <kbd>d</kbd>/<kbd>n</kbd>/<kbd>c</kbd>/<kbd>g</kbd>/<kbd>l</kbd>/<kbd>t</kbd>/<kbd>r</kbd><span>Jump to Dashboard / Notes / Chat / Graph / Library / Timeline / Reminders</span></li>
       </ul>
       <p class="muted">Tip: most actions also live in the command palette.</p>
     </div>

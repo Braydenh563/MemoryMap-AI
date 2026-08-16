@@ -6195,6 +6195,16 @@ function closeDocAiPanel() {
   $("doc-ai-panel").classList.add("hidden");
 }
 
+// Extract notes (BACKLOG.md §62): the same selection-or-whole-document scope
+// AI edit above already uses — select a passage first to extract from just
+// that, or leave nothing selected to extract from the whole document.
+function openDocExtractPreview() {
+  if (!currentDoc) return;
+  const box = $("doc-content");
+  const selection = box.value.slice(box.selectionStart, box.selectionEnd).trim();
+  openExtractPreview(selection || box.value, { sourceDocumentId: currentDoc.id });
+}
+
 async function runDocAiEdit() {
   const instruction = $("doc-ai-instruction").value.trim();
   const status = $("doc-ai-status");
@@ -6458,6 +6468,184 @@ async function saveDraftAsNote() {
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
+  }
+}
+
+// --- extract notes (BACKLOG.md §62) ---------------------------------------------
+// Select a block of writing — the Writing Room's draft, a Document's body, or
+// several notes' content selected on the whiteboard — and split it into one
+// or more AI-drafted notes, auto-linked with real reasons. Always a preview
+// first, matching Draft AI edit's own "read it, then accept" shape: nothing
+// is saved until "Save notes" is pressed, since this can silently multiply
+// one piece of writing into several permanent notes.
+
+// The last preview response, kept so commit can look up each kept note's
+// server-decided category and each kept link's server-generated reason —
+// the DOM only holds what the user is allowed to edit (title, content, tags,
+// keep/drop), not those.
+let extractProposal = null;
+
+async function openExtractPreview(text, { sourceEntryIds = [], sourceDocumentId = null } = {}) {
+  const trimmed = (text || "").trim();
+  if (!trimmed) {
+    toast("Select some text to extract notes from first.");
+    return;
+  }
+  extractProposal = { source_document_id: sourceDocumentId };
+  const panel = $("extract-panel");
+  panel.classList.remove("hidden");
+  $("extract-notes-list").innerHTML = "";
+  $("extract-links-list").innerHTML = "";
+  $("extract-commit").disabled = true;
+  const status = $("extract-status");
+  status.classList.remove("error");
+  setLabel(status, "ph:magic-wand Reading it over…");
+  try {
+    const body = await apiJson("/entries/extract/preview", {
+      method: "POST",
+      body: JSON.stringify({ text: trimmed, source_entry_ids: sourceEntryIds }),
+    });
+    extractProposal = { ...body, source_document_id: sourceDocumentId };
+    renderExtractPreview(body);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+// What a link's `kind` (from `ai.extractor`) reads as in the preview.
+const EXTRACT_LINK_KIND_LABEL = { sibling: "new note", source: "source", related: "related" };
+
+function extractRefLabel(ref, notes) {
+  if (ref.startsWith("existing:")) return "an existing note";
+  const note = notes.find((n) => n.ref === ref);
+  return note ? note.title || note.content.slice(0, 30) : ref;
+}
+
+function renderExtractPreview(body) {
+  const status = $("extract-status");
+  status.classList.remove("error");
+  status.textContent =
+    body.message ||
+    `${body.notes.length} note${body.notes.length === 1 ? "" : "s"} proposed — review, then save.`;
+
+  const list = $("extract-notes-list");
+  list.innerHTML = "";
+  for (const note of body.notes) {
+    const card = document.createElement("div");
+    card.className = "extract-note-card";
+    card.dataset.ref = note.ref;
+    card.innerHTML = `
+      <label class="row align-center checkbox-label">
+        <input type="checkbox" class="extract-note-keep" checked> Keep this note
+      </label>
+      <input type="text" class="extract-note-title" placeholder="Title (optional)"
+        aria-label="Note title" value="${escapeHtml(note.title || "")}">
+      <textarea class="extract-note-content" rows="6" aria-label="Note content">${escapeHtml(note.content)}</textarea>
+      <div class="row extract-note-meta">
+        <span class="muted extract-note-category">Filed under: ${escapeHtml(note.category)}</span>
+        <input type="text" class="extract-note-tags" placeholder="Tags, comma separated"
+          aria-label="Tags for this note">
+      </div>
+    `;
+    list.appendChild(card);
+  }
+
+  const linksBox = $("extract-links-list");
+  linksBox.innerHTML = "";
+  if (body.links.length) {
+    const heading = document.createElement("p");
+    heading.className = "muted";
+    heading.textContent = "Links";
+    linksBox.appendChild(heading);
+  }
+  for (const link of body.links) {
+    const row = document.createElement("label");
+    row.className = "row align-center extract-link-row checkbox-label";
+    row.dataset.sourceRef = link.source_ref;
+    row.dataset.targetRef = link.target_ref;
+    const kindLabel = EXTRACT_LINK_KIND_LABEL[link.kind] || "note";
+    const target = link.target_preview
+      ? escapeHtml(link.target_preview)
+      : escapeHtml(extractRefLabel(link.target_ref, body.notes));
+    row.innerHTML = `
+      <input type="checkbox" class="extract-link-keep" checked>
+      <span class="extract-link-desc">${escapeHtml(extractRefLabel(link.source_ref, body.notes))}
+        → ${target} <span class="muted">(${kindLabel}: ${escapeHtml(link.reason)})</span></span>
+    `;
+    linksBox.appendChild(row);
+  }
+
+  $("extract-commit").disabled = body.notes.length === 0;
+}
+
+function closeExtractPreview() {
+  $("extract-panel").classList.add("hidden");
+  extractProposal = null;
+}
+
+async function commitExtractPreview() {
+  if (!extractProposal) return;
+  const keptRefs = new Set();
+  const notes = [];
+  for (const card of $("extract-notes-list").querySelectorAll(".extract-note-card")) {
+    if (!card.querySelector(".extract-note-keep").checked) continue;
+    const ref = card.dataset.ref;
+    const original = extractProposal.notes.find((n) => n.ref === ref);
+    if (!original) continue;
+    const content = card.querySelector(".extract-note-content").value.trim();
+    if (!content) continue; // an edited-down-to-nothing note is dropped, not saved empty
+    keptRefs.add(ref);
+    notes.push({
+      ref,
+      title: card.querySelector(".extract-note-title").value.trim(),
+      content,
+      category: original.category,
+      tags: card
+        .querySelector(".extract-note-tags")
+        .value.split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    });
+  }
+  if (!notes.length) {
+    toast("Keep at least one note to save.");
+    return;
+  }
+
+  const links = [];
+  for (const row of $("extract-links-list").querySelectorAll(".extract-link-row")) {
+    if (!row.querySelector(".extract-link-keep").checked) continue;
+    const sourceRef = row.dataset.sourceRef;
+    const targetRef = row.dataset.targetRef;
+    if (!keptRefs.has(sourceRef)) continue; // its source note was dropped
+    if (!targetRef.startsWith("existing:") && !keptRefs.has(targetRef)) continue; // its sibling was dropped
+    const original = extractProposal.links.find(
+      (l) => l.source_ref === sourceRef && l.target_ref === targetRef
+    );
+    if (original) links.push({ source_ref: sourceRef, target_ref: targetRef, reason: original.reason });
+  }
+
+  $("extract-commit").disabled = true;
+  const status = $("extract-status");
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  try {
+    const result = await apiJson("/entries/extract/commit", {
+      method: "POST",
+      body: JSON.stringify({
+        notes,
+        links,
+        source_document_id: extractProposal.source_document_id || null,
+      }),
+    });
+    closeExtractPreview();
+    toast(`Saved ${result.notes.length} note${result.notes.length === 1 ? "" : "s"}.`);
+    await loadEntries();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    $("extract-commit").disabled = false;
   }
 }
 
@@ -15610,6 +15798,13 @@ const AI_ONLY_CONTROLS = [
   ["reminder-magic-add", "Reading a reminder from a sentence needs the local AI"],
   ["draft-compose", "Drafting needs the local AI"],
   ["doc-ai", "AI editing needs the local AI"],
+  // Extract notes (BACKLOG.md §62): without the AI it can only hand back
+  // the selection as one plain, unlinked note — a materially weaker result
+  // than what the button promises — so it's disabled here rather than left
+  // to explain that after the fact, same as Draft and AI edit above.
+  ["draft-extract", "Extracting notes needs the local AI"],
+  ["doc-extract", "Extracting notes needs the local AI"],
+  ["wb-extract-notes", "Extracting notes needs the local AI"],
 ];
 
 function syncAiOnlyControls() {
@@ -20127,6 +20322,7 @@ $("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
 $("doc-ai-instruction").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
 });
+$("doc-extract").addEventListener("click", openDocExtractPreview);
 $("doc-content").addEventListener("keydown", (event) => {
   if (!(event.ctrlKey || event.metaKey)) return;
   const key = event.key.toLowerCase();
@@ -20161,6 +20357,10 @@ $("draft-compose").addEventListener("click", composeDraft);
 $("draft-undo").addEventListener("click", undoDraft);
 $("draft-cancel").addEventListener("click", cancelDraft);
 $("draft-save").addEventListener("click", saveDraftAsNote);
+$("draft-extract").addEventListener("click", () => openExtractPreview($("draft-text").value));
+$("extract-close").addEventListener("click", closeExtractPreview);
+$("extract-cancel").addEventListener("click", closeExtractPreview);
+$("extract-commit").addEventListener("click", commitExtractPreview);
 $("draft-text").addEventListener("input", () => {
   updateDraftCount();
   saveDraftLocally();

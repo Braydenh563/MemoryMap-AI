@@ -2523,6 +2523,69 @@ see `generate_diagram`'s own node-list input) or does it commit straight
 through like a normal `_create_note` call? Recommend preview, given it can
 silently multiply one piece of writing into several permanent notes.
 
+**Resolution: built, preview-first, as recommended above.**
+
+Backend: `ai/extractor.py` — `propose_split` asks the model to split free
+text into one or more notes (JSON reply), `merge_near_duplicates` folds any
+two proposed notes back together whenever their content embeddings clear
+`janitor.CONFIDENT_MATCH` (the one-vs-several judgement reuses that bar
+rather than inventing a second one, per the ask above), each resulting note
+is filed by `janitor.categorise` unchanged, and every link — sibling,
+"source" (an explicit Graph/whiteboard selection), and "related" (found via
+`search_manager.semantic_search`, keyword fallback when embeddings are off)
+— gets its reason from `librarian.generate_link_reason`, run through
+`ai.links`' own `_clean_reason`/`_is_vague_reason`. A link the model can't
+give a specific reason for (offline, or a reply that's still vague) is left
+out of the proposal entirely — never `manager.AUTO_REASON_TEXT`. No AI
+running degrades to one plain note, same as the rest of this app never
+failing a save over the AI being down. Two endpoints, `POST
+/entries/extract/preview` (read-only — proposes, writes nothing) and `POST
+/entries/extract/commit` (writes exactly what the client sends back,
+possibly edited or trimmed from the preview); `manager.create_link`'s
+`reason=` is passed explicitly so a committed link can never fall back to
+the generic guess. 21 new tests in `tests/test_extract_notes.py`, full
+suite green, `ruff check .` clean.
+
+Frontend: one shared preview-before-commit modal (`#extract-panel`,
+`openExtractPreview`/`renderExtractPreview`/`commitExtractPreview` in
+`app.js`) wired to all three surfaces — Writing Room's `#draft-extract`
+(splits `#draft-text`), Documents' `#doc-extract` (the selection, or the
+whole document if nothing's selected — same scope rule `AI edit` already
+uses), and the whiteboard's multi-selection (`#wb-extract-notes`, shown
+only once the selection includes a note card): the selected cards' own
+content becomes both the text to split *and* the explicit "source" notes
+every new note tries to link back to. Every note and link in the preview
+has a checkbox — a dropped note's own links are dropped with it. `draft-
+extract`/`doc-extract`/`wb-extract-notes` join `AI_ONLY_CONTROLS` (disabled
+with a reason when Ollama is off, same as Draft and AI edit), since without
+the AI this can only hand back one unlinked plain note — a materially
+weaker result than what the button promises.
+
+**Live-verified in this sandbox's Chromium** (no real Ollama available
+here, so this is UI/wiring verification, not a check of the AI's actual
+split/link judgement — see the caveat below): all three "Extract notes"
+buttons exist, are correctly disabled with the expected title when the
+model is off, and — invoked directly (bypassing the disabled button, the
+only way to drive this without a real model) — the preview modal opens,
+renders the graceful one-note offline fallback with the right message, and
+committing it from the Writing Room actually creates the note (`GET
+/entries` shows it) and closes the panel. The whiteboard path was checked
+by setting `wbMultiSelection` directly rather than a real drag-select
+gesture (the documented headless-Chromium multi-select trap) and confirmed
+it reads the selected cards' own content correctly (screenshotted: both
+notes' text, joined). Screenshots taken and visually reviewed for all three
+surfaces; layout matches the rest of the app's modal styling. Zero new
+console errors — the 21 `401` console errors seen during this session are
+pre-existing and reproduce identically with zero interaction beyond
+logging in (confirmed with a bare-login script), unrelated to this feature.
+
+**Not verified, said plainly:** the AI's actual splitting/categorising/
+link-reasoning judgement against a real model — this sandbox has no
+Ollama/LM Studio running, so only the fake-transport backend tests exercise
+that logic (the standing caveat at the top of this file applies here like
+everywhere else). The whiteboard's real pointer-driven multi-select gesture
+was not driven live either, for the reason above.
+
 ## 63. Ship a starter skills library
 
 The Skills system (`ai/skills.py`) is real and working but ships **zero**

@@ -55,9 +55,9 @@ fresh session should pick them up:
    `<script>` tags once split, so app.js would throw on its own top-level
    code if graph.js loaded second. `app.js` is down to ~22.9k lines.
    Verified live, zero console errors; see HISTORY.md for the rest.
-3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
-   fully scoped, not started. One open decision before building: preview
-   before commit, or commit straight through (recommendation in §62: preview).
+3. ~~**Notes/Documents/Graph "extract notes" feature**~~ **Done** — see
+   BACKLOG.md §62 for the resolution note (what shipped, and what's UI-only
+   and unverified live).
 4. **A live visual indicator when the mic picks up sound**, for the dictation
    buttons — asked for directly, explicitly deferred by the user this
    session ("that can wait"). Not scoped yet: likely a small level-meter off

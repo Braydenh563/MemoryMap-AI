@@ -2041,3 +2041,61 @@ button {
   gap: 0.5rem;
 }
 
+/* Extract notes (BACKLOG.md §62): another "read the AI's proposal before
+   anything is saved" dialog, same family as .doc-ai-card above, just wider
+   and scrollable — it can hold several stacked note cards rather than one
+   passage of prose. */
+.extract-card {
+  width: min(52rem, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  overflow-y: auto;
+}
+
+.extract-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.extract-note-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+.extract-note-content {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.extract-note-meta {
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.extract-note-category {
+  white-space: nowrap;
+}
+
+.extract-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.extract-link-row {
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.extract-link-desc {
+  flex: 1;
+}
+

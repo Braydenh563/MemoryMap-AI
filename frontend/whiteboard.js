@@ -843,6 +843,34 @@ async function wbDistributeSelection(axis) {
   wbPushMoveBatch(pushed);
 }
 
+// Extract notes (BACKLOG.md §62): the selected note cards' own content IS
+// the "notes-in-context" — their combined text is what gets split, and each
+// card is also passed as an explicit source so the new note(s) link back to
+// where they came from, not just to whatever else in the notebook they
+// happen to resemble. Reuses `wbSelectionEntries()`, same as align/
+// distribute above, rather than a second way of reading the selection.
+function wbExtractNotes() {
+  const noteEntries = wbSelectionEntries().filter((e) => e.kind === "node");
+  if (noteEntries.length === 0) {
+    toast("Select at least one note card to extract from.");
+    return;
+  }
+  const entryIds = [...new Set(noteEntries.map((e) => e.item.entry_id))];
+  const byId = new Map(allEntries.map((e) => [e.id, e]));
+  // A card whose note isn't in `allEntries` yet (created elsewhere, cache
+  // not refreshed) is skipped rather than sent as empty text — it still
+  // counts as a source id, just contributes nothing to read from.
+  const text = entryIds
+    .map((id) => byId.get(id)?.content)
+    .filter(Boolean)
+    .join("\n\n---\n\n");
+  if (!text.trim()) {
+    toast("Couldn't read the selected notes' content — try reloading the Notes tab first.");
+    return;
+  }
+  openExtractPreview(text, { sourceEntryIds: entryIds });
+}
+
 // Arrow-key nudge — asked for directly ("allow objects to be moved with
 // arrow keys"). Moves the whole current selection (single item or multi)
 // by one step; the keydown handler in initWhiteboard decides the step size
@@ -884,6 +912,7 @@ function wbUpdatePropertiesPanel() {
     dash: document.getElementById("wb-prop-dash-row"),
     nostroke: document.getElementById("wb-prop-nostroke-row"),
     shapefill: document.getElementById("wb-prop-shapefill-row"),
+    extractNotes: document.getElementById("wb-extract-notes-row"),
   };
   Object.values(rows).forEach((r) => r?.classList.add("hidden"));
 
@@ -893,6 +922,11 @@ function wbUpdatePropertiesPanel() {
   if (wbMultiSelection.size > 0) {
     panel.classList.remove("hidden");
     rows.multi.classList.remove("hidden");
+    // Extract notes (BACKLOG.md §62) only makes sense once the selection
+    // actually includes a note card's content to extract from — a
+    // multi-selection of pure shapes/sketches has no "notes-in-context".
+    const hasNoteCard = wbSelectionEntries().some((e) => e.kind === "node");
+    rows.extractNotes.classList.toggle("hidden", !hasNoteCard);
     return;
   }
   if (!wbSelectedItem) {
@@ -2677,6 +2711,7 @@ async function initWhiteboard() {
   document.getElementById("wb-align-bottom")?.addEventListener("click", () => wbAlignSelection("bottom"));
   document.getElementById("wb-distribute-h")?.addEventListener("click", () => wbDistributeSelection("horizontal"));
   document.getElementById("wb-distribute-v")?.addEventListener("click", () => wbDistributeSelection("vertical"));
+  document.getElementById("wb-extract-notes")?.addEventListener("click", wbExtractNotes);
   document.getElementById("wb-mindmap-tree")?.addEventListener("click", () => {
     if (wbSelectedItem?.kind === "node") wbArrangeMindMap(wbSelectedItem.id, "tree");
   });

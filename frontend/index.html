@@ -497,6 +497,8 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="draft-tags" type="text" maxlength="200"
                   placeholder="Optional tags, comma separated"
                   aria-label="Tags for the saved note">
+                <button id="draft-extract" class="ghost small" type="button"
+                  title="Split this into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
                 <button id="draft-discard" class="ghost small" type="button">Discard</button>
               </div>
             </div>
@@ -1316,6 +1318,8 @@ Link to another note with [[its first few words]]."></textarea>
               aria-pressed="false" title="Show a rendered preview beside the editor"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview</button>
             <button id="doc-ai" class="ghost small" type="button"
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
+            <button id="doc-extract" class="ghost small" type="button"
+              title="Turn this document (or the text you've selected) into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
             <button id="doc-export-md" class="ghost small" type="button"
               title="Download as a .md file">⬇ .md</button>
             <button id="doc-export-pdf" class="ghost small" type="button"
@@ -2045,6 +2049,15 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" id="wb-distribute-h" class="ghost small" title="Distribute evenly, left to right">↔ Space</button>
           <button type="button" id="wb-distribute-v" class="ghost small" title="Distribute evenly, top to bottom">↕ Space</button>
         </div>
+        <!-- BACKLOG.md §62: the selected note cards' own content is the
+             "notes-in-context" this extracts from — shown only once the
+             selection actually includes at least one note card
+             (wbUpdatePropertiesPanel), same gating as the mind-map row
+             above. -->
+        <div class="wb-multi-actions hidden" id="wb-extract-notes-row">
+          <button type="button" id="wb-extract-notes" class="ghost small"
+            title="Turn the selected notes' content into one or more new notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
+        </div>
       </div>
     </div>
     
@@ -2140,6 +2153,29 @@ Link to another note with [[its first few words]]."></textarea>
     <span class="status-spacer"></span>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>
+
+  <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
+  <!-- Shared by all three surfaces that offer it (Writing Room, Documents,
+       whiteboard multi-selection): one panel, one preview-before-commit
+       flow, matching `generate_diagram`'s own convention — nothing here is
+       saved until "Save notes" is pressed, because this can silently
+       multiply one piece of writing into several permanent notes. -->
+  <div id="extract-panel" class="modal-overlay hidden" role="dialog"
+    aria-modal="true" aria-label="Extract notes">
+    <div class="card modal-card extract-card">
+      <div class="row space-between">
+        <h2>Extract notes</h2>
+        <button id="extract-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <p class="muted" id="extract-status" role="status"></p>
+      <div id="extract-notes-list" class="extract-notes-list"></div>
+      <div id="extract-links-list" class="extract-links-list"></div>
+      <div class="row">
+        <button id="extract-commit"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
+        <button id="extract-cancel" class="ghost" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ======================= SETTINGS MODAL ================================ -->
   <div id="settings-modal" class="modal-overlay hidden" role="dialog"

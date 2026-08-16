@@ -43,9 +43,9 @@ fresh session should pick them up:
    with this project's no-bundler design). See HISTORY.md for the byte-order
    proof, the load-order gotcha between the two extracted files, and the
    401-burst red herring this surfaced (item 13 below).
-3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
-   fully scoped, not started. One open decision before building: preview
-   before commit, or commit straight through (recommendation in §62: preview).
+3. ~~**Notes/Documents/Graph "extract notes" feature**~~ **Done** — see
+   BACKLOG.md §62 for the resolution note (what shipped, and what's UI-only
+   and unverified live).
 4. **A live visual indicator when the mic picks up sound**, for the dictation
    buttons — asked for directly, explicitly deferred by the user this
    session ("that can wait"). Not scoped yet: likely a small level-meter off

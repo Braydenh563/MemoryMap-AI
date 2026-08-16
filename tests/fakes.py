@@ -64,6 +64,14 @@ class FakeOllama:
         self.chat_models: list[str] = []  # which model each chat() used (Wave N)
         self.librarian_reply = "Here's what I found in your notebook!"
         self.librarian_thinking: str | None = None  # set to fake a thinking model
+        # `ai.extractor.propose_split`'s own JSON reply — kept apart from
+        # `librarian_reply` (which every OTHER non-janitor prompt shares,
+        # including `generate_link_reason`) because a split reply has to be
+        # valid `{"notes": [...]}` JSON, not prose. Empty by default: no
+        # '{' in it means `_extract_json_object` raises, which is exactly
+        # `build_extraction`'s single-note-fallback path — a safe default
+        # for tests that don't care about splitting specifically.
+        self.extract_split_reply = ""
         self.installed = [{"name": "llama3.2:latest", "size": 2_000_000_000}]
         # Agent mode (Wave G). tool_script is a queue: each item is the
         # list of tool calls "the model" makes on one chat_tools round;
@@ -238,6 +246,8 @@ class FakeOllama:
             if any(w in user for w in _TOPIC_WORDS[2]):
                 return '{"category": "Sport Results", "confidence": 82}'
             return '{"category": "Misc", "confidence": 40}'
+        if "splitting a piece of free writing" in system:  # ai.extractor asking
+            return self.extract_split_reply
         return self.librarian_reply  # the librarian asking
 
     def embed(self, model: str, text: str) -> list[float]:

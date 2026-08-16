@@ -192,15 +192,17 @@ store:**
      comment right above `#entry-attach-file`'s listener in `app.js` — this
      was checked and closed a session ago; this bullet just never got
      updated to say so.
-   - **Genuinely still open:** a non-image attachment showed no preview in
-     the note card, and worse than "no preview" — `handleFileUpload` always
-     wrote `![name](url)` (image markdown) regardless of file type, so a
+   - ~~**Genuinely still open:** a non-image attachment showed no preview in
+     the note card~~ **Done, both halves.** `handleFileUpload` always wrote
+     `![name](url)` (image markdown) regardless of file type, so a
      PDF/docx/etc. rendered as a broken `<img>` and its `onerror` handler
-     then reported it as **"filename deleted"**, which actively lied about
-     data loss. **Fixed this session**: non-image files now get plain link
-     markdown (`[name](url)`) instead, so they render as a working link.
-     **Still open:** that link has no type-specific icon (PDF, doc, generic)
-     to distinguish it at a glance — a small, real, separate follow-up.
+     reported it as **"filename deleted"**, actively lying about data loss —
+     non-image files now get plain link markdown (`[name](url)`) instead.
+     And that link now carries a type-specific Phosphor icon
+     (`attachmentIconClass()` in `app.js`, keyed off the file extension for
+     `/media/` uploads only — an arbitrary external link's extension isn't
+     trustworthy enough to icon the same way) instead of reading identically
+     to a plain URL.
    - **A step further, genuinely new: extracting text from what's
      uploaded, not just storing it.** An image of a whiteboard photo or a
      handwritten page currently attaches as an opaque file — nothing reads

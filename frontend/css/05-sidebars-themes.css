@@ -264,6 +264,10 @@ button.ai-unavailable {
   object-fit: contain;
 }
 
+.attachment-link-icon {
+  margin-right: var(--space-1);
+}
+
 /* Swapped in for a note's own inline image once its file is gone —
    a closable box instead of a broken-image glyph, asked for directly. */
 .entry-inline-image-deleted {

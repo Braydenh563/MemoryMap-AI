@@ -2208,6 +2208,27 @@ function isRenderableUrl(url) {
   return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
 }
 
+// A non-image attachment (handleFileUpload's link-syntax branch) previously
+// rendered as a bare link, indistinguishable at a glance from an ordinary
+// URL — BACKLOG §4's "genuinely still open" follow-up. Only applied to our
+// own /media/ uploads, not arbitrary external links, since a random web
+// page's URL extension says nothing reliable about its content.
+const ATTACHMENT_ICONS = {
+  pdf: "ph-file-pdf", doc: "ph-file-doc", docx: "ph-file-doc",
+  xls: "ph-file-xls", xlsx: "ph-file-xls", csv: "ph-file-csv",
+  ppt: "ph-file-ppt", pptx: "ph-file-ppt",
+  zip: "ph-file-archive", rar: "ph-file-archive", "7z": "ph-file-archive",
+  mp3: "ph-file-audio", wav: "ph-file-audio", ogg: "ph-file-audio", m4a: "ph-file-audio", webm: "ph-file-audio",
+  mp4: "ph-file-video", mov: "ph-file-video",
+  txt: "ph-file-text", md: "ph-file-md",
+};
+
+function attachmentIconClass(url) {
+  if (!url.startsWith("/media/")) return null;
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  return ATTACHMENT_ICONS[ext] || "ph-file";
+}
+
 // LaTeX escapes that models reach for when they want a symbol (§35H).
 //
 // Screenshotted: a bullet reading "Jokes $\rightarrow$ Social Skills", with
@@ -2412,6 +2433,13 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         if (/^https?:\/\//i.test(linkUrl)) {
           a.target = "_blank";
           a.rel = "noopener";
+        }
+        const iconClass = attachmentIconClass(linkUrl);
+        if (iconClass) {
+          const icon = document.createElement("i");
+          icon.className = `ph ${iconClass} attachment-link-icon`;
+          icon.setAttribute("aria-hidden", "true");
+          a.appendChild(icon);
         }
         highlightInto(a, linkText, terms);
         element.appendChild(a);

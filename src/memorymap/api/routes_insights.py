@@ -302,10 +302,21 @@ DIGEST_QUESTION = (
 
 def _digest_notes(session: Session) -> list[dict]:
     cutoff = utcnow() - timedelta(days=7)
+    # `is_private == False`: this content is handed straight to the AI, and a
+    # private note's `content` column is ciphertext at rest — sending it here
+    # put encrypted bytes in the model's prompt (and, since the model doesn't
+    # know that, sometimes into the digest text a user then reads). Every
+    # other surface that feeds the AI already excludes private notes;
+    # `digest_structure_note` below does too for its own sentence — this was
+    # the one place a private note's row still reached the model.
     entries = list(
         session.scalars(
             select(Entry)
-            .where(Entry.is_deleted == False, Entry.created_at >= cutoff)  # noqa: E712
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+                Entry.created_at >= cutoff,
+            )
             .order_by(Entry.created_at)
             .limit(30)
         )
@@ -412,10 +423,16 @@ def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingRe
 def weekly_digest(session: Session = Depends(get_session)) -> dict:
     """An on-demand AI recap of the last 7 days (reads only)."""
     cutoff = utcnow() - timedelta(days=7)
+    # See _digest_notes' comment above — a private note's `content` is
+    # ciphertext at rest and must never reach the model's prompt.
     entries = list(
         session.scalars(
             select(Entry)
-            .where(Entry.is_deleted == False, Entry.created_at >= cutoff)  # noqa: E712
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_private == False,  # noqa: E712
+                Entry.created_at >= cutoff,
+            )
             .order_by(Entry.created_at)
             .limit(30)
         )

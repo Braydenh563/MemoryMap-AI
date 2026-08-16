@@ -136,6 +136,20 @@ def audit_vague_links(
         target = session.get(Entry, link.target_entry_id)
         if not source or not target:
             continue
+        # A note can be marked private *after* it was linked to another one —
+        # `manager.set_private` drops the note's embedding and resolved dates
+        # for exactly this reason, but leaves the link itself in place, so
+        # this WHERE clause can still hand back a link touching a private
+        # note. `source.content`/`target.content` below is ciphertext at rest
+        # for a private note, and sending it to the model would be the same
+        # leak `_link_notes`'s own guard exists to prevent on the write side.
+        # Skipped rather than retried: nothing about the note becoming
+        # private again is fixable by asking the model again later, so this
+        # does not count against `_failed_attempts` — the same "never retry
+        # a hopeless case" idea, without the process-lifetime bookkeeping,
+        # since going private is rare enough that it isn't worth spending it.
+        if source.is_private or target.is_private:
+            continue
 
         try:
             reply = librarian.generate_link_reason(source.content, target.content, model, ollama)

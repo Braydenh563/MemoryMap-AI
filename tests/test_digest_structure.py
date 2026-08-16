@@ -119,6 +119,29 @@ def test_digest_uses_recent_notes(ai_client, fake_ollama):
     assert "scarecrow" in prompt  # the digest reads this week's notes
 
 
+def test_digest_never_sends_a_private_note_to_the_model(ai_client, fake_ollama):
+    """`digest_structure_note` already excludes private notes from its own
+    sentence (see `test_private_notes_are_not_counted` above) — but the notes
+    handed to the model for the digest text itself came from a separate query
+    that did not filter `is_private`, and a private note's `content` column is
+    ciphertext at rest. That put encrypted bytes straight into the model's
+    prompt, which is both a privacy leak (existence + category + timing of a
+    private note, in a request sent to whatever backend the model is at) and a
+    quality bug (the model summarising base64 gibberish it can't read)."""
+    from memorymap.core import deps
+    from memorymap.core.database import Entry
+
+    _save(ai_client, "an ordinary note about the garden")
+    session = deps.get_db().session()
+    session.add(Entry(content="MY SECRET DIARY ENTRY", tags=json.dumps([]), is_private=True))
+    session.commit()
+    session.close()
+
+    ai_client.post("/insights/digest")
+    prompt = fake_ollama.chat_calls[-1][-1]["content"]
+    assert "MY SECRET DIARY ENTRY" not in prompt
+
+
 def test_digest_empty_week_is_cacheable(client):
     # An empty week is a stable fact → safe to cache (Wave J follow-up).
     assert client.post("/insights/digest").json()["cacheable"] is True

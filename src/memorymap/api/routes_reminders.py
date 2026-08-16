@@ -17,7 +17,7 @@ from typing import Literal
 from memorymap.core import deps
 from memorymap.core.database import Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import log_action
+from memorymap.entry.manager import log_action, readable_content
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
 
@@ -54,7 +54,13 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
     if reminder.entry_id is not None:
         entry = session.get(Entry, reminder.entry_id)
         if entry is not None and not entry.is_deleted:
-            content = entry.content
+            # `readable_content`, not the raw column: a private note's
+            # `content` is ciphertext at rest, and this preview showed that
+            # ciphertext blob (or, once unlocked, otherwise skipped the
+            # locked-vault placeholder every other preview surface uses) —
+            # the same class of bug as the digest's, just local to this UI
+            # rather than sent to a model.
+            content = readable_content(entry)
             entry_preview = content if len(content) <= 60 else content[:59] + "…"
     return {
         "id": reminder.id,

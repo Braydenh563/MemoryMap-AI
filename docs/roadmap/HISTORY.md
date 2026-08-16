@@ -3298,3 +3298,67 @@ every draggable whiteboard panel shared `z-index: 10` (a tie, aside from
 dragged over the sidebar's screen area could still paint on top of it —
 "appears behind again," a recurrence of an old report. Sidebar bumped to
 `z-index: 25`, above every panel including `top-right`'s 20.
+
+**A third Library kebab-menu bug, same shape as the first, found the same
+way.** Every kebab menu across the Library (not just Bin chips, per the
+follow-up report) opened detached from its button, stretched to the full
+width of the card. Root cause was the same specificity tie the first
+`graph-link-panel` fix (above) already found once: `.library-card-menu`
+(`position: absolute`, in `00-tokens-shell.css`) and `.menu-wrap`
+(`position: relative`, in `02-chat-graph.css`, loaded later) are both
+single-class selectors of equal specificity, so file *load order* — not
+source correctness — decided which one won. Compounded to
+`.menu-wrap.library-card-menu` for deterministic specificity regardless of
+load order, same fix shape as before. Confirmed live: the wrap's measured
+width matched its button's 43px exactly (was 288px, the full card), and the
+popup's `getBoundingClientRect()` matched its `top: calc(100% + 4px);
+right: 0` formula against the real button geometry.
+
+**The graph-view subsystem extracted out of `app.js` into `frontend/graph.js`**
+(ROADMAP.md item 2) — force-layout rendering, Trace, the popup editor, the
+physics/layout controls, ~2,460 lines. Unlike whiteboard.js, this one has to
+load *before* `app.js`: several of app.js's own top-level statements
+reference graph functions and `let`s as bare identifiers evaluated at parse
+time (`$("graph-similarity").addEventListener("change", renderGraph)` and
+several more), and function/`let` hoisting doesn't reach across separate
+`<script>` tags — loading app.js first would throw on its own synchronous
+top-level code before the rest of the file ever ran. graph.js itself needs
+nothing from app.js at parse time. `app.js`: 22.9k lines. Verified live:
+fresh-data-dir Playwright run creating two linked notes, opening the Graph
+tab (force layout + edge render), opening a node's edit popup, running an
+actual Trace between the two notes — zero console/page errors throughout,
+and the empty-notebook state also confirmed clean on a second, blank data
+directory. The same pre-existing 401 burst (item 13) reproduced again,
+identically, with zero interaction with the Graph tab at all — further
+evidence it's a pure dashboard-load timing bug, not tied to any one tab.
+
+**Ask history — the Ask box's browsable "personal notes browser" (ROADMAP.md
+item 6).** Requested directly, then clarified mid-build: *"I want the ask
+feature to be basically a personal notes browser."* Previously the Ask card
+only ever showed the last five distinct question strings as reask chips
+(`/chat/recent`, reading `AuditLog` — kept as-is, it still powers the
+Dashboard's own "Recent questions" widget). Every *notes-only* question the
+Ask box actually answers (the same `notes_only` flag §35A already uses to
+keep it out of the chat/small-talk path) is now written to a new `AskTurn`
+table by `chat_stream` once a real answer lands — never for a small-talk
+turn, which exits through the existing hint branch before an answer exists,
+and never for the Chat tab, which keeps its own durable history via
+`Conversation`/`/conversations` already.
+
+`routes_ask_history.py` adds list/search/paginate (`q` searches question and
+answer text), get-one (hydrating `raw_result_ids` back to live `EntryOut`s,
+dropping any note deleted or made private since — the same rule
+`_attached_notes` already applies to a client-supplied id list), pin,
+delete-one, and clear-all (keeps pinned turns by default). The Ask card
+gained a collapsed-by-default "History" panel: search box, pinned-only
+filter, a badge with the running total, and rows you click to reopen the
+original question/answer/matched-notes *in place*, with no model round —
+browsing, not re-asking. Deliberately additive: the five-chip quick-reask
+row stays untouched alongside it. Verified live: asking a question grows the
+badge and the panel by one, reopening a row restores the exact answer and
+its notes, pin/unpin and the "no matches" search state both render
+correctly, and a note deleted after the fact is dropped from the reopened
+view with an "N notes … no longer available" line rather than silently
+showing stale content. 14 new backend tests cover persistence, search,
+pagination, hydration (including the deleted/private-note drop), pin, and
+both clear-all variants.

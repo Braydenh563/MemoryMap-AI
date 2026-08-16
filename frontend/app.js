@@ -372,6 +372,7 @@ function startApp() {
 
   const entriesReady = step("load entries", loadEntries);
   step("load recent questions", loadRecentQuestions);
+  step("load ask history badge", loadAskHistoryBadge);
   step("load suggestions", loadSuggestions);
   step("load your most-used items", loadMostUsed);
   step("load templates", loadTemplates).then(() =>
@@ -3741,9 +3742,14 @@ async function askQuestion(preset) {
       show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
     }
     status.textContent = "";
-    // Asking changes both quick-access lists.
+    // Asking changes both quick-access lists, and — for a real (non-hint)
+    // answer — the browsable history too.
     loadRecentQuestions();
     loadMostUsed();
+    if (!hinted) {
+      loadAskHistoryBadge();
+      if (askHistoryOpen) loadAskHistoryPage(true);
+    }
   } catch (error) {
     if (error.name === "AbortError") {
       stopped = true;
@@ -3791,6 +3797,185 @@ async function loadSuggestions() {
     const chipEl = chip(question, "", () => askQuestion(question));
     box.appendChild(chipEl);
   }
+}
+
+// --- Ask history: browse back through every notes-only question, not just
+// the last five as reask chips. Requested directly: "I want the ask feature
+// to be basically a personal notes browser." Every turn behind this panel
+// was already written server-side by chat_stream (routes_ask_history.py);
+// this is read, search, pin, delete and "reopen" only. ---------------------
+
+let askHistoryOpen = false;
+let askHistoryOffset = 0;
+let askHistoryTotal = 0;
+const ASK_HISTORY_PAGE = 20;
+
+async function loadAskHistoryBadge() {
+  const badge = $("ask-history-badge");
+  if (!badge) return;
+  const stats = await apiJson("/ask-history/stats").catch(() => null);
+  if (!stats || !stats.total) {
+    badge.classList.add("hidden");
+    return;
+  }
+  badge.textContent = stats.total > 99 ? "99+" : String(stats.total);
+  badge.classList.remove("hidden");
+}
+
+function askHistoryRow(turn) {
+  const li = document.createElement("li");
+  li.className = "ask-history-item";
+  li.dataset.id = turn.id;
+  li.tabIndex = 0;
+  li.setAttribute("role", "button");
+  li.title = "Open this question and its answer";
+
+  const head = document.createElement("div");
+  head.className = "ask-history-item-head";
+  const question = document.createElement("span");
+  question.className = "ask-history-question";
+  question.textContent = turn.question;
+  head.appendChild(question);
+
+  const actions = document.createElement("span");
+  actions.className = "ask-history-actions";
+  const pinBtn = document.createElement("button");
+  pinBtn.type = "button";
+  pinBtn.className = "icon-btn ask-history-pin" + (turn.pinned ? " active" : "");
+  pinBtn.title = turn.pinned ? "Unpin" : "Pin so this survives Clear";
+  pinBtn.setAttribute("aria-label", turn.pinned ? "Unpin question" : "Pin question");
+  pinBtn.innerHTML = `<i class="ph ${turn.pinned ? "ph-push-pin-slash" : "ph-push-pin"}" aria-hidden="true"></i>`;
+  pinBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleAskHistoryPin(turn.id, !turn.pinned);
+  });
+  const delBtn = document.createElement("button");
+  delBtn.type = "button";
+  delBtn.className = "icon-btn ask-history-delete";
+  delBtn.title = "Delete this question";
+  delBtn.setAttribute("aria-label", "Delete question");
+  delBtn.innerHTML = '<i class="ph ph-trash" aria-hidden="true"></i>';
+  delBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    deleteAskHistoryTurn(turn.id);
+  });
+  actions.append(pinBtn, delBtn);
+  head.appendChild(actions);
+  li.appendChild(head);
+
+  const meta = document.createElement("div");
+  meta.className = "ask-history-meta muted";
+  const parts = [relativeTime(turn.created_at)];
+  if (turn.result_count) {
+    parts.push(`${turn.result_count} note${turn.result_count === 1 ? "" : "s"}`);
+  }
+  meta.textContent = parts.join(" · ");
+  li.appendChild(meta);
+
+  if (turn.answer_preview) {
+    const preview = document.createElement("p");
+    preview.className = "ask-history-preview";
+    preview.textContent = turn.answer_preview;
+    li.appendChild(preview);
+  }
+
+  const open = () => viewAskHistoryTurn(turn.id);
+  li.addEventListener("click", open);
+  li.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
+  return li;
+}
+
+async function loadAskHistoryPage(reset) {
+  if (reset) askHistoryOffset = 0;
+  const list = $("ask-history-list");
+  const params = new URLSearchParams({
+    limit: String(ASK_HISTORY_PAGE),
+    offset: String(askHistoryOffset),
+  });
+  const q = $("ask-history-search")?.value.trim();
+  if (q) params.set("q", q);
+  if ($("ask-history-pinned-only")?.checked) params.set("pinned_only", "true");
+  const body = await apiJson(`/ask-history?${params}`).catch(() => null);
+  if (!body) return;
+  askHistoryTotal = body.total;
+  if (reset) list.replaceChildren();
+  for (const turn of body.turns) list.appendChild(askHistoryRow(turn));
+  askHistoryOffset += body.turns.length;
+  $("ask-history-empty").classList.toggle("hidden", askHistoryOffset > 0);
+  $("ask-history-more").classList.toggle("hidden", askHistoryOffset >= askHistoryTotal);
+}
+
+function toggleAskHistoryPanel() {
+  askHistoryOpen = !askHistoryOpen;
+  $("ask-history-panel").classList.toggle("hidden", !askHistoryOpen);
+  $("ask-history-toggle").setAttribute("aria-expanded", String(askHistoryOpen));
+  if (askHistoryOpen) loadAskHistoryPage(true);
+}
+
+// Reopen a past turn exactly where a live answer renders — no re-asking the
+// model, which is the whole point of this being a browser and not a search
+// box that happens to remember your last five questions.
+async function viewAskHistoryTurn(id) {
+  const turn = await apiJson(`/ask-history/${id}`).catch(() => null);
+  if (!turn) {
+    toast("That question is no longer in your history.", true);
+    return;
+  }
+  $("suggested-questions").classList.add("hidden");
+  $("question").value = turn.question;
+  lastQuestion = turn.question;
+  renderAskedQuestion(turn.question);
+  const answerBox = $("ai-answer");
+  renderMarkdown(answerBox, turn.answer);
+  $("ai-answer-grounding").replaceChildren();
+  $("ai-answer-grounding").classList.add("hidden");
+  $("thinking-box").classList.add("hidden");
+  $("ai-thinking").textContent = "";
+  $("answered-by").textContent = `asked ${relativeTime(turn.created_at)}`;
+  $("search-mode").textContent = SEARCH_MODE_LABELS[turn.search_mode] || turn.search_mode;
+  const rawList = $("raw-results");
+  rawList.replaceChildren();
+  for (const entry of turn.raw_results) rawList.appendChild(clickableResult(entry));
+  if (turn.omitted_results) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.textContent =
+      turn.omitted_results === 1
+        ? "1 note from this answer is no longer available (deleted or made private since)."
+        : `${turn.omitted_results} notes from this answer are no longer available (deleted or made private since).`;
+    rawList.appendChild(li);
+  }
+  document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
+  $("chat-results").classList.remove("hidden");
+  $("ask-status").textContent = "";
+  show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
+}
+
+async function toggleAskHistoryPin(id, pinned) {
+  await apiJson(`/ask-history/${id}/pin?pinned=${pinned}`, { method: "PUT" }).catch(() => null);
+  loadAskHistoryPage(true);
+}
+
+async function deleteAskHistoryTurn(id) {
+  await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch(() => null);
+  loadAskHistoryPage(true);
+  loadAskHistoryBadge();
+}
+
+async function clearAskHistory() {
+  const ok = await confirmDialog(
+    "Clear your question history?\n\nPinned questions are kept. This cannot be undone for the rest.",
+    { confirmLabel: "Clear history", danger: true }
+  );
+  if (!ok) return;
+  await apiJson("/ask-history", { method: "DELETE" }).catch(() => null);
+  loadAskHistoryPage(true);
+  loadAskHistoryBadge();
 }
 
 // --- chat tab (Wave C) ------------------------------------------------------------
@@ -21215,6 +21400,15 @@ $("stop-btn").addEventListener("click", stopAnswer);
 $("retry-btn").addEventListener("click", retryAnswer);
 $("copy-btn").addEventListener("click", copyAnswer);
 $("new-chat-btn").addEventListener("click", newChat);
+$("ask-history-toggle").addEventListener("click", toggleAskHistoryPanel);
+$("ask-history-more").addEventListener("click", () => loadAskHistoryPage(false));
+$("ask-history-pinned-only").addEventListener("change", () => loadAskHistoryPage(true));
+$("ask-history-clear").addEventListener("click", clearAskHistory);
+let askHistorySearchDebounce;
+$("ask-history-search").addEventListener("input", () => {
+  clearTimeout(askHistorySearchDebounce);
+  askHistorySearchDebounce = setTimeout(() => loadAskHistoryPage(true), 200);
+});
 $("lock-btn").addEventListener("click", lockNow);
 $("lock-submit").addEventListener("click", submitLockForm);
 $("lock-password").addEventListener("keydown", (e) => {

@@ -1145,6 +1145,144 @@ li.link-source {
   filter: brightness(1.08);
 }
 
+/* --- Ask history: the personal-notes-browser panel (§ROADMAP item 6) ------
+   Every notes-only question the Ask box has answered, searchable and
+   reopenable in place of the model re-answering it. */
+.ask-header-actions {
+  gap: var(--space-3);
+  align-items: center;
+}
+
+#ask-history-toggle {
+  position: relative;
+}
+
+#ask-history-badge {
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.ask-history-panel {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.ask-history-toolbar {
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+#ask-history-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.ask-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.ask-history-item {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ask-history-item:hover,
+.ask-history-item:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.ask-history-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.ask-history-question {
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
+.ask-history-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+.icon-btn.active {
+  color: var(--accent);
+}
+
+.ask-history-meta {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.ask-history-preview {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#ask-history-empty {
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+
+#ask-history-more {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
 #most-used-box h2 {
   margin-top: 1rem;
 }

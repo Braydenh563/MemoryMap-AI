@@ -21,7 +21,7 @@
 // Bumped a fourth time for the graph.js extraction (frontend refactor
 // path, the step after whiteboard): same failure mode — the Graph tab
 // would 404 offline without this file precached too.
-const CACHE = "memorymap-shell-v9";
+const CACHE = "memorymap-shell-v10";
 const SHELL = [
   "/",
   "/graph.js",

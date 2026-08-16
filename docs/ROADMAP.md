@@ -47,7 +47,14 @@ fresh session should pick them up:
    `index.html` (3.7k lines) still can't be split without a template/build
    step, which conflicts with this project's stated no-bundler
    architecture — leave it alone, it was never going to get the same
-   treatment as the other two.
+   treatment as the other two. **The graph-view subsystem is also out now**
+   — `frontend/graph.js` (~2,460 lines), loaded *before* `app.js` rather
+   than after (the opposite of whiteboard.js): several of app.js's own
+   top-level listeners reference graph functions as bare identifiers
+   evaluated at parse time, and function/`let` hoisting doesn't cross
+   `<script>` tags once split, so app.js would throw on its own top-level
+   code if graph.js loaded second. `app.js` is down to ~22.9k lines.
+   Verified live, zero console errors; see HISTORY.md for the rest.
 3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
    fully scoped, not started. One open decision before building: preview
    before commit, or commit straight through (recommendation in §62: preview).
@@ -63,12 +70,11 @@ fresh session should pick them up:
    the `.graph-traced-path`/§9 block a little further down this file for
    where it's built; no specific direction was given, so a fresh session
    should look at what it currently renders before proposing a shape.
-6. **Idea, not yet scoped: recent searches / search history / past results
-   in the Ask (chat) tab** — asked for directly. Needs a decision on where it
-   lives (a dropdown under the ask box? a sidebar list, like the conversation
-   history already has?) and what "past results" means beyond the existing
-   conversation history the sidebar already keeps — worth checking against
-   that existing feature first so this doesn't rebuild it under a new name.
+6. ~~Recent searches / search history / past results in the Ask tab~~ **Done
+   — built as a browsable history, not a dropdown.** Clarified directly
+   mid-build: *"I want the ask feature to be basically a personal notes
+   browser."* See HISTORY.md for what shipped (`AskTurn` table, the
+   `/ask-history` routes, and the panel in the Ask card).
 7. **faster-whisper reported still failing to install**, pip exiting non-zero,
    from the same live Windows session as the temp-file bug below. Two things
    were fixed blind this session, without seeing the actual pip error: (a)

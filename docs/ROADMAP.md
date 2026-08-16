@@ -27,34 +27,13 @@ fresh session should pick them up:
    verify any structural fix — do not ship one unverified, per this file's
    own repeated CSS-regression history below.
 2. ~~`app.js`/`style.css`/`index.html` are still monolithic~~ **Both
-   mechanically-splittable pieces are now done.** `style.css` (was 15.8k
-   lines) is split into eight files under `frontend/css/`, cut only at its
-   own section-comment banners so the byte order (and therefore the cascade)
-   matches the old single file exactly; `tests/_css_paths.py` is the one
-   place that load order is declared for tests that used to read
-   `frontend/style.css` directly. `app.js` (was 30.7k lines) had its
-   whiteboard subsystem — board/card CRUD, sketch drawing, export,
-   move/resize/grouping — extracted into `frontend/whiteboard.js` (~5,600
-   lines), loaded via a second `<script>` tag after `app.js`; both share one
-   global scope since neither is a module, so no `state.js` promotion was
-   needed. `app.js` is down to ~25.3k lines. Verified live: fresh-data-dir
-   Playwright run with zero console/page errors, the Whiteboards sub-tab
-   opens, a board's SVG canvas renders with its full toolbar. A red herring
-   surfaced during that check — a burst of 401s on dashboard/insights
-   endpoints — reproduced identically against the pre-split `app.js` on a
-   *reused* data directory and vanished on both sides with a fresh one, so
-   it's a pre-existing timing bug unrelated to this split; see item 13 below.
-   `index.html` (3.7k lines) still can't be split without a template/build
-   step, which conflicts with this project's stated no-bundler
-   architecture — leave it alone, it was never going to get the same
-   treatment as the other two. **The graph-view subsystem is also out now**
-   — `frontend/graph.js` (~2,460 lines), loaded *before* `app.js` rather
-   than after (the opposite of whiteboard.js): several of app.js's own
-   top-level listeners reference graph functions as bare identifiers
-   evaluated at parse time, and function/`let` hoisting doesn't cross
-   `<script>` tags once split, so app.js would throw on its own top-level
-   code if graph.js loaded second. `app.js` is down to ~22.9k lines.
-   Verified live, zero console errors; see HISTORY.md for the rest.
+   mechanically-splittable pieces are now done — `style.css` into eight
+   files under `frontend/css/`, `app.js`'s whiteboard and graph-view
+   subsystems into `frontend/whiteboard.js`/`frontend/graph.js`.** `index.html`
+   stays whole on purpose (splitting it needs a build step, which conflicts
+   with this project's no-bundler design). See HISTORY.md for the byte-order
+   proof, the load-order gotcha between the two extracted files, and the
+   401-burst red herring this surfaced (item 13 below).
 3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
    fully scoped, not started. One open decision before building: preview
    before commit, or commit straight through (recommendation in §62: preview).
@@ -201,271 +180,74 @@ The tiers are not equal. Nothing in Tier 2 is worth more than any Tier 1 item.
 Things that are wrong, lose work, or make the app feel unreliable.
 
 1. ~~**Meeting transcription errors out.**~~ **Re-confirmed fixed
-   (HISTORY.md §50), one step further than before.** §41 already made a
-   failed model download raise a distinct 503 instead of the route's
-   generic "Couldn't transcribe that recording: <error>" catch-all. This
-   session installed `faster-whisper` for real (lightweight — no torch) and
-   POSTed a real WAV clip to `/voice/transcribe-meeting` on a live server:
-   got back `503 "Couldn't load the Whisper 'base' model... check your
-   internet connection"`, not the old mystery error. **Not fully verified**:
-   this sandbox's network policy blocks `huggingface.co` (403 at the proxy,
-   confirmed via `$HTTPS_PROXY/__agentproxy/status`), so an actual
-   successful transcription — real audio in, real text out — still hasn't
-   been observed by any session. If it's re-reported, that's the half still
-   worth checking, ideally from an environment that can reach Hugging Face.
+   (HISTORY.md §50).** A real WAV clip against a live server now gets a
+   distinct 503 with a clear cause, not the old mystery error. **Not fully
+   verified**: this sandbox's network policy blocks `huggingface.co`, so an
+   actual successful transcription still hasn't been observed by any
+   session — that's the half still worth checking if this recurs.
 2. ~~**"The AI fails to respond while still saying it is writing" — and the
-   skill step counted as done.**~~ **Found already done (HISTORY.md §50)** —
-   checked the code before rebuilding, per this file's own rule, rather than
-   trusting that an uncrossed-out item means unbuilt. Both halves are in and
-   tested: `frontend/app.js`'s `STREAM_IDLE_TIMEOUT_MS` (150s) races
-   `reader.read()` and throws a real, visible error ("The model stopped
-   responding...") when nothing arrives at all; `skill_runner.py`'s
-   `not answer and not ran_any_tool` branch reports a step `failed` with
-   `"the model didn't respond — no answer and no tool call"` instead of
-   falling through to `done`, pinned by
-   `test_a_step_that_produces_nothing_is_not_ticked_done`. This was §41's
-   own work (see HISTORY.md) — ROADMAP.md simply never got the strikethrough.
+   skill step counted as done.**~~ **Found already done (HISTORY.md §50,
+   §41)** — checked the code before rebuilding, per this file's own rule.
 3. ~~**Skills producing network errors, or models that cannot run them.**~~
-   **Found already done (HISTORY.md §50), same staleness.** `went_offline`
-   in `skill_runner.py` stops the run and reports `"Ollama isn't reachable
-   — check Settings → Models and try again."` rather than repeating the
-   same failure on every later step, pinned by
-   `test_a_network_failure_mid_step_stops_the_run_instead_of_repeating`. The
-   reason names the step (`index`) and the cause (`reason`), and
-   `skill_from_step` already resumes from it — also §41's work.
+   **Found already done (HISTORY.md §50, §41).**
 4. ~~**Contradictions in the agent prompt around small talk.**~~ **Found
-   already done (HISTORY.md §50), same staleness as items 2/3.** There is no
-   contradiction reaching the model: `routes_chat.py`'s stream only calls the
-   tool-enabled agent (and thus only sends `TOOLS_GUIDE`) when
-   `intent.needs_retrieval(...)` is true, which `SMALLTALK` never is — "Small
-   talk never goes near the agent" is the code's own comment at that gate.
-   `librarian.build_conversational_messages` (small talk's actual prompt
-   path) never references `TOOLS_GUIDE` at all — grepped, not assumed.
-   Directly tested: `test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent`
-   asserts `not fake_ollama.tool_rounds` for a bare "yes", and is explicitly
-   labelled "Tier 1 §4" in its own test file. Likely resolved by the same
-   `answering_agent` work HISTORY.md's §41 already documents.
+   already done (HISTORY.md §50, §41).** Grepped and tested, not assumed —
+   see `test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent`.
 4a. ~~**Eight preferences saved correctly and were honoured correctly, but
     never came back from `GET /preferences`.**~~ **Fixed (HISTORY.md §49).**
-    Found live while adding a notifications-mute toggle to the panel: it
-    saved, the bell icon should have flipped, and it didn't — because
-    `get_preferences()` is a hand-built dict, and the new key wasn't in it.
-    Checking whether the same shape existed elsewhere (rather than assuming
-    this was the only one) turned up seven more: every Autonomous Background
-    Workers toggle, the interval, the model override, battery-efficient
-    mode, and smart model routing — all settable, all correctly read by
-    `autonomous.py`/`model_manager.py` straight from storage (so the
-    *behaviour* was never wrong), but never once echoed back. Every one of
-    those Settings checkboxes showed unchecked again the moment the page
-    reloaded or the panel reopened, regardless of what was actually saved
-    and actually in effect — the exact shape of "keeps disabling itself"
-    this project has chased before (§42), from a different cause. Verified
-    live: PUT a value, GET it back, on the real running app, not just a
-    passing test — the gap survived every test in the suite because nothing
-    ever asserted what `GET /preferences` echoes, only what the backend
-    that reads it *does*.
-5. ~~**Decide what notifications are for.**~~ **Already done** — found stale
-   while auditing the list this session (checked before building, per this
-   file's own standing rule). The audit itself: `recordNotification` has
-   exactly three call sites — a chat/skill run that stopped early
-   (`app.js` ~5743), a reminder coming due (~15648, plus folding in anything
-   overdue on the server when the panel opens, ~15525), and every finished
-   background job via `renderTaskHistory` (~17427), which is *every* job
-   `routes_tasks.collect()` lists — including the embedding-model download
-   this session added to that list (§6 below), so it reached the
-   notification centre automatically rather than needing its own wiring.
-   Nothing raises a notification outside those three paths. Verified by
-   tracing every call site, not by driving it in a browser — say so plainly:
-   if this is re-reported, that is the half still worth checking live.
+5. ~~**Decide what notifications are for.**~~ **Already done** — audited and
+   traced by call site (HISTORY.md), not driven in a browser — say so if
+   this is re-reported.
 6. ~~**Background tasks that never appear.**~~ **Found already done
-   (HISTORY.md §50).** Did the sweep this item asked for rather than trusting
-   the uncrossed-out entry: every `threading.Thread(` call site in
-   `src/memorymap` checked by hand against `routes_tasks.collect()`. All
-   nine are covered — reindex/pull (`model_manager.py`), embedding warmup
-   (`embeddings.py`), the autonomous pass (`autonomous.py`, both the
-   scheduler and the manual trigger — correctly keyed off "is a pass
-   *executing*", not "is the scheduler thread alive", so an idle scheduler
-   sleeping until 3am doesn't falsely show as running), SearXNG's install
-   *and* start phases (`searxng_manager.py`; `app.py`'s autostart thread
-   calls the same `start()` and shares its state, so it needed no separate
-   entry), the embedding-model download (`embedmodels.py` — already carries
-   its own "Tier 1 §6" comment at the call site, so this was fixed in an
-   earlier pass and just never got the ROADMAP strikethrough), and extras
-   install/uninstall (`extras.py`). The one thread genuinely *not*
-   registered — `security.py`'s per-request DNS-reachability probe — is
-   correctly excluded: it blocks inside the request that spawned it and
-   resolves in milliseconds, not a background job a user would come looking
-   for on this screen. `tests/test_tasks.py` and `test_embedding_models.py`
-   already assert each kind appears, including the exact "the download is
-   running but /tasks doesn't know" regression this item describes.
+   (HISTORY.md §50).** Every `threading.Thread(` call site checked against
+   `routes_tasks.collect()`; all nine are covered.
 7. **Claim-specificity in the hallucination net.** `agent.unsupported_claims`
    catches a claim with *no* matching write ("I tagged it" when nothing was)
    but not one that mismatches what happened ("I tagged it as Work" when a
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide — named rather than guessed at.
 8. ~~**Two backend perf findings.**~~ **Done (HISTORY.md §44).**
-   `_graph_neighbours`'s full-table scan is now pre-filtered with `ilike` per
-   tag (same pattern `list_tags`/`_count_notes` already used elsewhere in the
-   file) before the exact Python check, cutting it from one full-table fetch
-   per BFS node to one narrowed query; `_note_summary`'s per-row
-   `entry_dates` call is now `manager.entry_dates_bulk`, one `WHERE entry_id
-   IN (...)` for the whole page instead of one `SELECT` per row in
-   `list_notes`/`summarize_notes`. Both pinned by query-count regression
-   tests in `test_scale_query_counts.py` rather than timing, matching that
-   file's existing convention.
 9. ~~**A "completed" notification for a background pass the user never
-   enabled.**~~ **Done (HISTORY.md §44).** Reported directly and reproduced
-   live (not guessed at): `POST /tasks/trigger-autonomous` ran a real
-   optimisation pass regardless of the `autonomous_tasks_enabled` master
-   toggle — only the scheduled loop checked it before ever calling in; the
-   "Run optimization now" button being hidden while the toggle is off is a
-   UI convenience, not an authorization check. The route now checks the
-   toggle itself before calling `trigger_now`.
+   enabled.**~~ **Done (HISTORY.md §44).**
 10. ~~**Every graph layout except Force shows no connections when the Time
     Filter is moved off "All time".**~~ **Fixed and verified live
-    (HISTORY.md §50).** Diagnosed, not guessed: `applyTimeFilter`'s edge
-    check read `d.source.created_at`/`d.target.created_at`, which only
-    holds a real note timestamp once `d3.forceLink` resolves it — true for
-    Force, never true for Tree/Radial/Arc, whose edges include synthetic
-    category-heading/root nodes (`layoutHierarchy`'s `graphGroupNode`) with
-    no `created_at` at all. `undefined || Date.now()` read every heading as
-    "created this instant", which failed any cutoff short of "All time" and
-    hid the heading *and* every edge touching it (almost all of them — every
-    note's filing edge to its category) the moment the slider moved.
-    Reproduced first with Playwright (Tree: 14/14 edges → 0/14 the instant
-    the slider left "All time"; Force stayed correct at 2/4), then fixed by
-    treating `isGroup` nodes as exempt from the time filter — organising
-    furniture, not a dated note — and re-verified the same way (Tree:
-    14/14 → 4-ish/8, no longer zero, headings stay visible).
+    (HISTORY.md §50).**
 11. ~~**Dragging on empty graph canvas sometimes highlights an unrelated
-    note.**~~ **Fixed and verified live (HISTORY.md §50).** Reproduced with
-    Playwright before guessing: a drag starting and ending on genuinely
-    empty canvas (confirmed via `elementFromPoint`, not assumed) — a pan,
-    not a node-drag — left a node lit with `.graph-focus` long after the
-    cursor moved on. Cause: panning translates the whole canvas under a
-    *stationary* cursor, so a node sliding past mid-pan fires a real
-    `mouseenter`, and the matching `mouseleave` doesn't reliably fire before
-    the button is released. A first fix (clear hover on the zoom's own
-    `start`/`end` events) cut the failure rate but left a race — a
-    `mouseenter` mid-gesture could re-set the hover after `start` had
-    already cleared it. Fixed properly with a `graphIsPanning` flag that
-    mutes hover mouseenter/mouseleave for the whole gesture, not just its
-    two ends; 6/6 clean Playwright runs after, versus reproducing the stuck
-    highlight on the unpatched code every time.
+    note.**~~ **Fixed and verified live (HISTORY.md §50).**
 12. ~~**Clicking a whiteboard card or object to select it silently didn't
-    work.**~~ **Fixed and verified live (HISTORY.md §57).** Found while
-    live-testing mind-map selection, not reported first: `dragStart`'s
-    (and `objDragStart`'s) unconditional `d3.select(this).raise()` on
-    every pointerdown — including a plain zero-movement click — reappends
-    the card as its parent's last DOM child mid-gesture, which is enough
-    to stop the browser synthesizing the following `click` event at all.
-    Confirmed by instrumenting the card's own click handler, the
-    container's "empty canvas" handler, and a plain sketch's own click
-    handler (which selects correctly, and never calls `.raise()` in its
-    own "start") side by side. Fixed by moving `.raise()` into the drag
-    handler, which — unlike "start" — only runs after real movement.
+    work.**~~ **Fixed and verified live (HISTORY.md §57).**
 13. ~~**Two features silently shared the same Ctrl+K shortcut.**~~ **Fixed
-    (HISTORY.md §57).** The navigation command palette (`openPalette`) and
-    a separately-built "ask the agent anything" quick-command overlay both
-    bound the identical global Ctrl+K keydown, independently — the second
-    sat later in the DOM and silently ate every click meant for the first.
-    Found live while testing a new command-palette entry. Rebound the
-    "ask anything" overlay to Ctrl+Shift+K.
+    (HISTORY.md §57).**
 
 ### Tier 2 — half-built features, cheap to finish
 
 Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
-8. ~~**Skill runs: an auto/manual mode.**~~ **Done (HISTORY.md §45).** Reuses
-   `stopped_at`/`start_at` — the same resume machinery a failed or stalled
-   step already had — rather than a second mechanism: after every step that
-   finishes `done`, `run_skill(..., manual=True)` stops there too, with a new
-   `result.paused` flag so the client can tell "waiting for you" from
-   "something broke" and render each one differently. A `manual_note`
-   (`skill_manual_note` over the wire) is folded straight into the *next*
-   step's own instruction, not appended to history, so it reads as part of
-   what the model is being asked to do right now rather than something it
-   may or may not weigh against everything else in the window. A "Run
-   skills step-by-step" checkbox lives in the chat dock's `⚙` settings
-   panel; the pause renders as a text box + Continue button, not a failure
-   notification. **Not built**: the same pause for a plan run (`opts.plan`)
-   — the backend already treats a plan identically to a skill, but the
-   existing Resume-from-failure button was already skill-only before this
-   session, so extending both to plans is one further, separate change, not
-   a gap this feature introduced. **Not verified live** — six new backend
-   tests (`test_skills.py`) cover the pause/resume/note-folding behaviour
-   through the real streaming endpoint with a fake model, but the checkbox
-   and the pause card's text box were not driven in a browser this session.
-9. ~~**A reason on every link.**~~ **Done, including a confidence score and
-   an editor (HISTORY.md §43).** Optional `reason` column on `entry_links` —
-   "a note about uni and gym might still be related if they're both about
-   scheduling." Writable by `link_notes` and the manual `/entries/{id}/links`
-   endpoint; shown on the graph edge as a native SVG tooltip, in Trace's
-   readout (`entry/paths.py`'s `Step.how`), and in `related_notes`' own `how`
-   field so the model can reason about *why* two notes relate. When nobody
-   gives a reason, `manager.create_link` tries to deduce one from embedding
-   similarity and attaches a `reason_confidence` (0–1) alongside it — below
-   the threshold, or with no embedding to check, it stays as no reason at
-   all rather than a weak guess. Editable and clearable by hand afterwards
-   (`PUT /entries/{id}/links/{link_id}/reason`, a ✎/⊘ pair on the note
-   card's own link chips), which resets any deduced confidence since a
-   person's words aren't a similarity score. Turns the graph from "these are
-   connected" into "connected *because*" — which is also what makes Trace
-   worth reading. **Extended (HISTORY.md §44):** asked directly — a
-   suggestion in the Graph tab's "Notes that look related" panel showed a
-   bare percentage with no sense of *why*; `GET /entries/link-suggestions`
-   now carries the same `reason` text a link would get if approved (the two
-   thresholds are numerically identical, so this is a preview of the real
-   outcome, not a separate guess). And: *"none of my notes have a linked
-   reason yet — is there an easy way to give them all a reason?"* — there
-   wasn't, since deduction only ever ran at the moment a link was first made.
-   `POST /entries/links/backfill-reasons` (`manager.backfill_link_reasons`)
-   runs it once over every existing reason-less link, behind a button next
-   to Suggest links. ~~**Asked again this session: "can there be a way to
-   visually see link reasons in the graph?"**~~ **Done (HISTORY.md §61).**
-   A manual link edge with a reason now carries `.graph-edge-reasoned` —
-   visibly distinct weight/colour, not just a hover tooltip — and clicking
-   any manual-link edge opens a real management panel: both note previews,
-   the reason in an editable textarea, Save and Remove-link. Needed the
-   link's own row id, which `/graph`'s edge payload never carried before
-   this; added, with the two pre-existing exact-shape tests updated to
-   match rather than loosened. **Asked for directly, not yet built:** the
-   same backfill as an agent-callable tool/skill, so it can run unattended
-   (a manual pass, or folded into the autonomous background worker's own
-   task list — see item 31) rather than only a button someone has to click.
-   Also asked for: **the deduction should weigh temporal words as well as
-   embedding similarity** — two notes both mentioning "next Tuesday" or
-   written the same day read as related even when their topics don't
-   overlap semantically. `_deduce_reason` today is embedding-only
-   (`AUTO_REASON_THRESHOLD`); this needs a second signal folded in (or
-   compared against) using `entry.timewords`/`EntryDate`, not a wholesale
-   replacement of the embedding check — a note from "next Tuesday" and one
-   from "last Tuesday" are not related just because they share a weekday.
+8. ~~**Skill runs: an auto/manual mode.**~~ **Done (HISTORY.md §45).**
+   **Not built**: the same pause for a plan run (`opts.plan`) — the
+   existing Resume-from-failure button was already skill-only before this,
+   so extending both to plans is a separate change. **Not verified live** —
+   backend tests cover it through a fake model; the checkbox and pause card
+   were not driven in a browser.
+9. ~~**A reason on every link.**~~ **Done, including a confidence score,
+   an editor, backfill, and a visual graph treatment (HISTORY.md §43, §44,
+   §61).** `entry_links.reason` (deduced from embedding similarity when
+   nobody supplies one, editable/clearable by hand), surfaced on the graph
+   edge, in Trace, in `related_notes`, and in link suggestions.
+   **Asked for directly, not yet built:** the backfill as an agent-callable
+   tool/skill so it can run unattended (see item 31). Also asked for: **the
+   deduction should weigh temporal words as well as embedding similarity**
+   — two notes mentioning "next Tuesday" or written the same day read as
+   related even when their topics don't overlap semantically. `_deduce_reason`
+   today is embedding-only (`AUTO_REASON_THRESHOLD`); needs a second signal
+   folded in via `entry.timewords`/`EntryDate`, not a wholesale replacement.
 10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
-    invisible~~ **Fixed (HISTORY.md §46)**: `globalAlpha` was `0.05` — around
-    twenty overlapping passes before a stroke showed at all, which is the
-    "completely wrong" in the report — now `0.35`, verified live (pixel
-    read-back and a screenshot, not just the code). **Checked before
-    touching anything, per this file's own rule**: a size control
-    (`#sketch-size`) already existed and already reached every tool
-    (pen/highlighter/eraser and every shape's stroke width all read
-    `sketchPen.size`) — this file's own claim that it was missing was stale.
-    ~~A background colour for the canvas~~ **Done (HISTORY.md §46).** A
-    colour picker (`#sketch-bg-color-picker`) next to the image-upload
-    button, persisted in `localStorage` the same way the whiteboard's own
-    board colour is. **The one real trap this hit**: a first pass wired it
-    as a CSS `background` on `#sketch-bg-canvas`, which did *nothing* —
-    `sketchDrawBackground()` already paints an opaque `fillRect` into the
-    canvas's own pixels every time the pad opens or an image loads, and
-    those pixels sit in front of (and fully hide) any CSS background on the
-    element underneath them. Fixed by making the fill colour itself
-    `sketchBgColor` instead of a hardcoded `"#ffffff"` — the actual pixels a
-    save composites, verified live by reading the saved-PNG composite's own
-    pixel data back, not just the on-screen canvas. ~~Holding Shift while
-    drawing a shape constrains it~~ **Fixed for the rect tool** (forces a
-    square instead of a rectangle), verified live by reading back the
-    drawn pixels' bounding box mid-drag. **Still genuinely open**: a
+    invisible~~ **Fixed (HISTORY.md §46).** ~~A background colour for the
+    canvas~~ **Done (HISTORY.md §46)**, including a real CSS-vs-canvas-pixel
+    trap the fix hit — see there. ~~Holding Shift while drawing a shape
+    constrains it~~ **Fixed for the rect tool** (forces a square). **Still
+    genuinely open**: a
     selection tool (clicking an existing stroke/shape to move, resize or
     delete it; today's tools only ever draw a new one) — the sketch pad is
     pure-raster (`ImageData` snapshots for undo, no discrete stroke
@@ -497,326 +279,86 @@ into a good one.
     was verified.**
 
     **Still genuinely open, ranked by what's actually left.**
-    - ~~**Real anchor/connection points**~~ **Done, verified live (HISTORY.md
-      §56).** Eight fixed points (corners + edge midpoints, as `{x,y}`
-      0–1 fractions of the shape's own bounding box) plus a floating case
-      (no anchor persisted — resolves every render via a rectangle/ray
-      intersection toward whatever the other end actually is), matching how
-      draw.io itself splits the two. `sourceAnchor`/`targetAnchor` live as
-      two more keys in the link sketch's existing `data` blob, exactly as
-      scoped — no migration. All three call sites named above
-      (`dragStart`/`dragging`/`dragEndNode`, `sketchUpdate.each`,
-      `wbUpdateLinkedSketches`) now share `wbLinkEndpoints`/`wbLinkPathD`
-      rather than three copies of the same math. A real, previously-unknown
-      bug was found and fixed along the way (see the whiteboard-fixes entry
-      below) — every resize/rotate handle was `opacity: 0` but not
-      `pointer-events: none`, so an invisible handle intercepted drags at
-      *every* card/object corner for *any* tool, not just while selected;
-      this is very likely why a link-from-corner drag felt unreliable even
-      before anchors existed. **Extended (HISTORY.md §61), asked for
-      directly** ("their anchor points should display... and I should be
-      able to move the points... or even make it a dangling unattached
-      point"): hovering a card with a link tool selected now shows its
-      anchors without needing to start a drag first; a selected link's two
-      endpoints get draggable handles that reattach to a different card
-      (snapping to its nearest anchor) or detach to a free board-space
-      point (`sourcePoint`/`targetPoint`, the same no-migration pattern as
-      `sourceAnchor` before it). Building this found a second real
-      architecture bug, the same way the resize-handle one above was
-      found: the SVG drawing layer renders *under* the HTML card layer by
-      design, so anything meant to be seen or clicked *over* a card was
-      both invisible and unclickable — fixed with `#wb-overlay-layer`, a
-      second SVG layer above the card layer for exactly this.
+    - ~~**Real anchor/connection points**~~, **and dragging an endpoint to
+      reattach or detach it,** **Done, verified live (HISTORY.md §56,
+      §61).** Found and fixed two real architecture bugs along the way —
+      invisible resize/rotate handles still winning the hit-test, and the
+      SVG layer rendering under the HTML card layer — see HISTORY.md.
     - ~~**A mind-mapping mode**~~ **Done — see item 25's own entry (Tier 3)
       and HISTORY.md §57.**
     - ~~**AI + whiteboard, three pieces**~~ **Done, verified (HISTORY.md
-      §57).** `read_whiteboard` (board contents: cards, text boxes, image
-      count, links), `search_whiteboard` (keyword scan across every board —
-      a real embedding index was scoped short as a bigger lift than this
-      pass, see the same section), `add_whiteboard_card`/`add_whiteboard_link`
-      (the write side — place a note, connect two cards, reusing the
-      existing create endpoints). All four registered in
-      `src/memorymap/ai/tools.py`, cued via a `TOOL_GROUPS` entry
-      (whiteboard/board/canvas/diagram/mind map/sketch/draw.io/flowchart)
-      rather than `TOOLS_GUIDE` prose — the fixed prompt prose had 2
-      characters of headroom left under `PROSE_BUDGET_CHARS`
-      (`test_prompt_budget.py`), so this was a deliberate scoping choice,
-      not a miss. 9 new tests in `tests/test_ai_whiteboard_tools.py`,
-      including that `add_whiteboard_card` goes through `_require_note`
-      (refuses a private note) and is idempotent on `(note_id, board_id)`.
-      **Not verified against a live model** — this sandbox's standing
-      caveat about provider behaviour applies here too; the tool logic is
-      real-database-tested, not watched being chosen mid-conversation.
+      §57).** `read_whiteboard`/`search_whiteboard`/`add_whiteboard_card`/
+      `add_whiteboard_link`. **Not verified against a live model** — this
+      sandbox's standing caveat about provider behaviour applies here too.
     - ~~**Sketch rotation.**~~ **Done, verified live (HISTORY.md §61).**
-      `wbTransformPathD` gained a `rotate` parameter: `M`/`L`/`C` rotate
-      normally, `h`/`v` (the rect tool's own axis-aligned relative lines)
-      become absolute `L` since a rotated line can't stay axis-aligned, and
-      `a` (the circle tool's arcs) keeps `rx`/`ry`/large-arc/sweep
-      unchanged (correct for a pure rotation) while rotating the endpoint
-      delta and adding the same angle to the arc's own x-axis-rotation.
-      `rotate=0` confirmed byte-identical to the pre-rotation output. A
-      round rotate handle above a selected sketch, absolute angle-from-
-      vertical drag, baked into `d` on release. Verified with hand-checked
-      arithmetic: a rectangle dragged ~90° produced all four corners
-      matching an exact rotation about its own centre to the pixel.
     - **Image cropping.** Asked about directly; not scoped or built —
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
     - ~~**Uploaded images showing in the Library, and a way to delete
-      one.**~~ **Done (HISTORY.md §61).** New `MediaUpload` table tracks
-      every `/media/upload` regardless of destination (note, document, or
-      whiteboard); `GET /media`/`DELETE /media/{id}` back the Library's
-      Image Gallery, one delete button per tile. Both a note's own inline
-      image and a whiteboard image object now show a dismissible "deleted"
-      box instead of a broken-image glyph once their file is gone. **Still
-      open: orphaned `/media/` garbage collection** — deleting an image
-      through the gallery removes its file and row, but a file that
-      becomes unreferenced some other way (a note edited to remove the
-      markdown line, without ever going through the gallery) is not
-      detected or cleaned up automatically; this is still a manual-only
-      delete, not a sweep.
+      one.**~~ **Done (HISTORY.md §61).** **Still open: orphaned `/media/`
+      garbage collection** — nothing yet reconciles a file against whether
+      any live note/board still references it; still a manual-only delete.
     - ~~**Smart alignment guides while dragging, colour-coded, with
       equal-spacing detection**~~ **Done, verified live (HISTORY.md §58).**
-      Edge/centre snap plus equal-spacing (nearest neighbour each side,
-      O(n) per drag frame), Alt bypasses all of it, three independently
-      recoloured guide kinds (edge/centre/spacing) via pickers in the
-      shape-menu dropdown, persisted to `localStorage`.
     - ~~**Rectangle select and lasso, export selection**~~ **Done, verified
-      live (HISTORY.md §58).** A freeform lasso (ray-cast, centre-point
-      test) joins the existing marquee, both grouped into their own toolbar
-      dropdown (`#wb-select-picker`, same pattern as the shape dropdown).
-      Export gained a "Just the selection" option (PNG/SVG/PDF) that
-      filters to the selected item(s) and crops to their bounds, not just
-      the whole board. **Bug found and fixed (HISTORY.md §61):** the lasso
-      was live-reported as "doesn't work properly" — the card/object/grip
-      drag filters excluded every other tool while the lasso was active
-      *except* the lasso's own pointerdown guard, so dragging a lasso stroke
-      across a card moved the card instead of drawing the lasso. Fixed by
-      adding the lasso to the three drag filters.
+      live (HISTORY.md §58, §61 for a real lasso/drag-filter bug found and
+      fixed along the way).**
     - ~~**Renaming a board, and a Library gallery of every board/mind-map
-      and every uploaded image.**~~ **Done (HISTORY.md §61).** `PUT
-      /whiteboard/boards/{id}` renames a board (rewrites its note's `#
-      heading` line). The Library's Whiteboard area is now two sub-tabs —
-      "Whiteboards" (a board gallery plus "+ New board", replacing the old
-      bare board-switcher dropdown as the way to see what boards exist) and
-      "Image Gallery" (sourced from the new `/media` listing, see the
-      Tier 3 media item below) — restructured mid-session from an initial
-      single combined tab after feedback that the whiteboard canvas itself
-      should be reachable from the same page.
+      and every uploaded image.**~~ **Done (HISTORY.md §61).**
     - ~~**A structured, small-model-friendly "generate a diagram from my
-      notes" tool.**~~ **Done (HISTORY.md §61).** `generate_diagram` takes
-      a flat list of nodes (each a title-or-`note_id`, plus a `parent_ref`)
-      and a `layout` (`tree` or `radial`), and does the BFS depth/slot
-      placement server-side in one call — reusing the existing
-      `wbArrangeMindMap` layout logic rather than making a small model
-      invent `x`/`y` coordinates across many chained
-      `add_whiteboard_card`/`add_whiteboard_link` calls. Capped at 60
-      nodes, refuses ambiguous input (no root, more than one root/a cycle,
-      an unresolvable `parent_ref`, a node with both `title` and `note_id`),
-      and dedups against existing cards on the target board the same way
-      `add_whiteboard_card` does.
+      notes" tool.**~~ **Done (HISTORY.md §61).** `generate_diagram`.
     - ~~**A whiteboard backend/perf pass**~~ **Partly done (HISTORY.md
-      §57).** Asked for directly ("no heavy algorithms, everything
-      efficient"): the backend routes themselves (`get_whiteboard_state`,
-      `list_boards`) were audited and are already flat, aggregate-query
-      shaped — no N+1 found there. The one real issue found was
-      client-side: `allEntries.find(...)` inside each card's per-render
-      content callback (and again in the SVG-export loop) was O(cards ×
-      notebook size) on every single render; replaced with a `Map` built
-      once per call. **Not done**: a real profile against a large,
-      many-hundred-item board (nothing this session was measured against
-      one) — the fixes above are reasoned from reading the code's own
-      complexity, not from a before/after timing.
+      §57).** The one real client-side O(cards × notebook size) issue found
+      is fixed. **Not done**: a real profile against a large, many-hundred-
+      item board — nothing this session was measured against one.
     - ~~**A full line/arrow end-cap system**~~ **Done (HISTORY.md §61).**
-      Independent start/end cap pickers (none/arrow/circle/square/
-      multiline) replace the old single shared arrowhead control, for both
-      the Line and Arrow tools. Caps are computed from the path's own
-      tangent at each end (`wbCapPath`), so they track rotation and
-      resizing rather than being drawn at a fixed angle.
 12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
     (HISTORY.md §47).** Checked before touching anything, per this file's
-    own rule: every place a link chip renders (a note card's own links, the
-    "Similar" panel, a reminder's attached note) already calls `flashEntry`
-    on click, which switches to Notes → Browse, clears any active filter,
-    and scrolls the target into view with a highlight — the same function
-    search results and wiki-style `[[links]]` already use. This file's own
-    claim that they were "decoration" was stale, likely inherited from
-    before that wiring existed; nothing here needed building.
+    own rule — nothing here needed building.
 13. ~~**"Take me to the thing the agent just changed," the UI half.**~~
-    **All four kinds now done (HISTORY.md §47, §51).** The document half
-    was done in §47: `agent._change_document_id` has resolved a real
-    document id on every write since §21, and `changeRow` — the one place
-    both the chat's "what changed" list and the autonomous-pass review
-    panel render a change — reads it, reusing `openDocumentFromNote`.
-    **Reminders and categories, done this session**: `agent.py` gained
-    `_change_reminder_id` (`set_reminder`/`complete_reminder`, an int id —
-    the same shape as `_change_note_id`) and `_change_category_name`
-    (`create_category`/`rename_category`/`merge_categories`, a *name*, not
-    an id — every category tool already works in names, so this names the
-    field that carries one rather than inventing an id nothing else uses;
-    `delete_category` is destructive like `delete_document` and never
-    reaches this code path). `changeRow` grew two more View buttons:
-    `flashReminder(id)` switches to the Reminders tab, forces the filter to
-    "all" (the change that brought you here — completing a reminder — is
-    exactly the case where the default "open" filter would hide it), and
-    scroll-flashes the item the same way `flashEntry` does for notes;
-    `flashCategory(name)` reuses the sidebar's own category filter
-    (`activeCategory`) rather than building a second filtering mechanism.
-    Verified live end to end: created a real reminder and a real note in a
-    fresh category via the API, called both functions directly, confirmed
-    the tab switched, the item was found in the DOM, and (after waiting the
-    two animation frames the flash needs) the `.flash` class was actually
-    applied.
+    **All four kinds now done (HISTORY.md §47, §51).** Notes, documents,
+    reminders and categories each get a View button on their change row,
+    verified live end to end.
 14. **Timeline line view, and text placement in grid view.** The grid view's
-    text-placement half is **done**: `.timeline-dot`'s `line-clamp: 3` was
-    unprefixed under a `-webkit-box` display, a combination this Chromium
-    doesn't connect — `-webkit-line-clamp` computed to `none`, so nothing
-    was actually clamping and a long preview just hard-cropped mid-word
-    with no ellipsis. Fixed (the `-webkit-` property, kept alongside the
-    standard one), plus the backend's own `preview` field, which was a bare
-    `text[:120]` slice with no "…" on truncation even before the CSS ever
-    saw it. **Re-reported after that fix, still cut off** — four full lines
-    with no ellipsis this time, not reproduced in this sandbox's Chromium
-    (a live check found nothing overflowing at all: `scrollHeight ===
-    clientHeight`). A defensive `max-height` independent of
-    `-webkit-line-clamp` support was added as a safety net (HISTORY.md
-    §49-adjacent, same session as §48's Arc investigation) but this is
-    hardening, not a diagnosis — if it's still cut off after this, the next
-    session needs the actual browser/OS this is happening in, since two
-    separate attempts from this sandbox's Chromium haven't reproduced it.
-    ~~**Also reported: the line-view's own note popup shows no markdown
-    rendering and no sketch/image attachment preview.**~~ **Fixed and
-    verified live (HISTORY.md §51).** `openTimelinePopup` set the content
-    with `.textContent`, showing literal `**`/`#` characters, and never
-    touched `#timeline-popup-media` at all — the div existed in the HTML
-    (reusing the graph popup's own CSS class) but nothing ever populated
-    it, a "feature that never ran once". Rewired to reuse `renderMarkdown`
-    (the note card's own renderer) and a `renderTimelinePopupMedia`
-    mirroring `renderGraphPopupMedia` almost exactly — same
-    `attachmentObjectUrl`/`openLightbox` calls, so a click still opens the
-    full-size lightbox. The popup's position, computed once from its
-    un-loaded size, is now recomputed after an image's thumbnail finishes
-    loading too (`placeTimelinePopup`, the same fix the graph popup already
-    had for the same reason). Verified live end to end against a real
-    server: a note with `# Heading` and `**bold**` rendered as real
-    `<h3>`/`<strong>` elements, no literal asterisks; an uploaded PNG
-    attachment showed as an `<img>` with a real `blob:` src, not just
-    reasoned from the code. **Still open:** the line view itself —
-    reported as needing a real visual pass ("very professional and ready
-    for public use"), and grid view could still take general UX polish
-    beyond the text-cropping fix (not scoped further — say what
-    specifically, next time it's reported).
+    text-placement half is **done**: an unprefixed `line-clamp` fixed
+    (kept alongside `-webkit-line-clamp`), plus the backend's `preview`
+    field truncating with an ellipsis. **Re-reported after that fix, still
+    cut off**, not reproduced in this sandbox's Chromium; a defensive
+    `max-height` was added as a safety net (HISTORY.md §49-adjacent) but
+    this is hardening, not a diagnosis — the next session needs the actual
+    browser/OS this is happening in. ~~**Also reported: the line-view's own
+    note popup shows no markdown rendering and no sketch/image attachment
+    preview.**~~ **Fixed and verified live (HISTORY.md §51).** **Still
+    open:** the line view itself — reported as needing a real visual pass
+    ("very professional and ready for public use"), and grid view could
+    still take general UX polish beyond the text-cropping fix (not scoped
+    further — say what specifically, next time it's reported).
 15. ~~**Arc view: labels clashing with the connection arcs**~~ **Fixed and
-    verified live with a screenshot (HISTORY.md §52).** The earlier
-    "labels behind nodes" framing was investigated live (§48) and never
-    reproduced — DOM order already put labels on top, z-order was never
-    the problem. Re-reported with an actual screenshot, and the real bug
-    was *position*, not z-order: the label's tilt (`rotate(-40, ...)`)
-    pointed labels *up*, into exactly the strip above the baseline
-    `arcPath`'s connection arcs curve through, so text and arcs fought for
-    the same space. Measured live before fixing: 9 of 10 labels' bounding
-    boxes overlapped a `.graph-edge`. Flipped the tilt to `rotate(40,
-    ...)` — down instead of up — moving every label into the arcs' empty
-    side while keeping the same anti-collision shape (still angled,
-    reading outward). Confirmed two ways: a fitted screenshot showing
-    labels clearly below the row with the arcs undisturbed above it, and a
-    geometry check (`labelMostlyBelowNode`) true for every label, false
-    before the fix. The refinement pass's other piece — the trace overlay
-    drawing a straight chord through the row instead of its own taller
-    arc — was already **done** in an earlier session.
-
-    **Re-reported once more, with a screenshot, after the fix above**:
-    labels still read as attached to the wrong node — not z-order or
-    tilt-direction this time, but density. At the old spacing (`ARC_STEP`
-    46px, up to 20-character labels, `rotate(40, ...)`), a 20-char label's
-    horizontal reach was `20 × ~6.5px × cos(40°) ≈ 100px` — two-plus
-    node-steps — so a label's own tail routinely landed under a *later*
-    node, exactly the "category name is on the note, the note's text
-    starts on the category node" symptom described. Fixed by widening
-    `ARC_STEP` to 58px, shortening `ARC_LABEL_LIMIT` to 12 characters, and
-    steepening the tilt to `rotate(58, ...)` (more vertical, less
-    horizontal reach per character) — **not re-verified with a fresh
-    screenshot this session (token budget)**, so treat this as reasoned
-    from the same geometry that diagnosed it, not re-measured live; worth a
-    screenshot check first thing next session. **Also asked for directly**:
-    category labels only differed by weight/size before, not colour —
-    `.graph-label-group` now also gets `fill: var(--accent)` in both light
-    and dark mode, so a category reads as a different *kind* of label, not
-    just a bigger note preview.
+    verified live with a screenshot (HISTORY.md §52), through two rounds
+    of re-reports** (tilt direction, then label density/spacing) — the
+    second round's fix (`ARC_STEP`/`ARC_LABEL_LIMIT`/tilt angle) was **not
+    re-verified with a fresh screenshot** (token budget); worth a check
+    first thing next session if this recurs. Category labels also got a
+    distinct colour (`fill: var(--accent)`), asked for directly.
 16. **Documents in the graph.** They are notes' equal everywhere else.
 16a. ~~**The document editor's sidebar, reported directly with
     screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The
-    sticky/floating half was already done — `#doc-sidebar` already has
-    `position: sticky` — stale by the time it was reported, corrected
-    rather than rebuilt. The Outline-collapses bug was real and reproduced
-    live before touching anything: 10 headings' outline went from 258px
-    tall to exactly **0px** the instant the storage disclosure opened.
-    Cause: `.doc-sidebar > details` was `flex: 0 0 auto` — flex-shrink
-    *zero*, meaning it was **exempt** from shrinking — while the outline
-    sitting above it had no minimum height at all, so the entire squeeze
-    landed on the one sibling that could give and had nothing to give.
-    That's backwards from what the block's own comment already said the
-    intent was ("the help disclosure gives up its space first"). Fixed by
-    giving the outline a real floor (`min-height: 4rem` — enough for a few
-    entries even under pressure) and actually making the disclosure
-    shrinkable with its own internal scroll, so it's now the one that
-    yields. Re-measured live after the fix: outline settles at ~100px
-    (visible and scrollable) instead of 0, disclosure scrolls its own
-    overflow instead of forcing the outline out.
+    sticky/floating half was stale-by-report, already done. The
+    outline-collapses bug was real (a `flex: 0 0 auto` disclosure exempting
+    itself from shrinking while the outline above had no floor) and fixed.
 16b. ~~**The document editor's bold/italic don't toggle off.**~~ **Fixed
-    and verified live (HISTORY.md §51).** `wrapDocSelection` (`app.js`,
-    shared by the toolbar buttons and Ctrl+B/Ctrl+I) only ever wrapped —
-    applying Bold to an already-bold selection stacked a second `**` pair
-    instead of removing the first. Now checks both shapes a selection can
-    be in before wrapping: markers just outside it (`**|bold|**`) or
-    markers included inside it (`|**bold**|`) — either way, a second press
-    strips them instead of stacking. Verified live through the real
-    `#doc-content` textarea and `wrapDocSelection` itself, not a unit test
-    (this file has no JS test runner): `hello world` → Bold → `**hello**
-    world` → Bold again → back to `hello world`, byte for byte; the
-    whole-span-selected and italic cases both round-tripped the same way.
-    **Still open**: "a bunch of missing features... could be improved a lot
-    more" was named but not itemised — needs a concrete list from the user
-    before a session can act on more than the toggle bug.
+    and verified live (HISTORY.md §51).** `wrapDocSelection` now detects
+    and strips existing markers instead of only ever wrapping. **Still
+    open**: "a bunch of missing features... could be improved a lot more"
+    was named but not itemised — needs a concrete list before more work.
 16c. ~~**Images and files still can't be copied, pasted, or dragged into
     notes.**~~ **Two of three already worked — checked live before
-    building anything (HISTORY.md §51).** A global `document`-level
-    `paste`/`dragover`/`drop` handler (`app.js`, matches *any* `<textarea>`
-    generically, not a note-specific one) already uploads to
-    `/media/upload` and inserts markdown — and `#entry-content` (Capture)
-    is a `<textarea>`, so it was already covered without anyone having
-    wired it specifically. Verified live, not assumed: dispatched a real
-    `paste` and a real `drop` event carrying a PNG file at `#entry-content`
-    on a running server, both produced `![name](/media/…)` in the
-    textarea. **The third path — a file-picker button — was genuinely
-    missing and is now built**: `📎 Attach` next to Capture's other
-    buttons, wired to the same `handleFileUpload` the paste/drop paths
-    already use, so all three insert identically. Verified live with a
-    real file chooser (Playwright's `filechooser` event, a real PNG on
-    disk, not a synthetic DataTransfer): picking it produced the same
-    `![name](/media/…)` markdown. One trap this hit and is worth recording:
-    Capture lives in the Notes tab's `capture` sub-section — `switchTab
-    ("notes")` alone leaves it `display: none` and the button unclickable;
-    needs `showNotesSection("capture")` too, the same trap CLAUDE.md's own
-    traps list already names for a different Notes-tab element.
+    building anything (HISTORY.md §51).** The third path — a file-picker
+    button (`📎 Attach`) — was genuinely missing and is now built.
 16d. ~~**An optional title field in Capture, and everywhere a note can be
-    created.**~~ **Decided and built (HISTORY.md §52).** Confirmed
-    directly: write the leading `# {title}` heading line into `content` on
-    save — the exact shape `manager.extract_title` already reads — rather
-    than a second stored field. `#entry-title` in Capture and
-    `#graph-new-note-title` in the graph's own "+ New note" popup (the
-    two dedicated note-creation forms; voice dictation, templates, and
-    quick actions all funnel into Capture's own textarea already) share
-    one `withTitle(content, title)` helper, so a title typed in the box
-    and one typed as the note's own first line produce byte-identical
-    content. Also confirmed working, unprompted: a note started with a
-    single `#` (not just `##`–`######`) was already read as a title by
-    `extract_title` before this change — nothing needed building there.
-    Verified live end to end: a title typed in Capture round-tripped to
-    `# My Explicit Title\n\n...` in the saved note and the field cleared
-    after save; a bare `#` line typed directly into the body was read back
-    with the same computed title; the graph popup's own field produced
-    identical behaviour.
+    created.**~~ **Decided and built (HISTORY.md §52).** Writes the leading
+    `# {title}` heading line into `content` on save, verified live end to
+    end from both Capture and the graph's "+ New note" popup.
 16e. **Decision made, not yet built**: both a native-OS picker and a
     built-in in-app palette, same pattern as 16f — a toggle in Settings →
     Appearance picks which one opens. Not scoped further (which inputs get
@@ -850,38 +392,17 @@ into a good one.
     before building" theme) is precisely the failure mode it keeps warning
     about.
 17. ~~**Battery-saver: an indicator and an honest description.**~~ **Done —
-    both halves, one already there.** Checked before writing this — the
-    indicator already exists (`#power-saver-indicator`, a
-    status-bar chip shown/hidden from `battery_efficient_mode`) and is wired
-    on both load and toggle, so that half was already done and this file
-    hadn't been told. The "honest" half had a real bug, now **fixed**: the
-    autonomous loop only re-read `battery_efficient_mode` (and the on/off
-    toggle, and the interval) once per scheduled tick, sleeping up to the
-    full interval — six hours by default — between reads. Turning battery
-    mode off, or the scheduler back on, did nothing until that sleep ran
-    out, which is what "background tasks skip things thinking battery mode
-    is on" and "finishing a task disables automatic tasks" actually were.
-    `autonomous.wake()` now interrupts the sleep; `PUT /preferences` calls
-    it whenever a preference the loop reads changes.
+    both halves, one already there (the indicator).** The "honest" half had
+    a real bug, now fixed: the autonomous loop only re-read
+    `battery_efficient_mode`/the toggle/the interval once per scheduled
+    tick, so turning either off did nothing until the sleep ran out.
+    `autonomous.wake()` now interrupts it.
 18. ~~**The full-screen graph's suggested-links list ran off the bottom
     without scrolling.**~~ **Fixed and verified live (HISTORY.md §51).**
-    `#graph-card`'s own `overflow: hidden` (added in an earlier session for
-    a different bug — see its own comment) still applied in full screen,
-    since an ID beats a class on specificity regardless of source order —
-    a plain `.graph-fullscreen { overflow-y: auto }` would have lost that
-    fight silently. Measured live before fixing: toolbar + open Options +
-    15 suggestions was 1061px of content in a 498px fullscreen window, and
-    `overflow: hidden` meant the last several suggestions weren't merely
-    unscrolled — they were unreachable, full stop. Fixed with
-    `#graph-card.graph-fullscreen { overflow-y: auto }` (an id *and* a
-    class, which wins outright), and confirmed live that the last
-    suggestion goes from off-screen-and-permanent to reachable by scrolling
-    the fullscreen view. **"The sketch/image toggles" part of this item
-    couldn't be matched to anything in the current Options panel** (it has
-    Similarity/Hide-unlinked/Labels, no sketch or image controls) — likely
-    a stale or mis-transcribed note from whatever session first triaged
-    this; left unaddressed rather than guessed at, and worth asking
-    directly what it referred to if it's still wanted.
+    An id-vs-class specificity tie (`#graph-card`'s `overflow: hidden`
+    beating a plain `.graph-fullscreen` rule). **"The sketch/image
+    toggles" part of this item couldn't be matched to anything in the
+    current Options panel** — left unaddressed rather than guessed at.
 19. **First-run onboarding, the rest.** Reachability diagnostics are built;
     still open: offering to pull a model, a data-dir writability check,
     seeded example notes so the graph, timeline and dashboard have something
@@ -894,17 +415,9 @@ into a good one.
     already exists as a surface (see CLAUDE.md's login recipe); worth
     checking what it currently does before scoping a tour on top of it.
 19a. ~~**The graph toolbar's controls read as one undifferentiated strip.**~~
-    **Done (HISTORY.md §44).** Reported directly: `.graph-time-label` ("All
-    time") is a plain read-out of the Time Filter slider, styled identically
-    to the *interactive* toggle labels (Similarity/Hide unlinked/Labels)
-    sitting right after it with the same flex gap, so nothing marked where
-    one group ended and the next began. The three toggles are now grouped
-    under one `.graph-toggle-group` span with a divider drawn before each
-    group (`.graph-physics`/`.graph-temporal`/`.graph-toggle-group`), the
-    same `+`-selector convention `.chat-tool-group` already used, so the row
-    reads as Physics | Time | Toggles rather than one strip. **Not verified
-    live** — CSS-only, reasoned from the DOM/selectors and the existing
-    `.chat-tool-group` precedent, not screenshotted in this session.
+    **Done (HISTORY.md §44).** Grouped under `.graph-toggle-group` with
+    dividers. **Not verified live** — CSS-only, reasoned from the DOM, not
+    screenshotted.
 19b. **A mute-notifications option, asked for directly**, alongside making
     the toast/notification split clearer: "there can be an option to mute
     notifications except for reminders." Built as
@@ -977,31 +490,15 @@ Worth doing, and worth doing after the above.
     asked for directly this session as "separate from the whiteboard gallery
     I just built"), and drag-to-attach.
 20a. ~~**A Library "Media/Images" gallery tab**~~, **and garbage-collecting
-    orphaned `/media/` files** (still open). The decision this item asked
-    for is made and built (HISTORY.md §61): every `/media/upload` now gets
-    a `MediaUpload` row (filename, original name, timestamp), which is
-    what the new Library "Image Gallery" sub-tab lists, and what
-    `DELETE /media/{id}` uses to remove a file plus its row. A note's own
-    inline images now also fail visibly and manageably instead of silently
-    — a broken `<img>` (from a note, or from a whiteboard image object)
-    renders a closable "deleted" placeholder in its place, and the file
-    action menu's Download/Delete on a gallery item both work (Download
-    was pointed at the wrong URL before this session; Delete didn't
-    exist). **Still open:** nothing yet reconciles `/media/` files on disk
-    against live note content, so an image referenced only inline in a
-    note's markdown (not tracked via the note's own attachment list) that
-    gets pasted over or the note deleted still leaks a file with a
-    `MediaUpload` row nobody will ever call delete on. That reconciliation
-    pass — not the tracking/gallery/delete plumbing — is what remains of
-    this item.
+    orphaned `/media/` files** (still open). The gallery/tracking/delete
+    plumbing is built (HISTORY.md §61, `MediaUpload` table, `GET /media`,
+    `DELETE /media/{id}`). **Still open:** nothing yet reconciles `/media/`
+    files on disk against live note content — an image referenced only
+    inline in a note's markdown that gets pasted over or the note deleted
+    still leaks a file nobody will ever call delete on.
 20b. ~~**An "Agent Activity" background-task popup cleanup pass.**~~ **Done
-    (HISTORY.md §61).** The concrete overlap this item asked for a list of
-    turned out to be one bug: `.agent-monitor` was pinned to `right: 20px`,
-    the same corner several whiteboard floating panels anchor to, so the
-    monitor toast sat on top of them at some viewport sizes. Moved to
-    `left: 20px`; the dead compensating CSS rule for the old position
-    (`body.has-agent-monitor .whiteboard-floating-panel.bottom-right`) was
-    removed with it.
+    (HISTORY.md §61).** `.agent-monitor` shared `right: 20px` with several
+    whiteboard floating panels; moved to `left: 20px`.
 21. **A persona on the welcome messages.** Small, and it makes the app feel
     like one thing rather than a chat bolted to a notebook.
 22. **Meeting recordings as first-class objects**: pause/resume, replay, save
@@ -1020,15 +517,7 @@ Worth doing, and worth doing after the above.
     different — screenshot the two side by side — before assuming it's this
     item rather than a tuning pass on the existing force simulation.
 25. ~~**Mind-mapping — decided: a whiteboard mode, not a third tab.**~~
-    **Done, verified live (HISTORY.md §57).** Both additions built exactly as
-    scoped: "Arrange as mind map" (Tree or Radial, in the properties panel
-    for a linked card) reuses the Graph tab's own `d3.hierarchy`/`d3.tree`
-    approach against the whiteboard's node/link data via a BFS spanning
-    tree, not a second layout engine; Tab (linked child, next open radial
-    slot) and Enter (sibling) both create a real note+card+link. Verified
-    live: a 4-card hub-and-spoke arranged radially put every child at
-    exactly the configured ring distance from the root; Tab/Enter both
-    produced real, correctly-parented cards.
+    **Done, verified live (HISTORY.md §57).**
 26. **Widgets: a picker**, and more of them. Customisable sidebars, and note
     view options in the Notes tab. Asked for directly as "a widget management
     hub popup on the dashboard, like a widget marketplace" — the foundation
@@ -1062,46 +551,17 @@ Worth doing, and worth doing after the above.
     fixed tasks. Needs a real "which of these, and why" before building —
     "expand the capabilities" alone isn't a spec.
 32. ~~**Keyword search has no IDF weighting and can't use an index.**~~
-    **Done.** An external-content FTS5 table (`entries_fts`, kept in sync by
-    triggers, `core/database.py`) replaced the leading-wildcard `ILIKE`
-    scan; ranked by `bm25()` with tags weighted above body text, an exact
-    contiguous phrase still breaking ties in front of everything else
-    (checked against the small already-narrowed candidate set, not a
-    second index). Full suite green.
+    **Done.** An external-content FTS5 table (`entries_fts`) replaced the
+    leading-wildcard `ILIKE` scan, ranked by `bm25()`. See HISTORY.md/the
+    ANALYSIS.md §59-adjacent write-up for detail.
 33. ~~**`graph_expansion` is hard-capped at one hop, on purpose.**~~ **Done
-    — automatic, not a "search deeper" action.** That was the one open
-    decision; made it automatic because it needs no new UI and the roadmap
-    text's own "shown as a visibly weaker tier" already implied no control
-    was required to see it. `GRAPH_EXPANSION_HOP2_LIMIT = 2` (smaller than
-    the first hop's 3), walked from the first hop's own neighbours, tagged
-    `connected_2hop` in `match_info` rather than merged into `connected` —
-    its own badge text and ~0.65 opacity vs ~0.85 for a direct connection.
+    — automatic, not a "search deeper" action.** `GRAPH_EXPANSION_HOP2_LIMIT`,
+    tagged `connected_2hop` rather than merged into `connected`.
 34. ~~**No entity/concept layer above notes — only note-to-note links.**~~
     **Done, at the scoped-down size this item asked for.** `Entity` +
-    `EntityMention` (membership only, no entity-to-entity graph), extracted
-    by `ai/entities.py`'s `suggest_entities` — one `suggest_tags`-shaped
-    completion per note, run a few at a time by the autonomous pass behind
-    its own `auto_entities_enabled` toggle (default off), skipping notes
-    under 20 chars and never re-scanning one already marked
-    (`Entry.entities_extracted_at`). Same-name mentions merge within a pass
-    via a case-folded lookup — two real different "Sarah"s colliding into
-    one entity is an accepted gap, not an oversight (the item's own scope
-    cut). `GET /graph?include_entities=true` (off by default; every
-    existing consumer of that endpoint assumes a numeric Entry id, so an
-    entity node's id is prefixed `entity:N`) adds entity nodes and
-    membership edges; the graph's own "Entities" checkbox asks for them,
-    and a matched node renders with a dashed ring rather than a second SVG
-    shape. Seven tests (`tests/test_entities.py`) cover extraction,
-    merging, the skip-short/skip-already-scanned paths, and the endpoint
-    shape — all against a faked model, this suite runs with no LLM. The
-    graph rendering was checked live (seeded an entity by hand, confirmed
-    the dashed node paints) after catching a real trap the hard way: the
-    dev server had been running since the start of the session and was
-    serving stale Python for every backend change up to that point,
-    including this one — restarted, then re-verified. Nothing else in this
-    session's backend work was re-checked live after that restart; the
-    pytest suite (unaffected by server staleness, since it imports fresh)
-    is what stands behind items 32/33 and the earlier bug fixes instead.
+    `EntityMention` (membership only), `ai/entities.py`, behind
+    `auto_entities_enabled` (default off), `GET /graph?include_entities=true`.
+    Seven tests (`tests/test_entities.py`), graph rendering checked live.
 35. **No vision-capable image understanding.** Confirmed by grep, not
     assumed: `ollama_client.py` already reads a model's `vision` capability
     alongside `tools`/`thinking` from the same `/api/show` call §6 built, but
@@ -1122,38 +582,17 @@ Worth doing, and worth doing after the above.
     AI actions already disclose their own source.
 36. ~~**Q&A answers cite which notes matched, not which claim inside the
     answer's prose came from which note.**~~ **Done, backend and frontend.**
-    `ai/grounding.py`'s `ground_answer_sentences` splits the answer into
-    sentences and scores each against every retrieved note by shared
-    meaningful words (the same signal `search_manager`'s own keyword
-    ranking uses) — deliberately not a second LLM call, so the
-    already-answered turn isn't made slower to explain itself. Attaches a
-    note only above `MIN_OVERLAP_RATIO`; omits the sentence rather than
-    guessing when nothing clears it (a wrong claim-ledger entry is worse
-    than a missing one). `POST /chat` carries it as `sentence_grounding`;
-    the Ask box's actual live path, `/chat/stream`, carries it as its own
-    `grounding` NDJSON event, sent once after the answer finishes
-    streaming (needs the whole answer, not per-delta). The badge itself
-    (`renderAnswerGrounding`, a new `#ai-answer-grounding` strip below the
-    answer, one small chip per *source note* — several grounded sentences
-    sharing a note collapse into one chip rather than repeating it, the
-    sentence(s) it backs in the hover title) opens that note on click,
-    same as a search-result row already does. Seven backend tests
-    (`test_grounding.py`) plus a live Playwright smoke check (no console
-    errors driving the real Ask box; the actual "a chip renders and says
-    the right thing" path needs a running Ollama to reach, which this
-    sandbox doesn't have — say so rather than claim it was watched).
-
-    Original scope, for the next session: `match_info` (search results'
-    per-row "why this matched" badge) already covers "which notes were
-    retrieved"; `unsupported_claims` (Tier 1 item 7) already covers the
-    agent's own narrated actions; link `reason`/`reason_confidence` (Tier 2
-    item 9) already covers grounding a connection between two notes. None of
-    the three covers a sentence inside a direct Q&A answer. Narrower than a
-    full claim-ledger (ANALYSIS.md §59) precisely because those three already
-    exist, surfaced the same understated way `match_info` already is — a
-    badge, not an interruption — and scoped to the direct Q&A path only, not
-    the full agentic chat, where
-    `unsupported_claims` already does the related job.
+    `ai/grounding.py`'s `ground_answer_sentences` scores each answer
+    sentence against retrieved notes by shared words (no second LLM call),
+    streamed as `/chat/stream`'s own `grounding` NDJSON event, rendered as
+    a small per-source-note chip (`renderAnswerGrounding`). Seven backend
+    tests (`test_grounding.py`) plus a live Playwright smoke check — the
+    actual "a chip renders and says the right thing" path needs a running
+    Ollama this sandbox doesn't have, so say so rather than claim it was
+    watched. Narrower than a full claim-ledger (ANALYSIS.md §59) on
+    purpose: `match_info`, `unsupported_claims` (Tier 1 item 7) and link
+    `reason`/`reason_confidence` (Tier 2 item 9) already cover the other
+    three related cases; this is just the direct-Q&A-sentence one.
 37. **`preferences.json` isn't crash-safe** (ANALYSIS.md §60). Found by the
     second odysseus read: `ConfigManager.set_preference` persists it with a
     plain `write_text()` — no tmp file, no fsync, no atomic rename — so a

@@ -26,67 +26,23 @@ root logger and uvicorn's. It now sanitises each message to one printable line
 (so a chat question or a page title can't forge a row) and keeps tracebacks in a
 separate `trace` field for a fold.
 
-**What's left.** ~~Everything below~~ **nothing — §1 is finished.**
+**What's left.** Streaming (NDJSON over `fetch`, not `EventSource` — see
+HISTORY.md for why), follow/tail with autoscroll, level/text/source
+filters, the `trace` fold, merging in `browserLogs`, and an error badge on
+the nav item are all **done** — see HISTORY.md. Also done: **exporting a
+support bundle** (an allowlist zip of the log buffer, scrubbed
+`preferences.json`, and model status).
 
-- ~~Stream `/logs` while the section is open — an EventSource endpoint is
-  cleaner than polling~~ **done, but NOT as EventSource, and the reason is
-  worth keeping.** EventSource cannot set request headers, and this app
-  authenticates with `X-Auth-Token`, so an EventSource here would simply 401.
-  The standard workaround is to put the token in the query string, which is a
-  bad trade anywhere and a farcical one on *this* endpoint: the token would be
-  written into the very records it protects. So NDJSON over `fetch`, which
-  matches the chat and digest streams the app already has. Server-side it
-  polls the ring buffer rather than registering subscribers on it — a
-  subscriber registry means the logging handler pushes into per-connection
-  queues, so a slow reader can stall or grow unboundedly *inside logging
-  itself*, and a logging path that can block is a far worse failure than a
-  console running 700ms behind.
-- ~~Follow/tail mode with autoscroll, pausing the moment the user scrolls
-  up~~ **done**, and scrolling back to the bottom resumes it — the same
-  gesture every terminal uses. The label says "(paused)" rather than just
-  stopping, because silently stopping has the same shape as the app freezing.
-- ~~Level filter (all / warnings / errors) and a text filter~~ **done**, plus
-  a source filter. Filters only re-draw what is already held and never
-  refetch, so changing one mid-incident cannot lose the records you were
-  looking at. When a filter hides things it says how many: "nothing matches"
-  and "nothing happened" are different answers and only one is fixed by
-  changing the filter.
-- ~~Render the `trace` field in a fold under its record~~ **done.**
-- ~~Merge the browser-side `browserLogs` ring buffer into the same view,
-  tagged by source~~ **done** — one array, sorted by time, tagged only in the
-  merged view (in a single-source view every row would carry the same tag). A
-  browser error and the request that caused it are one event seen from two
-  ends, and reading them apart was what made this screen hard to use.
-- ~~Count errors since the screen was last opened and badge the nav item~~
-  **done**, and the badge is clickable — it opens the screen already filtered
-  to errors, since it is the only place a failure announces itself.
 - **Getting one error OUT of the log** (asked for directly after the console
-  landed: "make sure that if there is an error in the log that it can be
-  accessed and copied"). Each record has its own copy button that takes the
-  traceback with it, an open traceback has a **Copy traceback** of its own,
-  and "Copy all" relabels to "Copy 12 shown" whenever a filter is hiding
-  something. **The real find here was underneath:** every copy in the whole
-  app went through `navigator.clipboard`, which browsers expose **only in a
-  secure context**. `http://localhost` qualifies, which is why nothing had
-  ever shown it — but reach the app at `http://192.168.1.20:8000` or through
-  a tunnel (§17's mobile-access question, and the proxied client address §8b
-  already saw in a real log) and the API is `undefined`, so every copy button
-  in the app was a no-op that said "couldn't copy". Copying now tries the
-  modern API, then `execCommand` on plain http, then shows the text
-  pre-selected in a dialog. A test asserts no caller writes to
-  `navigator.clipboard` directly any more, since a helper only some callers
-  use leaves the rest quietly lying.
-- ~~**Export a support bundle.**~~ **done** — see below; it is an allowlist,
-  not a denylist. One button that zips the log buffer,
-  `preferences.json` with anything sensitive stripped, and Ollama/model
-  status (`/models/status`) into a file the user attaches to a bug report —
-  asked for indirectly ("an interface for managing the application… errors
-  etc") and echoed by the outside review's "support bundle" suggestion.
-  Everything in it is already local and already visible somewhere in the app;
-  this only collects it. No new telemetry — the file is written to disk and
-  the user chooses whether to send it, which is the difference between this
-  and the outside review's other suggestion (opt-in crash reporting),
-  rejected in §30.
+  landed). Each record has its own copy button, an open traceback has its
+  own **Copy traceback**, "Copy all" relabels to "Copy N shown" under a
+  filter. **The real find here was underneath:** every copy in the app went
+  through `navigator.clipboard`, which browsers expose only in a secure
+  context — `http://localhost` qualifies, which is why nothing had ever
+  shown it, but a LAN address or tunnel makes the API `undefined`. Fixed
+  with a fallback chain (modern API → `execCommand` → pre-selected text in
+  a dialog); a test asserts no caller writes to `navigator.clipboard`
+  directly.
 - **Confirm nothing is silently dropped.** Asked as "make sure all the
   console messages are shown" — `logbuffer.py` is a 500-record ring buffer,
   so a very chatty session can push early records out before the screen is
@@ -100,19 +56,10 @@ separate `trace` field for a fold.
 Small, self-contained, each removing a visible annoyance.
 
 **Four of these were already done** — checked in the running app rather than
-assumed, since three sessions have now rebuilt something that already existed:
-
-- ~~**SearXNG install path**~~ done. Not the `pip install searxng` this section
-  suggested: SearXNG doesn't publish to PyPI, so that name is somebody else's
-  package. git is only needed to *fetch*, and pip can download and unpack the
-  source tarball itself — so it clones when git is there and uses the tarball
-  when it isn't. Install progress was already polled and shown inline.
-- ~~**Notes sidebar sticky**~~ done — the rule already exists, once, above the
-  section that used to duplicate it.
-- ~~**Copy button per code block**~~ done, in chat answers.
-- ~~**Conversation search** by content~~ done — `conversation_matches` decodes
-  the message JSON rather than LIKE-ing the column, so "tent" no longer matches
-  every chat by way of the word `content`.
+assumed, since three sessions have now rebuilt something that already
+existed: the SearXNG install path, the Notes sidebar sticky rule, a copy
+button per code block in chat answers, and conversation search by content.
+See HISTORY.md.
 
 **Still open:**
 
@@ -301,12 +248,8 @@ being built as the home for "everything that isn't a note."
 
 Checked against the running app, not assumed:
 
-- ~~**Outline / table of contents**, reading time~~ **done.** `renderDocOutline`
-  builds a TOC from `#`–`####`, correctly ignoring a `#` inside a code fence,
-  hides itself under two headings, and each entry puts the caret on that line.
-  `renderDocStats` shows words and reading time at 220 wpm. Verified in a
-  browser: a 461-word document reads "461 words · 2 min read" with four
-  correctly-nested headings.
+- ~~**Outline / table of contents**, reading time~~ **done.** `renderDocOutline`/
+  `renderDocStats` — see HISTORY.md.
 - ~~**Expand a note into a document**~~ **done** — leaves the note untouched
   and says so.
 - **Word-count goal** — the one unbuilt part of the outline item. A target you
@@ -316,24 +259,10 @@ Checked against the running app, not assumed:
   What's missing is the *conversational* shape: ask a question about the
   document without it proposing an edit.
 - **A real document browser** — the sidebar list is not a gallery
-- ~~**Attach documents to notes**~~ **done.** Asked for directly: "a way to
-  link documents to new notes I create in the capture tab… the documents and
-  notes sections and features need to be more integrated together." The
-  capture box has an *Add to document* picker, so the connection is made while
-  it is obvious rather than after the note is buried in a list; the note card
-  carries a 📄 chip that opens the document; the document lists the notes it
-  draws on, each with a detach button. `document_links` is its own table
-  because the relationship is many-to-many and neither side owns the other —
-  detaching removes a connection, never a note, and binning a note takes it
-  out of the document's list on its own.
-
-  Asked again straight afterwards — *"also what about adding a document to a
-  note??"* — because a capture-time picker only helps the notes you have not
-  written yet, and the ones that turn out to belong to a document are usually
-  the old ones. **📄 Add to a document** in a note's ⋯ menu picks from the
-  documents that note is not already on, and the × on its 📄 chip detaches it
-  from the note's side. Both directions now use the same two routes, so there
-  is one behaviour to reason about rather than two.
+- ~~**Attach documents to notes**~~ **done, both directions.** The capture
+  box's *Add to document* picker, a note's own 📄 chip/menu entry, and a
+  document's list of the notes it draws on all share the same two
+  `document_links` routes — see HISTORY.md.
 - **Document history** — notes have `EntryRevision`; documents have no
   equivalent table, and the AI edit overwrites on accept
 
@@ -459,103 +388,17 @@ builds above are the part with no cross-platform equivalent yet at all.
 
 ## 8. Open bug list
 
-- ~~**Renaming the project folder broke the launcher**~~ **fixed.** Reported
-  with a screenshot after renaming `MemoryMap-AI-v0` to `MemoryMap-AI`:
-  `No module named memorymap`, straight after `[2/4] Dependencies already up
-  to date - skipping install.` Those two lines are the whole bug. `pip install
-  -e .` writes an **absolute** path into the venv, so the rename left it
-  resolving to a folder that no longer exists; the skip marker stores
-  `requirements.txt`'s timestamp (`.bat`) or checksum (`.sh`), which a rename
-  does not change, so the one thing that would have relinked it was skipped.
-  The marker was answering the wrong question — "have requirements changed?"
-  rather than "can this venv import the app?" — and those come apart exactly
-  when the folder moves. Both launchers now ask the venv directly before
-  trusting the marker, which costs one interpreter start and also catches a
-  moved folder and a half-deleted venv. Reproduced by renaming a real venv'd
-  checkout and confirmed fixed against it.
-- ~~**Picking a theme did nothing about half the time**~~ **fixed.**
-  Appearance has three layers — defaults, the chosen theme, your manual
-  tweaks — and `appearancePref` reads them in that order, manual first. That
-  is right for a tweak made *after* choosing a theme and wrong for every theme
-  chosen afterwards: one earlier change to the palette or the mode sat on top
-  of each new theme and silently cancelled that part of it, and with a few
-  stored a theme could change nothing visible at all. Picking a theme now
-  clears the manual keys *that theme has an opinion about* — so Lagoon drops a
-  stored palette and mode but leaves a font size it says nothing about — and
-  clears the custom accent with the palette, since an accent picked against
-  one palette has no meaning against another.
-- ~~**Lagoon and Shallows needed refining**~~ **done.** Shallows was asked for
-  as "a teal light one" and was drawn mostly indigo, so its ground and its
-  accent pulled against each other; the page is aqua now and the indigo
-  survives as the cooler of the two blobs. Lagoon's `--inner` was 5% white,
-  which made every inset panel identical to the card it sat in, and `--muted`
-  was low enough to grey out secondary text; both lifted, and the page
-  gradient runs greener at the bottom so the teal accent reads as lit from
-  inside the water rather than printed on it.
-- ~~**Background tasks showed nothing while SearXNG started**~~ **fixed.**
-  Reported twice — "I still don't think the bg tasks is working". The list was
-  right about installs and wrong about the case the user was actually
-  watching: a *start* is not an install, it runs in the request thread, and it
-  waits up to `START_TIMEOUT` (90s) for the service to answer. That is the
-  longest silence in the app from the outside and it was the one thing not on
-  the screen built to explain silences. `searxng_manager.starting()` now
-  reports it, with the seconds waited against the timeout as a progress bar.
-- ~~**The AI emblem was cramped, and only on two tabs**~~ **fixed.** It was
-  put inside the Notes and Chat sidebar headings, wedged between a title and a
-  button — too big for the row, differently placed on each, and five more tabs
-  would have meant five more of those decisions. It has one home now, in the
-  header beside the AI status dot, which is what it is about: on screen for
-  every tab, one size to get right, and the first thing to drop when the
-  header runs out of room on a narrow window.
-- ~~**The dashboard's widgets are missing until you switch tabs**~~ **fixed.**
-  Reported as *"initially when I load up the app the dashboard widgets are
-  missing until I refresh or change tabs and go back on it again"*. `startApp`
-  fired `loadEntries` and `refreshActiveTab` as two independent steps, so on a
-  cold load the dashboard rendered against an `allEntries` that was still `[]`
-  and drew its brand-new-notebook card — which is correct for an empty
-  notebook and wrong for one that has simply not arrived yet. The tab render
-  now waits for the entries, and the empty-state card is gated on a flag that
-  says the fetch has actually happened, because "empty" and "not loaded" are
-  indistinguishable from a length alone.
-
-
-Every reported bug in this section has been reproduced in Chromium and fixed.
-What follows is kept as a record of *what each one actually was*, because in
-most cases the stated symptom pointed at the wrong component and the wasted
-effort is the expensive part to repeat.
-
-**Fixed, with the real cause**
-
-| Reported as | What it actually was |
-| --- | --- |
-| Numbered lists always render `1.` | A blank line between items closed the `<ol>`, and models write `1.\n\n2.` far more often than tightly |
-| Assistant content too far right | The rail padded each step's own box instead of the container |
-| Thinking arrow sits on the timeline circles | `list-style-position: outside` draws the marker *outside* the summary's box — exactly where the rail's gutter is, so no gutter width could clear it. Native marker removed and redrawn inside |
-| Thinking boxes vanish on reload | Not reproducible. Verified in a browser: live, three-round, and after a real reload the steps round-trip intact. The report predates the step-timeline work that fixed it |
-| A long URL escapes the chat bubble | `overflow-wrap: anywhere` on bubble content |
-| Documents show "Invalid Date" | A regression from the UTC fix: `relativeTime` appended `"Z"` to a timestamp already carrying `+00:00`. Two definitions existed, one shadowing the other |
-| Dashboard "Search notes" goes nowhere | Focused a box inside the hidden `browse` sub-tab |
-| Capture textbox short until clicked | `autoGrow` measured `scrollHeight` while the section was `display: none` |
-| "Ask about this" wrecks the layout | CSS automatic minimum sizing: a `1fr` grid track and a `min-width: auto` flex item both refuse to shrink below their content, so one wide code block widened the column, the page and every paragraph beside it. 3425px wide at a 1280px viewport |
-| Desktop menu-bar buttons overlap the title | The tab strip was pinned at a rigid 579px because a base rule 70 lines below the media query redeclared `flex` at equal specificity. Nothing could yield, so the header overflowed itself by up to 215px |
-| Can't switch search engines | The status poll reset the radios as soon as focus moved, because picking one saves nothing until "Apply & re-index" |
-| Colour/font controls stuck under a theme | Two causes. `[data-palette]` rules sit below `[data-accent]` rules at equal specificity, so a palette always won and the swatches were dead under every theme; and `applyAppearance` re-applied every setting *except* the accent, so clearing one left it showing |
-| Sketches don't open from the graph | A sketch is a note plus a PNG, and the graph popup showed the caption but never the image — the drawing was unreachable from the map |
-| Web search returns nothing | Not a parser bug. Three different failures (no egress, a rate-limit challenge page, a genuine empty result) all surfaced as an empty list. Now logged and named separately |
-
-**Found while fixing the above, also fixed**
-
-- Editing an answer reverted when the chat was reopened — the edit updated
-  `content`, but replay renders `steps`, which kept the model's original wording.
-- Uploading a file 500'd if the uploads folder had gone missing, losing a
-  sketch's drawing while keeping its caption.
-- `APPEARANCE_DEFAULTS` declared `bg-motion` twice with different values.
-- "New note" on the dashboard did nothing unless the Notes tab happened to be
-  left on the capture section — the same hidden-sub-tab trap, on the most-used
-  button there. Ten feature-catalog entries had it too.
-- `.entry-content` used `pre-wrap`, which keeps typed line breaks but cannot
-  break inside a word, so one pasted URL widened the note list and the page.
-- `pytest` didn't work in a fresh clone without an editable install.
+Every bug this section originally listed — the launcher breaking on a folder
+rename, a theme picker whose layered defaults silently cancelled part of
+each new theme, the Lagoon/Shallows palette refinements, background tasks
+showing nothing while SearXNG started, the cramped AI emblem, the dashboard
+widgets missing until a tab switch, plus a long table of "reported as / what
+it actually was" fixes (numbered lists, chat-bubble overflow, "Invalid
+Date", CSS specificity ties, sketches not opening from the graph, web search
+silently returning nothing) and the bugs found incidentally while fixing
+those — has been reproduced in Chromium and fixed. Full detail, including
+*what each report's real cause turned out to be* (the expensive part to
+repeat if it isn't kept), is in HISTORY.md.
 
 **From the ideas parking lot, never formally triaged.** Reported informally
 (`IDEAS.md`) rather than reproduced in a browser yet — worth the same
@@ -611,189 +454,55 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ## 8b. Web search — two Windows bugs found, and what is left
 
-~~**Port 8888 being taken was a dead end.**~~ **fixed.** Asked directly: *"is
-there a way to change the port if it is full?? maybe like 8080 or smth"*. The
-port report said "close whatever has it", which assumes the user can — often
-they cannot, and the thing holding it may be something they need. `start()`
-now settles a port first: the wanted one, else 8080/8081/8890/8899, with
-`MEMORYMAP_SEARXNG_PORT` to name one. A SearXNG *already answering* on the
-wanted port beats a free one, because that is ours from a previous run and
-moving would start a second copy beside it.
+~~**Port 8888 being taken was a dead end.**~~ **fixed.** `start()` now
+settles a port first (the wanted one, else 8080/8081/8890/8899, or
+`MEMORYMAP_SEARXNG_PORT`).
 
-**Seen in a log this session, not yet fixed:** a start attempt and an install
-can be in flight at the same time. The user's log shows `SearXNG didn't answer
-within 90s. Its own output was: (nothing — it wrote no output at all)` at
-6:54:06, with the install still unpacking at 6:53:12 and writing the `pwd`
-shim at 6:54:11 — so the start was waiting 90 seconds for an interpreter that
-was still being built. Nothing is broken by this beyond the wasted wait and a
-misleading error, but the error is the one the user sees, and it accuses the
-wrong thing.
+**Not yet fixed:** a start attempt and an install can be in flight at the
+same time — a start already waiting when a reinstall begins sits out its
+full `START_TIMEOUT` against a virtualenv being rebuilt underneath it, then
+blames SearXNG for writing no output. Fixing it properly means making
+`_wait_until_ready` interruptible (a generation counter or a
+`threading.Event` that `install_source` sets). Not a quick change, which is
+why it is here rather than done.
 
-**The direction that is already guarded is the wrong one.** `_start_from_source`
-refuses when `_install_state["running"]` is set, so *starting during an
-install* is handled. What happened here is the reverse: a start was already
-waiting when a reinstall began, and nothing cancels a wait in flight — it sits
-out its full `START_TIMEOUT` against a virtualenv being rebuilt underneath it,
-then blames SearXNG for writing no output. Fixing it properly means making
-`_wait_until_ready` interruptible: give it a generation counter or an
-`threading.Event` that `install_source` sets, so the waiter notices the ground
-has moved and returns "the install restarted" instead of "it never answered".
-Not a quick change, which is why it is here rather than done.
-
-The diagnosis from §8 shipped and is working: the app now says "DuckDuckGo is
-rate-limiting this app rather than returning results" instead of showing an
-empty panel, which is confirmed in use. That was the whole point — the failure
-is now legible.
-
-**The fix is SearXNG, and this session found five reasons it couldn't work.**
-None was in the log, which is why reading the log first did not find them —
-three of the five happen before SearXNG writes a line, and the other two are
-Windows-only.
-
-**Read this first: SearXNG now installs, starts, answers its JSON API, and
-passes `websearch.probe_searxng`, verified in this sandbox.** Everything below
-was reproduced rather than deduced. The one part still unverified is the
-download itself, because the sandbox proxy blocks the archive URL.
-
-**3. `git clone` can never work on Windows.** Reported mid-session:
-*"Couldn't download SearXNG: fatal: unable to checkout working tree"*. Four
-files in the repository have a colon in the name —
-`utils/templates/etc/nginx/default.apps-available/searxng.conf:socket` and
-three like it. A colon separates a drive letter, so Windows refuses the name,
-git fetches every object and then dies at the checkout, **leaving the
-half-written folder that produced bug 2 above**. Nothing about it is
-transient; retrying could never help. `pip install <tarball-url>` — the
-"install without git" path — unpacks the same files and fails the same way, so
-both paths were broken there. Fixed by downloading the archive and unpacking
-it ourselves, skipping members this filesystem can't hold (they are nginx and
-uwsgi deployment templates) and any that would escape the folder. git is no
-longer used at all.
-
-**4. `pip install -e .` can never work, on any OS.** SearXNG's `setup.py`
-imports `searx` for its version, `searx/__init__.py` imports `msgspec`, and
-pip builds in an isolated environment that has neither —
-`ModuleNotFoundError: No module named 'msgspec'`, before setup.py can declare
-a requirement. `requirements.txt` now goes in first and the package is built
-with `--no-build-isolation`, which is exactly what SearXNG's own `manage`
-script does.
-
-**5. The `tracker_url_remover` plugin kills the process at boot.** It
-downloads a rules file from `rules1.clearurls.xyz` during `init` and does not
-catch a failure, so SearXNG exits before binding the port on any machine that
-is offline, proxied or slow. Confirmed here: with the plugin on, the process
-died in init; with it off (in the generated `settings.yml`) it booted and
-answered. MemoryMap strips tracking parameters itself, so nothing is lost.
-
-**And the two Windows-only ones, from earlier in the session** — the same
-mistake twice: a POSIX idiom that means something different on Windows.
-
-**1. "SearXNG started but never answered" — we were killing it.** `_alive()`
-asked `os.kill(pid, 0)`, the POSIX way to check a process exists without
-touching it. On Windows every signal except `CTRL_C_EVENT`/`CTRL_BREAK_EVENT`
-is handed to `TerminateProcess`, so that call *ended* the process (exit code
-0) and then returned True. `status()` asks `_source_state()`, which asks
-`_alive()`, and the settings screen polls `status()` every three seconds — so
-a freshly started SearXNG was shot within seconds of starting, every time,
-and the app reported that it started and never answered. That is exactly the
-symptom this section was named after. `_alive` now uses
-`OpenProcess`/`GetExitCodeProcess` on Windows; `_terminate` is the only thing
-that signals.
-
-**2. "does not appear to be a Python project" — reported directly:**
-
-    Couldn't install SearXNG: ERROR: file:///C:/Projects/MemoryMap-AI-v0/
-    data/searxng/src does not appear to be a Python project: neither
-    'setup.py' nor 'pyproject.toml' found.
-
-`install_source` skipped the download when `data/searxng/src` *existed* and
-handed the folder to `pip install -e`. Reinstalling didn't help because
-`uninstall_source` used `shutil.rmtree(..., ignore_errors=True)`, and git
-marks `.git/objects` read-only, which Windows enforces — so the wipe deleted
-the writable files, left the folder standing, and said it had removed it. The
-next install then found the folder, skipped the clone, and reproduced the
-error exactly. Fixed at all three points: `is_checkout()` asks what is *in*
-the folder, `_remove_tree()` clears the read-only bit (and moves the tree
-aside if it still can't delete it) and reports what survived, and the
-installer verifies `import searx` in the new venv before calling it done.
-
-~~**The two Windows-only fixes are not verified on Windows**~~ **confirmed —
-see above.** The tests pin the logic (`tests/test_searxng_install.py`), and
-the user has since confirmed SearXNG installs, stays up, and returns results
-on the machine that hit both bugs originally.
-
-**6. `import pwd` — SearXNG cannot be imported on Windows.** Reported with a
-photo: the install finally *finished*, and the start died with
-`ModuleNotFoundError: No module named 'pwd'` from `searx/valkeydb.py` line 22.
-`pwd` is POSIX-only. It is the **only** POSIX-only import in the whole
-package, and the only thing it is used for is naming the current user in one
-error message when a Valkey DB connection fails — a branch that is
-unreachable unless a Valkey URL is configured, which MemoryMap never does. A
-`pwd` stand-in is written into SearXNG's own virtualenv where the platform
-hasn't got one; patching SearXNG's source instead would mean matching text
-upstream is free to change and re-applying it after every update.
-
-The install's final check was also too shallow to have caught it: `import
-searx` passed on Windows and the *start* then died on `searx.webapp`. It
-checks `searx.webapp` now, with the same environment a start uses — verifying
-against SearXNG's own defaults verifies something nobody runs, since it
-refuses to start on its placeholder `secret_key`.
-
-**Confirmed working.** SearXNG now returns real results on the user's own
-machine — the thing this session couldn't test (the sandbox proxy blocks
-every engine) is now verified where it matters. That also confirms the two
-Windows-only fixes above (`_alive`, `is_checkout`/`_remove_tree`) actually
-held on real Windows hardware, not just in the sandboxed logic tests. §8b's
-open work is no longer "does this work at all" — it's UI polish and a
-privacy pass, both moved to §13 so they live with the rest of web search's
-design rather than the bug list.
+**SearXNG itself now installs, starts, answers its JSON API, passes
+`websearch.probe_searxng`, and returns real results on a user's own
+Windows machine — confirmed, not deduced.** Six real bugs stood between
+"install path exists" and that (three platform-independent — a Windows-only
+`git clone` colon-in-filename failure, `pip install -e .`'s isolated-build
+`msgspec` import error, and the `tracker_url_remover` plugin dying at boot
+on any offline/proxied machine; three Windows-only — `os.kill(pid, 0)`
+actually terminating the process instead of probing it, a stale
+`is_checkout()`/`shutil.rmtree` interaction that made a failed reinstall
+reproduce itself, and the POSIX-only `import pwd` in `searx/valkeydb.py`).
+Full diagnosis of each, and the fix, is in HISTORY.md — worth reading in
+full if SearXNG install/start is ever reported broken again, since the
+shape ("Windows-only", "happens before SearXNG writes a line") is a strong
+signal for which of the six it is.
 
 Also present, from earlier sessions: a `↻ Reinstall` button (wipes the venv
 and checkout, keeps `settings.yml` and its secret key) and a port line saying
 whether 8888 is free, held by a working SearXNG, or held by something else.
-
-The one thing already ruled out: the generated `settings.yml` *does* include
-`- json` under `search.formats`, so the 403-from-a-missing-format theory is
-not it.
-
-Known from a user screenshot, now fixed: `_reason()` reported pip's parting
-"[notice] To update, run: … --upgrade pip" as the cause of a failed install,
-because it took the last line and that notice is always last. If an install
-failure is being investigated, the message is trustworthy now; it was not
-before.
 
 **A deliberate security pass, rather than more one-off fixes.** Asked
 broadly — "full security sweep and analysis… must be fully private, hack
 proof, and secure… web browsing should be as private, secure, and
 untrackable as possible" — which is this section's whole subject already,
 just not gathered into one pass. What exists today: the CodeQL alert list is
-closed (§ "Done in the most recent session"), the DNS-rebinding TOCTOU on
-both the reader and the SearXNG search path is closed, redirects are
-re-checked hop by hop rather than trusted, private notes are encrypted and
-excluded from every AI tool, and CodeQL runs on every push plus weekly. What
-a deliberate pass would add on top, parallel to §19's accessibility audit:
+closed, the DNS-rebinding TOCTOU on both the reader and the SearXNG search
+path is closed, redirects are re-checked hop by hop rather than trusted,
+private notes are encrypted and excluded from every AI tool, and CodeQL
+runs on every push plus weekly. Brute-force protection on the unlock gate,
+a tight CSP, the scrypt KDF behind private notes, and cross-origin
+protection on the local API are all **done** — see HISTORY.md and §20.
+What a deliberate pass would add on top, parallel to §19's accessibility
+audit:
 
 - A dependency-vulnerability sweep (`pip-audit` / `npm audit` equivalent for
   the vendored JS, since nothing currently checks either), and a fresh look
   at this section's own three easy-to-break rules (§8b's opening) to confirm
   nothing has quietly regressed since they were written down.
-- ~~**Brute-force protection on the unlock gate.**~~ **already built** —
-  `routes_auth._refuse_if_throttled`: one global bucket (not per-IP, which is
-  exactly what a botnet has plenty of), five free tries, then an exponential
-  wait to a five-minute ceiling, forgiven after 15 quiet minutes. A correct
-  password inside the wait still waits. Pinned by a test now.
-- ~~**A Content-Security-Policy header on the app's own pages**~~ **done, and
-  tight: no `unsafe-inline`, no `unsafe-eval`, and no host named anywhere in
-  the policy** — every source is `'self'` or a hash. The "no asset from a CDN"
-  rule is what made that affordable, exactly as this item predicted. What it
-  did not predict is that it would break something: custom CSS injected a
-  `<style>` element, and a full green suite said nothing. See the note under
-  the security tier.
-- ~~**The KDF behind private notes, named explicitly.**~~ **confirmed, and
-  better than this item would have accepted:** `core/crypto.py` uses scrypt at
-  n=2^15, r=8, p=1 — memory-hard, so it resists GPU guessing in a way PBKDF2
-  does not. ~100ms and ~32MB per unlock, deliberately.
-- ~~**Cross-origin requests against the local API**~~ **done** — see §20,
-  where the full reasoning lives.
 - **Search-specific items** now live in §13, since SearXNG went from "being
   built" to "actually running" this pass.
 
@@ -822,34 +531,11 @@ different picture:
 | Network | `entry_links` (wiki links, AI links) | force, arc diagram, adjacency matrix |
 | Sequence | `created_at`, `entry_dates` (§10A) | timeline-graph, growth animation |
 
-- ~~**Tree**~~ **built.** Root → category → note, with a note's replies nested
-  under it, so a train of thought reads as one branch. This is the layout the
-  request was about, and it is the one that suits a notebook with few links
-  and many categories — which is most notebooks before the graph has been
-  used much.
-- ~~**Radial tree**~~ **built.** The same hierarchy wrapped into a circle:
-  denser, and it makes the *shape* of a notebook obvious — a fat arc is a
-  category you write in constantly.
-
-  Both were first built by handing d3 the panel's dimensions as a bounding
-  box, which is the wrong instruction: `d3.tree().size([...])` divides the
-  height by the number of leaves, so a 29-note notebook got eighteen pixels a
-  row and printed its labels on top of each other. Reported with a photo —
-  *"the graph tree and radial are a bit hard to read and aren't neat"*. The
-  fix is a set of rules about **what a label needs**, not about what the panel
-  has: the tree uses `nodeSize` and pans when it is taller than the panel
-  (zooming out only when the whole thing nearly fits, because a tree you
-  scroll beats one you cannot read); the radial computes its rings from the
-  note count, the category count and the panel, and rings **by depth** rather
-  than by d3-cluster's height — cluster put a category containing a thread one
-  ring closer in than its siblings, which is what made the circle look ragged.
-  Three collisions only a browser can find were fixed on the way: a stylesheet
-  rule beating the `text-anchor` presentation attribute so no side-label ever
-  moved, a flipped left-half label whose offset sent it back across its own
-  node, and a 55%-transparent label halo that let a thread edge show through
-  the words it ran behind. All of it is asserted on measured geometry — the
-  labels' real rotated corners, separated by a separating-axis test, because
-  the axis-aligned box around diagonal text overlaps when the words do not.
+- ~~**Tree**~~ and ~~**radial tree**~~ **built**, then re-fixed after a
+  reported readability bug (both were first sized to the panel's raw
+  dimensions rather than by what a label needs — see HISTORY.md for the
+  `nodeSize`/ring-by-depth fix and the three label-collision bugs it also
+  found).
 - **Mind map from one note** — pick a note as the root and lay everything else
   out by hops along `entry_links`. Different from the tree above: the
   hierarchy there is filing, here it is connection.
@@ -857,23 +543,10 @@ different picture:
   like one. Best for "where does my writing actually go?", and the only layout
   here that answers a question about proportion.
 - ~~**Arc diagram**~~ **built, on the filing hierarchy rather than
-  `entry_links`.** Every node — category, note, reply — sits on one baseline
-  in the order a depth-first walk of the hierarchy visits them (so a
-  category's notes stay contiguous), with a parent-child edge as a flattened
-  half-ellipse under the line instead of tree's elbow or radial's ring. That
-  is a deliberate departure from this bullet's original "links as arcs"
-  description: tree and radial already draw the *filing* hierarchy rather
-  than `entry_links` — overlaying real links "turns the tree back into a web"
-  per `layoutHierarchy`'s own comment — and a third hierarchy view stays
-  consistent with that and reuses `layoutHierarchy`/`frameTree`/the drag-pin
-  behaviour those two already have, rather than building a second, parallel
-  rendering path for link-based arcs alongside the tree-based ones. A links-
-  as-arcs view is still a real, different possible layout — it just isn't
-  this one. Verified in Chromium against a seeded notebook with categories
-  and multi-level reply threads: renders with no invalid paths, labels read
-  diagonally without colliding within a step, physics sliders correctly
-  disable, and switching away to force/tree/radial and back regresses none
-  of them.
+  `entry_links`** (a deliberate departure from this bullet's original "links
+  as arcs" framing — tree and radial already draw the *filing* hierarchy, and
+  a links-as-arcs view is still a real, different, unbuilt layout). Verified
+  in Chromium against a seeded notebook — see HISTORY.md.
 - **Adjacency matrix** — no crossing edges at all, so it stays readable when a
   force graph has turned into wool. Worth it only once there are hundreds of
   links.
@@ -922,29 +595,10 @@ what those phrases *resolved to*.
 more directly, and is not built yet:**
 
 ~~**A. Resolve relative time at capture.**~~ **done.** Every note's temporal
-phrases are resolved when it is saved (and re-read when its text is edited)
-and stored in `entry_dates` with the phrase beside the date — the resolution
-is a rule, not a fact, and a reader can only disagree with it if both are
-visible. `entry/timewords.py` is deterministic regexes and arithmetic, not a
-model call: it runs on every save, including with Ollama off, and is
-best-effort so it can never stop a note being saved. Private notes are
-excluded, and marking a note private clears what was already stored — the
-same reasoning as dropping its embedding.
-
-Handled: today · tonight · this morning/afternoon/evening · tomorrow ·
-yesterday · last night · the day before/after · this/last/next week, month,
-year · "in N days/weeks/months" · "N days/weeks ago" · "last/next/this/on
-<weekday>". Precision is kept, so "last week" shows as a week rather than
-being flattened to a day. The weekday rule is written down in the module,
-because both readings of "next Friday" exist and consistency is the most that
-can be offered.
-
-Shown as a chip on the note (`🕓 last week → week of Jul 20`, with the full
-date on hover) rather than marked up inside the text: `renderNoteText`
-already layers wiki links, inline markdown and filter highlighting through
-each other, and a fourth pass over the same string is where that breaks. The
-resolved dates also travel in `get_note`/`search_notes` results, so the model
-can answer "what did I mean by *last week* in that note?".
+phrases are resolved when it is saved and stored in `entry_dates` with the
+phrase beside the date; `entry/timewords.py` is deterministic regexes and
+arithmetic, not a model call. Shown as a chip on the note rather than marked
+up inside the text. See HISTORY.md for the full list of handled phrasings.
 
 **Still open from A:** tagging notes that contain relative time so they are
 findable as a class, and nudging on stale ones ("this said 'tomorrow' three
@@ -953,100 +607,24 @@ the data exists.
 
 ~~**B. A Timeline tab.**~~ **built, first version — and it is a grid, on
 purpose, for what it's for.** A time axis across, one band per category or
-tag down the side (or none), and a bucket size you pick — day, week, month,
-year. Every note plots at what it is *about* where §10A resolved a date from
-its text, and at when it was written otherwise; a note moved by what it says
-is marked 🕓 and says so on hover, because a timeline that silently relocates
-notes looks broken rather than clever. Clicking a note opens it.
-
-Drawn as a CSS grid rather than SVG: every cell is a real element, so it
-scrolls, tabs and reads aloud without any of that being hand-built. Bands are
-capped at eight plus an "Everything else" lane — a chart with forty lanes is
-not a chart.
+tag down the side, a bucket size you pick, drawn as a CSS grid (not SVG) so
+it scrolls/tabs/reads-aloud for free, capped at eight bands plus "Everything
+else".
 
 ~~**C. A branch/line view**~~ **built — asked for again, more directly,
-because B reads as a calendar rather than a timeline.** "Make sure the
-timeline has the additional aspect of like a line or branching line/tree-like
-graph view because right now it is more like a calendar" — accurate, and not
-a defect in B so much as B answering a different question well. A grid
-answers "what happened around this date, across every category at once." A
-line answers "what was the shape of this one thread over time" — the thing a
-grid genuinely cannot show: two notes three months apart in the same band
-read as unrelated dots in a grid, and as one continuous line in the new view.
-Both stay — a `#timeline-view` picker (Grid / Line) beside the existing
-scale/bands/days controls, sharing the same `/timeline` fetch and the same
-`entry_dates`-driven data (§10A) — this is a second reading of it, not a
-second request.
-
-**What actually shipped, against the shape sketched above:**
-
-- **The spine and branches are real** — an SVG line at the top for the plain
-  chronological reading, and one lane per band below it, each connected to
-  the spine by a stub at the x-position of that band's *first* note, exactly
-  the rule this section originally specified.
-- **The branch source is category/tag, not §9's cluster detection.** This
-  section named linked-note clusters as the other candidate signal and
-  reasoned that §9 "already does the hard part of what goes together" — true,
-  but that hard part lives behind a separate endpoint (`/graph/structure`,
-  built from `entry_links`/similarity) with its own async cost, while the
-  grid's own bands (already fetched, already ranked, already capped at eight
-  plus "Everything else") were sitting right there. Reusing them keeps grid
-  and line as two readings of *the same* grouping the toolbar already lets
-  you pick, rather than the grid silently meaning one thing and the line
-  meaning another. A cluster-based branch view is still a real, different
-  option — it would want its own `group=cluster` value alongside
-  category/tag/none, not a replacement for this one.
-- **Branch start is automatic and literal, not a windowed heuristic.** The
-  "automatic vs manual, and what counts as a gap" question this section left
-  open turned out to have a simpler answer once the branch source was a
-  *band* rather than a detected cluster: a band's membership is already
-  decided (by category or tag, not by recency), so there is no "does this
-  note still belong to the thread" judgement call left to make — every note
-  in the band is on its lane, in date order, full stop. The one automatic
-  decision that's left — a band with a single note draws no line and no
-  stub, just a dot on the spine height itself if it's the only band, since a
-  "thread" of one note is not a shape — falls out of the same "no note
-  history, nothing to show" cases §37J and others already established
-  rather than needing a rule of its own.
-- **"Rejoins the spine" wasn't built.** A branch runs its full length at its
-  own lane height and never returns to the spine — reads closer to a
-  git-log's parallel refs than a river diagram, which is a smaller, more
-  honest shape for what "these notes share a category, some of it long ago"
-  actually is. A visual rejoin would have implied "this thread concluded",
-  which the underlying data — did anything stop being tagged this way, or did
-  the user just stop writing — has no way to tell apart.
-
-**A real bug found and fixed while verifying in Chromium**: the connector
-stub between the spine and a deep lane is a plain vertical SVG line with
-`fill: none`, which does not stop it from being hit-tested along its stroke —
-and a deep band's stub runs from the spine down *past* every shallower band's
-lane on the way there. Painted after them (later bands sit lower, later in
-the DOM), it silently ate clicks meant for dots in the lanes above it: the
-first click attempt on a real note resolved to the stub underneath instead.
-Fixed with `pointer-events: none` on the spine, every stub and every
-connecting line — none of the three is meant to be interactive, only the
-dots and labels are, and a decorative stroke has no business intercepting a
-click through to what's under it.
-
-**Verified in Chromium**, not just read: grid and line against real seeded
-notes across four categories and a multi-level reply thread, both grouping
-modes (category giving four lanes, tag collapsing to the single-band/no-stub
-case since the test notes were untagged), no `NaN` in any drawn coordinate,
-switching Grid → Line → Grid back doesn't lose or duplicate anything, and a
-dispatched click on a dot correctly opens it in Notes → Browse. **One thing
-the verification could not show**: the seeded test notes were all created
-within the same short run, so every date tick along the spine rendered as
-the same day and same-band dots mostly overlapped — the date-scale math
-itself checked out (confirmed via the coordinate check above, and the
-correctly-shaped result at whatever span `d3.scaleTime` was actually given),
-but nobody has looked at this view against a notebook that genuinely spans
-weeks or months. Look there first if the tick labels or spacing are ever
-reported as wrong.
-
-**Data shape:** no new table, as planned — this reads `entry_dates` (§10A)
-and the existing category/tag grouping (§9's cluster grouping is not used,
-see above) the same way B does; the only new state is per-view (grid vs
-line), a `localStorage` preference (`timeline-view`), not a migration.
+because B reads as a calendar rather than a timeline.** A spine plus one
+lane per band, connected by a stub at each band's first note; the branch
+source is category/tag (not §9's cluster detection — see HISTORY.md for
+why), and "rejoins the spine" was deliberately not built (a branch runs its
+full lane length, which is a more honest shape than implying a thread
+concluded). A real hit-testing bug (an invisible connector stub eating
+clicks meant for the dots above it) was found and fixed verifying this
+live. Verified in Chromium against seeded notes across four categories and
+a reply thread; the one thing not verified is the tick-label spacing
+against a notebook that genuinely spans weeks or months (all seeded notes
+landed on the same day). No new table — reads `entry_dates` (§10A) and the
+existing category/tag grouping; the only new state is a `localStorage`
+view preference.
 
 **Still open in B (the grid view):**
 
@@ -1407,21 +985,10 @@ now that SearXNG is a real running thing rather than a plan:
   before the person has chosen to visit anything. Worth confirming the result
   card ideas above don't introduce this by loading icons live rather than
   bundling a small generic set.
-- ~~**SearXNG bound to localhost, not the LAN.**~~ **confirmed for the source
-  path, and it was wrong for docker.** The instinct behind this item — don't
-  assume it inherited the same default — was right, and the two paths had
-  drifted apart. `_start_from_source` sets `SEARXNG_BIND_ADDRESS=127.0.0.1`
-  and always did; `_start_docker` ran `-p 8888:8080`, which publishes on
-  **every** interface. That is docker's default and not what the plain reading
-  of the flag suggests, and it is worse than an ordinary open port because
-  docker installs its own firewall rules — a host firewall set to refuse 8888
-  never sees the packet. The exposure is not abstract: SearXNG has no auth in
-  front of it, so anyone on the same network gets a free proxy to the internet
-  *and* a log of everything the owner has searched for. Now
-  `-p 127.0.0.1:8888:8080`. Publishing is fixed at container-create time, so a
-  container an earlier version made is detected via `docker inspect` and
-  recreated rather than started as-is; one that cannot be inspected is left
-  alone rather than destroyed on a guess.
+- ~~**SearXNG bound to localhost, not the LAN.**~~ **confirmed for the
+  source path, and it was wrong for docker** — `_start_docker` published on
+  every interface (docker's own default), which is worse than an open port
+  since SearXNG has no auth in front of it. Fixed; see HISTORY.md.
 - **A visible statement of what's true**, not just true in the code. The
   Privacy and security section of the README already says most of this
   clearly; worth linking it from Settings → Web search directly, next to the
@@ -1440,61 +1007,18 @@ them) · `related_notes(id, depth)` (§9) · `move_notes` (bulk re-file) ·
 "make your answers shorter" works · `unlink_notes` / `delete_reminder` (§21,
 gives skill runs a real undo for those two change types) ·
 ~~`create_category` / `merge_categories` / `delete_category`~~ **done, plus
-`rename_category`.** Asked for indirectly ("more tools for managing…
-creating, editing, deleting, and applying categories"); the agent could file
-a note into a category it had no way to create, which is the wrong half of
-the job. They take **names, not ids** — the model has never seen an id — and
-a miss lists what does exist, because "no category called Work" with nothing
-after it invites another guess rather than a look.
+`rename_category`** (name-based, not id-based, since the model has never
+seen an id — see HISTORY.md for the three decisions behind the shape).
 
-Three decisions in there worth not re-litigating:
-
-- **`merge_categories` is its own tool even though `rename_category` already
-  merges** when the new name is taken. That is right for a rename and a
-  terrible way to *ask* for a merge: the model would have to know a name was
-  already in use to predict what its own call did.
-- **A rename that merged offers no undo.** Once both sets of notes sit in one
-  category nothing records which came from where, so an "undo" would move all
-  of them back — inventing a history that never happened, which is worse than
-  having none. `create_category` and a plain rename do offer one.
-- **Lookup is exact-match first, then case-insensitive.** Purely
-  case-insensitive resolved both "Work" and "work" to whichever row came back
-  first, so `merge_categories(from="work", into="Work")` found the same
-  category twice and refused itself — on precisely the duplicate the user was
-  trying to clear up. Caught by a test, not by inspection.
-
-> ~~**⚠ The prompt budget is now the binding constraint on this section.**
-> There is room for roughly one more tool on this list, and then there is
-> none.~~ **Lifted — the constraint was an assumption, not a fact.**
->
-> Adding these four did break `tests/test_prompt_budget.py`, exactly as that
-> test exists to do, and the first draft went past the 4096-token *window* as
-> well. But asked directly — *"if adding more tools is an issue, can we change
-> or improve how tools are used so that doesn't become an issue?"* — the honest
-> answer was that 4096 is **Ollama's fallback when a model declares nothing**,
-> not a property of any model anyone actually runs. A current 7B declares 32k
-> or 128k, and rationing it against 4096 withheld tools for nothing.
->
-> So the fixed budget is gone. `tools.within_budget` fits the schemas to the
-> window the model *reports* (`ollama_client.usable_context`, via `/api/show`),
-> spends at most a quarter of it on schemas, drops the least relevant tools
-> when they do not fit, and logs what it held back — so "the AI didn't use the
-> tool I expected" is distinguishable from the model choosing not to. Core
-> tools go first: a model that cannot search or read a note cannot answer
-> anything.
->
-> | Model window | Tools sent |
-> | --- | --- |
-> | 2,048 | 4 (core only) |
-> | 4,096 | 9 |
-> | 8,192 | 19 |
-> | 16,384+ | all of them |
->
-> **What this means for the rest of this section: add the tools.** The cost of
-> one more is no longer "does it fit in a constant" but "what gets sent
-> first", which is a per-turn question the app now answers by itself. The
-> remaining lever, if a 4096-class model ever needs more room, is
-> `focus_for`'s cues rather than the registry's size.
+> ~~**⚠ The prompt budget is now the binding constraint on this section.**~~
+> **Lifted — the constraint was an assumption, not a fact.** `tools.
+> within_budget` now fits schemas to the window the model *reports*
+> (`ollama_client.usable_context`) rather than a fixed 4096, dropping the
+> least-relevant tools when they don't fit and logging what it held back.
+> Core tools (search, read a note) always go first. See HISTORY.md for the
+> per-window table. **What this means for the rest of this section: add the
+> tools** — the cost of one more is a per-turn question the app now answers
+> itself, not a fixed budget to ration against.
 
 ---
 
@@ -1519,17 +1043,15 @@ palettes."
   `appearancePref`, not just the swatches.
 - **Live preview** while hovering a theme, before committing
 - ~~Fix the reported bug where individual controls resist change under a
-  theme~~ done (§8): a palette always beat an accent on CSS source order, and
-  clearing an accent never un-applied it
+  theme~~ done (§8, HISTORY.md).
 
 ---
 
 ## 16. Sweeping UI quality-of-life
 
-- ~~**A status bar along the bottom**~~ **done.** Flagged stale by this
-  session's backlog audit — `#status-bar`/`renderStatusBar()` in `app.js`
-  already exist and render. See the correction on the second, near-duplicate
-  bullet further down this list too.
+- ~~**A status bar along the bottom**~~ **done** (`#status-bar`/
+  `renderStatusBar()`) — flagged stale by a backlog audit; see the
+  near-duplicate bullet further down this list too.
 - **Sorting and grouping saved chats** — also from IDEAS.md and also homeless
   until now. Conversations sort by recency and nothing else; there is no "by
   length", "by which model answered", no folders, no grouping by topic. The
@@ -1547,8 +1069,8 @@ palettes."
 - **Confirm on close** with unsaved text
 - **Relative timestamps** everywhere, absolute on hover
 - ~~**Dashboard**: audit every quick-access button actually lands where it
-  says~~ done (§8) — every quick link now checked from all three Notes
-  sub-tabs. Still worth doing: **add the ones that are missing**
+  says~~ done (§8, HISTORY.md). Still worth doing: **add the ones that are
+  missing**
 - **Collapsible sidebars.** Asked for directly. The Notes, Chat and Documents
   sidebars are fixed-width; a narrow window (or someone who just wants the
   reading room back) has no way to fold them, distinct from the mobile
@@ -1580,30 +1102,13 @@ palettes."
 
 ## 17. Use cases the app can't serve yet
 
-- ~~**Meeting notes**~~ **record → transcribe → note built; action-item
-  extraction still open.** A "🎙️ Meeting notes" dashboard card opens a
-  `#meeting-overlay` with its own record/stop/elapsed-timer controls, POSTs
-  the clip to a new `/voice/transcribe-meeting` endpoint (a 300MB ceiling
-  against `/transcribe`'s existing 25MB — "a meeting, not a podcast" needed
-  its own sanity limit, not the spoken-note one raised), then hands the
-  transcript back in an editable textarea before it becomes a note — the
-  same "review before it's saved" shape the persona-peek and
-  compression-summary features already use. Saved with a `meeting` tag so
-  every meeting note stays findable as a class regardless of what category
-  the AI files it under. **Extracting action items into reminders was
-  deliberately not built**: it needs a real model call parsing free text
-  into multiple structured reminders, which is a different shape from the
-  single-phrase parser `POST /reminders/parse` already does, and this
-  sandbox has neither faster-whisper nor a running Ollama to verify a new
-  prompt's behaviour against — guessing at it blind is exactly what
-  CLAUDE.md's standing caveat warns against. Verified everything that could
-  be: the full record → (faked) transcribe → review → save round trip in
-  Chromium with a fake microphone device (`--use-fake-device-for-media-
-  stream`), the graceful "faster-whisper not installed" path (real, since
-  it genuinely isn't installed here), and the saved note landing in Notes →
-  Browse with the right tag via the API. **Not verified**: a real
-  faster-whisper transcription of real audio — the same gap the pre-
-  existing single-note dictation feature already has and documents.
+- ~~**Meeting notes**~~ **record → transcribe → note built (a
+  `#meeting-overlay`, `/voice/transcribe-meeting`, review-before-save, a
+  `meeting` tag); action-item extraction still open** — needs a real model
+  call parsing free text into multiple structured reminders, a different
+  shape from the single-phrase parser `POST /reminders/parse` does, and
+  this sandbox has neither faster-whisper nor a running Ollama to verify a
+  new prompt against. See HISTORY.md for what was and wasn't verified live.
 - **Reading and research** — the Browse section (§3) plus highlights saved as
   notes back-linked to their source
 - **Journalling** — a daily-note pattern; the pieces exist, nothing ties them
@@ -1643,9 +1148,7 @@ history. What's still weak:
 - No plan/progress for a multi-step job — the step timeline shows what happened,
   not what remains
 - ~~No way to stop an agent turn mid-way and keep what it already did~~ **done**
-  — `#chat-stop` aborts the stream, and a partial answer is kept, given its
-  action buttons and persisted like any other turn. A turn stopped before it
-  wrote anything is left silent deliberately: the user asked for that.
+  — `#chat-stop` aborts the stream and keeps the partial answer.
 - A tool that fails is reported, but the model isn't told how to recover
 - `_CLAIM_PATTERN` catches "I saved it" when no write tool ran — worth extending
   to other claim types
@@ -1695,46 +1198,18 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
 - **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change
 - ~~**Session TTL** — tokens live in memory and never expire~~ **done.** Two
-  clocks doing different jobs: idle (12h — you walked away, and the notebook
-  locks itself the way a phone does) and absolute (7d — the ceiling a token
-  leaked from a proxy log or a synced browser profile eventually hits).
-  Expiry closes the vault as well, since an expiry that left the data key in
-  memory would be a lock on one door only. The brute-force item it was worth
-  pairing with turned out to be built already.
+  clocks (idle 12h, absolute 7d), expiry closes the vault too. See
+  HISTORY.md.
 - ~~**Cross-origin requests against the local API — worth checking directly,
   not assuming.**~~ **checked, and it was open. Now closed** by
-  `core/security.py:OriginCheckMiddleware`; the reasoning below is why, and
-  is worth keeping. Two things the check turned up that the item did not
-  anticipate: the session is a *header*, not a cookie, so `SameSite` was never
-  the lever here — and the most exposed moment is *before* a password exists,
-  when the unlock gate is deliberately open and a drive-by `POST /auth/setup`
-  could have claimed the notebook outright. This is the specific way
-  "single-user, local-only" apps
-  have actually been attacked before, Ollama included: the server isn't
-  reachable from the internet, but a malicious page open in *any other
-  browser tab* can still have the browser send a request to
-  `http://localhost:8000` on the person's behalf, because the browser
-  enforces the target's CORS policy, not the attacker's. If `allow_origins`
-  is permissive (or if the API trusts a session cookie without checking
-  where the request actually came from), a page with nothing to do with
-  MemoryMap could read or write notes just by being open in a tab. The fix
-  is standard and cheap: check the `Origin`/`Referer` header server-side
-  (not just an open CORS policy), and if the session is a cookie, set it
-  `SameSite=Strict`. Worth confirming this is already the case before
-  treating it as done — it's exactly the kind of thing that's invisible
-  until someone goes looking, and the cost of being wrong is every route
-  behind the unlock gate.
+  `core/security.py:OriginCheckMiddleware`. The real exposure was worse than
+  the item assumed: the most vulnerable moment is *before* a password
+  exists, when a drive-by `POST /auth/setup` from a malicious page in
+  another tab could have claimed the notebook outright — a browser enforces
+  the target's CORS policy, not the attacker's. See HISTORY.md.
 - ~~**Is SQLite in WAL mode?**~~ **yes, and it already was** —
-  `core/database.py` sets it on every connect, with `busy_timeout=5000` and
-  `synchronous=NORMAL` beside it. Pinned by a test now. The reasoning below
-  is still the reason it must stay. Default (rollback-journal) SQLite locks the
-  whole file for the duration of a write, which matters here specifically
-  because background AI work (the janitor filing a note, an embedding
-  re-index) can be writing at the same moment the person is just reading
-  their own notebook. WAL mode lets readers proceed during a writer and is
-  usually the right default for exactly this "one process, mixed
-  read/write" shape — worth confirming `core/database.py` sets
-  `PRAGMA journal_mode=WAL` rather than leaving SQLite's default.
+  `core/database.py` sets it on every connect, `busy_timeout=5000` and
+  `synchronous=NORMAL` beside it. Pinned by a test now.
 - **What blocks the request thread.** A re-index on switching embedding
   models, a SearXNG install, a daily backup — if any of these run
   synchronously on the same thread that serves requests, the whole
@@ -1906,19 +1381,11 @@ Small, concrete, each seen in the running app:
   results actually get read).
 
 - ~~**Magic Add schedules relative reminders a whole timezone offset late.**~~
-  **fixed.** Reported: *"I just put a sentence in the magic add text box in
-  reminders saying 'play league of legends in half an hour' and it scheduled
-  it for 10am tomorrow??"* Two faults, and the phrase was the smaller one.
-  The route built the user's clock as `utcnow() + offset` — aware, tagged UTC,
-  actually holding local wall-clock — so the model was told an offset that was
-  a fiction, answered with the same fiction, and was then trusted, skipping the
-  correction. Error = exactly the user's UTC offset, so ten hours at UTC+10 and
-  zero at UTC, which is why nothing caught it. See trap 5b. Separately, "in
-  half an hour" was being handed to a 3B model to do arithmetic on; "in …"
-  phrases are resolved by rule now, before the model, which also makes Magic
-  Add work with Ollama off. Fifteen phrasings and five offsets are pinned in
-  `tests/test_reminder_times.py`, and reverting either half turns eight of
-  them red.
+  **fixed** — the route built the user's clock as `utcnow() + offset`
+  (aware, tagged UTC, actually holding local wall-clock), so the model was
+  told a fictional offset and trusted; error was exactly the user's UTC
+  offset. Also: "in …" phrases now resolve by rule, not a 3B model doing
+  arithmetic. See HISTORY.md.
 
 - **Background tasks vanish when they finish.** A completed or failed task
   disappears from Settings → Background tasks, so "did the reinstall work?"
@@ -1966,40 +1433,18 @@ Small, concrete, each seen in the running app:
   yet" list in `CHANGELOG.md`) and this file together, since all three
   describe the same app and only this one gets updated every session.
 
-- ~~**Notes don't render markdown.**~~ **done** — but read how, before
-  extending it. `renderInlineMarkdown` handles bold, italic, `code` and
-  strike *only*; `renderMarkdown`'s block elements (headings, tables, lists,
-  fences) are deliberately not used in the list, because a list of
-  fully-rendered notes gets very tall, which is the problem this section
-  itself flagged. Code spans are matched first so `` `**x**` `` stays
-  literal, underscore italics are excluded so `snake_case` survives, and
-  `[[wiki links]]` and filter highlighting both still work *inside* emphasis.
-  The dashboard's little note lists **strip** the markers instead
-  (`notePreviewText`) — they clip at ~70 characters, and a clip landing
-  mid-`<strong>` is worse than no emphasis. If someone wants block markdown,
-  it belongs in an expanded/detail view, not the list.
+- ~~**Notes don't render markdown.**~~ **done** — but read how before
+  extending it. `renderInlineMarkdown` handles bold/italic/`code`/strike
+  *only* (block elements are deliberately excluded from the list — see
+  HISTORY.md); the dashboard's own small note lists strip markers instead.
 - ~~**A hero header on the dashboard.**~~ **done** — emblem and wordmark
-  inside the greeting card (not above it), hidden below 720px. The emblem is
-  drawn in the dashboard's own render, not at startup: p5 measures a canvas
-  as zero inside a `display: none` tab, and it has to be redrawn anyway when
-  a theme change moves the accent.
-- ~~**The chat box can't grow.**~~ **done.** It was an `<input type="text">`,
-  which is one line forever: a three-sentence question scrolled sideways
-  inside a box the width of a chat pane, so you could not read what you had
-  written before sending it. It is a textarea that grows with the text and
-  stops at `AUTOGROW_MAX_PX`, the same cap the capture box uses. Enter still
-  sends; Shift+Enter is a newline, which a single-line input could not offer
-  at all.
-- ~~**A long note fills the list.**~~ **done.** One 800-word note pushed
-  everything else off the screen, so the list stopped being a list. Anything
-  past `LONG_NOTE_CHARS` is clamped with a fade and a "Show more", remembered
-  per note for the session. The trigger is the character count, not a measured
-  height: the notes list renders inside a `display: none` sub-tab, where every
-  measurement is 0 — the trap that has caught four separate features here.
-- ~~**SearXNG starts but never answers** — capture its output.~~ The capture
-  was done first; the cause was found this session and it was us — the status
-  poll's liveness check terminated the process on Windows. See §8b, and
-  confirm with the user before calling it closed.
+  inside the greeting card, hidden below 720px.
+- ~~**The chat box can't grow.**~~ **done** — a textarea that grows with the
+  text now, was a single-line `<input>`.
+- ~~**A long note fills the list.**~~ **done** — anything past
+  `LONG_NOTE_CHARS` clamps with a fade and "Show more".
+- ~~**SearXNG starts but never answers** — capture its output.~~ Done; the
+  cause was us — see §8b.
 
 ---
 
@@ -2166,50 +1611,22 @@ before testing), so this is about what it covers, not whether it exists.
 
 - ~~**Confirm what the current onboarding actually walks through**~~ **done —
   five static slides** (welcome, capture, ask, graph, appearance), no
-  diagnostics anywhere, confirmed by reading `ONBOARDING_SLIDES` directly
-  rather than inferring it from what the driver scripts click past.
+  diagnostics anywhere.
 - ~~**Fold in first-run diagnostics.**~~ **built — Ollama reachability and
-  where the notebook lives.** A new slide (`{icon: "🩺", title: "Your
-  setup", dynamic: true}`), placed second — before the capture slide, so it
-  lands before a first capture could fail silently into `Uncategorised` and
-  read as broken rather than absent. It fetches `/models/status` and
-  `/storage` — **both already existed**, already powering the header's
-  AI-status pill and Settings → Data, so this needed no new backend at all,
-  just surfacing state nobody was shown at the moment it would have mattered
-  most. Text is genuinely dynamic (fetched, not templated once): "✅ Ollama
-  is running…" or "⚠️ Ollama isn't running… MemoryMap still works without
-  it", plus the data directory's path and the database file's size. A
-  staleness guard (a request token plus checking the overlay is still on
-  that slide and still open) stops a slow fetch from overwriting whatever's
-  showing by the time it lands — verified directly, not just reasoned about:
-  closing the tour before the fetch resolves leaves it closed rather than
-  reopening or throwing.
+  where the notebook lives**, a new dynamic slide reusing the existing
+  `/models/status`/`/storage` endpoints. See HISTORY.md.
   - **Offering to pull a small model (`llama3.2`) if none is installed, and
     checking `MEMORYMAP_DATA_DIR` is writable specifically, are still open.**
     The reachability half shipped; the "fix it for me" half (a pull button)
-    and the writability check are real, separate pieces of work — a stalled
-    `ollama pull` needs its own progress UI, and a writability check needs a
-    backend probe that doesn't exist yet (`/storage` reports the path, not
-    whether it's writable).
+    and the writability check are real, separate pieces of work.
 - **Name, first note, model choice** — as asked, still open. The dashboard's
-  name-nudge work ("empty by default and buried among a dozen fields")
-  already solved the *name* half; onboarding doing it once at the start
-  would be the same fix moved earlier, not a new one.
+  name-nudge work already solved the *name* half; onboarding doing it once
+  at the start would be the same fix moved earlier, not a new one.
 - ~~**Say what the graph and timeline actually are, once, early.**~~ **built**
-  — the former "Explore your graph" slide is now "Explore your map" and
-  names both the Graph tab and the Timeline's Line view (§10C, itself built
-  this session) as the two halves of "the map MemoryMap is named for". A
-  smaller version of the idea than "showing the graph forming around their
-  first couple of notes" (that would need the tour to run *after* a note
-  exists, which conflicts with running once at first launch before any note
-  does) — naming the two views, once, in words rather than a live demo is
-  the same product-identity gap closed with what the existing slide
-  mechanism can actually do.
+  — the "Explore your graph" slide now names both the Graph tab and the
+  Timeline's Line view.
 - ~~**What stays local, and how much space it's using**~~ **built as part of
-  the diagnostics slide above** rather than a separate step — `/storage`'s
-  `data_dir` and `database_bytes` answer exactly this, and splitting it into
-  its own slide would have repeated the "nothing leaves this machine"
-  framing the diagnostics slide already carries.
+  the diagnostics slide above** rather than a separate step.
 - **Benchmark installed models on first run, to suggest a default rather
   than assuming one** — still open, blocked on §11's model-comparison
   feature existing to wire into, as originally scoped.

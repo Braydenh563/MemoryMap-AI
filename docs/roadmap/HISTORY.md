@@ -3362,3 +3362,144 @@ view with an "N notes … no longer available" line rather than silently
 showing stale content. 14 new backend tests cover persistence, search,
 pagination, hydration (including the deleted/private-note drop), pin, and
 both clear-all variants.
+
+## BACKLOG.md's earliest bug-hunt sessions, consolidated — the launcher/theme/SearXNG fixes, the "reported as / actual cause" table, six real SearXNG install/start bugs, the tree/radial/arc label fixes, and relative-time resolution
+
+Moved out of BACKLOG.md §8/§8b/§9/§10 once each part landed; a short pointer
+is what stayed behind. Grouped here because they're all from the same
+early run of bug-hunting sessions, not because they share a subject.
+
+**§8's six standalone fixes.** Renaming the project folder broke the
+launcher: `pip install -e .` writes an absolute path into the venv, and the
+"do dependencies need reinstalling" skip marker checked `requirements.txt`'s
+timestamp/checksum — which a rename doesn't change — instead of asking the
+venv directly whether it could actually import the app; both launchers now
+ask it directly. Picking a theme did nothing about half the time: Appearance
+layers defaults → theme → manual tweaks in that order, so an earlier manual
+change silently outlived every theme picked after it; picking a theme now
+clears the manual keys that theme has an opinion about. Lagoon and Shallows
+were refined (Shallows was meant to read teal but was drawn mostly indigo;
+Lagoon's inset panels and secondary text were too low-contrast). Background
+tasks showed nothing while SearXNG started because a *start* (not an
+install) runs in the request thread and waits up to 90s with nothing on
+screen explaining the wait — `searxng_manager.starting()` now reports it
+with a progress bar. The AI emblem was cramped and only on two tabs (moved
+to one shared header spot beside the AI status dot). The dashboard's widgets
+were missing until a tab switch: `startApp` fired `loadEntries` and
+`refreshActiveTab` as two independent steps, so a cold load rendered the
+dashboard against an empty `allEntries` and drew the brand-new-notebook
+empty state — now gated on a flag that says the fetch actually happened.
+
+**§8's "reported as / what it actually was" table**, kept because in most
+cases the stated symptom pointed at the wrong component and the wasted
+effort is the expensive part to repeat: numbered lists always rendering
+`1.` (a blank line between items closed the `<ol>`, and models write
+`1.\n\n2.` more often than tightly); assistant content sitting too far
+right (the rail padded each step's own box instead of the container); the
+thinking-arrow marker sitting on the timeline circles (`list-style-position:
+outside` draws outside the summary's box, exactly where the rail's gutter
+is — removed and redrawn inside); thinking boxes "vanishing on reload" (not
+reproducible — the report predated the step-timeline work that already
+fixed it); a long URL escaping the chat bubble (`overflow-wrap: anywhere`);
+documents showing "Invalid Date" (a regression from the UTC fix —
+`relativeTime` appended a redundant `"Z"` to a timestamp already carrying
+`+00:00`); Dashboard "Search notes" going nowhere (focused a box inside the
+hidden `browse` sub-tab); the Capture textbox staying short until clicked
+(`autoGrow` measured `scrollHeight` while `display: none`); "Ask about
+this" wrecking the layout (CSS automatic minimum sizing — a `1fr` grid
+track and a `min-width: auto` flex item both refusing to shrink below
+their content, widening the whole column to 3425px at a 1280px viewport);
+desktop menu-bar buttons overlapping the title (a base rule below the
+media query redeclaring `flex` at equal specificity, pinning the tab strip
+rigid); not being able to switch search engines (the status poll reset the
+radios on every focus change, since picking one saves nothing until "Apply
+& re-index"); colour/font controls stuck under a theme (two causes —
+`[data-palette]` rules sitting below `[data-accent]` rules at equal
+specificity, and `applyAppearance` re-applying every setting except the
+accent); sketches not opening from the graph (the popup showed the caption
+but never the image); web search returning nothing (three different
+failures — no egress, a rate-limit challenge page, a genuine empty result —
+all surfacing identically, now logged and named separately).
+
+**Found while fixing the above, also fixed:** editing an answer reverted on
+reopen (the edit updated `content`, but replay renders `steps`); uploading
+a file 500'd if the uploads folder had gone missing; `APPEARANCE_DEFAULTS`
+declared `bg-motion` twice with different values; "New note" on the
+dashboard did nothing unless Notes was already on the capture sub-section
+(ten feature-catalog entries had the same hidden-sub-tab trap); `.entry-
+content`'s `pre-wrap` couldn't break inside a word, so one pasted URL
+widened the note list and the page; `pytest` didn't work in a fresh clone
+without an editable install.
+
+**§8b — six real bugs stood between "SearXNG install path exists" and
+"SearXNG actually works", found across two sessions.** Three
+platform-independent: **`git clone` can never work on Windows** — four
+files in SearXNG's own repo have a colon in the name (a drive-letter
+separator), so Windows refuses the checkout after fetching every object,
+leaving a half-written folder; fixed by downloading and unpacking the
+archive directly, skipping members the filesystem can't hold, git no
+longer used at all. **`pip install -e .` can never work, on any OS** —
+SearXNG's `setup.py` imports `searx`, which imports `msgspec`, and pip
+builds in an isolated environment that has neither; `requirements.txt` now
+installs first, with `--no-build-isolation`. **The `tracker_url_remover`
+plugin kills the process at boot** — it downloads a rules file from
+`rules1.clearurls.xyz` during `init` with no failure handling, so SearXNG
+exits before binding the port on any offline/proxied/slow machine;
+disabled in the generated `settings.yml` (MemoryMap strips tracking
+parameters itself, so nothing is lost). Three Windows-only: **`_alive()`
+was killing the process it checked** — `os.kill(pid, 0)` is the POSIX way
+to probe a process without touching it, but on Windows every signal except
+Ctrl+C/Break is handed to `TerminateProcess`, so the liveness check itself
+ended a freshly-started SearXNG within seconds, every time; now uses
+`OpenProcess`/`GetExitCodeProcess` on Windows. **A failed reinstall
+reproduced its own error** — `install_source` skipped the download when
+the checkout folder existed and handed it straight to `pip install -e`,
+but `uninstall_source`'s `shutil.rmtree(ignore_errors=True)` couldn't clear
+git's read-only `.git/objects` on Windows, so a "removed" folder was still
+there for the next install to find; `is_checkout()` now asks what's
+actually in the folder and `_remove_tree()` clears the read-only bit.
+**`import pwd`** — POSIX-only, the only such import in SearXNG, used only
+to name the current user in one unreachable-unless-Valkey-configured error
+message; a `pwd` stand-in is written into SearXNG's own venv rather than
+patching SearXNG's source (which upstream is free to change). All three
+Windows-only fixes were confirmed on the user's real Windows hardware, not
+just the sandboxed logic tests. Also fixed the same session: `_reason()`
+was reporting pip's parting "[notice] To update, run: … --upgrade pip" as
+an install failure's cause, since it took the last line and that notice is
+always last.
+
+**§9 — the tree and radial-tree graph layouts, re-fixed after a reported
+readability bug.** Both were first built handing d3 the panel's raw
+dimensions as a bounding box — `d3.tree().size([...])` divides the height
+by leaf count, so a 29-note notebook got eighteen pixels a row and printed
+labels on top of each other. The fix is rules about what a label needs, not
+what the panel has: the tree uses `nodeSize` and pans when taller than the
+panel (zooming out only once the whole thing nearly fits); the radial
+computes its rings from note/category count and rings *by depth* rather
+than by d3-cluster's height (cluster put a category containing a thread one
+ring closer in than its siblings, making the circle look ragged). Three
+further collisions only a browser could find: a stylesheet rule beating the
+`text-anchor` presentation attribute so no side-label ever moved, a flipped
+left-half label whose offset sent it back across its own node, and a
+55%-transparent label halo that let a thread edge show through the words it
+ran behind. All asserted on measured geometry — labels' real rotated
+corners, separated by a separating-axis test, since the axis-aligned box
+around diagonal text overlaps when the words do not. The arc-diagram layout
+(built on the filing hierarchy, sharing `layoutHierarchy`/`frameTree`/the
+tree and radial's drag-pin behaviour rather than a parallel rendering path
+for link-based arcs) was verified against a seeded notebook with categories
+and multi-level reply threads: no invalid paths, labels reading diagonally
+without colliding within a step, physics sliders correctly disabling, and
+switching away to force/tree/radial and back regressing none of them.
+
+**§10A — relative-time resolution, the full list of what's handled.**
+`entry/timewords.py` (deterministic regexes and arithmetic, not a model
+call, so it runs with Ollama off and never blocks a save) resolves: today ·
+tonight · this morning/afternoon/evening · tomorrow · yesterday · last
+night · the day before/after · this/last/next week, month, year · "in N
+days/weeks/months" · "N days/weeks ago" · "last/next/this/on <weekday>".
+Precision is kept ("last week" shows as a week, not flattened to a day),
+and the weekday rule is written down in the module since both readings of
+"next Friday" exist and consistency is the most that can be offered.
+Private notes are excluded, and marking a note private clears what was
+already stored — the same reasoning as dropping its embedding.

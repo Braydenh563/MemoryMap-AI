@@ -3729,6 +3729,20 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>
   <script src="/vendor/p5.min.js"></script>
+  <!-- Graph view, split out of app.js (frontend refactor path, after the
+       whiteboard split below). Loaded BEFORE app.js — unlike whiteboard.js,
+       this order IS load-bearing: app.js's own top-level wiring (event
+       listeners like `$("graph-similarity").addEventListener("change",
+       renderGraph)`) reads several of this file's functions as bare
+       identifiers the moment that line of app.js runs, not inside a
+       closure. Function/let declarations only hoist within their own script
+       element, so if app.js ran first those reads would throw
+       ReferenceError and abort the rest of app.js's synchronous top-level
+       code partway through. graph.js needs nothing from app.js at parse
+       time (only `document` and `d3`, the latter already loaded above), so
+       it can safely go first. See frontend/graph.js's own header for the
+       full explanation. -->
+  <script src="/graph.js"></script>
   <script src="/app.js"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every

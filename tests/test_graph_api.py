@@ -182,8 +182,8 @@ def test_graph_previews_show_words_not_markdown_markers(client):
 #
 # Not an API test — Gravity/Spread only make sense under the force layout, and
 # the only way to check the toggle actually disables them under the others is
-# to read app.js, the same way test_frontend_ids.py/test_style_scale.py do for
-# their own DOM-invisible-to-pytest checks.
+# to read graph.js, the same way test_frontend_ids.py/test_style_scale.py do
+# for their own DOM-invisible-to-pytest checks.
 
 
 def test_the_physics_sliders_are_disabled_under_tree_layouts():
@@ -193,14 +193,25 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     apply here."""
     from memorymap.api.app import FRONTEND_DIR
 
-    source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
-    start = source.index("function setGraphPhysicsEnabled(")
-    body = source[start : start + 1400]
+    # setGraphPhysicsEnabled's *definition* moved out of app.js into
+    # frontend/graph.js in the frontend refactor path's graph-view extraction
+    # (the step after whiteboard.js) — see index.html and graph.js's own
+    # header for why that file has to load *before* app.js, unlike
+    # whiteboard.js. Its call sites did not move with it: `switchTab`'s
+    # "arrival" call and the layout-<select> "change" listener both stayed in
+    # app.js, so the count below needs both files' text, the same way
+    # test_frontend_ids.py/test_frontend_handlers.py read app.js +
+    # whiteboard.js + graph.js together rather than any one file alone.
+    graph_source = (FRONTEND_DIR / "graph.js").read_text(encoding="utf-8")
+    app_source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    start = graph_source.index("function setGraphPhysicsEnabled(")
+    body = graph_source[start : start + 1400]
     assert 'layoutKind === "force"' in body
     assert "disabled" in body
     # Called on arrival as well as on change, or a notebook left on Tree comes
     # back with two live-looking dead sliders.
-    assert source.count("setGraphPhysicsEnabled(") >= 3
+    combined = graph_source + "\n" + app_source
+    assert combined.count("setGraphPhysicsEnabled(") >= 3
 
 
 # --- the graph's expensive derivations, cached (§40 items 4 and 5) ---------------

@@ -18,9 +18,13 @@
 // item's other half): the whiteboard tab is now served from a second file
 // that also has to be in this list, or a page loaded offline gets app.js
 // from the cache but a 404 for whiteboard.js and the tab renders blank.
-const CACHE = "memorymap-shell-v8";
+// Bumped a fourth time for the graph.js extraction (frontend refactor
+// path, the step after whiteboard): same failure mode — the Graph tab
+// would 404 offline without this file precached too.
+const CACHE = "memorymap-shell-v9";
 const SHELL = [
   "/",
+  "/graph.js",
   "/app.js",
   "/whiteboard.js",
   // style.css split into eight files, in load order — see index.html's

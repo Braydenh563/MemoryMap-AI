@@ -27,6 +27,7 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
 WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard.js"
+GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "graph.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs — the settings overlay has a backdrop-click-to-close and a delegated
@@ -49,19 +50,26 @@ BINDING = re.compile(r'\$\("([\w-]+)"\)\??\.addEventListener\(\s*"(\w+)"')
 
 
 def _source() -> str:
-    """app.js and whiteboard.js, with block comments left alone.
+    """app.js, whiteboard.js and graph.js, with block comments left alone.
 
     The whiteboard subsystem (board/card CRUD, sketch drawing, export,
     move/resize) moved out of app.js into its own file, loaded by a second
-    <script> tag — see index.html — so a duplicate-registration bug inside
-    it, or a registration split across the two files, needs both scanned
-    together to be caught.
+    <script> tag, and the graph view (force-directed map, layouts, tracing,
+    the node popup) moved out into a third — see index.html — so a
+    duplicate-registration bug inside either, or a registration split across
+    files, needs all three scanned together to be caught.
 
     Only comments are stripped: a `$("x").addEventListener` inside a comment is
     documentation of the pattern, not a second registration — this test's own
     docstring would otherwise be quoted back at it.
     """
-    combined = APP.read_text(encoding="utf-8") + "\n" + WHITEBOARD.read_text(encoding="utf-8")
+    combined = (
+        APP.read_text(encoding="utf-8")
+        + "\n"
+        + WHITEBOARD.read_text(encoding="utf-8")
+        + "\n"
+        + GRAPH.read_text(encoding="utf-8")
+    )
     return re.sub(r"/\*.*?\*/", "", combined, flags=re.S)
 
 

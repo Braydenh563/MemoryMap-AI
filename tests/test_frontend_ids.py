@@ -43,17 +43,19 @@ def _markup() -> str:
 
 
 def _frontend_js() -> str:
-    """app.js and whiteboard.js concatenated.
+    """app.js, whiteboard.js and graph.js concatenated.
 
     The whiteboard subsystem (board/card CRUD, sketch drawing, export,
     move/resize) moved out of app.js into its own file, loaded by a second
-    <script> tag - see index.html. A check that only read app.js would go on
-    passing while silently covering none of the moved file's own
-    $("...") lookups.
+    <script> tag, and the graph view (force-directed map, layouts, tracing,
+    the node popup) moved out into a third - see index.html. A check that
+    only read app.js would go on passing while silently covering none of the
+    moved files' own $("...") lookups.
     """
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
     whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
-    return app + "\n" + whiteboard
+    graph = (INDEX.parent / "graph.js").read_text(encoding="utf-8")
+    return app + "\n" + whiteboard + "\n" + graph
 
 
 def test_no_duplicate_element_ids():
@@ -70,7 +72,7 @@ def test_every_id_the_app_looks_up_actually_exists():
     # checked statically and is skipped rather than guessed at.
     looked_up = set(re.findall(r'\$\("([a-z0-9-]+)"\)', app))
     missing = sorted(looked_up - declared - RUNTIME_IDS)
-    assert not missing, f"app.js/whiteboard.js look up ids that aren't in index.html: {missing}"
+    assert not missing, f"app.js/whiteboard.js/graph.js look up ids that aren't in index.html: {missing}"
 
 
 def test_the_prepaint_theme_table_matches_app_js():

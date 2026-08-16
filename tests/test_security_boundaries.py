@@ -302,9 +302,11 @@ def test_the_frontend_has_no_inline_style_attributes():
 
     # whiteboard.js carries the board/card CRUD, sketch drawing, export and
     # move/resize code that used to be the back half of app.js (ROADMAP.md
-    # Priority 0 item 2) — the same innerHTML-template-literal risk applies
-    # there as anywhere else in the frontend, so it is checked too.
-    for name in ("index.html", "app.js", "whiteboard.js"):
+    # Priority 0 item 2), and graph.js carries the force-directed map, its
+    # layouts, tracing and node popup (frontend refactor path, the step
+    # after whiteboard) — the same innerHTML-template-literal risk applies
+    # there as anywhere else in the frontend, so both are checked too.
+    for name in ("index.html", "app.js", "whiteboard.js", "graph.js"):
         source = (FRONTEND_DIR / name).read_text(encoding="utf-8")
         assert 'style="' not in source and "style='" not in source, (
             f"{name} carries an inline style attribute. The CSP refuses it, so it "

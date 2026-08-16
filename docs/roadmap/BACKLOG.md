@@ -180,21 +180,27 @@ store:**
      file (PDF, `.docx`, anything) against a note and gives you back a
      download — so the storage layer and one upload path both already
      handle non-image files.
-   - **What's actually missing:** that attach path is a button, reached
+   - ~~**What's actually missing:** that attach path is a button, reached
      after the note exists — there's no drag-and-drop of an arbitrary file
-     straight onto the **capture box itself**, which is the "upload files
-     *with* notes" framing (attaching *while* writing, not as a separate
-     step afterward). And a non-image attachment shows no preview in the
-     note card — an image gets a thumbnail; a PDF gets nothing to
-     distinguish it at a glance, just the filename behind the 📎.
-   - **Scope, concretely:** extend the capture box's existing image
-     drop-handler (item above) to accept any file type rather than
-     branching on MIME type — same `attachments` table, same
-     `routes_files.py`, so this is widening an existing path rather than
-     building a second one. Multiple files in one drop should attach all of
-     them, not just the first. For the preview: a small type-specific icon
-     (PDF, doc, generic) is enough — actually rendering a PDF thumbnail is a
-     real feature on its own and not needed for this to feel finished.
+     straight onto the capture box itself.~~ **Stale — already done.**
+     `app.js`'s global `dragover`/`drop`/`paste` handlers match *any*
+     `<textarea>` (including `#entry-content`) and already filter for
+     `image/`, `application/`, `text/`, `video/` and `audio/` — not
+     image-only — and attach every file in a multi-file drop, not just the
+     first. A file-picker button (`#entry-attach-file`) reuses the same
+     `handleFileUpload` for a third path. See the "ROADMAP.md Tier 2 §16c"
+     comment right above `#entry-attach-file`'s listener in `app.js` — this
+     was checked and closed a session ago; this bullet just never got
+     updated to say so.
+   - **Genuinely still open:** a non-image attachment showed no preview in
+     the note card, and worse than "no preview" — `handleFileUpload` always
+     wrote `![name](url)` (image markdown) regardless of file type, so a
+     PDF/docx/etc. rendered as a broken `<img>` and its `onerror` handler
+     then reported it as **"filename deleted"**, which actively lied about
+     data loss. **Fixed this session**: non-image files now get plain link
+     markdown (`[name](url)`) instead, so they render as a working link.
+     **Still open:** that link has no type-specific icon (PDF, doc, generic)
+     to distinguish it at a glance — a small, real, separate follow-up.
    - **A step further, genuinely new: extracting text from what's
      uploaded, not just storing it.** An image of a whiteboard photo or a
      handwritten page currently attaches as an opaque file — nothing reads

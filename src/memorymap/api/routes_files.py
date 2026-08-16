@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps
+from memorymap.core import deps, media_gc
 from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -283,6 +283,57 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
         MediaUploadOut(id=u.id, url=f"/media/{u.filename}", original_name=u.original_name)
         for u in uploads
     ]
+
+
+class MediaOrphansOut(BaseModel):
+    orphans: list[MediaUploadOut]
+    #: True when a locked private note made the check incomplete — the list
+    #: above is not exhaustive in that case, and DELETE refuses to act on it.
+    skipped_private: bool
+    #: How many uploads DELETE actually removed. Always 0 for the GET dry run.
+    deleted: int = 0
+
+
+# Declared ahead of the `/media/{upload_id}` routes below: FastAPI compiles
+# `{upload_id}` as a plain path segment and only rejects a non-integer value
+# (like "orphans") when the handler runs, by which point an earlier-declared
+# `/media/{upload_id}` would already have claimed the match and returned a
+# 422 instead of ever reaching these.
+@router.get("/media/orphans", response_model=MediaOrphansOut)
+def list_orphaned_media(session: Session = Depends(get_session)) -> MediaOrphansOut:
+    """Uploads no live note, document or whiteboard image object still
+    points at (ROADMAP.md item 20a). A dry run — nothing is deleted here.
+    """
+    orphans, skipped_private = media_gc.find_orphaned_media(session)
+    return MediaOrphansOut(
+        orphans=[
+            MediaUploadOut(id=u.id, url=f"/media/{u.filename}", original_name=u.original_name)
+            for u in orphans
+        ],
+        skipped_private=skipped_private,
+    )
+
+
+@router.delete("/media/orphans", response_model=MediaOrphansOut)
+def clean_orphaned_media(session: Session = Depends(get_session)) -> MediaOrphansOut:
+    """Deletes every currently-orphaned upload's file and tracking row.
+
+    Refuses to delete anything (`skipped_private: true`, `deleted: 0`)
+    while a locked private note leaves the check incomplete — see
+    `media_gc`'s own docstring for why.
+    """
+    media_dir = deps.get_config().data_dir / "media"
+    deleted, skipped_private = media_gc.delete_orphaned_media(session, media_dir)
+    return MediaOrphansOut(
+        orphans=[
+            MediaUploadOut(
+                id=row["id"], url=f"/media/{row['filename']}", original_name=row["original_name"]
+            )
+            for row in deleted
+        ],
+        skipped_private=skipped_private,
+        deleted=len(deleted),
+    )
 
 
 @router.delete("/media/{upload_id}")

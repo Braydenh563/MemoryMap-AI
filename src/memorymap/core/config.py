@@ -18,6 +18,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from memorymap.core.atomic_io import atomic_write_json
+
 # Defaults for every user-changeable preference. Stored as data in one
 # place so the future Preferences screen has one list to show.
 DEFAULT_PREFERENCES: dict[str, Any] = {
@@ -148,9 +150,16 @@ class ConfigManager:
 
     def set_preference(self, key: str, value: Any) -> None:
         """Change a preference and persist it to disk immediately,
-        so a crash never loses a settings change."""
+        so a crash never loses a settings change.
+
+        Written atomically (temp file + fsync + rename): `preferences.json`
+        sits outside the database's own transaction boundary and holds
+        `llm_api_key` plus every setting the user has ever changed, so a
+        plain truncate-and-write here is the one place in the app where a
+        `kill -9` or power loss mid-write could corrupt live state.
+        """
         self._preferences[key] = value
-        self.preferences_path.write_text(json.dumps(self._preferences, indent=2))
+        atomic_write_json(self.preferences_path, self._preferences)
 
 
 def user_now(config: "ConfigManager") -> datetime:

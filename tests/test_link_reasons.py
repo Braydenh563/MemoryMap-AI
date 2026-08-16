@@ -12,11 +12,15 @@ silently no-op'ing again.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
+import numpy as np
 import pytest
 
 from memorymap.ai import links, tools
+from memorymap.ai.embeddings import vector_to_bytes
 from memorymap.core import deps
-from memorymap.core.database import AuditLog, Entry, EntryLink
+from memorymap.core.database import AuditLog, Entry, EntryDate, EntryLink, EmbeddingRecord
 from memorymap.entry import manager
 
 
@@ -565,3 +569,189 @@ def test_generate_link_reason_refuses_a_private_note(ai_client, fake_ollama, ses
         assert crypto.is_encrypted(stored.content)
     finally:
         vault.close()
+
+
+# --- a shared date rescues a borderline reason (ROADMAP.md Tier 2 item 9) --------
+#
+# "the deduction should weigh temporal words as well as embedding similarity —
+# two notes mentioning 'next Tuesday' or written the same day read as related
+# even when their topics don't overlap semantically" (asked for directly).
+# `manager.TEMPORAL_RESCUE_BOOST` folds `EntryDate`/`created_at` in as a
+# tie-breaker, not a second path to a link: it can only push an already-close
+# pair over `AUTO_REASON_THRESHOLD`, never manufacture one from nothing.
+
+
+def _borderline_pair(session):
+    """Two entries whose embeddings cosine to exactly 0.5 — a fixed 5° below
+    `AUTO_REASON_THRESHOLD` (0.55) so `TEMPORAL_RESCUE_BOOST` (0.15) alone
+    decides whether a reason is deduced."""
+    a = manager.create_entry(session, "planning for the trip")
+    b = manager.create_entry(session, "logistics and packing")
+    session.add_all(
+        [
+            EmbeddingRecord(
+                entry_id=a.id,
+                embedding=vector_to_bytes(np.array([1.0, 0.0], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+            EmbeddingRecord(
+                entry_id=b.id,
+                embedding=vector_to_bytes(np.array([0.5, 0.8660254], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+        ]
+    )
+    session.commit()
+    return a, b
+
+
+def test_a_shared_resolved_date_rescues_a_borderline_reason(session):
+    a, b = _borderline_pair(session)
+    when = datetime(2026, 6, 16, 9, 0)
+    session.add_all(
+        [
+            EntryDate(entry_id=a.id, phrase="next tuesday", at=when, precision="day"),
+            EntryDate(entry_id=b.id, phrase="tuesday", at=when, precision="day"),
+        ]
+    )
+    session.commit()
+
+    link = manager.create_link(session, a, b)
+
+    assert link is not None
+    assert link.reason == manager.AUTO_REASON_TEXT_TEMPORAL
+    assert link.reason_confidence == 0.5
+
+
+def test_being_written_the_same_day_also_rescues_a_borderline_reason(session):
+    """No `EntryDate` phrase needed — both notes' own `created_at` falling on
+    the same calendar day is the other named case."""
+    a, b = _borderline_pair(session)
+
+    link = manager.create_link(session, a, b)
+
+    assert link is not None
+    assert link.reason == manager.AUTO_REASON_TEXT_TEMPORAL
+    assert link.reason_confidence == 0.5
+
+
+def test_a_coarser_than_day_date_does_not_rescue_a_borderline_reason(session):
+    """"last week" isn't specific enough to call two notes related on its
+    own — only day-precision phrases count, and `created_at` itself is
+    pinned a day apart here so that fallback can't rescue it either."""
+    a, b = _borderline_pair(session)
+    b.created_at = a.created_at + timedelta(days=3)
+    when = datetime(2026, 6, 16)
+    session.add_all(
+        [
+            EntryDate(entry_id=a.id, phrase="last week", at=when, precision="week"),
+            EntryDate(entry_id=b.id, phrase="last week", at=when, precision="week"),
+        ]
+    )
+    session.commit()
+
+    link = manager.create_link(session, a, b)
+
+    assert link is not None
+    assert link.reason is None
+    assert link.reason_confidence is None
+
+
+def test_the_temporal_boost_cannot_manufacture_a_reason_from_a_low_score(session):
+    """A shared date is a tie-breaker, not a second path to a link — a pair
+    nowhere near the bar on meaning stays unreasoned even on the same day."""
+    a = manager.create_entry(session, "a funny scarecrow joke")
+    b = manager.create_entry(session, "buy milk and eggs")
+    session.add_all(
+        [
+            EmbeddingRecord(
+                entry_id=a.id,
+                embedding=vector_to_bytes(np.array([1.0, 0.0], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+            EmbeddingRecord(
+                entry_id=b.id,
+                embedding=vector_to_bytes(np.array([0.0, 1.0], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+        ]
+    )
+    session.commit()
+
+    link = manager.create_link(session, a, b)
+
+    assert link is not None
+    assert link.reason is None
+    assert link.reason_confidence is None
+
+
+def test_ordinary_today_phrasing_in_note_text_rescues_a_borderline_reason(session):
+    """The end-to-end path, not a hand-built `EntryDate` row: saving a note
+    that just says "today" (asked for directly — "I was at uni today and
+    bought that mouse there") already goes through the same
+    `record_dates`/`entry.timewords` resolution every note gets, entirely
+    independent of this feature. This pins that the two are actually wired
+    together, not just individually correct."""
+    a = manager.create_entry(session, "at uni today, bought a mouse there")
+    b = manager.create_entry(session, "the mouse I got today needs new batteries")
+    assert any(d.phrase == "today" and d.precision == "day" for d in manager.entry_dates(session, a))
+    assert any(d.phrase == "today" and d.precision == "day" for d in manager.entry_dates(session, b))
+
+    session.add_all(
+        [
+            EmbeddingRecord(
+                entry_id=a.id,
+                embedding=vector_to_bytes(np.array([1.0, 0.0], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+            EmbeddingRecord(
+                entry_id=b.id,
+                embedding=vector_to_bytes(np.array([0.5, 0.8660254], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+        ]
+    )
+    session.commit()
+
+    link = manager.create_link(session, a, b)
+
+    assert link is not None
+    assert link.reason == manager.AUTO_REASON_TEXT_TEMPORAL
+    assert link.reason_confidence == 0.5
+
+
+def test_a_score_already_over_threshold_keeps_the_plain_reason(session):
+    """A shared date must not relabel a pair that already clears the bar on
+    meaning alone — the exact-match text and score every existing test
+    already pins stay exactly as they were."""
+    a = manager.create_entry(session, "a funny scarecrow joke")
+    b = manager.create_entry(session, "another funny pun")
+    session.add_all(
+        [
+            EmbeddingRecord(
+                entry_id=a.id,
+                embedding=vector_to_bytes(np.array([1.0, 0.0], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+            EmbeddingRecord(
+                entry_id=b.id,
+                embedding=vector_to_bytes(np.array([1.0, 0.0], dtype="float32")),
+                dim=2,
+                model_version="test",
+            ),
+        ]
+    )
+    session.commit()
+
+    link = manager.create_link(session, a, b)  # both created just now — same day
+
+    assert link is not None
+    assert link.reason == manager.AUTO_REASON_TEXT
+    assert link.reason_confidence == 1.0

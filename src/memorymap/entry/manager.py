@@ -763,17 +763,57 @@ def delete_tag(session: Session, name: str) -> int:
 # link the AI made unprompted read the same way if they're equally close.
 AUTO_REASON_THRESHOLD = 0.55
 AUTO_REASON_TEXT = "similar in meaning"
+AUTO_REASON_TEXT_TEMPORAL = "similar in meaning, and around the same time"
+#: How much a shared date pushes a borderline embedding score over
+#: AUTO_REASON_THRESHOLD. Asked for directly (ROADMAP.md Tier 2 item 9):
+#: two notes both mentioning "next Tuesday", or written the same day, should
+#: read as related even when their topics don't overlap semantically enough
+#: on their own. Deliberately small and a *rescue*, not a second path to a
+#: link — see the `score >= AUTO_REASON_THRESHOLD` early return below, which
+#: keeps every pair that already clears the bar on meaning alone exactly as
+#: it was (the reason text, the confidence, and every existing test).
+TEMPORAL_RESCUE_BOOST = 0.15
+
+
+def _shares_a_date(session: Session, source_id: int, target_id: int) -> bool:
+    """True when the two notes resolve to the same calendar day.
+
+    Two ways in, both day-precision only (a coarser phrase like "last week"
+    isn't specific enough to call two notes related on its own): a recorded
+    time phrase in both (`EntryDate` — "next Tuesday" in one note and
+    "next Tuesday" in another, each resolved against the day it was
+    written), or simply being written on the same day, phrase or not.
+    """
+    dates_by_entry = entry_dates_bulk(session, [source_id, target_id])
+    day_sets = {
+        entry_id: {d.at.date() for d in dates if d.precision == "day"}
+        for entry_id, dates in dates_by_entry.items()
+    }
+    if day_sets.get(source_id, set()) & day_sets.get(target_id, set()):
+        return True
+
+    entries = {
+        e.id: e
+        for e in session.scalars(
+            select(Entry).where(Entry.id.in_((source_id, target_id)))
+        )
+    }
+    source, target = entries.get(source_id), entries.get(target_id)
+    if source is None or target is None:
+        return False
+    return source.created_at.date() == target.created_at.date()
 
 
 def _deduce_reason(
     session: Session, source_id: int, target_id: int
 ) -> tuple[str | None, float | None]:
     """Guess why two notes might be linked from how close their embeddings
-    are. Returns `(None, None)` — "no reason" — when it can't: no embedding
-    for one or both notes, a mid-reindex width mismatch, or a score under
-    `AUTO_REASON_THRESHOLD`. That's deliberately the same pair `reason`
-    already had for "nobody gave one", so a weak guess never outranks
-    silence — see `EntryLink.reason_confidence`.
+    are, with a shared date as a tie-breaker for a borderline pair. Returns
+    `(None, None)` — "no reason" — when it can't: no embedding for one or
+    both notes, a mid-reindex width mismatch, or a score under
+    `AUTO_REASON_THRESHOLD` even after the date check. That's deliberately
+    the same pair `reason` already had for "nobody gave one", so a weak
+    guess never outranks silence — see `EntryLink.reason_confidence`.
 
     A private note has no embedding (`set_private` deletes it), so this is
     naturally a no-op for one rather than needing its own guard.
@@ -798,9 +838,13 @@ def _deduce_reason(
     if vectors[source_id].shape != vectors[target_id].shape:
         return None, None  # mid embedding-model change — see search.similar_pairs
     score = cosine_similarity(vectors[source_id], vectors[target_id])
-    if score < AUTO_REASON_THRESHOLD:
-        return None, None
-    return AUTO_REASON_TEXT, round(score, 2)
+    if score >= AUTO_REASON_THRESHOLD:
+        return AUTO_REASON_TEXT, round(score, 2)
+    if score + TEMPORAL_RESCUE_BOOST >= AUTO_REASON_THRESHOLD and _shares_a_date(
+        session, source_id, target_id
+    ):
+        return AUTO_REASON_TEXT_TEMPORAL, round(score, 2)
+    return None, None
 
 
 def create_link(

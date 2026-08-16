@@ -22810,8 +22810,16 @@ async function handleFileUpload(textarea, files) {
         headers: { "X-Auth-Token": authToken() },
         body: formData
       });
-      const imgMarkdown = `![${res.filename}](${res.url})\n`;
-      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, imgMarkdown);
+      // Image syntax (`![]()`) unconditionally became an <img> at render
+      // time (renderInlineMarkdown) — a non-image upload (PDF, docx, audio)
+      // failed to decode as an image and the img.onerror handler then
+      // reported it as "filename deleted", which is actively wrong: the
+      // file uploaded fine and is sitting at res.url. Link syntax for
+      // anything that isn't actually an image.
+      const fileMarkdown = file.type.startsWith("image/")
+        ? `![${res.filename}](${res.url})\n`
+        : `[${res.filename}](${res.url})\n`;
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     } catch (err) {
       console.error("Upload failed", err);

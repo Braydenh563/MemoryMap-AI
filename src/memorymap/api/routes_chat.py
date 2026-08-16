@@ -27,7 +27,7 @@ from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
-from memorymap.core.database import AuditLog, Category, Entry
+from memorymap.core.database import AskTurn, AuditLog, Category, Entry
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 @router.get("/recent", response_model=list[str])
 def recent_questions(session: Session = Depends(get_session)) -> list[str]:
-    """The last 5 distinct questions, newest first (Phase 5 quick access).
+    """The last 5 distinct questions, newest first (quick access).
     Read straight from the audit log — no extra bookkeeping."""
     rows = session.scalars(
         select(AuditLog)
@@ -113,9 +113,9 @@ class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
     # Prior turns for follow-up context (Round 1); the server clips this.
     history: list[ChatTurn] = Field(default_factory=list)
-    # Persona name (Wave C); None → the active persona preference.
+    # Persona name; None → the active persona preference.
     persona: str | None = None
-    # Agent mode (Wave G): may the model call tools to change things?
+    # Agent mode: may the model call tools to change things?
     # None → the saved "tools_enabled" preference (default on).
     use_tools: bool | None = None
     # How much effort this turn is worth (§11): "quick", "normal" or
@@ -388,7 +388,7 @@ def _prepare(
 
     def as_note(entry) -> dict:
         return {
-            # id lets agent-mode tool calls target these notes (Wave G);
+            # id lets agent-mode tool calls target these notes;
             # the plain librarian prompt simply ignores it.
             "id": entry.id,
             "content": entry.content,
@@ -409,7 +409,7 @@ def _prepare(
         else ""
     )
 
-    # Every entry this question surfaced counts as "used" (Phase 5).
+    # Every entry this question surfaced counts as "used".
     for entry in entries:
         entry.access_count += 1
     manager.log_action(session, "queried", "chat", detail=question)
@@ -502,6 +502,25 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         ollama_running=ollama_running,
         sentence_grounding=sentence_grounding,
     )
+
+
+def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict) -> None:
+    """Durable record of one Ask-box turn, for routes_ask_history.py's browse
+    panel. Only ever called for `notes_only` requests (the Ask box's own
+    flag, §35A) with a real answer — a small-talk turn on that box always
+    exits through the "hint" branch below instead, never reaching this call,
+    so nothing here needs to re-check for that case.
+    """
+    session.add(
+        AskTurn(
+            question=question,
+            answer=answer,
+            raw_result_ids=json.dumps([r.id for r in prepared["raw_results"]]),
+            search_mode=prepared["search_mode"],
+            when_phrase=prepared["when_phrase"],
+        )
+    )
+    session.commit()
 
 
 @router.post("/stream")
@@ -696,7 +715,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             first = next(agent_events, None)
             if first is None or first.get("type") == "unsupported":
                 # The active model can't do tool calls — plain Q&A, never
-                # a hard dependency (Wave G gate).
+                # a hard dependency.
                 pass
             else:
                 events = chain([first], agent_events)
@@ -716,6 +735,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             grounding = ground_answer_sentences(answer_text, prepared["notes"])
             if grounding:
                 yield event({"type": "grounding", "sentences": grounding})
+        if body.notes_only and answer_text:
+            _save_ask_turn(session, question, answer_text, prepared)
         yield event({"type": "done"})
 
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
@@ -750,7 +771,7 @@ def list_modes() -> dict:
 
 @router.get("/tools")
 def list_tools() -> list[dict]:
-    """The agent-tool catalog for Settings → Tools toggles (Wave O)."""
+    """The agent-tool catalog for Settings → Tools toggles."""
     return tools.tool_catalog()
 
 
@@ -813,7 +834,7 @@ def compress_history(body: CompressBody) -> dict:
 
 
 class ToolExecuteBody(BaseModel):
-    """A tool call the user approved in the UI (Wave G confirm step)."""
+    """A tool call the user approved in the UI (confirm step)."""
 
     name: str
     arguments: dict = Field(default_factory=dict)

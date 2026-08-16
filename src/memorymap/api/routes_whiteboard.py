@@ -466,9 +466,7 @@ def create_node(
 def update_node(
     node_id: int, node_in: WhiteboardNodeBase, db: Session = Depends(get_session)
 ) -> WhiteboardNode:
-    node = db.get(WhiteboardNode, node_id)
-    if node is None:
-        raise HTTPException(status_code=404, detail="Node not found")
+    node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
     _require_entry(db, node_in.entry_id)
     _require_board(db, node_in.board_id)
     node.entry_id = node_in.entry_id
@@ -485,12 +483,10 @@ def update_node(
 
 @router.delete("/nodes/{node_id}")
 def delete_node(node_id: int, db: Session = Depends(get_session)) -> dict:
-    node = db.get(WhiteboardNode, node_id)
-    if node is None:
-        # 404 rather than a cheerful "ok": deleting something that isn't there
-        # is how a client finds out its board is stale, and swallowing it left
-        # ghost cards on screen until a reload.
-        raise HTTPException(status_code=404, detail="Node not found")
+    # 404 rather than a cheerful "ok": deleting something that isn't there
+    # is how a client finds out its board is stale, and swallowing it left
+    # ghost cards on screen until a reload.
+    node = deps.get_or_404(db, WhiteboardNode, node_id, "Node not found")
     db.delete(node)
     db.commit()
     return {"status": "ok"}
@@ -512,9 +508,7 @@ def create_sketch(
 def update_sketch(
     sketch_id: int, sketch_in: WhiteboardSketchBase, db: Session = Depends(get_session)
 ) -> WhiteboardSketch:
-    sketch = db.get(WhiteboardSketch, sketch_id)
-    if sketch is None:
-        raise HTTPException(status_code=404, detail="Sketch not found")
+    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
     _require_board(db, sketch_in.board_id)
     sketch.data = sketch_in.data
     sketch.board_id = sketch_in.board_id
@@ -527,9 +521,7 @@ def update_sketch(
 
 @router.delete("/sketches/{sketch_id}")
 def delete_sketch(sketch_id: int, db: Session = Depends(get_session)) -> dict:
-    sketch = db.get(WhiteboardSketch, sketch_id)
-    if sketch is None:
-        raise HTTPException(status_code=404, detail="Sketch not found")
+    sketch = deps.get_or_404(db, WhiteboardSketch, sketch_id, "Sketch not found")
     db.delete(sketch)
     db.commit()
     return {"status": "ok"}
@@ -574,9 +566,7 @@ def create_object(
 def update_object(
     object_id: int, body: WhiteboardObjectBase, db: Session = Depends(get_session)
 ) -> WhiteboardObjectOut:
-    obj = db.get(WhiteboardObject, object_id)
-    if obj is None:
-        raise HTTPException(status_code=404, detail="Object not found")
+    obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
     _require_board(db, body.board_id)
     _require_object_data(body)
     # The kind an object was created as doesn't change — an image resized or
@@ -598,9 +588,7 @@ def update_object(
 
 @router.delete("/objects/{object_id}")
 def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
-    obj = db.get(WhiteboardObject, object_id)
-    if obj is None:
-        raise HTTPException(status_code=404, detail="Object not found")
+    obj = deps.get_or_404(db, WhiteboardObject, object_id, "Object not found")
     if obj.kind == "image":
         # The only thing that ever pointed at this file — best-effort, the
         # same rule `_hard_delete` already follows for an attachment's own

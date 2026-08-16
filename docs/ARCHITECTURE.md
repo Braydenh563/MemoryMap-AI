@@ -173,7 +173,9 @@ MemoryMap-AI-v0/
 │       ├── schemas.py       # Pydantic request/response models
 │       └── routes_*.py      # one router per feature area (see §6)
 ├── frontend/                # vanilla HTML/CSS/JS SPA + PWA (no build step)
-│   ├── index.html · app.js · style.css · sw.js · manifest.webmanifest
+│   ├── index.html · app.js · sw.js · manifest.webmanifest
+│   ├── css/                 # style.css split into 8 linked files (Priority 0
+│   │                         # item 2); index.html's <link> order is load-bearing
 │   └── vendor/              # d3.v7, p5 — vendored locally, never a CDN
 ├── tests/                   # pytest; all AI faked (tests/fakes.py)
 ├── docs/                    # you are here
@@ -867,9 +869,9 @@ and embedding, and both already run off the request thread.
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py` — one rule, one test row |
 | Change search behaviour | `src/memorymap/search/search_manager.py` |
-| Change the UI | `frontend/app.js`, `frontend/style.css` (read §10's invariants first) |
+| Change the UI | `frontend/app.js`, `frontend/css/*.css` (read §10's invariants first) |
 | Add a graph layout | `layoutHierarchy` in `app.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first — the readable-layout rules are not obvious |
-| Add a theme or palette | `THEME_PRESETS` in `app.js` + a `[data-palette]` block in `style.css`; §10 invariant 9 for why a theme has to clear manual keys |
+| Add a theme or palette | `THEME_PRESETS` in `app.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |
 | Change what the Timeline plots | `api/routes_timeline.py` — a note sits at what it is *about* when it says so |
 | Work out why a page scrolls sideways | §10 invariant 2 — an ancestor with no `min-width: 0` |
 | Change what a saved chat replays | `steps` in `routes_conversations.py` — not just `content` |

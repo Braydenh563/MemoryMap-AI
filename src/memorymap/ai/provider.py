@@ -47,7 +47,7 @@ class ProviderError(RuntimeError):
 
 class ToolsUnsupportedError(ProviderError):
     """The active model can't do tool calls — the caller should fall
-    back to plain Q&A, never fail the whole chat (Wave G)."""
+    back to plain Q&A, never fail the whole chat."""
 
 
 # --- what the app knows about models, not about backends --------------------
@@ -546,7 +546,7 @@ def extract_text_tool_calls(
     content: str, tool_names: set[str]
 ) -> tuple[list[dict], str]:
     """Recover tool calls that a model wrote as TEXT instead of using the
-    structured tool_calls field (Wave O bug: small models narrate/emit
+    structured tool_calls field (bug: small models narrate/emit
     calls in prose, so notes the AI 'creates' never actually get made).
 
     Handles both an explicit ``<tool_call>{...}</tool_call>`` wrapper and a

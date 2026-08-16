@@ -394,3 +394,30 @@ def test_the_link_reason_audit_has_its_own_off_switch(app_state, monkeypatch):
     autonomous._run_optimization()
 
     assert not calls
+
+
+def test_a_card_whose_note_was_purged_is_swept_up(ai_client, session):
+    """No cascade on `whiteboard_nodes.entry_id`, so purging a note from the
+    recycle bin left a card on the board pointing at nothing — visible, not
+    removable through the UI, and it makes the board look broken."""
+    from memorymap.core.database import Entry, WhiteboardNode
+
+    def _note(content):
+        entry = Entry(content=content)
+        session.add(entry)
+        session.commit()
+        return entry
+
+    kept = _note("a note that stays")
+    doomed = _note("a note about to be purged")
+    for entry in (kept, doomed):
+        ai_client.post("/whiteboard/nodes", json={"entry_id": entry.id})
+
+    session.execute(text("PRAGMA foreign_keys=OFF"))
+    session.execute(text("DELETE FROM entries WHERE id = :id"), {"id": doomed.id})
+    session.commit()
+    session.execute(text("PRAGMA foreign_keys=ON"))
+
+    assert autonomous.clean_orphaned_board_cards() == 1
+    session.expire_all()
+    assert [n.entry_id for n in session.query(WhiteboardNode).all()] == [kept.id]

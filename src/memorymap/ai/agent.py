@@ -1,4 +1,4 @@
-"""The Wave G agent loop: the chat model can act on the notebook.
+"""The agent loop: the chat model can act on the notebook.
 
 Flow: offer the tool registry to Ollama → run whatever it calls → feed
 the results back → repeat (bounded) → its final text is the answer.
@@ -992,7 +992,7 @@ def run_agent(
                 yield {"type": "answer", "delta": answer}
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated — say so instead of
-            # letting the user believe a note exists that doesn't (Wave O).
+            # letting the user believe a note exists that doesn't.
             unsupported = unsupported_claims(answer, ran_writes)
             if unsupported:
                 # Named, not vague. "It looks like I didn't actually save it"

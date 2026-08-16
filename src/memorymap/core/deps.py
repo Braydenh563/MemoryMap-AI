@@ -13,8 +13,9 @@ import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TypeVar
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import EmbeddingService
@@ -24,6 +25,8 @@ from memorymap.ai.openai_client import OpenAICompatClient
 from memorymap.ai.provider import Provider
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
+
+_ModelT = TypeVar("_ModelT")
 
 _config: ConfigManager | None = None
 _db: DatabaseManager | None = None
@@ -172,7 +175,7 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
 
 def reload_db() -> None:
     """Close every connection and reopen the database file — needed
-    after a backup restore replaces the file underneath us (Wave F)."""
+    after a backup restore replaces the file underneath us."""
     global _db
     assert _config is not None
     if _db is not None:
@@ -288,6 +291,32 @@ def get_session(request: Request = None) -> Iterator[Session]:
         yield session
     finally:
         session.close()
+
+
+def get_or_404(
+    session: Session, model: type[_ModelT], obj_id: object, detail: str
+) -> _ModelT:
+    """Fetch a row by primary key, or raise the 404 the route wants.
+
+    Every route file had its own copy of `row = session.get(Model, id); if
+    row is None: raise HTTPException(404, "...")` — ~39 of them across 12
+    files, found by grep, all the same three lines with a different model
+    and message. This is the plain "look up by id, 404 if missing" shape
+    only; a lookup that also checks something else about the row (soft
+    delete, ownership, an index bound) stays inline at its call site rather
+    than being bent to fit here, because bending it would either change what
+    it checks or make the helper lie about what it does.
+
+    `detail` is required rather than derived from `model.__name__`, because
+    the existing messages are user-facing text ("No such preference",
+    "Attachment not found", "No note with id 5") that this refactor is not
+    meant to alter — passing it explicitly is what keeps that text byte-for-
+    byte the same as before.
+    """
+    obj = session.get(model, obj_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail=detail)
+    return obj
 
 
 def store_quietly(session: Session, entry: Entry) -> bool:

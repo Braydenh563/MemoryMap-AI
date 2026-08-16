@@ -22,11 +22,13 @@ from memorymap import __version__
 from memorymap.ai import embeddings, autonomous
 from memorymap.search import searxng_manager
 from memorymap.api import (
+    routes_ask_history,
     routes_auth,
     routes_categories,
     routes_chat,
     routes_conversations,
     routes_documents,
+    routes_backups,
     routes_duplicates,
     routes_drafts,
     routes_entries,
@@ -42,6 +44,7 @@ from memorymap.api import (
     routes_timeline,
     routes_tags,
     routes_voice,
+    routes_websearch,
     routes_whiteboard,
 )
 from memorymap.api.routes_auth import require_unlock
@@ -88,7 +91,7 @@ class RevalidatedStatic(StaticFiles):
 
 
 def _purge_expired_bin_entries() -> None:
-    """Recycle-bin auto-clear (plan Phase 4): permanently drop entries
+    """Recycle-bin auto-clear: permanently drop entries
     binned longer than the user's configured number of days."""
     try:
         session = deps.get_db().session()
@@ -107,7 +110,7 @@ def _purge_expired_bin_entries() -> None:
 
 
 def _backup_if_due() -> None:
-    """Scheduled local backups (Wave F): one consistent snapshot per day,
+    """Scheduled local backups: one consistent snapshot per day,
     taken at startup. Failure must never stop the app."""
     try:
         config = deps.get_config()
@@ -206,8 +209,11 @@ def create_app() -> FastAPI:
     app.include_router(routes_auth.router)
     app.include_router(routes_entries.router, dependencies=locked)
     app.include_router(routes_chat.router, dependencies=locked)
+    app.include_router(routes_ask_history.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    app.include_router(routes_websearch.router, dependencies=locked)
+    app.include_router(routes_backups.router, dependencies=locked)
     app.include_router(routes_spaces.router, dependencies=locked)
     app.include_router(routes_files.router, dependencies=locked)
     # A plain `<img src>` (or a note's own inline `![]()` markdown) never

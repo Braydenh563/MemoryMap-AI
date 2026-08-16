@@ -1,4 +1,4 @@
-"""Wave E: the graph endpoint — nodes, link/thread edges, similarity."""
+"""The graph endpoint — nodes, link/thread edges, similarity."""
 
 from __future__ import annotations
 
@@ -176,3 +176,148 @@ def test_graph_previews_show_words_not_markdown_markers(client):
     client.post("/entries", json={"content": "## **Seraphine build** for _mid_ lane"})
     nodes = client.get("/graph").json()["nodes"]
     assert nodes[0]["preview"] == "Seraphine build for mid lane"
+
+
+# --- the physics sliders, checked against the frontend source directly -------
+#
+# Not an API test — Gravity/Spread only make sense under the force layout, and
+# the only way to check the toggle actually disables them under the others is
+# to read graph.js, the same way test_frontend_ids.py/test_style_scale.py do
+# for their own DOM-invisible-to-pytest checks.
+
+
+def test_the_physics_sliders_are_disabled_under_tree_layouts():
+    """Gravity and Spread scale the force simulation, and the tree layouts do
+    not run one. Left enabled they are two controls that move, save, and change
+    nothing — which reads as a broken app rather than a setting that does not
+    apply here."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    # setGraphPhysicsEnabled's *definition* moved out of app.js into
+    # frontend/graph.js in the frontend refactor path's graph-view extraction
+    # (the step after whiteboard.js) — see index.html and graph.js's own
+    # header for why that file has to load *before* app.js, unlike
+    # whiteboard.js. Its call sites did not move with it: `switchTab`'s
+    # "arrival" call and the layout-<select> "change" listener both stayed in
+    # app.js, so the count below needs both files' text, the same way
+    # test_frontend_ids.py/test_frontend_handlers.py read app.js +
+    # whiteboard.js + graph.js together rather than any one file alone.
+    graph_source = (FRONTEND_DIR / "graph.js").read_text(encoding="utf-8")
+    app_source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    start = graph_source.index("function setGraphPhysicsEnabled(")
+    body = graph_source[start : start + 1400]
+    assert 'layoutKind === "force"' in body
+    assert "disabled" in body
+    # Called on arrival as well as on change, or a notebook left on Tree comes
+    # back with two live-looking dead sliders.
+    combined = graph_source + "\n" + app_source
+    assert combined.count("setGraphPhysicsEnabled(") >= 3
+
+
+# --- the graph's expensive derivations, cached (§40 items 4 and 5) ---------------
+
+
+def test_the_path_endpoint_stays_cheap_by_default(ai_client, monkeypatch):
+    """It began computing similarity edges across the whole notebook on every
+    call, while its docstring still promised something cacheable and safe to
+    re-issue."""
+    from memorymap.api import routes_graph
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        routes_graph,
+        "_similarity_edges",
+        lambda *a, **k: calls.append(1) or [],
+    )
+    ai_client.get("/graph/path", params={"source": 1, "target": 2})
+    assert calls == []
+
+    ai_client.get("/graph/path", params={"source": 1, "target": 2, "similarity": "true"})
+    assert calls == [1]
+
+
+def _count_calls(monkeypatch, module, name):
+    calls = []
+    original = getattr(module, name)
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, name, counted)
+    return calls
+
+
+def test_pagerank_is_not_recomputed_for_an_unchanged_notebook(ai_client, monkeypatch):
+    """Fifteen passes over every node and edge, on every single graph load."""
+    from memorymap.api import routes_graph
+    from memorymap.entry import paths
+
+    ai_client.post("/entries", json={"content": "one"})
+    ai_client.post("/entries", json={"content": "two"})
+
+    calls = _count_calls(monkeypatch, paths, "pagerank")
+    for _ in range(3):
+        assert ai_client.get("/graph").status_code == 200
+    assert len(calls) == 1, "pagerank ran more than once for the same notebook"
+
+    # ...and a new note invalidates it, because a stale graph is worse than a
+    # slow one.
+    ai_client.post("/entries", json={"content": "three"})
+    ai_client.get("/graph")
+    assert len(calls) == 2
+    routes_graph.reset_graph_cache()
+
+
+def test_the_cache_is_scoped_to_the_notebook_it_was_built_from(app_state, session):
+    """The cache is process-global and the counts in its key are not unique —
+    two notebooks with three notes each collide trivially. Restoring a backup
+    must not be served the previous notebook's centrality."""
+    from memorymap.api import routes_graph
+
+    first = routes_graph._graph_fingerprint(session)
+    assert str(app_state.data_dir) in first
+
+
+def test_focus_mode_reuses_the_full_graphs_similarity_sweep(ai_client, monkeypatch):
+    """`/graph/local` is meant to be the cheap one and was paying the whole
+    notebook's cost. It still needs the global sweep — a similarity edge can
+    join two notes at opposite ends — but it should not repeat it."""
+    from memorymap.api import routes_graph
+
+    made = ai_client.post("/entries", json={"content": "kayak repair"}).json()
+    ai_client.post("/entries", json={"content": "kayak paddle"})
+
+    # Patched on `routes_graph`, not on `embeddings`: it was imported by name,
+    # so the module attribute is the binding that actually gets called.
+    calls = _count_calls(monkeypatch, routes_graph, "similar_pairs")
+    ai_client.get("/graph", params={"similarity": "true"})
+    ai_client.get(f"/graph/local/{made['id']}", params={"similarity": "true"})
+    assert len(calls) == 1
+    routes_graph.reset_graph_cache()
+
+
+def test_switching_embedding_model_invalidates_the_similarity_cache(ai_client, monkeypatch):
+    """Vectors from two backends live in different spaces, so a model switch
+    has to recompute even though no note changed."""
+    from memorymap.api import routes_graph
+
+    ai_client.post("/entries", json={"content": "a note"})
+    calls = _count_calls(monkeypatch, routes_graph, "similar_pairs")
+
+    ai_client.get("/graph", params={"similarity": "true"})
+    assert len(calls) == 1
+
+    backend = _deps_backend_id_patch(monkeypatch)
+    ai_client.get("/graph", params={"similarity": "true"})
+    assert len(calls) == 2, f"a switch to {backend} reused the old vectors' edges"
+    routes_graph.reset_graph_cache()
+
+
+def _deps_backend_id_patch(monkeypatch):
+    """Pretend the user switched embedding model."""
+    from memorymap.core import deps
+
+    service = deps.get_embeddings()
+    monkeypatch.setattr(service, "backend_id", lambda: "some-other-model")
+    return "some-other-model"

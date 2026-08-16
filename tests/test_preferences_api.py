@@ -1,48 +1,21 @@
-"""Phase 4: auth, manual overrides, recycle bin, links, guided entry,
-audit viewer, export, preferences."""
+"""Preferences, plus the manual-override/linking/audit/export routes that
+don't have a larger domain file of their own.
+
+(Auth flow moved to test_account.py, recycle-bin tests to
+test_recycle_bin.py — same domain as their other coverage.)"""
 
 from __future__ import annotations
 
 import csv
 import io
-from datetime import timedelta
 
 from memorymap.core import deps
-from memorymap.core.database import Entry, utcnow
 
 
 def _save(client, content, **extra):
     response = client.post("/entries", json={"content": content, **extra})
     assert response.status_code == 201
     return response.json()
-
-
-# --- auth ---------------------------------------------------------------------
-
-
-def test_full_auth_flow(client):
-    # Fresh app: setup required, API open (nothing to protect yet).
-    assert client.get("/auth/status").json() == {"setup_required": True}
-    _save(client, "pre-password note")
-
-    token = client.post("/auth/setup", json={"password": "hunter2"}).json()["token"]
-    assert client.get("/auth/status").json() == {"setup_required": False}
-
-    # Once a password exists the data routes lock without a token…
-    assert client.get("/entries").status_code == 401
-    assert client.post("/auth/setup", json={"password": "again"}).status_code == 400
-
-    # …and open with one.
-    ok = client.get("/entries", headers={"X-Auth-Token": token})
-    assert ok.status_code == 200 and len(ok.json()) == 1
-
-    # Wrong password rejected; right password issues a fresh token.
-    assert client.post("/auth/unlock", json={"password": "wrong"}).status_code == 401
-    token2 = client.post("/auth/unlock", json={"password": "hunter2"}).json()["token"]
-
-    # Locking kills that token.
-    client.post("/auth/lock", headers={"X-Auth-Token": token2})
-    assert client.get("/entries", headers={"X-Auth-Token": token2}).status_code == 401
 
 
 # --- manual overrides -----------------------------------------------------------
@@ -68,50 +41,6 @@ def test_guided_entry_skips_janitor(ai_client, fake_ollama):
     assert entry["filed_by"] == "user"
     assert entry["ai_confidence"] == 100
     assert len(fake_ollama.chat_calls) == calls_before  # AI never consulted
-
-
-# --- recycle bin -----------------------------------------------------------------
-
-
-def test_delete_restore_and_bin_view(client):
-    entry = _save(client, "bin me")
-    # Outside the assert on purpose: `python -O` drops assert statements, and
-    # with the delete inside one the test would pass without ever deleting.
-    deleted = client.delete(f"/entries/{entry['id']}")
-    assert deleted.status_code == 200
-
-    assert client.get("/entries").json() == []
-    binned = client.get("/entries", params={"deleted": True}).json()
-    assert [e["id"] for e in binned] == [entry["id"]]
-    assert binned[0]["deleted_at"] is not None
-
-    client.post(f"/entries/{entry['id']}/restore")
-    assert [e["id"] for e in client.get("/entries").json()] == [entry["id"]]
-    assert client.get("/entries", params={"deleted": True}).json() == []
-
-
-def test_empty_bin_now(client):
-    entry = _save(client, "gone forever")
-    client.delete(f"/entries/{entry['id']}")
-    assert client.post("/recycle-bin/empty").json() == {"removed": 1}
-    assert client.get("/entries", params={"deleted": True}).json() == []
-    assert client.get(f"/entries/{entry['id']}").status_code == 404
-
-
-def test_expired_bin_entries_purged(client):
-    from memorymap.entry import manager
-
-    entry = _save(client, "ancient history")
-    client.delete(f"/entries/{entry['id']}")
-
-    # Pretend it was deleted 40 days ago, then run the startup purge.
-    session = deps.get_db().session()
-    try:
-        session.get(Entry, entry["id"]).deleted_at = utcnow() - timedelta(days=40)
-        session.commit()
-        assert manager.purge_expired_deleted(session, days=30) == 1
-    finally:
-        session.close()
 
 
 # --- linking ---------------------------------------------------------------------

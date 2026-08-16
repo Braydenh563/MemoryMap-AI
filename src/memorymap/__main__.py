@@ -27,7 +27,7 @@ def _run_server() -> None:
 
 
 def _run_desktop() -> None:
-    """A real app window (Wave H): uvicorn in a background thread,
+    """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process."""
     try:
         import webview  # the optional pywebview package

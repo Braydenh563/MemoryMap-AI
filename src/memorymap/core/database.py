@@ -142,7 +142,7 @@ def _set_workspace(session, flush_context, instances):
                     obj.workspace_id = workspace_id
 
 class User(Base):
-    """Single-user unlock (Phase 4). One row, bcrypt password hash."""
+    """Single-user unlock. One row, bcrypt password hash."""
 
     __tablename__ = "users"
 
@@ -190,9 +190,9 @@ class Entry(Base, WorkspaceMixin):
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
     # Bumped every time this entry is opened or returned by a chat
-    # question — feeds the "most used" dashboard (Phase 5).
+    # question — feeds the "most used" dashboard.
     access_count: Mapped[int] = mapped_column(Integer, default=0)
-    # Train-of-thought threads (Wave B): a child continues its parent.
+    # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs — the FK
     # constraint only exists on freshly created databases.)
     parent_id: Mapped[int | None] = mapped_column(
@@ -207,7 +207,7 @@ class Entry(Base, WorkspaceMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
     )
-    # Soft delete = recycle bin (Phase 4 adds restore/auto-clear).
+    # Soft delete = recycle bin (adds restore/auto-clear).
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     # Private notes have their content encrypted at rest. Scalar default so
     # the additive auto-migrator backfills every existing row as not-private.
@@ -297,7 +297,7 @@ class EmbeddingRecord(Base):
 
 
 class Attachment(Base):
-    """A file the user attached to an entry (Wave B). The bytes live in
+    """A file the user attached to an entry. The bytes live in
     the uploads/ folder under a random stored_name; the original
     filename is kept for downloads."""
 
@@ -313,7 +313,7 @@ class Attachment(Base):
 
 
 class Conversation(Base, WorkspaceMixin):
-    """A saved chat (Wave C). Turns are a JSON list of
+    """A saved chat. Turns are a JSON list of
     {"role": "user"|"assistant", "content": str, "thinking": str|None}
     — one blob per conversation is the boring right size for a
     single-user app.
@@ -342,8 +342,35 @@ class Conversation(Base, WorkspaceMixin):
     )
 
 
+class AskTurn(Base, WorkspaceMixin):
+    """One question asked in the Ask box (Notes tab), with its answer and
+    which notes answered it — durable so the box can be browsed back through
+    like the notes it's about, not just re-asked from a five-item chip row.
+
+    Deliberately not a Conversation: the Ask box is single-shot, notes-only
+    Q&A (§35A) with no follow-up thread, so a flat row per question beats a
+    JSON message list a saved chat needs. `raw_result_ids` records which
+    notes answered it at the time — resolved back to live entries on read
+    (routes_ask_history.py), so an edited or deleted note since then shows
+    as it is now, or drops out cleanly rather than serving a stale copy.
+    """
+
+    __tablename__ = "ask_turns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    question: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(Text)
+    raw_result_ids: Mapped[str] = mapped_column(Text, default="[]")
+    search_mode: Mapped[str] = mapped_column(String(40), default="")
+    when_phrase: Mapped[str] = mapped_column(String(120), default="")
+    # Pinned turns survive "clear history" and sort first — the same shape
+    # Conversation.pinned already uses for saved chats.
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Reminder(Base):
-    """A reminder, optionally attached to an entry (Wave D)."""
+    """A reminder, optionally attached to an entry."""
 
     __tablename__ = "reminders"
 
@@ -553,7 +580,7 @@ class UserPreference(Base):
 
 
 class AuditLog(Base):
-    """Every meaningful action, from Phase 1 onward (plan §4)."""
+    """Every meaningful action, logged from the start (plan §4)."""
 
     __tablename__ = "audit_log"
 

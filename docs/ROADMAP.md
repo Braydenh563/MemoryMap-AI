@@ -12,233 +12,170 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## #0 priority — codebase quality review (this session) — full report, agreed, act on before anything else below
+## Priority 0 — left unfinished this session, read before anything else
 
-A full dead-code/duplication/complexity pass across backend, `app.js`,
-`style.css` and `tests/` (three parallel sub-audits, each spot-verified
-against the actual source — grep/line-check, not trusted blind — before
-being written up here). **User has reviewed and agreed with all findings
-and the action plan below; nothing in this section is a pending proposal,
-it's approved backlog.** Scope: `src/memorymap/` (~35k lines, 66 files),
-`frontend/app.js` (29,250 lines), `frontend/style.css` (14,657 lines),
-`tests/` (106 files, ~1,577 tests).
+Ended on session-usage limits, not on running out of work. In the order a
+fresh session should pick them up:
 
-**Headline finding:** this codebase is unusually clean for its size. No
-`TODO`/`FIXME`/`HACK` markers anywhere, `ruff check --select F401,F811,F841`
-is already clean, no orphaned routes, no orphaned Python modules, no stale
-`ILIKE`-search remnants after the FTS5 rebuild. The debt that exists is
-concentrated in one real bug, a handful of oversized files, and accumulated
-duplication in the two huge frontend files — not sprawl.
+1. **The document-textarea resize gap.** Manually dragging `#doc-content`
+   shorter via its `resize: vertical` handle leaves dead space below it,
+   between the textarea and `.doc-hint`. Root cause traced but not fixed: a
+   manually resized flex item stops participating in `#doc-panes`'
+   `flex: 1 1 auto` the way it does before any resize, so the flex parent
+   keeps the pre-resize height and the slack collects below the textarea
+   instead of at the bottom of the card. Needs a live Chromium session to
+   verify any structural fix — do not ship one unverified, per this file's
+   own repeated CSS-regression history below.
+2. ~~`app.js`/`style.css`/`index.html` are still monolithic~~ **Both
+   mechanically-splittable pieces are now done.** `style.css` (was 15.8k
+   lines) is split into eight files under `frontend/css/`, cut only at its
+   own section-comment banners so the byte order (and therefore the cascade)
+   matches the old single file exactly; `tests/_css_paths.py` is the one
+   place that load order is declared for tests that used to read
+   `frontend/style.css` directly. `app.js` (was 30.7k lines) had its
+   whiteboard subsystem — board/card CRUD, sketch drawing, export,
+   move/resize/grouping — extracted into `frontend/whiteboard.js` (~5,600
+   lines), loaded via a second `<script>` tag after `app.js`; both share one
+   global scope since neither is a module, so no `state.js` promotion was
+   needed. `app.js` is down to ~25.3k lines. Verified live: fresh-data-dir
+   Playwright run with zero console/page errors, the Whiteboards sub-tab
+   opens, a board's SVG canvas renders with its full toolbar. A red herring
+   surfaced during that check — a burst of 401s on dashboard/insights
+   endpoints — reproduced identically against the pre-split `app.js` on a
+   *reused* data directory and vanished on both sides with a fresh one, so
+   it's a pre-existing timing bug unrelated to this split; see item 13 below.
+   `index.html` (3.7k lines) still can't be split without a template/build
+   step, which conflicts with this project's stated no-bundler
+   architecture — leave it alone, it was never going to get the same
+   treatment as the other two. **The graph-view subsystem is also out now**
+   — `frontend/graph.js` (~2,460 lines), loaded *before* `app.js` rather
+   than after (the opposite of whiteboard.js): several of app.js's own
+   top-level listeners reference graph functions as bare identifiers
+   evaluated at parse time, and function/`let` hoisting doesn't cross
+   `<script>` tags once split, so app.js would throw on its own top-level
+   code if graph.js loaded second. `app.js` is down to ~22.9k lines.
+   Verified live, zero console errors; see HISTORY.md for the rest.
+3. **Notes/Documents/Graph "extract notes" feature** (BACKLOG.md §62) —
+   fully scoped, not started. One open decision before building: preview
+   before commit, or commit straight through (recommendation in §62: preview).
+4. **A live visual indicator when the mic picks up sound**, for the dictation
+   buttons — asked for directly, explicitly deferred by the user this
+   session ("that can wait"). Not scoped yet: likely a small level-meter off
+   `AnalyserNode`/`getByteFrequencyData` on the same `MediaStream` the
+   recorder already opens in `toggleDictation()` (`app.js:17050`) — no new
+   permission, no new stream.
+5. **The graph tab's traced-path text visualisation at the top of the canvas
+   needs a redesign** — asked for directly ("the text ui visualisation of the
+   trace path... needs improving and potential redesign"), not scoped. See
+   the `.graph-traced-path`/§9 block a little further down this file for
+   where it's built; no specific direction was given, so a fresh session
+   should look at what it currently renders before proposing a shape.
+6. ~~Recent searches / search history / past results in the Ask tab~~ **Done
+   — built as a browsable history, not a dropdown.** Clarified directly
+   mid-build: *"I want the ask feature to be basically a personal notes
+   browser."* See HISTORY.md for what shipped (`AskTurn` table, the
+   `/ask-history` routes, and the panel in the Ask card).
+7. **faster-whisper reported still failing to install**, pip exiting non-zero,
+   from the same live Windows session as the temp-file bug below. Two things
+   were fixed blind this session, without seeing the actual pip error: (a)
+   `_run_install`/`_run_uninstall` in `core/extras.py` now also log the
+   outcome through `logging` (`memorymap.extras`), not just into the
+   Background-tasks panel's own `_state.log` — the install failure was
+   reported as invisible on the Logs page, and it was: `logbuffer.py` only
+   ever sees records that went through Python's `logging` module, and pip's
+   captured output never did. (b) unrelated to this pip failure but same
+   report: the pin/unpin icon was also fixed — see HISTORY.md's "UI polish
+   batch" entry. **The pip install failure itself is still unexplained** —
+   no error text was seen, only "pip exited with code 1." If it recurs,
+   Settings → Logs should now show it (search "memorymap.extras"); that
+   text is what a fresh session needs to actually fix the install rather
+   than guess again.
+8. **faster-whisper still fails to install, re-reported with a screenshot**:
+   the Background-tasks history card still says "pip exited with code 1.
+   The log above says why" with no actual pip output visible above it —
+   meaning item 7's `logging` fix (routed into Settings → Logs) has not yet
+   been confirmed to actually surface the real error either, or the log
+   line itself only ever held the summary sentence, never the detail. Not
+   yet investigated this session — the `logging`-routing fix landed but
+   nobody has since captured the real Settings → Logs output for a live
+   failure to confirm it works. Start there before changing anything else.
+9. **Asked for directly: extras install/reinstall/remove, embedding-model
+   downloads, AI-model downloads, and the `start.bat`/`start.sh` launch
+   scripts should all retry and fall back automatically on failure**,
+   rather than surfacing a bare pip/download error. Not scoped. Needs a
+   design pass before building: what counts as a retryable failure
+   (network blip) vs. one that needs a different approach entirely (wrong
+   platform wheel, disk full) vs. one that just needs to be reported
+   clearly (bad credentials, no internet at all) — a retry loop around the
+   wrong failure mode wastes the user's time and bandwidth instead of
+   saving it. Should share findings with item 8 above rather than being
+   built separately from it.
+10. **Timeline tab's "line/branch" view — asked for a redesign, "more
+    professional" look.** Not scoped, not started. Built around
+    `app.js:14517`'s "Timeline: the branch/line view" section; queue after
+    the whiteboard.js extraction (item 2) lands, since both touch `app.js`
+    and running them concurrently risks a merge conflict.
+11. **Document editor — asked to "improve and expand."** Not scoped: no
+    specific gaps were named, so a fresh session should look at what it
+    currently does (BACKLOG.md §64 already flags it as "behind the rest of
+    the app, needs its own pass" — read that first) before proposing
+    additions. Same app.js overlap caution as item 10.
+12. **Asked directly: run a full pass with the `apple-design` skill to
+    refine the frontend's visual design and UI/UX.** Broad and
+    high-risk — will likely touch every CSS file and much of `index.html`,
+    so it should run *last*, after every other structural frontend change
+    in this list (the markdown-renderer merge, item 18 below, and the
+    timeline and document-editor work, items 10-11) has landed, not
+    concurrently with any of them.
+13. **A burst of 401s on dashboard/insights endpoints (`/preferences`,
+    `/insights/stats`, `/reminders`, `/entries`, etc.) on page load,
+    found live while verifying the whiteboard.js extraction (item 2).**
+    Confirmed unrelated to that split — reproduces identically against the
+    unmodified `app.js` too, but only when the server's data directory has
+    already been through one unlock cycle (a *reused* `MEMORYMAP_DATA_DIR`);
+    a completely fresh data directory shows zero errors on either side. Not
+    investigated further — likely several of these requests (dashboard
+    widgets, reminders poll, model-status poll) firing before the
+    just-issued auth token has actually been applied to `apiJson`'s default
+    headers on a page that still has an existing session/reminders/prefs
+    state to render immediately after unlock, but that's a guess, not a
+    traced root cause. Reproduce with: unlock once, reload the page (not a
+    fresh data dir), watch the browser console.
 
-### 1. Dead code
+## #0 priority — codebase quality review, still-open items
 
-| Finding | File:line | Confidence | Action |
-|---|---|---|---|
-| `initFloatingFormatMenu()` — 83 lines, zero call sites, targets `#floating-format-menu` which doesn't exist in `index.html`, and its own comment says *"trigger input event so React/app knows"* in a vanilla-JS app — clearly a stray half-built feature | `app.js:28735-28817` | High | Delete |
-| `showOnlyLogErrors()` — defined, never called, no `onclick` anywhere | `app.js:15458` | High | Delete (or wire it up if the log-error badge was meant to jump to it) |
-| `debounce(func, wait)` — correct, unused utility; meanwhile the file hand-rolls the same pattern 8+ times (`timelineSearchDebounceTimeout`, `librarySearchDebounceTimeout`, `graphSearchDebounceTimeout`, etc.) | `app.js:21536` | High | Either delete it, or (better) adopt it and delete the 8 duplicate timer patterns instead |
-| `#wb-search` — whiteboard library sidebar search input, zero JS references, sits directly above a list that *is* populated (`renderWbLibrary`) | `index.html:1863` | High | Either wire up filtering (likely the actual intent) or remove the input |
-| ~7 dead CSS selectors with independent corroborating evidence (see §7) | `style.css`, various | High | Delete, listed below |
+A dead-code/duplication/complexity audit across backend, `app.js`,
+`style.css` and `tests/`, worked over several sessions. Everything confirmed
+done — dead code, the `.msg` CSS merge, the `GET /entries` N+1, the tag-cloud
+duplicate scan, `on_this_day`'s SQL filter, `janitor.py`'s vectorization, the
+`routes_settings.py` split, the pagination-ceiling fix, the Notes-search
+debounce, the whole test-suite reorg — has been moved to the "#0 priority"
+entry near the end of [roadmap/HISTORY.md](roadmap/HISTORY.md),
+re-verified against current source before archiving rather than trusted from
+old prose (which had already gone stale once, mid-session — the reason this
+split exists at all). What's left, all re-checked against source this pass:
 
-Backend: **nothing dead was found.** Every `_xxx` tool handler in
-`ai/tools.py`, every route, every module resolves to a real call site.
-Most candidates that looked dead on line-count alone turned out to be
-reached via dynamic id/template construction (`` `tab-${tab}` ``,
-`` `settings-${section}` ``) or the AI tool registry. **Risk:** low on all
-five items above — each checked across `app.js` + `index.html` + `tests/`
-with zero hits.
-
-### 2. Duplicate logic
-
-- **Two markdown renderers still coexist**: `renderInlineMarkdown`
-  (`app.js:2046`, used by note cards/chat/dashboard) and `appendInline`
-  (`app.js:11170`, used only by `renderMarkdown`). Both hand-roll
-  near-identical bold/italic/link/image regex parsing with separately
-  maintained security gates — and `appendInline`'s own comment admits the
-  author *knew* about the duplication ("same guard `renderInlineMarkdown`
-  uses for the identical gap"). **Impact:** ~150-200 lines could collapse
-  to one shared parser. **Risk:** medium — `renderInlineMarkdown` supports
-  search-term highlighting that `appendInline`'s callers don't need, so
-  the merge needs an optional param, not a blind delete.
-- **34 inline `HTTPException(404, ...)` checks** scattered across 9 route
-  files instead of a shared `get_or_404` dependency (`routes_conversations.py`,
-  `routes_documents.py`, `routes_entries.py`, `routes_files.py`,
-  `routes_reminders.py`, `routes_settings.py`, `routes_whiteboard.py`).
-  **Impact:** modest (~20-30 lines), mostly readability — low priority.
-- **CSS**: `.msg` styling split across three non-adjacent blocks
-  (`style.css:3739, 7321, 7364`); `.dash-widget.dash-wide` (3509-3517) is a
-  byte-for-byte duplicate of the live `.dash-widget.wide` (3493-3501) —
-  confirmed the JS only ever adds class `"wide"` (`app.js:9259`), so
-  `dash-wide` is pure leftover from a rename. **Impact:** ~50-100 lines
-  mergeable.
-- **41 `@media (max-width: …)` blocks**, 25 at the identical 720px
-  breakpoint, scattered rather than co-located — DESIGN.md's stated
-  philosophy ("narrow-screen tightening happens once") was applied to
-  spacing tokens but not component layout. **Impact:** could shrink
-  meaningfully but touches rendering across many unrelated sections —
-  needs a Playwright pass before touching, per this project's own history
-  of invisible-until-rendered CSS regressions (the borderless-card
-  incident).
-
-### 3. Unused UI components
-
-- `#wb-search` (whiteboard sidebar search box) — see §1.
-- 7 CSS selectors confirmed to target markup that no longer exists (§7) —
-  visually dead weight, not a rendering bug, each a UI element removed
-  from HTML/JS without its styles following.
-
-### 4. Overly complex implementations
-
-**Backend:**
-- `src/memorymap/ai/tools.py` — **4,195 lines, 110 top-level functions.**
-  The single biggest outlier: `ANALYSIS.md` elsewhere claims no MemoryMap
-  file exceeds ~1,900 lines (a favorable comparison against a competitor's
-  4,032-line "HIGH risk" file) — that claim is now **false**. It's wide,
-  not deep (40+ independent tool handlers dispatched through one `TOOLS`
-  dict at line 2859), so the split is mechanical: `tools/notes.py`,
-  `tools/whiteboard.py`, `tools/skills.py`, `tools/web.py`,
-  `tools/documents.py` + a `tools/_common.py` for shared helpers
-  (`_require_note`, `_visible`, `_note_summary`), re-exported into one
-  registry. **Risk:** low-medium — shared helpers must land in
-  `_common.py` first to avoid import cycles.
-- `src/memorymap/search/searxng_manager.py` — 1,734 lines doing four
-  unrelated jobs (Docker lifecycle, source install/download, process
-  start/stop, `settings.yml` generation incl. Windows shims). Natural
-  split: `install.py` / `process.py` / `settings.py` / `docker.py`.
-  **Risk:** medium — subprocess/timing-sensitive; don't do this extraction
-  in the same sitting as a live bug fix.
-- `src/memorymap/api/routes_settings.py` — 1,507 lines, a kitchen-sink of
-  preferences/audit-log/exports/embedding downloads/SearXNG admin/backups.
-  Lowest-risk of the three to split (independent handlers, no shared state).
-
-**Frontend (`app.js`):**
-- `initWhiteboard()` — **1,433 lines, one function** (`23446-26879`). The
-  single highest-value target.
-- `renderGraph()` — 835 lines (`12149-12983`).
-- `sendChatMessage()` — 532 lines (`6034-6565`).
-- `renderWhiteboard()` (~460 ln), `renderWbObjects()` (~329 ln) — same
-  area, same pattern.
-
-### 5. Legacy code
-
-Nothing found. The FTS5 rebuild (replacing the old `ILIKE` keyword scan)
-left no dead code path behind — remaining `ilike` usages are unrelated
-tag/document substring filters. No feature flags stuck "temporarily" off.
-`.collapse-chevron` CSS (§7) is the one confirmed case of a genuinely
-retired feature whose styles weren't cleaned up alongside it.
-
-### 6. Redundant DB queries / API calls
-
-**One real, worth-fixing N+1** (verified directly): `GET /entries`
-(`routes_entries.py:526`, and the `semantic=true`/`most_accessed` branches
-at 524/535) calls `_to_out(session, e)` once per entry, unpaginated. Each
-call does 4+ separate queries per note (`category_name_for`,
-`entry_dates`, `documents_for_entry`, `links_for_entry`), so N notes ≈ 4N+
-queries. **This is the endpoint the frontend hits on every load and
-repeatedly thereafter** (`app.js:1629, 4224, 5870, 9732, 9742, 9750, 9974`).
-
-The fix pattern **already exists in this codebase** — `entry_dates_bulk`
-and `bulk_category_names` (`entry/manager.py:178, 745`) were built for
-exactly this shape, for the AI tools' `list_notes` path, and are covered
-by `tests/test_scale_query_counts.py`. They were just never wired into
-`_to_out`/`list_entries`, and that test file has no case for `GET
-/entries` at all — a real gap, not an intentional exclusion.
-
-**Fix scope:** add `documents_for_entries_bulk`/`links_for_entries_bulk`
-alongside the existing two, rewire `list_entries`'s three call sites.
-~40-80 lines, 2 files. **Risk:** low.
-
-### 7. Abandoned/disconnected files
-
-None in `src/`. In `frontend/style.css`, confirmed-dead selectors (each
-independently corroborated — a matching rename, an explicit retirement
-comment, or a genuine zero-hit grep, not grep alone): `.browse-header`/
-`.browse-tools` (5134-5194, 5940 — markup renamed to the Library naming
-scheme), `.collapse-chevron`/`h2.collapsible-title` (1938-1967 —
-**explicitly retired per `app.js:14337`'s own comment**),
-`.dash-widget.dash-wide` (3509-3517 — dup of `.wide`), `.sidebar-tools`
-(1726-1735), `.chat-empty-icon` (3895), `.graph-path-line.graph-path-tag`
-(4622-4624), `.bubble-speak` (5009-5011), `.graph-trace-hint`
-(7720-7731), `.whiteboard-canvas` (12913-12920), `.wb-card-sketch`
-(13509-13513), `.wb-object-image img` (13537-13544). **~120-130 lines
-total, low risk.**
-
-### 8. Technical debt opportunities, ranked
-
-| # | Item | Impact | Risk | Effort |
-|---|---|---|---|---|
-| 1 | Fix the `GET /entries` N+1 (§6) | High — hit on every page load | Low | Small |
-| 2 | Delete the 3 confirmed-dead `app.js` functions + wire up or delete `#wb-search` (§1) | Low-medium, but free | Low | Trivial |
-| 3 | Delete the ~120-130 lines of confirmed-dead CSS (§7) | Low, but free | Low | Trivial |
-| 4 | Split `ai/tools.py` into a `tools/` package by domain (§4) | Medium — biggest single-file outlier in the repo | Low-medium | Medium |
-| 5 | Extract `app.js`'s whiteboard block into `whiteboard.js` — already this project's own best-identified module-split candidate (a clean 5,300-line marked block, `app.js:23292-28586`) | High — biggest lever on the 29k-line file | Medium | Large; do on its own, not alongside a bug-fix session |
-| 6 | Merge the two markdown renderers (§2) | Medium | Medium | Medium |
-| 7 | Split `routes_settings.py` and `searxng_manager.py` (§4) | Low-medium | Medium (searxng touches subprocess timing) | Medium |
-| 8 | Consolidate duplicate/near-duplicate CSS blocks (§2) | Low-medium | Medium — needs a real browser check | Medium |
-
-### Test suite: a concrete finding, on a different axis than the prior "nothing to do" pass
-
-A prior session already investigated test consolidation and found nothing
-to act on — it grepped every `@pytest.fixture` across all 107 files for
-reuse and found none. **That conclusion still holds** — fixture hygiene is
-clean (only one harmless same-named-but-different fixture, in
-`test_thinking_budget.py`). What that pass didn't check was **test-content
-overlap between oddly-named batch files and domain files** — a different
-axis, with a real finding:
-
-- `test_waveb_api.py`'s `test_duplicate_detection_on_save`/
-  `test_related_entries` overlap `test_duplicates.py`/`test_related_notes.py`;
-  its tag tests overlap `test_categories_api.py`.
-- `test_phase4_api.py`'s bin/restore tests duplicate the more thorough
-  `test_recycle_bin.py`; its auth-flow test overlaps `test_account.py`.
-  Fold `test_phase5_api.py` (5 tests) into `test_account.py` too.
-- `test_tier1_refinements.py` (29 tests) is a grab-bag spanning
-  log-console, SearXNG attribution, and worker-count guards with no
-  single home.
-- `test_wavee_graph.py`/`test_waveh_voice.py` aren't duplicative, just
-  misnamed — rename to `test_graph_api.py`/`test_voice_api.py`, no
-  content move.
-- Fold `test_round1_chat.py` (6 tests) into `test_chat_api.py`.
-- **Leave `test_antigravity_regressions.py`/`test_claimed_work.py`
-  alone** — deliberate "one test per audited bug" logs named directly in
-  `CLAUDE.md`; folding them into domain files would lose their value as
-  an audit trail.
-
-**Proposed scope** (organization only, no test-logic changes — suite must
-stay green and ~3 minutes per CLAUDE.md): merge the overlapping tests
-above into their domain files, rename 2 files, leave grab-bag-but-coherent
-and regression-log files as-is. Net: 106 → ~100-102 files.
-
-### Frontend refactor path for `app.js` (no bundler, no build step)
-
-Natural seams already match the `// ---` section markers (auth, notes,
-ask/chat, dashboard, reminders, graph, timeline, settings, whiteboard,
-skills). The blocker to any split: **162 top-level `let` globals** shared
-across sections (`allEntries`, `conversation`/`chatConv`, `categoryMeta`)
-— a `<script type="module">` split needs these promoted into an explicit
-`state.js` (getters/setters), not left as bare closures.
-
-Pragmatic order:
-1. **Whiteboard first** (`app.js:23292-28586`, ~5,300 lines) — largest,
-   most self-contained, touches `allEntries` in only 4 of 31 uses. Do this
-   alone, not mixed with a bug-fix session.
-2. **Graph next** (`app.js:11247-13647`).
-3. Leave notes/chat/dashboard/settings joined longer — they share
-   `allEntries`/`chatConv` most heavily — and only split those after
-   `state.js` exists.
-
-### Acted on the same session (not part of the review itself — live fixes for reports that came in mid-review)
-
-Whiteboard properties panel clashing with the top-right panel (`.mid-right`'s
-`top` was tuned before the top-right panel could wrap to 2-3 rows); the
-fill-none checkbox reading as inverted (missing its "None" label — the
-toolbar's identical control already had one); a new paint-bucket fill tool
-(`B` key, fills closed shapes / recolours strokes with the current stroke
-colour); a delete-confirmation dialog letting a long filename overflow the
-card (`.confirm-text` had no `overflow-wrap`). **None of these four were
-verified live in a browser** — reasoned from source/CSS and the screenshots
-reported, not re-screenshotted after the fix. Verify live before trusting
-them fixed.
+- ~~`whiteboard.js` extraction~~, ~~markdown-renderer merge~~,
+  ~~HTTPException dedup~~, ~~`searxng_manager.py` split~~, ~~`all_tags()`
+  caching~~ — all done since this list was last written; see HISTORY.md's
+  newest entry for what each one actually found (two real bugs surfaced
+  fixing the markdown merge alone).
+- **`src/memorymap/ai/tools/__init__.py`** — still ~3,360 lines (the `TOOLS`
+  registry and the bulk of note-CRUD/agent-orchestration handlers), left
+  there deliberately when `_common.py`/`categories.py`/`documents.py`/
+  `whiteboard.py` were extracted — it's the most interleaved, most
+  load-bearing part of the file. Splitting it further needs its own
+  session.
+- **`manager.all_tags()`** loads every non-deleted entry with no cap, unlike
+  every sibling section of the same responses (all capped at 200 or similar)
+  — still true, still low-urgency at this app's realistic notebook sizes.
+- **Not re-verified this pass, so not claimed either way** — check against
+  source before trusting a "still open" label as much as a "done" one:
+  the frontend/backend Big-O findings beyond what's listed above (Log
+  filter's per-keystroke rebuild, the note-picker modal's per-keystroke
+  filter/sort, `all_tags`'s cap), and feature-gap items 2-4 from the old
+  §12 (Notes tab's missing error/retry state, Whiteboard's `aria-label`
+  coverage vs Graph's, `GET /documents`'s missing search param).
 
 ## Read these two first
 
@@ -1265,7 +1202,8 @@ Not a dump: each says why it is not Tier 3.
   session's whiteboard bug fixes), where a half-done split and a bug fix
   landing in the same diff is much harder to review or revert than either
   alone. Do the split on a quiet day, not appended to a bug-fix session.
-  Same for `style.css`, unscoped.
+  (`style.css`'s own split is done — see Priority 0 item 2 above — and was
+  exactly this: its own dedicated pass, not appended to anything else.)
 - **A second React frontend.** A second implementation of every screen, kept
   in step by hand, for an app whose brief is "no build step". The cost is not
   the first version — it is every change afterwards having two homes. If the
@@ -1290,13 +1228,16 @@ Not a dump: each says why it is not Tier 3.
   `test_presets.py` and `test_model_specs.py`) build genuinely different
   mocks, not a copy-paste duplicate. **The finding is that there is no
   finding** — no reinvented fixture, no `test_x`/`test_x_more` pair sharing
-  setup, nothing a mechanical merge would safely collapse. The four largest
-  files (`test_skills.py` 881 lines, `test_wavef_api.py` 764,
-  `test_searxng_install.py` 755, `test_antigravity_regressions.py` 733) are
-  each single-topic and coherent, not grab-bags — a size-triggered split
-  would separate a fixture from the twenty tests that share it for no
-  reason but the line count. Still nothing to do here until a real
-  duplication turns up.
+  setup, nothing a mechanical merge would safely collapse. The largest files
+  at the time (`test_skills.py`, then in the 850-900 line range, and a
+  handful of others past 700) were each single-topic and coherent, not
+  grab-bags — a size-triggered split would separate a fixture from the
+  twenty tests that share it for no reason but the line count. Still
+  nothing to do here until a real duplication turns up. (Two of the four
+  files originally named here no longer exist under those names — one
+  renamed, one split by domain in a later pass — so file names are not
+  repeated verbatim; the conclusion doesn't depend on which specific files
+  happened to be biggest that day.)
 
 ### The rule this section exists to enforce
 
@@ -1339,8 +1280,9 @@ told to open first.
    `display: none`.
 6. **The app sends a strict CSP; a violation is reported only in the console.**
    No failed request, no thrown error. An injected `<style>` tag won't apply
-   (use `adoptedStyleSheets`), `style=""` in `index.html` won't apply (use
-   `style.css`), and a script from off-origin is refused outright.
+   (use `adoptedStyleSheets`), `style=""` in `index.html` won't apply (use a
+   class in one of `frontend/css/*.css`), and a script from off-origin is
+   refused outright.
 7. **CSS automatic minimum sizing is the usual cause of a wide page.** A
    `1fr` grid track or a flex item with default `min-width: auto` refuses to
    shrink below its content; `overflow-x: auto` on the child does nothing

@@ -2,7 +2,171 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Last session — work recovery: the app shipped with no icons at all
+## Last session — the rest of the mechanical splits, three more live-reported bugs, and the Ask box rebuilt into a browsable history
+
+Picked up straight from this file's own "#0 priority" pointer below (the
+codebase-quality review) plus several live bug reports and one feature
+request that arrived mid-session. Long session, several background agents,
+two of which were killed mid-task by a session-wide API usage limit (not a
+token-budget issue — distinct, and it also broke `/compact` itself) and
+recovered from rather than lost. Full narrative is in HISTORY.md's newest
+entries; this is the ordered short version and — the part that matters most
+for whoever reads this next — what's verified, what's a trap, and where to
+start.
+
+**Both `style.css` and `app.js` are now as split as they can mechanically
+be.** `style.css` (was 15.8k lines) → eight files under `frontend/css/`, cut
+only at its own section-comment banners so the concatenated byte order — and
+therefore the cascade — matches the old single file exactly (proven via
+`sha256sum`, not assumed). `app.js` (was ~30.7k lines) had two subsystems
+extracted: `frontend/whiteboard.js` (~5,600 lines, board/card CRUD, sketch
+drawing, export, move/resize/grouping) and `frontend/graph.js` (~2,460
+lines, force-layout render, Trace, the popup editor, physics/layout
+controls). `app.js` is down to ~23.1k lines. `index.html` (3.8k lines)
+deliberately stays whole — splitting it needs a template/build step, which
+conflicts with this project's stated no-bundler design; don't attempt it.
+
+**The one thing worth internalising before touching any future split: script
+load order is not just "does it work," it can be load-bearing in either
+direction, and you have to check which.** `whiteboard.js` loads *after*
+`app.js` — nothing in it runs at parse time. `graph.js` had to load
+*before* `app.js` instead, the opposite convention: several of `app.js`'s
+own top-level statements reference graph functions/`let`s as bare
+identifiers evaluated at parse time (`$("graph-similarity").
+addEventListener("change", renderGraph)` and several more), and
+function/`let` hoisting does not cross separate `<script>` tags once code is
+split across files — loading `app.js` first would throw on its own
+synchronous top-level code before the rest of the file ever ran. Check for
+parse-time references before picking a load order for the next extraction;
+don't assume "after" just because that's what worked last time.
+
+**The markdown-renderer merge (`renderInlineMarkdown` + `appendInline`) took
+two attempts, and the first one shipped while looking finished.** A first
+pass collapsed both hand-rolled parsers onto one shared regex and merged
+cleanly by every static read — but shipped two real regressions only live
+Playwright reproduction caught: a task-list checkbox deleted on every render
+(the merged function called `element.replaceChildren()` unconditionally,
+wiping a checkbox appended before it ran), and note cards silently rendering
+`__init__`-shaped text as bold (the shared regex enabled underscore emphasis
+for a caller that never asked for it). The actual fix keeps `INLINE_MD`
+(note cards) and `INLINE_MD_LEGACY` (`appendInline`'s own grammar) as two
+textually separate patterns selected by an options flag, merging only what
+should merge — the element-building logic and the URL-safety gate.
+**Reading the diff and calling it done was wrong twice in a row here before
+someone actually drove it in a browser** — the standing "reproduce, don't
+theorise" rule earned its keep concretely this session, not abstractly.
+
+**Three more live-reported bugs, all the same root-cause shape and all
+found by measuring in a browser, not by reading CSS:**
+- A Library kebab menu (every chip, not just Bin — confirmed by the
+  follow-up report) opened detached from its button, stretched to the full
+  card width. Same root cause as an earlier session's `graph-link-panel`
+  fix: two single-class selectors of equal specificity, and *file load
+  order* — not correctness — decided which one won once the CSS split
+  changed which file loaded later. Fixed by compounding the selector
+  (`.menu-wrap.library-card-menu`) for deterministic specificity regardless
+  of load order. **If a CSS bug reads as "works in one file, breaks after a
+  split/reorder," suspect a specificity tie before anything else** — this is
+  now twice.
+- Whiteboard link/anchor points on an auto-grown (never manually resized)
+  card landed nowhere near the card's real border — `wbItemBBox` was using
+  a hardcoded 250×150 fallback regardless of actual rendered size. Now
+  measures the live `.node-card` element instead.
+- The Library sidebar and every draggable whiteboard panel shared
+  `z-index: 10`, so a dragged panel could paint on top of the sidebar — a
+  recurrence of an old "appears behind again" report. Sidebar bumped to 25.
+
+**faster-whisper's install-failure report was investigated for real this
+time, not fixed blind.** `_run_install` was missing the `_logger` calls
+`_run_uninstall` already had — so a failed install's real pip output never
+reached Settings → Logs, only the summary sentence ("pip exited with code
+1") reached the Background-tasks history card. Fixed, with three new tests
+using a `_FailingPip` mock. **The underlying pip failure itself still has
+not been seen** — this only fixes the failure being invisible; if it's
+re-reported, Settings → Logs should now show the real reason, and *that*
+text is what actually fixes the install.
+
+**New feature, asked for directly then reframed mid-build:** *"I want the
+ask feature to be basically a personal notes browser."* The Ask card's
+five-chip "recent questions" row is untouched; alongside it, every
+notes-only question the Ask box answers is now written to a new `AskTurn`
+table (never for small talk, which exits through the existing hint branch
+before an answer exists; never for the Chat tab, which already has its own
+durable history via `Conversation`). A collapsed-by-default "History" panel
+gained search, a pinned-only filter, a running-total badge, and rows that
+reopen the original answer and its matched notes *in place* — no model
+round. A note deleted or made private since is dropped from a reopened
+turn rather than shown stale. 14 new backend tests; verified live end to
+end (asking grows the badge, reopening restores the exact answer, pin/
+search/empty-state all render correctly).
+
+**Backend cleanup, all re-verified this session:** `HTTPException(404, …)` —
+18 of ~39 inline checks consolidated into `deps.get_or_404()`, the other 21
+correctly left inline (soft-delete-aware lookups, ownership checks,
+filesystem/exception translation — genuinely a different shape);
+`search/searxng_manager.py` (was 1,734 lines, four unrelated jobs) split
+into `searxng_docker.py`/`searxng_install.py`/`searxng_process.py`/
+`searxng_settings.py` behind a thin orchestrator facade so nothing outside
+the module needed an import changed; `entry/manager.py`'s `all_tags()` now
+caches by the same notebook-fingerprint pattern `routes_graph.py` already
+used (`Entry.updated_at` has `onupdate=utcnow`, so any tag edit invalidates
+it automatically — found a real circular import trying a top-level
+`deps` import first, `entry.manager → core.deps → ai.embeddings →
+ai.model_manager → entry.manager`, fixed with the same lazy-import pattern
+`record_dates()` already used); ~94 stale "(Wave X)"/"(Phase N)" labels
+stripped from 32 backend files, `§N` section references left untouched.
+
+**Process traps worth repeating so the next session doesn't re-spend the
+time:**
+- **`pkill -f uvicorn` (or any pattern loose enough to match this shell's
+  own command line) killed the calling shell itself, exit 144 — not the
+  target server.** Reconfirmed directly this session. Start servers with
+  `setsid … &` and leave them running; stop them by exact PID (`ss -ltnp`/
+  `lsof -t -i:<port>` then `kill <pid>`), never by pattern.
+- **A background agent can die mid-task from a session-wide API usage
+  limit, distinct from token budget — and it can take `/compact` down with
+  it.** Two agents (the `searxng_manager.py` split and the `graph.js`
+  extraction) both hit this. Recovery that worked: check the worktree's
+  `git log`/`git status` for salvageable commits, run `node --check`/
+  `ruff` (no LLM calls) to confirm what's there is syntactically sound,
+  commit locally without pushing, and do full verification (tests,
+  Playwright) only after the limit resets — don't assume partial agent
+  output is either finished or worthless without checking.
+- Both background agents that touched `app.js` this session independently
+  hit the **same pre-existing 401 burst** on dashboard/insights endpoints
+  right after unlock — reproduces with zero interaction with the tab being
+  tested, on a *reused* `MEMORYMAP_DATA_DIR` only, never on a fresh one.
+  Third independent reproduction now. Still not root-caused (see ROADMAP.md
+  item 13) — worth someone actually tracing the auth-token timing next time
+  it's picked up, since three sessions have now confirmed it's real and
+  none has fixed it.
+
+**What was and wasn't verified.** Everything above with a checkable UI
+behaviour was driven live via Playwright in this sandbox's Chromium — real
+clicks, real `getComputedStyle`/`getBoundingClientRect` reads, screenshots
+taken and looked at, not just "the diff looks right." What was *not*
+verified: `start.bat`/`start-desktop.bat` and anything Windows-specific
+(this sandbox is Linux-only); the faster-whisper pip failure's actual root
+cause (only its visibility was fixed); model *behaviour* claims generally,
+since every provider test here runs against a fake transport, not a live
+Ollama.
+
+Full suite (1,853 tests) green, `ruff check .` clean, `node --check
+frontend/app.js` clean, throughout. All pushed to
+`claude/antigravity-code-review-f85088` (PR #107).
+
+**Start here next.** ROADMAP.md's Priority 0 list is current as of this
+session (items 2 and 6 struck as done). In order: item 1 (the document-
+textarea resize gap — root-caused, not fixed, needs live Chromium to verify
+any structural fix) or items 7/8 (faster-whisper — now has real logging,
+but nobody has captured a real failure's Settings → Logs output to confirm
+it actually surfaces the pip error) are the two with the most "reported
+more than once and still not closed" risk. `ai/tools/__init__.py` (still
+~3,360 lines) is the one remaining oversized backend file, deliberately left
+for its own session — it's the most interleaved, most load-bearing part of
+the tools layer, not a quick mechanical split like the ones above.
+
+## Previous session: work recovery — the app shipped with no icons at all
 
 > **Not the next thing to do.** [ROADMAP.md's #0 section](../ROADMAP.md) — the
 > full codebase-quality refactor — is still the priority and is what the next

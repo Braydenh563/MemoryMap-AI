@@ -2370,6 +2370,83 @@ the fourth — links to objects — is still open.
 
 ---
 
+## 29e. Whiteboard master spec (uploaded, MS Whiteboard/OneNote/draw.io/
+Illustrator feature audit) — reconciled against 29c/29d, not transcribed
+
+A large uploaded document (~790 lines) did an exhaustive feature-by-feature
+comparison against four reference apps and proposed a 6-phase rebuild. Its
+Part A (the reference-app feature catalogue) is solid and worth keeping for
+future scoping. **Its Part B "current-state audit" and therefore Part C's
+gap matrix are meaningfully stale — do not build from them without
+re-checking each item against the live code first**, per this file's own
+standing rule. Spot-checking a handful of its "MISSING"/"P0" claims found
+three that are already done:
+
+- **"`#wb-search` unwired, P0 bug"** — already deleted, `993e639` (see
+  ROADMAP.md §0/§1).
+- **"Deleting a note leaves whiteboard cards behind, no cascade"** — already
+  swept: `autonomous.clean_orphaned_board_cards()`
+  (`ai/autonomous.py:320-326`), covered by
+  `test_a_card_whose_note_was_purged_is_swept_up`.
+- **"Cards show raw truncated text, not the note's formatting" (flagged
+  P0/P1, "clearest OneNote-fidelity gap")** — already fixed: card content
+  renders through the app's real markdown renderer, not `textContent`
+  (`app.js:28975-28997`, own comment documents the fix directly).
+
+Given that hit rate, the rest of its gap matrix (mostly P2/P3 polish items)
+should be treated as **candidate**, not verified, until someone re-runs the
+same check live. What follows is only what was independently confirmed
+against the current code, or was already tracked:
+
+**Already brainstormed — see 29c, don't re-add:** board templates, layers
+panel, frames/swimlanes, board version history, Mermaid text↔diagram both
+directions, presentation/step-through mode, ink-to-text (already flagged
+there as colliding with the no-torch constraint).
+
+**Already scoped — see 29d:** links reaching an object, not just a card
+(still open); rename/gallery/`generate_diagram` (done, HISTORY §61).
+
+**Genuinely new, verified missing, not covered by 29c/29d:**
+- **Object lock** — no `locked` column on nodes/sketches/objects today
+  (checked `core/database.py`). Cheap: one boolean per table, a toggle in
+  the Properties panel.
+- **Numeric X/Y/W/H/rotation entry** in the Properties panel — confirmed no
+  such inputs exist in `index.html` today; only drag-based resize/rotate.
+- **A swatches/saved-palette panel** shared across stroke/fill/text-colour
+  pickers — confirmed nothing exists beyond the app's own accent-theme
+  picker (unrelated). Every colour control today is an ad-hoc native
+  `<input type=color>`.
+- **Font family + bold/italic/underline for whiteboard text boxes** —
+  confirmed only font size exists today.
+- **Connector/link labels** on whiteboard links — distinct from the Graph
+  tab's link-reason field; whiteboard's own `WhiteboardSketch` link type
+  has no label. Would matter if `generate_diagram` output is ever meant to
+  carry relationship text ("depends on," "leads to"), not just a line.
+- **AI-readability additions**, extending what `readwhiteboard`/
+  `searchwhiteboard`/`generate_diagram` already do (`ai/tools.py`): an
+  outline-text export mode (Mermaid-adjacent, for the AI or a human to read
+  a board as a flat description); a semantic (embedding-based) index over
+  whiteboard text-box content, since `searchwhiteboard` is keyword-only
+  today; letting `generate_diagram` extend an existing board's cards as
+  parent context, not just create fresh ones.
+- **Orphaned media garbage collection** — confirmed still genuinely
+  missing (no `clean_orphaned_media`-shaped function anywhere), unlike the
+  card-cascade claim above which turned out to already be fixed.
+- Smaller polish items the spec's Part C lists and a live check didn't
+  contradict, kept for reference rather than re-verified line by line:
+  resize-from-center, flip h/v, whole-object opacity, a status bar
+  (zoom/tool/item-count), a contextual quick-action bar near a fresh
+  selection.
+
+**Not adopting**, matching the spec's own reasoning: full vector path/anchor
+editing (Illustrator's actual product category — wrong tool for a
+mindmapping app), real-time multi-user collaboration (contradicts this
+project's single-user/local-first design principle), handwriting/math ink
+recognition (no stylus-first workflow in evidence), image trace/pattern
+fills/mesh gradients (print-design-tier, no tie to this app's use case).
+
+---
+
 
 ## 29b. Carried out of the §40 audit
 
@@ -2398,9 +2475,11 @@ changes the app's behaviour without showing the user what it did:
 4. **`graph_local` costs a full notebook scan** to draw a local neighbourhood:
    every entry loaded, a full similarity sweep, and a PageRank over every node.
    Correct, and the opposite of what "focus mode" should cost.
-5. **PageRank runs on every `/graph` call, uncached.** With similarity edges on,
-   this is now the most expensive endpoint in the app. Centrality changes when
-   the graph changes, so it wants invalidation on write rather than a TTL.
+5. ~~**PageRank runs on every `/graph` call, uncached.**~~ **Done** — see
+   ROADMAP.md §0/§9 item 2: `routes_graph.py:60-105` caches pagerank/
+   similarity by a notebook fingerprint, invalidated on write or embedding-
+   model switch — exactly the "invalidation on write rather than a TTL" this
+   item asked for.
 6. ~~**`/media/{filename}` serves uploads same-origin with no type restriction.**~~
    **Done** — allowlist on upload *and* on serve, plus `Content-Disposition`.
    Original reasoning:
@@ -2408,5 +2487,84 @@ changes the app's behaviour without showing the user what it did:
    `.svg` or `.html` is served from the app's own origin, and the AI can write
    here too. A `Content-Disposition: attachment` and an extension allowlist.
 7. **Decide on `edit_note` being destructive.** See ANALYSIS §34b.
+
+---
+
+## 62. Extract notes — from the Writing Room, Documents, and Graph selections
+
+Asked for directly, alongside "Draft with AI": write freely, then split what
+was written into one refined note or several, auto-linked to each other and
+to existing related notes with reasons — not just filed as one lump.
+
+Not a new subsystem — an extension of what already exists. The Writing
+Room (`app.js:5905+`, `#draft-thoughts`→`#draft-text`) already turns raw
+thoughts into one AI-drafted note; this adds a second output mode. The
+auto-link-with-reasons half already has its machinery:
+`librarian.generate_link_reason` (used by the link-reason audit, `ai/links.py`)
+and the janitor's own centroid/kNN auto-filing (`ai/janitor.py`) already
+decide what a new note is related to on save — extract mode would call the
+same reason-generation path per new note, not invent a second one.
+
+Shape: an "Extract notes" action, offered wherever the app already has a
+block of free-standing user/AI text — the Writing Room's `#draft-text`,
+a Document's body, and (per the ask) a Graph selection's notes-in-context.
+The AI decides one-note-vs-several based on whether the text covers one
+topic or several distinct ones (same judgement call `_create_note`'s
+janitor pass already makes when filing, just applied to a splitting
+decision instead of a category), creates the resulting note(s), and links
+each to both its siblings from the same extraction and any pre-existing
+notes the janitor/link-reason pass would already surface — with a reason on
+every link, not `AUTO_REASON_TEXT`'s old "similar in meaning" placeholder.
+
+Needs a decision before scoping, not before logging: does the split
+preview to the user before committing (a confirm step, matching this app's
+"AI actions that create/change several things get a preview" convention —
+see `generate_diagram`'s own node-list input) or does it commit straight
+through like a normal `_create_note` call? Recommend preview, given it can
+silently multiply one piece of writing into several permanent notes.
+
+## 63. Ship a starter skills library
+
+The Skills system (`ai/skills.py`) is real and working but ships **zero**
+built-in skills — every one has to be hand-authored via `save_skill`
+before it exists. Confirmed: no `DEFAULT_SKILLS`/`BUILT_IN_SKILLS`-shaped
+constant anywhere in the file. Surfaced by the Kortex read (ANALYSIS.md
+§66) — its "25+ prebuilt workflows" is the same primitive this app already
+has, just with nothing in the box. Cheap relative to the value: a
+one-time list of maybe 10-15 starter skills covering the app's own common
+tasks (weekly review, meeting-notes cleanup, tag consolidation, a
+"summarise what changed this week" digest) seeded on first run, through the
+exact same `save_skill` validation path a user's own skill goes through —
+not a second, parallel skill format.
+
+## 64. Documents editor — behind the rest of the app, needs its own pass
+
+The Documents tab (`app.js:5314`, "long-form writing") is a plain
+markdown text area: confirmed no slash-command menu, no block nesting, no
+focus/distraction-free mode. Every one of those is table-stakes in a
+"second brain" competitor (Kortex, Notion, Obsidian) and the app already
+has the primitives a slash-command menu would reuse — the command palette
+pattern already exists elsewhere in the app (see DESIGN.md/ARCHITECTURE.md
+for the existing overlay/palette convention) and would not need a new
+interaction model invented from scratch, just a document-scoped instance
+of it. Not scoped in detail here — flagged so it's not lost, and so the
+next session doing this doesn't start from "what does a modern editor
+need" without first reading what Documents currently has.
+
+## 65. Highlight/web-clip capture
+
+From the Kortex read (ANALYSIS.md §66): a way to save a highlighted
+passage from something read elsewhere (an article, a PDF, a book) straight
+into a searchable note, distinct from both the in-app reader (§13) and the
+already-brainstormed browser-clipper idea (§29's third bullet). Genuinely
+missing today — no `Readwise`/`highlight`/`web clip`-shaped code anywhere
+in the tree. Two separable pieces: (1) a capture surface (paste a
+highlighted passage + its source URL/title, or import from a service like
+Readwise/Kindle's own export format) and (2) filing it through the
+existing janitor/tagging pipeline like any other note, with the source
+kept as metadata rather than folded into searchable body text. Not scoped
+— (1) alone (manual paste-a-highlight) is small; (2) an actual Readwise
+importer is a real integration and should be sized separately before
+committing to it.
 
 ---

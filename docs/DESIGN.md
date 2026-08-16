@@ -35,7 +35,9 @@ lines up, and no value means anything because every one is slightly its own.
 
 ## The tokens
 
-All defined in `:root` in `frontend/style.css`.
+All defined in `:root` in `frontend/css/00-tokens-shell.css` — the first of
+the eight files `style.css` was split into (ROADMAP.md Priority 0 item 2), so
+every later file's `var()` calls have it loaded before they need it.
 
 ### Spacing — `--space-1` … `--space-9`
 

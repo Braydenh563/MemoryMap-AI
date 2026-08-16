@@ -1,0 +1,1999 @@
+/* MemoryMap AI — glassmorphism aesthetic, still deliberately simple.
+   Cards are translucent and blur whatever is behind them; a fixed
+   gradient + two soft colour blobs behind the page give the glass
+   something to refract.
+   Theming: light is the default; dark kicks in either from the OS
+   preference or from the manual toggle (data-theme on <html>). */
+
+/* Native form-control chrome (a <select>'s popped-open option list, in
+   particular) is drawn by the OS/browser, not this stylesheet — without
+   `color-scheme` telling it which palette to use, it defaults to light
+   regardless of the app's own dark theme, so a dark-themed <select>'s pale
+   text landed on that light popup with almost no contrast. Reported
+   directly ("combo boxes... bad colour contrast").
+   Keyed off `data-mode`, not `data-theme`: `data-mode` is what app.js
+   actually sets on <html> (`resolvedTheme()`, always "light" or "dark",
+   already resolved from the OS under "System") and what the palette
+   variables below key off unconditionally — `data-theme` only ever holds
+   the user's raw *choice* ("light"/"dark"/absent-for-system), which is
+   why a first version of this fix keyed off it and did nothing under the
+   default "System" setting. `color-scheme` alone also wasn't enough on
+   its own here — Chromium still drew the popup with this app's own
+   (light, inherited-from-`select`) text colour, so `option`/`optgroup`
+   get their background/text set directly below too, belt and suspenders. */
+:root {
+  color-scheme: light;
+}
+
+:root[data-mode="dark"] {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup {
+  background-color: var(--modal-bg);
+  color: var(--ink);
+}
+
+:root {
+  /* --- the spacing scale (§35L) --------------------------------------------
+     Extracted, not invented. This file had 667 margin/padding/gap
+     declarations across more than twenty-five distinct values — seven of them
+     between 0.3rem and 0.6rem, all meaning "a small gap". That is the
+     measurable form of the reported problem: "the way spacing, alignment and
+     margins of all the ui features in each tab aren't consistent and it
+     changes each tab".
+
+     The steps below are the modes of that distribution, so adopting them
+     moved every off-scale value by at most 0.1rem — invisible on its own, and
+     collectively the difference between elements that line up and elements
+     that nearly do.
+
+     Use these for new work. A raw rem in a margin, padding or gap is now the
+     exception that should be explaining itself in a comment. */
+  /* Density is one multiplier over the whole scale, not a set of overrides.
+     It used to be nine rules in two places, each re-stating literal paddings
+     for the four components somebody remembered — .card, .layout, .dash-hero
+     and .entry-list li — so "compact" tightened those and left every dialog,
+     chip row, toolbar and settings pane at comfortable. Multiplying the scale
+     means the setting reaches everything spaced by a token, which is now
+     everything. */
+  --density: 1;
+  /* §37E: the interface-wide zoom, a percentage/100 set from JS. Multiplies
+     the root font-size below rather than using CSS `zoom` or `transform:
+     scale` — the app's control heights, icons and gaps are already in rem
+     (§35L), so they follow a root-font-size change for free, and this avoids
+     `zoom`'s known bad interactions with the `100dvh`/`100vw` measurements
+     `--page-viewport`/`--page-sticky-h` (§36) lean on. */
+  --zoom: 1;
+  /* The whiteboard's own background (asked for directly — the ambient
+     generative-art canvas showed straight through it, since the container
+     had no background of its own). `--modal-bg` rather than `--card`: the
+     card token is deliberately translucent for stacked glass panels, and a
+     translucent board would still let the art bleed through underneath it.
+     User-overridable per board via the colour picker in the top-right
+     panel, mirrored to `localStorage`/`ui_state` the same way the stroke
+     colour and panel positions below are. */
+  --wb-board-bg: var(--modal-bg);
+  /* The whiteboard's grid and optional background image, declared here with
+     their "off" defaults rather than written as `var(--x, fallback)` at each
+     use — an undeclared token with a fallback is what
+     `test_no_token_is_used_with_a_dead_fallback` exists to catch, and the
+     declaration is also the one place that says what "no grid" means.
+     `--wb-grid-layer` is swapped per grid type by the [data-wb-grid] rules;
+     the size/offset pair is rewritten from the live d3 zoom transform by
+     `wbSyncGridToTransform`, which is what makes the ruling pan and zoom
+     with the board. */
+  --wb-grid-layer: none;
+  --wb-grid-size: 24px;
+  --wb-grid-offset-x: 0;
+  --wb-grid-offset-y: 0;
+  --wb-bg-image: none;
+  --wb-bg-image-size: cover;
+  --wb-bg-image-repeat: no-repeat;
+  --border-style: solid;
+  --shadow-intensity: 0.05;
+  --space-1: calc(0.25rem * var(--density));
+  --space-2: calc(0.4rem * var(--density));
+  --space-3: calc(0.5rem * var(--density));
+  --space-4: calc(0.6rem * var(--density));
+  --space-5: calc(0.8rem * var(--density));
+  --space-6: calc(1rem * var(--density));
+  --space-7: calc(1.25rem * var(--density));
+  --space-8: calc(1.5rem * var(--density));
+  --space-9: calc(2rem * var(--density));
+  /* Height of the top bar. No longer used for sticky offsets — since §36A the
+     page is its own scroll container and the header sits outside it, so
+     nothing inside a page has to clear it. Kept because the media query below
+     still tracks the bar's height on narrow windows, and because anything
+     positioned against the *window* (a future bottom bar, §36D) needs it. */
+  /* --header-h: 4.4rem; */
+  --header-h: calc(3.7rem + 1px);
+  --page: linear-gradient(135deg, #e9edfb 0%, #f6f2ec 45%, #e6f1f2 100%);
+  --blob-a: rgba(79, 109, 245, 0.20);
+  /* The dim behind a modal that floats over the app (the command palette),
+     as opposed to .lock-overlay, which replaces the app entirely. */
+  --scrim: rgba(17, 20, 32, 0.45);
+  --blob-b: rgba(157, 88, 245, 0.14);
+  --card: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(255, 255, 255, 0.45) calc(var(--glass-opacity) * 100%), transparent);
+  --input-bg: color-mix(in srgb, rgba(255, 255, 255, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --modal-bg: rgba(252, 253, 255, 0.96);
+  --glass-shadow: 0 8px 32px rgba(31, 38, 135, var(--shadow-intensity));
+  --ink: #1f2430;
+  --muted: #5b6472;
+  --accent: #4f6df5;
+  --accent-soft: rgba(79, 109, 245, 0.14);
+  --warn: #9a5b04;
+  --warn-soft: rgba(245, 189, 79, 0.25);
+  --ok: #10653c;
+  --ok-soft: rgba(52, 199, 123, 0.20);
+  --error: #b91c1c;
+  /* Added with the AI status dot, which needs a soft ground the way ok and
+     warn already had one. */
+  --error-soft: rgba(220, 38, 38, 0.18);
+  --border: rgba(31, 36, 48, 0.10);
+  --chip-bg: rgba(31, 36, 48, 0.07);
+  /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
+  /* --- the type scale (§35L) ------------------------------------------------
+     Ten steps, extracted the same way the spacing scale was. This file had
+     thirty-seven distinct font sizes, nine of them between 0.74rem and
+     0.85rem — text that is *almost* the same size in adjacent components is
+     precisely the texture the report called "a bunch of ai generated slop
+     features joined together", because nothing quite lines up and no size
+     means anything.
+
+     Snapping moved nothing by more than 0.05rem, except 1.6→1.7rem. Sizes
+     above 2.2rem are single hero elements and are left alone. */
+  --text-xs: 0.7rem;
+  /* badges, counters */
+  --text-sm: 0.75rem;
+  /* dense metadata */
+  --text-base: 0.8rem;
+  /* secondary UI text */
+  --text-md: 0.85rem;
+  /* the workhorse: chips, list rows, controls */
+  --text-lg: 0.92rem;
+  /* labels and settings copy */
+  --text-body: 1rem;
+  /* prose */
+  --text-h3: 1.15rem;
+  --text-h2: 1.3rem;
+  --text-h1: 1.7rem;
+  --text-display: 2.2rem;
+
+  /* How tall the scrolling page area is — the viewport minus the top bar.
+     Sidebars need this as a *definite* length: they are sticky, and a sticky
+     box only scrolls internally if it has a height that does not depend on its
+     own content. `max-height: 100%` cannot do it, because inside a grid whose
+     row is sized by its content, 100% *is* the content height — which is why
+     the Notes sidebar stopped scrolling independently when it was tried. */
+  /* How tall a page's own box is. Subtracts the status bar as well as the
+     header — it did not, and the chat sidebar was the one element in the app
+     still running 17px underneath the bar (measured across all seven tabs).
+     One token, three users: the chat sidebar, the document sidebar and the
+     graph's box, all of which would have needed the same correction by hand.
+     Anything sized against the window has to come through here for exactly
+     that reason. */
+  --page-viewport: calc(100dvh - var(--header-h) - var(--status-bar-h));
+
+  /* The page shell. One inset for every tab — see .tab-page. */
+  /* The sidebar collapse toggle's own size, and the lane a heading row must
+     leave clear for it: the toggle plus its inset plus a gap. Declared here so
+     the reserve and the thing being reserved for cannot drift apart — they
+     did, by ~6px, and that was the misaligned sidebar headers. Not spacing
+     tokens: a hit target is a control's size and must not shift with the
+     density setting. */
+  --sidebar-toggle-size: 28px;
+  /* Where the toggle sits inside its card. A token because the heading row
+     beside it is aligned to it by arithmetic (see .sidebar-head) — as a
+     literal in one rule and a guess in the other, the two drifted apart by
+     exactly this much, which is the reported misalignment. */
+  --sidebar-toggle-inset: 0.5rem;
+  /* The lane a heading row keeps clear on its right for the collapse toggle.
+     It was toggle + 1rem + a gap, which over-reserved: the toggle overhangs
+     the card's content box by only a few pixels, so the extra 1rem left the
+     "New" button stranded a full toggle's width short of it, reading as a
+     control floating in the middle of the header rather than one grouped with
+     the toggle. Toggle plus one small gap is the whole reserve. */
+  --sidebar-toggle-lane: calc(var(--sidebar-toggle-size) + var(--space-2));
+  --page-gutter: var(--space-9);
+  --page-left: var(--page-gutter);
+  --page-right: var(--page-gutter);
+  /* 2rem, the inset five rules had by hand */
+  --page-top: var(--space-6);
+  --page-bottom: var(--space-9);
+
+  /* How tall a sticky sidebar may be: the page, minus the page's own padding.
+     Both ends of it.
+
+     Three rules used to write this out by hand as
+     `calc(var(--page-viewport) - var(--page-top) - var(--space-4))` — the top
+     padding, and then a gap step standing in for the bottom one. `--space-4`
+     is 9.6px and `--page-bottom` is 32px, so every sticky sidebar in the app
+     was 22px taller than the page it sits in, and each of them ended that far
+     under the status bar. Reported twice on the same day, for the chat
+     sidebar and then the notes sidebar, because it was never one sidebar's
+     bug: it was one expression written three times with the same term
+     missing.
+
+     Named and derived, so the next sidebar cannot get it wrong and a change to
+     the page's padding reaches all of them. This is the same argument
+     `--page-viewport` itself makes one comment above; the lesson is that a
+     `calc` repeated in three rules is a constant that has not been named yet. */
+  --page-sticky-h: calc(var(--page-viewport) - var(--page-top) - var(--page-bottom));
+
+  /* How tall the status bar is (§36D). Declared here rather than left to the
+     bar's own content, because two kinds of thing need to agree with it and
+     neither is inside it: the bar itself, and every `position: fixed` control
+     measured from the bottom of the window — the back-to-top button and the
+     toast stack, both of which sat *on top of* the bar until this existed.
+     Reported as exactly that.
+     Not a spacing token: it is a component's size, the role --header-control-h
+     and --control-h play for the header and the chat dock. */
+  --status-bar-h: 2.3rem;
+
+  --radius: 14px;
+  /* --- the corner scale (§35L) ---------------------------------------------
+     Three tiers derived from --radius, which is the slider in Settings →
+     Appearance. Everything rounded used to be one of twelve hard-coded pixel
+     values — 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14 — none of which moved when
+     that slider did. So choosing square corners squared the cards and left
+     every chip, popup and button rounded, and adjacent surfaces at 8px and
+     10px read as belonging to different applications.
+
+     The multipliers are picked so that at the default 14px each tier lands
+     within a pixel of the value it replaced (4.2, 8.4, 11.2) — so this
+     changes almost nothing today and makes the whole interface respond to
+     the setting from now on. */
+  --radius-sm: calc(var(--radius) * 0.3);
+  /* chips, inputs, small controls */
+  --radius-md: calc(var(--radius) * 0.6);
+  /* buttons, inner panels */
+  --radius-lg: calc(var(--radius) * 0.8);
+  /* cards, dialogs */
+  --radius-pill: 999px;
+
+  /* --- aliases for a second set of token names (audit of §40) ---------------
+     Twenty-three declarations across the newer components reached for names
+     from a different vocabulary — `--card-bg`, `--glass-bg`, `--text`, `--bg`,
+     `--panel`, `--shadow-sm/md`, `--font-sans`, `--border-light`, `--sw-*`.
+     None of them were ever declared, so every one of those declarations was
+     invalid at computed-value time and dropped: backgrounds that painted
+     nothing, borders that drew nothing, shadows that cast nothing. Nothing
+     complained, because a stylesheet has no way to say "I meant a token that
+     exists" — hence the new lint in test_style_scale.
+
+     Aliased rather than rewritten at all twenty-three sites: the names are
+     reasonable and someone will reach for them again, and pointing them at the
+     real tokens makes them theme-aware for free, in all twelve palettes. */
+  --bg: var(--page);
+  --text: var(--ink);
+  --panel: var(--card);
+  --card-bg: var(--card);
+  --card-bg-hover: var(--inner);
+  --glass-bg: var(--card);
+  --border-light: var(--glass-border);
+  --font-sans: var(--ui-font);
+  --shadow-sm: 0 2px 8px rgba(31, 38, 135, var(--shadow-intensity));
+  --shadow-md: var(--glass-shadow);
+  /* The sketch/whiteboard surface set. */
+  --sw-card: var(--card);
+  --sw-border: var(--border);
+  --sw-accent: var(--accent);
+
+  /* The width a collapsed sidebar springs back to when you hover it. JS
+     overrides this per-sidebar (`applySidebarWidth` sets it on the element
+     from the saved width), but the default belongs here: written only as a
+     `var(--saved-width, 280px)` fallback, the 280 was what actually rendered
+     for every sidebar the user had never dragged, and nothing in the
+     stylesheet said so. */
+  --saved-width: 280px;
+  /* pills and round buttons */
+  --glass-blur: 18px;
+  /* How much of each palette's own base alpha survives — 1 means unchanged.
+     Reported: "the ratio of transparency and frosted glass amount... has
+     become more opaque" — and the two are genuinely separate dials in real
+     glassmorphism (how *clear* vs. how *frosted*), but only frosted (blur)
+     ever had a control. Alpha was fixed at whatever a palette happened to
+     bake into `--card`/`--inner`/`--input-bg` (0.42–0.66 depending which
+     one), with no way to make a card more see-through than that. Applied via
+     `color-mix()` at each definition site below rather than by rewriting the
+     hundred-plus places that read the tokens, so 100% (the default) renders
+     byte-identical to before this existed. */
+  --glass-opacity: 1;
+  /* The sheen's own intensity (its own `.card` rule, further down this file)
+     — 1 means the sheen's original fixed look, 0 means invisible. Asked for
+     directly ("can you make the sheen strength adjustable??"), the same day
+     the sheen itself shipped. */
+  --glass-sheen-strength: 1;
+
+  /* Fallback mode when glass is turned off. Overrides the semi-transparent
+     backgrounds and borders with solid colours so contrast holds up without
+     the blur behind it. */
+  --fallback-card: #ffffff;
+  --fallback-input: #ffffff;
+  --fallback-inner: #f8f9fa;
+  --fallback-modal: #ffffff;
+}
+
+/* Base application of Appearance settings */
+.card,
+input:not([type="color"]):not([type="range"]):not([type="checkbox"]),
+textarea,
+select,
+.modal,
+.composer,
+.doc-main,
+.sidebar {
+  border-style: var(--border-style) !important;
+}
+
+/* Dark palette. CSS has no variables-for-variables, so the block
+   appears twice: once for the manual toggle, once for the OS default. */
+:root[data-mode="dark"] {
+  --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+  --blob-a: rgba(123, 144, 247, 0.16);
+  --scrim: rgba(5, 7, 14, 0.60);
+  --blob-b: rgba(88, 235, 245, 0.07);
+  --card: color-mix(in srgb, rgba(29, 33, 46, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+  --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
+  --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --modal-bg: rgba(24, 27, 37, 0.97);
+  --ink: #e7e9ee;
+  --muted: #9aa1ad;
+  --accent: #8b9df8;
+  --accent-soft: rgba(123, 144, 247, 0.20);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.16);
+  --ok: #4ade80;
+  --ok-soft: rgba(74, 222, 128, 0.15);
+  --error: #f87171;
+  --error-soft: rgba(248, 113, 113, 0.16);
+  --border: rgba(255, 255, 255, 0.10);
+  --chip-bg: rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: linear-gradient(135deg, #0e1017 0%, #171a26 45%, #0f1720 100%);
+    --blob-a: rgba(123, 144, 247, 0.16);
+    --scrim: rgba(5, 7, 14, 0.60);
+    --blob-b: rgba(88, 235, 245, 0.07);
+    --card: color-mix(in srgb, rgba(29, 33, 46, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+    --inner: color-mix(in srgb, rgba(255, 255, 255, 0.05) calc(var(--glass-opacity) * 100%), transparent);
+    --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --modal-bg: rgba(24, 27, 37, 0.97);
+    --ink: #e7e9ee;
+    --muted: #9aa1ad;
+    --accent: #8b9df8;
+    --accent-soft: rgba(123, 144, 247, 0.20);
+    --warn: #fbbf24;
+    --warn-soft: rgba(251, 191, 36, 0.16);
+    --ok: #4ade80;
+    --ok-soft: rgba(74, 222, 128, 0.15);
+    --error: #f87171;
+    --error-soft: rgba(248, 113, 113, 0.16);
+    --border: rgba(255, 255, 255, 0.10);
+    --chip-bg: rgba(255, 255, 255, 0.08);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* The glass backdrop lives on <html>, not <body>, so the optional
+   generative-art canvas (a fixed, z-index:-1 child of <body>) can sit
+   between the gradient and the app content (Wave J). */
+html {
+  min-height: 100%;
+  /* Pre-paint fallback for the WebView shell (pywebview/WebView2): before
+     CSS variables resolve and before the gradient layers paint, the canvas
+     is whatever `background-color` says. Without this it is transparent,
+     which the shell renders as black — visible as a brief black flash on
+     space-switch (window.location.reload()) and on first load.
+     The dark fallback matches the darker of the two modes so the flash is
+     never jarring on a dark desktop; light-mode users see it for <50 ms. */
+  background-color: #0f1219;
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+  background-attachment: fixed;
+}
+
+/* --- the scroll container (§36A) --------------------------------------------
+   The window used to be the scrolling element, and the header sat on top of it
+   with `position: sticky`. So the page scrollbar ran the full height of the
+   viewport — starting at pixel zero, behind the top bar — and the two visibly
+   collided (screenshotted).
+
+   The fix is structural rather than cosmetic: the window does not scroll at
+   all now. `body` is exactly one viewport tall and lays its children out in a
+   column; the header takes the height it needs and the visible page takes the
+   rest, with its own scrollbar. The scrollbar therefore begins where the
+   content begins, below the header, which is what was asked for.
+
+   This is also the prerequisite for anything sticky *inside* a page (§36A's
+   chat headers): sticky positioning resolves against the nearest scrolling
+   ancestor, and while that was the window, a header inside a page could not
+   stick to the top of the page.
+
+   Safe because every other direct child of <body> — the lock screen, all seven
+   modal overlays, the toast box, the skip link — is `position: fixed`, so none
+   of them is in this flex column. */
+body {
+  margin: 0;
+  font-family: var(--ui-font, system-ui, -apple-system, "Segoe UI", sans-serif);
+  color: var(--ink);
+  line-height: 1.5;
+  height: 100vh;
+  /* dvh where it exists: on mobile 100vh is the *largest* viewport, so the
+     bottom of the page sits under the browser chrome until you scroll. */
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Appearance → Font. Default (system) leaves --ui-font unset → the fallback. */
+:root[data-font="serif"] {
+  --ui-font: Georgia, "Iowan Old Style", "Times New Roman", serif;
+}
+
+/* `monospace` (the final fallback) resolves to whatever the OS/browser
+   picks when none of the named fonts above it are installed — in one
+   sandbox this project has tested in, that resolution visually glitched a
+   handful of glyphs (see HANDOVER.md) despite `getComputedStyle` reporting
+   the same value as a font that rendered correctly. Two more broadly
+   pre-installed fonts, ahead of the bare generic keyword, give the browser
+   an earlier real match instead of falling all the way through to that
+   platform guess on more systems. */
+:root[data-font="mono"] {
+  --ui-font: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+
+:root[data-font="arial"] {
+  --ui-font: Arial, Helvetica, sans-serif;
+}
+
+:root[data-font="georgia"] {
+  --ui-font: Georgia, serif;
+}
+
+:root[data-font="times"] {
+  --ui-font: "Times New Roman", Times, serif;
+}
+
+:root[data-font="verdana"] {
+  --ui-font: Verdana, Geneva, sans-serif;
+}
+
+:root[data-font="tahoma"] {
+  --ui-font: Tahoma, Geneva, sans-serif;
+}
+
+:root[data-font="trebuchet"] {
+  --ui-font: "Trebuchet MS", Helvetica, sans-serif;
+}
+
+:root[data-font="helvetica"] {
+  --ui-font: Helvetica, Arial, sans-serif;
+}
+
+/* --- Sans-serif system font override (macOS fix) --- */
+/* Force a sans-serif font on the entire page to fix the “italic bug” on macOS */
+:root {
+  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Ambient background art: behind everything, ignores clicks (Wave J). */
+.bg-art-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* Wave L rework: one compact, sticky top bar — brand · tabs · controls.
+   The old two-row header + tab strip spent ~120px before any content. */
+header#top-bar {
+  /* One height for every control in the bar — the tabs, the theme toggle, the
+     lock, Settings and Quit. Not a spacing token, for the same reason
+     `--control-h` in the chat dock is not one: a hit target is a control's own
+     size, and snapping it to a gap step would make it drift with the density
+     setting. 2rem is what the header buttons already were, so this levels the
+     others up to the value the majority already used rather than moving
+     everything. */
+  --header-control-h: 2rem;
+  /* Kept `sticky` rather than made `static`: it costs nothing in a
+     non-scrolling flex parent, and it means the bar still behaves if this
+     layout is ever loaded somewhere the body does scroll. */
+  position: sticky;
+  top: 0;
+  flex: 0 0 auto;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  /* One row, always — below the mobile breakpoint this is a single bar and it
+     must stay one. It used to wrap, and because .header-controls carries
+     margin-left:auto the controls dropped to a second row pinned right, which
+     is the misaligned header that was reported. It happened at every width
+     from 720px to about 1400px, i.e. most laptop windows, because the pill
+     slot reserved a fixed 17.5rem that nothing was allowed to reclaim.
+     Now the pill shrinks first and the tabs scroll, so nothing wraps. */
+  flex-wrap: nowrap;
+  padding: var(--space-4) var(--space-8);
+  background: var(--card);
+  border-bottom: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+/* The wordmark is the first thing that may go: it is decoration next to the
+   tabs, and reclaiming it buys a whole tab's worth of room. */
+header#top-bar h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  /* Never shrinks. `flex: 0 1 auto` with `min-width: 0` let the box get
+     narrower than the text while `white-space: nowrap` kept the text at full
+     width — so the name overflowed its own box and printed straight over
+     "Dashboard". That is the reported clash between the wordmark and the tab
+     bar, and it is why hiding the wordmark early looked like the fix.
+     The tab strip is what gives up space now (it scrolls); the name is short,
+     fixed, and either fully readable or, below the mobile breakpoint, gone. */
+  flex: 0 0 auto;
+}
+
+/* The header gives up space in a deliberate order as the window narrows:
+   the wordmark first (decoration), then the status pill (its text is
+   duplicated in Settings), then tab padding, and only then do tabs scroll.
+   Each step buys roughly a tab's worth of room. */
+@media (max-width: 1200px) {
+  header#top-bar {
+    gap: var(--space-6);
+    padding-inline: var(--space-6);
+  }
+}
+
+/* The wordmark stays until the layout stacks. 1390 was tried, then 1080; both
+   were still hiding the app's own name on ordinary windows, which was
+   reported twice. It is not decoration — it is what tells you which app this
+   is — so it now survives to the mobile breakpoint, where the header becomes
+   a different shape anyway.
+
+   This is only safe because the tab strip can shrink (see the base `#tab-bar`
+   rule). Before that, keeping the wordmark meant the header overflowed itself
+   by up to 215px and pushed the controls out of the window; now the tabs
+   scroll a little with a fade instead, which is a far smaller loss than a
+   missing name. */
+@media (max-width: 1080px) {
+  #tab-bar button {
+    padding-inline: var(--space-5);
+  }
+}
+
+@media (max-width: 940px) {
+  header#top-bar {
+    gap: var(--space-4);
+  }
+
+  #tab-bar button {
+    padding-inline: var(--space-4);
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 720px) {
+  header#top-bar h1 {
+    display: none;
+  }
+}
+
+/* When the tabs really do scroll, say so with a fade at the edge instead of
+   letting a label look chopped off.
+
+   This used to live in a `max-width: 820px` media query that also tried to
+   set `flex: 0 1 auto`. The flex never applied: the base `#tab-bar` rule
+   below declares `flex` too and sits ~70 lines LATER at equal specificity,
+   so it won on source order. The tab bar stayed a rigid 579px at every
+   width, the header overflowed its own box by up to 215px, and
+   `.header-controls` was crushed to 76px around 201px of buttons — which is
+   the desktop window's controls sitting over the wordmark that was reported.
+   The shrink now lives on the base rule, where nothing overrides it.
+
+   The fade is driven by a class rather than a width range, because a width
+   range is the wrong test: whether the tabs scroll depends on the pill's
+   current text and the wordmark as much as on the window, so any fixed
+   breakpoint both faded a tab bar that fitted and left a scrolling one
+   looking chopped off. syncTabOverflowFade measures it instead.
+
+   **Reported, and it was two mistakes in one rule:** "the reminders tab in
+   the top bar is partially faded out on the right." Reminders is the last
+   tab, so it wore the whole of both.
+
+   1. The fade said "the bar scrolls", not "there is more that way". Once you
+      had scrolled to the end — or when the overflow was a handful of pixels —
+      the last tab was dimmed with nothing hidden behind it, which reads as a
+      disabled control rather than as a hint. It is now per *edge*, painted
+      only on a side that has content beyond it, and remeasured on scroll.
+   2. 12% of the bar is ~70px at a usual width: a whole tab, not an edge.
+      A ramp in px fades the same amount whatever the bar's width, which is
+      what an edge hint means. */
+#tab-bar {
+  /* Wide enough to read as a soft edge, narrow enough that no label is
+     unreadable behind it. */
+  --tab-fade: 1.5rem;
+}
+
+/* When the seven tabs cannot fit beside the wordmark and the header buttons,
+   they take a row of their own rather than scrolling out of reach. Photographed
+   on a real window: "Dashboard" clipped to "oard" against the left edge.
+   Fading that edge says the tab is there; it does not make it readable, and a
+   nav you have to drag sideways is a nav people stop using.
+
+   **This is not the wrap that was reported broken.** The header used to wrap
+   *itself*, and because `.header-controls` carries `margin-left: auto` the
+   controls were what dropped — to a second row, pinned right, at almost every
+   laptop width. Here it is the tab strip that moves, by force of a 100% basis
+   and an explicit order, and only when it has been measured not to fit
+   (`syncTabOverflowFade`). The controls stay exactly where they are, on row
+   one, with the wordmark. */
+header#top-bar.tabs-wrapped {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+}
+
+header#top-bar.tabs-wrapped #tab-bar {
+  order: 3;
+  flex-basis: 100%;
+  width: 100%;
+}
+
+#tab-bar.fade-end {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+
+#tab-bar.fade-start {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
+}
+
+#tab-bar.fade-start.fade-end {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
+      #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
+      #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+
+.header-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  /* "⚙ Settings" broke across two lines once the row got tight, which made
+     the whole bar taller and put the buttons out of line with the tabs. */
+  white-space: nowrap;
+  /* The controls stay on one line. When this wrapped, a longer status message
+     could drop a button to a second row and change the header's height —
+     which is the flicker along the bottom edge of the top bar that was
+     reported. The pill shrinks instead; the buttons never move. */
+  flex-wrap: nowrap;
+  margin-left: auto;
+  /* Rigid. This used to shrink so the status pill inside it could collapse —
+     the pill was the second rung of the degradation ladder. The pill is now a
+     fixed-size dot, so nothing in here can yield, and letting the group shrink
+     anyway just crushed it around content that couldn't: 155px of box holding
+     226px of buttons, pushing the theme toggle out of the window.
+     The tab strip is what gives up space now, by scrolling. */
+  flex: 0 0 auto;
+}
+
+/* The buttons keep their size; only the pill beside them collapses. And they
+   are the same height as the tabs, which is the whole point of
+   `--header-control-h` — see the note on it above. */
+.header-controls>button {
+  flex: 0 0 auto;
+  height: var(--header-control-h);
+  padding-block: 0;
+  margin: 0;
+}
+
+/* Live "what is the AI doing?" indicator.
+   Its text changes as status polls land ("checking…" → "word search on · AI
+   search unavailable"), and every change used to re-lay-out the header: the
+   pill grew, `margin-left: auto` slid the buttons, and everything below
+   twitched with it, for the second or two it takes the polls to settle.
+   Reserving a stable box means the text can change without moving anything. */
+/* --- the AI status dot ------------------------------------------------------
+   Was a pill spelling the state out in words, in a slot reserving 17.5rem of
+   header for a message that reads "AI ready" almost all the time. That slot
+   was most of what squeezed the tabs and the wordmark. It is now a dot: a
+   colour AND a glyph, with the sentence on hover, focus or click.
+
+   The glyph is not decoration. Colour alone fails for anyone with a colour
+   vision deficiency and in high-contrast mode, so ✓ / ! / ✕ carries the same
+   meaning the green / amber / red does. */
+.ai-status-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.ai-status {
+  /* Square by construction. `aspect-ratio` alongside the explicit height means
+     the circle survives anything that changes one dimension without the other
+     — which is exactly how it became an oval the first time. */
+  width: 1.75rem;
+  height: 1.75rem;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: var(--chip-bg);
+  color: var(--muted);
+  cursor: pointer;
+  /* line-height 1 and a centred grid: the glyphs have different heights above
+     the baseline (… sits low, ✓ and ✕ sit high), and text centring alone would
+     put each one in a slightly different place. */
+  line-height: 1;
+  box-shadow: none;
+}
+
+.ai-status-dot {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  display: block;
+  text-align: center;
+  /* Optical centring, measured rather than guessed. The grid centres the
+     glyph's *line box*; the ink inside it is not centred in that box, because
+     ✓ ! and ✕ all sit in the cap-height band above the baseline. Rendering
+     each one at 6x and measuring its ink put all three exactly 2.17px high on
+     a 28px dot — 0.17em at this font size. */
+  /* transform: translateY(0.17em); */
+}
+
+.ai-status[data-level="idle"] {
+  background: var(--chip-bg);
+  color: var(--muted);
+}
+
+/* The ellipsis is the one glyph that sits *below* the middle — it rides the
+   baseline rather than the cap height — so it needs the opposite correction
+   to the other three. Measured the same way: 2px low before this. */
+.ai-status[data-level="idle"] .ai-status-dot {
+  font-size: 0.92rem;
+  transform: translateY(-0.16em);
+}
+
+.ai-status[data-level="ok"] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.ai-status[data-level="warn"] {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.ai-status[data-level="error"] {
+  background: var(--error-soft);
+  color: var(--error);
+}
+
+.ai-status:hover,
+.ai-status:focus-visible {
+  border-color: currentColor;
+}
+
+/* The message. It now hangs *upward* from the dot, because the dot moved to
+   the status bar at the foot of the window (§36D) — anchored below, it would
+   open off the bottom of the screen every time.
+   Left-aligned to the dot for the same reason it used to be right-aligned to
+   it: the dot sits at the left-hand end of the bar now, and a popup anchored
+   to the far side runs off the other edge. */
+.ai-status-popup {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 60;
+  width: max-content;
+  max-width: min(22rem, 80vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-lg);
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--glass-shadow);
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-align: left;
+  /* visibility, not display: it keeps the box measurable and lets the fade
+     run. `hidden` would also fight the hover rule below. */
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s ease, visibility 0.12s;
+}
+
+.ai-status-wrap:hover .ai-status-popup,
+.ai-status:focus-visible+.ai-status-popup,
+.ai-status-popup.pinned {
+  visibility: visible;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-status-popup {
+    transition: none;
+  }
+}
+
+.ai-status-popup strong {
+  color: var(--ink);
+}
+
+.ai-status-detail {
+  color: var(--muted);
+  /* The embedding error is a real multi-line message. */
+  white-space: pre-line;
+  line-height: 1.45;
+}
+
+/* --- optional extras (Settings) ---------------------------------------------- */
+.extras-list {
+  list-style: none;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+}
+
+.extras-row {
+  padding: var(--space-5) 0;
+  border-top: 1px solid var(--border);
+}
+
+.extras-row:first-child {
+  border-top: none;
+}
+
+.extras-enables {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+}
+
+.extras-meta {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  font-family: var(--mono, ui-monospace, monospace);
+}
+
+.extras-caveat {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--warn);
+}
+
+.extras-installed {
+  color: var(--ok);
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
+/* The install-in-progress state: a step description over a progress bar,
+   right-aligned like every other row action. Its own class rather than
+   inline styles — the CSP's `style-src: 'self'` (no unsafe-inline) blocks
+   the style attribute regardless of whether it's written in markup or set
+   through the CSSOM (`el.style.x = ...`), the same class of bug the eight
+   inline `style=""` attributes in index.html were moved out for. */
+.extras-install-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.extras-install-progress-text {
+  font-size: 0.8rem;
+  max-width: 15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.extras-install-progress-bar {
+  width: 10rem;
+  margin: 0;
+}
+
+/* An extra the app cannot use yet. The whole row is dimmed, not just its
+   button: the point is that this is a row you can read and not act on, and
+   dimming only the control leaves a full-brightness description of a feature
+   that is not there. The 🚧 line underneath keeps its own colour so the reason
+   stays legible against the dimming. */
+.extras-row:has(.extras-soon) {
+  opacity: 0.62;
+}
+
+.extras-row:has(.extras-soon) .extras-caveat {
+  opacity: 1;
+}
+
+.extras-soon {
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+/* --- the Library (§4, §36F) --------------------------------------------------
+   §36F set this tab a test as well as a job: *"the test of whether §35L
+   actually holds — if a new tab built from the tokens still needs its own
+   gutter, its own heading sizes and its own spacing, the system has not
+   worked."* So every value below is a token, there is no `--page-gutter` here
+   (`.tab-page` owns the inset), and the two control strips declare one height
+   each the way DESIGN.md's control-strip rule requires. The one number that is
+   not a token is the card grid's minimum column, which is a *layout* decision
+   about how much text a card must fit rather than a step on a spacing scale.
+
+   A library is for **finding something you made**, which is a different job
+   from the Notes tab's "work with what I have" — hence bigger units, more
+   metadata on each, and the controls at the top instead of down the side. */
+.library-controls {
+  --control-h: 2.2rem;
+}
+
+.library-head {
+  margin-bottom: var(--space-2);
+}
+
+/* --- the overview strip ------------------------------------------------------
+   A management screen opens with the state of the thing it manages. Each tile
+   is a filter, which is what keeps it from being decoration — the same test
+   the status bar had to pass. */
+.library-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.library-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-5);
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+.library-stat:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.library-stat.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.library-stat-icon {
+  align-self: center;
+}
+
+.library-stat-value {
+  color: var(--ink);
+  font-size: var(--text-h3);
+  font-variant-numeric: tabular-nums;
+}
+
+.library-stat-label {
+  font-size: var(--text-sm);
+}
+
+.library-overview-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* --- the strips that appear only when they apply ---------------------------- */
+.library-contextbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-md);
+}
+
+.library-contextbar.hidden {
+  display: none;
+}
+
+.library-contextbar-end {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.library-contextbar button {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+}
+
+.library-selected-count {
+  font-weight: 650;
+}
+
+.library-view button {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+}
+
+.library-toolbar {
+  display: flex;
+  align-items: center;
+  /* --space-6, not --space-3. The row holds four *separate* controls, and at
+     a small-gap step "Include bin" and "Sort" sat close enough to read as one
+     phrase — "Include bin Sort" — with the switch apparently belonging to the
+     select. The gap between unrelated controls has to be larger than the gap
+     inside one, which is the whole of what `.library-sort` sets below. */
+  gap: var(--space-6);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+/* A label and the control it names are one thing, so they sit closer to each
+   other than to anything else in the row. */
+.library-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+/* **One height for everything in the row**, declared once — the same rule the
+   chat dock's `--control-h` states and for the same reason. The search box,
+   the sort select and the grid/list segment each arrived from a different base
+   rule and each sized itself: measured, they were three different heights on
+   one line, with the switch beside them on a fourth. A row of controls that
+   do not share a height cannot be aligned by any amount of `align-items`.
+
+   Not a spacing token: a hit target is a control's own size and must not move
+   with the density setting. */
+.library-toolbar {
+  --control-h: 2.3rem;
+}
+
+.library-toolbar .library-search,
+.library-toolbar select,
+.library-toolbar .seg,
+.library-toolbar .seg button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.library-toolbar .seg {
+  display: inline-flex;
+  align-items: center;
+}
+
+.library-search {
+  flex: 1 1 16rem;
+  min-width: 0;
+  /* Height declared, vertical padding given up, margin zeroed — an input's
+     base rule carries a bottom margin, and on a centred flex row those become
+     an offset rather than a gap. */
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+}
+
+.library-sort {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+}
+
+.library-sort select {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+}
+
+.library-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.library-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+  padding: 0 var(--space-5);
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+.library-chip:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.library-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+:root[data-mode="dark"] .library-chip.active {
+  color: #0e1017;
+}
+
+.library-chip-count {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.library-grid {
+  /* How wide a card's spine is. One value, so the seven kind-colours below
+     cannot drift apart — see the note on the spine. */
+  --library-spine: 4px;
+  /* Masonry layout (columns) so cards pack tightly regardless of their height.
+     This replaces the rigid CSS Grid which forced ragged rows. */
+  column-width: 17rem;
+  column-gap: var(--space-6);
+}
+
+.library-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  margin-bottom: var(--space-6);
+  break-inside: avoid;
+  padding: var(--space-6);
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 400;
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.library-card:hover,
+.library-card:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.library-card {
+  position: relative;
+}
+
+.library-card-thumb {
+  width: calc(100% + var(--space-6) * 2);
+  margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) 0;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  border-bottom: 1px solid var(--border);
+  display: block;
+}
+
+/* The ⋯, top-right, revealed on hover or focus the way the note cards' actions
+   are — a permanent one on every card in a grid is a column of dots down the
+   page competing with the titles beside them. `focus-within` rather than
+   `:focus` so it survives the menu opening, and `hover: none` keeps it visible
+   on touch, where there is nothing to hover with.
+
+   `.menu-wrap.library-card-menu`, not `.library-card-menu` alone: this
+   element already carries `.menu-wrap` (`02-chat-graph.css`), which sets
+   `position: relative` — same specificity as a plain `.library-card-menu`,
+   so which one wins for `position` came down to file load order, and
+   `.menu-wrap` loads later. Losing that tie left the wrap `position:
+   relative`, an ordinary block flex child of the card's column layout —
+   `align-items: normal` stretched it to the card's full width and its
+   `top`/`right` (meant as an absolute offset from the corner) instead
+   nudged it up-and-left from wherever it landed in the stack, opening the
+   dropdown "randomly floating in the middle bottom of the card" instead of
+   pinned below the ⋯ button — reported directly, with a screenshot,
+   across every Library chip. The compound selector wins outright,
+   regardless of file order. */
+.menu-wrap.library-card-menu {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.library-card:hover .library-card-menu,
+.library-card:focus-visible .library-card-menu,
+.library-card:focus-within .library-card-menu {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .library-card-menu {
+    opacity: 1;
+  }
+}
+
+/* Room for it, always — reserved rather than taken, or every title reflows the
+   moment the pointer arrives. */
+.library-card-top {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-right: var(--space-8);
+}
+
+.library-card-icon {
+  flex: 0 0 auto;
+  font-size: var(--text-body);
+}
+
+.library-card-title {
+  /* Two lines, then ellipsis. One line loses too many document titles; three
+     makes the cards ragged, and a grid whose rows are different heights is the
+     thing that reads as unconsidered. */
+  font-size: var(--text-body);
+  font-weight: 650;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.library-card-preview {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* A note has no title and no filename — its own words are the only way to
+   recognise it, so three lines was showing a third of what the card had room
+   for. Reported as "I can't see a lot of the response in the cards". Eight,
+   with the server sending 420 characters rather than 160 to fill them. The
+   other kinds keep three: a document has a title, a file has a name, and their
+   preview is a reminder rather than the thing itself. */
+.library-note .library-card-preview {
+  -webkit-line-clamp: 8;
+  line-clamp: 8;
+}
+
+/* Markdown rendered inline inside a preview must not change the line height —
+   a clamp counts lines, and a card whose emphasis made it taller would break
+   the row it sits in. */
+.library-card-preview code {
+  font-size: 0.92em;
+  padding: 0 0.2em;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+}
+
+.library-card-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  /* Pinned to the bottom of the card, so the metadata line agrees across a row
+     whose previews are different lengths. */
+  margin-top: auto;
+  padding-top: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* --- the spine ---------------------------------------------------------------
+   Asked for directly: *"I want the library to have a library bookshelf kinda
+   theme."* This is that idea taken literally and kept useful — every card wears
+   a coloured **spine** down its left edge, the way a book on a shelf shows you
+   its spine and nothing else. The colour is the kind, so a shelf of mixed
+   things is scannable by edge alone before you read a single title.
+
+   It is `inset box-shadow` rather than `border-left` because a border changes
+   the box and would shift every title by 4px relative to a card that has no
+   spine. And it is a shape *plus* a colour — the icon beside the title carries
+   the same meaning — because colour alone is never the signal (DESIGN.md). */
+.library-note {
+  box-shadow: inset var(--library-spine) 0 0 var(--accent);
+}
+
+.library-document {
+  box-shadow: inset var(--library-spine) 0 0 var(--ok);
+}
+
+.library-chat {
+  box-shadow: inset var(--library-spine) 0 0 var(--warn);
+}
+
+.library-file {
+  box-shadow: inset var(--library-spine) 0 0 var(--error);
+}
+
+.library-tag {
+  box-shadow: inset var(--library-spine) 0 0 var(--muted);
+}
+
+.library-archived {
+  box-shadow: inset var(--library-spine) 0 0 var(--border);
+}
+
+.library-activity {
+  box-shadow: inset var(--library-spine) 0 0 var(--chip-bg);
+}
+
+.library-archived .library-card-title {
+  text-decoration: line-through;
+}
+
+/* --- activity, as a timeline rather than as cards -----------------------------
+   Reported: *"the activity should be visualised better and it cuts off half of
+   the majority of the logs."* Both halves had the same cause — a log line was
+   being rendered as a **card**, so it got a card's width (a quarter of the
+   grid) and a card's three-line clamp, and a log line's detail is the whole of
+   what it says.
+
+   A log is a sequence, not a collection. So an activity row spans the grid,
+   keeps its detail on one unclamped line, and reads left to right as
+   *when · what · about what* — the shape every log you have ever read uses,
+   and the reason you can scan one at all. It is flat and not pressable,
+   because a record of something that already happened is not a thing you open. */
+.library-activity {
+  grid-column: 1 / -1;
+  column-span: all;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-5);
+  background: none;
+  box-shadow: inset var(--library-spine) 0 0 var(--border);
+  cursor: default;
+  font-size: var(--text-md);
+}
+
+.library-activity:hover {
+  background: var(--chip-bg);
+  border-color: var(--glass-border);
+}
+
+/* Time first and in a fixed column, so the eye reads down a straight edge
+   instead of hunting for it at the end of a sentence of variable length. */
+.library-activity .library-card-meta {
+  order: -1;
+  flex: 0 0 7rem;
+  justify-content: flex-start;
+  margin-top: 0;
+  padding-top: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The "a note" / "your settings" half is already in the title, so the meta
+   line would say it twice. */
+.library-activity .library-card-meta span:first-child {
+  display: none;
+}
+
+.library-activity .library-card-top {
+  flex: 0 0 auto;
+  padding-right: 0;
+}
+
+.library-activity .library-card-title {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The detail is the record. It takes the rest of the row and is never clamped;
+   a long one wraps rather than disappearing. */
+.library-activity .library-card-preview {
+  flex: 1 1 auto;
+  display: block;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+
+  /* Stacked on a phone: three columns in 390px would leave the detail four
+     characters wide, which is the clipping this rule set out to fix. */
+  .library-activity {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+
+  .library-activity .library-card-meta {
+    flex: 0 0 auto;
+  }
+
+  .library-activity .library-card-title {
+    white-space: normal;
+  }
+}
+
+/* A private note shows that it is one and nothing else. */
+.library-card.library-private .library-card-title {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* The image a file actually is. Fixed height so a shelf of photos keeps its
+   rows level — a grid whose rows are different heights is the thing that reads
+   as unconsidered, and it is worse here than anywhere because these cards are
+   deliberately uniform. */
+.library-card-thumb {
+  width: 100%;
+  height: 6.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+}
+
+.library-card-tick {
+  width: auto;
+  margin: 0;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+/* --- rows instead of cards ---------------------------------------------------
+   Cards to browse, rows to manage: a list shows forty things at once with
+   their metadata lined up in columns, which is what you want when the job is
+   tidying rather than finding. One class on the container — every card is
+   already a flex column, so this turns it on its side rather than re-styling
+   it. */
+.library-grid.library-list {
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.library-list .library-card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+}
+
+.library-list .library-card-top {
+  flex: 1 1 40%;
+  padding-right: 0;
+}
+
+.library-list .library-card-preview {
+  flex: 1 1 40%;
+  line-clamp: 1;
+  margin: 0;
+}
+
+.library-list .library-card-meta {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: 0;
+  gap: var(--space-5);
+}
+
+.library-list .library-card-thumb {
+  width: 3rem;
+  height: 2.2rem;
+  flex: 0 0 auto;
+  order: -1;
+}
+
+.library-list .library-card-menu {
+  position: static;
+  opacity: 1;
+}
+
+.library-empty {
+  margin: var(--space-6) 0 0;
+}
+
+/* The Boards & Images gallery (HANDOVER.md §53/§56) — a board card is a
+   plain button, not the note/document `<article>` `.library-card` already
+   is, so it needs its own text alignment and cursor rather than inheriting
+   everything from that selector. */
+.library-board-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.library-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-6);
+}
+
+.library-image-tile {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--card);
+}
+
+/* Had no styling at all before — a plain inline button between the image
+   and caption, not the corner overlay a delete control on a tile usually
+   is anywhere else in this app. Hover/focus-revealed so a grid of images
+   doesn't carry a permanent row of trash-can icons; the button itself
+   stays in the DOM (not display:none) so it's still keyboard-reachable
+   without hovering. */
+.library-image-tile .library-image-edit,
+.library-image-tile .library-image-delete {
+  position: absolute;
+  top: var(--space-2);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.library-image-tile .library-image-edit {
+  right: calc(var(--space-2) + 2.2rem);
+}
+
+.library-image-tile .library-image-delete {
+  right: var(--space-2);
+}
+
+.library-image-tile:hover .library-image-edit,
+.library-image-tile:focus-within .library-image-edit,
+.library-image-tile .library-image-edit:focus-visible,
+.library-image-tile:hover .library-image-delete,
+.library-image-tile:focus-within .library-image-delete,
+.library-image-tile .library-image-delete:focus-visible {
+  opacity: 1;
+}
+
+.library-image-tile img {
+  display: block;
+  width: 100%;
+  height: 9rem;
+  object-fit: cover;
+  cursor: zoom-in;
+}
+
+/* The caption becomes the rename field in place, so the field has to occupy
+   exactly the caption's box — a full-width input that changed the tile's
+   height would make the whole grid reflow while you type in one cell of it. */
+.library-image-rename-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+}
+
+.library-image-tile figcaption {
+  padding: var(--space-3);
+  font-size: var(--text-md);
+  color: var(--muted);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-image-tile figcaption:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .library-toolbar {
+    gap: var(--space-2);
+  }
+
+  .library-grid {
+    gap: var(--space-4);
+  }
+}
+
+/* --- the status bar (§36D) ---------------------------------------------------
+   A real flex row at the foot of the body, not a fixed overlay. The body is
+   already `display: flex; flex-direction: column; overflow: hidden` with
+   `.tab-page` as the scrolling middle child, so a row here is simply the last
+   child: nothing overlaps the page, no tab needs padding reserved for it, and
+   a change to the bar's height cannot desynchronise from a padding constant
+   somewhere else. A fixed bar would need all three. */
+#status-bar {
+  /* One height for the strip and everything in it — DESIGN.md's control-height
+     rule, the same reason `--header-control-h` exists. Not a spacing token: a
+     hit target is a control's own size and must not move with density. */
+  --status-h: 1.75rem;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Exactly --status-bar-h, border included, so the offsets the fixed controls
+     compute from it are right rather than nearly right. */
+  height: var(--status-bar-h);
+  box-sizing: border-box;
+  padding: 0 var(--space-6);
+  /* **Opaque, not glass.** Reported: the notes sidebar and its buttons showing
+     through the bar, and it is the same fault the notifications panel had —
+     `--card` is 55% and assumes the frosting `.card` puts over it, so a
+     surface that takes the colour and adds only a blur is half see-through.
+     A status bar is the one surface in the app that must never be ambiguous
+     about what is furniture and what is content: it is always there, at the
+     edge, with a scrolling page ending against it. */
+  background: var(--modal-bg);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  /* Above the page, below the header's popups and every modal. */
+  z-index: 30;
+  font-size: var(--text-sm);
+  /* The bar is one line and stays one line: a wrapped status bar is a status
+     bar that changes the height of the window's furniture as its own text
+     changes, which is exactly what the header was rebuilt to stop doing. */
+  white-space: nowrap;
+}
+
+.status-spacer {
+  flex: 1 1 auto;
+}
+
+.status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--status-h);
+  /* Padding horizontal only, margin zeroed: a row of controls neutralises the
+     spacing its controls arrive with and lets the declared height decide. */
+  padding: 0 var(--space-3);
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  /* An item that shrinks before it wraps: the notebook count and the reminder
+     count are short and fixed, but a background job's label is the server's
+     text and can be long. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-item:hover,
+.status-item:focus-visible {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+.status-item b {
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Something is waiting on you. Warn rather than error: a due reminder is the
+   app working, not the app broken — the same distinction the AI status dot
+   draws between "no AI at all" (amber) and "the model failed to load" (red). */
+.status-item.status-due,
+.status-item.status-due b {
+  color: var(--warn);
+}
+
+.status-task {
+  color: var(--accent);
+}
+
+.status-task b {
+  color: var(--accent);
+}
+
+.status-key {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-family: var(--mono, ui-monospace, monospace);
+  line-height: 1.35;
+}
+
+/* In the bar the dot is one item among several rather than the only round
+   thing in a row of squares, so it comes down to the strip's own height. */
+#status-bar .ai-status {
+  width: var(--status-h);
+  height: var(--status-h);
+}
+
+#status-bar .emblem-mark {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+
+  /* A phone's scarce dimension is height, and two of these five are the two a
+     phone can least use: the keyboard hint needs a keyboard, and the notebook
+     size is on the dashboard's first screen anyway. What survives is what you
+     cannot get at otherwise — the AI's state, what is waiting, what is
+     running. */
+  #status-bar {
+    padding-inline: var(--space-5);
+    gap: var(--space-2);
+  }
+
+  #status-notes,
+  #status-command {
+    display: none;
+  }
+}
+
+/* --- tab navigation (Wave A; pill style inside the top bar in Wave L) ------- */
+#tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--chip-bg);
+  /* Scroll rather than wrap when the window is genuinely too narrow.
+     min-width:0 is what actually lets a flex item shrink below its content.
+
+     The tabs are still the LAST thing to give up space — everything beside
+     them shrinks first, because the flex basis is `auto` and the wordmark,
+     the pill and the tab padding all collapse at their own breakpoints
+     before there is any pressure here. But `flex-shrink: 0` made that a rule
+     rather than an ordering, and something has to yield: with the tabs rigid
+     at 579px the header simply overflowed itself, by up to 215px, and the
+     controls went out of the window. `flex-shrink: 1` is self-regulating —
+     at a comfortable width there is room, so nothing shrinks and nothing
+     scrolls; only when there is genuinely no room do the tabs scroll, which
+     is a far smaller loss than losing Settings off the right-hand edge. */
+  flex: 0 1 auto;
+  min-width: 0;
+  /* the half of "can shrink" that flex-shrink alone doesn't buy */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+#tab-bar button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+#tab-bar button {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-weight: 500;
+  /* Height declared, padding only horizontal — the control-strip rule from
+     DESIGN.md, applied to the one strip in the app that had never had it.
+     Measured before: the bar held five different control heights (wordmark
+     27.6, tab strip 44.8, tabs 36.8, buttons 32, status 28, emblem 24), every
+     one of them centred on the same line and none of them agreeing with
+     another. That is exactly the "nothing lines up" complaint, in the most
+     looked-at strip in the app. */
+  height: var(--header-control-h);
+  padding: 0 var(--space-6);
+  box-shadow: none;
+}
+
+#tab-bar button.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+:root[data-mode="dark"] #tab-bar button.active {
+  color: #0e1017;
+}
+
+/* --- the page shell (§35L) --------------------------------------------------
+   Every tab used to draw its own outer gutter, and no two agreed. The side
+   inset was 2rem in five different rules, but the space above the first
+   element was 1rem on Notes and Chat (.layout), 0 on Documents (.doc-layout),
+   and 0.8rem on the Dashboard, Reminders and Graph — each of them *on top of*
+   .tab-page's own 0.8rem. So content began 1.8rem down one tab and 0.8rem
+   down the next, which is the page-level form of the reported problem:
+   "spacing, alignment and margins… changes each tab".
+
+   One shell owns the inset now. A page's own container contributes only its
+   internal gap, never its distance from the window. */
+.tab-page {
+  display: flex;
+  flex-direction: column;
+  padding: var(--page-top) var(--page-gutter) var(--page-bottom);
+  /* Custom margins (below) override the side halves with longhands rather
+     than a four-value shorthand, so the one declaration the shell test
+     pins stays the only place the page inset is set for everyone else. */
+  padding-left: var(--page-left);
+  padding-right: var(--page-right);
+  /* The page is the scrolling element, not the window (§36A). `min-height: 0`
+     is what lets a flex item shrink below its content and therefore scroll at
+     all — without it the item grows to fit and the overflow never engages. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Direct children of a page are already inside the gutter, so they carry only
+   the rhythm between them. */
+.tab-page>.card,
+.tab-page>.card.placeholder {
+  margin: 0 0 var(--space-6);
+}
+
+
+.layout {
+  display: grid;
+  flex: 1 0 auto;
+  /* A starting point only — each sidebar remembers its own width, set on the
+     grid by initResizableSidebars. 230px left about four characters of a chat
+     title visible, which is no title at all. */
+  /* minmax(0, …) rather than a bare `1fr`: an auto-minimum track refuses to
+     shrink below its content's min-content width, so a single wide code
+     block or table in a chat answer widened the track, the page, and every
+     paragraph beside it — a long horizontal scrollbar and text that looked
+     scaled up. The content column must be allowed to be narrower than its
+     widest child so `overflow-x: auto` on that child can do its job. */
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 1rem;
+  /* The gutter belongs to .tab-page now; this is only the column gap. */
+  padding: 0;
+  /* stretch, not start: with `start` the sidebar shrank to its content and sat
+     visibly shorter than the panel beside it, which reads as a broken layout
+     rather than a deliberate one. */
+  align-items: stretch;
+}
+
+/* Grid *items* have the same auto-minimum, so the floor has to be repeated
+   here or the track's minmax(0, …) is undone by the item inside it. */
+.layout>* {
+  min-width: 0;
+}
+
+/* Stack the sidebar on small screens. minmax(0,…) + min-width let the
+   column actually shrink below its content's natural width. */
+@media (max-width: 720px) {
+
+  /* The shell tightens once, for every tab, instead of each page shrinking its
+     own gutter to a different number (§35L). */
+  :root {
+    --page-gutter: var(--space-6);
+    --page-top: var(--space-3);
+    --page-bottom: var(--space-6);
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .layout>* {
+    min-width: 0;
+  }
+}
+
+/* --- the glass card -------------------------------------------------------- */
+.card {
+  background: var(--card);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  padding: var(--space-6) var(--space-7);
+  margin-bottom: var(--space-6);
+  /* Cards are flex/grid items nearly everywhere they appear, and a flex item's
+     automatic minimum is its content — so a card holding one wide code block
+     grew past the column that was supposed to contain it, taking the page
+     with it. Fixing the `.layout` track alone was not enough: the item inside
+     the track carries the same auto-minimum and has to be floored too. */
+  min-width: 0;
+}
+
+/* The sheen is what reads as *glass* rather than *tinted paint* — over the
+   page's own gradient (no texture of its own beyond two soft blobs), a plain
+   `var(--card)` fill blurs whatever's behind it into another smooth
+   gradient, visually almost indistinguishable from a flat opaque panel
+   regardless of the blur slider's value. Reported as "the ratio of
+   transparency and frosted glass amount... has become more opaque" — the
+   alpha itself never changed (confirmed live: `--card`'s rgba is identical
+   at every blur setting), but nothing was carrying the *glass* read on its
+   own once there was little contrast behind a card to blur.
+
+   A separate, own opt-in rather than baked into `.card` unconditionally
+   (asked for directly, after the first pass did exactly that): off when
+   glass itself is off — `[data-glass="off"]`'s own fallback rule already
+   overrides `.card`'s background/box-shadow wholesale, and this must never
+   fight that back on — and off by default even while glass is on, toggled
+   separately in Settings → Appearance (`#glass-sheen-toggle`), auto-enabled
+   the moment glass itself is switched on from off, so turning glassmorphism
+   on gets the full look without a second trip to a checkbox, while still
+   leaving that checkbox able to turn just the sheen back off on its own.
+
+   Both rgba stops below are scaled by `--glass-sheen-strength` (0–1) through
+   the same color-mix-with-transparent trick `--glass-opacity` already uses —
+   mixing a colour with transparent can only ever dial its own alpha down,
+   never past it, so the fixed 0.16/0.25 here are the strength slider's own
+   100% ceiling, not a baseline it adds to. */
+:root[data-glass-sheen="on"]:not([data-glass="off"]) .card {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
+      rgba(255, 255, 255, 0) 45%),
+    var(--card);
+  /* A 1px inner top-edge highlight — the other half of the same "this
+     catches light, it doesn't just sit there tinted" read, independent of
+     `--card`'s alpha. */
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent);
+}
+

@@ -103,7 +103,7 @@ class ModelManager:
 
     def utility_model(self) -> str:
         """The model for quick background jobs — filing (janitor), the
-        weekly digest, tidy suggestions, writing fixes (Wave N). Defaults
+        weekly digest, tidy suggestions, writing fixes. Defaults
         to the chat model, but the user can point it at a small fast model
         so the big chat model isn't tied up categorising every note."""
         if not self._config.get_preference("smart_model_routing_enabled", True):
@@ -146,7 +146,7 @@ class Job:
     done: int = 0
     status: str = "running"  # running | success | error | cancelled
     error: str = ""
-    cancel_requested: bool = False  # cooperative stop (Wave N tasks manager)
+    cancel_requested: bool = False  # cooperative stop (tasks manager)
 
     def as_dict(self) -> dict:
         return {
@@ -183,7 +183,7 @@ def pull_statuses() -> dict[str, dict]:
 
 
 def cancel_reindex() -> bool:
-    """Ask a running re-index to stop (Wave N). Cooperative: the worker
+    """Ask a running re-index to stop. Cooperative: the worker
     checks the flag between entries. Returns True if one was running."""
     with _lock:
         if _reindex_job is not None and _reindex_job.status == "running":
@@ -193,7 +193,7 @@ def cancel_reindex() -> bool:
 
 
 def cancel_pull(name: str) -> bool:
-    """Ask a running download to stop (Wave N)."""
+    """Ask a running download to stop."""
     with _lock:
         job = _pull_jobs.get(name)
         if job is not None and job.status == "running":

@@ -87,17 +87,21 @@ def _linked_notes(session: Session, document_id: int) -> list[dict]:
 
 
 def _existing(session: Session, document_id: int) -> Document:
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return document
+    return deps.get_or_404(session, Document, document_id, "Document not found")
 
 
 @router.get("")
 def list_documents(session: Session = Depends(get_session)) -> list[dict]:
-    rows = session.scalars(
-        select(Document).order_by(Document.updated_at.desc()).limit(200)
-    )
+    """Every document, newest-first.
+
+    No limit: the Documents tab loads this once and filters/searches
+    client-side, the same pattern `GET /entries` already uses for notes — a
+    silent cap with no offset made everything past it permanently
+    unreachable (there's no search param here to narrow by instead). At
+    this app's realistic scale (a single user's own notebook) an unbounded
+    read is the same cost `GET /entries` already pays on every load.
+    """
+    rows = session.scalars(select(Document).order_by(Document.updated_at.desc()))
     return [_summary(d) for d in rows]
 
 

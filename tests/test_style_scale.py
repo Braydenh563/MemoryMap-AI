@@ -31,9 +31,8 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from pathlib import Path
 
-STYLE = Path(__file__).resolve().parents[1] / "frontend" / "style.css"
+from tests._css_paths import FRONTEND_DIR, css_text
 
 #: The scale, in rem. Mirrors the --space-* custom properties in :root.
 SCALE = {0.05, 0.1, 0.15, 0.25, 0.4, 0.5, 0.6, 0.8, 1.0, 1.25, 1.5, 2.0}
@@ -59,13 +58,13 @@ VALUE = re.compile(r"(?<![\w.-])(-?[0-9]*\.?[0-9]+)rem\b")
 
 
 def _stylesheet() -> str:
-    """style.css with comments stripped.
+    """All of CSS_FILES (see tests/_css_paths.py), comments stripped.
 
     The comments here explain layout decisions, so they quote lengths — and a
     naive scan reads those as real declarations. `test_frontend_ids.py` had to
     learn the same lesson about markup comments quoting ids.
     """
-    return re.sub(r"/\*.*?\*/", "", STYLE.read_text(encoding="utf-8"), flags=re.S)
+    return re.sub(r"/\*.*?\*/", "", css_text(), flags=re.S)
 
 
 def _offenders() -> Counter:
@@ -406,7 +405,7 @@ def test_every_text_input_in_the_markup_is_styled():
     against itself, so adding an `<input type="email">` to a page fails here
     until it is given the same look as everything around it.
     """
-    markup = re.sub(r"<!--.*?-->", "", (STYLE.parent / "index.html").read_text(encoding="utf-8"), flags=re.S)
+    markup = re.sub(r"<!--.*?-->", "", (FRONTEND_DIR / "index.html").read_text(encoding="utf-8"), flags=re.S)
     used = set(re.findall(r'<input[^>]*type="([\w-]+)"', markup))
     styled = set(re.findall(r'input\[type="([\w-]+)"\]', _stylesheet()))
     missing = sorted((used & TEXTUAL_INPUTS) - styled)

@@ -1,0 +1,2065 @@
+/* --- heading hierarchy (§35L) ----------------------------------------------
+   The levels have to be visibly ordered, and they were not: h2 ranged from
+   0.92rem to 1.15rem depending on where it sat, while h3 was a flat 0.92rem —
+   so in the sidebar a section title was the *same size* as the subsection
+   titles beneath it, and on the dashboard's getting-started panel an h2 was
+   larger than the h2 on the card next to it.
+
+   One rule per level, stated here, with the difference carried by weight and
+   colour as well as by size. Two sizes 0.08rem apart cannot do the job on
+   their own — that is what made the old hierarchy invisible. */
+.card h2 {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-body);
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.card h3 {
+  margin: var(--space-6) 0 var(--space-3);
+  /* A subsection is a label for what follows, not a title competing with the
+     card's own. Small caps carry that distinction, which frees the size to go
+     *down* rather than needing another step between h2 and h3 — two sizes
+     0.08rem apart was what made the old hierarchy invisible. */
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* The first heading in a card has the card's own padding above it already. */
+.card h3:first-child {
+  margin-top: 0;
+}
+
+/* Density: the whole spacing scale, tightened or loosened at once. */
+:root[data-density="compact"] {
+  --density: 0.75;
+}
+
+:root[data-density="spacious"] {
+  --density: 1.35;
+}
+
+/* --- sidebar ------------------------------------------------------------ */
+/* Keep the Notes category sidebar pinned to the left while the notes
+   scroll (user request). It sits just below the sticky top bar; a long
+   category list scrolls within the pinned column instead of running off
+   the screen. Only on wide layouts — on mobile the sidebar stacks on top. */
+@media (min-width: 721px) {
+  #tab-notes #sidebar {
+    position: sticky;
+    /* Was 4.25rem, clearing the floating header. The page is the scroll
+       container now (§36A) and the header is outside it, so the sidebar sticks
+       to the top of the page it lives in. */
+    top: 0;
+    /* `min-height`, not `height` (reported again — a fixed `height` only
+       fixed the case it was measured against). `--page-sticky-h` is a
+       *guess* at the viewport's usable height; `main` beside this sidebar
+       is a stack of ordinary cards that isn't capped the way `#chat-main`
+       is, so on a Notes tab with a few notes it's shorter than the guess —
+       exactly the "short category list, empty band below" case `height`
+       was written to fix — but with enough notes it's *taller* than the
+       guess, and a fixed `height` doesn't grow to follow it: the grid row
+       stretches to fit `main`, the sidebar stays pinned at the shorter
+       fixed number, and the gap this was reported against is the space
+       between them, on top of the page's own bottom margin.
+       `min-height` keeps the floor for the short case and lets `.layout`'s
+       own `align-items: stretch` (only suppressed by an explicit `height`)
+       take over for the tall one — the sidebar matches whichever of the
+       two is actually taller, instead of asserting a number that's only
+       sometimes right. */
+    align-self: start;
+    /* min-height: var(--page-sticky-h); */
+    /* max-height: var(--page-sticky-h); */
+    /* overflow-y: auto;
+    height: var(--page-sticky-h);
+    margin-bottom: 0; */
+    height: 100%;
+    margin-bottom: 0;
+    overflow-y: auto;
+  }
+}
+
+/* Collapsible cards (Notes tab): a chevron in the heading folds the card
+   down to just its title. Everything after the header row is hidden. */
+.card.collapsed> :not(:first-child) {
+  display: none;
+}
+
+.card.collapsed {
+  padding-bottom: 0.6rem;
+}
+
+#sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* `space-between` alone pushed the count to the far edge, so a short name like
+   "Gym" sat a whole column away from its number and the eye had to travel to
+   pair them up — which is what made this list read as awkward. The name now
+   takes the space it needs and the count sits just after it, right-aligned as
+   a narrow column so the digits still line up with each other. */
+#sidebar li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+/* Names ellipsise instead of wrapping, so no row is twice the height of its
+   neighbours. Applied to whichever element holds the label — the sidebar has
+   a few row shapes and a positional selector matched some and not others,
+   which is what left counts alternating between "just after the name" and
+   "at the far right" down a single list. */
+#sidebar li>*:not(.count) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#sidebar li:hover {
+  background: var(--accent-soft);
+}
+
+#sidebar li.active {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+#sidebar .count {
+  color: var(--muted);
+  flex: 0 0 auto;
+  /* `margin-left: auto` rather than relying on the label to grow: the count is
+     then pinned to the row's right edge no matter what shape the rest of the
+     row is, so every number in the list lines up as one column. */
+  margin-left: auto;
+  min-width: 1.6rem;
+  text-align: right;
+  /* Tabular figures so 1, 7 and 12 occupy the same width and the column of
+     numbers is actually a column. */
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+/* (The sticky rule for #tab-notes #sidebar lives once, above. It used to be
+   declared twice, identically, in the same file.) */
+
+/* --- forms --------------------------------------------------------------- */
+/* --- text inputs (§36B) -------------------------------------------------------
+   Reported: "can you stylise the text input boxes as well? all the ui elements
+   need the same style otherwise they look out of place."
+
+   They did, and the cause was a selector list that had been extended a type at
+   a time: text, password, number, select, textarea. Every *other* text-like
+   input fell through to the browser's default — a different border, a
+   different height, a different background, sitting next to a styled one.
+   `search` covers the note filter, the conversation search and the settings
+   search; `date` and `time` are the whole reminder form.
+
+   Listed explicitly rather than as `input:not([type=checkbox])`, because the
+   controls that must NOT get this treatment — checkbox, radio, range, color,
+   file — are exactly the ones a negation would be forever chasing. */
+textarea,
+select,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="email"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  box-sizing: border-box;
+  line-height: 1.5;
+  width: 100%;
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  /* Reported: "text boxes are hard to see... the colour's nearly the same
+     and there is no border difference." `--input-bg`'s alpha is scaled by
+     the glass-opacity slider (down to near-transparent at low settings);
+     `--border` is a fixed, already-faint 10% and does not compensate, so a
+     field can lose both its fill and its outline over a busy background at
+     once. Mixing in `--ink` keeps the outline legible at any glass setting,
+     in every theme, without a second border token to keep in sync. */
+  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border-radius: var(--radius-lg);
+  font: inherit;
+  background: var(--input-bg);
+  color: var(--ink);
+  resize: vertical;
+  backdrop-filter: blur(8px);
+}
+
+/* Safari draws its own rounded box and an inner shadow on a search field, and
+   ignores the border-radius above until this is turned off. */
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Date and time pickers are single-line controls, not paragraphs. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  width: auto;
+  resize: none;
+}
+
+/* The placeholder was inheriting the body colour at full strength in some
+   themes, so an empty box read as a filled one. */
+::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* Every `<select>` in the app, not just the chat dock's — the same fix
+   `.chat-dock-controls select` needed, applied at the base rule instead of
+   copied to every screen that has one. Reported: *"the dropdown combo boxes
+   are a little tight and the arrow is often nearly off the side or clashing
+   with the text."* The shared input/select rule above gives equal padding on
+   both sides, which is right for a text box and wrong for a select — the
+   browser's own arrow sits inside that right-hand padding with nothing
+   reserved for it, so a long option (a persona name, "Newest first", a model
+   id) runs up against it or under it depending on the platform's rendering.
+
+   `appearance: none` plus a painted caret — the same two-line chevron the
+   chat dock uses — replaces the platform arrow with one that is always inside
+   its own reserved space and always the same colour as the text, so it dims
+   and brightens with the control instead of staying the OS's grey. */
+/* Reserving the space was not enough on its own, and this is the measurement
+   that showed why. `#llm-provider-select` renders 280px wide because its
+   container constrains it; its longest option needs 270px of TEXT and the
+   control leaves 241px. The option is 29px too wide for the box, so on a
+   select whose width is set by its container rather than by its content, the
+   text runs straight under the caret no matter how much end padding is
+   reserved — reserving more just moves where it collides.
+
+   Two things fix it together:
+     - a wider reserve, so a caret never sits tight against the last glyph;
+     - `text-overflow: ellipsis`, so an option too long for its box is cut with
+       a visible "…" BEFORE the reserve instead of sliding under the caret.
+   The second is the one that actually closes the bug; the first is what makes
+   the result look deliberate. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-inline-end: var(--space-9);
+  /* Never narrower than a couple of words plus the caret's lane. A select that
+     shrink-wraps to "Day" reads as a broken button. */
+  min-width: 7rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
+  background-position: right 1.05rem center, right 0.85rem center;
+  background-repeat: no-repeat;
+}
+
+/* The dropdown list itself. A native popup is drawn by the OS and mostly
+   ignores CSS, but padding on an option is one of the few things Chromium and
+   Firefox both honour — and it is exactly the reported problem, option text
+   sitting flush against the edge of the list with no breathing room. */
+select option {
+  padding: var(--space-2) var(--space-3);
+}
+
+/* Firefox draws its own focus ring inside the control on top of the painted
+   arrow otherwise. */
+select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 var(--ink);
+}
+
+textarea:focus,
+input:focus,
+select:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(79, 109, 245, 0.25);
+}
+
+button:hover {
+  filter: brightness(1.07);
+}
+
+/* Subtle press feedback across every button — a small, consistent tactile
+   cue. transition is disabled under Reduce motion / prefers-reduced-motion. */
+button {
+  transition: transform 0.08s ease, filter 0.12s ease;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+button.ghost {
+  background: var(--chip-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: none;
+  backdrop-filter: blur(8px);
+}
+
+button.small {
+  padding: 0.25rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.row input,
+.row select {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+.row label {
+  flex-shrink: 0;
+}
+
+.space-between {
+  justify-content: space-between;
+}
+
+#shortcuts-card {
+  width: min(520px, 94vw);
+}
+
+.shortcut-list {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0;
+}
+
+.shortcut-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-list li:last-child {
+  border-bottom: none;
+}
+
+.shortcut-list span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+kbd {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--glass-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.status {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.status.error {
+  color: var(--error);
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.busy {
+  color: var(--warn);
+}
+
+progress {
+  accent-color: var(--accent);
+  width: 100%;
+}
+
+/* --- chat panel: answer and raw records side by side --------------------- */
+.chat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .chat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chat-half h3 {
+  margin-top: 0;
+  /* Flex row so the answer's action buttons sit inline on the right. The
+     old `float: right` escaped the heading and overlapped the answer box
+     below whenever the "answered by …" chip was long. */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* A long Ollama model id (e.g. hf.co/…) must wrap, not force the row wider. */
+#answered-by {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+#thinking-box {
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+}
+
+#thinking-box summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.thinking {
+  margin-top: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--muted);
+  white-space: pre-wrap;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.answer {
+  background: var(--accent-soft);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 0.8rem 1rem;
+  white-space: pre-wrap;
+  backdrop-filter: blur(8px);
+}
+
+/* Markdown-rendered answer: tighten the default block spacing so the
+   formatted output reads as one panel, not a stack of gaps. */
+.answer p {
+  margin: 0 0 0.6rem;
+}
+
+.answer p:last-child {
+  margin-bottom: 0;
+}
+
+.answer h3,
+.answer h4,
+.answer h5 {
+  margin: 0.6rem 0 0.25rem;
+}
+
+.answer ul,
+.answer ol {
+  margin: 0 0 0.6rem;
+  padding-left: 1.5rem;
+}
+
+.answer li {
+  margin-bottom: 0.25rem;
+}
+
+.answer code {
+  background: var(--chip-bg);
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+
+.answer pre {
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.answer pre code {
+  background: none;
+  padding: 0;
+}
+
+.answer a {
+  color: var(--accent);
+}
+
+/* --- rich markdown blocks (tables, quotes, rules, task lists) ------------- */
+/* Shared by every markdown surface: the Ask answer, chat bubbles, and the
+   dashboard digest. Kept scoped to these containers so they never touch
+   the app's own chrome. */
+.answer .md-table-wrap,
+.bubble-answer .md-table-wrap,
+.dash-body .md-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 0.6rem;
+  border-radius: var(--radius-md);
+  /* Without a cap the wrapper grows to the table instead of scrolling it. */
+  max-width: 100%;
+}
+
+/* The wrapper is what gets capped; the table is what scrolls inside it.
+   `min-width: max-content` is what makes that happen — with `width: 100%`
+   alone a nine-column table stayed inside the wrapper and squeezed itself to
+   about one character per line, which is unreadable in a different way from
+   overflowing. Narrow tables are unaffected: their max-content width is less
+   than 100%, so `width` still wins and they fill the bubble as before. */
+.answer .md-table-wrap>.md-table,
+.bubble-answer .md-table-wrap>.md-table,
+.dash-body .md-table-wrap>.md-table {
+  min-width: max-content;
+}
+
+/* Chat bubbles set `overflow-wrap: anywhere` so long URLs wrap; inside a
+   table that turned every heading into a vertical stack of letters. Cells
+   break between words, like ordinary prose. */
+.md-table th,
+.md-table td {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.88em;
+}
+
+.md-table th,
+.md-table td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-table thead th {
+  background: var(--chip-bg);
+  font-weight: 700;
+}
+
+.md-table tbody tr:nth-child(even) td {
+  background: var(--accent-soft);
+}
+
+.answer blockquote,
+.bubble-answer blockquote,
+.dash-body blockquote {
+  margin: 0 0 0.6rem;
+  padding: 0.25rem 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  background: var(--chip-bg);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.answer hr,
+.bubble-answer hr,
+.dash-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.8rem 0;
+}
+
+.answer del,
+.bubble-answer del,
+.dash-body del {
+  opacity: 0.7;
+}
+
+.md-task {
+  list-style: none;
+  margin-left: -1.1rem;
+}
+
+.md-task input {
+  width: auto;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+/* The chat bubble reuses the same block treatments. */
+.bubble-answer h3,
+.bubble-answer h4,
+.bubble-answer h5,
+.bubble-answer h6 {
+  margin: 0.5rem 0 0.25rem;
+}
+
+.bubble-answer ul,
+.bubble-answer ol {
+  margin: 0 0 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.bubble-answer code {
+  background: var(--chip-bg);
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+
+.bubble-answer pre {
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.8rem;
+  overflow-x: auto;
+  white-space: pre;
+  /* `overflow-x: auto` only scrolls once the box is stopped from growing. */
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* `code` inside a scrolling `pre` must not itself be measured as min-content
+   by an ancestor — the pre scrolls, the code does not wrap. */
+.bubble-answer pre code {
+  white-space: pre;
+}
+
+.bubble-answer pre code {
+  background: none;
+  padding: 0;
+}
+
+.bubble-answer a {
+  color: var(--accent);
+}
+
+/* margin-left:auto pushes the buttons to the right edge of the heading;
+   they wrap onto their own line when the title/chip get long, and never
+   overlap the answer box the way the old float did. */
+.answer-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.answer-actions button {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+/* --- entry lists ---------------------------------------------------------- */
+.entry-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.entry-list li {
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.6rem;
+}
+
+/* A note's own leading `# Heading`, shown as what it is rather than as the
+   first line of plain body text (asked for directly). `--text-lg`, not a
+   card's own `--text-body` h2 — this sits inside a list row, not a panel. */
+.entry-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.entry-content {
+  margin: 0 0 0.4rem;
+  white-space: pre-wrap;
+  /* `pre-wrap` keeps the line breaks you typed, but it still cannot break
+     inside a word — so one pasted URL or long token widened the note, the
+     list and the page. Chat bubbles were given this after the same report;
+     the note list is where the text is actually kept. */
+  overflow-wrap: anywhere;
+}
+
+.entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.chip {
+  /* inline-flex rather than inline-block: status-bar chips (offline, power-saver)
+     carry a .ph-lead icon and a text label; inline-block leaves vertical alignment
+     to line-height, which centres neither the icon nor the text reliably at 0.75rem.
+     gap replaces the icon's margin-inline-end for precise, density-independent spacing. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.1rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chip.tag {
+  background: var(--chip-bg);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* A link chip's preview can now render inline markdown (the linked note's
+   own text, same as the note card's own body) — including, in the rare case
+   a note's very first line *is* an image, the image markdown itself. Capped
+   small and inline rather than the note-card size: a chip is a label, not a
+   thumbnail gallery. */
+.chip .entry-inline-image {
+  display: inline;
+  max-height: 1.1em;
+  max-width: 3em;
+  vertical-align: text-bottom;
+  margin: 0 0.15em;
+  border-radius: var(--radius-sm);
+}
+
+/* What a note's own "tomorrow" resolved to. Quieter than a tag: it is a
+   reading of the text, not something the user typed. */
+.chip.when {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.chip.confidence {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.chip.review {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+/* Chips that carry a click handler are real buttons — show it and give them a
+   visible keyboard focus ring. */
+.chip-interactive {
+  cursor: pointer;
+}
+
+.chip-interactive:hover {
+  filter: brightness(1.05);
+}
+
+.chip-interactive:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* One right-aligned group at the end of the meta row: timestamp, then the
+   action buttons. A fixed min-width on the date keeps timestamps lining up
+   with each other from card to card even when the text length differs
+   ("2 days ago" vs "just now"). */
+.entry-meta-end {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.entry-date {
+  color: var(--muted);
+  font-size: 0.8rem;
+  min-width: 7ch;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* A note the AI is working on right now (e.g. re-evaluating). */
+.chip.chip-busy {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chip.chip-busy::before {
+  content: "";
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.35em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.05em;
+  animation: chip-spin 0.7s linear infinite;
+}
+
+@keyframes chip-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.entry-busy {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Flash the confidence badge once when it changes after a re-evaluation. */
+.badge-flash {
+  animation: badge-flash 1.1s ease-out 1;
+}
+
+@keyframes badge-flash {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--accent);
+  }
+
+  25% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* --- settings / model manager --------------------------------------------- */
+/* Each settings label sits on its own line, with the control and its text
+   aligned on one row. (The old #settings / #prefs-panel selectors targeted
+   IDs that no longer exist, so checkboxes were flowing inline — this is the
+   fix for the "Glass & effects" boxes stacking on one line.) */
+.settings-section label {
+  display: flex;
+  /* Was `baseline`, which is right for a one-line label and wrong for every
+     other one here: against a label that wraps, the control sits on the first
+     line's baseline and reads as knocked out of alignment. `flex-start` with
+     a little top padding on the control lines it up with the first line of
+     text and stays put however many lines follow (§35L). */
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: 0.92rem;
+}
+
+.settings-section label input[type="radio"] {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin: 0;
+  /* Optical, not arbitrary: nudges a 1rem control onto the centre of a
+     0.92rem line of text rather than its top edge. Radios only now — the
+     switch block at the end of this file owns checkboxes, and it used to lose
+     a specificity *tie* to this rule purely because this one comes later,
+     which is why a checkbox rendered as a 1rem circle instead of a switch. */
+  margin-top: 0.15rem;
+  /* Themes the native control instead of rebuilding it. A hand-built radio
+     has to reimplement focus rings, high-contrast mode and the platform's own
+     touch targets, and usually gets one of them wrong; `accent-color` gets all
+     three for free and follows the palette the user picked. */
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Labels that are just a caption for a following control (e.g. the accent
+   picker, the intensity slider row) shouldn't force the flex row. */
+.settings-section .row label {
+  display: inline-flex;
+  margin-bottom: 0;
+}
+
+#suggested-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#suggested-list li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+
+#suggested-list li:last-child {
+  border-bottom: none;
+}
+
+#suggested-list .model-name {
+  font-weight: 600;
+}
+
+#suggested-list .model-info {
+  color: var(--muted);
+  flex: 1;
+}
+
+/* The models you already have. Reported as a formatting problem and it was
+   simply *unstyled* — a bare <ul>, so it rendered with browser bullets, no row
+   layout, and the name, the size and the Remove button stacked or ran into
+   each other. The suggested list beside it had all of this; this one had none.
+
+   The size gets a column of its own rather than sitting in the flow: sizes are
+   the thing you scan this list for when you are looking for disk space to
+   reclaim, and numbers you scan have to share a right edge. Tabular figures so
+   "1.9 GB" and "11.4 GB" line up on the decimal point rather than on whichever
+   glyphs happen to be wide. */
+#installed-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#installed-list li {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-lg);
+}
+
+#installed-list li:last-child {
+  border-bottom: none;
+}
+
+#installed-list .model-name {
+  font-weight: 600;
+  /* The name gives way, not the size or the button: a long tag is the least
+     important part of a row whose other two items are fixed and small. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#installed-list .model-info {
+  /* A fixed column, so the *actions* beside it share a left edge too — with an
+     auto width the "in use" chip and the "Remove" button started at different
+     x on every row, which is the ragged edge that reads as unformatted even
+     once the rows themselves are right. */
+  flex: 0 0 5rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The action column is fixed too, and right-aligned inside itself. Without
+   this the narrower "in use" chip and the wider "Remove" button each sized
+   their own column, so no two rows agreed on where either the size or the
+   action began — measured at x=980/1070 on one row and 953/1042 on the next. */
+#installed-list li> :last-child {
+  flex: 0 0 5.5rem;
+  display: inline-flex;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+/* --- lock screen (Phase 4) ------------------------------------------------- */
+.lock-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+}
+
+.lock-card {
+  width: min(420px, 90vw);
+  text-align: center;
+}
+
+.lock-card input {
+  text-align: center;
+}
+
+/* --- entry actions + links (Phase 4) --------------------------------------- */
+/* No auto margin here — .entry-meta-end already owns the alignment. */
+.entry-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.entry-actions button {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.entry-links {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip.link {
+  cursor: default;
+}
+
+/* A note card's links, quietened (§36B.3). The base `.chip` is accent-coloured
+   and weight 600 — right for a category, which is one word and a fact about
+   this note; wrong for a link, which carries another note's words and appears
+   several times. Measured before: on a card with two links the chips were
+   wider than the note itself and read first.
+
+   Scoped to `#entry-list` on purpose. The same chip elsewhere — a reminder's
+   note, a document's attachment — is the *subject* of the row it sits in
+   rather than an aside, and quietening those would be the opposite fix. */
+#entry-list .chip.link {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#entry-list li:hover .chip.link,
+#entry-list li:focus-within .chip.link {
+  color: var(--ink);
+}
+
+.chip.link .unlink {
+  cursor: pointer;
+  margin-left: 0.25rem;
+  font-weight: 700;
+}
+
+/* The ✕ follows the card's own actions: present on hover and focus, out of the
+   way while reading. It stays reachable by keyboard because focus-within
+   covers a tabbed-to chip, and on touch because there is no hover there. */
+#entry-list .chip.link .unlink {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+#entry-list li:hover .chip.link .unlink,
+#entry-list li:focus-within .chip.link .unlink {
+  opacity: 0.7;
+}
+
+#entry-list .chip.link .unlink:hover {
+  opacity: 1;
+  color: var(--error);
+}
+
+@media (hover: none) {
+  #entry-list .chip.link .unlink {
+    opacity: 0.7;
+  }
+}
+
+li.link-source {
+  outline: 2px solid var(--accent);
+}
+
+/* --- activity log ----------------------------------------------------------- */
+/* Reading a binned note (§36G). The one thing the deleted bin panel could do
+   that a Library card cannot, so it is the reason that panel could go.
+
+   It scrolls its own text rather than growing the dialog: a binned note can be
+   any length, and a modal that grows past the window puts its Restore and
+   Delete buttons somewhere you cannot reach. */
+.binned-body {
+  flex: 1 1 auto;
+  min-height: 4rem;
+  max-height: 55vh;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  padding: var(--space-5) var(--space-6);
+  margin: var(--space-4) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  line-height: 1.6;
+}
+
+#binned-meta {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* `.activity-list` and `.entry-list li.bin-row` went with the Notes tab's
+   activity and bin panels (§36G) — the Library renders both now. */
+
+/* --- Phase 5: quick access + toasts ------------------------------------------ */
+.recent {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.recent .chip {
+  cursor: pointer;
+}
+
+.recent .chip:hover {
+  filter: brightness(1.08);
+}
+
+/* --- Ask history: the personal-notes-browser panel (§ROADMAP item 6) ------
+   Every notes-only question the Ask box has answered, searchable and
+   reopenable in place of the model re-answering it. */
+.ask-header-actions {
+  gap: var(--space-3);
+  align-items: center;
+}
+
+#ask-history-toggle {
+  position: relative;
+}
+
+#ask-history-badge {
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.ask-history-panel {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.ask-history-toolbar {
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+#ask-history-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.ask-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.ask-history-item {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ask-history-item:hover,
+.ask-history-item:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.ask-history-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.ask-history-question {
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
+.ask-history-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--chip-bg);
+  color: var(--ink);
+}
+
+.icon-btn.active {
+  color: var(--accent);
+}
+
+.ask-history-meta {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.ask-history-preview {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#ask-history-empty {
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+
+#ask-history-more {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+#most-used-box h2 {
+  margin-top: 1rem;
+}
+
+#most-used {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+#most-used li {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+#most-used li:hover {
+  background: var(--accent-soft);
+}
+
+#most-used .count {
+  color: var(--muted);
+}
+
+#toast-box {
+  position: fixed;
+  right: 1rem;
+  /* Clear of the status bar for the same reason the back-to-top button is: a
+     toast is a message you are meant to read, and half of one behind the bar
+     is a message you are meant to guess at. */
+  bottom: calc(var(--status-bar-h) + var(--space-3));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 1050;
+}
+
+.toast {
+  background: var(--card);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 0.6rem 1rem;
+  max-width: 340px;
+  box-shadow: var(--glass-shadow);
+  font-size: 0.92rem;
+}
+
+.toast.error {
+  border-left-color: var(--error);
+}
+
+/* Jumping to a note used to fade a thin outline over 1.6s starting the moment
+   the scroll began — so it was mostly gone by the time the note arrived on
+   screen. It now holds at full strength while the page settles, then fades,
+   and tints the whole card so it reads as "this one" rather than a hairline. */
+@keyframes flash-outline {
+
+  0%,
+  45% {
+    outline-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  100% {
+    outline-color: transparent;
+    background: transparent;
+  }
+}
+
+.entry-list li.flash {
+  outline: 3px solid transparent;
+  outline-offset: 2px;
+  border-radius: var(--radius);
+  animation: flash-outline 2.6s ease-out;
+}
+
+/* Reduced motion still gets the highlight — it just doesn't animate away. */
+@media (prefers-reduced-motion: reduce) {
+  .entry-list li.flash {
+    animation: none;
+    outline-color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+
+/* --- settings modal + logs (Wave A) ----------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 18, 0.45);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 55;
+  padding: 1.5rem;
+}
+
+.modal-card {
+  width: min(880px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  /* Nearly opaque: unlike page cards, a settings dialog floats over busy
+     content — full glass here makes it unreadable. */
+  background: var(--modal-bg);
+}
+
+.modal-body {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  /* An implicit `auto` row sizes to its CONTENT, so the scroll pane inside
+     grew past the dialog and .modal-body's overflow:hidden simply clipped it
+     — every settings screen lost its last inch and nothing scrolled. Pinning
+     the row to minmax(0, 1fr) gives the pane a real height to scroll within. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 1rem;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  /* a flex item defaults to min-height:auto — it must shrink */
+}
+
+@media (max-width: 640px) {
+  .modal-body {
+    grid-template-columns: 1fr;
+    /* Stacked: the nav takes its natural height, the pane scrolls. */
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+.modal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  /* Long nav on a short window scrolls on its own rather than pushing the
+     dialog taller than the viewport. */
+  overflow-y: auto;
+  min-height: 0;
+  /* `overflow-y: auto` computes `overflow-x` to `auto` too (CSS Overflow
+     §3), so with zero horizontal padding the focus ring's own
+     `outline-offset` (2px, on top of a 2px outline) was clipped flat
+     against the left edge on the active/focused section button. */
+  padding: 2px 4px;
+}
+
+.modal-nav>div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Group labels: quiet enough to scan past, clear enough to orient by. */
+.nav-group-label {
+  margin: 0.8rem 0 0.15rem;
+  padding: 0 0.8rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.nav-group-label:first-child {
+  margin-top: 0;
+}
+
+.modal-nav button {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--muted);
+  text-align: left;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+}
+
+.modal-nav button:hover {
+  background: var(--accent-soft);
+}
+
+.modal-nav button.active {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.modal-content {
+  overflow-y: auto;
+  padding-right: 0.4rem;
+  /* min-height:auto is the grid default and would defeat the row sizing
+     above; the dialog itself guarantees a usable height. The bottom padding
+     stops the final control sitting flush against the clipped edge. */
+  min-height: 0;
+  padding-bottom: 1.25rem;
+  overscroll-behavior: contain;
+  /* don't hand the scroll on to the page behind */
+}
+
+.settings-section h3:first-child {
+  margin-top: 0;
+}
+
+/* --- account & security ------------------------------------------------------ */
+.stacked-label {
+  display: block;
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.code-block {
+  margin: 0.4rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  overflow-x: auto;
+  /* a long command scrolls rather than widening the dialog */
+}
+
+.code-block code {
+  background: none;
+  padding: 0;
+}
+
+/* --- curated themes ----------------------------------------------------------
+   Themes and palettes are siblings on the same screen, so theme cards reuse
+   .theme-card from the palette grid rather than defining a rival copy of it —
+   two definitions of one class is how the two grids drift apart visually.
+   Only the swatch differs, because a theme previews a page + accent pair
+   rather than a full palette. */
+.theme-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+/* An empty grid is not a grid. See renderCustomThemes(): its empty message is
+   a paragraph, and as a grid item in a 104px track it wrapped to about one
+   word per line. */
+.theme-presets-empty {
+  display: block;
+}
+
+/* The name box and its button. The row let the input keep its intrinsic size
+   and the button overflowed on top of it — reported as the text box clashing
+   with what is next to it. The input takes the slack; the button is a fixed
+   hit target, as everywhere else in this app. */
+#custom-theme-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#custom-theme-save {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.theme-swatch {
+  height: 38px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+/* Scroll lock: while any overlay is open the page behind must not move.
+   Applied to <html> as well as <body> because the app scrolls the window
+   (switchTab calls window.scrollTo), which body-only overflow doesn't catch. */
+html.modal-open,
+html.modal-open body {
+  overflow: hidden;
+  /* Keeps the locked page from jumping when the scrollbar disappears. */
+  scrollbar-gutter: stable;
+}
+
+/* Logs is the one settings screen whose content is a *stream*, and a stream
+   should be given the room it has. It was capped at `max-height: 46vh` — a
+   little under half the window — inside a pane that is the full height of the
+   dialog, so the log stopped halfway down and the bottom half of the screen
+   was empty. Reported as the logs page "not going all the way down".
+
+   `46vh` was also the roadmap's recurring trap: a length measured against the
+   *window* to fit inside something that is not the window. The dialog is 88vh
+   with a header, a toolbar and its own padding above this list, so no vh
+   number could have been right, and the one chosen was wrong by more than a
+   third of the screen. The section fills the pane it is in and the list takes
+   whatever is left after the toolbar — a rule that needs no number at all and
+   cannot drift when the toolbar gains a control.
+
+   `:not(.hidden)` matters: an id beats `.hidden`'s class, so a bare
+   `#settings-logs { display: flex }` would show the log screen on top of
+   whichever settings section you had actually opened. */
+#settings-logs:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Everything except the list keeps its natural height; without this the
+   toolbar is a flex item that can be squeezed. */
+#settings-logs>*:not(#log-list) {
+  flex: 0 0 auto;
+}
+
+#settings-logs>#log-list {
+  flex: 1 1 auto;
+  /* A flex item defaults to min-height:auto and refuses to shrink below its
+     content — the list would push the dialog open instead of scrolling. */
+  min-height: 0;
+}
+
+.log-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0.5rem;
+  overflow-y: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+}
+
+.log-list li {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dotted var(--border);
+}
+
+.log-list li:last-child {
+  border-bottom: none;
+}
+
+.log-list .when {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.log-list .what {
+  font-weight: 700;
+  flex-shrink: 0;
+  min-width: 3.6rem;
+}
+
+.log-list li.log-warn .what {
+  color: var(--warn);
+}
+
+/* --- dashboard + reminders (Wave D) ------------------------------------------ */
+/* --- live clock (reminders tab) ------------------------------------------ */
+.live-clock {
+  text-align: right;
+  line-height: 1.2;
+}
+
+.live-clock .clock-time {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.live-clock .clock-date {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.reminders-head {
+  align-items: flex-start;
+}
+
+/* Full-width welcome banner across the top of the dashboard. */
+.dash-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-6);
+  padding: var(--space-7) var(--space-8);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(120deg, var(--accent-soft) 0%, transparent 55%),
+    var(--card);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+/* The emblem and the greeting are one unit, so the clock still pushes to the
+   far end: without this they'd be two flex children and `space-between`
+   would strand the emblem on the left with a gap in the middle. */
+.dash-hero-emblem {
+  flex: 0 0 auto;
+  margin-right: -0.6rem;
+  /* the emblem's canvas carries its own padding */
+}
+
+.dash-hero-text {
+  /* min-width: 0 or a long AI-written greeting refuses to shrink and pushes
+     the clock off the row — automatic minimum sizing again. */
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.dash-wordmark {
+  margin: 0 0 0.1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* "AI" set apart, the way the top bar does it. */
+.dash-wordmark span {
+  opacity: 0.6;
+}
+
+.dash-greeting {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dash-submessage {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.dash-submessage:empty {
+  display: none;
+}
+
+.dash-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  flex: 0 0 auto;
+}
+
+.dash-clock-time {
+  font-size: 2.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.dash-clock-date {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .dash-hero {
+    margin: 0 0 var(--space-6);
+    padding: var(--space-6);
+    gap: var(--space-6);
+  }
+
+  .dash-greeting {
+    font-size: 1.3rem;
+  }
+
+  .dash-clock {
+    align-items: flex-start;
+  }
+
+  .dash-clock-time {
+    font-size: 1.7rem;
+  }
+
+  /* On a phone the emblem is decoration competing with the greeting for a
+     narrow row, and the greeting is the part that says something. */
+  .dash-hero-emblem {
+    display: none;
+  }
+}
+
+.dash-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  /* No side inset: .tab-page's --page-gutter is the only one. See .dash-stats. */
+  padding: 0 0 var(--space-3);
+}
+
+/* Was `justify-content: space-between` over three loose children (spacer,
+   Widgets, Edit layout) — with the hint hidden outside edit mode that put
+   Widgets floating alone in the middle with a big empty gap either side.
+   The spacer eats the slack instead; Widgets and Edit layout sit together as
+   one group, pinned to the end. */
+#dash-hint-spacer {
+  flex: 1 1 auto;
+}
+
+.dash-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+}
+
+/* Masonry-style packing: a fine row unit plus a JS-measured row span per card
+   means each widget takes only the height it needs, and short ones stack
+   within a column instead of leaving dead space beside a tall neighbour.
+   --dash-row and --dash-gap are read back by the JS that sets the spans. */
+#dash-grid {
+  --dash-row: 8px;
+  --dash-gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-auto-rows: var(--dash-row);
+  grid-auto-flow: row dense;
+  /* pack short widgets into the gaps */
+  gap: var(--dash-gap);
+  /* Neither inset is this grid's to draw: the sides are --page-gutter and the
+     bottom is --page-bottom, both already on .tab-page. The 2rem bottom here
+     was doubling that, so the dashboard scrolled 4rem past its last widget. */
+  padding: 0;
+  align-items: start;
+}
+
+.dash-widget {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Until the spans are measured, cards flow at natural height rather than
+   collapsing to one 8px row. */
+#dash-grid:not(.spans-ready) .dash-widget {
+  grid-row: span 40;
+}
+
+/* Widgets can span two columns ("wide") — toggled in Edit layout. */
+.dash-widget.wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 720px) {
+  .dash-widget.wide {
+    grid-column: span 1;
+  }
+}
+
+.dash-widget {
+  margin-bottom: 0;
+}
+
+
+.dash-widget.dash-hidden {
+  opacity: 0.45;
+}
+
+.dash-widget.dragging {
+  opacity: 0.5;
+  outline: 2px dashed var(--accent);
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* Consistent internal rhythm so every widget spaces the same, whatever it
+   renders: the title row sits a fixed gap above a flex-column body, and the
+   body's own children lose their ad-hoc margins in favour of one gap. */
+.dash-widget>.row {
+  margin-bottom: 0.6rem;
+}
+
+.dash-widget h2 {
+  margin: 0;
+}
+
+.dash-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dash-body>* {
+  margin: 0;
+}
+
+/* Keep one very tall widget (e.g. the weekly digest) from ballooning the row
+   and leaving big gaps under its neighbours — cap the body and scroll inside.
+   Widgets that need their natural height opt out below. */
+.dash-body {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.dash-widget[data-widget="art"] .dash-body,
+.dash-widget[data-widget="capture"] .dash-body,
+.dash-widget[data-widget="stats"] .dash-body {
+  max-height: none;
+  overflow: visible;
+}
+
+.dash-body:empty::after {
+  content: "Loading…";
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.dash-big {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.dash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.92rem;
+}
+
+.dash-list li {
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.dash-list li:hover {
+  background: var(--accent-soft);
+}
+
+.dash-list li.overdue {
+  color: var(--warn);
+}
+
+.activity-strip {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 38px;
+  margin-bottom: 0.6rem;
+}
+
+.activity-strip span {
+  flex: 1;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.activity-strip span.empty {
+  background: var(--chip-bg);
+}
+
+/* (A second .reminders-card margin rule lived here and was overridden by
+   the one below it — both are replaced by the page shell.) */
+.reminders-card .row input[type="datetime-local"] {
+  flex: 0 1 auto;
+}
+
+.entry-list li.overdue {
+  border-color: var(--warn);
+}
+
+/* Priority colour-coding for reminders — a coloured left edge, calm but clear. */
+.entry-list li.priority-high {
+  border-left: 3px solid var(--error);
+}
+
+.entry-list li.priority-high .reminder-text {
+  font-weight: 650;
+}
+
+.entry-list li.priority-low .reminder-text {
+  color: var(--muted);
+}
+
+#reminder-magic {
+  flex: 1;
+}
+
+/* Focus timer widget */
+.focus-timer-display {
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  margin: 0.25rem 0 0.4rem;
+}
+
+.focus-presets {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.focus-custom {
+  width: 4.5rem;
+}
+
+/* In-chat toggles that are ON. Plan joins Web here rather than getting its own
+   look: they are the same kind of control — a mode that stays armed across
+   messages — and two different "on" treatments in one strip is how a user
+   learns that one of them means something else. */
+#web-search-toggle.active,
+#chat-plan.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Typing indicator (Wave D): three bouncing dots until the first token */
+.typing-dots {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem 0;
+}
+
+.typing-dots span {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: dot-bounce 1.2s infinite ease-in-out;
+  /* Promote each dot to its own compositor layer so the bounce runs on the
+     GPU thread. Without this it animated on the main thread and stuttered
+     whenever the background art or a streaming answer kept that thread
+     busy (user-reported "glitchy thinking dots"). */
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dot-bounce {
+
+  0%,
+  60%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: translate3d(0, -0.3rem, 0);
+    opacity: 1;
+  }
+}
+
+.persona-preview {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

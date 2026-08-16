@@ -1,4 +1,4 @@
-"""Reminders (Wave D): create, list, tick off, delete.
+"""Reminders: create, list, tick off, delete.
 
 Local-only — the browser fires the notification while the app is open;
 nothing runs in the cloud.
@@ -69,10 +69,7 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
 
 
 def _existing(session: Session, reminder_id: int) -> Reminder:
-    reminder = session.get(Reminder, reminder_id)
-    if reminder is None:
-        raise HTTPException(status_code=404, detail="Reminder not found")
-    return reminder
+    return deps.get_or_404(session, Reminder, reminder_id, "Reminder not found")
 
 
 @router.get("")
@@ -84,8 +81,8 @@ def list_reminders(session: Session = Depends(get_session)) -> list[dict]:
 
 @router.post("", status_code=201)
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
-    if body.entry_id is not None and session.get(Entry, body.entry_id) is None:
-        raise HTTPException(status_code=404, detail="Entry not found")
+    if body.entry_id is not None:
+        deps.get_or_404(session, Entry, body.entry_id, "Entry not found")
     reminder = Reminder(
         text=body.text,
         due_at=body.due_at,

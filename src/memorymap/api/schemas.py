@@ -36,10 +36,10 @@ class SpaceResponse(BaseModel):
 class EntryCreate(BaseModel):
     content: str = Field(min_length=1, description="The thought to store")
     tags: list[str] = Field(default_factory=list)
-    # Guided mode (Phase 4): the user picks the category up front and
+    # Guided mode: the user picks the category up front and
     # the AI janitor is skipped entirely.
     category: str | None = None
-    # Train-of-thought (Wave B): continue an existing entry.
+    # Train-of-thought: continue an existing entry.
     parent_id: int | None = None
     # Documents this note belongs with, attached as it is saved. Asked for
     # directly: "a way to link documents to new notes I create in the capture
@@ -59,7 +59,7 @@ class EntryUpdate(BaseModel):
 
 
 class ContextBody(BaseModel):
-    """Extra context appended to an existing note (Wave B)."""
+    """Extra context appended to an existing note."""
 
     text: str = Field(min_length=1, max_length=10_000)
 
@@ -82,7 +82,7 @@ class AttachmentOut(BaseModel):
 
 
 class SimilarOut(BaseModel):
-    """A near-duplicate spotted while saving (Wave B)."""
+    """A near-duplicate spotted while saving."""
 
     id: int
     preview: str

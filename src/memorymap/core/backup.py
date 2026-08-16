@@ -1,4 +1,4 @@
-"""Local database backups (Wave F).
+"""Local database backups.
 
 Copies are made with SQLite's own backup API, so a backup taken while
 the app is writing is still consistent. Backups live in

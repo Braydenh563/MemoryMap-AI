@@ -29,12 +29,73 @@ Three properties this deliberately has:
 from __future__ import annotations
 
 import importlib.util
+import logging
 import subprocess  # noqa: S404 — fixed args, no shell; see _install below
 import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+#: Reported: a failed install showed "pip exited with code 1. The log above
+#: says why." in the Background tasks "Recently finished" history card, with
+#: no log anywhere near it. Two separate bugs turned out to be behind that one
+#: screenshot:
+#:
+#: 1. "The log above" was true of exactly one screen — Settings → Extras,
+#:    which keeps `_state.log` on screen (`extras-log-wrap`) after the install
+#:    stops. The history card renders `taskhistory.record`'s `detail` string
+#:    alone, with no log ever attached to it, so the same sentence pointed at
+#:    nothing there. Fixed below by folding the actual pip line into the
+#:    message itself (`_pip_reason`), so it is self-contained wherever it is
+#:    read — the same fix `search/searxng_manager._reason` already used for
+#:    its own installer, mirrored here rather than reinvented.
+#: 2. A first attempt at this routed pip's output through `logging` (see
+#:    `core/logbuffer.py`, which backs Settings → Logs) — but only in
+#:    `_run_uninstall`'s `finally` block. `_run_install`, the path the report
+#:    was actually about, never called `_logger` at all, so a failed install
+#:    still never reached Settings → Logs no matter what the panel said.
+#:    Never caught because nobody had reproduced a real failure end-to-end
+#:    since the change — reproducing one (`tests/test_extras.py`) is what
+#:    found it. Both worker functions call `_logger` now.
+_logger = logging.getLogger("memorymap.extras")
+
+# Lines that are never the reason something failed, however last they are.
+#
+# Pip's parting "[notice] To update, run: ...python.exe -m pip install
+# --upgrade pip" is printed on almost every run and is always the last line —
+# taking the last line unconditionally would report that instead of the
+# actual failure. Same list, same reasoning, as
+# `search/searxng_manager._NOT_A_REASON`.
+_NOT_A_REASON = (
+    "[notice]",
+    "to update, run",
+    "you should consider upgrading",
+    "warning: you are using pip version",
+)
+
+
+def _pip_reason(log: list[str], prefix: str) -> str:
+    """`prefix`, plus the most useful line pip actually printed.
+
+    Prefers a line that names an error, falls back to the last line that
+    isn't boilerplate, and falls back to `prefix` alone rather than guessing.
+    Mirrors `search/searxng_manager._reason`, which solved the same "the last
+    line is pip's update nag, not the failure" problem for the SearXNG
+    installer; extracted here rather than imported because the source is a
+    line list already split into `_state.log`, not a `CompletedProcess`.
+    """
+    useful = [
+        line for line in log if not any(marker in line.lower() for marker in _NOT_A_REASON)
+    ]
+    if not useful:
+        return prefix
+    named = [
+        line
+        for line in useful
+        if line.lower().startswith(("error", "fatal", "exception")) or "error:" in line.lower()
+    ]
+    return f"{prefix}: {(named or useful)[-1]}"
 
 
 @dataclass(frozen=True)
@@ -130,14 +191,6 @@ EXTRAS: tuple[Extra, ...] = (
         "OpenAI-compatible server are the supported paths today, so this "
         "would install a library nothing asks for. It compiles on some "
         "platforms, which makes it an expensive thing to install for nothing.",
-    ),
-    Extra(
-        id="requirements",
-        label="Base Requirements (requirements.txt)",
-        enables="Restores the core packages to their correct versions. Use this if a plugin installation broke your dependencies.",
-        packages=("-r", str(Path(__file__).resolve().parents[3] / "requirements.txt")),
-        module="fastapi",
-        size="~30 MB",
     ),
 )
 
@@ -242,13 +295,22 @@ def _run_uninstall(extra: Extra) -> None:
         _state.step = (
             f"{extra.label} removed — restart MemoryMap to free it."
             if code == 0
-            else f"pip exited with code {code}. The log above says why."
+            else _pip_reason(_state.log, f"pip exited with code {code}")
         )
     except (OSError, subprocess.SubprocessError) as exc:
         _state.outcome = "failed"
         _state.step = f"Couldn't run pip: {exc}"
     finally:
         _state.running = False
+        if _state.outcome == "failed":
+            _logger.error(
+                "Removing %s failed: %s\n%s",
+                extra.label,
+                _state.step,
+                "\n".join(_state.log[-40:]),
+            )
+        else:
+            _logger.info("Removed %s.", extra.label)
 
 
 def _run_install(extra: Extra, reinstall: bool = False) -> None:
@@ -258,10 +320,12 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         # running inside a venv whose pip is not the one on PATH, and installing
         # into the wrong environment looks exactly like an install that did
         # nothing.
-        # Prevent optional extras from breaking base dependencies (like tokenizers)
+        # Constrain every extra install against requirements.txt so an optional
+        # package's own dependency resolution can't drag a base package (e.g.
+        # tokenizers, numpy) to a version the rest of the app doesn't expect.
         req_path = Path(__file__).resolve().parents[3] / "requirements.txt"
-        constraint = ["-c", str(req_path)] if req_path.is_file() and extra.id != "requirements" else []
-        
+        constraint = ["-c", str(req_path)] if req_path.is_file() else []
+
         command = [
             sys.executable,
             "-m",
@@ -299,13 +363,26 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         _state.step = (
             f"{extra.label} installed — restart MemoryMap to use it."
             if code == 0
-            else f"pip exited with code {code}. The log above says why."
+            else _pip_reason(_state.log, f"pip exited with code {code}")
         )
     except (OSError, subprocess.SubprocessError) as exc:
         _state.outcome = "failed"
         _state.step = f"Couldn't run pip: {exc}"
     finally:
         _state.running = False
+        # See the module docstring's numbered note above `_logger`: this call
+        # was missing entirely until now, which is the actual reason a failed
+        # *install* never reached Settings → Logs — `_run_uninstall` had it,
+        # this function did not.
+        if _state.outcome == "failed":
+            _logger.error(
+                "Installing %s failed: %s\n%s",
+                extra.label,
+                _state.step,
+                "\n".join(_state.log[-40:]),
+            )
+        else:
+            _logger.info("Installed %s.", extra.label)
         from memorymap.core import taskhistory
         taskhistory.record(
             "extra",
@@ -332,6 +409,10 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
     # nothing calls is not made installable by asking twice.
     if extra.unavailable:
         return False, f"{extra.label} isn't ready to install yet. {extra.unavailable}"
+    if reinstall:
+        blocked = _loaded_in_process_reason(extra)
+        if blocked:
+            return False, blocked
     with _lock:
         if _state.running:
             return False, "Another install is already running."
@@ -357,6 +438,9 @@ def remove(extra_id: str) -> tuple[bool, str]:
     extra = EXTRAS_BY_ID.get(extra_id)
     if extra is None:
         return False, "No such extra."
+    blocked = _loaded_in_process_reason(extra)
+    if blocked:
+        return False, blocked
     with _lock:
         if _state.running:
             return False, "Another install is already running."
@@ -368,6 +452,35 @@ def remove(extra_id: str) -> tuple[bool, str]:
         _state.started = time.time()
     threading.Thread(target=_run_uninstall, args=(extra,), daemon=True).start()
     return True, f"Removing {extra.label}."
+
+
+def _loaded_in_process_reason(extra: Extra) -> str:
+    """Reported: faster-whisper install/reinstall/remove all silently failed
+    on Windows after the dictation buttons had already been used once.
+
+    A used model stays loaded in this process's memory for as long as it
+    runs (`voice._loaded`) — the whole point, since reloading one per request
+    would be far too slow. Windows locks a native `.pyd`/DLL exclusively
+    while any process has it mapped in, so pip can spawn, run, and still fail
+    to actually replace those files; the failure then surfaces as a cryptic
+    pip error in the install log rather than as this sentence. POSIX allows
+    replacing a file that is still open elsewhere, which is why this was
+    never seen from this sandbox.
+
+    Only "voice" holds a native model like this today — the other extras
+    either aren't native libraries or aren't cached across requests.
+    """
+    if extra.id != "voice":
+        return ""
+    from memorymap.ai import voice
+
+    if voice._loaded is not None:  # noqa: SLF001 — this module's whole job is knowing this
+        return (
+            "Restart MemoryMap first. The voice model is loaded in memory from "
+            "an earlier recording, and Windows can't replace those files while "
+            "they're in use — a restart releases them."
+        )
+    return ""
 
 
 def reset_for_tests() -> None:

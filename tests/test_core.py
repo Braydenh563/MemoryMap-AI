@@ -1,4 +1,5 @@
-"""Phase 1: config + database behave as promised."""
+"""Config and database core behavior: preferences persistence, entry
+creation, title extraction, audit logging, soft delete, and migrations."""
 
 from __future__ import annotations
 

@@ -19,10 +19,10 @@ from typing import Any
 from dotenv import load_dotenv
 
 # Defaults for every user-changeable preference. Stored as data in one
-# place so the future Preferences screen (Phase 4) has one list to show.
+# place so the future Preferences screen has one list to show.
 DEFAULT_PREFERENCES: dict[str, Any] = {
-    "chat_model": "llama3.2",  # any installed Ollama model (Phase 2+)
-    "embedding_backend": "sentence-transformers",  # or "ollama" (Phase 3.5)
+    "chat_model": "llama3.2",  # any installed Ollama model
+    "embedding_backend": "sentence-transformers",  # or "ollama"
     "embedding_model": "nomic-embed-text",  # only used when backend == "ollama"
     "recycle_bin_days": 30,
     # The user's IANA timezone, e.g. "Australia/Brisbane". Reported by the
@@ -103,7 +103,7 @@ class ConfigManager:
 
         self.db_path = self.data_dir / "memorymap.db"
         self.preferences_path = self.data_dir / "preferences.json"
-        # Attached files live next to the data dir (Wave B), so wiping
+        # Attached files live next to the data dir, so wiping
         # one without the other can't happen by accident.
         self.uploads_dir = self.data_dir / "uploads"
         self.uploads_dir.mkdir(parents=True, exist_ok=True)

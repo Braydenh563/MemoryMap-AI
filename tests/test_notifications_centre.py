@@ -22,10 +22,12 @@ from pathlib import Path
 
 import pytest
 
+from tests._css_paths import css_text
+
 ROOT = Path(__file__).resolve().parents[1]
 APP_JS = (ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-STYLE = (ROOT / "frontend" / "style.css").read_text(encoding="utf-8")
+STYLE = css_text()
 
 
 def test_the_centre_exists_and_is_reachable_from_every_tab():

@@ -8,9 +8,12 @@ The three things that must hold, in order of how bad it is to get them wrong:
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from sqlalchemy import select
 
+from memorymap.ai import agent, tools
 from memorymap.core import crypto, vault
 from memorymap.core.database import EmbeddingRecord, Entry
 
@@ -249,3 +252,71 @@ def test_an_existing_notebook_upgrades_without_a_reset(tmp_path):
     assert all(e.is_private is False for e in surviving)  # backfilled, not null
     upgraded.close()
     vault.close()
+
+
+# --- the AI tool boundary: a private note refuses every write path -----------
+
+
+def _note(session, content="a note", tags=None, private=False):
+    entry = Entry(content=content, tags=json.dumps(tags or []), is_private=private)
+    session.add(entry)
+    session.commit()
+    return entry
+
+
+@pytest.mark.parametrize(
+    ("name", "extra"),
+    [("tag_note", {"add": ["snooped"]}), ("link_notes", {})],
+)
+def test_the_batch_write_tools_still_refuse_a_private_note(session, name, extra):
+    """`tag_note` and `link_notes` grew batch arguments and, in doing so,
+    stopped calling `_require_note` for the notes in the batch — which is the
+    single place that refuses a private note. Tagging one worked; linking to
+    one leaked its existence into the graph."""
+    public = _note(session, "public")
+    private = _note(session, "codeword ELDERFLOWER", private=True)
+
+    args = {"note_id": private.id, **extra}
+    if name == "link_notes":
+        args = {"note_id": public.id, "other_note_ids": [private.id]}
+    result = tools.execute_tool(session, name, args)
+    assert "error" in result and "private" in result["error"].lower()
+
+
+def test_a_batch_tag_does_not_rewrite_the_callers_arguments(session):
+    """The id list was built by appending to `args["note_ids"]` in place.
+
+    The agent loop fingerprints a call as `json.dumps(arguments)` *before*
+    running it, to spot repeats — so a tool that edits that dict leaves the
+    ledger holding a fingerprint the arguments no longer match, and the
+    repeated-call guard stops recognising the repeat.
+    """
+    first, second = _note(session, "one"), _note(session, "two")
+    args = {"note_ids": [first.id], "note_id": second.id, "add": ["x"]}
+    before = json.dumps(args, sort_keys=True)
+
+    tools.execute_tool(session, "tag_note", dict(args))
+    assert json.dumps(args, sort_keys=True) == before
+
+
+def test_tagging_several_notes_at_once_can_still_be_undone(session):
+    """Only single-note calls kept an undo (`undos[0] if len(undos) == 1`), so
+    a batch retag of twenty notes was a change with no way back."""
+    notes = [_note(session, f"note {i}") for i in range(3)]
+    result = tools.execute_tool(
+        session,
+        "tag_note",
+        {"note_ids": [n.id for n in notes], "add": ["batch"]},
+    )
+    assert result["tagged"] == [n.id for n in notes]
+    assert result["undo"] and result["undo"]["steps"]
+    assert len(result["undo"]["steps"]) == len(notes)
+
+
+def test_a_single_note_tag_still_reports_its_id_and_tags(session):
+    entry = _note(session, "one")
+    result = tools.execute_tool(session, "tag_note", {"note_id": entry.id, "add": ["a"]})
+    assert result["id"] == entry.id
+    assert result["tags"] == ["a"]
+    # The change list reads the note id back out of the result; it must find one.
+    assert agent._change_note_id("tag_note", result) == entry.id

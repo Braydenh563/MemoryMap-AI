@@ -1,4 +1,4 @@
-"""Model Manager endpoints (plan §6.5 / Phase 3.5).
+"""Model Manager endpoints (plan §6.5).
 
 Everything is written so the app degrades gracefully: Ollama being
 absent turns into flags in /models/status, never an error.
@@ -37,7 +37,7 @@ class PullBody(BaseModel):
 
 
 class UtilityModelBody(BaseModel):
-    # "" means "use the chat model" (Wave N).
+    # "" means "use the chat model".
     name: str = ""
 
 
@@ -129,7 +129,7 @@ def status() -> dict:
         "chat_model": chat_model,
         # None = unknown because Ollama is off (don't warn about nothing)
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
-        # "" means "same as chat model" (Wave N utility model).
+        # "" means "same as chat model" (utility model).
         "utility_model": manager._config.get_preference("utility_model", ""),
         "embedding_backend": manager.embedding_backend(),
         # The Ollama model *setting* — only meaningful on that backend.
@@ -238,7 +238,7 @@ def set_chat_model(body: ChatModelBody, session: Session = Depends(get_session))
 @router.post("/utility-model")
 def set_utility_model(body: UtilityModelBody, session: Session = Depends(get_session)) -> dict:
     """Point background jobs (filing, digest, writing fixes) at a small
-    fast model, separate from the chat model (Wave N). Empty name = use
+    fast model, separate from the chat model. Empty name = use
     the chat model."""
     name = body.name.strip()
     if name and deps.get_ollama().is_running():
@@ -321,7 +321,7 @@ def set_provider(body: ProviderBody, session: Session = Depends(get_session)) ->
 
 @router.post("/jobs/cancel")
 def cancel_job(kind: str, name: str = "") -> dict:
-    """Quit a stuck or slow background job from Settings → Tasks (Wave N).
+    """Quit a stuck or slow background job from Settings → Tasks.
     kind is 'reindex' or 'pull' (with the model name for a pull)."""
     if kind == "reindex":
         stopped = jobs.cancel_reindex()

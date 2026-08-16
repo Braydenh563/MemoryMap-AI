@@ -1,5 +1,9 @@
-"""Wave B: add-context recategorisation, threads, attachments, pins,
-duplicates, related entries, tag manager."""
+"""Notes API extras: add-context recategorisation, threads, attachments,
+pins, tag manager, capture templates, saved appearance looks.
+
+(Duplicate-detection-on-save and the /related endpoint moved to
+test_duplicates.py/test_related_notes.py — same domain as their other
+coverage.)"""
 
 from __future__ import annotations
 
@@ -95,6 +99,29 @@ def test_hard_delete_removes_attachment_files(client):
     client.delete(f"/entries/{entry['id']}")
     client.post("/recycle-bin/empty")
     assert list(deps.get_config().uploads_dir.iterdir()) == []
+
+
+def test_uploading_recreates_a_missing_uploads_folder(client):
+    """The folder is made at startup, but it only has to vanish once.
+
+    A cleanup tool, an unmounted data directory, or a restore that skipped an
+    empty folder used to turn every upload into a 500 with a traceback. For a
+    sketch that is the worst shape of failure: the note saves first, so only
+    the drawing is lost and the caption is left behind pointing at nothing.
+    """
+    import shutil
+
+    entry = _save(client, "a sketch caption", category="Sketches")
+    uploads = deps.get_config().uploads_dir
+    shutil.rmtree(uploads)
+    assert not uploads.exists()
+
+    response = client.post(
+        f"/entries/{entry['id']}/files",
+        files={"file": ("sketch.png", b"\x89PNG\r\n\x1a\nnot-really", "image/png")},
+    )
+    assert response.status_code == 201
+    assert response.json()["attachments"][0]["filename"] == "sketch.png"
 
 
 # --- rename a file in the library ---------------------------------------------------
@@ -213,7 +240,7 @@ def test_rename_file_missing_attachment_404s(client):
     assert response.status_code == 404
 
 
-# --- pins + duplicates + related ---------------------------------------------------
+# --- pins ---------------------------------------------------------------------------
 
 
 def test_pin_floats_entry_to_top(client):
@@ -224,25 +251,6 @@ def test_pin_floats_entry_to_top(client):
     listed = client.get("/entries").json()
     assert listed[0]["id"] == first["id"]
     assert listed[0]["pinned"] is True
-
-
-def test_duplicate_detection_on_save(ai_client):
-    _save(ai_client, "a funny scarecrow joke")
-    second = _save(ai_client, "a funny scarecrow joke, again")
-    # The fake embedder maps both onto the joke axis → similarity 1.0.
-    assert second["similar"] is not None
-    assert second["similar"]["similarity"] >= 0.9
-
-
-def test_related_entries(ai_client):
-    joke = _save(ai_client, "a funny scarecrow joke")
-    _save(ai_client, "another funny pun")
-    _save(ai_client, "buy milk and eggs")
-
-    related = ai_client.get(f"/entries/{joke['id']}/related").json()
-    contents = [e["content"] for e in related]
-    assert "another funny pun" in contents
-    assert "buy milk and eggs" not in contents
 
 
 # --- tag manager -------------------------------------------------------------------

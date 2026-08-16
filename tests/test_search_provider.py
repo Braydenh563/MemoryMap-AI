@@ -158,3 +158,26 @@ def test_the_agent_tool_uses_the_same_choice(session, app_state, monkeypatch):
     config.set_preference("search_provider", "duckduckgo")
     tools.execute_tool(session, "web_search", {"query": "anything"})
     assert seen["provider"] == "duckduckgo"
+
+
+# --- the tool itself is gated the same way the endpoint is ---------------------
+
+
+def test_websearch_tool_hidden_until_opted_in(client):
+    from memorymap.ai import tools
+
+    names = [t["function"]["name"] for t in tools.ollama_tools()]
+    assert "web_search" not in names
+
+    client.put("/preferences", json={"web_search_enabled": True})
+    names = [t["function"]["name"] for t in tools.ollama_tools()]
+    assert "web_search" in names
+
+
+def test_websearch_tool_refuses_when_disabled(client, session):
+    from memorymap.ai import tools
+
+    # web_search is gated off until the online opt-in, routed through the
+    # shared tool_enabled check → "turned off" message.
+    result = tools.execute_tool(session, "web_search", {"query": "x"})
+    assert "error" in result and "turned off" in result["error"]

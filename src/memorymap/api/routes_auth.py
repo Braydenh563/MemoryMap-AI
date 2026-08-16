@@ -1,4 +1,4 @@
-"""Single-user unlock (plan Phase 4).
+"""Single-user unlock.
 
 One password (or PIN), bcrypt-hashed in the `users` table. Unlocking
 issues a random token the frontend sends back as X-Auth-Token; tokens

@@ -211,3 +211,190 @@ def test_removal_is_never_blocked(client, monkeypatch):
     )
     body = client.post("/extras/localllm/uninstall").json()
     assert body["started"] is True
+
+
+# --- reported: remove/reinstall of faster-whisper silently failed on Windows
+# once the dictation buttons had been used once this session --------------------
+
+
+def test_reinstalling_voice_while_its_model_is_loaded_is_refused(monkeypatch):
+    """Windows locks the loaded .pyd/DLL exclusively; pip can run and still
+    fail to replace it. Refusing up front says why, instead of a cryptic pip
+    error nobody reading it would connect to "I used the mic earlier"."""
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", ("base", object()))
+    started, message = extras.start("voice", reinstall=True)
+    assert started is False
+    assert "restart" in message.lower()
+
+
+def test_removing_voice_while_its_model_is_loaded_is_refused(monkeypatch):
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", ("base", object()))
+    started, message = extras.remove("voice")
+    assert started is False
+    assert "restart" in message.lower()
+
+
+def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch):
+    """The common case — nobody has recorded anything yet, or the process is
+    fresh — must not be caught by the same guard."""
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", None)
+    started, message = extras.remove("voice")
+    assert started is True
+
+
+def test_the_guard_leaves_other_extras_alone(monkeypatch):
+    """Only voice caches a loaded native model across requests; nothing about
+    another extra should ever be refused for this reason.
+
+    `threading.Thread` is mocked like every other test that reaches `start()`
+    — without it this spawns a *real* background thread that runs real pip
+    against the real network (reported: it raced a later, unrelated test in
+    `test_tasks.py` for control of the shared `taskhistory` singleton and
+    intermittently made that one fail depending on how long pip took)."""
+    from memorymap.ai import voice
+
+    monkeypatch.setattr(voice, "_loaded", ("base", object()))
+    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
+    started, message = extras.start("desktop", reinstall=True)
+    assert started is True
+
+
+# --- reported: a failed install showed "pip exited with code 1. The log
+# above says why." in the Background tasks history card, with no log anywhere
+# near it (grep the module docstring's numbered note in `core/extras.py` for
+# the full story) --------------------------------------------------------------
+
+
+class _FailingPip:
+    """Stands in for a `pip install` that dies with a realistic transcript:
+    boilerplate, the real error, and pip's own parting nag — in that order,
+    which is the order real pip output comes in and exactly the shape that
+    breaks a naive "take the last line" reading."""
+
+    def __init__(self, command, **kwargs):
+        self.stdout = [
+            "Collecting faster-whisper\n",
+            "  Downloading faster_whisper-1.0.0-py3-none-any.whl (2.0 kB)\n",
+            "ERROR: Could not find a version that satisfies the requirement "
+            "faster-whisper (from versions: none)\n",
+            "ERROR: No matching distribution found for faster-whisper\n",
+            "[notice] A new release of pip is available: 24.0 -> 26.2.1\n",
+            "[notice] To update, run: python.exe -m pip install --upgrade pip\n",
+        ]
+
+    def wait(self):
+        return 1
+
+
+def test_a_failed_install_names_the_real_error_not_pips_update_nag(client, monkeypatch):
+    """The message must be self-contained: it is read from the Background
+    tasks history card, which has no log fold anywhere near it."""
+    monkeypatch.setattr(extras.subprocess, "Popen", _FailingPip)
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    state = extras.current()
+    assert state.outcome == "failed"
+    assert "The log above says why" not in state.step
+    assert "No matching distribution found for faster-whisper" in state.step
+    # Not pip's own nag, which is always the literal last line of real output.
+    assert "upgrade pip" not in state.step
+
+
+def test_a_failed_install_reason_reaches_the_history_card(client, monkeypatch):
+    """`taskhistory` is what the Background tasks "Recently finished" card
+    reads — it must carry the real reason itself, not a pointer to a log the
+    card never renders."""
+    from memorymap.core import taskhistory
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _FailingPip)
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    entries = taskhistory.recent()
+    assert entries, "the finished install never recorded history"
+    assert entries[0]["outcome"] == "failed"
+    assert "The log above says why" not in entries[0]["detail"]
+    assert "No matching distribution found for faster-whisper" in entries[0]["detail"]
+
+
+def test_a_failed_install_reaches_settings_logs(client, monkeypatch):
+    """The bug in the earlier fix, precisely: `_run_uninstall` routed pip's
+    output through `logging` (which backs Settings → Logs, `core/logbuffer`)
+    and `_run_install` did not, so a failed *install* — the case actually
+    reported — still never showed up there no matter what the panel said."""
+    from memorymap.core import logbuffer
+
+    before = logbuffer.latest_seq()
+    monkeypatch.setattr(extras.subprocess, "Popen", _FailingPip)
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    new_records = logbuffer.since(before)
+    ours = [r for r in new_records if r["logger"] == "memorymap.extras"]
+    assert ours, "pip's failure never reached the memorymap.extras logger"
+    assert ours[-1]["level"] == "ERROR"
+    assert "No matching distribution found for faster-whisper" in ours[-1]["message"]
+
+
+def test_a_successful_install_also_reaches_settings_logs(client, monkeypatch):
+    """The success path needs the same wiring — `_run_uninstall` logged both
+    outcomes, `_run_install` logged neither."""
+    from memorymap.core import logbuffer
+
+    class _Capture:
+        def __init__(self, command, **kwargs):
+            self.stdout = ["Successfully installed faster-whisper-1.0.0\n"]
+
+        def wait(self):
+            return 0
+
+    before = logbuffer.latest_seq()
+    monkeypatch.setattr(extras.subprocess, "Popen", _Capture)
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    ours = [r for r in logbuffer.since(before) if r["logger"] == "memorymap.extras"]
+    assert ours, "a successful install never reached Settings -> Logs either"
+    assert ours[-1]["level"] == "INFO"
+
+
+def test_pip_reason_prefers_a_named_error_over_the_literal_last_line(client):
+    """Direct unit coverage for the helper itself: pip prints its update nag
+    last on almost every run, so the naive "last line" reading would report
+    that instead of the failure — see `search/searxng_manager._reason`,
+    which this mirrors and which was fixed for the exact same trap."""
+    log = [
+        "Collecting sentence-transformers",
+        "ERROR: Could not build wheels for tokenizers",
+        "[notice] A new release of pip is available: 24.0 -> 26.2.1",
+        "[notice] To update, run: python.exe -m pip install --upgrade pip",
+    ]
+    reason = extras._pip_reason(log, "pip exited with code 1")
+    assert "Could not build wheels for tokenizers" in reason
+    assert "upgrade pip" not in reason
+
+
+def test_pip_reason_falls_back_to_the_prefix_when_nothing_is_useful(client):
+    """All boilerplate, nothing to add — say the prefix alone rather than
+    quoting pip's own update nag as if it were the reason."""
+    log = [
+        "[notice] A new release of pip is available: 24.0 -> 26.2.1",
+        "[notice] To update, run: python.exe -m pip install --upgrade pip",
+    ]
+    assert extras._pip_reason(log, "pip exited with code 1") == "pip exited with code 1"
+
+
+def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
+    """A "Base Requirements (requirements.txt)" extra was added with
+    `packages=("-r", "requirements.txt")` and `module="fastapi"`. Since
+    fastapi is always importable (the app runs on it), `is_installed()` was
+    permanently True, so the UI only ever offered Reinstall/Remove — and
+    Remove ran `pip uninstall -y -r requirements.txt`, stripping fastapi,
+    uvicorn, SQLAlchemy and every other base dependency from the interpreter
+    the app itself is running in. No extra's package list may equal (or
+    contain) the project's own requirements file."""
+    for extra in extras.EXTRAS:
+        assert "-r" not in extra.packages, f"{extra.id} installs from a requirements file"

@@ -15300,9 +15300,11 @@ async function toggleMeetingRecording() {
   }
   meetingChunks = [];
   meetingRecorder = new MediaRecorder(meetingStream);
+  const stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
   meetingRecorder.addEventListener("dataavailable", (e) => meetingChunks.push(e.data));
   meetingRecorder.addEventListener("stop", async () => {
     meetingStream?.getTracks().forEach((t) => t.stop());
+    stopMeetingLevelMeter();
     meetingStream = null;
     meetingRecorder = null;
     stopMeetingTimer();

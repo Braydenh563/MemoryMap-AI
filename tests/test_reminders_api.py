@@ -40,6 +40,34 @@ def test_reminder_lifecycle(client):
     assert len(client.get("/reminders").json()) == 1
 
 
+def test_reminder_preview_does_not_leak_private_note_ciphertext(client):
+    """`entry_preview` used to read the raw `content` column, which is
+    ciphertext at rest for a private note — showing a garbled blob instead of
+    the locked-vault placeholder every other preview surface uses (graph,
+    library...). `readable_content` decides by the `crypto.PREFIX` marker on
+    the stored text, not the `is_private` flag, so a fake-but-marked
+    ciphertext string is enough to prove the preview goes through it rather
+    than the raw column — a real encrypt/decrypt round-trip is covered
+    elsewhere (crypto/vault tests)."""
+    from memorymap.core import crypto, deps
+    from memorymap.core.database import Entry
+
+    session = deps.get_db().session()
+    entry = Entry(content=crypto.PREFIX + "not-real-ciphertext", is_private=True)
+    session.add(entry)
+    session.commit()
+    entry_id = entry.id
+    session.close()
+
+    due = (utcnow() + timedelta(hours=1)).isoformat()
+    created = client.post(
+        "/reminders", json={"text": "check this", "due_at": due, "entry_id": entry_id}
+    ).json()
+    # No vault open in this test, so `readable_content` gives the standard
+    # locked placeholder — never the raw ciphertext-shaped column value.
+    assert created["entry_preview"] == "Private note — unlock to read it."
+
+
 def test_reminder_for_missing_entry_404s(client):
     due = (utcnow() + timedelta(hours=1)).isoformat()
     response = client.post("/reminders", json={"text": "x", "due_at": due, "entry_id": 99})

@@ -2,6 +2,91 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
+## Latest session — a security/correctness sweep, not a feature session: one bug shape found four times
+
+A codebase-wide read of `src/memorymap/**` and `frontend/**` for real bugs,
+not a feature build. Auth token handling, path traversal in file/attachment
+routes, `innerHTML`/CSP/XSS in the frontend, SQL construction, ReDoS-shaped
+regexes, and O(n²)/N+1 patterns were all checked and came back clean — this
+codebase has clearly been through this exercise before (see the CSP, path
+traversal and ReDoS write-ups already in the source, each naming the exact
+bug it closed). **The one real bug class found is a privacy leak, and it
+recurred four times in four different files because the same mistake is easy
+to make and nothing enforces the fix structurally.**
+
+**The shape:** `Entry.content` is a plain column, ciphertext at rest for a
+private note (`crypto.is_encrypted`/`readable_content` in
+`entry/manager.py`). The rule everywhere else in the app — stated outright in
+`ai/tools/_common.py`'s `_require_note` and `ai/embeddings.py`'s
+`store_for_entry` — is that a private note's content **never** reaches the
+AI, full stop, not even when the vault is unlocked. Four places read
+`entry.content` straight off the column without checking `is_private` first,
+each reachable **not** through the write path that already guards private
+notes (`_require_note`, checked first), but through an *existing* link,
+card, or reminder whose target note was marked private **after** the
+connection was made — `manager.set_private` drops the note's embedding and
+resolved dates for exactly this reason, but never touches links, whiteboard
+cards, or reminders pointing at it. Fixed, each with a reproducing regression
+test (confirmed red against the pre-fix code, green after):
+
+1. **`POST /insights/digest` and `/insights/digest/stream`**
+   (`api/routes_insights.py`, `_digest_notes` and `weekly_digest`) — the
+   weekly AI recap's own note query had no `is_private` filter, so a private
+   note's ciphertext went straight into the model's prompt and could surface
+   in the digest text a user then reads. `digest_structure_note` right next
+   to it already excluded private notes for its own sentence — this was the
+   one query that didn't.
+2. **The link-reason audit** (`ai/links.py`, `audit_vague_links`) — runs
+   automatically every few hours from `ai/autonomous.py` for as long as the
+   server is up, and is also exposed as the `audit_link_reasons` tool. It
+   fetches both ends of a link by id with no privacy check and hands
+   `source.content, target.content` to the model. Of the four, this is the
+   one most likely to actually fire in practice: linking two notes and later
+   marking one private is an ordinary sequence of actions, and this pass
+   revisits *every* vague-reason link on *every* tick.
+3. **`GET /reminders`** (`api/routes_reminders.py`, `_to_out`) — built
+   `entry_preview` from the raw column instead of `manager.readable_content`,
+   so a reminder attached to a note later marked private showed the
+   ciphertext blob in the UI instead of the "Private note — unlock to read
+   it." placeholder every other surface uses. Lower severity than the other
+   three (nothing left the local UI/process), but the same bug.
+4. **`read_whiteboard` / `search_whiteboard`** (`ai/tools/whiteboard.py`) —
+   `_add_whiteboard_card` already calls `_require_note` on the way in (this
+   file's own docstring names the CLAUDE.md regression class it was written
+   to avoid), but the two *read* tools rebuilt their card/board previews
+   from `entry.content` directly, with no equivalent check, so a card or
+   board note marked private after being placed still had its ciphertext
+   handed back as a tool result — which becomes part of the agent's own
+   context, the same leak `_require_note` exists to close.
+
+**Not fixed, only noted — lower confidence, out of a small-targeted-patch
+scope:** `api/routes_whiteboard.py`'s `list_boards`/`list_images` (HTTP
+routes, not AI tools) build a board's *title* from `entry.content` the same
+unguarded way — `extract_title(entry.content) or entry.content.strip()[:40]`
+— for a board whose underlying note was marked private after being used as
+one. Same bug shape, but this is a human-facing HTTP list rather than an
+AI-tool result or a background job's model prompt, and it's unclear whether
+a "board" note is ever realistically marked private in practice — flagged
+rather than patched blind.
+
+**Method, if the next session wants to extend the same sweep:** `grep -n
+"entry\.content\|e\.content\b" across src/memorymap/api/*.py
+src/memorymap/ai/*.py` and check each hit against one question — *does this
+entry come from `_require_note`/a query that already filters `is_private`,
+or from a raw `session.get`/id lookup with no such check?* Every hit that's
+clean already says so in a comment (`routes_duplicates.py`'s `_load`,
+`entities.py`'s query filter, `routes_library.py`'s `_clip` call) — the
+absence of that comment on a fresh hit is the signal to look closer, not the
+proof of a bug on its own.
+
+**Verification:** each fix has a small regression test in the same file as
+its neighbours (`test_digest_structure.py`, `test_reminders_api.py`,
+`test_link_reasons.py`, `test_ai_whiteboard_tools.py`), confirmed to fail
+against the pre-fix code via `git stash` before being confirmed to pass
+after. Full suite green (`python -m pytest tests/`), `ruff check .` clean,
+`node --check` clean on the three frontend files (untouched this session —
+the bug class here is entirely backend/tool-layer).
+
 ## Last session — the rest of the mechanical splits, three more live-reported bugs, and the Ask box rebuilt into a browsable history
 
 Picked up straight from this file's own "#0 priority" pointer below (the

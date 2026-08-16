@@ -58,6 +58,27 @@ def _linked_pair(session, reason=manager.AUTO_REASON_TEXT, reason_confidence=0.8
 # --- (a) the audit actually rewrites a vague reason -----------------------------
 
 
+def test_audit_never_sends_a_private_note_to_the_model(session, fake_ollama):
+    """A note can be marked private *after* it was already linked to another
+    note — `manager.set_private` drops the note's embedding and resolved
+    dates for exactly this reason but leaves any existing `EntryLink` rows in
+    place. `audit_vague_links` fetches both ends of a link by id with no
+    `is_private` check at all, so it read the raw `content` column — ciphertext
+    for a private note — straight into the model's prompt, the same shape of
+    bug as the weekly digest's."""
+    a, b, link = _linked_pair(session)
+    a.is_private = True
+    a.content = "mmenc1:not-real-ciphertext-but-marked-private"
+    session.commit()
+    fake_ollama.librarian_reply = "both about the Denver move"
+
+    links.audit_vague_links(session, deps.get_model_manager(), fake_ollama, limit=10)
+
+    for messages in fake_ollama.chat_calls:
+        for message in messages:
+            assert "not-real-ciphertext" not in message["content"]
+
+
 def test_audit_rewrites_a_vague_reason(session, fake_ollama):
     _, _, link = _linked_pair(session)
     fake_ollama.librarian_reply = "both about the Denver move"

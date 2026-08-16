@@ -154,7 +154,7 @@
   flex: 0 0 auto;
   align-self: center;
   opacity: 0.85;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--motion-base) ease;
 }
 
 .emblem-mark:hover {
@@ -618,7 +618,7 @@
   align-items: stretch;
   gap: var(--space-1);
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 .web-result:hover .web-result-actions,
@@ -1246,7 +1246,7 @@
 /* Card actions stay out of the way until you're looking at a note. */
 .entry-list li .entry-actions {
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 .entry-list li:hover .entry-actions,
@@ -1264,12 +1264,12 @@
 
 #entry-list li {
   padding: 0.8rem 1rem;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 #entry-list li:hover {
   border-color: var(--accent);
-  box-shadow: 0 2px 10px rgba(31, 38, 135, 0.07);
+  box-shadow: var(--shadow-sm);
 }
 
 /* The note itself should read first; its metadata second. */
@@ -1548,7 +1548,7 @@
 
 #tab-reminders .entry-actions {
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 #tab-reminders li:hover .entry-actions,
@@ -1658,7 +1658,7 @@
 }
 
 .msg {
-  box-shadow: 0 1px 3px rgba(31, 38, 135, 0.06);
+  box-shadow: var(--shadow-sm);
   line-height: 1.55;
   animation: msg-in 0.18s ease-out;
 }
@@ -1747,7 +1747,7 @@
   padding: 0.4rem 0.6rem;
   margin-bottom: 0.15rem;
   border-left: 3px solid transparent;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
 #conversation-list li.active-conv {
@@ -1757,7 +1757,7 @@
 
 #conversation-list li .entry-actions {
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 #conversation-list li:hover .entry-actions,
@@ -1865,7 +1865,7 @@
   font-weight: 500;
   color: var(--muted);
   border-radius: calc(var(--radius-md) - 0.15rem);
-  transition: all 0.2s ease;
+  transition: all var(--motion-slow) ease;
   user-select: none;
 }
 
@@ -1884,7 +1884,7 @@
 .segmented-control label:has(input[type="radio"]:checked) {
   color: var(--ink);
   background: var(--accent-soft);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 /* --- graph page layout ------------------------------------------------------

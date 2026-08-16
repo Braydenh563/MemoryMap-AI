@@ -965,7 +965,7 @@
   stroke: none;
   opacity: 0.16;
   pointer-events: none;
-  transition: opacity 0.15s ease, r 0.15s ease;
+  transition: opacity var(--motion-base) ease, r var(--motion-base) ease;
 }
 
 .graph-node:hover circle.graph-halo,
@@ -1317,7 +1317,7 @@ button {
   height: 0.5rem;
   border-radius: 50%;
   background: var(--border);
-  transition: background 0.2s ease;
+  transition: background var(--motion-slow) ease;
 }
 
 .onboarding-dot.active {
@@ -1455,7 +1455,7 @@ button {
   opacity: 0;
   visibility: hidden;
   transform: translateY(0.5rem);
-  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  transition: opacity var(--motion-slow) ease, transform var(--motion-slow) ease, visibility var(--motion-slow);
 }
 
 .scroll-top.visible {
@@ -1536,7 +1536,7 @@ button {
      category itself along the right-hand edge of every row. */
   pointer-events: none;
   background: inherit;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 #category-list li:hover .category-actions,
@@ -1571,7 +1571,7 @@ button {
 #category-list li:has(.category-actions):hover .count,
 #category-list li:has(.category-actions):focus-within .count {
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 /* Touch has no hover, so the controls are simply always there — which used

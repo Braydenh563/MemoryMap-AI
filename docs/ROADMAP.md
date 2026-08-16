@@ -109,21 +109,25 @@ fresh session should pick them up:
     the app, needs its own pass" — read that first) before proposing
     additions. Same app.js overlap caution as item 10.
 12. **Asked directly: run a full pass with the `apple-design` skill to
-    refine the frontend's visual design and UI/UX.** Broad and
-    high-risk — will likely touch every CSS file and much of `index.html`,
-    so it should run *last*, after every other structural frontend change
-    in this list (the markdown-renderer merge, item 18 below, and the
-    timeline and document-editor work, items 10-11) has landed, not
-    concurrently with any of them. **A first, scoped pass done** — see
-    HISTORY.md's newest entry. Deliberately narrow rather than the full
-    sweep this item originally called for: two tabs' empty states brought
-    in line with the pattern the other five already use, and a real Library
-    data bug (a titled note's title duplicated into its own preview line)
-    fixed at the source. The broad "touch every CSS file" sweep — populated
-    non-empty states beyond a handful screenshotted this session, the
-    timeline/document-editor work (items 10-11), anything needing a
-    product/taste call — is still open and still belongs after those land,
-    per this item's own note above.
+    refine the frontend's visual design and UI/UX.** A first, narrow pass
+    landed earlier (two tabs' empty states, a title-duplication bug — see
+    HISTORY.md). **A second, broader pass done this session** — an elevation
+    (`--shadow-sm/md/lg`) and motion (`--motion-fast/base/slow`) token scale
+    added to DESIGN.md and applied app-wide, collapsing twelve one-off
+    `box-shadow` values and ten distinct transition durations into the same
+    kind of scale spacing/type already have. Driven against a populated app
+    (9 notes, links, 3 reminders, a document, a whiteboard board with 3
+    cards — via API, not placeholders), screenshotted light+dark at 1400px.
+    Full detail in HISTORY.md's newest entry, including what was screenshotted
+    and what wasn't. **Deliberately not done, scoped instead of guessed at:**
+    the timeline line/branch view's real layout problem (dead canvas space,
+    no on-canvas band labels, same-bucket notes stacking with no
+    differentiation — a `renderTimelineBranch` layout change, not a CSS fix,
+    see DESIGN.md's "What is not done yet") and a global
+    `prefers-reduced-motion` sweep (still per-component, not one rule). The
+    document editor was checked live and found already visually consistent —
+    its real gap is BACKLOG §5's feature list (wiki-links, slash menu,
+    live-preview, sub-pages), a product decision not a design one.
 13. ~~A burst of 401s on dashboard/insights endpoints on page load.~~ **Root
     cause found and fixed — the earlier "only on a reused data directory"
     theory above was wrong; it reproduces on every cold load, fresh data dir

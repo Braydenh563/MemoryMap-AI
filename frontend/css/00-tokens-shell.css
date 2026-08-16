@@ -93,6 +93,15 @@ select optgroup {
   --wb-bg-image-repeat: no-repeat;
   --border-style: solid;
   --shadow-intensity: 0.05;
+  /* Motion scale — extracted the same way the spacing/type scales were
+     (ROADMAP §35L): ten distinct transition durations (80ms-250ms, plus a
+     stray 120ms written in ms instead of s) collapsed to the three that were
+     actually the modes of that distribution. Nothing here is animated by a
+     gesture yet (drag/resize move the DOM directly, no spring), so a fixed
+     duration is the right tool yet a wrong one to speed-write per component. */
+  --motion-fast: 0.12s;   /* hover/press feedback, checkbox/toggle state */
+  --motion-base: 0.16s;   /* the default: colour, background, border, opacity */
+  --motion-slow: 0.2s;    /* a bigger move — panel/sidebar open, card lift */
   --space-1: calc(0.25rem * var(--density));
   --space-2: calc(0.4rem * var(--density));
   --space-3: calc(0.5rem * var(--density));
@@ -278,6 +287,14 @@ select optgroup {
   --font-sans: var(--ui-font);
   --shadow-sm: 0 2px 8px rgba(31, 38, 135, var(--shadow-intensity));
   --shadow-md: var(--glass-shadow);
+  /* The third, missing tier: a "lifted off the surface" shadow for a
+     dragged card or an active/raised control — stronger than --shadow-md's
+     resting-panel weight, distinct from it in more than just size so the two
+     read as different depths, not the same shadow scaled up. Twelve
+     one-off box-shadow values (0.05-0.5 opacity, six different blur radii,
+     both the purple-tinted and flat-black families) existed before this,
+     none dark-mode-aware unless they happened to reuse --glass-shadow. */
+  --shadow-lg: 0 16px 40px rgba(31, 38, 135, calc(var(--shadow-intensity) * 3));
   /* The sketch/whiteboard surface set. */
   --sw-card: var(--card);
   --sw-border: var(--border);
@@ -342,6 +359,7 @@ select,
   --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.10);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
   --modal-bg: rgba(24, 27, 37, 0.97);
   --ink: #e7e9ee;
   --muted: #9aa1ad;
@@ -369,6 +387,7 @@ select,
     --input-bg: color-mix(in srgb, rgba(14, 16, 23, 0.55) calc(var(--glass-opacity) * 100%), transparent);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
     --modal-bg: rgba(24, 27, 37, 0.97);
     --ink: #e7e9ee;
     --muted: #9aa1ad;
@@ -831,7 +850,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      run. `hidden` would also fight the hover rule below. */
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.12s ease, visibility 0.12s;
+  transition: opacity var(--motion-fast) ease, visibility var(--motion-fast);
 }
 
 .ai-status-wrap:hover .ai-status-popup,
@@ -1250,7 +1269,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   top: var(--space-3);
   right: var(--space-3);
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--motion-fast) ease;
 }
 
 .library-card:hover .library-card-menu,
@@ -1588,7 +1607,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity var(--motion-base) ease;
 }
 
 .library-image-tile .library-image-edit {

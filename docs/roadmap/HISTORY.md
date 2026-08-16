@@ -7,6 +7,92 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Done this session — the broad apple-design pass: an elevation + motion token scale, app-wide, plus a live look at the timeline and document editor
+
+The first pass (below) was deliberately narrow. This one is the broader
+sweep ROADMAP item 12 asked for, still CSS/consistency-focused rather than a
+structural rewrite, per the same "skip anything needing a product decision"
+instruction the first pass worked under.
+
+**Populated the app for real before auditing it** (own point in CLAUDE.md:
+audit populated states, not empty ones), via the API rather than clicking
+through the UI, to keep budget for the actual design work: 9 notes with real
+multi-paragraph content and a few explicit links between them, 3 reminders,
+1 document (102 words, headings, a list), and a whiteboard board with 3
+cards linked to real notes. Screenshotted every tab at 1400px, light and
+dark, before and after (`toggleTheme()` — the earlier attempt to fake dark
+mode via a `data-theme` attribute did nothing; the app keys off
+`data-mode`).
+
+**Found and fixed: no shared elevation or motion scale existed**, unlike
+spacing/type/radius/colour, which DESIGN.md already governs and
+`test_style_scale.py` already enforces. Twelve hand-written `box-shadow`
+values across 6 files ranged 0.05-0.5 opacity across six-plus blur radii,
+split between a purple-tinted family (matching `--glass-shadow`, which *is*
+dark-mode-aware) and a flat-black family (which mostly wasn't) — so a card's
+shadow and a dropdown's shadow and a dragged whiteboard card's shadow were
+all visually unrelated, and several went flat/invisible in dark mode.
+Consolidated into three tokens (`--shadow-sm/md/lg`, all dark-mode-aware) and
+every one-off value replaced with the nearest tier; two exceptions kept and
+documented (the lightbox's always-dark-backdrop shadow, and a button's
+accent-tinted glow, now fixed to `color-mix()` off `--accent` instead of a
+hardcoded RGB that ignored the user's chosen accent colour entirely).
+Separately, ten distinct transition durations (0.08s-0.25s, one written as
+`120ms`) collapsed into `--motion-fast/base/slow` the same way the spacing
+scale was originally extracted — the modes of the existing distribution, not
+invented numbers — and applied to every `transition:` declaration in
+`frontend/css/*.css`. `animation:` keyframe timings were left alone on
+purpose (each is tuned to its own specific effect, not drifting for no
+reason, and sweeping those too was a materially different and riskier
+claim than "this hover transition matches that one"). Both scales documented
+in DESIGN.md with the same "why" depth the rest of the file uses.
+
+**Timeline branch/line view (ROADMAP item 10) — looked at live, not fixed.**
+Screenshotted with real, populated data: the SVG canvas reserves a fixed
+height regardless of how much content is in it, so a normal note count
+leaves most of the card blank; the active band has no label painted on the
+canvas itself; and notes sharing a time bucket stack vertically with no
+jitter, connector, or other way to tell them apart short of hovering each
+one. All three are `renderTimelineBranch`'s own layout math (`app.js`
+§10C), not a colour or spacing problem the token system reaches — a real fix
+means changing what the function computes, not what it's styled with. Per
+this session's own instruction not to risk a half-implementation, this is
+written up (here and in DESIGN.md's "what is not done yet") rather than
+attempted. **Also worth naming honestly**: the specific screenshot taken had
+every seeded note plotted at the same point (today), which is a seeding
+artifact — the notes' own body text has relative-date phrases the timeline's
+"about" placement is supposed to pick up (§10A already resolves them) — not
+itself the design bug above, but it means the "notes pile with no
+differentiation" finding was observed at an extreme (9-way tie), not at a
+realistic middling density; the dead-canvas-space and missing-label findings
+hold regardless.
+
+**Document editor (ROADMAP item 11) — looked at live, found already
+consistent.** Title field, word count, outline, save status, the full
+formatting toolbar (headings/bold/italic/strike/code/lists/task/quote/
+link/table/rule), AI edit, extract-notes, and .md/.pdf export all render
+cleanly and match the rest of the app's visual language — no orphaned
+one-off styling found. BACKLOG.md §5 already has the real gap list (wiki
+links, a `/` command menu, drag-drop images, backlinks, live-preview
+editing, sub-pages) correctly flagged as a product decision, not a design
+one; nothing here changes that.
+
+**Verification:** `tests/test_style_scale.py` and the full suite
+(`python -m pytest tests/`, exit 0) pass unchanged — no lint had to be
+widened to let the new tokens in, since `--shadow-*`/`--motion-*` are
+declared in `:root` like every other token and consumed via `var()`
+everywhere they're used. `ruff check .` clean (no Python touched).
+`node --check` clean on all three JS files (also none touched — this pass
+was CSS + docs only). Every screenshot referenced above was actually taken
+and looked at, both themes, both before and after the shadow/motion changes,
+against the populated data described above — not reasoned from the diff.
+**Not done and not claimed:** a systematic per-component
+`prefers-reduced-motion` audit (still ad hoc, per-component `@media` blocks,
+same as before this session); Chat tab content (no local model is
+configured in this sandbox, so no real conversation history exists to
+screenshot — the tab was screenshotted empty, which is honestly what it is
+here, not what it looks like with real use).
+
 ## Done last session — a first, scoped Apple-design pass, a real Library data bug, and a corrected doc claim about the 401 burst
 
 > Asked directly: audit the live app against Apple design principles

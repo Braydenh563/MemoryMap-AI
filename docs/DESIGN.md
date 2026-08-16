@@ -155,6 +155,53 @@ Literal colours are still correct in exactly one place: the sketch palette,
 where the hex value *is* the data, and the accent presets, which are
 definitions.
 
+### Elevation — `--shadow-sm`, `--shadow-md`, `--shadow-lg`
+
+```
+--shadow-sm   resting cards, list-row hover, message bubbles
+--shadow-md   floating panels, dropdowns, active/lifted tabs (= --glass-shadow)
+--shadow-lg   a dragged card, a dialog's own depth — the "off the surface" tier
+```
+
+Added by the apple-design audit (ROADMAP §35L) after finding twelve
+hand-written `box-shadow` values — six-plus different blur radii, opacities
+from 0.05 to 0.5, one tinted family (`rgba(31, 38, 135, …)`, matching
+`--glass-shadow`) and one flat-black family living side by side. Most of the
+flat-black ones never adapted in dark mode the way `--glass-shadow` already
+did, because they weren't built from it. All three tiers are dark-mode-aware
+(`--shadow-sm`/`--shadow-lg` scale off `--shadow-intensity`, the same knob
+Settings → Appearance already drives; `--shadow-md` is `--glass-shadow`,
+already themed). Two literal shadows remain on purpose: the lightbox image's
+(its backdrop is always near-black regardless of theme, so a themed shadow
+would be wrong there) and the accent-glow on the CTA button family, which
+carries the user's chosen accent colour via `color-mix()` rather than the
+neutral elevation scale — a coloured glow, not a depth cue.
+
+### Motion — `--motion-fast`, `--motion-base`, `--motion-slow`
+
+```
+--motion-fast: 0.12s   hover/press feedback, checkbox/toggle state
+--motion-base: 0.16s   the default: colour, background, border, opacity
+--motion-slow: 0.2s    a bigger move — panel/sidebar open, card lift
+```
+
+Same extraction method as the spacing/type scales: ten distinct transition
+durations in the wild (0.08s-0.25s, one written as `120ms`) collapsed to the
+three that were actually the modes of that distribution. Applied to every
+`transition:` duration in `frontend/css/*.css`; `animation:` keyframe timings
+(entrance/exit effects tuned to their own motion, not interactive feedback)
+were deliberately left alone rather than mechanically swept, since a
+keyframe's duration is part of what makes that specific effect read right,
+not a value drifting for no reason.
+
+**Not done, said plainly:** motion is a user setting (`prefers-reduced-motion`)
+that only some components still honour, each with its own `@media` block —
+see "What is not done yet" below. There is no gesture-driven motion anywhere
+in the app yet (drag/resize move the DOM directly; nothing hands off release
+velocity into a spring), so nothing here contradicts the apple-design skill's
+"avoid fixed-duration transitions for anything gesture-driven" — that rule
+doesn't apply until something *is* gesture-driven.
+
 ---
 
 ## Hierarchy
@@ -288,7 +335,28 @@ it is. See ROADMAP §35L.
   stylesheet and bounded so no single value moved more than 0.1rem — which is
   not the same as verified. **Look at what you change; it costs a minute.**
 - **Motion** is a user setting a few components still ignore. Density is done —
-  it is a multiplier over the spacing scale now.
+  it is a multiplier over the spacing scale now. Duration is done as of this
+  pass (the `--motion-*` scale above); *honouring* `prefers-reduced-motion`
+  everywhere is not — still per-component `@media` blocks, not a single rule.
 - **The tab bar** is at the width where another tab hurts, which matters for
   the unbuilt Library tab (§4) — decide whether it absorbs existing tabs or the
   bar gains an overflow *before* building it.
+- **The timeline's line/branch view needs more than this pass gave it** —
+  screenshotted live (9 seeded notes, populated, not empty): the SVG canvas
+  reserves a fixed height regardless of content, so a normal note count
+  leaves most of the card blank below the spine; the active band has no
+  visible label painted on the canvas itself (only in the "N notes · N
+  bands" line above it); and notes sharing a bucket stack vertically with no
+  jitter or connecting structure, which reads as a pile, not a branch. None
+  of this is a token or colour problem — it's `renderTimelineBranch`'s own
+  layout math (`app.js`, §10C) sizing the canvas and placing dots without
+  regard to how much content is actually in it. A real fix is a layout
+  change, not a CSS pass, and risked being a half-implementation attempted
+  under this pass's own budget — scoped here instead of guessed at. See
+  ROADMAP item 10.
+- **The document editor was screenshotted live and looks fine** — title
+  field, outline, word count, toolbar, AI edit/extract-notes actions all
+  present and visually consistent with the rest of the app. Its real gap is
+  the one BACKLOG.md §5 already names (wiki-links, a slash menu,
+  live-preview editing, sub-pages) — a feature/product question, not a
+  design one, and correctly out of this pass's scope.

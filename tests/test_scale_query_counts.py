@@ -44,6 +44,25 @@ def _count_queries(session, fn):
     return count
 
 
+def _count_statements(session, fn, contains):
+    """Like `_count_queries`, but only counts statements whose SQL text
+    contains `contains` — for asserting a specific table isn't queried
+    twice, not just "the total didn't grow"."""
+    hits = []
+
+    def _before_cursor_execute(_conn, _cursor, statement, *_args, **_kwargs):
+        if contains in statement:
+            hits.append(statement)
+
+    engine = session.get_bind()
+    event.listen(engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        fn()
+    finally:
+        event.remove(engine, "before_cursor_execute", _before_cursor_execute)
+    return hits
+
+
 def _add_entries(session, n, category_id):
     for i in range(n):
         session.add(Entry(content=f"note {i} about gardens", category_id=category_id))
@@ -72,6 +91,29 @@ def test_graph_endpoint_query_count_does_not_scale_with_entry_count(session):
         f"routes_graph.graph() issued {large} queries for 220 entries vs "
         f"{small} for 20 — looks like the per-entry category lookup is back"
     )
+
+
+def test_graph_endpoint_fetches_the_entries_table_once_not_twice(session):
+    """`graph()` fetched the full `entries` table for node serialization,
+    then `paths.build()` independently re-fetched the exact same
+    identically-scoped set for its own path index — one call, two full
+    scans of the same table. `graph()` now passes its own already-fetched
+    list through."""
+    category = Category(name="Garden")
+    session.add(category)
+    session.commit()
+    _add_entries(session, 5, category.id)
+
+    # Matched on a column only the full-row ORM fetch selects — the
+    # notebook-fingerprint cache key also touches `entries` with its own
+    # `count(...)`/`max(updated_at)` aggregates, which are unrelated,
+    # already-cheap queries this test isn't about.
+    hits = _count_statements(
+        session,
+        lambda: routes_graph.graph(similarity=False, session=session),
+        "entries.access_count",
+    )
+    assert len(hits) == 1, f"expected one full `entries` row-fetch, got {len(hits)}: {hits}"
 
 
 def test_semantic_search_query_count_does_not_scale_with_entry_count(

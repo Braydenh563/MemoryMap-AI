@@ -1,7 +1,7 @@
 """Create/read/update/soft-delete entries, links, and audit logging.
 
 Deliberately AI-free: the API layer decides the category (by asking the
-janitor in Phase 2) and this module just stores what it's told. That
+janitor) and this module just stores what it's told. That
 keeps capture working even when every AI piece is down (plan §4).
 """
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, or_, select
@@ -93,7 +94,7 @@ def create_entry(
 
 def list_entries(session: Session, include_deleted: bool = False) -> list[Entry]:
     """Pinned first, then newest first. Deleted entries stay hidden until
-    the recycle bin UI (Phase 4) asks for them explicitly."""
+    the recycle bin UI asks for them explicitly."""
     query = select(Entry).order_by(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
@@ -136,7 +137,7 @@ def update_entry(
     category_name: str | None = None,
     tags: list[str] | None = None,
 ) -> Entry:
-    """Manual override (plan Phase 4): the user can change anything the
+    """Manual override: the user can change anything the
     AI decided. Only the provided fields change. Commits."""
     changed = []
     if content is not None and content != entry.content:
@@ -147,7 +148,7 @@ def update_entry(
         if category.id != entry.category_id:
             entry.category_id = category.id
             # A manual move means the user decided — the janitor stays
-            # out of this entry's filing from now on (Wave B).
+            # out of this entry's filing from now on.
             entry.user_filed = True
             changed.append(f"category={category_name}")
     if tags is not None:
@@ -479,7 +480,7 @@ def purge_entries(
 
 
 def empty_recycle_bin(session: Session, uploads_dir: Path | None = None) -> int:
-    """Manual 'empty now' (plan Phase 4). Commits."""
+    """Manual 'empty now'. Commits."""
     binned = list(session.scalars(select(Entry).where(Entry.is_deleted == True)))  # noqa: E712
     count = _hard_delete(session, binned, uploads_dir=uploads_dir)
     if count:
@@ -509,7 +510,7 @@ def purge_expired_deleted(
     return count
 
 
-# --- attachments (Wave B) ------------------------------------------------------
+# --- attachments ------------------------------------------------------
 
 
 def add_attachment(
@@ -646,18 +647,82 @@ def rename_attachment(session: Session, attachment: Attachment, new_filename: st
     return attachment
 
 
-# --- tags (Wave B tag manager) --------------------------------------------------
+# --- tags (tag manager) --------------------------------------------------
+
+
+_tag_cache_lock = threading.Lock()
+_tag_cache: dict | None = None  # (fingerprint, result), one slot — no LRU needed
+_tag_cache_reset_registered = False
+
+
+def _tag_fingerprint(session: Session) -> tuple:
+    """Cheap signature of everything that can change a tag count: a new
+    entry, an edit, a delete, or a restore. Same shape as routes_graph.py's
+    `_graph_fingerprint` — `Entry.updated_at` has `onupdate=utcnow`, so any
+    tag edit bumps it, and the live-entry count catches soft-delete/restore
+    even on the rare row an edit doesn't touch."""
+    from memorymap.core import deps
+
+    live = Entry.is_deleted == False  # noqa: E712
+    return (
+        str(deps.get_config().data_dir),
+        session.scalar(select(func.count(Entry.id)).where(live)) or 0,
+        session.scalar(select(func.max(Entry.updated_at)).where(live)),
+    )
+
+
+def reset_tag_cache() -> None:
+    """Drop the cached tag counts. For the tests, and for a data restore."""
+    global _tag_cache
+    with _tag_cache_lock:
+        _tag_cache = None
+
+
+def _ensure_tag_cache_reset_registered() -> None:
+    # `deps` imports (transitively, via ai.embeddings -> ai.model_manager)
+    # back into this module for `log_action`, so `from memorymap.core import
+    # deps` cannot sit at module level here without a circular import at
+    # startup — register lazily, on first use, the same way this file
+    # already imports `deps` inside `record_dates` for the same reason.
+    global _tag_cache_reset_registered
+    if _tag_cache_reset_registered:
+        return
+    from memorymap.core import deps
+
+    deps.register_cache_reset(reset_tag_cache)
+    _tag_cache_reset_registered = True
 
 
 def all_tags(session: Session) -> dict[str, int]:
-    """Every tag in use with its entry count."""
+    """Every tag in use with its entry count.
+
+    Was a full non-deleted-entry scan with a per-row `json.loads`, paid on
+    every Library tab open, every `tag_cloud()` call, and every `/tags`
+    call — three call sites, the same O(n) cost each time, and no cap the
+    way every sibling section of the same responses uses (ROADMAP.md
+    "#0 priority"). Cached by notebook fingerprint instead, the same
+    pattern `routes_graph.py` already uses for pagerank/similarity — a
+    fingerprint miss recomputes once; every other caller within the same
+    notebook version gets the cached dict.
+    """
+    global _tag_cache
+    _ensure_tag_cache_reset_registered()
+    fingerprint = _tag_fingerprint(session)
+    with _tag_cache_lock:
+        if _tag_cache is not None and _tag_cache[0] == fingerprint:
+            return _tag_cache[1]
+
     counts: dict[str, int] = {}
     for entry in session.scalars(
         select(Entry).where(Entry.is_deleted == False)  # noqa: E712
     ):
         for tag in entry_tags(entry):
             counts[tag] = counts.get(tag, 0) + 1
-    return dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+    result = dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
+    with _tag_cache_lock:
+        _tag_cache = (fingerprint, result)
+    return result
 
 
 def rename_tag(session: Session, old: str, new: str) -> int:

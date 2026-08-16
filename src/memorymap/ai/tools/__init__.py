@@ -1,4 +1,4 @@
-"""Agentic tools (Wave G): actions the chat model can take on the
+"""Agentic tools: actions the chat model can take on the
 notebook, offered to Ollama's native tool-calling API.
 
 Rules of the registry:
@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 
@@ -27,246 +26,39 @@ from sqlalchemy.orm import Session
 from memorymap.ai import librarian, skills
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
-from memorymap.core.database import Category, EmbeddingRecord, Entry, Reminder
+from memorymap.core.database import Category, Entry, Reminder
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager, paths
 from memorymap.search import search_manager
 
 
-class ToolError(ValueError):
-    """A failure a tool means to explain, in words written for a reader.
-
-    Every handler below raises this for the cases it anticipates — "there's no
-    note with that id", "that tag is already in use". Those strings are safe to
-    hand to the model and to show in the UI, because somebody wrote them for
-    exactly that.
-
-    A bare `ValueError` from somewhere inside a handler is the opposite: it is
-    whatever `int("abc")` or a SQLAlchemy coercion happened to say, and its text
-    is an internal detail. `execute_tool` distinguishes the two, which a single
-    `except ValueError` could not. Subclassing `ValueError` keeps every existing
-    caller that catches the base class working unchanged.
-    """
-
-
-@dataclass(frozen=True)
-class ToolSpec:
-    name: str
-    description: str
-    parameters: dict  # JSON schema for the arguments
-    handler: Callable[[Session, dict], dict]
-    destructive: bool = False
-    #: This tool's whole effect is to stop and wait for the user, so the agent
-    #: loop ends the turn on it rather than feeding a result back and carrying
-    #: on. `ask_user`, `run_skill`, `make_plan` and `compress_chat` all set
-    #: this, and the flag exists rather than a name check so the loop reads
-    #: as "why" instead of "which" (§33).
-    ends_turn: bool = False
-
-
-# --- context budget -------------------------------------------------------------
-# A local model's window is small and a notebook is not. These caps are the
-# whole reason the reading tools below are safe to hand to a model: without
-# them, one `list_notes` on a 5,000-note notebook would push everything else —
-# the question included — out of the window.
-#
-# The rule: list calls return *previews* and say when they were capped, so the
-# model pages deliberately instead of silently seeing a truncated notebook.
-# Full text costs a `get_note` call, one note at a time.
-
-PREVIEW_CHARS = 200
-FULL_NOTE_CHARS = 4_000
-DEFAULT_LIST_LIMIT = 10
-MAX_LIST_LIMIT = 25
-
-#: What `search_notes` assumes when the caller could not report a real window.
-DEFAULT_CONTEXT_TOKENS = 4_096
-
-#: The share of the model's window one search may fill by default. Only the
-#: default scales with the window — `MAX_LIST_LIMIT` still caps the result.
-SEARCH_CONTEXT_SHARE = 0.15
-SUMMARY_NOTE_LIMIT = 40
-# Documents are long-form by definition, so they get a larger ceiling than a
-# note — but still a ceiling: one document must not fill the whole window.
-DOCUMENT_CHARS = 12_000
-
-
-def _clip(text: str, length: int = 300) -> str:
-    return text if len(text) <= length else text[: length - 1] + "…"
-
-
-def _visible(*extra):
-    """The where-clause every reading tool starts from.
-
-    Private notes are excluded here, once, rather than in each handler —
-    the same reasoning as `manager.readable_content`: a rule applied in one
-    place can't be forgotten in the next path someone adds. A private note is
-    kept out of retrieval (`search_manager._without_private`), so it must be
-    kept out of the tools too, or the model reaches around the front door.
-    """
-    return (
-        Entry.is_deleted == False,  # noqa: E712
-        Entry.is_private == False,  # noqa: E712
-        *extra,
-    )
-
-
-def _readable(entry: Entry) -> str:
-    """Non-private notes are stored in the clear, but go through the manager
-    anyway so this can never be the path that hands back ciphertext."""
-    return manager.readable_content(entry)
-
-
-def _note_summary(
-    session: Session, entry: Entry, chars: int = PREVIEW_CHARS, dates: list | None = None
-) -> dict:
-    """What the model gets back about a note — enough to talk about it
-    and to reference it in follow-up tool calls.
-
-    `dates` lets a caller looping over many rows (`list_notes`,
-    `_summarize_notes`) pass in a pre-fetched, batched lookup instead of
-    paying one `entry_dates` query per row — the N+1 ROADMAP.md Tier 1 item
-    8 named. Left `None` for the single-note callers, which still fetch it
-    themselves below.
-    """
-    text = _readable(entry)
-    clipped = _clip(text, chars)
-    summary = {
-        "id": entry.id,
-        "content": clipped,
-        "truncated": len(clipped) < len(text),
-        "category": manager.category_name_for(session, entry),
-        "tags": manager.entry_tags(entry),
-        "pinned": entry.pinned,
-        "created_at": entry.created_at.isoformat() if entry.created_at else None,
-    }
-    # What the note's own "tomorrow" meant on the day it was written (§10A).
-    # Without this the model reads "the deadline is next Friday" in a note
-    # from March and answers about the Friday coming up.
-    if dates is None:
-        dates = manager.entry_dates(session, entry)
-    if dates:
-        summary["dates"] = [
-            {"phrase": d.phrase, "meant": d.at.date().isoformat()} for d in dates
-        ]
-    return summary
-
-
-def _undo_edit(session: Session, entry: Entry) -> dict:
-    """The call that would put this note back the way it is right now.
-
-    Captured *before* a write, and expressed as a tool call rather than a
-    special-case endpoint: the UI hands it straight back to
-    `POST /chat/tools/execute`, which is the same path the confirm button
-    already uses. Roadmap §21 asks a skill to end in "a list the user can
-    undo, rather than prose claiming something happened" — this is the half
-    that makes the list actionable.
-    """
-    return {
-        "tool": "edit_note",
-        "arguments": {
-            "note_id": entry.id,
-            "content": entry.content,
-            "category": manager.category_name_for(session, entry),
-            "tags": manager.entry_tags(entry),
-        },
-    }
-
-
-def _require_note(session: Session, args: dict, field: str = "note_id") -> Entry:
-    entry = manager.get_entry(session, int(args[field]))
-    if entry is None or entry.is_deleted:
-        raise ToolError(f"No note with id {args.get(field)}")
-    if entry.is_private:
-        # Deliberately the same wording as a missing note in spirit, but
-        # honest about why: the model should tell the user it can't see it,
-        # not invent contents for it.
-        raise ToolError(
-            f"Note #{entry.id} is private, so it isn't available to the AI"
-        )
-    return entry
-
-
-# Said on every list result. The model has no other way to know that what it
-# is looking at is an excerpt, and a model that doesn't know will answer from
-# half a note without hedging.
-_READ_MORE = (
-    f"These are previews, clipped to about {PREVIEW_CHARS} characters. "
-    "Call get_note with a note's id to read it in full before quoting it."
+# Explicit, not `import *`: every one of these is also re-exported for
+# external use (tools.MAX_LIST_LIMIT, tools._require_note, ...), and an
+# explicit list is what lets ruff (and a reader) tell a real name from a
+# typo instead of flagging all ~220 uses below as "may be undefined".
+from ._common import (  # noqa: F401
+    DEFAULT_CONTEXT_TOKENS,
+    DEFAULT_LIST_LIMIT,
+    DOCUMENT_CHARS,
+    FULL_NOTE_CHARS,
+    MAX_LIST_LIMIT,
+    PREVIEW_CHARS,
+    SEARCH_CONTEXT_SHARE,
+    SUMMARY_NOTE_LIMIT,
+    ToolError,
+    ToolSpec,
+    _category_clause,
+    _clip,
+    _limit_arg,
+    _note_summary,
+    _readable,
+    _READ_MORE,
+    _refresh_embedding,
+    _require_note,
+    _since_days,
+    _undo_edit,
+    _visible,
 )
-
-
-def _limit_arg(args: dict, default: int, max_limit: int = MAX_LIST_LIMIT) -> int:
-    """Clamp whatever the model asked for into the budget. A model that asks
-    for 500 notes gets max_limit and is told so by `has_more`."""
-    try:
-        wanted = int(args.get("limit") or default)
-    except (TypeError, ValueError):
-        wanted = default
-    return max(1, min(wanted, max_limit))
-
-
-def _category_clause(session: Session, name: str):
-    """Match a category by name, case-insensitively, without a join.
-
-    An unknown name deliberately matches nothing rather than everything: the
-    honest answer to "notes in Recipes" when there is no Recipes is zero.
-    """
-    from memorymap.core.database import Category
-
-    category_id = session.scalar(
-        select(Category.id).where(func.lower(Category.name) == name.lower())
-    )
-    if category_id is None:
-        if name == manager.UNCATEGORISED:
-            return Entry.category_id.is_(None)
-        return Entry.id.is_(None)  # matches nothing
-    return Entry.category_id == category_id
-
-
-def _since_days(value) -> int | None:
-    """`since` accepts a number of days ("7") or an ISO date ("2026-07-01").
-
-    Models are inconsistent about which they send, and a tool that rejects one
-    of them just burns a round. Anything unparseable means "no time filter"
-    rather than an error — the same call, wider, beats no answer.
-    """
-    if value in (None, ""):
-        return None
-    try:
-        return max(0, int(value))
-    except (TypeError, ValueError):
-        pass
-    try:
-        when = datetime.fromisoformat(str(value))
-    except ValueError:
-        return None
-    days = (datetime.now(tz=when.tzinfo) - when).days
-    return max(0, days)
-
-
-def _refresh_embedding(session: Session, entry: Entry) -> None:
-    """Content changed → the old vector is stale. Best effort, exactly
-    like the entries routes: a failed embed never fails the change —
-    but it does get logged, so a backend that has stopped working is
-    visible in Settings → Logs instead of silently degrading search."""
-    try:
-        session.execute(
-            EmbeddingRecord.__table__.delete().where(
-                EmbeddingRecord.entry_id == entry.id
-            )
-        )
-        session.commit()
-    except Exception as e:
-        # Avoid catching BaseException (KeyboardInterrupt, SystemExit).
-        # We catch Exception here because the embedding refresh touches both
-        # DB (SQLAlchemyError) and potentially file/network (depending on backend).
-        logging.getLogger("memorymap.embeddings").warning(
-            "couldn't clear the stale vector for entry %s: %s", entry.id, e, exc_info=True
-        )
-        session.rollback()
-        return
-    deps.store_quietly(session, entry)
 
 
 # --- handlers (session, args) -> result dict -----------------------------------
@@ -1081,539 +873,23 @@ def _summarize_notes(session: Session, args: dict) -> dict:
 # nothing arrives in context unless the model goes and gets it.
 
 
-def _list_documents(session: Session, args: dict) -> dict:
-    from memorymap.core.database import Document
-
-    limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
-    offset = max(0, int(args.get("offset") or 0))
-    term = str(args.get("query") or "").strip()
-    # One list of filters, applied to both the page and the count, so the
-    # total can never describe a different set than the rows.
-    filters = []
-    if term:
-        like = f"%{term}%"
-        filters.append(Document.title.ilike(like) | Document.content.ilike(like))
-    total = session.scalar(select(func.count(Document.id)).where(*filters)) or 0
-    rows = list(
-        session.scalars(
-            select(Document)
-            .where(*filters)
-            .order_by(Document.updated_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
-    )
-    return {
-        "documents": [
-            {
-                "id": d.id,
-                "title": d.title,
-                "words": len(d.content.split()),
-                "updated_at": d.updated_at.isoformat(),
-                "preview": _clip(d.content, PREVIEW_CHARS),
-            }
-            for d in rows
-        ],
-        "returned": len(rows),
-        "total_matching": total,
-        "offset": offset,
-        "has_more": offset + len(rows) < total,
-        "how_to_read_more": (
-            "Previews only. Call get_document with an id to read one in full."
-        ),
-        "label": f"ph:books Listed documents{f' matching “{_clip(term, 30)}”' if term else ''}",
-    }
-
-
-def _get_document(session: Session, args: dict) -> dict:
-    from memorymap.core.database import Document
-
-    document = session.get(Document, int(args["document_id"]))
-    if document is None:
-        raise ToolError(f"No document with id {args.get('document_id')}")
-    text = document.content
-    clipped = _clip(text, DOCUMENT_CHARS)
-    return {
-        "id": document.id,
-        "title": document.title,
-        "content": clipped,
-        "truncated": len(clipped) < len(text),
-        "words": len(text.split()),
-        "label": f"ph:file-text Read the document “{_clip(document.title, 40)}”",
-    }
-
-
-#: A document the agent writes. Generous next to a note's cap because a
-#: document is long-form by definition — but still a cap, since the content
-#: comes back through the model's own output and an unbounded one would mean a
-#: single tool call could fill the window on the next round.
-MAX_NEW_DOCUMENT_CHARS = 20_000
-
-
-def _create_document(session: Session, args: dict) -> dict:
-    """Write a long-form document.
-
-    The asymmetry this closes: there was `list_documents` and `get_document`
-    and no way to make one, so a model asked to "write this up properly" could
-    read every document the user had and then had nowhere to put the result.
-    Reported directly — "the agent can't create a document either" (§35J) —
-    and it was a gap nobody noticed rather than a deliberate limit, because
-    §5's document work was built UI-first.
-
-    Deliberately a separate tool from `create_note` rather than a flag on it.
-    A note is a captured thought and a document is something you sat down to
-    write; the database keeps them apart precisely so half-written documents
-    do not turn up in search results and in the graph, and one tool covering
-    both would hand the model the decision that separation exists to make.
-    """
-    from memorymap.core.database import Document
-
-    title = str(args.get("title") or "").strip()[:200]
-    content = str(args.get("content") or "")
-    if not title:
-        raise ToolError("A document needs a title.")
-    if not content.strip():
-        # A titled empty document is the shape of a model that called the tool
-        # to announce its intention. Refusing is what makes it write first.
-        raise ToolError(
-            "A document needs its text in `content` — write the document, then "
-            "save it in one call."
-        )
-    if len(content) > MAX_NEW_DOCUMENT_CHARS:
-        raise ToolError(
-            f"That document is too long to save in one call "
-            f"({len(content):,} characters, limit {MAX_NEW_DOCUMENT_CHARS:,})."
-        )
-    document = Document(title=title, content=content)
-    session.add(document)
-    session.flush()
-    manager.log_action(session, "created", "document", document.id, title[:80])
-    session.commit()
-    return {
-        "id": document.id,
-        "title": document.title,
-        "words": len(content.split()),
-        "label": f"ph:file-text Created the document “{_clip(title, 40)}”",
-        # Same contract every other write follows, so the run summary can offer
-        # an Undo beside it rather than listing a change nobody can take back.
-        "undo": {"tool": "delete_document", "arguments": {"document_id": document.id}},
-    }
-
-
-def _delete_document(session: Session, args: dict) -> dict:
-    """Remove a document. Destructive, so the user confirms it first.
-
-    Exists mainly so `create_document` has an inverse — §21 lists "links and
-    reminders have no inverse tool" as a real cost, and shipping a new write
-    without one would be adding to that list rather than working it down.
-    """
-    from memorymap.core.database import Document
-
-    document = session.get(Document, int(args.get("document_id") or 0))
-    if document is None:
-        raise ToolError(f"No document with id {args.get('document_id')}")
-    title = document.title
-    session.delete(document)
-    manager.log_action(session, "deleted", "document", None, title[:80])
-    session.commit()
-    return {"title": title, "label": f"ph:trash Deleted the document “{_clip(title, 40)}”"}
-
-
-def _whiteboard_board_filter(model, board_id: int | None):
-    """Same rule `routes_whiteboard.py`'s own `_board_filter` uses — `== None`
-    renders as SQL `= NULL`, never true for any row, so the default board
-    would read as empty however much was actually on it."""
-    return model.board_id.is_(None) if board_id is None else model.board_id == board_id
-
-
-def _read_whiteboard(session: Session, args: dict) -> dict:
-    """The read half of ROADMAP item 11's AI+whiteboard integration: lets the
-    agent answer "what's on my project-planning board?" without a human
-    describing it first. Nothing under `ai/` mentioned the whiteboard at all
-    before this — `autonomous.py`'s orphaned-card cleanup is a background
-    job, not agent context.
-    """
-    from memorymap.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
-
-    raw_board_id = args.get("board_id")
-    board_id = int(raw_board_id) if raw_board_id not in (None, "") else None
-
-    nodes = list(session.scalars(select(WhiteboardNode).where(_whiteboard_board_filter(WhiteboardNode, board_id))))
-    sketches = list(
-        session.scalars(select(WhiteboardSketch).where(_whiteboard_board_filter(WhiteboardSketch, board_id)))
-    )
-    objects = list(
-        session.scalars(select(WhiteboardObject).where(_whiteboard_board_filter(WhiteboardObject, board_id)))
-    )
-
-    entry_ids = [n.entry_id for n in nodes]
-    entries = (
-        {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(entry_ids)))} if entry_ids else {}
-    )
-    cards = [
-        {
-            "card_id": n.id,
-            "note_id": n.entry_id,
-            "preview": _clip(entries[n.entry_id].content, PREVIEW_CHARS) if n.entry_id in entries else "(note missing)",
-        }
-        for n in nodes
-    ]
-
-    links = []
-    for sketch in sketches:
-        try:
-            parsed = json.loads(sketch.data)
-        except (TypeError, ValueError):
-            continue
-        if isinstance(parsed, dict) and str(parsed.get("type", "")).startswith("link-"):
-            links.append({"from_card_id": parsed.get("sourceId"), "to_card_id": parsed.get("targetId")})
-
-    text_boxes = []
-    image_count = 0
-    for obj in objects:
-        try:
-            data = json.loads(obj.data)
-        except (TypeError, ValueError):
-            data = {}
-        if obj.kind == "text":
-            text_boxes.append({"object_id": obj.id, "text": _clip(str(data.get("content") or ""), PREVIEW_CHARS)})
-        elif obj.kind == "image":
-            image_count += 1
-
-    board_title = "Default board"
-    if board_id is not None:
-        board_entry = session.get(Entry, board_id)
-        if board_entry is not None:
-            board_title = manager.extract_title(board_entry.content) or _clip(board_entry.content, 40)
-
-    return {
-        "board_id": board_id,
-        "board_title": board_title,
-        "cards": cards,
-        "text_boxes": text_boxes,
-        "image_count": image_count,
-        "links": links,
-        "label": f"ph:folders Read whiteboard board “{board_title}”",
-    }
-
-
-def _search_whiteboard(session: Session, args: dict) -> dict:
-    """The search half of ROADMAP item 11's AI+whiteboard integration:
-    "whiteboard content becomes searchable the same way notes are." A real
-    embedding index over sketch/text-box content is a bigger lift (a new
-    table, a backfill, a place in the embedding-refresh cycle) than this
-    session's remaining scope — a keyword scan across every board's card
-    previews and text boxes still answers "which board did I put that on?",
-    which is the actual question this was asked for.
-    """
-    from memorymap.core.database import WhiteboardNode, WhiteboardObject
-
-    term = str(args.get("query") or "").strip().lower()
-    if not term:
-        raise ToolError("query is required")
-    limit = _limit_arg(args, default=DEFAULT_LIST_LIMIT)
-
-    matches = []
-    node_rows = list(session.scalars(select(WhiteboardNode)))
-    entry_ids = [n.entry_id for n in node_rows]
-    entries = {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(entry_ids)))} if entry_ids else {}
-    for node in node_rows:
-        entry = entries.get(node.entry_id)
-        if entry is not None and term in entry.content.lower():
-            matches.append({
-                "board_id": node.board_id,
-                "card_id": node.id,
-                "note_id": node.entry_id,
-                "preview": _clip(entry.content, PREVIEW_CHARS),
-            })
-
-    for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "text")):
-        try:
-            data = json.loads(obj.data)
-        except (TypeError, ValueError):
-            continue
-        text = str(data.get("content") or "")
-        if term in text.lower():
-            matches.append({
-                "board_id": obj.board_id,
-                "object_id": obj.id,
-                "text": _clip(text, PREVIEW_CHARS),
-            })
-
-    return {
-        "matches": matches[:limit],
-        "total_matching": len(matches),
-        "label": f"ph:magnifying-glass Searched whiteboards for “{_clip(term, 30)}”",
-    }
-
-
-def _add_whiteboard_card(session: Session, args: dict) -> dict:
-    """The write half's simplest step: place an existing note as a card on a
-    board — what "AI-guided diagram generation" reduces to for one note at a
-    time. Reuses `_require_note` (not a bare `session.get`) so a private note
-    gets the same refusal every other tool already gives it.
-    """
-    from memorymap.core.database import WhiteboardNode
-
-    entry = _require_note(session, args, "note_id")
-    raw_board_id = args.get("board_id")
-    board_id = int(raw_board_id) if raw_board_id not in (None, "") else None
-    x = float(args["x"]) if args.get("x") is not None else 100.0
-    y = float(args["y"]) if args.get("y") is not None else 100.0
-
-    existing = session.scalar(
-        select(WhiteboardNode).where(
-            WhiteboardNode.entry_id == entry.id,
-            _whiteboard_board_filter(WhiteboardNode, board_id),
-        )
-    )
-    if existing is not None:
-        return {
-            "card_id": existing.id,
-            "note_id": entry.id,
-            "already_there": True,
-            "label": f"ph:folders “{_clip(entry.content, 40)}” is already on that board",
-        }
-
-    node = WhiteboardNode(board_id=board_id, entry_id=entry.id, x=x, y=y, z=1)
-    session.add(node)
-    manager.log_action(session, "created", "whiteboard_node", entry.id, entry.content[:80])
-    session.commit()
-    session.refresh(node)
-    return {
-        "card_id": node.id,
-        "note_id": entry.id,
-        "x": node.x,
-        "y": node.y,
-        "label": f"ph:folders Placed “{_clip(entry.content, 40)}” on the whiteboard",
-    }
-
-
-def _add_whiteboard_link(session: Session, args: dict) -> dict:
-    """The other write step: connect two cards already on a board. No anchor
-    picking here (that's a live-drag interaction, ROADMAP item 11) — a
-    generated link is a floating one, which still terminates correctly on
-    each card's own border via `wbLinkEndpoints` on the client side.
-    """
-    from memorymap.core.database import WhiteboardNode, WhiteboardSketch
-
-    source = session.get(WhiteboardNode, int(args.get("from_card_id") or 0))
-    target = session.get(WhiteboardNode, int(args.get("to_card_id") or 0))
-    if source is None:
-        raise ToolError(f"No whiteboard card with id {args.get('from_card_id')}")
-    if target is None:
-        raise ToolError(f"No whiteboard card with id {args.get('to_card_id')}")
-    if source.id == target.id:
-        raise ToolError("Can't link a card to itself.")
-    if source.board_id != target.board_id:
-        raise ToolError("Both cards must be on the same board to link them.")
-
-    data = {
-        "type": "link-curved" if args.get("curved") else "link-straight",
-        "sourceId": source.id,
-        "targetId": target.id,
-        "color": "#8899ff",
-    }
-    sketch = WhiteboardSketch(board_id=source.board_id, data=json.dumps(data), x=0, y=0, z=1)
-    session.add(sketch)
-    manager.log_action(session, "created", "whiteboard_link", None, f"{source.id} -> {target.id}")
-    session.commit()
-    session.refresh(sketch)
-    return {
-        "link_id": sketch.id,
-        "from_card_id": source.id,
-        "to_card_id": target.id,
-        "label": "ph:link Linked the two cards",
-    }
-
-
-#: A runaway model asking for a diagram of hundreds of notes is a real
-#: failure mode a bulk tool has to bound, the same reason every list tool
-#: here clamps its own `limit` — one call shouldn't be able to flood a
-#: board.
-MAX_DIAGRAM_NODES = 60
-
-#: Layout constants mirrored from the whiteboard's own client-side
-#: `wbArrangeMindMap` (`WB_MINDMAP_TREE_ROW`/`_COL`/`_RADIAL_STEP` in
-#: app.js) so a diagram this tool places and one arranged by hand afterward
-#: read as the same spacing convention, not two different tools' opinions.
-_DIAGRAM_ROW = 170.0
-_DIAGRAM_COL = 320.0
-_DIAGRAM_RADIAL_STEP = 260.0
-
-
-def _diagram_tree_positions(root_ref: str, children_of: dict[str, list[str]], layout: str) -> dict[str, tuple[float, float]]:
-    """Board (x, y) for every node reachable from `root_ref`, laid out as a
-    tree (depth → column, siblings spread along a row) or radially (depth →
-    ring, siblings spread around it).
-
-    Not a port of d3.tree()'s own tidy-tree (Reingold-Tilford/Buchheim)
-    algorithm — that optimises for the *tightest* non-overlapping packing,
-    which this doesn't need to match exactly, only to produce. A leaf gets
-    the next free row slot in visitation order; an internal node's slot is
-    the mean of its children's, which is the simplest arrangement that is
-    still guaranteed non-overlapping and reads as a sensible tree. Depth is
-    plain BFS distance from the root.
-    """
-    import math
-
-    depth: dict[str, int] = {root_ref: 0}
-    queue = [root_ref]
-    while queue:
-        current = queue.pop(0)
-        for child in children_of.get(current, []):
-            if child in depth:
-                # Reached via two different paths — not a simple tree.
-                raise ToolError(f"'{child}' has more than one path back to the root — check parent_ref for a cycle or a duplicate.")
-            depth[child] = depth[current] + 1
-            queue.append(child)
-
-    slot: dict[str, float] = {}
-    next_leaf_slot = [0]
-
-    def assign(node: str) -> float:
-        kids = children_of.get(node, [])
-        if not kids:
-            value = float(next_leaf_slot[0])
-            next_leaf_slot[0] += 1
-        else:
-            value = sum(assign(k) for k in kids) / len(kids)
-        slot[node] = value
-        return value
-
-    assign(root_ref)
-
-    positions: dict[str, tuple[float, float]] = {}
-    if layout == "radial":
-        leaf_count = max(next_leaf_slot[0], 1)
-        for node, d in depth.items():
-            angle = (slot[node] / leaf_count) * 2 * math.pi - math.pi / 2
-            radius = d * _DIAGRAM_RADIAL_STEP
-            positions[node] = (radius * math.cos(angle), radius * math.sin(angle))
-    else:
-        for node, d in depth.items():
-            positions[node] = (d * _DIAGRAM_COL, slot[node] * _DIAGRAM_ROW)
-    return positions
-
-
-def _generate_diagram(session: Session, args: dict) -> dict:
-    """Place a whole tree of notes on a whiteboard in one call — the gap
-    named directly (BACKLOG.md §29d, HANDOVER.md): `add_whiteboard_card`/
-    `add_whiteboard_link` already exist, but x/y are free-form numbers the
-    model has to invent itself across many chained calls, exactly the
-    bookkeeping a small (2-8B) tool-calling model gets wrong. Here the
-    model only ever declares *structure* (a title or an existing note, and
-    which other node is its parent); this function creates whatever notes
-    need creating, computes every position server-side, and wires the
-    links — the same job `wbArrangeMindMap` already does client-side for a
-    board someone arranges by hand, now reachable in one round trip.
-    """
-    from memorymap.core.database import WhiteboardNode, WhiteboardSketch
-
-    raw_nodes = args.get("nodes")
-    if not isinstance(raw_nodes, list) or not raw_nodes:
-        raise ToolError("'nodes' must be a non-empty list.")
-    if len(raw_nodes) > MAX_DIAGRAM_NODES:
-        raise ToolError(f"That's {len(raw_nodes)} nodes — {MAX_DIAGRAM_NODES} is the most this can place in one call.")
-
-    raw_board_id = args.get("board_id")
-    board_id = int(raw_board_id) if raw_board_id not in (None, "") else None
-    layout = "radial" if args.get("layout") == "radial" else "tree"
-
-    by_ref: dict[str, dict] = {}
-    for i, raw in enumerate(raw_nodes):
-        ref = str(raw.get("ref") or "").strip()
-        if not ref:
-            raise ToolError(f"nodes[{i}] has no 'ref' — every node needs a short local id to reference as a parent.")
-        if ref in by_ref:
-            raise ToolError(f"'{ref}' is used as 'ref' on more than one node — refs must be unique.")
-        title = str(raw.get("title") or "").strip()
-        note_id = raw.get("note_id")
-        if bool(title) == bool(note_id):
-            raise ToolError(f"Node '{ref}' needs exactly one of 'title' (new note) or 'note_id' (existing note).")
-        by_ref[ref] = {"title": title, "note_id": note_id, "parent_ref": raw.get("parent_ref") or None}
-
-    roots = [ref for ref, node in by_ref.items() if not node["parent_ref"]]
-    if len(roots) != 1:
-        raise ToolError(
-            "Exactly one node must have no 'parent_ref' (the diagram's root) — "
-            f"found {len(roots)}."
-        )
-    root_ref = roots[0]
-
-    children_of: dict[str, list[str]] = {}
-    for ref, node in by_ref.items():
-        parent_ref = node["parent_ref"]
-        if parent_ref is None:
-            continue
-        if parent_ref not in by_ref:
-            raise ToolError(f"Node '{ref}' has parent_ref '{parent_ref}', which isn't in this call's own nodes.")
-        children_of.setdefault(parent_ref, []).append(ref)
-
-    positions = _diagram_tree_positions(root_ref, children_of, layout)
-
-    # Resolve every ref to a real Entry — creating one for a bare title,
-    # reusing (and permission-checking, same as any other tool) one already
-    # given as note_id. Two passes on purpose: entries have to exist before
-    # any card/link touches them, and failing on node 40 of 60 after
-    # already writing 39 cards would be a worse outcome than failing before
-    # anything is written at all.
-    entries: dict[str, Entry] = {}
-    for ref, node in by_ref.items():
-        if node["note_id"] is not None:
-            entries[ref] = _require_note(session, {"note_id": node["note_id"]})
-        else:
-            entries[ref] = manager.create_entry(
-                session, node["title"], category_name=manager.UNCATEGORISED, tags=[], ai_confidence=0
-            )
-    for ref, entry in entries.items():
-        deps.store_quietly(session, entry)
-
-    cards: dict[str, WhiteboardNode] = {}
-    for ref, entry in entries.items():
-        x, y = positions[ref]
-        existing = session.scalar(
-            select(WhiteboardNode).where(
-                WhiteboardNode.entry_id == entry.id,
-                _whiteboard_board_filter(WhiteboardNode, board_id),
-            )
-        )
-        node = existing or WhiteboardNode(board_id=board_id, entry_id=entry.id, z=1)
-        node.x, node.y = x, y
-        if existing is None:
-            session.add(node)
-        cards[ref] = node
-    session.commit()
-    for card in cards.values():
-        session.refresh(card)
-
-    link_count = 0
-    for ref, node in by_ref.items():
-        parent_ref = node["parent_ref"]
-        if parent_ref is None:
-            continue
-        data = {
-            "type": "link-straight",
-            "sourceId": cards[parent_ref].id,
-            "targetId": cards[ref].id,
-            "color": "#8899ff",
-        }
-        session.add(WhiteboardSketch(board_id=board_id, data=json.dumps(data), x=0, y=0, z=1))
-        link_count += 1
-    manager.log_action(session, "created", "whiteboard_diagram", None, f"{len(cards)} cards, root '{root_ref}'")
-    session.commit()
-
-    return {
-        "board_id": board_id,
-        "root_card_id": cards[root_ref].id,
-        "cards": [
-            {"ref": ref, "card_id": card.id, "note_id": entries[ref].id, "x": card.x, "y": card.y}
-            for ref, card in cards.items()
-        ],
-        "links_created": link_count,
-        "label": f"ph:map-trifold Placed {len(cards)} cards as a {layout} diagram",
-    }
-
+# The documents/whiteboard handlers themselves now live in .documents/
+# .whiteboard; imported here so they can still register in TOOLS below.
+from .documents import (  # noqa: E402
+    MAX_NEW_DOCUMENT_CHARS as MAX_NEW_DOCUMENT_CHARS,  # re-exported: tools.MAX_NEW_DOCUMENT_CHARS
+    _create_document,
+    _delete_document,
+    _get_document,
+    _list_documents,
+)
+from .whiteboard import (  # noqa: E402
+    MAX_DIAGRAM_NODES,
+    _add_whiteboard_card,
+    _add_whiteboard_link,
+    _generate_diagram,
+    _read_whiteboard,
+    _search_whiteboard,
+)
 
 def _search_chat_history(session: Session, args: dict) -> dict:
     """Past conversations. "What did we decide last week?" was unanswerable:
@@ -2228,167 +1504,12 @@ def _delete_tag(session: Session, args: dict) -> dict:
     }
 
 
-# --- categories -----------------------------------------------------------------
-#
-# Asked for indirectly: "more tools for managing… creating, editing, deleting,
-# and applying categories". Renaming and deleting already existed as UI actions
-# in routes_categories, but not as tools — so the agent could file a note into
-# a category it had no way to create, which is the wrong half of the job.
-#
-# These take NAMES, not ids. The model has never seen an id and would have to
-# guess one; every other categorising tool here already speaks in names.
-
-
-def _find_category(session: Session, name: str) -> Category:
-    """Resolve a category by name, or explain what exists.
-
-    Exact match FIRST, then case-insensitively. That order is not fussiness:
-    the case this tool exists for is a notebook that has grown both "Work" and
-    "work", and a purely case-insensitive lookup resolves both spellings to
-    whichever row comes back first — so `merge_categories(from="work",
-    into="Work")` found the same category twice and refused itself. The
-    duplicate is precisely what the user is trying to clear up.
-
-    Naming the alternatives on a miss matters more here than usual: the model
-    picked the name out of a conversation, and "no category called Work" with
-    nothing after it invites it to guess again rather than look.
-    """
-    wanted = (name or "").strip()
-    if not wanted:
-        raise ToolError("No category name was given")
-    found = session.scalar(select(Category).where(Category.name == wanted))
-    if found is None:
-        found = session.scalar(
-            select(Category).where(func.lower(Category.name) == wanted.lower())
-        )
-    if found is None:
-        existing = [c["name"] for c in manager.all_categories(session)]
-        known = ", ".join(f"“{n}”" for n in existing[:12]) or "none yet"
-        raise ToolError(f"There is no category called “{wanted}”. There is: {known}")
-    return found
-
-
-def _create_category(session: Session, args: dict) -> dict:
-    name = str(args.get("name") or "").strip()
-    if not name:
-        raise ToolError("A category needs a name")
-    if len(name) > 100:
-        raise ToolError("That category name is too long (100 characters max)")
-    existing = session.scalar(
-        select(Category).where(func.lower(Category.name) == name.lower())
-    )
-    if existing is not None:
-        # Not an error: the model asked for a category to exist, and it does.
-        # Failing here would send it round a retry loop over a done job.
-        return {
-            "name": existing.name,
-            "created": False,
-            "label": f"ph:folder “{existing.name}” already exists",
-        }
-    category = manager.get_or_create_category(session, name)
-    description = str(args.get("description") or "").strip()
-    if description:
-        category.description = description[:500]
-    manager.log_action(session, "created", "category", category.id, name)
-    session.commit()
-    return {
-        "name": category.name,
-        "created": True,
-        "label": f"ph:folder Created the category “{category.name}”",
-        # Safe to reverse: a category made a moment ago holds nothing, so
-        # removing it cannot strand any notes.
-        "undo": {"tool": "delete_category", "arguments": {"name": category.name}},
-    }
-
-
-def _rename_category(session: Session, args: dict) -> dict:
-    category = _find_category(session, str(args.get("old") or ""))
-    new_name = str(args.get("new") or "").strip()
-    if not new_name:
-        raise ToolError("A category needs a name")
-    old_name = category.name
-    try:
-        result = manager.rename_category(session, category.id, new_name)
-    except ValueError as exc:
-        raise ToolError(str(exc)) from exc
-
-    if result["merged"]:
-        # An undo is deliberately NOT offered here. Renaming onto an existing
-        # name merges the two, and once both sets of notes sit in one category
-        # nothing records which came from where — "undo" would move all of them
-        # back, inventing a history that never happened.
-        return {
-            "name": new_name,
-            "merged": True,
-            "notes_moved": result["moved"],
-            "label": (
-                f"ph:folder Merged “{old_name}” into “{new_name}” "
-                f"({result['moved']} notes moved)"
-            ),
-        }
-    return {
-        "name": new_name,
-        "merged": False,
-        "notes_moved": 0,
-        "label": f"ph:folder Renamed “{old_name}” → “{new_name}”",
-        "undo": {
-            "tool": "rename_category",
-            "arguments": {"old": new_name, "new": old_name},
-        },
-    }
-
-
-def _merge_categories(session: Session, args: dict) -> dict:
-    """Fold one category into another. Separate from rename on purpose.
-
-    `rename_category` merges as a side effect when the new name is taken, which
-    is the right behaviour for a rename and a terrible way to *ask* for a merge
-    — the model would have to know a name was already used to predict what its
-    call did. Saying "merge" says what is meant.
-    """
-    source = _find_category(session, str(args.get("from") or ""))
-    target = _find_category(session, str(args.get("into") or ""))
-    if source.id == target.id:
-        raise ToolError(f"“{source.name}” and “{target.name}” are the same category")
-    source_name, target_name = source.name, target.name
-    try:
-        result = manager.rename_category(session, source.id, target_name)
-    except ValueError as exc:
-        raise ToolError(str(exc)) from exc
-    return {
-        "from": source_name,
-        "into": target_name,
-        "notes_moved": result["moved"],
-        "label": (
-            f"ph:folder Merged “{source_name}” into “{target_name}” "
-            f"({result['moved']} notes moved)"
-        ),
-    }
-
-
-def _delete_category(session: Session, args: dict) -> dict:
-    """Remove a category. Its notes survive as Uncategorised.
-
-    Deleting a category never deletes notes — an organising action that could
-    destroy writing is not what anyone means by "delete category". Still marked
-    destructive, so the user approves it before it runs: it is not reversible
-    from here, because nothing records which notes were moved out.
-    """
-    category = _find_category(session, str(args.get("name") or ""))
-    name = category.name
-    try:
-        result = manager.delete_category(session, category.id)
-    except ValueError as exc:
-        raise ToolError(str(exc)) from exc
-    return {
-        "name": name,
-        "notes_moved": result["moved"],
-        "label": (
-            f"ph:folder Deleted the category “{name}” — {result['moved']} "
-            f"note{'' if result['moved'] == 1 else 's'} kept, now Uncategorised"
-        ),
-    }
-
+from .categories import (  # noqa: E402
+    _create_category,
+    _delete_category,
+    _merge_categories,
+    _rename_category,
+)
 
 #: How many choices an `ask_user` question may offer. Two is the minimum for a
 #: question to be one; six is where a list of buttons stops being quicker to
@@ -2892,7 +2013,6 @@ def _audit_link_reasons(session: Session, args: dict) -> dict:
 TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in [
-        
         ToolSpec(
             "audit_link_reasons",
             "Audits vague graph link reasons (like 'similar in meaning') and rewrites them by deducing a specific reason based on both notes.",
@@ -2900,11 +2020,11 @@ TOOLS: dict[str, ToolSpec] = {
                 "type": "object",
                 "properties": {
                     "limit": {"type": "integer", "description": "Max number of links to process (default 50)"}
-                }
+                },
             },
             _audit_link_reasons,
         ),
-ToolSpec(
+        ToolSpec(
             "save_user_preference",
             "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
             "Use this when the user tells you about their preferences, work style, or rules they want you to remember.",
@@ -4019,8 +3139,8 @@ def focus_for(question: str, recent: str = "") -> list[str] | None:
 
 
 def tool_enabled(name: str) -> bool:
-    """A tool is offered unless the user turned it off in Settings → Tools
-    (Wave O). web_search additionally requires the online opt-in."""
+    """A tool is offered unless the user turned it off in Settings → Tools.
+    web_search additionally requires the online opt-in."""
     config = deps.get_config()
     if name in ("web_search", "read_url") and not config.get_preference(
         "web_search_enabled", False
@@ -4150,7 +3270,7 @@ def budget_for_window(context_tokens: int) -> int:
 
 
 def tool_catalog() -> list[dict]:
-    """Metadata for the Settings → Tools toggles (Wave O)."""
+    """Metadata for the Settings → Tools toggles."""
     return [
         {
             "name": spec.name,

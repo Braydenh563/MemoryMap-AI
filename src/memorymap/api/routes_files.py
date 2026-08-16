@@ -1,4 +1,4 @@
-"""File attachments on entries (Wave B).
+"""File attachments on entries.
 
 Bytes live in the uploads folder under a random name (no path traversal
 possible); the original filename is kept only for downloads.
@@ -78,10 +78,7 @@ def upload_file(
 
 
 def _existing_attachment(session: Session, attachment_id: int) -> Attachment:
-    attachment = session.get(Attachment, attachment_id)
-    if attachment is None:
-        raise HTTPException(status_code=404, detail="Attachment not found")
-    return attachment
+    return deps.get_or_404(session, Attachment, attachment_id, "Attachment not found")
 
 
 @media_router.get("/files/{attachment_id}")
@@ -297,9 +294,7 @@ def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dic
     the frontend renders a "this image was deleted" placeholder rather than
     a broken-image glyph, the same live-reported ask.
     """
-    upload = session.get(MediaUpload, upload_id)
-    if upload is None:
-        raise HTTPException(status_code=404, detail="No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     media_dir = (deps.get_config().data_dir / "media").resolve()
     candidate = (media_dir / upload.filename).resolve()
     if candidate.is_relative_to(media_dir):
@@ -326,9 +321,7 @@ def rename_media(
     ideas of what a filename may contain is how the strict one quietly stops
     being the rule.
     """
-    upload = session.get(MediaUpload, upload_id)
-    if upload is None:
-        raise HTTPException(status_code=404, detail="No upload with that id")
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     try:
         upload.original_name = manager.validate_attachment_filename(body.original_name)
     except ValueError as exc:

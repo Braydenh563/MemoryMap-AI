@@ -1,6 +1,6 @@
 """The librarian: answers a question using retrieved notes (LLM prompt #2).
 
-Strictly read-only — it never writes to the database (plan Phase 2).
+Strictly read-only — it never writes to the database.
 When the chat model is unavailable the caller still gets a friendly
 sentence, never an exception, because the raw results are shown anyway.
 """
@@ -53,7 +53,7 @@ ABOUT_APP_BRIEF = (
     "of their actual notes."
 )
 
-# Built-in personas (Wave C). Users add their own in Settings → Personas.
+# Built-in personas. Users add their own in Settings → Personas.
 BUILTIN_PERSONAS = [
     {"name": "Librarian", "prompt": DEFAULT_PERSONA},
     {
@@ -90,7 +90,7 @@ def resolve_persona_prompt(name: str | None, config) -> str | None:
     return None
 
 
-# The user's communication-style preference (Phase 4) tweaks the tone.
+# The user's communication-style preference tweaks the tone.
 STYLE_HINTS = {
     "friendly": "Be warm and conversational. Keep it brief.",
     "concise": "Be as brief as possible — bullet points are fine.",
@@ -313,7 +313,7 @@ def answer(
     retrieved `notes` (dicts with 'content' and 'category').
 
     `use_utility_model` routes background jobs (the weekly digest) to the
-    small fast model instead of the main chat model (Wave N)."""
+    small fast model instead of the main chat model."""
     if not notes:
         return NO_RESULTS_MESSAGE, None
     if not ollama.is_running():
@@ -413,7 +413,7 @@ def converse(
         return (OFFLINE_ABOUT_APP if intent == "about_app" else OFFLINE_SMALLTALK), None
 
 
-# --- AI writing help (Wave N) -----------------------------------------------------
+# --- AI writing help -----------------------------------------------------
 
 IMPROVE_MODES = {
     "proofread": (
@@ -442,7 +442,7 @@ def improve_writing(
     """Return an improved version of `text` (proofread / rewrite / concise /
     custom). Raises OllamaError if the model is unavailable — the caller
     decides what to tell the user. Uses the utility model: this is a quick
-    fix, not a conversation (Wave N).
+    fix, not a conversation.
 
     `custom_instruction` is read only when `mode == "custom"` — asked for
     directly, so a person isn't limited to the three fixed presets ("make it

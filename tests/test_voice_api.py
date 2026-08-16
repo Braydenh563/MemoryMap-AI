@@ -1,4 +1,4 @@
-"""Wave H: voice endpoints — graceful without Whisper, working with it."""
+"""Voice endpoints — graceful without Whisper, working with it."""
 
 from __future__ import annotations
 
@@ -143,3 +143,38 @@ def test_transcribe_meeting_has_its_own_higher_ceiling_than_transcribe(client, m
         "/voice/transcribe-meeting", files={"file": ("meeting.webm", big, "audio/webm")}
     )
     assert accepted.status_code == 200
+
+
+# --- the dictation model-size preference ---------------------------------------
+#
+# `voice_model` was read by this route from the moment it shipped, but had no
+# field in `PreferencesBody` and nothing in Settings ever wrote it — every
+# install silently ran "base" regardless of what a user picked, because there
+# was no way to pick anything.
+
+
+def test_voice_model_preference_roundtrips(client):
+    assert client.get("/preferences").json()["voice_model"] == "base"
+    updated = client.put("/preferences", json={"voice_model": "small"}).json()
+    assert updated["voice_model"] == "small"
+    assert client.get("/preferences").json()["voice_model"] == "small"
+
+
+def test_an_unknown_voice_model_is_rejected(client):
+    assert client.put("/preferences", json={"voice_model": "huge"}).status_code == 422
+
+
+def test_the_chosen_voice_model_reaches_the_transcriber(client, monkeypatch):
+    monkeypatch.setattr(voice, "whisper_available", lambda: True)
+    seen = {}
+
+    def fake_transcribe(path, model_size="base"):
+        seen["model_size"] = model_size
+        return "ok"
+
+    monkeypatch.setattr(voice, "transcribe", fake_transcribe)
+    client.put("/preferences", json={"voice_model": "small"})
+    client.post(
+        "/voice/transcribe", files={"file": ("clip.webm", b"fake-audio", "audio/webm")}
+    )
+    assert seen["model_size"] == "small"

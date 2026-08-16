@@ -471,3 +471,31 @@ def test_the_preview_is_shorter_than_a_search_result(session):
     """A search returns a handful of notes and is choosing between them; a
     graph walk returns twelve and is only saying which ones exist."""
     assert tools.GRAPH_PREVIEW_CHARS < tools.PREVIEW_CHARS
+
+
+# --- the /entries/{id}/related HTTP endpoint (semantic, not the graph walk above) --
+
+
+def test_related_entries_endpoint(ai_client):
+    joke = ai_client.post("/entries", json={"content": "a funny scarecrow joke"}).json()
+    ai_client.post("/entries", json={"content": "another funny pun"})
+    ai_client.post("/entries", json={"content": "buy milk and eggs"})
+
+    related = ai_client.get(f"/entries/{joke['id']}/related").json()
+    contents = [e["content"] for e in related]
+    assert "another funny pun" in contents
+    assert "buy milk and eggs" not in contents
+
+
+def test_notes_sharing_an_uppercase_tag_are_still_neighbours(session):
+    """The tag index was keyed lowercase and then intersected against tags at
+    their original case, so `#Work` matched the index, produced an empty
+    intersection, and the two notes were reported as unrelated."""
+    from memorymap.ai import tools
+
+    first = _note(session, "the first", tags=["Work"])
+    _note(session, "the second", tags=["Work"])
+
+    result = tools.execute_tool(session, "related_notes", {"note_id": first.id})
+    blob = json.dumps(result).lower()
+    assert "the second" in blob

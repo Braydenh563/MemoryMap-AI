@@ -1,4 +1,4 @@
-"""Tag manager endpoints (Wave B): see, rename/merge, delete tags."""
+"""Tag manager endpoints: see, rename/merge, delete tags."""
 
 from __future__ import annotations
 

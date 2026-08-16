@@ -33,6 +33,7 @@ from memorymap.core import deps
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     Document,
     EmbeddingRecord,
+    Entry,
     EntryLink,
     EntryRevision,
 )
@@ -151,7 +152,7 @@ def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
 
 
 def _find_near_duplicate(session: Session, entry) -> SimilarOut | None:  # noqa: ANN001
-    """Warn about a saved note that says almost the same thing (Wave B).
+    """Warn about a saved note that says almost the same thing.
     Purely informational — the save has already happened."""
     try:
         results = search_manager.semantic_search(
@@ -168,10 +169,10 @@ def _find_near_duplicate(session: Session, entry) -> SimilarOut | None:  # noqa:
 
 
 def _existing_entry(session: Session, entry_id: int):  # noqa: ANN202
-    entry = manager.get_entry(session, entry_id)
-    if entry is None:
-        raise HTTPException(status_code=404, detail="Entry not found")
-    return entry
+    # `manager.get_entry` is `session.get(Entry, entry_id)` under the hood
+    # (memorymap/entry/manager.py); going through `deps.get_or_404` directly
+    # is equivalent and consolidates the 404.
+    return deps.get_or_404(session, Entry, entry_id, "Entry not found")
 
 
 @router.post("", response_model=EntryOut, status_code=201)
@@ -184,7 +185,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         # Guided mode: the user chose — the AI stays out of it entirely.
         category, confidence, filed_by = body.category, 100, "user"
     elif parent is not None:
-        # Continuing a thread (Wave B): a train of thought stays in its
+        # Continuing a thread: a train of thought stays in its
         # parent's category — predictable beats clever here.
         category = manager.category_name_for(session, parent)
         confidence, filed_by = 75, "thread"
@@ -246,7 +247,7 @@ def add_context(
     entry_id: int, body: ContextBody, session: Session = Depends(get_session)
 ) -> EntryOut:
     """Append context to an existing note and let the janitor rethink the
-    category with the fuller picture (Wave B). If the user filed this
+    category with the fuller picture. If the user filed this
     entry themselves, the category is left alone — their call stands."""
     entry = _existing_entry(session, entry_id)
     entry.content = f"{entry.content}\n\n--- added context ---\n{body.text.strip()}"
@@ -390,7 +391,7 @@ class ImproveBody(BaseModel):
 @router.post("/improve")
 def improve_writing(body: ImproveBody) -> dict:
     """Return an AI-polished version of some note text without saving it —
-    the UI shows a before/after and the user decides (Wave N). Never
+    the UI shows a before/after and the user decides. Never
     touches the note itself; the AI is a servant, not a gatekeeper."""
     text = body.text.strip()
     if not text:
@@ -429,7 +430,7 @@ SEMANTIC_LIST_LIMIT = 25
 @router.get("/link-suggestions")
 def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     """Pairs of notes that mean similar things but aren't linked yet —
-    the auto-linker (Wave N). Suggestion-only: it never links anything on
+    the auto-linker. Suggestion-only: it never links anything on
     its own, it hands the pairs to the UI to approve. Empty when the
     embedding backend is unavailable (semantic search off).
 
@@ -545,7 +546,7 @@ def backfill_link_reasons(
 
 @router.get("/{entry_id}/related", response_model=list[EntryOut])
 def related_entries(entry_id: int, session: Session = Depends(get_session)) -> list[EntryOut]:
-    """Semantic neighbours of one entry ("see also", Wave B)."""
+    """Semantic neighbours of one entry ("see also")."""
     entry = _existing_entry(session, entry_id)
     try:
         results = search_manager.semantic_search(
@@ -609,7 +610,7 @@ def list_entries(
 @router.get("/most-accessed", response_model=list[EntryOut])
 def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
     """Top entries by how often they've been opened or matched a
-    question — the Phase 5 quick-access dashboard."""
+    question — the quick-access dashboard."""
     entries = manager.most_accessed_entries(session, limit=5)
     return _to_out_bulk(session, entries)
 
@@ -918,5 +919,47 @@ def update_link_reason(
     link = session.get(EntryLink, link_id)
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="Link not found")
-    manager.set_link_reason(session, link, body.reason)
-    return _to_out(session, entry)
+    try:
+        manager.set_link_reason(session, link, body.reason)
+        return _to_out(session, entry)
+    except Exception:
+        # The exception text can carry paths or content; only the log gets it
+        # (see test_removing_a_model_never_returns_the_filesystem_path).
+        logger.error("Failed to update link reason", exc_info=True)
+        raise HTTPException(status_code=500, detail="Couldn't save that reason.") from None
+
+
+@router.post("/{entry_id}/links/{link_id}/generate-reason")
+def generate_link_reason_endpoint(
+    entry_id: int, link_id: int, session: Session = Depends(get_session)
+) -> dict:
+    """Ask the model to generate a specific reason why these two notes are connected."""
+    entry = _existing_entry(session, entry_id)
+    link = session.get(EntryLink, link_id)
+    if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    source = session.get(Entry, link.source_entry_id)
+    target = session.get(Entry, link.target_entry_id)
+    if not source or not target:
+        raise HTTPException(status_code=404, detail="Notes not found")
+    # Same boundary generate-title and remove-title enforce: a private note's
+    # decrypted text must never reach the model. Every other AI-facing read
+    # path in this codebase (search, embeddings, janitor, chat linking...)
+    # excludes is_private notes for the same reason.
+    if source.is_private or target.is_private:
+        raise HTTPException(
+            status_code=400, detail="Make both notes readable first — private notes can't be sent to the AI."
+        )
+
+    try:
+        reason = librarian.generate_link_reason(
+            manager.readable_content(source),
+            manager.readable_content(target),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+        )
+        return {"reason": reason}
+    except Exception:
+        logger.error("Failed to generate link reason", exc_info=True)
+        raise HTTPException(status_code=500, detail="Couldn't generate a reason right now.") from None

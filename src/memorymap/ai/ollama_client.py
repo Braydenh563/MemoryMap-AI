@@ -260,7 +260,7 @@ class OllamaClient(Provider):
     def pull(self, name: str) -> Iterator[dict]:
         """Download a model. Ollama streams JSON lines with 'status' and
         'completed'/'total' bytes — yield each so a progress bar can be
-        driven from them (used by the Model Manager, Phase 3.5)."""
+        driven from them (used by the Model Manager)."""
         try:
             with requests.post(
                 f"{self.base_url}/api/pull",
@@ -505,7 +505,7 @@ class OllamaClient(Provider):
         tools: list[dict],
         mode: str | None = None,
     ) -> dict:
-        """One non-streamed chat turn with tools offered (Wave G).
+        """One non-streamed chat turn with tools offered.
 
         Returns {"content", "thinking", "tool_calls", "raw_tool_calls"}.
         tool_calls is normalised to [{"name": str, "arguments": dict}];

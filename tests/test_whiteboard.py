@@ -429,3 +429,36 @@ def test_purging_a_board_note_detaches_its_cards_instead_of_deleting_them(
     default_board = board_client.get("/whiteboard/").json()["nodes"]
     assert [n["id"] for n in default_board] == [node["id"]]
     assert default_board[0]["board_id"] is None
+
+
+def test_moving_a_card_keeps_it_on_its_board(ai_client, session):
+    """`PUT /whiteboard/nodes/{id}` takes the whole node, and the browser was
+    not sending `board_id` — so dragging a card on a named board read as "move
+    this to the global board" and it vanished from the board you were looking
+    at."""
+    entry = _note(session, "a note")
+    board = _note(session, "a board")
+    node = ai_client.post(
+        "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": board.id}
+    ).json()
+
+    moved = ai_client.put(
+        f"/whiteboard/nodes/{node['id']}",
+        json={"entry_id": entry.id, "board_id": board.id, "x": 40, "y": 50},
+    )
+    assert moved.status_code == 200
+    assert moved.json()["board_id"] == board.id
+    on_board = ai_client.get(f"/whiteboard/?board_id={board.id}").json()
+    assert [n["id"] for n in on_board["nodes"]] == [node["id"]]
+
+
+def test_the_frontend_sends_the_board_when_it_moves_a_card():
+    """The guard for the half of that bug that lives in the browser."""
+    from memorymap.api.app import FRONTEND_DIR
+
+    # The whiteboard subsystem moved out of app.js into its own file, loaded
+    # by a second <script> tag — see index.html — so this comment now lives
+    # in whiteboard.js, not app.js.
+    whiteboard_js = (FRONTEND_DIR / "whiteboard.js").read_text(encoding="utf-8")
+    save = whiteboard_js[whiteboard_js.index("// Sync back to API.") :][:900]
+    assert "board_id" in save, "the coordinate save must carry the card's board"

@@ -1,4 +1,6 @@
-"""Wave G: agentic tools — registry, agent loop, confirm flow, skills."""
+"""Agentic tools: the registry, the tool-calling agent loop over the
+streaming chat endpoint, the destructive-call confirm flow, skills
+preferences, and hallucinated-write recovery."""
 
 from __future__ import annotations
 
@@ -369,3 +371,60 @@ def test_agent_warns_on_hallucinated_write(ai_client, fake_ollama):
     assert "Heads up" in answer
     assert "saved a note" in answer
     assert "didn't actually run the tool" in answer
+
+
+# --- per-tool enable/disable toggles ---------------------------------------------
+
+
+def test_tool_catalog_lists_tools(client):
+    catalog = client.get("/chat/tools").json()
+    names = {t["name"] for t in catalog}
+    assert {"create_note", "delete_note", "set_reminder"} <= names
+    delete = next(t for t in catalog if t["name"] == "delete_note")
+    assert delete["destructive"] is True
+
+
+def test_disabled_tool_is_hidden_and_refused(ai_client):
+    from memorymap.ai import tools
+
+    # Disable create_note via the preference.
+    ai_client.put("/preferences", json={"disabled_tools": ["create_note"]})
+    offered = [t["function"]["name"] for t in tools.ollama_tools()]
+    assert "create_note" not in offered
+
+    # And the execute endpoint refuses it too.
+    from memorymap.core import deps
+
+    session = deps.get_db().session()
+    try:
+        result = tools.execute_tool(session, "create_note", {"content": "x"})
+        assert "error" in result and "turned off" in result["error"]
+    finally:
+        session.close()
+
+
+def test_disabled_tools_preference_roundtrips(client):
+    body = client.put("/preferences", json={"disabled_tools": ["delete_tag"]}).json()
+    assert body["disabled_tools"] == ["delete_tag"]
+    assert client.get("/preferences").json()["disabled_tools"] == ["delete_tag"]
+
+
+# --- registry classification: what counts as a read, a write, or a duplicate ---
+
+
+def test_find_similar_notes_is_a_read_not_a_write():
+    """It was added to WRITE_TOOLS. A read listed there counts as work for the
+    "you claimed you saved it" checker, labels search-only skills as acting,
+    and — the expensive one — trips the write branch in `run_agent`, which
+    clears the read-dedup ledger and re-opens every answered read."""
+    assert "find_similar_notes" not in tools.WRITE_TOOLS
+
+
+def test_there_is_only_one_skill_writing_tool():
+    """`generate_skill` wrote raw AI-authored dicts straight into preferences,
+    skipping `save_skill`'s schema check, its built-in-name guard, its
+    validation of every declared tool name, and MAX_SKILLS. It also called a
+    `config.save_preference` method that does not exist, so it could only ever
+    have raised."""
+    assert "generate_skill" not in tools.TOOLS
+    assert "save_skill" in tools.TOOLS

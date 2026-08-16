@@ -404,3 +404,104 @@ def test_the_live_pill_is_not_left_claiming_to_be_live():
     start = source.index("function closeLogs() {")
     body = source[start : start + 500]
     assert "setLogLive" in body
+
+
+# --- the log buffer's dropped records -----------------------------------------
+
+
+def test_nothing_is_reported_dropped_before_the_buffer_fills(client):
+    _log(10)
+    assert client.get("/logs/stats").json()["dropped"] == 0
+
+
+def test_records_pushed_out_of_the_ring_are_counted(client):
+    """A deque with a maxlen discards silently, so a busy hour and a quiet one
+    look identical: the same 500 rows, and no way to tell whether the top row
+    is the start of the story or the middle of it."""
+    _log(logbuffer.MAX_RECORDS + 25)
+    stats = client.get("/logs/stats").json()
+    assert stats["dropped"] >= 25
+    assert stats["held"] == logbuffer.MAX_RECORDS
+    assert stats["capacity"] == logbuffer.MAX_RECORDS
+
+
+def test_the_gap_says_how_far_back_the_log_still_reaches(client):
+    _log(logbuffer.MAX_RECORDS + 5)
+    assert client.get("/logs/stats").json()["dropped_since"]
+
+
+def test_clearing_the_log_clears_the_gap_with_it(client):
+    """Otherwise the viewer reports a hole in a log it just emptied itself."""
+    _log(logbuffer.MAX_RECORDS + 5)
+    client.delete("/logs")
+    assert client.get("/logs/stats").json()["dropped"] == 0
+
+
+def test_truncated_and_dropped_are_different_numbers(client):
+    """One is gone for good; the other is one bigger `limit` away. Reporting
+    them as the same thing sends a reader looking in the wrong place."""
+    _log(50)
+    stats = logbuffer.stats(limit=10)
+    assert stats["dropped"] == 0
+    assert stats["truncated"] >= 40
+
+
+def test_the_records_endpoint_is_still_a_plain_list(client):
+    """The stats live at their own path precisely so this shape never moved."""
+    assert isinstance(client.get("/logs").json(), list)
+
+
+# --- the buffer itself, and the /logs endpoints on top of it -------------------
+
+
+def test_buffer_captures_and_caps(client):
+    logging.getLogger("memorymap.test").info("hello from the test")
+
+    records = client.get("/logs").json()
+    assert any("hello from the test" in r["message"] for r in records)
+    record = next(r for r in records if "hello from the test" in r["message"])
+    assert record["level"] == "INFO"
+    assert record["logger"] == "memorymap.test"
+
+
+def test_ai_decisions_are_logged(client):
+    client.post("/entries", json={"content": "a note to file"})
+
+    messages = [r["message"] for r in client.get("/logs").json()]
+    assert any("janitor: filed by" in m for m in messages)
+
+
+def test_clear_endpoint(client):
+    logging.getLogger("memorymap.test").info("about to vanish")
+    # Not inside the assert: `python -O` removes assert statements, taking the
+    # clear with them and leaving a test that proves nothing.
+    cleared = client.delete("/logs")
+    assert cleared.json() == {"cleared": True}
+    # New records may arrive after the clear (request plumbing logs);
+    # what matters is that the old ones are gone.
+    messages = [r["message"] for r in client.get("/logs").json()]
+    assert not any("about to vanish" in m for m in messages)
+
+
+def test_install_is_idempotent():
+    logbuffer.install()
+    logbuffer.install()
+    root = logging.getLogger()
+    buffers = [h for h in root.handlers if isinstance(h, logbuffer.BufferHandler)]
+    assert len(buffers) == 1
+
+
+def test_log_noise_filter_drops_windows_proactor_chatter():
+    """The Windows asyncio Proactor error is benign and must not reach the
+    log viewer, but real errors still must."""
+    noise = logging.LogRecord(
+        "asyncio", logging.ERROR, __file__, 1,
+        "Exception in callback _ProactorBasePipeTransport._call_connection_lost(None)",
+        None, None,
+    )
+    real = logging.LogRecord(
+        "memorymap", logging.ERROR, __file__, 1, "Something actually broke", None, None
+    )
+    log_filter = logbuffer.NoiseFilter()
+    assert log_filter.filter(noise) is False
+    assert log_filter.filter(real) is True

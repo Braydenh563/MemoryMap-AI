@@ -1,5 +1,5 @@
 """Preferences, audit-log viewer, data export, and recycle-bin
-maintenance (plan Phase 4).
+maintenance.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ import zipfile
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
@@ -27,7 +26,7 @@ from sqlalchemy.orm import Session
 
 from memorymap import __version__
 from memorymap.ai import skills
-from memorymap.core import backup, deps, embedmodels, extras, logbuffer
+from memorymap.core import deps, embedmodels, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -125,23 +124,23 @@ class PreferencesBody(BaseModel):
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
-    # Optional context about the user for the librarian (Phase 5).
+    # Optional context about the user for the librarian.
     # profile_enabled is the opt-out switch; the delete button in the UI
     # simply saves an empty string.
     user_profile: str | None = Field(default=None, max_length=2000)
     profile_enabled: bool | None = None
-    # Capture templates (Wave B): user-defined prefills for the note box.
+    # Capture templates: user-defined prefills for the note box.
     custom_templates: list[TemplateItem] | None = Field(default=None, max_length=20)
-    # Personas (Wave C): custom system prompts + which one is active.
+    # Personas: custom system prompts + which one is active.
     personas: list[PersonaItem] | None = Field(default=None, max_length=20)
     active_persona: str | None = Field(default=None, max_length=40)
     # Saved appearance looks. Server-side rather than in the browser because a
     # theme someone built by hand is a thing they would be upset to lose to a
     # cleared cache — and here it rides along in the daily backup too.
     custom_themes: list[CustomThemeItem] | None = Field(default=None, max_length=20)
-    # Dashboard layout (Wave D): widget order + hidden widgets.
+    # Dashboard layout: widget order + hidden widgets.
     dashboard_layout: "DashboardLayout | None" = None
-    # Wave G: user-defined skills, and whether the chat AI may use tools.
+    # User-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
     # The local-AI lock (§33). On by default; see core.config.
@@ -150,7 +149,7 @@ class PreferencesBody(BaseModel):
     # what it plausibly needs (§11a — the schemas are most of the per-round
     # cost); "all" sends the whole registry, as it always did.
     tool_focus: Literal["auto", "all"] | None = None
-    # Wave F: the ONE feature that goes online — off unless the user opts in.
+    # The ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
     searxng_autostart: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
@@ -175,8 +174,13 @@ class PreferencesBody(BaseModel):
     # background jobs, agent runs and general activity while a due reminder
     # still gets through either way.
     notifications_muted_except_reminders: bool | None = None
-    # Wave O: agent tools the user has switched off (by tool name).
+    # Agent tools the user has switched off (by tool name).
     disabled_tools: list[str] | None = Field(default=None, max_length=50)
+    # Which faster-whisper model size the dictation buttons load. Read by
+    # `routes_voice.py` since the feature shipped; nothing ever let a user set
+    # it, so every install has silently run "base" regardless of the box's
+    # speed or the length of what's being dictated.
+    voice_model: Literal["tiny", "base", "small", "medium"] | None = None
     # The user's IANA timezone, reported by the browser at startup. Anything
     # the AI reasons about in time ("in 10 minutes", "tomorrow at 9") is
     # resolved against this, because the server may be running in UTC while
@@ -281,6 +285,7 @@ def get_preferences() -> dict:
             config.get_preference("search_provider", websearch.DEFAULT_PROVIDER)
         ),
         "disabled_tools": config.get_preference("disabled_tools", []),
+        "voice_model": config.get_preference("voice_model", "base"),
         "saved_searches": config.get_preference("saved_searches", []),
         # Echoed back so the browser can tell whether the zone it just
         # detected is already the stored one, and skip a pointless write on
@@ -560,9 +565,7 @@ def update_memory(
 ) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = session.get(UserPreference, preference_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
     if body.content is not None:
         text_ = body.content.strip()
         if not text_:
@@ -579,9 +582,7 @@ def update_memory(
 def forget_memory(preference_id: int, session: Session = Depends(get_session)) -> dict:
     from memorymap.core.database import UserPreference
 
-    row = session.get(UserPreference, preference_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="No such preference")
+    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
     session.delete(row)
     session.commit()
     return {"status": "ok"}
@@ -1234,291 +1235,8 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
     }
 
 
-# --- web search (Wave F) -----------------------------------------------------------
 
-
-def _require_web_search() -> str:
-    """403 while the preference is off so nothing can quietly go online.
-    Returns the configured SearXNG URL ('' = use DuckDuckGo)."""
-    config = deps.get_config()
-    if not config.get_preference("web_search_enabled", False):
-        raise HTTPException(
-            status_code=403,
-            detail="Web search is turned off. Enable it in Settings → Web search "
-            "(this is the one feature that goes online).",
-        )
-    return str(config.get_preference("searxng_url", "") or "")
-
-
-@router.get("/websearch/providers")
-def web_search_providers() -> dict:
-    """The engine choices, for the selector in Settings → Web search.
-
-    Served rather than duplicated in the frontend so the list can't drift from
-    what `search_web` will actually accept.
-    """
-    searxng_url, provider = websearch.settings_from(deps.get_config())
-    return {
-        "selected": provider,
-        "searxng_url": searxng_url,
-        "providers": [
-            {"id": key, **value} for key, value in websearch.PROVIDERS.items()
-        ],
-    }
-
-
-@router.get("/websearch")
-def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) -> dict:
-    """Opt-in web lookup through whichever engine the user chose."""
-    _require_web_search()
-    searxng, provider = websearch.settings_from(deps.get_config())
-    try:
-        results = websearch.search_web(
-            q,
-            limit=max(1, min(limit, 10)),
-            searxng_url=searxng or None,
-            provider=provider,
-        )
-    except websearch.WebSearchError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    manager.log_action(session, "web_searched", "chat", detail=q[:120])
-    session.commit()
-    # Which engine actually answered, not which one was asked for — under
-    # "auto" those differ, and the difference is the interesting part. Resolved
-    # even when nothing came back: "no results" is exactly when you want to
-    # know who found nothing, and it is the case the panel used to go quiet.
-    answered = results[0]["engine"] if results else ("searxng" if searxng else "duckduckgo")
-    return {
-        "query": q,
-        "results": results,
-        "provider": answered,
-        "answered_by": websearch.answered_by(answered),
-        "requested_provider": provider,
-    }
-
-
-@router.post("/websearch/detect-searxng")
-def detect_searxng(url: str = "", session: Session = Depends(get_session)) -> dict:
-    """Test a SearXNG URL, or scan the usual local ports for one.
-
-    Saves the working URL to preferences so the user never has to know how the
-    connection is wired up — if they have an instance running, this finds it.
-    """
-    from memorymap.search import websearch
-
-    config = deps.get_config()
-    if url:
-        found = url.rstrip("/") if websearch.probe_searxng(url) else None
-    else:
-        found = websearch.discover_searxng()
-
-    if not found:
-        return {
-            "found": False,
-            "detail": "No SearXNG found. Start one (see the setup note) and try again.",
-        }
-    config.set_preference("searxng_url", found)
-    websearch.clear_cache()  # results from the old provider are stale now
-    manager.log_action(session, "edited", "preferences", detail=f"searxng_url={found}")
-    session.commit()
-    return {"found": True, "url": found}
-
-
-@router.get("/websearch/searxng/status")
-def searxng_status() -> dict:
-    """Is a MemoryMap-managed SearXNG installed, running, and answering?"""
-    from memorymap.search import searxng_manager
-
-    data_dir = deps.get_config().data_dir
-    return {
-        **searxng_manager.status(data_dir),
-        # What the instance itself last said. Its output used to go to
-        # DEVNULL, which is why a failed start could only ever be guessed at.
-        "output": searxng_manager.recent_output(data_dir),
-    }
-
-
-@router.post("/websearch/searxng/start")
-def searxng_start(session: Session = Depends(get_session)) -> dict:
-    """Run SearXNG for the user and switch web search over to it."""
-    from memorymap.search import searxng_manager, websearch
-
-    config = deps.get_config()
-    try:
-        # When nothing is installed yet, this kicks off a background install
-        # that ends by starting SearXNG itself — the callback points web
-        # search at it the moment it answers, with no second Start press.
-        result = searxng_manager.start(
-            config.data_dir,
-            on_ready=lambda url: (
-                config.set_preference("searxng_url", url),
-                websearch.clear_cache(),
-            ),
-        )
-    except searxng_manager.SearxngError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-    config.set_preference("searxng_url", result["url"])
-    websearch.clear_cache()
-    manager.log_action(session, "edited", "preferences", detail="searxng started")
-    session.commit()
-    return {"running": True, **result}
-
-
-@router.post("/websearch/searxng/reinstall")
-def searxng_reinstall(session: Session = Depends(get_session)) -> dict:
-    """Throw the SearXNG install away and build a fresh one.
-
-    A part-finished install looks installed and dies on start, which reads as
-    "it just doesn't work" with nothing to act on — and the only fix was to go
-    and delete folders by hand.
-    """
-    from memorymap.search import searxng_manager
-
-    config = deps.get_config()
-    try:
-        # The rebuilt SearXNG starts itself when the install lands; the
-        # callback points web search back at it, so reinstall is one press.
-        result = searxng_manager.reinstall_source(
-            config.data_dir,
-            on_ready=lambda url: (
-                config.set_preference("searxng_url", url),
-                websearch.clear_cache(),
-            ),
-        )
-    except searxng_manager.SearxngError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    config.set_preference("searxng_url", "")  # nothing to point at until it's back
-    websearch.clear_cache()
-    manager.log_action(session, "edited", "preferences", detail="searxng reinstalled")
-    session.commit()
-    return result
-
-
-@router.post("/websearch/searxng/stop")
-def searxng_stop(session: Session = Depends(get_session)) -> dict:
-    """Stop the managed instance and fall back to DuckDuckGo."""
-    from memorymap.search import searxng_manager, websearch
-
-    config = deps.get_config()
-    try:
-        result = searxng_manager.stop(config.data_dir)
-    except searxng_manager.SearxngError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-    # Point search back at DuckDuckGo so nothing tries the dead instance.
-    config.set_preference("searxng_url", "")
-    websearch.clear_cache()
-    manager.log_action(session, "edited", "preferences", detail="searxng stopped")
-    session.commit()
-    return {"running": False, **result}
-
-
-@router.get("/websearch/read")
-def web_read(url: str, session: Session = Depends(get_session)) -> dict:
-    """Fetch a page as plain readable text.
-
-    Deliberately not an embedded browser: the page is stripped to text on the
-    server, so no third-party script, tracker, or iframe ever runs in the app.
-    """
-    from memorymap.search import websearch
-
-    _require_web_search()
-
-    # A cheap shape check for a clean 400; the security check that matters is
-    # in fetch_readable, which re-runs it on every redirect hop.
-    #
-    # There is deliberately NO host allowlist here. One was added briefly and
-    # it only permitted the search engines themselves — but the reader exists
-    # to open the *results*, which live on whatever site published them, so it
-    # rejected every real page with "URL host is not allowed".
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.hostname:
-        raise HTTPException(status_code=400, detail="Only http(s) URLs are allowed")
-
-    try:
-        page = websearch.fetch_readable(url)
-    except websearch.WebSearchError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    manager.log_action(session, "web_read", "chat", detail=url[:120])
-    session.commit()
-    return page
-
-
-# --- backups (Wave F) --------------------------------------------------------------
-
-
-@router.get("/storage")
-def storage_location() -> dict:
-    """Where everything actually lives on disk.
-
-    "Where are my documents stored?" was asked outright, and the app had no
-    answer anywhere in its interface. For a local-first app that is close to
-    the whole promise: a notebook you can't locate is not obviously yours,
-    and someone who can't see the file has no reason to believe a document
-    they wrote is still there.
-    """
-    config = deps.get_config()
-    db_path = Path(config.db_path)
-    return {
-        "data_dir": str(Path(config.data_dir).resolve()),
-        "database": str(db_path.resolve()),
-        "database_bytes": db_path.stat().st_size if db_path.exists() else 0,
-        "backups_dir": str(backup.backups_dir(config.data_dir).resolve()),
-    }
-
-
-@router.get("/backups")
-def list_backups() -> list[dict]:
-    return backup.list_backups(deps.get_config().data_dir)
-
-
-@router.post("/backups", status_code=201)
-def backup_now(session: Session = Depends(get_session)) -> dict:
-    config = deps.get_config()
-    path = backup.backup_now(config.db_path, config.data_dir)
-    manager.log_action(session, "backed_up", "data", detail=path.name)
-    session.commit()
-    return {"name": path.name}
-
-
-class RestoreBody(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-
-
-@router.post("/backups/restore")
-def restore_backup(body: RestoreBody) -> dict:
-    """Swap the live database for a backup. A safety snapshot of the
-    current state is taken first, so a restore is itself undoable."""
-    config = deps.get_config()
-    # Every connection must be closed while the file is replaced.
-    deps.get_db().engine.dispose()
-    try:
-        backup.restore_backup(body.name, config.db_path, config.data_dir)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    finally:
-        deps.reload_db()
-    session = deps.get_db().session()
-    try:
-        manager.log_action(session, "restored", "data", detail=body.name)
-        session.commit()
-    finally:
-        session.close()
-    return {"restored": body.name}
-
-
-@router.delete("/backups/{name}")
-def delete_backup(name: str) -> dict:
-    folder = backup.backups_dir(deps.get_config().data_dir)
-    path = folder / name
-    # Path(name).name guards traversal; only files inside backups/ die.
-    if path.name != name or not path.is_file():
-        raise HTTPException(status_code=404, detail="Backup not found")
-    path.unlink()
-    return {"deleted": name}
-
+# web search (routes_websearch.py) and backups (routes_backups.py) moved out
 
 @router.get("/export/csv")
 def export_csv(session: Session = Depends(get_session)) -> Response:

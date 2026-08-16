@@ -295,3 +295,28 @@ def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):
     routes_auth._failed_unlocks[:] = [t - 5 for t in routes_auth._failed_unlocks]
     assert client.post("/auth/unlock", json={"password": "first-pass"}).status_code == 200
     assert routes_auth._failed_unlocks == []
+
+
+def test_full_auth_flow(client):
+    # Fresh app: setup required, API open (nothing to protect yet).
+    assert client.get("/auth/status").json() == {"setup_required": True}
+    assert client.post("/entries", json={"content": "pre-password note"}).status_code == 201
+
+    token = client.post("/auth/setup", json={"password": "hunter2"}).json()["token"]
+    assert client.get("/auth/status").json() == {"setup_required": False}
+
+    # Once a password exists the data routes lock without a token…
+    assert client.get("/entries").status_code == 401
+    assert client.post("/auth/setup", json={"password": "again"}).status_code == 400
+
+    # …and open with one.
+    ok = client.get("/entries", headers={"X-Auth-Token": token})
+    assert ok.status_code == 200 and len(ok.json()) == 1
+
+    # Wrong password rejected; right password issues a fresh token.
+    assert client.post("/auth/unlock", json={"password": "wrong"}).status_code == 401
+    token2 = client.post("/auth/unlock", json={"password": "hunter2"}).json()["token"]
+
+    # Locking kills that token.
+    client.post("/auth/lock", headers={"X-Auth-Token": token2})
+    assert client.get("/entries", headers={"X-Auth-Token": token2}).status_code == 401

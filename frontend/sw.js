@@ -10,11 +10,34 @@
 // Bumped with the icon set: a stale cache would keep serving the old favicon
 // long after the new one shipped, which is exactly the class of bug the
 // version in this name exists to prevent.
-const CACHE = "memorymap-shell-v6";
+// Bumped again for the style.css split (ROADMAP.md Priority 0 item 2):
+// single-file "/style.css" no longer exists on disk, and precaching a 404
+// would fail the whole addAll() call, taking the entire shell offline-cache
+// with it — not a soft failure, install() rejects and nothing gets cached.
+// Bumped a third time for the app.js/whiteboard.js split (same roadmap
+// item's other half): the whiteboard tab is now served from a second file
+// that also has to be in this list, or a page loaded offline gets app.js
+// from the cache but a 404 for whiteboard.js and the tab renders blank.
+// Bumped a fourth time for the graph.js extraction (frontend refactor
+// path, the step after whiteboard): same failure mode — the Graph tab
+// would 404 offline without this file precached too.
+const CACHE = "memorymap-shell-v10";
 const SHELL = [
   "/",
+  "/graph.js",
   "/app.js",
-  "/style.css",
+  "/whiteboard.js",
+  // style.css split into eight files, in load order — see index.html's
+  // <link> tags for why the order matters (00 holds :root and other
+  // global-scope declarations later files' var() calls depend on).
+  "/css/00-tokens-shell.css",
+  "/css/01-forms-settings.css",
+  "/css/02-chat-graph.css",
+  "/css/03-dashboard-widgets.css",
+  "/css/04-chat-dock-appearance.css",
+  "/css/05-sidebars-themes.css",
+  "/css/06-timeline-dialogs.css",
+  "/css/07-whiteboard-misc.css",
   // The icon font and its stylesheet are shell, not decoration: without them
   // every button in the app is a blank square. Precached so a cold offline
   // start still draws icons.

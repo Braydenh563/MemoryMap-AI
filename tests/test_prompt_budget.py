@@ -371,3 +371,16 @@ def test_a_backend_that_cannot_report_its_window_still_works(app_state):
     report = getattr(NoWindowReporting(), "usable_context", None)
     window = report("m") if callable(report) else None
     assert (window or OllamaClient.DEFAULT_CONTEXT_TOKENS) == 4096
+
+
+def test_a_small_model_can_still_ask_the_user_a_question():
+    """`ask_user` was culled from small windows as a "complex" tool. It is the
+    opposite: one question, a few options, and the only way the agent can say
+    "which did you mean?" instead of guessing."""
+    offered = [
+        {"function": {"name": name, "parameters": {}}}
+        for name in ("search_notes", "ask_user", "make_plan")
+    ]
+    kept, dropped = tools.within_budget(offered, tools.SMALL_WINDOW_CHARS - 1)
+    assert "ask_user" in [t["function"]["name"] for t in kept]
+    assert "make_plan" in dropped

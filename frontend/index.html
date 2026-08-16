@@ -9,7 +9,7 @@
        also composites onto white, so the mark carries its own tile. -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <!-- PWA (Wave F): installable, and the shell loads from cache -->
+  <!-- PWA: installable, and the shell loads from cache -->
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#4f6df5">
   <!-- Phosphor is the app's only icon set, vendored like d3 and p5 — the
@@ -21,7 +21,24 @@
        app rendered. Nothing logged and nothing threw — a missing stylesheet
        is silent. If icons ever vanish again, look here first. -->
   <link rel="stylesheet" href="/vendor/phosphor/style.css">
-  <link rel="stylesheet" href="/style.css">
+  <!-- style.css split into multiple files (ROADMAP.md Priority 0 item 2,
+       "mechanically low-risk"): plain <link> tags, no bundler, no @import
+       (an extra request behind the scenes for no benefit here). Order is
+       load-bearing — this is the exact byte order the single file used to
+       be in, split only on the section-comment banners inside it, so no
+       selector's cascade/specificity position changes. 00-tokens-shell.css
+       is first because it holds :root and other global-scope declarations
+       every later file's var() calls depend on. See
+       tests/test_style_scale.py's STYLE_FILES for the list the design-token
+       lint reads instead of a single style.css path. -->
+  <link rel="stylesheet" href="/css/00-tokens-shell.css">
+  <link rel="stylesheet" href="/css/01-forms-settings.css">
+  <link rel="stylesheet" href="/css/02-chat-graph.css">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css">
   <script>
     // Everything visual is applied before first paint, so the app never
     // flashes the default look and then corrects itself.
@@ -82,10 +99,10 @@
   </script>
 </head>
 <body>
-  <!-- Keyboard users can jump straight past the chrome (Wave L). -->
+  <!-- Keyboard users can jump straight past the chrome. -->
   <a href="#" id="skip-link" class="skip-link">Skip to content</a>
 
-  <!-- One compact, sticky top bar: brand · tabs · controls (Wave L). -->
+  <!-- One compact, sticky top bar: brand · tabs · controls. -->
   <header id="top-bar">
     <img id="brand-logo" src="/favicon.svg" alt="" aria-hidden="true" width="34" height="34">
     <h1 title="Your offline, self-filing notebook">MemoryMap&nbsp;AI</h1>
@@ -190,7 +207,7 @@
     </div>
   </header>
 
-  <!-- Unlock / first-run setup gate (Phase 4) -->
+  <!-- Unlock / first-run setup gate -->
   <div id="lock-overlay" class="lock-overlay hidden">
     <div class="card lock-card">
       <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
@@ -308,7 +325,7 @@
     </div>
   </dialog>
 
-  <!-- ======================= DASHBOARD TAB (Wave D) ======================= -->
+  <!-- ======================= DASHBOARD TAB ======================= -->
   <div class="tab-page hidden" id="tab-dashboard" role="tabpanel" aria-labelledby="tab-btn-dashboard" tabindex="-1">
     <!-- Full-width welcome banner: greeting + a line about your notebook,
          with a live clock on the right. -->
@@ -494,8 +511,14 @@ Link to another note with [[its first few words]]."></textarea>
         <section class="card" id="ask">
           <div class="row space-between">
             <h2>Ask your notebook</h2>
-            <button id="new-chat-btn" class="ghost small hidden"
-              title="Clear this conversation and start fresh">New chat</button>
+            <span class="row ask-header-actions">
+              <button id="ask-history-toggle" class="ghost small" type="button"
+                aria-expanded="false" aria-controls="ask-history-panel"
+                title="Browse every question you've asked and its answer">
+                <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History<span id="ask-history-badge" class="chip hidden"></span></button>
+              <button id="new-chat-btn" class="ghost small hidden"
+                title="Clear this conversation and start fresh">New chat</button>
+            </span>
           </div>
           <div class="row">
             <input id="question" type="text"
@@ -513,6 +536,31 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <div id="suggested-questions" class="recent hidden"></div>
           <div id="recent-questions" class="recent hidden"></div>
+          <!-- Question history (personal-notes-browser feature): every
+               notes-only question the Ask box has answered, searchable and
+               browsable rather than kept only as five reask chips. Collapsed
+               by default so a fresh Ask tab looks exactly as it always has —
+               this is opt-in screen space, not a permanent fixture above the
+               fold. -->
+          <div id="ask-history-panel" class="ask-history-panel hidden"
+            role="region" aria-label="Question history">
+            <div class="ask-history-toolbar row space-between">
+              <input id="ask-history-search" type="search"
+                placeholder="Search your past questions and answers…"
+                aria-label="Search question history">
+              <label class="row align-center checkbox-label small" title="Only show pinned questions">
+                <input type="checkbox" id="ask-history-pinned-only"> Pinned only
+              </label>
+              <button id="ask-history-clear" class="ghost small" type="button"
+                title="Delete your question history (pinned questions are kept)">
+                <i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
+            </div>
+            <ul id="ask-history-list" class="ask-history-list"></ul>
+            <p id="ask-history-empty" class="muted hidden">
+              Questions you ask will be saved here so you can browse back
+              through them later, the way you'd browse your notes.</p>
+            <button id="ask-history-more" class="ghost small hidden" type="button">Load more</button>
+          </div>
           <p id="ask-status" class="status" role="status"></p>
           <div id="chat-results" class="chat-grid hidden">
             <div class="chat-half">
@@ -574,7 +622,7 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="most-used">Most used</option>
             </select>
           </div>
-          <!-- Batch actions bar (Wave M): appears in select mode -->
+          <!-- Batch actions bar: appears in select mode -->
           <div id="batch-bar" class="row hidden">
             <span id="batch-count" class="muted" role="status">0 selected</span>
             <select id="batch-category" aria-label="Move selected notes to category"></select>
@@ -614,7 +662,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- ======================= CHAT TAB (Wave C) ============================ -->
+  <!-- ======================= CHAT TAB ====================================== -->
   <div class="tab-page hidden" id="tab-chat" role="tabpanel" aria-labelledby="tab-btn-chat" tabindex="-1">
     <div class="layout">
       <!-- **Recent chats, not every chat (§36F).** Browsing what you have ever
@@ -636,7 +684,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="row space-between sidebar-head">
           <h2>Chats</h2>
           <button id="chat-new" class="small" type="button" title="Start a fresh conversation"
-            aria-label="Start a fresh conversation"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New</button>
+            aria-label="Start a fresh conversation"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
         </div>
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
@@ -935,7 +983,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- ======================= GRAPH TAB (Wave E fills this) ================ -->
+  <!-- ======================= GRAPH TAB ===================================== -->
   <!-- Timeline (§10B): the notebook on a time axis, in bands. The axis is
        time; the bands are what make it a map of what happened rather than a
        sorted list. -->
@@ -1212,7 +1260,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="row space-between sidebar-head">
           <h2>Recent</h2>
           <button id="doc-new" class="small" type="button" title="Start a new document"
-            aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New</button>
+            aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
         </div>
         <ul id="doc-list" class="doc-list"></ul>
         <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
@@ -1248,6 +1296,8 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="row doc-actions">
             <span id="doc-stats" class="muted doc-stats"
               title="Words, and roughly how long this takes to read"></span>
+            <button id="doc-word-goal" class="ghost small" type="button" aria-pressed="false"
+              title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
             <span id="doc-saved" class="muted" role="status"></span>
             <button id="doc-preview-toggle" class="ghost small" type="button"
               aria-pressed="false" title="Show a rendered preview beside the editor"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview</button>
@@ -1325,7 +1375,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- ======================= REMINDERS TAB (Wave D) ======================= -->
+  <!-- ======================= REMINDERS TAB ================================= -->
   <div class="tab-page hidden" id="tab-reminders" role="tabpanel" aria-labelledby="tab-btn-reminders" tabindex="-1">
     <!-- Compose: the two ways to add a reminder, kept apart from the list -->
     <section class="card reminders-card" id="reminder-compose">
@@ -1512,7 +1562,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="library-bulk-open" class="ghost small" type="button">↗ Open</button>
               <button id="library-bulk-restore" class="ghost small hidden" type="button">↩ Restore</button>
               <button id="library-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
-              <button id="library-clear-selection" class="ghost small" type="button">Clear</button>
+              <button id="library-clear-selection" class="ghost small" type="button">Done</button>
             </span>
           </div>
         </section>
@@ -2070,12 +2120,12 @@ Link to another note with [[its first few words]]."></textarea>
          markup for it was missing entirely while app.js already had the
          online/offline listeners, so the feature could never show. -->
     <span id="offline-indicator" class="chip warning hidden" role="status"
-      title="No internet connection — web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i> Offline</span>
+      title="No internet connection — web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i>Offline</span>
     <span class="status-spacer"></span>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>
 
-  <!-- ======================= SETTINGS MODAL (Wave A) ====================== -->
+  <!-- ======================= SETTINGS MODAL ================================ -->
   <div id="settings-modal" class="modal-overlay hidden" role="dialog"
     aria-modal="true" aria-label="Settings">
     <div class="card modal-card">
@@ -2134,7 +2184,7 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="nav-group-label" id="nav-group-system">System</p>
           <div role="group" aria-labelledby="nav-group-system">
             <button data-section="account">Account &amp; security</button>
-            <button data-section="extras">Optional extras</button>
+            <button data-section="extras">Packages</button>
             <button data-section="tasks">Background tasks</button>
             <button data-section="logs">Logs</button>
           </div>
@@ -2147,7 +2197,7 @@ Link to another note with [[its first few words]]."></textarea>
         </nav>
         <div class="modal-content">
 
-          <!-- Models (Phase 3.5, moved here in Wave A) -->
+          <!-- Models -->
           <section class="settings-section" id="settings-models">
             <p id="ollama-status" class="status"></p>
             <p id="search-engine-health" class="status"></p>
@@ -2284,7 +2334,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- Personas (Wave C): who the AI is when it answers -->
+          <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
             <p class="muted">
               A persona changes the AI's voice — answers always stay grounded
@@ -2353,7 +2403,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- Templates (Wave B, extended): prefills for the Capture box -->
+          <!-- Templates: prefills for the Capture box -->
           <section class="settings-section hidden" id="settings-templates">
             <p class="muted">
               A template fills the Capture box with a starting shape — a
@@ -2376,7 +2426,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </section>
 
-          <!-- AI Tools (Wave O): toggle what the chat AI is allowed to do -->
+          <!-- AI Tools: toggle what the chat AI is allowed to do -->
           <section class="settings-section hidden" id="settings-memory">
             <p class="muted">
               The AI can save itself standing instructions — say
@@ -2430,7 +2480,7 @@ Link to another note with [[its first few words]]."></textarea>
             <ul id="tool-list" class="entry-list"></ul>
           </section>
 
-          <!-- Appearance (Wave J): grouped into scannable setting rows -->
+          <!-- Appearance: grouped into scannable setting rows -->
           <section class="settings-section hidden" id="settings-appearance">
 
             <!-- ---------- Curated themes ---------- -->
@@ -2457,9 +2507,10 @@ Link to another note with [[its first few words]]."></textarea>
                   </small>
                 </div>
                 <div id="custom-themes" class="theme-presets"></div>
-                <div class="row">
+                <div class="row custom-theme-save-row">
                   <input id="custom-theme-name" type="text" maxlength="30"
-                    placeholder="Name this look (e.g. Late night)"
+                    placeholder="Name this look…"
+                    title="e.g. Late night"
                     aria-label="Name for the saved theme">
                   <button id="custom-theme-save" class="small">Save current look</button>
                 </div>
@@ -2821,7 +2872,7 @@ Link to another note with [[its first few words]]."></textarea>
                terminal and a README, which for a local-first app is the same
                as not having the feature at all. -->
           <section class="settings-section hidden" id="settings-extras">
-            <h3>Optional extras</h3>
+            <h3>Packages</h3>
             <p class="muted">
               Things MemoryMap can do with one more package installed. Nothing
               here is needed to write, search, tag or organise your notes —
@@ -2834,6 +2885,19 @@ Link to another note with [[its first few words]]."></textarea>
               <summary class="muted">What pip is doing</summary>
               <pre id="extras-log" class="task-log-lines"></pre>
             </details>
+
+            <!-- Shown once faster-whisper is installed. A bigger model is more
+                 accurate and slower; on a laptop CPU that difference is worth
+                 choosing rather than having decided for you. -->
+            <div class="row space-between setting-row hidden" id="voice-model-wrap">
+              <label for="voice-model-select">Dictation model size</label>
+              <select id="voice-model-select" class="small-select" aria-label="Dictation model size">
+                <option value="tiny">Tiny — fastest, least accurate</option>
+                <option value="base">Base — balanced (default)</option>
+                <option value="small">Small — more accurate, slower</option>
+                <option value="medium">Medium — most accurate, slowest</option>
+              </select>
+            </div>
 
             <!-- Embedding models. On this screen rather than its own, because
                  the question it answers — "what has this app put on my disk,
@@ -2883,7 +2947,7 @@ Link to another note with [[its first few words]]."></textarea>
             </ul>
           </section>
 
-          <!-- Preferences (Phase 4/5, moved here in Wave A) -->
+          <!-- Preferences -->
           <section class="settings-section hidden" id="settings-preferences">
             <h3>Your name</h3>
             <div class="row">
@@ -3045,28 +3109,36 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
           </section>
 
-          <!-- Tasks (Wave N): see and quit background jobs -->
+          <!-- Tasks: see and quit background jobs -->
           <section class="settings-section hidden" id="settings-tasks">
-            <p class="muted">
-              Everything the app is doing in the background right now —
-              re-indexing your notes, downloading a model, loading the
-              embedding model, setting up SearXNG. Jobs that can be stopped
-              safely have a Quit button; the rest are left to finish.
-            </p>
-            <ul id="task-list" class="entry-list"></ul>
-            <p id="tasks-empty" class="muted">Nothing running right now.</p>
-
-            <!-- What stopped. The half that was missing: a job that FAILS used
-                 to vanish at the moment it became interesting, leaving the
-                 same empty list as one that finished. -->
-            <div id="task-history-box" class="hidden">
-              <h3>Recently finished</h3>
+            <!-- Boxed like the settings-groups below it (§ reported: a live
+                 task card visually blended into "Autonomous Background AI"
+                 underneath, with nothing to show where one ended and the
+                 other began). Its own group makes the running-now list read
+                 as status, not as another setting. -->
+            <div class="settings-group" id="tasks-live-group">
+              <h3>Running now</h3>
               <p class="muted">
-                What has stopped since the app started, and how it went. Kept in
-                memory only — it clears itself when you restart.
+                Everything the app is doing in the background right now —
+                re-indexing your notes, downloading a model, loading the
+                embedding model, setting up SearXNG. Jobs that can be stopped
+                safely have a Quit button; the rest are left to finish.
               </p>
-              <ul id="task-history" class="entry-list"></ul>
-              <button id="task-history-clear" class="ghost small">Clear this list</button>
+              <ul id="task-list" class="entry-list"></ul>
+              <p id="tasks-empty" class="muted">Nothing running right now.</p>
+
+              <!-- What stopped. The half that was missing: a job that FAILS used
+                   to vanish at the moment it became interesting, leaving the
+                   same empty list as one that finished. -->
+              <div id="task-history-box" class="hidden">
+                <h3>Recently finished</h3>
+                <p class="muted">
+                  What has stopped since the app started, and how it went. Kept in
+                  memory only — it clears itself when you restart.
+                </p>
+                <ul id="task-history" class="entry-list"></ul>
+                <button id="task-history-clear" class="ghost small">Clear this list</button>
+              </div>
             </div>
 
             <div class="settings-group">
@@ -3139,7 +3211,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
           </section>
 
-          <!-- Data (Wave F: markdown + backups join the exports) -->
+          <!-- Data: markdown + backups join the exports -->
           <section class="settings-section hidden" id="settings-data">
             <h3>Export your data</h3>
             <div class="row">
@@ -3202,7 +3274,7 @@ Link to another note with [[its first few words]]."></textarea>
             </p>
           </section>
 
-          <!-- Logs (Wave A) -->
+          <!-- Logs -->
           <!-- Account & security: the one place credentials are managed. -->
           <section class="settings-section hidden" id="settings-account">
             <p class="muted">
@@ -3381,12 +3453,12 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- aria-live so screen readers hear saves, undos, and errors (Wave L) -->
+  <!-- aria-live so screen readers hear saves, undos, and errors -->
   <div id="toast-box" aria-live="polite"></div>
   <!-- Off-screen announcements for things with no visible message of their
        own — jumping to a note, for instance, is only a colour change. -->
   <div id="live-region" class="visually-hidden" role="status" aria-live="polite"></div>
-  <!-- Command palette (Wave F): Ctrl/Cmd-K anywhere -->
+  <!-- Command palette: Ctrl/Cmd-K anywhere -->
   <div id="palette-overlay" class="hidden" role="dialog" aria-label="Command palette">
     <div class="card" id="palette-card">
       <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
@@ -3487,8 +3559,8 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <!-- Whiteboard-lite (Wave F): sketch → PNG attached to a new note -->
-  <!-- AI improve-writing (Wave N): before/after, user approves -->
+  <!-- Whiteboard-lite: sketch → PNG attached to a new note -->
+  <!-- AI improve-writing: before/after, user approves -->
   <div id="improve-overlay" class="hidden" role="dialog" aria-label="Improve writing">
     <div class="card" id="improve-card">
       <div class="row space-between">
@@ -3688,6 +3760,27 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>
   <script src="/vendor/p5.min.js"></script>
+  <!-- Graph view, split out of app.js (frontend refactor path, after the
+       whiteboard split below). Loaded BEFORE app.js — unlike whiteboard.js,
+       this order IS load-bearing: app.js's own top-level wiring (event
+       listeners like `$("graph-similarity").addEventListener("change",
+       renderGraph)`) reads several of this file's functions as bare
+       identifiers the moment that line of app.js runs, not inside a
+       closure. Function/let declarations only hoist within their own script
+       element, so if app.js ran first those reads would throw
+       ReferenceError and abort the rest of app.js's synchronous top-level
+       code partway through. graph.js needs nothing from app.js at parse
+       time (only `document` and `d3`, the latter already loaded above), so
+       it can safely go first. See frontend/graph.js's own header for the
+       full explanation. -->
+  <script src="/graph.js"></script>
   <script src="/app.js"></script>
+  <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
+       2). Loaded after app.js and shares its global scope; every
+       cross-file call between the two happens at runtime (inside a
+       function or event listener), never at parse time, so this order is
+       not load-bearing for correctness — it just keeps app.js as the
+       first, larger script, matching the split's own diff. -->
+  <script src="/whiteboard.js"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 
 from memorymap.api.schemas import SpaceResponse, SpaceCreate, SpaceUpdate
+from memorymap.core import deps
 from memorymap.core.database import Space, workspace_scoped_models
 from memorymap.core.deps import get_session, impersonate_workspace
 from sqlalchemy.orm import Session
@@ -77,9 +78,7 @@ def create_space(space_in: SpaceCreate, session: Session = Depends(get_session))
 
 @router.put("/spaces/{space_id}", response_model=SpaceResponse)
 def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depends(get_session)):
-    space = session.query(Space).filter_by(id=space_id).first()
-    if not space:
-        raise HTTPException(404, "Space not found")
+    space = deps.get_or_404(session, Space, space_id, "Space not found")
     # Only fields the caller actually sent are applied, so an omitted field
     # doesn't get overwritten with None (SpaceUpdate's fields are optional).
     provided = space_in.model_dump(exclude_unset=True)
@@ -96,9 +95,7 @@ def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depend
 def delete_space(space_id: str, session: Session = Depends(get_session)):
     if space_id in RESERVED_SPACE_IDS:
         raise HTTPException(400, "Cannot delete default spaces")
-    space = session.query(Space).filter_by(id=space_id).first()
-    if not space:
-        raise HTTPException(404, "Space not found")
+    space = deps.get_or_404(session, Space, space_id, "Space not found")
 
     # Capture the response body before deleting: reading attributes off an
     # instance after session.delete()+commit() raises ObjectDeletedError,

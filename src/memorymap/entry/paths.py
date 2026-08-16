@@ -132,7 +132,12 @@ class Connections:
         return self.edges.get(node_id, {})
 
 
-def build(session: Session, include_private: bool = True, extra_edges: list[dict] = None) -> Connections:
+def build(
+    session: Session,
+    include_private: bool = True,
+    extra_edges: list[dict] = None,
+    entries: list[Entry] | None = None,
+) -> Connections:
     """Index the notebook's connections.
 
     `include_private` is False for the AI, which may not read private notes at
@@ -140,11 +145,20 @@ def build(session: Session, include_private: bool = True, extra_edges: list[dict
     its preview into an answer by the back door, and routing to one would offer
     the model an id it is not allowed to open — so they are not in the graph it
     searches rather than filtered out of the result.
+
+    `entries`, when given, skips this function's own query — for a caller
+    (`routes_graph.graph()`) that already fetched the identically-scoped
+    `is_deleted == False` set for its own node serialization; without this,
+    every `GET /graph` call queried the full `Entry` table twice. Only used
+    when `include_private` is left at its default: a caller passing
+    `include_private=False` needs the narrower query this function runs
+    itself, not the caller's unfiltered list.
     """
-    query = select(Entry).where(Entry.is_deleted == False)  # noqa: E712
-    if not include_private:
-        query = query.where(Entry.is_private == False)  # noqa: E712
-    entries = list(session.scalars(query))
+    if entries is None or not include_private:
+        query = select(Entry).where(Entry.is_deleted == False)  # noqa: E712
+        if not include_private:
+            query = query.where(Entry.is_private == False)  # noqa: E712
+        entries = list(session.scalars(query))
     index = Connections(entries)
     known = index.entries
 

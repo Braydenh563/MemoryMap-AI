@@ -992,3 +992,45 @@ data).
 - **Is its backend better designed?** No, and now there's their own
   refactor-planning document saying so about itself, not just this file's
   opinion of it.
+
+## 66. Kortex.co, read and triaged — and the second-frontend question decided
+
+Two asks arrived together: research a competitor (kortex.co, "the AI-powered
+second brain") for features worth adopting, and a judgement call on building
+a second, React-based frontend alongside the existing vanilla-JS one, sharing
+this app's backend, user-switchable between the two.
+
+**Kortex, in one line:** a unified capture/write/synthesize workspace built
+around three pillars — Captures (quick chat-shaped idea dumping), Documents
+(a full markdown editor with slash commands and block nesting), and
+Sources/Highlights (a searchable library with Readwise/Kindle import and a
+web clipper) — plus `kAI`, a Tab-triggered assistant that turns raw
+fragments into a coherent draft, and 25+ prebuilt AI workflows. Direct fetch
+of kortex.co was blocked by this session's network egress policy; read via
+search-result summaries and cross-referenced against this app's actual code
+before anything below was written down, per this file's own standing rule.
+
+**Mapped against this app:** `kAI`'s Tab-to-draft is already covered by the
+Writing Room (`app.js:5905+`). Document-as-AI-context and cross-note
+synthesis are already covered by the existing chat/search tools. Three real
+gaps, now in BACKLOG.md: the Skills system ships zero starter skills
+against Kortex's 25+ workflows (§63); the Documents editor has no slash
+commands or block nesting (§64); highlight/web-clip capture doesn't exist
+at all (§65).
+
+**The second-frontend question — decided against, user agreed.** A second
+full React frontend sharing this backend means every feature ships twice,
+tests twice, and drifts twice, indefinitely — not a one-time cost. It also
+runs directly against work already in motion: ROADMAP.md §0's own
+highest-priority frontend finding is that `app.js` needs *modularising*
+(a `whiteboard.js`/`graph.js`/`state.js` split), not replacing, and a
+second framework doesn't reduce that debt, it adds a second pile of it
+next to the first. If the underlying complaint is "feels dated," that's a
+`DESIGN.md`-scoped styling problem; if it's "hard to maintain," the
+extraction already planned is the cheaper fix for the same symptom. This
+project's own history has two direct data points against a rewrite-shaped
+fix specifically: `/chat/stream`'s WebSocket rewrite (reverted, cost ~70
+tests and the same-origin protection) and the "week of another agent's
+work" that shipped 90 failing tests (§40's audit). Not adopted; revisit
+only if a specific, concrete pain point emerges that modularisation
+doesn't address.

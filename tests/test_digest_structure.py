@@ -96,3 +96,73 @@ def test_the_sentence_stays_short(session):
     for n in range(20):
         _note(session, f"note number {n}")
     assert len(digest_structure_note(session)) < 400
+
+
+# --- the /insights/digest endpoint, plain and streamed ------------------------
+
+
+def _save(client, content, **extra):
+    response = client.post("/entries", json={"content": content, **extra})
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_digest_empty_week(client):
+    assert "Nothing was saved" in client.post("/insights/digest").json()["digest"]
+
+
+def test_digest_uses_recent_notes(ai_client, fake_ollama):
+    _save(ai_client, "a funny scarecrow joke")
+    body = ai_client.post("/insights/digest").json()
+    assert body["digest"] == fake_ollama.librarian_reply
+    prompt = fake_ollama.chat_calls[-1][-1]["content"]
+    assert "scarecrow" in prompt  # the digest reads this week's notes
+
+
+def test_digest_empty_week_is_cacheable(client):
+    # An empty week is a stable fact → safe to cache (Wave J follow-up).
+    assert client.post("/insights/digest").json()["cacheable"] is True
+
+
+def test_digest_real_answer_is_cacheable(ai_client):
+    _save(ai_client, "a funny scarecrow joke")
+    assert ai_client.post("/insights/digest").json()["cacheable"] is True
+
+
+def test_digest_offline_is_not_cacheable(client):
+    # `client` has Ollama unavailable — the digest is the offline notice,
+    # which must NOT be frozen for the day.
+    _save(client, "a note from this week")
+    assert client.post("/insights/digest").json()["cacheable"] is False
+
+
+def _ndjson(response):
+    return [json.loads(line) for line in response.text.splitlines() if line.strip()]
+
+
+def test_digest_streams_in_chunks(ai_client, fake_ollama):
+    _save(ai_client, "bought milk")
+    fake_ollama.librarian_reply = "You saved a shopping note."
+    response = ai_client.post("/insights/digest/stream")
+    assert response.status_code == 200
+    events = _ndjson(response)
+    answer = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert answer == "You saved a shopping note."
+    # Streamed, not delivered in one lump.
+    assert len([e for e in events if e["type"] == "answer"]) > 1
+    assert events[-1] == {"type": "done", "cacheable": True}
+
+
+def test_digest_stream_handles_an_empty_week(ai_client):
+    events = _ndjson(ai_client.post("/insights/digest/stream"))
+    answer = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert "Nothing was saved" in answer
+    assert events[-1]["cacheable"] is True
+
+
+def test_digest_stream_degrades_when_ai_is_down(ai_client, fake_ollama):
+    _save(ai_client, "bought milk")
+    fake_ollama.running = False
+    events = _ndjson(ai_client.post("/insights/digest/stream"))
+    # An offline notice must never be cached as if it were a real digest.
+    assert events[-1]["cacheable"] is False

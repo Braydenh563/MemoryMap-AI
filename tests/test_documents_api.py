@@ -38,6 +38,14 @@ def test_documents_are_listed_most_recently_edited_first(client):
     assert titles[0] == "First"
 
 
+def test_documents_past_the_old_200_cap_are_still_reachable(client):
+    """`list_documents` used to `.limit(200)` with no offset — a notebook
+    with more than 200 documents had no way, UI or API, to see the rest."""
+    for i in range(205):
+        client.post("/documents", json={"title": f"Doc {i}"})
+    assert len(client.get("/documents").json()) == 205
+
+
 def test_documents_never_show_up_as_notes(client):
     """A document is not a captured thought; it must stay out of note search."""
     client.post("/documents", json={"title": "Essay", "content": "carbonara guanciale"})

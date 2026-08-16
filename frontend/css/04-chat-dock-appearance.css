@@ -1,0 +1,2043 @@
+/* --- the trace strip --------------------------------------------------------
+   Its own row rather than a tenth control in the toolbar: everything up there
+   is a *setting you leave*, and this is a *question you ask*. Built to the
+   control-strip rule in DESIGN.md — one height for every control in it, and
+   the outside margins each control arrives with zeroed, because a margin on a
+   flex item is centred with the item and lifts it above its neighbours. */
+.graph-trace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  --control-h: 1.9rem;
+}
+
+:root[data-glass="off"] .graph-trace {
+  background: var(--card);
+  border: 1px solid var(--border);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.graph-trace select,
+.graph-trace button {
+  height: var(--control-h);
+  margin: 0;
+  padding-block: 0;
+  font-size: var(--text-md);
+  width: auto;
+  flex: 1;
+  max-width: 15rem;
+}
+
+.graph-trace button {
+  flex: 0 1 auto;
+}
+
+.graph-trace-label {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.graph-trace-arrow {
+  color: var(--muted);
+}
+
+/* The strip's own caption. `flex: 0 1 auto` with a floor rather than a fixed
+   size: it is the least important thing on the row, so it is the first to give
+   its space back to the pickers, and it drops out entirely rather than wrapping
+   the strip onto a second line for a sentence. */
+.graph-trace-result {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+
+/* The chain reads as a sentence: note — how it joins — note. The connector is
+   quiet and the notes are not, because the notes are what you clicked for. */
+.graph-trace-step {
+  color: var(--muted);
+}
+
+.graph-trace-note {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.graph-trace-note:hover {
+  text-decoration: underline;
+}
+
+/* "Generate story from path" — a real call-to-action, not another quiet
+   text-link note button like its `.graph-trace-note` siblings. Was three
+   inline styles against undefined `--primary`/`--primary-fg` tokens, refused
+   twice over (see app.js). Comes after `.graph-trace-note` so it wins the
+   properties both share (equal specificity, later in the cascade) — undoing
+   that rule's reset to a bare text link and giving the button back its
+   ordinary `--accent-surface`/`--on-accent` look, matching every other
+   primary action in the app rather than inventing its own colour. */
+.story-mode-btn {
+  margin-left: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  border-radius: var(--radius-md);
+  font-weight: 650;
+}
+
+.story-mode-btn:hover {
+  filter: brightness(1.07);
+  text-decoration: none;
+}
+
+.graph-trace-result.is-empty {
+  color: var(--muted);
+}
+
+.graph-help {
+  margin-bottom: 0.5rem;
+}
+
+.graph-help summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.graph-help p {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* :not(.hidden) so these never override the hide rule — an ID selector would
+   otherwise beat .hidden and leave every tab visible at once. */
+/* #tab-graph:not(.hidden),
+#tab-chat:not(.hidden) {
+  display: flex;
+  flex-direction: column; */
+/* No `min-height: calc(100vh - 9rem)` any more. Every one of these viewport
+     sums was a guess at the app's own furniture, and each was wrong the moment
+     the furniture changed: 9rem assumed a 60px header, so it was already out
+     by 42px whenever the tab strip wrapped to two rows, and out by another
+     37px once the status bar existed. The page is a flex child of a flex
+     column that fills the window — its size is the space it is given, and
+     `100%` is how you say that without arithmetic that can go stale. */
+/* } */
+/* #tab-chat:not(.hidden) > .layout { flex: 1; min-height: 0; } */
+
+/* :not(.hidden) so these never override the hide rule — an ID selector would
+   otherwise beat .hidden and leave every tab visible at once. */
+#tab-notes:not(.hidden),
+#tab-graph:not(.hidden),
+#tab-chat:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Let the layout container fill the available flex space */
+#tab-notes:not(.hidden)>.layout,
+#tab-chat:not(.hidden)>.layout {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The Notes column scrolls itself, so the sidebar stays put while the list
+   moves — the same shape as Chat.
+   
+   Reported as "the main notes part isn't refined in the border, there's a
+   weird shadow behind it, the corners aren't rounded, and the scroll bar is
+   too far left, making the sub-menu bar look shifted right." All four are one
+   cause: making `main` the scroll container without giving it any of a scroll
+   container's furniture.
+   
+   - The scrollbar is laid *inside* the column, so it eats width from the
+     content and the sub-tab bar above it stops lining up. `scrollbar-gutter`
+     reserves that width permanently, so nothing shifts when the bar appears.
+   - `main` is not a `.card`, so it has no radius of its own — but the cards
+     inside it now slide under the sub-tab bar as you scroll, which is the
+     "weird shadow": their own shadow, against an edge that has no business
+     being hard. A little padding and a rounded clip give the column an edge
+     that matches every other surface. */
+#tab-notes .layout>main {
+  overflow-y: auto;
+  min-height: 0;
+  /* Reserve the scrollbar's width whether or not it is showing, so the
+     sub-tab bar above never shifts. `stable` keeps the gutter on one side. */
+  scrollbar-gutter: stable;
+  padding-right: var(--space-2);
+  border-radius: var(--radius-lg);
+}
+
+#graph-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  /* No bottom margin. `.card` carries one for stacked cards on a scrolling
+     page; this card is the *only* thing on a page that fills its space, so the
+     margin was added to the page's own `--page-bottom` and left a band of
+     empty background between the map and the status bar — reported as "quite a
+     big gap at the bottom". The same reasoning zeroes it on the chat tab's two
+     columns; the page's padding is what spaces a full-height card. */
+  margin: 0;
+}
+
+/* 12rem, not 22, and the card clips.
+
+   Reported twice now as the graph "being out of the main ui panel", and the
+   cause was a floor rather than the map: the card holds a toolbar, a trace
+   row, a help disclosure and a legend, and the legend's height is however many
+   categories the notebook has. With nine of them it wraps to two rows, and
+   toolbar + trace + legend + a 22rem map is taller than a 700px window — so
+   the card's content drew past the card, and what you see then is the map's
+   own border floating loose with the card's chrome scrolled off above it.
+
+   The map is the one thing here that can be any size: it has zoom, fit, and a
+   layout that reflows. So it takes what is left rather than demanding a share,
+   and `overflow: hidden` on the card makes that a promise instead of a hope —
+   the failure mode this replaces was silent, because nothing clipped. */
+#graph-card {
+  overflow: hidden;
+}
+
+#graph-card #graph-box {
+  flex: 1 1 0;
+  min-height: 12rem;
+}
+
+/* A legend is a key, not a list to browse: past a couple of rows it is eating
+   the thing it explains. It scrolls at that point instead. */
+#graph-legend {
+  flex: 0 1 auto;
+  max-height: 5.5rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  #graph-card {
+    margin: 0 0 var(--space-5);
+  }
+
+  .graph-toolbar #graph-search {
+    width: 100%;
+  }
+
+  .graph-toolbar #graph-add-node {
+    margin-left: 0;
+  }
+}
+
+/* --- chat page layout -------------------------------------------------------
+   The conversation should own the window: header and composer pinned, the
+   transcript scrolling between them. */
+#tab-chat:not(.hidden)>.layout {
+  align-items: stretch;
+  /* Fill the *page*, not a guess at the window minus some furniture (see
+     above). The composer belongs at the bottom of the space this tab has, and
+     that is what 100% of the page's content box is.
+     `min-height: 0` rather than 32rem: a floor taller than the box it is in is
+     an overflow by another name, and it was this one — the grid was asked for
+     828px inside 713px, so `main` overflowed its row, and the dock's ability
+     to shrink had nothing to shrink into. That is why the composer sat below
+     the status bar even after the web panel was capped. */
+  height: 100%;
+  min-height: 0;
+  /* The block-axis twin of the `minmax(0, 1fr)` the base `.layout` rule uses
+     for its columns, and it exists for exactly the same reason: an auto-sized
+     track refuses to shrink below its content, so `align-items: stretch` was
+     stretching `main` to an 804px row inside a 713px grid. The page then
+     scrolled to compensate and the composer ended up under the status bar —
+     which is the reported symptom, and why capping the web panel alone did not
+     fix it. A row that is allowed to be shorter than its content is what lets
+     the dock's `flex: 0 1 auto` actually shrink something. */
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* Below 720px `.layout` stacks aside and main into two rows instead of one
+   row of two columns (the base rule's own `@media (max-width: 720px)`
+   block), but this rule's `grid-template-rows: minmax(0, 1fr)` still names
+   only one explicit row. The sidebar (row 1, the explicit `1fr` track) was
+   losing almost all of it to `main`'s implicit auto row claiming its full
+   content height first — measured at 25px tall for a sidebar whose content
+   needed 5-6x that, with the overflow (its own "Browse all"/collapse-toggle
+   children) spilling out past its own card background since nothing clips
+   it. That read as "a dark rectangle behind the chat header": a sliver of
+   card background floating above `chat-main`'s real header, its own content
+   rendered outside its box. Each row sizes to its own content when stacked,
+   same as `#tab-notes` (which never set an explicit row template at all). */
+@media (max-width: 720px) {
+  #tab-chat:not(.hidden)>.layout {
+    grid-template-rows: none;
+  }
+}
+
+/* Both columns are .card, and .card carries `margin-bottom: 1rem`. On a
+   stretched grid row that made the sidebar end exactly 16px above the panel
+   beside it — the mismatched heights that were reported. Neither column
+   needs the margin here; the grid's own padding does that job. */
+#tab-chat .layout>aside.card,
+#tab-chat .layout>main>.card {
+  margin-bottom: 0;
+}
+
+#tab-chat .layout>main {
+  display: flex;
+  min-height: 0;
+  gap: var(--space-6);
+}
+
+/* The web column (§36G). Sized in rem rather than as a percentage: it holds a
+   fixed thing — a column of prose — and a share of the window makes it a
+   different reading measure on every screen. `clamp` keeps it between "wide
+   enough for a headline and a snippet" and "not wider than a page of text
+   wants to be", and `flex-shrink` lets the conversation win when the window
+   is genuinely narrow. Widened a step (was 19/26rem, user-reported "a little
+   wider") — still well inside the drag range's own ceiling
+   (`WEB_PANEL_MAX` = 640px = 40rem in app.js). */
+#web-panel {
+  flex: 0 1 clamp(21rem, 32%, 30rem);
+  /* Was 0 — with #chat-main's own auto flex-basis competing for room in a
+     moderate-width window, flex-shrink took the panel well below its own
+     clamp() minimum (measured 259px against a 336px floor at 1400px wide),
+     quietly undoing "wider" the moment the window wasn't huge. 17.5rem
+     matches `WEB_PANEL_MIN` in app.js — the floor the drag handle already
+     enforces — so the panel can't get any narrower non-interactively than a
+     manual resize would ever leave it. */
+  min-width: 17.5rem;
+  overflow: hidden;
+  /* Containing block for .web-panel-resize (§37D.1), same reason #sidebar
+     gets it above. */
+  position: relative;
+}
+
+/* Below this the two columns are both too narrow to use, so the panel takes
+   the whole of <main> and the conversation waits behind it. The ✕ is right
+   there, which is what makes that acceptable — it is one click back. */
+@media (max-width: 1100px) {
+  #tab-chat .layout>main:has(#web-panel:not(.hidden))>#chat-main {
+    display: none;
+  }
+
+  #web-panel {
+    flex: 1 1 auto;
+  }
+}
+
+#chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  /* The chat list is the one that grows without bound, so it scrolls inside
+     the card instead of stretching the page. */
+  overflow: hidden;
+}
+
+#conversation-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+#chat-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  flex: 1 1 auto;
+}
+
+#chat-messages {
+  flex: 1 1 auto;
+  /* 6rem, not 12. This is the floor the conversation is guaranteed; the dock
+     above it is a strip that cannot be shrunk without cutting a control off,
+     so a floor set too high is an overflow waiting for a short window. The web
+     panel used to force it down to 4rem — it is a column of its own now and
+     has stopped competing for this height. */
+  min-height: 6rem;
+  overflow-y: auto;
+}
+
+.chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+/* Title and its metadata are one block, so the actions align to the pair
+   rather than to whichever of them happens to be taller. */
+.chat-headline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-right: auto;
+}
+
+.chat-toolbar #chat-title {
+  margin: 0;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One line of quiet facts under the title: what the thread has cost, and
+   whether the model is reading a summary rather than the messages. Empty most
+   of the time, and it takes no height when it is — an always-present blank
+   line under a heading is the sort of unexplained gap §36B spent a session
+   removing from the note card. */
+.chat-subline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.chat-subline:empty {
+  display: none;
+}
+
+/* An action that belongs in a sentence, not a button beside one. `Undo` sits
+   inside the "reading a summary" note, so it is styled as the words it is. */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  filter: brightness(1.15);
+}
+
+/* These three followed the controls down into the dock — `select` especially,
+   because the base rule is `width: 100%` and without an override each picker
+   becomes as wide as the row allows. Written for both surfaces rather than
+   moved, since the toolbar keeps the same shape for whatever lands in it
+   next. */
+.chat-toolbar .tools-toggle,
+.chat-dock-controls .tools-toggle {
+  white-space: nowrap;
+  margin: 0;
+}
+
+.chat-toolbar button,
+.chat-dock-controls button {
+  white-space: nowrap;
+}
+
+.chat-toolbar select,
+.chat-dock-controls select {
+  margin: 0;
+  width: auto;
+}
+
+.chat-composer {
+  margin-top: 0.5rem;
+}
+
+/* --- the composer dock (asked for directly) ---------------------------------
+   *"moving the majority of the ui controls like the chat/agent pull, web
+   search and stuff to the bottom bar with the chat input."*
+
+   Everything that decides what happens to the *next* message now lives here,
+   with the box you type it in; the header above keeps only what is about the
+   conversation as a whole. The dock is the last flex child of #chat-main, so
+   it holds the bottom of the card while the message list scrolls above it —
+   no fixed positioning, which would have to know the sidebar's width and would
+   sit over the messages on a short window.
+
+   The hairline is what makes it read as one block rather than as two rows that
+   happen to be adjacent. */
+.chat-dock {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+  margin-top: var(--space-3);
+  /* **No background.** Reported as "a weird box shadow behind the bottom dock",
+     and that is what it looked like, but the cause was a repaint rather than a
+     shadow: this said `background: var(--card)` while sitting *inside* a card
+     that had already painted it. Under a glass theme `--card` is ~55% opaque,
+     so two of them stack into a visibly denser rectangle with the card's own
+     shadow showing round its edge — a panel inside a panel of the same colour.
+     Measured in dark + glass: #chat-main and .chat-dock both painted
+     rgba(29, 33, 46, 0.55).
+
+     The background was never needed. The dock is the last flex child of the
+     card, not a sticky overlay, so nothing scrolls underneath it — the
+     hairline above is what separates it, and that is enough. */
+}
+
+/* One strip rather than three stacked rows.
+   Asked for: "make the bottom dock in the chat cleaner and better structured
+   ui wise so it's not as bulky". The height was the complaint and the cause
+   was structural — a skills row, a controls row and the composer, each with
+   its own vertical rhythm, is three bands of chrome under every conversation.
+   The first two are one line now, and the parts that made it tall are gone:
+   the skill's description (a sentence of running text, clipped mid-word, now
+   the select's tooltip) and the duplicated "⚡ Skill:" label beside a select
+   whose placeholder already says it.
+
+   `align-items: center` with one control height (--control-h) is what makes it
+   read as a strip: a segmented control, two selects and four buttons that each
+   sized themselves is what made the old row look assembled rather than
+   designed. */
+.chat-dock-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  /* One height for everything in the strip. Not a spacing token: this is a
+     control's size, the same role --radius plays for corners, and snapping it
+     to a gap step would make it drift with density in a way a hit target
+     should not. */
+  --control-h: 1.9rem;
+}
+
+.chat-dock-controls select,
+.chat-dock-controls>.chat-tool-group>button,
+.chat-dock-controls .chat-dock-more>button,
+.chat-dock-controls .seg,
+.chat-dock-controls .seg button,
+.chat-dock-controls .chat-skill-mark {
+  height: var(--control-h);
+  padding-block: 0;
+  font-size: var(--text-md);
+  /* **The margin is the alignment bug, and it is invisible in the markup.**
+     `.seg` carries `margin-bottom: 0.5rem` from the stacked forms it was built
+     for. `align-items: center` centres a flex item's *margin box*, so an 8px
+     bottom margin makes the control sit 4px above everything beside it — and
+     it makes the group 8px taller, which pushes the next group down by 4px in
+     turn. Both offsets were visible on screen and neither is visible in a
+     stylesheet unless you go looking for the rule that set them.
+
+     So the strip states it once, for everything in it: whatever a control
+     brought with it, in here it has no outside spacing and the `gap` is the
+     only thing between them. */
+  margin: 0;
+}
+
+/* The segmented control also brings its own vertical padding around its two
+   buttons, which made it taller again. It keeps its inset horizontally and
+   gives it up vertically. */
+/* The mode buttons say "Ask the Librarian" where there is room and "Ask" where
+   there is not. Naming them for what you get rather than for the machinery is
+   the point — but two labels of that length are ~350px of a strip that also
+   holds a skill picker, a length preset, a persona and a web toggle, and the
+   whole strip wrapped to two rows below about 1500px. Measured: 30px tall at
+   1900, 69px at 1440. The full phrase stays in the tooltip and in the
+   accessible name at every width, so nothing is lost but the pixels. */
+@media (max-width: 1500px) {
+  .chat-mode-long {
+    display: none;
+  }
+}
+
+.chat-dock-controls .seg {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  gap: 0;
+}
+
+.chat-dock-controls select {
+  max-width: 14rem;
+}
+
+/* **One family, not four.** Asked for: *"redesign the docked ui control
+   elements and how they are visualised."*
+
+   The strip already had one height and one gap, and it still read as
+   assembled: a native `<select>` with the platform's own square corners and
+   caret, beside a `.ghost` button with the app's radius, beside a `.seg` with
+   a pill radius, beside a bare emoji. Four borders, three corner radii, two
+   backgrounds — every one arriving from a different rule written for a
+   different surface. Consistent *size* is not consistent *form*.
+
+   So everything in here is drawn the same way: the app's pill radius, one
+   border, one background, one hover. The selects keep their function and give
+   up their chrome — `appearance: none` plus a caret drawn from the same colour
+   the text uses, so it dims and brightens with the control instead of staying
+   the operating system's grey. */
+.chat-dock-controls select,
+.chat-dock-controls>.chat-tool-group>button,
+.chat-dock-controls .chat-dock-more>button,
+.chat-dock-controls .seg {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--glass-border);
+  background: var(--card);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.chat-dock-controls select {
+  appearance: none;
+  -webkit-appearance: none;
+  /* Room on the right for the caret below, which is painted rather than laid
+     out — a real element would have to be inserted into every select in the
+     strip, including the one built at runtime for skills. */
+  padding-inline: var(--space-4) var(--space-8);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-size: 0.3rem 0.3rem, 0.3rem 0.3rem;
+  background-position: right 0.75rem center, right 0.6rem center;
+  background-repeat: no-repeat;
+}
+
+.chat-dock-controls select:hover,
+.chat-dock-controls>.chat-tool-group>button:hover,
+.chat-dock-controls .chat-dock-more>button:hover {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+/* A toggle that is on says so with the accent, the same way the mode segment's
+   chosen half does. `aria-pressed` is already on these buttons for the screen
+   reader; this is the sighted half of the same statement, and it was missing —
+   🌐 Web looked identical on and off unless you noticed the panel. */
+.chat-dock-controls>.chat-tool-group>button[aria-pressed="true"] {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* The skills group is the one that varies in width — a skill name can be
+   anything — so it is the one allowed to give ground first. */
+.chat-tool-group-skills {
+  min-width: 0;
+}
+
+/* --- the Skills dropdown ------------------------------------------------------
+   Same trigger-plus-panel shape as .chat-dock-more at the other end of the
+   strip: one popup pattern in the dock, not two. */
+.chat-tool-group-skills {
+  position: relative;
+}
+
+.chat-skills-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 45;
+  width: max-content;
+  min-width: 18rem;
+  max-width: min(24rem, calc(100vw - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.chat-skills-panel.hidden {
+  display: none;
+}
+
+.chat-skills-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+/* A fixed label column, so "Skill" and "Pace" line their controls up instead
+   of each setting its own left edge. */
+.chat-skills-row>.muted {
+  flex: 0 0 3.5rem;
+}
+
+.chat-skills-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Run is the action the panel exists for, so it gets the full width and the
+   emphasis rather than sitting as a third peer in a row of settings. */
+.chat-skills-run {
+  display: flex;
+}
+
+.chat-skills-run>button {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* The trigger names the armed skill, which can be long. */
+#chat-skills-btn {
+  /* Wider than the old 14rem: skill names like "Audit link reasons (edits
+     notes)" were clipped mid-word at that width. 18rem gives the full panel's
+     min-width of 18rem so the button never wraps the panel it opens, and
+     text-overflow still kicks in for anything longer. */
+  /* Removed text-overflow from here, applied to .ph-text child instead */
+  max-width: 18rem;
+
+  /* An inline-flex box with the default `align-items: normal` STRETCHES its
+     children, so the icon and the label were sized by the button's height
+     rather than centred in it — which is why this one control's text sat a
+     little high against Ask/Web/Plan beside it, all of which centre. Both
+     axes stated explicitly rather than inherited from a shared rule that does
+     not reach this button. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#chat-skills-btn .ph-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Flex items need min-width: 0 to shrink smaller than their content */
+  min-width: 0;
+}
+
+.chat-tool-group-skills select {
+  /* Shrinks before anything else in the strip does — the skill names are the
+     longest text in the dock and the group has the most controls, so it is the
+     right one to give up width first. */
+  flex: 0 1 18rem;
+  min-width: 9rem;
+  max-width: 18rem;
+}
+
+/* Auto | Manual, beside the skill it applies to. This preference used to live
+   in the gear popup three controls away, which is why nobody found it. */
+.chat-skill-pace {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.chat-skill-pace button {
+  white-space: nowrap;
+}
+
+/* The group's mark, not a label. Sized and centred with the controls rather
+   than sitting on the text baseline, where a single glyph beside a select
+   reads as something that failed to load. */
+.chat-skill-mark {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+/* Hidden as a group, not as a row: `.hidden` has to beat the flex display the
+   group otherwise carries. */
+.chat-tool-group.hidden {
+  display: none;
+}
+
+/* --- chat dock density pass (§37C) -------------------------------------------
+   Answer length and persona used to be a permanently-drawn row beside the
+   mode/web/plan group — reported repeatedly as "the bottom dock ... is verrry
+   bulky". Neither changes turn to turn the way mode/web/plan can, so they move
+   behind a disclosure (the note picker's own pattern: `position: relative` on
+   the trigger's wrapper, `position: absolute` on the panel above it) and the
+   strip is left with only what you're likely to touch on a normal message. */
+.chat-dock-more {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.chat-dock-more-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 45;
+  width: max-content;
+  min-width: 14rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.chat-dock-more-panel.hidden {
+  display: none;
+}
+
+.chat-dock-more-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.chat-dock-more-row select {
+  width: auto;
+}
+
+#chat-dock-more-btn[aria-expanded="true"],
+#chat-skills-btn[aria-expanded="true"],
+#persona-peek[aria-expanded="true"] {
+  background-color: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* The composer row, on one height.
+   Measured before this rule: 📎 45.2px, the box 49.0, 🎙 45.2, Send 43.2, with
+   three different tops — four controls, four sizes, nothing agreeing with
+   anything. Each had picked up its own padding from a different base rule.
+
+   `--composer-h` is the row's control height, the same idea as `--control-h`
+   in the strip above, and 2.75rem is deliberately at the 44px touch-target
+   minimum: this is the one row of the app used on a phone.
+
+   `align-items: end` rather than `center` because the box is `autogrow` — when
+   a three-line question makes it taller, the buttons must stay level with its
+   last line, where the caret is. Centring makes them drift upward as you
+   type. */
+.chat-dock .chat-composer {
+  margin-top: var(--space-2);
+  align-items: end;
+  --composer-h: 2.75rem;
+  /* One hairline for the block, not two. `.chat-composer` draws its own
+     `border-top` for the surfaces where it stands alone; inside the dock that
+     put a second rule 49px below the dock's own, which is what made one strip
+     of controls read as a stack of bands. */
+  border-top: 0;
+}
+
+.chat-dock .chat-composer button,
+.chat-dock .chat-composer .note-picker>button {
+  height: var(--composer-h);
+  padding-block: 0;
+  margin: 0;
+}
+
+.chat-dock .chat-composer #chat-input {
+  min-height: var(--composer-h);
+  resize: vertical;
+  padding: 0.4rem 1rem;
+}
+
+/* The picker wraps its button and the popup panel; without this it stretches
+   to the row and takes the button with it. */
+.chat-dock .chat-composer .note-picker {
+  align-self: end;
+}
+
+/* **The dock does not shrink, and nothing in it needs to.**
+   It was `flex: 0 1 auto` so that the web panel inside it could give way — and
+   that worked exactly as far as the panel: everything else in the dock is
+   `flex: 0 0 auto`, so once the panel was gone the dock's *box* shrank and its
+   children drew straight through the bottom of it. Measured at 1849×700 with a
+   composer dragged to 380px: the dock's box ended at y=614 and the composer at
+   y=814 — 200px outside the card it is supposed to be in, with Send below the
+   window. The rounded corner of the card cutting across the middle of the
+   composer is that, and it is what "the ui issue with the bottom dock" was.
+
+   The web panel is a column now, so there is nothing left in here that can
+   yield, and a box that cannot shrink should not claim it can. The
+   conversation above gives way instead (`#chat-messages`, which scrolls), and
+   `fitComposerToDock` in app.js keeps a hand-dragged composer inside whatever
+   is left. */
+.chat-dock {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Override the global fixed position when inside the chat dock */
+.chat-dock .scroll-top {
+  position: absolute;
+  right: 1.5rem;
+
+  /* Float exactly 1rem above the dock's top edge, regardless of how tall the textarea grows */
+  bottom: calc(100% + 1rem);
+  z-index: 40;
+}
+
+.chat-dock>* {
+  flex: 0 0 auto;
+}
+
+.chat-dock .persona-prompt {
+  margin-bottom: var(--space-4);
+}
+
+/* The attached-note chips are their own row above the strip, so they keep a
+   gap under them.
+   **The skill picker must not**, and this rule is where it went wrong: it is a
+   group *inside* the strip now, and a bottom margin on a flex item is centred
+   with the item — so 8px underneath lifted the whole group 4px above its
+   neighbours and pushed them 4px down. Exactly the `.seg` bug, in a rule
+   written one commit earlier while fixing it. Margins inside the strip are
+   the strip's business; see `--control-h`. */
+.chat-dock #chat-attachments {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+/* The status line is inside the dock now, so it must not add height on every
+   idle turn — an empty <p> with a margin moves the input box by its own
+   height each time a message finishes. */
+.chat-dock #chat-status {
+  margin: var(--space-2) 0 0;
+}
+
+.chat-dock #chat-status:empty {
+  display: none;
+}
+
+@media (max-width: 720px) {
+
+  /* Two rows of controls above a composer is most of a phone screen. They stay
+     — hiding a control the user has to reach for is worse than scrolling — but
+     they tighten up. */
+  .chat-dock-controls {
+    gap: var(--space-2);
+  }
+}
+
+/* Sticky sidebars ------------------------------------------------------------
+   The conversation list and the document list are navigation, and navigation
+   that scrolls away is navigation you have to scroll back for (user request).
+   Both stick below the header rather than at the top of the viewport, since
+   the header is itself sticky and would otherwise cover them.
+
+   align-self must be `start`: a stretched grid item is exactly as tall as its
+   row, which leaves sticky nothing to move within. Giving it the viewport
+   height instead keeps it looking full-height — the reason `stretch` was
+   chosen originally — while the list scrolls inside it. */
+#chat-sidebar {
+  align-self: start;
+  position: sticky;
+  /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
+     header floated over it. The scroll container is the page now (§36A), and
+     the header sits outside it — so there is nothing to clear, and offsetting
+     by the header height would push the sidebar down by that much again. */
+  top: 0;
+  /* `100%` now, and no arithmetic at all — which is better than the corrected
+     `--page-sticky-h` the other two sidebars use, because this one does not
+     have to be right about the window.
+
+     The old comment here said 100% "would resolve against a row sized by its
+     own content". That was true when it was written and stopped being true
+     when `#tab-chat > .layout` gained `height: 100%` and
+     `grid-template-rows: minmax(0, 1fr)`: the grid area is now exactly the
+     height this sidebar should be, and a percentage on a grid item resolves
+     against its grid area. So the correct height is available for free, and
+     the sum that was being maintained by hand was maintaining a number the
+     layout already knew. */
+  height: 100%;
+}
+
+/* --- graph: depth, halos and legible labels -------------------------------- */
+/* These come after the base .graph-node rules so they win the specificity tie
+   and the halo never picks up the node's stroke. */
+.graph-node circle.graph-halo {
+  stroke: none;
+  opacity: 0.16;
+  pointer-events: none;
+  transition: opacity 0.15s ease, r 0.15s ease;
+}
+
+.graph-node:hover circle.graph-halo,
+.graph-node.graph-focus circle.graph-halo {
+  opacity: 0.34;
+}
+
+.graph-node text.graph-pin-badge {
+  font-size: 0.7rem;
+  stroke: none;
+  pointer-events: none;
+}
+
+.graph-node text.graph-label {
+  font-weight: 500;
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 4px;
+  stroke-opacity: 0.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+:root[data-mode="dark"] .graph-node text.graph-label {
+  fill: #ffffff;
+  stroke: #000000;
+}
+
+/* Dimmed nodes fade rather than vanish, so context is never lost. */
+.graph-node.graph-dim {
+  opacity: 0.18;
+}
+
+/* --- graph: physics sliders + node popup ----------------------------------- */
+.graph-popup-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.15rem 0 0.5rem;
+}
+
+.graph-popup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.graph-popup-actions button {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.graph-physics {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.graph-physics input[type="range"] {
+  width: 6.5rem;
+  margin: 0;
+}
+
+.graph-physics label {
+  font-size: 0.8rem;
+}
+
+.graph-popup {
+  position: absolute;
+  z-index: 40;
+  width: 22rem;
+  max-width: calc(100% - 1rem);
+  padding: 0.8rem 0.8rem;
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+/* A long note makes this tall; it scrolls itself rather than overflowing the
+   map. max-height is set in JS from the real box height. */
+.graph-popup {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.graph-popup.hidden {
+  display: none;
+}
+
+.graph-popup textarea,
+.graph-popup input {
+  margin-bottom: 0.5rem;
+}
+
+.graph-popup .row {
+  margin: 0;
+  align-items: center;
+}
+
+/* --- markdown tables ------------------------------------------------------- */
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.md-table th,
+.md-table td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-table th {
+  background: var(--chip-bg);
+  font-weight: 650;
+}
+
+.md-table tbody tr:nth-child(even) {
+  background: rgba(127, 127, 127, 0.04);
+}
+
+/* --- user-tunable corner rounding ----------------------------------------------
+   Scoped to the surfaces the eye actually reads as "the shape of the UI".
+   Smaller controls use a proportional radius so nothing looks lopsided. */
+.modal-card,
+.dash-widget,
+#graph-box,
+.entry-list li {
+  border-radius: var(--radius);
+}
+
+textarea,
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+button {
+  border-radius: calc(var(--radius) * 0.7);
+}
+
+.chip,
+.seg,
+.seg button {
+  border-radius: calc(var(--radius) * 0.5 + var(--radius-md));
+}
+
+/* --- spacious density (third option alongside comfortable/compact) --------- */
+
+/* --- appearance settings: grouped, scannable rows -------------------------- */
+.settings-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.settings-group>h3:first-child {
+  margin-top: 0;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.settings-group>.setting-row:first-of-type {
+  border-top: none;
+}
+
+.setting-row-stack {
+  align-items: flex-start;
+}
+
+.setting-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 9rem;
+}
+
+.setting-label>span {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.setting-label small {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.setting-control {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.setting-row .row {
+  margin: 0;
+  align-items: center;
+}
+
+.setting-row select {
+  margin-bottom: 0;
+  width: auto;
+}
+
+.setting-row input[type="range"] {
+  width: 9rem;
+  margin-bottom: 0;
+}
+
+.setting-row input[type="color"] {
+  width: 2.6rem;
+  height: 2rem;
+  padding: 2px;
+  margin-bottom: 0;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  cursor: pointer;
+}
+
+.slider-value {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.8rem;
+}
+
+/* Checkbox settings: box left, label + hint stacked right. */
+.setting-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  margin: 0;
+}
+
+.settings-group>.setting-check:first-of-type {
+  border-top: none;
+}
+
+.setting-check input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.15rem 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.setting-check>span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.setting-check small {
+  font-weight: 400;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+/* A row whose parent control is switched off. */
+.disabled-row {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.advanced-css summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.advanced-css textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .setting-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .setting-control,
+  .setting-row .row {
+    width: 100%;
+  }
+}
+
+/* --- first-run onboarding tour ------------------------------------------------- */
+#onboarding-card {
+  max-width: 30rem;
+  text-align: center;
+}
+
+.onboarding-slide {
+  padding: 1rem 0.5rem 0.25rem;
+  min-height: 8.5rem;
+}
+
+.onboarding-icon {
+  font-size: 2.8rem;
+  line-height: 1;
+  margin-bottom: 0.6rem;
+}
+
+#onboarding-title {
+  margin: 0 0 0.5rem;
+}
+
+#onboarding-text {
+  margin: 0 auto;
+  max-width: 24rem;
+}
+
+.onboarding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 1rem 0;
+}
+
+.onboarding-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s ease;
+}
+
+.onboarding-dot.active {
+  background: var(--accent);
+}
+
+/* --- help guide accordion ------------------------------------------------------ */
+.help-accordion details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.8rem;
+}
+
+.help-accordion summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.help-accordion details[open] summary {
+  margin-bottom: 0.4rem;
+}
+
+.help-accordion p {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+}
+
+.searxng-host {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.7);
+  padding: 0.8rem 0.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.searxng-host .row {
+  margin: 0.4rem 0 0;
+  align-items: center;
+}
+
+.searxng-host p {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+}
+
+.setup-snippet {
+  background: var(--chip-bg);
+  padding: 0.6rem 0.8rem;
+  border-radius: calc(var(--radius) * 0.5);
+  font-size: 0.8rem;
+  overflow-x: auto;
+  /* A pasted command or a stack trace is wider than the dialog. Wrapping the
+     scroll in this element only works while its ancestors have a floor to
+     shrink to — see the automatic-minimum-sizing note in ARCHITECTURE §10. */
+  min-width: 0;
+  margin: 0 0 0.5rem;
+}
+
+/* --- the web-search engine picker ------------------------------------------ */
+/* One row per engine, each with its own sentence: which engine answers is not
+   obvious from a three-word label, and "auto" in particular means something
+   specific (fall back) that a radio button alone cannot say. */
+.provider-picker {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.provider-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.6);
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+}
+
+.provider-option:hover {
+  border-color: var(--accent);
+}
+
+.provider-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--chip-bg);
+}
+
+.provider-option input {
+  margin-top: 0.25rem;
+}
+
+.provider-option .muted {
+  font-size: 0.85rem;
+}
+
+/* A button that reads as a link — used for "that setting lives over there"
+   cross-links, which must be buttons for the keyboard but must not look like
+   one more thing to press. */
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- back-to-top button ---------------------------------------------------- */
+/* Sits clear of the bottom-right corner on every tab except the graph, which
+   has its own zoom controls there. */
+.scroll-top {
+  position: fixed;
+  right: 1.5rem;
+  /* Above the status bar, not on it. Reported. Measured from the bar's own
+     declared height so the two cannot drift apart — the failure a hard-coded
+     offset guarantees the first time the bar's padding changes. */
+  bottom: calc(var(--status-bar-h) + var(--space-4));
+  z-index: 40;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 1.15rem;
+  line-height: 1;
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  cursor: pointer;
+  /* Kept out of the layout and off the a11y tree until it's actually offered. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.5rem);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+
+.scroll-top.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.scroll-top:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.scroll-top:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .scroll-top {
+    right: 1rem;
+    bottom: calc(var(--status-bar-h) + var(--space-3));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-top {
+    transition: none;
+  }
+}
+
+/* --- screen-reader-only announcements --------------------------------------- */
+/* Present to assistive tech, invisible on screen. Clipped rather than
+   display:none, which would take it out of the accessibility tree entirely. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- category rename / delete ------------------------------------------------ */
+/* The controls stay out of the way until you reach for them — the sidebar is a
+   filter first, and a row of icons on every category would be noise. They
+   appear on hover and, importantly, on keyboard focus. */
+#category-list li {
+  position: relative;
+}
+
+.category-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Absolutely positioned, so it overlays the row on hover instead of sitting
+   in the flow. `opacity: 0` hides it but keeps its width, so every category
+   row reserved space for buttons nobody could see — and "All", which has no
+   actions, did not. That is why the counts marched in and out down the list
+   and the sidebar read as awkward. The `position: relative` already on
+   `#category-list li` was put there for exactly this and never used. */
+.category-actions {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 0.15rem;
+  opacity: 0;
+  /* Not clickable while invisible, or it would swallow clicks meant for the
+     category itself along the right-hand edge of every row. */
+  pointer-events: none;
+  background: inherit;
+  transition: opacity 0.12s ease;
+}
+
+#category-list li:hover .category-actions,
+#category-list li:focus-within .category-actions {
+  pointer-events: auto;
+}
+
+.category-actions button {
+  padding: 0 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+#category-list li:hover .category-actions,
+#category-list li:focus-within .category-actions {
+  opacity: 1;
+}
+
+/* The count badge is a normal-flow sibling sitting at the same spot the
+   actions overlay, and `background: inherit` on `.category-actions` was
+   meant to hide it underneath — reported as *"the popup buttons in the notes
+   sidebar clash with the category note numbers"*, which is what a background
+   that does not fully cover the row (a glass card is never fully opaque, and
+   `.active`/hover both change it) looks like. Fading the number out exactly
+   when the buttons fade in is the same transition already used for the
+   buttons themselves, just run on the thing it is replacing rather than
+   trusting a paint order to hide it.
+
+   Scoped to rows that actually have actions — "All" and "Uncategorised" have
+   no `.category-actions` and nothing to reveal, so their count must not
+   vanish on hover. */
+#category-list li:has(.category-actions):hover .count,
+#category-list li:has(.category-actions):focus-within .count {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+/* Touch has no hover, so the controls are simply always there — which used
+   to mean permanently overlaying the count rather than only while the row was
+   being pointed at, since `position: absolute` does not care whether opacity
+   is a hover state or a constant. In flow instead, so the row makes room for
+   both rather than stacking them: `li` is already `display: flex` for the
+   name/count pair, so a non-absolute child just becomes a third column. */
+@media (hover: none) {
+  #category-list li:has(.category-actions) .category-actions {
+    position: static;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-actions {
+    transition: none;
+  }
+}
+
+/* --- attaching notes to a chat message --------------------------------------- */
+.note-picker {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+#attach-note.has-attachments {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.note-picker-panel {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 45;
+  width: min(30rem, 80vw);
+  max-height: 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.note-picker-panel.hidden {
+  display: none;
+}
+
+.note-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  /* Scrolls itself so the panel can't grow past the composer. */
+  flex: 1 1 auto;
+  min-height: 4rem;
+}
+
+.note-picker-list li {
+  border-radius: var(--radius-md);
+}
+
+.note-picker-list li:hover {
+  background: var(--accent-soft);
+}
+
+.note-picker-list label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.4rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.note-picker-list input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.note-picker-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-picker-empty {
+  padding: 0.6rem 0.4rem;
+  font-size: 0.85rem;
+}
+
+.note-picker-foot {
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+}
+
+.chat-attachments.hidden {
+  display: none;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 22rem;
+}
+
+.attachment-chip>span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Bumped from a 1.5rem icon-sized thumbnail — reported directly as needing
+   to read as an actual image preview, not a small generic file-attached
+   icon. Large enough to recognise the picture at a glance, still well
+   short of the note's own composing area. */
+.attachment-chip-image {
+  max-width: 8rem;
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-2);
+  gap: var(--space-2);
+}
+
+.attachment-chip-image img {
+  width: 100%;
+  height: 5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+}
+
+.attachment-chip-image>span:first-of-type {
+  font-size: var(--text-xs);
+}
+
+.attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 var(--space-3);
+}
+
+.attachment-chips.hidden {
+  display: none;
+}
+
+.attachment-remove {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.attachment-remove:hover {
+  color: var(--error);
+}
+
+/* --- the writing room -------------------------------------------------------- */
+/* Thoughts on the left, the draft on the right, so you can see the raw material
+   and what the AI made of it at the same time. */
+.draft-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.draft-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.draft-column textarea {
+  resize: vertical;
+}
+
+.draft-controls {
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.draft-controls input {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+#draft-text {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+#draft-count {
+  font-size: 0.8rem;
+}
+
+/* One column on narrow screens — side-by-side textareas become unusable
+   well before the phone breakpoint. */
+@media (max-width: 900px) {
+  .draft-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- documents tab ----------------------------------------------------------- */
+.doc-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-6);
+  /* `start` here is what shrink-wrapped the sidebar. `stretch` makes both
+     columns the height of the row, which the flex chain below makes the height
+     of the page — the same arrangement #tab-chat already uses. */
+  align-items: stretch;
+  min-height: 0;
+  padding: 0;
+}
+
+/* The flex chain from the page down to the layout, so `height: 100%` on a grid
+   item has a definite size to resolve against. Copied deliberately from
+   #tab-chat rather than invented: two pages with the same two-column
+   full-height shape should not have two different ways of getting there. */
+#tab-documents {
+  display: flex;
+  flex-direction: column;
+}
+
+#tab-documents>.doc-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The heading row does not wrap. In a 260px column "Recent documents" broke
+   over two lines and took "＋ New" with it, so the sidebar opened with a
+   three-line header above a three-item list. The heading is the part that
+   gives way — the button is a fixed hit target. */
+
+/* Reported: the Documents sidebar does not stretch the full height the way the
+   other two do, and does not stay put on the left.
+   Both came from the same thing. `align-self: start` shrink-wraps a grid item
+   to its content, and `max-height` only ever CAPS it — a three-item list gave
+   a three-item-tall card floating beside a full-height editor. Chat's sidebar
+   solved this ages ago (`#tab-chat > .layout` gets `height: 100%` and the
+   sidebar takes `height: 100%` of its grid area); Documents never got the same
+   treatment, so it was the odd one out.
+
+   `align-self: stretch` is what makes a sticky grid item full-height AND keeps
+   it sticky: a stretched item is exactly as tall as its row, and here the row
+   is the page, so the item is the page. The list inside scrolls; the card does
+   not move. */
+.doc-sidebar {
+  position: sticky;
+  /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
+     header floated over it. The scroll container is the page now (§36A), and
+     the header sits outside it — so there is nothing to clear, and offsetting
+     by the header height would push the sidebar down by that much again. */
+  top: 0;
+  align-self: stretch;
+  height: 100%;
+  max-height: var(--page-sticky-h);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  /* The card is the frame; the lists inside it are what scroll. Without this
+     a long document list stretches the card past the viewport and takes the
+     sticky behaviour with it. */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The lists are the scrolling part, not the card. */
+.doc-sidebar .doc-list,
+.doc-sidebar .doc-outline-wrap {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.doc-item-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.doc-item-button:hover {
+  background: var(--accent-soft);
+}
+
+.doc-item.active .doc-item-button {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.doc-item-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.doc-item-meta {
+  font-size: 0.75rem;
+}
+
+.doc-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  /* .doc-layout stretches both columns to one row height (so the sidebar can
+     be full-height), which fixes THIS card's height too — but #doc-content's
+     `min-height: 60vh` below didn't know that, and asked for more room than
+     the stretched card actually had. The status line and hint below the
+     editor then had nowhere left to go but past the card's own bottom edge,
+     which is the reported "text below the panel, not at the bottom of it".
+     min-height: 0 is what lets a flex child (#doc-panes) shrink to fit the
+     space that's actually left, instead of overflowing it. */
+  min-height: 0;
+}
+
+/* The editor/preview area is the one part of this card that should give up
+   height when the chrome around it needs it — everything else (title,
+   toolbar, status, hint) is a fixed-height row. */
+#doc-panes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-toolbar {
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.doc-title-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  border: 1px solid transparent;
+  background: none;
+}
+
+.doc-title-input:focus {
+  border-color: var(--glass-border);
+  background: var(--card);
+}
+
+.doc-actions {
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.doc-actions .muted {
+  font-size: 0.8rem;
+  min-width: 4.5rem;
+  text-align: right;
+}
+
+/* A goal that's set says so with the accent, the same way the chat dock's
+   own toggles do (`.chat-tool-group>button[aria-pressed="true"]` above). */
+#doc-word-goal[aria-pressed="true"] {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* One pane by default; two side by side when the preview is on. `#doc-panes`
+   (same element, higher specificity, below) sets the layout that actually
+   applies — flex column, not grid — so this rule's own `display`/`min-height`
+   were dead and never noticed; only `gap` was live. */
+.doc-panes {
+  gap: 0.8rem;
+}
+
+#doc-content {
+  /* Was the actual cause of the overflow: a flat 60vh asked for more room
+     than the card's stretched height had left once the title, toolbar,
+     status line and hint below it took their share. flex:1 fills whatever
+     #doc-panes actually has; the min-height is only a floor for a very
+     short window, well under what 60vh used to force. `resize: vertical`
+     still lets a person drag it taller by hand, same as before. */
+  flex: 1 1 auto;
+  min-height: 12rem;
+  resize: vertical;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.doc-preview {
+  /* Same reasoning as #doc-content just above: fills whatever #doc-panes has
+     rather than a flat viewport fraction that didn't know about the rest of
+     the card's chrome. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.doc-preview.hidden {
+  display: none;
+}
+
+.doc-hint {
+  font-size: 0.8rem;
+}
+
+.doc-hint kbd {
+  padding: 0.05rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+
+.doc-ai-card {
+  width: min(46rem, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+

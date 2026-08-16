@@ -1,6 +1,9 @@
-"""Phase 1: the walking skeleton responds over HTTP."""
+"""The basic entries API responds over HTTP: health check, create/read,
+missing-entry 404, the frontend mount, and validation."""
 
 from __future__ import annotations
+
+from tests._css_paths import CSS_FILES
 
 
 def test_health(client):
@@ -38,7 +41,18 @@ def test_frontend_served_at_root(client):
     assert response.status_code == 200
     assert "MemoryMap AI" in response.text
     assert client.get("/app.js").status_code == 200
-    assert client.get("/style.css").status_code == 200
+    # Whiteboard subsystem split out of app.js into its own file (ROADMAP.md
+    # Priority 0 item 2), loaded by a second <script> tag in index.html.
+    assert client.get("/whiteboard.js").status_code == 200
+    # Graph view split out of app.js into its own file (frontend refactor
+    # path, the step after whiteboard), loaded by a third <script> tag —
+    # before app.js, not after, see index.html/graph.js for why.
+    assert client.get("/graph.js").status_code == 200
+    # style.css split into multiple linked files (ROADMAP.md Priority 0 item
+    # 2) — every one of them has to actually be reachable at the path
+    # index.html's <link> tags use, not just the directory that holds them.
+    for name in CSS_FILES:
+        assert client.get(f"/css/{name.name}").status_code == 200
 
 
 def test_empty_content_rejected(client):

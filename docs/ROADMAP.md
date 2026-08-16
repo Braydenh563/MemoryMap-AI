@@ -17,15 +17,24 @@ you couldn't.
 Ended on session-usage limits, not on running out of work. In the order a
 fresh session should pick them up:
 
-1. **The document-textarea resize gap.** Manually dragging `#doc-content`
-   shorter via its `resize: vertical` handle leaves dead space below it,
-   between the textarea and `.doc-hint`. Root cause traced but not fixed: a
-   manually resized flex item stops participating in `#doc-panes`'
-   `flex: 1 1 auto` the way it does before any resize, so the flex parent
-   keeps the pre-resize height and the slack collects below the textarea
-   instead of at the bottom of the card. Needs a live Chromium session to
-   verify any structural fix — do not ship one unverified, per this file's
-   own repeated CSS-regression history below.
+1. ~~The document-textarea resize gap.~~ **Fixed, but the fix's *effect* is
+   unverified — read this before trusting it closed.** `app.js` now detects a
+   real manual resize (`mousedown`→`mouseup` height diff on `#doc-content`,
+   since nothing else changes its `offsetHeight`) and relaxes `#doc-panes`
+   from `flex: 1 1 auto` to `flex: 0 1 auto` once one happens, so the freed
+   space should collect at the card's bottom instead of between the textarea
+   and `.doc-hint`. **This file's own instruction ("needs a live Chromium
+   session to verify... do not ship one unverified") was not fully met**:
+   Playwright could not trigger the native resize-handle drag in this
+   sandbox's headless Chromium — real mouse events and CDP-level ones alike
+   left the textarea's rendered height unchanged, and an isolated minimal
+   repro of the same flex structure showed the same thing (the drag *does*
+   register — `style="height: …px"` lands on the element — but flex-grow
+   visibly re-absorbs it back to 100% in the same layout pass). Whether
+   that's this Chromium build, or evidence the original root-cause theory
+   needs revisiting, wasn't chased down. **Next session: open the real app in
+   a headed/desktop browser, drag the handle, and look** — that's the one
+   thing this fix still needs.
 2. ~~`app.js`/`style.css`/`index.html` are still monolithic~~ **Both
    mechanically-splittable pieces are now done.** `style.css` (was 15.8k
    lines) is split into eight files under `frontend/css/`, cut only at its
@@ -127,20 +136,24 @@ fresh session should pick them up:
     in this list (the markdown-renderer merge, item 18 below, and the
     timeline and document-editor work, items 10-11) has landed, not
     concurrently with any of them.
-13. **A burst of 401s on dashboard/insights endpoints (`/preferences`,
-    `/insights/stats`, `/reminders`, `/entries`, etc.) on page load,
-    found live while verifying the whiteboard.js extraction (item 2).**
-    Confirmed unrelated to that split — reproduces identically against the
-    unmodified `app.js` too, but only when the server's data directory has
-    already been through one unlock cycle (a *reused* `MEMORYMAP_DATA_DIR`);
-    a completely fresh data directory shows zero errors on either side. Not
-    investigated further — likely several of these requests (dashboard
-    widgets, reminders poll, model-status poll) firing before the
-    just-issued auth token has actually been applied to `apiJson`'s default
-    headers on a page that still has an existing session/reminders/prefs
-    state to render immediately after unlock, but that's a guess, not a
-    traced root cause. Reproduce with: unlock once, reload the page (not a
-    fresh data dir), watch the browser console.
+13. ~~A burst of 401s on dashboard/insights endpoints on page load.~~ **Root
+    cause found and fixed — the earlier "only on a reused data directory"
+    theory above was wrong; it reproduces on every cold load, fresh data dir
+    or not, with no server restart or reuse needed at all.** Confirmed via a
+    bare Playwright page load with *no login attempted*: `switchTab
+    ("dashboard")` and `startReminderWatch()` both ran unconditionally at
+    module load, before `initAuth()` ever checks whether a token exists —
+    every cold load fired the dashboard's ~20 widget requests plus a
+    reminders poll, all with an empty `X-Auth-Token` header, all 401ing
+    before the lock screen was even dismissed. `switchTab` is now split into
+    `revealTab()` (DOM-only tab visibility, safe to run before a token
+    exists) and the data-loading dispatch; the module-level boot call is
+    `revealTab("dashboard")`, and `startReminderWatch()` moved into
+    `startApp()`, which only runs once a session is confirmed. Verified live:
+    the same bare-page-load repro now shows a single `/auth/status` call and
+    nothing else. See HANDOVER.md's newest entry for the sandbox-specific
+    trap that cost the most time chasing this (`pgrep -f` self-matching its
+    own invoking shell — use `lsof -t -i:<port>` instead).
 
 ## #0 priority — codebase quality review, still-open items
 

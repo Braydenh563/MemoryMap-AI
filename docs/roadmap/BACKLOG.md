@@ -87,11 +87,11 @@ separate `trace` field for a fold.
   the user chooses whether to send it, which is the difference between this
   and the outside review's other suggestion (opt-in crash reporting),
   rejected in §30.
-- **Confirm nothing is silently dropped.** Asked as "make sure all the
-  console messages are shown" — `logbuffer.py` is a 500-record ring buffer,
-  so a very chatty session can push early records out before the screen is
-  opened. Worth a visible "N records dropped, oldest kept is …" rather than a
-  silent gap.
+- ~~**Confirm nothing is silently dropped.**~~ **Done.** `logbuffer.py`
+  tracks `_dropped`/`_dropped_since` (a full ring buffer counts what it
+  discards rather than losing the fact silently), and the frontend renders it
+  — "N earlier records … the oldest record still kept is from …" — whenever
+  `stats().dropped` is nonzero.
 
 ---
 
@@ -114,14 +114,19 @@ assumed, since three sessions have now rebuilt something that already existed:
   the message JSON rather than LIKE-ing the column, so "tent" no longer matches
   every chat by way of the word `content`.
 
-**Still open:**
+**Still open:** nothing — the two items below are both done, checked against
+the running app rather than assumed.
 
-- **Empty chats can't be deleted.** Saved chats do have a delete action, and
-  deleting the last turn deletes the conversation — so this is only about the
-  *unsaved* chat in the main pane, which has no affordance but "+ New". Worth
-  confirming what was actually meant before building anything.
-- **Document outline / table of contents** from the headings, plus word-count
-  goal and reading time. The one genuinely unbuilt item here; see §5.
+- ~~**Empty chats can't be deleted.**~~ **Done.** A `Delete` button in the
+  chat toolbar covers both cases: an empty/unsaved pane resets silently
+  (nothing to lose), a saved one gets the sidebar's own confirm dialog first,
+  then `DELETE /conversations/{id}`.
+- ~~**Document outline / table of contents**, word-count goal, reading
+  time~~ **Done — all three, not just the outline.** See §5: `renderDocOutline`
+  builds a TOC, `renderDocStats` shows reading time, and `promptDocWordGoal`
+  (`#doc-word-goal`) is a working word-count-goal control. §5 itself already
+  said the outline/reading-time half was done; this session found the
+  word-count-goal half — which §5 called "the one unbuilt part" — was too.
 
 ---
 
@@ -309,8 +314,9 @@ Checked against the running app, not assumed:
   correctly-nested headings.
 - ~~**Expand a note into a document**~~ **done** — leaves the note untouched
   and says so.
-- **Word-count goal** — the one unbuilt part of the outline item. A target you
-  set, with progress against it.
+- ~~**Word-count goal**~~ **Done.** `promptDocWordGoal`/`#doc-word-goal` set a
+  target, persisted per-document (`docWordGoal:<id>` in localStorage), with
+  progress shown against it.
 - **AI chat bar inside the document** — partly there. `doc-ai-panel` already
   edits a selection or the whole document and shows the result as a proposal.
   What's missing is the *conversational* shape: ask a question about the
@@ -1549,10 +1555,8 @@ palettes."
 - ~~**Dashboard**: audit every quick-access button actually lands where it
   says~~ done (§8) — every quick link now checked from all three Notes
   sub-tabs. Still worth doing: **add the ones that are missing**
-- **Collapsible sidebars.** Asked for directly. The Notes, Chat and Documents
-  sidebars are fixed-width; a narrow window (or someone who just wants the
-  reading room back) has no way to fold them, distinct from the mobile
-  breakpoint that already hides them entirely.
+- ~~**Collapsible sidebars.**~~ **Done** — `makeSidebarResizable`'s
+  `sidebar-collapse-toggle` is wired on all three (Notes, Chat, Documents).
 - ~~**A status bar pinned to the bottom.**~~ **done, same item as above** —
   a second, near-duplicate bullet for the same ask; both are satisfied by the
   one `#status-bar` that now exists.
@@ -1920,12 +1924,9 @@ Small, concrete, each seen in the running app:
   `tests/test_reminder_times.py`, and reverting either half turns eight of
   them red.
 
-- **Background tasks vanish when they finish.** A completed or failed task
-  disappears from Settings → Background tasks, so "did the reinstall work?"
-  has no answer five minutes later. Keep finished tasks listed as
-  ended/previous (with outcome and duration), persist them to the logs, and
-  add a "clear history" button — probably one shared affordance for task
-  history and logs both.
+- ~~**Background tasks vanish when they finish.**~~ **Done** —
+  `renderTaskHistory` persists finished tasks (outcome, duration) and
+  `task-history-clear` is the shared "clear history" affordance.
 - **Chat / Agent / Browse selector and a browse UI.** Asked for directly
   ("can the chat interface be improved?? like the selector for agent mode
   and the web browser ui??") — this is §3, already designed there, unbuilt.

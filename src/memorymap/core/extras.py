@@ -37,12 +37,65 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-#: Reported: a failed install showed "pip exited with code 1" in the
-#: Background tasks panel (which reads `_state.log` directly) but nothing in
-#: Settings → Logs, because that viewer only ever sees records that went
-#: through `logging` — see `core/logbuffer.py`. pip's own output was captured
-#: for the panel and never routed there.
+#: Reported: a failed install showed "pip exited with code 1. The log above
+#: says why." in the Background tasks "Recently finished" history card, with
+#: no log anywhere near it. Two separate bugs turned out to be behind that one
+#: screenshot:
+#:
+#: 1. "The log above" was true of exactly one screen — Settings → Extras,
+#:    which keeps `_state.log` on screen (`extras-log-wrap`) after the install
+#:    stops. The history card renders `taskhistory.record`'s `detail` string
+#:    alone, with no log ever attached to it, so the same sentence pointed at
+#:    nothing there. Fixed below by folding the actual pip line into the
+#:    message itself (`_pip_reason`), so it is self-contained wherever it is
+#:    read — the same fix `search/searxng_manager._reason` already used for
+#:    its own installer, mirrored here rather than reinvented.
+#: 2. A first attempt at this routed pip's output through `logging` (see
+#:    `core/logbuffer.py`, which backs Settings → Logs) — but only in
+#:    `_run_uninstall`'s `finally` block. `_run_install`, the path the report
+#:    was actually about, never called `_logger` at all, so a failed install
+#:    still never reached Settings → Logs no matter what the panel said.
+#:    Never caught because nobody had reproduced a real failure end-to-end
+#:    since the change — reproducing one (`tests/test_extras.py`) is what
+#:    found it. Both worker functions call `_logger` now.
 _logger = logging.getLogger("memorymap.extras")
+
+# Lines that are never the reason something failed, however last they are.
+#
+# Pip's parting "[notice] To update, run: ...python.exe -m pip install
+# --upgrade pip" is printed on almost every run and is always the last line —
+# taking the last line unconditionally would report that instead of the
+# actual failure. Same list, same reasoning, as
+# `search/searxng_manager._NOT_A_REASON`.
+_NOT_A_REASON = (
+    "[notice]",
+    "to update, run",
+    "you should consider upgrading",
+    "warning: you are using pip version",
+)
+
+
+def _pip_reason(log: list[str], prefix: str) -> str:
+    """`prefix`, plus the most useful line pip actually printed.
+
+    Prefers a line that names an error, falls back to the last line that
+    isn't boilerplate, and falls back to `prefix` alone rather than guessing.
+    Mirrors `search/searxng_manager._reason`, which solved the same "the last
+    line is pip's update nag, not the failure" problem for the SearXNG
+    installer; extracted here rather than imported because the source is a
+    line list already split into `_state.log`, not a `CompletedProcess`.
+    """
+    useful = [
+        line for line in log if not any(marker in line.lower() for marker in _NOT_A_REASON)
+    ]
+    if not useful:
+        return prefix
+    named = [
+        line
+        for line in useful
+        if line.lower().startswith(("error", "fatal", "exception")) or "error:" in line.lower()
+    ]
+    return f"{prefix}: {(named or useful)[-1]}"
 
 
 @dataclass(frozen=True)
@@ -242,7 +295,7 @@ def _run_uninstall(extra: Extra) -> None:
         _state.step = (
             f"{extra.label} removed — restart MemoryMap to free it."
             if code == 0
-            else f"pip exited with code {code}. The log above says why."
+            else _pip_reason(_state.log, f"pip exited with code {code}")
         )
     except (OSError, subprocess.SubprocessError) as exc:
         _state.outcome = "failed"
@@ -310,13 +363,26 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         _state.step = (
             f"{extra.label} installed — restart MemoryMap to use it."
             if code == 0
-            else f"pip exited with code {code}. The log above says why."
+            else _pip_reason(_state.log, f"pip exited with code {code}")
         )
     except (OSError, subprocess.SubprocessError) as exc:
         _state.outcome = "failed"
         _state.step = f"Couldn't run pip: {exc}"
     finally:
         _state.running = False
+        # See the module docstring's numbered note above `_logger`: this call
+        # was missing entirely until now, which is the actual reason a failed
+        # *install* never reached Settings → Logs — `_run_uninstall` had it,
+        # this function did not.
+        if _state.outcome == "failed":
+            _logger.error(
+                "Installing %s failed: %s\n%s",
+                extra.label,
+                _state.step,
+                "\n".join(_state.log[-40:]),
+            )
+        else:
+            _logger.info("Installed %s.", extra.label)
         from memorymap.core import taskhistory
         taskhistory.record(
             "extra",

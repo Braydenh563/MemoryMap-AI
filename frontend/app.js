@@ -15087,6 +15087,38 @@ let voiceStatus = null; // cached /voice/status
 let recorder = null; // the active MediaRecorder, if any
 let recorderTarget = null; // which input gets the transcript
 
+// Live mic-level ring on a recording button, driven off the same MediaStream
+// the recorder already opened — no extra permission, no extra stream.
+// Returns a stop() that tears down the AudioContext; callers must invoke it
+// before the stream's tracks are stopped.
+function startMicLevelMeter(stream, button) {
+  let ctx;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    return () => {}; // no Web Audio support — recording still works, just no meter
+  }
+  const source = ctx.createMediaStreamSource(stream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+  button.classList.add("live-level");
+  let frame = requestAnimationFrame(function tick() {
+    analyser.getByteFrequencyData(data);
+    const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
+    button.style.setProperty("--mic-level", (avg / 255).toFixed(3));
+    frame = requestAnimationFrame(tick);
+  });
+  return () => {
+    cancelAnimationFrame(frame);
+    button.classList.remove("live-level");
+    button.style.removeProperty("--mic-level");
+    source.disconnect();
+    ctx.close().catch(() => {});
+  };
+}
+
 async function toggleDictation(button, targetInput) {
   if (recorder) {
     recorder.stop(); // second press = stop → transcribe
@@ -15109,9 +15141,11 @@ async function toggleDictation(button, targetInput) {
   const chunks = [];
   recorder = new MediaRecorder(stream);
   recorderTarget = targetInput;
+  const stopLevelMeter = startMicLevelMeter(stream, button);
   recorder.addEventListener("dataavailable", (e) => chunks.push(e.data));
   recorder.addEventListener("stop", async () => {
     stream.getTracks().forEach((t) => t.stop());
+    stopLevelMeter();
     button.classList.remove("recording");
     setLabel(button, "ph:microphone");
     recorder = null;

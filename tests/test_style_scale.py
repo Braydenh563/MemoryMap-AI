@@ -273,8 +273,10 @@ def test_the_shell_is_declared_once_and_responsively():
 # --- colour -------------------------------------------------------------------
 
 #: Tokens whose fallback is legitimate: a font stack has to name real families,
-#: and an opacity needs a number when the art is off.
-FALLBACK_ALLOWED = {"--mono", "--ui-font", "--bg-art-opacity", "--modal-bg", "--chip-bg"}
+#: an opacity needs a number when the art is off, and --mic-level is not a
+#: design token at all — it's set inline, per frame, by startMicLevelMeter()
+#: in app.js, so its "declaration" is JS, not this stylesheet.
+FALLBACK_ALLOWED = {"--mono", "--ui-font", "--bg-art-opacity", "--modal-bg", "--chip-bg", "--mic-level"}
 
 VAR_WITH_FALLBACK = re.compile(r"var\(\s*(--[\w-]+)\s*,")
 DECLARED = re.compile(r"(?m)^\s*(--[\w-]+)\s*:")

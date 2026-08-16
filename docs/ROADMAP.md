@@ -46,12 +46,16 @@ fresh session should pick them up:
 3. ~~**Notes/Documents/Graph "extract notes" feature**~~ **Done** — see
    BACKLOG.md §62 for the resolution note (what shipped, and what's UI-only
    and unverified live).
-4. **A live visual indicator when the mic picks up sound**, for the dictation
-   buttons — asked for directly, explicitly deferred by the user this
-   session ("that can wait"). Not scoped yet: likely a small level-meter off
-   `AnalyserNode`/`getByteFrequencyData` on the same `MediaStream` the
-   recorder already opens in `toggleDictation()` (`app.js:17050`) — no new
-   permission, no new stream.
+4. ~~A live visual indicator when the mic picks up sound~~ **Done.**
+   `startMicLevelMeter()` in `app.js` runs an `AnalyserNode` off the same
+   `MediaStream` `toggleDictation()` already opened — no new permission, no
+   new stream — and writes `--mic-level` (0–1) onto the button every frame.
+   `button.recording.live-level` in `02-chat-graph.css` swaps the old
+   fixed-cadence pulse for a box-shadow driven straight off that value, with
+   a `prefers-reduced-motion` fallback to a static ring. **Not live-verified
+   in this sandbox** — no real microphone/audio input device here, so the
+   level always reads near-zero; verified instead by reading the code path
+   and confirming `node --check` / the full suite pass.
 5. **The graph tab's traced-path text visualisation at the top of the canvas
    needs a redesign** — asked for directly ("the text ui visualisation of the
    trace path... needs improving and potential redesign"), not scoped. See

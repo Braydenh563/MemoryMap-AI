@@ -1323,6 +1323,21 @@ button.recording {
   }
 }
 
+/* Once startMicLevelMeter() has real signal, it drives --mic-level (0–1)
+   itself every frame — the fixed-cadence pulse above would fight it. */
+button.recording.live-level {
+  animation: none;
+  box-shadow: 0 0 0 calc(2px + var(--mic-level, 0) * 8px) var(--warn-soft);
+  transition: box-shadow var(--motion-fast) ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.recording.live-level {
+    box-shadow: 0 0 0 4px var(--warn-soft);
+    transition: none;
+  }
+}
+
 /* --- meeting notes (§17) ---------------------------------------------------------- */
 .meeting-timer {
   font-variant-numeric: tabular-nums;

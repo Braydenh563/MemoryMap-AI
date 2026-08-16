@@ -16040,7 +16040,7 @@ function renderLibrary() {
     const empty = $("library-empty");
     empty.classList.toggle("hidden", items.length > 0);
     if (!items.length) {
-      empty.textContent = !libraryItems.length
+      $("library-empty-title").textContent = !libraryItems.length
         ? "Nothing here yet. Write a document, start a chat, or attach a file to a note."
         : query
           ? `Nothing matching “${$("library-search").value.trim()}”.`

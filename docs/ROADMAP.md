@@ -135,7 +135,16 @@ fresh session should pick them up:
     so it should run *last*, after every other structural frontend change
     in this list (the markdown-renderer merge, item 18 below, and the
     timeline and document-editor work, items 10-11) has landed, not
-    concurrently with any of them.
+    concurrently with any of them. **A first, scoped pass done** — see
+    HISTORY.md's newest entry. Deliberately narrow rather than the full
+    sweep this item originally called for: two tabs' empty states brought
+    in line with the pattern the other five already use, and a real Library
+    data bug (a titled note's title duplicated into its own preview line)
+    fixed at the source. The broad "touch every CSS file" sweep — populated
+    non-empty states beyond a handful screenshotted this session, the
+    timeline/document-editor work (items 10-11), anything needing a
+    product/taste call — is still open and still belongs after those land,
+    per this item's own note above.
 13. ~~A burst of 401s on dashboard/insights endpoints on page load.~~ **Root
     cause found and fixed — the earlier "only on a reused data directory"
     theory above was wrong; it reproduces on every cold load, fresh data dir
@@ -154,6 +163,12 @@ fresh session should pick them up:
     nothing else. See HANDOVER.md's newest entry for the sandbox-specific
     trap that cost the most time chasing this (`pgrep -f` self-matching its
     own invoking shell — use `lsof -t -i:<port>` instead).
+
+    *(Note: the apple-design-audit session that ran this item's first scoped
+    pass was on a worktree branched from the wrong base and briefly reported
+    this 401 fix as unmerged/missing. That was a false alarm caused by its
+    stale starting point — `8b9b7f6` has been an ancestor of this branch's
+    `HEAD` since it landed; nothing to redo here.)
 
 ## #0 priority — codebase quality review, still-open items
 

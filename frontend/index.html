@@ -1049,7 +1049,11 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="timeline-branch-wrap" class="timeline-branch-wrap hidden">
         <svg id="timeline-branch-svg" class="timeline-branch-svg"></svg>
       </div>
-      <p id="timeline-empty" class="muted hidden">Nothing to plot yet.</p>
+      <div id="timeline-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-clock" aria-hidden="true"></i></span>
+        <p class="empty-title">Nothing to plot yet</p>
+        <p class="muted">Notes with a date — written or mentioned — will appear here.</p>
+      </div>
       
       <!-- Unified Timeline Popup (Read-only view with Open button) -->
       <div id="timeline-popup" class="graph-popup hidden" role="dialog" aria-label="View note">
@@ -1576,7 +1580,10 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </section>
         <div id="library-grid" class="library-grid"></div>
-        <p id="library-empty" class="muted library-empty hidden"></p>
+        <div id="library-empty" class="empty-state library-empty hidden">
+          <span class="empty-icon" aria-hidden="true"><i class="ph ph-books" aria-hidden="true"></i></span>
+          <p class="empty-title" id="library-empty-title"></p>
+        </div>
 
         <!-- Inject the Skills section here -->
     </div>

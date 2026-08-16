@@ -15128,6 +15128,11 @@ function startMicLevelMeter(stream, button) {
   } catch {
     return () => {}; // no Web Audio support — recording still works, just no meter
   }
+  // Some browsers create a new AudioContext already `suspended`, even from
+  // inside a click handler — the analyser then reads silence forever, so
+  // --mic-level never leaves 0 and the ring just sits flat with no visible
+  // motion at all. resume() is a no-op if it's already running.
+  ctx.resume().catch(() => {});
   const source = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 256;

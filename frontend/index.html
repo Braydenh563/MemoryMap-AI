@@ -511,8 +511,14 @@ Link to another note with [[its first few words]]."></textarea>
         <section class="card" id="ask">
           <div class="row space-between">
             <h2>Ask your notebook</h2>
-            <button id="new-chat-btn" class="ghost small hidden"
-              title="Clear this conversation and start fresh">New chat</button>
+            <span class="row ask-header-actions">
+              <button id="ask-history-toggle" class="ghost small" type="button"
+                aria-expanded="false" aria-controls="ask-history-panel"
+                title="Browse every question you've asked and its answer">
+                <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> History<span id="ask-history-badge" class="chip hidden"></span></button>
+              <button id="new-chat-btn" class="ghost small hidden"
+                title="Clear this conversation and start fresh">New chat</button>
+            </span>
           </div>
           <div class="row">
             <input id="question" type="text"
@@ -530,6 +536,31 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <div id="suggested-questions" class="recent hidden"></div>
           <div id="recent-questions" class="recent hidden"></div>
+          <!-- Question history (personal-notes-browser feature): every
+               notes-only question the Ask box has answered, searchable and
+               browsable rather than kept only as five reask chips. Collapsed
+               by default so a fresh Ask tab looks exactly as it always has —
+               this is opt-in screen space, not a permanent fixture above the
+               fold. -->
+          <div id="ask-history-panel" class="ask-history-panel hidden"
+            role="region" aria-label="Question history">
+            <div class="ask-history-toolbar row space-between">
+              <input id="ask-history-search" type="search"
+                placeholder="Search your past questions and answers…"
+                aria-label="Search question history">
+              <label class="row align-center checkbox-label small" title="Only show pinned questions">
+                <input type="checkbox" id="ask-history-pinned-only"> Pinned only
+              </label>
+              <button id="ask-history-clear" class="ghost small" type="button"
+                title="Delete your question history (pinned questions are kept)">
+                <i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
+            </div>
+            <ul id="ask-history-list" class="ask-history-list"></ul>
+            <p id="ask-history-empty" class="muted hidden">
+              Questions you ask will be saved here so you can browse back
+              through them later, the way you'd browse your notes.</p>
+            <button id="ask-history-more" class="ghost small hidden" type="button">Load more</button>
+          </div>
           <p id="ask-status" class="status" role="status"></p>
           <div id="chat-results" class="chat-grid hidden">
             <div class="chat-half">

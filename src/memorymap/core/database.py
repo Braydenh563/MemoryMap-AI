@@ -342,6 +342,33 @@ class Conversation(Base, WorkspaceMixin):
     )
 
 
+class AskTurn(Base, WorkspaceMixin):
+    """One question asked in the Ask box (Notes tab), with its answer and
+    which notes answered it — durable so the box can be browsed back through
+    like the notes it's about, not just re-asked from a five-item chip row.
+
+    Deliberately not a Conversation: the Ask box is single-shot, notes-only
+    Q&A (§35A) with no follow-up thread, so a flat row per question beats a
+    JSON message list a saved chat needs. `raw_result_ids` records which
+    notes answered it at the time — resolved back to live entries on read
+    (routes_ask_history.py), so an edited or deleted note since then shows
+    as it is now, or drops out cleanly rather than serving a stale copy.
+    """
+
+    __tablename__ = "ask_turns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    question: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(Text)
+    raw_result_ids: Mapped[str] = mapped_column(Text, default="[]")
+    search_mode: Mapped[str] = mapped_column(String(40), default="")
+    when_phrase: Mapped[str] = mapped_column(String(120), default="")
+    # Pinned turns survive "clear history" and sort first — the same shape
+    # Conversation.pinned already uses for saved chats.
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class Reminder(Base):
     """A reminder, optionally attached to an entry."""
 

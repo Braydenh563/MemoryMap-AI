@@ -22,6 +22,7 @@ from memorymap import __version__
 from memorymap.ai import embeddings, autonomous
 from memorymap.search import searxng_manager
 from memorymap.api import (
+    routes_ask_history,
     routes_auth,
     routes_categories,
     routes_chat,
@@ -208,6 +209,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_auth.router)
     app.include_router(routes_entries.router, dependencies=locked)
     app.include_router(routes_chat.router, dependencies=locked)
+    app.include_router(routes_ask_history.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)

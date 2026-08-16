@@ -27,7 +27,7 @@ from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
-from memorymap.core.database import AuditLog, Category, Entry
+from memorymap.core.database import AskTurn, AuditLog, Category, Entry
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -504,6 +504,25 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     )
 
 
+def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict) -> None:
+    """Durable record of one Ask-box turn, for routes_ask_history.py's browse
+    panel. Only ever called for `notes_only` requests (the Ask box's own
+    flag, §35A) with a real answer — a small-talk turn on that box always
+    exits through the "hint" branch below instead, never reaching this call,
+    so nothing here needs to re-check for that case.
+    """
+    session.add(
+        AskTurn(
+            question=question,
+            answer=answer,
+            raw_result_ids=json.dumps([r.id for r in prepared["raw_results"]]),
+            search_mode=prepared["search_mode"],
+            when_phrase=prepared["when_phrase"],
+        )
+    )
+    session.commit()
+
+
 @router.post("/stream")
 def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     """NDJSON stream. Line types, in order:
@@ -716,6 +735,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             grounding = ground_answer_sentences(answer_text, prepared["notes"])
             if grounding:
                 yield event({"type": "grounding", "sentences": grounding})
+        if body.notes_only and answer_text:
+            _save_ask_turn(session, question, answer_text, prepared)
         yield event({"type": "done"})
 
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the

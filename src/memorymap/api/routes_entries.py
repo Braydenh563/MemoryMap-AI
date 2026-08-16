@@ -300,9 +300,14 @@ def _linked_entry_ids(session: Session, entry) -> set[int]:  # noqa: ANN001
     linked = {other.id for _link, other in manager.links_for_entry(session, entry)}
     if entry.parent_id is not None:
         linked.add(entry.parent_id)
-    for child in manager.list_entries(session):
-        if child.parent_id == entry.id:
-            linked.add(child.id)
+    # Was `for child in manager.list_entries(session)` — loading and
+    # ORM-hydrating every non-deleted note in the notebook (decrypting private
+    # ones) just to find the handful whose parent_id matches. This entry has
+    # at most a few children; the notebook can have thousands of notes.
+    child_ids = session.scalars(
+        select(Entry.id).where(Entry.parent_id == entry.id, Entry.is_deleted == False)  # noqa: E712
+    )
+    linked.update(child_ids)
     return linked
 
 

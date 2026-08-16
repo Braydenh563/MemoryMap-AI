@@ -156,6 +156,18 @@ fresh session should pick them up:
     this 401 fix as unmerged/missing. That was a false alarm caused by its
     stale starting point — `8b9b7f6` has been an ancestor of this branch's
     `HEAD` since it landed; nothing to redo here.)
+14. **A proper generating/loading spinner, themed to the app** — asked for
+    directly. There is no single spinner component today: `grep spinner
+    frontend/app.js` turns up ad hoc "spinner chip" markup at a few call
+    sites (re-evaluate, per-card AI work) rather than one reusable piece, and
+    line 16012's own comment records a deliberate earlier choice of "…" over
+    a spinner for the web-panel connecting state specifically because "a
+    frozen spinner under `prefers-reduced-motion` looks like a hang" — any
+    new component has to keep that reduced-motion fallback, not regress it.
+    Not scoped further: should read `--accent` (so it matches the user's
+    chosen theme/palette, not a hardcoded colour) and reuse the
+    `--motion-*` scale item 12 added, but the actual mark (ring, dots,
+    bars) is a design call for whoever builds it.
 
 ## #0 priority — codebase quality review, still-open items
 

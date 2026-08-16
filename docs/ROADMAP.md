@@ -46,16 +46,27 @@ fresh session should pick them up:
 3. ~~**Notes/Documents/Graph "extract notes" feature**~~ **Done** — see
    BACKLOG.md §62 for the resolution note (what shipped, and what's UI-only
    and unverified live).
-4. ~~A live visual indicator when the mic picks up sound~~ **Done.**
-   `startMicLevelMeter()` in `app.js` runs an `AnalyserNode` off the same
-   `MediaStream` `toggleDictation()` already opened — no new permission, no
-   new stream — and writes `--mic-level` (0–1) onto the button every frame.
-   `button.recording.live-level` in `02-chat-graph.css` swaps the old
-   fixed-cadence pulse for a box-shadow driven straight off that value, with
-   a `prefers-reduced-motion` fallback to a static ring. **Not live-verified
-   in this sandbox** — no real microphone/audio input device here, so the
-   level always reads near-zero; verified instead by reading the code path
-   and confirming `node --check` / the full suite pass.
+4. ~~A live visual indicator when the mic picks up sound~~ **Done, and the
+   exact live-only bug the first pass couldn't catch has since shown up and
+   been fixed.** `startMicLevelMeter()` in `app.js` runs an `AnalyserNode`
+   off the same `MediaStream` `toggleDictation()` already opened — no new
+   permission, no new stream — and writes `--mic-level` (0–1) onto the
+   button every frame. `button.recording.live-level` in `02-chat-graph.css`
+   swaps the old fixed-cadence pulse for a box-shadow driven straight off
+   that value, with a `prefers-reduced-motion` fallback to a static ring.
+   Shipped with an honest "**not live-verified** — no real microphone in
+   this sandbox" note, since the level would read near-zero either way and
+   nothing would look obviously wrong from code alone. **Reported live as
+   "the animation doesn't show" and reproduced by reasoning, not by ear**:
+   some browsers create a fresh `AudioContext` already `suspended`, even
+   from inside a click handler, so the analyser read silence forever —
+   `--mic-level` never left 0, and since adding `.live-level` also
+   unconditionally kills the old pulse animation (`animation: none`), the
+   button just sat flat with no motion of any kind. Fixed with an explicit
+   `ctx.resume()` right after construction (a no-op if the context was
+   already running). Still not live-verified with a real microphone in this
+   sandbox — this is the second time a sandbox-unreachable class of bug has
+   shipped from sound reasoning alone; see CLAUDE.md's standing caveat.
 5. **The graph tab's traced-path text visualisation at the top of the canvas
    needs a redesign** — asked for directly ("the text ui visualisation of the
    trace path... needs improving and potential redesign"), not scoped. See

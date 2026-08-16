@@ -233,6 +233,46 @@ def test_tag_cloud_weights_by_frequency(client):
     assert {"tag": "ideas", "count": 1} in cloud
 
 
+def test_all_tags_is_not_rescanned_for_an_unchanged_notebook(client, monkeypatch, session):
+    """Was a full non-deleted-entry scan + per-row json.loads, paid again on
+    every Library tab open, every tag_cloud call, and every /tags call. Same
+    fingerprint-cache pattern as routes_graph.py's pagerank — this pins that
+    a second call within the same notebook version doesn't redo the scan."""
+    from memorymap.entry import manager
+
+    _save(client, "note one", tags=["work"])
+
+    calls: list[int] = []
+    original_scalars = session.scalars
+
+    def counting_scalars(stmt, *a, **k):
+        calls.append(1)
+        return original_scalars(stmt, *a, **k)
+
+    monkeypatch.setattr(session, "scalars", counting_scalars)
+    manager.all_tags(session)
+    first_call_count = len(calls)
+    manager.all_tags(session)
+    assert len(calls) == first_call_count, "all_tags rescanned an unchanged notebook"
+
+    # ...and a new tag invalidates it, because a stale count is worse than a
+    # slow one.
+    _save(client, "note two", tags=["ideas"])
+    manager.all_tags(session)
+    assert len(calls) > first_call_count
+    manager.reset_tag_cache()
+
+
+def test_all_tags_cache_is_scoped_to_the_notebook_it_was_built_from(app_state, session):
+    """The cache is process-global; restoring a backup must not be served
+    the previous notebook's tag counts."""
+    from memorymap.entry import manager
+
+    fingerprint = manager._tag_fingerprint(session)
+    assert str(app_state.data_dir) in fingerprint
+    manager.reset_tag_cache()
+
+
 # --- dashboard layout preference --------------------------------------------------
 
 

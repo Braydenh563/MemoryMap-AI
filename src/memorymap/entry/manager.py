@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, func, or_, select
@@ -649,15 +650,79 @@ def rename_attachment(session: Session, attachment: Attachment, new_filename: st
 # --- tags (tag manager) --------------------------------------------------
 
 
+_tag_cache_lock = threading.Lock()
+_tag_cache: dict | None = None  # (fingerprint, result), one slot — no LRU needed
+_tag_cache_reset_registered = False
+
+
+def _tag_fingerprint(session: Session) -> tuple:
+    """Cheap signature of everything that can change a tag count: a new
+    entry, an edit, a delete, or a restore. Same shape as routes_graph.py's
+    `_graph_fingerprint` — `Entry.updated_at` has `onupdate=utcnow`, so any
+    tag edit bumps it, and the live-entry count catches soft-delete/restore
+    even on the rare row an edit doesn't touch."""
+    from memorymap.core import deps
+
+    live = Entry.is_deleted == False  # noqa: E712
+    return (
+        str(deps.get_config().data_dir),
+        session.scalar(select(func.count(Entry.id)).where(live)) or 0,
+        session.scalar(select(func.max(Entry.updated_at)).where(live)),
+    )
+
+
+def reset_tag_cache() -> None:
+    """Drop the cached tag counts. For the tests, and for a data restore."""
+    global _tag_cache
+    with _tag_cache_lock:
+        _tag_cache = None
+
+
+def _ensure_tag_cache_reset_registered() -> None:
+    # `deps` imports (transitively, via ai.embeddings -> ai.model_manager)
+    # back into this module for `log_action`, so `from memorymap.core import
+    # deps` cannot sit at module level here without a circular import at
+    # startup — register lazily, on first use, the same way this file
+    # already imports `deps` inside `record_dates` for the same reason.
+    global _tag_cache_reset_registered
+    if _tag_cache_reset_registered:
+        return
+    from memorymap.core import deps
+
+    deps.register_cache_reset(reset_tag_cache)
+    _tag_cache_reset_registered = True
+
+
 def all_tags(session: Session) -> dict[str, int]:
-    """Every tag in use with its entry count."""
+    """Every tag in use with its entry count.
+
+    Was a full non-deleted-entry scan with a per-row `json.loads`, paid on
+    every Library tab open, every `tag_cloud()` call, and every `/tags`
+    call — three call sites, the same O(n) cost each time, and no cap the
+    way every sibling section of the same responses uses (ROADMAP.md
+    "#0 priority"). Cached by notebook fingerprint instead, the same
+    pattern `routes_graph.py` already uses for pagerank/similarity — a
+    fingerprint miss recomputes once; every other caller within the same
+    notebook version gets the cached dict.
+    """
+    global _tag_cache
+    _ensure_tag_cache_reset_registered()
+    fingerprint = _tag_fingerprint(session)
+    with _tag_cache_lock:
+        if _tag_cache is not None and _tag_cache[0] == fingerprint:
+            return _tag_cache[1]
+
     counts: dict[str, int] = {}
     for entry in session.scalars(
         select(Entry).where(Entry.is_deleted == False)  # noqa: E712
     ):
         for tag in entry_tags(entry):
             counts[tag] = counts.get(tag, 0) + 1
-    return dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+    result = dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
+    with _tag_cache_lock:
+        _tag_cache = (fingerprint, result)
+    return result
 
 
 def rename_tag(session: Session, old: str, new: str) -> int:

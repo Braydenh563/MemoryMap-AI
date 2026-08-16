@@ -2172,13 +2172,24 @@ function matchesSearch(entry) {
 // pattern already bounds itself (`{1,120}`) for exactly this reason. The
 // caps are far past any real link (200 characters of link text, 500 of
 // URL) and turn the per-position work into a constant.
-// Superset of what `renderInlineMarkdown` and (the now-merged) `appendInline`
-// each used to match on their own: `**bold**`/`__bold__`, `*italic*`/
-// `_italic_` (word-boundary-guarded so `file_name` doesn't turn into
-// `file<em>name</em>`), code, image, link, and a bare `https://` URL —
-// appendInline's own auto-link, absent here before the merge.
 const INLINE_MD =
-  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|__([^_\n]+?)__|~~([^~\n]+?)~~|\*([^*\n]+?)\*|(?<!\w)_([^_\n]+?)_(?!\w)|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)|(https?:\/\/[^\s)]+)/g;
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
+
+// `appendInline`'s own grammar, before it was merged into renderInlineMarkdown
+// below: adds `__bold__`/`_italic_` and bare `https://…` autolinking, and its
+// character classes don't stop at a newline. Kept as a **textually separate**
+// pattern rather than folded into INLINE_MD behind an "underscore syntax"
+// flag applied after matching — appendInline's callers (block-markdown
+// lines, already split on "\n" and rejoined with spaces before this ever
+// runs) never feed it a newline, so the missing `\n` exclusion is invisible
+// in practice, but a shared superset pattern would make renderInlineMarkdown
+// start matching `_word_`/bare URLs it doesn't today, splitting its plain
+// prose runs differently and changing exactly what substring a caller that
+// passes search `terms` ever hands to highlightInto. Two literal patterns,
+// selected by `options.underscoreSyntax` below, guarantee neither caller's
+// matching behaviour moves at all.
+const INLINE_MD_LEGACY =
+  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
 
 // Same allowlist an <img src> or <a href> built from note text has to pass:
 // an absolute http(s) URL, or a same-origin relative path (one leading
@@ -2248,32 +2259,75 @@ function unlatex(text) {
 // sized for a line of text. The note card's own body always gets the real
 // image; everywhere smaller gets the same treatment `notePreviewText`
 // already gives one to a plain-text preview.
-// `options.dismissible` (default true): an image gets the delete/lightbox
-// chrome note cards use. `appendInline`'s callers (chat, documents, table
-// cells) pass `dismissible: false` — there is no note markdown line for a
-// "remove this image" click to edit there.
-// `options.autolinkBareUrls` (default false): a plain `https://…` in the
-// text becomes a real link. Off by default (renderInlineMarkdown's original
-// behaviour); `appendInline`'s callers turn it on, matching what it always did.
+//
+// `options` is where appendInline's five real behavioural differences from
+// the note-card grammar live, now that the two hand-rolled parsers (each
+// with its own separately maintained `isRenderableUrl` call, per
+// ROADMAP.md §0/§2) are one function:
+//   - `dismissible` (default true): render an image with the note-card
+//     delete/lightbox chrome. appendInline's callers (chat, documents, table
+//     cells) pass false — there is no note markdown line for a "remove this
+//     image" click to edit there, so they get a plain <img>.
+//   - `autolinkBareUrls` (default false): turn a plain `https://…` run into
+//     a real link. Off for note cards (unchanged), on for appendInline.
+//   - `underscoreSyntax` (default false): also recognize `__bold__`/
+//     `_italic_` and bare-URL autolinking, using INLINE_MD_LEGACY instead of
+//     INLINE_MD — see that constant's comment for why this is a second
+//     literal pattern rather than a superset with the extra alternatives
+//     suppressed after matching.
+//   - `strikeTag` (default "s"): appendInline's callers always used <del>,
+//     not the note-card renderer's <s>; style.css has separate rules for
+//     `.entry-content s` vs `.answer/.bubble-answer/.dash-body del`.
+//   - `applyLatex` (default true): appendInline never ran unlatex() on its
+//     text, so it stays off for that mode to keep behaviour unchanged.
+// Every default matches renderInlineMarkdown's original, options-less
+// behaviour exactly, so no existing call site needs to change.
 function renderInlineMarkdown(element, text, terms, compact = false, options = {}) {
-  const { dismissible = true, autolinkBareUrls = false, strikeTag = "s" } = options;
-  element.replaceChildren();
-  text = unlatex(text);
-  const pattern = new RegExp(INLINE_MD.source, "g");
+  const {
+    dismissible = true,
+    autolinkBareUrls = false,
+    underscoreSyntax = false,
+    strikeTag = "s",
+    applyLatex = true,
+  } = options;
+  // appendInline never cleared `element` — it only ever appended into a
+  // freshly created element, except the task-list-checkbox case, which
+  // appends a <input type=checkbox> *before* calling appendInline on the
+  // rest of the item text. A `replaceChildren()` here would delete that
+  // checkbox out from under it, so the note-card renderer's clear-first
+  // behaviour is kept only for its own (non-legacy) callers.
+  if (!underscoreSyntax) element.replaceChildren();
+  if (applyLatex) text = unlatex(text);
+  const pattern = new RegExp((underscoreSyntax ? INLINE_MD_LEGACY : INLINE_MD).source, "g");
   let cursor = 0;
   let match;
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > cursor) {
-      const before = document.createElement("span");
-      highlightInto(before, text.slice(cursor, match.index), terms);
-      element.appendChild(before);
+      const chunk = text.slice(cursor, match.index);
+      // Same reasoning as the clear-first skip above: appendInline appended
+      // plain prose as a bare text node, never wrapped in a <span> (it never
+      // had search terms to mark). Keeping that distinction means neither
+      // mode's DOM shape moves for its own callers.
+      if (underscoreSyntax) {
+        element.appendChild(document.createTextNode(chunk));
+      } else {
+        const before = document.createElement("span");
+        highlightInto(before, chunk, terms);
+        element.appendChild(before);
+      }
     }
-    const [
-      , code, boldStar, boldUnderscore, strike, italicStar, italicUnderscore,
-      imageAlt, imageUrl, linkText, linkUrl, bareUrl,
-    ] = match;
-    const bold = boldStar ?? boldUnderscore;
-    const italic = italicStar ?? italicUnderscore;
+    let code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
+    if (underscoreSyntax) {
+      let boldStar, boldUnderscore, italicStar, italicUnderscore;
+      [
+        , code, boldStar, boldUnderscore, strike, italicStar, italicUnderscore,
+        imageAlt, imageUrl, linkText, linkUrl, bareUrl,
+      ] = match;
+      bold = boldStar ?? boldUnderscore;
+      italic = italicStar ?? italicUnderscore;
+    } else {
+      [, code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+    }
     // Images and links are their own element kinds, not a wrap-in-a-tag like
     // the four above — built and appended directly rather than falling
     // through to the generic `tag`/`node` shape below, since neither one
@@ -2365,7 +2419,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         a.href = bareUrl;
         a.target = "_blank";
         a.rel = "noopener";
-        a.textContent = bareUrl;
+        highlightInto(a, bareUrl, terms);
         element.appendChild(a);
       } else {
         const span = document.createElement("span");
@@ -2386,28 +2440,34 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
     cursor = pattern.lastIndex;
   }
   if (cursor < text.length) {
-    const rest = document.createElement("span");
-    highlightInto(rest, text.slice(cursor), terms);
-    element.appendChild(rest);
+    const rest = text.slice(cursor);
+    if (underscoreSyntax) {
+      element.appendChild(document.createTextNode(rest));
+    } else {
+      const restSpan = document.createElement("span");
+      highlightInto(restSpan, rest, terms);
+      element.appendChild(restSpan);
+    }
   }
 }
 
-// `appendInline`'s own syntax (underscore emphasis, bare-URL autolinking, no
-// dismiss/lightbox chrome) is now just renderInlineMarkdown with a different
-// set of options — the two hand-rolled ~150 lines of near-identical
-// bold/italic/link/image parsing this used to be are merged into one parser
-// with one security gate (`isRenderableUrl`) instead of two maintained
-// separately. Kept as its own name: every call site (renderMarkdown, table
-// cells) already says `appendInline`, and the name still describes what it
-// does here — append parsed inline markdown into an existing parent.
+// Inline formatting: **bold**/__bold__, *italic*/_italic_, `code`, ~~strike~~,
+// [text](http…url), images, and bare http(s) URLs. Built with textContent
+// only — note/answer text can never inject markup. Was its own ~90-line
+// hand-rolled parser with its own `isRenderableUrl` gate call; now a thin
+// wrapper over renderInlineMarkdown (ROADMAP.md §0/§2) — see that function's
+// `options` comment for exactly which behaviours these five overrides
+// reproduce and why each one is there.
 function appendInline(parent, text) {
   renderInlineMarkdown(parent, text, [], false, {
     dismissible: false,
     autolinkBareUrls: true,
+    underscoreSyntax: true,
     // `.answer del`/`.bubble-answer del`/`.dash-body del` (style.css) style
     // this tag specifically — appendInline's own callers always used <del>,
     // not the note-card renderer's <s>, and the CSS was written for that.
     strikeTag: "del",
+    applyLatex: false,
   });
 }
 

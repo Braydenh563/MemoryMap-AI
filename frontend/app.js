@@ -2214,13 +2214,15 @@ function isRenderableUrl(url) {
 // own /media/ uploads, not arbitrary external links, since a random web
 // page's URL extension says nothing reliable about its content.
 const ATTACHMENT_ICONS = {
-  pdf: "ph-file-pdf", doc: "ph-file-doc", docx: "ph-file-doc",
+  pdf: "ph-file-pdf", doc: "ph-file-doc", docx: "ph-file-doc", rtf: "ph-file-doc",
   xls: "ph-file-xls", xlsx: "ph-file-xls", csv: "ph-file-csv",
   ppt: "ph-file-ppt", pptx: "ph-file-ppt",
   zip: "ph-file-archive", rar: "ph-file-archive", "7z": "ph-file-archive",
   mp3: "ph-file-audio", wav: "ph-file-audio", ogg: "ph-file-audio", m4a: "ph-file-audio", webm: "ph-file-audio",
   mp4: "ph-file-video", mov: "ph-file-video",
-  txt: "ph-file-text", md: "ph-file-md",
+  txt: "ph-file-text", md: "ph-file-md", json: "ph-file-code",
+  png: "ph-file-image", jpg: "ph-file-image", jpeg: "ph-file-image",
+  gif: "ph-file-image", webp: "ph-file-image", heic: "ph-file-image", heif: "ph-file-image",
 };
 
 function attachmentIconClass(url) {

@@ -1230,8 +1230,22 @@ header#top-bar.tabs-wrapped #tab-bar {
    are — a permanent one on every card in a grid is a column of dots down the
    page competing with the titles beside them. `focus-within` rather than
    `:focus` so it survives the menu opening, and `hover: none` keeps it visible
-   on touch, where there is nothing to hover with. */
-.library-card-menu {
+   on touch, where there is nothing to hover with.
+
+   `.menu-wrap.library-card-menu`, not `.library-card-menu` alone: this
+   element already carries `.menu-wrap` (`02-chat-graph.css`), which sets
+   `position: relative` — same specificity as a plain `.library-card-menu`,
+   so which one wins for `position` came down to file load order, and
+   `.menu-wrap` loads later. Losing that tie left the wrap `position:
+   relative`, an ordinary block flex child of the card's column layout —
+   `align-items: normal` stretched it to the card's full width and its
+   `top`/`right` (meant as an absolute offset from the corner) instead
+   nudged it up-and-left from wherever it landed in the stack, opening the
+   dropdown "randomly floating in the middle bottom of the card" instead of
+   pinned below the ⋯ button — reported directly, with a screenshot,
+   across every Library chip. The compound selector wins outright,
+   regardless of file order. */
+.menu-wrap.library-card-menu {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);

@@ -7451,6 +7451,9 @@ async function deleteCurrentChat() {
       toast("Couldn't delete this chat.", true);
       return;
     }
+    // Document delete already confirms this way; chat delete silently reset
+    // the pane instead, the same success-feedback gap in miniature.
+    toast("Chat deleted.");
   }
   newChatConversation();
   loadConversationList();
@@ -20816,7 +20819,15 @@ $("library-bin-empty").addEventListener("click", async () => {
       "This cannot be undone."
   );
   if (!ok) return;
-  await apiJson("/recycle-bin/empty", { method: "POST" }).catch((e) => toast(e.message, true));
+  try {
+    await apiJson("/recycle-bin/empty", { method: "POST" });
+  } catch (e) {
+    // Was unconditional before — a failed request still showed "The bin is
+    // empty." right under its own error toast, one saying it worked and one
+    // saying it didn't, for the same click.
+    toast(e.message, true);
+    return;
+  }
   toast("The bin is empty.");
   loadLibrary();
   loadEntries();

@@ -5,13 +5,38 @@
 ## Start here for the next session — this round ended on usage limit, not on the work being done
 
 Three skills got enabled mid-session (`frontend-design`, `web-design-guidelines`,
-`apple-design`) but a skill added mid-conversation doesn't appear in *that*
-session's invocable list until a fresh session picks it up — confirmed live,
-`Skill` returned "Unknown skill" for the first two even though `ListSkills`
-showed them enabled. **Next session should open by actually invoking all
-three** and running a real pass with them — this session only got
-`apple-design` loaded (used for the materials/motion framing) and never got
-to apply the other two at all before running low on budget.
+`apple-design`). Correction to an earlier note in this same session: the
+`Skill` *tool* call failed for the first two ("Unknown skill") right after
+they were enabled, but the user's own `/frontend-design` slash command
+worked a few turns later with no session restart — the tool-call path and
+the slash-command path apparently refresh on different schedules. **Don't
+assume a just-enabled skill is unusable — try the slash command form
+directly before concluding it needs a fresh session.** `apple-design` got
+used this round (materials/motion framing); `web-design-guidelines`'s actual
+review command (fetch-and-check against files) was never run, only its rule
+list fetched for reference.
+
+**Two small, real bugs fixed right at the end of this round, found by the
+frontend-design skill's "button label matches its resulting toast" copy
+check applied to the delete/destructive-action family specifically:**
+`deleteCurrentChat()` deleted successfully with no success toast at all
+(Document delete already had one — same gap in miniature the chat toolbar's
+own metadata-grouping fix was, two rounds ago); `library-bin-empty`'s click
+handler showed an error toast on failure via `.catch()` but then
+*unconditionally* showed "The bin is empty." right after regardless —
+a failed request produced both a "this broke" and a "this worked" toast for
+the same click. Both fixed with a plain try/catch and an early return on
+failure, matching the pattern every other destructive-action handler in the
+file already uses. Not re-run through the full suite (JS-only, `node --check`
++ `ruff check .` + the three frontend-lint tests all clean) — worth a real
+pytest run next session if anything backend-adjacent gets touched near
+either of these two handlers. **The same `.catch(() => {})`-and-report-a-
+flat-count shape exists in `library-bulk-restore` and `library-bulk-delete`
+too** (per-item failures are silently swallowed, then a success count is
+toasted for every item *attempted*, not every item that actually succeeded)
+— seen but not fixed this round; fixing it properly means tracking real
+per-item outcomes, not just adding a toast, so it didn't fit in the time
+left.
 
 Concretely still open, roughly in priority order:
 1. **Run `web-design-guidelines`'s actual review command** (fetches

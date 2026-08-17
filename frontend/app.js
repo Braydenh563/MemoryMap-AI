@@ -2713,6 +2713,7 @@ function renderSidebar() {
     const name = document.createElement("span");
     name.className = "category-name";
     name.textContent = label;
+    name.title = label;
     const badge = document.createElement("span");
     badge.className = "count";
     badge.textContent = count;
@@ -12434,6 +12435,12 @@ function switchTab(name) {
   }
   if (name === "timeline") {
     $("timeline-view").value = timelineView();
+    // Match the saved open/closed state on arrival, same as Graph's Options
+    // panel — otherwise a notebook left open comes back collapsed.
+    const optionsOpen = localStorage.getItem("timeline-options-open") === "1";
+    $("timeline-options").classList.toggle("hidden", !optionsOpen);
+    $("timeline-options-toggle").setAttribute("aria-expanded", String(optionsOpen));
+    $("timeline-options-toggle").classList.toggle("is-on", optionsOpen);
     renderTimeline();
   }
   if (name === "documents") {
@@ -12966,6 +12973,15 @@ for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
 $("timeline-view").addEventListener("change", (event) => {
   localStorage.setItem("timeline-view", event.target.value);
   renderTimeline();
+});
+// Folded away the same way Graph's Options panel is: bucket/bands/range are
+// set once for a session and left, not touched while reading the timeline.
+$("timeline-options-toggle").addEventListener("click", () => {
+  const panel = $("timeline-options");
+  const open = panel.classList.toggle("hidden") === false;
+  $("timeline-options-toggle").setAttribute("aria-expanded", String(open));
+  $("timeline-options-toggle").classList.toggle("is-on", open);
+  localStorage.setItem("timeline-options-open", open ? "1" : "0");
 });
 
 $("timeline-popup-close").addEventListener("click", () => {
@@ -16114,6 +16130,7 @@ function renderAiPill() {
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
+  renderChatActiveModelBadge();
 }
 
 // --- the Library (§4, §36F) ---------------------------------------------------
@@ -17715,6 +17732,19 @@ function renderChatModelPicker(status) {
     status.chat_model_installed === false
       ? `Active model “${status.chat_model}” is not installed any more — pick another or download it below.`
       : `Active: ${status.chat_model}`;
+}
+
+// Nielsen #6, recognition over recall: which model answers was previously
+// knowable only by opening Settings → Models, and only then if the backend
+// is Ollama (the picker above is gated on ollama_running). status.chat_model
+// itself isn't backend-specific, so this reads it straight off the poll
+// loop instead of piggybacking on that gated render.
+function renderChatActiveModelBadge() {
+  const badge = $("chat-active-model");
+  if (!badge) return;
+  const name = modelStatus && modelStatus.chat_model;
+  badge.hidden = !name;
+  badge.textContent = name || "";
 }
 
 function renderUtilityModelPicker(status) {
@@ -22483,6 +22513,7 @@ function renderEntryAttachmentChips() {
     img.addEventListener("click", () => openLightbox(mediaSrc(url), name));
     const label = document.createElement("span");
     label.textContent = name || url;
+    label.title = name || url;
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
@@ -23315,7 +23346,10 @@ function renderSpaceMenu() {
   const current = spacesCache.find((space) => space.id === activeSpaceId());
   const nameEl = $("space-current-name");
   const iconEl = $("space-current-icon");
-  if (nameEl) nameEl.textContent = current ? current.name : "All spaces";
+  if (nameEl) {
+    nameEl.textContent = current ? current.name : "All spaces";
+    nameEl.title = current ? current.name : "All spaces";
+  }
   if (iconEl) iconEl.className = `ph ${current ? current.icon : "ph-circles-four"}`;
 }
 

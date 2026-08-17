@@ -2,7 +2,246 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — closing out the design-audit checklist (Nielsen/Gestalt/visual-design), a live bug report investigated (not fixed), a self-caught near-miss
+## Start here for the next session — this round ended on usage limit, not on the work being done
+
+Three skills got enabled mid-session (`frontend-design`, `web-design-guidelines`,
+`apple-design`) but a skill added mid-conversation doesn't appear in *that*
+session's invocable list until a fresh session picks it up — confirmed live,
+`Skill` returned "Unknown skill" for the first two even though `ListSkills`
+showed them enabled. **Next session should open by actually invoking all
+three** and running a real pass with them — this session only got
+`apple-design` loaded (used for the materials/motion framing) and never got
+to apply the other two at all before running low on budget.
+
+Concretely still open, roughly in priority order:
+1. **Run `web-design-guidelines`'s actual review command** (fetches
+   `vercel-labs/web-interface-guidelines` fresh and checks files against it)
+   against `frontend/index.html` and the CSS — this session only fetched the
+   rule list once for reference, never ran the tool's real file-by-file review.
+2. **Run `frontend-design`'s critique pass** — it's built for greenfield
+   distinctive-design work, so use it narrowly: the "restraint and
+   self-critique" and typography-pairing sections apply to an established
+   system like this one, the brainstorm/palette-invention sections don't.
+3. **The checklist's Part L full matrix**: 7 tabs × 3 breakpoints (390/1024/1600)
+   × 2 modes, diffed against each other. Two sessions now have covered 2 tabs
+   at 2 breakpoints × 2 modes each (Settings, Dashboard) — not the full 42-cell
+   grid the checklist actually asks for.
+4. **Part C terminology audit** — does "Note"/"Entry"/"Item" ever refer to the
+   same concept across different tabs' copy. Not run yet, any round.
+5. **Part I "common fate"** — do related elements' hover/loading states move
+   together where a relationship exists. Not run yet.
+6. **Nielsen #7 depth** — this session confirmed the shortcuts overlay
+   documents what's rebindable, but never audited actual power-user workflow
+   coverage against it (are there common multi-step actions with no shortcut
+   at all).
+7. **The Notes tab and Reminders tab** haven't been through *any* round of
+   this audit — every round so far has covered Settings, Dashboard, Chat,
+   Documents, Graph, Timeline, Library. Notes and Reminders are the two
+   remaining tabs, untouched.
+8. **The control-height fix from this round** (`.graph-toolbar`'s new
+   `--control-h`) was applied to exactly the one shared toolbar that had a
+   *measured* mismatch. Worth spot-checking whether `.library-toolbar`,
+   `.doc-toolbar`'s two rows, and the Reminders/Notes toolbars (once audited)
+   have the same gap — this round measured Graph/Timeline specifically
+   because they share a class, not because the other toolbars were ruled out.
+
+## Previous session — the tabs the checklist's Part L gut-check flagged but never named: Timeline's toolbar folded, Documents' toolbar grouped, a real control-height bug found and fixed in the app's two most-recently-redesigned toolbars
+
+Sixth continuation of the same design-audit session, asked explicitly to
+extend the reform past Settings into Documents, Graph, Timeline, Library and
+the dashboard hero — "don't leave anything unfinished, half-finished or
+untouched." Checked each of the five against the running app (screenshots +
+live DOM measurement) before changing anything, per this file's own standing
+rule — three were already done well and left alone.
+
+**Library, Graph, and the dashboard hero: checked, not touched.** All three
+already carry the deliberate restructuring their own code comments describe
+(Graph's toolbar split, Library's overview/search/filter-chip hierarchy, the
+hero's single greeting card). Screenshotted live at 1400px — no clutter, no
+overflow, no orphaned controls. Rebuilding either would have been exactly
+the "three sessions independently rebuilt something that already existed"
+mistake this file opens with.
+
+**Timeline's toolbar had the clutter Graph's already solved once.** Five
+controls with visible labels sat in one row — "Bucket by [Day▾] Bands
+[Category▾] Show [Last year▾] View [Grid▾]" plus a Highlight search — the
+same shape Graph's own comment names as a prior bug ("twelve controls in one
+wrapping row"). Applied the identical fix: View and Highlight (what you
+touch while reading) stay on the visible row behind a new `#timeline-options`
+toggle; Bucket/Bands/Show (set once, left alone) fold behind it, reusing
+`.graph-options` for the panel chrome and the same open/closed
+localStorage-remembered mechanism as Graph's Options button
+(`renderTabPanel`'s timeline branch, `timeline-options-toggle`'s click
+handler). Verified live: panel opens/closes, a folded control still
+re-renders the timeline on change, and the open state survives a reload.
+
+**A real, measured control-height bug, in both Graph's and Timeline's primary
+row.** Asked directly to check control heights and spacing; did not take the
+earlier screenshots' "looks close enough" at face value and measured
+`getBoundingClientRect()` on every child of `.graph-toolbar` instead. The
+search/select controls were 45.19px (the global form-field rule) against
+28–30px buttons beside them — a ~15px gap, DESIGN.md's own named failure
+("stood four pixels taller than the selects beside it"), just bigger because
+a text input's padding jump is bigger than a segmented control's. `.graph-toolbar`
+had no `--control-h` of its own — only `.chat-dock-controls` did. Added one
+(`03-dashboard-widgets.css`), covering `select`, `input[type=text|search]`,
+`button`, and `.segmented-control`, and re-measured: every control in both
+Graph's and Timeline's primary row is a uniform 32px now. Fixes both tabs at
+once since they share the class. Screenshotted after: the search box, the
+Layout/Colour segmented pills, and every button now share one visible edge —
+before, it passed a glance but failed a ruler. `DESIGN.md`'s Control height
+section got a new "Where this is applied" list so the next toolbar addition
+checks itself against this instance instead of rediscovering the bug.
+
+**The radio-to-toggle-switch request, applied where it's the right
+component and not where it isn't.** Asked to convert radio buttons to toggle
+switches. The app has exactly four radio groups: Graph's Layout and Colour
+choices are already rendered as segmented pill controls with the native
+circle hidden (`.segmented-control input[type=radio] { display: none }`) —
+functionally already what was asked for, and the *correct* component for a
+short exclusive choice. Settings' embedding-backend and tool-focus groups
+are a different shape — each option is a full row with a sentence of
+description under it (`.check-row`) — and a toggle switch is the wrong
+component there: a switch reads as a single boolean, and collapsing a
+two-option *described* choice onto one made no sense with the prose still
+attached. Left those as descriptive radio rows, which is the pattern
+Settings already uses correctly for this exact shape elsewhere (own code
+comment: "one control with one answer, rather than two loose dots").
+
+**Documents' toolbar: metadata and actions were one undifferentiated row.**
+Word count, a goal-flag button, and save status sat inline with six action
+buttons (Preview, AI edit, Extract notes, .md, PDF, Delete) with no visual
+seam between "facts about this document" and "things you can do to it" —
+the same anti-pattern already fixed once for the chat toolbar's token count.
+Documents' title is a text input rather than a heading, so there's no clean
+line to move metadata below without disrupting the editing flow; used the
+formatting toolbar's own existing `.doc-toolbar-sep` divider instead, placed
+after the status group and again before the (destructive, worth isolating)
+Delete button. Three groups now instead of nine undifferentiated items.
+Left the `⬇ .md` / `⬇ PDF` unicode-arrow buttons alone rather than swapping
+to Phosphor icons to match their row-mates — checked first, and the app uses
+a plain arrow glyph for every download/export action across five different
+screens (chat export, doc export, whiteboard export, settings support
+bundle), which is the app's actual, if quiet, existing convention — not a
+one-off inconsistency to fix.
+
+**The remaining truncation sites, actually finished.** Every
+`text-overflow: ellipsis` / `-webkit-line-clamp` selector across all 8 CSS
+files was enumerated and checked against its render site (roughly 40, up
+from the ~6 checked in earlier rounds). Three had no escape hatch and got
+one: the sidebar's category names, the collapsed space-switcher's current-
+board label (same data as `.space-option-name`, fixed two rounds ago, but
+the *closed-state* summary was missed), and the markdown-image attachment
+chip's filename in the note editor. Documented, with reasoning, why the rest
+were correctly left alone: `.conv-title`'s tooltip already carries something
+richer than the raw name (the actual question asked, when it differs from
+the title), attachment chips and theme chips already carry the full text
+elsewhere in the same row, and preview/snippet text is one click from the
+real thing by design.
+
+**Nielsen #6 (recognition over recall), actually fixed rather than just
+checked this time.** Previous round noted this "not re-litigated." The
+active chat model was knowable only via Settings → Models, and only when
+Ollama is running — `renderSettings()` gates the whole model picker on
+`status.ollama_running`. Added a small badge next to the chat header's token
+count, fed by a new `renderChatActiveModelBadge()`. First attempt reused
+`renderChatModelPicker()` and inherited its Ollama-only gate — caught live
+(`chat_model: "llama3.2"` in the API response, badge still hidden) rather
+than assumed correct — so it reads `modelStatus.chat_model` directly from
+`renderAiPill()`'s poll loop instead, which runs regardless of backend.
+
+**The meeting-recorder bars report has an actual, confirmed cause, not a
+guess.** `02-chat-graph.css:1366` deliberately hides `.mic-bars` under
+`prefers-reduced-motion: reduce`, falling back to a fixed ring. Verified
+live with `reducedMotion: 'reduce'` emulated in Chromium: `.mic-bars`
+computes to `display: none`, and the fallback ring genuinely renders (a real
+`box-shadow`, not silently blank). If the user's OS has Reduce Motion on,
+this is the app working as designed. Nothing shipped for it — the finding
+is the answer, same conclusion the previous round reached from the CSS
+alone, now confirmed by measurement rather than just reading the rule.
+
+**Breakpoints, done live rather than reasoned from code.** 1024px and
+1600px, light and dark, dashboard and Settings (four combinations,
+`scrollWidth > clientWidth` checked programmatically at each — false every
+time) plus a visual pass at three of the four. The settings-group
+decluttering from two rounds ago holds at the narrow breakpoint in both
+colour modes without cramping.
+
+**What's still genuinely open, said plainly:** the checklist's Part L asks
+for all 7 tabs × 3 breakpoints × 2 modes, diffed against each other — this
+and the prior round together cover 2 tabs at 2 breakpoints × 2 modes, not
+the full matrix. Nielsen #6/#7's "keyboard shortcut coverage for power-user
+actions beyond what's rebindable" was checked only as far as confirming the
+shortcuts overlay documents what exists, not audited for gaps against real
+power-user workflows. Part C's "does Note/Entry/Item ever mean the same
+thing across tabs" terminology audit and Part I's "common fate" (do related
+elements' hover/loading animations move together) were not run this round.
+Full suite, `ruff check .`, and `node --check` on all three JS files clean
+before this was pushed.
+
+## Previous session — the design-audit checklist's real remainder: root-caused the meeting-recorder report, gave the active model a face outside Settings, closed the truncation sweep, verified two breakpoints × two colour modes live
+
+Fifth continuation of the same design-audit session. Told explicitly not to
+stop after every small section this time, so this entry covers the whole
+pass rather than one item.
+
+**The meeting-recorder bars report has a real, confirmed cause.** Not a bug —
+`02-chat-graph.css:1366` deliberately does `@media (prefers-reduced-motion:
+reduce) { .mic-bars { display: none; } }`, falling back to a fixed ring.
+Verified live in Chromium with `reducedMotion: 'reduce'` emulated: `.mic-bars`
+computes to `display: none`, and the fallback ring is present with a real
+`box-shadow` (not silently invisible). If the user has OS-level "reduce
+motion" on, this is the app behaving as designed, not broken — the mechanism
+itself was already confirmed working in isolation last round. Nothing to fix;
+the finding is the answer.
+
+**Nielsen #6 (recognition over recall) had a real gap — fixed.** The active
+chat model was previously only knowable by opening Settings → Models, and
+even there only *when Ollama is running* — `renderSettings()` gates the
+whole picker on `status.ollama_running`. Added a small badge in the chat
+header (`#chat-active-model`, next to the token-usage subline) fed by a new
+`renderChatActiveModelBadge()` called every poll from `renderAiPill()` —
+deliberately **not** reusing `renderChatModelPicker()`, because that path
+would have inherited the same Ollama-only gating and stayed blank for
+LM Studio/OpenAI-compatible backends, defeating the point. Verified live:
+before the fix the badge stayed `hidden` even though `/models/status`
+reported `chat_model: "llama3.2"` (Ollama not running in this sandbox);
+after moving the read to the always-on poll hook, it shows `"llama3.2"`
+correctly with no console errors.
+
+**Truncation sweep, actually finished this time.** Every CSS site using
+`text-overflow: ellipsis` / `-webkit-line-clamp` across all 8 CSS files was
+enumerated and checked against its JS render site. Most were already
+covered (fixed short labels, preview text one click from the full note,
+or already carrying a `title` elsewhere e.g. `.cat-name`'s parent button).
+Three had no escape hatch and got one: the sidebar's `.category-name` list
+(user-authored category names), the collapsed space-switcher's current-board
+label (`#space-current-name` — same underlying data as `.space-option-name`,
+fixed last round, but the closed-state summary was missed), and the
+markdown-image attachment chip's filename label in the note editor. Left
+alone, with reasoning recorded inline in this file rather than in code
+comments: `.conv-title` (richer than a raw-name tooltip already — falls back
+to `conversation.preview`, what was actually asked, when it differs from the
+title), `.attachment-chip` for note attachments (already has the full note
+content as its title), `.theme-chip` (its button's own title already carries
+the full name), `.dash-list-title`/`.cat-name` (both already have the
+mechanism elsewhere).
+
+**Part L breakpoints, done live.** 1024px and 1600px, light and dark, both
+the dashboard and Settings (the section originally flagged as cluttered).
+`document.documentElement.scrollWidth > clientWidth` checked programmatically
+at all four combinations — false every time, no horizontal overflow. Screens
+inspected visually at 1024×900 (both modes) and 1600×900 (light): the
+settings-group boxes from the earlier decluttering hold up at the narrow
+breakpoint without cramping, contrast reads fine in dark mode, nothing
+clips. This is the check the previous round left at "only 390px done" —
+now covers narrow/wide × light/dark, still short of a full CI-grade matrix
+but no longer a single data point.
+
+Full suite, `ruff check .`, and `node --check` on all three JS files run
+clean before this was pushed.
+
+## Previous session — closing out the design-audit checklist (Nielsen/Gestalt/visual-design), a live bug report investigated (not fixed), a self-caught near-miss
 
 Fourth continuation of the same design-audit session, asked to finish
 whatever remained of Parts H–L.

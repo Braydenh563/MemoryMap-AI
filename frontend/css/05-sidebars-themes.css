@@ -1927,6 +1927,20 @@ textarea.autogrow {
   white-space: nowrap;
 }
 
+/* Same fix, same reason, for the folded-away bucket/bands/range pickers:
+   moving them off the toolbar row into `.graph-options` (so the visible row
+   only carries View + Highlight) lost the override above and they went
+   straight back to the base rule's full-width stack. */
+.graph-options select {
+  width: auto;
+  max-width: 10rem;
+  margin-bottom: 0;
+}
+
+.graph-options label {
+  white-space: nowrap;
+}
+
 /* A CSS grid rather than SVG: every cell is a real element, so it scrolls,
    selects, tabs and reads aloud without any of that being hand-built. */
 .timeline-scroll {

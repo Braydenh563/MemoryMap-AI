@@ -204,6 +204,76 @@ doesn't apply until something *is* gesture-driven.
 
 ---
 
+## Glass & materials
+
+Every floating or resting surface in the app commits to one of two opacity
+tiers — this was itself the subject of a full audit (a user-supplied
+checklist's Part B) that found and fixed real drift, so the rule below is
+enforced, not aspirational.
+
+```
+--card       55% opaque — a page surface, meant to be seen *through*
+--modal-bg   96–98% opaque — floats over arbitrary content, must stay legible
+--glass-blur 18px         — the one blur radius; do not hand-pick a px value
+--glass-shadow             — the one popup/floating shadow (= --shadow-md)
+--glass-border              — the one glass-surface border colour
+```
+
+**The rule:** anything that floats *over* other content — a popup, a
+dropdown menu, a folded-away options panel, a toolbar strip drawn on top of
+a canvas — declares all four together: `background: var(--modal-bg)`,
+`backdrop-filter: blur(var(--glass-blur)) saturate(150%)` (+ `-webkit-`
+mirror), `box-shadow: var(--glass-shadow)`, `border: 1px solid
+var(--glass-border)`. A page-level surface that content scrolls *inside* —
+a card, a sidebar — uses `--card` instead. Mixing the two, or picking a
+one-off blur radius or shadow, is the bug this section exists to prevent:
+found live in `.whiteboard-floating-panel`, `.graph-trace`/`.graph-options`,
+and `.timeline-band` (three different blur radii — 8px, 12px, and the
+18px token — across three tabs was the most visible version of the
+problem), all fixed by conforming to the rule above rather than by
+inventing a third option.
+
+### Turning it off
+
+`:root[data-glass="off"]` is a standing user preference (Settings →
+Appearance), not a special case to special-case around. It swaps `--card`
+to `--modal-bg`'s opaque value and zeroes `backdrop-filter` on an explicit
+selector list — currently 35+ selectors covering every popup, toolbar and
+floating panel named above. **Adding a new glass surface means adding it to
+that list too** — a panel missing from it stays glassy even with the
+setting switched off, which is how three of the Part B violations were
+found (the fix and the fallback drifted independently because they lived in
+different rules).
+
+### Palettes
+
+Eight curated palettes, each with an explicit light and dark pair —
+`:root[data-palette="X"]` / `:root[data-palette="X"][data-mode="dark"]`:
+**Aurora** (default, no attribute needed), **Parchment**, **Sage**,
+**Ocean**, **Lagoon**, **Ember**, **Plum**, **Carbon**. Carbon is the
+"quiet, non-glassy" option some users want — it does not override
+`--glass-opacity`/`--glass-blur` itself (it is still built from the same
+glass system as the other seven), so reaching that quiet, flat look is
+**Carbon palette + the Glass-off toggle together**, not a hard-coded
+exception baked into one palette. Composing two orthogonal settings this
+way is deliberate: a palette-specific override would be a second, competing
+mechanism for the same effect the toggle already provides everywhere else.
+
+---
+
+## Icons
+
+Phosphor (`<i class="ph ph-*">`) is the default for every icon in the app.
+One deliberate, narrower exception: **download/export actions use a plain
+Unicode arrow glyph** (`⬇`, `⭳`) instead — chat export, both document
+export buttons, the whiteboard export button, and the settings support-
+bundle download all do this consistently. It reads as inconsistent seen in
+isolation; checked across all five call sites before touching any of them,
+it is the app's actual (if quiet) convention for this one action family,
+not drift — leave it alone rather than "fixing" it to Phosphor.
+
+---
+
 ## Hierarchy
 
 Levels must be **visibly ordered**, and they were not: `h2` ranged 0.92–1.15rem
@@ -319,6 +389,27 @@ give it up vertically, and let the declared height decide.
 Where a row's box grows — a chat composer with an autogrowing textarea — align
 to `end` rather than `center`, so the buttons stay level with the line the
 caret is on instead of drifting up the side of it.
+
+### Where this is applied
+
+Not every toolbar has been through this yet — treat a row that hasn't as a
+gap, not as a deliberate exception, and give it its own `--control-h` before
+adding a control to it:
+
+- `.chat-dock-controls` (`04-chat-dock-appearance.css`) — the original.
+- `.graph-toolbar` (`03-dashboard-widgets.css`) — shared by the Graph and
+  Timeline tabs' primary rows. Added after measuring a real ~15px gap
+  between the search/select controls (45px, from the global form-field rule)
+  and the buttons beside them (~30px) — close enough to pass a glance, wrong
+  enough to fail a ruler. Covers `select`, `input[type=text|search]`,
+  `button`, and `.segmented-control` so a text input, a select, a button and
+  a segmented radio group can all sit in the same row and read as one strip.
+- `.graph-options` / `#timeline-options` (`03-dashboard-widgets.css`) — the
+  folded-away "tuned once" panels behind each tab's Options button. Only
+  `button` is height-locked here; sliders and switches are deliberately their
+  own native size rather than stretched to match, since forcing a slider
+  thumb to a button's hit-box height would misrepresent it as clickable
+  chrome rather than a drag control.
 
 ---
 

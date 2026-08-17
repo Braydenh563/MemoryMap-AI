@@ -1898,13 +1898,21 @@
 
 /* --- graph page layout ------------------------------------------------------
    One toolbar row instead of three stacked ones, and a canvas that fills the
-   window so the map never runs off the bottom of the page. */
+   window so the map never runs off the bottom of the page. Shared with the
+   Timeline toolbar (same class, same strip). */
 .graph-toolbar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
+  /* Same rule DESIGN.md states for the chat dock: one height for every
+     select/input/button/segmented-control in the strip. Measured, not
+     assumed — the search box and the segmented Layout/Colour groups were
+     45px tall against 28-30px buttons beside them, the exact "stood four
+     pixels taller" failure DESIGN.md names, just wider here because a full
+     text input's padding is a bigger jump than a segmented control's. */
+  --control-h: 2rem;
 }
 
 .graph-toolbar h2 {
@@ -1912,9 +1920,16 @@
   margin-right: 0.25rem;
 }
 
-.graph-toolbar #graph-search {
+.graph-toolbar #graph-search,
+.graph-toolbar .timeline-search {
   width: 11rem;
+  height: var(--control-h);
+  padding-block: 0;
   margin: 0;
+}
+
+.graph-toolbar select {
+  height: var(--control-h);
 }
 
 .graph-toolbar .tools-toggle {
@@ -1924,6 +1939,19 @@
 
 .graph-toolbar button {
   white-space: nowrap;
+  height: var(--control-h);
+  padding-block: 0;
+}
+
+.graph-toolbar .segmented-control {
+  height: var(--control-h);
+}
+
+.graph-toolbar .segmented-control label {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding-block: 0;
 }
 
 .graph-toolbar .graph-physics input[type="range"] {

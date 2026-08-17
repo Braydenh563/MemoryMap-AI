@@ -723,6 +723,8 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="chat-headline">
               <h2 id="chat-title">New chat</h2>
               <span class="chat-subline">
+                <span id="chat-active-model" class="chat-usage" hidden
+                  title="The model currently answering in this chat — change it in Settings → Models"></span>
                 <span id="chat-usage" class="chat-usage" hidden
                   title="Everything this conversation has sent to the model so far"></span>
                 <!-- Shown only once a summary is in use, because a compression
@@ -1001,8 +1003,35 @@ Link to another note with [[its first few words]]."></textarea>
   <div class="tab-page hidden" id="tab-timeline" role="tabpanel"
     aria-labelledby="tab-btn-timeline" tabindex="-1">
     <section class="card">
+      <!-- Same split as the graph toolbar (§37F/DESIGN.md's control-strip
+           rule): what you touch while reading — the view mode and the
+           highlight filter — stays on the visible row. Bucket/Bands/Show are
+           configuration you set once for a session and leave, so they fold
+           behind Options the same way Graph's physics/toggles do. Previously
+           all five sat in one row with visible labels ("Bucket by [Day▾]
+           Bands [Category▾] Show [Last year▾] View [Grid▾]"), which read as
+           noise before you'd touched any of it. -->
       <div class="graph-toolbar">
         <h2>Timeline</h2>
+        <!-- §10C: a grid answers "what happened around this date, across
+             every band at once"; a line answers "what was the shape of this
+             one thread over time" — both real questions, so both stay, picked
+             here rather than one replacing the other. -->
+        <label class="muted" for="timeline-view">View</label>
+        <select id="timeline-view" aria-label="Grid or line view">
+          <option value="grid" selected>Grid</option>
+          <option value="line">Line</option>
+        </select>
+        <button id="timeline-options-toggle" class="ghost small" type="button" aria-expanded="false"
+          aria-controls="timeline-options"
+          title="Bucket size, bands and how far back to show"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
+        <div class="spacer-flex"></div>
+        <label class="muted" for="timeline-search">Highlight</label>
+        <input type="text" id="timeline-search" class="timeline-search" placeholder="Type to filter…">
+        <span id="timeline-count" class="muted"></span>
+      </div>
+      <div class="graph-options hidden" id="timeline-options" role="group"
+        aria-label="Timeline display options">
         <label class="muted" for="timeline-scale">Bucket by</label>
         <select id="timeline-scale" aria-label="Time bucket">
           <option value="day" selected>Day</option>
@@ -1022,19 +1051,6 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="365" selected>Last year</option>
           <option value="0">Everything</option>
         </select>
-        <!-- §10C: a grid answers "what happened around this date, across
-             every band at once"; a line answers "what was the shape of this
-             one thread over time" — both real questions, so both stay, picked
-             here rather than one replacing the other. -->
-        <label class="muted" for="timeline-view">View</label>
-        <select id="timeline-view" aria-label="Grid or line view">
-          <option value="grid" selected>Grid</option>
-          <option value="line">Line</option>
-        </select>
-        <div class="spacer-flex"></div>
-        <label class="muted" for="timeline-search">Highlight</label>
-        <input type="text" id="timeline-search" class="timeline-search" placeholder="Type to filter…">
-        <span id="timeline-count" class="muted"></span>
       </div>
       <p class="muted">
         A note sits where it is <em>about</em> when it says so — "the deadline
@@ -1314,6 +1330,11 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="doc-word-goal" class="ghost small" type="button" aria-pressed="false"
               title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
             <span id="doc-saved" class="muted" role="status"></span>
+            <!-- Same divider the formatting toolbar below uses to separate
+                 its own button groups — status facts (word count, save
+                 state) read as one thing and the actions on the document as
+                 another, instead of eight items in a row with no seam. -->
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
             <button id="doc-preview-toggle" class="ghost small" type="button"
               aria-pressed="false" title="Show a rendered preview beside the editor"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview</button>
             <button id="doc-ai" class="ghost small" type="button"
@@ -1324,6 +1345,7 @@ Link to another note with [[its first few words]]."></textarea>
               title="Download as a .md file">⬇ .md</button>
             <button id="doc-export-pdf" class="ghost small" type="button"
               title="Print or save as PDF">⬇ PDF</button>
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
             <button id="doc-delete" class="ghost small" type="button"
               title="Delete this document"><i class="ph ph-trash" aria-hidden="true"></i></button>
           </span>

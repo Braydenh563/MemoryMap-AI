@@ -2,7 +2,118 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a screenshot-driven bug list that grew mid-session: 9 confirmed fixes, 3 live-checked-but-unreproducible investigations, an uninstaller, and a README screenshot showcase
+## Latest session — a second round on the same branch: a real Library layout bug, a wrong claim from the immediately preceding entry corrected, and the launcher/uninstaller scripts made considerably more robust
+
+Continuation of the same working session as the entry below, after its PR
+(#117) had already merged — this round's fixes went out as their own PR
+rather than amending merged history.
+
+**A genuine, previously-unflagged Library bug, found while double-checking
+this session's own earlier claims (see the correction below):** Rows/List
+view in the Library tab rendered every card squeezed into ~17rem-wide
+columns with text wrapping to roughly one character per line — barely
+legible. Root cause: `.library-grid`'s own layout had been migrated from
+CSS Grid to a `column-width` multi-column masonry at some point
+(00-tokens-shell.css), but `.library-grid.library-list`'s override was
+never updated to match — it still set `grid-template-columns: 1fr`, a
+property that does nothing on a multi-column container, so Rows view kept
+the masonry's narrow columns. Fixed with `columns: unset` plus a plain
+`display: flex; flex-direction: column`. Verified live: all 9 seeded
+library items in the test profile now render as full-width rows with
+correct, non-overlapping positions — checked via actual `getBoundingClientRect()`
+on every card, not just a screenshot (a first full-page screenshot attempt
+appeared to show only one row; that was a Playwright `fullPage` limitation
+against Library's nested-scroll container, not a real second bug — see the
+next item for why that container is nested at all).
+
+**A correction to this session's own immediately preceding entry:** it
+described "the back-to-top button doesn't appear... like the Library" as
+fixed by extending the nested-scroll accommodation to `#tab-notes
+.layout > main`, on the assumption "Library" meant the Notes tab's
+browse/list sub-view. It didn't — the user meant the actual top-level
+**Library tab** (Documents/AI Skills/Whiteboards/Image Gallery), which
+turned out to have the exact same nested-scroll shape for an entirely
+different, coincidental reason (`#tab-library`'s active
+`.library-view-section`, not `#tab-notes .layout > main` — see
+07-whiteboard-misc.css). Both fixes are real and both were needed; the
+first one just didn't cover what was actually being asked about. Re-verified
+live this time: scrolling each of Documents/AI Skills/Image Gallery shows
+the button and it correctly scrolls that sub-view back to top; the
+Whiteboards sub-view (which pans rather than scrolls, like Graph) correctly
+keeps the button hidden throughout. The lesson worth restating plainly: two
+UI elements sharing a name ("Library" the tab vs. "Library" a sub-view
+inside another tab) is exactly the kind of ambiguity worth a live check
+before declaring something fixed, not after.
+
+**The launcher and uninstaller scripts, made considerably more robust —
+asked for directly ("I hate that I can't see what's going on"), then
+extended further ("make the scripts as robust, user-friendly, and
+automated as possible") after a scoping question narrowed that second,
+open-ended ask down to one concrete addition (a `--help` flag) rather than
+guessing at unlimited scope in files this sandbox cannot execute-test:**
+- **`start.sh`/`start.bat`: pip's own install progress was completely
+  invisible.** Both scripts fully redirected pip's output to a log file
+  (bash) or ran it with `--quiet` (batch), shown only after a failure. On a
+  real install — this app's `requirements.txt` includes
+  `sentence-transformers` and, on Windows, `torch`, both large downloads —
+  the user watched a static "[2/4] Installing dependencies..." line with
+  nothing moving for minutes and reasonably assumed it had hung. Fixed
+  differently per platform: `start.sh` pipes pip through `tee` (with
+  `set -o pipefail`, otherwise `cmd | tee file` reports tee's exit status
+  instead of pip's) so pip's real "Collecting X / Downloading X" lines
+  stream live while still being captured for the existing network-vs-
+  real-error classification. `start.bat` drops `--quiet` and stops
+  redirecting stdout entirely (stderr only goes to the log) rather than
+  attempting a PowerShell `Tee-Object` pipe — deliberately the more
+  conservative fix, since this sandbox has no Windows/cmd target to
+  actually run it against, and this exact file's own header already warns
+  about cmd's fragile parenthesis parsing from a past incident. Verified
+  the bash side for real: real subprocess tests for the success path, a
+  real-error failure path and a network-shaped failure path all through
+  the same `run_with_timeout | tee` pipeline, plus a full end-to-end run
+  of the actual script against a throwaway fake project (not mocked) that
+  confirmed live streaming end to end. The batch side was verified by
+  static analysis only — paren-balance counted before/after every edit
+  and compared against the file's own pre-existing (harmless, off-by-one)
+  imbalance to confirm no *new* imbalance was introduced, since there is
+  no way to actually execute cmd.exe here.
+- **Neither script checked the Python version before building the venv.**
+  `pyproject.toml` requires 3.11+; an older system Python would "succeed"
+  at `python -m venv` and only fail later as a confusing pip or import
+  error. Both scripts now check `sys.version_info >= (3, 11)` right after
+  finding a Python and before creating the venv, with a clear message
+  naming the version actually found.
+- **`start.sh` didn't check `python -m venv`'s own exit code at all**
+  (`start.bat` already did) — a permission or disk-full failure fell
+  through to the existing generic "looks incomplete" message a few lines
+  later rather than a clear one at the point of failure. Now checked
+  directly, with a Debian/Ubuntu-specific hint (`python3-venv` is the
+  single most common real-world cause) alongside the generic message.
+- **`uninstall.sh`/`uninstall.bat` had no top-level "are you sure" gate** —
+  asked for directly, in case of an accidental double-click or a
+  mis-click meaning to hit `start`. Both now show what the script is
+  about to do and require an explicit `y` before reaching any of the
+  existing per-step confirmations (which are unchanged). `--yes` skips
+  this new gate too, consistent with skipping the existing venv-removal
+  one; the separate `--delete-data` → type-`DELETE` confirmation for
+  actual notes still cannot be skipped by `--yes`, unchanged from before.
+- **A `--help`/`-h` flag on all four scripts**, checked before any network
+  or filesystem work so it is always instant. This was the one item kept
+  from a broader "beef up the scripts" ask — a scoping question narrowed
+  it down explicitly rather than guessing at open-ended robustness work
+  in untestable files.
+
+**What was not done, said plainly:** the batch-file changes (`start.bat`,
+`uninstall.bat`) were never actually executed — this sandbox is Linux with
+no cmd.exe or PowerShell. Confidence in them rests on: mirroring the exact
+patterns already used elsewhere in the same file, checking paren-balance
+before/after every edit against the file's own established (harmless)
+baseline, and choosing the more conservative of two possible fixes for
+`start.bat`'s pip-visibility problem specifically because the more
+thorough one (a PowerShell `Tee-Object` pipe) could not be verified here.
+Worth a real Windows run before fully trusting them.
+
+## Previous session — a screenshot-driven bug list that grew mid-session: 9 confirmed fixes, 3 live-checked-but-unreproducible investigations, an uninstaller, and a README screenshot showcase
 
 Started as "a few quick bugs" from a set of screenshots the user sent (app UI
 + their own screenshot-viewer as a UX reference); grew, over several

@@ -1370,9 +1370,9 @@ button.recording.live-level {
     display: none;
   }
 
-  /* .live-level's own reduced-motion rule below already covers the case
-     once real mic signal arrives — this covers the gap before it does,
-     which pulse-rec never respected on its own. */
+  /* Covers the gap before .live-level's own fixed-ring rule below applies —
+     between "recording" and real mic signal arriving — which pulse-rec's
+     keyframe animation never respected on its own. */
   button.recording:not(.live-level) {
     animation: none;
     box-shadow: 0 0 0 4px var(--recording-ring);

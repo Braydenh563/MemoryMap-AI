@@ -23188,6 +23188,9 @@ function spaceMenuOption({ id, name, icon, deletable }) {
   option.setAttribute("role", "option");
   option.dataset.spaceId = id;
   option.setAttribute("aria-selected", String(id === activeSpaceId()));
+  // .space-option-name ellipsises with no other escape hatch for a long
+  // board name.
+  option.title = name;
 
   const glyph = document.createElement("i");
   glyph.className = `ph ${icon}`;

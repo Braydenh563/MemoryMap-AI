@@ -5597,6 +5597,7 @@ async function renderLibraryImagesGallery() {
 
     const cap = document.createElement("figcaption");
     cap.textContent = image.original_name;
+    cap.title = image.original_name;
 
     rename.addEventListener("click", (event) => {
       event.stopPropagation();

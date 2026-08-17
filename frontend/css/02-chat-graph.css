@@ -1305,7 +1305,14 @@ button.ghost.danger {
 }
 
 /* --- Wave H: voice + read-aloud -------------------------------------------------- */
+/* The ring is deliberately NOT --warn-soft (rgba(245,189,79,0.25) on light,
+   an even fainter 0.16 on dark): that token is pre-mixed pale enough to
+   nearly vanish against a near-white modal card — confirmed by screenshot,
+   not just computed style, after "no animation" was reported on the meeting
+   recorder button sitting on exactly that background. --ring is mixed from
+   the solid --warn at capture time so it stays visible on any card tone. */
 button.recording {
+  --recording-ring: color-mix(in srgb, var(--warn) 55%, transparent);
   background: var(--warn-soft);
   color: var(--warn);
   animation: pulse-rec 1.2s ease-in-out infinite;
@@ -1315,33 +1322,64 @@ button.recording {
 
   0%,
   100% {
-    box-shadow: 0 0 0 0 var(--warn-soft);
+    box-shadow: 0 0 0 0 var(--recording-ring);
   }
 
   50% {
-    box-shadow: 0 0 0 6px var(--warn-soft);
+    box-shadow: 0 0 0 6px var(--recording-ring);
   }
 }
 
-/* Once startMicLevelMeter() has real signal, it drives --mic-level (0–1)
-   itself every frame — the fixed-cadence pulse above would fight it. */
+/* Once startMicLevelMeter() has real signal, the bar meter below carries the
+   level instead — the ring settles to a fixed outline so it isn't fighting
+   the bars for the viewer's attention with a second, redundant animation. */
 button.recording.live-level {
   animation: none;
-  box-shadow: 0 0 0 calc(2px + var(--mic-level, 0) * 8px) var(--warn-soft);
+  box-shadow: 0 0 0 2px var(--recording-ring);
   transition: box-shadow var(--motion-fast) ease-out;
 }
 
+/* A small scrolling level meter, Voice-Memos-style — startMicLevelMeter()
+   in app.js appends this into the button and redraws --bar-scale on each
+   bar at ~15fps. Sits inline after the icon/label, so a labelled button
+   (meeting notes' "Stop") gains a trailing meter and an icon-only one grows
+   by the meter's own width for as long as recording lasts. */
+.mic-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+.mic-bar {
+  width: 3px;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--recording-ring);
+  transform: scaleY(var(--bar-scale, 0.12));
+  transform-origin: bottom;
+  transition: transform 90ms linear;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  /* The scrolling bars are motion, same as the pulse they replaced — fall
+     back to a fixed ring instead, same as reduced-motion already did. */
+  .mic-bars {
+    display: none;
+  }
+
   /* .live-level's own reduced-motion rule below already covers the case
      once real mic signal arrives — this covers the gap before it does,
      which pulse-rec never respected on its own. */
   button.recording:not(.live-level) {
     animation: none;
-    box-shadow: 0 0 0 4px var(--warn-soft);
+    box-shadow: 0 0 0 4px var(--recording-ring);
   }
 
   button.recording.live-level {
-    box-shadow: 0 0 0 4px var(--warn-soft);
+    box-shadow: 0 0 0 4px var(--recording-ring);
     transition: none;
   }
 }

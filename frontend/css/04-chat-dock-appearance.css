@@ -1956,6 +1956,12 @@ button {
   flex: 0 1 auto;
 }
 
+/* Same default-<p>-margin fix as .doc-hint below — this is the other half of
+   the gap that stacked on top of it. */
+.doc-status {
+  margin: 0;
+}
+
 .doc-toolbar {
   gap: 0.5rem;
   flex-wrap: wrap;
@@ -2037,6 +2043,13 @@ button {
 }
 
 .doc-hint {
+  /* <p> carries the UA default `margin: 1em 0` — nothing here ever zeroed it,
+     so it stacked with .doc-main's own `gap` and #doc-status's identical
+     unreset margin above it. Live-reproduced: the gap between the editor and
+     this hint measured ~65px and was present on a fresh, never-resized load —
+     unrelated to the #doc-panes-manual resize mechanism right above this rule
+     despite looking like the same symptom. */
+  margin: 0;
   font-size: 0.8rem;
 }
 

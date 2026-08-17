@@ -139,7 +139,7 @@ default because both act without being asked:
 - **Search by meaning.** Tick ✨ Semantic beside the notes filter and the
   search stops matching words and starts matching ideas — "things I was worried
   about" finds the note that never uses either word. It needs the embedding
-  model from Optional extras.
+  model from Settings → Packages.
 - **The background librarian.** On an interval you choose, a local agent goes
   through the notebook tagging what is untagged, linking notes that read alike,
   and flagging duplicates. It can never delete anything, it stops rather than
@@ -149,7 +149,7 @@ default because both act without being asked:
 The AI can also **remember standing instructions** — tell it "always answer in
 British English" and it keeps that across conversations.
 
-**Settings → Optional extras** installs the packages that turn optional
+**Settings → Packages** installs the packages that turn optional
 features on — dictation, the desktop window, search-by-meaning — and shows the
 **embedding models** on this machine with their real size on disk and a way to
 remove them. Nothing there is needed to write, search, tag or organise notes,
@@ -178,7 +178,7 @@ you explicitly pass `--delete-data` - see the script's own `--help`-style
 comment header for the full options. Optional extras (dictation, the desktop
 window, search-by-meaning) can be installed, reinstalled or removed
 individually and without touching a terminal at all, from **Settings →
-Optional extras**.
+Packages**.
 
 ### Adding the AI
 
@@ -306,7 +306,9 @@ instantly, download suggested models with progress bars, or change the
 embedding backend (your notes re-index automatically).
 - **Settings → Web search** - off by default. See
 [Privacy and security](#privacy-and-security).
-- **Settings → Activity** - the audit log of every meaningful action.
+- **Library → Activity** - the audit log of every meaningful action. Moved out
+of Settings when the Library became the one place for the bin, tags and
+activity log alike (see [Where it's up to](#where-its-up-to)).
 - **Settings → Account & security** - change your password or PIN (private
 notes move across automatically), see open sessions, lock everywhere.
 

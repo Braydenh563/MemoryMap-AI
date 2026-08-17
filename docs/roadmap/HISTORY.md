@@ -3705,3 +3705,118 @@ and the weekday rule is written down in the module since both readings of
 "next Friday" exist and consistency is the most that can be offered.
 Private notes are excluded, and marking a note private clears what was
 already stored — the same reasoning as dropping its embedding.
+
+## 67. `preferences.json` made crash-safe, orphaned `/media/` garbage collection, a temporal-word rescue for link reasons, a stdio MCP server, and a live-reported "no animation" bug that turned out to be an invisible ring, not a broken mechanism
+
+Four ROADMAP items closed (37, 38, 20a, Tier 2 item 9), then a live bug
+report worked through the same way §56/§57/§58/§61 did: reproduce against
+the real running app before theorising, say what wasn't checked.
+
+**`preferences.json` crash-safety (item 37).** `core/atomic_io.py`'s
+`atomic_write_text`/`atomic_write_json` (tempfile in the same directory +
+`fsync` + `os.replace`) replaced `ConfigManager.set_preference`'s plain
+`write_text()`. A test that monkeypatches `os.fsync` to raise confirms the
+on-disk file is untouched and no stray temp file survives — confirmed to
+fail against the pre-fix code via `git stash` first.
+
+**Orphaned `/media/` garbage collection (item 20a).** `core/media_gc.py`
+scans `Entry.content` (through `manager.readable_content`, so a locked
+private note's encrypted blob doesn't get misread as "no reference"),
+`Document.content`, and `WhiteboardObject(kind="image").data` for
+`/media/{filename}` references, then diffs against the `MediaUpload`
+table. `GET /media/orphans` / `DELETE /media/orphans`, both declared
+*before* the existing `/media/{upload_id}` route — FastAPI matches by
+declaration order, so a path-parameter route declared first shadows a
+literal-segment one after it and 422s instead of 404ing, which is what
+happened until the ordering was fixed. **Refuses to delete anything at
+all** if any private note couldn't be decrypted, rather than risk treating
+"vault's locked, can't check" as "definitely not referenced" — the one
+case in this feature where being wrong means real data loss, not a wrong
+answer. 7 tests, including that locked-vault refusal.
+
+**A temporal-word rescue for link reasons (Tier 2 item 9's follow-up
+ask).** `_deduce_reason` in `entry/manager.py` was embedding-only. A pair
+scoring below `AUTO_REASON_THRESHOLD` (0.55) but within
+`TEMPORAL_RESCUE_BOOST` (0.15) of it now gets a second look: `_shares_a_date`
+checks both entries' resolved `EntryDate` rows (`entry.timewords`'
+`record_dates()`, which already runs on every save) for a shared day-precision
+date, falling back to "written the same calendar day" if neither note
+resolved an explicit date phrase. A rescued pair gets its own reason text
+("similar in meaning, and around the same time") rather than silently
+reusing the plain one, so the UI shows which signal actually fired.
+Deliberately can't manufacture a reason alone — it only rescues a pair the
+embedding score already put close. Confirmed end-to-end that ordinary
+"today"/"next Tuesday" phrasing *inside* note prose (not just an explicit
+date field) reaches this: `create_entry("at uni today, bought a mouse
+there")` produces an `EntryDate` row with `phrase == "today"` automatically,
+no new capture-side code needed — the pipeline already existed for the
+"reminder due date" use case and just needed reading for this one too.
+7 new tests in `test_link_reasons.py`.
+
+**A stdio MCP server (item 38, ANALYSIS.md §60).** `mcp_server.py`: a
+JSON-RPC 2.0 server over stdio (`initialize`, `tools/list`, `tools/call`,
+`ping`, one message per line, no `Content-Length` framing), run with
+`python -m memorymap.mcp_server`, over the *existing* tool registry rather
+than a second one. Only non-destructive, currently-enabled tools are ever
+listed or callable — there's no confirm card on this path the way the chat
+UI's agent loop parks a destructive call for one, so `delete_note` and its
+five siblings are refused even when a client asks for one by name
+directly, not just left off the list. `tool_enabled()` (Settings → Tools'
+`disabled_tools`, including the `web_search`/`read_url` online opt-in) is
+reused as-is, so a tool the user turned off is invisible here too.
+Consuming external MCP servers — the other half of BACKLOG §29 — is a
+separate, harder feature needing a trust model this doesn't build; not
+attempted. 13 tests, including a real `serve()` pass over `StringIO`
+stdin/stdout for the line-reading loop itself.
+
+**The mic-level recording indicator was live-verified working — with a
+synthetic signal — then live-reported broken on one specific button, and
+the real cause was neither.** An earlier check this session confirmed the
+*mechanism* (`--mic-level` custom property, `.recording.live-level`'s
+box-shadow) genuinely varies frame-to-frame under a real (if synthetic,
+Chromium's fake-audio-device) signal. Then came a live report: "still no
+animation on the meeting notes when recording," with a screenshot of a
+flat, static button. Re-reproducing against the real running app — not the
+isolated function call the first check used, but a real click through
+`toggleMeetingRecording()` — found the ring *was* changing size on every
+frame, exactly as measured. The bug was never the mechanism: `--warn-soft`
+(the ring's colour token, `rgba(245,189,79,0.25)` light / an even fainter
+`0.16` alpha dark) is pre-mixed pale enough that against the meeting
+overlay's near-white modal card it composites to a colour within a few RGB
+values of the card itself — confirmed by screenshotting the button at a
+forced maximum mic-level and finding the "glowing" ring essentially
+invisible. A single computed-style read would have missed this; only an
+actual rendered screenshot showed it. Fixed with `--recording-ring`, a
+`color-mix(in srgb, var(--warn) 55%, transparent)` mixed from the *solid*
+warn colour at capture time rather than a pre-mixed pale token, applied
+everywhere `--warn-soft` drove the ring (the idle pulse, the live-level
+ring, both reduced-motion fallbacks).
+
+**Then asked to go further: a Voice-Memos-style five-bar scrolling level
+meter**, replacing the single ring as the primary indicator (the ring
+still shows, now fixed at 2px, so a moment before real signal arrives or a
+reduced-motion session still shows something). `startMicLevelMeter()` now
+builds a small `.mic-bars` element with five `.mic-bar` children, keeps a
+5-sample rolling history sampled at ~15fps (every 4th animation frame —
+reshuffling at the full 60fps rAF rate read as noise, not a wave, when
+tried), and drives each bar's height through a `--bar-scale` custom
+property with a `scaleY()` transform (cheap, no layout). Building this hit
+a second, independently real bug: `setLabel()` — the small helper that
+turns `"ph:stop Stop"` into an icon element plus text — rebuilds a
+button's children with `replaceChildren()`, which was silently discarding
+the bar meter every time, because both `toggleDictation()` and
+`toggleMeetingRecording()` called `startMicLevelMeter()` *before*
+`setLabel()`. Reordering both call sites (append the meter after the
+label is set, not before) fixed it. Live-verified via Playwright against
+the real server: bars scroll and visibly vary under the fake-device signal
+over an extended sampling window (the fake device's own synthetic signal
+has a multi-second near-silent stretch as part of its cycle — a short
+sampling window reads as "stuck" even when the mechanism is fine, which is
+exactly the trap a first, too-short verification pass fell into), the
+fixed ring is visibly amber in a screenshot of the real modal card, and
+`stop()` leaves no stray class or DOM node behind on either button.
+**Not verified:** real hardware microphone input, and mic-note/mic-chat's
+bars specifically by screenshot (their code path is identical to
+meeting-record's, confirmed by class/box-shadow/bar-count reads, but the
+visual render itself was only screenshotted for meeting-record, per this
+session's own token-efficiency instruction to use screenshots sparingly).

@@ -37,6 +37,47 @@ def test_corrupt_preferences_file_falls_back_to_defaults(tmp_path):
     assert config.get_preference("chat_model") == "llama3.2"
 
 
+def test_set_preference_leaves_no_stray_temp_file(tmp_path):
+    config = ConfigManager(data_dir=tmp_path / "data")
+    config.set_preference("chat_model", "qwen2.5:3b")
+
+    leftovers = list(config.data_dir.glob(".preferences.json.*.tmp"))
+    assert leftovers == []
+
+
+def test_set_preference_survives_a_write_failure_without_corrupting_the_file(
+    tmp_path, monkeypatch
+):
+    """A crash mid-write must leave the old file intact, not a truncated one.
+
+    Simulates the failure by making the fsync step raise partway through an
+    atomic write — the shape a real crash/power-loss would hit — and asserts
+    the previously-saved preferences are still readable afterwards.
+    """
+    config = ConfigManager(data_dir=tmp_path / "data")
+    config.set_preference("chat_model", "first-good-value")
+    before = config.preferences_path.read_text()
+
+    import os as os_module
+
+    def failing_fsync(fd):
+        raise OSError("simulated crash mid-write")
+
+    monkeypatch.setattr(os_module, "fsync", failing_fsync)
+    try:
+        config.set_preference("chat_model", "never-should-land")
+    except OSError as exc:
+        # Expected in this test: simulated fsync failure during atomic write.
+        _ = exc
+
+    # The on-disk file must be exactly what it was before the failed write —
+    # never truncated, never half-written.
+    assert config.preferences_path.read_text() == before
+    assert json.loads(before)["chat_model"] == "first-good-value"
+    # And no temp file left behind by the aborted write.
+    assert list(config.data_dir.glob(".preferences.json.*.tmp")) == []
+
+
 def test_create_and_list_entries(session):
     manager.create_entry(session, "remember the milk", tags=["shopping"])
     manager.create_entry(session, "a dad joke about cheese")

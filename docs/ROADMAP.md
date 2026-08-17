@@ -295,12 +295,19 @@ into a good one.
    nobody supplies one, editable/clearable by hand), surfaced on the graph
    edge, in Trace, in `related_notes`, and in link suggestions.
    **Asked for directly, not yet built:** the backfill as an agent-callable
-   tool/skill so it can run unattended (see item 31). Also asked for: **the
-   deduction should weigh temporal words as well as embedding similarity**
-   — two notes mentioning "next Tuesday" or written the same day read as
-   related even when their topics don't overlap semantically. `_deduce_reason`
-   today is embedding-only (`AUTO_REASON_THRESHOLD`); needs a second signal
-   folded in via `entry.timewords`/`EntryDate`, not a wholesale replacement.
+   tool/skill so it can run unattended (see item 31). ~~Also asked for: the
+   deduction should weigh temporal words as well as embedding similarity.~~
+   **Done.** A pair below threshold on embedding similarity alone now gets
+   rescued by `_shares_a_date` (same resolved `EntryDate` day, or written the
+   same calendar day) within `TEMPORAL_RESCUE_BOOST` (0.15) of
+   `AUTO_REASON_THRESHOLD`, surfaced as its own reason text ("similar in
+   meaning, and around the same time") so it reads as a distinct signal, not
+   a silently lowered bar. Deliberately can't manufacture a reason alone —
+   only rescues a pair the embedding score already put close. Confirmed this
+   fires on ordinary "today"/"next Tuesday" phrasing *inside* note text, not
+   just an explicit date field — `entry.timewords`' `record_dates()` already
+   runs on every save, so no new capture-side code was needed, only the
+   rescue logic in `_deduce_reason`. 7 new tests in `test_link_reasons.py`.
 10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
     invisible~~ **Fixed (HISTORY.md §46).** ~~A background colour for the
     canvas~~ **Done (HISTORY.md §46)**, including a real CSS-vs-canvas-pixel
@@ -354,9 +361,8 @@ into a good one.
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
     - ~~**Uploaded images showing in the Library, and a way to delete
-      one.**~~ **Done (HISTORY.md §61).** **Still open: orphaned `/media/`
-      garbage collection** — nothing yet reconciles a file against whether
-      any live note/board still references it; still a manual-only delete.
+      one.**~~ **Done (HISTORY.md §61).** ~~**Orphaned `/media/` garbage
+      collection.**~~ **Done.** See item 20a below.
     - ~~**Smart alignment guides while dragging, colour-coded, with
       equal-spacing detection**~~ **Done, verified live (HISTORY.md §58).**
     - ~~**Rectangle select and lasso, export selection**~~ **Done, verified
@@ -548,13 +554,18 @@ Worth doing, and worth doing after the above.
     attachments* specifically (files attached to a note but not images —
     asked for directly this session as "separate from the whiteboard gallery
     I just built"), and drag-to-attach.
-20a. ~~**A Library "Media/Images" gallery tab**~~, **and garbage-collecting
-    orphaned `/media/` files** (still open). The gallery/tracking/delete
-    plumbing is built (HISTORY.md §61, `MediaUpload` table, `GET /media`,
-    `DELETE /media/{id}`). **Still open:** nothing yet reconciles `/media/`
-    files on disk against live note content — an image referenced only
-    inline in a note's markdown that gets pasted over or the note deleted
-    still leaks a file nobody will ever call delete on.
+20a. ~~**A Library "Media/Images" gallery tab, and garbage-collecting
+    orphaned `/media/` files.**~~ **Done.** `core/media_gc.py` reconciles
+    every `MediaUpload` against live references in note content (through
+    `manager.readable_content`, so an encrypted private note is scanned
+    too — decrypted), documents, and whiteboard image objects.
+    `GET /media/orphans` lists them, `DELETE /media/orphans` deletes; both
+    declared before the existing `/media/{upload_id}` route so the literal
+    segment isn't shadowed by the path-parameter one. **Refuses to delete
+    anything at all** if any private note couldn't be decrypted (vault
+    locked) rather than risk treating "can't check" as "not referenced" —
+    the one case where a false orphan means real data loss. 7 tests
+    (`test_media_gc.py`), including that locked-vault refusal.
 20b. ~~**An "Agent Activity" background-task popup cleanup pass.**~~ **Done
     (HISTORY.md §61).** `.agent-monitor` shared `right: 20px` with several
     whiteboard floating panels; moved to `left: 20px`.
@@ -596,9 +607,51 @@ Worth doing, and worth doing after the above.
     grows as more providers touch the sync path.
 29. **Better-looking theme previews** in Appearance.
 30. **Standing backlog, the rest** — [roadmap/BACKLOG.md](roadmap/BACKLOG.md)
-    (note-list keyboard nav, a per-chat token meter, an eval harness,
-    multi-category notes, desktop packaging, MCP support). None is blocked on
-    anything above.
+    holds ~65 numbered sections; most are either done (check before
+    rebuilding — this file's own repeated lesson), blocked on a design
+    decision, or genuinely large. The items below are the ones re-read this
+    session that are neither: concretely scoped already, no decision
+    blocking them, and not duplicated by anything above. Ranked by impact
+    versus how contained the change is, highest first. **MCP support**
+    (BACKLOG §29, ANALYSIS §60) is no longer in this list — see item 38.
+    30a. **Note-list keyboard navigation** (BACKLOG §16). Arrow keys move
+        through the list, Enter opens the focused note. Named directly as
+        "the one interaction pattern used constantly enough that its absence
+        would be felt every session, not just noticed in an audit" — the
+        highest-frequency gap on this list, and self-contained: one list
+        component, no schema change.
+    30b. **Archive** (BACKLOG §4 item 3, elaborated in §26). One `archived_at`
+        column each on notes, chats and documents (additive migration), a
+        state between "active" and "binned" for things kept but out of the
+        way. Already fully scoped; §26 lists three things that build on it
+        afterwards (a "delete everything" control, one assembled "your data"
+        page, opt-in auto-archive-by-age) but none of those block this one.
+    30c. **Chat metadata not surviving a reload** (BACKLOG §22). Distinct
+        from the already-fixed "no metadata when tools were used" bug — this
+        is the meta line vanishing on reopen, not on first render. Worth
+        checking whether `conversations.steps` (what a reopened chat
+        replays, ARCHITECTURE.md §8) carries the metadata at all before
+        assuming the fix is in the replay path rather than the write path.
+    30d. **OCR text extraction on an uploaded image** (BACKLOG §4 item 1).
+        A whiteboard photo or a scanned page attaches today as an opaque
+        file nothing reads. Local `pytesseract` (no torch, no cloud call) at
+        upload time, fed into the existing keyword index, makes "what was on
+        that whiteboard photo from March" answerable. A new pipeline stage
+        (extract → index), not a wider drop-handler — the drop-handler side
+        of file uploads is already done.
+    30e. **Undo toasts for soft-deletes, in place of confirm dialogs**
+        (BACKLOG §16). A "Deleted — Undo" toast instead of an interrupting
+        confirm dialog, for the delete paths that are already soft (bin,
+        not gone) — reads as more trustworthy than a dialog and is less
+        friction on the common case.
+    30f. **README and GitHub Pages drift** (BACKLOG §22). Doc-only, cheapest
+        item here: the README's own tab table and "Next up" list are stale
+        (both name pre-rebuild systems as still open). Worth doing in the
+        same sitting as any other roadmap-accuracy pass, since it's the same
+        failure this document itself warns about — a description of the app
+        that only some of the description-holders get updated.
+    30g. **A per-chat token meter, and an eval harness** — kept as a pointer
+        only, not scoped further here; see BACKLOG.md directly for both.
 31. **Expand the autonomous background agent's capabilities.** Asked for
     directly, without a specific gap named — today it does three things
     (`_enabled_tasks` in `ai/autonomous.py`): tag untagged notes, link
@@ -652,26 +705,25 @@ Worth doing, and worth doing after the above.
     purpose: `match_info`, `unsupported_claims` (Tier 1 item 7) and link
     `reason`/`reason_confidence` (Tier 2 item 9) already cover the other
     three related cases; this is just the direct-Q&A-sentence one.
-37. **`preferences.json` isn't crash-safe** (ANALYSIS.md §60). Found by the
-    second odysseus read: `ConfigManager.set_preference` persists it with a
-    plain `write_text()` — no tmp file, no fsync, no atomic rename — so a
-    crash mid-write can truncate or corrupt the one file holding
-    `llm_api_key` and every saved setting, contradicting its own docstring's
-    promise that "a crash never loses a settings change." §59 already looked
-    at this class of fix once (claude-obsidian's transaction layer) and
-    correctly ruled it unnecessary because SQLite's own transactions cover
-    concurrent note writes — but `preferences.json` sits outside the
-    database, so that dismissal doesn't reach this file. Fix is odysseus's
-    own `atomic_write_json`/`atomic_write_text` shape (write-to-tmp + fsync +
-    `os.replace`), ~15 lines, applied at the one call site in `core/config.py`.
-38. **MCP support, now with a concrete shape to build from** (ANALYSIS.md
-    §60, narrowing BACKLOG §29). Expose first: a stdio MCP server over the
-    existing tool registry (search/create/tag a note) needs no new trust
-    model — it's the same local-process boundary the app already has, reachable
-    from Claude Desktop or any other MCP client on the machine. Consuming
-    external MCP servers is a separate, harder feature that needs the trust
-    model BACKLOG §29 already flagged as missing; it should wait until that
-    exists rather than ship alongside the expose direction.
+37. ~~**`preferences.json` isn't crash-safe** (ANALYSIS.md §60).~~ **Done.**
+    `core/atomic_io.py`'s `atomic_write_json`/`atomic_write_text` (tempfile +
+    fsync + `os.replace`) replaced `ConfigManager.set_preference`'s plain
+    `write_text()`. Two tests in `test_core.py`, including one that
+    monkeypatches `os.fsync` to raise and confirms the on-disk file is
+    untouched and no stray temp file is left — confirmed to fail against the
+    pre-fix code via `git stash`.
+38. ~~**MCP support, now with a concrete shape to build from**~~ **Done, the
+    expose half.** `src/memorymap/mcp_server.py`: a stdio JSON-RPC server
+    (`initialize`/`tools/list`/`tools/call`/`ping`) over the existing tool
+    registry, run with `python -m memorymap.mcp_server`. Only non-destructive,
+    currently-enabled tools are ever listed or runnable — no confirm card
+    exists on this path to gate `delete_note` and its five siblings the way
+    the chat UI's agent loop does, so the safe default is to never offer them,
+    checked even when a client asks for one by name directly. 13 tests
+    (`test_mcp_server.py`), including a real `serve()` pass over `StringIO`
+    stdin/stdout. Consuming external MCP servers is still the separate,
+    harder feature BACKLOG §29 already flagged as needing its own trust
+    model; not attempted here.
 39. **Passive capture: a fifth autonomous-tasks job that mines chat for
     un-filed facts** (ANALYSIS.md §60). Today a note is only filed on an
     explicit instruction or an explicit tool call — something mentioned in

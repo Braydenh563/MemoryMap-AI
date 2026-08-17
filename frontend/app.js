@@ -15121,6 +15121,18 @@ let recorderTarget = null; // which input gets the transcript
 // the recorder already opened — no extra permission, no extra stream.
 // Returns a stop() that tears down the AudioContext; callers must invoke it
 // before the stream's tracks are stopped.
+// A small scrolling bar meter, Voice-Memos-style: five bars, oldest sample on
+// the left, newest on the right, each redrawn from the analyser at ~15fps —
+// full 60fps would reshuffle the bars faster than a glance can read as a
+// wave. The plain ring this replaced was a single number's worth of signal
+// and, worse, was drawn in --warn-soft: a token pre-mixed pale enough that on
+// a near-white modal card it was measured, by screenshot, as functionally
+// invisible — that's what "no animation" on the meeting recorder turned out
+// to be. --recording-ring (a solid --warn mixed at capture time, defined
+// alongside button.recording below) replaced it there and is reused here.
+const MIC_BAR_COUNT = 5;
+const MIC_BAR_SAMPLE_EVERY = 4; // frames between bar updates, ~15fps at 60fps rAF
+
 function startMicLevelMeter(stream, button) {
   let ctx;
   try {
@@ -15130,8 +15142,8 @@ function startMicLevelMeter(stream, button) {
   }
   // Some browsers create a new AudioContext already `suspended`, even from
   // inside a click handler — the analyser then reads silence forever, so
-  // --mic-level never leaves 0 and the ring just sits flat with no visible
-  // motion at all. resume() is a no-op if it's already running.
+  // the meter never leaves its resting state. resume() is a no-op if it's
+  // already running.
   ctx.resume().catch(() => {});
   const source = ctx.createMediaStreamSource(stream);
   const analyser = ctx.createAnalyser();
@@ -15139,16 +15151,39 @@ function startMicLevelMeter(stream, button) {
   source.connect(analyser);
   const data = new Uint8Array(analyser.frequencyBinCount);
   button.classList.add("live-level");
+
+  const bars = document.createElement("span");
+  bars.className = "mic-bars";
+  bars.setAttribute("aria-hidden", "true");
+  const barEls = Array.from({ length: MIC_BAR_COUNT }, () => {
+    const bar = document.createElement("span");
+    bar.className = "mic-bar";
+    bars.appendChild(bar);
+    return bar;
+  });
+  button.appendChild(bars);
+  const history = new Array(MIC_BAR_COUNT).fill(0);
+
+  let tickCount = 0;
   let frame = requestAnimationFrame(function tick() {
     analyser.getByteFrequencyData(data);
     const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
-    button.style.setProperty("--mic-level", (avg / 255).toFixed(3));
+    if (tickCount % MIC_BAR_SAMPLE_EVERY === 0) {
+      history.push(avg / 255);
+      history.shift();
+      history.forEach((level, i) => {
+        // A silent bar never fully flattens — Voice Memos' own resting bars
+        // read as "listening", a flat line reads as "frozen".
+        barEls[i].style.setProperty("--bar-scale", Math.max(level, 0.12).toFixed(3));
+      });
+    }
+    tickCount++;
     frame = requestAnimationFrame(tick);
   });
   return () => {
     cancelAnimationFrame(frame);
     button.classList.remove("live-level");
-    button.style.removeProperty("--mic-level");
+    bars.remove();
     source.disconnect();
     ctx.close().catch(() => {});
   };
@@ -15176,7 +15211,7 @@ async function toggleDictation(button, targetInput) {
   const chunks = [];
   recorder = new MediaRecorder(stream);
   recorderTarget = targetInput;
-  const stopLevelMeter = startMicLevelMeter(stream, button);
+  let stopLevelMeter = () => {};
   recorder.addEventListener("dataavailable", (e) => chunks.push(e.data));
   recorder.addEventListener("stop", async () => {
     stream.getTracks().forEach((t) => t.stop());
@@ -15206,6 +15241,10 @@ async function toggleDictation(button, targetInput) {
   recorder.start();
   button.classList.add("recording");
   setLabel(button, "ph:stop");
+  // Appended after setLabel, not before: setLabel's replaceChildren() wipes
+  // every child on the button, and the bar meter startMicLevelMeter() builds
+  // is one — appending it earlier just got it discarded a line later.
+  stopLevelMeter = startMicLevelMeter(stream, button);
 }
 
 // --- meeting notes (§17) -------------------------------------------------------------
@@ -15307,7 +15346,7 @@ async function toggleMeetingRecording() {
   }
   meetingChunks = [];
   meetingRecorder = new MediaRecorder(meetingStream);
-  const stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
+  let stopMeetingLevelMeter = () => {};
   meetingRecorder.addEventListener("dataavailable", (e) => meetingChunks.push(e.data));
   meetingRecorder.addEventListener("stop", async () => {
     meetingStream?.getTracks().forEach((t) => t.stop());
@@ -15350,6 +15389,10 @@ async function toggleMeetingRecording() {
   }, 1000);
   button.classList.add("recording");
   setLabel(button, "ph:stop Stop");
+  // Appended after setLabel, not before: setLabel's replaceChildren() wipes
+  // every child on the button, and the bar meter startMicLevelMeter() builds
+  // is one — appending it earlier just got it discarded a line later.
+  stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
   $("meeting-status").textContent = "";
   $("meeting-status").classList.remove("error");
 }

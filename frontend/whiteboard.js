@@ -3675,7 +3675,7 @@ function renderWbLibrary() {
     const li = document.createElement("li");
     li.className = "wb-library-item";
     const text = entry.content || entry.preview || "";
-    li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "..." : text) : entry.id;
+    li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "…" : text) : entry.id;
     li.draggable = true;
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", entry.id);
@@ -4750,7 +4750,7 @@ function renderWhiteboard() {
     const contentEl = card.append("div").attr("class", "wb-card-content").node();
     const entry = entriesById.get(String(d.entry_id));
     if (!entry) {
-      contentEl.textContent = "Loading...";
+      contentEl.textContent = "Loading…";
       return;
     }
     const text = entry.content || entry.preview || "";

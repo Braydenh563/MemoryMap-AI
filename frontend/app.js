@@ -241,6 +241,11 @@ function showLockScreen(setupMode) {
     : "Enter your password to unlock your notebook.";
   $("lock-submit").textContent = setupMode ? "Set password & start" : "Unlock";
   $("lock-overlay").dataset.mode = setupMode ? "setup" : "unlock";
+  // One field in two modes (no separate setup form) — autocomplete has to
+  // switch with it, or a password manager offers to fill an *existing*
+  // saved password into a first-run "choose a new one" field.
+  $("lock-password").setAttribute("aria-label", setupMode ? "Choose a password" : "Password");
+  $("lock-password").autocomplete = setupMode ? "new-password" : "current-password";
   $("lock-password").focus();
 }
 
@@ -1105,7 +1110,19 @@ function entryItem(entry, options = {}) {
       // not here — `link.preview` is a clip of the *other* note's own text,
       // which can carry the same **bold**/`code` a reader would expect to
       // see rendered, the way the note's own body already does.
-      const linkChip = chip("", "link");
+      //
+      // The click handler is built first and passed into chip()'s own
+      // onClick param — every sibling chip() call site in this file does
+      // the same and gets keyboard support (Enter/Space, role="button",
+      // tabindex) for free. This one used to build a bare chip and attach a
+      // plain `click` listener after the fact instead, which quietly opted
+      // this specific "Go to note" chip out of keyboard operability while
+      // every other chip stayed reachable (Web Interface Guidelines pass).
+      const goToLinkedNote = (e) => {
+        if (e.target.classList.contains("unlink")) return;
+        flashEntry(link.entry_id);
+      };
+      const linkChip = chip("", "link", goToLinkedNote);
       linkChip.appendChild(setLabel(document.createElement("span"), "ph:arrows-left-right"));
     linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
@@ -1119,11 +1136,6 @@ function entryItem(entry, options = {}) {
       linkChip.title = reasonNote
         ? `Go to note: ${label}\nReason: ${reasonNote}`
         : `Go to note: ${label}`;
-      linkChip.style.cursor = "pointer";
-      linkChip.addEventListener("click", (e) => {
-        if (e.target.classList.contains("unlink")) return;
-        flashEntry(link.entry_id);
-      });
       if (options.actions) {
         const editReason = document.createElement("span");
         editReason.className = "unlink reason-edit";
@@ -2628,7 +2640,11 @@ function renderEntries() {
     : allEntries;
   visible = visible.filter(matchesSearch);
 
-  const scope = activeCategory ? `${activeCategory} entries` : "All entries";
+  // "Notes" everywhere else on this tab ("Your notes", "notebook", the
+  // status-bar note count) — this heading used to say "entries" (the API's
+  // internal name, /entries), the one place on the tab that didn't match
+  // (Part C terminology audit).
+  const scope = activeCategory ? `${activeCategory} notes` : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
@@ -6977,7 +6993,7 @@ async function sendChatMessage(preset, opts = {}) {
   try {
     slowLoadTimeout = setTimeout(() => {
       if (!meta && !stopped) {
-        status.textContent = "Loading model... (this may take a moment)";
+        status.textContent = "Loading model… (this may take a moment)";
       }
     }, 5000);
     await streamChat({
@@ -12605,6 +12621,21 @@ function renderTimelineBranch(body) {
   svg.selectAll("*").remove();
   const width = Math.max($("timeline-branch-wrap").clientWidth || 800, 480);
 
+  // The same "premium orb" shine Graph's nodes use (renderGraph(), graph.js)
+  // — a white radial highlight offset toward the top-left corner, so the dot
+  // reads as a lit sphere instead of a flat circle. Own id (not graph.js's
+  // "orb-shine") because both tabs' SVGs can be present in the document at
+  // once and an id must be unique across the whole page, not just one <svg>.
+  const shineDefs = svg.append("defs");
+  const shineGrad = shineDefs
+    .append("radialGradient")
+    .attr("id", "timeline-orb-shine")
+    .attr("cx", "35%")
+    .attr("cy", "30%")
+    .attr("r", "65%");
+  shineGrad.append("stop").attr("offset", "0%").attr("stop-color", "white").attr("stop-opacity", "0.65");
+  shineGrad.append("stop").attr("offset", "100%").attr("stop-color", "white").attr("stop-opacity", "0");
+
   const notes = body.notes;
   const times = notes.map((n) => new Date(n.at));
   const minT = d3.min(times);
@@ -12750,6 +12781,30 @@ function renderTimelineBranch(body) {
       .ease(d3.easeElasticOut)
       .attr("r", TIMELINE_DOT_R * 1.6);
 
+    // The same "premium orb" highlight overlay as Graph's `.graph-orb-shine`
+    // (renderGraph(), graph.js) — asked for directly ("the graph nodes have
+    // a sort of shine to them and I want the timeline nodes ... to be the
+    // same"). Declared before `dots` so its own hover handler can resize the
+    // matching shine by index. `pointer-events: none` so it never steals the
+    // dot's own hover/click, same as `.graph-orb-shine` gets from JS
+    // (graph.js) rather than CSS.
+    const shines = laneGroup
+      .selectAll("circle.timeline-branch-shine")
+      .data(here)
+      .join("circle")
+      .attr("class", "timeline-branch-shine")
+      .attr("cx", (n) => n.cx)
+      .attr("cy", (n) => laneY + (n._dy || 0))
+      .attr("fill", "url(#timeline-orb-shine)")
+      .attr("pointer-events", "none")
+      .attr("r", 0);
+
+    shines.transition()
+      .delay((_, i) => Math.min(i * 30, 800))
+      .duration(400)
+      .ease(d3.easeElasticOut)
+      .attr("r", TIMELINE_DOT_R);
+
     const dots = laneGroup
       .selectAll("circle.timeline-branch-dot")
       .data(here)
@@ -12764,8 +12819,21 @@ function renderTimelineBranch(body) {
       .attr("r", 0)
       .on("mouseover", function(event, n) {
         d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
+        // Opacity only, same as Graph's own `.graph-node:hover circle.graph-halo`
+        // (04-chat-dock-appearance.css) — the halo used to grow to 2.2x here
+        // too, and mouseout reset it back to that *same* 2.2x instead of the
+        // resting 1.6x (copy-paste of the mouseover line), so the glow only
+        // ever grew and never actually shrank back down after a hover.
+        // Dropping the radius change here removes the mismatch instead of
+        // just correcting the number, and reads closer to Graph's subtler
+        // hover in the process.
         const halo = halos.nodes()[here.indexOf(n)];
-        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.45).attr("r", TIMELINE_DOT_R * 2.2);
+        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.45);
+        // The shine sits on top of the dot at the dot's resting size — it has
+        // to grow with the dot on hover too, or the enlarged dot pokes out
+        // past its own highlight.
+        const shine = shines.nodes()[here.indexOf(n)];
+        if (shine) d3.select(shine).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
         d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", function() {
           return (this === laneGroup.node()) ? 1 : 0.2;
         });
@@ -12773,7 +12841,9 @@ function renderTimelineBranch(body) {
       .on("mouseout", function(event, n) {
         d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R);
         const halo = halos.nodes()[here.indexOf(n)];
-        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.2).attr("r", TIMELINE_DOT_R * 2.2);
+        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.2);
+        const shine = shines.nodes()[here.indexOf(n)];
+        if (shine) d3.select(shine).transition().duration(150).attr("r", TIMELINE_DOT_R);
         d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", 1);
       })
       .on("click", (event, n) => {
@@ -20897,10 +20967,21 @@ $("library-bulk-open").addEventListener("click", () => {
 $("library-bulk-restore").addEventListener("click", async () => {
   const chosen = librarySelectedItems().filter((i) => i.kind === "archived");
   if (!chosen.length) return;
+  // Was `.catch(() => {})` then an unconditional "Restored N notes." for
+  // every item *attempted* — a per-item 404/500 was silently swallowed and
+  // still counted as a success. Track real outcomes instead.
+  let restored = 0;
   for (const item of chosen) {
-    await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch(() => {});
+    try {
+      await apiJson(`/entries/${item.id}/restore`, { method: "POST" });
+      restored++;
+    } catch {
+      // counted below
+    }
   }
-  toast(`Restored ${chosen.length} note${chosen.length === 1 ? "" : "s"}.`);
+  if (restored) toast(`Restored ${restored} note${restored === 1 ? "" : "s"}.`);
+  const failed = chosen.length - restored;
+  if (failed) toast(`${failed} note${failed === 1 ? "" : "s"} couldn't be restored.`, true);
   loadLibrary();
   loadEntries();
 });
@@ -20918,6 +20999,10 @@ $("library-bulk-delete").addEventListener("click", async () => {
         : "Notes go to the bin; documents and chats are deleted for good.")
   );
   if (!ok) return;
+  // Same fix as library-bulk-restore just above: a per-item failure used to
+  // be swallowed by `.catch(() => {})` and still counted toward the
+  // unconditional "Deleted N items." toast. Track what actually succeeded.
+  let deleted = 0;
   for (const item of chosen) {
     const route =
       item.kind === "archived"
@@ -20932,9 +21017,16 @@ $("library-bulk-delete").addEventListener("click", async () => {
                 ? [`/files/${item.id}`, "DELETE"]
                 : null;
     if (!route) continue;
-    await apiJson(route[0], { method: route[1] }).catch(() => {});
+    try {
+      await apiJson(route[0], { method: route[1] });
+      deleted++;
+    } catch {
+      // counted below
+    }
   }
-  toast(`Deleted ${chosen.length} item${chosen.length === 1 ? "" : "s"}.`);
+  if (deleted) toast(`Deleted ${deleted} item${deleted === 1 ? "" : "s"}.`);
+  const failed = chosen.length - deleted;
+  if (failed) toast(`${failed} item${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
   loadLibrary();
   loadEntries();
 });
@@ -22912,7 +23004,7 @@ window.switchTab = function(name) {
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
   if (!logList) return;
-  logList.innerHTML = "<p class='muted'>Loading logs...</p>";
+  logList.innerHTML = "<p class='muted'>Loading logs…</p>";
   
   const logs = await apiJson("/audit?limit=20").catch(() => null);
   logList.innerHTML = "";
@@ -22991,7 +23083,7 @@ async function handleFileUpload(textarea, files) {
   let textToInsert = "";
   
   for (const file of files) {
-    textToInsert += `![Uploading ${file.name}...]()\n`;
+    textToInsert += `![Uploading ${file.name}…]()\n`;
   }
   
   const originalText = textarea.value;
@@ -23016,11 +23108,11 @@ async function handleFileUpload(textarea, files) {
       const fileMarkdown = file.type.startsWith("image/")
         ? `![${res.filename}](${res.url})\n`
         : `[${res.filename}](${res.url})\n`;
-      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, fileMarkdown);
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     } catch (err) {
       console.error("Upload failed", err);
-      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, `*(Failed to upload ${file.name})*\n`);
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, `*(Failed to upload ${file.name})*\n`);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }

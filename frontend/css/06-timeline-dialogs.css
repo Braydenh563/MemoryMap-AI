@@ -84,7 +84,14 @@
      across tabs (DESIGN.md/checklist Part B). */
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  transition: all var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1);
+  /* Explicit properties, not `all` — the hover/focus-visible rule below only
+     ever touches these four, and `all` also makes the browser watch
+     `backdrop-filter` (expensive, and static here) for a change that never
+     happens. */
+  transition: color var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+    border-color var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+    background var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline-band:hover,

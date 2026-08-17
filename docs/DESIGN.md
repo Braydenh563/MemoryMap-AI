@@ -410,6 +410,47 @@ adding a control to it:
   own native size rather than stretched to match, since forcing a slider
   thumb to a button's hit-box height would misrepresent it as clickable
   chrome rather than a drag control.
+- `.library-toolbar` (`00-tokens-shell.css`) — shared by the Library tab and
+  the Notes tab's "All entries" row (`#browse` in `index.html`; same class,
+  reused markup). The rule covered `.library-search`, `select`, `.seg` and
+  `.seg button`, but Notes' own toolbar adds two plain `<button class="ghost
+  small">`s (`#select-btn`, `#search-help`) that Library's own toolbar
+  doesn't have — not inside a `.seg`, so the selector list missed them.
+  Measured at 30.39px against the row's 36.8px (`2.3rem`) `--control-h` —
+  the same failure shape as `.graph-toolbar`, just the buttons short instead
+  of the inputs tall. Fixed by widening `.seg button` to plain `button`,
+  which covers both without duplicating a rule.
+- `.capture-field-row` (`07-whiteboard-misc.css`), `.draft-controls`
+  (`04-chat-dock-appearance.css`) and `.ask-query-row`
+  (`07-whiteboard-misc.css`) — the Notes tab's Capture, Write-with-AI and
+  Ask panels, none audited before this round. All three had the same
+  three-heights-on-one-row shape: a `select`/`input` at the global 45.19px
+  form-field height, a plain `button` at 40px, and a `.ghost` button at 42px
+  (the border, under `box-sizing: border-box`). `2.5rem` (40px) rather than
+  the toolbars' `2.3rem`, since these rows carry full-size `Save`/`Draft it`
+  actions, not a `.small` toolbar strip.
+- `#batch-bar` (`02-chat-graph.css`) — the Notes tab's select-mode batch
+  action row (`Move to…` / Move / Tag / Delete / Done). The category select
+  (45.19px), `.small` `Move` (28.39px) and `.ghost.small` `Tag`/`Delete`/
+  `Done` (30.39px) were three more heights on one row. `2rem` here, since
+  every control is already `.small`.
+- `#reminder-magic-row` (`05-sidebars-themes.css`) — the Reminders tab's
+  natural-language add row. Smaller than the others (44px `textarea.autogrow`
+  against a 42px `.ghost` `Add` button, 2px) but the same shape, fixed by
+  matching the button's height to the textarea's own `min-height: 2.75rem`.
+  The tab's main `.reminder-form` row and the filter `.seg` were already
+  correct — checked, not assumed, before moving on.
+
+`.doc-toolbar`'s two rows (`04-chat-dock-appearance.css`) — the Documents
+editor's metadata/actions row and its formatting-button row, named as an
+open question in an earlier HANDOVER entry — were measured and are
+**already correct**, not a missed instance. The formatting row's buttons are
+uniform 29.19px. The metadata row's title input (45.19px) sits beside a
+`row space-between`-justified stats/actions group, not edge-to-edge with
+it — a `space-between` title-left/actions-right header, not a strip of
+controls sharing one boundary, so a height difference there doesn't read as
+misalignment the way it does within `.doc-actions` itself (which is
+internally uniform, all `.ghost.small`).
 
 ---
 

@@ -1874,7 +1874,10 @@
   font-weight: 500;
   color: var(--muted);
   border-radius: calc(var(--radius-md) - 0.15rem);
-  transition: all var(--motion-slow) ease;
+  /* Explicit properties, not `all` — `color`/`background` change on
+     `:hover` below, plus `box-shadow` on the `:checked` state further down. */
+  transition: color var(--motion-slow) ease, background var(--motion-slow) ease,
+    box-shadow var(--motion-slow) ease;
   user-select: none;
 }
 

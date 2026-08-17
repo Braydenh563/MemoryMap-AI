@@ -2,7 +2,208 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — two live-reported bugs, both root-caused before being touched
+## Latest session — worked the HANDOVER punch list top to bottom: the real WDG/frontend-design reviews, Notes/Reminders' first audit round, a full Part L matrix, a terminology fix, the bulk-action swallowing bug, and a live glow bug reported mid-session
+
+Continuation of the design-audit session, asked to work autonomously through
+the 8-item "concretely still open" list from the previous entry. Covered all
+eight; a ninth (Timeline dot glow) came in as a live user report mid-session
+and was fixed the same round rather than deferred. `pytest tests/` (~1,600
+tests) was run three times this round — clean at the start, and clean again
+after each batch of changes — plus `ruff check .` and `node --check` on all
+three JS files, all clean before push.
+
+**1. `web-design-guidelines`'s actual review command, run for the first
+time.** Fetched the rule set fresh via `curl` (WebFetch itself refused to
+return the raw file verbatim — worth knowing for next time: shell out to
+`curl` instead of relying on WebFetch for a file you need byte-for-byte) and
+ran it against `index.html`, all three JS files and all 8 CSS files via a
+background agent, translating the React-flavoured rules (`onKeyDown`,
+`aria-label`, etc.) to this codebase's vanilla-JS/innerHTML idioms. Real
+findings, highest-impact ones fixed this round:
+- Six `<span class="unlink">` remove/detach controls (`app.js` — attachment
+  removal, unlink, link-reason edit) are mouse-only: no `tabindex`, no
+  `role="button"`, no keydown handler, while the codebase's own `chip()`
+  helper already has the correct accessible pattern two lines away.
+  **Seen, not fixed this round** — six call sites, more surgery than fit in
+  the time left; the fix shape is exactly what item 2 below already did once.
+- **Fixed:** the "Go to note" link chip (`app.js`, `entryItem()`'s links
+  section) built a bare `chip("", "link")` and bolted on a manual `click`
+  listener instead of passing it as `chip()`'s own `onClick` — every sibling
+  `chip()` call in the file gets keyboard support (`role="button"`,
+  `tabindex="0"`, Enter/Space) for free; this one didn't. Now passes a
+  `goToLinkedNote` handler as the third arg. Verified live: created two
+  notes with a `[[link]]` between them, confirmed the rendered chip carries
+  `role="button"` / `tabindex="0"`.
+- **Fixed:** `#lock-password` (the unlock/first-run field, the very first
+  interactive control in the app) had no `aria-label` and no `autocomplete`.
+  It's one field in two modes (setup vs. unlock, per this file's own earlier
+  note), so the fix is mode-aware — `showLockScreen()` now sets
+  `aria-label="Choose a password"` / `autocomplete="new-password"` in setup
+  mode and `"Password"` / `"current-password"` in unlock mode, not a static
+  attribute that would offer a password manager's *existing* saved password
+  into a first-run field.
+- **Fixed:** `#question` (Ask your notebook) and `#command-palette-input`
+  (Ctrl/Cmd+Shift+K) had no accessible name beyond a placeholder. Both got
+  `aria-label`s.
+- **Fixed:** the command palette's own input had `outline: none` with zero
+  focus replacement — the app's most power-user-facing field had no visible
+  focus state for a keyboard user. Added a `:focus-visible` ring
+  (`07-whiteboard-misc.css`). Same gap, same fix, on the whiteboard's
+  contenteditable text-box (`.wb-object-text .wb-text-content`).
+- **Fixed:** three `transition: all` rules (`.timeline-band`,
+  `.sidebar-collapse-toggle`, `.segmented-control label`) narrowed to the
+  actual properties each hover/checked state touches — `all` was also making
+  the browser watch static properties like `backdrop-filter` for a change
+  that never happens.
+- **Fixed:** five literal `"..."` in live UI copy (`Loading model...`,
+  `Loading logs...`, the upload-placeholder markdown, two in
+  `whiteboard.js`) → `…`, per the app's own typography rule.
+- **Not fixed, seen and worth a future round:** ~35 whiteboard/sketch
+  icon-only toolbar buttons use `title` alone rather than pairing it with
+  `aria-label` (inconsistent with the rest of the app's own icon-button
+  convention); `.modal-card`'s shared base has no `overscroll-behavior:
+  contain`, so most dialogs can scroll-chain to the page behind them at
+  their edges (two dialogs already opted in individually, with comments
+  explaining why — the base case was missed).
+
+**2. `frontend-design`'s critique pass, run narrowly** (restraint/
+self-critique and typography sections only, per this file's own note that
+the brainstorm/palette-invention sections don't apply to an established
+system). Net finding: **the system holds up under critique**, which is
+itself worth recording rather than manufacturing changes to justify the
+pass:
+- The single-typeface-everywhere choice (`--ui-font`, a Settings→Appearance
+  preference, `00-tokens-shell.css`) is deliberate and correctly
+  compensated, not an oversight — pairing a fixed "display" face against a
+  *user-chosen* body font breaks the moment someone picks Verdana, so
+  DESIGN.md's own Hierarchy rule ("weight, colour and case before another
+  size step") is the right mechanism, and `.card h2`/`.card h3` actually
+  follow it (h3 is *smaller* than h2, differentiated by weight/case/colour).
+- `--text-display` is honoured as a one-off: checked live, the dashboard
+  greeting is the only thing at that size on the page, paired with the
+  clock as one matched "hero" moment.
+- The orb-shine gradient added this round (see item 9) reads as one
+  consistent signature applied to exactly the two surfaces that already
+  shared the halo treatment (Graph nodes, Timeline dots), not decoration
+  scattered per-screen.
+- One question raised, not resolved (a product/IA call, not a token one):
+  the dashboard's five "Start something" tiles give one (`New note`) the
+  filled/accent treatment and leave four visually near-identical outlined
+  tiles beside it — correct primary/secondary hierarchy per DESIGN.md, but
+  five roughly-equal entry points on the first screen is a lot of front-door
+  choice. Named, not redesigned uninvited.
+
+**3–4. The Notes and Reminders tabs, their first audit round.** Every other
+tab had been through this checklist at least once; these two hadn't. Seeded
+both with real data (notes of varying length, three reminders) via the API
+rather than the UI, live in Chromium throughout.
+- **Notes tab: five real control-height mismatches found and fixed**, the
+  same failure shape DESIGN.md already names for `.graph-toolbar` (a
+  `select`/`input` at the global 45.19px form-field height sitting next to
+  buttons at a different height) — just not yet applied to this tab's own
+  rows. `.library-toolbar` (shared with the Library tab): Notes' own
+  `#select-btn`/`#search-help` buttons aren't inside a `.seg`, so the
+  existing selector list (`.seg button`) missed them — widened to plain
+  `button`. `.capture-field-row`, `.draft-controls` (Write-with-AI's two
+  rows), `.ask-query-row` (new class, Ask panel) and `#batch-bar`
+  (select-mode's Move/Tag/Delete/Done row) each got their own `--control-h`
+  the same way. All measured with `getBoundingClientRect()` before and after
+  — every row is one flat edge now, not "close enough to pass a glance."
+  See DESIGN.md's "Where this is applied" list for the full detail on each.
+- **Reminders tab: one small (2px) instance of the same bug**, the magic-add
+  row's `.ghost` `Add` button against the textarea's own `min-height:
+  2.75rem`. Fixed the same way. The tab's main `.reminder-form` row and the
+  `Open/All/Done` filter `.seg` were already correct — checked, not assumed.
+- Also checked and **left alone, correctly**: `.doc-toolbar`'s two rows (an
+  earlier entry named this as an open question) — the formatting row is
+  internally uniform, and the metadata row's title input sits in a
+  `space-between` header, not edge-to-edge with the stats/actions group, so
+  a height difference there isn't the same bug.
+
+**5. The Part L breakpoint matrix, now actually the full 42 cells.** Two
+prior rounds together covered 2 tabs × 2 breakpoints × 2 modes. This round:
+all 7 tabs × 390/1024/1600px × light/dark, `scrollWidth > clientWidth`
+checked programmatically at every one of the 42 combinations — **zero
+overflow anywhere.** Followed with a visual pass at 390px (the highest-risk
+breakpoint) across the 6 tabs that had never been screenshotted narrow
+before (Notes, Chat, Graph, Library, Timeline, Reminders) — all wrap
+cleanly, nothing overlaps or clips. **Said plainly: the 1024px/1600px cells
+got the programmatic check but not a screenshot pass** — worth a visual
+sweep at those two widths next round if something's suspected there
+specifically, though no overflow signal pointed at anything.
+
+**6. Terminology audit (Part C), a real find.** "Note" is the term
+everywhere else on the Notes tab (the sub-tab literally says "Your notes",
+the empty state, the status-bar count) except the entries-list heading
+itself, which said "All entries" / "{category} entries" — the API's
+internal name (`/entries`) leaking into user-facing copy. Two more instances
+in Settings ("Auto-clear binned entries after", "even binned entries" in the
+export note) — checked against the backend first (`purge_expired_deleted`
+queries the `Entry` table only, the JSON/CSV/MD exporters likewise only ever
+touch entries), so "notes" is the *accurate* word, not just the prettier
+one. All three renamed. Library's own use of "item" for its bulk actions is
+correctly generic (a selection there can be a note, document, chat or file
+at once) — left alone, not a case of the same bug.
+
+**Common fate (Part I).** The app's one dominant repeated relationship — a
+list row's hover-revealed action buttons — is genuinely consistent: the same
+`.entry-actions` class, same `opacity: 0 → 1`, same `var(--motion-fast)`
+duration, same `:hover`/`:focus-within` trigger and the same `@media
+(hover: none)` touch fallback, reused verbatim across Notes, Reminders, Chat
+conversations and the entry list (checked each rule directly, not assumed
+from one instance). The one real common-fate violation found this session
+was the Timeline glow bug below, already fixed as its own item.
+
+**7. `.catch(() => {})`-and-flat-count, fixed in both
+`library-bulk-restore` and `library-bulk-delete`.** Named two rounds ago,
+not fixed until now: a per-item failure was silently swallowed and the
+success toast still counted every item *attempted*. Both now track a real
+counter and show two toasts when needed — "Deleted N items." /
+"M items couldn't be deleted." Verified live with real failures, not
+reasoned: Playwright route interception forced one specific entry's DELETE
+(and separately, one restore) to 500 while its siblings succeeded through
+the real backend, and the two-toast split appeared exactly as intended both
+times.
+
+**8. Spot-checked toolbars for the control-height bug**, folded into items
+3–4 above rather than a separate pass, since Notes/Reminders were the
+toolbars actually named as unaudited.
+
+**9. A live bug reported mid-session, fixed the same round: Timeline
+line-view dots didn't have Graph's node "shine," and their hover-glow grew
+but never shrank back.** Root cause of the second half:
+`renderTimelineBranch()`'s `mouseout` handler reset the halo to
+`TIMELINE_DOT_R * 2.2` — the exact same value `mouseover` grows it *to*,
+not the `1.6` it actually rests at (a copy-paste of the mouseover line).
+The glow only ever grew, never fully shrank back. Fixed by dropping the
+radius change from both hover handlers entirely and leaving the halo's
+hover state as opacity-only (0.2 → 0.45) — which happens to be exactly what
+Graph's own `.graph-node:hover circle.graph-halo` already does, so this
+also reads closer to Graph's subtler hover in the process. For the shine
+itself: Graph's nodes get a static white radial-gradient overlay
+(`#orb-shine`, `graph.js`'s `renderGraph()`) for a lit-sphere look; Timeline
+had no equivalent. Added the same gradient under its own id
+(`#timeline-orb-shine` — SVG ids are page-global, and both tabs' SVGs can be
+in the DOM at once) as a `.timeline-branch-shine` circle per dot, synced to
+grow with the dot on hover (`TIMELINE_DOT_R * 1.5`) so it doesn't poke out
+from behind its own highlight. Verified live: captured the halo's and
+shine's actual `r`/`opacity` attributes before hover, during hover, and
+after moving the mouse away — halo now returns to its resting `r=16`/
+`opacity=0.2` every time, shine grows and shrinks with the dot, screenshot
+confirms the highlight is visible in both light and dark mode.
+
+**What's still genuinely open, said plainly:**
+- The six keyboard-unreachable `unlink` spans (item 1) — seen, not fixed.
+- ~35 whiteboard icon-only buttons missing `aria-label` (item 1) — seen, not
+  fixed.
+- `overscroll-behavior: contain` missing on the shared `.modal-card` base
+  (item 1) — seen, not fixed.
+- Part L's 1024px/1600px cells got the programmatic overflow check but not
+  a screenshot pass this round (item 5).
+- The dashboard's five-tile "Start something" row (item 2) — a product
+  question raised, not something to redesign without being asked.
+
+## Previous session — two live-reported bugs, both root-caused before being touched
 
 Continuation of the design-audit session, this round working from two fresh
 user reports rather than the checklist.

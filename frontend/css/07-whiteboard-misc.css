@@ -70,6 +70,17 @@
   cursor: text;
 }
 
+/* `outline: none` above had no replacement — a keyboard/screen-reader user
+   tabbing into a whiteboard text box got no visible confirmation it was
+   focused (Web Interface Guidelines pass). The box itself already has a
+   defined border/background (see the comment above), so an inset ring on
+   the editable area reads as an ordinary text-field focus state rather than
+   a stray rectangle on the canvas. */
+.wb-object-text .wb-text-content:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: -2px;
+}
+
 /* A guaranteed drag target for a text box — see the matching comment in
    app.js's `objectEnter.each` for why `.wb-text-content` alone left only a
    ~0.5rem padding strip to grab. Same glyph and cursor as `.wb-panel-grip`,
@@ -331,7 +342,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--motion-slow) ease;
+  /* Explicit properties, not `all` — only `background`/`color` change, on
+     `:hover` just below. */
+  transition: background var(--motion-slow) ease, color var(--motion-slow) ease;
   padding: 0;
 }
 
@@ -630,6 +643,17 @@ textarea.drag-over {
   background: transparent;
   font-size: var(--text-body);
   outline: none;
+}
+
+/* `outline: none` above with no replacement meant the app's own most
+   power-user-facing input (Ctrl/Cmd+Shift+K) had zero visible focus state
+   for a keyboard user — flagged by a Web Interface Guidelines pass.
+   `:focus-visible`, not `:focus`, so a mouse click into it doesn't draw a
+   ring that keyboard use actually needs. */
+.command-palette-input:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .command-palette-results {
@@ -1588,11 +1612,41 @@ dialog::backdrop {
 }
 
 /* Rows of controls sit on one rhythm, and wrap as whole controls rather than
-   letting one drop half a step. */
+   letting one drop half a step. Also one *height*: measured live, the
+   category select (the global 45.19px form-field rule), the plain `Save`
+   button (40px) and the `.ghost` icon buttons (42px, the border box-sizing
+   adds) were three different heights on one row — the same failure shape
+   `--control-h` already fixed in `.graph-toolbar`/`.library-toolbar`, just
+   not yet applied here. 2.5rem matches the row's own buttons rather than
+   the toolbars' smaller 2.3rem, since these are full-size `Save`/`Improve`
+   actions, not a `.small` toolbar strip. */
 .capture-field-row {
   gap: var(--space-3);
   row-gap: var(--space-3);
   align-items: center;
+  --control-h: 2.5rem;
+}
+
+.capture-field-row select,
+.capture-field-row button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+}
+
+/* Notes tab → Ask: the question input, the answer-length select and the Ask
+   button had the same three-heights-on-one-row mismatch as
+   `.capture-field-row` above, same fix. */
+.ask-query-row {
+  --control-h: 2.5rem;
+}
+
+.ask-query-row input,
+.ask-query-row select,
+.ask-query-row button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
 }
 
 /* --- widget picker modal (roadmap §26) --------------------------------------------

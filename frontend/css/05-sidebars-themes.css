@@ -1759,8 +1759,14 @@ textarea.autogrow {
   margin-bottom: 0;
 }
 
+/* Matches `textarea.autogrow`'s own 2.75rem min-height exactly — measured
+   2px short otherwise (a `.ghost` button's border, under
+   `box-sizing: border-box`), the same control-height shape documented in
+   DESIGN.md, just smaller. */
 #reminder-magic-row button {
   flex: 0 0 auto;
+  height: 2.75rem;
+  padding-block: 0;
 }
 
 /* The one-time offer to set a name for the greeting. Quiet enough to ignore. */

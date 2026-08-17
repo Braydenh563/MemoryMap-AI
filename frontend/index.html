@@ -213,7 +213,8 @@
       <div id="lock-emblem" class="emblem emblem-lock" aria-hidden="true"></div>
       <h2 id="lock-title">Unlock MemoryMap</h2>
       <p id="lock-message" class="muted"></p>
-      <input id="lock-password" type="password" placeholder="Password or PIN">
+      <input id="lock-password" type="password" placeholder="Password or PIN"
+        aria-label="Password" autocomplete="current-password">
       <button id="lock-submit">Unlock</button>
       <p id="lock-error" class="status error" role="alert"></p>
     </div>
@@ -224,7 +225,8 @@
     <div class="card glass command-palette-card">
       <div class="command-palette-bar">
         <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
-        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Ctrl+Shift+K to open, Esc to close)">
+        <input id="command-palette-input" class="command-palette-input" type="text" placeholder="Ask the agent to do something… (Ctrl+Shift+K to open, Esc to close)"
+          aria-label="Ask the agent to do something">
       </div>
       <div id="command-palette-results" class="command-palette-results">
         <p class="muted command-palette-hint">Press Enter to send.</p>
@@ -522,9 +524,10 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Clear this conversation and start fresh">New chat</button>
             </span>
           </div>
-          <div class="row">
+          <div class="row ask-query-row">
             <input id="question" type="text"
-              placeholder="e.g. What jokes have I saved?">
+              placeholder="e.g. What jokes have I saved?"
+              aria-label="Ask your notebook a question">
             <!-- The same three presets the Chat tab offers, and the same
                  stored preference behind them — not a second setting. This
                  box always honoured the saved mode; it just had no way to
@@ -603,7 +606,7 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- The label lives in its own span: the heading also carries the
                  collapse chevron, and writing textContent on the h2 would
                  delete it on every re-render. -->
-            <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All entries</span></h2>
+            <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
             <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Select</button>
             <input id="note-search" class="library-search" type="search"
               placeholder="Filter — try tag:work or &quot;exact phrase&quot;"
@@ -3059,7 +3062,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <h3>Recycle bin</h3>
               <div class="row">
-                <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
+                <label for="pref-bin-days" class="muted">Auto-clear binned notes after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
                 <span class="muted">days</span>
               </div>
@@ -3327,7 +3330,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
               </div>
-              <p class="muted">Exports include everything, even binned entries.</p>
+              <p class="muted">Exports include everything, even binned notes.</p>
             </div>
 
             <div class="settings-group">

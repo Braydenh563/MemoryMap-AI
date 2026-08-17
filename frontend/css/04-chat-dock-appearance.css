@@ -1788,9 +1788,21 @@ button {
   resize: vertical;
 }
 
+/* Same control-height fix as `.capture-field-row` (07-whiteboard-misc.css):
+   `Draft it`/`Save as note` (40px), their `.ghost` neighbours (42px) and the
+   instruction/tags inputs (45.19px, the global form-field rule) measured as
+   three different heights on one row. */
 .draft-controls {
   gap: 0.4rem;
   flex-wrap: wrap;
+  --control-h: 2.5rem;
+}
+
+.draft-controls input,
+.draft-controls button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
 }
 
 .draft-controls input {

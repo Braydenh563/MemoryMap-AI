@@ -1117,7 +1117,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-toolbar .library-search,
 .library-toolbar select,
 .library-toolbar .seg,
-.library-toolbar .seg button {
+.library-toolbar button {
   height: var(--control-h);
   padding-block: 0;
   margin: 0;

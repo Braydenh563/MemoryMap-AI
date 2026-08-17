@@ -2,7 +2,68 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — worked the HANDOVER punch list top to bottom: the real WDG/frontend-design reviews, Notes/Reminders' first audit round, a full Part L matrix, a terminology fix, the bulk-action swallowing bug, and a live glow bug reported mid-session
+## Latest session — a mobile/responsive audit, a two-round feature-gap brainstorm (with real self-caught mistakes), two live mobile bugs fixed, and five keyboard-accessibility fixes
+
+Asked to audit mobile/responsive UI and then, separately, to blind-brainstorm
+every screen's feature set against general PKM-app knowledge and diff it
+against what's actually built — twice, the second time explicitly asked to
+"be very particular." That second ask mattered: verification caught **three
+flatly wrong gap claims and one overstated one** in the first draft — "no PDF
+text extraction" (wrong: `/import/document` + `markitdown` already does this),
+"command palette has no content search" (wrong: it already live-matches note
+content), "graph has no non-visual alternative" (wrong: `initGraphKeyboard()`
+is a full `aria-live` keyboard nav layer), and "Spaces have no per-space
+export scoping" (overstated: `WorkspaceMixin` already scopes every query).
+Full reasoning and corrections are in `docs/ROADMAP.md`'s new top section —
+worth reading before trusting any "missing feature" claim without re-checking
+it, including the ones still standing there.
+
+**Mobile audit, live in headless Chromium across 9 breakpoints, both fixed
+and verified before/after:**
+- Graph's "+ New note" popup rendered Save/Close/Tags below the fold at
+  320×568/375×667 — `openGraphNewNote()` was missing the `popup.style.
+  maxHeight` line its sibling `placeGraphPopup()` already had. One-line fix,
+  `graph.js`.
+- The Agent Activity panel overlapped real content on every tab at 320px —
+  `document.body.classList.toggle("has-agent-monitor", …)` had no CSS
+  consuming it at all (dead hook). Fixed in `07-whiteboard-misc.css`, in two
+  passes — the first (padding `.tab-page`) measurably did nothing for
+  Notes/Chat specifically, which scroll a nested `.layout > main` instead;
+  caught by actually measuring computed `padding-bottom` before believing it
+  worked, not by assuming the CSS took effect.
+- **Still open, next session**: at 320px the Graph tab's own toolbar pushes
+  the canvas (and the "+ New note" button) mostly below the fold with no
+  scroll hint — bigger than a one-line fix, needs real layout work.
+  Undersized (< 24px) tap targets on several checkboxes/chips — three
+  different styling situations, not one shared component, so more than a
+  blind pixel bump. Both are written up in ROADMAP.md with specifics.
+
+**A `unslop-ui` pass** (manual — the skill's scanner script wasn't present on
+disk, only its guidance doc synced) found the app clean against AI-slop
+tells: real design tokens throughout, no Tailwind/shadcn defaults, no purple
+gradients, no cream+serif+sage. One soft flag: the Graph/Timeline node
+"orb-shine" specular highlight's origin comment said `// Premium UI` with no
+real rationale — the effect itself is defensible (colourless, rhymes with
+the app's own glass-sheen system) but the comment isn't; left as the user's
+call rather than changed unasked.
+
+**Five `.unlink` "×" spans** (document detach, attachment remove, link
+unlink, two inline-image dismiss buttons) were mouse-only — same gap `chip()`
+closed once already this session for the "Go to note" chip. Added a shared
+`makeUnlinkAccessible()` helper mirroring `chip()`'s own role/tabindex/keydown
+pattern rather than duplicating it five times.
+
+**What was not done, said plainly**: the last push landed with only JS
+syntax check + the three frontend-specific pytest lints run (id/handler/
+style-scale), not the full ~1,600-test suite — the user was at 98%+ session
+usage and asked to commit immediately. The change only touches `app.js`
+(pure additive DOM-attribute/listener wiring, no removed code), so the risk
+is low, but a fresh session should run the full suite once before trusting
+this branch fully green again. Nothing else this session was left half
+-verified — the mobile fixes were measured before/after live, and the two
+retracted gap claims were corrected in place with the evidence shown.
+
+## Previous session — worked the HANDOVER punch list top to bottom: the real WDG/frontend-design reviews, Notes/Reminders' first audit round, a full Part L matrix, a terminology fix, the bulk-action swallowing bug, and a live glow bug reported mid-session
 
 Continuation of the design-audit session, asked to work autonomously through
 the 8-item "concretely still open" list from the previous entry. Covered all

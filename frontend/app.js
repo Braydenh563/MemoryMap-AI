@@ -15409,6 +15409,19 @@ let recorderTarget = null; // which input gets the transcript
 // alongside button.recording below) replaced it there and is reused here.
 const MIC_BAR_COUNT = 5;
 const MIC_BAR_SAMPLE_EVERY = 4; // frames between bar updates, ~15fps at 60fps rAF
+// getByteFrequencyData's 128 bins (at fftSize=256) span the full 0-22kHz
+// range, but speech energy sits almost entirely under ~5.5kHz. Averaging
+// every bin — the previous behaviour — mixed a real voice signal with ~100
+// near-silent high-frequency bins and diluted it to a fraction of what a
+// human ear perceives as "there's sound". Restricting the average to the
+// low bins reflects what's actually in a voice.
+const MIC_BAR_SPEECH_BIN_FRACTION = 0.25;
+// Reported live as "the bars don't show even at minimum sound pick-up":
+// at a 0.12 floor, a 14px bar renders under 2px tall — not subtle, just
+// below what's visible. 0.12 was chosen to read as "listening, not
+// frozen" (see below) but never accounted for how few pixels that scale
+// actually leaves. Raised so the resting state itself is visible.
+const MIC_BAR_MIN_SCALE = 0.3;
 
 function startMicLevelMeter(stream, button) {
   let ctx;
@@ -15427,6 +15440,7 @@ function startMicLevelMeter(stream, button) {
   analyser.fftSize = 256;
   source.connect(analyser);
   const data = new Uint8Array(analyser.frequencyBinCount);
+  const speechBinCount = Math.round(data.length * MIC_BAR_SPEECH_BIN_FRACTION);
   button.classList.add("live-level");
 
   const bars = document.createElement("span");
@@ -15444,14 +15458,20 @@ function startMicLevelMeter(stream, button) {
   let tickCount = 0;
   let frame = requestAnimationFrame(function tick() {
     analyser.getByteFrequencyData(data);
-    const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
+    let sum = 0;
+    for (let i = 0; i < speechBinCount; i++) sum += data[i];
+    const avg = sum / speechBinCount;
     if (tickCount % MIC_BAR_SAMPLE_EVERY === 0) {
-      history.push(avg / 255);
+      // sqrt, not linear: ordinary speaking volume sits low in the raw
+      // 0-255 range, and a linear map leaves it barely above the resting
+      // floor. The square root curve lifts quiet-to-moderate signal
+      // (where a voice actually lives) without letting loud input clip.
+      history.push(Math.sqrt(avg / 255));
       history.shift();
       history.forEach((level, i) => {
         // A silent bar never fully flattens — Voice Memos' own resting bars
         // read as "listening", a flat line reads as "frozen".
-        barEls[i].style.setProperty("--bar-scale", Math.max(level, 0.12).toFixed(3));
+        barEls[i].style.setProperty("--bar-scale", Math.max(level, MIC_BAR_MIN_SCALE).toFixed(3));
       });
     }
     tickCount++;

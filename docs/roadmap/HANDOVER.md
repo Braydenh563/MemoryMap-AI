@@ -2,7 +2,74 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — continuing the design audit: one live bug found and fixed, Parts C/D/G spot-checked clean
+## Latest session — finishing the design audit: a real Escape-key gap on 4 dialogs, a rigorous contrast audit, more truncation fixes
+
+Third and final continuation of the same design-audit session, asked to push
+through Parts E–L rather than stop at the checklist's own recommended
+per-section pace. Screenshots were kept to the minimum genuinely needed
+(one, cropped, for a 390px responsive check) per direct instruction.
+
+**The best find of the whole session:** four `.modal-overlay` dialogs —
+**Settings** (the single most-opened dialog in the app), the document
+AI-edit panel, extract-to-notes, and the recycle bin — had a close button
+and backdrop-click handling but **no Escape-key wiring**, confirmed by
+reading every branch of the global keydown handler (10 overlays total, 6
+already wired, these 4 weren't) and cross-checked against `skill-run-overlay`,
+which turned out to have its own correctly-scoped local Escape handler and
+was a false alarm. Added all 4 to the existing per-overlay `if` chain,
+reusing each dialog's own already-defined close function
+(`closeSettingsModal`, `closeDocAiPanel`, `closeExtractPreview`,
+`closeBinnedReader`). **Live-verified, not just grepped:** opened Settings
+and the recycle bin in Chromium, confirmed each was visible, pressed
+Escape, confirmed each closed.
+
+**A genuine, mathematically-rigorous WCAG contrast audit**, not a visual
+skim: extracted `--ink`/`--muted`/`--accent`/`--warn`/`--ok`/`--error`
+and the `--page` gradient stops for all 8 curated palettes (Aurora,
+Parchment, Sage, Ocean, Lagoon, Ember, Plum, Carbon — the checklist's "12"
+doesn't match what's actually in the CSS) × light/dark = 16 combinations,
+and computed WCAG relative-luminance contrast ratios in Python (no browser
+needed for this part). 80 ink/muted/accent-as-text checks against both the
+worst-case page gradient stop and the composited `--modal-bg`: **zero
+failures.** Found one apparent failure on first pass — `--warn` against 4
+palettes' raw page background, 4.31–4.47 vs the 4.5:1 AA threshold — but
+`--warn` text never actually renders directly on bare page background in
+this app, always inside a `.card`; re-composited over the actual `--card`
+surface it clears comfortably (4.91–5.10). Investigated rather than either
+ignored or blindly "fixed" a false positive.
+
+**Part E, more truncation escape hatches**, checked against the actual JS
+rather than assumed: `.space-option-name` (board switcher) had no tooltip
+for a long board name — fixed; the sibling "New space…" create-option was
+correctly left alone (fixed short label, not user content). Checked
+`.conv-title`, `.cat-name`, `.persona-preview`, `.dash-list-title` against
+their renderers and left all four alone — each already has an adequate
+escape hatch (a parent/sibling `title`, or JS pre-truncation before the
+ellipsis can even engage) that a blind pass would have either duplicated or,
+in `.conv-title`'s case, actually made worse (its tooltip deliberately shows
+the conversation's preview/subject instead of repeating the truncated title
+— removing that in favour of a generic repeat would have been a regression).
+
+**Part H (Nielsen), mechanically checked, not asserted:** all 5 destructive
+delete actions (document, profile, batch note delete, bulk library delete,
+chat delete) gate through `confirmDialog` — zero found without one. Primary
+vs. ghost button visual hierarchy confirmed structurally correct (filled
+`--accent-surface` + shadow vs. flat `--chip-bg` + no shadow) — Part J's
+"primary buttons visually outrank secondary" is already true by
+construction, not just by eye.
+
+**Part L, a real (not assumed) 390px responsive sweep:** scripted overflow
+detection (`scrollWidth > viewport` on every element) across all 8 tabs plus
+Settings at a 390px viewport — zero overflowing elements, zero console
+errors, one cropped screenshot to confirm Settings' new `.settings-group`
+boxes still stack cleanly at phone width. The full 3-breakpoint ×
+light/dark diff Part L actually asks for was not attempted — this was one
+targeted check at the narrowest breakpoint, not the full matrix.
+
+Full suite (1,600+ tests) green, `ruff check .` clean, `node --check` clean
+throughout. Five commits this continuation. Backend untouched all session.
+
+## Previous session — continuing the design audit: one live bug found and fixed, Parts C/D/G spot-checked clean
 
 Continuation of the session below, asked to keep going through the rest of
 the checklist ("Parts C-L"). **Mid-session the user reported, with a

@@ -66,8 +66,9 @@ def test_set_preference_survives_a_write_failure_without_corrupting_the_file(
     monkeypatch.setattr(os_module, "fsync", failing_fsync)
     try:
         config.set_preference("chat_model", "never-should-land")
-    except OSError:
-        pass
+    except OSError as exc:
+        # Expected in this test: simulated fsync failure during atomic write.
+        _ = exc
 
     # The on-disk file must be exactly what it was before the failed write —
     # never truncated, never half-written.

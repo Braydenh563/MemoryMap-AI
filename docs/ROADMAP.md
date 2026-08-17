@@ -607,9 +607,51 @@ Worth doing, and worth doing after the above.
     grows as more providers touch the sync path.
 29. **Better-looking theme previews** in Appearance.
 30. **Standing backlog, the rest** — [roadmap/BACKLOG.md](roadmap/BACKLOG.md)
-    (note-list keyboard nav, a per-chat token meter, an eval harness,
-    multi-category notes, desktop packaging, MCP support). None is blocked on
-    anything above.
+    holds ~65 numbered sections; most are either done (check before
+    rebuilding — this file's own repeated lesson), blocked on a design
+    decision, or genuinely large. The items below are the ones re-read this
+    session that are neither: concretely scoped already, no decision
+    blocking them, and not duplicated by anything above. Ranked by impact
+    versus how contained the change is, highest first. **MCP support**
+    (BACKLOG §29, ANALYSIS §60) is no longer in this list — see item 38.
+    30a. **Note-list keyboard navigation** (BACKLOG §16). Arrow keys move
+        through the list, Enter opens the focused note. Named directly as
+        "the one interaction pattern used constantly enough that its absence
+        would be felt every session, not just noticed in an audit" — the
+        highest-frequency gap on this list, and self-contained: one list
+        component, no schema change.
+    30b. **Archive** (BACKLOG §4 item 3, elaborated in §26). One `archived_at`
+        column each on notes, chats and documents (additive migration), a
+        state between "active" and "binned" for things kept but out of the
+        way. Already fully scoped; §26 lists three things that build on it
+        afterwards (a "delete everything" control, one assembled "your data"
+        page, opt-in auto-archive-by-age) but none of those block this one.
+    30c. **Chat metadata not surviving a reload** (BACKLOG §22). Distinct
+        from the already-fixed "no metadata when tools were used" bug — this
+        is the meta line vanishing on reopen, not on first render. Worth
+        checking whether `conversations.steps` (what a reopened chat
+        replays, ARCHITECTURE.md §8) carries the metadata at all before
+        assuming the fix is in the replay path rather than the write path.
+    30d. **OCR text extraction on an uploaded image** (BACKLOG §4 item 1).
+        A whiteboard photo or a scanned page attaches today as an opaque
+        file nothing reads. Local `pytesseract` (no torch, no cloud call) at
+        upload time, fed into the existing keyword index, makes "what was on
+        that whiteboard photo from March" answerable. A new pipeline stage
+        (extract → index), not a wider drop-handler — the drop-handler side
+        of file uploads is already done.
+    30e. **Undo toasts for soft-deletes, in place of confirm dialogs**
+        (BACKLOG §16). A "Deleted — Undo" toast instead of an interrupting
+        confirm dialog, for the delete paths that are already soft (bin,
+        not gone) — reads as more trustworthy than a dialog and is less
+        friction on the common case.
+    30f. **README and GitHub Pages drift** (BACKLOG §22). Doc-only, cheapest
+        item here: the README's own tab table and "Next up" list are stale
+        (both name pre-rebuild systems as still open). Worth doing in the
+        same sitting as any other roadmap-accuracy pass, since it's the same
+        failure this document itself warns about — a description of the app
+        that only some of the description-holders get updated.
+    30g. **A per-chat token meter, and an eval harness** — kept as a pointer
+        only, not scoped further here; see BACKLOG.md directly for both.
 31. **Expand the autonomous background agent's capabilities.** Asked for
     directly, without a specific gap named — today it does three things
     (`_enabled_tasks` in `ai/autonomous.py`): tag untagged notes, link

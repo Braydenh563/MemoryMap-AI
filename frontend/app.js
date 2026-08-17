@@ -4688,7 +4688,15 @@ function renderChatEmptyState() {
   emblem.setAttribute("aria-hidden", "true");
   const title = document.createElement("p");
   title.className = "empty-title";
-  title.textContent = "Chat with your notebook";
+  // Personas already voice the AI's replies and the dashboard greeting
+  // (librarian.resolve_persona_prompt's own docstring: "the voice the user
+  // picked is used consistently everywhere") — this was the one place left
+  // that stayed generic regardless of which persona was active, so opening
+  // a new chat under "Coach" or a custom persona still greeted you as
+  // nobody in particular (ROADMAP Tier 3 §21).
+  const activePersona = (prefsCache && prefsCache.active_persona) || "Librarian";
+  title.textContent =
+    activePersona === "Librarian" ? "Chat with your notebook" : `Chat with your ${activePersona}`;
   const blurb = document.createElement("p");
   blurb.className = "muted";
   blurb.textContent =
@@ -8426,6 +8434,29 @@ async function renderPersonas() {
     li.appendChild(row);
     list.appendChild(li);
   }
+  renderDashboardPersonaSelect(rows.map((p) => p.name));
+}
+
+// A second, independent picker (asked for directly): the dashboard greeting
+// otherwise always spoke in whichever persona Chat had active, with no way
+// to give the notebook's own front page a different voice. "" means "no
+// override" and falls back to active_persona server-side — same clear-with-
+// empty-string convention display_name/dashboard_persona already share.
+function renderDashboardPersonaSelect(names) {
+  const select = $("dashboard-persona-select");
+  const current = (prefsCache && prefsCache.dashboard_persona) || "";
+  select.replaceChildren();
+  const sameAsChat = document.createElement("option");
+  sameAsChat.value = "";
+  sameAsChat.textContent = "Same as Chat";
+  select.appendChild(sameAsChat);
+  for (const name of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  }
+  select.value = current;
 }
 
 async function addPersona() {
@@ -21092,10 +21123,31 @@ $("chat-input").addEventListener("keydown", (e) => {
 });
 $("persona-select").addEventListener("change", async () => {
   // Remember the choice so the Notes quick-ask uses the same persona.
+  const persona = $("persona-select").value;
   await apiJson("/preferences", {
     method: "PUT",
-    body: JSON.stringify({ active_persona: $("persona-select").value }),
+    body: JSON.stringify({ active_persona: persona }),
   }).catch(() => {});
+  // Update the local cache too, not just the server — renderChatEmptyState()
+  // and the Notes quick-ask both read prefsCache.active_persona directly,
+  // and neither reloads preferences on its own after this change.
+  if (prefsCache) prefsCache.active_persona = persona;
+  // If a fresh, empty chat is on screen right now, its greeting named the
+  // *previous* persona — redraw it rather than leaving it stale until the
+  // next "+ New" (ROADMAP Tier 3 §21).
+  if ($("chat-messages").querySelector(".chat-empty")) {
+    $("chat-messages").querySelector(".chat-empty").remove();
+    renderChatEmptyState();
+  }
+});
+$("dashboard-persona-select").addEventListener("change", async () => {
+  const persona = $("dashboard-persona-select").value;
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ dashboard_persona: persona }),
+  }).catch(() => {});
+  if (prefsCache) prefsCache.dashboard_persona = persona;
+  toast(persona ? `Dashboard greeting now speaks as ${persona}.` : "Dashboard greeting back to matching Chat.");
 });
 for (const id of RESPONSE_MODE_SELECTS) {
   $(id)?.addEventListener("change", (e) => setResponseMode(e.target.value));

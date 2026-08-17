@@ -168,6 +168,44 @@ def test_greeting_uses_the_active_persona(ai_client, fake_ollama):
     assert "pirate captain" in system.lower()
 
 
+def test_greeting_prefers_dashboard_persona_over_active_persona(ai_client, fake_ollama):
+    """Asked for directly: the dashboard greeting should be settable to a
+    different persona than whichever one Chat/search has active, not forced
+    to match it."""
+    ai_client.put(
+        "/preferences",
+        json={
+            "personas": [
+                {"name": "Pirate", "prompt": "You are a pirate captain."},
+                {"name": "Coach", "prompt": "You are an encouraging coach."},
+            ],
+            "active_persona": "Pirate",
+            "dashboard_persona": "Coach",
+        },
+    )
+    fake_ollama.librarian_reply = "You've got this"
+    ai_client.get("/insights/greeting?block=morning")
+    system = fake_ollama.chat_calls[-1][0]["content"]
+    assert "encouraging coach" in system.lower()
+    assert "pirate" not in system.lower()
+
+
+def test_greeting_falls_back_to_active_persona_when_unset(ai_client, fake_ollama):
+    """No dashboard_persona override → same behaviour as before this existed:
+    the greeting follows active_persona."""
+    ai_client.put(
+        "/preferences",
+        json={
+            "personas": [{"name": "Pirate", "prompt": "You are a pirate captain."}],
+            "active_persona": "Pirate",
+        },
+    )
+    fake_ollama.librarian_reply = "Ahoy there"
+    ai_client.get("/insights/greeting?block=morning")
+    system = fake_ollama.chat_calls[-1][0]["content"]
+    assert "pirate captain" in system.lower()
+
+
 def test_greeting_falls_back_when_ai_is_down(ai_client, fake_ollama):
     fake_ollama.running = False
     body = ai_client.get("/insights/greeting?block=evening").json()

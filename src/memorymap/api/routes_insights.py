@@ -167,9 +167,13 @@ def greeting(block: str = "morning") -> dict:
     # rigid consistency here.
     use_name = bool(name) and random.random() < NAME_USE_CHANCE
     flavour = random.choice(GREETING_FLAVOURS)
-    # The active persona voices the greeting, so a Coach sounds like a coach
-    # and a custom persona sounds like itself.
-    persona = librarian.resolve_persona_prompt(None, config)
+    # dashboard_persona is an independent override (asked for directly: the
+    # dashboard greeting shouldn't have to match whichever persona is active
+    # for Chat/search). Empty/unset falls through to that same active
+    # persona — resolve_persona_prompt's own `name or active_persona`
+    # default — so nothing changes for anyone who hasn't set one.
+    dashboard_persona_name = str(config.get_preference("dashboard_persona", "") or "").strip() or None
+    persona = librarian.resolve_persona_prompt(dashboard_persona_name, config)
     system = (
         GREETING_PROMPT_NAMED.format(block=block, name=name, flavour=flavour)
         if use_name

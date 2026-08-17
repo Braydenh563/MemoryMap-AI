@@ -134,6 +134,10 @@ class PreferencesBody(BaseModel):
     # Personas: custom system prompts + which one is active.
     personas: list[PersonaItem] | None = Field(default=None, max_length=20)
     active_persona: str | None = Field(default=None, max_length=40)
+    # Independent override for just the dashboard greeting — empty clears it
+    # back to "same as active_persona", the same clear-with-empty-string
+    # convention display_name above already uses.
+    dashboard_persona: str | None = Field(default=None, max_length=40)
     # Saved appearance looks. Server-side rather than in the browser because a
     # theme someone built by hand is a thing they would be upset to lose to a
     # cleared cache — and here it rides along in the daily backup too.
@@ -271,6 +275,7 @@ def get_preferences() -> dict:
         "personas": config.get_preference("personas", []),
         "custom_themes": config.get_preference("custom_themes", []),
         "active_persona": config.get_preference("active_persona", "Librarian"),
+        "dashboard_persona": config.get_preference("dashboard_persona", ""),
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}
         ),

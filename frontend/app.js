@@ -642,6 +642,23 @@ function chip(text, extraClass = "", onClick = null) {
   return span;
 }
 
+// The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
+// keyboard support and never got it retrofitted — mouse-only, same gap
+// chip() already closed once this session for the "Go to note" chip.
+// Dispatches a real click rather than duplicating each call site's own
+// handler, so this stays a one-line addition wherever a `.unlink` span
+// already has its click listener attached.
+function makeUnlinkAccessible(span) {
+  span.setAttribute("role", "button");
+  span.setAttribute("tabindex", "0");
+  span.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      span.click();
+    }
+  });
+}
+
 // A <select> from [value, label] pairs, with one option preselected.
 function buildSelect(options, selected) {
   const select = document.createElement("select");
@@ -956,6 +973,7 @@ function entryItem(entry, options = {}) {
         await loadEntries();
         toast(`Detached from “${doc.title}”.`);
       });
+      makeUnlinkAccessible(unlink);
       mark.appendChild(unlink);
     }
     meta.appendChild(mark);
@@ -1051,6 +1069,7 @@ function entryItem(entry, options = {}) {
           await api(`/files/${attachment.id}`, { method: "DELETE" });
           await loadEntries();
         });
+        makeUnlinkAccessible(remove);
         return remove;
       };
 
@@ -1184,6 +1203,7 @@ function entryItem(entry, options = {}) {
           await api(`/entries/${entry.id}/links/${link.link_id}`, { method: "DELETE" });
           await loadEntries();
         });
+        makeUnlinkAccessible(unlink);
         linkChip.appendChild(unlink);
       }
       linkRow.appendChild(linkChip);
@@ -2418,6 +2438,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
             detail: { originalText: match[0] }
           }));
         });
+        makeUnlinkAccessible(dismissBtn);
         wrapper.appendChild(img);
         wrapper.appendChild(dismissBtn);
         // Asked for directly: a deleted image left a broken-image glyph in
@@ -2434,6 +2455,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
           dismiss.title = "Dismiss";
           dismiss.textContent = "×";
           dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
+          makeUnlinkAccessible(dismiss);
           placeholder.appendChild(dismiss);
           wrapper.replaceWith(placeholder);
         });

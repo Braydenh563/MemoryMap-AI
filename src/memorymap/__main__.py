@@ -54,6 +54,10 @@ def _run_desktop() -> None:
         width=1200,
         height=800,
         min_size=(420, 500),
+        # pywebview defaults this to False, which blocks selecting or
+        # copying any text in the window — reported directly ("can't
+        # highlight or copy text in the desktop view").
+        text_select=True,
     )
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps

@@ -5567,7 +5567,12 @@ async function renderLibraryImagesGallery() {
     img.alt = image.original_name;
     img.loading = "lazy";
     img.addEventListener("error", () => fig.remove());
-    img.addEventListener("click", () => openLightbox(mediaSrc(image.url), image.original_name));
+    img.addEventListener("click", () => {
+      openLightbox(
+        images.map((i) => ({ filename: i.original_name, getUrl: () => mediaSrc(i.url) })),
+        images.indexOf(image)
+      );
+    });
     const del = document.createElement("button");
     del.type = "button";
     del.className = "ghost small icon-button library-image-delete";

@@ -2225,8 +2225,11 @@ function renderGraphPopupMedia(entry) {
         placeGraphPopup(); // the popup just got taller
       })
       .catch(() => img.remove());
-    img.addEventListener("click", async () => {
-      openLightbox(await attachmentObjectUrl(attachment), attachment.filename);
+    img.addEventListener("click", () => {
+      openLightbox(
+        images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+        images.indexOf(attachment)
+      );
     });
     box.appendChild(img);
   }

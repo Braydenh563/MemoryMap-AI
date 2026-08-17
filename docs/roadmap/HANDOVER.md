@@ -2,7 +2,157 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a mobile/responsive audit, a two-round feature-gap brainstorm (with real self-caught mistakes), two live mobile bugs fixed, and five keyboard-accessibility fixes
+## Latest session — a screenshot-driven bug list that grew mid-session: 9 confirmed fixes, 3 live-checked-but-unreproducible investigations, an uninstaller, and a README screenshot showcase
+
+Started as "a few quick bugs" from a set of screenshots the user sent (app UI
++ their own screenshot-viewer as a UX reference); grew, over several
+mid-turn additions, into a full pass covering frontend, backend and the
+desktop launcher, plus non-code deliverables (README photography, an
+uninstall script). Tracked as tasks #15–#36 throughout rather than only in
+this file, since the list kept growing after work had already started.
+
+**Nine confirmed, root-caused fixes:**
+- **Command palette showed literal `ph:clipboard Go to Dashboard` text.**
+  `renderPalette()` (app.js) set `li.textContent = match.label` directly
+  instead of going through `setLabel()`, the shared `ph:` → `<i>` icon
+  parser every other label in the app already uses. One-line fix.
+- **Timeline's Grid/Line combobox text sat low and sometimes clipped.**
+  `.graph-toolbar select` (03-dashboard-widgets.css) set a fixed
+  `height: var(--control-h)` but never zeroed the base `select` rule's own
+  `padding-block`, unlike its sibling rules right above it and
+  `.library-sort select` elsewhere. Added `padding-block: 0`.
+- **Reduce-motion and background-movement were unlinked.** Turning on the
+  in-app "Reduce motion" toggle now also sets background-art movement to
+  "Still" (and clears it back to "Auto" on turn-off, only if this toggle is
+  what set it — an independently-chosen "Moving" survives). Left the
+  existing OS-level `prefers-reduced-motion` + explicit-"Moving"-override
+  behaviour in `startBgArt()` untouched; that was a deliberate, previously
+  -reported fix and this is a different, additive path onto the same pref.
+- **Desktop window: can't select or copy any text.** pywebview's
+  `create_window()` defaults `text_select` to `False`. Passed
+  `text_select=True` in `__main__.py`. Confirmed via `tests/
+  test_desktop_launcher.py`'s existing `**kwargs`-based mock, which needed
+  no change.
+- **Quick Sketch's highlighter was noticeably heavier than the whiteboard's.**
+  Sketch used `sketchPen.size * 6`, the whiteboard uses `WB_STROKE_WIDTH *
+  4`. Pulled the sketch multiplier into a named constant
+  (`SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER`) set to `4` to match, per direct
+  ask ("make similar to the whiteboard highlighter"). Left the two tools'
+  different compositing (canvas `multiply` vs. SVG `stroke-opacity`)
+  alone — no live evidence it's actually wrong, just different rendering
+  technology.
+- **Image/sketch lightbox had no visible close control, no metadata, no way
+  to see a note's other images.** `openLightbox(url, alt)` rebuilt to
+  `openLightbox(items, startIndex)`: a fixed close button, a filename/
+  position caption, and prev/next arrows when more than one image is
+  passed. Wired at all 7 call sites across `app.js`, `graph.js` and
+  `whiteboard.js` — note cards, the timeline popup, the graph popup, the
+  library image gallery, inline note images and the edit-preview chips (the
+  last two pass a one-item list — no cheap way to build a sibling list from
+  a shared markdown-image regex without touching `appendInline`, used
+  everywhere, so left single-image there).
+- **Attaching a file to an existing note only ever took the first file, even
+  with several selected.** `attachFileTo()`'s dynamically-created `<input
+  type="file">` had no `multiple` and read `input.files[0]`. Fixed to loop
+  over every selected file. (New-note capture already supported multi-file
+  via `#entry-attach-file-input`, which already had `multiple` — only the
+  existing-note path was missing it.)
+- **Back-to-top button never appeared on Notes/Library.** Its visibility
+  check read `scrollingPage()` (`.tab-page:not(.hidden)`).`scrollTop`, but
+  Notes (and Library, one of its sub-tabs) scroll a *nested* `#tab-notes
+  .layout > main` instead — the exact shape Chat already had a bespoke
+  special case for (`#chat-messages`). Generalised into a
+  `NESTED_SCROLL_TABS` lookup covering both, rather than hardcoding a
+  second one-off.
+- **A document's Library preview showed a raw `## Introduction` heading
+  mid-string.** The frontend already strips markdown heading/blockquote
+  markers with `^#{1,6}\s+` (multiline) — but the backend's `_clip()`
+  (`routes_library.py`) collapses every newline to a space *first*, so any
+  heading past the very first line is no longer at a real line start by
+  the time that regex runs. Moved the strip into `_clip()` itself, before
+  the whitespace collapse.
+- **Section titles (Categories/Chats/Documents vs. Graph/Library/Timeline/
+  Reminders) rendered at two different sizes.** `.sidebar-head h2`
+  (05-sidebars-themes.css) and `.card h2` (01-forms-settings.css, the
+  deliberate §35L "one size for every card heading" rule) have equal CSS
+  specificity; file load order let the sidebar rule silently win
+  `font-size` for the three sidebars it covers. Removed the conflicting
+  `font-size` from `.sidebar-head h2` and deleted a second, stale duplicate
+  `.card h2` in `02-chat-graph.css` (harmless in practice — same computed
+  size — but a second live tie waiting to happen). Verified post-fix with
+  `getComputedStyle` across five tabs: all five now report the same
+  `16px`.
+
+**Three items live-checked with Playwright and a seeded demo profile,
+neither reproduced nor blindly "fixed":**
+- **Frosted-glass toggle "on by default but not visibly applied."** On a
+  byte-fresh profile: `data-glass="on"`, `--glass-blur: 18px`, the
+  settings-panel checkbox reads `checked: true`, *and* a card's actual
+  computed `backdrop-filter` is `blur(18px) saturate(1.5)` — all
+  consistent, nothing flat. Couldn't reproduce. Best guess, not verified:
+  a stale cached `app.js` in the user's real session — this exact app has
+  a documented history of that specific failure mode (see the "worst UI
+  bug" note earlier in this file), and "toggle off then on fixes it" reads
+  like a stale-JS symptom more than a state-desync one.
+- **Timeline grid header/category-column colours "don't match the theme."**
+  Read as CSS: every colour in that block (`06-timeline-dialogs.css`) comes
+  from theme tokens (`--ink`, `--bg`, `--modal-bg`, `color-mix(...)`),
+  nothing hardcoded. Live screenshot (dark mode, real seeded data) shows no
+  visible mismatch either. Left alone rather than guess at a token swap
+  with no reproduction.
+- **Meeting-recorder mic-level bar animation "still not showing."** Genuinely
+  blocked, not just unreproduced: this sandbox has no `faster-whisper`
+  installed (CLAUDE.md's own standing note), so `/voice/status` correctly
+  reports unavailable and the recorder refuses to start *before* reaching
+  the mic-meter code at all — confirmed live, the UI shows "Voice capture
+  needs the optional faster-whisper package" rather than attempting to
+  record. The meter code itself (`startMicLevelMeter()`) is identical
+  between the dictation button (already fixed, HISTORY.md §46) and the
+  meeting recorder, and the CSS matches — but that's static reading, not a
+  reproduction, and this is exactly the standing caveat about fake
+  transports: say plainly what wasn't actually run.
+
+**Non-code deliverables:**
+- **`uninstall.sh` / `uninstall.bat`**, mirroring `start.sh`/`start.bat`'s
+  style. Removes `.venv`; the data directory is left alone unless
+  `--delete-data` is passed *and* the user types `DELETE` to confirm — that
+  second gate holds even under `--yes`, on purpose, since a stray uninstall
+  is not consent to lose a notebook. Tested both paths (keep-data default,
+  and the explicit-delete path) against a throwaway scratch copy, not the
+  real repo. Checked first whether this was needed at all: `start.sh`/
+  `start.bat` already handle first-run install, dependency updates,
+  self-update via `git pull`, and offline-aware fallback; `/extras`
+  already does in-app install/uninstall/reinstall of optional components
+  (voice, documents, etc). The uninstaller was the one genuinely missing
+  piece of "install/uninstall/reinstall easily," not a rebuild of any of
+  the above.
+- **README screenshot showcase.** Seeded a throwaway profile (via direct
+  API calls — categories, linked notes, a reminder, a real chat turn with
+  tool-use chips, a document) with realistic content, not "Test note 1/2",
+  then screenshotted Dashboard/Notes/Chat/Graph/Library/Timeline/Reminders
+  in dark mode with Playwright, hiding the AI-status dot (permanently red
+  in this sandbox — no LM Studio/Ollama running here, not representative)
+  and the agent-activity toast. Added as a hero image plus a collapsible
+  screenshot grid near the top of `README.md`, and mentioned the new
+  uninstaller in Quick start.
+
+**Tracked but not built this session** — either genuinely feature-scale for
+a "fix some bugs" pass, or too vague to act on without guessing at scope
+(tasks #32–#36 have the full detail each was created with):
+- An info-icon tooltip pattern to replace "How to" dropdowns app-wide.
+- Duplicate/near-duplicate *paragraph* detection across notes (distinct
+  from the existing whole-note duplicate detection).
+- A redesign of the Reminders panel's bottom two quick-set rows — asked
+  for without a concrete direction.
+- A systematic colour-contrast audit across every theme preset.
+- Chat message-content search *in the quick Chats sidebar* specifically —
+  Library search already matches chat title **and** message preview text
+  (`routes_library.py`'s `_conversations` + the frontend's library filter),
+  one click away via "Browse all in Library"; this is a smaller
+  discoverability addition on top of an already-working capability, not a
+  net-new one.
+
+## Previous session — a mobile/responsive audit, a two-round feature-gap brainstorm (with real self-caught mistakes), two live mobile bugs fixed, and five keyboard-accessibility fixes
 
 Asked to audit mobile/responsive UI and then, separately, to blind-brainstorm
 every screen's feature set against general PKM-app knowledge and diff it

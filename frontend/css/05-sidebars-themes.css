@@ -35,9 +35,16 @@
 
 /* One weight, one size, one shape for all three. The Chats header shipped its
    action as a filled accent pill while Documents' was a plain small button, so
-   two sidebars that do the same thing looked like different features. */
+   two sidebars that do the same thing looked like different features.
+   `font-size` used to be set here too, at `--text-h3` — but `.card h2`
+   (01-forms-settings.css, §35L) already sets every card-level h2 to one size
+   app-wide, and this rule has equal specificity and loads later, so it was
+   silently winning that tie just for these three sidebars. That is the
+   inconsistency reported directly ("keep the titles of each feature section
+   consistent") — Categories/Chats/Documents rendered a size larger than
+   Graph/Library/Timeline/Reminders, the opposite of what §35L's comment says
+   it was trying to guarantee. Leaving it to `.card h2` here. */
 .sidebar-head h2 {
-  font-size: var(--text-h3);
   line-height: 1;
 }
 

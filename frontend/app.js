@@ -1084,9 +1084,13 @@ function entryItem(entry, options = {}) {
         attachmentObjectUrl(attachment)
           .then((url) => (img.src = url))
           .catch(() => wrap.remove());
-        img.addEventListener("click", async () =>
-          openLightbox(await attachmentObjectUrl(attachment), attachment.filename)
-        );
+        img.addEventListener("click", () => {
+          const images = entry.attachments.filter((a) => a.is_image);
+          openLightbox(
+            images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+            images.indexOf(attachment)
+          );
+        });
         wrap.appendChild(img);
         if (options.actions) wrap.appendChild(removeButton());
         fileRow.appendChild(wrap);
@@ -1899,23 +1903,33 @@ function renderInlineAction(entry) {
 function attachFileTo(entry) {
   const input = document.createElement("input");
   input.type = "file";
+  // The backend already accepts one attachment per POST and a note already
+  // renders any number of them — the only thing missing was the picker
+  // itself only ever taking `files[0]`, silently dropping a multi-select.
+  input.multiple = true;
   input.addEventListener("change", async () => {
-    const file = input.files[0];
-    if (!file) return;
-    const form = new FormData();
-    form.append("file", file);
-    // Raw fetch: multipart must NOT get the JSON content-type header.
-    const response = await fetch(`/entries/${entry.id}/files`, {
-      method: "POST",
-      headers: { "X-Auth-Token": authToken() },
-      body: form,
-    });
-    if (!response.ok) {
-      const detail = await response.json().catch(() => ({}));
-      toast(detail.detail || `Upload failed (${response.status})`, true);
-      return;
+    const files = [...input.files];
+    if (!files.length) return;
+    let failures = 0;
+    for (const file of files) {
+      const form = new FormData();
+      form.append("file", file);
+      // Raw fetch: multipart must NOT get the JSON content-type header.
+      const response = await fetch(`/entries/${entry.id}/files`, {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      if (!response.ok) {
+        failures++;
+        const detail = await response.json().catch(() => ({}));
+        toast(detail.detail || `${file.name}: upload failed (${response.status})`, true);
+      }
     }
-    toast(`Attached ${file.name}.`);
+    const attached = files.length - failures;
+    if (attached > 0) {
+      toast(attached === 1 ? `Attached ${files[0].name}.` : `Attached ${attached} files.`);
+    }
     await loadEntries();
   });
   input.click();
@@ -1934,25 +1948,81 @@ async function attachmentObjectUrl(attachment) {
 }
 
 // Full-size image viewer: click anywhere or press Esc to close (Wave M).
-function openLightbox(url, alt) {
+// `items` is every image this click can page through — e.g. all the image
+// attachments on the same note — as `{filename, getUrl}`, `getUrl` being a
+// (possibly async) thunk so unopened images aren't fetched until reached.
+// `startIndex` is which one was clicked; a single image is just a one-item
+// list. Reported directly: click-anywhere-to-close alone isn't discoverable,
+// so there's now an explicit close button too — both still work.
+function openLightbox(items, startIndex = 0) {
+  let index = startIndex;
   const overlay = document.createElement("div");
   overlay.className = "lightbox";
   overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-label", alt || "Image preview");
+  overlay.setAttribute("aria-label", "Image preview");
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "lightbox-close";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.textContent = "×";
+
   const img = document.createElement("img");
-  img.src = url;
-  img.alt = alt || "";
-  overlay.appendChild(img);
+  const meta = document.createElement("div");
+  meta.className = "lightbox-meta";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.type = "button";
+  prevBtn.className = "lightbox-nav lightbox-prev";
+  prevBtn.setAttribute("aria-label", "Previous image");
+  setLabel(prevBtn, "ph:caret-left");
+
+  const nextBtn = document.createElement("button");
+  nextBtn.type = "button";
+  nextBtn.className = "lightbox-nav lightbox-next";
+  nextBtn.setAttribute("aria-label", "Next image");
+  setLabel(nextBtn, "ph:caret-right");
+
+  async function show(i) {
+    index = (i + items.length) % items.length;
+    const item = items[index];
+    img.alt = item.filename || "";
+    img.src = await item.getUrl();
+    overlay.setAttribute("aria-label", item.filename || "Image preview");
+    meta.textContent =
+      items.length > 1
+        ? `${item.filename || ""} — ${index + 1} of ${items.length}`
+        : item.filename || "";
+  }
+
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
   };
   const onKey = (e) => {
     if (e.key === "Escape") close();
+    else if (e.key === "ArrowLeft" && items.length > 1) show(index - 1);
+    else if (e.key === "ArrowRight" && items.length > 1) show(index + 1);
   };
+  // Only the backdrop itself closes on click — the nav/close buttons need to
+  // stay clickable without also dismissing the dialog they sit inside.
   overlay.addEventListener("click", close);
+  closeBtn.addEventListener("click", close);
+  prevBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    show(index - 1);
+  });
+  nextBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    show(index + 1);
+  });
   document.addEventListener("keydown", onKey);
+
+  overlay.append(closeBtn, img, meta);
+  if (items.length > 1) overlay.append(prevBtn, nextBtn);
   document.body.appendChild(overlay);
+  closeBtn.focus();
+  show(startIndex);
 }
 
 async function downloadAttachment(attachment) {
@@ -2425,7 +2495,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         img.style.cursor = "zoom-in";
         img.addEventListener("click", (e) => {
           e.stopPropagation();
-          openLightbox(mediaSrc(imageUrl), imageAlt || "Image");
+          openLightbox([{ filename: imageAlt || "Image", getUrl: () => mediaSrc(imageUrl) }], 0);
         });
         const dismissBtn = document.createElement("span");
         dismissBtn.className = "unlink";
@@ -13197,8 +13267,11 @@ function renderTimelinePopupMedia(entry) {
         placeTimelinePopup(); // the popup just got taller
       })
       .catch(() => img.remove());
-    img.addEventListener("click", async () => {
-      openLightbox(await attachmentObjectUrl(attachment), attachment.filename);
+    img.addEventListener("click", () => {
+      openLightbox(
+        images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+        images.indexOf(attachment)
+      );
     });
     box.appendChild(img);
   }
@@ -13397,18 +13470,31 @@ function scrollPageToTop() {
 // Shown on every tab except the graph, where the page itself doesn't scroll
 // and the button would just sit on top of the map.
 //
-// Chat is a special case, not an exclusion: `.tab-page` itself never scrolls
-// there (`#tab-chat > .layout` fills the page, §36A), so the page-scroll
-// button would just sit permanently hidden even in a long conversation
-// (user-reported: "I want a back-to-top button in chat pages"). The actual
-// scrolling element on that tab is `#chat-messages`, so the button tracks
-// that instead of the page whenever chat is active — same button, same
-// corner, just a different scroll target depending on which tab is up.
+// Chat and Notes (which the Library/browse views live inside) are special
+// cases, not exclusions: `.tab-page` itself never scrolls on either — both
+// use the flex + nested-scroll-container shape (`#tab-chat`/`#tab-notes
+// > .layout > main`, see 04-chat-dock-appearance.css), so a button watching
+// `.tab-page.scrollTop` would see 0 forever and never show, and clicking it
+// would scroll an element that never moves. Reported as "the back-to-top
+// button doesn't appear in all places it should (like the Library)" — the
+// Notes tab was missing the same nested-scroll accommodation Chat already
+// had (user-reported there first as "I want a back-to-top button in chat
+// pages"). One lookup table, one target per tab, rather than a second
+// hardcoded special case.
 const NO_SCROLL_TOP_TABS = new Set(["graph"]);
+const NESTED_SCROLL_TABS = {
+  chat: () => chatMessagesEl(),
+  notes: () => document.querySelector("#tab-notes .layout > main"),
+};
 let scrollTopUpdate = null;
 
 function chatMessagesEl() {
   return document.getElementById("chat-messages");
+}
+
+function scrollTopTargetEl() {
+  const tab = localStorage.getItem("activeTab") || "dashboard";
+  return NESTED_SCROLL_TABS[tab]?.() || scrollingPage();
 }
 
 function initScrollTopButton() {
@@ -13420,13 +13506,8 @@ function initScrollTopButton() {
   button.title = "Back to top";
   button.setAttribute("aria-label", "Back to top");
   button.addEventListener("click", () => {
-    const tab = localStorage.getItem("activeTab") || "dashboard";
-    if (tab === "chat") {
-      const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      chatMessagesEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
-    } else {
-      scrollPageToTop();
-    }
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scrollTopTargetEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
     // Send focus somewhere sensible rather than leaving it on a button that
     // is about to hide itself.
     document.querySelector(".tab-page:not(.hidden)")?.focus();
@@ -13435,8 +13516,7 @@ function initScrollTopButton() {
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const scrollTop =
-      tab === "chat" ? chatMessagesEl()?.scrollTop || 0 : scrollingPage()?.scrollTop || 0;
+    const scrollTop = scrollTopTargetEl()?.scrollTop || 0;
     const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
   };
@@ -14948,7 +15028,7 @@ function renderPalette(query) {
   list.replaceChildren();
   matches.forEach((match, index) => {
     const li = document.createElement("li");
-    li.textContent = match.label;
+    setLabel(li, match.label);
     if (index === paletteIndex) li.classList.add("active");
     li.addEventListener("click", () => {
       closePalette();
@@ -14989,6 +15069,13 @@ function paletteKeydown(event) {
 // "multiply" blend mode reads as an actual highlighter (translucent, tints
 // rather than covers) in one pass.
 const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+// Was 6x — the whiteboard's own highlighter (WB_STROKE_WIDTH * 4 in
+// whiteboard.js) is the reference the two are meant to match, and reported
+// directly as needing to. Both start from a different base width (sketchPen
+// default 4px vs. the whiteboard's 3px), so matching the multiplier rather
+// than the pixel result is what keeps them proportionally alike as either
+// slider moves.
+const SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER = 4;
 
 let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
@@ -15139,7 +15226,7 @@ function sketchMove(event) {
   context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
   context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
 
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.lineTo(x, y);
@@ -15197,7 +15284,7 @@ function sketchEnd(event) {
     context.strokeStyle = sketchPen.color;
     
     if (sketchTool === "pen" || sketchTool === "highlighter") {
-      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);
@@ -20168,6 +20255,21 @@ $("glass-sheen-strength").addEventListener("input", (e) => {
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
   localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
+  // The background-art picker has its own "Moving" override so someone can
+  // ask for motion despite the OS-level reduced-motion hint (see
+  // startBgArt()'s comment — that fix was reported missing once already).
+  // But flipping the in-app reduce-motion toggle is a direct, explicit ask,
+  // and "Moving" silently surviving it read as the two settings being
+  // unrelated. Turning it on selects "Still"; turning it back off only
+  // clears that if we're the ones who set it, so an independent "Moving"
+  // choice made before or after isn't clobbered.
+  if (e.target.checked) {
+    localStorage.setItem("bg-motion", "still");
+  } else if (appearancePref("bg-motion") === "still") {
+    localStorage.setItem("bg-motion", "auto");
+  }
+  if ($("bg-motion")) $("bg-motion").value = appearancePref("bg-motion");
+  renderBgMotionHint();
   applyAppearance();
   if (e.target.checked) stopBgArt(); // a still UI shouldn't keep the art running
   else if (bgArtOn()) startBgArt();
@@ -22679,7 +22781,9 @@ function renderEntryAttachmentChips() {
     img.src = mediaSrc(url);
     img.alt = name;
     img.loading = "lazy";
-    img.addEventListener("click", () => openLightbox(mediaSrc(url), name));
+    img.addEventListener("click", () =>
+      openLightbox([{ filename: name, getUrl: () => mediaSrc(url) }], 0)
+    );
     const label = document.createElement("span");
     label.textContent = name || url;
     label.title = name || url;

@@ -1933,6 +1933,12 @@
 
 .graph-toolbar select {
   height: var(--control-h);
+  /* Missing here while `#graph-search`/`.timeline-search` right above and
+     `.library-sort select` elsewhere both zero it: the base `select` rule's
+     own `padding-block` (from `--space-4`) was left fighting this fixed
+     height, so the option text sat low and, at some zoom/density
+     combinations, clipped against the box. */
+  padding-block: 0;
 }
 
 .graph-toolbar .tools-toggle {

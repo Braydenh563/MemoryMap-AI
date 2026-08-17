@@ -105,5 +105,8 @@ def test_a_locked_private_note_blocks_deletion_of_everything(ai_client, session)
 def test_orphans_route_is_not_shadowed_by_the_upload_id_route(ai_client):
     """`/media/orphans` must resolve to the dedicated handler, not fall into
     `/media/{upload_id}` and 422 on trying to parse "orphans" as an int."""
-    assert ai_client.get("/media/orphans").status_code == 200
-    assert ai_client.delete("/media/orphans").status_code == 200
+    get_response = ai_client.get("/media/orphans")
+    assert get_response.status_code == 200
+
+    delete_response = ai_client.delete("/media/orphans")
+    assert delete_response.status_code == 200

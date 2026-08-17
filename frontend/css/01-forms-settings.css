@@ -697,6 +697,14 @@ progress {
   margin-bottom: 0.6rem;
 }
 
+/* Roving-tabindex keyboard nav (app.js's applyEntryListTabOrder /
+   initEntryListKeyboardNav) — arrow keys move this outline between notes,
+   Enter opens the focused one. */
+.entry-list li:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* A note's own leading `# Heading`, shown as what it is rather than as the
    first line of plain body text (asked for directly). `--text-lg`, not a
    card's own `--text-body` h2 — this sits inside a list row, not a panel. */

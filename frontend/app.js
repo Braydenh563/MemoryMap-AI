@@ -2759,6 +2759,7 @@ function renderEntries() {
     for (const entry of sortEntries(visible)) {
       list.appendChild(entryItem(entry, { actions: true }));
     }
+    applyEntryListTabOrder(list);
     return;
   }
 
@@ -2789,9 +2790,57 @@ function renderEntries() {
     const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
     if (!parentVisible) addWithChildren(entry, 0);
   }
+  applyEntryListTabOrder(list);
   // After the list is in the DOM: drop the clamp from any note that turned
   // out to fit. No-op while the sub-tab is hidden; showNotesSection re-runs it.
   settleNoteClamps();
+}
+
+// --- note-list keyboard navigation (ROADMAP Tier 3 §30a / BACKLOG §16) ------------
+// Named directly as "the one interaction pattern used constantly enough that
+// its absence would be felt every session, not just noticed in an audit."
+// A roving tabindex: only one <li> is ever a Tab stop, so the list is one
+// stop in the page's tab order rather than one per note, matching the
+// standard listbox/grid keyboard pattern.
+function applyEntryListTabOrder(list) {
+  const items = Array.from(list.children);
+  const current = document.activeElement;
+  // Re-renders happen constantly (search-as-you-type, sort, edits) — if the
+  // previously-focused note is still present, keep it as the one Tab stop
+  // instead of silently resetting focus back to the top of the list.
+  const keepId = items.some((li) => li === current) ? current.dataset.id : null;
+  items.forEach((li) => {
+    li.tabIndex = keepId ? (li.dataset.id === keepId ? 0 : -1) : -1;
+  });
+  if (!keepId && items.length > 0) items[0].tabIndex = 0;
+}
+
+function initEntryListKeyboardNav() {
+  const list = $("entry-list");
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
+    const items = Array.from(list.children);
+    const current = event.target.closest("li");
+    const index = current ? items.indexOf(current) : -1;
+    if (index === -1) return;
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const nextIndex = Math.min(
+        Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0),
+        items.length - 1
+      );
+      items.forEach((li, i) => { li.tabIndex = i === nextIndex ? 0 : -1; });
+      items[nextIndex].focus();
+    } else if (event.key === "Enter" && event.target === current) {
+      // Only when the <li> itself has focus, not a button/link/textarea
+      // inside it — those already handle their own Enter behaviour, and
+      // this app has no separate "note view" to open: editing in place is
+      // what opening a note means here.
+      event.preventDefault();
+      current.querySelector(".entry-actions [title='Edit this entry']")?.click();
+    }
+  });
 }
 
 // name -> {id, count}. Needed because renaming and deleting work on ids,
@@ -20501,6 +20550,7 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
 initNotesSubtabs();
+initEntryListKeyboardNav();
 scrollTopUpdate = initScrollTopButton();
 // Reminder watching moved into startApp() (below `_active_tokens` note in
 // api()'s own comment): this used to run unconditionally here, before

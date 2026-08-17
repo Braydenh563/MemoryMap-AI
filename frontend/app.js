@@ -21910,6 +21910,27 @@ document.addEventListener("keydown", (e) => {
     closeShortcuts();
     return;
   }
+  // Four modal-overlay dialogs (settings, doc AI-edit, extract-to-notes,
+  // recycle bin) had a close button and a backdrop-click handler but no
+  // Escape wiring here — every other overlay in this list works with
+  // Escape, so these four were the exception rather than a deliberate
+  // choice (Nielsen's "user control and freedom").
+  if (e.key === "Escape" && settingsModalOpen()) {
+    closeSettingsModal();
+    return;
+  }
+  if (e.key === "Escape" && !$("doc-ai-panel").classList.contains("hidden")) {
+    closeDocAiPanel();
+    return;
+  }
+  if (e.key === "Escape" && !$("extract-panel").classList.contains("hidden")) {
+    closeExtractPreview();
+    return;
+  }
+  if (e.key === "Escape" && !$("binned-overlay").classList.contains("hidden")) {
+    closeBinnedReader();
+    return;
+  }
   // "/" focuses search — but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
   const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(

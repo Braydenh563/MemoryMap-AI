@@ -12,6 +12,144 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
+## Newest — a mobile/responsive audit, and a blind feature-completeness brainstorm across every screen (read this first, above Priority 0)
+
+*(mobile/responsive audit findings pending — a live Playwright pass across 9
+breakpoints and all 7 tabs is running as this section is being written; see
+the follow-up commit / HANDOVER.md for what it found)*
+
+Two separate passes this session, both driven by the same worry CLAUDE.md
+names directly: rebuilding something that already exists. So the method for
+the second half was deliberately blind — for each of the app's 9 screens
+(Dashboard, Notes, Ask/Chat, Graph, Library incl. Documents/Skills/Media, the
+Whiteboard, Timeline, Reminders, Settings) the brainstorm was written first,
+from general knowledge of what that *kind* of feature looks like across
+well-known apps (Notion, Obsidian, Apple Notes, Todoist, Miro/Excalidraw,
+ChatGPT), with the running app deliberately not open — then, only after the
+list was written, checked line-by-line against this codebase's actual routes
+and frontend code (grep for the concrete symbol, not "I recall this exists").
+
+**The honest headline result: this app is far more complete than a generic
+brainstorm assumes.** Of a brainstormed ~140 individual capabilities across
+the 9 screens, the large majority already exist — often as a named, documented
+feature (`DASH_WIDGETS.streak`, `DASH_WIDGETS["on-this-day"]`,
+`DASH_WIDGETS.heatmap`, `DASH_WIDGETS.capture`, note pin/tag/category,
+`entry_revisions`/version history with restore, GFM task-list checkboxes as
+real checkboxes, `[[link]]`s with AI-deduced reasons, capture templates
+(built-in and custom), graph physics/similarity/time-slider/trace/link-suggest,
+whiteboard grouping/alignment/rotation/anchors/multi-board, reminder
+priority/recurring/presets/nudges, chat regenerate-and-resend, conversation
+compression). Re-proposing any of that would be exactly the mistake this
+file's own opening paragraph warns about, so it isn't listed below — what
+follows is only the gap between the brainstorm and what a targeted grep
+actually found, confirmed missing rather than assumed missing.
+
+**Not brainstormed as gaps, on purpose:** collaboration/multi-user editing,
+cloud sync, sharing-with-others, and any thumbs-up/down-style feedback meant
+to tune model behaviour over time. All four are stock ideas for this *class*
+of app but actively wrong for this one — it's 100% offline and single-user by
+design (no server to sync through, no account system, no telemetry channel a
+feedback signal could even reach), so including them would be brainstorming
+against the wrong app rather than this one.
+
+### Gaps found, ranked by value
+
+1. **No text extraction from uploaded files at all — no PDF, no OCR on
+   images.** Checked `routes_documents.py` (Library → Documents are
+   hand-written markdown documents with their own CRUD, not an upload
+   pipeline) and `routes_files.py` (entry attachments and the Media Gallery
+   are stored as opaque blobs — `upload_file`/`upload_media` never read the
+   file's content, only its bytes and metadata). Grepped the whole backend
+   for `pdfplumber`, `PyPDF`, `extract_text`, and `OCR` — zero hits anywhere
+   in `src/memorymap/`. For a notebook whose entire pitch is "a local AI
+   files your notes and answers questions about them," this is the largest
+   real gap: today, dropping a PDF or a photographed receipt/whiteboard/
+   document into the app puts it in the Media Gallery as a picture, not into
+   anything the Ask tab, search, or the agent can read a single word of. A
+   local OCR pass (e.g. `pytesseract` against a system `tesseract` binary —
+   no torch, consistent with this project's dependency rule) and a PDF
+   text-layer extraction step, both writing into an attached note's content
+   or a linked document, would close it. Scope note: this needs a design
+   decision first (does extracted text become a note automatically, a
+   suggested draft the user confirms, or purely a search index entry?) —
+   named here as the single highest-value gap, not scoped as a build.
+2. **Vision-capable local models can't be used as vision models.**
+   `ai/ollama_client.py` already inspects and records whether the active
+   model reports a `vision` capability (`memorymap.ai.ollama_client`), but
+   nothing downstream ever uses that flag — `chat-attachments` in the chat
+   dock (`index.html:791`) is the note-picker's attached-*notes* list, not a
+   file/image upload, and grepping `app.js` for any image-file input wired
+   into the chat send path returns nothing. A model this app already detects
+   as capable of reading images currently cannot be shown one. Natural
+   pairing with gap 1 above (a photo of a document could go through OCR *or*
+   straight to a vision model, user's choice) but is a smaller, more
+   self-contained piece of work on its own.
+3. **The graph has no minimap, no way to save/name a view, and no export.**
+   Confirmed the options panel (`#graph-options`, `index.html:1110-1298`)
+   covers physics, labels, similarity, entities, orphans, and the time
+   slider — genuinely thorough — but there's nothing to re-find a specific
+   arrangement once the canvas gets busy (no minimap, `grep minimap` is
+   empty across `frontend/`), no "save this layout/filter combination as a
+   view," and no export-as-image (unlike the whiteboard, which already
+   exports PNG — `whiteboard.js:2024`). Once a notebook has enough notes
+   that the force layout becomes visually dense, all three matter; today
+   there's no way back to a state other than re-configuring the same toggles
+   by hand.
+4. **The graph has no non-visual alternative for anyone who can't use a
+   force-directed canvas.** This app already has real accessibility rigor
+   elsewhere (`aria-label`s on icon buttons, `:focus-visible` rings audited
+   and fixed this session, `role="tablist"`/`role="tab"` throughout) — the
+   graph is the one screen whose entire content is an SVG canvas with no
+   list-form equivalent (`grep -i "graph.*list.view\|accessib" frontend/graph.js
+   frontend/app.js` — nothing). A "Related notes" list already exists inside
+   individual note views, so the underlying edge data has a natural list
+   shape available; the graph screen itself just doesn't offer it.
+5. **Reminders have no calendar/month view.** The list (`#reminder-groups`,
+   `index.html:1436-1543`) has a solid Open/All/Done filter, priority levels,
+   recurrence, quick-add presets (30 min through "Next week"), and ±15-minute/
+   ±1-day nudges — genuinely thorough for a flat list — but there is no
+   month-grid view, so seeing "what's due this week" as a calendar rather
+   than a scrolling list isn't possible. The Dashboard's own heatmap widget
+   is activity-in-the-past, not due-dates-in-the-future, so it doesn't cover
+   this.
+6. **Timeline has no "jump to today" and no arbitrary custom date range.**
+   `timeline-days` (`index.html:1013-1110`) offers preset lookback windows
+   (e.g. "Last year"); grepped for `jump.*today`/`scrollToToday`/`today-
+   marker` and for any `date-range`/`daterange` control anywhere in
+   `index.html` — both empty. On a long timeline, getting back to "now" or
+   picking an arbitrary Jan–Mar window both require manual scrolling/preset
+   guessing.
+
+### What was checked and found already done (recorded so nobody re-proposes it)
+
+Dashboard: quick-capture-without-leaving-the-dashboard, a streak counter, a
+focus timer, "on this day," a weekly digest, an activity heatmap, a tag
+cloud, a "rediscover a random old note" widget, drag-to-reorder with
+add/remove and a persisted layout — all in `DASH_WIDGETS`
+(`app.js:9154-9171`), not just planned. Notes: pin, tags, categories, GFM
+task-list checkboxes rendered as real checkboxes, wikilink-style `[[]]`
+linking with AI-deduced reasons and a confidence score, note version history
+with restore (`entry_revisions`, `routes_entries.py:660-774`), built-in and
+custom capture templates (`app.js:486-520`), recycle bin with configurable
+auto-purge. Ask/Chat: saved/browsable conversations, context compression,
+regenerate-and-resend, per-message note attachments via a searchable picker,
+personas, plan mode, tool/skill use, integrated web search with a reader
+view, local dictation. Graph: multiple layouts, colour-by, physics controls,
+a time slider, similarity lines, entity nodes, orphan hiding, AI link
+suggestions, path tracing between two notes, fullscreen. Library: grid/list
+toggle, four sort orders, bulk select/open/restore/delete, a bin with its own
+context bar, a separate Skills sub-tab and Media Gallery sub-tab. Whiteboard:
+multiple named boards with a switcher, a properties panel, resize, grouping,
+alignment/distribute, rotation, arrow-key nudge, undo/redo, real anchor/
+connection points, PNG export. Reminders: natural-language "magic add,"
+priority, recurrence, quick presets, ±15 min/±1 day nudges. Settings:
+high-contrast mode, reduce-motion (with an "auto — follow system" mode), and
+a keyboard-shortcuts reference panel all already exist
+(`contrast-toggle`/`reduce-motion-toggle`/`shortcut-list-settings`,
+`index.html:2861-3045`) — the "Settings" brainstorm produced no gaps at all.
+None of the above needs a second look unless a live user report says
+otherwise.
+
 ## Priority 0 — left unfinished this session, read before anything else
 
 Ended on session-usage limits, not on running out of work. In the order a

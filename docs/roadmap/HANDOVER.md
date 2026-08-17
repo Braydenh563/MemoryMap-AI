@@ -63,6 +63,27 @@ this branch fully green again. Nothing else this session was left half
 -verified — the mobile fixes were measured before/after live, and the two
 retracted gap claims were corrected in place with the evidence shown.
 
+**The pre-existing `.modal-card`/`overscroll-behavior` item (carried over
+from a session before this one, still in the "Previous session" entry
+below) was picked up as a second "quick win" attempt this round and
+dropped, not fixed — worth a fresh session knowing why before re-attempting
+it as a one-liner.** It isn't one: `.modal-card` itself (`01-forms-
+settings.css:1391`) never scrolls — it's a `max-height: 88vh` flex column
+whose *children* scroll, and which child that is differs per dialog. The
+two call-outs in the older entry below ("two dialogs already opted in
+individually") are `.modal-content` (`01-forms-settings.css:1491`, the
+Settings dialog's real scroll pane) and `.graph-popup`
+(`04-chat-dock-appearance.css:1075`, both the view- and add-note graph
+popups) — both already carry `overscroll-behavior: contain`. There is no
+single shared scrollable element across every modal type to add the
+property to once; it's the same shape as this session's `.tab-page` vs.
+`#tab-notes .layout > main` split (see the Agent Activity fix above) —
+each modal's *real* inner scroll container needs identifying and touching
+individually. Whether any dialog *besides* those two actually scrolls
+internally at all (and therefore needs this) wasn't checked before time ran
+out — that's the actual next step, not guessing a selector and hoping it's
+the right one.
+
 ## Previous session — worked the HANDOVER punch list top to bottom: the real WDG/frontend-design reviews, Notes/Reminders' first audit round, a full Part L matrix, a terminology fix, the bulk-action swallowing bug, and a live glow bug reported mid-session
 
 Continuation of the design-audit session, asked to work autonomously through

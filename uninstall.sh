@@ -11,6 +11,7 @@
 #    ./uninstall.sh                 Remove .venv, keep your notes
 #    ./uninstall.sh --delete-data   Also delete your notes (asks first)
 #    ./uninstall.sh --yes           Skip the "are you sure" prompts
+#    ./uninstall.sh --help          Show usage and exit
 #
 #  This script does not delete the project folder itself (the source
 #  code and this script). Delete the folder by hand afterwards if you
@@ -19,6 +20,29 @@
 # ====================================================================
 set -e
 cd "$(dirname "$0")"
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help)
+      cat <<'MM_HELP'
+MemoryMap AI uninstaller
+
+Usage:
+  ./uninstall.sh                 Remove .venv, keep your notes (asks first)
+  ./uninstall.sh --delete-data   Also delete your notes (asks first, separately)
+  ./uninstall.sh --yes           Skip the "remove .venv?" prompts
+  ./uninstall.sh --help          Show this message and exit
+
+Your notes are never deleted unless you pass --delete-data AND then type
+DELETE at its own confirmation prompt - --yes does not skip that one.
+
+This does not delete the project folder itself. Re-run ./start.sh any
+time afterwards to reinstall and pick up right where you left off.
+MM_HELP
+      exit 0
+      ;;
+  esac
+done
 
 DELETE_DATA=0
 ASSUME_YES=0
@@ -40,6 +64,25 @@ fi
 
 echo "${TEAL}MemoryMap AI - uninstall${RESET}"
 echo
+
+# A double-click (or a typo for start.sh) shouldn't be able to reach the
+# actual removal steps below without a clear, explicit "yes" first —
+# asked for directly. This is separate from, and in addition to, the
+# per-step confirmations further down.
+if [ "$ASSUME_YES" != "1" ]; then
+  echo "This removes MemoryMap AI's installed dependencies (.venv)."
+  echo "Your notes are not touched unless you also pass --delete-data."
+  echo
+  read -r -p "Continue? [y/N] " reply
+  case "$reply" in
+    y|Y) ;;
+    *)
+      echo "Cancelled - nothing was changed."
+      exit 0
+      ;;
+  esac
+  echo
+fi
 
 # --- Where the data actually is --------------------------------------
 # Same precedence the app itself uses: .env's MEMORYMAP_DATA_DIR, else

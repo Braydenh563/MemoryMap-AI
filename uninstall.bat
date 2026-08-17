@@ -12,6 +12,7 @@ REM  Usage:
 REM    uninstall.bat                 Remove .venv, keep your notes
 REM    uninstall.bat --delete-data   Also delete your notes (asks first)
 REM    uninstall.bat --yes           Skip the "are you sure" prompts
+REM    uninstall.bat --help          Show usage and exit
 REM
 REM  This script does not delete the project folder itself (the source
 REM  code and this script). Delete the folder by hand afterwards if you
@@ -24,6 +25,28 @@ setlocal enabledelayedexpansion
 for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 cd /d "%~dp0"
 
+for %%A in (%*) do (
+  if /i "%%A"=="--help" goto :help
+  if /i "%%A"=="-h" goto :help
+)
+goto :after_help
+:help
+echo MemoryMap AI uninstaller
+echo.
+echo Usage:
+echo   uninstall.bat                 Remove .venv, keep your notes - asks first
+echo   uninstall.bat --delete-data   Also delete your notes - asks first, separately
+echo   uninstall.bat --yes           Skip the "remove .venv?" prompts
+echo   uninstall.bat --help          Show this message and exit
+echo.
+echo Your notes are never deleted unless you pass --delete-data AND then type
+echo DELETE at its own confirmation prompt - --yes does not skip that one.
+echo.
+echo This does not delete the project folder itself. Re-run start.bat any
+echo time afterwards to reinstall and pick up right where you left off.
+exit /b 0
+:after_help
+
 set "DELETE_DATA=0"
 set "ASSUME_YES=0"
 for %%A in (%*) do (
@@ -34,6 +57,23 @@ for %%A in (%*) do (
 
 echo !ESC![1;38;5;73mMemoryMap AI - uninstall!ESC![0m
 echo.
+
+REM A double-click, or a stray extra click meaning to hit start.bat,
+REM shouldn't be able to reach the actual removal steps below without a
+REM clear, explicit "yes" first - asked for directly. This is separate
+REM from, and in addition to, the per-step confirmations further down.
+if "%ASSUME_YES%"=="0" (
+  echo This removes MemoryMap AI's installed dependencies - the .venv folder.
+  echo Your notes are not touched unless you also pass --delete-data.
+  echo.
+  set /p "REPLY=Continue? [y/N] "
+  if /i not "!REPLY!"=="y" (
+    echo Cancelled - nothing was changed.
+    pause
+    exit /b 0
+  )
+  echo.
+)
 
 REM --- Where the data actually is --------------------------------------
 set "DATA_DIR=data"

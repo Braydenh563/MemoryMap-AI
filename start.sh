@@ -12,7 +12,39 @@
 #    4. start the server and open your browser at localhost:8000
 # ====================================================================
 set -e
+# The pip install below is piped through `tee` so its own progress prints
+# live instead of vanishing into a log file until either done or failed —
+# reported directly ("I hate that I can't see what's going on and why it
+# is taking so long"). Without `pipefail`, `cmd | tee file` reports tee's
+# exit status (always 0), not the command's, which would silently turn
+# every pip failure into a false success.
+set -o pipefail
 cd "$(dirname "$0")"
+
+# --- Help ------------------------------------------------------------
+# Checked before anything else touches the network or the venv, so
+# `--help` is always instant regardless of connection state.
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help)
+      cat <<'MM_HELP'
+MemoryMap AI launcher
+
+Usage:
+  ./start.sh              Start the app at http://localhost:8000
+  ./start.sh --desktop    Start the app in its own window instead of a browser tab
+  ./start.sh --help       Show this message and exit
+
+What it does: builds .venv on first run, installs/updates dependencies
+whenever requirements.txt changes, pulls the latest code first (skipped
+silently if offline), then starts the server.
+
+To remove what this script installed, see ./uninstall.sh --help.
+MM_HELP
+      exit 0
+      ;;
+  esac
+done
 
 # --- Desktop mode ---------------------------------------------------
 # "./start.sh --desktop" runs the app in its own window instead of a
@@ -139,8 +171,22 @@ if [ ! -x "$VENV_PY" ]; then
     echo " ${RED}[X]${RESET} No Python found. Install Python 3.11+ and run this again."
     exit 1
   fi
+  # Caught here, not left to surface later as a confusing pip/import
+  # failure deep into step 2 - `pyproject.toml` requires 3.11+, and
+  # building a venv with an older interpreter would "succeed" and only
+  # fail once something actually needs a 3.11-only feature.
+  if ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+    echo " ${RED}[X]${RESET} Found $($PYTHON --version 2>&1), but MemoryMap AI needs Python 3.11 or newer."
+    echo "        Install a newer Python and run this again."
+    exit 1
+  fi
   echo "        Using $($PYTHON --version) to create the virtual environment..."
-  "$PYTHON" -m venv .venv
+  if ! "$PYTHON" -m venv .venv; then
+    echo " ${RED}[X]${RESET} Could not create the virtual environment (see the error above)."
+    echo "        On Debian/Ubuntu this is usually a missing package:"
+    echo "        sudo apt install python3-venv"
+    exit 1
+  fi
 else
   echo " ${TEAL}[1/4]${RESET} Using the app's virtual environment."
 fi
@@ -164,16 +210,25 @@ if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>
 fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
-  echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time..."
+  echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time."
+  echo "        pip's own progress prints below as it happens:"
   # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
   # its default (a 15s socket timeout retried 5 times, which is several
   # minutes of silence on a dead network before the venv check even runs);
   # `run_with_timeout` is still the outer backstop for the one phase pip's
   # own flags don't bound - resolving the index host in the first place.
+  #
+  # Piped through `tee` rather than redirected: pip's own "Collecting X /
+  # Downloading X / Installing collected packages" lines are real progress
+  # information, and hiding them behind a static "installing..." message
+  # with nothing moving for minutes is exactly what was reported. The log
+  # file still gets a full copy for the network-vs-real-error check below,
+  # `pipefail` (set at the top of this script) makes `$?` reflect pip's
+  # exit status rather than tee's.
   PIP_LOG="$(mktemp 2>/dev/null || echo "/tmp/mm_pip_$$.log")"
-  if run_with_timeout 20 "$VENV_PY" -m pip install --upgrade pip --timeout 5 --retries 0 >"$PIP_LOG" 2>&1 && \
-     run_with_timeout 180 "$VENV_PY" -m pip install -r requirements.txt --timeout 5 --retries 0 >>"$PIP_LOG" 2>&1 && \
-     run_with_timeout 60 "$VENV_PY" -m pip install -e . --timeout 5 --retries 0 >>"$PIP_LOG" 2>&1; then
+  if run_with_timeout 20 "$VENV_PY" -m pip install --upgrade pip --timeout 5 --retries 0 2>&1 | tee "$PIP_LOG" && \
+     run_with_timeout 180 "$VENV_PY" -m pip install -r requirements.txt --timeout 5 --retries 0 2>&1 | tee -a "$PIP_LOG" && \
+     run_with_timeout 60 "$VENV_PY" -m pip install -e . --timeout 5 --retries 0 2>&1 | tee -a "$PIP_LOG"; then
     cksum requirements.txt | awk '{print $1}' > ".venv/.mm_installed"
   else
     if is_network_error "$PIP_LOG"; then

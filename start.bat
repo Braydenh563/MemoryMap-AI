@@ -32,6 +32,28 @@ REM  process keeps the mode the user asked for.
 if /i "%~1"=="desktop" set "MM_DESKTOP=1"
 if /i "%~1"=="--desktop" set "MM_DESKTOP=1"
 
+REM --- Help --------------------------------------------------------------
+REM  Checked before anything else touches the network or the venv, so
+REM  --help is always instant regardless of connection state.
+if /i "%~1"=="--help" goto :help
+if /i "%~1"=="-h" goto :help
+goto :after_help
+:help
+echo MemoryMap AI launcher
+echo.
+echo Usage:
+echo   start.bat              Start the app at http://localhost:8000
+echo   start.bat desktop      Start the app in its own window instead of a browser tab
+echo   start.bat --help       Show this message and exit
+echo.
+echo What it does: builds .venv on first run, installs/updates dependencies
+echo whenever requirements.txt changes, pulls the latest code first (skipped
+echo silently if offline), then starts the server.
+echo.
+echo To remove what this script installed, see uninstall.bat --help.
+exit /b 0
+:after_help
+
 REM --- 0. Self-update, then re-launch a FRESH copy --------------------
 REM  A running .bat is read from disk by byte offset, so a git pull that
 REM  rewrites this file mid-run would corrupt it. To stay safe we pull,
@@ -105,6 +127,19 @@ if not exist "%VENV_PY%" (
     pause
     exit /b 1
   )
+  REM  Caught here, not left to surface later as a confusing pip/import
+  REM  failure deep into step 2 - pyproject.toml requires 3.11+, and
+  REM  building a venv with an older interpreter would "succeed" and only
+  REM  fail once something actually needs a 3.11-only feature.
+  !PYTHON! -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
+  if errorlevel 1 (
+    for /f "delims=" %%V in ('!PYTHON! --version 2^>^&1') do set "PYVER=%%V"
+    echo  !ESC![1;31m[X]!ESC![0m Found !PYVER!, but MemoryMap AI needs Python 3.11 or newer.
+    echo      Install a newer Python from https://www.python.org/downloads/
+    echo      and run this again.
+    pause
+    exit /b 1
+  )
   echo        Using !PYTHON! to create the virtual environment...
   !PYTHON! -m venv .venv
   if errorlevel 1 (
@@ -151,21 +186,30 @@ if "!NEED_INSTALL!"=="0" (
 )
 
 if "!NEED_INSTALL!"=="1" (
-  echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models...
+  echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models.
+  echo         pip's own progress prints below as it happens:
 
   REM  `--timeout 5 --retries 0` makes pip give up on a dead connection in
   REM  seconds instead of its default (a 15s socket timeout retried 5
   REM  times per package - several minutes of silence on a dead network).
-  REM  Output goes to a log so a real failure can be told apart from "no
-  REM  internet" below, the same reasoning as the update check above.
+  REM
+  REM  `--quiet` and a full `> log 2>&1` redirect used to hide pip's own
+  REM  progress entirely - reported directly ("I hate that I can't see
+  REM  what's going on and why it is taking so long"), and this is a real
+  REM  multi-minute install (sentence-transformers, and torch on Windows).
+  REM  Dropping `--quiet` and only redirecting stderr lets pip's own
+  REM  "Collecting X / Downloading X (NN%%)" lines print live to the
+  REM  console while errors still land in the log for the network-vs-real
+  REM  check below - and because nothing here is piped, `errorlevel` still
+  REM  reads directly off each pip command with no extra plumbing needed.
   set "PIP_LOG=%TEMP%\mm_pip_install_%RANDOM%.log"
   set "PIP_FAILED=0"
-  "%VENV_PY%" -m pip install --upgrade pip --quiet --timeout 5 --retries 0 > "!PIP_LOG!" 2>&1
+  "%VENV_PY%" -m pip install --upgrade pip --timeout 5 --retries 0 2>"!PIP_LOG!"
   if errorlevel 1 set "PIP_FAILED=1"
-  "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --quiet --timeout 5 --retries 0 >> "!PIP_LOG!" 2>&1
+  "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --timeout 5 --retries 0 2>>"!PIP_LOG!"
   if errorlevel 1 set "PIP_FAILED=1"
 
-  "%VENV_PY%" -m pip install -e . --quiet --timeout 5 --retries 0 >> "!PIP_LOG!" 2>&1
+  "%VENV_PY%" -m pip install -e . --timeout 5 --retries 0 2>>"!PIP_LOG!"
   if errorlevel 1 set "PIP_FAILED=1"
 
   if "!PIP_FAILED!"=="1" (

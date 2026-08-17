@@ -13470,21 +13470,30 @@ function scrollPageToTop() {
 // Shown on every tab except the graph, where the page itself doesn't scroll
 // and the button would just sit on top of the map.
 //
-// Chat and Notes (which the Library/browse views live inside) are special
-// cases, not exclusions: `.tab-page` itself never scrolls on either — both
-// use the flex + nested-scroll-container shape (`#tab-chat`/`#tab-notes
-// > .layout > main`, see 04-chat-dock-appearance.css), so a button watching
-// `.tab-page.scrollTop` would see 0 forever and never show, and clicking it
-// would scroll an element that never moves. Reported as "the back-to-top
-// button doesn't appear in all places it should (like the Library)" — the
-// Notes tab was missing the same nested-scroll accommodation Chat already
-// had (user-reported there first as "I want a back-to-top button in chat
-// pages"). One lookup table, one target per tab, rather than a second
-// hardcoded special case.
+// Chat, Notes and Library are special cases, not exclusions: `.tab-page`
+// itself never scrolls on any of the three — each uses a flex column with a
+// nested real scroll container instead (`#tab-chat`/`#tab-notes
+// > .layout > main`, see 04-chat-dock-appearance.css; `#tab-library`'s
+// active `.library-view-section`, see 07-whiteboard-misc.css), so a button
+// watching `.tab-page.scrollTop` would see 0 forever and never show, and
+// clicking it would scroll an element that never moves. Reported as "the
+// back-to-top button doesn't appear in all places it should (like the
+// Library)" twice — Notes was fixed first, but the *actual* top-level
+// Library tab (Documents/AI Skills/Whiteboards/Image Gallery) turned out to
+// have the identical shape and was still missing it. One lookup table, one
+// target per tab, rather than a growing pile of hardcoded special cases.
 const NO_SCROLL_TOP_TABS = new Set(["graph"]);
 const NESTED_SCROLL_TABS = {
   chat: () => chatMessagesEl(),
   notes: () => document.querySelector("#tab-notes .layout > main"),
+  // The Whiteboards sub-view pans rather than scrolls (like Graph), so it
+  // deliberately returns nothing here — scrollTopTargetEl() then falls
+  // back to scrollingPage(), whose scrollTop is always 0 on this tab,
+  // which is exactly what keeps the button correctly hidden there.
+  library: () => {
+    const visible = document.querySelector("#tab-library .library-view-section:not(.hidden)");
+    return visible && visible.id !== "library-view-whiteboard" ? visible : null;
+  },
 };
 let scrollTopUpdate = null;
 

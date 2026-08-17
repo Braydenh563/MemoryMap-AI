@@ -2,7 +2,63 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Start here for the next session — this round ended on usage limit, not on the work being done
+## Latest session — two live-reported bugs, both root-caused before being touched
+
+Continuation of the design-audit session, this round working from two fresh
+user reports rather than the checklist.
+
+**Timeline's "Bucket by" control was reported as not affecting the line
+view — confirmed dead, not a perception issue.** `renderTimelineBranch()`
+positions every note by its real timestamp on a continuous D3 time scale
+and only ever reads `body.notes`/`body.bands`; it never touches
+`body.buckets` or `body.scale`, which is all `scale`/"Bucket by" produces
+(confirmed in `routes_timeline.py` too — `scale` only feeds
+`_bucket_start()`, used solely by the grid's columns). Proved live before
+fixing: captured every dot's `cx`/`cy` in line view, changed Bucket-by, and
+the geometry was byte-identical. Fixed the same way Graph's own
+Gravity/Spread sliders are disabled under a tree layout (`setGraphPhysicsEnabled`,
+`graph.js`) rather than hidden — dimmed with `.is-disabled`, `select.disabled
+= true`, and a title explaining why, wired to both the view-mode change
+handler and tab-entry so it's correct on arrival too. New function
+`setTimelineScaleEnabled()`, `app.js`.
+
+**The line view's dots got the halo treatment the user asked for**
+("maybe look similar to the graph nodes?"). Graph's nodes pair a solid
+core circle with a separate, larger, blurred, low-opacity circle behind it
+(`.graph-halo`) that brightens on hover — timeline dots had no equivalent.
+Added the same shape: a `.timeline-branch-halo` circle per note, drawn
+first (so it paints underneath), sized and faded to avoid the obvious
+failure mode this pattern has — checked live with notes clustered on the
+same day, found the first radius choice (2.2× dot radius) merged adjacent
+halos into one blob once the existing vertical-stagger logic kicked in,
+sized down to 1.6× resting / 2.2× on hover, re-checked, distinct glows.
+`pointer-events: none` on the halo (matching the existing spine/stub/line
+rule right above it) so it doesn't steal the dot's own hover/click.
+
+**The persona-peek panel could break the whole chat dock's layout.**
+Reported with a screenshot: a long persona prompt (up to 2000 chars, the
+Settings textarea's own limit) expanding `#persona-peek-panel` inline in
+`.chat-dock`'s normal flow grew it without bound, pushing the entire dock
+down and overlapping the still-open Length/Persona popup above it — because
+the two were separate, unrelated pieces of DOM despite the trigger button
+living inside the popup. Fix reuses the pattern already established two
+elements over in the same dock (`.chat-skills-panel`): moved
+`#persona-peek-panel` to be a child of the already-floating, already-glass
+`#chat-dock-more-panel` instead of a sibling of `.chat-dock`'s main flow,
+capped the popup's own width (`max-width`, matching `.chat-skills-panel`'s
+pattern) and gave the persona text its own `max-height` + internal scroll.
+Verified live with an 800-char persona: popup stays ~404px tall and 416px
+wide regardless of prompt length, text scrolls inside its own capped box.
+
+All three verified live in Chromium (geometry diff, disabled-state
+check, halo count, popup dimensions before/after), not just reasoned from
+source. `node --check` on all three JS files and `ruff check .` clean;
+only frontend files changed this round, so the fast frontend-lint tests
+were run rather than the full ~3-minute suite (nothing under `src/`
+touched) — worth a full `pytest tests/` next session regardless, since it
+hasn't been re-run since the last HANDOVER entry below.
+
+## Previous session — this round ended on usage limit, not on the work being done
 
 Three skills got enabled mid-session (`frontend-design`, `web-design-guidelines`,
 `apple-design`). Correction to an earlier note in this same session: the

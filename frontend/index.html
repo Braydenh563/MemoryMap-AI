@@ -781,16 +781,6 @@ Link to another note with [[its first few words]]."></textarea>
                the top is worse than either arrangement on its own — you press
                it and nothing appears to happen. -->
           <div class="chat-dock">
-            <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
-                 screen has a <textarea id="persona-prompt"> for writing a new
-                 persona, and two elements sharing an id is not a duplicate
-                 that browsers complain about — getElementById simply returns
-                 the first, which is this div. That made "Add persona" read
-                 `.value` off a <div>, throw, and do nothing at all. -->
-            <div id="persona-peek-panel" class="persona-prompt hidden">
-              <strong>What this persona tells the AI</strong>
-              <p id="persona-prompt-text"></p>
-            </div>
             <!-- Attached notes are per-message too. They are their own line
                  because they are *content* — a variable number of note chips —
                  and putting them in the control strip would make its height
@@ -887,6 +877,23 @@ Link to another note with [[its first few words]]."></textarea>
                   <button id="persona-peek" class="ghost small" type="button"
                     aria-expanded="false"
                     title="Show the instructions this persona gives the AI"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> What this persona tells the AI</button>
+                  <!-- id is persona-peek-panel, NOT persona-prompt: the Settings
+                       screen has a <textarea id="persona-prompt"> for writing a new
+                       persona, and two elements sharing an id is not a duplicate
+                       that browsers complain about — getElementById simply returns
+                       the first, which is this div. That made "Add persona" read
+                       `.value` off a <div>, throw, and do nothing at all.
+
+                       Lives inside this already-floating popup rather than inline
+                       in the main dock now — reported live: a long persona prompt
+                       (up to 2000 chars) grew this panel unboundedly in the dock's
+                       normal flow, pushing the whole strip down and overlapping
+                       the still-open Length/Persona popup above it. Scrolls inside
+                       its own max-height instead (see the CSS rule). -->
+                  <div id="persona-peek-panel" class="persona-prompt hidden">
+                    <strong>What this persona tells the AI</strong>
+                    <p id="persona-prompt-text"></p>
+                  </div>
                   <!-- Manual (step-through) mode: a pause after every completed
                        step with a Continue button and a text box, rather than a
                        skill running straight through five steps unattended.
@@ -1032,13 +1039,21 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div class="graph-options hidden" id="timeline-options" role="group"
         aria-label="Timeline display options">
-        <label class="muted" for="timeline-scale">Bucket by</label>
-        <select id="timeline-scale" aria-label="Time bucket">
-          <option value="day" selected>Day</option>
-          <option value="week">Week</option>
-          <option value="month">Month</option>
-          <option value="year">Year</option>
-        </select>
+        <!-- Only Grid has bucket columns to size — the line view positions
+             notes by their real timestamp on a continuous scale and never
+             reads this. Dimmed rather than removed when Line is picked,
+             same as Graph's Gravity/Spread under a tree layout: reported as
+             "doesn't change the timeline" because it silently did nothing
+             instead of saying so. -->
+        <span class="timeline-scale-group" id="timeline-scale-group">
+          <label class="muted" for="timeline-scale">Bucket by</label>
+          <select id="timeline-scale" aria-label="Time bucket">
+            <option value="day" selected>Day</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+            <option value="year">Year</option>
+          </select>
+        </span>
         <label class="muted" for="timeline-group">Bands</label>
         <select id="timeline-group" aria-label="Group notes into bands">
           <option value="category" selected>Category</option>

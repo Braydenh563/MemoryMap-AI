@@ -12438,6 +12438,7 @@ function switchTab(name) {
   }
   if (name === "timeline") {
     $("timeline-view").value = timelineView();
+    setTimelineScaleEnabled(timelineView());
     // Match the saved open/closed state on arrival, same as Graph's Options
     // panel — otherwise a notebook left open comes back collapsed.
     const optionsOpen = localStorage.getItem("timeline-options-open") === "1";
@@ -12728,8 +12729,29 @@ function renderTimelineBranch(body) {
       placed.push(n);
     });
 
+    // A soft coloured glow behind each dot, same treatment the Graph tab's
+    // nodes use (.graph-halo) — asked for directly ("look similar to the
+    // graph nodes"). Its own circle rather than an SVG filter on the dot,
+    // so blur and fill can differ from the crisp dot on top of it.
+    const halos = laneGroup
+      .selectAll("circle.timeline-branch-halo")
+      .data(here)
+      .join("circle")
+      .attr("class", "timeline-branch-halo")
+      .attr("cx", (n) => n.cx)
+      .attr("cy", (n) => laneY + (n._dy || 0))
+      .attr("fill", tint)
+      .attr("r", 0)
+      .style("opacity", 0.2);
+
+    halos.transition()
+      .delay((_, i) => Math.min(i * 30, 800))
+      .duration(400)
+      .ease(d3.easeElasticOut)
+      .attr("r", TIMELINE_DOT_R * 1.6);
+
     const dots = laneGroup
-      .selectAll("circle")
+      .selectAll("circle.timeline-branch-dot")
       .data(here)
       .join("circle")
       .attr(
@@ -12740,20 +12762,24 @@ function renderTimelineBranch(body) {
       .attr("cy", (n) => laneY + (n._dy || 0))
       .attr("fill", tint)
       .attr("r", 0)
-      .on("mouseover", function() {
+      .on("mouseover", function(event, n) {
         d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
+        const halo = halos.nodes()[here.indexOf(n)];
+        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.45).attr("r", TIMELINE_DOT_R * 2.2);
         d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", function() {
           return (this === laneGroup.node()) ? 1 : 0.2;
         });
       })
-      .on("mouseout", function() {
+      .on("mouseout", function(event, n) {
         d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R);
+        const halo = halos.nodes()[here.indexOf(n)];
+        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.2).attr("r", TIMELINE_DOT_R * 2.2);
         d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", 1);
       })
       .on("click", (event, n) => {
         openTimelinePopup(event, n);
       });
-      
+
     dots.transition()
       .delay((_, i) => Math.min(i * 30, 800))
       .duration(400)
@@ -12973,8 +12999,26 @@ function openTimelineBand(band, group) {
 for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
   $(id).addEventListener("change", renderTimeline);
 }
+// Bucket-by sizes the grid's columns and has nothing to act on in the line
+// view, which places notes by real timestamp on a continuous scale — same
+// shape as Graph's Gravity/Spread under a tree layout. Reported live as
+// "doesn't change the timeline"; this is why, and dims the control instead
+// of leaving it live and silently inert.
+function setTimelineScaleEnabled(view) {
+  const applies = view !== "line";
+  const group = $("timeline-scale-group");
+  const select = $("timeline-scale");
+  if (!group || !select) return;
+  group.classList.toggle("is-disabled", !applies);
+  select.disabled = !applies;
+  const why = "Only applies to Grid view — Line places notes by their exact date on a continuous scale, not by bucket.";
+  select.title = applies ? "" : why;
+  const label = group.querySelector("label");
+  if (label) label.title = applies ? "" : why;
+}
 $("timeline-view").addEventListener("change", (event) => {
   localStorage.setItem("timeline-view", event.target.value);
+  setTimelineScaleEnabled(event.target.value);
   renderTimeline();
 });
 // Folded away the same way Graph's Options panel is: bucket/bands/range are

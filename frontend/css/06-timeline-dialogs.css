@@ -540,6 +540,24 @@
   cursor: not-allowed;
 }
 
+/* Same dimmed-not-hidden treatment for Timeline's Bucket-by, disabled under
+   Line view for the same reason Gravity/Spread are under a tree layout —
+   see the comment on `.graph-physics.is-disabled` above. */
+.timeline-scale-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.timeline-scale-group.is-disabled {
+  opacity: 0.45;
+}
+
+.timeline-scale-group.is-disabled label,
+.timeline-scale-group.is-disabled select {
+  cursor: not-allowed;
+}
+
 /* --- the log console (§1) ------------------------------------------------ */
 
 .log-toolbar {

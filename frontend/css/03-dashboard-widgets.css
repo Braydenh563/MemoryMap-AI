@@ -259,7 +259,16 @@
 :root[data-glass="off"] .graph-toolbar,
 :root[data-glass="off"] .library-toolbar,
 :root[data-glass="off"] .graph-options,
+:root[data-glass="off"] .graph-trace,
 :root[data-glass="off"] .timeline-band,
+:root[data-glass="off"] .whiteboard-floating-panel,
+:root[data-glass="off"] .wb-export-menu,
+:root[data-glass="off"] .wb-shape-menu,
+:root[data-glass="off"] .wb-stroke-width-badge,
+:root[data-glass="off"] .chat-skills-panel,
+:root[data-glass="off"] .note-picker-panel,
+:root[data-glass="off"] .library-image-tile .library-image-edit,
+:root[data-glass="off"] .library-image-tile .library-image-delete,
 :root[data-glass="off"] .glass {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -1865,7 +1874,10 @@
   font-weight: 500;
   color: var(--muted);
   border-radius: calc(var(--radius-md) - 0.15rem);
-  transition: all var(--motion-slow) ease;
+  /* Explicit properties, not `all` — `color`/`background` change on
+     `:hover` below, plus `box-shadow` on the `:checked` state further down. */
+  transition: color var(--motion-slow) ease, background var(--motion-slow) ease,
+    box-shadow var(--motion-slow) ease;
   user-select: none;
 }
 
@@ -1889,13 +1901,21 @@
 
 /* --- graph page layout ------------------------------------------------------
    One toolbar row instead of three stacked ones, and a canvas that fills the
-   window so the map never runs off the bottom of the page. */
+   window so the map never runs off the bottom of the page. Shared with the
+   Timeline toolbar (same class, same strip). */
 .graph-toolbar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
+  /* Same rule DESIGN.md states for the chat dock: one height for every
+     select/input/button/segmented-control in the strip. Measured, not
+     assumed — the search box and the segmented Layout/Colour groups were
+     45px tall against 28-30px buttons beside them, the exact "stood four
+     pixels taller" failure DESIGN.md names, just wider here because a full
+     text input's padding is a bigger jump than a segmented control's. */
+  --control-h: 2rem;
 }
 
 .graph-toolbar h2 {
@@ -1903,9 +1923,22 @@
   margin-right: 0.25rem;
 }
 
-.graph-toolbar #graph-search {
+.graph-toolbar #graph-search,
+.graph-toolbar .timeline-search {
   width: 11rem;
+  height: var(--control-h);
+  padding-block: 0;
   margin: 0;
+}
+
+.graph-toolbar select {
+  height: var(--control-h);
+  /* Missing here while `#graph-search`/`.timeline-search` right above and
+     `.library-sort select` elsewhere both zero it: the base `select` rule's
+     own `padding-block` (from `--space-4`) was left fighting this fixed
+     height, so the option text sat low and, at some zoom/density
+     combinations, clipped against the box. */
+  padding-block: 0;
 }
 
 .graph-toolbar .tools-toggle {
@@ -1915,6 +1948,19 @@
 
 .graph-toolbar button {
   white-space: nowrap;
+  height: var(--control-h);
+  padding-block: 0;
+}
+
+.graph-toolbar .segmented-control {
+  height: var(--control-h);
+}
+
+.graph-toolbar .segmented-control label {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding-block: 0;
 }
 
 .graph-toolbar .graph-physics input[type="range"] {
@@ -1948,10 +1994,12 @@
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--glass-bg);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  /* Same tier/blur fix as .graph-trace directly above it in the cascade —
+     see that rule's comment. */
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   --control-h: 1.9rem;
 }
 

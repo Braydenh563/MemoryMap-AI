@@ -1891,10 +1891,10 @@ html {
   font-size: 16px;
 }
 
-.card h2 {
-  font-size: 1rem;
-  font-weight: 650;
-}
+/* `.card h2` itself now lives solely in 01-forms-settings.css (§35L) — this
+   was a second, older copy of the same selector (same computed size, since
+   --text-body is 1rem) that only survived as dead weight and a latent
+   specificity tie for anything loaded between here and there. */
 
 /* Inputs at 16px on touch screens so iOS doesn't zoom the page. */
 @media (max-width: 720px) {
@@ -2059,11 +2059,80 @@ html {
 
 .lightbox img {
   max-width: 92vw;
-  max-height: 92vh;
+  max-height: 80vh;
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  cursor: default;
 }
 
+/* Click-anywhere-to-close alone isn't discoverable — reported directly —
+   so there's now an explicit close affordance too. Fixed to the viewport
+   corner, not the image, so it's in the same place regardless of image size
+   or aspect ratio. */
+.lightbox-close {
+  position: fixed;
+  top: var(--space-6);
+  right: var(--space-6);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: var(--text-h2);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lightbox-close:hover,
+.lightbox-close:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.lightbox-meta {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--text-sm);
+  text-align: center;
+  margin-top: var(--space-4);
+  padding: 0 var(--space-8);
+  word-break: break-word;
+}
+
+.lightbox-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: var(--text-h3);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.lightbox-nav:hover,
+.lightbox-nav:focus-visible {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.lightbox-prev {
+  left: var(--space-6);
+}
+
+.lightbox-next {
+  right: var(--space-6);
+}
+
+/* Same control-height mismatch as `.capture-field-row`/`.draft-controls`
+   (see DESIGN.md): the category select (45.19px, the global form-field
+   rule), `.small` `Move` (28.39px) and `.ghost.small` `Tag`/`Delete`/`Done`
+   (30.39px, the border) measured as three heights on one row. `2rem`
+   (32px) rather than the 2.5rem used for Notes' other rows, since every
+   control here is already `.small`. */
 #batch-bar {
   margin: 0 0 0.8rem;
   padding: 0.5rem 0.8rem;
@@ -2071,11 +2140,18 @@ html {
   border-radius: var(--radius-lg);
   background: var(--accent-soft);
   flex-wrap: wrap;
+  --control-h: 2rem;
+}
+
+#batch-bar select,
+#batch-bar button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
 }
 
 #batch-bar select {
   max-width: 11rem;
-  margin-bottom: 0;
 }
 
 #select-btn.active {

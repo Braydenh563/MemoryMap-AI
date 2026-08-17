@@ -3675,7 +3675,7 @@ function renderWbLibrary() {
     const li = document.createElement("li");
     li.className = "wb-library-item";
     const text = entry.content || entry.preview || "";
-    li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "..." : text) : entry.id;
+    li.textContent = text ? (text.length > 40 ? text.substring(0, 40) + "…" : text) : entry.id;
     li.draggable = true;
     li.addEventListener("dragstart", (e) => {
       e.dataTransfer.setData("text/plain", entry.id);
@@ -4750,7 +4750,7 @@ function renderWhiteboard() {
     const contentEl = card.append("div").attr("class", "wb-card-content").node();
     const entry = entriesById.get(String(d.entry_id));
     if (!entry) {
-      contentEl.textContent = "Loading...";
+      contentEl.textContent = "Loading…";
       return;
     }
     const text = entry.content || entry.preview || "";
@@ -5567,7 +5567,12 @@ async function renderLibraryImagesGallery() {
     img.alt = image.original_name;
     img.loading = "lazy";
     img.addEventListener("error", () => fig.remove());
-    img.addEventListener("click", () => openLightbox(mediaSrc(image.url), image.original_name));
+    img.addEventListener("click", () => {
+      openLightbox(
+        images.map((i) => ({ filename: i.original_name, getUrl: () => mediaSrc(i.url) })),
+        images.indexOf(image)
+      );
+    });
     const del = document.createElement("button");
     del.type = "button";
     del.className = "ghost small icon-button library-image-delete";
@@ -5597,6 +5602,7 @@ async function renderLibraryImagesGallery() {
 
     const cap = document.createElement("figcaption");
     cap.textContent = image.original_name;
+    cap.title = image.original_name;
 
     rename.addEventListener("click", (event) => {
       event.stopPropagation();

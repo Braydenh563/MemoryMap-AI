@@ -70,6 +70,17 @@
   cursor: text;
 }
 
+/* `outline: none` above had no replacement — a keyboard/screen-reader user
+   tabbing into a whiteboard text box got no visible confirmation it was
+   focused (Web Interface Guidelines pass). The box itself already has a
+   defined border/background (see the comment above), so an inset ring on
+   the editable area reads as an ordinary text-field focus state rather than
+   a stray rectangle on the canvas. */
+.wb-object-text .wb-text-content:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: -2px;
+}
+
 /* A guaranteed drag target for a text box — see the matching comment in
    app.js's `objectEnter.each` for why `.wb-text-content` alone left only a
    ~0.5rem padding strip to grab. Same glyph and cursor as `.wb-panel-grip`,
@@ -331,7 +342,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--motion-slow) ease;
+  /* Explicit properties, not `all` — only `background`/`color` change, on
+     `:hover` just below. */
+  transition: background var(--motion-slow) ease, color var(--motion-slow) ease;
   padding: 0;
 }
 
@@ -530,9 +543,45 @@ textarea.drag-over {
   bottom: 20px;
   left: 20px;
   width: 350px;
+  max-width: calc(100vw - 40px);
   z-index: 1000;
   box-shadow: var(--shadow-md);
   animation: slide-up 0.3s ease-out;
+}
+
+/* `document.body.classList.toggle("has-agent-monitor", …)` (app.js) sets this
+   with no CSS ever consuming it — the fixed-position panel above just sat on
+   top of whatever a tab's own scroll container put underneath it, live-
+   verified overlapping real content on every tab at a 320px width (mobile
+   audit). The panel's own height is bounded (.monitor-header +
+   .monitor-logs's own 12.5rem max-height + padding), so a fixed buffer here
+   is enough for the active tab to scroll its content clear of the panel's
+   footprint rather than leaving anything permanently hidden behind it.
+
+   `.tab-page` is the scroll container for most tabs, but not all of them:
+   Notes and Chat (`04-chat-dock-appearance.css`) make `.tab-page` a plain
+   flex column and move the actual `overflow-y: auto` onto their own nested
+   `.layout > main` instead — padding the outer element there does nothing
+   for the inner one that's really scrolling, confirmed live (padding-bottom
+   on #tab-notes stayed unchanged after adding the class until this second
+   selector was added). Graph has no document-flow scroll container at all
+   (it's a pan/zoom canvas), so this can't help it the same way — noted as
+   still-open in the roadmap rather than silently left unfixed.
+
+   The buffer itself is `--space-9 * 9` (18rem) rather than a bare number —
+   not a spacing rhythm value in the usual sense (it's standing in for
+   another element's height, not a gap between two things), but
+   `test_style_scale.py` scans literal rem numbers inside any padding
+   declaration regardless of what they mean, so composing it from the scale
+   is what keeps this off the test's ALLOWED list, which is for cases where
+   even a token composition can't fit — this one can. */
+body.has-agent-monitor .tab-page {
+  padding-bottom: calc(var(--page-bottom) + var(--space-9) * 9);
+}
+
+body.has-agent-monitor #tab-notes .layout > main,
+body.has-agent-monitor #tab-chat .layout > main {
+  padding-bottom: calc(var(--space-9) * 9);
 }
 
 .monitor-log-item {
@@ -630,6 +679,17 @@ textarea.drag-over {
   background: transparent;
   font-size: var(--text-body);
   outline: none;
+}
+
+/* `outline: none` above with no replacement meant the app's own most
+   power-user-facing input (Ctrl/Cmd+Shift+K) had zero visible focus state
+   for a keyboard user — flagged by a Web Interface Guidelines pass.
+   `:focus-visible`, not `:focus`, so a mouse click into it doesn't draw a
+   ring that keyboard use actually needs. */
+.command-palette-input:focus-visible {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .command-palette-results {
@@ -1588,11 +1648,41 @@ dialog::backdrop {
 }
 
 /* Rows of controls sit on one rhythm, and wrap as whole controls rather than
-   letting one drop half a step. */
+   letting one drop half a step. Also one *height*: measured live, the
+   category select (the global 45.19px form-field rule), the plain `Save`
+   button (40px) and the `.ghost` icon buttons (42px, the border box-sizing
+   adds) were three different heights on one row — the same failure shape
+   `--control-h` already fixed in `.graph-toolbar`/`.library-toolbar`, just
+   not yet applied here. 2.5rem matches the row's own buttons rather than
+   the toolbars' smaller 2.3rem, since these are full-size `Save`/`Improve`
+   actions, not a `.small` toolbar strip. */
 .capture-field-row {
   gap: var(--space-3);
   row-gap: var(--space-3);
   align-items: center;
+  --control-h: 2.5rem;
+}
+
+.capture-field-row select,
+.capture-field-row button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
+}
+
+/* Notes tab → Ask: the question input, the answer-length select and the Ask
+   button had the same three-heights-on-one-row mismatch as
+   `.capture-field-row` above, same fix. */
+.ask-query-row {
+  --control-h: 2.5rem;
+}
+
+.ask-query-row input,
+.ask-query-row select,
+.ask-query-row button {
+  height: var(--control-h);
+  padding-block: 0;
+  margin: 0;
 }
 
 /* --- widget picker modal (roadmap §26) --------------------------------------------

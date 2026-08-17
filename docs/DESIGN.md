@@ -204,6 +204,76 @@ doesn't apply until something *is* gesture-driven.
 
 ---
 
+## Glass & materials
+
+Every floating or resting surface in the app commits to one of two opacity
+tiers — this was itself the subject of a full audit (a user-supplied
+checklist's Part B) that found and fixed real drift, so the rule below is
+enforced, not aspirational.
+
+```
+--card       55% opaque — a page surface, meant to be seen *through*
+--modal-bg   96–98% opaque — floats over arbitrary content, must stay legible
+--glass-blur 18px         — the one blur radius; do not hand-pick a px value
+--glass-shadow             — the one popup/floating shadow (= --shadow-md)
+--glass-border              — the one glass-surface border colour
+```
+
+**The rule:** anything that floats *over* other content — a popup, a
+dropdown menu, a folded-away options panel, a toolbar strip drawn on top of
+a canvas — declares all four together: `background: var(--modal-bg)`,
+`backdrop-filter: blur(var(--glass-blur)) saturate(150%)` (+ `-webkit-`
+mirror), `box-shadow: var(--glass-shadow)`, `border: 1px solid
+var(--glass-border)`. A page-level surface that content scrolls *inside* —
+a card, a sidebar — uses `--card` instead. Mixing the two, or picking a
+one-off blur radius or shadow, is the bug this section exists to prevent:
+found live in `.whiteboard-floating-panel`, `.graph-trace`/`.graph-options`,
+and `.timeline-band` (three different blur radii — 8px, 12px, and the
+18px token — across three tabs was the most visible version of the
+problem), all fixed by conforming to the rule above rather than by
+inventing a third option.
+
+### Turning it off
+
+`:root[data-glass="off"]` is a standing user preference (Settings →
+Appearance), not a special case to special-case around. It swaps `--card`
+to `--modal-bg`'s opaque value and zeroes `backdrop-filter` on an explicit
+selector list — currently 35+ selectors covering every popup, toolbar and
+floating panel named above. **Adding a new glass surface means adding it to
+that list too** — a panel missing from it stays glassy even with the
+setting switched off, which is how three of the Part B violations were
+found (the fix and the fallback drifted independently because they lived in
+different rules).
+
+### Palettes
+
+Eight curated palettes, each with an explicit light and dark pair —
+`:root[data-palette="X"]` / `:root[data-palette="X"][data-mode="dark"]`:
+**Aurora** (default, no attribute needed), **Parchment**, **Sage**,
+**Ocean**, **Lagoon**, **Ember**, **Plum**, **Carbon**. Carbon is the
+"quiet, non-glassy" option some users want — it does not override
+`--glass-opacity`/`--glass-blur` itself (it is still built from the same
+glass system as the other seven), so reaching that quiet, flat look is
+**Carbon palette + the Glass-off toggle together**, not a hard-coded
+exception baked into one palette. Composing two orthogonal settings this
+way is deliberate: a palette-specific override would be a second, competing
+mechanism for the same effect the toggle already provides everywhere else.
+
+---
+
+## Icons
+
+Phosphor (`<i class="ph ph-*">`) is the default for every icon in the app.
+One deliberate, narrower exception: **download/export actions use a plain
+Unicode arrow glyph** (`⬇`, `⭳`) instead — chat export, both document
+export buttons, the whiteboard export button, and the settings support-
+bundle download all do this consistently. It reads as inconsistent seen in
+isolation; checked across all five call sites before touching any of them,
+it is the app's actual (if quiet) convention for this one action family,
+not drift — leave it alone rather than "fixing" it to Phosphor.
+
+---
+
 ## Hierarchy
 
 Levels must be **visibly ordered**, and they were not: `h2` ranged 0.92–1.15rem
@@ -319,6 +389,68 @@ give it up vertically, and let the declared height decide.
 Where a row's box grows — a chat composer with an autogrowing textarea — align
 to `end` rather than `center`, so the buttons stay level with the line the
 caret is on instead of drifting up the side of it.
+
+### Where this is applied
+
+Not every toolbar has been through this yet — treat a row that hasn't as a
+gap, not as a deliberate exception, and give it its own `--control-h` before
+adding a control to it:
+
+- `.chat-dock-controls` (`04-chat-dock-appearance.css`) — the original.
+- `.graph-toolbar` (`03-dashboard-widgets.css`) — shared by the Graph and
+  Timeline tabs' primary rows. Added after measuring a real ~15px gap
+  between the search/select controls (45px, from the global form-field rule)
+  and the buttons beside them (~30px) — close enough to pass a glance, wrong
+  enough to fail a ruler. Covers `select`, `input[type=text|search]`,
+  `button`, and `.segmented-control` so a text input, a select, a button and
+  a segmented radio group can all sit in the same row and read as one strip.
+- `.graph-options` / `#timeline-options` (`03-dashboard-widgets.css`) — the
+  folded-away "tuned once" panels behind each tab's Options button. Only
+  `button` is height-locked here; sliders and switches are deliberately their
+  own native size rather than stretched to match, since forcing a slider
+  thumb to a button's hit-box height would misrepresent it as clickable
+  chrome rather than a drag control.
+- `.library-toolbar` (`00-tokens-shell.css`) — shared by the Library tab and
+  the Notes tab's "All entries" row (`#browse` in `index.html`; same class,
+  reused markup). The rule covered `.library-search`, `select`, `.seg` and
+  `.seg button`, but Notes' own toolbar adds two plain `<button class="ghost
+  small">`s (`#select-btn`, `#search-help`) that Library's own toolbar
+  doesn't have — not inside a `.seg`, so the selector list missed them.
+  Measured at 30.39px against the row's 36.8px (`2.3rem`) `--control-h` —
+  the same failure shape as `.graph-toolbar`, just the buttons short instead
+  of the inputs tall. Fixed by widening `.seg button` to plain `button`,
+  which covers both without duplicating a rule.
+- `.capture-field-row` (`07-whiteboard-misc.css`), `.draft-controls`
+  (`04-chat-dock-appearance.css`) and `.ask-query-row`
+  (`07-whiteboard-misc.css`) — the Notes tab's Capture, Write-with-AI and
+  Ask panels, none audited before this round. All three had the same
+  three-heights-on-one-row shape: a `select`/`input` at the global 45.19px
+  form-field height, a plain `button` at 40px, and a `.ghost` button at 42px
+  (the border, under `box-sizing: border-box`). `2.5rem` (40px) rather than
+  the toolbars' `2.3rem`, since these rows carry full-size `Save`/`Draft it`
+  actions, not a `.small` toolbar strip.
+- `#batch-bar` (`02-chat-graph.css`) — the Notes tab's select-mode batch
+  action row (`Move to…` / Move / Tag / Delete / Done). The category select
+  (45.19px), `.small` `Move` (28.39px) and `.ghost.small` `Tag`/`Delete`/
+  `Done` (30.39px) were three more heights on one row. `2rem` here, since
+  every control is already `.small`.
+- `#reminder-magic-row` (`05-sidebars-themes.css`) — the Reminders tab's
+  natural-language add row. Smaller than the others (44px `textarea.autogrow`
+  against a 42px `.ghost` `Add` button, 2px) but the same shape, fixed by
+  matching the button's height to the textarea's own `min-height: 2.75rem`.
+  The tab's main `.reminder-form` row and the filter `.seg` were already
+  correct — checked, not assumed, before moving on.
+
+`.doc-toolbar`'s two rows (`04-chat-dock-appearance.css`) — the Documents
+editor's metadata/actions row and its formatting-button row, named as an
+open question in an earlier HANDOVER entry — were measured and are
+**already correct**, not a missed instance. The formatting row's buttons are
+uniform 29.19px. The metadata row's title input (45.19px) sits beside a
+`row space-between`-justified stats/actions group, not edge-to-edge with
+it — a `space-between` title-left/actions-right header, not a strip of
+controls sharing one boundary, so a height difference there doesn't read as
+misalignment the way it does within `.doc-actions` itself (which is
+internally uniform, all `.ghost.small`).
 
 ---
 

@@ -241,6 +241,11 @@ function showLockScreen(setupMode) {
     : "Enter your password to unlock your notebook.";
   $("lock-submit").textContent = setupMode ? "Set password & start" : "Unlock";
   $("lock-overlay").dataset.mode = setupMode ? "setup" : "unlock";
+  // One field in two modes (no separate setup form) — autocomplete has to
+  // switch with it, or a password manager offers to fill an *existing*
+  // saved password into a first-run "choose a new one" field.
+  $("lock-password").setAttribute("aria-label", setupMode ? "Choose a password" : "Password");
+  $("lock-password").autocomplete = setupMode ? "new-password" : "current-password";
   $("lock-password").focus();
 }
 
@@ -637,6 +642,23 @@ function chip(text, extraClass = "", onClick = null) {
   return span;
 }
 
+// The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
+// keyboard support and never got it retrofitted — mouse-only, same gap
+// chip() already closed once this session for the "Go to note" chip.
+// Dispatches a real click rather than duplicating each call site's own
+// handler, so this stays a one-line addition wherever a `.unlink` span
+// already has its click listener attached.
+function makeUnlinkAccessible(span) {
+  span.setAttribute("role", "button");
+  span.setAttribute("tabindex", "0");
+  span.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      span.click();
+    }
+  });
+}
+
 // A <select> from [value, label] pairs, with one option preselected.
 function buildSelect(options, selected) {
   const select = document.createElement("select");
@@ -913,12 +935,16 @@ function entryItem(entry, options = {}) {
   // saved while no AI was running, it accused a perfectly good note of being
   // suspect — which is most notes if you don't run Ollama.
   const aiDidFile = entry.ai_confidence > 0 && !entry.user_filed;
+  // Plain-language explanation on hover — "confidence" is jargon otherwise,
+  // and the number alone doesn't say what it's confident *about*.
+  const confidenceHint = "How sure the AI was when it picked this note's category.";
   const confidenceChip = aiDidFile
     ? entry.ai_confidence >= REVIEW_THRESHOLD
       ? chip(`AI ${entry.ai_confidence}%`, "confidence")
       : // Low confidence from a real attempt — worth a human look (Phase 3).
         chip(`AI ${entry.ai_confidence}% — check this`, "review")
     : null;
+  if (confidenceChip) confidenceChip.title = confidenceHint;
   // Flash the badge once when this note's confidence just changed, so the
   // update after a re-evaluation is actually noticeable (user request).
   if (confidenceChip && entry.id === flashConfidenceId) {
@@ -947,6 +973,7 @@ function entryItem(entry, options = {}) {
         await loadEntries();
         toast(`Detached from “${doc.title}”.`);
       });
+      makeUnlinkAccessible(unlink);
       mark.appendChild(unlink);
     }
     meta.appendChild(mark);
@@ -1042,6 +1069,7 @@ function entryItem(entry, options = {}) {
           await api(`/files/${attachment.id}`, { method: "DELETE" });
           await loadEntries();
         });
+        makeUnlinkAccessible(remove);
         return remove;
       };
 
@@ -1056,9 +1084,13 @@ function entryItem(entry, options = {}) {
         attachmentObjectUrl(attachment)
           .then((url) => (img.src = url))
           .catch(() => wrap.remove());
-        img.addEventListener("click", async () =>
-          openLightbox(await attachmentObjectUrl(attachment), attachment.filename)
-        );
+        img.addEventListener("click", () => {
+          const images = entry.attachments.filter((a) => a.is_image);
+          openLightbox(
+            images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+            images.indexOf(attachment)
+          );
+        });
         wrap.appendChild(img);
         if (options.actions) wrap.appendChild(removeButton());
         fileRow.appendChild(wrap);
@@ -1101,7 +1133,19 @@ function entryItem(entry, options = {}) {
       // not here — `link.preview` is a clip of the *other* note's own text,
       // which can carry the same **bold**/`code` a reader would expect to
       // see rendered, the way the note's own body already does.
-      const linkChip = chip("", "link");
+      //
+      // The click handler is built first and passed into chip()'s own
+      // onClick param — every sibling chip() call site in this file does
+      // the same and gets keyboard support (Enter/Space, role="button",
+      // tabindex) for free. This one used to build a bare chip and attach a
+      // plain `click` listener after the fact instead, which quietly opted
+      // this specific "Go to note" chip out of keyboard operability while
+      // every other chip stayed reachable (Web Interface Guidelines pass).
+      const goToLinkedNote = (e) => {
+        if (e.target.classList.contains("unlink")) return;
+        flashEntry(link.entry_id);
+      };
+      const linkChip = chip("", "link", goToLinkedNote);
       linkChip.appendChild(setLabel(document.createElement("span"), "ph:arrows-left-right"));
     linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
@@ -1115,11 +1159,6 @@ function entryItem(entry, options = {}) {
       linkChip.title = reasonNote
         ? `Go to note: ${label}\nReason: ${reasonNote}`
         : `Go to note: ${label}`;
-      linkChip.style.cursor = "pointer";
-      linkChip.addEventListener("click", (e) => {
-        if (e.target.classList.contains("unlink")) return;
-        flashEntry(link.entry_id);
-      });
       if (options.actions) {
         const editReason = document.createElement("span");
         editReason.className = "unlink reason-edit";
@@ -1168,6 +1207,7 @@ function entryItem(entry, options = {}) {
           await api(`/entries/${entry.id}/links/${link.link_id}`, { method: "DELETE" });
           await loadEntries();
         });
+        makeUnlinkAccessible(unlink);
         linkChip.appendChild(unlink);
       }
       linkRow.appendChild(linkChip);
@@ -1863,23 +1903,33 @@ function renderInlineAction(entry) {
 function attachFileTo(entry) {
   const input = document.createElement("input");
   input.type = "file";
+  // The backend already accepts one attachment per POST and a note already
+  // renders any number of them — the only thing missing was the picker
+  // itself only ever taking `files[0]`, silently dropping a multi-select.
+  input.multiple = true;
   input.addEventListener("change", async () => {
-    const file = input.files[0];
-    if (!file) return;
-    const form = new FormData();
-    form.append("file", file);
-    // Raw fetch: multipart must NOT get the JSON content-type header.
-    const response = await fetch(`/entries/${entry.id}/files`, {
-      method: "POST",
-      headers: { "X-Auth-Token": authToken() },
-      body: form,
-    });
-    if (!response.ok) {
-      const detail = await response.json().catch(() => ({}));
-      toast(detail.detail || `Upload failed (${response.status})`, true);
-      return;
+    const files = [...input.files];
+    if (!files.length) return;
+    let failures = 0;
+    for (const file of files) {
+      const form = new FormData();
+      form.append("file", file);
+      // Raw fetch: multipart must NOT get the JSON content-type header.
+      const response = await fetch(`/entries/${entry.id}/files`, {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      if (!response.ok) {
+        failures++;
+        const detail = await response.json().catch(() => ({}));
+        toast(detail.detail || `${file.name}: upload failed (${response.status})`, true);
+      }
     }
-    toast(`Attached ${file.name}.`);
+    const attached = files.length - failures;
+    if (attached > 0) {
+      toast(attached === 1 ? `Attached ${files[0].name}.` : `Attached ${attached} files.`);
+    }
     await loadEntries();
   });
   input.click();
@@ -1898,25 +1948,81 @@ async function attachmentObjectUrl(attachment) {
 }
 
 // Full-size image viewer: click anywhere or press Esc to close (Wave M).
-function openLightbox(url, alt) {
+// `items` is every image this click can page through — e.g. all the image
+// attachments on the same note — as `{filename, getUrl}`, `getUrl` being a
+// (possibly async) thunk so unopened images aren't fetched until reached.
+// `startIndex` is which one was clicked; a single image is just a one-item
+// list. Reported directly: click-anywhere-to-close alone isn't discoverable,
+// so there's now an explicit close button too — both still work.
+function openLightbox(items, startIndex = 0) {
+  let index = startIndex;
   const overlay = document.createElement("div");
   overlay.className = "lightbox";
   overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-label", alt || "Image preview");
+  overlay.setAttribute("aria-label", "Image preview");
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "lightbox-close";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.textContent = "×";
+
   const img = document.createElement("img");
-  img.src = url;
-  img.alt = alt || "";
-  overlay.appendChild(img);
+  const meta = document.createElement("div");
+  meta.className = "lightbox-meta";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.type = "button";
+  prevBtn.className = "lightbox-nav lightbox-prev";
+  prevBtn.setAttribute("aria-label", "Previous image");
+  setLabel(prevBtn, "ph:caret-left");
+
+  const nextBtn = document.createElement("button");
+  nextBtn.type = "button";
+  nextBtn.className = "lightbox-nav lightbox-next";
+  nextBtn.setAttribute("aria-label", "Next image");
+  setLabel(nextBtn, "ph:caret-right");
+
+  async function show(i) {
+    index = (i + items.length) % items.length;
+    const item = items[index];
+    img.alt = item.filename || "";
+    img.src = await item.getUrl();
+    overlay.setAttribute("aria-label", item.filename || "Image preview");
+    meta.textContent =
+      items.length > 1
+        ? `${item.filename || ""} — ${index + 1} of ${items.length}`
+        : item.filename || "";
+  }
+
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
   };
   const onKey = (e) => {
     if (e.key === "Escape") close();
+    else if (e.key === "ArrowLeft" && items.length > 1) show(index - 1);
+    else if (e.key === "ArrowRight" && items.length > 1) show(index + 1);
   };
+  // Only the backdrop itself closes on click — the nav/close buttons need to
+  // stay clickable without also dismissing the dialog they sit inside.
   overlay.addEventListener("click", close);
+  closeBtn.addEventListener("click", close);
+  prevBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    show(index - 1);
+  });
+  nextBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    show(index + 1);
+  });
   document.addEventListener("keydown", onKey);
+
+  overlay.append(closeBtn, img, meta);
+  if (items.length > 1) overlay.append(prevBtn, nextBtn);
   document.body.appendChild(overlay);
+  closeBtn.focus();
+  show(startIndex);
 }
 
 async function downloadAttachment(attachment) {
@@ -2389,7 +2495,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         img.style.cursor = "zoom-in";
         img.addEventListener("click", (e) => {
           e.stopPropagation();
-          openLightbox(mediaSrc(imageUrl), imageAlt || "Image");
+          openLightbox([{ filename: imageAlt || "Image", getUrl: () => mediaSrc(imageUrl) }], 0);
         });
         const dismissBtn = document.createElement("span");
         dismissBtn.className = "unlink";
@@ -2402,6 +2508,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
             detail: { originalText: match[0] }
           }));
         });
+        makeUnlinkAccessible(dismissBtn);
         wrapper.appendChild(img);
         wrapper.appendChild(dismissBtn);
         // Asked for directly: a deleted image left a broken-image glyph in
@@ -2418,6 +2525,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
           dismiss.title = "Dismiss";
           dismiss.textContent = "×";
           dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
+          makeUnlinkAccessible(dismiss);
           placeholder.appendChild(dismiss);
           wrapper.replaceWith(placeholder);
         });
@@ -2624,7 +2732,11 @@ function renderEntries() {
     : allEntries;
   visible = visible.filter(matchesSearch);
 
-  const scope = activeCategory ? `${activeCategory} entries` : "All entries";
+  // "Notes" everywhere else on this tab ("Your notes", "notebook", the
+  // status-bar note count) — this heading used to say "entries" (the API's
+  // internal name, /entries), the one place on the tab that didn't match
+  // (Part C terminology audit).
+  const scope = activeCategory ? `${activeCategory} notes` : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
@@ -2709,6 +2821,7 @@ function renderSidebar() {
     const name = document.createElement("span");
     name.className = "category-name";
     name.textContent = label;
+    name.title = label;
     const badge = document.createElement("span");
     badge.className = "count";
     badge.textContent = count;
@@ -6972,7 +7085,7 @@ async function sendChatMessage(preset, opts = {}) {
   try {
     slowLoadTimeout = setTimeout(() => {
       if (!meta && !stopped) {
-        status.textContent = "Loading model... (this may take a moment)";
+        status.textContent = "Loading model… (this may take a moment)";
       }
     }, 5000);
     await streamChat({
@@ -7446,6 +7559,9 @@ async function deleteCurrentChat() {
       toast("Couldn't delete this chat.", true);
       return;
     }
+    // Document delete already confirms this way; chat delete silently reset
+    // the pane instead, the same success-feedback gap in miniature.
+    toast("Chat deleted.");
   }
   newChatConversation();
   loadConversationList();
@@ -12430,6 +12546,13 @@ function switchTab(name) {
   }
   if (name === "timeline") {
     $("timeline-view").value = timelineView();
+    setTimelineScaleEnabled(timelineView());
+    // Match the saved open/closed state on arrival, same as Graph's Options
+    // panel — otherwise a notebook left open comes back collapsed.
+    const optionsOpen = localStorage.getItem("timeline-options-open") === "1";
+    $("timeline-options").classList.toggle("hidden", !optionsOpen);
+    $("timeline-options-toggle").setAttribute("aria-expanded", String(optionsOpen));
+    $("timeline-options-toggle").classList.toggle("is-on", optionsOpen);
     renderTimeline();
   }
   if (name === "documents") {
@@ -12590,6 +12713,21 @@ function renderTimelineBranch(body) {
   svg.selectAll("*").remove();
   const width = Math.max($("timeline-branch-wrap").clientWidth || 800, 480);
 
+  // The same "premium orb" shine Graph's nodes use (renderGraph(), graph.js)
+  // — a white radial highlight offset toward the top-left corner, so the dot
+  // reads as a lit sphere instead of a flat circle. Own id (not graph.js's
+  // "orb-shine") because both tabs' SVGs can be present in the document at
+  // once and an id must be unique across the whole page, not just one <svg>.
+  const shineDefs = svg.append("defs");
+  const shineGrad = shineDefs
+    .append("radialGradient")
+    .attr("id", "timeline-orb-shine")
+    .attr("cx", "35%")
+    .attr("cy", "30%")
+    .attr("r", "65%");
+  shineGrad.append("stop").attr("offset", "0%").attr("stop-color", "white").attr("stop-opacity", "0.65");
+  shineGrad.append("stop").attr("offset", "100%").attr("stop-color", "white").attr("stop-opacity", "0");
+
   const notes = body.notes;
   const times = notes.map((n) => new Date(n.at));
   const minT = d3.min(times);
@@ -12714,8 +12852,53 @@ function renderTimelineBranch(body) {
       placed.push(n);
     });
 
+    // A soft coloured glow behind each dot, same treatment the Graph tab's
+    // nodes use (.graph-halo) — asked for directly ("look similar to the
+    // graph nodes"). Its own circle rather than an SVG filter on the dot,
+    // so blur and fill can differ from the crisp dot on top of it.
+    const halos = laneGroup
+      .selectAll("circle.timeline-branch-halo")
+      .data(here)
+      .join("circle")
+      .attr("class", "timeline-branch-halo")
+      .attr("cx", (n) => n.cx)
+      .attr("cy", (n) => laneY + (n._dy || 0))
+      .attr("fill", tint)
+      .attr("r", 0)
+      .style("opacity", 0.2);
+
+    halos.transition()
+      .delay((_, i) => Math.min(i * 30, 800))
+      .duration(400)
+      .ease(d3.easeElasticOut)
+      .attr("r", TIMELINE_DOT_R * 1.6);
+
+    // The same "premium orb" highlight overlay as Graph's `.graph-orb-shine`
+    // (renderGraph(), graph.js) — asked for directly ("the graph nodes have
+    // a sort of shine to them and I want the timeline nodes ... to be the
+    // same"). Declared before `dots` so its own hover handler can resize the
+    // matching shine by index. `pointer-events: none` so it never steals the
+    // dot's own hover/click, same as `.graph-orb-shine` gets from JS
+    // (graph.js) rather than CSS.
+    const shines = laneGroup
+      .selectAll("circle.timeline-branch-shine")
+      .data(here)
+      .join("circle")
+      .attr("class", "timeline-branch-shine")
+      .attr("cx", (n) => n.cx)
+      .attr("cy", (n) => laneY + (n._dy || 0))
+      .attr("fill", "url(#timeline-orb-shine)")
+      .attr("pointer-events", "none")
+      .attr("r", 0);
+
+    shines.transition()
+      .delay((_, i) => Math.min(i * 30, 800))
+      .duration(400)
+      .ease(d3.easeElasticOut)
+      .attr("r", TIMELINE_DOT_R);
+
     const dots = laneGroup
-      .selectAll("circle")
+      .selectAll("circle.timeline-branch-dot")
       .data(here)
       .join("circle")
       .attr(
@@ -12726,20 +12909,39 @@ function renderTimelineBranch(body) {
       .attr("cy", (n) => laneY + (n._dy || 0))
       .attr("fill", tint)
       .attr("r", 0)
-      .on("mouseover", function() {
+      .on("mouseover", function(event, n) {
         d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
+        // Opacity only, same as Graph's own `.graph-node:hover circle.graph-halo`
+        // (04-chat-dock-appearance.css) — the halo used to grow to 2.2x here
+        // too, and mouseout reset it back to that *same* 2.2x instead of the
+        // resting 1.6x (copy-paste of the mouseover line), so the glow only
+        // ever grew and never actually shrank back down after a hover.
+        // Dropping the radius change here removes the mismatch instead of
+        // just correcting the number, and reads closer to Graph's subtler
+        // hover in the process.
+        const halo = halos.nodes()[here.indexOf(n)];
+        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.45);
+        // The shine sits on top of the dot at the dot's resting size — it has
+        // to grow with the dot on hover too, or the enlarged dot pokes out
+        // past its own highlight.
+        const shine = shines.nodes()[here.indexOf(n)];
+        if (shine) d3.select(shine).transition().duration(150).attr("r", TIMELINE_DOT_R * 1.5);
         d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", function() {
           return (this === laneGroup.node()) ? 1 : 0.2;
         });
       })
-      .on("mouseout", function() {
+      .on("mouseout", function(event, n) {
         d3.select(this).transition().duration(150).attr("r", TIMELINE_DOT_R);
+        const halo = halos.nodes()[here.indexOf(n)];
+        if (halo) d3.select(halo).transition().duration(150).style("opacity", 0.2);
+        const shine = shines.nodes()[here.indexOf(n)];
+        if (shine) d3.select(shine).transition().duration(150).attr("r", TIMELINE_DOT_R);
         d3.selectAll(".timeline-branch-lane").transition().duration(150).style("opacity", 1);
       })
       .on("click", (event, n) => {
         openTimelinePopup(event, n);
       });
-      
+
     dots.transition()
       .delay((_, i) => Math.min(i * 30, 800))
       .duration(400)
@@ -12857,6 +13059,9 @@ function timelineDot(note) {
   const title = document.createElement("span");
   title.className = "timeline-dot-title";
   title.textContent = heading || "Untitled note";
+  // Single-line ellipsis with no other escape hatch — a native tooltip for
+  // the full title costs nothing and the text is already plain.
+  title.title = heading || "Untitled note";
   dot.appendChild(title);
 
   if (rest) {
@@ -12956,9 +13161,36 @@ function openTimelineBand(band, group) {
 for (const id of ["timeline-scale", "timeline-group", "timeline-days"]) {
   $(id).addEventListener("change", renderTimeline);
 }
+// Bucket-by sizes the grid's columns and has nothing to act on in the line
+// view, which places notes by real timestamp on a continuous scale — same
+// shape as Graph's Gravity/Spread under a tree layout. Reported live as
+// "doesn't change the timeline"; this is why, and dims the control instead
+// of leaving it live and silently inert.
+function setTimelineScaleEnabled(view) {
+  const applies = view !== "line";
+  const group = $("timeline-scale-group");
+  const select = $("timeline-scale");
+  if (!group || !select) return;
+  group.classList.toggle("is-disabled", !applies);
+  select.disabled = !applies;
+  const why = "Only applies to Grid view — Line places notes by their exact date on a continuous scale, not by bucket.";
+  select.title = applies ? "" : why;
+  const label = group.querySelector("label");
+  if (label) label.title = applies ? "" : why;
+}
 $("timeline-view").addEventListener("change", (event) => {
   localStorage.setItem("timeline-view", event.target.value);
+  setTimelineScaleEnabled(event.target.value);
   renderTimeline();
+});
+// Folded away the same way Graph's Options panel is: bucket/bands/range are
+// set once for a session and left, not touched while reading the timeline.
+$("timeline-options-toggle").addEventListener("click", () => {
+  const panel = $("timeline-options");
+  const open = panel.classList.toggle("hidden") === false;
+  $("timeline-options-toggle").setAttribute("aria-expanded", String(open));
+  $("timeline-options-toggle").classList.toggle("is-on", open);
+  localStorage.setItem("timeline-options-open", open ? "1" : "0");
 });
 
 $("timeline-popup-close").addEventListener("click", () => {
@@ -13035,8 +13267,11 @@ function renderTimelinePopupMedia(entry) {
         placeTimelinePopup(); // the popup just got taller
       })
       .catch(() => img.remove());
-    img.addEventListener("click", async () => {
-      openLightbox(await attachmentObjectUrl(attachment), attachment.filename);
+    img.addEventListener("click", () => {
+      openLightbox(
+        images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+        images.indexOf(attachment)
+      );
     });
     box.appendChild(img);
   }
@@ -13235,18 +13470,31 @@ function scrollPageToTop() {
 // Shown on every tab except the graph, where the page itself doesn't scroll
 // and the button would just sit on top of the map.
 //
-// Chat is a special case, not an exclusion: `.tab-page` itself never scrolls
-// there (`#tab-chat > .layout` fills the page, §36A), so the page-scroll
-// button would just sit permanently hidden even in a long conversation
-// (user-reported: "I want a back-to-top button in chat pages"). The actual
-// scrolling element on that tab is `#chat-messages`, so the button tracks
-// that instead of the page whenever chat is active — same button, same
-// corner, just a different scroll target depending on which tab is up.
+// Chat and Notes (which the Library/browse views live inside) are special
+// cases, not exclusions: `.tab-page` itself never scrolls on either — both
+// use the flex + nested-scroll-container shape (`#tab-chat`/`#tab-notes
+// > .layout > main`, see 04-chat-dock-appearance.css), so a button watching
+// `.tab-page.scrollTop` would see 0 forever and never show, and clicking it
+// would scroll an element that never moves. Reported as "the back-to-top
+// button doesn't appear in all places it should (like the Library)" — the
+// Notes tab was missing the same nested-scroll accommodation Chat already
+// had (user-reported there first as "I want a back-to-top button in chat
+// pages"). One lookup table, one target per tab, rather than a second
+// hardcoded special case.
 const NO_SCROLL_TOP_TABS = new Set(["graph"]);
+const NESTED_SCROLL_TABS = {
+  chat: () => chatMessagesEl(),
+  notes: () => document.querySelector("#tab-notes .layout > main"),
+};
 let scrollTopUpdate = null;
 
 function chatMessagesEl() {
   return document.getElementById("chat-messages");
+}
+
+function scrollTopTargetEl() {
+  const tab = localStorage.getItem("activeTab") || "dashboard";
+  return NESTED_SCROLL_TABS[tab]?.() || scrollingPage();
 }
 
 function initScrollTopButton() {
@@ -13258,13 +13506,8 @@ function initScrollTopButton() {
   button.title = "Back to top";
   button.setAttribute("aria-label", "Back to top");
   button.addEventListener("click", () => {
-    const tab = localStorage.getItem("activeTab") || "dashboard";
-    if (tab === "chat") {
-      const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      chatMessagesEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
-    } else {
-      scrollPageToTop();
-    }
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scrollTopTargetEl()?.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
     // Send focus somewhere sensible rather than leaving it on a button that
     // is about to hide itself.
     document.querySelector(".tab-page:not(.hidden)")?.focus();
@@ -13273,8 +13516,7 @@ function initScrollTopButton() {
 
   const update = () => {
     const tab = localStorage.getItem("activeTab") || "dashboard";
-    const scrollTop =
-      tab === "chat" ? chatMessagesEl()?.scrollTop || 0 : scrollingPage()?.scrollTop || 0;
+    const scrollTop = scrollTopTargetEl()?.scrollTop || 0;
     const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
   };
@@ -14786,7 +15028,7 @@ function renderPalette(query) {
   list.replaceChildren();
   matches.forEach((match, index) => {
     const li = document.createElement("li");
-    li.textContent = match.label;
+    setLabel(li, match.label);
     if (index === paletteIndex) li.classList.add("active");
     li.addEventListener("click", () => {
       closePalette();
@@ -14827,6 +15069,13 @@ function paletteKeydown(event) {
 // "multiply" blend mode reads as an actual highlighter (translucent, tints
 // rather than covers) in one pass.
 const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+// Was 6x — the whiteboard's own highlighter (WB_STROKE_WIDTH * 4 in
+// whiteboard.js) is the reference the two are meant to match, and reported
+// directly as needing to. Both start from a different base width (sketchPen
+// default 4px vs. the whiteboard's 3px), so matching the multiplier rather
+// than the pixel result is what keeps them proportionally alike as either
+// slider moves.
+const SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER = 4;
 
 let sketchPen = { color: "#3b82f6", size: 4, eraser: false };
 let sketchDrawing = false;
@@ -14977,7 +15226,7 @@ function sketchMove(event) {
   context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
   context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
   context.strokeStyle = sketchPen.color;
-  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+  context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
 
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.lineTo(x, y);
@@ -15035,7 +15284,7 @@ function sketchEnd(event) {
     context.strokeStyle = sketchPen.color;
     
     if (sketchTool === "pen" || sketchTool === "highlighter") {
-      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * 6 : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
+      context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
       context.beginPath();
       context.moveTo(sketchStartX, sketchStartY);
       context.lineTo(sketchStartX, sketchStartY + 0.1);
@@ -16107,6 +16356,7 @@ function renderAiPill() {
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
   $("ai-status-detail").textContent = state.detail;
+  renderChatActiveModelBadge();
 }
 
 // --- the Library (§4, §36F) ---------------------------------------------------
@@ -16627,6 +16877,9 @@ function libraryCard(item) {
   // so a note starting with `# Title` doesn't show the raw `# `.
   const cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
   renderInlineMarkdown(title, cleanTitle, []);
+  // The 2-line clamp above cuts a long title off mid-word with no way to read
+  // the rest short of opening the card — a native tooltip costs nothing.
+  title.title = cleanTitle;
   top.append(icon, title);
   if (item.pinned) {
     const pin = document.createElement("span");
@@ -17705,6 +17958,19 @@ function renderChatModelPicker(status) {
     status.chat_model_installed === false
       ? `Active model “${status.chat_model}” is not installed any more — pick another or download it below.`
       : `Active: ${status.chat_model}`;
+}
+
+// Nielsen #6, recognition over recall: which model answers was previously
+// knowable only by opening Settings → Models, and only then if the backend
+// is Ollama (the picker above is gated on ollama_running). status.chat_model
+// itself isn't backend-specific, so this reads it straight off the poll
+// loop instead of piggybacking on that gated render.
+function renderChatActiveModelBadge() {
+  const badge = $("chat-active-model");
+  if (!badge) return;
+  const name = modelStatus && modelStatus.chat_model;
+  badge.hidden = !name;
+  badge.textContent = name || "";
 }
 
 function renderUtilityModelPicker(status) {
@@ -19989,6 +20255,21 @@ $("glass-sheen-strength").addEventListener("input", (e) => {
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
   localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
+  // The background-art picker has its own "Moving" override so someone can
+  // ask for motion despite the OS-level reduced-motion hint (see
+  // startBgArt()'s comment — that fix was reported missing once already).
+  // But flipping the in-app reduce-motion toggle is a direct, explicit ask,
+  // and "Moving" silently surviving it read as the two settings being
+  // unrelated. Turning it on selects "Still"; turning it back off only
+  // clears that if we're the ones who set it, so an independent "Moving"
+  // choice made before or after isn't clobbered.
+  if (e.target.checked) {
+    localStorage.setItem("bg-motion", "still");
+  } else if (appearancePref("bg-motion") === "still") {
+    localStorage.setItem("bg-motion", "auto");
+  }
+  if ($("bg-motion")) $("bg-motion").value = appearancePref("bg-motion");
+  renderBgMotionHint();
   applyAppearance();
   if (e.target.checked) stopBgArt(); // a still UI shouldn't keep the art running
   else if (bgArtOn()) startBgArt();
@@ -20776,7 +21057,15 @@ $("library-bin-empty").addEventListener("click", async () => {
       "This cannot be undone."
   );
   if (!ok) return;
-  await apiJson("/recycle-bin/empty", { method: "POST" }).catch((e) => toast(e.message, true));
+  try {
+    await apiJson("/recycle-bin/empty", { method: "POST" });
+  } catch (e) {
+    // Was unconditional before — a failed request still showed "The bin is
+    // empty." right under its own error toast, one saying it worked and one
+    // saying it didn't, for the same click.
+    toast(e.message, true);
+    return;
+  }
   toast("The bin is empty.");
   loadLibrary();
   loadEntries();
@@ -20802,10 +21091,21 @@ $("library-bulk-open").addEventListener("click", () => {
 $("library-bulk-restore").addEventListener("click", async () => {
   const chosen = librarySelectedItems().filter((i) => i.kind === "archived");
   if (!chosen.length) return;
+  // Was `.catch(() => {})` then an unconditional "Restored N notes." for
+  // every item *attempted* — a per-item 404/500 was silently swallowed and
+  // still counted as a success. Track real outcomes instead.
+  let restored = 0;
   for (const item of chosen) {
-    await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch(() => {});
+    try {
+      await apiJson(`/entries/${item.id}/restore`, { method: "POST" });
+      restored++;
+    } catch {
+      // counted below
+    }
   }
-  toast(`Restored ${chosen.length} note${chosen.length === 1 ? "" : "s"}.`);
+  if (restored) toast(`Restored ${restored} note${restored === 1 ? "" : "s"}.`);
+  const failed = chosen.length - restored;
+  if (failed) toast(`${failed} note${failed === 1 ? "" : "s"} couldn't be restored.`, true);
   loadLibrary();
   loadEntries();
 });
@@ -20823,6 +21123,10 @@ $("library-bulk-delete").addEventListener("click", async () => {
         : "Notes go to the bin; documents and chats are deleted for good.")
   );
   if (!ok) return;
+  // Same fix as library-bulk-restore just above: a per-item failure used to
+  // be swallowed by `.catch(() => {})` and still counted toward the
+  // unconditional "Deleted N items." toast. Track what actually succeeded.
+  let deleted = 0;
   for (const item of chosen) {
     const route =
       item.kind === "archived"
@@ -20837,9 +21141,16 @@ $("library-bulk-delete").addEventListener("click", async () => {
                 ? [`/files/${item.id}`, "DELETE"]
                 : null;
     if (!route) continue;
-    await apiJson(route[0], { method: route[1] }).catch(() => {});
+    try {
+      await apiJson(route[0], { method: route[1] });
+      deleted++;
+    } catch {
+      // counted below
+    }
   }
-  toast(`Deleted ${chosen.length} item${chosen.length === 1 ? "" : "s"}.`);
+  if (deleted) toast(`Deleted ${deleted} item${deleted === 1 ? "" : "s"}.`);
+  const failed = chosen.length - deleted;
+  if (failed) toast(`${failed} item${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
   loadLibrary();
   loadEntries();
 });
@@ -21904,6 +22215,27 @@ document.addEventListener("keydown", (e) => {
     closeShortcuts();
     return;
   }
+  // Four modal-overlay dialogs (settings, doc AI-edit, extract-to-notes,
+  // recycle bin) had a close button and a backdrop-click handler but no
+  // Escape wiring here — every other overlay in this list works with
+  // Escape, so these four were the exception rather than a deliberate
+  // choice (Nielsen's "user control and freedom").
+  if (e.key === "Escape" && settingsModalOpen()) {
+    closeSettingsModal();
+    return;
+  }
+  if (e.key === "Escape" && !$("doc-ai-panel").classList.contains("hidden")) {
+    closeDocAiPanel();
+    return;
+  }
+  if (e.key === "Escape" && !$("extract-panel").classList.contains("hidden")) {
+    closeExtractPreview();
+    return;
+  }
+  if (e.key === "Escape" && !$("binned-overlay").classList.contains("hidden")) {
+    closeBinnedReader();
+    return;
+  }
   // "/" focuses search — but only when you're not already typing somewhere
   // and no overlay is open, so it never steals a literal slash (Wave J).
   const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(
@@ -22449,9 +22781,12 @@ function renderEntryAttachmentChips() {
     img.src = mediaSrc(url);
     img.alt = name;
     img.loading = "lazy";
-    img.addEventListener("click", () => openLightbox(mediaSrc(url), name));
+    img.addEventListener("click", () =>
+      openLightbox([{ filename: name, getUrl: () => mediaSrc(url) }], 0)
+    );
     const label = document.createElement("span");
     label.textContent = name || url;
+    label.title = name || url;
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
@@ -22795,7 +23130,7 @@ window.switchTab = function(name) {
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
   if (!logList) return;
-  logList.innerHTML = "<p class='muted'>Loading logs...</p>";
+  logList.innerHTML = "<p class='muted'>Loading logs…</p>";
   
   const logs = await apiJson("/audit?limit=20").catch(() => null);
   logList.innerHTML = "";
@@ -22874,7 +23209,7 @@ async function handleFileUpload(textarea, files) {
   let textToInsert = "";
   
   for (const file of files) {
-    textToInsert += `![Uploading ${file.name}...]()\n`;
+    textToInsert += `![Uploading ${file.name}…]()\n`;
   }
   
   const originalText = textarea.value;
@@ -22899,11 +23234,11 @@ async function handleFileUpload(textarea, files) {
       const fileMarkdown = file.type.startsWith("image/")
         ? `![${res.filename}](${res.url})\n`
         : `[${res.filename}](${res.url})\n`;
-      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, fileMarkdown);
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     } catch (err) {
       console.error("Upload failed", err);
-      textarea.value = textarea.value.replace(`![Uploading ${file.name}...]()\n`, `*(Failed to upload ${file.name})*\n`);
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, `*(Failed to upload ${file.name})*\n`);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
@@ -23182,6 +23517,9 @@ function spaceMenuOption({ id, name, icon, deletable }) {
   option.setAttribute("role", "option");
   option.dataset.spaceId = id;
   option.setAttribute("aria-selected", String(id === activeSpaceId()));
+  // .space-option-name ellipsises with no other escape hatch for a long
+  // board name.
+  option.title = name;
 
   const glyph = document.createElement("i");
   glyph.className = `ph ${icon}`;
@@ -23281,7 +23619,10 @@ function renderSpaceMenu() {
   const current = spacesCache.find((space) => space.id === activeSpaceId());
   const nameEl = $("space-current-name");
   const iconEl = $("space-current-icon");
-  if (nameEl) nameEl.textContent = current ? current.name : "All spaces";
+  if (nameEl) {
+    nameEl.textContent = current ? current.name : "All spaces";
+    nameEl.title = current ? current.name : "All spaces";
+  }
   if (iconEl) iconEl.className = `ph ${current ? current.icon : "ph-circles-four"}`;
 }
 

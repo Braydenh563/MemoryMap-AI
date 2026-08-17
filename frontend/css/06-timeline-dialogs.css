@@ -75,13 +75,23 @@
   border-left: 4px solid var(--accent-soft);
   border-radius: var(--radius);
   background: var(--modal-bg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--glass-shadow);
   cursor: pointer;
 
-  /* Glassmorphism and animations */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: all var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1);
+  /* Glassmorphism and animations. --glass-blur (18px), not a hand-picked
+     8px: this is the same --modal-bg tier as every other popup, and the
+     mismatched blur radius was the most visible "frostiness" inconsistency
+     across tabs (DESIGN.md/checklist Part B). */
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  /* Explicit properties, not `all` — the hover/focus-visible rule below only
+     ever touches these four, and `all` also makes the browser watch
+     `backdrop-filter` (expensive, and static here) for a change that never
+     happens. */
+  transition: color var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+    border-color var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+    background var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline-band:hover,
@@ -534,6 +544,24 @@
 
 .graph-physics.is-disabled label,
 .graph-physics.is-disabled input {
+  cursor: not-allowed;
+}
+
+/* Same dimmed-not-hidden treatment for Timeline's Bucket-by, disabled under
+   Line view for the same reason Gravity/Spread are under a tree layout —
+   see the comment on `.graph-physics.is-disabled` above. */
+.timeline-scale-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.timeline-scale-group.is-disabled {
+  opacity: 0.45;
+}
+
+.timeline-scale-group.is-disabled label,
+.timeline-scale-group.is-disabled select {
   cursor: not-allowed;
 }
 
@@ -1752,8 +1780,15 @@
   padding: var(--space-3);
   align-items: center;
   border-radius: var(--radius);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-sm);
+  /* --modal-bg, not --card-bg: this floats over the board's own art/cards
+     and has to stay legible against all of it, same as every other popup
+     in DESIGN.md's glass tier. Was the page-card tier (55% opaque) with no
+     blur at all, so it read visibly thinner than every sibling panel. */
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
 }
 
 /* Reported directly, with a screenshot: the colour swatch and the
@@ -1779,6 +1814,8 @@
   border-radius: var(--radius);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2031,6 +2068,8 @@
   border-radius: var(--radius);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
   min-width: max-content;
 }
@@ -2158,6 +2197,8 @@
   border-radius: var(--radius-sm);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
   font-size: var(--text-sm);
   font-weight: 600;

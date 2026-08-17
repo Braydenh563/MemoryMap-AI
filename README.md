@@ -32,6 +32,51 @@ notes are a SQLite file in a folder you control.
 > full tour - how a request flows, the data model, and a "where do I look to
 > change X?" map.
 
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="MemoryMap AI dashboard - capture streak, notebook stats, a force-directed constellation of your notes, pinned notes and recent activity" width="850">
+</p>
+
+<p align="center"><sub>The dashboard - everything at a glance, and nothing that needs the AI running to be useful.</sub></p>
+
+<details>
+<summary><b>More screenshots</b> - Notes, Chat, Graph, Library, Timeline, Reminders</summary>
+<br>
+
+<table>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/notes.png" alt="Notes tab - a list of AI-filed notes with categories, tags and inline related-note chips">
+<p align="center"><sub><b>Notes</b> - captured, categorised, and linked to what they relate to</sub></p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/chat.png" alt="Chat tab - a question answered from saved notes, with tool-use steps shown and the linked notes it drew on">
+<p align="center"><sub><b>Chat</b> - an answer plus the tool-use steps and notes behind it, not a black box</sub></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/graph.png" alt="Graph tab - a force-directed map of notes coloured by category, with links drawn between related notes">
+<p align="center"><sub><b>Graph</b> - your notes as a map, coloured by category, linked by meaning</sub></p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/library.png" alt="Library tab - every note, document and chat in one searchable, filterable grid">
+<p align="center"><sub><b>Library</b> - notes, documents, chats and files, all in one place</sub></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/timeline.png" alt="Timeline tab - notes plotted on a time axis, grouped into bands by category">
+<p align="center"><sub><b>Timeline</b> - every note on a time axis, banded by category</sub></p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/reminders.png" alt="Reminders tab - due dates with quick-set buttons and priority, linked back to the note they came from">
+<p align="center"><sub><b>Reminders</b> - due dates linked back to the note they came from</sub></p>
+</td>
+</tr>
+</table>
+
+</details>
+
 ## Contents
 
 - [Why this exists](#why-this-exists)
@@ -122,6 +167,18 @@ app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The first ru
 that it goes straight to launching, and only re-installs when `requirements.txt` changes.
 
 For the app in its own window instead of a browser tab: `start-desktop.bat`, or `./start.sh --desktop`.
+
+**Updating** is the same command - `start.sh`/`start.bat` pull the latest code
+and re-install dependencies automatically every time you run them, before the
+app starts.
+
+**Uninstalling**: run `./uninstall.sh` (or `uninstall.bat`). It removes the
+virtual environment `start.sh` built and leaves your notes untouched unless
+you explicitly pass `--delete-data` - see the script's own `--help`-style
+comment header for the full options. Optional extras (dictation, the desktop
+window, search-by-meaning) can be installed, reinstalled or removed
+individually and without touching a terminal at all, from **Settings →
+Optional extras**.
 
 ### Adding the AI
 

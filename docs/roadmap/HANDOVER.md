@@ -2,7 +2,1033 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a security/correctness sweep, not a feature session: one bug shape found four times
+## Latest session — a screenshot-driven bug list that grew mid-session: 9 confirmed fixes, 3 live-checked-but-unreproducible investigations, an uninstaller, and a README screenshot showcase
+
+Started as "a few quick bugs" from a set of screenshots the user sent (app UI
++ their own screenshot-viewer as a UX reference); grew, over several
+mid-turn additions, into a full pass covering frontend, backend and the
+desktop launcher, plus non-code deliverables (README photography, an
+uninstall script). Tracked as tasks #15–#36 throughout rather than only in
+this file, since the list kept growing after work had already started.
+
+**Nine confirmed, root-caused fixes:**
+- **Command palette showed literal `ph:clipboard Go to Dashboard` text.**
+  `renderPalette()` (app.js) set `li.textContent = match.label` directly
+  instead of going through `setLabel()`, the shared `ph:` → `<i>` icon
+  parser every other label in the app already uses. One-line fix.
+- **Timeline's Grid/Line combobox text sat low and sometimes clipped.**
+  `.graph-toolbar select` (03-dashboard-widgets.css) set a fixed
+  `height: var(--control-h)` but never zeroed the base `select` rule's own
+  `padding-block`, unlike its sibling rules right above it and
+  `.library-sort select` elsewhere. Added `padding-block: 0`.
+- **Reduce-motion and background-movement were unlinked.** Turning on the
+  in-app "Reduce motion" toggle now also sets background-art movement to
+  "Still" (and clears it back to "Auto" on turn-off, only if this toggle is
+  what set it — an independently-chosen "Moving" survives). Left the
+  existing OS-level `prefers-reduced-motion` + explicit-"Moving"-override
+  behaviour in `startBgArt()` untouched; that was a deliberate, previously
+  -reported fix and this is a different, additive path onto the same pref.
+- **Desktop window: can't select or copy any text.** pywebview's
+  `create_window()` defaults `text_select` to `False`. Passed
+  `text_select=True` in `__main__.py`. Confirmed via `tests/
+  test_desktop_launcher.py`'s existing `**kwargs`-based mock, which needed
+  no change.
+- **Quick Sketch's highlighter was noticeably heavier than the whiteboard's.**
+  Sketch used `sketchPen.size * 6`, the whiteboard uses `WB_STROKE_WIDTH *
+  4`. Pulled the sketch multiplier into a named constant
+  (`SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER`) set to `4` to match, per direct
+  ask ("make similar to the whiteboard highlighter"). Left the two tools'
+  different compositing (canvas `multiply` vs. SVG `stroke-opacity`)
+  alone — no live evidence it's actually wrong, just different rendering
+  technology.
+- **Image/sketch lightbox had no visible close control, no metadata, no way
+  to see a note's other images.** `openLightbox(url, alt)` rebuilt to
+  `openLightbox(items, startIndex)`: a fixed close button, a filename/
+  position caption, and prev/next arrows when more than one image is
+  passed. Wired at all 7 call sites across `app.js`, `graph.js` and
+  `whiteboard.js` — note cards, the timeline popup, the graph popup, the
+  library image gallery, inline note images and the edit-preview chips (the
+  last two pass a one-item list — no cheap way to build a sibling list from
+  a shared markdown-image regex without touching `appendInline`, used
+  everywhere, so left single-image there).
+- **Attaching a file to an existing note only ever took the first file, even
+  with several selected.** `attachFileTo()`'s dynamically-created `<input
+  type="file">` had no `multiple` and read `input.files[0]`. Fixed to loop
+  over every selected file. (New-note capture already supported multi-file
+  via `#entry-attach-file-input`, which already had `multiple` — only the
+  existing-note path was missing it.)
+- **Back-to-top button never appeared on Notes/Library.** Its visibility
+  check read `scrollingPage()` (`.tab-page:not(.hidden)`).`scrollTop`, but
+  Notes (and Library, one of its sub-tabs) scroll a *nested* `#tab-notes
+  .layout > main` instead — the exact shape Chat already had a bespoke
+  special case for (`#chat-messages`). Generalised into a
+  `NESTED_SCROLL_TABS` lookup covering both, rather than hardcoding a
+  second one-off.
+- **A document's Library preview showed a raw `## Introduction` heading
+  mid-string.** The frontend already strips markdown heading/blockquote
+  markers with `^#{1,6}\s+` (multiline) — but the backend's `_clip()`
+  (`routes_library.py`) collapses every newline to a space *first*, so any
+  heading past the very first line is no longer at a real line start by
+  the time that regex runs. Moved the strip into `_clip()` itself, before
+  the whitespace collapse.
+- **Section titles (Categories/Chats/Documents vs. Graph/Library/Timeline/
+  Reminders) rendered at two different sizes.** `.sidebar-head h2`
+  (05-sidebars-themes.css) and `.card h2` (01-forms-settings.css, the
+  deliberate §35L "one size for every card heading" rule) have equal CSS
+  specificity; file load order let the sidebar rule silently win
+  `font-size` for the three sidebars it covers. Removed the conflicting
+  `font-size` from `.sidebar-head h2` and deleted a second, stale duplicate
+  `.card h2` in `02-chat-graph.css` (harmless in practice — same computed
+  size — but a second live tie waiting to happen). Verified post-fix with
+  `getComputedStyle` across five tabs: all five now report the same
+  `16px`.
+
+**Three items live-checked with Playwright and a seeded demo profile,
+neither reproduced nor blindly "fixed":**
+- **Frosted-glass toggle "on by default but not visibly applied."** On a
+  byte-fresh profile: `data-glass="on"`, `--glass-blur: 18px`, the
+  settings-panel checkbox reads `checked: true`, *and* a card's actual
+  computed `backdrop-filter` is `blur(18px) saturate(1.5)` — all
+  consistent, nothing flat. Couldn't reproduce. Best guess, not verified:
+  a stale cached `app.js` in the user's real session — this exact app has
+  a documented history of that specific failure mode (see the "worst UI
+  bug" note earlier in this file), and "toggle off then on fixes it" reads
+  like a stale-JS symptom more than a state-desync one.
+- **Timeline grid header/category-column colours "don't match the theme."**
+  Read as CSS: every colour in that block (`06-timeline-dialogs.css`) comes
+  from theme tokens (`--ink`, `--bg`, `--modal-bg`, `color-mix(...)`),
+  nothing hardcoded. Live screenshot (dark mode, real seeded data) shows no
+  visible mismatch either. Left alone rather than guess at a token swap
+  with no reproduction.
+- **Meeting-recorder mic-level bar animation "still not showing."** Genuinely
+  blocked, not just unreproduced: this sandbox has no `faster-whisper`
+  installed (CLAUDE.md's own standing note), so `/voice/status` correctly
+  reports unavailable and the recorder refuses to start *before* reaching
+  the mic-meter code at all — confirmed live, the UI shows "Voice capture
+  needs the optional faster-whisper package" rather than attempting to
+  record. The meter code itself (`startMicLevelMeter()`) is identical
+  between the dictation button (already fixed, HISTORY.md §46) and the
+  meeting recorder, and the CSS matches — but that's static reading, not a
+  reproduction, and this is exactly the standing caveat about fake
+  transports: say plainly what wasn't actually run.
+
+**Non-code deliverables:**
+- **`uninstall.sh` / `uninstall.bat`**, mirroring `start.sh`/`start.bat`'s
+  style. Removes `.venv`; the data directory is left alone unless
+  `--delete-data` is passed *and* the user types `DELETE` to confirm — that
+  second gate holds even under `--yes`, on purpose, since a stray uninstall
+  is not consent to lose a notebook. Tested both paths (keep-data default,
+  and the explicit-delete path) against a throwaway scratch copy, not the
+  real repo. Checked first whether this was needed at all: `start.sh`/
+  `start.bat` already handle first-run install, dependency updates,
+  self-update via `git pull`, and offline-aware fallback; `/extras`
+  already does in-app install/uninstall/reinstall of optional components
+  (voice, documents, etc). The uninstaller was the one genuinely missing
+  piece of "install/uninstall/reinstall easily," not a rebuild of any of
+  the above.
+- **README screenshot showcase.** Seeded a throwaway profile (via direct
+  API calls — categories, linked notes, a reminder, a real chat turn with
+  tool-use chips, a document) with realistic content, not "Test note 1/2",
+  then screenshotted Dashboard/Notes/Chat/Graph/Library/Timeline/Reminders
+  in dark mode with Playwright, hiding the AI-status dot (permanently red
+  in this sandbox — no LM Studio/Ollama running here, not representative)
+  and the agent-activity toast. Added as a hero image plus a collapsible
+  screenshot grid near the top of `README.md`, and mentioned the new
+  uninstaller in Quick start.
+
+**Tracked but not built this session** — either genuinely feature-scale for
+a "fix some bugs" pass, or too vague to act on without guessing at scope
+(tasks #32–#36 have the full detail each was created with):
+- An info-icon tooltip pattern to replace "How to" dropdowns app-wide.
+- Duplicate/near-duplicate *paragraph* detection across notes (distinct
+  from the existing whole-note duplicate detection).
+- A redesign of the Reminders panel's bottom two quick-set rows — asked
+  for without a concrete direction.
+- A systematic colour-contrast audit across every theme preset.
+- Chat message-content search *in the quick Chats sidebar* specifically —
+  Library search already matches chat title **and** message preview text
+  (`routes_library.py`'s `_conversations` + the frontend's library filter),
+  one click away via "Browse all in Library"; this is a smaller
+  discoverability addition on top of an already-working capability, not a
+  net-new one.
+
+## Previous session — a mobile/responsive audit, a two-round feature-gap brainstorm (with real self-caught mistakes), two live mobile bugs fixed, and five keyboard-accessibility fixes
+
+Asked to audit mobile/responsive UI and then, separately, to blind-brainstorm
+every screen's feature set against general PKM-app knowledge and diff it
+against what's actually built — twice, the second time explicitly asked to
+"be very particular." That second ask mattered: verification caught **three
+flatly wrong gap claims and one overstated one** in the first draft — "no PDF
+text extraction" (wrong: `/import/document` + `markitdown` already does this),
+"command palette has no content search" (wrong: it already live-matches note
+content), "graph has no non-visual alternative" (wrong: `initGraphKeyboard()`
+is a full `aria-live` keyboard nav layer), and "Spaces have no per-space
+export scoping" (overstated: `WorkspaceMixin` already scopes every query).
+Full reasoning and corrections are in `docs/ROADMAP.md`'s new top section —
+worth reading before trusting any "missing feature" claim without re-checking
+it, including the ones still standing there.
+
+**Mobile audit, live in headless Chromium across 9 breakpoints, both fixed
+and verified before/after:**
+- Graph's "+ New note" popup rendered Save/Close/Tags below the fold at
+  320×568/375×667 — `openGraphNewNote()` was missing the `popup.style.
+  maxHeight` line its sibling `placeGraphPopup()` already had. One-line fix,
+  `graph.js`.
+- The Agent Activity panel overlapped real content on every tab at 320px —
+  `document.body.classList.toggle("has-agent-monitor", …)` had no CSS
+  consuming it at all (dead hook). Fixed in `07-whiteboard-misc.css`, in two
+  passes — the first (padding `.tab-page`) measurably did nothing for
+  Notes/Chat specifically, which scroll a nested `.layout > main` instead;
+  caught by actually measuring computed `padding-bottom` before believing it
+  worked, not by assuming the CSS took effect.
+- **Still open, next session**: at 320px the Graph tab's own toolbar pushes
+  the canvas (and the "+ New note" button) mostly below the fold with no
+  scroll hint — bigger than a one-line fix, needs real layout work.
+  Undersized (< 24px) tap targets on several checkboxes/chips — three
+  different styling situations, not one shared component, so more than a
+  blind pixel bump. Both are written up in ROADMAP.md with specifics.
+
+**A `unslop-ui` pass** (manual — the skill's scanner script wasn't present on
+disk, only its guidance doc synced) found the app clean against AI-slop
+tells: real design tokens throughout, no Tailwind/shadcn defaults, no purple
+gradients, no cream+serif+sage. One soft flag: the Graph/Timeline node
+"orb-shine" specular highlight's origin comment said `// Premium UI` with no
+real rationale — the effect itself is defensible (colourless, rhymes with
+the app's own glass-sheen system) but the comment isn't; left as the user's
+call rather than changed unasked.
+
+**Five `.unlink` "×" spans** (document detach, attachment remove, link
+unlink, two inline-image dismiss buttons) were mouse-only — same gap `chip()`
+closed once already this session for the "Go to note" chip. Added a shared
+`makeUnlinkAccessible()` helper mirroring `chip()`'s own role/tabindex/keydown
+pattern rather than duplicating it five times.
+
+**What was not done, said plainly**: the last push landed with only JS
+syntax check + the three frontend-specific pytest lints run (id/handler/
+style-scale), not the full ~1,600-test suite — the user was at 98%+ session
+usage and asked to commit immediately. The change only touches `app.js`
+(pure additive DOM-attribute/listener wiring, no removed code), so the risk
+is low, but a fresh session should run the full suite once before trusting
+this branch fully green again. Nothing else this session was left half
+-verified — the mobile fixes were measured before/after live, and the two
+retracted gap claims were corrected in place with the evidence shown.
+
+**The pre-existing `.modal-card`/`overscroll-behavior` item (carried over
+from a session before this one, still in the "Previous session" entry
+below) was picked up as a second "quick win" attempt this round and
+dropped, not fixed — worth a fresh session knowing why before re-attempting
+it as a one-liner.** It isn't one: `.modal-card` itself (`01-forms-
+settings.css:1391`) never scrolls — it's a `max-height: 88vh` flex column
+whose *children* scroll, and which child that is differs per dialog. The
+two call-outs in the older entry below ("two dialogs already opted in
+individually") are `.modal-content` (`01-forms-settings.css:1491`, the
+Settings dialog's real scroll pane) and `.graph-popup`
+(`04-chat-dock-appearance.css:1075`, both the view- and add-note graph
+popups) — both already carry `overscroll-behavior: contain`. There is no
+single shared scrollable element across every modal type to add the
+property to once; it's the same shape as this session's `.tab-page` vs.
+`#tab-notes .layout > main` split (see the Agent Activity fix above) —
+each modal's *real* inner scroll container needs identifying and touching
+individually. Whether any dialog *besides* those two actually scrolls
+internally at all (and therefore needs this) wasn't checked before time ran
+out — that's the actual next step, not guessing a selector and hoping it's
+the right one.
+
+## Previous session — worked the HANDOVER punch list top to bottom: the real WDG/frontend-design reviews, Notes/Reminders' first audit round, a full Part L matrix, a terminology fix, the bulk-action swallowing bug, and a live glow bug reported mid-session
+
+Continuation of the design-audit session, asked to work autonomously through
+the 8-item "concretely still open" list from the previous entry. Covered all
+eight; a ninth (Timeline dot glow) came in as a live user report mid-session
+and was fixed the same round rather than deferred. `pytest tests/` (~1,600
+tests) was run three times this round — clean at the start, and clean again
+after each batch of changes — plus `ruff check .` and `node --check` on all
+three JS files, all clean before push.
+
+**1. `web-design-guidelines`'s actual review command, run for the first
+time.** Fetched the rule set fresh via `curl` (WebFetch itself refused to
+return the raw file verbatim — worth knowing for next time: shell out to
+`curl` instead of relying on WebFetch for a file you need byte-for-byte) and
+ran it against `index.html`, all three JS files and all 8 CSS files via a
+background agent, translating the React-flavoured rules (`onKeyDown`,
+`aria-label`, etc.) to this codebase's vanilla-JS/innerHTML idioms. Real
+findings, highest-impact ones fixed this round:
+- Six `<span class="unlink">` remove/detach controls (`app.js` — attachment
+  removal, unlink, link-reason edit) are mouse-only: no `tabindex`, no
+  `role="button"`, no keydown handler, while the codebase's own `chip()`
+  helper already has the correct accessible pattern two lines away.
+  **Seen, not fixed this round** — six call sites, more surgery than fit in
+  the time left; the fix shape is exactly what item 2 below already did once.
+- **Fixed:** the "Go to note" link chip (`app.js`, `entryItem()`'s links
+  section) built a bare `chip("", "link")` and bolted on a manual `click`
+  listener instead of passing it as `chip()`'s own `onClick` — every sibling
+  `chip()` call in the file gets keyboard support (`role="button"`,
+  `tabindex="0"`, Enter/Space) for free; this one didn't. Now passes a
+  `goToLinkedNote` handler as the third arg. Verified live: created two
+  notes with a `[[link]]` between them, confirmed the rendered chip carries
+  `role="button"` / `tabindex="0"`.
+- **Fixed:** `#lock-password` (the unlock/first-run field, the very first
+  interactive control in the app) had no `aria-label` and no `autocomplete`.
+  It's one field in two modes (setup vs. unlock, per this file's own earlier
+  note), so the fix is mode-aware — `showLockScreen()` now sets
+  `aria-label="Choose a password"` / `autocomplete="new-password"` in setup
+  mode and `"Password"` / `"current-password"` in unlock mode, not a static
+  attribute that would offer a password manager's *existing* saved password
+  into a first-run field.
+- **Fixed:** `#question` (Ask your notebook) and `#command-palette-input`
+  (Ctrl/Cmd+Shift+K) had no accessible name beyond a placeholder. Both got
+  `aria-label`s.
+- **Fixed:** the command palette's own input had `outline: none` with zero
+  focus replacement — the app's most power-user-facing field had no visible
+  focus state for a keyboard user. Added a `:focus-visible` ring
+  (`07-whiteboard-misc.css`). Same gap, same fix, on the whiteboard's
+  contenteditable text-box (`.wb-object-text .wb-text-content`).
+- **Fixed:** three `transition: all` rules (`.timeline-band`,
+  `.sidebar-collapse-toggle`, `.segmented-control label`) narrowed to the
+  actual properties each hover/checked state touches — `all` was also making
+  the browser watch static properties like `backdrop-filter` for a change
+  that never happens.
+- **Fixed:** five literal `"..."` in live UI copy (`Loading model...`,
+  `Loading logs...`, the upload-placeholder markdown, two in
+  `whiteboard.js`) → `…`, per the app's own typography rule.
+- **Not fixed, seen and worth a future round:** ~35 whiteboard/sketch
+  icon-only toolbar buttons use `title` alone rather than pairing it with
+  `aria-label` (inconsistent with the rest of the app's own icon-button
+  convention); `.modal-card`'s shared base has no `overscroll-behavior:
+  contain`, so most dialogs can scroll-chain to the page behind them at
+  their edges (two dialogs already opted in individually, with comments
+  explaining why — the base case was missed).
+
+**2. `frontend-design`'s critique pass, run narrowly** (restraint/
+self-critique and typography sections only, per this file's own note that
+the brainstorm/palette-invention sections don't apply to an established
+system). Net finding: **the system holds up under critique**, which is
+itself worth recording rather than manufacturing changes to justify the
+pass:
+- The single-typeface-everywhere choice (`--ui-font`, a Settings→Appearance
+  preference, `00-tokens-shell.css`) is deliberate and correctly
+  compensated, not an oversight — pairing a fixed "display" face against a
+  *user-chosen* body font breaks the moment someone picks Verdana, so
+  DESIGN.md's own Hierarchy rule ("weight, colour and case before another
+  size step") is the right mechanism, and `.card h2`/`.card h3` actually
+  follow it (h3 is *smaller* than h2, differentiated by weight/case/colour).
+- `--text-display` is honoured as a one-off: checked live, the dashboard
+  greeting is the only thing at that size on the page, paired with the
+  clock as one matched "hero" moment.
+- The orb-shine gradient added this round (see item 9) reads as one
+  consistent signature applied to exactly the two surfaces that already
+  shared the halo treatment (Graph nodes, Timeline dots), not decoration
+  scattered per-screen.
+- One question raised, not resolved (a product/IA call, not a token one):
+  the dashboard's five "Start something" tiles give one (`New note`) the
+  filled/accent treatment and leave four visually near-identical outlined
+  tiles beside it — correct primary/secondary hierarchy per DESIGN.md, but
+  five roughly-equal entry points on the first screen is a lot of front-door
+  choice. Named, not redesigned uninvited.
+
+**3–4. The Notes and Reminders tabs, their first audit round.** Every other
+tab had been through this checklist at least once; these two hadn't. Seeded
+both with real data (notes of varying length, three reminders) via the API
+rather than the UI, live in Chromium throughout.
+- **Notes tab: five real control-height mismatches found and fixed**, the
+  same failure shape DESIGN.md already names for `.graph-toolbar` (a
+  `select`/`input` at the global 45.19px form-field height sitting next to
+  buttons at a different height) — just not yet applied to this tab's own
+  rows. `.library-toolbar` (shared with the Library tab): Notes' own
+  `#select-btn`/`#search-help` buttons aren't inside a `.seg`, so the
+  existing selector list (`.seg button`) missed them — widened to plain
+  `button`. `.capture-field-row`, `.draft-controls` (Write-with-AI's two
+  rows), `.ask-query-row` (new class, Ask panel) and `#batch-bar`
+  (select-mode's Move/Tag/Delete/Done row) each got their own `--control-h`
+  the same way. All measured with `getBoundingClientRect()` before and after
+  — every row is one flat edge now, not "close enough to pass a glance."
+  See DESIGN.md's "Where this is applied" list for the full detail on each.
+- **Reminders tab: one small (2px) instance of the same bug**, the magic-add
+  row's `.ghost` `Add` button against the textarea's own `min-height:
+  2.75rem`. Fixed the same way. The tab's main `.reminder-form` row and the
+  `Open/All/Done` filter `.seg` were already correct — checked, not assumed.
+- Also checked and **left alone, correctly**: `.doc-toolbar`'s two rows (an
+  earlier entry named this as an open question) — the formatting row is
+  internally uniform, and the metadata row's title input sits in a
+  `space-between` header, not edge-to-edge with the stats/actions group, so
+  a height difference there isn't the same bug.
+
+**5. The Part L breakpoint matrix, now actually the full 42 cells.** Two
+prior rounds together covered 2 tabs × 2 breakpoints × 2 modes. This round:
+all 7 tabs × 390/1024/1600px × light/dark, `scrollWidth > clientWidth`
+checked programmatically at every one of the 42 combinations — **zero
+overflow anywhere.** Followed with a visual pass at 390px (the highest-risk
+breakpoint) across the 6 tabs that had never been screenshotted narrow
+before (Notes, Chat, Graph, Library, Timeline, Reminders) — all wrap
+cleanly, nothing overlaps or clips. **Said plainly: the 1024px/1600px cells
+got the programmatic check but not a screenshot pass** — worth a visual
+sweep at those two widths next round if something's suspected there
+specifically, though no overflow signal pointed at anything.
+
+**6. Terminology audit (Part C), a real find.** "Note" is the term
+everywhere else on the Notes tab (the sub-tab literally says "Your notes",
+the empty state, the status-bar count) except the entries-list heading
+itself, which said "All entries" / "{category} entries" — the API's
+internal name (`/entries`) leaking into user-facing copy. Two more instances
+in Settings ("Auto-clear binned entries after", "even binned entries" in the
+export note) — checked against the backend first (`purge_expired_deleted`
+queries the `Entry` table only, the JSON/CSV/MD exporters likewise only ever
+touch entries), so "notes" is the *accurate* word, not just the prettier
+one. All three renamed. Library's own use of "item" for its bulk actions is
+correctly generic (a selection there can be a note, document, chat or file
+at once) — left alone, not a case of the same bug.
+
+**Common fate (Part I).** The app's one dominant repeated relationship — a
+list row's hover-revealed action buttons — is genuinely consistent: the same
+`.entry-actions` class, same `opacity: 0 → 1`, same `var(--motion-fast)`
+duration, same `:hover`/`:focus-within` trigger and the same `@media
+(hover: none)` touch fallback, reused verbatim across Notes, Reminders, Chat
+conversations and the entry list (checked each rule directly, not assumed
+from one instance). The one real common-fate violation found this session
+was the Timeline glow bug below, already fixed as its own item.
+
+**7. `.catch(() => {})`-and-flat-count, fixed in both
+`library-bulk-restore` and `library-bulk-delete`.** Named two rounds ago,
+not fixed until now: a per-item failure was silently swallowed and the
+success toast still counted every item *attempted*. Both now track a real
+counter and show two toasts when needed — "Deleted N items." /
+"M items couldn't be deleted." Verified live with real failures, not
+reasoned: Playwright route interception forced one specific entry's DELETE
+(and separately, one restore) to 500 while its siblings succeeded through
+the real backend, and the two-toast split appeared exactly as intended both
+times.
+
+**8. Spot-checked toolbars for the control-height bug**, folded into items
+3–4 above rather than a separate pass, since Notes/Reminders were the
+toolbars actually named as unaudited.
+
+**9. A live bug reported mid-session, fixed the same round: Timeline
+line-view dots didn't have Graph's node "shine," and their hover-glow grew
+but never shrank back.** Root cause of the second half:
+`renderTimelineBranch()`'s `mouseout` handler reset the halo to
+`TIMELINE_DOT_R * 2.2` — the exact same value `mouseover` grows it *to*,
+not the `1.6` it actually rests at (a copy-paste of the mouseover line).
+The glow only ever grew, never fully shrank back. Fixed by dropping the
+radius change from both hover handlers entirely and leaving the halo's
+hover state as opacity-only (0.2 → 0.45) — which happens to be exactly what
+Graph's own `.graph-node:hover circle.graph-halo` already does, so this
+also reads closer to Graph's subtler hover in the process. For the shine
+itself: Graph's nodes get a static white radial-gradient overlay
+(`#orb-shine`, `graph.js`'s `renderGraph()`) for a lit-sphere look; Timeline
+had no equivalent. Added the same gradient under its own id
+(`#timeline-orb-shine` — SVG ids are page-global, and both tabs' SVGs can be
+in the DOM at once) as a `.timeline-branch-shine` circle per dot, synced to
+grow with the dot on hover (`TIMELINE_DOT_R * 1.5`) so it doesn't poke out
+from behind its own highlight. Verified live: captured the halo's and
+shine's actual `r`/`opacity` attributes before hover, during hover, and
+after moving the mouse away — halo now returns to its resting `r=16`/
+`opacity=0.2` every time, shine grows and shrinks with the dot, screenshot
+confirms the highlight is visible in both light and dark mode.
+
+**What's still genuinely open, said plainly:**
+- The six keyboard-unreachable `unlink` spans (item 1) — seen, not fixed.
+- ~35 whiteboard icon-only buttons missing `aria-label` (item 1) — seen, not
+  fixed.
+- `overscroll-behavior: contain` missing on the shared `.modal-card` base
+  (item 1) — seen, not fixed.
+- Part L's 1024px/1600px cells got the programmatic overflow check but not
+  a screenshot pass this round (item 5).
+- The dashboard's five-tile "Start something" row (item 2) — a product
+  question raised, not something to redesign without being asked.
+
+## Previous session — two live-reported bugs, both root-caused before being touched
+
+Continuation of the design-audit session, this round working from two fresh
+user reports rather than the checklist.
+
+**Timeline's "Bucket by" control was reported as not affecting the line
+view — confirmed dead, not a perception issue.** `renderTimelineBranch()`
+positions every note by its real timestamp on a continuous D3 time scale
+and only ever reads `body.notes`/`body.bands`; it never touches
+`body.buckets` or `body.scale`, which is all `scale`/"Bucket by" produces
+(confirmed in `routes_timeline.py` too — `scale` only feeds
+`_bucket_start()`, used solely by the grid's columns). Proved live before
+fixing: captured every dot's `cx`/`cy` in line view, changed Bucket-by, and
+the geometry was byte-identical. Fixed the same way Graph's own
+Gravity/Spread sliders are disabled under a tree layout (`setGraphPhysicsEnabled`,
+`graph.js`) rather than hidden — dimmed with `.is-disabled`, `select.disabled
+= true`, and a title explaining why, wired to both the view-mode change
+handler and tab-entry so it's correct on arrival too. New function
+`setTimelineScaleEnabled()`, `app.js`.
+
+**The line view's dots got the halo treatment the user asked for**
+("maybe look similar to the graph nodes?"). Graph's nodes pair a solid
+core circle with a separate, larger, blurred, low-opacity circle behind it
+(`.graph-halo`) that brightens on hover — timeline dots had no equivalent.
+Added the same shape: a `.timeline-branch-halo` circle per note, drawn
+first (so it paints underneath), sized and faded to avoid the obvious
+failure mode this pattern has — checked live with notes clustered on the
+same day, found the first radius choice (2.2× dot radius) merged adjacent
+halos into one blob once the existing vertical-stagger logic kicked in,
+sized down to 1.6× resting / 2.2× on hover, re-checked, distinct glows.
+`pointer-events: none` on the halo (matching the existing spine/stub/line
+rule right above it) so it doesn't steal the dot's own hover/click.
+
+**The persona-peek panel could break the whole chat dock's layout.**
+Reported with a screenshot: a long persona prompt (up to 2000 chars, the
+Settings textarea's own limit) expanding `#persona-peek-panel` inline in
+`.chat-dock`'s normal flow grew it without bound, pushing the entire dock
+down and overlapping the still-open Length/Persona popup above it — because
+the two were separate, unrelated pieces of DOM despite the trigger button
+living inside the popup. Fix reuses the pattern already established two
+elements over in the same dock (`.chat-skills-panel`): moved
+`#persona-peek-panel` to be a child of the already-floating, already-glass
+`#chat-dock-more-panel` instead of a sibling of `.chat-dock`'s main flow,
+capped the popup's own width (`max-width`, matching `.chat-skills-panel`'s
+pattern) and gave the persona text its own `max-height` + internal scroll.
+Verified live with an 800-char persona: popup stays ~404px tall and 416px
+wide regardless of prompt length, text scrolls inside its own capped box.
+
+All three verified live in Chromium (geometry diff, disabled-state
+check, halo count, popup dimensions before/after), not just reasoned from
+source. `node --check` on all three JS files and `ruff check .` clean;
+only frontend files changed this round, so the fast frontend-lint tests
+were run rather than the full ~3-minute suite (nothing under `src/`
+touched) — worth a full `pytest tests/` next session regardless, since it
+hasn't been re-run since the last HANDOVER entry below.
+
+## Previous session — this round ended on usage limit, not on the work being done
+
+Three skills got enabled mid-session (`frontend-design`, `web-design-guidelines`,
+`apple-design`). Correction to an earlier note in this same session: the
+`Skill` *tool* call failed for the first two ("Unknown skill") right after
+they were enabled, but the user's own `/frontend-design` slash command
+worked a few turns later with no session restart — the tool-call path and
+the slash-command path apparently refresh on different schedules. **Don't
+assume a just-enabled skill is unusable — try the slash command form
+directly before concluding it needs a fresh session.** `apple-design` got
+used this round (materials/motion framing); `web-design-guidelines`'s actual
+review command (fetch-and-check against files) was never run, only its rule
+list fetched for reference.
+
+**Two small, real bugs fixed right at the end of this round, found by the
+frontend-design skill's "button label matches its resulting toast" copy
+check applied to the delete/destructive-action family specifically:**
+`deleteCurrentChat()` deleted successfully with no success toast at all
+(Document delete already had one — same gap in miniature the chat toolbar's
+own metadata-grouping fix was, two rounds ago); `library-bin-empty`'s click
+handler showed an error toast on failure via `.catch()` but then
+*unconditionally* showed "The bin is empty." right after regardless —
+a failed request produced both a "this broke" and a "this worked" toast for
+the same click. Both fixed with a plain try/catch and an early return on
+failure, matching the pattern every other destructive-action handler in the
+file already uses. Not re-run through the full suite (JS-only, `node --check`
++ `ruff check .` + the three frontend-lint tests all clean) — worth a real
+pytest run next session if anything backend-adjacent gets touched near
+either of these two handlers. **The same `.catch(() => {})`-and-report-a-
+flat-count shape exists in `library-bulk-restore` and `library-bulk-delete`
+too** (per-item failures are silently swallowed, then a success count is
+toasted for every item *attempted*, not every item that actually succeeded)
+— seen but not fixed this round; fixing it properly means tracking real
+per-item outcomes, not just adding a toast, so it didn't fit in the time
+left.
+
+Concretely still open, roughly in priority order:
+1. **Run `web-design-guidelines`'s actual review command** (fetches
+   `vercel-labs/web-interface-guidelines` fresh and checks files against it)
+   against `frontend/index.html` and the CSS — this session only fetched the
+   rule list once for reference, never ran the tool's real file-by-file review.
+2. **Run `frontend-design`'s critique pass** — it's built for greenfield
+   distinctive-design work, so use it narrowly: the "restraint and
+   self-critique" and typography-pairing sections apply to an established
+   system like this one, the brainstorm/palette-invention sections don't.
+3. **The checklist's Part L full matrix**: 7 tabs × 3 breakpoints (390/1024/1600)
+   × 2 modes, diffed against each other. Two sessions now have covered 2 tabs
+   at 2 breakpoints × 2 modes each (Settings, Dashboard) — not the full 42-cell
+   grid the checklist actually asks for.
+4. **Part C terminology audit** — does "Note"/"Entry"/"Item" ever refer to the
+   same concept across different tabs' copy. Not run yet, any round.
+5. **Part I "common fate"** — do related elements' hover/loading states move
+   together where a relationship exists. Not run yet.
+6. **Nielsen #7 depth** — this session confirmed the shortcuts overlay
+   documents what's rebindable, but never audited actual power-user workflow
+   coverage against it (are there common multi-step actions with no shortcut
+   at all).
+7. **The Notes tab and Reminders tab** haven't been through *any* round of
+   this audit — every round so far has covered Settings, Dashboard, Chat,
+   Documents, Graph, Timeline, Library. Notes and Reminders are the two
+   remaining tabs, untouched.
+8. **The control-height fix from this round** (`.graph-toolbar`'s new
+   `--control-h`) was applied to exactly the one shared toolbar that had a
+   *measured* mismatch. Worth spot-checking whether `.library-toolbar`,
+   `.doc-toolbar`'s two rows, and the Reminders/Notes toolbars (once audited)
+   have the same gap — this round measured Graph/Timeline specifically
+   because they share a class, not because the other toolbars were ruled out.
+
+## Previous session — the tabs the checklist's Part L gut-check flagged but never named: Timeline's toolbar folded, Documents' toolbar grouped, a real control-height bug found and fixed in the app's two most-recently-redesigned toolbars
+
+Sixth continuation of the same design-audit session, asked explicitly to
+extend the reform past Settings into Documents, Graph, Timeline, Library and
+the dashboard hero — "don't leave anything unfinished, half-finished or
+untouched." Checked each of the five against the running app (screenshots +
+live DOM measurement) before changing anything, per this file's own standing
+rule — three were already done well and left alone.
+
+**Library, Graph, and the dashboard hero: checked, not touched.** All three
+already carry the deliberate restructuring their own code comments describe
+(Graph's toolbar split, Library's overview/search/filter-chip hierarchy, the
+hero's single greeting card). Screenshotted live at 1400px — no clutter, no
+overflow, no orphaned controls. Rebuilding either would have been exactly
+the "three sessions independently rebuilt something that already existed"
+mistake this file opens with.
+
+**Timeline's toolbar had the clutter Graph's already solved once.** Five
+controls with visible labels sat in one row — "Bucket by [Day▾] Bands
+[Category▾] Show [Last year▾] View [Grid▾]" plus a Highlight search — the
+same shape Graph's own comment names as a prior bug ("twelve controls in one
+wrapping row"). Applied the identical fix: View and Highlight (what you
+touch while reading) stay on the visible row behind a new `#timeline-options`
+toggle; Bucket/Bands/Show (set once, left alone) fold behind it, reusing
+`.graph-options` for the panel chrome and the same open/closed
+localStorage-remembered mechanism as Graph's Options button
+(`renderTabPanel`'s timeline branch, `timeline-options-toggle`'s click
+handler). Verified live: panel opens/closes, a folded control still
+re-renders the timeline on change, and the open state survives a reload.
+
+**A real, measured control-height bug, in both Graph's and Timeline's primary
+row.** Asked directly to check control heights and spacing; did not take the
+earlier screenshots' "looks close enough" at face value and measured
+`getBoundingClientRect()` on every child of `.graph-toolbar` instead. The
+search/select controls were 45.19px (the global form-field rule) against
+28–30px buttons beside them — a ~15px gap, DESIGN.md's own named failure
+("stood four pixels taller than the selects beside it"), just bigger because
+a text input's padding jump is bigger than a segmented control's. `.graph-toolbar`
+had no `--control-h` of its own — only `.chat-dock-controls` did. Added one
+(`03-dashboard-widgets.css`), covering `select`, `input[type=text|search]`,
+`button`, and `.segmented-control`, and re-measured: every control in both
+Graph's and Timeline's primary row is a uniform 32px now. Fixes both tabs at
+once since they share the class. Screenshotted after: the search box, the
+Layout/Colour segmented pills, and every button now share one visible edge —
+before, it passed a glance but failed a ruler. `DESIGN.md`'s Control height
+section got a new "Where this is applied" list so the next toolbar addition
+checks itself against this instance instead of rediscovering the bug.
+
+**The radio-to-toggle-switch request, applied where it's the right
+component and not where it isn't.** Asked to convert radio buttons to toggle
+switches. The app has exactly four radio groups: Graph's Layout and Colour
+choices are already rendered as segmented pill controls with the native
+circle hidden (`.segmented-control input[type=radio] { display: none }`) —
+functionally already what was asked for, and the *correct* component for a
+short exclusive choice. Settings' embedding-backend and tool-focus groups
+are a different shape — each option is a full row with a sentence of
+description under it (`.check-row`) — and a toggle switch is the wrong
+component there: a switch reads as a single boolean, and collapsing a
+two-option *described* choice onto one made no sense with the prose still
+attached. Left those as descriptive radio rows, which is the pattern
+Settings already uses correctly for this exact shape elsewhere (own code
+comment: "one control with one answer, rather than two loose dots").
+
+**Documents' toolbar: metadata and actions were one undifferentiated row.**
+Word count, a goal-flag button, and save status sat inline with six action
+buttons (Preview, AI edit, Extract notes, .md, PDF, Delete) with no visual
+seam between "facts about this document" and "things you can do to it" —
+the same anti-pattern already fixed once for the chat toolbar's token count.
+Documents' title is a text input rather than a heading, so there's no clean
+line to move metadata below without disrupting the editing flow; used the
+formatting toolbar's own existing `.doc-toolbar-sep` divider instead, placed
+after the status group and again before the (destructive, worth isolating)
+Delete button. Three groups now instead of nine undifferentiated items.
+Left the `⬇ .md` / `⬇ PDF` unicode-arrow buttons alone rather than swapping
+to Phosphor icons to match their row-mates — checked first, and the app uses
+a plain arrow glyph for every download/export action across five different
+screens (chat export, doc export, whiteboard export, settings support
+bundle), which is the app's actual, if quiet, existing convention — not a
+one-off inconsistency to fix.
+
+**The remaining truncation sites, actually finished.** Every
+`text-overflow: ellipsis` / `-webkit-line-clamp` selector across all 8 CSS
+files was enumerated and checked against its render site (roughly 40, up
+from the ~6 checked in earlier rounds). Three had no escape hatch and got
+one: the sidebar's category names, the collapsed space-switcher's current-
+board label (same data as `.space-option-name`, fixed two rounds ago, but
+the *closed-state* summary was missed), and the markdown-image attachment
+chip's filename in the note editor. Documented, with reasoning, why the rest
+were correctly left alone: `.conv-title`'s tooltip already carries something
+richer than the raw name (the actual question asked, when it differs from
+the title), attachment chips and theme chips already carry the full text
+elsewhere in the same row, and preview/snippet text is one click from the
+real thing by design.
+
+**Nielsen #6 (recognition over recall), actually fixed rather than just
+checked this time.** Previous round noted this "not re-litigated." The
+active chat model was knowable only via Settings → Models, and only when
+Ollama is running — `renderSettings()` gates the whole model picker on
+`status.ollama_running`. Added a small badge next to the chat header's token
+count, fed by a new `renderChatActiveModelBadge()`. First attempt reused
+`renderChatModelPicker()` and inherited its Ollama-only gate — caught live
+(`chat_model: "llama3.2"` in the API response, badge still hidden) rather
+than assumed correct — so it reads `modelStatus.chat_model` directly from
+`renderAiPill()`'s poll loop instead, which runs regardless of backend.
+
+**The meeting-recorder bars report has an actual, confirmed cause, not a
+guess.** `02-chat-graph.css:1366` deliberately hides `.mic-bars` under
+`prefers-reduced-motion: reduce`, falling back to a fixed ring. Verified
+live with `reducedMotion: 'reduce'` emulated in Chromium: `.mic-bars`
+computes to `display: none`, and the fallback ring genuinely renders (a real
+`box-shadow`, not silently blank). If the user's OS has Reduce Motion on,
+this is the app working as designed. Nothing shipped for it — the finding
+is the answer, same conclusion the previous round reached from the CSS
+alone, now confirmed by measurement rather than just reading the rule.
+
+**Breakpoints, done live rather than reasoned from code.** 1024px and
+1600px, light and dark, dashboard and Settings (four combinations,
+`scrollWidth > clientWidth` checked programmatically at each — false every
+time) plus a visual pass at three of the four. The settings-group
+decluttering from two rounds ago holds at the narrow breakpoint in both
+colour modes without cramping.
+
+**What's still genuinely open, said plainly:** the checklist's Part L asks
+for all 7 tabs × 3 breakpoints × 2 modes, diffed against each other — this
+and the prior round together cover 2 tabs at 2 breakpoints × 2 modes, not
+the full matrix. Nielsen #6/#7's "keyboard shortcut coverage for power-user
+actions beyond what's rebindable" was checked only as far as confirming the
+shortcuts overlay documents what exists, not audited for gaps against real
+power-user workflows. Part C's "does Note/Entry/Item ever mean the same
+thing across tabs" terminology audit and Part I's "common fate" (do related
+elements' hover/loading animations move together) were not run this round.
+Full suite, `ruff check .`, and `node --check` on all three JS files clean
+before this was pushed.
+
+## Previous session — the design-audit checklist's real remainder: root-caused the meeting-recorder report, gave the active model a face outside Settings, closed the truncation sweep, verified two breakpoints × two colour modes live
+
+Fifth continuation of the same design-audit session. Told explicitly not to
+stop after every small section this time, so this entry covers the whole
+pass rather than one item.
+
+**The meeting-recorder bars report has a real, confirmed cause.** Not a bug —
+`02-chat-graph.css:1366` deliberately does `@media (prefers-reduced-motion:
+reduce) { .mic-bars { display: none; } }`, falling back to a fixed ring.
+Verified live in Chromium with `reducedMotion: 'reduce'` emulated: `.mic-bars`
+computes to `display: none`, and the fallback ring is present with a real
+`box-shadow` (not silently invisible). If the user has OS-level "reduce
+motion" on, this is the app behaving as designed, not broken — the mechanism
+itself was already confirmed working in isolation last round. Nothing to fix;
+the finding is the answer.
+
+**Nielsen #6 (recognition over recall) had a real gap — fixed.** The active
+chat model was previously only knowable by opening Settings → Models, and
+even there only *when Ollama is running* — `renderSettings()` gates the
+whole picker on `status.ollama_running`. Added a small badge in the chat
+header (`#chat-active-model`, next to the token-usage subline) fed by a new
+`renderChatActiveModelBadge()` called every poll from `renderAiPill()` —
+deliberately **not** reusing `renderChatModelPicker()`, because that path
+would have inherited the same Ollama-only gating and stayed blank for
+LM Studio/OpenAI-compatible backends, defeating the point. Verified live:
+before the fix the badge stayed `hidden` even though `/models/status`
+reported `chat_model: "llama3.2"` (Ollama not running in this sandbox);
+after moving the read to the always-on poll hook, it shows `"llama3.2"`
+correctly with no console errors.
+
+**Truncation sweep, actually finished this time.** Every CSS site using
+`text-overflow: ellipsis` / `-webkit-line-clamp` across all 8 CSS files was
+enumerated and checked against its JS render site. Most were already
+covered (fixed short labels, preview text one click from the full note,
+or already carrying a `title` elsewhere e.g. `.cat-name`'s parent button).
+Three had no escape hatch and got one: the sidebar's `.category-name` list
+(user-authored category names), the collapsed space-switcher's current-board
+label (`#space-current-name` — same underlying data as `.space-option-name`,
+fixed last round, but the closed-state summary was missed), and the
+markdown-image attachment chip's filename label in the note editor. Left
+alone, with reasoning recorded inline in this file rather than in code
+comments: `.conv-title` (richer than a raw-name tooltip already — falls back
+to `conversation.preview`, what was actually asked, when it differs from the
+title), `.attachment-chip` for note attachments (already has the full note
+content as its title), `.theme-chip` (its button's own title already carries
+the full name), `.dash-list-title`/`.cat-name` (both already have the
+mechanism elsewhere).
+
+**Part L breakpoints, done live.** 1024px and 1600px, light and dark, both
+the dashboard and Settings (the section originally flagged as cluttered).
+`document.documentElement.scrollWidth > clientWidth` checked programmatically
+at all four combinations — false every time, no horizontal overflow. Screens
+inspected visually at 1024×900 (both modes) and 1600×900 (light): the
+settings-group boxes from the earlier decluttering hold up at the narrow
+breakpoint without cramping, contrast reads fine in dark mode, nothing
+clips. This is the check the previous round left at "only 390px done" —
+now covers narrow/wide × light/dark, still short of a full CI-grade matrix
+but no longer a single data point.
+
+Full suite, `ruff check .`, and `node --check` on all three JS files run
+clean before this was pushed.
+
+## Previous session — closing out the design-audit checklist (Nielsen/Gestalt/visual-design), a live bug report investigated (not fixed), a self-caught near-miss
+
+Fourth continuation of the same design-audit session, asked to finish
+whatever remained of Parts H–L.
+
+**A live bug was reported mid-session** ("the bars animation for meeting
+notes voice pickup when recording isn't showing") and investigated properly
+rather than patched on a guess. First pass misread the code and "fixed" a
+call that already existed correctly a few lines later — caught on a second,
+closer read before it shipped, and reverted immediately (would have created
+a duplicate `startMicLevelMeter()` call and leaked an `AudioContext`; see
+the diff history if useful, but nothing from that attempt is in the current
+code). Tested `startMicLevelMeter()` directly against a fake-device
+`MediaStream` in Chromium: bars are created, sized, and animate correctly
+in isolation — the mechanism itself is not broken. Could not reproduce the
+full meeting-recording flow end-to-end because it requires
+`faster-whisper`, not installed in this sandbox per this file's own
+standing instruction about heavy ML deps. **Left unresolved, said plainly:**
+the two most likely real-world explanations — a stale cached `app.js` (this
+exact app has a documented history of that trap) or the in-app Reduce
+Motion setting — were surfaced to the user rather than guessed at in code.
+
+**Nielsen's 10, checked concretely, not asserted:**
+- #1 status visibility: file upload and re-evaluate already have loading
+  states (checked previously); graph-layout recompute is a synchronous d3
+  simulation, not an async op with an obvious spinner point — inconclusive,
+  not fixed speculatively.
+- #2 plain language: the "AI 73%" confidence chip had zero explanation of
+  what it's confident *about* — added a `title` tooltip. "Embedding" is
+  already contextualized in Settings → Models' own prose, left alone.
+- #3 user control: confirmed (Part G, prior round) — Escape now covers all
+  10 modal-overlays, all 5 destructive actions gate through `confirmDialog`.
+- #4 consistency: the checkbox-as-switch treatment is one shared selector
+  list (5 contexts, one rule block, `06-timeline-dialogs.css`) rather than
+  duplicated per-component — the "not an accidental reinvention" the
+  checklist asks to confirm, is.
+- #5 error prevention: spot-checked the password-change form — client-side
+  pre-validation with specific messages before the request even fires.
+  Already correct.
+- #6/#7: not re-litigated this round — no new mechanical signal found
+  beyond what settings-group/shortcuts work already covers.
+- #8 aesthetic/minimalist: primary (`button`, filled `--accent-surface` +
+  shadow) vs. secondary (`.ghost`, flat `--chip-bg`, no shadow) hierarchy
+  confirmed structurally correct, not just by eye.
+- #9/#10: not separately audited this round beyond the empty-state pass
+  already on record.
+
+**Part L, Carbon and keyboard-only, both checked live:** Carbon doesn't
+override `--glass-opacity`/`--glass-blur` — it's still glass, just
+monochrome. The checklist's "quiet, non-glassy" ask is actually served by a
+different, already-existing combination: Carbon palette + the separate
+Glass-off toggle together, not a special case baked into one palette. Left
+as-is — composing two orthogonal settings is the better design than a
+hardcoded exception. Keyboard-only reachability spot-checked on Library:
+Tab navigation reaches a `.library-card` as a real focusable element with
+`opacity: 1` (not hover-only) — confirmed live, not assumed.
+
+Full suite (1,600+ tests) green, `ruff check .` clean, `node --check` clean.
+Two real changes this round: the confidence-chip tooltip, and (from the
+investigation above) nothing shipped for the meeting recorder — correctly,
+given no reproducible defect was found.
+
+## Previous session — finishing the design audit: a real Escape-key gap on 4 dialogs, a rigorous contrast audit, more truncation fixes
+
+Third and final continuation of the same design-audit session, asked to push
+through Parts E–L rather than stop at the checklist's own recommended
+per-section pace. Screenshots were kept to the minimum genuinely needed
+(one, cropped, for a 390px responsive check) per direct instruction.
+
+**The best find of the whole session:** four `.modal-overlay` dialogs —
+**Settings** (the single most-opened dialog in the app), the document
+AI-edit panel, extract-to-notes, and the recycle bin — had a close button
+and backdrop-click handling but **no Escape-key wiring**, confirmed by
+reading every branch of the global keydown handler (10 overlays total, 6
+already wired, these 4 weren't) and cross-checked against `skill-run-overlay`,
+which turned out to have its own correctly-scoped local Escape handler and
+was a false alarm. Added all 4 to the existing per-overlay `if` chain,
+reusing each dialog's own already-defined close function
+(`closeSettingsModal`, `closeDocAiPanel`, `closeExtractPreview`,
+`closeBinnedReader`). **Live-verified, not just grepped:** opened Settings
+and the recycle bin in Chromium, confirmed each was visible, pressed
+Escape, confirmed each closed.
+
+**A genuine, mathematically-rigorous WCAG contrast audit**, not a visual
+skim: extracted `--ink`/`--muted`/`--accent`/`--warn`/`--ok`/`--error`
+and the `--page` gradient stops for all 8 curated palettes (Aurora,
+Parchment, Sage, Ocean, Lagoon, Ember, Plum, Carbon — the checklist's "12"
+doesn't match what's actually in the CSS) × light/dark = 16 combinations,
+and computed WCAG relative-luminance contrast ratios in Python (no browser
+needed for this part). 80 ink/muted/accent-as-text checks against both the
+worst-case page gradient stop and the composited `--modal-bg`: **zero
+failures.** Found one apparent failure on first pass — `--warn` against 4
+palettes' raw page background, 4.31–4.47 vs the 4.5:1 AA threshold — but
+`--warn` text never actually renders directly on bare page background in
+this app, always inside a `.card`; re-composited over the actual `--card`
+surface it clears comfortably (4.91–5.10). Investigated rather than either
+ignored or blindly "fixed" a false positive.
+
+**Part E, more truncation escape hatches**, checked against the actual JS
+rather than assumed: `.space-option-name` (board switcher) had no tooltip
+for a long board name — fixed; the sibling "New space…" create-option was
+correctly left alone (fixed short label, not user content). Checked
+`.conv-title`, `.cat-name`, `.persona-preview`, `.dash-list-title` against
+their renderers and left all four alone — each already has an adequate
+escape hatch (a parent/sibling `title`, or JS pre-truncation before the
+ellipsis can even engage) that a blind pass would have either duplicated or,
+in `.conv-title`'s case, actually made worse (its tooltip deliberately shows
+the conversation's preview/subject instead of repeating the truncated title
+— removing that in favour of a generic repeat would have been a regression).
+
+**Part H (Nielsen), mechanically checked, not asserted:** all 5 destructive
+delete actions (document, profile, batch note delete, bulk library delete,
+chat delete) gate through `confirmDialog` — zero found without one. Primary
+vs. ghost button visual hierarchy confirmed structurally correct (filled
+`--accent-surface` + shadow vs. flat `--chip-bg` + no shadow) — Part J's
+"primary buttons visually outrank secondary" is already true by
+construction, not just by eye.
+
+**Part L, a real (not assumed) 390px responsive sweep:** scripted overflow
+detection (`scrollWidth > viewport` on every element) across all 8 tabs plus
+Settings at a 390px viewport — zero overflowing elements, zero console
+errors, one cropped screenshot to confirm Settings' new `.settings-group`
+boxes still stack cleanly at phone width. The full 3-breakpoint ×
+light/dark diff Part L actually asks for was not attempted — this was one
+targeted check at the narrowest breakpoint, not the full matrix.
+
+Full suite (1,600+ tests) green, `ruff check .` clean, `node --check` clean
+throughout. Five commits this continuation. Backend untouched all session.
+
+## Previous session — continuing the design audit: one live bug found and fixed, Parts C/D/G spot-checked clean
+
+Continuation of the session below, asked to keep going through the rest of
+the checklist ("Parts C-L"). **Mid-session the user reported, with a
+screenshot, a gap between the document editor and its hint text** — dropped
+the checklist work to chase it live rather than reason about it, per
+CLAUDE.md's own standing rule. Reproduced in Playwright (not assumed): the
+gap measured ~65.6px and was present on a **fresh, never-resized** document,
+which ruled out the previously-documented resize/`flex-grow` saga (ROADMAP
+Priority 0 item 1, HISTORY §-several) despite looking like the same bug.
+Actual cause: `#doc-status` and `.doc-hint` are both `<p>` elements, and this
+app has no global `p { margin: 0 }` reset (confirmed — only `* { box-sizing:
+border-box }` exists) — so both carried the UA default `margin: 1em 0`,
+stacking on top of `.doc-main`'s own flex `gap`. Fixed with a `margin: 0` on
+each; live-remeasured at 25.6px, which matches the intended flex gap plus
+`#doc-content`'s own border, not a leftover bug. **This same "unreset `<p>`
+margin inside a `gap`-based flex/grid container" is a plausible pattern
+elsewhere** — `.muted` and `.status` (the two classes most `<p>` tags in this
+app carry) only set `color`, not `margin` — but a full sweep needs
+per-instance visual verification, not a blind mechanical fix, so it's flagged
+here rather than chased everywhere blind.
+
+**Parts C, D and G spot-checked against the live source, not assumed from
+the checklist:** heading hierarchy (`.card h2`/`h3` and every local override
+in `#sidebar`, `#chat-sidebar`, `.graph-toolbar`, `.reminder-listbar`) is
+already correctly layered — every override lives inside a `.card` ancestor
+and only touches margin, never re-invents weight/size; terminology
+("Note", never "Entry"/"Item" in user-facing copy) already consistent;
+`:focus-visible` coverage checked on `.theme-card`, `.timeline-band`,
+`.wb-tool-group button`, `.legend-item` — present, and the six `outline:
+none` declarations in the codebase all pair with a real focus replacement
+except two deliberate ones (a contenteditable whiteboard text box, a
+command-palette search input) where a ring would be redundant with the
+obvious focus affordance already present. One real fix:
+`#agent-monitor-close` was an icon-only button with `aria-hidden` on its
+icon and no `aria-label` — screen readers got nothing; added one.
+`color-scheme` is set once at `:root` keyed off `data-mode`, so date/color
+native-control theming (checklist Part G) already applies app-wide, not
+per-input. `prefers-reduced-motion` coverage checked on the two newer hover
+effects the checklist named directly — `.theme-card` is covered,
+`.library-card:hover` has no transform to gate in the first place. Loading
+states checked on re-evaluate (existing spinner) and file upload (existing
+inline "Uploading…" placeholder) — both already present.
+
+**Part E, the two truncation sites the checklist named directly:**
+`.library-card-title` (2-line clamp, rich markdown content) and
+`.timeline-dot-title` (1-line ellipsis, plain text) had no escape hatch —
+clamped mid-word with nothing short of opening the card to read the rest.
+Both now carry a native `title=""` tooltip with the full text. Verified
+live: `hasTitleAttr` true on a freshly captured note's library card. The
+other ~54 `text-overflow`/`line-clamp` sites in the codebase were not swept
+— too many for a confident mechanical pass, and most (category chips,
+select options, status lines) are short enough in practice that truncation
+rarely engages; a dedicated violations-table session is the right way to
+cover the rest, not a blind grep-and-patch. **Part F spot-check:**
+`.library-card-title` (700 weight, `--ink`) vs `.library-card-preview`
+(`--text-md`, `--muted`) vs `.library-card-meta` — title clearly dominates,
+hierarchy already correct, no change needed.
+
+**Not reached, said plainly rather than claimed done:** Parts H–J's
+heuristic/Gestalt/visual-design passes beyond what the C/D/E/F/G spot-checks
+already cover as evidence; the 12-palette × light/dark contrast sweep; the
+3-breakpoint full-page screenshot diff Part L asks for. These need either
+extensive live visual comparison (screenshots were kept deliberately sparse
+and cropped this session, per direct instruction) or a genuine
+violations-table review pass rather than a grep — exactly the kind of work
+the checklist itself says to scope as its own session, not squeeze into the
+tail of this one. Full suite (1,600+ tests) green, `ruff check .` clean,
+`node --check` clean on all three JS files throughout, zero console errors
+across a full live tab sweep. Backend untouched all session.
+
+## Previous session — a UI/UX design audit (user-supplied checklist), glass-tier consistency and Settings decluttering
+
+Prompted by a user-supplied external checklist (Perplexity-authored) covering
+token drift, glass-panel consistency, cross-tab consistency, Nielsen/Gestalt/
+visual-design heuristics. **Its claims were verified against the live source
+before acting, not trusted** — CLAUDE.md's own standing warning about stale
+docs applies equally to a checklist written by something that has never seen
+this repo. Part A (raw px/rem token drift) turned out to already be fully
+enforced by `tests/test_style_scale.py` — that test allows literal on-scale
+rem values (not just `var(--space-N)`), so a naive grep for "raw px/rem"
+flags hundreds of false positives; the actual lint is ground truth and it was
+already green. No action needed there.
+
+**Part B (glass-tier consistency) was real, confirmed line-by-line against
+the current CSS, not assumed from the checklist's text.** Fixed:
+- `.whiteboard-floating-panel` (06-timeline-dialogs.css) was on the page-card
+  tier (`--card-bg`) with zero `backdrop-filter` and `--shadow-sm` — visibly
+  thinner than every sibling popup. Now `--modal-bg` + `blur(var(--glass-blur))
+  saturate(150%)` + `--glass-shadow`, matching `.wb-export-menu` next to it.
+- `.graph-trace` / `.graph-options` were on the same wrong tier (`--glass-bg`,
+  aliased to the page-card token) with a hand-picked `blur(12px)` instead of
+  the 18px token.
+- `.wb-export-menu`, `.wb-shape-menu`, `.wb-stroke-width-badge`, and the
+  library image-tile edit/delete buttons had the right background/border/
+  shadow but **no `backdrop-filter` at all** — silently flat despite reading
+  as glass everywhere else.
+- `.timeline-band` had the right tier but a hardcoded `blur(8px)` and
+  `--shadow-sm` instead of the token/`--glass-shadow`.
+- The `[data-glass="off"]` fallback list (03-dashboard-widgets.css) was
+  missing most of the above — turning glass off in Settings left them
+  frosted anyway. Extended to cover all of them plus `.chat-skills-panel`/
+  `.note-picker-panel`, which had the correct glass build but weren't in the
+  fallback list either.
+
+**Settings decluttering — the user's explicit complaint ("still feels a bit
+too cluttered, especially settings").** Live-screenshotted first: the nav
+already has 4 grouped sections + search (from an earlier session), and
+Appearance/Account/Tasks already use the boxed `.settings-group` pattern —
+but Models, Preferences, Extras, Data, Tools and Shortcuts were a flat h3-only
+flow with zero visual separation between unrelated topics (Preferences alone
+stacked "Your name" / "Recycle bin" / "AI answer style" / "Notifications" /
+"Web search" / "About you" with nothing but an h3 between each). Wrapped each
+section's existing logical divisions in `.settings-group` boxes — purely
+additive (`.settings-group` is just border+radius+padding+margin, no id/class
+removed, nothing restructured internally) — matching the pattern already
+proven in Appearance. Screenshotted after: Preferences now reads as three
+clear regions instead of one wall. Personas/Skills/Templates/WebSearch/Logs/
+Help/About were left alone — already either boxed, or a coherent single-topic
+list+form pattern that didn't read as cluttered in the live screenshots.
+
+**Verified live in this sandbox's Chromium** (fresh browser context, not
+cached): all six retouched Settings sections render with the expected
+`.settings-group` count, zero console errors across Dashboard/Graph/Timeline/
+Library/Whiteboard/Notes/Chat after the CSS changes, and
+`.whiteboard-floating-panel`'s computed `backdrop-filter` reads
+`blur(18px) saturate(1.5)` (confirms the token resolves correctly). **Not
+verified: the whiteboard panel's bounding box** — it returned `null` in this
+sandbox's headless run (likely needs a board/tool selected to lay out;
+untraced, unrelated to the CSS change) — so the panel's fixed visual position
+was not screenshotted, only its resolved style. Full suite (1,600+ tests)
+green, `ruff check .` clean, `node --check` clean on all three JS files.
+Backend untouched this session.
+
+**Not attempted, out of scope for this pass:** Parts C–L of the checklist
+(cross-tab heading/empty-state audits, motion/`prefers-reduced-motion`
+coverage, responsive-edge stress tests, the 12-palette × light/dark contrast
+sweep, Nielsen/Gestalt/visual-design heuristic passes, full-page 3-breakpoint
+screenshot diffing) — the checklist itself says to work through it one
+section at a time with a violations table reviewed before code changes; this
+session did Part B in full and the one thing the user named directly
+(Settings clutter), and stopped there rather than guessing at the rest
+unreviewed.
+
+## Previous session — a security/correctness sweep, not a feature session: one bug shape found four times
 
 A codebase-wide read of `src/memorymap/**` and `frontend/**` for real bugs,
 not a feature build. Auth token handling, path traversal in file/attachment

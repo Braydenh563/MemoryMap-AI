@@ -22,6 +22,7 @@ them and the server hands over the whole (bounded) list once.
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -59,8 +60,20 @@ NOTE_PREVIEW_CHARS = 420
 ACTIVITY_DETAIL_CHARS = 400
 
 
+#: Heading/blockquote markers, stripped before the whitespace collapse below
+#: erases the line starts they depend on. The frontend card renderer does
+#: this same strip (app.js's `libraryCard`) for markers still at a real line
+#: start, but a document's *second* heading — "## Introduction" partway
+#: through the file — only reads that way before `" ".join(text.split())`
+#: below turns every newline into a space; after that it is indistinguishable
+#: from a mid-sentence "##". Reported directly: a document's preview showed
+#: the raw `##`.
+_MD_BLOCK_MARKER = re.compile(r"^(?:#{1,6}\s+|>\s?)", re.MULTILINE)
+
+
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
-    text = " ".join((text or "").split())
+    text = _MD_BLOCK_MARKER.sub("", text or "")
+    text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 

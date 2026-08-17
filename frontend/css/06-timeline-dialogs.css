@@ -75,12 +75,15 @@
   border-left: 4px solid var(--accent-soft);
   border-radius: var(--radius);
   background: var(--modal-bg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--glass-shadow);
   cursor: pointer;
 
-  /* Glassmorphism and animations */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* Glassmorphism and animations. --glass-blur (18px), not a hand-picked
+     8px: this is the same --modal-bg tier as every other popup, and the
+     mismatched blur radius was the most visible "frostiness" inconsistency
+     across tabs (DESIGN.md/checklist Part B). */
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   transition: all var(--motion-slow) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1752,8 +1755,15 @@
   padding: var(--space-3);
   align-items: center;
   border-radius: var(--radius);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-sm);
+  /* --modal-bg, not --card-bg: this floats over the board's own art/cards
+     and has to stay legible against all of it, same as every other popup
+     in DESIGN.md's glass tier. Was the page-card tier (55% opaque) with no
+     blur at all, so it read visibly thinner than every sibling panel. */
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
 }
 
 /* Reported directly, with a screenshot: the colour swatch and the
@@ -1779,6 +1789,8 @@
   border-radius: var(--radius);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
 }
 
@@ -2031,6 +2043,8 @@
   border-radius: var(--radius);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
   min-width: max-content;
 }
@@ -2158,6 +2172,8 @@
   border-radius: var(--radius-sm);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
   font-size: var(--text-sm);
   font-weight: 600;

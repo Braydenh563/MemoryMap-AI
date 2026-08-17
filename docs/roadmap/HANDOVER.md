@@ -2,7 +2,80 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a security/correctness sweep, not a feature session: one bug shape found four times
+## Latest session — a UI/UX design audit (user-supplied checklist), glass-tier consistency and Settings decluttering
+
+Prompted by a user-supplied external checklist (Perplexity-authored) covering
+token drift, glass-panel consistency, cross-tab consistency, Nielsen/Gestalt/
+visual-design heuristics. **Its claims were verified against the live source
+before acting, not trusted** — CLAUDE.md's own standing warning about stale
+docs applies equally to a checklist written by something that has never seen
+this repo. Part A (raw px/rem token drift) turned out to already be fully
+enforced by `tests/test_style_scale.py` — that test allows literal on-scale
+rem values (not just `var(--space-N)`), so a naive grep for "raw px/rem"
+flags hundreds of false positives; the actual lint is ground truth and it was
+already green. No action needed there.
+
+**Part B (glass-tier consistency) was real, confirmed line-by-line against
+the current CSS, not assumed from the checklist's text.** Fixed:
+- `.whiteboard-floating-panel` (06-timeline-dialogs.css) was on the page-card
+  tier (`--card-bg`) with zero `backdrop-filter` and `--shadow-sm` — visibly
+  thinner than every sibling popup. Now `--modal-bg` + `blur(var(--glass-blur))
+  saturate(150%)` + `--glass-shadow`, matching `.wb-export-menu` next to it.
+- `.graph-trace` / `.graph-options` were on the same wrong tier (`--glass-bg`,
+  aliased to the page-card token) with a hand-picked `blur(12px)` instead of
+  the 18px token.
+- `.wb-export-menu`, `.wb-shape-menu`, `.wb-stroke-width-badge`, and the
+  library image-tile edit/delete buttons had the right background/border/
+  shadow but **no `backdrop-filter` at all** — silently flat despite reading
+  as glass everywhere else.
+- `.timeline-band` had the right tier but a hardcoded `blur(8px)` and
+  `--shadow-sm` instead of the token/`--glass-shadow`.
+- The `[data-glass="off"]` fallback list (03-dashboard-widgets.css) was
+  missing most of the above — turning glass off in Settings left them
+  frosted anyway. Extended to cover all of them plus `.chat-skills-panel`/
+  `.note-picker-panel`, which had the correct glass build but weren't in the
+  fallback list either.
+
+**Settings decluttering — the user's explicit complaint ("still feels a bit
+too cluttered, especially settings").** Live-screenshotted first: the nav
+already has 4 grouped sections + search (from an earlier session), and
+Appearance/Account/Tasks already use the boxed `.settings-group` pattern —
+but Models, Preferences, Extras, Data, Tools and Shortcuts were a flat h3-only
+flow with zero visual separation between unrelated topics (Preferences alone
+stacked "Your name" / "Recycle bin" / "AI answer style" / "Notifications" /
+"Web search" / "About you" with nothing but an h3 between each). Wrapped each
+section's existing logical divisions in `.settings-group` boxes — purely
+additive (`.settings-group` is just border+radius+padding+margin, no id/class
+removed, nothing restructured internally) — matching the pattern already
+proven in Appearance. Screenshotted after: Preferences now reads as three
+clear regions instead of one wall. Personas/Skills/Templates/WebSearch/Logs/
+Help/About were left alone — already either boxed, or a coherent single-topic
+list+form pattern that didn't read as cluttered in the live screenshots.
+
+**Verified live in this sandbox's Chromium** (fresh browser context, not
+cached): all six retouched Settings sections render with the expected
+`.settings-group` count, zero console errors across Dashboard/Graph/Timeline/
+Library/Whiteboard/Notes/Chat after the CSS changes, and
+`.whiteboard-floating-panel`'s computed `backdrop-filter` reads
+`blur(18px) saturate(1.5)` (confirms the token resolves correctly). **Not
+verified: the whiteboard panel's bounding box** — it returned `null` in this
+sandbox's headless run (likely needs a board/tool selected to lay out;
+untraced, unrelated to the CSS change) — so the panel's fixed visual position
+was not screenshotted, only its resolved style. Full suite (1,600+ tests)
+green, `ruff check .` clean, `node --check` clean on all three JS files.
+Backend untouched this session.
+
+**Not attempted, out of scope for this pass:** Parts C–L of the checklist
+(cross-tab heading/empty-state audits, motion/`prefers-reduced-motion`
+coverage, responsive-edge stress tests, the 12-palette × light/dark contrast
+sweep, Nielsen/Gestalt/visual-design heuristic passes, full-page 3-breakpoint
+screenshot diffing) — the checklist itself says to work through it one
+section at a time with a violations table reviewed before code changes; this
+session did Part B in full and the one thing the user named directly
+(Settings clutter), and stopped there rather than guessing at the rest
+unreviewed.
+
+## Previous session — a security/correctness sweep, not a feature session: one bug shape found four times
 
 A codebase-wide read of `src/memorymap/**` and `frontend/**` for real bugs,
 not a feature build. Auth token handling, path traversal in file/attachment

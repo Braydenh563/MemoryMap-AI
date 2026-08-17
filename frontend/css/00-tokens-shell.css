@@ -1605,6 +1605,8 @@ header#top-bar.tabs-wrapped #tab-bar {
   top: var(--space-2);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
   opacity: 0;
   transition: opacity var(--motion-base) ease;

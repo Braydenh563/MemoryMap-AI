@@ -11,12 +11,15 @@
   flex-wrap: nowrap;
   margin: 0;
   padding: var(--space-3);
-  background: var(--glass-bg);
+  /* --modal-bg, not --glass-bg (aliased to the page-card tier): this floats
+     over the graph canvas, same reasoning as every other popup in
+     DESIGN.md's glass tier. --glass-blur (18px), not a hand-picked 12px. */
+  background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   --control-h: 1.9rem;
 }
 

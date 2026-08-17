@@ -2266,7 +2266,7 @@ Link to another note with [[its first few words]]."></textarea>
                  this is the setting you need most when nothing is reachable,
                  and hiding it whenever the backend is down would mean the one
                  control that could fix the problem is the one you can't get to. -->
-            <div id="backend-config">
+            <div id="backend-config" class="settings-group">
               <h3>Model backend</h3>
               <div class="row">
                 <select id="llm-provider-select">
@@ -2304,7 +2304,7 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="llm-privacy-warning" class="status error hidden"></p>
             </div>
 
-            <div id="models-config" class="hidden">
+            <div id="models-config" class="hidden settings-group">
               <h3>Chat model (answers your questions — switches instantly)</h3>
               <div class="row">
                 <select id="chat-model-select"></select>
@@ -2341,7 +2341,7 @@ Link to another note with [[its first few words]]."></textarea>
                  wasn't running — including the built-in option, which needs
                  no Ollama at all. So the one setting you could always change
                  was the one you could never reach (user-reported). -->
-            <div id="search-engine-config">
+            <div id="search-engine-config" class="settings-group">
               <h3>Search engine (how your notes are understood)</h3>
               <!-- Same treatment as the tool-focus group in Settings → Tools:
                    one control with one answer, rather than two loose dots
@@ -2370,17 +2370,17 @@ Link to another note with [[its first few words]]."></textarea>
                 fills in. The built-in engine works either way.
               </p>
             </div>
-            <div id="reindex-box" class="hidden">
+            <div id="reindex-box" class="hidden settings-group">
               <h3>Re-indexing your notes…</h3>
               <progress id="reindex-progress" value="0" max="1"></progress>
               <p id="reindex-label" class="status"></p>
             </div>
-            <div id="installed-box" class="hidden">
+            <div id="installed-box" class="hidden settings-group">
               <h3>Installed models</h3>
               <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
               <ul id="installed-list"></ul>
             </div>
-            <div id="suggested-box" class="hidden">
+            <div id="suggested-box" class="hidden settings-group">
               <h3>Suggested downloads</h3>
               <ul id="suggested-list"></ul>
             </div>
@@ -2509,27 +2509,31 @@ Link to another note with [[its first few words]]."></textarea>
               offered that tool at all. Destructive actions always ask you to
               confirm first.
             </p>
-            <h3>How many are offered at once</h3>
-            <p class="muted">
-              Every tool the AI is offered is described to it again on every
-              round of every message — all of them together are about three
-              quarters of what a small model reads before it even sees your
-              question. Sending only the ones a message plausibly needs leaves
-              far more room for your notes.
-            </p>
-            <label class="check-row">
-              <input type="radio" name="tool-focus" value="auto">
-              <span><strong>Only what the message needs</strong> — the whole set
-                is still sent when a request is broad ("tidy up my notes")</span>
-            </label>
-            <label class="check-row">
-              <input type="radio" name="tool-focus" value="all">
-              <span><strong>Always send all of them</strong> — pick this if the
-                AI ever misses a tool you asked for</span>
-            </label>
-            <p id="tool-focus-status" class="status" role="status"></p>
-            <h3>Which ones it may use</h3>
-            <ul id="tool-list" class="entry-list"></ul>
+            <div class="settings-group">
+              <h3>How many are offered at once</h3>
+              <p class="muted">
+                Every tool the AI is offered is described to it again on every
+                round of every message — all of them together are about three
+                quarters of what a small model reads before it even sees your
+                question. Sending only the ones a message plausibly needs leaves
+                far more room for your notes.
+              </p>
+              <label class="check-row">
+                <input type="radio" name="tool-focus" value="auto">
+                <span><strong>Only what the message needs</strong> — the whole set
+                  is still sent when a request is broad ("tidy up my notes")</span>
+              </label>
+              <label class="check-row">
+                <input type="radio" name="tool-focus" value="all">
+                <span><strong>Always send all of them</strong> — pick this if the
+                  AI ever misses a tool you asked for</span>
+              </label>
+              <p id="tool-focus-status" class="status" role="status"></p>
+            </div>
+            <div class="settings-group">
+              <h3>Which ones it may use</h3>
+              <ul id="tool-list" class="entry-list"></ul>
+            </div>
           </section>
 
           <!-- Appearance: grouped into scannable setting rows -->
@@ -2924,31 +2928,33 @@ Link to another note with [[its first few words]]."></textarea>
                terminal and a README, which for a local-first app is the same
                as not having the feature at all. -->
           <section class="settings-section hidden" id="settings-extras">
-            <h3>Packages</h3>
-            <p class="muted">
-              Things MemoryMap can do with one more package installed. Nothing
-              here is needed to write, search, tag or organise your notes —
-              each one turns on a feature that is otherwise switched off, and
-              everything is downloaded from PyPI to this machine.
-            </p>
-            <ul id="extras-list" class="extras-list"></ul>
-            <p id="extras-status" class="status" role="status"></p>
-            <details id="extras-log-wrap" class="task-log hidden">
-              <summary class="muted">What pip is doing</summary>
-              <pre id="extras-log" class="task-log-lines"></pre>
-            </details>
+            <div class="settings-group">
+              <h3>Packages</h3>
+              <p class="muted">
+                Things MemoryMap can do with one more package installed. Nothing
+                here is needed to write, search, tag or organise your notes —
+                each one turns on a feature that is otherwise switched off, and
+                everything is downloaded from PyPI to this machine.
+              </p>
+              <ul id="extras-list" class="extras-list"></ul>
+              <p id="extras-status" class="status" role="status"></p>
+              <details id="extras-log-wrap" class="task-log hidden">
+                <summary class="muted">What pip is doing</summary>
+                <pre id="extras-log" class="task-log-lines"></pre>
+              </details>
 
-            <!-- Shown once faster-whisper is installed. A bigger model is more
-                 accurate and slower; on a laptop CPU that difference is worth
-                 choosing rather than having decided for you. -->
-            <div class="row space-between setting-row hidden" id="voice-model-wrap">
-              <label for="voice-model-select">Dictation model size</label>
-              <select id="voice-model-select" class="small-select" aria-label="Dictation model size">
-                <option value="tiny">Tiny — fastest, least accurate</option>
-                <option value="base">Base — balanced (default)</option>
-                <option value="small">Small — more accurate, slower</option>
-                <option value="medium">Medium — most accurate, slowest</option>
-              </select>
+              <!-- Shown once faster-whisper is installed. A bigger model is more
+                   accurate and slower; on a laptop CPU that difference is worth
+                   choosing rather than having decided for you. -->
+              <div class="row space-between setting-row hidden" id="voice-model-wrap">
+                <label for="voice-model-select">Dictation model size</label>
+                <select id="voice-model-select" class="small-select" aria-label="Dictation model size">
+                  <option value="tiny">Tiny — fastest, least accurate</option>
+                  <option value="base">Base — balanced (default)</option>
+                  <option value="small">Small — more accurate, slower</option>
+                  <option value="medium">Medium — most accurate, slowest</option>
+                </select>
+              </div>
             </div>
 
             <!-- Embedding models. On this screen rather than its own, because
@@ -2960,98 +2966,110 @@ Link to another note with [[its first few words]]."></textarea>
                  Asked for after a look at Settings → Logs, where the hub's
                  cache-validation requests on every start read as a re-download.
                  They are not one; the note below says so where it will be read. -->
-            <h3>Embedding models</h3>
-            <p class="muted">
-              What “search by meaning” uses to understand a note. The model is
-              downloaded <strong>once</strong> and kept on this machine —
-              the HuggingFace requests in the log on every start are checking
-              the copy you already have, not fetching it again.
-            </p>
-            <ul id="embed-models-list" class="extras-list"></ul>
-            <p id="embed-models-cache" class="muted extras-meta"></p>
-            <p id="embed-models-status" class="status" role="status"></p>
+            <div class="settings-group">
+              <h3>Embedding models</h3>
+              <p class="muted">
+                What “search by meaning” uses to understand a note. The model is
+                downloaded <strong>once</strong> and kept on this machine —
+                the HuggingFace requests in the log on every start are checking
+                the copy you already have, not fetching it again.
+              </p>
+              <ul id="embed-models-list" class="extras-list"></ul>
+              <p id="embed-models-cache" class="muted extras-meta"></p>
+              <p id="embed-models-status" class="status" role="status"></p>
+            </div>
           </section>
 
           <section class="settings-section hidden" id="settings-shortcuts">
-            <p class="muted">
-              Click <strong>Change</strong> and press the keys you want. Press
-              <kbd>?</kbd> anywhere in the app for the same list as an overlay.
-            </p>
-            <ul class="shortcut-list" id="shortcut-list-settings"></ul>
-            <p id="shortcut-status-settings" class="status" role="status"></p>
-            <div class="row">
-              <button id="shortcuts-reset-settings" class="ghost small" type="button">
-                <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset to defaults
-              </button>
+            <div class="settings-group">
+              <p class="muted">
+                Click <strong>Change</strong> and press the keys you want. Press
+                <kbd>?</kbd> anywhere in the app for the same list as an overlay.
+              </p>
+              <ul class="shortcut-list" id="shortcut-list-settings"></ul>
+              <p id="shortcut-status-settings" class="status" role="status"></p>
+              <div class="row">
+                <button id="shortcuts-reset-settings" class="ghost small" type="button">
+                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset to defaults
+                </button>
+              </div>
             </div>
 
-            <h3>Always available</h3>
-            <p class="muted">
-              These follow the conventions every app shares, so they aren't
-              rebindable — being unable to press Escape in the dialog you
-              rebound it in is not a state worth allowing.
-            </p>
-            <ul class="shortcut-list">
-              <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
-              <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
-              <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
-              <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
-            </ul>
+            <div class="settings-group">
+              <h3>Always available</h3>
+              <p class="muted">
+                These follow the conventions every app shares, so they aren't
+                rebindable — being unable to press Escape in the dialog you
+                rebound it in is not a state worth allowing.
+              </p>
+              <ul class="shortcut-list">
+                <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
+                <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
+                <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
+                <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+              </ul>
+            </div>
           </section>
 
           <!-- Preferences -->
           <section class="settings-section hidden" id="settings-preferences">
-            <h3>Your name</h3>
-            <div class="row">
-              <label for="pref-display-name" class="muted">Name for the dashboard greeting</label>
-              <input id="pref-display-name" type="text" maxlength="60"
-                placeholder="e.g. Brayden">
+            <div class="settings-group">
+              <h3>Your name</h3>
+              <div class="row">
+                <label for="pref-display-name" class="muted">Name for the dashboard greeting</label>
+                <input id="pref-display-name" type="text" maxlength="60"
+                  placeholder="e.g. Brayden">
+              </div>
+              <h3>Recycle bin</h3>
+              <div class="row">
+                <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
+                <input id="pref-bin-days" type="number" min="1" max="365">
+                <span class="muted">days</span>
+              </div>
+              <h3>AI answer style</h3>
+              <select id="pref-style">
+                <option value="friendly">Friendly (default)</option>
+                <option value="concise">Concise</option>
+                <option value="detailed">Detailed</option>
+              </select>
             </div>
-            <h3>Recycle bin</h3>
-            <div class="row">
-              <label for="pref-bin-days" class="muted">Auto-clear binned entries after</label>
-              <input id="pref-bin-days" type="number" min="1" max="365">
-              <span class="muted">days</span>
+            <div class="settings-group">
+              <h3>Notifications</h3>
+              <label>
+                <input type="checkbox" id="pref-notif-mute-except-reminders">
+                Mute notifications except reminders
+              </label>
+              <p class="muted">
+                Quiets the toasts and the notifications panel for background
+                jobs, agent runs and general activity — a due reminder still
+                gets through either way.
+              </p>
+              <h3>Web search</h3>
+              <p class="muted">
+                Web search is the one feature that goes online, so it has a
+                screen of its own —
+                <button type="button" class="linklike" data-goto-section="websearch">open
+                  Settings → Web search</button>.
+              </p>
             </div>
-            <h3>AI answer style</h3>
-            <select id="pref-style">
-              <option value="friendly">Friendly (default)</option>
-              <option value="concise">Concise</option>
-              <option value="detailed">Detailed</option>
-            </select>
-            <h3>Notifications</h3>
-            <label>
-              <input type="checkbox" id="pref-notif-mute-except-reminders">
-              Mute notifications except reminders
-            </label>
-            <p class="muted">
-              Quiets the toasts and the notifications panel for background
-              jobs, agent runs and general activity — a due reminder still
-              gets through either way.
-            </p>
-            <h3>Web search</h3>
-            <p class="muted">
-              Web search is the one feature that goes online, so it has a
-              screen of its own —
-              <button type="button" class="linklike" data-goto-section="websearch">open
-                Settings → Web search</button>.
-            </p>
-            <h3>About you (optional)</h3>
-            <label>
-              <input type="checkbox" id="pref-profile-enabled">
-              Let the AI use this profile for more personal answers
-            </label>
-            <textarea id="pref-profile" rows="3"
-              placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
-            <div class="row">
-              <button id="prefs-save" class="small">Save preferences</button>
-              <button id="profile-delete" class="ghost small">Delete my profile data</button>
-              <span id="prefs-status" class="status" role="status"></span>
+            <div class="settings-group">
+              <h3>About you (optional)</h3>
+              <label>
+                <input type="checkbox" id="pref-profile-enabled">
+                Let the AI use this profile for more personal answers
+              </label>
+              <textarea id="pref-profile" rows="3"
+                placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
+              <div class="row">
+                <button id="prefs-save" class="small">Save preferences</button>
+                <button id="profile-delete" class="ghost small">Delete my profile data</button>
+                <span id="prefs-status" class="status" role="status"></span>
+              </div>
+              <p class="muted">
+                Stays on this computer like everything else. Turn it off or delete
+                it any time — answers just get less personal.
+              </p>
             </div>
-            <p class="muted">
-              Stays on this computer like everything else. Turn it off or delete
-              it any time — answers just get less personal.
-            </p>
           </section>
 
           <!-- Web search. Its own screen rather than four inches of the
@@ -3265,65 +3283,73 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Data: markdown + backups join the exports -->
           <section class="settings-section hidden" id="settings-data">
-            <h3>Export your data</h3>
-            <div class="row">
-              <button id="export-json" class="ghost small">Export JSON</button>
-              <button id="export-csv" class="ghost small">Export CSV</button>
-              <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
+            <div class="settings-group">
+              <h3>Export your data</h3>
+              <div class="row">
+                <button id="export-json" class="ghost small">Export JSON</button>
+                <button id="export-csv" class="ghost small">Export CSV</button>
+                <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
+              </div>
+              <p class="muted">Exports include everything, even binned entries.</p>
             </div>
-            <p class="muted">Exports include everything, even binned entries.</p>
 
-            <h3>Tidy up duplicates</h3>
-            <p class="muted">
-              Finds notes that say much the same thing, by comparing their
-              words — no AI needed. Merging keeps every tag, and the notes it
-              replaces go to the recycle bin, so nothing is destroyed.
-            </p>
-            <div class="row">
-              <button id="find-duplicates" class="small"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i> Find duplicates</button>
-              <label for="duplicate-threshold" class="muted">How alike</label>
-              <input id="duplicate-threshold" type="range" min="50" max="100" value="72"
-                aria-label="How similar two notes must be to count as duplicates">
-              <span id="duplicate-threshold-value" class="muted">72%</span>
+            <div class="settings-group">
+              <h3>Tidy up duplicates</h3>
+              <p class="muted">
+                Finds notes that say much the same thing, by comparing their
+                words — no AI needed. Merging keeps every tag, and the notes it
+                replaces go to the recycle bin, so nothing is destroyed.
+              </p>
+              <div class="row">
+                <button id="find-duplicates" class="small"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i> Find duplicates</button>
+                <label for="duplicate-threshold" class="muted">How alike</label>
+                <input id="duplicate-threshold" type="range" min="50" max="100" value="72"
+                  aria-label="How similar two notes must be to count as duplicates">
+                <span id="duplicate-threshold-value" class="muted">72%</span>
+              </div>
+              <p id="duplicate-status" class="status" role="status"></p>
+              <div id="duplicate-groups"></div>
             </div>
-            <p id="duplicate-status" class="status" role="status"></p>
-            <div id="duplicate-groups"></div>
 
-            <h3>Import markdown</h3>
-            <div class="row">
-              <input id="import-md-files" type="file" accept=".md,.markdown,.txt" multiple>
-              <button id="import-md" class="small">Import</button>
-            </div>
-            <p id="import-md-status" class="status" role="status"></p>
-            <p class="muted">
-              Each file becomes a note. Obsidian-style frontmatter
-              (category, tags) is understood.
-            </p>
+            <div class="settings-group">
+              <h3>Import markdown</h3>
+              <div class="row">
+                <input id="import-md-files" type="file" accept=".md,.markdown,.txt" multiple>
+                <button id="import-md" class="small">Import</button>
+              </div>
+              <p id="import-md-status" class="status" role="status"></p>
+              <p class="muted">
+                Each file becomes a note. Obsidian-style frontmatter
+                (category, tags) is understood.
+              </p>
 
-            <h3>Import a document</h3>
-            <div class="row">
-              <input id="import-document-file" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm">
-              <button id="import-document" class="small">Import</button>
+              <h3>Import a document</h3>
+              <div class="row">
+                <input id="import-document-file" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm">
+                <button id="import-document" class="small">Import</button>
+              </div>
+              <p id="import-document-status" class="status" role="status"></p>
+              <p class="muted">
+                Turns a PDF, Word file or slide deck into notes — one per
+                chapter or slide when the file has that shape, one note
+                otherwise. Needs the markitdown extra below.
+              </p>
             </div>
-            <p id="import-document-status" class="status" role="status"></p>
-            <p class="muted">
-              Turns a PDF, Word file or slide deck into notes — one per
-              chapter or slide when the file has that shape, one note
-              otherwise. Needs the markitdown extra below.
-            </p>
 
-            <h3>Backups</h3>
-            <div class="row">
-              <button id="backup-now" class="small">Back up now</button>
-              <span id="backup-status" class="status" role="status"></span>
+            <div class="settings-group">
+              <h3>Backups</h3>
+              <div class="row">
+                <button id="backup-now" class="small">Back up now</button>
+                <span id="backup-status" class="status" role="status"></span>
+              </div>
+              <ul id="backup-list" class="entry-list"></ul>
+              <p class="muted">
+                A backup is also taken automatically once a day when the app
+                starts. Restoring first snapshots the current state, so even a
+                restore can be undone. Backups live in your data folder —
+                they never leave this computer.
+              </p>
             </div>
-            <ul id="backup-list" class="entry-list"></ul>
-            <p class="muted">
-              A backup is also taken automatically once a day when the app
-              starts. Restoring first snapshots the current state, so even a
-              restore can be undone. Backups live in your data folder —
-              they never leave this computer.
-            </p>
           </section>
 
           <!-- Logs -->

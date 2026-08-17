@@ -39,6 +39,8 @@ def atomic_write_text(path: str | os.PathLike[str], text: str) -> None:
         try:
             os.unlink(tmp_name)
         except OSError:
+            # Best-effort cleanup: do not mask the original write/replace
+            # failure if removing the temp file also fails.
             pass
         raise
 

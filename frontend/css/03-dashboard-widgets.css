@@ -506,6 +506,10 @@
   margin-bottom: var(--space-3);
 }
 
+.web-panel .web-panel-searxng {
+  margin-bottom: var(--space-3);
+}
+
 .web-panel #web-query {
   min-width: 0;
   flex: 1 1 8rem;

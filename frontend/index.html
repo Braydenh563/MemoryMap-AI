@@ -981,6 +981,15 @@ Link to another note with [[its first few words]]."></textarea>
             <strong id="web-panel-title"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</strong>
             <button id="web-panel-close" class="ghost small" aria-label="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
+          <!-- Feedforward, not just the after-the-fact "answered by SearXNG"
+               line results already carry: whether the private local instance
+               is even running is otherwise invisible until a search silently
+               falls back to DuckDuckGo. Hidden unless the chosen provider
+               (Settings → Web search) can actually use SearXNG. -->
+          <div id="web-searxng-strip" class="row space-between web-panel-searxng hidden">
+            <span id="web-searxng-chip" class="chip">Checking…</span>
+            <button id="web-searxng-toggle" class="ghost small" type="button"></button>
+          </div>
           <div class="row web-panel-search">
             <input id="web-query" type="text" placeholder="Search the web…"
               aria-label="Search the web">

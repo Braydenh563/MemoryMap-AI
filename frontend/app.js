@@ -4751,7 +4751,90 @@ function toggleWebPanel(force) {
     } else if (!$("web-results").childElementCount) {
       status.textContent = "";
     }
+    refreshWebSearxngStrip();
     $("web-query").focus();
+  } else {
+    clearTimeout(webSearxngTimer);
+  }
+}
+
+// Feedforward for whether the private, local SearXNG instance is actually
+// running — not just the after-the-fact "answered by SearXNG" a result
+// already carries (renderAnswerGrounding-adjacent code, search below).
+// Asked for directly: a way to see and toggle it without leaving the Chat
+// tab for Settings → Web search, three clicks and a tab-switch away.
+// Deliberately far lighter than that page's full management UI (install
+// progress, port diagnostics, reinstall) — this is only "is it on, turn it
+// on/off", the two things worth knowing before typing a query.
+let webSearxngTimer = null;
+
+async function refreshWebSearxngStrip() {
+  const strip = $("web-searxng-strip");
+  const provider = (prefsCache && prefsCache.search_provider) || "auto";
+  if (provider === "duckduckgo") {
+    // This provider never touches SearXNG — a toggle here would control
+    // nothing a search actually uses.
+    strip.classList.add("hidden");
+    clearTimeout(webSearxngTimer);
+    return;
+  }
+  const info = await apiJson("/websearch/searxng/status").catch(() => null);
+  if (!info || !info.backend) {
+    // No usable backend (Docker or a virtualenv) to run it at all — Settings
+    // → Web search explains why; there's nothing this strip can offer.
+    strip.classList.add("hidden");
+    clearTimeout(webSearxngTimer);
+    return;
+  }
+  strip.classList.remove("hidden");
+  const chip = $("web-searxng-chip");
+  const toggle = $("web-searxng-toggle");
+
+  if (info.installing) {
+    chip.textContent = "SearXNG: installing…";
+    chip.className = "chip";
+    toggle.disabled = true;
+    setLabel(toggle, "ph:play Start");
+    clearTimeout(webSearxngTimer);
+    webSearxngTimer = setTimeout(refreshWebSearxngStrip, 2000);
+    return;
+  }
+
+  const running = info.state === "running" && info.responding;
+  chip.textContent = running
+    ? "SearXNG: running"
+    : info.state === "stopped"
+      ? "SearXNG: stopped"
+      : "SearXNG: not installed";
+  chip.className = `chip ${running ? "confidence" : ""}`.trim();
+  toggle.disabled = false;
+  setLabel(
+    toggle,
+    running
+      ? "ph:stop-circle Stop"
+      : info.state === "absent"
+        ? "ph:play Install & start"
+        : "ph:play Start"
+  );
+  toggle.onclick = async () => {
+    toggle.disabled = true;
+    try {
+      await apiJson(`/websearch/searxng/${running ? "stop" : "start"}`, { method: "POST" });
+      toast(
+        running
+          ? "Stopping SearXNG."
+          : "Starting SearXNG… the first run pulls the image, so give it a minute."
+      );
+    } catch (error) {
+      toast(error.message, true);
+    }
+    refreshWebSearxngStrip();
+  };
+  // Keep polling while it settles, same as Settings' own richer view —
+  // otherwise "Starting…" can stick with no way to tell it's still moving.
+  if (info.state === "running" && !info.responding) {
+    clearTimeout(webSearxngTimer);
+    webSearxngTimer = setTimeout(refreshWebSearxngStrip, 3000);
   }
 }
 

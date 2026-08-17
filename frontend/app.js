@@ -913,12 +913,16 @@ function entryItem(entry, options = {}) {
   // saved while no AI was running, it accused a perfectly good note of being
   // suspect — which is most notes if you don't run Ollama.
   const aiDidFile = entry.ai_confidence > 0 && !entry.user_filed;
+  // Plain-language explanation on hover — "confidence" is jargon otherwise,
+  // and the number alone doesn't say what it's confident *about*.
+  const confidenceHint = "How sure the AI was when it picked this note's category.";
   const confidenceChip = aiDidFile
     ? entry.ai_confidence >= REVIEW_THRESHOLD
       ? chip(`AI ${entry.ai_confidence}%`, "confidence")
       : // Low confidence from a real attempt — worth a human look (Phase 3).
         chip(`AI ${entry.ai_confidence}% — check this`, "review")
     : null;
+  if (confidenceChip) confidenceChip.title = confidenceHint;
   // Flash the badge once when this note's confidence just changed, so the
   // update after a re-evaluation is actually noticeable (user request).
   if (confidenceChip && entry.id === flashConfidenceId) {

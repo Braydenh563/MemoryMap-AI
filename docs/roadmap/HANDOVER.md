@@ -2,7 +2,69 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — finishing the design audit: a real Escape-key gap on 4 dialogs, a rigorous contrast audit, more truncation fixes
+## Latest session — closing out the design-audit checklist (Nielsen/Gestalt/visual-design), a live bug report investigated (not fixed), a self-caught near-miss
+
+Fourth continuation of the same design-audit session, asked to finish
+whatever remained of Parts H–L.
+
+**A live bug was reported mid-session** ("the bars animation for meeting
+notes voice pickup when recording isn't showing") and investigated properly
+rather than patched on a guess. First pass misread the code and "fixed" a
+call that already existed correctly a few lines later — caught on a second,
+closer read before it shipped, and reverted immediately (would have created
+a duplicate `startMicLevelMeter()` call and leaked an `AudioContext`; see
+the diff history if useful, but nothing from that attempt is in the current
+code). Tested `startMicLevelMeter()` directly against a fake-device
+`MediaStream` in Chromium: bars are created, sized, and animate correctly
+in isolation — the mechanism itself is not broken. Could not reproduce the
+full meeting-recording flow end-to-end because it requires
+`faster-whisper`, not installed in this sandbox per this file's own
+standing instruction about heavy ML deps. **Left unresolved, said plainly:**
+the two most likely real-world explanations — a stale cached `app.js` (this
+exact app has a documented history of that trap) or the in-app Reduce
+Motion setting — were surfaced to the user rather than guessed at in code.
+
+**Nielsen's 10, checked concretely, not asserted:**
+- #1 status visibility: file upload and re-evaluate already have loading
+  states (checked previously); graph-layout recompute is a synchronous d3
+  simulation, not an async op with an obvious spinner point — inconclusive,
+  not fixed speculatively.
+- #2 plain language: the "AI 73%" confidence chip had zero explanation of
+  what it's confident *about* — added a `title` tooltip. "Embedding" is
+  already contextualized in Settings → Models' own prose, left alone.
+- #3 user control: confirmed (Part G, prior round) — Escape now covers all
+  10 modal-overlays, all 5 destructive actions gate through `confirmDialog`.
+- #4 consistency: the checkbox-as-switch treatment is one shared selector
+  list (5 contexts, one rule block, `06-timeline-dialogs.css`) rather than
+  duplicated per-component — the "not an accidental reinvention" the
+  checklist asks to confirm, is.
+- #5 error prevention: spot-checked the password-change form — client-side
+  pre-validation with specific messages before the request even fires.
+  Already correct.
+- #6/#7: not re-litigated this round — no new mechanical signal found
+  beyond what settings-group/shortcuts work already covers.
+- #8 aesthetic/minimalist: primary (`button`, filled `--accent-surface` +
+  shadow) vs. secondary (`.ghost`, flat `--chip-bg`, no shadow) hierarchy
+  confirmed structurally correct, not just by eye.
+- #9/#10: not separately audited this round beyond the empty-state pass
+  already on record.
+
+**Part L, Carbon and keyboard-only, both checked live:** Carbon doesn't
+override `--glass-opacity`/`--glass-blur` — it's still glass, just
+monochrome. The checklist's "quiet, non-glassy" ask is actually served by a
+different, already-existing combination: Carbon palette + the separate
+Glass-off toggle together, not a special case baked into one palette. Left
+as-is — composing two orthogonal settings is the better design than a
+hardcoded exception. Keyboard-only reachability spot-checked on Library:
+Tab navigation reaches a `.library-card` as a real focusable element with
+`opacity: 1` (not hover-only) — confirmed live, not assumed.
+
+Full suite (1,600+ tests) green, `ruff check .` clean, `node --check` clean.
+Two real changes this round: the confidence-chip tooltip, and (from the
+investigation above) nothing shipped for the meeting recorder — correctly,
+given no reproducible defect was found.
+
+## Previous session — finishing the design audit: a real Escape-key gap on 4 dialogs, a rigorous contrast audit, more truncation fixes
 
 Third and final continuation of the same design-audit session, asked to push
 through Parts E–L rather than stop at the checklist's own recommended

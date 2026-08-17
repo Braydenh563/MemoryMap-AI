@@ -9272,8 +9272,12 @@ async function batchTag() {
 async function batchDelete() {
   const ids = batchSelection();
   if (!ids.length) return;
-  if (!(await confirmDialog(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`)))
-    return;
+  // No confirm dialog: this is a soft delete (DELETE /entries/{id} moves a
+  // note to the bin, not gone) and the toastAction below already offers a
+  // one-click Undo — the single-note "Move to bin" action right above this
+  // function established the same pattern (Wave J). Gating an already-
+  // reversible action behind an interrupting confirm *and* an undo toast is
+  // redundant friction, not extra safety (Tier 3 §30e).
   for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
   exitSelectMode();
   await loadEntries();

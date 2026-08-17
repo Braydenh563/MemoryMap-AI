@@ -2436,6 +2436,12 @@ function openGraphNewNote(event, linkFrom = null) {
   popup.classList.remove("hidden");
 
   const box = $("graph-box").getBoundingClientRect();
+  // Never taller than the map it sits in — beyond that the popup scrolls
+  // itself rather than growing off the edge (same fix placeGraphPopup()
+  // already has; this popup was missing it, so on a short viewport its
+  // Save/Close/Tags controls rendered below the fold with nothing to
+  // scroll them into view).
+  popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
   const size = popup.getBoundingClientRect();
   // Centre it when there's no click position (toolbar button).
   const rawX = event ? event.clientX - box.left + 12 : (box.width - size.width) / 2;

@@ -14,9 +14,96 @@ you couldn't.
 
 ## Newest — a mobile/responsive audit, and a blind feature-completeness brainstorm across every screen (read this first, above Priority 0)
 
-*(mobile/responsive audit findings pending — a live Playwright pass across 9
-breakpoints and all 7 tabs is running as this section is being written; see
-the follow-up commit / HANDOVER.md for what it found)*
+### The mobile/responsive audit
+
+Two background agents drove the real app live in headless Chromium across 9
+common breakpoints (320×568 through 1920×1080) and all 7 tabs plus Settings,
+the command palette, and a modal — the first attempt died mid-run
+(infrastructure, not a task problem) and was retried clean. Two real BROKEN
+findings, both root-caused and fixed this session, live-verified after the
+fix rather than trusted from the diagnosis alone:
+
+1. **Graph's "+ New note" popup rendered its Save/Close/Tags controls below
+   the fold at 320×568 and 375×667, with nothing to scroll them into view.**
+   Root cause: `placeGraphPopup()` (the *existing*-note popup) sets
+   `popup.style.maxHeight` from the map's own box height before measuring,
+   so it self-scrolls when tall — its sibling `openGraphNewNote()` (the
+   *new*-note popup the audit actually hit) never did, so the popup just
+   grew past `#graph-box`'s bounds with `overflow-y: auto` sitting on an
+   element that never actually overflowed anything. Fixed by copying the one
+   line `openGraphNewNote()` was missing (`graph.js`). **Verified live,
+   before/after**: at 375×667, `#graph-new-save`'s bottom went from 701px
+   (134px past the 667px viewport, per the audit) to 418px (well within);
+   `popup.scrollHeight` (408px) now genuinely exceeds `clientHeight` (174px),
+   confirming the internal scroll is doing real work instead of never
+   engaging. **A second, more fundamental issue surfaced while verifying,
+   not yet fixed**: at 320×568 on a fresh/empty profile, `#graph-box` itself
+   renders with `top: 522px` — the Graph tab's own toolbar consumes so much
+   of the 568px viewport that the canvas, and therefore the "+ New note"
+   button itself, isn't reachable without scrolling first, with no affordance
+   hinting that. This is a mobile layout problem with the Graph toolbar
+   specifically, separate from the popup bug above, real design work rather
+   than a one-line fix, and not addressed this session — next one should
+   start here rather than re-deriving it.
+2. **A persistent "Agent Activity" panel (`#agent-monitor`, fixed-position,
+   `z-index: 1000`) overlapped real content on every tab at 320px width**,
+   confirmed visually (not just bounding-box math) — text bled through
+   underneath its translucent backdrop on Notes, Graph, and others. Root
+   cause: `document.body.classList.toggle("has-agent-monitor", …)` (`app.js`)
+   had no matching CSS rule anywhere — a dead hook, the exact "feature that
+   never ran once" shape this file's own review-checklist section warns
+   about. Fixed in `07-whiteboard-misc.css`: the class now pads the active
+   tab's scroll container so content can be scrolled clear of the panel's
+   footprint. **This needed two passes to actually work, and the wrong first
+   attempt is worth recording**: padding `.tab-page` alone (the general
+   scroll container) measurably did nothing for the Notes or Chat tabs
+   specifically — `04-chat-dock-appearance.css:147-186` makes `.tab-page` a
+   plain flex column for those two and moves the real `overflow-y: auto`
+   onto a nested `.layout > main` instead, confirmed by measuring computed
+   `padding-bottom` on the wrong element and getting an unchanged value
+   before catching it. A second selector targeting that inner container
+   fixed it — verified live, computed `padding-bottom` going from `0px` to
+   `288px` on Notes' and Chat's real scroll containers once the class is
+   set. **Still not addressed**: Graph has no document-flow scroll container
+   at all (a pan/zoom canvas), so this class-driven padding can't help it
+   the same way — the panel can still temporarily obstruct the map there.
+   Also gave the panel `max-width: calc(100vw - 40px)` so its fixed 350px
+   width can't itself force horizontal crowding on a narrow screen.
+
+Three more findings, real but lower severity, not fixed this session —
+next session, roughly in this order:
+
+3. **SUBOPTIMAL — several toggle/checkbox controls fall under the WCAG
+   2.5.8 24×24px minimum tap-target size**, consistently across viewports:
+   `#semantic-search-toggle` and `#library-show-binned` (plain native
+   checkboxes styled only with `accent-color`, no explicit size — the
+   `.accent-check` class that names the intent sets nothing else),
+   `#skills-auto-toggle`/`#skills-auto-tag`/`#skills-auto-link` (13×13
+   unstyled native checkboxes), two unlabeled checkboxes in Settings, and
+   Chat's three quick-suggestion chips (`.chip.chip-interactive`, ~21px
+   tall). These aren't one shared component — at least three separate
+   styling situations — so this is more than a one-line fix; scope a real
+   pass rather than patching pixel values blind.
+4. **SUBOPTIMAL — the 7-tab nav bar shows only ~4 tabs at once at
+   320–375px width with no scroll affordance.** Confirmed genuinely
+   scrollable (not clipped/lost — `scrollWidth` 640px vs `clientWidth`
+   294–349px, and the active tab does auto-scroll into view), just
+   undiscoverable: nothing hints Library/Timeline/Reminders exist further
+   right except a partially-cut label at rest. A fade-mask or scroll-arrow
+   hint at the nav bar's trailing edge would close this cheaply.
+5. **SUBOPTIMAL — the Graph "+ New note" popup visually overlaps the
+   zoom-in/zoom-out/fullscreen toolbar buttons while open** (confirmed
+   56–71% bounding-box overlap at 320–412px widths), with no backdrop to
+   signal the rest of the canvas is temporarily inactive. Low severity, but
+   cheap to fix alongside item 1's toolbar work above.
+
+Confirmed clean at every viewport, so nobody re-audits it: no horizontal
+document overflow anywhere, no sub-11px text anywhere, the Settings modal
+renders correctly at every width tested (single-column at 320px, sidebar+
+content at 768px+), and each tab's own scroll container correctly stops
+exactly at the footer's top edge (several "controls cut off near the
+bottom" findings from the automated pass turned out to be false positives
+from that — reachable by scrolling, not actually clipped).
 
 Two separate passes this session, both driven by the same worry CLAUDE.md
 names directly: rebuilding something that already exists. So the method for

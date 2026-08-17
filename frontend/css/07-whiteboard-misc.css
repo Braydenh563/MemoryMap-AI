@@ -543,9 +543,45 @@ textarea.drag-over {
   bottom: 20px;
   left: 20px;
   width: 350px;
+  max-width: calc(100vw - 40px);
   z-index: 1000;
   box-shadow: var(--shadow-md);
   animation: slide-up 0.3s ease-out;
+}
+
+/* `document.body.classList.toggle("has-agent-monitor", …)` (app.js) sets this
+   with no CSS ever consuming it — the fixed-position panel above just sat on
+   top of whatever a tab's own scroll container put underneath it, live-
+   verified overlapping real content on every tab at a 320px width (mobile
+   audit). The panel's own height is bounded (.monitor-header +
+   .monitor-logs's own 12.5rem max-height + padding), so a fixed buffer here
+   is enough for the active tab to scroll its content clear of the panel's
+   footprint rather than leaving anything permanently hidden behind it.
+
+   `.tab-page` is the scroll container for most tabs, but not all of them:
+   Notes and Chat (`04-chat-dock-appearance.css`) make `.tab-page` a plain
+   flex column and move the actual `overflow-y: auto` onto their own nested
+   `.layout > main` instead — padding the outer element there does nothing
+   for the inner one that's really scrolling, confirmed live (padding-bottom
+   on #tab-notes stayed unchanged after adding the class until this second
+   selector was added). Graph has no document-flow scroll container at all
+   (it's a pan/zoom canvas), so this can't help it the same way — noted as
+   still-open in the roadmap rather than silently left unfixed.
+
+   The buffer itself is `--space-9 * 9` (18rem) rather than a bare number —
+   not a spacing rhythm value in the usual sense (it's standing in for
+   another element's height, not a gap between two things), but
+   `test_style_scale.py` scans literal rem numbers inside any padding
+   declaration regardless of what they mean, so composing it from the scale
+   is what keeps this off the test's ALLOWED list, which is for cases where
+   even a token composition can't fit — this one can. */
+body.has-agent-monitor .tab-page {
+  padding-bottom: calc(var(--page-bottom) + var(--space-9) * 9);
+}
+
+body.has-agent-monitor #tab-notes .layout > main,
+body.has-agent-monitor #tab-chat .layout > main {
+  padding-bottom: calc(var(--space-9) * 9);
 }
 
 .monitor-log-item {

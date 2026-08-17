@@ -890,6 +890,18 @@
   z-index: 40;
 }
 
+/* Same idea for the Library tab: anchor to the content panel's own corner
+   (#tab-library is the positioning root, see 07-whiteboard-misc.css)
+   instead of the viewport corner every other tab uses. Its box already
+   excludes --status-bar-h (see --page-viewport), so no extra clearance is
+   needed here. */
+#tab-library .scroll-top {
+  position: absolute;
+  right: 1.5rem;
+  bottom: var(--space-4);
+  z-index: 40;
+}
+
 .chat-dock>* {
   flex: 0 0 auto;
 }

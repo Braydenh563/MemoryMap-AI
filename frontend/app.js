@@ -13544,13 +13544,32 @@ if (chatTabNode) {
     const btn = document.querySelector(".scroll-top");
     const dock = document.querySelector(".chat-dock");
     if (!btn || !dock) return;
-    
+
     if (!chatTabNode.classList.contains("hidden")) {
       dock.appendChild(btn);
     } else {
       document.body.appendChild(btn);
     }
   }).observe(chatTabNode, { attributes: true, attributeFilter: ["class"] });
+}
+
+// Same relocation for Library: parked in its content panel (#tab-library,
+// position: relative — see 07-whiteboard-misc.css) so .scroll-top's corner
+// offset is relative to that panel instead of the viewport. Chat's observer
+// above already returns the button to document.body on its own tab-out, so
+// this only needs to grab it back when Library becomes the active tab.
+const libraryTabNode = document.getElementById("tab-library");
+if (libraryTabNode) {
+  new MutationObserver(() => {
+    const btn = document.querySelector(".scroll-top");
+    if (!btn) return;
+
+    if (!libraryTabNode.classList.contains("hidden")) {
+      libraryTabNode.appendChild(btn);
+    } else if (btn.parentElement === libraryTabNode) {
+      document.body.appendChild(btn);
+    }
+  }).observe(libraryTabNode, { attributes: true, attributeFilter: ["class"] });
 }
 
 // --- what the AI remembers (ROADMAP §39B) ------------------------------------------

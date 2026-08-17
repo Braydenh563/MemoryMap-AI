@@ -845,10 +845,14 @@ body.has-agent-monitor #tab-chat .layout > main {
 }
 
 /* The Library page and its three sub-views. The page is a column so that a
-   sub-view can be the part that scrolls, rather than the window. */
+   sub-view can be the part that scrolls, rather than the window. Also the
+   positioning root for .scroll-top when this tab is active — see
+   04-chat-dock-appearance.css — so the button sits in the corner of this
+   content panel instead of the viewport corner. */
 #tab-library:not(.hidden) {
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .library-subtabs {

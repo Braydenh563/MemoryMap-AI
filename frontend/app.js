@@ -642,6 +642,21 @@ function chip(text, extraClass = "", onClick = null) {
   return span;
 }
 
+// The one reusable "something is loading" mark (ROADMAP Priority 0 #14) —
+// asked for directly, since before this every call site (re-evaluate, per-
+// card AI work) built its own one-off spinner chip by hand. The .spinner
+// CSS class (01-forms-settings.css, beside .chip-busy which it was
+// extracted from) carries the animation and the prefers-reduced-motion
+// fallback; aria-hidden because this is a visual accent only — the loading
+// state itself belongs in a visible/aria-live status line at the call site,
+// the same pattern #meeting-status and its siblings already use.
+function spinnerEl() {
+  const el = document.createElement("span");
+  el.className = "spinner";
+  el.setAttribute("aria-hidden", "true");
+  return el;
+}
+
 // The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
 // keyboard support and never got it retrofitted — mouse-only, same gap
 // chip() already closed once this session for the "Go to note" chip.
@@ -1001,8 +1016,12 @@ function entryItem(entry, options = {}) {
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
     li.classList.add("entry-busy");
-    const busy = chip("⟳ Re-evaluating…", "busy");
+    const busy = chip("Re-evaluating…", "busy");
     busy.classList.add("chip-busy");
+    // The shared spinner (ROADMAP Priority 0 #14) replaces this chip's own
+    // one-off ring — .chip's own `gap` handles the spacing and vertical
+    // centring, so no extra margin is needed.
+    busy.prepend(spinnerEl());
     meta.appendChild(busy);
   }
 

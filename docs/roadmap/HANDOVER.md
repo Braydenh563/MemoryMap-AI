@@ -2,7 +2,64 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a UI/UX design audit (user-supplied checklist), glass-tier consistency and Settings decluttering
+## Latest session — continuing the design audit: one live bug found and fixed, Parts C/D/G spot-checked clean
+
+Continuation of the session below, asked to keep going through the rest of
+the checklist ("Parts C-L"). **Mid-session the user reported, with a
+screenshot, a gap between the document editor and its hint text** — dropped
+the checklist work to chase it live rather than reason about it, per
+CLAUDE.md's own standing rule. Reproduced in Playwright (not assumed): the
+gap measured ~65.6px and was present on a **fresh, never-resized** document,
+which ruled out the previously-documented resize/`flex-grow` saga (ROADMAP
+Priority 0 item 1, HISTORY §-several) despite looking like the same bug.
+Actual cause: `#doc-status` and `.doc-hint` are both `<p>` elements, and this
+app has no global `p { margin: 0 }` reset (confirmed — only `* { box-sizing:
+border-box }` exists) — so both carried the UA default `margin: 1em 0`,
+stacking on top of `.doc-main`'s own flex `gap`. Fixed with a `margin: 0` on
+each; live-remeasured at 25.6px, which matches the intended flex gap plus
+`#doc-content`'s own border, not a leftover bug. **This same "unreset `<p>`
+margin inside a `gap`-based flex/grid container" is a plausible pattern
+elsewhere** — `.muted` and `.status` (the two classes most `<p>` tags in this
+app carry) only set `color`, not `margin` — but a full sweep needs
+per-instance visual verification, not a blind mechanical fix, so it's flagged
+here rather than chased everywhere blind.
+
+**Parts C, D and G spot-checked against the live source, not assumed from
+the checklist:** heading hierarchy (`.card h2`/`h3` and every local override
+in `#sidebar`, `#chat-sidebar`, `.graph-toolbar`, `.reminder-listbar`) is
+already correctly layered — every override lives inside a `.card` ancestor
+and only touches margin, never re-invents weight/size; terminology
+("Note", never "Entry"/"Item" in user-facing copy) already consistent;
+`:focus-visible` coverage checked on `.theme-card`, `.timeline-band`,
+`.wb-tool-group button`, `.legend-item` — present, and the six `outline:
+none` declarations in the codebase all pair with a real focus replacement
+except two deliberate ones (a contenteditable whiteboard text box, a
+command-palette search input) where a ring would be redundant with the
+obvious focus affordance already present. One real fix:
+`#agent-monitor-close` was an icon-only button with `aria-hidden` on its
+icon and no `aria-label` — screen readers got nothing; added one.
+`color-scheme` is set once at `:root` keyed off `data-mode`, so date/color
+native-control theming (checklist Part G) already applies app-wide, not
+per-input. `prefers-reduced-motion` coverage checked on the two newer hover
+effects the checklist named directly — `.theme-card` is covered,
+`.library-card:hover` has no transform to gate in the first place. Loading
+states checked on re-evaluate (existing spinner) and file upload (existing
+inline "Uploading…" placeholder) — both already present.
+
+**Not reached, said plainly rather than claimed done:** Part E's truncation-
+escape-hatch audit (56 `text-overflow`/`line-clamp` sites — too many for a
+mechanical grep, needs the checklist's own "violations table" treatment as
+its own session); Part F's per-card "loudest thing" visual comparison;
+Parts H–J's heuristic/Gestalt/visual-design passes beyond what the C/D/G
+spot-checks already cover as evidence; the 12-palette × light/dark contrast
+sweep; the 3-breakpoint full-page screenshot diff Part L asks for. All of
+these need either extensive live visual comparison (screenshots were kept
+deliberately sparse and cropped this session, per direct instruction) or a
+genuine violations-table review pass rather than a grep. Full suite green,
+`ruff check .` clean, `node --check` clean on all three JS files throughout.
+Backend untouched.
+
+## Previous session — a UI/UX design audit (user-supplied checklist), glass-tier consistency and Settings decluttering
 
 Prompted by a user-supplied external checklist (Perplexity-authored) covering
 token drift, glass-panel consistency, cross-tab consistency, Nielsen/Gestalt/

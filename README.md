@@ -157,14 +157,69 @@ and anything that has nothing calling it yet is greyed out and says so.
 
 ## Quick start
 
-**You need Python 3.11 or newer.** That's it to get running.
+**You need Python 3.11 or newer.** That's it to get running. If you've never
+used a terminal before, follow the numbered steps below exactly — every grey
+box is a command to copy and paste, one line at a time.
 
-- **Windows** - double-click **`start.bat`**
+### 1. Open a terminal
+
+- **Windows:** press `Win`, type `PowerShell`, press Enter.
+- **macOS:** press `Cmd`+`Space`, type `Terminal`, press Enter.
+- **Linux:** usually `Ctrl`+`Alt`+`T`, or find "Terminal" in your app menu.
+
+### 2. Get the app onto your machine
+
+Pick whichever of these two you find easier — both end up in the same place,
+a folder called `MemoryMap-AI`.
+
+**With git** (if you're not sure, you probably don't have it — skip to the
+next option):
+
+```
+cd ~
+git clone https://github.com/Braydenh563/MemoryMap-AI.git
+cd MemoryMap-AI
+```
+
+**Without git** — download instead:
+
+1. Open <https://github.com/Braydenh563/MemoryMap-AI> in your browser.
+2. Click the green **Code** button, then **Download ZIP**.
+3. Unzip it wherever you like (double-click the downloaded file on
+   Windows/macOS).
+4. Back in your terminal, `cd` into the folder you just unzipped. The
+   easiest way: type `cd ` (with a trailing space), then **drag the unzipped
+   folder from your file browser into the terminal window** — most
+   terminals fill in the correct path for you — then press Enter.
+
+Either way, you should now be sitting *inside* the `MemoryMap-AI` folder.
+`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`, `start.bat` and
+this `README.md` among the files.
+
+### 3. Run the launcher
+
+From inside that same folder:
+
+- **Windows** - double-click **`start.bat`** in File Explorer, or type
+  `start.bat` and press Enter in the terminal you're already in.
 - **macOS / Linux** - run **`./start.sh`**
 
 The launcher builds the virtual environment, installs everything, starts the
 app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The first run takes a few minutes; after
 that it goes straight to launching, and only re-installs when `requirements.txt` changes.
+
+**Losing track of the folder is the single most common stumbling block here**
+— so every launch prints exactly where it's running from and the command to
+get back, right above the browser opening:
+
+```
+Installed at: /home/you/MemoryMap-AI
+Next time:    open a terminal there and run ./start.sh again
+```
+
+That line is your answer any time you can't remember where you put it —
+scroll up in that terminal window, or just re-run the launcher from the same
+place you ran it the first time.
 
 For the app in its own window instead of a browser tab: `start-desktop.bat`, or `./start.sh --desktop`.
 

@@ -281,11 +281,23 @@ if [ -n "${MM_DESKTOP:-}" ]; then
   echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI in its own window."
   echo "        Close the window to stop it."
   echo
+  echo " ${TEAL}Installed at:${RESET} $(pwd)"
+  echo " ${TEAL}Next time:${RESET}    open a terminal there and run ./start.sh --desktop again"
+  echo
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
 echo " ${TEAL}[4/4]${RESET} Starting MemoryMap AI at http://localhost:8000"
 echo "        A browser tab opens in a moment. Press Ctrl+C to stop."
+echo
+# Asked for directly: "guide the user to where the application location is
+# and what files to run" — a fresh install is easy to lose track of once the
+# terminal window closes and there's no shortcut or icon involved. $(pwd) is
+# safe here specifically because of the `cd "$(dirname "$0")"` at the top of
+# this script — it is always this script's own folder, not wherever the
+# terminal happened to be launched from.
+echo " ${TEAL}Installed at:${RESET} $(pwd)"
+echo " ${TEAL}Next time:${RESET}    open a terminal there and run ./start.sh again"
 echo
 
 (

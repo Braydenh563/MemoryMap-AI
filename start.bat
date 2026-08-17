@@ -266,11 +266,25 @@ if defined MM_DESKTOP (
   echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting MemoryMap AI in its own window.
   echo        Close the app window to stop it.
   echo.
+  REM Asked for directly: "guide the user to where the application location
+  REM is and what files to run" — !CD!, not %CD%, since this line sits
+  REM inside a parenthesized if/else block under enabledelayedexpansion set
+  REM at the top of this script. %CD% there would resolve once at the
+  REM block's own parse time rather than when this line actually runs, the
+  REM same trap !ESC! already exists to avoid. Safe to print as the
+  REM install location specifically because "cd /d %~dp0" at the top of
+  REM this script means it is always this script's own folder.
+  echo  !ESC![1;38;5;73mInstalled at:!ESC![0m !CD!
+  echo  !ESC![1;38;5;73mNext time:!ESC![0m    open a terminal there and run start-desktop.bat again
+  echo.
   "%VENV_PY%" -m memorymap --desktop
 ) else (
   echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting MemoryMap AI at http://localhost:8000
   echo        A browser tab opens in a moment. Close THIS window, or press
   echo        Ctrl+C in it, to stop the app.
+  echo.
+  echo  !ESC![1;38;5;73mInstalled at:!ESC![0m !CD!
+  echo  !ESC![1;38;5;73mNext time:!ESC![0m    open a terminal there and run start.bat again
   echo.
   REM  Wait a moment, then open the browser — done with the venv Python
   REM  rather than `timeout` and `start`.

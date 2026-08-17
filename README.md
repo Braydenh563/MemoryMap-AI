@@ -26,7 +26,7 @@ capture text  →  AI files it  →  ask a question  →  answer + the notes beh
 ```
 
 Everything runs on your own computer. No account, no cloud, no telemetry. Your
-notes are a SQLite file in a folder you control.
+notes are a SQLite file in a folder you control. 
 
 > **New to the codebase?** [`docs/ARCHITECTURE.md`](https://github.com/Braydenh563/MemoryMap-AI/blob/main/docs/ARCHITECTURE.md) is the
 > full tour - how a request flows, the data model, and a "where do I look to

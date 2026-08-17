@@ -54,25 +54,25 @@ against the wrong app rather than this one.
 
 ### Gaps found, ranked by value
 
-1. **No text extraction from uploaded files at all — no PDF, no OCR on
-   images.** Checked `routes_documents.py` (Library → Documents are
-   hand-written markdown documents with their own CRUD, not an upload
-   pipeline) and `routes_files.py` (entry attachments and the Media Gallery
-   are stored as opaque blobs — `upload_file`/`upload_media` never read the
-   file's content, only its bytes and metadata). Grepped the whole backend
-   for `pdfplumber`, `PyPDF`, `extract_text`, and `OCR` — zero hits anywhere
-   in `src/memorymap/`. For a notebook whose entire pitch is "a local AI
-   files your notes and answers questions about them," this is the largest
-   real gap: today, dropping a PDF or a photographed receipt/whiteboard/
-   document into the app puts it in the Media Gallery as a picture, not into
-   anything the Ask tab, search, or the agent can read a single word of. A
-   local OCR pass (e.g. `pytesseract` against a system `tesseract` binary —
-   no torch, consistent with this project's dependency rule) and a PDF
-   text-layer extraction step, both writing into an attached note's content
-   or a linked document, would close it. Scope note: this needs a design
-   decision first (does extracted text become a note automatically, a
-   suggested draft the user confirms, or purely a search index entry?) —
-   named here as the single highest-value gap, not scoped as a build.
+1. **No OCR for a photographed or scanned image — narrower than first
+   reported, see the correction below.** `routes_documents.py` (Library →
+   Documents are hand-written markdown, not an upload pipeline) and
+   `routes_files.py` (attachments/Media Gallery store opaque blobs) really
+   don't read a file's content — but `/import/document`
+   (`routes_settings.py:1176-1235`) already does, for PDF, Word, PowerPoint,
+   Excel, and HTML, via `markitdown` (an optional extra, `core/extras.py`'s
+   `"documents"` entry) — it converts the file to markdown and files one
+   note per top-level heading. What's actually still missing, confirmed by
+   the `accept` attribute on `#import-document-file`
+   (`index.html:3368` — `.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm`,
+   no image type) and by there being no OCR library anywhere in
+   `src/memorymap/`: a photographed receipt, whiteboard, or scanned page —
+   anything that's pixels, not an embedded text layer — still can't be read
+   into a note. A local OCR pass (`pytesseract` against a system `tesseract`
+   binary — no torch, consistent with this project's dependency rule),
+   feeding the same `create_entry`/"Imports" pipeline `import_document`
+   already uses, would close the remaining gap. Real, but a materially
+   smaller piece of work than first described below.
 2. **Vision-capable local models can't be used as vision models.**
    `ai/ollama_client.py` already inspects and records whether the active
    model reports a `vision` capability (`memorymap.ai.ollama_client`), but
@@ -95,16 +95,7 @@ against the wrong app rather than this one.
    that the force layout becomes visually dense, all three matter; today
    there's no way back to a state other than re-configuring the same toggles
    by hand.
-4. **The graph has no non-visual alternative for anyone who can't use a
-   force-directed canvas.** This app already has real accessibility rigor
-   elsewhere (`aria-label`s on icon buttons, `:focus-visible` rings audited
-   and fixed this session, `role="tablist"`/`role="tab"` throughout) — the
-   graph is the one screen whose entire content is an SVG canvas with no
-   list-form equivalent (`grep -i "graph.*list.view\|accessib" frontend/graph.js
-   frontend/app.js` — nothing). A "Related notes" list already exists inside
-   individual note views, so the underlying edge data has a natural list
-   shape available; the graph screen itself just doesn't offer it.
-5. **Reminders have no calendar/month view.** The list (`#reminder-groups`,
+4. **Reminders have no calendar/month view.** The list (`#reminder-groups`,
    `index.html:1436-1543`) has a solid Open/All/Done filter, priority levels,
    recurrence, quick-add presets (30 min through "Next week"), and ±15-minute/
    ±1-day nudges — genuinely thorough for a flat list — but there is no
@@ -112,13 +103,116 @@ against the wrong app rather than this one.
    than a scrolling list isn't possible. The Dashboard's own heatmap widget
    is activity-in-the-past, not due-dates-in-the-future, so it doesn't cover
    this.
-6. **Timeline has no "jump to today" and no arbitrary custom date range.**
+5. **Timeline has no "jump to today" and no arbitrary custom date range.**
    `timeline-days` (`index.html:1013-1110`) offers preset lookback windows
    (e.g. "Last year"); grepped for `jump.*today`/`scrollToToday`/`today-
    marker` and for any `date-range`/`daterange` control anywhere in
    `index.html` — both empty. On a long timeline, getting back to "now" or
    picking an arbitrary Jan–Mar window both require manual scrolling/preset
    guessing.
+
+**Second pass, asked for directly** — the brainstorm above covered the 7 tab
+screens; this pass covers the features that don't get their own tab: Auth/
+security, the command palette, Spaces (workspaces), Duplicates, Drafts,
+Insights, Backups, Voice, Tags/Categories, Models, and Conversations. Same
+method — brainstorm blind, then check the actual route file and frontend
+markup before trusting either "it's missing" or "it's there."
+
+6. **The auto-lock timeout isn't configurable.** `routes_auth.py`'s own
+   comment explains the two clocks it runs — `_SESSION_IDLE_TTL = 12 * 60 *
+   60` (12 hours unused → locks itself "like a phone does") and
+   `_SESSION_MAX_AGE = 7 * 24 * 60 * 60` (a hard weekly ceiling) — both are
+   plain module-level constants; grepped the whole backend for any
+   preference key that touches either (`"lock`, `lockAfter`, `idleLock`) and
+   the frontend for a matching Settings control — nothing either side. For a
+   password-protected local notebook, "walked away" is exactly the moment a
+   shorter timeout matters most — someone on a shared or public machine has
+   no way to make it 5 minutes instead of 12 hours.
+7. **The command palette's live note search only matches note body text —
+   not titles, and not Documents/Reminders/Conversations — and only by plain
+   substring.** Narrower than first reported, see the correction below: it
+   already searches as you type. `paletteMatches()` (`app.js:14904-14920`)
+   appends up to 6 matching notes below the static command list, filtering
+   `allEntries` by `e.content.toLowerCase().includes(lowered)`. Two real
+   gaps survive that correction: it checks `e.content` only, never
+   `e.title` (a separate field the app already generates via AI — "Generate
+   title"/"Regenerate title" in the note's own overflow menu — so a note
+   found entirely by its title elsewhere in the app can be invisible here),
+   and it doesn't reach Documents, Reminders, or Conversations, each of
+   which the palette already deep-links *into* by tab but not *by content*.
+8. **No quick "duplicate this note" action.** Not to be confused with
+    *duplicate detection* (finding near-identical notes to merge), which is
+    a real, well-built feature — `routes_duplicates.py`'s preview/merge
+    pair, the Settings "Tidy up duplicates" panel with its similarity
+    threshold slider (`index.html:3337-3351`). That's the opposite
+    operation from what most note apps also offer alongside it: deliberately
+    copying one note as a starting point for a similar one (a new meeting
+    note from last week's template, a variant of a recipe). Grepped for a
+    per-note "Duplicate"/"Make a copy" action — the only "Copy" found is a
+    clipboard-text copy (`app.js:5181`), not a new note.
+
+**Third pass — asked directly, twice, to double-check the above ("make sure
+you didn't miss anything, be very particular"), and both times it found real
+mistakes, corrected in place rather than left standing.** Of the 10 original
+claims, 2 were retracted outright and 2 more were half-wrong and had to be
+narrowed. Each was caught by reading one function further than the first
+grep had bothered to:
+
+- **A claim of "no graph accessibility alternative" was retracted outright.**
+  Originally its own numbered gap. Wrong — `graph.js`'s `initGraphKeyboard()`
+  (`graph.js:1859-1927`) is a real, deliberately built non-visual navigation
+  layer: `role="application"`, arrow keys move between notes spatially, `n`
+  steps through a note's own connections specifically (the relationship
+  graph exists to show, which spatial nearest-neighbour wouldn't preserve),
+  Enter opens the note, and every move calls `announce()`
+  (`app.js:3164-3171`) into a real `aria-live` region with the note's
+  preview text, category, and connection count read aloud. That is a
+  complete non-visual alternative, just not a *list-shaped* one — the
+  original grep (`"graph.*list.view\|accessib"`) missed it because neither
+  word appears near the actual implementation. Found by reading graph.js's
+  full function index end to end, the second time through.
+- **A claim of no PDF/document text extraction was retracted outright.**
+  Wrong — `/import/document` (found by actually reading `importDocument()`'s
+  network call in `app.js`, not just grepping for library names like
+  `pdfplumber` that this codebase doesn't happen to use) already extracts
+  PDF/Word/PowerPoint/Excel/HTML into real notes via `markitdown`. What
+  survives, narrowed and renumbered as gap 1 above: OCR for *images*
+  specifically, which is a materially smaller claim than "no extraction at
+  all."
+- **A claim that the command palette had no content search was retracted
+  outright, then partly reinstated once narrowed.** Wrong as stated — it
+  already appends live, substring-matched notes below the static command
+  list. It was written from `paletteCommands()` alone, without reading
+  `renderPalette`/`paletteMatches`, the two functions that actually call it.
+  What survives, narrowed and renumbered as gap 7 above: title text and
+  three other content types (Documents/Reminders/Conversations) still
+  aren't covered.
+- **A claim that Spaces had no per-space export/backup scoping was
+  overstated, not wrong outright, and doesn't survive as a gap.** Exports
+  were reported as vault-wide with "no space filter." In fact
+  `core/database.py`'s `WorkspaceMixin` plus a SQLAlchemy `do_orm_execute`
+  listener (`_add_workspace_filter`) transparently scopes *every* query —
+  including the export routes, which share the same `get_session`
+  dependency — to whichever space the `X-Workspace-ID` header names, unless
+  it's explicitly `"all"`. Exports are already correctly scoped to the
+  active space. What's true and isn't a bug: the on-disk backup snapshots
+  the whole SQLite file, so restoring one restores every space at once —
+  but the space-creation dialog's own copy ("your settings, models and
+  skills stay shared") says that sharing is intentional, so this reads as
+  documented behaviour, not a leak. Moved to "already done" below.
+
+The lesson worth stating plainly, since it's exactly what this file's own
+opening paragraph and CLAUDE.md's "check before building" rule are both
+about: a grep for a library name, or reading one function in isolation from
+what calls it, is not verification. `renderPalette()` calling
+`paletteMatches()` calling `paletteCommands()` was three function names away
+from where the first pass stopped reading; `initGraphKeyboard()` was sitting
+in plain sight in a function-name grep the first pass ran but didn't open;
+the workspace filter was one file away. All three would have sent a future
+session to build something that already works — which is the one mistake
+this entire exercise exists to prevent, so getting caught making it twice in
+the same session, on a task about avoiding exactly that, is worth recording
+rather than quietly fixing and moving on.
 
 ### What was checked and found already done (recorded so nobody re-proposes it)
 
@@ -136,7 +230,12 @@ regenerate-and-resend, per-message note attachments via a searchable picker,
 personas, plan mode, tool/skill use, integrated web search with a reader
 view, local dictation. Graph: multiple layouts, colour-by, physics controls,
 a time slider, similarity lines, entity nodes, orphan hiding, AI link
-suggestions, path tracing between two notes, fullscreen. Library: grid/list
+suggestions, path tracing between two notes, fullscreen, **and a full
+non-visual navigation layer** — `role="application"`, arrow-key movement
+between notes, a dedicated key to step through a note's own connections,
+and every move announced via `aria-live` with the note's content, category
+and connection count (`initGraphKeyboard()`, `graph.js:1859-1927`) — missed
+entirely on the first two passes and only found on the third. Library: grid/list
 toggle, four sort orders, bulk select/open/restore/delete, a bin with its own
 context bar, a separate Skills sub-tab and Media Gallery sub-tab. Whiteboard:
 multiple named boards with a switcher, a properties panel, resize, grouping,
@@ -149,6 +248,37 @@ a keyboard-shortcuts reference panel all already exist
 `index.html:2861-3045`) — the "Settings" brainstorm produced no gaps at all.
 None of the above needs a second look unless a live user report says
 otherwise.
+
+**From the second pass:** Auth already separates an idle timeout from a
+hard max-age rather than having one crude "session length" (just not
+user-facing, per gap 6 above); token transport is a header, not a cookie, on
+purpose (no CSRF surface to begin with — see `app.py`'s own docstring).
+Duplicates has a real preview/merge flow with a similarity slider and
+tag-preserving merges into the recycle bin, not just detection. Drafts
+("write a note from rough thoughts") composes and re-titles with the AI, with
+a help panel. Insights covers stats, a time-of-day greeting, the heatmap,
+tag cloud, "on this day," and a streamed weekly digest. Backups list, restore,
+and delete named snapshots, on top of the daily automatic one, all kept local
+by design (`backup.py`'s own docstring: "next to the database, never in the
+cloud"). Voice covers both a single dictation pass and a longer
+record-a-meeting flow, the latter feeding the existing action-item extraction
+feature. Tags/Categories both support rename and delete. Models supports
+switching the chat and utility models independently, switching provider, and
+pulling/deleting models with job cancellation. Conversations support pinning,
+retitling, truncating, and editing a specific past answer in place, not just
+create/delete. None of this needs a second look either.
+
+**From the third pass's corrections:** PDF/Word/PowerPoint/Excel/HTML import
+already exists end-to-end (`/import/document`, `markitdown`, one note per
+top-level heading, `routes_settings.py:1176-1235`) — don't rebuild this, only
+the image-OCR sliver above is open. The command palette already appends live,
+substring-matched note results below its static commands
+(`paletteMatches()`, `app.js:14904-14920`) — don't rebuild the search itself,
+only its coverage (title text, Documents/Reminders/Conversations) is open.
+Spaces already isolate every workspace-scoped query, including all three
+export formats, via `WorkspaceMixin` + the `X-Workspace-ID` header
+(`core/database.py`) — nothing to build there; only the daily backup covers
+every space in one file, and that's by design, not a gap.
 
 ## Priority 0 — left unfinished this session, read before anything else
 

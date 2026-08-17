@@ -46,18 +46,32 @@ effects the checklist named directly — `.theme-card` is covered,
 states checked on re-evaluate (existing spinner) and file upload (existing
 inline "Uploading…" placeholder) — both already present.
 
-**Not reached, said plainly rather than claimed done:** Part E's truncation-
-escape-hatch audit (56 `text-overflow`/`line-clamp` sites — too many for a
-mechanical grep, needs the checklist's own "violations table" treatment as
-its own session); Part F's per-card "loudest thing" visual comparison;
-Parts H–J's heuristic/Gestalt/visual-design passes beyond what the C/D/G
-spot-checks already cover as evidence; the 12-palette × light/dark contrast
-sweep; the 3-breakpoint full-page screenshot diff Part L asks for. All of
-these need either extensive live visual comparison (screenshots were kept
-deliberately sparse and cropped this session, per direct instruction) or a
-genuine violations-table review pass rather than a grep. Full suite green,
-`ruff check .` clean, `node --check` clean on all three JS files throughout.
-Backend untouched.
+**Part E, the two truncation sites the checklist named directly:**
+`.library-card-title` (2-line clamp, rich markdown content) and
+`.timeline-dot-title` (1-line ellipsis, plain text) had no escape hatch —
+clamped mid-word with nothing short of opening the card to read the rest.
+Both now carry a native `title=""` tooltip with the full text. Verified
+live: `hasTitleAttr` true on a freshly captured note's library card. The
+other ~54 `text-overflow`/`line-clamp` sites in the codebase were not swept
+— too many for a confident mechanical pass, and most (category chips,
+select options, status lines) are short enough in practice that truncation
+rarely engages; a dedicated violations-table session is the right way to
+cover the rest, not a blind grep-and-patch. **Part F spot-check:**
+`.library-card-title` (700 weight, `--ink`) vs `.library-card-preview`
+(`--text-md`, `--muted`) vs `.library-card-meta` — title clearly dominates,
+hierarchy already correct, no change needed.
+
+**Not reached, said plainly rather than claimed done:** Parts H–J's
+heuristic/Gestalt/visual-design passes beyond what the C/D/E/F/G spot-checks
+already cover as evidence; the 12-palette × light/dark contrast sweep; the
+3-breakpoint full-page screenshot diff Part L asks for. These need either
+extensive live visual comparison (screenshots were kept deliberately sparse
+and cropped this session, per direct instruction) or a genuine
+violations-table review pass rather than a grep — exactly the kind of work
+the checklist itself says to scope as its own session, not squeeze into the
+tail of this one. Full suite (1,600+ tests) green, `ruff check .` clean,
+`node --check` clean on all three JS files throughout, zero console errors
+across a full live tab sweep. Backend untouched all session.
 
 ## Previous session — a UI/UX design audit (user-supplied checklist), glass-tier consistency and Settings decluttering
 

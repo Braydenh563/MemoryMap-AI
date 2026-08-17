@@ -12857,6 +12857,9 @@ function timelineDot(note) {
   const title = document.createElement("span");
   title.className = "timeline-dot-title";
   title.textContent = heading || "Untitled note";
+  // Single-line ellipsis with no other escape hatch — a native tooltip for
+  // the full title costs nothing and the text is already plain.
+  title.title = heading || "Untitled note";
   dot.appendChild(title);
 
   if (rest) {
@@ -16627,6 +16630,9 @@ function libraryCard(item) {
   // so a note starting with `# Title` doesn't show the raw `# `.
   const cleanTitle = item.title.replace(/^#{1,6}\s+/gm, "").replace(/^>\s?/gm, "");
   renderInlineMarkdown(title, cleanTitle, []);
+  // The 2-line clamp above cuts a long title off mid-word with no way to read
+  // the rest short of opening the card — a native tooltip costs nothing.
+  title.title = cleanTitle;
   top.append(icon, title);
   if (item.pinned) {
     const pin = document.createElement("span");

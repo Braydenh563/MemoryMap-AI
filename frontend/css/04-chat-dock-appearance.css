@@ -2057,6 +2057,14 @@ button {
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
+  /* .doc-sidebar reaches the grid row's full height with an explicit
+     height: 100%, which overrides its inherited .card margin-bottom
+     entirely. This card relies on plain `align-items: stretch` instead,
+     which stretches to the row *minus* that same margin — so it rendered
+     `--space-6` (~16px) shorter than the sidebar beside it despite both
+     being one grid row. Reported live. .doc-layout's own `gap` already
+     spaces the two columns; a margin here only ever cost height. */
+  margin-bottom: 0;
   /* .doc-layout stretches both columns to one row height (so the sidebar can
      be full-height), which fixes THIS card's height too — but #doc-content's
      `min-height: 60vh` below didn't know that, and asked for more room than

@@ -112,6 +112,14 @@ deps.register_cache_reset(reset_graph_cache)
 _INLINE_MD = re.compile(
     r"\*\*([^*\n]{1,500})\*\*|\*([^*\n]{1,500})\*|__([^_\n]{1,500})__"
     r"|_([^_\n]{1,500})_|~~([^~\n]{1,500})~~|`([^`\n]{1,500})`"
+    # Images and links: an image-only note (a sketch, most often) survived
+    # this untouched, so its graph label read as literal
+    # `![sketch](/media/...)` instead of the plain word "sketch" every other
+    # preview surface already shows. The URL itself is never captured — only
+    # the readable alt/link text is, same "first non-None group wins" trick
+    # every alternative above already relies on.
+    r"|!\[([^\]\n]{0,200})\]\((?:[^)\n]{1,500})\)"
+    r"|\[([^\]\n]{1,200})\]\((?:[^)\n]{1,500})\)"
 )
 _HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
 

@@ -12079,6 +12079,27 @@ async function renderCategoriesWidget(body) {
   body.appendChild(list);
 }
 
+// A plain char-count slice can land inside an unclosed `![alt](url` or
+// `[text](url` — the truncated tail then has no closing `)`, so INLINE_MD
+// never matches it and it prints as literal markdown source instead of
+// rendering (or vanishing) as intended. Reported live as "the Rediscover
+// widget doesn't render images or sketches" — plausible root cause: a
+// sketch note is a caption plus `![...](...)`, and the reference is exactly
+// what a mid-string cut most often lands inside. Backs the cut up to just
+// before the last unclosed `[`/`![` before the limit, if there is one.
+function truncateMarkdownSafe(text, limit) {
+  if (text.length <= limit + 1) return text;
+  let cut = limit;
+  const openBracket = text.lastIndexOf("[", cut);
+  if (openBracket !== -1) {
+    const closeParen = text.indexOf(")", openBracket);
+    if (closeParen === -1 || closeParen >= cut) {
+      cut = text[openBracket - 1] === "!" ? openBracket - 1 : openBracket;
+    }
+  }
+  return text.slice(0, cut).trimEnd() + "…";
+}
+
 // --- rediscover a random note ------------------------------------------------
 
 async function renderRandomNoteWidget(body) {
@@ -12119,10 +12140,7 @@ async function renderRandomNoteWidget(body) {
     // paragraph early, which drops the styling this class carries.
     const text = document.createElement("div");
     text.className = "random-note";
-    renderMarkdown(
-      text,
-      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content
-    );
+    renderMarkdown(text, truncateMarkdownSafe(note.content, 239));
     body.appendChild(text);
 
     const meta = document.createElement("div");

@@ -35,10 +35,17 @@ git tag v0.2.0
 git push origin v0.2.0
 
 # 5. Watch: https://github.com/Braydenh563/MemoryMap-AI/actions
-#    Two jobs run in order: github-release (fast), then
-#    build-windows-installer (~10-15 min). When both are green, the
-#    installer is attached to the release automatically.
+#    Jobs run in order: github-release (fast), then build-windows-installer
+#    and build-linux-package (~10-15 min each, in parallel). When all are
+#    green, both the installer and the Linux zip are attached to the
+#    release automatically.
 ```
+
+Can't push a tag from where you're working (a credential without tag-ref
+permission, a tag protection rule)? Skip steps 4-5 — Actions tab -> Release
+-> "Run workflow" -> enter the version (e.g. `0.2.0`, no leading `v`). The
+workflow creates the tag itself as part of creating the release; a `git
+push` of the tag was only ever a convenience, never a hard requirement.
 
 That's the whole thing. Nothing else to build or upload by hand.
 

@@ -232,6 +232,54 @@ def test_a_shelved_note_appears_once_not_twice(client, session):
     assert body["overview"]["shelved"] == 1
 
 
+def test_a_sketch_note_carries_a_thumbnail(client, session):
+    """A sketch (saveSketch() in app.js) is a note whose real content is a
+    PNG Attachment, not text — the note card had nothing to show but the
+    caption, which is what made a sketch unrecognisable in the Library."""
+    sketch = Entry(content="Sketch — a doodle", tags="[]")
+    plain = Entry(content="an ordinary note with no attachment", tags="[]")
+    session.add_all([sketch, plain])
+    session.flush()
+    session.add(
+        Attachment(
+            entry_id=sketch.id,
+            filename="sketch.png",
+            stored_name="deadbeef.png",
+            mime="image/png",
+            size=1024,
+        )
+    )
+    session.commit()
+
+    body = client.get("/library").json()
+    by_entry = {item["entry_id"]: item for item in _of_kind(body, "note")}
+    assert by_entry[sketch.id]["thumb_attachment_id"] is not None
+    assert by_entry[plain.id]["thumb_attachment_id"] is None
+
+
+def test_a_private_note_never_leaks_a_thumbnail(client, session):
+    """Hiding a private note's text but showing a thumbnail of what it's a
+    photo of would be the same encryption bypass showing the preview text
+    already isn't allowed to be."""
+    entry = Entry(content="secret photo", tags="[]", is_private=True)
+    session.add(entry)
+    session.flush()
+    session.add(
+        Attachment(
+            entry_id=entry.id,
+            filename="secret.png",
+            stored_name="cafebabe.png",
+            mime="image/png",
+            size=512,
+        )
+    )
+    session.commit()
+
+    body = client.get("/library").json()
+    item = next(i for i in _of_kind(body, "note") if i["entry_id"] == entry.id)
+    assert item["thumb_attachment_id"] is None
+
+
 def test_the_library_is_behind_the_unlock_gate(client):
     """It lists documents, chats, files and binned notes — every kind of thing
     the lock screen exists to keep behind it.

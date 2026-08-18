@@ -304,6 +304,22 @@ def _notes(session: Session) -> list[dict]:
         .order_by(Entry.pinned.desc(), Entry.created_at.desc())
         .limit(PER_KIND_LIMIT)
     ).all()
+    # A sketch is a note whose actual content is an Attachment, not text — the
+    # caption is all `preview` had to show, which is why a sketch card in the
+    # Library read as a bare title with nothing under it. One bulk query for
+    # every image attachment on this page of notes, first-per-note kept, so
+    # showing a thumbnail costs one extra query total rather than one per
+    # note.
+    entry_ids = [entry.id for entry, _ in rows]
+    thumb_by_entry: dict[int, int] = {}
+    if entry_ids:
+        thumb_rows = session.execute(
+            select(Attachment.entry_id, Attachment.id)
+            .where(Attachment.entry_id.in_(entry_ids), Attachment.mime.like("image/%"))
+            .order_by(Attachment.created_at.asc())
+        ).all()
+        for owner_id, attachment_id in thumb_rows:
+            thumb_by_entry.setdefault(owner_id, attachment_id)
     items = []
     for entry, category in rows:
         private = bool(getattr(entry, "is_private", False))
@@ -334,6 +350,10 @@ def _notes(session: Session) -> list[dict]:
                 "mime": None,
                 "pinned": bool(entry.pinned),
                 "private": private,
+                # Never for a private note — hiding the text but showing a
+                # thumbnail of what it's a photo of would be the same
+                # encryption bypass showing the preview text would be.
+                "thumb_attachment_id": None if private else thumb_by_entry.get(entry.id),
             }
         )
     return items

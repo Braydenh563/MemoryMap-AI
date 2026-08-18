@@ -17244,6 +17244,17 @@ function libraryCard(item) {
     // a bug in the Library rather than as a missing file.
     thumb.addEventListener("error", () => thumb.remove());
     card.appendChild(thumb);
+  } else if ((item.kind === "note" || item.kind === "shelved") && item.thumb_attachment_id) {
+    // A sketch is a note whose actual content is a file attachment, not
+    // text — without this a sketch card in the Library was a bare title
+    // with nothing under it, indistinguishable from any empty note.
+    const thumb = document.createElement("img");
+    thumb.className = "library-card-thumb";
+    thumb.src = mediaSrc(`/files/${item.thumb_attachment_id}`);
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.addEventListener("error", () => thumb.remove());
+    card.appendChild(thumb);
   }
 
   const top = document.createElement("div");

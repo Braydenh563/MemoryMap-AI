@@ -994,12 +994,15 @@ Worth doing, and worth doing after the above.
         way. Already fully scoped; §26 lists three things that build on it
         afterwards (a "delete everything" control, one assembled "your data"
         page, opt-in auto-archive-by-age) but none of those block this one.
-    30c. **Chat metadata not surviving a reload** (BACKLOG §22). Distinct
-        from the already-fixed "no metadata when tools were used" bug — this
-        is the meta line vanishing on reopen, not on first render. Worth
-        checking whether `conversations.steps` (what a reopened chat
-        replays, ARCHITECTURE.md §8) carries the metadata at all before
-        assuming the fix is in the replay path rather than the write path.
+    30c. ~~**Chat metadata not surviving a reload**~~ **Checked before
+        building, found already fixed (HISTORY.md §70).** `_turn_messages`
+        (routes_conversations.py) persists `stats`/`elapsed_ms` on the
+        assistant message, and `openConversation`'s replay
+        (`if (message.stats) messageMetaLine(...)`) already renders them —
+        both already covered by `tests/test_chat_metadata.py`. Re-verified
+        live: single-turn, multi-turn, and a turn with tool chips all show
+        the correct meta line after a real reload. Whatever prompted this
+        item is either already resolved or a different, unreported bug.
     30d. **OCR text extraction on an uploaded image** (BACKLOG §4 item 1).
         A whiteboard photo or a scanned page attaches today as an opaque
         file nothing reads. Local `pytesseract` (no torch, no cloud call) at

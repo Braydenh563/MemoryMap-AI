@@ -2075,6 +2075,7 @@ html {
   right: var(--space-6);
   width: 2.5rem;
   height: 2.5rem;
+  padding: 0;
   border-radius: var(--radius-pill);
   border: none;
   background: rgba(255, 255, 255, 0.12);
@@ -2082,6 +2083,13 @@ html {
   font-size: var(--text-h2);
   line-height: 1;
   cursor: pointer;
+  /* Missing next to .lightbox-nav's own identical fixed-circle shape just
+     below, which already has this — the base `button` rule's
+     0.5rem 1rem padding (meant for a labelled button, not an icon-only
+     circle) pushed the × glyph off-centre inside the box instead of
+     letting the box's own size centre it. Reported live. */
+  display: grid;
+  place-items: center;
 }
 
 .lightbox-close:hover,

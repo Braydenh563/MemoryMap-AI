@@ -1302,11 +1302,15 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-card-title {
   /* Two lines, then ellipsis. One line loses too many document titles; three
      makes the cards ragged, and a grid whose rows are different heights is the
-     thing that reads as unconsidered. */
+     thing that reads as unconsidered. text-overflow is set explicitly to
+     match every other truncated element in this app, even though Chromium's
+     -webkit-line-clamp already ellipsizes without it — reported live as
+     missing, not reproduced here, cheap enough to harden regardless. */
   font-size: var(--text-body);
   font-weight: 650;
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -1319,6 +1323,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-md);
   line-height: 1.45;
   overflow: hidden;
+  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   line-clamp: 3;
@@ -1547,7 +1552,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-list .library-card-preview {
   flex: 1 1 40%;
+  /* -webkit-line-clamp, not just the unprefixed property: a note's own
+     preview (.library-note .library-card-preview, same specificity, tied
+     on source order for the property this rule forgot) clamps to 8 lines
+     for grid view, and Chromium honours the -webkit- prefixed property,
+     not the unprefixed one this rule set alone. Left unset, a note's
+     preview kept trying to grow to 8 lines' worth of content in list
+     view too, which is what threw its row out of alignment with every
+     other kind's single-line row. */
   line-clamp: 1;
+  -webkit-line-clamp: 1;
   margin: 0;
 }
 

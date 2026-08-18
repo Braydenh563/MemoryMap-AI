@@ -422,12 +422,18 @@ fresh session should pick them up:
    already running). Still not live-verified with a real microphone in this
    sandbox — this is the second time a sandbox-unreachable class of bug has
    shipped from sound reasoning alone; see CLAUDE.md's standing caveat.
-5. **The graph tab's traced-path text visualisation at the top of the canvas
-   needs a redesign** — asked for directly ("the text ui visualisation of the
-   trace path... needs improving and potential redesign"), not scoped. See
-   the `.graph-traced-path`/§9 block a little further down this file for
-   where it's built; no specific direction was given, so a fresh session
-   should look at what it currently renders before proposing a shape.
+5. ~~**The graph tab's traced-path text visualisation at the top of the
+   canvas needs a redesign**~~ **Done.** Was one run-on sentence (note —
+   reason — note — reason — note) wrapping onto however many lines it
+   needed, Story button trailing off the last one. Now a stops-on-a-line
+   list, `.graph-trace-path`/`.graph-trace-connector` in graph.js/
+   `04-chat-dock-appearance.css` — one row per note, the connecting reason
+   labelled on a short line between rows, step count and the Story button
+   moved to a header above the list. **Not yet checked live in a
+   browser** — built and passed `test_frontend_ids`/`test_frontend_
+   handlers`/`test_style_scale` under heavy token-budget pressure at the
+   end of a long session; worth a real Playwright pass (trigger a
+   multi-hop trace, screenshot it) before trusting it looks right.
 6. ~~Recent searches / search history / past results in the Ask tab~~ **Done
    — built as a browsable history, not a dropdown.** Clarified directly
    mid-build: *"I want the ask feature to be basically a personal notes

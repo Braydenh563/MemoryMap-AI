@@ -54,20 +54,57 @@
   color: var(--muted);
 }
 
-/* The strip's own caption. `flex: 0 1 auto` with a floor rather than a fixed
-   size: it is the least important thing on the row, so it is the first to give
-   its space back to the pickers, and it drops out entirely rather than wrapping
-   the strip onto a second line for a sentence. */
+/* The strip's own caption — redesigned (ROADMAP.md item 5) from one
+   run-on sentence ("note — reason — note — reason — note") into a stops-
+   on-a-line list, one row per note with the connecting reason labelled on
+   the line between. A path of any real length used to wrap into a wall of
+   text with no visual break between one hop and the next; this gives each
+   hop its own row instead, the same shape a route list already uses for
+   "each link matters as much as each stop". */
 .graph-trace-result {
   margin: 0 0 var(--space-3);
   font-size: var(--text-md);
-  line-height: 1.6;
 }
 
-/* The chain reads as a sentence: note — how it joins — note. The connector is
-   quiet and the notes are not, because the notes are what you clicked for. */
+.graph-trace-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.graph-trace-path {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* The connector is its own row between two note buttons: a short vertical
+   line (purely decorative — `aria-hidden`) with the "how" label beside it,
+   quiet relative to the notes because the notes are what you clicked for. */
+.graph-trace-connector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+  padding: var(--space-1) 0;
+  color: var(--muted);
+}
+
+.graph-trace-connector-line {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--border);
+}
+
+.graph-trace-connector-label {
+  font-size: var(--text-sm);
+}
+
 .graph-trace-step {
   color: var(--muted);
+  font-size: var(--text-sm);
 }
 
 .graph-trace-note {
@@ -92,9 +129,11 @@
    properties both share (equal specificity, later in the cascade) — undoing
    that rule's reset to a bare text link and giving the button back its
    ordinary `--accent-surface`/`--on-accent` look, matching every other
-   primary action in the app rather than inventing its own colour. */
+   primary action in the app rather than inventing its own colour. Now in
+   the header row (was trailing off the last line of the old sentence
+   layout, which put it visually after whichever note happened to be last). */
 .story-mode-btn {
-  margin-left: var(--space-3);
+  margin-left: auto;
   padding: var(--space-2) var(--space-4);
   background: var(--accent-surface);
   color: var(--on-accent);

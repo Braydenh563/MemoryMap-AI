@@ -710,11 +710,22 @@ async function runTrace() {
 // The chain in words, under the strip. The map shows the shape; this says what
 // each step *is*, which the map cannot — a line between two notes looks the
 // same whether you drew it or they merely share a tag.
+// Redesigned (ROADMAP.md item 5, "the text ui visualisation of the trace
+// path... needs improving and potential redesign" — no specific direction
+// given). The old shape was one run-on sentence: note — reason — note —
+// reason — note, wrapping onto however many lines it needed with the
+// Story button jammed on the end. A path past two or three hops read as a
+// wall of text with no way to tell where one step ended and the next
+// began. This renders each hop as its own row — note, then a short
+// vertical connector labelled with *how* it joins the next, repeated down
+// the path — the same "stops on a line" shape a route list or a git log
+// graph already uses for the same problem (a sequence where each link
+// matters as much as each stop). The step count and Story button move to
+// a header above the list instead of trailing off the last line.
 function renderTraceReadout(result) {
   const box = $("graph-trace-result");
   if (!box) return;
   box.classList.remove("hidden", "is-empty");
-  const pieces = [];
   const noteButton = (node) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -725,18 +736,32 @@ function renderTraceReadout(result) {
     return button;
   };
   const byId = new Map(result.nodes.map((n) => [n.id, n]));
-  pieces.push(noteButton(result.nodes[0]));
-  for (const step of result.steps) {
-    const joint = document.createElement("span");
-    joint.className = "graph-trace-step";
-    joint.textContent = ` — ${step.how} — `;
-    pieces.push(joint, noteButton(byId.get(step.target)));
-  }
+
+  const header = document.createElement("div");
+  header.className = "graph-trace-header";
   const summary = document.createElement("span");
   summary.className = "graph-trace-step";
-  summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
-  pieces.push(summary);
-  
+  summary.textContent = `${result.hops} step${result.hops === 1 ? "" : "s"}`;
+  header.appendChild(summary);
+
+  const path = document.createElement("div");
+  path.className = "graph-trace-path";
+  path.appendChild(noteButton(result.nodes[0]));
+  for (const step of result.steps) {
+    const connector = document.createElement("div");
+    connector.className = "graph-trace-connector";
+    const line = document.createElement("span");
+    line.className = "graph-trace-connector-line";
+    line.setAttribute("aria-hidden", "true");
+    const how = document.createElement("span");
+    how.className = "graph-trace-connector-label";
+    how.textContent = step.how;
+    connector.append(line, how);
+    path.append(connector, noteButton(byId.get(step.target)));
+  }
+
+  const pieces = [header, path];
+
   // Story Mode: Synthesize the path into a narrative.
   //
   // Was three inline `.style.x =` assignments against `var(--primary)` /
@@ -761,7 +786,7 @@ function renderTraceReadout(result) {
       { noteIds: graphTrace.ids, attachedNotesOnly: true }
     );
   });
-  pieces.push(storyBtn);
+  header.appendChild(storyBtn);
 
   box.replaceChildren(...pieces);
 }

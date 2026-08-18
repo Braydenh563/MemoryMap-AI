@@ -4188,3 +4188,55 @@ driven through Playwright this session (the sitting ran out of room for
 it); the mechanism is pytest-verified end to end, but "the toggle actually
 does something a person can see" is not yet observed, only reasoned about.
 Worth 10 minutes with a real server before this area is touched again.
+
+## 73. The trace-path redesign redone after a live report, and find/replace in the document editor (ROADMAP items 5 and 16b)
+
+**The trace-path redesign had to be redone.** §71's own predecessor entry
+above already carries the honest caveat — shipped without a live check —
+and it turned out to matter: reported back immediately as "crushes the
+graph, takes up most of the page". Reproduced: the vertical, one-row-per-
+note layout was genuinely ~10 rows tall for a 5-hop path, sitting in
+normal document flow directly above the graph canvas, so it pushed the
+whole map down out of view. Rebuilt as a horizontal, wrapping row of pill
+chips (`.graph-trace-note`, same materials as the app's existing `.chip`)
+joined by a small arrow + reason connector, with `.graph-trace-path`
+capped at `max-height: 5.5rem` and internal scroll as a hard floor — no
+path length can repeat the mistake regardless of wrapping math. **This
+time live-verified before calling it done**: a real 6-note/5-hop chain in
+Playwright, canvas height measured before and after tracing, a screenshot
+checked by eye. The container element was also changed from `<p>` to
+`<div>` since it now holds block children.
+
+**Find and replace, added to the document editor** (ROADMAP item 16b,
+"a bunch of missing features... could be improved a lot more" — never
+itemised). Checked what already existed before building anything: word
+count, reading time, a word-count goal, an outline sidebar, "notes it
+draws on", AI edit, extract-to-notes, and .md/PDF export were all already
+there — this editor was much further along than the vague complaint
+suggested. What was concretely, verifiably missing: the browser's native
+Ctrl+F cannot search inside a `<textarea>` at all (its content is a form
+value, not page DOM text), so a document past a screen or two had no way
+to find a word again short of scrolling and reading every line. Built as
+a small bar (`#doc-find-bar`) toggled from the formatting toolbar or
+Ctrl+F: a plain case-insensitive substring search (no regex exposed to
+the user — nothing here needed it), Next/Prev cycling with a live "N of
+M" count, Replace (only when the current selection actually matches, so
+clicking it with nothing found first finds rather than guesses) and
+Replace all (escaped into a regex internally for one global pass, counted
+before replacing rather than after to sidestep a global-regex
+`lastIndex` footgun). Live-verified with Playwright end to end: opened
+the bar, searched a 3-match term, cycled Next, replaced all three, and
+confirmed both the resulting text and the "Replaced 3" count were
+correct, then confirmed Esc closes the bar. `node --check`,
+`test_frontend_ids`, `test_frontend_handlers`, `test_style_scale` and
+`ruff check .` all still pass.
+
+Vision-model image understanding (ROADMAP item 35) was **explicitly
+deferred this session, not attempted** — asked directly given the
+remaining budget, since it touches all four generation methods
+(`chat`/`chat_stream`/`chat_tools`/`chat_tools_stream`) across every
+provider and carries its own unresolved storage/narration design
+question the roadmap already flags. Attempting it under the same time
+pressure that caused the trace-path redo above would have risked the
+identical mistake at a much larger scale. Still open, first thing next
+session if this area comes up.

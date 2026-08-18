@@ -6370,6 +6370,105 @@ function promptDocWordGoal() {
   renderDocStats();
 }
 
+// --- find and replace (16b: "a bunch of missing features" — this is the
+// concrete first one; browser Ctrl+F never worked here because a
+// textarea's own text isn't part of the searchable page DOM at all, only
+// its *value* is) ---------------------------------------------------------
+let docFindIndex = -1; // which match the Prev/Next cursor is currently on
+
+function docFindMatches() {
+  const term = $("doc-find-input").value;
+  if (!term) return [];
+  const text = $("doc-content").value;
+  const needle = term.toLowerCase();
+  const haystack = text.toLowerCase();
+  const matches = [];
+  let from = 0;
+  while (true) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) break;
+    matches.push(at);
+    from = at + needle.length;
+  }
+  return matches;
+}
+
+function docFindSelect(index, matches) {
+  const term = $("doc-find-input").value;
+  const box = $("doc-content");
+  if (!matches.length || index < 0 || index >= matches.length) {
+    $("doc-find-count").textContent = term ? "No matches" : "";
+    return;
+  }
+  docFindIndex = index;
+  const start = matches[index];
+  box.focus();
+  box.setSelectionRange(start, start + term.length);
+  $("doc-find-count").textContent = `${index + 1} of ${matches.length}`;
+}
+
+function docFindStep(delta) {
+  const matches = docFindMatches();
+  if (!matches.length) {
+    docFindIndex = -1;
+    $("doc-find-count").textContent = $("doc-find-input").value ? "No matches" : "";
+    return;
+  }
+  const next = ((docFindIndex + delta) % matches.length + matches.length) % matches.length;
+  docFindSelect(next, matches);
+}
+
+function docReplaceOne() {
+  const box = $("doc-content");
+  const term = $("doc-find-input").value;
+  if (!term) return;
+  const selected = box.value.slice(box.selectionStart, box.selectionEnd);
+  // Only replace what's actually selected and actually a match — Replace
+  // clicked with nothing found selected first should find, not guess.
+  if (selected.toLowerCase() !== term.toLowerCase()) {
+    docFindStep(1);
+    return;
+  }
+  const replacement = $("doc-replace-input").value;
+  const start = box.selectionStart;
+  box.setRangeText(replacement, start, box.selectionEnd, "end");
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  docFindIndex = -1;
+  docFindStep(1);
+}
+
+function docReplaceAll() {
+  const term = $("doc-find-input").value;
+  if (!term) return;
+  const replacement = $("doc-replace-input").value;
+  const box = $("doc-content");
+  const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  const before = box.value;
+  const count = (before.match(pattern) || []).length;
+  if (!count) {
+    $("doc-find-count").textContent = "No matches";
+    return;
+  }
+  box.value = before.replace(pattern, replacement);
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  $("doc-find-count").textContent = `Replaced ${count}`;
+  docFindIndex = -1;
+}
+
+function toggleDocFindBar(open) {
+  const bar = $("doc-find-bar");
+  const show = open ?? bar.classList.contains("hidden");
+  bar.classList.toggle("hidden", !show);
+  $("doc-find-toggle").setAttribute("aria-expanded", String(show));
+  if (show) {
+    $("doc-find-input").focus();
+    $("doc-find-input").select();
+  } else {
+    docFindIndex = -1;
+    $("doc-content").focus();
+  }
+}
+
 // A table of contents built from the document's own headings. Past a couple
 // of screens the scrollbar stops being a way to navigate a document.
 function renderDocOutline() {
@@ -21241,12 +21340,38 @@ $("doc-ai-instruction").addEventListener("keydown", (e) => {
 });
 $("doc-extract").addEventListener("click", openDocExtractPreview);
 $("doc-content").addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("doc-find-bar").classList.contains("hidden")) {
+    toggleDocFindBar(false);
+    return;
+  }
   if (!(event.ctrlKey || event.metaKey)) return;
   const key = event.key.toLowerCase();
   if (key === "s") { event.preventDefault(); saveDocument(); }
   else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
+  // The browser's own Ctrl+F can't search a textarea's content at all — it
+  // only sees page DOM text, and a textarea's text is its *value*, not DOM
+  // text — so this isn't overriding useful native behaviour here.
+  else if (key === "f") { event.preventDefault(); toggleDocFindBar(true); }
 });
+$("doc-find-toggle").addEventListener("click", () => toggleDocFindBar());
+$("doc-find-close").addEventListener("click", () => toggleDocFindBar(false));
+$("doc-find-input").addEventListener("input", () => {
+  docFindIndex = -1;
+  docFindStep(1);
+});
+$("doc-find-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    docFindStep(event.shiftKey ? -1 : 1);
+  } else if (event.key === "Escape") {
+    toggleDocFindBar(false);
+  }
+});
+$("doc-find-next").addEventListener("click", () => docFindStep(1));
+$("doc-find-prev").addEventListener("click", () => docFindStep(-1));
+$("doc-replace-one").addEventListener("click", docReplaceOne);
+$("doc-replace-all").addEventListener("click", docReplaceAll);
 // Leaving with unsaved edits would lose them; autosave hasn't fired yet.
 // --- offline badge -----------------------------------------------------------
 //

@@ -1401,6 +1401,22 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" data-md="codeblock" title="Code block" aria-label="Code block"><i class="ph ph-code-block" aria-hidden="true"></i></button>
           <button type="button" data-md="table" title="Table" aria-label="Table"><i class="ph ph-table" aria-hidden="true"></i></button>
           <button type="button" data-md="hr" title="Divider">—</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" id="doc-find-toggle" title="Find and replace (Ctrl+F)" aria-expanded="false" aria-controls="doc-find-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+        </div>
+        <!-- A textarea's own content is never in the DOM as searchable text
+             (that's why the browser's native Ctrl+F can't reach into one),
+             so a document past a screen or two of text had no way to find
+             a word again short of scrolling and reading. -->
+        <div class="doc-find-bar hidden" id="doc-find-bar" role="search">
+          <input type="text" id="doc-find-input" placeholder="Find" aria-label="Find">
+          <span id="doc-find-count" class="muted doc-find-count"></span>
+          <button type="button" id="doc-find-prev" class="ghost small" title="Previous match (Shift+Enter)"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-next" class="ghost small" title="Next match (Enter)"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+          <input type="text" id="doc-replace-input" placeholder="Replace with" aria-label="Replace with">
+          <button type="button" id="doc-replace-one" class="ghost small">Replace</button>
+          <button type="button" id="doc-replace-all" class="ghost small">Replace all</button>
+          <button type="button" id="doc-find-close" class="ghost small" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div class="doc-panes" id="doc-panes">
           <textarea id="doc-content" spellcheck="true"

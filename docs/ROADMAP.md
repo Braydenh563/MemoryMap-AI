@@ -782,9 +782,16 @@ into a good one.
     itself from shrinking while the outline above had no floor) and fixed.
 16b. ~~**The document editor's bold/italic don't toggle off.**~~ **Fixed
     and verified live (HISTORY.md §51).** `wrapDocSelection` now detects
-    and strips existing markers instead of only ever wrapping. **Still
-    open**: "a bunch of missing features... could be improved a lot more"
-    was named but not itemised — needs a concrete list before more work.
+    and strips existing markers instead of only ever wrapping. The
+    "improve and expand" ask was never itemised — checked what already
+    existed first (word count, reading time, a word-count goal, an
+    outline sidebar, notes-it-draws-on, AI edit, extract-to-notes, .md/PDF
+    export were all already built) rather than guessing broadly. **Find
+    and replace, concretely missing and now built and live-verified
+    (HISTORY.md §73)** — the browser's own Ctrl+F can't reach a
+    textarea's content at all, so there was no way to find a word again
+    in a long document short of scrolling and reading. The rest of "could
+    be improved a lot more" is still unitemised.
 16c. ~~**Images and files still can't be copied, pasted, or dragged into
     notes.**~~ **Two of three already worked — checked live before
     building anything (HISTORY.md §51).** The third path — a file-picker

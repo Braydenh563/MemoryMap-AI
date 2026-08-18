@@ -943,9 +943,13 @@ async function renderGraph() {
   // the local/focus view: entities are membership edges to *notes*, and
   // /graph/local's own depth-limited walk has no equivalent concept yet.
   const wantEntities = $("graph-entities")?.checked;
+  // Tier 2 item 16 — same "top-level graph only" scope as entities just
+  // above: a document's edge is a link to a *note*, and /graph/local's own
+  // depth-limited BFS has no equivalent concept yet.
+  const wantDocuments = $("graph-documents")?.checked;
   const endpoint = graphFocusModeId
     ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
-    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true" : ""}`;
+    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true" : ""}`;
     
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) return;
@@ -1401,7 +1405,12 @@ async function renderGraph() {
         })
     )
     .on("click", (event, d) => {
-      if (d.isGroup || d.type === "entity") return; // not a note to open
+      // Same treatment as an entity node: view-only for this first pass —
+      // opening a document from here would need the Library's own
+      // document-editor navigation, not a note's, and that's a separate
+      // change from making the node visible and connected in the first
+      // place.
+      if (d.isGroup || d.type === "entity" || d.type === "document") return;
       // Trace is a *mode*: while it is on, clicking the map picks the two ends
       // rather than opening notes. This branch is the whole reason Trace was
       // unusable — `traceModeActive` was set and then consulted nowhere, so
@@ -1445,6 +1454,7 @@ async function renderGraph() {
     // the version that doesn't need a second SVG shape (a <rect> sized and
     // centred to match graphNodeRadius) for one node kind.
     .classed("graph-node-entity", (d) => d.type === "entity")
+    .classed("graph-node-document", (d) => d.type === "document")
     .attr("r", graphNodeRadius)
     .attr("fill", nodeColour)
     .classed("graph-pinned", (d) => d.pinned)

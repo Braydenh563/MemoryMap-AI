@@ -4033,3 +4033,51 @@ the note's `content` gained the correct markdown line and the picker
 closed itself; separately confirmed both Escape and a backdrop click
 close the picker without attaching anything. `test_style_scale.py`,
 `test_frontend_ids.py` and `test_frontend_handlers.py` all still pass.
+
+## 70. Documents in the graph (ROADMAP.md item 16), and a "never wired" bug caught by live testing before it shipped
+
+Followed the existing `include_entities` opt-in exactly — same reasoning,
+same shape, one flag prior in the same route:
+
+- `GET /graph?include_documents=true` (`routes_graph.py`): queries
+  `DocumentLink` for the current node set, adds one node per linked
+  `Document` (`id: "document:N"`, `type: "document"`, `category:
+  "Document"`) and one `kind: "document"` edge per link. Off by default,
+  and — like `include_entities` — deliberately **not** wired into
+  centrality, similarity, or the trace-path BFS; both are built entirely
+  around `Entry`, and extending either to a second node type is a bigger,
+  separate change from making a document visible and connected at all.
+  `categories` is computed before either block runs, so neither "Entity"
+  nor "Document" grows a legend filter for a node kind that's off by
+  default — intentional, matching the existing entity behaviour, not an
+  oversight.
+- Frontend: a `#graph-documents` checkbox next to the existing Entities
+  one, a `wantDocuments` flag folded into the same `/graph` fetch URL
+  template, a `graph-node-document` CSS class (a fine dotted ring,
+  `stroke-dasharray: 1 3`, distinct from the entity ring's `3 2` dashes so
+  the two non-note kinds don't read as the same thing next to each other),
+  and the click handler's existing `isGroup || type === "entity"`
+  no-op guard extended to `type === "document"` — view-only this pass,
+  same reasoning as entities: opening one from here would need the
+  Library's own document-editor navigation, not a note's.
+- **Caught by live testing, not by review**: the checkbox's own `change`
+  listener was missing. `graph-entities` has
+  `$("graph-entities")?.addEventListener("change", renderGraph)` in
+  app.js; the equivalent line for `graph-documents` was never added, so
+  checking the box did nothing — no re-fetch, no error, nothing in the
+  console. A Playwright run (real note, real document, real
+  `POST /documents/{id}/notes` link, then toggling the checkbox) found
+  zero document nodes where two were expected; the fix was the missing
+  `$("graph-documents")?.addEventListener("change", renderGraph)` line.
+  Exactly the "features that never ran once" shape this file's own
+  review section warns about — this one just happened to be caught
+  before merge instead of after.
+
+Backend covered by four new tests in `test_graph_api.py` (off by default,
+node/edge shape when on, category excluded from the legend list, a
+document with no linked notes stays invisible). Live-verified after the
+fix: two notes each linked to their own document, both document nodes
+rendered with the dotted ring and the correct connecting edge, `0`
+console/page errors. `node --check`, `ruff check .`,
+`test_frontend_ids.py`, `test_frontend_handlers.py`, `test_style_scale.py`
+and `test_docs_layout.py` all still pass.

@@ -759,7 +759,14 @@ into a good one.
     re-verified with a fresh screenshot** (token budget); worth a check
     first thing next session if this recurs. Category labels also got a
     distinct colour (`fill: var(--accent)`), asked for directly.
-16. **Documents in the graph.** They are notes' equal everywhere else.
+16. ~~**Documents in the graph.** They are notes' equal everywhere else.~~
+    **Done (HISTORY.md §70).** An `include_documents` opt-in flag on `GET
+    /graph`, same shape as `include_entities` above it: prefixed node ids
+    (`document:N`), edges from the existing `DocumentLink` table, view-only
+    (no trace-path/centrality/similarity integration this pass — a bigger,
+    separate change). Live-verified with Playwright: a note linked to a
+    document renders a connected, distinctly-ringed node when the
+    "Documents" checkbox is on, and none when it's off.
 16a. ~~**The document editor's sidebar, reported directly with
     screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The
     sticky/floating half was stale-by-report, already done. The

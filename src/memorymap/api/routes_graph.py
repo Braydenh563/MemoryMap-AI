@@ -181,6 +181,7 @@ def _centrality(session: Session, index: paths.Connections, similarity: bool) ->
 def graph(
     similarity: bool = False,
     include_entities: bool = False,
+    include_documents: bool = False,
     session: Session = Depends(get_session),
 ) -> dict:
     entries = list(
@@ -309,6 +310,58 @@ def graph(
                             "source": f"entity:{mention.entity_id}",
                             "target": mention.entry_id,
                             "kind": "entity",
+                        }
+                    )
+
+    # Tier 2 item 16: "documents in the graph" — off by default, same reason
+    # and same shape as include_entities just above (a document id is
+    # prefixed so it can never collide with an Entry id, and every existing
+    # consumer of this endpoint that assumes every node id is an Entry id
+    # keeps working unasked). Edges come from DocumentLink, the many-to-many
+    # note-document attachment table (§43/routes_documents.py) — a document
+    # already has a real connection to the notes it draws on; this is that
+    # relationship rendered, not a new one invented for the graph.
+    #
+    # Deliberately not wired into centrality, similarity, or the trace-path
+    # BFS (paths.build/_centrality) this pass — both are built entirely
+    # around Entry, and extending either to a second node type is a
+    # materially bigger, separate change from making a document visible and
+    # connected in the first place.
+    if include_documents:
+        from memorymap.core.database import Document, DocumentLink
+
+        doc_links = list(
+            session.execute(
+                select(DocumentLink.document_id, DocumentLink.entry_id).where(
+                    DocumentLink.entry_id.in_(node_ids)
+                )
+            )
+        )
+        document_ids = {link.document_id for link in doc_links}
+        if document_ids:
+            documents = {
+                d.id: d
+                for d in session.scalars(
+                    select(Document).where(Document.id.in_(document_ids))
+                )
+            }
+            for document_id, document in documents.items():
+                nodes.append(
+                    {
+                        "id": f"document:{document_id}",
+                        "type": "document",
+                        "preview": document.title,
+                        "category": "Document",
+                        "created_at": document.created_at.isoformat(),
+                    }
+                )
+            for link in doc_links:
+                if link.document_id in documents:
+                    edges.append(
+                        {
+                            "source": f"document:{link.document_id}",
+                            "target": link.entry_id,
+                            "kind": "document",
                         }
                     )
 

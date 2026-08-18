@@ -12143,6 +12143,41 @@ async function renderRandomNoteWidget(body) {
     renderMarkdown(text, truncateMarkdownSafe(note.content, 239));
     body.appendChild(text);
 
+    // A sketch's picture is never in `note.content` at all — the sketch pad
+    // saves a caption as the note's text and the drawing as a real
+    // Attachment (saveSketch), a completely different mechanism from a
+    // pasted/dropped image's inline `![](...)`. Any renderer that only
+    // reads content, this one included, showed nothing for a sketch note —
+    // "the widget doesn't render... sketches", reported directly. Same
+    // .attachment-thumb treatment the note-card list already gives an
+    // attached image, so a sketch resurfaced here looks the way it does
+    // everywhere else.
+    const images = (note.attachments || []).filter((a) => a.is_image);
+    if (images.length) {
+      const row = document.createElement("div");
+      row.className = "entry-links";
+      for (const attachment of images) {
+        const wrap = document.createElement("span");
+        wrap.className = "thumb-wrap";
+        const img = document.createElement("img");
+        img.className = "attachment-thumb";
+        img.alt = attachment.filename;
+        img.title = `${attachment.filename} — click to view full size`;
+        attachmentObjectUrl(attachment)
+          .then((url) => (img.src = url))
+          .catch(() => wrap.remove());
+        img.addEventListener("click", () => {
+          openLightbox(
+            images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+            images.indexOf(attachment)
+          );
+        });
+        wrap.appendChild(img);
+        row.appendChild(wrap);
+      }
+      body.appendChild(row);
+    }
+
     const meta = document.createElement("div");
     meta.className = "entry-meta";
     meta.appendChild(chip(note.category || "Uncategorised", "tag"));

@@ -1241,8 +1241,25 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    fixing: 10 headings' worth of outline went from 258px tall to exactly
    0px the instant the disclosure opened. */
 .doc-sidebar-tabs {
+  /* This is now the first thing in the card, which puts it exactly where
+     .sidebar-head used to sit — so it needs .sidebar-head's own two fixes
+     for the same reason (05-sidebars-themes.css): pulled up to sit level
+     with the collapse toggle (positioned against the card's border box,
+     one --space-6 above where this card's content box starts), and a
+     reserved lane past the toggle so the tab strip doesn't run under it.
+     Reported live: the strip was sitting under/clipped by the toggle. */
+  margin-top: calc(var(--sidebar-toggle-inset) - var(--space-6));
+  padding-right: var(--sidebar-toggle-lane);
+  min-height: var(--sidebar-toggle-size);
   margin-bottom: var(--space-4);
   flex: 0 0 auto;
+}
+
+/* .sidebar-head's own pull-up above is for whichever element is first in
+   the card — that's #doc-sidebar-tabs now, so the "Recent" row one level
+   further in must not *also* pull itself up into the tab strip above it. */
+#doc-sidebar-list .sidebar-head {
+  margin-top: 0;
 }
 
 /* Each tab's whole content column, so #doc-outline-wrap's own `flex: 1 1

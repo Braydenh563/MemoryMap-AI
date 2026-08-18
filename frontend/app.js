@@ -4566,6 +4566,10 @@ async function toggleAskHistoryPin(id, pinned) {
 }
 
 async function deleteAskHistoryTurn(id) {
+  // Permanent — no restore endpoint behind this one, unlike a note's bin.
+  // "Clear all" right next to this already confirms; a single turn deleted
+  // by the same one-click miss deserves the same guard, not less.
+  if (!(await confirmDialog("Delete this question and answer?"))) return;
   await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch(() => null);
   loadAskHistoryPage(true);
   loadAskHistoryBadge();

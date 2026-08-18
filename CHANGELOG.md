@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — two error-prevention gaps
+
+Asked for directly. `deleteAskHistoryTurn` deleted a Q&A permanently with
+no confirmation or undo — its own "clear all" sibling already confirms,
+this didn't. Now it does. A reminder's `due_at` could be set in the past
+(create and edit both) with no check, silently creating a reminder that
+could never usefully fire — `POST /reminders` and `PUT /reminders/{id}`
+now reject one more than a minute in the past (a small clock-skew/latency
+allowance, not real slack) with a clear 422.
+
 ### Fixed — Library thumbnails for pasted/dropped images, not just sketches
 
 Asked for directly ("make the sketches render... the same as how images are

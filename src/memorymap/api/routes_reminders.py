@@ -49,6 +49,21 @@ class ReminderUpdate(BaseModel):
     recurring: Recurring | None = None
 
 
+def _reject_if_in_the_past(due_at: datetime) -> None:
+    """A reminder due before now will never usefully fire — it's either an
+    accidental past date (a slipped year, an AM/PM mix-up in the picker) or
+    a "reminder" that isn't reminding of anything upcoming. A minute of
+    slack covers submit latency and clock skew, not a real mistake.
+    """
+    now = datetime.now(timezone.utc)
+    compare_at = due_at if due_at.tzinfo else due_at.replace(tzinfo=timezone.utc)
+    if compare_at < now - timedelta(minutes=1):
+        raise HTTPException(
+            status_code=422,
+            detail="That reminder's due time is in the past — pick a time that hasn't happened yet.",
+        )
+
+
 def _to_out(session: Session, reminder: Reminder) -> dict:
     entry_preview = None
     if reminder.entry_id is not None:
@@ -87,6 +102,7 @@ def list_reminders(session: Session = Depends(get_session)) -> list[dict]:
 
 @router.post("", status_code=201)
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
+    _reject_if_in_the_past(body.due_at)
     if body.entry_id is not None:
         deps.get_or_404(session, Entry, body.entry_id, "Entry not found")
     reminder = Reminder(
@@ -171,6 +187,7 @@ def update_reminder(
     if body.text is not None:
         reminder.text = body.text
     if body.due_at is not None:
+        _reject_if_in_the_past(body.due_at)
         reminder.due_at = body.due_at
     if body.priority is not None:
         reminder.priority = body.priority

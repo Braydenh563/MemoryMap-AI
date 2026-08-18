@@ -129,6 +129,26 @@ the running app rather than assumed.
 > Worth building only if a real use case shows up wanting it (most users want
 > automatic selection, not a per-turn allowlist to manage); not worth a
 > session on its own.
+>
+> **A second small gap, scoped but not built:** a tool-call chip today is a
+> flat one-line label (`toolChip()`, app.js ~6200) — no way to see what the
+> AI actually sent the tool or what came back, purely a cosmetic upgrade
+> asked for directly ("a dropdown which shows the input tool call command
+> and the output... collapsed by default... doesn't affect the AI, only a
+> visual upgrade"). Real but genuinely multi-file, not a CSS tweak: `agent.py`
+> already has `arguments` in scope where it builds each tool event but the
+> SSE stream to the frontend only ever sends a human-readable `label`, not
+> the raw arguments or the raw result — those would need adding to the event
+> payload (additively; the model's own context is built from a separate
+> prompt-construction path and would be untouched, so this is safe to add
+> without the caveat in the ask being a real risk). Frontend: `toolChip()`
+> becomes a `<details>`/`<summary>` with two collapsed sections (input as
+> formatted JSON, output in a `overflow-y: auto` box for a long result) —
+> and the chat-history `serialise()`/`replay()` round-trip (app.js ~6083)
+> needs the same two fields or the dropdown disappears the moment a saved
+> conversation is reopened, which would read as a second bug. Three files,
+> one new SSE field, one schema change to what a saved conversation stores —
+> real work, correctly deferred rather than rushed this session.
 
 **Why.** Asked for directly. The page mixes three activities in one column, and
 the web panel is bolted on top of the message list.

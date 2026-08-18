@@ -2091,6 +2091,117 @@ async function attachFromLibrary(entry) {
 // the bytes once per attachment and cache an object URL (Wave M).
 const thumbUrlCache = new Map();
 
+// Library → Image Gallery. Reported live as broken (a phantom "2 of 2" with
+// a second page that never loads) — traced to there being no code anywhere
+// that reads #library-subtabs' own data-target, so the four sub-views never
+// actually switched and this grid was never populated; whatever was on
+// screen was left over from an unrelated render. Built fresh, not patched.
+async function loadLibraryImages() {
+  const grid = $("library-images-grid");
+  const empty = $("library-images-empty");
+  if (!grid) return;
+  const images = await apiJson("/media", { silent: true }).catch(() => null);
+  grid.replaceChildren();
+  const items = images || [];
+  empty?.classList.toggle("hidden", items.length > 0);
+  const isPdf = (url) => /\.pdf$/i.test(url);
+  const lightboxItems = items
+    .filter((image) => !isPdf(image.url))
+    .map((image) => ({ filename: image.original_name, getUrl: () => mediaSrc(image.url) }));
+  for (const image of items) {
+    const fig = document.createElement("figure");
+    fig.className = "library-image-tile";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.title = image.original_name;
+    if (isPdf(image.url)) {
+      const icon = document.createElement("i");
+      icon.className = "ph ph-file-pdf";
+      icon.setAttribute("aria-hidden", "true");
+      button.appendChild(icon);
+      button.addEventListener("click", () => window.open(mediaSrc(image.url), "_blank"));
+    } else {
+      const img = document.createElement("img");
+      img.src = mediaSrc(image.url);
+      img.alt = "";
+      img.loading = "lazy";
+      button.appendChild(img);
+      button.addEventListener("click", () => {
+        const at = lightboxItems.findIndex((i) => i.filename === image.original_name);
+        openLightbox(lightboxItems, Math.max(0, at));
+      });
+    }
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "library-image-delete";
+    setLabel(del, "ph:trash");
+    del.title = `Delete "${image.original_name}"`;
+    del.setAttribute("aria-label", del.title);
+    del.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      if (!(await confirmDialog(`Delete "${image.original_name}" from the Library?`))) return;
+      try {
+        await apiJson(`/media/${image.id}`, { method: "DELETE" });
+        loadLibraryImages();
+      } catch (error) {
+        toast(error.message || "Couldn't delete that file.", true);
+      }
+    });
+    const cap = document.createElement("figcaption");
+    cap.textContent = image.original_name;
+    cap.title = image.original_name;
+    fig.append(button, del, cap);
+    grid.appendChild(fig);
+  }
+}
+
+async function uploadLibraryImages(files) {
+  for (const file of files) {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      // No Content-Type here — the browser sets the multipart boundary
+      // itself. api()'s own default header would force application/json and
+      // break the upload, same fix as every other file-upload call site.
+      await api("/media/upload", {
+        method: "POST", body: form, headers: { "X-Auth-Token": authToken() },
+      });
+    } catch (error) {
+      toast(`Couldn't upload ${file.name}.`, true);
+    }
+  }
+  loadLibraryImages();
+}
+
+function initLibrarySubtabs() {
+  const strip = $("library-subtabs");
+  if (!strip || strip.dataset.ready) return;
+  strip.dataset.ready = "1";
+  const sections = [...document.querySelectorAll("#tab-library > .library-view-section")];
+  const show = (targetId) => {
+    for (const section of sections) section.classList.toggle("hidden", section.id !== targetId);
+    for (const button of strip.querySelectorAll("button[data-target]")) {
+      const active = button.dataset.target === targetId;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    }
+    if (targetId === "library-view-media") loadLibraryImages();
+  };
+  strip.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-target]");
+    if (button) show(button.dataset.target);
+  });
+  $("library-images-upload")?.addEventListener("click", () =>
+    $("library-images-upload-input").click()
+  );
+  $("library-images-upload-input")?.addEventListener("change", (event) => {
+    const files = [...event.target.files];
+    event.target.value = "";
+    if (files.length) uploadLibraryImages(files);
+  });
+  $("library-images-refresh")?.addEventListener("click", loadLibraryImages);
+}
+
 async function attachmentObjectUrl(attachment) {
   if (thumbUrlCache.has(attachment.id)) return thumbUrlCache.get(attachment.id);
   const response = await api(`/files/${attachment.id}`);
@@ -2117,7 +2228,14 @@ function openLightbox(items, startIndex = 0) {
   closeBtn.type = "button";
   closeBtn.className = "lightbox-close";
   closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.textContent = "×";
+  // A raw "×" character, not an icon-font glyph — reported live as still
+  // off-centre even inside the `display:grid;place-items:center` box that
+  // fixed every *padding*-driven case of this: `place-items` centres the
+  // line box, not necessarily where a font renders that specific character's
+  // ink within it, and that varies by system font. Every other close button
+  // in the app already uses the ph:x icon glyph for exactly this reason —
+  // matching it here fixes the centring and the inconsistency together.
+  setLabel(closeBtn, "ph:x");
 
   const img = document.createElement("img");
   const meta = document.createElement("div");
@@ -14025,7 +14143,13 @@ function positionScrollTopForLibrary(button, tab) {
     button.style.bottom = "";
     return;
   }
-  const panel = document.getElementById("tab-library");
+  // The actual scrolling content card, not `#tab-library` itself — that outer
+  // tab-page also spans the sub-tab bar (Documents/AI Skills/Whiteboards/
+  // Image Gallery) above it, so anchoring to its box put the button close but
+  // not flush with the content panel's own corner. Reported live, still off
+  // after the first fix. Same lookup `NESTED_SCROLL_TABS.library` already
+  // uses, so this can't drift from what "back to top" actually scrolls.
+  const panel = NESTED_SCROLL_TABS.library();
   const rect = panel?.getBoundingClientRect();
   if (!rect) return;
   const margin = 24; // 1.5rem, matching every other tab's own offset
@@ -16520,6 +16644,51 @@ function askNotificationPermission() {
   }
 }
 
+// A reminder firing had only a toast (5.5s, gone if you looked away) and an
+// OS notification that never arrives without permission having been granted
+// earlier. Reported directly: "half the time when reminders go off I don't
+// actually notice". A short chime is a third, independent channel — audible
+// with the tab backgrounded, and unlike the OS notification needs no
+// permission at all.
+//
+// Created lazily on the first real user gesture rather than eagerly on load:
+// browsers refuse to start an AudioContext with sound before one, and
+// `checkDueReminders` runs off a timer with no gesture of its own. The
+// context, once unlocked this way, keeps working for timer-driven calls for
+// the rest of the session — the unlock is per-context, not per-call.
+let reminderAudioCtx = null;
+function primeReminderAudio() {
+  if (reminderAudioCtx) return;
+  try {
+    reminderAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    // No Web Audio support — reminders still show as a toast/notification.
+  }
+}
+document.addEventListener("pointerdown", primeReminderAudio, { once: true });
+document.addEventListener("keydown", primeReminderAudio, { once: true });
+
+function playReminderChime() {
+  if (!reminderAudioCtx) return;
+  reminderAudioCtx.resume().catch(() => {});
+  const now = reminderAudioCtx.currentTime;
+  // Two short notes, rising — reads as "an alert" rather than a UI click,
+  // without being long or harsh enough to be reached for on a repeat.
+  for (const [i, freq] of [523.25, 659.25].entries()) {
+    const osc = reminderAudioCtx.createOscillator();
+    const gain = reminderAudioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const start = now + i * 0.14;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.32);
+    osc.connect(gain).connect(reminderAudioCtx.destination);
+    osc.start(start);
+    osc.stop(start + 0.34);
+  }
+}
+
 function notify(title, body) {
   if ("Notification" in window && Notification.permission === "granted") {
     try {
@@ -16556,6 +16725,7 @@ async function checkDueReminders() {
   const fresh = due.filter((r) => !already.has(r.id));
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
+  playReminderChime();
 
   // Into the centre as well as onto the screen (§36E). A toast and a system
   // notification are both moments; this is the record that outlives them, and
@@ -21069,6 +21239,7 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
 initNotesSubtabs();
+initLibrarySubtabs();
 initEntryListKeyboardNav();
 scrollTopUpdate = initScrollTopButton();
 // Reminder watching moved into startApp() (below `_active_tokens` note in

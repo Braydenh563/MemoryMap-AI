@@ -1677,6 +1677,18 @@ dialog::backdrop {
   row-gap: var(--space-3);
   align-items: center;
   --control-h: 2.5rem;
+  /* The two rows had gap *within* themselves (label→control→button) but
+     nothing *between* them — neither row carries its own margin, so "Add to
+     document" sat flush against "File under" below it. Reported live. */
+  margin-bottom: var(--space-4);
+}
+
+/* Same gap-within-but-not-between shape one row up: the template picker's
+   row has no margin of its own, and #entry-title's margin-bottom (from the
+   global input rule) only pushes the *textarea* below it away, not this row
+   above it. Reported live as the title touching the template row. */
+#capture > .row.space-between {
+  margin-bottom: var(--space-4);
 }
 
 .capture-field-row select,

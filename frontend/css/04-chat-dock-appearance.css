@@ -155,6 +155,15 @@
   color: var(--on-accent);
   border-radius: var(--radius-md);
   font-weight: 650;
+  /* This button carries `.graph-trace-note` too (graph.js, for the shared
+     chip reset), which caps chips at 12rem with an ellipsis so a long note
+     preview doesn't take over the row — but "Generate Story from Path" is
+     the button's whole label, not a preview, and at 12rem it clipped to
+     "Generate Story fr…". Reported live as space/UI. Undo the cap here. */
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .story-mode-btn:hover {

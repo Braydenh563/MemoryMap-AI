@@ -217,9 +217,17 @@ def _start_tray(window, icon_path: Path):
         window.show()
 
     def _view_logs(icon, item) -> None:
+        # Reported directly: this used to open Settings -> Logs unconditionally,
+        # which reaches straight past the lock screen if the app is locked —
+        # a tray menu item is not a place that should ever be able to do that.
+        # #lock-overlay's own hidden class is the same signal the frontend
+        # itself uses to know whether it's locked; only jump into Settings
+        # when that overlay isn't showing, otherwise just bring the window
+        # (still locked) forward.
         window.show()
         window.evaluate_js(
-            "if (typeof openSettingsModal === 'function') {"
+            "if (document.getElementById('lock-overlay')?.classList.contains('hidden')"
+            " && typeof openSettingsModal === 'function') {"
             " openSettingsModal(); showSettingsSection('logs'); }"
         )
 
@@ -234,6 +242,15 @@ def _start_tray(window, icon_path: Path):
     def _quit(icon, item) -> None:
         icon.stop()
         window.destroy()
+        # window.destroy() runs on this thread (pystray's own), not the main
+        # thread blocked inside webview.start() — reported directly: Quit
+        # closed the window but left the process (and the uvicorn server
+        # thread behind it) running, because a cross-thread destroy call
+        # isn't guaranteed to actually unblock that main-thread wait. A hard
+        # exit is the same shape _restart already trusts (os.execv, no
+        # graceful winddown either) and guarantees the process — and the
+        # terminal it's running in — actually ends.
+        os._exit(0)
 
     icon = pystray.Icon(
         "memorymap",

@@ -7,6 +7,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-18
+
+### Fixed — two system tray bugs
+
+Both reported directly, right after v0.1.0 shipped. "View Logs" opened
+Settings → Logs unconditionally, reaching straight past the lock screen if
+the app was locked — now it only jumps into Settings when `#lock-overlay`
+isn't showing, otherwise it just brings the (still locked) window forward.
+"Quit" closed the window but left the process running in its terminal —
+`window.destroy()` runs on the tray's own thread, not the main thread
+blocked inside `webview.start()`, and a cross-thread destroy call isn't
+guaranteed to unblock that wait. Quit now hard-exits the process directly,
+the same trust `_restart`'s `os.execv` already places in a clean exit
+being unnecessary here.
+
 ## [0.1.0] - 2026-08-18
 
 ### Added — an allowlist for note attachments

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -594,10 +594,13 @@ def forget_memory(preference_id: int, session: Session = Depends(get_session)) -
 
 
 @router.get("/audit")
-def audit_log(limit: int = 100, session: Session = Depends(get_session)) -> list[dict]:
+def audit_log(
+    limit: int = Query(default=100, ge=1, le=500),
+    session: Session = Depends(get_session),
+) -> list[dict]:
     """The activity log, newest first (viewer in the UI)."""
     rows = session.scalars(
-        select(AuditLog).order_by(AuditLog.id.desc()).limit(min(limit, 500))
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
     )
     return [
         {
@@ -713,19 +716,21 @@ def remove_embedding_model(model_id: str) -> dict:
 
 
 @router.get("/logs")
-def server_logs(limit: int = 200) -> list[dict]:
+def server_logs(limit: int = Query(default=200, ge=1, le=logbuffer.MAX_RECORDS)) -> list[dict]:
     """Recent server-side log records for the Settings → Logs viewer."""
-    return logbuffer.recent(limit=min(limit, logbuffer.MAX_RECORDS))
+    return logbuffer.recent(limit=limit)
 
 
 @router.get("/logs/stats")
-def server_log_stats(limit: int = 200) -> dict:
+def server_log_stats(
+    limit: int = Query(default=200, ge=1, le=logbuffer.MAX_RECORDS),
+) -> dict:
     """How complete the log above actually is.
 
     A separate call rather than a wrapper around the records, so the shape of
     /logs stays a plain list for everything already reading it.
     """
-    return logbuffer.stats(limit=min(limit, logbuffer.MAX_RECORDS))
+    return logbuffer.stats(limit=limit)
 
 
 @router.delete("/logs")

@@ -7,6 +7,32 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — pagination for `GET /entries`
+
+Requested directly ("that is a real app feature... probably needed for
+real world use"). `GET /entries` was genuinely unbounded — every note in
+the notebook, every load, no matter its size. Now takes `limit`/`offset`
+(default page 1000, hard ceiling 5000) and reports the true total via an
+`X-Total-Count` header. `entry/manager.py` grew matching params on all
+three list functions plus three new count helpers — additive, so every
+existing in-process caller is unaffected.
+
+`app.js`'s `loadEntries()` fetches pages in a loop, painting the first
+page immediately and filling the rest in the background; every one of
+`allEntries`'s ~30 read sites needed zero changes, since it still ends up
+exactly as complete as it always was once loading finishes. Caught and
+fixed in the same pass, by grepping every `/entries` call site rather than
+assuming the new default was safe everywhere: three dashboard widgets each
+independently re-fetched the whole list and would have silently truncated
+past 1000 notes (wrong tag counts, most seriously) — now they reuse
+`allEntries` instead. Also removed dead code found the same way: `copyLogs()`
+built and fetched an `/entries` URL it never used.
+
+Verified live: seeded 2500 notes, confirmed exactly 3 page requests fire,
+`allEntries` and the status bar both land on the true total, all rows
+render, and the dashboard's widgets show correct totals with zero console
+errors.
+
 ### Fixed — backend hardening pass
 
 Requested directly ("harden the backend, make sure it's robust"); found by a

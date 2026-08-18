@@ -66,6 +66,14 @@ let allEntries = []; // latest GET /entries result, newest first
 // Whether that has ever come back. An empty notebook and a notebook that
 // has not loaded yet look identical from `allEntries.length` alone.
 let entriesEverLoaded = false;
+// Bumped by every loadEntries() call, checked by its own background page
+// fetches before they touch allEntries — the same "stale response" guard
+// loadOnboardingDiagnostics uses. loadEntries can page in the background for
+// a large notebook (see ENTRIES_PAGE_SIZE below), and loadEntries can also
+// be called again mid-page-load (saving a note, deleting a category) — a
+// slow page from the *first* call landing after a second call already
+// replaced allEntries would silently splice stale/duplicate rows back in.
+let _entriesLoadGeneration = 0;
 let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
@@ -3330,25 +3338,71 @@ function showEntrySkeletons() {
   }
 }
 
+// A page of the plain list — matches the backend's own default
+// (ENTRIES_PAGE_SIZE in routes_entries.py). Most real notebooks fit on one
+// page; a notebook that has grown for years pages in the background below.
+const ENTRIES_PAGE_SIZE = 1000;
+
 async function loadEntries() {
+  const generation = ++_entriesLoadGeneration;
   showEntrySkeletons();
-  
+
   const isSemantic = $("semantic-search-toggle")?.checked;
-  const url = (isSemantic && noteSearch) 
-      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true` 
-      : "/entries";
-      
-  allEntries = await apiJson(url);
-  entriesEverLoaded = true;
-  renderStatusBar(); // the notebook's size changed, and the bar reads it here
-  renderSidebar();
-  // Categories the AI has filed notes into since the last load need their ids
-  // fetched before rename/delete can work on them. Deliberately not awaited:
-  // the list renders now and the controls light up a moment later.
-  loadCategories();
-  renderEntries();
-  fillCategoryOptions($("entry-category"), null);
-  refreshTagSuggestions();
+  if (isSemantic && noteSearch) {
+    // Semantic search is already bounded server-side (SEMANTIC_LIST_LIMIT)
+    // — nothing here needs paging.
+    const results = await apiJson(
+      `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true`
+    );
+    if (generation !== _entriesLoadGeneration) return; // a newer load took over
+    allEntries = results;
+    entriesEverLoaded = true;
+    renderStatusBar();
+    renderSidebar();
+    loadCategories();
+    renderEntries();
+    fillCategoryOptions($("entry-category"), null);
+    refreshTagSuggestions();
+    return;
+  }
+
+  // Paginated: GET /entries used to return the whole notebook in one
+  // response, which is fine at a few hundred notes and a real risk of
+  // timing out (or just feeling broken) at the size a "just works" notebook
+  // reaches after years of use. The first page paints immediately — for
+  // most notebooks that's everything, indistinguishable from before — and
+  // any further pages fill in the background, so nothing downstream of
+  // allEntries (search, keyboard nav, the sidebar, tag suggestions) had to
+  // change: it still ends up exactly as complete as it always was.
+  let offset = 0;
+  let total = Infinity; // discovered from the first response's X-Total-Count
+  let first = true;
+  while (offset < total) {
+    const response = await api(`/entries?limit=${ENTRIES_PAGE_SIZE}&offset=${offset}`);
+    const page = await response.json();
+    if (generation !== _entriesLoadGeneration) return; // superseded mid-load
+
+    allEntries = first ? page : allEntries.concat(page);
+    entriesEverLoaded = true;
+    offset += page.length;
+    const reported = Number(response.headers.get("X-Total-Count"));
+    total = Number.isFinite(reported) ? reported : allEntries.length;
+
+    renderStatusBar(); // the notebook's size changed, and the bar reads it here
+    renderEntries();
+    if (first || offset >= total) {
+      renderSidebar();
+      // Categories the AI has filed notes into since the last load need
+      // their ids fetched before rename/delete can work on them.
+      // Deliberately not awaited: the list renders now and the controls
+      // light up a moment later.
+      loadCategories();
+      fillCategoryOptions($("entry-category"), null);
+      refreshTagSuggestions();
+    }
+    first = false;
+    if (page.length === 0) break; // safety: never loop forever on a stale total
+  }
 }
 
 // --- capture -----------------------------------------------------------------
@@ -11699,8 +11753,19 @@ function miniEntryList(body, entries, emptyText) {
   body.appendChild(ul);
 }
 
+// GET /entries pages now (ENTRIES_PAGE_SIZE) rather than returning the whole
+// notebook — these three widgets used to each fetch their own full copy of
+// it independently, which silently would have started missing tags/notes
+// past the first page on a large notebook. `allEntries` is the same data,
+// already loaded by loadEntries() before any tab (including the dashboard)
+// renders, and complete once its own background paging finishes — so
+// preferring it is both a correctness fix and three fewer network calls.
+// The fetch fallback only matters if a widget somehow renders before that
+// first load, and mirrors the pattern renderRandomNoteWidget already uses.
 async function renderPinnedWidget(body) {
-  const entries = (await apiJson("/entries", { cacheMs: 4000 })).filter((e) => e.pinned);
+  const entries = (
+    allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 })
+  ).filter((e) => e.pinned);
   miniEntryList(body, entries.slice(0, 5), "Pin a note and it shows up here.");
 }
 
@@ -11710,7 +11775,7 @@ async function renderMostUsedWidget(body) {
 }
 
 async function renderRecentNotesWidget(body) {
-  const entries = await apiJson("/entries", { cacheMs: 4000 });
+  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
   const newest = [...entries].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
@@ -11718,7 +11783,7 @@ async function renderRecentNotesWidget(body) {
 }
 
 async function renderTopTagsWidget(body) {
-  const entries = await apiJson("/entries", { cacheMs: 4000 });
+  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
   const counts = new Map();
   for (const entry of entries) {
     for (const tag of entry.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
@@ -15323,10 +15388,6 @@ function closeLogs() {
 }
 
 async function copyLogs() {
-  const url = noteSearch 
-      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=${$("semantic-search-toggle")?.checked || false}` 
-      : "/entries";
-    const response = await fetch(url);
   const shown = logRecords.filter(logMatchesFilters);
   if (!shown.length) {
     toast("Nothing to copy — the filters above are hiding every record.", true);
@@ -18113,10 +18174,15 @@ function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
 function renderStatusBar() {
   if (!$("status-bar")) return;
 
-  // The notebook's size, from the list the app has already loaded rather than
-  // from /insights/stats — an unpaginated GET /entries *is* the notebook, so
-  // this is exact and costs nothing. Before the first load it says nothing
-  // rather than "0 notes", which would be a lie for the second it is up.
+  // The notebook's size, from the list the app has already loaded rather
+  // than from /insights/stats — costs nothing, and is exact once loadEntries
+  // finishes. GET /entries pages for a large notebook now (ENTRIES_PAGE_SIZE
+  // above), so for the first moment after unlocking a several-thousand-note
+  // notebook this can undercount while later pages are still landing in the
+  // background — self-corrects within a render or two, and is still a more
+  // honest number than showing nothing while it catches up. Before the first
+  // load it says nothing rather than "0 notes", which would be a lie for the
+  // second it is up.
   paintStatusItem("status-notes", {
     icon: "ph:note-pencil",
     value: entriesEverLoaded ? allEntries.length : "–",

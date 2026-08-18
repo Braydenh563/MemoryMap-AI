@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
@@ -572,12 +572,24 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
     return [_to_out(session, e) for e in related[:3]]
 
 
+#: A page of the plain list, not a hard ceiling on notebook size — the
+#: frontend fetches pages in a loop until X-Total-Count says it has
+#: everything (loadEntries in app.js). Bounds each individual request so a
+#: notebook that has grown for years can't make one response unbounded; the
+#: max just stops a client from asking for one absurdly large page.
+ENTRIES_PAGE_SIZE = 1000
+ENTRIES_PAGE_SIZE_MAX = 5000
+
+
 @router.get("", response_model=list[EntryOut])
 def list_entries(
+    response: Response,
     deleted: bool = False,
     archived: bool = False,
     semantic: bool = False,
     q: str = "",
+    limit: int = Query(default=ENTRIES_PAGE_SIZE, ge=1, le=ENTRIES_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> list[EntryOut]:
     """Normal list, the recycle bin when ?deleted=true, the archive when
@@ -589,16 +601,33 @@ def list_entries(
     `?semantic=true&q=…` is the one case the browser cannot do for itself: the
     notes list is filtered client-side by keyword, but cosine distance needs
     the vectors, which only live here.
-    """
-    if deleted:
-        entries = manager.list_deleted_entries(session)
-    elif archived:
-        entries = manager.list_archived_entries(session)
-    else:
-        entries = manager.list_entries(session)
 
+    `limit`/`offset` page the plain list; `X-Total-Count` on the response
+    says the real size regardless of the page, so a caller knows when it has
+    everything. Was genuinely unbounded before — every note, every load, no
+    matter the notebook's size — which is real risk for a "just works" local
+    app that's supposed to degrade gracefully rather than time out or OOM.
+    """
     if semantic and q:
         from memorymap.core import deps
+
+        # The *complete* id set, deliberately not paginated: `allowed` below
+        # decides which semantic hits are even in scope for this view (bin,
+        # archive, or live), and paginating this fetch would silently drop
+        # legitimate matches that happen to live past the first page. Ids
+        # only, no row bodies — cheap even at real notebook scale, and the
+        # thing the original unbounded-response risk was actually about was
+        # sending full rows over HTTP, not counting ids in-process.
+        if deleted:
+            scope_ids = {
+                e.id for e in manager.list_deleted_entries(session)
+            }
+        elif archived:
+            scope_ids = {
+                e.id for e in manager.list_archived_entries(session)
+            }
+        else:
+            scope_ids = {e.id for e in manager.list_entries(session)}
 
         # Ranked, and returned ranked. The first version rebuilt the result as
         # `[e for e in entries if e.id in found_ids]`, which is the *notebook's*
@@ -617,9 +646,20 @@ def list_entries(
             )
         # `semantic_search` already drops anything under MIN_SIMILARITY; a
         # second threshold here was a different number for the same job.
-        allowed = {e.id for e in entries}
-        return _to_out_bulk(session, [e for e, _score in results if e.id in allowed])
+        matched = [e for e, _score in results if e.id in scope_ids]
+        response.headers["X-Total-Count"] = str(len(matched))
+        return _to_out_bulk(session, matched)
 
+    if deleted:
+        entries = manager.list_deleted_entries(session, limit=limit, offset=offset)
+        total = manager.count_deleted_entries(session)
+    elif archived:
+        entries = manager.list_archived_entries(session, limit=limit, offset=offset)
+        total = manager.count_archived_entries(session)
+    else:
+        entries = manager.list_entries(session, limit=limit, offset=offset)
+        total = manager.count_entries(session)
+    response.headers["X-Total-Count"] = str(total)
     return _to_out_bulk(session, entries)
 
 

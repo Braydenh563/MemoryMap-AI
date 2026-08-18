@@ -1299,23 +1299,49 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   uvicorn and gunicorn both honour), and raises `MultipleWorkersError` with
   the full reason and the fix rather than a warning nobody reads. Covered by
   `tests/test_worker_guard.py`. This item can be struck rather than built.
-- **Confirmed, not just suspected: `GET /entries` is genuinely unbounded.**
-  `routes_entries.list_entries` takes no `limit`/`offset` at all, and
-  `entry/manager.list_entries` / `list_deleted_entries` / `list_archived_entries`
-  all run their query with no `.limit()` — every note, every time the Notes
-  tab loads, the recycle bin opens, or the archive is browsed. `GET
-  /conversations` already caps at 200 (`routes_conversations.py`) precisely
-  because an *earlier*, tighter cap (50) made older chats unreachable from
-  the sidebar with no way to page past it — that comment is the reason not
-  to just copy the same fix onto entries without more thought. The whole
-  Notes tab is built around one client-side `allEntries` array — search-as-
-  you-type, keyboard nav, the sidebar — so a silent server-side cap here
-  wouldn't degrade gracefully the way the backend-hardening framing
-  suggests; it would make everything past the cap invisible everywhere at
-  once, which is worse than the slow-response risk it would be fixing. This
-  needs real cursor pagination plus a client-side incremental-load change,
-  not a one-line `.limit()` — genuinely a "needs-design-thought" item, not
-  a quick win, despite how it reads at a glance.
+- ~~**Confirmed, not just suspected: `GET /entries` is genuinely
+  unbounded.**~~ **done.** Asked for directly ("that is a real app feature
+  that enhances good design and will probably be needed for real world
+  use"). `GET /entries` now takes `limit`/`offset` (default page 1000, hard
+  ceiling 5000 — `ENTRIES_PAGE_SIZE`/`_MAX` in `routes_entries.py`) and
+  reports the true count via an `X-Total-Count` response header regardless
+  of the page. `entry/manager.py` grew matching `limit`/`offset` params on
+  all three list functions plus `count_entries`/`count_deleted_entries`/
+  `count_archived_entries` — additive (`None` still means "everything"), so
+  every existing in-process caller is unaffected.
+
+  The risk this item itself named — a silent cap making old notes invisible
+  everywhere at once — is why the fix isn't just a `.limit()`. `app.js`'s
+  `loadEntries()` now fetches pages in a loop, painting the first page
+  immediately and filling the rest in the background; every one of
+  `allEntries`'s ~30 read sites (search-as-you-type, keyboard nav, the
+  sidebar, tag suggestions) needed zero changes, because `allEntries` still
+  ends up exactly as complete as it always was once loading finishes — just
+  without one unbounded response getting it there. A `_entriesLoadGeneration`
+  counter (same shape as `loadOnboardingDiagnostics`'s staleness guard)
+  stops a slow page from a superseded load splicing stale rows back in if
+  `loadEntries()` is called again mid-page-load.
+
+  One real regression caught in the same pass, not by guessing but by
+  grepping every `/entries` GET call site before calling this done: three
+  dashboard widgets (`renderPinnedWidget`, `renderRecentNotesWidget`,
+  `renderTopTagsWidget`) each independently re-fetched the *whole* list —
+  which the new 1000-row default would have silently truncated,
+  `renderTopTagsWidget` most seriously (wrong tag counts on any notebook
+  past 1000 notes, with no error to notice it by). Fixed by having all
+  three prefer the already-loaded `allEntries`, the same pattern
+  `renderRandomNoteWidget` already used. Also found and removed while
+  auditing those call sites: `copyLogs()` built a `/entries` URL and
+  `fetch`ed it, then never used the response — dead code, unrelated to
+  logs, silently wasting a request (and failing every time, since a bare
+  `fetch()` skips the auth header `api()` adds).
+
+  Verified live, not just by the new backend/frontend tests: seeded 2500
+  notes directly via `entry.manager`, confirmed exactly three page requests
+  fire (`limit=1000&offset=0/1000/2000`), `allEntries.length` and the
+  status bar both land on 2500, all 2500 rows actually render, and the
+  Dashboard's own widgets (including the fixed tag-counting one) show
+  correct totals with zero console errors — screenshotted.
 - **What happens when Ollama hangs, rather than errors.** The app already
   handles Ollama being *off* gracefully (design principle 2) — a request
   that never comes back is a different failure, and a more likely one on

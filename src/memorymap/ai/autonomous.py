@@ -63,6 +63,12 @@ MAX_ROUNDS = 15
 #: rather than however many vague links happen to exist.
 AUDIT_BATCH_SIZE = 20
 
+#: How many stale/orphaned notes get tagged in one background tick
+#: (ROADMAP.md item 31). Same bound as `AUDIT_BATCH_SIZE` and the same
+#: reason: a backlog of hundreds of forgotten notes is worked through a
+#: little at a time, one interval per batch, not all in one tick.
+STALE_REVIEW_BATCH_SIZE = 20
+
 _lock = threading.Lock()
 _stop_event: threading.Event | None = None
 #: Interrupts the interval sleep without stopping the loop — set by `wake()`
@@ -181,6 +187,34 @@ def _run_optimization() -> None:
             except Exception as exc:
                 logger.error("link reason audit failed: %s", exc, exc_info=True)
 
+        # ROADMAP.md item 31: "acting on stale/orphaned notes (nothing
+        # currently reviews a note nobody has touched in months)". Arithmetic
+        # like the link-reason audit above, not an agent turn — staleness and
+        # connectedness are both plain columns and joins, see
+        # `entry/staleness.py`'s own docstring for why that's deliberate.
+        # Tagging rather than archiving or deleting: there's nobody here to
+        # confirm a change to a note's visibility, but a tag is the same kind
+        # of low-stakes, reversible mark `_tag_note` already makes for a
+        # person who asks for one directly.
+        if config.get_preference("auto_stale_review_enabled", False):
+            try:
+                from memorymap.entry import manager as entry_manager
+                from memorymap.entry import staleness
+
+                db = deps.get_db()
+                tagged = 0
+                with db.session() as session:
+                    candidates = staleness.find_stale_orphaned_notes(session)
+                    for entry in candidates[:STALE_REVIEW_BATCH_SIZE]:
+                        tags = entry_manager.entry_tags(entry)
+                        if "stale" in tags:
+                            continue
+                        entry_manager.update_entry(session, entry, tags=[*tags, "stale"])
+                        tagged += 1
+                if tagged:
+                    logger.info("stale/orphaned review: tagged %d note(s)", tagged)
+            except Exception as exc:
+                logger.error("stale/orphaned review failed: %s", exc, exc_info=True)
 
         tasks = _enabled_tasks(config)
         if not tasks:

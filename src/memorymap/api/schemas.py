@@ -47,6 +47,8 @@ class EntryCreate(BaseModel):
     # connection is obvious while you are writing and forgotten by the time
     # the note is in a list.
     document_ids: list[int] = Field(default_factory=list, max_length=10)
+    # A note captured from the text-selection popup, not yet reviewed.
+    is_draft: bool = False
 
 
 class EntryUpdate(BaseModel):
@@ -56,6 +58,7 @@ class EntryUpdate(BaseModel):
     category: str | None = None
     tags: list[str] | None = None
     pinned: bool | None = None
+    is_draft: bool | None = None
 
 
 class ContextBody(BaseModel):
@@ -126,8 +129,11 @@ class EntryOut(BaseModel):
     user_filed: bool = False
     # Private notes are encrypted at rest and kept out of search and the AI.
     is_private: bool = False
+    # Captured from the text-selection popup, not yet reviewed.
+    is_draft: bool = False
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
+    archived_at: datetime | None = None  # set only when archived (BACKLOG §30b)
     links: list[LinkOut] = Field(default_factory=list)
     attachments: list[AttachmentOut] = Field(default_factory=list)
     # Documents this note is attached to: [{"id": 3, "title": "Trip plan"}].

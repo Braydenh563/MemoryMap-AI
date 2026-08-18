@@ -66,6 +66,14 @@ let allEntries = []; // latest GET /entries result, newest first
 // Whether that has ever come back. An empty notebook and a notebook that
 // has not loaded yet look identical from `allEntries.length` alone.
 let entriesEverLoaded = false;
+// Bumped by every loadEntries() call, checked by its own background page
+// fetches before they touch allEntries — the same "stale response" guard
+// loadOnboardingDiagnostics uses. loadEntries can page in the background for
+// a large notebook (see ENTRIES_PAGE_SIZE below), and loadEntries can also
+// be called again mid-page-load (saving a note, deleting a category) — a
+// slow page from the *first* call landing after a second call already
+// replaced allEntries would silently splice stale/duplicate rows back in.
+let _entriesLoadGeneration = 0;
 let activeCategory = null; // sidebar filter; null = All
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
@@ -401,6 +409,12 @@ function startApp() {
   // below about switchTab painting from a pile of 401s.
   step("load spaces", loadSpaces);
   step("tell the server your timezone", reportTimezone);
+  // Fires only if the user opted in (Settings -> About); the endpoint itself
+  // also checks the preference server-side, but skipping the call here means
+  // an opted-out install makes zero network attempts, not a wasted one.
+  step("check for an update", () => {
+    if (prefsCache && prefsCache.update_check_enabled) return checkForUpdate(true);
+  });
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
@@ -640,6 +654,21 @@ function chip(text, extraClass = "", onClick = null) {
     });
   }
   return span;
+}
+
+// The one reusable "something is loading" mark (ROADMAP Priority 0 #14) —
+// asked for directly, since before this every call site (re-evaluate, per-
+// card AI work) built its own one-off spinner chip by hand. The .spinner
+// CSS class (01-forms-settings.css, beside .chip-busy which it was
+// extracted from) carries the animation and the prefers-reduced-motion
+// fallback; aria-hidden because this is a visual accent only — the loading
+// state itself belongs in a visible/aria-live status line at the call site,
+// the same pattern #meeting-status and its siblings already use.
+function spinnerEl() {
+  const el = document.createElement("span");
+  el.className = "spinner";
+  el.setAttribute("aria-hidden", "true");
+  return el;
 }
 
 // The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
@@ -1001,8 +1030,12 @@ function entryItem(entry, options = {}) {
   // it's obvious something is running on this specific card.
   if (entry.id === busyEntryId) {
     li.classList.add("entry-busy");
-    const busy = chip("⟳ Re-evaluating…", "busy");
+    const busy = chip("Re-evaluating…", "busy");
     busy.classList.add("chip-busy");
+    // The shared spinner (ROADMAP Priority 0 #14) replaces this chip's own
+    // one-off ring — .chip's own `gap` handles the spacing and vertical
+    // centring, so no extra margin is needed.
+    busy.prepend(spinnerEl());
     meta.appendChild(busy);
   }
 
@@ -1051,6 +1084,27 @@ function entryItem(entry, options = {}) {
   }
   if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
   if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
+  // Captured from the text-selection popup and not yet looked at. A chip
+  // rather than a separate "Drafts" view — the note is in its normal place
+  // in the list either way, this just marks it not reviewed yet. Click to
+  // clear it once you have.
+  if (entry.is_draft) {
+    const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
+      event.stopPropagation();
+      try {
+        await apiJson(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ is_draft: false }),
+        });
+        entry.is_draft = false;
+        await loadEntries();
+      } catch (error) {
+        toast(error.message || "Couldn't update that note.", true);
+      }
+    });
+    draftChip.title = "Captured from a selection, not reviewed yet — click to mark reviewed";
+    meta.insertBefore(draftChip, meta.firstChild);
+  }
   li.appendChild(meta);
 
   // Attachments (Wave B; images become thumbnails in Wave M).
@@ -1103,7 +1157,11 @@ function entryItem(entry, options = {}) {
         fileRow.appendChild(fileChip);
       }
     }
-    li.appendChild(fileRow);
+    // Before `meta` (the category/date/pin/actions footer), not after —
+    // reported directly: a sketch or attached image sat below the note's
+    // own metadata row, sandwiched between the footer and whatever came
+    // after it, rather than reading as part of the note's own content.
+    li.insertBefore(fileRow, meta);
   }
 
   // Inline add-context / continue-thought forms (Wave B).
@@ -1630,7 +1688,32 @@ function entryOverflowMenu(entry) {
       },
     },
     { label: "ph:paperclip Attach a file", run: () => attachFileTo(entry) },
+    { label: "ph:images-square Attach from Library", run: () => attachFromLibrary(entry) },
   ];
+
+  // Not destructive, so not grouped with "danger" below — but visually
+  // adjacent to it (asked for directly: a way to keep a note but get it
+  // out of the way, distinct from binning it) so the two "get this off my
+  // list" actions sit together rather than one being buried in a group.
+  const archive = entry.archived_at
+    ? {
+        label: "ph:arrow-u-up-left Unarchive",
+        title: "Bring this note back into your notebook",
+        run: async () => {
+          await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
+          await loadEntries();
+          toast("Unarchived.");
+        },
+      }
+    : {
+        label: "ph:archive Archive",
+        title: "Keep it, but out of the way — not the bin",
+        run: async () => {
+          await apiJson(`/entries/${entry.id}/archive`, { method: "POST" });
+          await loadEntries();
+          toast("Archived.");
+        },
+      };
 
   const danger = {
     label: "ph:trash Move to bin",
@@ -1651,6 +1734,7 @@ function entryOverflowMenu(entry) {
   menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
   menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
   menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
+  menu.appendChild(buildMenuItemButton(archive));
   menu.appendChild(buildMenuItemButton(danger));
 
   // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move
@@ -1935,6 +2019,113 @@ function attachFileTo(entry) {
   input.click();
 }
 
+// The Library's other half of "upload directly, attach later" — asked for
+// directly. `attachFileTo` above always opens a fresh disk picker; this
+// instead offers whatever already lives in the Library's image/PDF gallery
+// (MediaUpload — GET /media), so an image uploaded once doesn't need
+// re-uploading onto every note that wants it. Note attachments (Attachment,
+// PDFs, docs, audio — attachFileTo's own domain) have no "floating, not yet
+// attached to anything" state to pick from, so this is images/PDFs only,
+// same as the Library gallery itself.
+async function attachFromLibrary(entry) {
+  const images = await apiJson("/media", { silent: true }).catch(() => null);
+  if (!images) {
+    toast("Couldn't load the Library gallery.", true);
+    return;
+  }
+  if (!images.length) {
+    toast("Nothing in the Library gallery yet — upload one from Library → Image Gallery first.", true);
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay library-attach-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Attach from Library");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card";
+  const head = document.createElement("div");
+  head.className = "row space-between library-head";
+  const title = document.createElement("h2");
+  title.textContent = "Attach from Library";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "ghost small";
+  close.setAttribute("aria-label", "Close");
+  setLabel(close, "ph:x");
+  head.append(title, close);
+  const hint = document.createElement("p");
+  hint.className = "muted";
+  hint.textContent = "Pick an image or PDF already in the Library to attach it to this note.";
+  const grid = document.createElement("div");
+  grid.className = "library-image-grid library-attach-grid";
+
+  const done = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      done();
+    }
+  };
+  close.addEventListener("click", done);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) done(); });
+  document.addEventListener("keydown", onKey, true);
+
+  const isPdf = (url) => /\.pdf$/i.test(url);
+  for (const image of images) {
+    const fig = document.createElement("figure");
+    fig.className = "library-image-tile";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "library-attach-pick";
+    button.title = `Attach “${image.original_name}”`;
+    if (isPdf(image.url)) {
+      const icon = document.createElement("i");
+      icon.className = "ph ph-file-pdf";
+      icon.setAttribute("aria-hidden", "true");
+      button.appendChild(icon);
+    } else {
+      const img = document.createElement("img");
+      img.src = mediaSrc(image.url);
+      img.alt = "";
+      img.loading = "lazy";
+      button.appendChild(img);
+    }
+    button.addEventListener("click", async () => {
+      const markdown = isPdf(image.url)
+        ? `[${image.original_name}](${image.url})\n`
+        : `![${image.original_name}](${image.url})\n`;
+      const nextContent = `${entry.content.trim()}\n\n${markdown}`.trim();
+      try {
+        await apiJson(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ content: nextContent }),
+        });
+        toast(`Attached ${image.original_name}.`);
+        done();
+        await loadEntries();
+      } catch (error) {
+        toast(error.message || "Couldn't attach that file.", true);
+      }
+    });
+    const cap = document.createElement("figcaption");
+    cap.textContent = image.original_name;
+    cap.title = image.original_name;
+    fig.append(button, cap);
+    grid.appendChild(fig);
+  }
+
+  card.append(head, hint, grid);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  close.focus();
+}
+
 // Thumbnails need the auth header, which <img src> can't send — fetch
 // the bytes once per attachment and cache an object URL (Wave M).
 const thumbUrlCache = new Map();
@@ -1965,9 +2156,18 @@ function openLightbox(items, startIndex = 0) {
   closeBtn.type = "button";
   closeBtn.className = "lightbox-close";
   closeBtn.setAttribute("aria-label", "Close");
-  closeBtn.textContent = "×";
+  // A raw "×" character, not an icon-font glyph — reported live as still
+  // off-centre even inside the `display:grid;place-items:center` box that
+  // fixed every *padding*-driven case of this: `place-items` centres the
+  // line box, not necessarily where a font renders that specific character's
+  // ink within it, and that varies by system font. Every other close button
+  // in the app already uses the ph:x icon glyph for exactly this reason —
+  // matching it here fixes the centring and the inconsistency together.
+  setLabel(closeBtn, "ph:x");
 
   const img = document.createElement("img");
+  const broken = document.createElement("p");
+  broken.className = "lightbox-broken hidden";
   const meta = document.createElement("div");
   meta.className = "lightbox-meta";
 
@@ -1983,21 +2183,54 @@ function openLightbox(items, startIndex = 0) {
   nextBtn.setAttribute("aria-label", "Next image");
   setLabel(nextBtn, "ph:caret-right");
 
+  // The nav arrows used to be centred on the viewport (`top: 50%`), which
+  // only matches the image's own centre when nothing else in `.lightbox`'s
+  // centred stack has height — but the close button above and the filename
+  // caption below both do, so the whole group's midpoint sits above the
+  // image's true centre and the arrows read as floating too low. Reported
+  // live; measured a ~14px gap on a 400×300 test image. Positioned against
+  // the image's actual rendered box instead of assumed from viewport math.
+  function positionNav() {
+    const rect = (broken.classList.contains("hidden") ? img : broken).getBoundingClientRect();
+    if (!rect.height) return;
+    const center = `${rect.top + rect.height / 2}px`;
+    prevBtn.style.top = center;
+    nextBtn.style.top = center;
+  }
+
   async function show(i) {
     index = (i + items.length) % items.length;
     const item = items[index];
     img.alt = item.filename || "";
     img.src = await item.getUrl();
+    // A failed decode used to be swallowed here, leaving a blank box with no
+    // explanation — reported live as "the second page doesn't load" (an
+    // image whose underlying file was gone, paged to from a gallery that
+    // itself hides broken tiles, so the lightbox was the only place the
+    // failure was ever visible, and it said nothing). Now it says so.
+    const ok = await img.decode().then(
+      () => true,
+      () => false
+    );
+    img.classList.toggle("hidden", !ok);
+    broken.classList.toggle("hidden", ok);
+    if (!ok) broken.textContent = `Couldn't load "${item.filename || "this image"}" — the file may have been deleted.`;
     overlay.setAttribute("aria-label", item.filename || "Image preview");
     meta.textContent =
       items.length > 1
         ? `${item.filename || ""} — ${index + 1} of ${items.length}`
         : item.filename || "";
+    // After the caption text is set, not before — an empty vs. filled
+    // caption changes the height of the centred stack `img` sits in, which
+    // moves the image's own centre by exactly that much.
+    positionNav();
   }
 
+  window.addEventListener("resize", positionNav);
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
+    window.removeEventListener("resize", positionNav);
   };
   const onKey = (e) => {
     if (e.key === "Escape") close();
@@ -2018,11 +2251,141 @@ function openLightbox(items, startIndex = 0) {
   });
   document.addEventListener("keydown", onKey);
 
-  overlay.append(closeBtn, img, meta);
+  overlay.append(closeBtn, img, broken, meta);
   if (items.length > 1) overlay.append(prevBtn, nextBtn);
   document.body.appendChild(overlay);
   closeBtn.focus();
   show(startIndex);
+}
+
+// A small toolbar near wherever the user just selected text, anywhere in
+// the app's actual content — a document, the graph, a web search result, a
+// chat message, a note. Asked for directly: "if the user highlights an
+// output or piece of text... the user can save it as a note, search the
+// notebook for similar phrases or meaning/topics, ask the ai about it".
+//
+// Denylist rather than an allowlist of containers: excluding form fields
+// (which already have their own selection/context-menu behaviour a popup
+// stealing focus would fight) and the popup's own text is simpler than
+// naming every readable surface in the app and it can't silently miss one
+// that gets added later.
+const SELECTION_POPUP_EXCLUDED = "input, textarea, [contenteditable], .selection-popup";
+
+let selectionPopupEl = null;
+
+function selectionPopup() {
+  if (selectionPopupEl) return selectionPopupEl;
+  const box = document.createElement("div");
+  box.className = "selection-popup hidden";
+  box.setAttribute("role", "toolbar");
+  box.setAttribute("aria-label", "Actions for the selected text");
+  const draft = document.createElement("button");
+  draft.type = "button";
+  setLabel(draft, "ph:note-pencil Save as draft note");
+  const search = document.createElement("button");
+  search.type = "button";
+  setLabel(search, "ph:magnifying-glass Search notebook");
+  const ask = document.createElement("button");
+  ask.type = "button";
+  setLabel(ask, "ph:chat-circle Ask AI about this");
+  box.append(draft, search, ask);
+  document.body.appendChild(box);
+
+  draft.addEventListener("mousedown", (e) => e.preventDefault()); // don't clear the selection
+  draft.addEventListener("click", async () => {
+    const text = selectionPopupText;
+    hideSelectionPopup();
+    if (!text) return;
+    try {
+      await apiJson("/entries", {
+        method: "POST",
+        body: JSON.stringify({ content: text, is_draft: true }),
+      });
+      toast("Saved as a draft note.");
+      if (localStorage.getItem("activeTab") === "notes") loadEntries();
+    } catch (error) {
+      toast(error.message || "Couldn't save that note.", true);
+    }
+  });
+
+  search.addEventListener("mousedown", (e) => e.preventDefault());
+  search.addEventListener("click", () => {
+    const text = selectionPopupText;
+    hideSelectionPopup();
+    if (!text) return;
+    switchTab("notes");
+    showNotesSection("browse");
+    noteSearch = text;
+    $("note-search").value = text;
+    $("save-search").classList.remove("hidden");
+    renderEntries();
+    if ($("semantic-search-toggle")?.checked) loadEntries();
+  });
+
+  ask.addEventListener("mousedown", (e) => e.preventDefault());
+  ask.addEventListener("click", () => {
+    const text = selectionPopupText;
+    hideSelectionPopup();
+    if (!text) return;
+    switchTab("chat");
+    const input = $("chat-input");
+    input.value = `Tell me about this: "${text}"`;
+    input.focus();
+  });
+
+  selectionPopupEl = box;
+  return box;
+}
+
+let selectionPopupText = "";
+
+function hideSelectionPopup() {
+  selectionPopupEl?.classList.add("hidden");
+  selectionPopupText = "";
+}
+
+function showSelectionPopupAt(rect, text) {
+  const box = selectionPopup();
+  selectionPopupText = text;
+  box.classList.remove("hidden");
+  // Above the selection, centred on it, clamped so it can't run off any
+  // edge of the viewport regardless of where the selection sits.
+  const margin = 8;
+  const boxRect = box.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - boxRect.width / 2;
+  left = Math.min(Math.max(margin, left), window.innerWidth - boxRect.width - margin);
+  let top = rect.top - boxRect.height - margin;
+  if (top < margin) top = rect.bottom + margin; // no room above — go below instead
+  top = Math.min(Math.max(margin, top), window.innerHeight - boxRect.height - margin);
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+}
+
+function initSelectionPopup() {
+  document.addEventListener("mouseup", (event) => {
+    if (event.target.closest(".selection-popup")) return;
+    const selection = window.getSelection();
+    const text = (selection.toString() || "").trim();
+    if (!text || selection.isCollapsed) {
+      hideSelectionPopup();
+      return;
+    }
+    const anchor = selection.anchorNode;
+    const el = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentElement);
+    if (!el || el.closest(SELECTION_POPUP_EXCLUDED)) {
+      hideSelectionPopup();
+      return;
+    }
+    showSelectionPopupAt(selection.getRangeAt(0).getBoundingClientRect(), text);
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (!event.target.closest(".selection-popup")) hideSelectionPopup();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hideSelectionPopup();
+  });
+  window.addEventListener("scroll", hideSelectionPopup, true);
+  window.addEventListener("resize", hideSelectionPopup);
 }
 
 async function downloadAttachment(attachment) {
@@ -2759,6 +3122,7 @@ function renderEntries() {
     for (const entry of sortEntries(visible)) {
       list.appendChild(entryItem(entry, { actions: true }));
     }
+    applyEntryListTabOrder(list);
     return;
   }
 
@@ -2789,9 +3153,57 @@ function renderEntries() {
     const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
     if (!parentVisible) addWithChildren(entry, 0);
   }
+  applyEntryListTabOrder(list);
   // After the list is in the DOM: drop the clamp from any note that turned
   // out to fit. No-op while the sub-tab is hidden; showNotesSection re-runs it.
   settleNoteClamps();
+}
+
+// --- note-list keyboard navigation (ROADMAP Tier 3 §30a / BACKLOG §16) ------------
+// Named directly as "the one interaction pattern used constantly enough that
+// its absence would be felt every session, not just noticed in an audit."
+// A roving tabindex: only one <li> is ever a Tab stop, so the list is one
+// stop in the page's tab order rather than one per note, matching the
+// standard listbox/grid keyboard pattern.
+function applyEntryListTabOrder(list) {
+  const items = Array.from(list.children);
+  const current = document.activeElement;
+  // Re-renders happen constantly (search-as-you-type, sort, edits) — if the
+  // previously-focused note is still present, keep it as the one Tab stop
+  // instead of silently resetting focus back to the top of the list.
+  const keepId = items.some((li) => li === current) ? current.dataset.id : null;
+  items.forEach((li) => {
+    li.tabIndex = keepId ? (li.dataset.id === keepId ? 0 : -1) : -1;
+  });
+  if (!keepId && items.length > 0) items[0].tabIndex = 0;
+}
+
+function initEntryListKeyboardNav() {
+  const list = $("entry-list");
+  list.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
+    const items = Array.from(list.children);
+    const current = event.target.closest("li");
+    const index = current ? items.indexOf(current) : -1;
+    if (index === -1) return;
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const nextIndex = Math.min(
+        Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0),
+        items.length - 1
+      );
+      items.forEach((li, i) => { li.tabIndex = i === nextIndex ? 0 : -1; });
+      items[nextIndex].focus();
+    } else if (event.key === "Enter" && event.target === current) {
+      // Only when the <li> itself has focus, not a button/link/textarea
+      // inside it — those already handle their own Enter behaviour, and
+      // this app has no separate "note view" to open: editing in place is
+      // what opening a note means here.
+      event.preventDefault();
+      current.querySelector(".entry-actions [title='Edit this entry']")?.click();
+    }
+  });
 }
 
 // name -> {id, count}. Needed because renaming and deleting work on ids,
@@ -2930,25 +3342,71 @@ function showEntrySkeletons() {
   }
 }
 
+// A page of the plain list — matches the backend's own default
+// (ENTRIES_PAGE_SIZE in routes_entries.py). Most real notebooks fit on one
+// page; a notebook that has grown for years pages in the background below.
+const ENTRIES_PAGE_SIZE = 1000;
+
 async function loadEntries() {
+  const generation = ++_entriesLoadGeneration;
   showEntrySkeletons();
-  
+
   const isSemantic = $("semantic-search-toggle")?.checked;
-  const url = (isSemantic && noteSearch) 
-      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true` 
-      : "/entries";
-      
-  allEntries = await apiJson(url);
-  entriesEverLoaded = true;
-  renderStatusBar(); // the notebook's size changed, and the bar reads it here
-  renderSidebar();
-  // Categories the AI has filed notes into since the last load need their ids
-  // fetched before rename/delete can work on them. Deliberately not awaited:
-  // the list renders now and the controls light up a moment later.
-  loadCategories();
-  renderEntries();
-  fillCategoryOptions($("entry-category"), null);
-  refreshTagSuggestions();
+  if (isSemantic && noteSearch) {
+    // Semantic search is already bounded server-side (SEMANTIC_LIST_LIMIT)
+    // — nothing here needs paging.
+    const results = await apiJson(
+      `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true`
+    );
+    if (generation !== _entriesLoadGeneration) return; // a newer load took over
+    allEntries = results;
+    entriesEverLoaded = true;
+    renderStatusBar();
+    renderSidebar();
+    loadCategories();
+    renderEntries();
+    fillCategoryOptions($("entry-category"), null);
+    refreshTagSuggestions();
+    return;
+  }
+
+  // Paginated: GET /entries used to return the whole notebook in one
+  // response, which is fine at a few hundred notes and a real risk of
+  // timing out (or just feeling broken) at the size a "just works" notebook
+  // reaches after years of use. The first page paints immediately — for
+  // most notebooks that's everything, indistinguishable from before — and
+  // any further pages fill in the background, so nothing downstream of
+  // allEntries (search, keyboard nav, the sidebar, tag suggestions) had to
+  // change: it still ends up exactly as complete as it always was.
+  let offset = 0;
+  let total = Infinity; // discovered from the first response's X-Total-Count
+  let first = true;
+  while (offset < total) {
+    const response = await api(`/entries?limit=${ENTRIES_PAGE_SIZE}&offset=${offset}`);
+    const page = await response.json();
+    if (generation !== _entriesLoadGeneration) return; // superseded mid-load
+
+    allEntries = first ? page : allEntries.concat(page);
+    entriesEverLoaded = true;
+    offset += page.length;
+    const reported = Number(response.headers.get("X-Total-Count"));
+    total = Number.isFinite(reported) ? reported : allEntries.length;
+
+    renderStatusBar(); // the notebook's size changed, and the bar reads it here
+    renderEntries();
+    if (first || offset >= total) {
+      renderSidebar();
+      // Categories the AI has filed notes into since the last load need
+      // their ids fetched before rename/delete can work on them.
+      // Deliberately not awaited: the list renders now and the controls
+      // light up a moment later.
+      loadCategories();
+      fillCategoryOptions($("entry-category"), null);
+      refreshTagSuggestions();
+    }
+    first = false;
+    if (page.length === 0) break; // safety: never loop forever on a stale total
+  }
 }
 
 // --- capture -----------------------------------------------------------------
@@ -4112,6 +4570,10 @@ async function toggleAskHistoryPin(id, pinned) {
 }
 
 async function deleteAskHistoryTurn(id) {
+  // Permanent — no restore endpoint behind this one, unlike a note's bin.
+  // "Clear all" right next to this already confirms; a single turn deleted
+  // by the same one-click miss deserves the same guard, not less.
+  if (!(await confirmDialog("Delete this question and answer?"))) return;
   await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch(() => null);
   loadAskHistoryPage(true);
   loadAskHistoryBadge();
@@ -4639,7 +5101,15 @@ function renderChatEmptyState() {
   emblem.setAttribute("aria-hidden", "true");
   const title = document.createElement("p");
   title.className = "empty-title";
-  title.textContent = "Chat with your notebook";
+  // Personas already voice the AI's replies and the dashboard greeting
+  // (librarian.resolve_persona_prompt's own docstring: "the voice the user
+  // picked is used consistently everywhere") — this was the one place left
+  // that stayed generic regardless of which persona was active, so opening
+  // a new chat under "Coach" or a custom persona still greeted you as
+  // nobody in particular (ROADMAP Tier 3 §21).
+  const activePersona = (prefsCache && prefsCache.active_persona) || "Librarian";
+  title.textContent =
+    activePersona === "Librarian" ? "Chat with your notebook" : `Chat with your ${activePersona}`;
   const blurb = document.createElement("p");
   blurb.className = "muted";
   blurb.textContent =
@@ -4694,7 +5164,90 @@ function toggleWebPanel(force) {
     } else if (!$("web-results").childElementCount) {
       status.textContent = "";
     }
+    refreshWebSearxngStrip();
     $("web-query").focus();
+  } else {
+    clearTimeout(webSearxngTimer);
+  }
+}
+
+// Feedforward for whether the private, local SearXNG instance is actually
+// running — not just the after-the-fact "answered by SearXNG" a result
+// already carries (renderAnswerGrounding-adjacent code, search below).
+// Asked for directly: a way to see and toggle it without leaving the Chat
+// tab for Settings → Web search, three clicks and a tab-switch away.
+// Deliberately far lighter than that page's full management UI (install
+// progress, port diagnostics, reinstall) — this is only "is it on, turn it
+// on/off", the two things worth knowing before typing a query.
+let webSearxngTimer = null;
+
+async function refreshWebSearxngStrip() {
+  const strip = $("web-searxng-strip");
+  const provider = (prefsCache && prefsCache.search_provider) || "auto";
+  if (provider === "duckduckgo") {
+    // This provider never touches SearXNG — a toggle here would control
+    // nothing a search actually uses.
+    strip.classList.add("hidden");
+    clearTimeout(webSearxngTimer);
+    return;
+  }
+  const info = await apiJson("/websearch/searxng/status").catch(() => null);
+  if (!info || !info.backend) {
+    // No usable backend (Docker or a virtualenv) to run it at all — Settings
+    // → Web search explains why; there's nothing this strip can offer.
+    strip.classList.add("hidden");
+    clearTimeout(webSearxngTimer);
+    return;
+  }
+  strip.classList.remove("hidden");
+  const chip = $("web-searxng-chip");
+  const toggle = $("web-searxng-toggle");
+
+  if (info.installing) {
+    chip.textContent = "SearXNG: installing…";
+    chip.className = "chip";
+    toggle.disabled = true;
+    setLabel(toggle, "ph:play Start");
+    clearTimeout(webSearxngTimer);
+    webSearxngTimer = setTimeout(refreshWebSearxngStrip, 2000);
+    return;
+  }
+
+  const running = info.state === "running" && info.responding;
+  chip.textContent = running
+    ? "SearXNG: running"
+    : info.state === "stopped"
+      ? "SearXNG: stopped"
+      : "SearXNG: not installed";
+  chip.className = `chip ${running ? "confidence" : ""}`.trim();
+  toggle.disabled = false;
+  setLabel(
+    toggle,
+    running
+      ? "ph:stop-circle Stop"
+      : info.state === "absent"
+        ? "ph:play Install & start"
+        : "ph:play Start"
+  );
+  toggle.onclick = async () => {
+    toggle.disabled = true;
+    try {
+      await apiJson(`/websearch/searxng/${running ? "stop" : "start"}`, { method: "POST" });
+      toast(
+        running
+          ? "Stopping SearXNG."
+          : "Starting SearXNG… the first run pulls the image, so give it a minute."
+      );
+    } catch (error) {
+      toast(error.message, true);
+    }
+    refreshWebSearxngStrip();
+  };
+  // Keep polling while it settles, same as Settings' own richer view —
+  // otherwise "Starting…" can stick with no way to tell it's still moving.
+  if (info.state === "running" && !info.responding) {
+    clearTimeout(webSearxngTimer);
+    webSearxngTimer = setTimeout(refreshWebSearxngStrip, 3000);
   }
 }
 
@@ -6068,14 +6621,108 @@ function renderDocStats() {
 function promptDocWordGoal() {
   if (!currentDoc) return;
   const current = getDocWordGoal(currentDoc.id);
-  const answer = window.prompt(
-    "Word-count goal for this document (0 to clear):",
-    current || ""
-  );
-  if (answer === null) return;
-  const goal = Math.max(0, Math.round(Number(answer)) || 0);
-  setDocWordGoal(currentDoc.id, goal);
-  renderDocStats();
+  $("doc-word-goal-input").value = current || "";
+  $("doc-word-goal-dialog").showModal();
+  $("doc-word-goal-input").focus();
+}
+
+// --- find and replace (16b: "a bunch of missing features" — this is the
+// concrete first one; browser Ctrl+F never worked here because a
+// textarea's own text isn't part of the searchable page DOM at all, only
+// its *value* is) ---------------------------------------------------------
+let docFindIndex = -1; // which match the Prev/Next cursor is currently on
+
+function docFindMatches() {
+  const term = $("doc-find-input").value;
+  if (!term) return [];
+  const text = $("doc-content").value;
+  const needle = term.toLowerCase();
+  const haystack = text.toLowerCase();
+  const matches = [];
+  let from = 0;
+  while (true) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) break;
+    matches.push(at);
+    from = at + needle.length;
+  }
+  return matches;
+}
+
+function docFindSelect(index, matches) {
+  const term = $("doc-find-input").value;
+  const box = $("doc-content");
+  if (!matches.length || index < 0 || index >= matches.length) {
+    $("doc-find-count").textContent = term ? "No matches" : "";
+    return;
+  }
+  docFindIndex = index;
+  const start = matches[index];
+  box.focus();
+  box.setSelectionRange(start, start + term.length);
+  $("doc-find-count").textContent = `${index + 1} of ${matches.length}`;
+}
+
+function docFindStep(delta) {
+  const matches = docFindMatches();
+  if (!matches.length) {
+    docFindIndex = -1;
+    $("doc-find-count").textContent = $("doc-find-input").value ? "No matches" : "";
+    return;
+  }
+  const next = ((docFindIndex + delta) % matches.length + matches.length) % matches.length;
+  docFindSelect(next, matches);
+}
+
+function docReplaceOne() {
+  const box = $("doc-content");
+  const term = $("doc-find-input").value;
+  if (!term) return;
+  const selected = box.value.slice(box.selectionStart, box.selectionEnd);
+  // Only replace what's actually selected and actually a match — Replace
+  // clicked with nothing found selected first should find, not guess.
+  if (selected.toLowerCase() !== term.toLowerCase()) {
+    docFindStep(1);
+    return;
+  }
+  const replacement = $("doc-replace-input").value;
+  const start = box.selectionStart;
+  box.setRangeText(replacement, start, box.selectionEnd, "end");
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  docFindIndex = -1;
+  docFindStep(1);
+}
+
+function docReplaceAll() {
+  const term = $("doc-find-input").value;
+  if (!term) return;
+  const replacement = $("doc-replace-input").value;
+  const box = $("doc-content");
+  const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+  const before = box.value;
+  const count = (before.match(pattern) || []).length;
+  if (!count) {
+    $("doc-find-count").textContent = "No matches";
+    return;
+  }
+  box.value = before.replace(pattern, replacement);
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  $("doc-find-count").textContent = `Replaced ${count}`;
+  docFindIndex = -1;
+}
+
+function toggleDocFindBar(open) {
+  const bar = $("doc-find-bar");
+  const show = open ?? bar.classList.contains("hidden");
+  bar.classList.toggle("hidden", !show);
+  $("doc-find-toggle").setAttribute("aria-expanded", String(show));
+  if (show) {
+    $("doc-find-input").focus();
+    $("doc-find-input").select();
+  } else {
+    docFindIndex = -1;
+    $("doc-content").focus();
+  }
 }
 
 // A table of contents built from the document's own headings. Past a couple
@@ -6143,6 +6790,63 @@ function renderDocPreview() {
   preview.replaceChildren();
   const title = ($("doc-title").value || "").trim();
   renderMarkdown(preview, title ? `# ${title}\n\n${$("doc-content").value}` : $("doc-content").value);
+  layerDocWikiLinks(preview);
+}
+
+// [[Document title]] as clickable links in the preview, the same idea as a
+// note's [[wiki link]] (renderNoteText) but resolving against `docs` by
+// title instead of by content prefix — documents have real titles. A
+// post-process over renderMarkdown's already-built DOM rather than a change
+// to the parser itself: renderMarkdown is a hand-rolled block parser shared
+// with notes/chat/dashboard, and layering a second concern into its inline
+// pass is exactly the kind of touch that's cheap to get subtly wrong for
+// every other caller. Skips text inside <code>/<pre> so a literal "[[x]]" in
+// a fenced snippet isn't turned into a button.
+function layerDocWikiLinks(container) {
+  const targets = [];
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (node.parentElement && node.parentElement.closest("code, pre")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return /\[\[[^[\]]{1,120}\]\]/.test(node.nodeValue)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP;
+    },
+  });
+  let node;
+  while ((node = walker.nextNode())) targets.push(node);
+
+  for (const textNode of targets) {
+    const text = textNode.nodeValue;
+    const pattern = /\[\[([^[\]]{1,120})\]\]/g;
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > cursor) {
+        frag.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+      }
+      const name = match[1].trim();
+      const target = docs.find((d) => d.title.toLowerCase() === name.toLowerCase());
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "wiki-link";
+      link.textContent = name;
+      link.title = target ? `Open "${target.title}"` : `No document called "${name}" yet.`;
+      link.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (target) openDocument(target.id);
+        else toast(`No document called "${name}" yet.`, true);
+      });
+      frag.appendChild(link);
+      cursor = pattern.lastIndex;
+    }
+    if (cursor < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(cursor)));
+    }
+    textNode.parentNode.replaceChild(frag, textNode);
+  }
 }
 
 function toggleDocPreview() {
@@ -8377,6 +9081,29 @@ async function renderPersonas() {
     li.appendChild(row);
     list.appendChild(li);
   }
+  renderDashboardPersonaSelect(rows.map((p) => p.name));
+}
+
+// A second, independent picker (asked for directly): the dashboard greeting
+// otherwise always spoke in whichever persona Chat had active, with no way
+// to give the notebook's own front page a different voice. "" means "no
+// override" and falls back to active_persona server-side — same clear-with-
+// empty-string convention display_name/dashboard_persona already share.
+function renderDashboardPersonaSelect(names) {
+  const select = $("dashboard-persona-select");
+  const current = (prefsCache && prefsCache.dashboard_persona) || "";
+  select.replaceChildren();
+  const sameAsChat = document.createElement("option");
+  sameAsChat.value = "";
+  sameAsChat.textContent = "Same as Chat";
+  select.appendChild(sameAsChat);
+  for (const name of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  }
+  select.value = current;
 }
 
 async function addPersona() {
@@ -9223,8 +9950,12 @@ async function batchTag() {
 async function batchDelete() {
   const ids = batchSelection();
   if (!ids.length) return;
-  if (!(await confirmDialog(`Move ${ids.length} note${ids.length === 1 ? "" : "s"} to the recycle bin?`)))
-    return;
+  // No confirm dialog: this is a soft delete (DELETE /entries/{id} moves a
+  // note to the bin, not gone) and the toastAction below already offers a
+  // one-click Undo — the single-note "Move to bin" action right above this
+  // function established the same pattern (Wave J). Gating an already-
+  // reversible action behind an interrupting confirm *and* an undo toast is
+  // redundant friction, not extra safety (Tier 3 §30e).
   for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
   exitSelectMode();
   await loadEntries();
@@ -11025,8 +11756,19 @@ function miniEntryList(body, entries, emptyText) {
   body.appendChild(ul);
 }
 
+// GET /entries pages now (ENTRIES_PAGE_SIZE) rather than returning the whole
+// notebook — these three widgets used to each fetch their own full copy of
+// it independently, which silently would have started missing tags/notes
+// past the first page on a large notebook. `allEntries` is the same data,
+// already loaded by loadEntries() before any tab (including the dashboard)
+// renders, and complete once its own background paging finishes — so
+// preferring it is both a correctness fix and three fewer network calls.
+// The fetch fallback only matters if a widget somehow renders before that
+// first load, and mirrors the pattern renderRandomNoteWidget already uses.
 async function renderPinnedWidget(body) {
-  const entries = (await apiJson("/entries", { cacheMs: 4000 })).filter((e) => e.pinned);
+  const entries = (
+    allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 })
+  ).filter((e) => e.pinned);
   miniEntryList(body, entries.slice(0, 5), "Pin a note and it shows up here.");
 }
 
@@ -11036,7 +11778,7 @@ async function renderMostUsedWidget(body) {
 }
 
 async function renderRecentNotesWidget(body) {
-  const entries = await apiJson("/entries", { cacheMs: 4000 });
+  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
   const newest = [...entries].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
@@ -11044,7 +11786,7 @@ async function renderRecentNotesWidget(body) {
 }
 
 async function renderTopTagsWidget(body) {
-  const entries = await apiJson("/entries", { cacheMs: 4000 });
+  const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
   const counts = new Map();
   for (const entry of entries) {
     for (const tag of entry.tags || []) counts.set(tag, (counts.get(tag) || 0) + 1);
@@ -11411,6 +12153,27 @@ async function renderCategoriesWidget(body) {
   body.appendChild(list);
 }
 
+// A plain char-count slice can land inside an unclosed `![alt](url` or
+// `[text](url` — the truncated tail then has no closing `)`, so INLINE_MD
+// never matches it and it prints as literal markdown source instead of
+// rendering (or vanishing) as intended. Reported live as "the Rediscover
+// widget doesn't render images or sketches" — plausible root cause: a
+// sketch note is a caption plus `![...](...)`, and the reference is exactly
+// what a mid-string cut most often lands inside. Backs the cut up to just
+// before the last unclosed `[`/`![` before the limit, if there is one.
+function truncateMarkdownSafe(text, limit) {
+  if (text.length <= limit + 1) return text;
+  let cut = limit;
+  const openBracket = text.lastIndexOf("[", cut);
+  if (openBracket !== -1) {
+    const closeParen = text.indexOf(")", openBracket);
+    if (closeParen === -1 || closeParen >= cut) {
+      cut = text[openBracket - 1] === "!" ? openBracket - 1 : openBracket;
+    }
+  }
+  return text.slice(0, cut).trimEnd() + "…";
+}
+
 // --- rediscover a random note ------------------------------------------------
 
 async function renderRandomNoteWidget(body) {
@@ -11451,11 +12214,43 @@ async function renderRandomNoteWidget(body) {
     // paragraph early, which drops the styling this class carries.
     const text = document.createElement("div");
     text.className = "random-note";
-    renderMarkdown(
-      text,
-      note.content.length > 240 ? note.content.slice(0, 239) + "…" : note.content
-    );
+    renderMarkdown(text, truncateMarkdownSafe(note.content, 239));
     body.appendChild(text);
+
+    // A sketch's picture is never in `note.content` at all — the sketch pad
+    // saves a caption as the note's text and the drawing as a real
+    // Attachment (saveSketch), a completely different mechanism from a
+    // pasted/dropped image's inline `![](...)`. Any renderer that only
+    // reads content, this one included, showed nothing for a sketch note —
+    // "the widget doesn't render... sketches", reported directly. Same
+    // .attachment-thumb treatment the note-card list already gives an
+    // attached image, so a sketch resurfaced here looks the way it does
+    // everywhere else.
+    const images = (note.attachments || []).filter((a) => a.is_image);
+    if (images.length) {
+      const row = document.createElement("div");
+      row.className = "entry-links";
+      for (const attachment of images) {
+        const wrap = document.createElement("span");
+        wrap.className = "thumb-wrap";
+        const img = document.createElement("img");
+        img.className = "attachment-thumb";
+        img.alt = attachment.filename;
+        img.title = `${attachment.filename} — click to view full size`;
+        attachmentObjectUrl(attachment)
+          .then((url) => (img.src = url))
+          .catch(() => wrap.remove());
+        img.addEventListener("click", () => {
+          openLightbox(
+            images.map((a) => ({ filename: a.filename, getUrl: () => attachmentObjectUrl(a) })),
+            images.indexOf(attachment)
+          );
+        });
+        wrap.appendChild(img);
+        row.appendChild(wrap);
+      }
+      body.appendChild(row);
+    }
 
     const meta = document.createElement("div");
     meta.className = "entry-meta";
@@ -12523,6 +13318,10 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
+    // A fresh visit to the tab frames the whole map; the filter/slider
+    // changes that call renderGraph() again while already on this tab
+    // leave whatever the user last panned or zoomed to alone (graph.js).
+    graphAutoFitDone = false;
     const layout = graphLayout();
     const layoutInput = document.querySelector(`input[name="graph-layout"][value="${layout}"]`);
     if (layoutInput) layoutInput.checked = true;
@@ -13366,6 +14165,10 @@ $("entry-document").addEventListener("change", async (event) => {
 $("graph-layout").addEventListener("change", (event) => {
   localStorage.setItem("graph-layout", event.target.value);
   setGraphPhysicsEnabled(event.target.value);
+  // A different layout is a different shape (a radial ring is nothing like
+  // a force-directed cloud) — re-frame for it, unlike the filter/slider
+  // changes that intentionally leave the camera alone.
+  graphAutoFitDone = false;
   renderGraph();
 });
 
@@ -13414,6 +14217,48 @@ function showNotesSection(name, { focus = false } = {}) {
   for (const box of document.querySelectorAll("textarea.autogrow")) {
     if (box.offsetParent !== null) autoGrow(box);
   }
+}
+
+const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
+const DOC_SIDEBAR_STORE = "docSidebarSection";
+
+function showDocSidebarSection(name) {
+  const wanted = DOC_SIDEBAR_SECTIONS.includes(name) ? name : "list";
+  for (const section of DOC_SIDEBAR_SECTIONS) {
+    $(`doc-sidebar-${section}`)?.classList.toggle("hidden", section !== wanted);
+  }
+  for (const button of document.querySelectorAll("#doc-sidebar-tabs button")) {
+    const active = button.dataset.section === wanted;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  }
+  localStorage.setItem(DOC_SIDEBAR_STORE, wanted);
+}
+
+function initDocSidebarTabs() {
+  const strip = $("doc-sidebar-tabs");
+  if (!strip || strip.dataset.ready) return;
+  strip.dataset.ready = "1";
+  strip.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-section]");
+    if (button) showDocSidebarSection(button.dataset.section);
+  });
+  strip.addEventListener("keydown", (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const index = DOC_SIDEBAR_SECTIONS.indexOf(
+      localStorage.getItem(DOC_SIDEBAR_STORE) || "list"
+    );
+    const next =
+      DOC_SIDEBAR_SECTIONS[
+        (index + step + DOC_SIDEBAR_SECTIONS.length) % DOC_SIDEBAR_SECTIONS.length
+      ];
+    showDocSidebarSection(next);
+    strip.querySelector(`button[data-section="${next}"]`)?.focus();
+  });
+  showDocSidebarSection(localStorage.getItem(DOC_SIDEBAR_STORE) || "list");
 }
 
 function initNotesSubtabs() {
@@ -13506,6 +14351,35 @@ function scrollTopTargetEl() {
   return NESTED_SCROLL_TABS[tab]?.() || scrollingPage();
 }
 
+// Library's content panel is narrower than the viewport and sits behind its
+// own real scrollbar, which a fixed CSS `right` offset doesn't know to clear
+// — and the panel's own box can run taller than the viewport, which a fixed
+// CSS `bottom` offset doesn't know to stay above. Reported: the button
+// overlapped the scrollbar and sat below the visible fold. Computed here
+// instead of in CSS, from the panel's own live `getBoundingClientRect()`,
+// clamped so the button can never end up outside the visible viewport no
+// matter how tall the panel's box actually is.
+function positionScrollTopForLibrary(button, tab) {
+  if (tab !== "library") {
+    button.style.right = "";
+    button.style.bottom = "";
+    return;
+  }
+  // The actual scrolling content card, not `#tab-library` itself — that outer
+  // tab-page also spans the sub-tab bar (Documents/AI Skills/Whiteboards/
+  // Image Gallery) above it, so anchoring to its box put the button close but
+  // not flush with the content panel's own corner. Reported live, still off
+  // after the first fix. Same lookup `NESTED_SCROLL_TABS.library` already
+  // uses, so this can't drift from what "back to top" actually scrolls.
+  const panel = NESTED_SCROLL_TABS.library();
+  const rect = panel?.getBoundingClientRect();
+  if (!rect) return;
+  const margin = 24; // 1.5rem, matching every other tab's own offset
+  const scrollbarClearance = 10; // past a real (non-overlay) scrollbar
+  button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+  button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
+}
+
 function initScrollTopButton() {
   const button = document.createElement("button");
   button.id = "scroll-top";
@@ -13528,6 +14402,7 @@ function initScrollTopButton() {
     const scrollTop = scrollTopTargetEl()?.scrollTop || 0;
     const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
+    positionScrollTopForLibrary(button, tab);
   };
   // Capture, because scroll events do not bubble: the listener has to see them
   // on whichever .tab-page is currently the scroll container, and that changes
@@ -13544,7 +14419,7 @@ if (chatTabNode) {
     const btn = document.querySelector(".scroll-top");
     const dock = document.querySelector(".chat-dock");
     if (!btn || !dock) return;
-    
+
     if (!chatTabNode.classList.contains("hidden")) {
       dock.appendChild(btn);
     } else {
@@ -13552,6 +14427,17 @@ if (chatTabNode) {
     }
   }).observe(chatTabNode, { attributes: true, attributeFilter: ["class"] });
 }
+
+// Library used to relocate the button into #tab-library's own DOM subtree
+// the same way Chat does, relying on CSS `position: absolute` there. Moved
+// to a JS-computed `position: fixed` offset instead (positionScrollTopForLibrary,
+// called from initScrollTopButton's own `update()`) — reparenting the button
+// is no longer needed, and not reparenting it also sidesteps a real CSS trap:
+// if any ancestor between it and <body> ever gains a `transform`/`filter`/
+// `backdrop-filter` (Library's glass-tier cards are exactly the kind of
+// element that might), that ancestor silently becomes the containing block
+// for `position: fixed` too, and the button would jump to being positioned
+// relative to *that* instead of the viewport again.
 
 // --- what the AI remembers (ROADMAP §39B) ------------------------------------------
 //
@@ -13955,6 +14841,8 @@ async function openSettingsModal(section = "models") {
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
   } · ${allEntries.length} entries loaded`;
+  $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
+  $("update-check-status").textContent = "";
   showSettingsSection(section);
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
@@ -14503,10 +15391,6 @@ function closeLogs() {
 }
 
 async function copyLogs() {
-  const url = noteSearch 
-      ? `/entries?q=${encodeURIComponent(noteSearch)}&semantic=${$("semantic-search-toggle")?.checked || false}` 
-      : "/entries";
-    const response = await fetch(url);
   const shown = logRecords.filter(logMatchesFilters);
   if (!shown.length) {
     toast("Nothing to copy — the filters above are hiding every record.", true);
@@ -14613,6 +15497,7 @@ function renderAutonomousSettings() {
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
   $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
+  $("pref-auto-stale-review").checked = Boolean(prefsCache.auto_stale_review_enabled);
   $("pref-autonomous-interval").value = prefsCache.autonomous_tasks_interval_hours || 6;
   $("pref-autonomous-model").value = prefsCache.autonomous_tasks_model || "";
   $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
@@ -14687,6 +15572,38 @@ async function saveWebSearchSettings() {
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
+  }
+}
+
+// Shared by the "Check now" button and the silent startup check. `silent`
+// suppresses the status-line text and the toast for the common "you're on
+// the latest version" outcome — the startup check should only ever speak up
+// when there's actually something to say.
+async function checkForUpdate(silent = false) {
+  const status = $("update-check-status");
+  if (!silent && status) status.textContent = "Checking…";
+  let result;
+  try {
+    result = await apiJson("/update/check", { silent: true });
+  } catch (error) {
+    if (!silent && status) status.textContent = "Couldn't check for updates.";
+    return;
+  }
+  if (!result || !result.checked) {
+    if (!silent && status) {
+      status.textContent =
+        result && result.reason === "disabled"
+          ? "Enable the checkbox above, then try again."
+          : "Couldn't reach GitHub to check for updates.";
+    }
+    return;
+  }
+  if (result.update_available) {
+    const msg = `Version ${result.latest} is available (you have ${result.current}).`;
+    if (status) status.textContent = msg;
+    toast(msg);
+  } else if (!silent && status) {
+    status.textContent = `You're on the latest version (${result.current}).`;
   }
 }
 
@@ -15390,6 +16307,19 @@ let recorderTarget = null; // which input gets the transcript
 // alongside button.recording below) replaced it there and is reused here.
 const MIC_BAR_COUNT = 5;
 const MIC_BAR_SAMPLE_EVERY = 4; // frames between bar updates, ~15fps at 60fps rAF
+// getByteFrequencyData's 128 bins (at fftSize=256) span the full 0-22kHz
+// range, but speech energy sits almost entirely under ~5.5kHz. Averaging
+// every bin — the previous behaviour — mixed a real voice signal with ~100
+// near-silent high-frequency bins and diluted it to a fraction of what a
+// human ear perceives as "there's sound". Restricting the average to the
+// low bins reflects what's actually in a voice.
+const MIC_BAR_SPEECH_BIN_FRACTION = 0.25;
+// Reported live as "the bars don't show even at minimum sound pick-up":
+// at a 0.12 floor, a 14px bar renders under 2px tall — not subtle, just
+// below what's visible. 0.12 was chosen to read as "listening, not
+// frozen" (see below) but never accounted for how few pixels that scale
+// actually leaves. Raised so the resting state itself is visible.
+const MIC_BAR_MIN_SCALE = 0.3;
 
 function startMicLevelMeter(stream, button) {
   let ctx;
@@ -15408,6 +16338,7 @@ function startMicLevelMeter(stream, button) {
   analyser.fftSize = 256;
   source.connect(analyser);
   const data = new Uint8Array(analyser.frequencyBinCount);
+  const speechBinCount = Math.round(data.length * MIC_BAR_SPEECH_BIN_FRACTION);
   button.classList.add("live-level");
 
   const bars = document.createElement("span");
@@ -15425,14 +16356,20 @@ function startMicLevelMeter(stream, button) {
   let tickCount = 0;
   let frame = requestAnimationFrame(function tick() {
     analyser.getByteFrequencyData(data);
-    const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
+    let sum = 0;
+    for (let i = 0; i < speechBinCount; i++) sum += data[i];
+    const avg = sum / speechBinCount;
     if (tickCount % MIC_BAR_SAMPLE_EVERY === 0) {
-      history.push(avg / 255);
+      // sqrt, not linear: ordinary speaking volume sits low in the raw
+      // 0-255 range, and a linear map leaves it barely above the resting
+      // floor. The square root curve lifts quiet-to-moderate signal
+      // (where a voice actually lives) without letting loud input clip.
+      history.push(Math.sqrt(avg / 255));
       history.shift();
       history.forEach((level, i) => {
         // A silent bar never fully flattens — Voice Memos' own resting bars
         // read as "listening", a flat line reads as "frozen".
-        barEls[i].style.setProperty("--bar-scale", Math.max(level, 0.12).toFixed(3));
+        barEls[i].style.setProperty("--bar-scale", Math.max(level, MIC_BAR_MIN_SCALE).toFixed(3));
       });
     }
     tickCount++;
@@ -15959,6 +16896,51 @@ function askNotificationPermission() {
   }
 }
 
+// A reminder firing had only a toast (5.5s, gone if you looked away) and an
+// OS notification that never arrives without permission having been granted
+// earlier. Reported directly: "half the time when reminders go off I don't
+// actually notice". A short chime is a third, independent channel — audible
+// with the tab backgrounded, and unlike the OS notification needs no
+// permission at all.
+//
+// Created lazily on the first real user gesture rather than eagerly on load:
+// browsers refuse to start an AudioContext with sound before one, and
+// `checkDueReminders` runs off a timer with no gesture of its own. The
+// context, once unlocked this way, keeps working for timer-driven calls for
+// the rest of the session — the unlock is per-context, not per-call.
+let reminderAudioCtx = null;
+function primeReminderAudio() {
+  if (reminderAudioCtx) return;
+  try {
+    reminderAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    // No Web Audio support — reminders still show as a toast/notification.
+  }
+}
+document.addEventListener("pointerdown", primeReminderAudio, { once: true });
+document.addEventListener("keydown", primeReminderAudio, { once: true });
+
+function playReminderChime() {
+  if (!reminderAudioCtx) return;
+  reminderAudioCtx.resume().catch(() => {});
+  const now = reminderAudioCtx.currentTime;
+  // Two short notes, rising — reads as "an alert" rather than a UI click,
+  // without being long or harsh enough to be reached for on a repeat.
+  for (const [i, freq] of [523.25, 659.25].entries()) {
+    const osc = reminderAudioCtx.createOscillator();
+    const gain = reminderAudioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const start = now + i * 0.14;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.32);
+    osc.connect(gain).connect(reminderAudioCtx.destination);
+    osc.start(start);
+    osc.stop(start + 0.34);
+  }
+}
+
 function notify(title, body) {
   if ("Notification" in window && Notification.permission === "granted") {
     try {
@@ -15995,6 +16977,7 @@ async function checkDueReminders() {
   const fresh = due.filter((r) => !already.has(r.id));
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
+  playReminderChime();
 
   // Into the centre as well as onto the screen (§36E). A toast and a system
   // notification are both moments; this is the record that outlives them, and
@@ -16402,6 +17385,11 @@ const LIBRARY_KINDS = [
   { key: "chat", icon: "ph:chat-circle", label: "Chats" },
   { key: "file", icon: "ph:paperclip", label: "Files" },
   { key: "tag", icon: "ph:tag", label: "Tags" },
+  // "archived" is the bin's own internal kind (see routes_library.py's
+  // _archive()) — this app's real archive uses "shelved" specifically so
+  // the two are never confused at the code level, even though the words
+  // read almost the same to a user.
+  { key: "shelved", icon: "ph:archive", label: "Archived" },
   { key: "archived", icon: "ph:trash", label: "Bin" },
   { key: "activity", icon: "ph:scroll", label: "Activity" },
 ];
@@ -16415,6 +17403,7 @@ const LIBRARY_OVERVIEW_TILES = [
   { key: "documents", icon: "ph:file-text", label: "documents", kind: "document" },
   { key: "chats", icon: "ph:chat-circle", label: "chats", kind: "chat" },
   { key: "tags", icon: "ph:tag", label: "tags", kind: "tag" },
+  { key: "shelved", icon: "ph:archive", label: "archived", kind: "shelved" },
   { key: "binned", icon: "ph:trash", label: "in the bin", kind: "archived" },
 ];
 
@@ -16586,6 +17575,12 @@ function renderLibrary() {
     if (!$("library-show-binned")?.checked) {
       items = items.filter((i) => i.kind !== "archived");
     }
+    // Shelved notes get the same "kept, out of the way" treatment as
+    // activity — no extra checkbox, since the "Archived" chip already
+    // gives full access, and this is the one place "kept out of the way"
+    // actually matters: the mixed view is exactly where an archived note
+    // would otherwise clutter the notebook it was archived to get out of.
+    items = items.filter((i) => i.kind !== "shelved");
   }
   if (query) {
     // Title *and* preview, for the same reason the conversation search reads
@@ -16714,9 +17709,32 @@ function libraryActions(item) {
       }),
     ];
   }
+  if (item.kind === "shelved") {
+    return [
+      makeMenuItem("ph:arrow-u-up-left Unarchive", "Bring this note back into your notebook", async () => {
+        await apiJson(`/entries/${item.id}/unarchive`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Unarchived.");
+        reload();
+        loadEntries();
+      }),
+      // No delete-for-good here: an archived note was never at risk of
+      // being lost — that's the whole difference from the bin above — so
+      // the only way out of this list is back to the notebook.
+    ];
+  }
   if (item.kind === "note") {
     return [
       makeMenuItem("ph:arrow-square-out Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not the bin", async () => {
+        await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Archived.");
+        reload();
+        loadEntries();
+      }),
       makeMenuItem("ph:trash Move to bin", "Bin this note — recoverable", async () => {
         await apiJson(`/entries/${item.id}`, { method: "DELETE" }).catch((e) =>
           toast(e.message, true)
@@ -16849,6 +17867,30 @@ function libraryCard(item) {
     thumb.loading = "lazy";
     // A file whose bytes have gone leaves a broken-image glyph, which reads as
     // a bug in the Library rather than as a missing file.
+    thumb.addEventListener("error", () => thumb.remove());
+    card.appendChild(thumb);
+  } else if (
+    (item.kind === "note" || item.kind === "shelved" || item.kind === "archived") &&
+    (item.thumb_attachment_id || item.thumb_url)
+  ) {
+    // A sketch is a note whose actual content is a file attachment, not
+    // text — without this a sketch card in the Library was a bare title
+    // with nothing under it, indistinguishable from any empty note.
+    //
+    // `thumb_url` is the other half of the same fix: a pasted or dropped
+    // image lives as inline markdown in the note's own content, never as an
+    // Attachment, so it needed its own source — a sketch's card showed its
+    // drawing and a pasted-image note's card showed nothing at all, which
+    // is the inconsistency this closes. Already an absolute URL
+    // (`/media/...` or `https://...`, whatever the note itself renders it
+    // as), so it goes to mediaSrc() as-is rather than through `/files/{id}`.
+    const thumb = document.createElement("img");
+    thumb.className = "library-card-thumb";
+    thumb.src = item.thumb_attachment_id
+      ? mediaSrc(`/files/${item.thumb_attachment_id}`)
+      : mediaSrc(item.thumb_url);
+    thumb.alt = "";
+    thumb.loading = "lazy";
     thumb.addEventListener("error", () => thumb.remove());
     card.appendChild(thumb);
   }
@@ -17148,10 +18190,15 @@ function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
 function renderStatusBar() {
   if (!$("status-bar")) return;
 
-  // The notebook's size, from the list the app has already loaded rather than
-  // from /insights/stats — an unpaginated GET /entries *is* the notebook, so
-  // this is exact and costs nothing. Before the first load it says nothing
-  // rather than "0 notes", which would be a lie for the second it is up.
+  // The notebook's size, from the list the app has already loaded rather
+  // than from /insights/stats — costs nothing, and is exact once loadEntries
+  // finishes. GET /entries pages for a large notebook now (ENTRIES_PAGE_SIZE
+  // above), so for the first moment after unlocking a several-thousand-note
+  // notebook this can undercount while later pages are still landing in the
+  // background — self-corrects within a render or two, and is still a more
+  // honest number than showing nothing while it catches up. Before the first
+  // load it says nothing rather than "0 notes", which would be a lie for the
+  // second it is up.
   paintStatusItem("status-notes", {
     icon: "ph:note-pencil",
     value: entriesEverLoaded ? allEntries.length : "–",
@@ -20462,6 +21509,9 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
 initNotesSubtabs();
+initDocSidebarTabs();
+initSelectionPopup();
+initEntryListKeyboardNav();
 scrollTopUpdate = initScrollTopButton();
 // Reminder watching moved into startApp() (below `_active_tokens` note in
 // api()'s own comment): this used to run unconditionally here, before
@@ -20590,6 +21640,11 @@ $("settings-modal").addEventListener("click", (event) => {
 $("pref-web-search").addEventListener("change", saveWebSearchSettings);
 $("pref-searxng").addEventListener("change", saveWebSearchSettings);
 
+$("pref-update-check").addEventListener("change", (e) =>
+  setPreference("update_check_enabled", e.target.checked)
+);
+$("update-check-now").addEventListener("click", () => checkForUpdate());
+
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");
   if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
@@ -20612,6 +21667,9 @@ $("pref-auto-link").addEventListener("change", (e) =>
 );
 $("pref-auto-dedupe").addEventListener("change", (e) =>
   setPreference("auto_dedupe_enabled", e.target.checked)
+);
+$("pref-auto-stale-review").addEventListener("change", (e) =>
+  setPreference("auto_stale_review_enabled", e.target.checked)
 );
 $("pref-battery-mode").addEventListener("change", (e) => {
   setPreference("battery_efficient_mode", e.target.checked);
@@ -20809,6 +21867,13 @@ $("voice-model-select").addEventListener("change", (e) =>
   setPreference("voice_model", e.target.value)
 );
 $("doc-word-goal").addEventListener("click", promptDocWordGoal);
+$("doc-word-goal-submit").addEventListener("click", () => {
+  if (!currentDoc) return;
+  const goal = Math.max(0, Math.round(Number($("doc-word-goal-input").value)) || 0);
+  setDocWordGoal(currentDoc.id, goal);
+  renderDocStats();
+  $("doc-word-goal-dialog").close();
+});
 $("doc-preview-toggle").addEventListener("click", toggleDocPreview);
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
@@ -20824,12 +21889,38 @@ $("doc-ai-instruction").addEventListener("keydown", (e) => {
 });
 $("doc-extract").addEventListener("click", openDocExtractPreview);
 $("doc-content").addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("doc-find-bar").classList.contains("hidden")) {
+    toggleDocFindBar(false);
+    return;
+  }
   if (!(event.ctrlKey || event.metaKey)) return;
   const key = event.key.toLowerCase();
   if (key === "s") { event.preventDefault(); saveDocument(); }
   else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
   else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
+  // The browser's own Ctrl+F can't search a textarea's content at all — it
+  // only sees page DOM text, and a textarea's text is its *value*, not DOM
+  // text — so this isn't overriding useful native behaviour here.
+  else if (key === "f") { event.preventDefault(); toggleDocFindBar(true); }
 });
+$("doc-find-toggle").addEventListener("click", () => toggleDocFindBar());
+$("doc-find-close").addEventListener("click", () => toggleDocFindBar(false));
+$("doc-find-input").addEventListener("input", () => {
+  docFindIndex = -1;
+  docFindStep(1);
+});
+$("doc-find-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    docFindStep(event.shiftKey ? -1 : 1);
+  } else if (event.key === "Escape") {
+    toggleDocFindBar(false);
+  }
+});
+$("doc-find-next").addEventListener("click", () => docFindStep(1));
+$("doc-find-prev").addEventListener("click", () => docFindStep(-1));
+$("doc-replace-one").addEventListener("click", docReplaceOne);
+$("doc-replace-all").addEventListener("click", docReplaceAll);
 // Leaving with unsaved edits would lose them; autosave hasn't fired yet.
 // --- offline badge -----------------------------------------------------------
 //
@@ -20886,19 +21977,40 @@ $("draft-discard").addEventListener("click", async () => {
   updateDraftCount();
   saveDraftLocally();
 });
-// "What is this?" — it toggled `hidden` on the intro paragraph, which is a
-// child of a card that starts *collapsed*. So the paragraph was already not
-// displayed, the click changed nothing anyone could see, and the button read
-// as dead. It now opens the section and explains what the writing room is,
-// including what happens when there's no AI running — which is when someone
-// is most likely to press it.
-// "What is this?" — it used to toggle `hidden` on a paragraph inside a card
-// that started collapsed, so the paragraph was already not displayed and the
-// click changed nothing anyone could see. The section is always open when you
-// can press this now, so it's a plain show/hide of the explanation.
-$("draft-help").addEventListener("click", () => {
-  $("draft-intro").classList.toggle("hidden");
-});
+// Same pattern as #graph-help-toggle (asked for directly, then extended to
+// every other tab that used to carry a permanently-visible explanation
+// paragraph — Timeline, and the Skills/Whiteboard/Image-Gallery Library
+// sub-tabs): the button's own `title` is a real, zero-JS hover tooltip, and
+// a click opens a floating panel for reading the same text end to end.
+// Closes on a second click, Escape, or a click outside it, the same three
+// ways every other popover in this app closes. One shared wiring function
+// rather than five copies of the same three listeners.
+function initHelpToggle(buttonId, panelId) {
+  const button = $(buttonId);
+  const panel = $(panelId);
+  if (!button || !panel) return;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = panel.classList.toggle("hidden") === false;
+    button.setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", (event) => {
+    if (panel.classList.contains("hidden")) return;
+    if (panel.contains(event.target) || event.target === button) return;
+    panel.classList.add("hidden");
+    button.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || panel.classList.contains("hidden")) return;
+    panel.classList.add("hidden");
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+initHelpToggle("draft-help", "draft-intro");
+initHelpToggle("timeline-help", "timeline-intro");
+initHelpToggle("skills-help", "skills-intro");
+initHelpToggle("wb-boards-help", "wb-boards-intro");
+initHelpToggle("library-images-help", "library-images-intro");
 restoreDraftLocally();
 
 // --- note picker wiring ---
@@ -20999,10 +22111,31 @@ $("chat-input").addEventListener("keydown", (e) => {
 });
 $("persona-select").addEventListener("change", async () => {
   // Remember the choice so the Notes quick-ask uses the same persona.
+  const persona = $("persona-select").value;
   await apiJson("/preferences", {
     method: "PUT",
-    body: JSON.stringify({ active_persona: $("persona-select").value }),
+    body: JSON.stringify({ active_persona: persona }),
   }).catch(() => {});
+  // Update the local cache too, not just the server — renderChatEmptyState()
+  // and the Notes quick-ask both read prefsCache.active_persona directly,
+  // and neither reloads preferences on its own after this change.
+  if (prefsCache) prefsCache.active_persona = persona;
+  // If a fresh, empty chat is on screen right now, its greeting named the
+  // *previous* persona — redraw it rather than leaving it stale until the
+  // next "+ New" (ROADMAP Tier 3 §21).
+  if ($("chat-messages").querySelector(".chat-empty")) {
+    $("chat-messages").querySelector(".chat-empty").remove();
+    renderChatEmptyState();
+  }
+});
+$("dashboard-persona-select").addEventListener("change", async () => {
+  const persona = $("dashboard-persona-select").value;
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ dashboard_persona: persona }),
+  }).catch(() => {});
+  if (prefsCache) prefsCache.dashboard_persona = persona;
+  toast(persona ? `Dashboard greeting now speaks as ${persona}.` : "Dashboard greeting back to matching Chat.");
 });
 for (const id of RESPONSE_MODE_SELECTS) {
   $(id)?.addEventListener("change", (e) => setResponseMode(e.target.value));
@@ -21183,6 +22316,7 @@ $("graph-refresh").addEventListener("click", () => {
 });
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
+$("graph-documents")?.addEventListener("change", renderGraph);
 // The tuned-once controls, folded away. Remembered, because whether you want
 // physics sliders on screen is a property of how you use the map rather than
 // of one visit — and because a panel that reopens closed every time is one
@@ -21201,6 +22335,31 @@ $("graph-options-toggle").addEventListener("click", () => {
 $("graph-trace-toggle").addEventListener("click", () =>
   setTracePanelOpen($("graph-trace").classList.contains("hidden"))
 );
+// Replaced the permanently-visible "How to use this map" dropdown with this
+// icon: the button's own `title` already covers hover/focus (a real,
+// zero-JS tooltip), and this click handler adds the panel for reading it
+// end to end. Closes on a second click, Escape, or a click outside it —
+// the same three ways every other popover in this app closes.
+$("graph-help-toggle").addEventListener("click", (event) => {
+  event.stopPropagation();
+  const panel = $("graph-help-panel");
+  const open = panel.classList.toggle("hidden") === false;
+  $("graph-help-toggle").setAttribute("aria-expanded", String(open));
+});
+document.addEventListener("click", (event) => {
+  const panel = $("graph-help-panel");
+  if (!panel || panel.classList.contains("hidden")) return;
+  if (panel.contains(event.target) || event.target === $("graph-help-toggle")) return;
+  panel.classList.add("hidden");
+  $("graph-help-toggle").setAttribute("aria-expanded", "false");
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const panel = $("graph-help-panel");
+  if (!panel || panel.classList.contains("hidden")) return;
+  panel.classList.add("hidden");
+  $("graph-help-toggle").setAttribute("aria-expanded", "false");
+});
 $("graph-focus-clear").addEventListener("click", () => {
   graphFocusModeId = null;
   $("graph-focus-clear").classList.add("hidden");

@@ -211,6 +211,139 @@ def test_a_malformed_conversation_costs_its_preview_not_the_library(client, sess
     assert _of_kind(body, "document")[0]["title"] == "still here"
 
 
+def test_a_shelved_note_appears_once_not_twice(client, session):
+    """A real archive (BACKLOG §30b), distinct from `_archive()`'s bin
+    despite the similar-sounding name — see routes_library.py's own
+    comment on why the two are named differently at the code level.
+    A shelved note must appear under "shelved" and *not* also under
+    "note", or it would be double-counted and double-managed."""
+    kept = Entry(content="still active")
+    shelved = Entry(content="kept, but out of the way")
+    session.add_all([kept, shelved])
+    session.commit()
+    client.post(f"/entries/{shelved.id}/archive")
+
+    body = client.get("/library").json()
+    assert len(_of_kind(body, "shelved")) == 1
+    assert _of_kind(body, "shelved")[0]["entry_id"] == shelved.id
+    note_ids = {item["entry_id"] for item in _of_kind(body, "note")}
+    assert shelved.id not in note_ids
+    assert kept.id in note_ids
+    assert body["overview"]["shelved"] == 1
+
+
+def test_a_sketch_note_carries_a_thumbnail(client, session):
+    """A sketch (saveSketch() in app.js) is a note whose real content is a
+    PNG Attachment, not text — the note card had nothing to show but the
+    caption, which is what made a sketch unrecognisable in the Library."""
+    sketch = Entry(content="Sketch — a doodle", tags="[]")
+    plain = Entry(content="an ordinary note with no attachment", tags="[]")
+    session.add_all([sketch, plain])
+    session.flush()
+    session.add(
+        Attachment(
+            entry_id=sketch.id,
+            filename="sketch.png",
+            stored_name="deadbeef.png",
+            mime="image/png",
+            size=1024,
+        )
+    )
+    session.commit()
+
+    body = client.get("/library").json()
+    by_entry = {item["entry_id"]: item for item in _of_kind(body, "note")}
+    assert by_entry[sketch.id]["thumb_attachment_id"] is not None
+    assert by_entry[plain.id]["thumb_attachment_id"] is None
+
+
+def test_a_pasted_image_note_carries_a_thumbnail_too(client, session):
+    """The other half of `test_a_sketch_note_carries_a_thumbnail`: a pasted
+    or dropped image lives as inline markdown in the note's own content
+    (`![alt](url)`), never as an Attachment — only a sketch's drawing is
+    stored that way. Before this, a sketch card showed its drawing and a
+    pasted-image note's card showed nothing at all — the exact
+    inconsistency reported ("make sketches render the same as images").
+    Its title and preview must also read as plain words, not literal
+    markdown syntax.
+    """
+    pasted = Entry(
+        content="Holiday photo\n\n![beach](/media/deadbeef.png)", tags="[]"
+    )
+    external = Entry(
+        content="![a diagram](https://example.com/diagram.png)", tags="[]"
+    )
+    session.add_all([pasted, external])
+    session.commit()
+
+    body = client.get("/library").json()
+    by_entry = {item["entry_id"]: item for item in _of_kind(body, "note")}
+
+    assert by_entry[pasted.id]["thumb_attachment_id"] is None
+    assert by_entry[pasted.id]["thumb_url"] == "/media/deadbeef.png"
+    assert "![" not in by_entry[pasted.id]["title"]
+    assert "![" not in by_entry[pasted.id]["preview"]
+
+    # The note editor itself renders a plain https:// image inline
+    # (isRenderableUrl in app.js) — the Library shouldn't be pickier than
+    # the surface that actually wrote the note.
+    assert by_entry[external.id]["thumb_url"] == "https://example.com/diagram.png"
+
+
+def test_a_sketchs_own_drawing_wins_over_its_caption_markdown(client, session):
+    """A sketch whose caption happens to *mention* `![...]()` (unlikely, but
+    the caption is free text) must still show its own drawing — the
+    Attachment thumbnail always wins over the inline-content fallback."""
+    sketch = Entry(content="See ![this](/media/other.png) for reference", tags="[]")
+    session.add(sketch)
+    session.flush()
+    session.add(
+        Attachment(
+            entry_id=sketch.id,
+            filename="sketch.png",
+            stored_name="realsketch.png",
+            mime="image/png",
+            size=1024,
+        )
+    )
+    session.commit()
+
+    body = client.get("/library").json()
+    item = next(i for i in _of_kind(body, "note") if i["entry_id"] == sketch.id)
+    assert item["thumb_attachment_id"] is not None
+    assert item["thumb_url"] is None
+
+
+def test_a_private_note_never_leaks_a_thumbnail(client, session):
+    """Hiding a private note's text but showing a thumbnail of what it's a
+    photo of would be the same encryption bypass showing the preview text
+    already isn't allowed to be. Covers both thumbnail sources — an
+    Attachment (a private sketch) and inline content (a private pasted
+    image) — since only checking one would leave the other leaking."""
+    entry = Entry(
+        content="secret photo ![leak](/media/should-never-show.png)",
+        tags="[]",
+        is_private=True,
+    )
+    session.add(entry)
+    session.flush()
+    session.add(
+        Attachment(
+            entry_id=entry.id,
+            filename="secret.png",
+            stored_name="cafebabe.png",
+            mime="image/png",
+            size=512,
+        )
+    )
+    session.commit()
+
+    body = client.get("/library").json()
+    item = next(i for i in _of_kind(body, "note") if i["entry_id"] == entry.id)
+    assert item["thumb_attachment_id"] is None
+    assert item["thumb_url"] is None
+
+
 def test_the_library_is_behind_the_unlock_gate(client):
     """It lists documents, chats, files and binned notes — every kind of thing
     the lock screen exists to keep behind it.

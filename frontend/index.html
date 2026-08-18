@@ -314,6 +314,25 @@
     </div>
   </dialog>
 
+  <!-- Was a bare window.prompt() — functional, but the one dialog in the app
+       with no app styling at all: no theme, no font, not even a title.
+       Asked for directly ("customise the set word goal popup... same design
+       style as the rest of the application"). Same shape as the space
+       dialogs above. -->
+  <dialog id="doc-word-goal-dialog" class="card space-dialog">
+    <h3>Word-count goal</h3>
+    <p class="muted">
+      Set a target for this document. The word count in the toolbar shows
+      your progress toward it as you write.
+    </p>
+    <label for="doc-word-goal-input">Goal (0 to clear)</label>
+    <input type="number" id="doc-word-goal-input" min="0" step="1" inputmode="numeric" autocomplete="off">
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="doc-word-goal-dialog">Cancel</button>
+      <button type="button" class="accent" id="doc-word-goal-submit">Set goal</button>
+    </div>
+  </dialog>
+
   <!-- Widget picker (roadmap §26): a dedicated surface for the same
        dashboard_layout preference the inline "Edit layout" mode writes.
        Rows are built by renderDashWidgetsList() in app.js. -->
@@ -458,10 +477,19 @@ Link to another note with [[its first few words]]."></textarea>
         <section class="card" id="writing-room">
           <div class="row space-between">
             <h2>Write with the AI</h2>
-            <button id="draft-help" class="ghost small" type="button"
-              title="What is this?">?</button>
+            <!-- Same pattern as #graph-help-toggle: a circular icon button
+                 whose native title is a real, zero-JS hover tooltip, plus a
+                 click-to-open panel for reading the whole thing end to end.
+                 Replaces a paragraph that used to sit here permanently, on
+                 every visit, before anyone had asked what this tab does. -->
+            <button type="button" id="draft-help" class="ghost small graph-help-toggle"
+              aria-expanded="false" aria-controls="draft-intro"
+              title="Type whatever's in your head — half sentences are fine. The AI turns it into a note. Edit the draft, add more thoughts, and it folds them in without undoing your changes. Your own words stay in the box: nothing here overwrites what you typed, and ↩ Undo steps back through every AI pass. This is the one part of the app that needs the local AI running — with it off, the Draft button is disabled and everything else on this tab still works."
+              aria-label="What is this?">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
           </div>
-          <p class="muted" id="draft-intro">
+          <p class="muted graph-help-panel hidden" id="draft-intro" role="dialog" aria-label="What is this?">
             Type whatever's in your head — half sentences are fine. The AI turns
             it into a note. Edit the draft, add more thoughts, and it folds them
             in without undoing your changes. Your own words stay in the box:
@@ -981,6 +1009,15 @@ Link to another note with [[its first few words]]."></textarea>
             <strong id="web-panel-title"><i class="ph ph-globe ph-lead" aria-hidden="true"></i> Web</strong>
             <button id="web-panel-close" class="ghost small" aria-label="Close web panel"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
+          <!-- Feedforward, not just the after-the-fact "answered by SearXNG"
+               line results already carry: whether the private local instance
+               is even running is otherwise invisible until a search silently
+               falls back to DuckDuckGo. Hidden unless the chosen provider
+               (Settings → Web search) can actually use SearXNG. -->
+          <div id="web-searxng-strip" class="row space-between web-panel-searxng hidden">
+            <span id="web-searxng-chip" class="chip">Checking…</span>
+            <button id="web-searxng-toggle" class="ghost small" type="button"></button>
+          </div>
           <div class="row web-panel-search">
             <input id="web-query" type="text" placeholder="Search the web…"
               aria-label="Search the web">
@@ -1039,6 +1076,16 @@ Link to another note with [[its first few words]]."></textarea>
         <label class="muted" for="timeline-search">Highlight</label>
         <input type="text" id="timeline-search" class="timeline-search" placeholder="Type to filter…">
         <span id="timeline-count" class="muted"></span>
+        <!-- Same pattern as the graph's own #graph-help-toggle: a hover
+             tooltip via `title`, plus a click-to-open panel for the same
+             text end to end. Replaces a paragraph that used to sit under
+             the toolbar permanently, on every visit. -->
+        <button type="button" id="timeline-help" class="ghost small graph-help-toggle"
+          aria-expanded="false" aria-controls="timeline-intro"
+          title="A note sits where it is about when it says so — &quot;the deadline is next Friday&quot; plots on that Friday, marked with a clock — and at when it was written otherwise. Click any note to open it."
+          aria-label="How to read this">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
       </div>
       <div class="graph-options hidden" id="timeline-options" role="group"
         aria-label="Timeline display options">
@@ -1070,7 +1117,7 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="0">Everything</option>
         </select>
       </div>
-      <p class="muted">
+      <p class="muted graph-help-panel hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
         A note sits where it is <em>about</em> when it says so — "the deadline
         is next Friday" plots on that Friday, marked with a clock — and at when it was
         written otherwise. Click any note to open it.
@@ -1152,6 +1199,31 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
         <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
         <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
+        <!-- Was a permanently-visible "How to use this map" dropdown taking a
+             full row above the canvas on every visit. An icon button instead:
+             the tooltip (hover/focus, native title) answers a quick "what
+             does dashed mean" without a click, and the panel (click) still
+             has the full text for someone reading it end to end. Last in
+             the row with margin-left: auto (CSS) so it sits at the card's
+             top-right corner regardless of how many controls sit before it. -->
+        <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
+          aria-expanded="false" aria-controls="graph-help-panel"
+          title="Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, drag to arrange, scroll or use the buttons to zoom, click a note to edit it right here, double-click to pin it in place, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
+          aria-label="How to use this map">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div id="graph-help-panel" class="graph-help-panel hidden" role="dialog" aria-label="How to use this map">
+        <p class="muted">
+          Solid lines are links you made, dashed lines are trains of thought,
+          dotted lines are notes that mean similar things. Hover a note to
+          spotlight its connections, drag to arrange, scroll or use the buttons
+          to zoom, click a note to edit it right here, double-click to pin it in
+          place, and click a legend colour to hide that category. Double-click
+          empty space to add a note there. Gravity and Spread reshape the layout.
+          <strong>Drop one note onto another to link them</strong>, and use
+          <strong>Trace</strong> to see how any two notes connect.
+        </p>
       </div>
       <!-- The tuned-once controls. One row, one control height, margins
            zeroed — the control-strip rule in DESIGN.md. -->
@@ -1181,6 +1253,9 @@ Link to another note with [[its first few words]]."></textarea>
           <label class="muted tools-toggle" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
             <input type="checkbox" id="graph-entities"> Entities
           </label>
+          <label class="muted tools-toggle" title="Show documents linked to a note, as their own nodes">
+            <input type="checkbox" id="graph-documents"> Documents
+          </label>
           <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
             <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
           </label>
@@ -1207,22 +1282,8 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="graph-trace-ends" id="graph-trace-ends"></div>
         <button id="graph-trace-clear" class="ghost small" title="Leave trace mode (Esc)">Done</button>
       </div>
-      <p id="graph-trace-result" class="graph-trace-result hidden" role="status"></p>
+      <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
-      <!-- Tucked away so it doesn't eat the map on every visit -->
-      <details class="graph-help">
-        <summary class="muted">How to use this map</summary>
-        <p class="muted">
-          Solid lines are links you made, dashed lines are trains of thought,
-          dotted lines are notes that mean similar things. Hover a note to
-          spotlight its connections, drag to arrange, scroll or use the buttons
-          to zoom, click a note to edit it right here, double-click to pin it in
-          place, and click a legend colour to hide that category. Double-click
-          empty space to add a note there. Gravity and Spread reshape the layout.
-          <strong>Drop one note onto another to link them</strong>, and use
-          <strong>Trace</strong> to see how any two notes connect.
-        </p>
-      </details>
       <div id="link-suggestions" class="hidden"></div>
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
@@ -1306,36 +1367,53 @@ Link to another note with [[its first few words]]."></textarea>
            and the rest of this sidebar is about the document you have *open*:
            its outline, the notes it draws on, and where it is kept. -->
       <aside class="card doc-sidebar sidebar-panel" id="doc-sidebar">
-        <div class="row space-between sidebar-head">
-          <h2>Recent</h2>
-          <button id="doc-new" class="small" type="button" title="Start a new document"
-            aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
-        </div>
-        <ul id="doc-list" class="doc-list"></ul>
-        <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
-        <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
-          title="Search, sort and manage every document"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library →</button>
-
-        <!-- Built from the document's own headings: past two screens of text
-             the scrollbar stops being a way to navigate. -->
-        <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
-          <h3>Outline</h3>
-          <ul id="doc-outline" class="doc-outline"></ul>
+        <!-- Two unrelated jobs used to share one scrolling column: switching
+             documents, and orienting inside the one you have open (its
+             outline, what it draws on, where it lives). Reported live —
+             asked for directly as its own tab strip, the same pattern
+             #notes-subtabs already uses. -->
+        <div class="seg doc-sidebar-tabs" id="doc-sidebar-tabs" role="tablist"
+          aria-label="Document sidebar sections">
+          <button role="tab" data-section="list" aria-selected="true"
+            aria-controls="doc-sidebar-list">Documents</button>
+          <button role="tab" data-section="outline" aria-selected="false"
+            aria-controls="doc-sidebar-outline" tabindex="-1">Outline</button>
         </div>
 
-        <!-- The notes this document draws on. A document is something you
-             sit down and write; the notes are what you wrote it from. -->
-        <div id="doc-notes-wrap" class="doc-outline-wrap hidden">
-          <h3>Notes it draws on</h3>
-          <ul id="doc-notes" class="doc-outline"></ul>
+        <div id="doc-sidebar-list" class="doc-sidebar-section">
+          <div class="row space-between sidebar-head">
+            <h2>Recent</h2>
+            <button id="doc-new" class="small" type="button" title="Start a new document"
+              aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
+          </div>
+          <ul id="doc-list" class="doc-list"></ul>
+          <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
+          <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
+            title="Search, sort and manage every document"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library →</button>
         </div>
 
-        <!-- "Where are they stored?" was asked outright, and the app had no
-             answer anywhere. For a local-first app that's most of the promise.
-             Used to be an open-by-default <details> here; its body was tall
-             enough to push the document list down, so the same content now
-             lives in #doc-storage-dialog and this is just the door to it. -->
-        <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle">Where are my documents kept?</button>
+        <div id="doc-sidebar-outline" class="doc-sidebar-section hidden">
+          <!-- Built from the document's own headings: past two screens of text
+               the scrollbar stops being a way to navigate. -->
+          <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
+            <h3>Outline</h3>
+            <ul id="doc-outline" class="doc-outline"></ul>
+          </div>
+
+          <!-- The notes this document draws on. A document is something you
+               sit down and write; the notes are what you wrote it from. -->
+          <div id="doc-notes-wrap" class="doc-outline-wrap hidden">
+            <h3>Notes it draws on</h3>
+            <ul id="doc-notes" class="doc-outline"></ul>
+          </div>
+
+          <!-- "Where are they stored?" was asked outright, and the app had no
+               answer anywhere. For a local-first app that's most of the promise.
+               Used to be an open-by-default <details> here; its body was tall
+               enough to push the document list down, so the same content now
+               lives in #doc-storage-dialog and this is just the door to it. -->
+          <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle">Where are my documents kept?</button>
+        </div>
       </aside>
 
       <section class="card doc-main">
@@ -1389,6 +1467,22 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" data-md="codeblock" title="Code block" aria-label="Code block"><i class="ph ph-code-block" aria-hidden="true"></i></button>
           <button type="button" data-md="table" title="Table" aria-label="Table"><i class="ph ph-table" aria-hidden="true"></i></button>
           <button type="button" data-md="hr" title="Divider">—</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" id="doc-find-toggle" title="Find and replace (Ctrl+F)" aria-expanded="false" aria-controls="doc-find-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+        </div>
+        <!-- A textarea's own content is never in the DOM as searchable text
+             (that's why the browser's native Ctrl+F can't reach into one),
+             so a document past a screen or two of text had no way to find
+             a word again short of scrolling and reading. -->
+        <div class="doc-find-bar hidden" id="doc-find-bar" role="search">
+          <input type="text" id="doc-find-input" placeholder="Find" aria-label="Find">
+          <span id="doc-find-count" class="muted doc-find-count"></span>
+          <button type="button" id="doc-find-prev" class="ghost small" title="Previous match (Shift+Enter)"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-next" class="ghost small" title="Next match (Enter)"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+          <input type="text" id="doc-replace-input" placeholder="Replace with" aria-label="Replace with">
+          <button type="button" id="doc-replace-one" class="ghost small">Replace</button>
+          <button type="button" id="doc-replace-all" class="ghost small">Replace all</button>
+          <button type="button" id="doc-find-close" class="ghost small" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div class="doc-panes" id="doc-panes">
           <textarea id="doc-content" spellcheck="true"
@@ -1638,9 +1732,17 @@ Link to another note with [[its first few words]]."></textarea>
           <section id="library-skills-section" class="card glass">
           <div class="row space-between">
             <h2>AI Skill Library</h2>
-            <button id="skills-add-new" class="small">+ New Skill</button>
+            <span class="row">
+              <button id="skills-add-new" class="small">+ New Skill</button>
+              <button type="button" id="skills-help" class="ghost small graph-help-toggle"
+                aria-expanded="false" aria-controls="skills-intro"
+                title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
+                aria-label="What is this?">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </span>
           </div>
-          <p class="muted">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
+          <p class="muted graph-help-panel hidden" id="skills-intro" role="dialog" aria-label="What is this?">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
           <div id="skills-dashboard-list" class="skills-grid"></div>
         </section>
 
@@ -1667,9 +1769,15 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="row">
             <button id="wb-boards-new" class="small" type="button">＋ New board</button>
             <button id="library-media-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"
+              aria-expanded="false" aria-controls="wb-boards-intro"
+              title="Every board something has been placed on. Pick one to open it."
+              aria-label="What is this?">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
           </span>
         </div>
-        <p class="muted">Every board something has been placed on. Pick one to open it.</p>
+        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board something has been placed on. Pick one to open it.</p>
         <div id="library-boards-grid" class="library-grid"></div>
         <p id="library-boards-empty" class="muted hidden">No boards yet — create one, or draw on the default board below.</p>
       </section>
@@ -2123,9 +2231,19 @@ Link to another note with [[its first few words]]."></textarea>
     <section class="card glass">
       <div class="row space-between library-head">
         <h2>Image Gallery</h2>
-        <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        <div class="row">
+          <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
+          <input id="library-images-upload-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
+          <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          <button type="button" id="library-images-help" class="ghost small graph-help-toggle"
+            aria-expanded="false" aria-controls="library-images-intro"
+            title="Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own &quot;Attach from Library&quot; action."
+            aria-label="What is this?">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
-      <p class="muted">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard.</p>
+      <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
       <div id="library-images-grid" class="library-image-grid"></div>
       <p id="library-images-empty" class="muted hidden">No images yet.</p>
     </section>
@@ -2433,6 +2551,12 @@ Link to another note with [[its first few words]]."></textarea>
               in your notes. Pick the active one in the Chat tab.
             </p>
             <ul id="persona-list" class="entry-list"></ul>
+            <h3>Dashboard greeting</h3>
+            <p class="muted">
+              Give the dashboard's welcome message its own persona, independent
+              of whichever one is active in Chat and search.
+            </p>
+            <select id="dashboard-persona-select" class="small-select" aria-label="Dashboard greeting persona"></select>
             <h3>Add your own</h3>
             <input id="persona-name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
             <textarea id="persona-prompt" rows="2" maxlength="2000"
@@ -3274,7 +3398,11 @@ Link to another note with [[its first few words]]."></textarea>
                   <input type="checkbox" id="pref-auto-dedupe">
                   <span>Identify duplicates</span>
                 </label>
-                
+                <label class="check-row">
+                  <input type="checkbox" id="pref-auto-stale-review">
+                  <span>Flag stale or orphaned notes</span>
+                </label>
+
                 <label for="pref-autonomous-interval" class="form-label form-label-spaced">Run every (hours)</label>
                 <input type="number" id="pref-autonomous-interval" class="wide" min="1" max="168" placeholder="6">
                 
@@ -3545,6 +3673,18 @@ Link to another note with [[its first few words]]."></textarea>
               this computer.
             </p>
             <p class="muted" id="about-version"></p>
+            <!-- Off by default (core/config.py's update_check_enabled) —
+                 "100% offline" two lines up has to stay true until this is
+                 switched on by hand, the same reasoning Settings -> Web
+                 search already uses for its own opt-in network call. -->
+            <div class="row space-between">
+              <label for="pref-update-check">Check GitHub for a newer version</label>
+              <input type="checkbox" id="pref-update-check">
+            </div>
+            <div class="row" id="update-check-row">
+              <button id="update-check-now" class="ghost small" type="button">Check now</button>
+              <span class="muted" id="update-check-status"></span>
+            </div>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded
                  shut: it is long, and About is not where you go to read it

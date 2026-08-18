@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import threading
 from pathlib import Path
 
+import requests
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -52,8 +54,19 @@ from memorymap.core import backup, deps, logbuffer, security
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
-# repo-root/frontend — three levels up from src/memorymap/api/app.py.
-FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+# repo-root/frontend — three levels up from src/memorymap/api/app.py in a
+# source checkout. A PyInstaller build has no "three levels up": everything
+# bundled lands directly under the extraction root (sys._MEIPASS in onefile
+# mode, or the executable's own directory in onedir mode) with the `src/`
+# layer gone, so the same parents[3] math would resolve to the extraction
+# root's own *parent* — a directory this app has no business reading, let
+# alone one that happens to contain a "frontend" folder. Checked first and
+# explicitly, not inferred from a path that only looks the same in both
+# cases by coincidence.
+if getattr(sys, "frozen", False):
+    FRONTEND_DIR = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "frontend"
+else:
+    FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
 # (Embedding warm-up now lives in ai/embeddings.start_warmup, which also
@@ -250,6 +263,50 @@ def create_app() -> FastAPI:
             # download handler — so exports have to be written by the server
             # instead (§35E). Set by `python -m memorymap --desktop`.
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
+        }
+
+    @app.get("/update/check", tags=["system"])
+    def check_for_update() -> dict:
+        """Is a newer release on GitHub than the one running right now?
+
+        The only other opt-in network call in the app besides web search
+        (Settings -> About, update_check_enabled — off until switched on,
+        same reasoning as web_search_enabled). Never raises: a failed check
+        just means "couldn't tell," not something worth a 500 over, and the
+        frontend treats {"checked": false} as "say nothing" either way.
+        """
+        config = deps.get_config()
+        if not config.get_preference("update_check_enabled", False):
+            return {"checked": False, "reason": "disabled"}
+        try:
+            response = requests.get(
+                "https://api.github.com/repos/Braydenh563/MemoryMap-AI/releases/latest",
+                timeout=4,
+                headers={"Accept": "application/vnd.github+json"},
+            )
+            response.raise_for_status()
+            latest = str(response.json().get("tag_name") or "").lstrip("vV")
+        except Exception:
+            logging.getLogger("memorymap.update").info(
+                "update check failed (offline, rate-limited, or no releases yet)",
+                exc_info=True,
+            )
+            return {"checked": False, "reason": "unreachable"}
+
+        def version_tuple(text: str) -> tuple[int, ...]:
+            parts = []
+            for piece in text.split("."):
+                digits = "".join(ch for ch in piece if ch.isdigit())
+                parts.append(int(digits) if digits else 0)
+            return tuple(parts) or (0,)
+
+        return {
+            "checked": True,
+            "current": __version__,
+            "latest": latest,
+            "update_available": bool(latest)
+            and version_tuple(latest) > version_tuple(__version__),
+            "url": "https://github.com/Braydenh563/MemoryMap-AI/releases/latest",
         }
 
     @app.get("/changelog", tags=["system"])

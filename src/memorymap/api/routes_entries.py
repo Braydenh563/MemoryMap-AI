@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
@@ -97,8 +97,10 @@ def _to_out(
         pinned=entry.pinned,
         user_filed=entry.user_filed,
         is_private=bool(getattr(entry, "is_private", False)),
+        is_draft=bool(getattr(entry, "is_draft", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
+        archived_at=entry.archived_at,
         dates=[
             EntryDateOut(phrase=d.phrase, at=d.at.date(), precision=d.precision)
             for d in resolved_dates
@@ -214,6 +216,8 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.parent_id = parent.id
     if filed_by == "user":
         entry.user_filed = True
+    if body.is_draft:
+        entry.is_draft = True
     session.commit()
 
     # Best effort: a failed embedding only means this entry is invisible
@@ -229,6 +233,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         session.commit()
     except Exception:
         session.rollback()
+        logger.warning("couldn't sync wiki links for entry %s", entry.id, exc_info=True)
 
     # Documents this note belongs with, attached as it is saved. A document
     # that has since been deleted is skipped rather than refused: the note is
@@ -567,26 +572,62 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
     return [_to_out(session, e) for e in related[:3]]
 
 
+#: A page of the plain list, not a hard ceiling on notebook size — the
+#: frontend fetches pages in a loop until X-Total-Count says it has
+#: everything (loadEntries in app.js). Bounds each individual request so a
+#: notebook that has grown for years can't make one response unbounded; the
+#: max just stops a client from asking for one absurdly large page.
+ENTRIES_PAGE_SIZE = 1000
+ENTRIES_PAGE_SIZE_MAX = 5000
+
+
 @router.get("", response_model=list[EntryOut])
 def list_entries(
+    response: Response,
     deleted: bool = False,
+    archived: bool = False,
     semantic: bool = False,
     q: str = "",
+    limit: int = Query(default=ENTRIES_PAGE_SIZE, ge=1, le=ENTRIES_PAGE_SIZE_MAX),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> list[EntryOut]:
-    """Normal list, the recycle bin when ?deleted=true, or a concept search.
+    """Normal list, the recycle bin when ?deleted=true, the archive when
+    ?archived=true, or a concept search. `deleted` and `archived` are
+    mutually exclusive views (each its own held-back set), not filters
+    that combine — same as `deleted` already worked before `archived`
+    existed.
 
     `?semantic=true&q=…` is the one case the browser cannot do for itself: the
     notes list is filtered client-side by keyword, but cosine distance needs
     the vectors, which only live here.
-    """
-    if deleted:
-        entries = manager.list_deleted_entries(session)
-    else:
-        entries = manager.list_entries(session)
 
+    `limit`/`offset` page the plain list; `X-Total-Count` on the response
+    says the real size regardless of the page, so a caller knows when it has
+    everything. Was genuinely unbounded before — every note, every load, no
+    matter the notebook's size — which is real risk for a "just works" local
+    app that's supposed to degrade gracefully rather than time out or OOM.
+    """
     if semantic and q:
         from memorymap.core import deps
+
+        # The *complete* id set, deliberately not paginated: `allowed` below
+        # decides which semantic hits are even in scope for this view (bin,
+        # archive, or live), and paginating this fetch would silently drop
+        # legitimate matches that happen to live past the first page. Ids
+        # only, no row bodies — cheap even at real notebook scale, and the
+        # thing the original unbounded-response risk was actually about was
+        # sending full rows over HTTP, not counting ids in-process.
+        if deleted:
+            scope_ids = {
+                e.id for e in manager.list_deleted_entries(session)
+            }
+        elif archived:
+            scope_ids = {
+                e.id for e in manager.list_archived_entries(session)
+            }
+        else:
+            scope_ids = {e.id for e in manager.list_entries(session)}
 
         # Ranked, and returned ranked. The first version rebuilt the result as
         # `[e for e in entries if e.id in found_ids]`, which is the *notebook's*
@@ -605,9 +646,20 @@ def list_entries(
             )
         # `semantic_search` already drops anything under MIN_SIMILARITY; a
         # second threshold here was a different number for the same job.
-        allowed = {e.id for e in entries}
-        return _to_out_bulk(session, [e for e, _score in results if e.id in allowed])
+        matched = [e for e, _score in results if e.id in scope_ids]
+        response.headers["X-Total-Count"] = str(len(matched))
+        return _to_out_bulk(session, matched)
 
+    if deleted:
+        entries = manager.list_deleted_entries(session, limit=limit, offset=offset)
+        total = manager.count_deleted_entries(session)
+    elif archived:
+        entries = manager.list_archived_entries(session, limit=limit, offset=offset)
+        total = manager.count_archived_entries(session)
+    else:
+        entries = manager.list_entries(session, limit=limit, offset=offset)
+        total = manager.count_entries(session)
+    response.headers["X-Total-Count"] = str(total)
     return _to_out_bulk(session, entries)
 
 
@@ -674,6 +726,9 @@ def update_entry(
             session, "edited", "entry", entry.id, "pinned" if body.pinned else "unpinned"
         )
         session.commit()
+    if body.is_draft is not None and body.is_draft != entry.is_draft:
+        entry.is_draft = body.is_draft
+        session.commit()
     if content_changed:
         # The old vector describes the old text — refresh it, best effort.
         try:
@@ -694,6 +749,7 @@ def update_entry(
             session.commit()
         except Exception:
             session.rollback()
+            logger.warning("couldn't sync wiki links for entry %s", entry.id, exc_info=True)
     return _to_out(session, entry)
 
 
@@ -711,6 +767,25 @@ def restore_entry(entry_id: int, session: Session = Depends(get_session)) -> Ent
     entry = _existing_entry(session, entry_id)
     if entry.is_deleted:
         manager.restore_entry(session, entry)
+    return _to_out(session, entry)
+
+
+@router.post("/{entry_id}/archive", response_model=EntryOut)
+def archive_entry(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
+    """Kept, but out of the way (BACKLOG §30b) — distinct from the recycle
+    bin: never auto-cleared, never purgeable, no confirmation needed since
+    nothing is at risk of being lost."""
+    entry = _existing_entry(session, entry_id)
+    if not entry.archived_at:
+        manager.archive_entry(session, entry)
+    return _to_out(session, entry)
+
+
+@router.post("/{entry_id}/unarchive", response_model=EntryOut)
+def unarchive_entry(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
+    entry = _existing_entry(session, entry_id)
+    if entry.archived_at:
+        manager.unarchive_entry(session, entry)
     return _to_out(session, entry)
 
 

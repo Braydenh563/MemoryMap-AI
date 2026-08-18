@@ -824,3 +824,41 @@ def test_searxng_settings_enable_the_json_api(tmp_path):
     path.write_text("# edited by hand\n")
     searxng_manager.ensure_settings(tmp_path, rewrite=False)
     assert path.read_text() == "# edited by hand\n"
+
+
+# --- _run_streaming itself, unmocked ----------------------------------------
+#
+# Every test above stubs `_run_streaming` out via `_Commands`, which is right
+# for testing the installer's own logic but never exercises the function's
+# actual timeout handling. It has one real job under the hood: never block
+# past `timeout`, even when the child process goes quiet without exiting —
+# a stalled download, a hung subprocess. That failure mode is easy to
+# reintroduce silently (the happy path looks identical either way), so it
+# gets its own direct coverage here rather than staying implicit.
+
+
+def test_run_streaming_hands_each_line_to_the_callback():
+    lines: list[str] = []
+    result = searxng_manager._run_streaming(
+        [sys.executable, "-c", "print(1); print(2); print(3)"],
+        timeout=10,
+        on_line=lines.append,
+    )
+    assert lines == ["1\n", "2\n", "3\n"]
+    assert result.returncode == 0
+    assert result.stdout == "1\n2\n3\n"
+
+
+def test_run_streaming_times_out_on_a_child_that_goes_quiet_without_exiting():
+    """The actual bug: a child producing no output but still alive used to
+    block here forever, because the old deadline check only ran *between*
+    lines read from a blocking iterator. Must raise within roughly
+    `timeout`, not hang."""
+    start = time.time()
+    with pytest.raises(searxng_manager.SearxngError, match="took longer than"):
+        searxng_manager._run_streaming(
+            [sys.executable, "-c", "import time; time.sleep(60)"],
+            timeout=2,
+            on_line=lambda line: None,
+        )
+    assert time.time() - start < 10  # nowhere near the 60s the child asked for

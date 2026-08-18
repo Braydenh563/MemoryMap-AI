@@ -379,20 +379,22 @@
 </section>
 
 <section class="tabs-section reveal" id="features">
-  <p class="section-label">Six tabs, all offline</p>
+  <p class="section-label">Seven tabs, all offline</p>
   <div class="tab-row" role="tablist">
     <button class="tab-pill on" role="tab" data-tab="dashboard">Dashboard</button>
     <button class="tab-pill" role="tab" data-tab="notes">Notes</button>
     <button class="tab-pill" role="tab" data-tab="chat">Chat</button>
     <button class="tab-pill" role="tab" data-tab="graph">Graph</button>
-    <button class="tab-pill" role="tab" data-tab="documents">Documents</button>
+    <button class="tab-pill" role="tab" data-tab="library">Library</button>
+    <button class="tab-pill" role="tab" data-tab="timeline">Timeline</button>
     <button class="tab-pill" role="tab" data-tab="reminders">Reminders</button>
   </div>
   <div id="pane-dashboard" class="tab-pane on g tab-card" role="tabpanel"><h3>Dashboard</h3><p>Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange.</p></div>
   <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel"><h3>Notes</h3><p>Capture, browse and ask &mdash; three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p></div>
-  <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel"><h3>Chat</h3><p>A conversation with your notebook, saved and resumable. Agent mode uses 28 tools &mdash; search and read your notes, create, tag, link and organise, set reminders, open a web page &mdash; with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p></div>
+  <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel"><h3>Chat</h3><p>A conversation with your notebook, saved and resumable. Agent mode uses nearly 50 tools &mdash; search and read your notes, create, tag, link and organise, set reminders, open a web page, place and connect cards on a whiteboard &mdash; with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p></div>
   <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel"><h3>Graph</h3><p>Your notes as a map &mdash; force-directed, or as a tree or radial tree. Click a node to edit it in place, see its images, or drop one note onto another to link them. <strong>Trace</strong> answers the question a graph is uniquely good at: pick any two notes and see the chain of links, replies and shared tags that connects them, named step by step. Colour by cluster to see which notes can actually reach each other, and how many are connected to nothing at all. The same traversal is what the AI uses &mdash; it can trace a path and read your notebook's structure, not just search it.</p></div>
-  <div id="pane-documents" class="tab-pane g tab-card" role="tabpanel"><h3>Documents</h3><p>A markdown editor for long-form writing: live preview, autosave, table of contents, word count and reading time, <code>.md</code> and PDF export, and AI edits shown as a proposal you accept or reject.</p></div>
+  <div id="pane-library" class="tab-pane g tab-card" role="tabpanel"><h3>Library</h3><p>Everything you have made, in one place: notes, documents, chats, files, tags, the recycle bin and the activity log. Overview tiles that are also filters, search across titles and previews, bulk selection, grid or list. The long-form <strong>document editor</strong> opens from here, and so does the <strong>whiteboard</strong> &mdash; note cards and freehand sketches on a canvas you can pan and zoom, where a board is itself a note and so is searchable and filable like any other.</p></div>
+  <div id="pane-timeline" class="tab-pane g tab-card" role="tabpanel"><h3>Timeline</h3><p>Every note plotted on a time axis &mdash; at what it's <em>about</em> when a phrase like "next week" resolves to a date, and at when it was written otherwise &mdash; in bands by category or tag, at a bucket size you pick.</p></div>
   <div id="pane-reminders" class="tab-pane g tab-card" role="tabpanel"><h3>Reminders</h3><p>Due dates with priority, repeats, snooze and notifications &mdash; or type <em>"call mum tomorrow evening"</em> and let the AI schedule it.</p></div>
 </section>
 
@@ -431,6 +433,10 @@ python -m memorymap</pre></div>
     <button class="dpill" data-doc="backlog">Backlog</button>
     <button class="dpill" data-doc="history">Built so far</button>
     <button class="dpill" data-doc="design">Design system</button>
+    <button class="dpill" data-doc="install">Install</button>
+    <button class="dpill" data-doc="models">Choosing a model</button>
+    <button class="dpill" data-doc="privacy">Privacy</button>
+    <button class="dpill" data-doc="troubleshooting">Troubleshooting</button>
     <button class="dpill" data-doc="changelog">Changelog</button>
     <button class="dpill" data-doc="contributing">Contributing</button>
     <button class="dpill" data-doc="security">Security</button>
@@ -537,6 +543,10 @@ const DOC_MAP = {
   backlog:      { path: 'docs/roadmap/BACKLOG.md',   same: 'roadmap/BACKLOG.md' },
   history:      { path: 'docs/roadmap/HISTORY.md',   same: 'roadmap/HISTORY.md' },
   design:       { path: 'docs/DESIGN.md',            same: 'DESIGN.md' },
+  install:      { path: 'docs/INSTALL.md',           same: 'INSTALL.md' },
+  models:       { path: 'docs/MODELS.md',            same: 'MODELS.md' },
+  privacy:      { path: 'docs/PRIVACY.md',           same: 'PRIVACY.md' },
+  troubleshooting: { path: 'docs/TROUBLESHOOTING.md', same: 'TROUBLESHOOTING.md' },
   // These three live at the repo root, which Pages never publishes under this
   // source setting — so a copy sits in /docs beside this page and
   // `tests/test_docs_site.py` fails the build if the two ever differ. Before

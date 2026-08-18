@@ -7,6 +7,210 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — an allowlist for note attachments
+
+Reported directly: `POST /entries/{id}/files` (the generic "attach a file"
+button on a note) had no file-type validation at all — anything uploaded,
+video included. `/media/upload` (pasted/dropped images) already had a real
+allowlist for a stored-XSS reason specific to that route; this one is
+broader (attachments download rather than render inline) but still refuses
+video, audio and executable shapes with a clear 415, while covering images,
+PDF, common office formats, and text/code files. Audio specifically is
+tracked as a real feature to add (BACKLOG §75 — capture, playback, a
+library page) rather than a permanent refusal.
+
+### Changed — a themed dialog for the document word-count goal
+
+Was a bare `window.prompt()` — functional, but the only dialog in the app
+with no app styling, font or theme at all. Reported directly. Now a `card
+space-dialog` matching every other small dialog in the app (the space
+create/rename/delete ones, the documents-storage one).
+
+### Fixed — three UI issues at the top of the Documents sidebar
+
+All reported directly, with a photo. (1) The document title input had no
+floor on how far it could shrink, so on a narrow window it was crushed to
+a few illegible pixels before the toolbar ever wrapped its buttons onto
+their own row — given a real minimum width, the toolbar now wraps instead.
+(2) The four new help-tooltip circles (below) rendered as ovals, not
+circles, everywhere except the Graph/Timeline tabs — `--control-h`, the
+custom property they sized themselves against, is only declared in a
+handful of scopes, and silently resolved to nothing everywhere else,
+falling back to `button.small`'s asymmetric padding. Fixed with a literal
+size instead of a token that isn't always in scope. (3) The Documents/
+Outline pill toggle's "Recent"/"+ New" row was reserving the same
+right-side clearance for the collapse toggle that the tab strip above it
+already reserves, even though the toggle only ever appears once — "+ New"
+sat well short of the sidebar's real edge with dead space beside it. Given
+its own clearance instead, plus a little extra beyond the bare minimum for
+visual breathing room next to the toggle.
+
+### Fixed — the sidebar collapse toggle escaping to the page's top-left on a phone
+
+Reported directly: the collapse toggle (Notes, Chat and Documents sidebars
+alike) could render pinned near the very top of the viewport, over the app
+header, instead of in its own sidebar's corner. The toggle is `position:
+absolute`; two separate mobile breakpoints set its sidebar to `position:
+static` to disable the desktop sticky behaviour, and `static` doesn't
+establish a positioning context for an absolutely-positioned child, so the
+toggle fell through to the page's own initial containing block. `position:
+relative` disables sticky the same way while still containing the toggle.
+
+### Removed — two dead files at the repo root
+
+`find_emojis.py` was an unreferenced one-off debugging script (scanned
+`app.js` for stray emoji during a past cleanup pass); `mkdocs.yml`
+configured a docs site nothing builds — no CI step, no Makefile target, no
+`mkdocs` dependency anywhere, and the real GitHub Pages site is the
+hand-built `docs/index.html` renderer. Asked for directly.
+
+### Added — help tooltips on Timeline and the three Library subtabs
+
+Asked for directly, matching the existing Graph tab pattern. The Timeline
+toolbar and the AI Skills, Whiteboards and Image Gallery subtabs each had a
+permanently-visible subtext paragraph explaining what the screen does;
+replaced each with a `?` icon button (native `title` tooltip on hover, a
+click-to-open panel for the full explanation) so the space is available for
+content on every later visit instead of repeating itself. The four new
+toggles and the original `#draft-help` one now share a single
+`initHelpToggle()` function in `app.js` instead of four more copies of the
+same click/outside-click/Escape listener trio. Verified live: all five
+panels are hidden by default, open correctly positioned under their button,
+and close on outside-click and Escape.
+
+### Fixed — sketch/attachment images rendering below a note's metadata
+
+Reported directly ("attached sketches are below note metadata"). The note
+card built its attachment thumbnails and appended them to the list item
+*after* the metadata footer was already appended, so images and sketches
+always rendered under the category/date line instead of above it. Fixed by
+inserting the attachment row before the metadata element rather than
+appending after it. Verified live: attachments now render above the
+metadata footer in the note list.
+
+### Fixed — two error-prevention gaps
+
+Asked for directly. `deleteAskHistoryTurn` deleted a Q&A permanently with
+no confirmation or undo — its own "clear all" sibling already confirms,
+this didn't. Now it does. A reminder's `due_at` could be set in the past
+(create and edit both) with no check, silently creating a reminder that
+could never usefully fire — `POST /reminders` and `PUT /reminders/{id}`
+now reject one more than a minute in the past (a small clock-skew/latency
+allowance, not real slack) with a clear 422.
+
+### Fixed — Library thumbnails for pasted/dropped images, not just sketches
+
+Asked for directly ("make the sketches render... the same as how images are
+visually displayed"). Found the opposite of the assumed direction: sketches
+already got a Library thumbnail (a real `Attachment`), but a note with a
+pasted or dropped image — inline markdown in the note's own text, no
+`Attachment` row — got none at all, and its title/preview showed the raw
+`![alt](url)` syntax literally. Root cause: `routes_library.py`'s
+`thumb_by_entry` only ever looked at `Attachment` rows, and `_clip()` never
+stripped inline markdown the way `routes_graph.py`'s node-label preview
+already did.
+
+Fixed by factoring the shared fix out (`manager.strip_inline_markdown`,
+reused by both `routes_graph.py` and `routes_library.py` instead of two
+near-duplicate regexes) and adding a `thumb_url` fallback — the note's own
+first inline image, same URL shapes the note editor itself already renders
+— checked only when there's no `Attachment` thumbnail, so a sketch's own
+drawing always wins over anything mentioned in its caption. Extended to the
+recycle bin and archive views too, which had no thumbnails of either kind
+before. Verified live: a pasted-image note and a sketch note both show
+correct thumbnails in grid and list view, with clean (non-markdown) titles.
+
+### Added — pagination for `GET /entries`
+
+Requested directly ("that is a real app feature... probably needed for
+real world use"). `GET /entries` was genuinely unbounded — every note in
+the notebook, every load, no matter its size. Now takes `limit`/`offset`
+(default page 1000, hard ceiling 5000) and reports the true total via an
+`X-Total-Count` header. `entry/manager.py` grew matching params on all
+three list functions plus three new count helpers — additive, so every
+existing in-process caller is unaffected.
+
+`app.js`'s `loadEntries()` fetches pages in a loop, painting the first
+page immediately and filling the rest in the background; every one of
+`allEntries`'s ~30 read sites needed zero changes, since it still ends up
+exactly as complete as it always was once loading finishes. Caught and
+fixed in the same pass, by grepping every `/entries` call site rather than
+assuming the new default was safe everywhere: three dashboard widgets each
+independently re-fetched the whole list and would have silently truncated
+past 1000 notes (wrong tag counts, most seriously) — now they reuse
+`allEntries` instead. Also removed dead code found the same way: `copyLogs()`
+built and fetched an `/entries` URL it never used.
+
+Verified live: seeded 2500 notes, confirmed exactly 3 page requests fire,
+`allEntries` and the status bar both land on the true total, all rows
+render, and the dashboard's widgets show correct totals with zero console
+errors.
+
+### Fixed — backend hardening pass
+
+Requested directly ("harden the backend, make sure it's robust"); found by a
+targeted audit rather than guessed at, each verified live before being
+called fixed:
+
+- `GET /graph/local/{id}?depth=` had no upper bound; the BFS loop ran
+  `range(depth)` regardless, so a large `depth` blocked this single-worker
+  server's one request thread for real wall-clock time — a trivial DoS on a
+  personal-notebook app. Now `Query(ge=1, le=6)`, plus the loop breaks as
+  soon as its frontier empties instead of finishing out the range.
+- `GET /timeline?days=` had no upper bound either, and fed straight into
+  `timedelta(days=days)` — a large enough value raised an unhandled
+  `OverflowError` (Python int too large to convert to C int), surfacing as a
+  raw 500 instead of a clean error. Now `Query(ge=0, le=40000)` (0 still
+  means "everything").
+- `POST /import/markdown` capped each file's size but not how many files one
+  request could carry, unlike its sibling `/import/document`
+  (`MAX_DOCUMENT_IMPORT_NOTES`). Now capped at `MAX_IMPORT_FILES = 500` with
+  a clear 422 past that, rather than unbounded work per request.
+- Wiki-link resync failures in `create_entry`/`update_entry` were swallowed
+  with no logging — the embedding-refresh block three lines above both of
+  them explicitly logs on failure ("logged rather than swallowed" is the
+  comment right there), and the wiki-link block didn't follow its own
+  neighbour's pattern. A real link-resolution bug was invisible in both the
+  UI and Settings → Logs; now it isn't.
+- `searxng_manager._run_streaming`'s deadline was only checked *between*
+  output lines — a child process that went quiet without exiting (a stalled
+  download, a hung subprocess) blocked the call forever no matter what
+  `timeout` said. Reads the pipe from a background thread into a queue now,
+  so the deadline is checked on a real poll loop even when nothing is being
+  read. Reproduced the actual hang locally before and after the fix.
+
+### Added — Windows installer
+
+- A real installed build for Windows: `packaging/windows/memorymap.spec`
+  (PyInstaller, onedir) and `packaging/windows/installer.iss` (Inno Setup,
+  per-user install — no admin prompt). `release.yml` now builds and attaches
+  it to the GitHub Release whenever a `v*` tag is pushed. Unsigned for now
+  (see README's Windows install note); ships to GitHub Releases only.
+- `core/config.py` and `api/app.py` both located `frontend/` and the app
+  icon via a path relative to the source file's own position, which assumes
+  a `src/` layer a PyInstaller bundle doesn't have — both now branch on
+  `sys.frozen` and resolve against the bundle's own extraction root instead.
+  Notes now default to `%APPDATA%\MemoryMap AI` (or the platform
+  equivalent) only for a frozen build; a source checkout is unaffected.
+
+### Added — system tray, update check
+
+- **System tray for the desktop window.** Closing the window now minimizes it
+  to a tray icon instead of quitting; the tray menu is Open / View Logs /
+  Restart / Quit. `pystray` + `Pillow` join `pywebview` as the `desktop`
+  extra (`core/extras.py`) and are bundled into the Windows installer. Missing
+  or unusable on the running platform (no display, package not installed) is
+  a soft fallback, not a crash — the window just closes for real, same as
+  before.
+- **"Check for updates" (Settings → About).** Off by default, same reasoning
+  as web search. A `GET /update/check` endpoint compares the running version
+  against GitHub's latest release tag; the checkbox, a "Check now" button,
+  and a silent startup check (toasts only when a newer version genuinely
+  exists) are all new. Caught live rather than merely reasoned about: the new
+  `update_check_enabled` preference wasn't declared on `PreferencesBody`, so
+  the PUT silently dropped it, and `get_preferences()`'s hand-built response
+  dict never echoed it back either — both fixed.
+
 ### Fixed / Added — CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
 
 - **Security.** All 81 open CodeQL alerts closed. Separately: a private

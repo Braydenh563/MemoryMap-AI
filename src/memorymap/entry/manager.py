@@ -92,38 +92,116 @@ def create_entry(
     return entry
 
 
-def list_entries(session: Session, include_deleted: bool = False) -> list[Entry]:
-    """Pinned first, then newest first. Deleted entries stay hidden until
-    the recycle bin UI asks for them explicitly."""
+def _list_entries_filter(query, include_deleted: bool, include_archived: bool):
+    """The where-clause `list_entries` and `count_entries` both need — kept
+    in one place so a filter added to one can't quietly drift from the
+    other and make the count lie about what the list actually shows."""
+    if not include_deleted:
+        query = query.where(Entry.is_deleted == False)  # noqa: E712
+    if not include_archived:
+        query = query.where(Entry.archived_at.is_(None))
+    return query
+
+
+def list_entries(
+    session: Session,
+    include_deleted: bool = False,
+    include_archived: bool = False,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[Entry]:
+    """Pinned first, then newest first. Deleted and archived entries stay
+    hidden until the recycle bin / archive UI asks for them explicitly —
+    archiving is not deleting, but it means the same "out of the way until
+    asked for" thing for an ordinary list.
+
+    `limit`/`offset` are optional and `None` means "everything", so every
+    existing caller (background jobs, the librarian, tests) that wants the
+    whole notebook keeps working unchanged — pagination is additive, not a
+    breaking change to this function's contract. `routes_entries.py` is the
+    one caller that always passes a bounded `limit`; see its own comment for
+    why an HTTP response is a different situation from an in-process call.
+    """
     query = select(Entry).order_by(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
-    if not include_deleted:
-        query = query.where(Entry.is_deleted == False)  # noqa: E712
+    query = _list_entries_filter(query, include_deleted, include_archived)
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
     return list(session.scalars(query))
 
 
+def count_entries(
+    session: Session, include_deleted: bool = False, include_archived: bool = False
+) -> int:
+    """How many `list_entries` would return with no `limit` — the total a
+    paginated caller needs to know when it has seen everything."""
+    query = _list_entries_filter(select(func.count()).select_from(Entry), include_deleted, include_archived)
+    return session.scalar(query) or 0
+
+
 def most_accessed_entries(session: Session, limit: int = 5) -> list[Entry]:
-    """Most-used non-deleted entries; untouched entries don't qualify."""
+    """Most-used non-deleted, non-archived entries; untouched entries don't
+    qualify."""
     return list(
         session.scalars(
             select(Entry)
-            .where(Entry.is_deleted == False, Entry.access_count > 0)  # noqa: E712
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.archived_at.is_(None),
+                Entry.access_count > 0,
+            )
             .order_by(Entry.access_count.desc(), Entry.id.desc())
             .limit(limit)
         )
     )
 
 
-def list_deleted_entries(session: Session) -> list[Entry]:
+def list_deleted_entries(
+    session: Session, limit: int | None = None, offset: int = 0
+) -> list[Entry]:
     """The recycle bin, most recently deleted first."""
-    return list(
-        session.scalars(
-            select(Entry)
-            .where(Entry.is_deleted == True)  # noqa: E712
-            .order_by(Entry.deleted_at.desc(), Entry.id.desc())
-        )
+    query = select(Entry).where(Entry.is_deleted == True).order_by(  # noqa: E712
+        Entry.deleted_at.desc(), Entry.id.desc()
     )
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return list(session.scalars(query))
+
+
+def count_deleted_entries(session: Session) -> int:
+    return session.scalar(
+        select(func.count()).select_from(Entry).where(Entry.is_deleted == True)  # noqa: E712
+    ) or 0
+
+
+def list_archived_entries(
+    session: Session, limit: int | None = None, offset: int = 0
+) -> list[Entry]:
+    """The archive, most recently archived first. Independent of the
+    recycle bin — an archived note that's also deleted still belongs to
+    the bin, not here (list_entries' own is_deleted filter already keeps
+    the two from double-counting in the normal view)."""
+    query = select(Entry).where(
+        Entry.archived_at.is_not(None), Entry.is_deleted == False  # noqa: E712
+    ).order_by(Entry.archived_at.desc(), Entry.id.desc())
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    return list(session.scalars(query))
+
+
+def count_archived_entries(session: Session) -> int:
+    return session.scalar(
+        select(func.count())
+        .select_from(Entry)
+        .where(Entry.archived_at.is_not(None), Entry.is_deleted == False)  # noqa: E712
+    ) or 0
 
 
 def get_entry(session: Session, entry_id: int) -> Entry | None:
@@ -367,6 +445,19 @@ def restore_entry(session: Session, entry: Entry) -> None:
     entry.is_deleted = False
     entry.deleted_at = None
     log_action(session, "restored", "entry", entry.id)
+    session.commit()
+
+
+def archive_entry(session: Session, entry: Entry) -> None:
+    """Out of the way, but never deleted — no auto-clear, no purge."""
+    entry.archived_at = utcnow()
+    log_action(session, "archived", "entry", entry.id)
+    session.commit()
+
+
+def unarchive_entry(session: Session, entry: Entry) -> None:
+    entry.archived_at = None
+    log_action(session, "unarchived", "entry", entry.id)
     session.commit()
 
 
@@ -1253,6 +1344,34 @@ def remove_title(content: str) -> str:
     if i < len(lines) and not lines[i].strip():
         del lines[i]
     return "\n".join(lines)
+
+
+#: Inline markdown markers, matched with their content so stripping keeps
+#: the words. An image or link becomes its alt/link text — the URL is never
+#: captured, only whichever group actually matched ("first non-None group
+#: wins", same trick every alternative here relies on). Originally lived
+#: only in routes_graph.py (graph node labels); routes_library.py's Library
+#: title/preview needed the identical fix — an image-only note (a sketch,
+#: most often, but any note whose whole content is a pasted image works the
+#: same way) read as literal `![sketch](/media/...)` there too, one surface
+#: at a time, until this was factored out to stop that from happening a
+#: third time somewhere else.
+_INLINE_MD = re.compile(
+    r"\*\*([^*\n]{1,500})\*\*|\*([^*\n]{1,500})\*|__([^_\n]{1,500})__"
+    r"|_([^_\n]{1,500})_|~~([^~\n]{1,500})~~|`([^`\n]{1,500})`"
+    r"|!\[([^\]\n]{0,200})\]\((?:[^)\n]{1,500})\)"
+    r"|\[([^\]\n]{1,200})\]\((?:[^)\n]{1,500})\)"
+)
+
+
+def strip_inline_markdown(text: str) -> str:
+    """A note's text as plain words: bold/italic/strike/code markers gone,
+    an image or link reduced to its alt/link text. Markers only — block
+    structure (headings, blockquotes, wiki-links) is each caller's own
+    concern, since callers disagree on what to do with those."""
+    return _INLINE_MD.sub(
+        lambda m: next(g for g in m.groups() if g is not None), text
+    )
 
 
 def set_private(session: Session, entry: Entry, private: bool) -> bool:

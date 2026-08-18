@@ -129,6 +129,26 @@ the running app rather than assumed.
 > Worth building only if a real use case shows up wanting it (most users want
 > automatic selection, not a per-turn allowlist to manage); not worth a
 > session on its own.
+>
+> **A second small gap, scoped but not built:** a tool-call chip today is a
+> flat one-line label (`toolChip()`, app.js ~6200) — no way to see what the
+> AI actually sent the tool or what came back, purely a cosmetic upgrade
+> asked for directly ("a dropdown which shows the input tool call command
+> and the output... collapsed by default... doesn't affect the AI, only a
+> visual upgrade"). Real but genuinely multi-file, not a CSS tweak: `agent.py`
+> already has `arguments` in scope where it builds each tool event but the
+> SSE stream to the frontend only ever sends a human-readable `label`, not
+> the raw arguments or the raw result — those would need adding to the event
+> payload (additively; the model's own context is built from a separate
+> prompt-construction path and would be untouched, so this is safe to add
+> without the caveat in the ask being a real risk). Frontend: `toolChip()`
+> becomes a `<details>`/`<summary>` with two collapsed sections (input as
+> formatted JSON, output in a `overflow-y: auto` box for a long result) —
+> and the chat-history `serialise()`/`replay()` round-trip (app.js ~6083)
+> needs the same two fields or the dropdown disappears the moment a saved
+> conversation is reopened, which would read as a second bug. Three files,
+> one new SSE field, one schema change to what a saved conversation stores —
+> real work, correctly deferred rather than rushed this session.
 
 **Why.** Asked for directly. The page mixes three activities in one column, and
 the web panel is bolted on top of the message list.
@@ -378,6 +398,50 @@ the number is kept here so §6 references still land somewhere sensible.
 
 ## 7. Desktop packaging
 
+**Windows installer: built, not yet run for real.** Asked directly which of
+portable/installed/both, which platform(s) first, whether to pay for code
+signing, and where to distribute — answers: installed (not portable),
+Windows only for v1, unsigned for now (a certificate isn't worth it before
+there's a user base to justify the yearly cost), GitHub Releases only. Built
+on those answers: `packaging/windows/memorymap.spec` (PyInstaller, onedir —
+onefile re-extracts itself on every launch, a bad fit for something meant to
+open like a normal desktop app), `packaging/windows/installer.iss` (Inno
+Setup, per-user install so an unsigned build doesn't *also* need an admin
+prompt on top of the SmartScreen click-through), and a `build-windows-
+installer` job on `release.yml` that builds and attaches the installer to
+the GitHub Release a `v*` tag already creates. `core/config.py`'s
+`_default_data_dir()` and `api/app.py`'s `FRONTEND_DIR` both needed a
+`sys.frozen` branch — their existing path math assumes a `src/` layer a
+PyInstaller bundle doesn't have, which would have pointed both at the wrong
+directory silently.
+
+**Honestly unverified**: this repo has no Windows machine to build or run it
+on, so none of the above has executed for real yet — only reasoned through.
+It ships from CI (windows-latest) on the next `v*` tag, which is a real
+Windows build the moment it runs; what's unverified is specifically whether
+that first real run succeeds without a fix. Worth watching the first
+tagged release's Actions run rather than assuming green.
+
+**"Does the installer stay up to date?" — built: a check, not an auto-update.**
+Asked directly. Answer: no, and it was never going to — a static installer
+build has no mechanism to patch itself, and building one (differential
+updates, a signed update feed) is a lot of infrastructure for a project at
+this stage. What shipped instead, since the alternative is a user on a
+six-month-old build with no way to know it: `update_check_enabled`
+preference (off by default, same reasoning as `web_search_enabled` — see
+`core/config.py`), a `GET /update/check` endpoint that compares
+`memorymap.__version__` against GitHub's `releases/latest` tag numerically
+(never lexically — "0.10.0" has to sort after "0.9.0"), and Settings → About
+wiring: the checkbox, a "Check now" button, and a silent check on startup
+that only ever toasts when a newer version genuinely exists. Two real bugs
+were caught testing this live rather than trusting it once it typechecked:
+`PreferencesBody` (routes_settings.py) never declared the new field, so
+Pydantic silently dropped it from every PUT; and `get_preferences()` built
+its response as an explicit field-by-field dict that never echoed the new
+key back — the exact bug this same file's own comment already describes
+happening once before, to `autonomous_tasks_enabled` and friends. Both fixed
+and re-verified live (Playwright: toggle, reload, confirm it survives).
+
 **Why.** Asked for: "run as a professional product".
 
 **Recommendation: not Electron.** The app is Python + static files; Electron
@@ -387,10 +451,13 @@ shipping alongside it. Alternatives weighed: Tauri and Wails (Rust/Go shells,
 tiny binaries, but neither solves shipping Python), Neutralino (immature), plain
 PWA (already supported via `manifest.webmanifest` + `sw.js`).
 
-**Plan.** Harden the existing pywebview mode — single instance, native menus,
-tray, graceful port fallback when 8000 is taken, first-run flow — then
-PyInstaller one-file builds for Windows/macOS/Linux. pywebview's webview is also
-where the genuine embedded browser from §3 becomes possible.
+**Plan, updated — some of this is now built, not still planned.** Hardening
+the pywebview mode: **tray — built**, see §25. Single instance, native menus,
+graceful port fallback when 8000 is taken, and a first-run flow specific to
+the packaged build are still open. The "PyInstaller one-file" half of this
+paragraph is superseded by the actual decision recorded above — **onedir**,
+not onefile, because onefile re-extracts itself on every launch. pywebview's
+webview is also where the genuine embedded browser from §3 becomes possible.
 
 **Portable vs installed, worth deciding rather than defaulting into one.**
 PyInstaller can build either — a one-file executable that runs from a USB
@@ -1247,25 +1314,57 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   a background thread (§25's health-check screen would be a natural place
   to surface "an indexing job is running" if one is) versus which quietly
   block.
-- **Singletons and worker count are coupled, and that coupling isn't written
-  down anywhere.** `core/config`, the database connection, the in-memory log
-  buffer (§1) and the SearXNG process handle are all singletons per
-  `ARCHITECTURE.md` — correct and simple for a single process. If the app is
-  ever launched with more than one worker (`uvicorn --workers 2`, or a
-  well-meaning perf tweak by someone unfamiliar with the codebase), every one
-  of those becomes silently per-worker instead of shared — the log console
-  would show a fraction of what actually happened, and two workers could
-  each think they own the SearXNG subprocess. Cheap to prevent: either
-  enforce single-worker at startup (refuse `--workers > 1` with a clear
-  message) or write the constraint down where someone deciding to scale it
-  would actually see it.
-- **No enforced page size on list endpoints, as far as this document
-  establishes.** A notebook that's grown for years, all returned from
-  `search_notes` or the note list in one response, is a real failure mode
-  for a "just works" app that's supposed to degrade gracefully rather than
-  time out. Worth confirming every list-shaped route has a cap and a
-  cursor/offset, not just the ones that happened to need one during testing
-  on a small notebook.
+- ~~**Singletons and worker count are coupled, and that coupling isn't written
+  down anywhere.**~~ **done — checked in the running code, not assumed.**
+  `deps.refuse_multiple_workers()` already exists and already runs first
+  thing in `create_app()`, before any singleton is built: it reads
+  `--workers`/`-w` off `sys.argv` and the `WEB_CONCURRENCY` env var (what
+  uvicorn and gunicorn both honour), and raises `MultipleWorkersError` with
+  the full reason and the fix rather than a warning nobody reads. Covered by
+  `tests/test_worker_guard.py`. This item can be struck rather than built.
+- ~~**Confirmed, not just suspected: `GET /entries` is genuinely
+  unbounded.**~~ **done.** Asked for directly ("that is a real app feature
+  that enhances good design and will probably be needed for real world
+  use"). `GET /entries` now takes `limit`/`offset` (default page 1000, hard
+  ceiling 5000 — `ENTRIES_PAGE_SIZE`/`_MAX` in `routes_entries.py`) and
+  reports the true count via an `X-Total-Count` response header regardless
+  of the page. `entry/manager.py` grew matching `limit`/`offset` params on
+  all three list functions plus `count_entries`/`count_deleted_entries`/
+  `count_archived_entries` — additive (`None` still means "everything"), so
+  every existing in-process caller is unaffected.
+
+  The risk this item itself named — a silent cap making old notes invisible
+  everywhere at once — is why the fix isn't just a `.limit()`. `app.js`'s
+  `loadEntries()` now fetches pages in a loop, painting the first page
+  immediately and filling the rest in the background; every one of
+  `allEntries`'s ~30 read sites (search-as-you-type, keyboard nav, the
+  sidebar, tag suggestions) needed zero changes, because `allEntries` still
+  ends up exactly as complete as it always was once loading finishes — just
+  without one unbounded response getting it there. A `_entriesLoadGeneration`
+  counter (same shape as `loadOnboardingDiagnostics`'s staleness guard)
+  stops a slow page from a superseded load splicing stale rows back in if
+  `loadEntries()` is called again mid-page-load.
+
+  One real regression caught in the same pass, not by guessing but by
+  grepping every `/entries` GET call site before calling this done: three
+  dashboard widgets (`renderPinnedWidget`, `renderRecentNotesWidget`,
+  `renderTopTagsWidget`) each independently re-fetched the *whole* list —
+  which the new 1000-row default would have silently truncated,
+  `renderTopTagsWidget` most seriously (wrong tag counts on any notebook
+  past 1000 notes, with no error to notice it by). Fixed by having all
+  three prefer the already-loaded `allEntries`, the same pattern
+  `renderRandomNoteWidget` already used. Also found and removed while
+  auditing those call sites: `copyLogs()` built a `/entries` URL and
+  `fetch`ed it, then never used the response — dead code, unrelated to
+  logs, silently wasting a request (and failing every time, since a bare
+  `fetch()` skips the auth header `api()` adds).
+
+  Verified live, not just by the new backend/frontend tests: seeded 2500
+  notes directly via `entry.manager`, confirmed exactly three page requests
+  fire (`limit=1000&offset=0/1000/2000`), `allEntries.length` and the
+  status bar both land on 2500, all 2500 rows actually render, and the
+  Dashboard's own widgets (including the fixed tag-counting one) show
+  correct totals with zero console errors — screenshotted.
 - **What happens when Ollama hangs, rather than errors.** The app already
   handles Ollama being *off* gracefully (design principle 2) — a request
   that never comes back is a different failure, and a more likely one on
@@ -1538,6 +1637,34 @@ on-this-day, focus timer) — this is more of the same shape, not a new system.
 
 ## 25. App control: tray, health checks, and dependency repair
 
+**The tray itself: built.** Asked directly — "hide the terminal but let it be
+reached", "manage it through the system tray and popup windows" — and
+answered: closing the desktop window now minimizes to a tray icon instead of
+quitting (`window.events.closing` returns `False` to cancel the real close),
+and the tray menu is Open / View Logs (opens Settings → Logs, the third
+AskUserQuestion answer this session) / Restart (`os.execv`, same process
+re-launched rather than a second one spawned) / Quit (`window.destroy()`,
+which is what actually unblocks the `webview.start()` call and lets the
+process exit). See `memorymap.__main__._start_tray`. `pystray` + `Pillow`
+ride along with the existing `desktop` extra in `core/extras.py` — same
+button that already installs `pywebview` — and the Windows installer's
+PyInstaller spec bundles both, so this is always on for anyone who used the
+installer.
+
+Degrades the same way every other optional extra in this app does: no
+`pystray`/`Pillow` (or, seen for real in this sandbox, a `pystray` backend
+that fails at import — `Xlib.error.DisplayNameError` on Linux with no X
+server) means `_start_tray` returns `None`, logs why, and the window goes
+back to closing for real. That fallback path is what's actually been run in
+this sandbox; the tray *appearing*, the menu *working*, and minimize-to-tray
+*behaving* on a real Windows taskbar have not — no Windows box and no GUI
+toolkit here to run pywebview at all, so this carries the same "built,
+reasoned through, not yet seen" caveat §7's installer already carries, for
+the same reason.
+
+The health-check screen and repair actions below are still open — this
+covers only the tray/console half of the section's original ask.
+
 **Why.** Several asks that are really one request in different words: "an
 interface for managing the application… backend, cmd prompt console, quit,
 update, install/fix/uninstall/reinstall packages and dependencies,
@@ -1591,6 +1718,22 @@ thing anywhere in the app.
   the database, uploads and preferences and start over, distinct from
   `--reset-password` which only clears the credential. Worth being as
   explicit about what it destroys as `--reset-password` already is.
+- **A real storage breakdown, not just the database file.** Asked for
+  directly: "can the user see a visual depiction of the storage size the
+  application takes up... so they can manage and uninstall optional
+  dependencies they don't really use." `GET /storage` today reports only
+  `database_bytes` — nothing for `uploads/` (attachments, sketches),
+  nothing for the installed extras themselves (`core/extras.py`, which
+  already has a real install/uninstall path but no size next to the
+  button — `sentence-transformers` alone is the "~2 GB, it pulls in
+  PyTorch" case named in its own catalogue entry, exactly the kind of
+  thing worth seeing before deciding to keep it). Not a quick add: needs a
+  directory-walk per extra's actual installed footprint (import metadata
+  doesn't give you bytes on disk), likely cached rather than computed on
+  every Settings load. The "uninstall now, reinstall later" half already
+  works (`core/extras.py`'s remove/start) — this is purely the missing
+  "how much is this costing me" number and a chart on top of facts that
+  mostly already exist.
 - **One actual "your data" page, not the pieces scattered.** The individual
   facts already exist — where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do
@@ -1794,7 +1937,7 @@ the fourth — links to objects — is still open.
   - `dragEndNode`'s own hit-test (app.js) loops `for (const node of
     wbState.nodes)` — an object is never even considered as a drop target
     for the live drag-to-link gesture.
-  - `add_whiteboard_link` (`src/memorymap/ai/tools.py`) does
+  - `add_whiteboard_link` (`src/memorymap/ai/tools/__init__.py`) does
     `session.get(WhiteboardNode, ...)` for both ends — passing an object's
     id raises "No whiteboard card with id …", not a working link.
   - The link sketch's own data shape (`sourceId`/`targetId`) has no
@@ -1866,7 +2009,7 @@ there as colliding with the no-torch constraint).
   has no label. Would matter if `generate_diagram` output is ever meant to
   carry relationship text ("depends on," "leads to"), not just a line.
 - **AI-readability additions**, extending what `readwhiteboard`/
-  `searchwhiteboard`/`generate_diagram` already do (`ai/tools.py`): an
+  `searchwhiteboard`/`generate_diagram` already do (`ai/tools/__init__.py`): an
   outline-text export mode (Mermaid-adjacent, for the AI or a human to read
   a board as a flat description); a semantic (embedding-based) index over
   whiteboard text-box content, since `searchwhiteboard` is keyword-only
@@ -2029,19 +2172,15 @@ that logic (the standing caveat at the top of this file applies here like
 everywhere else). The whiteboard's real pointer-driven multi-select gesture
 was not driven live either, for the reason above.
 
-## 63. Ship a starter skills library
+## 63. Ship a starter skills library — DONE, this claim was stale
 
-The Skills system (`ai/skills.py`) is real and working but ships **zero**
-built-in skills — every one has to be hand-authored via `save_skill`
-before it exists. Confirmed: no `DEFAULT_SKILLS`/`BUILT_IN_SKILLS`-shaped
-constant anywhere in the file. Surfaced by the Kortex read (ANALYSIS.md
-§66) — its "25+ prebuilt workflows" is the same primitive this app already
-has, just with nothing in the box. Cheap relative to the value: a
-one-time list of maybe 10-15 starter skills covering the app's own common
-tasks (weekly review, meeting-notes cleanup, tag consolidation, a
-"summarise what changed this week" digest) seeded on first run, through the
-exact same `save_skill` validation path a user's own skill goes through —
-not a second, parallel skill format.
+Re-checked before starting a rebuild (per the standing rule at the top of
+CLAUDE.md): `ai/skills.py` already ships `BUILTIN_SKILLS`, 14 skills —
+the five-skill notebook-audit set, plus weekly review, tag/link clean-up,
+a daily-review-with-reminders skill, and more — served through `builtins()`
+/`catalog()` at `GET /skills`, the exact same `normalise()` validation path
+a user's own skill goes through. This section's "ships zero" claim predates
+that build. See HISTORY.md for when it landed.
 
 ## 64. Documents editor — behind the rest of the app, needs its own pass
 
@@ -2072,5 +2211,104 @@ kept as metadata rather than folded into searchable body text. Not scoped
 — (1) alone (manual paste-a-highlight) is small; (2) an actual Readwise
 importer is a real integration and should be sized separately before
 committing to it.
+
+## 75. Voice memos: capture, storage, playback, and a dedicated library page
+
+Asked for directly. `/entries/{id}/files` now has a real allowlist
+(`ATTACHMENT_SUFFIXES` in `routes_files.py` — images, PDF, common office
+formats, text and code, refusing anything else with a 415, e.g. video), but
+audio is deliberately not on that list yet — there is no player anywhere in
+the app, so an uploaded `.mp3` would just be a file nobody could listen to.
+Three separable pieces, roughly in the order they'd need building: (1) a
+record-a-voice-memo control (browser `MediaRecorder`, saved as an
+attachment once `.mp3`/`.wav`/`.m4a`/`.webm` are added to the allowlist and
+a size ceiling suited to audio rather than documents is picked — 50MB is
+generous for a PDF and stingy for 20 minutes of audio), (2) an `<audio>`
+player wherever an attachment is already rendered inline (the note card,
+the lightbox), and (3) a Library subtab alongside AI Skills/Whiteboards/
+Image Gallery listing every audio attachment across the notebook, the way
+`routes_library.py`'s `_notes()`/`_archive()`/`_shelved()` already do for
+images via `thumb_by_entry`. Meeting notes were the specific use case
+raised — a memo recorded during a meeting, attached to that note.
+
+## 76. Keyword-only note filing while the AI is unavailable, flagged for later AI review
+
+Asked for directly, and specifically **not** the same as `janitor.categorise`'s
+existing low-confidence path (routes_entries.py's `create_entry` already
+falls back to `UNCATEGORISED` when the AI call itself fails — that's a
+"give up" fallback, not a second opinion). What's being asked for is a real
+non-AI filer: while no local model is available at all, look at a new
+note's own words (keyword/term overlap against existing categories and
+tags — no embeddings, no model call) to make a real best-effort filing
+guess instead of dumping everything into Uncategorised, and tag every note
+filed this way so it's unmistakable later. Once the AI is available again —
+on its own schedule, not necessarily right away — the autonomous agent's
+existing stale/orphaned-note review pass (§17 in the session's
+completed-work list) checks that tag specifically: did the keyword guess
+get the filing and metadata right, and correct it if not. Scope: a
+keyword-overlap filer as a genuine alternative code path when
+`deps.get_ollama()`/the model manager reports unavailable (not merely a
+lower-confidence branch of the AI path), a `filed_by="keyword_fallback"` (or
+similar) marker distinct from the existing `"none"`/`"thread"`/`"user"`
+values, and a query added to the existing review pass rather than a new one.
+
+## 77. Notes-tab pagination and page-aware note links
+
+Asked for directly, with a concrete reason: a large notebook's Notes tab is
+one continuously growing list (backed by the paginated `GET /entries` added
+this session, but presented to the user as an unbroken scroll — see §35/
+the pagination work above) rather than a paged view with a page-size choice
+and a page selector top and bottom. Two things this is NOT the same as: the
+"1000 rows per fetch" pagination `GET /entries` already does under the
+hood (invisible to the user, purely a payload-size guard), and the Library's
+own grid/list views (unrelated screen). Real scope, if built: (1) a page-
+size preference and page selector UI in the Notes tab, sized the way
+`ENTRIES_PAGE_SIZE`/`ENTRIES_PAGE_SIZE_MAX` already are in
+`routes_entries.py`; (2) the harder part — a wiki-link/note-reference
+click has to land on the right *page* of the list, which depends on
+whatever sort and filter the user currently has active (category, tag,
+pinned, search term, semantic vs. keyword), not just the note's id. That
+second part is real routing logic, not a UI tweak, and deserves its own
+design pass rather than being bolted onto the simpler page-size control.
+
+## 78. Whether the backend needs more concurrency than it already has
+
+Asked for directly: should the app be asynchronous, able to run a chat
+response, an Ask-tab semantic-search query, and a background job (a weekly
+digest, the autonomous agent) all at once? Checked rather than assumed —
+this is less true and less false than it sounds.
+
+**What already happens today.** Routes are plain `def`, not `async def`
+(3 real exceptions out of ~300, both streaming endpoints) — but FastAPI
+still runs each sync request in its own worker thread by default, so two
+requests already don't block each other at the HTTP layer. More to the
+point, the genuinely slow work — model downloads, extras install, the
+autonomous agent's loop, embedding warm-up, Ollama/model-manager calls —
+already runs on its own daemon `threading.Thread` (`embedmodels.py`,
+`extras.py`, `ai/autonomous.py`, `ai/embeddings.py`, `ai/model_manager.py`),
+explicitly "off the request thread" per `deps.refuse_multiple_workers`'s
+own docstring. A chat reply streaming does not block the Ask tab today.
+
+**What actually limits it, and isn't a code change:** `deps.
+refuse_multiple_workers()` deliberately refuses more than one *process*
+(not thread) — the config, database handle, log buffer, unlock sessions
+and SearXNG subprocess are all one-per-process singletons, and that
+refusal is a considered decision (single-user local app, not a
+production API), not an oversight to "fix." The real ceilings are
+elsewhere: (1) SQLite serialises writers regardless of how many Python
+threads are asking — a digest job and a chat reply both writing at once
+queue at the database, not the app; (2) most local Ollama installs
+default to one in-flight generation — two simultaneous "AI, please
+answer this" calls (a chat message and a digest summary) may queue at
+Ollama itself even though the app dispatched both without blocking.
+
+**Scope, if pursued:** not a rewrite to `asyncio` — the thread-per-slow-
+task pattern already in place solves the stated problem for CPU/network-
+bound work. What would need real design: a visible queue/status for
+overlapping AI requests (so a digest running in the background doesn't
+silently starve a chat reply, or vice versa, and the user can see both are
+in flight), and confirming empirically how the target audience's actual
+Ollama setups behave under two concurrent requests before promising
+anything faster feels.
 
 ---

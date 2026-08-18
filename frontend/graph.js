@@ -50,6 +50,11 @@ let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
 let graphDims = { w: 0, h: 0 };
+// Set once the camera has auto-framed the map for the tab's current visit,
+// and cleared again by switchTab() on the next fresh entry — see the two
+// uses below for why. `renderGraph()` alone can't tell "just opened the
+// tab" from "a filter checkbox changed" apart; the caller has to say which.
+let graphAutoFitDone = false;
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
 let graphIsPanning = false; // an active pan/zoom drag — see zoomBehavior below
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
@@ -705,11 +710,24 @@ async function runTrace() {
 // The chain in words, under the strip. The map shows the shape; this says what
 // each step *is*, which the map cannot — a line between two notes looks the
 // same whether you drew it or they merely share a tag.
+// Redesigned twice (ROADMAP.md item 5). The first redesign this session
+// put one row per note plus one row per connector, stacked vertically —
+// reported back immediately as "crushes the graph, takes up most of the
+// page", because it was never actually looked at running: a path of even
+// four or five hops is eight-plus rows tall in a box that sits in normal
+// document flow directly above the canvas, so it pushed the whole map
+// down out of view. This version goes back to a single horizontal,
+// wrapping strip — the note chips and the arrow-plus-reason connectors
+// between them all flow and wrap together like a sentence, the same
+// footprint the *original* pre-redesign version had — but with the notes
+// as visually distinct chips and a real arrow glyph instead of an em-dash,
+// and `.graph-trace-path`'s own `max-height` + scroll (below, in the CSS)
+// as a hard floor under how tall this can ever get, so no path length can
+// repeat this mistake even if the wrapping math is ever wrong again.
 function renderTraceReadout(result) {
   const box = $("graph-trace-result");
   if (!box) return;
   box.classList.remove("hidden", "is-empty");
-  const pieces = [];
   const noteButton = (node) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -720,18 +738,34 @@ function renderTraceReadout(result) {
     return button;
   };
   const byId = new Map(result.nodes.map((n) => [n.id, n]));
-  pieces.push(noteButton(result.nodes[0]));
-  for (const step of result.steps) {
-    const joint = document.createElement("span");
-    joint.className = "graph-trace-step";
-    joint.textContent = ` — ${step.how} — `;
-    pieces.push(joint, noteButton(byId.get(step.target)));
-  }
+
+  const header = document.createElement("div");
+  header.className = "graph-trace-header";
   const summary = document.createElement("span");
   summary.className = "graph-trace-step";
-  summary.textContent = `  (${result.hops} step${result.hops === 1 ? "" : "s"})`;
-  pieces.push(summary);
-  
+  summary.textContent = `${result.hops} step${result.hops === 1 ? "" : "s"}`;
+  header.appendChild(summary);
+
+  const path = document.createElement("div");
+  path.className = "graph-trace-path";
+  path.appendChild(noteButton(result.nodes[0]));
+  for (const step of result.steps) {
+    const connector = document.createElement("span");
+    connector.className = "graph-trace-connector";
+    connector.title = step.how;
+    const arrow = document.createElement("span");
+    arrow.className = "graph-trace-arrow-icon";
+    arrow.textContent = "→";
+    arrow.setAttribute("aria-hidden", "true");
+    const how = document.createElement("span");
+    how.className = "graph-trace-connector-label";
+    how.textContent = step.how;
+    connector.append(arrow, how);
+    path.append(connector, noteButton(byId.get(step.target)));
+  }
+
+  const pieces = [header, path];
+
   // Story Mode: Synthesize the path into a narrative.
   //
   // Was three inline `.style.x =` assignments against `var(--primary)` /
@@ -756,7 +790,7 @@ function renderTraceReadout(result) {
       { noteIds: graphTrace.ids, attachedNotesOnly: true }
     );
   });
-  pieces.push(storyBtn);
+  header.appendChild(storyBtn);
 
   box.replaceChildren(...pieces);
 }
@@ -943,9 +977,13 @@ async function renderGraph() {
   // the local/focus view: entities are membership edges to *notes*, and
   // /graph/local's own depth-limited walk has no equivalent concept yet.
   const wantEntities = $("graph-entities")?.checked;
+  // Tier 2 item 16 — same "top-level graph only" scope as entities just
+  // above: a document's edge is a link to a *note*, and /graph/local's own
+  // depth-limited BFS has no equivalent concept yet.
+  const wantDocuments = $("graph-documents")?.checked;
   const endpoint = graphFocusModeId
     ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
-    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true" : ""}`;
+    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${wantDocuments ? "include_documents=true" : ""}`;
     
   const data = await apiJson(endpoint).catch(() => null);
   if (!data) return;
@@ -1164,7 +1202,24 @@ async function renderGraph() {
   // In a tree the drawn edges *are* the hierarchy: the note links are a
   // different structure, and overlaying them turns the tree back into the
   // web it exists to be an alternative to.
-  const nodes = tree ? tree.nodes : visibleNodes.map((n) => ({ ...n }));
+  //
+  // A force-layout note that was already on screen keeps the spot it had
+  // settled into — read from `graphNodesRef` before it's overwritten below
+  // — instead of every render restarting the whole map's "explode outward
+  // from the centre" animation from scratch. Before this, toggling a single
+  // legend filter or dragging a physics slider replayed that same
+  // full-notebook animation, which read as the map never actually being at
+  // rest. A genuinely new node (nothing to inherit) still gets D3's normal
+  // spiral placement — only existing notes are pinned in place at start.
+  const priorPositions = new Map(
+    (graphNodesRef || []).map((n) => [n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy }])
+  );
+  const nodes = tree
+    ? tree.nodes
+    : visibleNodes.map((n) => {
+        const prior = priorPositions.get(n.id);
+        return prior ? { ...n, ...prior } : { ...n };
+      });
   const edges = tree ? tree.links : visibleEdges.map((e) => ({ ...e }));
   graphNodesRef = nodes;
   // Adjacency for hover-highlight: which notes each note is linked to.
@@ -1401,7 +1456,12 @@ async function renderGraph() {
         })
     )
     .on("click", (event, d) => {
-      if (d.isGroup || d.type === "entity") return; // not a note to open
+      // Same treatment as an entity node: view-only for this first pass —
+      // opening a document from here would need the Library's own
+      // document-editor navigation, not a note's, and that's a separate
+      // change from making the node visible and connected in the first
+      // place.
+      if (d.isGroup || d.type === "entity" || d.type === "document") return;
       // Trace is a *mode*: while it is on, clicking the map picks the two ends
       // rather than opening notes. This branch is the whole reason Trace was
       // unusable — `traceModeActive` was set and then consulted nowhere, so
@@ -1445,6 +1505,7 @@ async function renderGraph() {
     // the version that doesn't need a second SVG shape (a <rect> sized and
     // centred to match graphNodeRadius) for one node kind.
     .classed("graph-node-entity", (d) => d.type === "entity")
+    .classed("graph-node-document", (d) => d.type === "document")
     .attr("r", graphNodeRadius)
     .attr("fill", nodeColour)
     .classed("graph-pinned", (d) => d.pinned)
@@ -1627,10 +1688,16 @@ async function renderGraph() {
 
   if (tree) {
     // Laid out, not simulated: the paths are already drawn, so this only has
-    // to place the nodes and frame the result.
+    // to place the nodes and frame the result. Same guard as the force
+    // layout's own fit-on-settle below — a fresh tab visit frames the tree,
+    // a legend-filter or physics-slider re-render doesn't recentre a camera
+    // the user may have already zoomed in with on purpose.
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
-    frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+    if (!graphAutoFitDone) {
+      graphAutoFitDone = true;
+      frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+    }
   }
 
   let fitted = false;
@@ -1690,9 +1757,17 @@ async function renderGraph() {
       return `translate(${cx},${cy})`;
     });
     // Once the layout settles, frame all the notes so nothing sits off
-    // the edge (Wave N — the old view often had nodes half-cropped).
-    if (!fitted && graphSimulation.alpha() < 0.08) {
+    // the edge (Wave N — the old view often had nodes half-cropped). Only
+    // for a fresh visit to the tab, though (graphAutoFitDone, set by
+    // switchTab() below) — every render used to re-fit unconditionally, so
+    // toggling a legend filter or dragging a physics slider while looking
+    // at a note you'd zoomed in on would silently recentre and rescale the
+    // camera out from under you. Panning and zooming after that point is
+    // the user's business; the dedicated Fit button (graph-zoom-fit) is
+    // still there for "put it back".
+    if (!fitted && !graphAutoFitDone && graphSimulation.alpha() < 0.08) {
       fitted = true;
+      graphAutoFitDone = true;
       fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
     }
   });

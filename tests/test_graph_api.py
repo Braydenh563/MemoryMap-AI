@@ -116,6 +116,43 @@ def test_graph_link_edge_carries_a_deduced_reasons_confidence(ai_client):
     assert edges[0]["reason_confidence"] == 1.0
 
 
+def test_graph_omits_documents_by_default(client):
+    a = _save(client, "first note", category="Alpha")
+    document = client.post("/documents", json={"title": "Plan", "content": ""}).json()
+    client.post(f"/documents/{document['id']}/notes", json={"entry_id": a["id"]})
+
+    body = client.get("/graph").json()
+    assert {n["id"] for n in body["nodes"]} == {a["id"]}
+    assert body["edges"] == []
+
+
+def test_graph_include_documents_adds_a_prefixed_node_and_edge(client):
+    a = _save(client, "first note", category="Alpha")
+    document = client.post("/documents", json={"title": "Plan", "content": ""}).json()
+    client.post(f"/documents/{document['id']}/notes", json={"entry_id": a["id"]})
+
+    body = client.get("/graph?include_documents=true").json()
+    doc_node_id = f"document:{document['id']}"
+    node = next(n for n in body["nodes"] if n["id"] == doc_node_id)
+    assert node["type"] == "document"
+    assert node["preview"] == "Plan"
+    assert node["category"] == "Document"
+    assert {n["id"] for n in body["nodes"]} == {a["id"], doc_node_id}
+    assert body["edges"] == [{"source": doc_node_id, "target": a["id"], "kind": "document"}]
+    # Document nodes aren't in the stable category list — same treatment as
+    # entities, so the legend doesn't grow a filter for a node kind that's
+    # off by default.
+    assert "Document" not in body["categories"]
+
+
+def test_graph_include_documents_ignores_a_document_with_no_linked_notes(client):
+    _save(client, "first note", category="Alpha")
+    client.post("/documents", json={"title": "Untouched", "content": ""})
+
+    body = client.get("/graph?include_documents=true").json()
+    assert all(n.get("type") != "document" for n in body["nodes"])
+
+
 def test_graph_thread_edges(client):
     parent = _save(client, "the start of a thought", category="Ideas")
     child = _save(client, "…and where it went", parent_id=parent["id"])

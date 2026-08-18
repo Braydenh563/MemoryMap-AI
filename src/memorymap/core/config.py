@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -39,6 +40,16 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # than something inferred from whether a SearXNG address happens to be
     # filled in. See `search/websearch.PROVIDERS`.
     "web_search_enabled": False,
+    # Asked for directly, alongside the Windows installer: since a release
+    # only ships when someone remembers to tag one, nothing ever told a
+    # person running an installed build that a newer version existed. The
+    # only other opt-in network call in the app — off by default for the
+    # same reason web_search_enabled is: "100% offline" (Settings -> About)
+    # has to stay true until someone deliberately switches it off, not
+    # something the app quietly does anyway for a good reason. Checks
+    # GitHub's own releases API for the latest tag; nothing about the
+    # notebook itself is ever sent.
+    "update_check_enabled": False,
     # Bring the user's own SearXNG up with the app. Off by default: starting a
     # container is not something a local-first app does unasked.
     "searxng_autostart": False,
@@ -82,6 +93,11 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # whole new kind of thing to the notebook (an entity) rather than
     # changing an existing note, which deserves an even more deliberate opt-in.
     "auto_entities_enabled": False,
+    # ROADMAP.md item 31. Off by default for the same reason as entities
+    # above: this one makes a judgement call about which notes count as
+    # "forgotten" rather than performing a request the user already made
+    # (tag/link/dedupe are all reactions to a note's own content).
+    "auto_stale_review_enabled": False,
     "autonomous_tasks_interval_hours": 6,
     #: Skip the expensive extras — similarity edges on the graph, the
     #: background pass — on a laptop running off its battery.
@@ -92,6 +108,36 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
 }
 
 
+def _default_data_dir() -> str:
+    """Where notes live when nothing else says otherwise.
+
+    `"data"` (relative to the current directory) is right for every way this
+    app has run until now: cloned from git, `./start.sh`'d, or run from a
+    source checkout in tests — the working directory is always the repo, and
+    "data" next to it is obvious and easy to find.
+
+    A PyInstaller-frozen, installed build breaks that assumption twice over.
+    `sys.frozen` distinguishes it from every case above (never true running
+    from source, so this can't change behaviour for the existing git-clone
+    workflow or the test suite at all). And an installed app's own folder is
+    Program Files, or wherever else it happens to run from — not writable by
+    a standard Windows account, and not something a reinstall or an update
+    should be trusted to leave alone. The OS-standard per-user data location
+    is both writable and survives a reinstall; an explicit
+    `MEMORYMAP_DATA_DIR` always overrides this regardless of how the app is
+    running.
+    """
+    if not getattr(sys, "frozen", False):
+        return "data"
+    if sys.platform == "win32":
+        base = os.getenv("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+    elif sys.platform == "darwin":
+        base = str(Path.home() / "Library" / "Application Support")
+    else:
+        base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return str(Path(base) / "MemoryMap AI")
+
+
 class ConfigManager:
     """Knows the app's folders, files, and saved preferences."""
 
@@ -99,7 +145,7 @@ class ConfigManager:
         # .env lets a user relocate their data without touching code.
         load_dotenv()
         self.data_dir = Path(
-            data_dir or os.getenv("MEMORYMAP_DATA_DIR", "data")
+            data_dir or os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()
         ).resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True)
 

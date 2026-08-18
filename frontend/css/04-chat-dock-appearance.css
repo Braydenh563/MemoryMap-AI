@@ -54,35 +54,88 @@
   color: var(--muted);
 }
 
-/* The strip's own caption. `flex: 0 1 auto` with a floor rather than a fixed
-   size: it is the least important thing on the row, so it is the first to give
-   its space back to the pickers, and it drops out entirely rather than wrapping
-   the strip onto a second line for a sentence. */
+/* The strip's own caption — redesigned twice this session (ROADMAP.md
+   item 5). Round one put one row per note plus one row per connector,
+   stacked vertically, and was reported back immediately as "crushes the
+   graph, takes up most of the page": a path of four or five hops was
+   eight-plus rows tall, in a box that sits in normal document flow
+   directly above the canvas, so it pushed the whole map down out of
+   view — never actually looked at running before that. Round two goes
+   back to the original's horizontal, wrapping shape (chips and
+   connectors flow and wrap together like a sentence, same footprint the
+   pre-redesign version had) with `max-height` + scroll as a hard floor
+   underneath: whatever the wrapping does, this box cannot grow past a
+   few lines regardless of how long a traced path gets. */
 .graph-trace-result {
   margin: 0 0 var(--space-3);
   font-size: var(--text-md);
-  line-height: 1.6;
 }
 
-/* The chain reads as a sentence: note — how it joins — note. The connector is
-   quiet and the notes are not, because the notes are what you clicked for. */
+.graph-trace-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.graph-trace-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  /* The hard floor: roughly 3 wrapped lines at this box's font size, then
+     it scrolls internally instead of pushing the canvas below it down. */
+  max-height: 5.5rem;
+  overflow-y: auto;
+}
+
+/* Arrow + reason, one unit between two note chips — quiet relative to the
+   chips, because the chips are what you clicked for. `white-space: nowrap`
+   keeps the arrow glued to its label; the *unit* still wraps freely with
+   the rest of the row, it just never splits mid-arrow. */
+.graph-trace-connector {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.graph-trace-arrow-icon {
+  color: var(--border);
+}
+
 .graph-trace-step {
   color: var(--muted);
+  font-size: var(--text-sm);
 }
 
+/* A real chip — the earlier plain text-link read as a wall of underlined
+   words with nothing marking where one note ended and the next began.
+   `--card`/`--border` rather than a new colour: same materials every
+   other chip in the app already uses. */
 .graph-trace-note {
-  background: none;
+  background: var(--accent-soft);
   border: none;
-  padding: 0;
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
   margin: 0;
   font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--accent);
   cursor: pointer;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12rem;
 }
 
 .graph-trace-note:hover {
-  text-decoration: underline;
+  filter: brightness(1.08);
+  text-decoration: none;
 }
 
 /* "Generate story from path" — a real call-to-action, not another quiet
@@ -92,14 +145,25 @@
    properties both share (equal specificity, later in the cascade) — undoing
    that rule's reset to a bare text link and giving the button back its
    ordinary `--accent-surface`/`--on-accent` look, matching every other
-   primary action in the app rather than inventing its own colour. */
+   primary action in the app rather than inventing its own colour. Now in
+   the header row (was trailing off the last line of the old sentence
+   layout, which put it visually after whichever note happened to be last). */
 .story-mode-btn {
-  margin-left: var(--space-3);
+  margin-left: auto;
   padding: var(--space-2) var(--space-4);
   background: var(--accent-surface);
   color: var(--on-accent);
   border-radius: var(--radius-md);
   font-weight: 650;
+  /* This button carries `.graph-trace-note` too (graph.js, for the shared
+     chip reset), which caps chips at 12rem with an ellipsis so a long note
+     preview doesn't take over the row — but "Generate Story from Path" is
+     the button's whole label, not a preview, and at 12rem it clipped to
+     "Generate Story fr…". Reported live as space/UI. Undo the cap here. */
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .story-mode-btn:hover {
@@ -197,6 +261,10 @@
      big gap at the bottom". The same reasoning zeroes it on the chat tab's two
      columns; the page's padding is what spaces a full-height card. */
   margin: 0;
+  /* The positioning root for .graph-help-panel (below) — an absolutely
+     positioned popup anchors to the nearest positioned ancestor, and
+     without this it would fall back to the page. */
+  position: relative;
 }
 
 /* 12rem, not 22, and the card clips.
@@ -890,6 +958,14 @@
   z-index: 40;
 }
 
+/* Library's own `right`/`bottom` are computed in JS instead
+   (positionScrollTopForLibrary in app.js) — a CSS constant here doesn't
+   know the panel's real edge (behind a real scrollbar the offset has to
+   clear) or whether the panel's own box runs taller than the viewport
+   (the offset then has to clamp above the fold instead of below it). The
+   button stays `position: fixed` (the base rule above) the whole time;
+   only its inline `right`/`bottom` change per tab. */
+
 .chat-dock>* {
   flex: 0 0 auto;
 }
@@ -1053,6 +1129,36 @@
 
 .graph-physics label {
   font-size: 0.8rem;
+}
+
+/* The text-selection toolbar: save-as-draft / search-notebook / ask-AI,
+   near wherever the user just highlighted something. position:fixed (not
+   absolute) because it can be triggered from anywhere on the page, not one
+   scrollable container with a known offset parent — its left/top are set
+   in JS from the selection's own getBoundingClientRect(), already in
+   viewport coordinates. */
+.selection-popup {
+  position: fixed;
+  z-index: 90;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+
+.selection-popup.hidden {
+  display: none;
+}
+
+.selection-popup button {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
 .graph-popup {
@@ -1768,6 +1874,14 @@ button {
 }
 
 /* --- the writing room -------------------------------------------------------- */
+#writing-room {
+  /* The positioning root for #draft-intro's .graph-help-panel treatment —
+     an absolutely positioned popup anchors to the nearest positioned
+     ancestor, and without this it would fall back to the page. Same
+     reasoning as #graph-card's own identical comment. */
+  position: relative;
+}
+
 /* Thoughts on the left, the draft on the right, so you can see the raw material
    and what the AI made of it at the same time. */
 .draft-columns {
@@ -1951,6 +2065,14 @@ button {
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
+  /* .doc-sidebar reaches the grid row's full height with an explicit
+     height: 100%, which overrides its inherited .card margin-bottom
+     entirely. This card relies on plain `align-items: stretch` instead,
+     which stretches to the row *minus* that same margin — so it rendered
+     `--space-6` (~16px) shorter than the sidebar beside it despite both
+     being one grid row. Reported live. .doc-layout's own `gap` already
+     spaces the two columns; a margin here only ever cost height. */
+  margin-bottom: 0;
   /* .doc-layout stretches both columns to one row height (so the sidebar can
      be full-height), which fixes THIS card's height too — but #doc-content's
      `min-height: 60vh` below didn't know that, and asked for more room than
@@ -1996,7 +2118,14 @@ button {
 
 .doc-title-input {
   flex: 1 1 12rem;
-  min-width: 0;
+  /* Was min-width: 0, which let the title absorb all of a narrow window's
+     shortfall before .doc-toolbar's own flex-wrap ever kicked in — .doc-
+     actions' row of buttons wraps internally instead of shrinking, so the
+     title had nowhere to stop and was crushed to a few illegible pixels
+     (reported live, screenshotted). This floor forces the toolbar to wrap
+     the actions onto their own row once the title would otherwise go below
+     a readable width, instead of shrinking the title toward zero. */
+  min-width: 8rem;
   font-size: 1.15rem;
   font-weight: 650;
   border: 1px solid transparent;

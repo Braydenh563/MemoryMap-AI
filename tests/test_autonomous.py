@@ -396,6 +396,96 @@ def test_the_link_reason_audit_has_its_own_off_switch(app_state, monkeypatch):
     assert not calls
 
 
+# --- stale/orphaned-note review runs on the background pass (ROADMAP item 31) -
+#
+# Same lesson as the link-reason audit section above, pinned the same way:
+# what matters here is that the BACKGROUND JOB reaches `find_stale_orphaned_
+# notes` and actually tags what it finds, and that its own preference (off
+# by default, unlike tag/link/dedupe) switches it off. `find_stale_orphaned_
+# notes` itself is covered in test_staleness.py.
+
+
+def test_the_background_pass_tags_a_stale_orphaned_note(app_state, session):
+    from datetime import timedelta
+
+    from memorymap.core.database import Entry, utcnow
+
+    entry = Entry(content="a note nobody has touched in months")
+    session.add(entry)
+    session.commit()
+    entry.updated_at = utcnow() - timedelta(days=120)
+    session.commit()
+
+    app_state.set_preference("auto_stale_review_enabled", True)
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    session.expire_all()
+    refreshed = session.get(Entry, entry.id)
+    from memorymap.entry import manager
+
+    assert "stale" in manager.entry_tags(refreshed)
+
+
+def test_the_stale_review_has_its_own_off_switch(app_state, session):
+    """Off by default, unlike tag/link/dedupe — a judgement call about which
+    notes count as forgotten, not a reaction to something the user asked
+    for on that one note."""
+    from datetime import timedelta
+
+    from memorymap.core.database import Entry, utcnow
+
+    entry = Entry(content="a note nobody has touched in months")
+    session.add(entry)
+    session.commit()
+    entry.updated_at = utcnow() - timedelta(days=120)
+    session.commit()
+
+    app_state.set_preference("auto_stale_review_enabled", False)
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    session.expire_all()
+    refreshed = session.get(Entry, entry.id)
+    from memorymap.entry import manager
+
+    assert "stale" not in manager.entry_tags(refreshed)
+
+
+def test_the_stale_review_does_not_retag_a_note_twice(app_state, session, monkeypatch):
+    from datetime import timedelta
+
+    from memorymap.core.database import Entry, utcnow
+    from memorymap.entry import manager
+
+    entry = Entry(content="already flagged once")
+    session.add(entry)
+    session.commit()
+    manager.update_entry(session, entry, tags=["stale"])
+    # `update_entry` bumps `updated_at` to now (the write itself is recent) —
+    # re-age it so the note is still a candidate by every other criterion,
+    # the actual scenario this test means to cover.
+    entry.updated_at = utcnow() - timedelta(days=120)
+    session.commit()
+
+    calls: list[int] = []
+    real_update = manager.update_entry
+
+    def counting_update(session, entry, **kwargs):
+        if kwargs.get("tags"):
+            calls.append(entry.id)
+        return real_update(session, entry, **kwargs)
+
+    monkeypatch.setattr(
+        "memorymap.entry.manager.update_entry", counting_update
+    )
+    app_state.set_preference("auto_stale_review_enabled", True)
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    assert not calls, "a note already tagged 'stale' was rewritten again"
+
+
 def test_a_card_whose_note_was_purged_is_swept_up(ai_client, session):
     """No cascade on `whiteboard_nodes.entry_id`, so purging a note from the
     recycle bin left a card on the board pointing at nothing — visible, not

@@ -80,3 +80,4 @@ httpx>=0.28.1,<1.0  # FastAPI's TestClient needs this
 # comments so pip skips them; install by hand only if you want the feature:
 #   pip install faster-whisper   # local voice-to-text for the 🎙 buttons
 #   pip install pywebview        # `python -m memorymap --desktop` app window
+#   pip install pystray Pillow   # tray icon for the desktop window above

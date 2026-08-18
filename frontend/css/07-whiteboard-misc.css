@@ -579,8 +579,20 @@ body.has-agent-monitor .tab-page {
   padding-bottom: calc(var(--page-bottom) + var(--space-9) * 9);
 }
 
+/* Documents never got this treatment when Notes and Chat did — same shape
+   as the comment above describes: #tab-documents is a plain flex column
+   (.doc-layout), not the thing that scrolls, so the generic buffer just
+   shrank the whole card grid to a fraction of the tab's height instead of
+   protecting anything (reported: "the documents sidebar/main panel need
+   to be full height like chat"). The list that actually needs to clear
+   the panel's footprint is .doc-list, one level down. */
+body.has-agent-monitor #tab-documents {
+  padding-bottom: var(--page-bottom);
+}
+
 body.has-agent-monitor #tab-notes .layout > main,
-body.has-agent-monitor #tab-chat .layout > main {
+body.has-agent-monitor #tab-chat .layout > main,
+body.has-agent-monitor .doc-sidebar .doc-list {
   padding-bottom: calc(var(--space-9) * 9);
 }
 
@@ -845,10 +857,14 @@ body.has-agent-monitor #tab-chat .layout > main {
 }
 
 /* The Library page and its three sub-views. The page is a column so that a
-   sub-view can be the part that scrolls, rather than the window. */
+   sub-view can be the part that scrolls, rather than the window. Also the
+   positioning root for .scroll-top when this tab is active — see
+   04-chat-dock-appearance.css — so the button sits in the corner of this
+   content panel instead of the viewport corner. */
 #tab-library:not(.hidden) {
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .library-subtabs {
@@ -1224,6 +1240,80 @@ body.has-agent-monitor #tab-chat .layout > main {
    that could shrink and had no floor of its own. Measured live before
    fixing: 10 headings' worth of outline went from 258px tall to exactly
    0px the instant the disclosure opened. */
+.doc-sidebar-tabs {
+  /* This is now the first thing in the card, which puts it exactly where
+     .sidebar-head used to sit — so it needs .sidebar-head's own two fixes
+     for the same reason (05-sidebars-themes.css): pulled up to sit level
+     with the collapse toggle (positioned against the card's border box,
+     one --space-6 above where this card's content box starts), and a
+     reserved lane past the toggle so the tab strip doesn't run under it.
+     Reported live: the strip was sitting under/clipped by the toggle. */
+  margin-top: calc(var(--sidebar-toggle-inset) - var(--space-6));
+  /* The bare lane (toggle width + one --space-2) put "Outline" close enough
+     to read as crowding the toggle at narrower sidebar widths, reported
+     directly. An extra --space-3 of clearance on top of the lane everywhere
+     else already reserves. */
+  padding-right: calc(var(--sidebar-toggle-lane) + var(--space-3));
+  min-height: var(--sidebar-toggle-size);
+  margin-bottom: var(--space-4);
+  flex: 0 0 auto;
+  /* Redesigned away from .seg's filled-pill look (reported live, with a
+     photo — the active tab rendered as a noticeably oversized, heavily
+     rounded block next to the toggle and "+ New", neither of which use
+     that shape here). A plain underline tab strip has no background fill,
+     no border-radius, and no padding to size wrong under a theme's own
+     font/density scaling — there's nothing left for it to look chunky
+     with. */
+  background: none;
+  padding-left: 0;
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: 0;
+  gap: var(--space-5);
+}
+
+.doc-sidebar-tabs button {
+  padding: 0 0 var(--space-2);
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  font-size: var(--text-md);
+}
+
+.doc-sidebar-tabs button.active {
+  background: none;
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* .sidebar-head's own pull-up above is for whichever element is first in
+   the card — that's #doc-sidebar-tabs now, so the "Recent" row one level
+   further in must not *also* pull itself up into the tab strip above it.
+   Same story for the reserved lane on the right: the collapse toggle sits
+   once, on the tab strip above, and .sidebar-head's own padding-right
+   reserved that same width again here for nothing beside it — "+ New"
+   stopped 16px short of the card's real content edge with empty space past
+   it, reported as sitting oddly off to the side rather than flush with
+   anything. */
+#doc-sidebar-list .sidebar-head {
+  margin-top: 0;
+  padding-right: 0;
+}
+
+/* Each tab's whole content column, so #doc-outline-wrap's own `flex: 1 1
+   auto` below still has a flex context stretching the height the tab strip
+   left behind — the same nested-flex-column shape .doc-sidebar itself uses
+   against the page. */
+.doc-sidebar-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.doc-sidebar-section.hidden {
+  display: none;
+}
+
 .doc-outline-wrap {
   flex: 1 1 auto;
   min-height: 4rem;
@@ -1661,6 +1751,18 @@ dialog::backdrop {
   row-gap: var(--space-3);
   align-items: center;
   --control-h: 2.5rem;
+  /* The two rows had gap *within* themselves (label→control→button) but
+     nothing *between* them — neither row carries its own margin, so "Add to
+     document" sat flush against "File under" below it. Reported live. */
+  margin-bottom: var(--space-4);
+}
+
+/* Same gap-within-but-not-between shape one row up: the template picker's
+   row has no margin of its own, and #entry-title's margin-bottom (from the
+   global input rule) only pushes the *textarea* below it away, not this row
+   above it. Reported live as the title touching the template row. */
+#capture > .row.space-between {
+  margin-bottom: var(--space-4);
 }
 
 .capture-field-row select,

@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import threading
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -105,24 +105,21 @@ def reset_graph_cache() -> None:
 deps.register_cache_reset(reset_graph_cache)
 
 
-# The inline markers the note editor supports, matched with their content so
-# stripping keeps the words. Mirrors the frontend's notePreviewText — these
-# labels are clipped to ~40 characters, and a clip that lands mid-`**` shows
-# scaffolding ("**Seraphine…") instead of the note.
-_INLINE_MD = re.compile(
-    r"\*\*([^*\n]{1,500})\*\*|\*([^*\n]{1,500})\*|__([^_\n]{1,500})__"
-    r"|_([^_\n]{1,500})_|~~([^~\n]{1,500})~~|`([^`\n]{1,500})`"
-)
 _HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
 
 
 def _preview(text: str, length: int = 40) -> str:
-    """One line of a note as plain words — markers stripped, not rendered."""
+    """One line of a note as plain words — markers stripped, not rendered.
+
+    Mirrors the frontend's notePreviewText: these labels are clipped to ~40
+    characters, and a clip that lands mid-`**` shows scaffolding
+    ("**Seraphine…") instead of the note. Inline marker stripping is
+    `manager.strip_inline_markdown` — heading/wiki-link handling stays here
+    since those are specific to what a graph label is for.
+    """
     text = _HEADING_MD.sub("", text)
     text = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", text)
-    text = _INLINE_MD.sub(
-        lambda m: next(g for g in m.groups() if g is not None), text
-    )
+    text = manager.strip_inline_markdown(text)
     text = " ".join(text.split())
     return text if len(text) <= length else text[: length - 1] + "…"
 
@@ -181,6 +178,7 @@ def _centrality(session: Session, index: paths.Connections, similarity: bool) ->
 def graph(
     similarity: bool = False,
     include_entities: bool = False,
+    include_documents: bool = False,
     session: Session = Depends(get_session),
 ) -> dict:
     entries = list(
@@ -312,12 +310,71 @@ def graph(
                         }
                     )
 
+    # Tier 2 item 16: "documents in the graph" — off by default, same reason
+    # and same shape as include_entities just above (a document id is
+    # prefixed so it can never collide with an Entry id, and every existing
+    # consumer of this endpoint that assumes every node id is an Entry id
+    # keeps working unasked). Edges come from DocumentLink, the many-to-many
+    # note-document attachment table (§43/routes_documents.py) — a document
+    # already has a real connection to the notes it draws on; this is that
+    # relationship rendered, not a new one invented for the graph.
+    #
+    # Deliberately not wired into centrality, similarity, or the trace-path
+    # BFS (paths.build/_centrality) this pass — both are built entirely
+    # around Entry, and extending either to a second node type is a
+    # materially bigger, separate change from making a document visible and
+    # connected in the first place.
+    if include_documents:
+        from memorymap.core.database import Document, DocumentLink
+
+        doc_links = list(
+            session.execute(
+                select(DocumentLink.document_id, DocumentLink.entry_id).where(
+                    DocumentLink.entry_id.in_(node_ids)
+                )
+            )
+        )
+        document_ids = {link.document_id for link in doc_links}
+        if document_ids:
+            documents = {
+                d.id: d
+                for d in session.scalars(
+                    select(Document).where(Document.id.in_(document_ids))
+                )
+            }
+            for document_id, document in documents.items():
+                nodes.append(
+                    {
+                        "id": f"document:{document_id}",
+                        "type": "document",
+                        "preview": document.title,
+                        "category": "Document",
+                        "created_at": document.created_at.isoformat(),
+                    }
+                )
+            for link in doc_links:
+                if link.document_id in documents:
+                    edges.append(
+                        {
+                            "source": f"document:{link.document_id}",
+                            "target": link.entry_id,
+                            "kind": "document",
+                        }
+                    )
+
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
 @router.get("/graph/local/{entry_id}")
 def graph_local(
-    entry_id: int, 
-    depth: int = 2, 
+    entry_id: int,
+    # Unbounded before this: `?depth=999999999` ran the BFS loop below that
+    # many times on a bare Python range() — no per-note work once the
+    # frontier empties, but the loop itself still costs real wall-clock time
+    # per iteration, and this server is single-worker (deps.py), so it stalls
+    # every other request for however long that takes. 6 hops covers any
+    # notebook a "local neighbourhood" view is meant for; Focus Mode never
+    # asks for more than 2-3 today.
+    depth: int = Query(default=2, ge=1, le=6),
     similarity: bool = False,
     session: Session = Depends(get_session)
 ) -> dict:
@@ -360,7 +417,9 @@ def graph_local(
                     visited.add(neighbor)
                     next_queue.append(neighbor)
         queue = next_queue
-        
+        if not queue:
+            break  # nothing left to expand — further iterations would be no-ops
+
     category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
     nodes = [
         {

@@ -156,8 +156,15 @@ EXTRAS: tuple[Extra, ...] = (
         id="desktop",
         label="Desktop window (pywebview)",
         enables="Runs MemoryMap in its own app window instead of a browser tab "
-        "— `python -m memorymap --desktop`.",
-        packages=("pywebview",),
+        "— `python -m memorymap --desktop`. Also adds a system tray icon "
+        "(Open / View Logs / Restart / Quit) so closing the window minimizes "
+        "it instead of ending the app.",
+        # pystray + Pillow are the tray icon; bundled with the same button
+        # because a desktop window with no tray is the "always-open terminal"
+        # complaint this was built to fix (see __main__._start_tray). Neither
+        # blocks the window if missing — `_start_tray` just returns None and
+        # the window closes for real, same as before the tray existed.
+        packages=("pywebview", "pystray", "Pillow"),
         module="webview",
         size="~5 MB",
     ),

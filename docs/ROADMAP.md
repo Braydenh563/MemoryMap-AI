@@ -422,12 +422,20 @@ fresh session should pick them up:
    already running). Still not live-verified with a real microphone in this
    sandbox — this is the second time a sandbox-unreachable class of bug has
    shipped from sound reasoning alone; see CLAUDE.md's standing caveat.
-5. **The graph tab's traced-path text visualisation at the top of the canvas
-   needs a redesign** — asked for directly ("the text ui visualisation of the
-   trace path... needs improving and potential redesign"), not scoped. See
-   the `.graph-traced-path`/§9 block a little further down this file for
-   where it's built; no specific direction was given, so a fresh session
-   should look at what it currently renders before proposing a shape.
+5. ~~**The graph tab's traced-path text visualisation at the top of the
+   canvas needs a redesign**~~ **Done, and re-done.** First pass put one
+   row per note plus one row per connector, stacked vertically — shipped
+   without a live check, and reported back immediately as "crushes the
+   graph, takes up most of the page" (correctly: a 5-hop path was ~10 rows
+   tall, in a box sitting in normal flow directly above the canvas). Second
+   pass, **live-verified with Playwright this time**: a horizontal,
+   wrapping row of pill chips (`.graph-trace-note`, same materials as the
+   app's existing `.chip`) joined by a small arrow + reason connector, and
+   `.graph-trace-path` capped at `max-height: 5.5rem` with internal scroll
+   as a hard floor so no path length can repeat the mistake. Measured live:
+   a real 5-hop chain rendered as a ~125px header+chips block (was
+   uncapped before), canvas stayed clearly visible with room to spare —
+   screenshot confirms it, not just the measurement.
 6. ~~Recent searches / search history / past results in the Ask tab~~ **Done
    — built as a browsable history, not a dropdown.** Clarified directly
    mid-build: *"I want the ask feature to be basically a personal notes
@@ -457,17 +465,21 @@ fresh session should pick them up:
    yet investigated this session — the `logging`-routing fix landed but
    nobody has since captured the real Settings → Logs output for a live
    failure to confirm it works. Start there before changing anything else.
-9. **Asked for directly: extras install/reinstall/remove, embedding-model
+9. ~~**Asked for directly: extras install/reinstall/remove, embedding-model
    downloads, AI-model downloads, and the `start.bat`/`start.sh` launch
-   scripts should all retry and fall back automatically on failure**,
-   rather than surfacing a bare pip/download error. Not scoped. Needs a
-   design pass before building: what counts as a retryable failure
-   (network blip) vs. one that needs a different approach entirely (wrong
-   platform wheel, disk full) vs. one that just needs to be reported
-   clearly (bad credentials, no internet at all) — a retry loop around the
-   wrong failure mode wastes the user's time and bandwidth instead of
-   saving it. Should share findings with item 8 above rather than being
-   built separately from it.
+   scripts should all retry and fall back automatically on failure**~~
+   **Partly done (HISTORY.md §68).** The design pass this item called for
+   turned out already built: `is_network_error()` (a prior session)
+   already classifies network-blip vs. real-error vs. report-clearly, it
+   just wasn't being retried on. `start.sh`'s pip-install pipeline now
+   retries a network-shaped failure automatically (3 attempts, 5s/10s
+   backoff), anything else falls straight through unchanged. **Not done,
+   on purpose:** `start.bat`'s equivalent (needs a `goto`-based retry
+   reaching across an existing parenthesized block, in a file whose own
+   header documents a past cmd.exe parsing incident of exactly that
+   shape — no cmd.exe in any sandbox so far to verify a control-flow
+   change against) and the embedding-model/Ollama-model downloads
+   (background-threaded jobs, a materially bigger separate change).
 10. **Timeline tab's "line/branch" view — asked for a redesign, "more
     professional" look.** Not scoped, not started. Built around
     `app.js:14517`'s "Timeline: the branch/line view" section; queue after
@@ -522,18 +534,13 @@ fresh session should pick them up:
     this 401 fix as unmerged/missing. That was a false alarm caused by its
     stale starting point — `8b9b7f6` has been an ancestor of this branch's
     `HEAD` since it landed; nothing to redo here.)
-14. **A proper generating/loading spinner, themed to the app** — asked for
-    directly. There is no single spinner component today: `grep spinner
-    frontend/app.js` turns up ad hoc "spinner chip" markup at a few call
-    sites (re-evaluate, per-card AI work) rather than one reusable piece, and
-    line 16012's own comment records a deliberate earlier choice of "…" over
-    a spinner for the web-panel connecting state specifically because "a
-    frozen spinner under `prefers-reduced-motion` looks like a hang" — any
-    new component has to keep that reduced-motion fallback, not regress it.
-    Not scoped further: should read `--accent` (so it matches the user's
-    chosen theme/palette, not a hardcoded colour) and reuse the
-    `--motion-*` scale item 12 added, but the actual mark (ring, dots,
-    bars) is a design call for whoever builds it.
+14. ~~**A proper generating/loading spinner, themed to the app**~~ **Done
+    (HISTORY.md §68).** `.spinner` (CSS) + `spinnerEl()` (app.js, beside
+    `chip()`): reads `--accent`, sized in em, and swaps to a static "…"
+    with no animation and no border under `prefers-reduced-motion` rather
+    than freezing mid-spin. The one existing ad hoc user (the note
+    re-evaluate busy chip) was migrated onto it rather than left as a
+    second, still-unguarded ring definition beside the new correct one.
 
 ## #0 priority — codebase quality review, still-open items
 
@@ -760,7 +767,14 @@ into a good one.
     re-verified with a fresh screenshot** (token budget); worth a check
     first thing next session if this recurs. Category labels also got a
     distinct colour (`fill: var(--accent)`), asked for directly.
-16. **Documents in the graph.** They are notes' equal everywhere else.
+16. ~~**Documents in the graph.** They are notes' equal everywhere else.~~
+    **Done (HISTORY.md §70).** An `include_documents` opt-in flag on `GET
+    /graph`, same shape as `include_entities` above it: prefixed node ids
+    (`document:N`), edges from the existing `DocumentLink` table, view-only
+    (no trace-path/centrality/similarity integration this pass — a bigger,
+    separate change). Live-verified with Playwright: a note linked to a
+    document renders a connected, distinctly-ringed node when the
+    "Documents" checkbox is on, and none when it's off.
 16a. ~~**The document editor's sidebar, reported directly with
     screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The
     sticky/floating half was stale-by-report, already done. The
@@ -768,9 +782,16 @@ into a good one.
     itself from shrinking while the outline above had no floor) and fixed.
 16b. ~~**The document editor's bold/italic don't toggle off.**~~ **Fixed
     and verified live (HISTORY.md §51).** `wrapDocSelection` now detects
-    and strips existing markers instead of only ever wrapping. **Still
-    open**: "a bunch of missing features... could be improved a lot more"
-    was named but not itemised — needs a concrete list before more work.
+    and strips existing markers instead of only ever wrapping. The
+    "improve and expand" ask was never itemised — checked what already
+    existed first (word count, reading time, a word-count goal, an
+    outline sidebar, notes-it-draws-on, AI edit, extract-to-notes, .md/PDF
+    export were all already built) rather than guessing broadly. **Find
+    and replace, concretely missing and now built and live-verified
+    (HISTORY.md §73)** — the browser's own Ctrl+F can't reach a
+    textarea's content at all, so there was no way to find a word again
+    in a long document short of scrolling and reading. The rest of "could
+    be improved a lot more" is still unitemised.
 16c. ~~**Images and files still can't be copied, pasted, or dragged into
     notes.**~~ **Two of three already worked — checked live before
     building anything (HISTORY.md §51).** The third path — a file-picker
@@ -903,12 +924,23 @@ into a good one.
 
 Worth doing, and worth doing after the above.
 
-20. **Files and images on notes, and standalone in the Library.** The plumbing
-    exists (`/media`, attachments); an images-only Library gallery now exists
-    (20a, HISTORY.md §61). **Still not built:** a gallery over *note
-    attachments* specifically (files attached to a note but not images —
-    asked for directly this session as "separate from the whiteboard gallery
-    I just built"), and drag-to-attach.
+20. ~~**Files and images on notes, and standalone in the Library.**~~ **Done,
+    and a stale claim in this item corrected (HISTORY.md §69).** The "still
+    not built" gallery over note attachments specifically was checked
+    against the actual code before believing it — it already existed
+    (the Library's own "Files" filter, `app.js:16985`, download + delete)
+    — this item's own text just hadn't been updated to say so, the exact
+    trap CLAUDE.md warns about. What was genuinely missing — asked for
+    directly — was uploading an image/PDF straight into the Library
+    without a note first, and attaching an already-uploaded one to a note
+    afterward: an Upload button on the Image Gallery (`POST /media/upload`,
+    no note involved), and a new "Attach from Library" note action
+    alongside the existing "Attach a file" (which only ever uploads fresh
+    from disk) — a picker over `GET /media` that inserts the chosen
+    image/PDF's markdown reference into the note's content. General file
+    attachments (docs, audio — the `Attachment` model) have no "floating,
+    not yet attached to anything" state the way `MediaUpload` does, so
+    that half stays exactly as it already worked: through the note first.
 20a. ~~**A Library "Media/Images" gallery tab, and garbage-collecting
     orphaned `/media/` files.**~~ **Done.** `core/media_gc.py` reconciles
     every `MediaUpload` against live references in note content (through
@@ -924,8 +956,12 @@ Worth doing, and worth doing after the above.
 20b. ~~**An "Agent Activity" background-task popup cleanup pass.**~~ **Done
     (HISTORY.md §61).** `.agent-monitor` shared `right: 20px` with several
     whiteboard floating panels; moved to `left: 20px`.
-21. **A persona on the welcome messages.** Small, and it makes the app feel
-    like one thing rather than a chat bolted to a notebook.
+21. ~~**A persona on the welcome messages.**~~ **Done, and extended live
+    (HISTORY.md §68).** The Chat tab's empty-state greeting now names the
+    active persona ("Chat with your Coach"), matching the dashboard
+    greeting and AI replies, which already did. Extended live into a
+    second, independent `dashboard_persona` preference (empty = "same as
+    Chat"), with its own picker in Settings → Personas.
 22. **Meeting recordings as first-class objects**: pause/resume, replay, save
     as a voice note, transcribe in the background. Blocked on Tier 1 item 1.
 23. **Notification expansion**: reminders, and opt-in AI nudges from the
@@ -936,23 +972,26 @@ Worth doing, and worth doing after the above.
     half (skins, minimap, PNG export) is the smaller contained piece if a
     session wants a quicker win. Asked for by name as "an Obsidian-style
     knowledge graph": Obsidian's is a force layout, which this app already
-    has — the gap reported is closer to *interaction* (smooth pan/zoom feel,
-    node-drag responsiveness, a cleaner minimal aesthetic at rest) than a
-    new layout algorithm. Worth reproducing what specifically feels
-    different — screenshot the two side by side — before assuming it's this
-    item rather than a tuning pass on the existing force simulation.
+    has. ~~The interaction half — smooth pan/zoom feel, node-drag
+    responsiveness, a cleaner minimal aesthetic at rest — done this
+    session (HISTORY.md §71): a tuning pass on the existing force
+    simulation, not a new layout algorithm, per this item's own note that a
+    new algorithm probably wasn't the actual gap.~~ **New layouts
+    themselves are still open** — nothing above touched that part.
 25. ~~**Mind-mapping — decided: a whiteboard mode, not a third tab.**~~
     **Done, verified live (HISTORY.md §57).**
-26. **Widgets: a picker**, and more of them. Customisable sidebars, and note
-    view options in the Notes tab. Asked for directly as "a widget management
-    hub popup on the dashboard, like a widget marketplace" — the foundation
-    is already substantial and worth knowing about before rebuilding it:
-    `DASH_WIDGETS` in app.js already registers 17 widgets, `dashboard_layout`
-    (order/hidden/wide) is a real preference, and Edit layout mode already
-    supports add/remove/reorder/wide-toggle inline on the dashboard. What's
-    actually missing is a *dedicated surface* — a button opening a proper
-    modal/picker rather than an inline edit mode — and more widgets to fill
-    it. A UI-surface change on an existing data model, not new plumbing.
+26. ~~**Widgets: a picker.**~~ **Already done and live-verified this
+    session (checked before building, not after) — the `dash-widgets-dialog`
+    modal (index.html), its own comment already citing "roadmap §26", was
+    merged in from elsewhere and was never re-checked against this item.**
+    Playwright: clicking "Widgets" opens the dialog with all 17
+    `DASH_WIDGETS` rows, the search box filters them, a row's Add/Remove
+    button flips the widget on the dashboard in real time (confirmed the
+    grid actually lost the card, not just the row's own label), and "Done"
+    closes it. Zero console errors. Still open, and genuinely unscoped:
+    **more widgets to fill the picker** — customisable sidebars, and note
+    view options in the Notes tab were the other two asks bundled into this
+    item and neither has a concrete list yet.
 27. **llama.cpp, actually wired in.** A new `ai/provider.py` entry alongside
     Ollama/OpenAI-compatible, a GGUF file picker (files on disk, not a
     registry to pull from), and `core/extras.py`'s `unavailable` string
@@ -969,24 +1008,26 @@ Worth doing, and worth doing after the above.
     blocking them, and not duplicated by anything above. Ranked by impact
     versus how contained the change is, highest first. **MCP support**
     (BACKLOG §29, ANALYSIS §60) is no longer in this list — see item 38.
-    30a. **Note-list keyboard navigation** (BACKLOG §16). Arrow keys move
-        through the list, Enter opens the focused note. Named directly as
-        "the one interaction pattern used constantly enough that its absence
-        would be felt every session, not just noticed in an audit" — the
-        highest-frequency gap on this list, and self-contained: one list
-        component, no schema change.
+    30a. ~~**Note-list keyboard navigation**~~ **Done (HISTORY.md §68).** A
+        roving tabindex through `#entry-list` — arrows move focus, Enter
+        opens the focused note the same way its Edit button does.
+        Live-verified: Tab into the list, ArrowDown moves the tab stop,
+        Enter opens edit mode.
     30b. **Archive** (BACKLOG §4 item 3, elaborated in §26). One `archived_at`
         column each on notes, chats and documents (additive migration), a
         state between "active" and "binned" for things kept but out of the
         way. Already fully scoped; §26 lists three things that build on it
         afterwards (a "delete everything" control, one assembled "your data"
         page, opt-in auto-archive-by-age) but none of those block this one.
-    30c. **Chat metadata not surviving a reload** (BACKLOG §22). Distinct
-        from the already-fixed "no metadata when tools were used" bug — this
-        is the meta line vanishing on reopen, not on first render. Worth
-        checking whether `conversations.steps` (what a reopened chat
-        replays, ARCHITECTURE.md §8) carries the metadata at all before
-        assuming the fix is in the replay path rather than the write path.
+    30c. ~~**Chat metadata not surviving a reload**~~ **Checked before
+        building, found already fixed (HISTORY.md §70).** `_turn_messages`
+        (routes_conversations.py) persists `stats`/`elapsed_ms` on the
+        assistant message, and `openConversation`'s replay
+        (`if (message.stats) messageMetaLine(...)`) already renders them —
+        both already covered by `tests/test_chat_metadata.py`. Re-verified
+        live: single-turn, multi-turn, and a turn with tool chips all show
+        the correct meta line after a real reload. Whatever prompted this
+        item is either already resolved or a different, unreported bug.
     30d. **OCR text extraction on an uploaded image** (BACKLOG §4 item 1).
         A whiteboard photo or a scanned page attaches today as an opaque
         file nothing reads. Local `pytesseract` (no torch, no cloud call) at
@@ -994,29 +1035,37 @@ Worth doing, and worth doing after the above.
         that whiteboard photo from March" answerable. A new pipeline stage
         (extract → index), not a wider drop-handler — the drop-handler side
         of file uploads is already done.
-    30e. **Undo toasts for soft-deletes, in place of confirm dialogs**
-        (BACKLOG §16). A "Deleted — Undo" toast instead of an interrupting
-        confirm dialog, for the delete paths that are already soft (bin,
-        not gone) — reads as more trustworthy than a dialog and is less
-        friction on the common case.
-    30f. **README and GitHub Pages drift** (BACKLOG §22). Doc-only, cheapest
-        item here: the README's own tab table and "Next up" list are stale
-        (both name pre-rebuild systems as still open). Worth doing in the
-        same sitting as any other roadmap-accuracy pass, since it's the same
-        failure this document itself warns about — a description of the app
-        that only some of the description-holders get updated.
+    30e. ~~**Undo toasts for soft-deletes, in place of confirm dialogs**~~
+        **Done (HISTORY.md §68).** `batchDelete()` already built the undo
+        toast under a real soft delete and *also* gated it behind a
+        confirm — removed the confirm, matching the single-note "Move to
+        bin" action, which already had none.
+    30f. ~~**README and GitHub Pages drift**~~ **Done (HISTORY.md §68).**
+        Both had settled into naming pre-rebuild systems as current — README
+        pointed at "Settings → Activity"/"Settings → Optional extras" (moved
+        to the Library / renamed "Packages"); the Pages site claimed "Six
+        tabs" and still listed a standalone Documents tab. Fixed both.
     30g. **A per-chat token meter, and an eval harness** — kept as a pointer
         only, not scoped further here; see BACKLOG.md directly for both.
 31. **Expand the autonomous background agent's capabilities.** Asked for
     directly, without a specific gap named — today it does three things
     (`_enabled_tasks` in `ai/autonomous.py`): tag untagged notes, link
-    conceptually related ones, flag duplicates. Candidates worth scoping
-    before picking one: acting on stale/orphaned notes (nothing currently
-    reviews a note nobody has touched in months), running the digest or
-    on-this-day surfacing proactively rather than only on request, or
-    letting a saved skill run on the same schedule instead of only the three
-    fixed tasks. Needs a real "which of these, and why" before building —
-    "expand the capabilities" alone isn't a spec.
+    conceptually related ones, flag duplicates. ~~Candidates worth scoping
+    before picking one: acting on stale/orphaned notes~~ — **chosen and
+    built this session (HISTORY.md §72)**: `entry/staleness.py`'s
+    `find_stale_orphaned_notes()`, a new deterministic pass in
+    `_run_optimization()` behind its own `auto_stale_review_enabled`
+    preference (off by default, like entities), tags a qualifying note
+    `stale` rather than acting on it further — nobody's watching an
+    unattended pass, so the same caution `blocked_tools` already applies
+    to `delete_note` applies here too. **Covered by 11 new tests
+    (pytest), not yet checked live in a browser** — the toggle and its
+    Settings checkbox exist but a real end-to-end run (enable the
+    preference, trigger a pass, see the tag land in the Library/note
+    editor) wasn't driven through Playwright this session; worth doing
+    first thing next time this area is touched. The other two candidates
+    — proactive digest/on-this-day surfacing, and letting a saved skill run
+    on the same schedule — are still open.
 32. ~~**Keyword search has no IDF weighting and can't use an index.**~~
     **Done.** An external-content FTS5 table (`entries_fts`) replaced the
     leading-wildcard `ILIKE` scan, ranked by `bm25()`. See HISTORY.md/the

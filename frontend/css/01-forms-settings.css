@@ -697,6 +697,14 @@ progress {
   margin-bottom: 0.6rem;
 }
 
+/* Roving-tabindex keyboard nav (app.js's applyEntryListTabOrder /
+   initEntryListKeyboardNav) — arrow keys move this outline between notes,
+   Enter opens the focused one. */
+.entry-list li:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* A note's own leading `# Heading`, shown as what it is rather than as the
    first line of plain body text (asked for directly). `--text-lg`, not a
    card's own `--text-body` h2 — this sits inside a list row, not a panel. */
@@ -814,28 +822,56 @@ progress {
   white-space: nowrap;
 }
 
-/* A note the AI is working on right now (e.g. re-evaluating). */
+/* A note the AI is working on right now (e.g. re-evaluating). The ring
+   itself is .spinner below, appended by app.js (spinnerEl()) rather than
+   built here as its own ::before — one ring definition, not two, and it
+   means this chip picks up .spinner's reduced-motion fallback for free
+   instead of needing its own. */
 .chip.chip-busy {
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.chip.chip-busy::before {
-  content: "";
-  display: inline-block;
-  width: 0.6em;
-  height: 0.6em;
-  margin-right: 0.35em;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  vertical-align: -0.05em;
-  animation: chip-spin 0.7s linear infinite;
-}
-
 @keyframes chip-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* A reusable, generic loading mark (ROADMAP Priority 0 #14) — asked for
+   directly; before this every call site (re-evaluate above, and any future
+   one) built its own one-off spinner by hand, and the one that existed had
+   no prefers-reduced-motion fallback at all. Standalone so any call site
+   can drop one in without needing chip markup around it. Reads --accent so
+   it matches the user's chosen theme, and sized in em so it scales with
+   whatever text it sits beside rather than needing size modifier classes.
+   See spinnerEl() in app.js for the element itself. */
+.spinner {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  color: var(--accent);
+  vertical-align: -0.15em;
+  animation: chip-spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* A frozen ring reads as a rendering fault, not "loading" — the same trap
+     AI_STATUS_GLYPH's own comment names ("a spinner has to be animated to
+     read as one"). Swap the ring for a perfectly still ellipsis instead of
+     leaving a stuck circle on screen. */
+  .spinner {
+    width: auto;
+    height: auto;
+    border: none;
+    animation: none;
+  }
+
+  .spinner::before {
+    content: "…";
   }
 }
 

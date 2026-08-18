@@ -1302,11 +1302,15 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-card-title {
   /* Two lines, then ellipsis. One line loses too many document titles; three
      makes the cards ragged, and a grid whose rows are different heights is the
-     thing that reads as unconsidered. */
+     thing that reads as unconsidered. text-overflow is set explicitly to
+     match every other truncated element in this app, even though Chromium's
+     -webkit-line-clamp already ellipsizes without it — reported live as
+     missing, not reproduced here, cheap enough to harden regardless. */
   font-size: var(--text-body);
   font-weight: 650;
   min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -1319,6 +1323,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-md);
   line-height: 1.45;
   overflow: hidden;
+  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   line-clamp: 3;
@@ -1547,7 +1552,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-list .library-card-preview {
   flex: 1 1 40%;
+  /* -webkit-line-clamp, not just the unprefixed property: a note's own
+     preview (.library-note .library-card-preview, same specificity, tied
+     on source order for the property this rule forgot) clamps to 8 lines
+     for grid view, and Chromium honours the -webkit- prefixed property,
+     not the unprefixed one this rule set alone. Left unset, a note's
+     preview kept trying to grow to 8 lines' worth of content in list
+     view too, which is what threw its row out of alignment with every
+     other kind's single-line row. */
   line-clamp: 1;
+  -webkit-line-clamp: 1;
   margin: 0;
 }
 
@@ -1600,6 +1614,14 @@ header#top-bar.tabs-wrapped #tab-bar {
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--card);
+  /* `--card` is a translucent glass fill, meant to always be paired with the
+     blur that makes it read as frosted glass rather than a smudge — every
+     other `.card` in the app carries both together. This tile had the fill
+     without the blur, so whatever sat behind it (the page's own background
+     blobs) showed through as an odd, uncontrolled tint. Reported live as a
+     "weird coloured background behind the images". */
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 
 /* Had no styling at all before — a plain inline button between the image
@@ -1638,12 +1660,58 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 1;
 }
 
+/* A device with no hover has no way to trigger the reveal above at all —
+   touch is binary (tap = click), it never sends the hover a mouse would.
+   Left at opacity:0 there, rename/delete were unreachable except by
+   tabbing to them with a keyboard, which is exactly what got reported as
+   "broken" rather than "hidden". Always visible where hovering isn't a
+   thing; unchanged, hover-revealed behaviour everywhere a mouse is. */
+@media (hover: none) {
+  .library-image-tile .library-image-edit,
+  .library-image-tile .library-image-delete {
+    opacity: 1;
+  }
+}
+
 .library-image-tile img {
   display: block;
   width: 100%;
   height: 9rem;
   object-fit: cover;
   cursor: zoom-in;
+}
+
+/* The "Attach from Library" picker (app.js's attachFromLibrary) reuses this
+   same tile/grid shape rather than a third gallery layout — the button
+   itself just resets the browser's own button chrome so the image/icon
+   inside reads as a picked tile, not a control. */
+.library-attach-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: var(--space-2);
+}
+
+.library-attach-pick {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.library-attach-pick .ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 9rem;
+  font-size: 2.4rem;
+  color: var(--muted);
+  background: var(--inner);
 }
 
 /* The caption becomes the rename field in place, so the field has to occupy

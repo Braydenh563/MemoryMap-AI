@@ -68,6 +68,22 @@ def test_reminder_preview_does_not_leak_private_note_ciphertext(client):
     assert created["entry_preview"] == "Private note — unlock to read it."
 
 
+def test_a_reminder_cannot_be_set_in_the_past(client):
+    """A reminder due before now will never usefully fire — asked for
+    directly. Covers both create and edit, since a due date can slip into
+    the past through either."""
+    past = (utcnow() - timedelta(hours=1)).isoformat()
+    created = client.post("/reminders", json={"text": "too late", "due_at": past})
+    assert created.status_code == 422
+
+    future = (utcnow() + timedelta(hours=1)).isoformat()
+    reminder = client.post("/reminders", json={"text": "on time", "due_at": future}).json()
+    edited = client.put(f"/reminders/{reminder['id']}", json={"due_at": past})
+    assert edited.status_code == 422
+    # The reminder itself must be untouched by the rejected edit.
+    assert client.get("/reminders").json()[0]["due_at"] == reminder["due_at"]
+
+
 def test_reminder_for_missing_entry_404s(client):
     due = (utcnow() + timedelta(hours=1)).isoformat()
     response = client.post("/reminders", json={"text": "x", "due_at": due, "entry_id": 99})

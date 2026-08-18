@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
@@ -134,6 +134,10 @@ class PreferencesBody(BaseModel):
     # Personas: custom system prompts + which one is active.
     personas: list[PersonaItem] | None = Field(default=None, max_length=20)
     active_persona: str | None = Field(default=None, max_length=40)
+    # Independent override for just the dashboard greeting — empty clears it
+    # back to "same as active_persona", the same clear-with-empty-string
+    # convention display_name above already uses.
+    dashboard_persona: str | None = Field(default=None, max_length=40)
     # Saved appearance looks. Server-side rather than in the browser because a
     # theme someone built by hand is a thing they would be upset to lose to a
     # cleared cache — and here it rides along in the daily backup too.
@@ -151,6 +155,8 @@ class PreferencesBody(BaseModel):
     tool_focus: Literal["auto", "all"] | None = None
     # The ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
+    # The other opt-in network call (Settings -> About) — see core.config.
+    update_check_enabled: bool | None = None
     searxng_autostart: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
@@ -271,6 +277,7 @@ def get_preferences() -> dict:
         "personas": config.get_preference("personas", []),
         "custom_themes": config.get_preference("custom_themes", []),
         "active_persona": config.get_preference("active_persona", "Librarian"),
+        "dashboard_persona": config.get_preference("dashboard_persona", ""),
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}
         ),
@@ -279,6 +286,7 @@ def get_preferences() -> dict:
         "local_only_ai": config.get_preference("local_only_ai", True),
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
+        "update_check_enabled": config.get_preference("update_check_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
         "search_provider": websearch.normalise_provider(
@@ -589,10 +597,13 @@ def forget_memory(preference_id: int, session: Session = Depends(get_session)) -
 
 
 @router.get("/audit")
-def audit_log(limit: int = 100, session: Session = Depends(get_session)) -> list[dict]:
+def audit_log(
+    limit: int = Query(default=100, ge=1, le=500),
+    session: Session = Depends(get_session),
+) -> list[dict]:
     """The activity log, newest first (viewer in the UI)."""
     rows = session.scalars(
-        select(AuditLog).order_by(AuditLog.id.desc()).limit(min(limit, 500))
+        select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
     )
     return [
         {
@@ -708,19 +719,21 @@ def remove_embedding_model(model_id: str) -> dict:
 
 
 @router.get("/logs")
-def server_logs(limit: int = 200) -> list[dict]:
+def server_logs(limit: int = Query(default=200, ge=1, le=logbuffer.MAX_RECORDS)) -> list[dict]:
     """Recent server-side log records for the Settings → Logs viewer."""
-    return logbuffer.recent(limit=min(limit, logbuffer.MAX_RECORDS))
+    return logbuffer.recent(limit=limit)
 
 
 @router.get("/logs/stats")
-def server_log_stats(limit: int = 200) -> dict:
+def server_log_stats(
+    limit: int = Query(default=200, ge=1, le=logbuffer.MAX_RECORDS),
+) -> dict:
     """How complete the log above actually is.
 
     A separate call rather than a wrapper around the records, so the shape of
     /logs stays a plain list for everything already reading it.
     """
-    return logbuffer.stats(limit=min(limit, logbuffer.MAX_RECORDS))
+    return logbuffer.stats(limit=limit)
 
 
 @router.delete("/logs")
@@ -1099,6 +1112,13 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
 
 
 MAX_IMPORT_BYTES = 1024 * 1024  # a single markdown note, not a novel
+#: `import_markdown` below had a per-file size cap but no cap on how many
+#: files one request could carry — each one does its own `create_entry` +
+#: `session.commit()`, so a request with an unbounded file count ran
+#: unbounded work. Same instinct as `MAX_DOCUMENT_IMPORT_NOTES` just below:
+#: a real "import my Obsidian vault" drag-and-drop is at most a few hundred
+#: files, so this is generous headroom, not a real-world ceiling.
+MAX_IMPORT_FILES = 500
 
 
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
@@ -1129,6 +1149,12 @@ def import_markdown(
 ) -> dict:
     """Turn uploaded .md files into notes (Obsidian-friendly: the same
     frontmatter the export writes is understood on the way back in)."""
+    if len(files) > MAX_IMPORT_FILES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{len(files)} files at once is more than one import handles "
+            f"({MAX_IMPORT_FILES} max) — split it into smaller batches.",
+        )
     imported = 0
     skipped: list[str] = []
     for file in files:

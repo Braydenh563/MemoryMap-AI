@@ -167,6 +167,31 @@ def test_semantic_search_returns_its_matches_in_rank_order(ai_client, session):
     assert [row["id"] for row in response.json()] == expected
 
 
+def test_semantic_search_ignores_the_pagination_limit(ai_client, session):
+    """GET /entries now pages the plain list (BACKLOG.md §20). The semantic
+    branch decides which hits are in scope from the *complete* id set on
+    purpose — it must never be quietly narrowed by a small `limit` meant for
+    the unrelated plain-list page size, or a real match could vanish just
+    because the note happened to sort past the requested page."""
+    for text_ in ("kayak repair", "sourdough starter", "kayak paddle"):
+        ai_client.post("/entries", json={"content": text_})
+
+    # A tiny plain-list page (limit=1) must not narrow the semantic result:
+    # it should match what a direct, unpaginated search returns, not one row.
+    expected = [
+        e.id
+        for e, _ in search_manager.semantic_search(
+            session, "kayak", deps.get_embeddings(), limit=25
+        )
+    ]
+    response = ai_client.get(
+        "/entries", params={"q": "kayak", "semantic": "true", "limit": 1}
+    )
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == expected
+    assert len(expected) > 1  # otherwise this test can't tell truncation from luck
+
+
 def test_a_cold_embedding_model_says_so_instead_of_dumping_the_notebook(client):
     """The failure was swallowed with a bare `except: pass`, which left the
     caller holding every note in the notebook labelled as a search result."""

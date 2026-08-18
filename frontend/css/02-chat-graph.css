@@ -260,7 +260,9 @@
 
 #reminder-presets {
   gap: 0.4rem;
-  margin: 0.1rem 0 0.25rem;
+  /* Was 0.1rem top — visually zero, so the quick-set row read as touching
+     the form above it. Reported live. */
+  margin: var(--space-5) 0 var(--space-4);
   flex-wrap: wrap;
 }
 
@@ -770,6 +772,16 @@
 
 .graph-fullscreen .graph-fullscreen-close {
   display: inline-flex;
+  /* Measured live: align-items/justify-content computed as "normal" here
+     (effectively stretch) rather than the centred icon+label every other
+     toolbar button gets from its own base rule — this selector re-declares
+     `display` alone, and whatever centres the others never carried over.
+     Reported live as the button's text not being centred; it also explains
+     the button's own odd extra height (a stretched flex item, not a
+     centred one). Declared explicitly rather than chasing why the base
+     rule stopped applying. */
+  align-items: center;
+  justify-content: center;
 }
 
 .graph-zoom {
@@ -1012,6 +1024,20 @@ button.ghost.danger {
 }
 
 .graph-node:has(.graph-node-entity) {
+  cursor: default;
+}
+
+/* A linked document (ROADMAP.md Tier 2 item 16) is view-only from here too,
+   same reasoning as the entity ring above, but a dotted ring rather than
+   dashed so the two non-note kinds don't read as the same thing next to
+   each other on the same canvas. */
+.graph-node .graph-core.graph-node-document {
+  stroke: var(--ink);
+  stroke-width: 2px;
+  stroke-dasharray: 1 3;
+}
+
+.graph-node:has(.graph-node-document) {
   cursor: default;
 }
 
@@ -2065,6 +2091,21 @@ html {
   cursor: default;
 }
 
+/* Stands in for the image when it fails to decode — a deleted underlying
+   file, most often — so paging to it shows a plain explanation instead of a
+   blank box with no feedback at all. */
+.lightbox-broken {
+  max-width: 60vw;
+  padding: var(--space-8);
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  cursor: default;
+}
+
+.lightbox-broken.hidden {
+  display: none;
+}
+
 /* Click-anywhere-to-close alone isn't discoverable — reported directly —
    so there's now an explicit close affordance too. Fixed to the viewport
    corner, not the image, so it's in the same place regardless of image size
@@ -2075,6 +2116,7 @@ html {
   right: var(--space-6);
   width: 2.5rem;
   height: 2.5rem;
+  padding: 0;
   border-radius: var(--radius-pill);
   border: none;
   background: rgba(255, 255, 255, 0.12);
@@ -2082,6 +2124,13 @@ html {
   font-size: var(--text-h2);
   line-height: 1;
   cursor: pointer;
+  /* Missing next to .lightbox-nav's own identical fixed-circle shape just
+     below, which already has this — the base `button` rule's
+     0.5rem 1rem padding (meant for a labelled button, not an icon-only
+     circle) pushed the × glyph off-centre inside the box instead of
+     letting the box's own size centre it. Reported live. */
+  display: grid;
+  place-items: center;
 }
 
 .lightbox-close:hover,

@@ -3820,3 +3820,480 @@ bars specifically by screenshot (their code path is identical to
 meeting-record's, confirmed by class/box-shadow/bar-count reads, but the
 visual render itself was only screenshotted for meeting-record, per this
 session's own token-efficiency instruction to use screenshots sparingly).
+
+## 68. §67's mic-bar meter turned out still invisible in practice, the back-to-top button's viewport-corner placement fixed for Library, six Tier-3-and-Priority-0 items closed, and two features asked for live (a dashboard-only persona, a Chat-tab SearXNG control)
+
+Started as three live reports against §67's own work — the mic-bar meter
+still wasn't visible, the Library back-to-top button sat in the browser's
+corner rather than the panel's — then extended into a deliberate pass
+through ROADMAP's Priority 0 and Tier 3 lists, picking items already
+concretely scoped over ones still needing a decision.
+
+**The mic-bar meter, actually visible this time (Priority 0 item 4,
+continued).** §67 fixed the ring being invisible and shipped a five-bar
+meter, live-verified with Playwright's fake audio device — and it was
+still reported live as not showing. Two compounding causes, found by
+re-reading the code rather than re-guessing: the resting floor was
+`scaleY(0.12)` on a 14px bar — under 2px tall, below what renders as
+anything at all rather than merely subtle — and the level average was
+taken across all 128 FFT bins, most of which are near-silent for a voice
+signal (speech energy sits under ~5.5kHz). Raised the floor to 0.3,
+restricted the average to the low quarter of bins, and replaced the
+linear level→scale map with a sqrt curve so ordinary speaking volume
+(which sits low in the raw 0-255 range) reads as visible movement instead
+of hugging the floor. **Not live-verified against real or fake audio this
+pass** — the DOM/class wiring and the resting-state math were re-checked,
+the actual rendered bar heights under real signal were not; said plainly
+rather than claimed.
+
+**The Library tab's back-to-top button, anchored to its content panel
+(reported live: "it's in the corner of the tab screen, not the content
+panel").** `.scroll-top` defaulted to `position: fixed` against the whole
+viewport on every tab; Chat already had its own relocation into
+`.chat-dock`. Library had no equivalent, so its button sat in the browser
+window's corner rather than the Library panel's own. `#tab-library` is
+now the positioning root (`position: relative`) and gets the same
+MutationObserver-driven relocation Chat already had. Live-verified: forced
+`.visible` and read `getBoundingClientRect()` — the button lands in
+`#tab-library`'s own bottom-right corner, clear of the status bar without
+the viewport-relative offset hack every other tab still needs.
+
+**Six ROADMAP items closed, each concretely scoped already (picked over
+items still needing a decision, per this file's own repeated lesson):**
+- **Tier 3 §30a, note-list keyboard navigation.** A roving tabindex
+  through `#entry-list`: arrows move focus, Enter opens the focused note
+  the same way its Edit button does (this app has no separate note-view
+  page). Re-applied on every `renderEntries()` call and tries to keep the
+  same note as the current tab stop across a re-render. Live-verified:
+  Tab into the list, ArrowDown moves focus and the tab stop to the second
+  note, Enter opens edit mode.
+- **Tier 3 §30e, undo toasts over confirm dialogs for soft deletes.**
+  `batchDelete()` already built a proper "Moved N to the recycle bin —
+  Undo" toast under a real soft delete, and *also* gated the same action
+  behind a `confirmDialog` first — redundant friction once Undo exists,
+  and inconsistent with the single-note "Move to bin" action right above
+  it, which already had no confirm at all (Wave J). Removed the confirm.
+  Every other `confirmDialog` delete path was checked against its backend
+  route before being left alone — documents, conversations, purge-from-
+  bin and reminders all call `session.delete()` with no restore endpoint,
+  so a confirm is the only safety net they have.
+- **Tier 3 §30f, README and GitHub Pages drift.** Both had settled into
+  naming pre-rebuild systems as current: README still pointed at
+  "Settings → Activity" (moved into the Library) and "Settings → Optional
+  extras" (the button is now labelled "Packages"); `docs/index.html` (the
+  Pages landing page) claimed "Six tabs" and still listed a standalone
+  Documents tab-pill/pane, which hasn't existed since the document editor
+  moved into the Library — replaced with Library and Timeline, both
+  missing entirely, and the Chat pane's stale "28 tools" corrected to
+  "nearly 50". Verified the pill/pane id sets match 1:1 (the JS switcher
+  is data-tab-driven, so a mismatch fails silently) and
+  `test_docs_layout.py` still passes.
+- **Priority 0 item 14, a reusable themed loading spinner.** No single
+  component existed — grep found only ad hoc spinner markup, and the one
+  real animation (the note re-evaluate busy chip's `::before` ring) had no
+  `prefers-reduced-motion` fallback at all, unlike `AI_STATUS_GLYPH`'s
+  deliberate "…" choice elsewhere for the same reason. New `.spinner`
+  class + `spinnerEl()` helper: reads `--accent`, sized in em, swaps to a
+  static "…" with the animation and border both removed under reduced
+  motion rather than freezing mid-spin. Migrated the one existing user
+  onto it instead of leaving two ring definitions side by side — one
+  correct, one still broken. Live-verified both states with Playwright,
+  the second via `emulateMedia({ reducedMotion: 'reduce' })`.
+- **Tier 3 §21, a persona on the welcome messages — then extended live.**
+  Asked for, then the ask grew live into "a dashboard-only persona,
+  separate from Chat/search's." Two pieces: the Chat tab's empty-state
+  title ("Chat with your notebook") never reflected which persona was
+  active, unlike the dashboard greeting and AI replies, which already did
+  — fixed, and the persona `<select>`'s change handler was found to PUT
+  the new `active_persona` to the server but never update the local
+  `prefsCache` copy `renderChatEmptyState()` (and the Notes quick-ask)
+  both read, so a switch silently went stale until a full reload. Then a
+  new, independent `dashboard_persona` preference (empty = "same as
+  active_persona", the same clear-with-empty-string convention
+  `display_name` already uses) read by `/insights/greeting` ahead of the
+  shared one, with its own picker in Settings → Personas. Two new backend
+  tests confirm the override wins when set and falls back correctly when
+  not; the actual AI wording couldn't be observed live (no Ollama in this
+  sandbox), so that rests on the tests plus the existing, identically-
+  shaped `active_persona` test this mirrors.
+- **Priority 0 item 9, retry/fallback — partial, said plainly.** The
+  taxonomy the item asked for (retryable network blip vs. a real error vs.
+  report-clearly) turned out to already exist: `is_network_error()` in
+  `start.sh`, added a prior session, already classified failures this way
+  — it just wasn't being retried on, only reported. Wrapped the existing,
+  already-tested pip-install pipeline in a bounded retry (3 attempts,
+  5s/10s backoff) gated on that same classifier. **Deliberately not done**:
+  `start.bat`'s equivalent (a `goto`-based retry loop reaching back across
+  an existing parenthesized `if/else` block, in a file whose own header
+  already documents a past incident with exactly that class of cmd.exe
+  parsing fragility — no cmd.exe in this sandbox to verify a control-flow
+  change against, and a wrong one risks breaking the Windows launch path
+  for everyone); and the embedding-model/Ollama-model downloads
+  (background-threaded jobs with their own progress-polling architecture,
+  a materially bigger and separate change).
+
+**Asked for live, built as a new small feature: a SearXNG start/stop
+control in the Chat tab's web panel.** Starting/stopping the managed
+local SearXNG instance only lived in Settings → Web search — three clicks
+and a tab-switch from where it matters. Under the default "auto"
+provider a stopped instance doesn't error, it silently falls back to
+DuckDuckGo, so there was no *feedforward* at all, only the after-the-fact
+"answered by DuckDuckGo" a finished search already carried. Placed as its
+own row directly under the panel header, above the search box — hidden
+entirely when it wouldn't control anything (a duckduckgo-only provider,
+or no backend to run an instance at all). Deliberately a compact
+"is it on, toggle it" rather than a rebuild of Settings' fuller
+management UI (install progress, port diagnostics, reinstall); reuses the
+same `/websearch/searxng/*` endpoints that page already polls.
+Live-verified: the strip shows the real backend-derived state, clicking
+it POSTs and transitions to "installing…" with the button disabled, and
+closing the panel actually stops the poll loop (0 status requests in the
+3.5s after close). The install's success path itself couldn't be
+observed (no Docker/internet in this sandbox); the request correctly
+failed with 503 and was caught without a page error.
+
+**Also asked for live: a real install walkthrough in the README, and a
+way to find the install again.** Quick start jumped straight to "run
+start.sh" and assumed the reader already had the repo cloned and a
+terminal open in the right folder. Added an explicit, numbered,
+copy-paste walkthrough (open a terminal per-OS, `git clone` or download-
+ZIP-and-cd for anyone without git, then run the launcher). `start.sh`/
+`start.bat` now also print the absolute install folder and the exact
+relaunch command on every successful start — `start.bat` uses `!CD!`
+rather than `%CD%` to match this file's own `!ESC!` delayed-expansion
+convention, since the line sits inside a parenthesized block where
+`%CD%` would resolve once at parse time instead of when it actually
+runs. `start.sh`'s new echo lines were run in isolation in a throwaway
+copy (not the real script, to avoid triggering a real torch install);
+`start.bat`'s paren count was checked unchanged before/after (46/47, this
+file's known pre-existing imbalance) since there is no cmd.exe here to
+run it against.
+
+**A short design-theory tangent, answered rather than built:** asked
+whether the loading spinner and mic-bar meter should be exempt from
+`prefers-reduced-motion` since a static version "wouldn't work" the same
+way. Answered no, and left as is: both already had the correct fallback
+(a static equivalent that still conveys state, not a frozen animation),
+which is the established, safer pattern than carving out an exception to
+an accessibility setting a user turned on for a real reason.
+
+**Not done, flagged rather than guessed at:** Priority 0 items 1
+(textarea resize — needs a headed/desktop browser this sandbox doesn't
+have), 5/10/11 (graph traced-path, Timeline line/branch, document editor
+— each explicitly unscoped in ROADMAP.md, no direction given), and 7/8
+(faster-whisper Windows install failure — needs real pip error text from
+an actual Windows run this sandbox cannot produce).
+
+## 69. Direct upload into the Library's image/PDF gallery, and "Attach from Library" for notes — item 20's own "still not built" claim checked and found already wrong before adding anything
+
+Asked live: "the ability to upload images files directly to the library
+with the ability to attach them to notes." ROADMAP item 20 read as if
+the note-attachments half of this were still missing — checked before
+building, per this file's own repeated lesson, and it was already there.
+
+**What was already done, found by grep before assuming otherwise.** The
+Library's "Files" filter (`app.js:16985`, `item.kind === "file"`) already
+lists every note `Attachment` — general files (docs, audio, anything not
+an image/PDF) attached to a note — across the whole notebook, with
+working Download and Delete. Item 20's text claiming this "still not
+built" was stale, not wrong about the feature — corrected in ROADMAP.md
+rather than rebuilt.
+
+**What was actually missing, confirmed by reading the two attachment
+systems' models.** `MediaUpload` (images/PDFs, `/media/upload`) and
+`Attachment` (any file, `/entries/{id}/files`) are architecturally
+different — a `MediaUpload` has no note relationship at all (it's
+referenced by URL from inside markdown content, which is what makes the
+Library gallery of them possible), while an `Attachment` always belongs
+to exactly one note from the moment it's created. That asymmetry is why
+only the image/PDF half could get an "upload once, attach anywhere"
+flow without inventing a new "unattached file" concept for the other:
+
+- **Upload button on the Library's Image Gallery** (`#library-images-
+  upload` + a hidden file input, `whiteboard.js`, beside the existing
+  Reload button). Loops selected files through the same `POST
+  /media/upload` the paste/drop path already uses, via a raw `fetch` with
+  an explicit header override (not `apiJson`, whose default
+  `Content-Type: application/json` fights a `FormData` body's own
+  multipart boundary — the same fix `attachFileTo`'s upload already
+  needed, applied here for the same reason).
+- **"Attach from Library"**, a new note action beside the existing
+  "Attach a file" (which only ever opens a fresh disk picker).
+  `attachFromLibrary()` (app.js) fetches `GET /media`, opens a picker
+  modal (built the same way `confirmDialog` builds its own — dynamically,
+  not static markup — Escape and backdrop-click both close it, verified),
+  and on a pick inserts the chosen file's markdown reference
+  (`![name](url)` for an image, `[name](url)` for a PDF, by extension)
+  into the note's content via the ordinary entry `PUT`.
+
+Live-verified end to end: uploaded a real PNG through the new button,
+confirmed it rendered as a gallery tile; opened the picker on a real
+note, confirmed one tile with the uploaded file; clicked it and confirmed
+the note's `content` gained the correct markdown line and the picker
+closed itself; separately confirmed both Escape and a backdrop click
+close the picker without attaching anything. `test_style_scale.py`,
+`test_frontend_ids.py` and `test_frontend_handlers.py` all still pass.
+
+## 70. Documents in the graph (ROADMAP.md item 16), and a "never wired" bug caught by live testing before it shipped
+
+Followed the existing `include_entities` opt-in exactly — same reasoning,
+same shape, one flag prior in the same route:
+
+- `GET /graph?include_documents=true` (`routes_graph.py`): queries
+  `DocumentLink` for the current node set, adds one node per linked
+  `Document` (`id: "document:N"`, `type: "document"`, `category:
+  "Document"`) and one `kind: "document"` edge per link. Off by default,
+  and — like `include_entities` — deliberately **not** wired into
+  centrality, similarity, or the trace-path BFS; both are built entirely
+  around `Entry`, and extending either to a second node type is a bigger,
+  separate change from making a document visible and connected at all.
+  `categories` is computed before either block runs, so neither "Entity"
+  nor "Document" grows a legend filter for a node kind that's off by
+  default — intentional, matching the existing entity behaviour, not an
+  oversight.
+- Frontend: a `#graph-documents` checkbox next to the existing Entities
+  one, a `wantDocuments` flag folded into the same `/graph` fetch URL
+  template, a `graph-node-document` CSS class (a fine dotted ring,
+  `stroke-dasharray: 1 3`, distinct from the entity ring's `3 2` dashes so
+  the two non-note kinds don't read as the same thing next to each other),
+  and the click handler's existing `isGroup || type === "entity"`
+  no-op guard extended to `type === "document"` — view-only this pass,
+  same reasoning as entities: opening one from here would need the
+  Library's own document-editor navigation, not a note's.
+- **Caught by live testing, not by review**: the checkbox's own `change`
+  listener was missing. `graph-entities` has
+  `$("graph-entities")?.addEventListener("change", renderGraph)` in
+  app.js; the equivalent line for `graph-documents` was never added, so
+  checking the box did nothing — no re-fetch, no error, nothing in the
+  console. A Playwright run (real note, real document, real
+  `POST /documents/{id}/notes` link, then toggling the checkbox) found
+  zero document nodes where two were expected; the fix was the missing
+  `$("graph-documents")?.addEventListener("change", renderGraph)` line.
+  Exactly the "features that never ran once" shape this file's own
+  review section warns about — this one just happened to be caught
+  before merge instead of after.
+
+Backend covered by four new tests in `test_graph_api.py` (off by default,
+node/edge shape when on, category excluded from the legend list, a
+document with no linked notes stays invisible). Live-verified after the
+fix: two notes each linked to their own document, both document nodes
+rendered with the dotted ring and the correct connecting edge, `0`
+console/page errors. `node --check`, `ruff check .`,
+`test_frontend_ids.py`, `test_frontend_handlers.py`, `test_style_scale.py`
+and `test_docs_layout.py` all still pass.
+
+## 71. The graph's force/Arc "feel" (ROADMAP.md item 24) — not a new layout, two concrete re-render bugs found by measuring instead of guessing
+
+The item's own text already doubted a new layout algorithm was the actual
+gap ("Obsidian's is a force layout, which this app already has") and asked
+for the two reproduced side by side before assuming otherwise — no
+reference build to compare against here, so this pass instead read the
+existing `d3.forceSimulation`/`d3.zoom`/drag code closely (already fairly
+mature: other-node freezing during a drag so the target you're aiming at
+doesn't drift, a world-bounds clamp instead of a repeated re-fit "because a
+re-fit would zoom the map out from under someone who had just zoomed in on
+purpose" — that exact stated principle turned out not to hold everywhere
+else in the file) and found two concrete, measurable defects rather than
+retuning force constants on a guess:
+
+- **Every `renderGraph()` call rebuilt every node from scratch with no
+  starting position**, including the ones already on screen and unchanged —
+  not just the very first load, but every legend-filter click, every
+  physics-slider drag, every "hide unlinked" toggle, the refresh button,
+  and even editing a note while the Graph tab happened to be open. Each one
+  replayed the full "explode outward from the centre, then resettle"
+  animation for the whole notebook, which is what "never actually feels at
+  rest" looks like from measurements, not just impression. Fixed by seeding
+  each surviving node's `x`/`y`/`vx`/`vy` from the previous render
+  (`graphNodesRef`, read before it's overwritten) before the new simulation
+  starts; only a genuinely new node still gets D3's default spiral
+  placement.
+- **`fitGraphToView`/`frameTree` also re-ran on every one of those same
+  renders**, recentring and rescaling the camera regardless of whether the
+  user had manually panned or zoomed in on something first — the fit-once
+  intent was already right there in the `fitted` flag's own comment, it
+  was just re-declared fresh (`let fitted = false`) inside every call
+  instead of surviving between them. Fixed with a module-level
+  `graphAutoFitDone` flag: `switchTab()` clears it on a genuine fresh visit
+  to the tab, the layout radios clear it on a real shape change (a radial
+  ring isn't a force cloud — that one *should* re-fit), and every other
+  `renderGraph()` call — filters, sliders, refresh, a background note edit
+  — leaves the camera exactly where the user put it. The dedicated Fit
+  button (`graph-zoom-fit`) still exists for "put it back" on request.
+
+Verified with measurements, not a screenshot comparison, since there's no
+Obsidian install here to diff against: Playwright, 8 linked notes, zoomed
+in by hand via the +/- button, then toggled "Hide unlinked" — camera
+transform (`d3.zoomTransform`) identical before and after (previously
+always reset to a fresh `fitGraphToView` scale); node positions for
+surviving notes carried over. Then switched Force → Arc and confirmed the
+camera *did* change, so the fit-on-shape-change path still works. `0`
+console/page errors throughout. `node --check`,
+`test_frontend_ids.py`/`test_frontend_handlers.py`/`test_style_scale.py`
+all still pass. **Not touched**: node-drag mechanics (already reads as
+deliberately tuned — froze other nodes, remembered drop target — with no
+measurable defect found) and the wheel/button zoom step itself (standard
+untransitioned direct-manipulation zoom, matching common practice, and the
+button zoom already has its own 200ms eased transition). New layouts
+beyond Arc (mind map, treemap, adjacency matrix) are a separate, larger
+ask this didn't touch.
+
+## 72. Stale/orphaned-note review, the fourth thing the autonomous agent does (ROADMAP.md item 31)
+
+The user picked this from item 31's own list of scoped candidates
+("acting on stale/orphaned notes" over proactive digest surfacing or
+letting a skill run on schedule). Built the same way `entry/duplicates.py`
+already argues for its own task — arithmetic, not AI, because age and
+connectedness are plain columns and joins, already exact, and asking a
+model to guess which notes feel "forgotten" would be slower and no more
+correct:
+
+- `entry/staleness.py`'s `find_stale_orphaned_notes(session, days=90)` —
+  conservative on purpose, every signal has to agree: untouched (`updated_at`
+  past the cutoff), no link either direction, no thread (not a reply, no
+  replies of its own), and not pinned. A false positive here means nagging
+  someone about a note they deliberately keep untouched, the same cost
+  `duplicates.py` weighs for a wrongly-matched pair.
+- Wired into `_run_optimization()` as a fourth deterministic pass, same
+  shape as the entity-extraction and link-reason-audit passes beside it —
+  not routed through `agent.run_agent()`, and bounded to
+  `STALE_REVIEW_BATCH_SIZE` (20) notes per tick for the same reason
+  `AUDIT_BATCH_SIZE` bounds the link audit: a big backlog is worked through
+  one interval at a time, not in one tick.
+- Its own preference, `auto_stale_review_enabled`, **off by default** —
+  unlike tag/link/dedupe (which react to a note's own content), this one
+  makes a judgement call about which notes count as forgotten, the same
+  caution `auto_entities_enabled` already gets for the same reason.
+- Flags by tagging (`stale`), not by acting further — archiving or deleting
+  would need a human to actually decide, and there's nobody watching an
+  unattended pass to ask. A tag is reviewable and reversible the same way
+  `_tag_note` already is for a tag someone asks for directly.
+- A Settings → Background tasks checkbox ("Flag stale or orphaned notes"),
+  same pattern as its three siblings (`pref-auto-*` id, `renderAutonomous
+  Settings()` line, its own `setPreference` change listener — no shared
+  form rebuild, so a stale/default DOM value can't silently overwrite a
+  real saved preference the way the section's own past bug did).
+
+11 new tests: 8 for `find_stale_orphaned_notes()` itself
+(`test_staleness.py` — fresh/old/linked/threaded/pinned/binned/archived,
+matching the "everything has to agree" shape) and 3 pinning the background
+job actually reaches it, tags what it finds, and the preference switches
+it off (`test_autonomous.py`, same section-comment pattern the link-reason
+audit tests already use, for the same reason — a feature written inside
+`_run_optimization` with nothing proving the pass reaches it is exactly
+this module's own founding bug). **Not yet checked live in a browser** —
+enabling the preference, triggering a real pass, and watching a genuinely
+old, disconnected note pick up the `stale` tag in the Library wasn't
+driven through Playwright this session (the sitting ran out of room for
+it); the mechanism is pytest-verified end to end, but "the toggle actually
+does something a person can see" is not yet observed, only reasoned about.
+Worth 10 minutes with a real server before this area is touched again.
+
+## 73. The trace-path redesign redone after a live report, and find/replace in the document editor (ROADMAP items 5 and 16b)
+
+**The trace-path redesign had to be redone.** §71's own predecessor entry
+above already carries the honest caveat — shipped without a live check —
+and it turned out to matter: reported back immediately as "crushes the
+graph, takes up most of the page". Reproduced: the vertical, one-row-per-
+note layout was genuinely ~10 rows tall for a 5-hop path, sitting in
+normal document flow directly above the graph canvas, so it pushed the
+whole map down out of view. Rebuilt as a horizontal, wrapping row of pill
+chips (`.graph-trace-note`, same materials as the app's existing `.chip`)
+joined by a small arrow + reason connector, with `.graph-trace-path`
+capped at `max-height: 5.5rem` and internal scroll as a hard floor — no
+path length can repeat the mistake regardless of wrapping math. **This
+time live-verified before calling it done**: a real 6-note/5-hop chain in
+Playwright, canvas height measured before and after tracing, a screenshot
+checked by eye. The container element was also changed from `<p>` to
+`<div>` since it now holds block children.
+
+**Find and replace, added to the document editor** (ROADMAP item 16b,
+"a bunch of missing features... could be improved a lot more" — never
+itemised). Checked what already existed before building anything: word
+count, reading time, a word-count goal, an outline sidebar, "notes it
+draws on", AI edit, extract-to-notes, and .md/PDF export were all already
+there — this editor was much further along than the vague complaint
+suggested. What was concretely, verifiably missing: the browser's native
+Ctrl+F cannot search inside a `<textarea>` at all (its content is a form
+value, not page DOM text), so a document past a screen or two had no way
+to find a word again short of scrolling and reading every line. Built as
+a small bar (`#doc-find-bar`) toggled from the formatting toolbar or
+Ctrl+F: a plain case-insensitive substring search (no regex exposed to
+the user — nothing here needed it), Next/Prev cycling with a live "N of
+M" count, Replace (only when the current selection actually matches, so
+clicking it with nothing found first finds rather than guesses) and
+Replace all (escaped into a regex internally for one global pass, counted
+before replacing rather than after to sidestep a global-regex
+`lastIndex` footgun). Live-verified with Playwright end to end: opened
+the bar, searched a 3-match term, cycled Next, replaced all three, and
+confirmed both the resulting text and the "Replaced 3" count were
+correct, then confirmed Esc closes the bar. `node --check`,
+`test_frontend_ids`, `test_frontend_handlers`, `test_style_scale` and
+`ruff check .` all still pass.
+
+Vision-model image understanding (ROADMAP item 35) was **explicitly
+deferred this session, not attempted** — asked directly given the
+remaining budget, since it touches all four generation methods
+(`chat`/`chat_stream`/`chat_tools`/`chat_tools_stream`) across every
+provider and carries its own unresolved storage/narration design
+question the roadmap already flags. Attempting it under the same time
+pressure that caused the trace-path redo above would have risked the
+identical mistake at a much larger scale. Still open, first thing next
+session if this area comes up.
+
+## 74. Three more live-reported bugs, one of them a real find: the Documents sidebar's missing-height bug tracked to a documented mechanism that never got extended to cover it
+
+Three fixes asked for directly, all live-verified with Playwright before
+being called done:
+
+- **Library's back-to-top button** overlapped the panel's own scrollbar
+  and could end up below the visible fold. The earlier fix (reparenting
+  the button into `#tab-library`'s DOM so a CSS `position: absolute`
+  offset would anchor to the panel instead of the viewport) was correct
+  in principle but fragile: `right: 1.5rem` had no scrollbar clearance,
+  and nothing clamped the offset if the panel's own box ran taller than
+  the viewport. Replaced with `positionScrollTopForLibrary()` (app.js) —
+  the button stays `position: fixed` (never reparented, which also
+  sidesteps a real trap: any ancestor that ever gains a `transform`/
+  `filter`/`backdrop-filter` silently becomes fixed-position's containing
+  block too), and its `right`/`bottom` are computed from `#tab-library`'s
+  live `getBoundingClientRect()` on every scroll/resize, clamped so it
+  can never render outside the viewport.
+- **The graph's "How to use this map" `<details>` dropdown** replaced
+  with a `?` icon button (`#graph-help-toggle`), last in `.graph-toolbar`
+  with `margin-left: auto` so it sits in the card's top-right corner. Its
+  `title` attribute covers hover/focus (a real tooltip, zero JS); a click
+  opens `#graph-help-panel`, a small popover with the same text the
+  dropdown used to hold, closing on a second click, Escape, or a click
+  outside — the same three ways every other popover in this app closes.
+- **The Documents sidebar and main panel weren't full height, unlike
+  Chat's.** Reported directly, and it reproduced cleanly once tested with
+  a *realistic* amount of content (three real documents; an empty
+  notebook didn't show it) — measured `.doc-layout` at 325px tall inside
+  a 661px-tall `#tab-documents`, a `336px` gap. Traced to
+  `07-whiteboard-misc.css`'s own documented Agent-Activity-panel
+  clearance mechanism: `body.has-agent-monitor .tab-page` adds a 320px
+  bottom buffer to every tab so the floating "Agent Activity" panel never
+  permanently hides content under it, and a second, more specific rule
+  moves that buffer onto the *actual* scrolling element for Notes and
+  Chat (`#tab-notes .layout > main`, `#tab-chat .layout > main`) instead
+  — because for those two, `.tab-page` itself is a plain flex column, not
+  the thing that scrolls, so padding it directly just shrinks the whole
+  card grid instead of protecting anything. The comment beside that rule
+  already named Graph as a still-open case for the identical reason;
+  Documents was the same gap, just never written down. Fixed by adding
+  `#tab-documents` to the reset group and `.doc-sidebar .doc-list` (the
+  one part of the Documents layout that actually scrolls a long list) to
+  the clearance group — `.doc-layout` went from 325px to 613px in the
+  same live check. **Known remaining gap, not fixed this pass**: the
+  document editor's own bottom hint text (below the textarea) can still
+  end up visually under the Agent Activity panel when it's open, since
+  only `.doc-list` got the clearance treatment, not `.doc-main`. Matches
+  Graph's own already-accepted-as-open state for the same underlying
+  mechanism rather than a regression introduced here — worth closing
+  properly if `.doc-main` is touched again.
+
+All three verified with Playwright measurements and screenshots, not
+assumed from the CSS reading alone — `test_style_scale.py`,
+`test_frontend_ids.py`, `test_frontend_handlers.py` and `ruff check .`
+all still pass.

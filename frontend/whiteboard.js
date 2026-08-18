@@ -5479,6 +5479,38 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
+  $("library-images-upload-input")?.addEventListener("change", async (event) => {
+    const input = event.target;
+    const files = [...input.files];
+    input.value = ""; // so picking the same file twice still fires "change"
+    if (!files.length) return;
+    let uploaded = 0;
+    for (const file of files) {
+      const form = new FormData();
+      form.append("file", file);
+      try {
+        // A bare headers override, not apiJson's default — a FormData body
+        // needs the browser to set its own multipart boundary in
+        // Content-Type; apiJson's own "application/json" default would
+        // fight it (the same fix handleFileUpload's upload already needed).
+        const response = await fetch("/media/upload", {
+          method: "POST",
+          headers: { "X-Auth-Token": authToken() },
+          body: form,
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.detail || `Upload failed (${response.status})`);
+        uploaded++;
+      } catch (error) {
+        toast(`${file.name}: ${error.message}`, true);
+      }
+    }
+    if (uploaded > 0) {
+      toast(uploaded === 1 ? "Uploaded." : `Uploaded ${uploaded} files.`);
+      renderLibraryImagesGallery();
+    }
+  });
   $("wb-boards-new")?.addEventListener("click", async () => {
     wbShowCanvasView();
     await createNewBoard();

@@ -209,6 +209,13 @@ class Entry(Base, WorkspaceMixin):
     )
     # Soft delete = recycle bin (adds restore/auto-clear).
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Archive = kept, but out of the way — a third state, distinct from the
+    # recycle bin: archiving never counts as deleting, so it's excluded from
+    # normal listings the same way a binned note is, but nothing about it is
+    # bound for auto-clear or purge. Null means "not archived"; the timestamp
+    # itself (not a separate boolean) is the flag, same pattern as
+    # deleted_at above (BACKLOG §4 item 3 / §26, ROADMAP Tier 3 §30b).
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     # Private notes have their content encrypted at rest. Scalar default so
     # the additive auto-migrator backfills every existing row as not-private.
     is_private: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -219,6 +226,13 @@ class Entry(Base, WorkspaceMixin):
     # rather than a boolean so a future re-scan policy ("older than 30
     # days") has something to compare against without a second column.
     entities_extracted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    # A note captured quickly — from a text-selection popup, say — and not
+    # yet looked at properly. Shown normally everywhere (unlike is_private,
+    # this changes nothing about how the note reads or where it appears),
+    # just flagged, so nothing captured on the fly gets lost in the list
+    # before its author comes back to it. Scalar default so the additive
+    # auto-migrator backfills every existing row as not-a-draft.
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Entity(Base):

@@ -2311,4 +2311,28 @@ in flight), and confirming empirically how the target audience's actual
 Ollama setups behave under two concurrent requests before promising
 anything faster feels.
 
+## 79. Linux release packaging — done; macOS still open
+
+Asked for directly. Linux: built — `packaging/linux/memorymap.spec` +
+`build-linux-package` in `.github/workflows/release.yml`, zipping a
+PyInstaller onedir build (no installer format needed the way Windows
+needs Inno Setup). Ships **without** the system tray: `_start_tray` runs
+pystray's event loop on a background thread while `webview.start()`
+blocks the main one, which the code's own comment says only Windows'
+backend is known to tolerate — Linux's GTK backend has the same
+main-thread-only constraint that already ruled out macOS, so the tray
+call is now gated to `sys.platform == "win32"` rather than guessing.
+Icon is `icon-512.png`, not the `.ico` (never confirmed GdkPixbuf decodes
+it). Unverified until the Linux CI job actually runs, per this project's
+standing rule for anything PyInstaller — it doesn't cross-compile.
+
+**macOS is possible but has a real barrier beyond code.** An unsigned
+`.app` triggers Gatekeeper's "app is damaged" warning on a current
+macOS — not a bug, a deliberate OS policy — so shipping one that
+actually opens for someone else requires an Apple Developer account
+($99/year) and a notarization step in CI, not just a PyInstaller/DMG
+build. Also inherits the same tray/threading question above and would
+need its own answer, not an assumption it behaves like Linux. Worth
+deciding deliberately rather than discovering after building the rest.
+
 ---

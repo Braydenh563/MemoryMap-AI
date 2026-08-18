@@ -81,11 +81,18 @@ def _run_desktop() -> None:
     # fix as FRONTEND_DIR in api/app.py. The ICO contains a 512px PNG entry,
     # which pywebview on Windows and WebKit on macOS both accept. None is a
     # valid fallback: a missing file never blocks the window.
+    #
+    # Linux gets the plain PNG instead: GTK's icon loading goes through
+    # GdkPixbuf, and unlike Windows/macOS this was never actually run
+    # against a Linux desktop to confirm ICO decodes there — icon-512.png
+    # is the one format every platform this app now ships on is known to
+    # accept, so there's no reason to gamble on the untested one for a
+    # cosmetic detail.
     if getattr(sys, "frozen", False):
         _frontend_dir = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "frontend"
     else:
         _frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
-    _icon_path = _frontend_dir / "icon.ico"
+    _icon_path = _frontend_dir / ("icon-512.png" if sys.platform.startswith("linux") else "icon.ico")
     _icon = str(_icon_path) if _icon_path.is_file() else None
 
     if sys.platform == "win32":
@@ -112,7 +119,18 @@ def _run_desktop() -> None:
     # the same way voice/semantic search are (see core/extras.py): a source
     # checkout without pystray+Pillow installed still gets a normal window,
     # it just closes for real instead of minimizing.
-    tray_icon = _start_tray(window, _icon_path)
+    #
+    # Windows only, deliberately — see _start_tray's own docstring: this
+    # runs pystray's event loop on a daemon thread while webview.start()
+    # blocks the main one, which Windows' pystray backend tolerates and
+    # macOS's does not (already excluded for exactly that reason). Linux's
+    # GTK-based backend has the same main-thread-only UI constraint as
+    # macOS's AppKit, so shipping the identical off-main-thread architecture
+    # there risks the same class of crash on a platform this was never
+    # built or run against — the Linux build gets a real window that closes
+    # for real instead, the same fallback already in place when pystray
+    # simply isn't installed.
+    tray_icon = _start_tray(window, _icon_path) if sys.platform == "win32" else None
     if tray_icon is not None:
 
         def _on_closing() -> bool:

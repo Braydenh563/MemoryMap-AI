@@ -114,6 +114,46 @@ def test_desktop_launcher_still_starts_the_window(monkeypatch, tmp_path):
     assert calls["start"] is not None
 
 
+def test_tray_is_not_attempted_on_this_non_windows_platform(monkeypatch, tmp_path):
+    """`_start_tray` runs pystray's event loop off the main thread, which its
+    own docstring says only Windows' backend is known to tolerate (macOS was
+    excluded from the desktop build for exactly this reason, and Linux's
+    GTK-based backend has the same main-thread-only constraint as macOS's
+    AppKit). The call is gated by `sys.platform == "win32"`, not merely
+    left to fail safely if attempted — proven here by making `_start_tray`
+    itself raise if it's ever called, on this non-Windows sandbox.
+    """
+    assert sys.platform != "win32", "this test's premise requires a non-Windows sandbox"
+
+    def _explode(window, icon_path):
+        raise AssertionError("_start_tray must not be called on this platform")
+
+    monkeypatch.setattr(launcher, "_start_tray", _explode)
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    _quiet_server_thread(monkeypatch)
+    _fake_webview(monkeypatch)
+
+    launcher._run_desktop()  # must not raise
+
+
+def test_the_taskbar_icon_is_a_png_on_linux_not_the_windows_ico(monkeypatch, tmp_path):
+    """GdkPixbuf (Linux's icon loader, via GTK) was never actually run
+    against the .ico this app ships for Windows/macOS — icon-512.png is the
+    one format confirmed to exist and that every platform accepts, so Linux
+    gets that one instead of gambling on the untested format."""
+    assert sys.platform.startswith("linux"), "this test's premise requires a Linux sandbox"
+
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    _quiet_server_thread(monkeypatch)
+    calls = _fake_webview(monkeypatch)
+
+    launcher._run_desktop()
+
+    icon = calls["create_window"]["kwargs"].get("icon") or calls["start"].get("icon")
+    assert icon is not None
+    assert icon.endswith("icon-512.png")
+
+
 def test_desktop_launcher_degrades_if_icon_kwarg_is_unsupported(monkeypatch, tmp_path):
     """An older pywebview without `icon=` must not crash the launcher — the
     desktop app is the only way in for someone who installed it that way."""

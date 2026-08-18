@@ -1649,6 +1649,7 @@ function entryOverflowMenu(entry) {
       },
     },
     { label: "ph:paperclip Attach a file", run: () => attachFileTo(entry) },
+    { label: "ph:images-square Attach from Library", run: () => attachFromLibrary(entry) },
   ];
 
   const danger = {
@@ -1952,6 +1953,113 @@ function attachFileTo(entry) {
     await loadEntries();
   });
   input.click();
+}
+
+// The Library's other half of "upload directly, attach later" — asked for
+// directly. `attachFileTo` above always opens a fresh disk picker; this
+// instead offers whatever already lives in the Library's image/PDF gallery
+// (MediaUpload — GET /media), so an image uploaded once doesn't need
+// re-uploading onto every note that wants it. Note attachments (Attachment,
+// PDFs, docs, audio — attachFileTo's own domain) have no "floating, not yet
+// attached to anything" state to pick from, so this is images/PDFs only,
+// same as the Library gallery itself.
+async function attachFromLibrary(entry) {
+  const images = await apiJson("/media", { silent: true }).catch(() => null);
+  if (!images) {
+    toast("Couldn't load the Library gallery.", true);
+    return;
+  }
+  if (!images.length) {
+    toast("Nothing in the Library gallery yet — upload one from Library → Image Gallery first.", true);
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay library-attach-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Attach from Library");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card";
+  const head = document.createElement("div");
+  head.className = "row space-between library-head";
+  const title = document.createElement("h2");
+  title.textContent = "Attach from Library";
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "ghost small";
+  close.setAttribute("aria-label", "Close");
+  setLabel(close, "ph:x");
+  head.append(title, close);
+  const hint = document.createElement("p");
+  hint.className = "muted";
+  hint.textContent = "Pick an image or PDF already in the Library to attach it to this note.";
+  const grid = document.createElement("div");
+  grid.className = "library-image-grid library-attach-grid";
+
+  const done = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      done();
+    }
+  };
+  close.addEventListener("click", done);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) done(); });
+  document.addEventListener("keydown", onKey, true);
+
+  const isPdf = (url) => /\.pdf$/i.test(url);
+  for (const image of images) {
+    const fig = document.createElement("figure");
+    fig.className = "library-image-tile";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "library-attach-pick";
+    button.title = `Attach “${image.original_name}”`;
+    if (isPdf(image.url)) {
+      const icon = document.createElement("i");
+      icon.className = "ph ph-file-pdf";
+      icon.setAttribute("aria-hidden", "true");
+      button.appendChild(icon);
+    } else {
+      const img = document.createElement("img");
+      img.src = mediaSrc(image.url);
+      img.alt = "";
+      img.loading = "lazy";
+      button.appendChild(img);
+    }
+    button.addEventListener("click", async () => {
+      const markdown = isPdf(image.url)
+        ? `[${image.original_name}](${image.url})\n`
+        : `![${image.original_name}](${image.url})\n`;
+      const nextContent = `${entry.content.trim()}\n\n${markdown}`.trim();
+      try {
+        await apiJson(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ content: nextContent }),
+        });
+        toast(`Attached ${image.original_name}.`);
+        done();
+        await loadEntries();
+      } catch (error) {
+        toast(error.message || "Couldn't attach that file.", true);
+      }
+    });
+    const cap = document.createElement("figcaption");
+    cap.textContent = image.original_name;
+    cap.title = image.original_name;
+    fig.append(button, cap);
+    grid.appendChild(fig);
+  }
+
+  card.append(head, hint, grid);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+  close.focus();
 }
 
 // Thumbnails need the auth header, which <img src> can't send — fetch

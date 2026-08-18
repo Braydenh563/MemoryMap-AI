@@ -902,12 +902,23 @@ into a good one.
 
 Worth doing, and worth doing after the above.
 
-20. **Files and images on notes, and standalone in the Library.** The plumbing
-    exists (`/media`, attachments); an images-only Library gallery now exists
-    (20a, HISTORY.md §61). **Still not built:** a gallery over *note
-    attachments* specifically (files attached to a note but not images —
-    asked for directly this session as "separate from the whiteboard gallery
-    I just built"), and drag-to-attach.
+20. ~~**Files and images on notes, and standalone in the Library.**~~ **Done,
+    and a stale claim in this item corrected (HISTORY.md §69).** The "still
+    not built" gallery over note attachments specifically was checked
+    against the actual code before believing it — it already existed
+    (the Library's own "Files" filter, `app.js:16985`, download + delete)
+    — this item's own text just hadn't been updated to say so, the exact
+    trap CLAUDE.md warns about. What was genuinely missing — asked for
+    directly — was uploading an image/PDF straight into the Library
+    without a note first, and attaching an already-uploaded one to a note
+    afterward: an Upload button on the Image Gallery (`POST /media/upload`,
+    no note involved), and a new "Attach from Library" note action
+    alongside the existing "Attach a file" (which only ever uploads fresh
+    from disk) — a picker over `GET /media` that inserts the chosen
+    image/PDF's markdown reference into the note's content. General file
+    attachments (docs, audio — the `Attachment` model) have no "floating,
+    not yet attached to anything" state the way `MediaUpload` does, so
+    that half stays exactly as it already worked: through the note first.
 20a. ~~**A Library "Media/Images" gallery tab, and garbage-collecting
     orphaned `/media/` files.**~~ **Done.** `core/media_gc.py` reconciles
     every `MediaUpload` against live references in note content (through

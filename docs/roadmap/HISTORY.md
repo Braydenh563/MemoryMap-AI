@@ -3983,3 +3983,53 @@ have), 5/10/11 (graph traced-path, Timeline line/branch, document editor
 — each explicitly unscoped in ROADMAP.md, no direction given), and 7/8
 (faster-whisper Windows install failure — needs real pip error text from
 an actual Windows run this sandbox cannot produce).
+
+## 69. Direct upload into the Library's image/PDF gallery, and "Attach from Library" for notes — item 20's own "still not built" claim checked and found already wrong before adding anything
+
+Asked live: "the ability to upload images files directly to the library
+with the ability to attach them to notes." ROADMAP item 20 read as if
+the note-attachments half of this were still missing — checked before
+building, per this file's own repeated lesson, and it was already there.
+
+**What was already done, found by grep before assuming otherwise.** The
+Library's "Files" filter (`app.js:16985`, `item.kind === "file"`) already
+lists every note `Attachment` — general files (docs, audio, anything not
+an image/PDF) attached to a note — across the whole notebook, with
+working Download and Delete. Item 20's text claiming this "still not
+built" was stale, not wrong about the feature — corrected in ROADMAP.md
+rather than rebuilt.
+
+**What was actually missing, confirmed by reading the two attachment
+systems' models.** `MediaUpload` (images/PDFs, `/media/upload`) and
+`Attachment` (any file, `/entries/{id}/files`) are architecturally
+different — a `MediaUpload` has no note relationship at all (it's
+referenced by URL from inside markdown content, which is what makes the
+Library gallery of them possible), while an `Attachment` always belongs
+to exactly one note from the moment it's created. That asymmetry is why
+only the image/PDF half could get an "upload once, attach anywhere"
+flow without inventing a new "unattached file" concept for the other:
+
+- **Upload button on the Library's Image Gallery** (`#library-images-
+  upload` + a hidden file input, `whiteboard.js`, beside the existing
+  Reload button). Loops selected files through the same `POST
+  /media/upload` the paste/drop path already uses, via a raw `fetch` with
+  an explicit header override (not `apiJson`, whose default
+  `Content-Type: application/json` fights a `FormData` body's own
+  multipart boundary — the same fix `attachFileTo`'s upload already
+  needed, applied here for the same reason).
+- **"Attach from Library"**, a new note action beside the existing
+  "Attach a file" (which only ever opens a fresh disk picker).
+  `attachFromLibrary()` (app.js) fetches `GET /media`, opens a picker
+  modal (built the same way `confirmDialog` builds its own — dynamically,
+  not static markup — Escape and backdrop-click both close it, verified),
+  and on a pick inserts the chosen file's markdown reference
+  (`![name](url)` for an image, `[name](url)` for a PDF, by extension)
+  into the note's content via the ordinary entry `PUT`.
+
+Live-verified end to end: uploaded a real PNG through the new button,
+confirmed it rendered as a gallery tile; opened the picker on a real
+note, confirmed one tile with the uploaded file; clicked it and confirmed
+the note's `content` gained the correct markdown line and the picker
+closed itself; separately confirmed both Escape and a backdrop click
+close the picker without attaching anything. `test_style_scale.py`,
+`test_frontend_ids.py` and `test_frontend_handlers.py` all still pass.

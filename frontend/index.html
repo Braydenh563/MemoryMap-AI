@@ -2132,9 +2132,13 @@ Link to another note with [[its first few words]]."></textarea>
     <section class="card glass">
       <div class="row space-between library-head">
         <h2>Image Gallery</h2>
-        <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        <div class="row">
+          <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
+          <input id="library-images-upload-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
+          <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        </div>
       </div>
-      <p class="muted">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard.</p>
+      <p class="muted">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
       <div id="library-images-grid" class="library-image-grid"></div>
       <p id="library-images-empty" class="muted hidden">No images yet.</p>
     </section>

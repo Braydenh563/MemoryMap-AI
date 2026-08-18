@@ -2,7 +2,106 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a live-reported mic-bar/back-to-top fix, six ROADMAP items closed, two features asked for live, and a CI failure that turned out to be a GitHub outage, not this branch
+## Latest session — a planned queue of 11 items worked in order (documents in the graph, a stale ROADMAP claim caught before rebuilding, graph camera/physics bugs found by measurement, a fourth autonomous-agent task), plus four live-reported UI bugs fixed mid-session on request
+
+Full detail in HISTORY.md §68 (the pre-queue bug fixes and earlier session
+work), §69 (Library upload/attach), §70 (documents in the graph), §71
+(graph force/Arc tuning), §72 (stale/orphaned-note review). This entry is
+the "start here" version: what's still unverified, and where to pick up.
+
+**The plan, agreed with the user before building anything:** four
+clarifying questions answered up front (tune the existing graph force/Arc
+feel rather than a new layout; add stale/orphaned-note review to the
+autonomous agent; build vision-model image understanding; do the three
+unscoped redesigns in order — graph traced-path text, then the document
+editor, then Timeline — with OCR explicitly last). A queue of 11 items was
+built from that and worked top to bottom. Mid-session the user reported
+four live UI bugs (sketch rendering in Library line/grid views, an
+off-centre lightbox close button, misaligned Library list subtext, missing
+title ellipses) with an explicit "don't let this distract you, continue
+after" — all four fixed and verified (HISTORY.md §68's later items), then
+the queue resumed exactly where it left off.
+
+**Done this session, in order:**
+1. Documents in the graph (`include_documents` on `GET /graph`, HISTORY.md
+   §70) — **live-verified with Playwright**: a note linked to a document
+   rendered as a connected, dotted-ring node when the checkbox was on,
+   none when it was off. Caught a real bug before it shipped: the
+   checkbox's own `change` listener was never wired up, so toggling it did
+   nothing silently — exactly the "features that never ran once" shape
+   CLAUDE.md's own review section warns about, just caught pre-merge.
+2. The dashboard widget-picker modal (ROADMAP item 26) — **checked before
+   building** and found already fully working, merged in from elsewhere
+   and never re-checked against this item. No code changed; ROADMAP.md
+   corrected. This is the exact "three sessions rebuilt something that
+   already existed" trap CLAUDE.md exists to prevent, caught this time.
+3. Graph force/Arc "feel" (ROADMAP item 24, HISTORY.md §71) — not a new
+   layout, two concrete re-render bugs found by reading the code and
+   measuring rather than guessing at tuning constants: every
+   `renderGraph()` call replayed the whole "explode from centre" animation
+   even for notes already on screen and unchanged, and the camera
+   re-fit-and-recentre on every one of those same calls, discarding a
+   manual pan/zoom. Both fixed and **verified with Playwright
+   measurements** (`d3.zoomTransform` before/after a filter toggle, node
+   position deltas, confirming a genuine layout switch still re-fits).
+4. Stale/orphaned-note review, the autonomous agent's fourth task
+   (ROADMAP item 31, HISTORY.md §72) — `entry/staleness.py`, deterministic
+   (not AI) like `duplicates.py`'s own reasoning for staying off AI,
+   behind its own off-by-default preference, flags by tagging rather than
+   acting further. **11 new tests, all passing — but not yet checked live
+   in a browser.** The mechanism is pytest-verified end to end; watching a
+   real pass actually land the `stale` tag on a real note through the
+   Settings toggle was not driven through Playwright this session (ran out
+   of room). **Do this first if this area comes up again.**
+
+**What's still queued, in the user's own stated order** (tasks tracked in
+this session's own tracker, not renumbered here to avoid drift):
+- Vision-model image understanding (ROADMAP item 35) — user said "yes,
+  build it" directly.
+- The three unscoped redesigns, **in this explicit order**: the graph's
+  traced-path text visualization first, then the document editor, then
+  Timeline's line/branch view.
+- OCR text extraction on uploaded images (BACKLOG §30d) — **explicit
+  instruction: do this last**, after everything else above.
+
+**Traps worth knowing:**
+- **A checkbox wired into a fetch URL is not the same as a checkbox wired
+  to re-render.** `graph-entities` had both a URL-param read *and* its own
+  `addEventListener("change", renderGraph)`; a new sibling checkbox easily
+  gets only the first half copied, since the fetch-side code is right next
+  to the other one and the listener is a hundred+ lines away in app.js.
+  Grep for the exact sibling's listener line, not just its URL-building
+  line, before believing a new toggle works — then verify live, which is
+  what actually caught this one.
+- **`svg.selectAll("*").remove()` in `graph.js`'s `renderGraph()` wipes the
+  whole canvas on every single call** — every filter toggle, slider drag,
+  and even a background note edit while the tab is open. Anything meant to
+  persist across a re-render (camera position, node position) has to be
+  captured from the old state *before* this line and explicitly re-seeded
+  after, because nothing carries over by default. `d3.zoomTransform()`
+  reading off the `<svg>` node itself does survive the wipe (it's a
+  property on the DOM node, not the removed children) — that's *why* the
+  camera-preservation fix only needed a flag guard and not manual
+  transform-threading, which looked necessary at first and wasn't.
+- **A native `<input>` inside this app's custom-styled toggle/segmented
+  controls is usually visually hidden** (`#graph-documents`,
+  `input[name="graph-layout"]`, the same pattern as `#graph-entities`
+  before it) — Playwright's `.isVisible()`/`.check()` fail on these even
+  though a real user can click the label fine. Click the label text, or
+  set `.checked` and dispatch a `change` event by hand.
+- **`onupdate=utcnow` on `Entry.updated_at` fires on ANY column write to
+  the row**, not just content edits — tagging a note also resets its
+  staleness clock. This is *why* `entry/staleness.py`'s tagged notes
+  naturally drop out of the next pass's candidate query without needing
+  explicit dedup logic, but it also means a test that ages a note, then
+  writes to it, then re-checks staleness has to re-age it a second time
+  after the write — easy to get backwards once, caught once in
+  `test_the_stale_review_does_not_retag_a_note_twice`.
+- **`pkill -f uvicorn` still kills this shell** (CLAUDE.md already says
+  so, cost time in an earlier session too) — `lsof -t -i:<port>` + `kill`
+  is the reliable path, used throughout this session without incident.
+
+## Previous session — a live-reported mic-bar/back-to-top fix, six ROADMAP items closed, two features asked for live, and a CI failure that turned out to be a GitHub outage, not this branch
 
 Full detail in HISTORY.md §68. This entry is the "start here" version:
 what's still unverified, and the traps worth knowing before touching the

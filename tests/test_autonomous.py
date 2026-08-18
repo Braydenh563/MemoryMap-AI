@@ -456,7 +456,7 @@ def test_the_stale_review_does_not_retag_a_note_twice(app_state, session, monkey
     from datetime import timedelta
 
     from memorymap.core.database import Entry, utcnow
-    from memorymap.entry import manager, staleness
+    from memorymap.entry import manager
 
     entry = Entry(content="already flagged once")
     session.add(entry)

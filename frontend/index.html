@@ -1329,36 +1329,53 @@ Link to another note with [[its first few words]]."></textarea>
            and the rest of this sidebar is about the document you have *open*:
            its outline, the notes it draws on, and where it is kept. -->
       <aside class="card doc-sidebar sidebar-panel" id="doc-sidebar">
-        <div class="row space-between sidebar-head">
-          <h2>Recent</h2>
-          <button id="doc-new" class="small" type="button" title="Start a new document"
-            aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
-        </div>
-        <ul id="doc-list" class="doc-list"></ul>
-        <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
-        <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
-          title="Search, sort and manage every document"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library →</button>
-
-        <!-- Built from the document's own headings: past two screens of text
-             the scrollbar stops being a way to navigate. -->
-        <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
-          <h3>Outline</h3>
-          <ul id="doc-outline" class="doc-outline"></ul>
+        <!-- Two unrelated jobs used to share one scrolling column: switching
+             documents, and orienting inside the one you have open (its
+             outline, what it draws on, where it lives). Reported live —
+             asked for directly as its own tab strip, the same pattern
+             #notes-subtabs already uses. -->
+        <div class="seg doc-sidebar-tabs" id="doc-sidebar-tabs" role="tablist"
+          aria-label="Document sidebar sections">
+          <button role="tab" data-section="list" aria-selected="true"
+            aria-controls="doc-sidebar-list">Documents</button>
+          <button role="tab" data-section="outline" aria-selected="false"
+            aria-controls="doc-sidebar-outline" tabindex="-1">Outline</button>
         </div>
 
-        <!-- The notes this document draws on. A document is something you
-             sit down and write; the notes are what you wrote it from. -->
-        <div id="doc-notes-wrap" class="doc-outline-wrap hidden">
-          <h3>Notes it draws on</h3>
-          <ul id="doc-notes" class="doc-outline"></ul>
+        <div id="doc-sidebar-list" class="doc-sidebar-section">
+          <div class="row space-between sidebar-head">
+            <h2>Recent</h2>
+            <button id="doc-new" class="small" type="button" title="Start a new document"
+              aria-label="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
+          </div>
+          <ul id="doc-list" class="doc-list"></ul>
+          <p id="doc-empty" class="muted hidden">No documents yet — start typing on the right, or press ＋ New.</p>
+          <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
+            title="Search, sort and manage every document"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Browse all in Library →</button>
         </div>
 
-        <!-- "Where are they stored?" was asked outright, and the app had no
-             answer anywhere. For a local-first app that's most of the promise.
-             Used to be an open-by-default <details> here; its body was tall
-             enough to push the document list down, so the same content now
-             lives in #doc-storage-dialog and this is just the door to it. -->
-        <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle">Where are my documents kept?</button>
+        <div id="doc-sidebar-outline" class="doc-sidebar-section hidden">
+          <!-- Built from the document's own headings: past two screens of text
+               the scrollbar stops being a way to navigate. -->
+          <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
+            <h3>Outline</h3>
+            <ul id="doc-outline" class="doc-outline"></ul>
+          </div>
+
+          <!-- The notes this document draws on. A document is something you
+               sit down and write; the notes are what you wrote it from. -->
+          <div id="doc-notes-wrap" class="doc-outline-wrap hidden">
+            <h3>Notes it draws on</h3>
+            <ul id="doc-notes" class="doc-outline"></ul>
+          </div>
+
+          <!-- "Where are they stored?" was asked outright, and the app had no
+               answer anywhere. For a local-first app that's most of the promise.
+               Used to be an open-by-default <details> here; its body was tall
+               enough to push the document list down, so the same content now
+               lives in #doc-storage-dialog and this is just the door to it. -->
+          <button type="button" id="doc-storage-toggle" class="linklike doc-storage-toggle">Where are my documents kept?</button>
+        </div>
       </aside>
 
       <section class="card doc-main">

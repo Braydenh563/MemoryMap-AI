@@ -1660,6 +1660,19 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 1;
 }
 
+/* A device with no hover has no way to trigger the reveal above at all —
+   touch is binary (tap = click), it never sends the hover a mouse would.
+   Left at opacity:0 there, rename/delete were unreachable except by
+   tabbing to them with a keyboard, which is exactly what got reported as
+   "broken" rather than "hidden". Always visible where hovering isn't a
+   thing; unchanged, hover-revealed behaviour everywhere a mouse is. */
+@media (hover: none) {
+  .library-image-tile .library-image-edit,
+  .library-image-tile .library-image-delete {
+    opacity: 1;
+  }
+}
+
 .library-image-tile img {
   display: block;
   width: 100%;

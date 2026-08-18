@@ -1240,6 +1240,27 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    that could shrink and had no floor of its own. Measured live before
    fixing: 10 headings' worth of outline went from 258px tall to exactly
    0px the instant the disclosure opened. */
+.doc-sidebar-tabs {
+  margin-bottom: var(--space-4);
+  flex: 0 0 auto;
+}
+
+/* Each tab's whole content column, so #doc-outline-wrap's own `flex: 1 1
+   auto` below still has a flex context stretching the height the tab strip
+   left behind — the same nested-flex-column shape .doc-sidebar itself uses
+   against the page. */
+.doc-sidebar-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.doc-sidebar-section.hidden {
+  display: none;
+}
+
 .doc-outline-wrap {
   flex: 1 1 auto;
   min-height: 4rem;

@@ -14110,6 +14110,48 @@ function showNotesSection(name, { focus = false } = {}) {
   }
 }
 
+const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
+const DOC_SIDEBAR_STORE = "docSidebarSection";
+
+function showDocSidebarSection(name) {
+  const wanted = DOC_SIDEBAR_SECTIONS.includes(name) ? name : "list";
+  for (const section of DOC_SIDEBAR_SECTIONS) {
+    $(`doc-sidebar-${section}`)?.classList.toggle("hidden", section !== wanted);
+  }
+  for (const button of document.querySelectorAll("#doc-sidebar-tabs button")) {
+    const active = button.dataset.section === wanted;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  }
+  localStorage.setItem(DOC_SIDEBAR_STORE, wanted);
+}
+
+function initDocSidebarTabs() {
+  const strip = $("doc-sidebar-tabs");
+  if (!strip || strip.dataset.ready) return;
+  strip.dataset.ready = "1";
+  strip.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-section]");
+    if (button) showDocSidebarSection(button.dataset.section);
+  });
+  strip.addEventListener("keydown", (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const index = DOC_SIDEBAR_SECTIONS.indexOf(
+      localStorage.getItem(DOC_SIDEBAR_STORE) || "list"
+    );
+    const next =
+      DOC_SIDEBAR_SECTIONS[
+        (index + step + DOC_SIDEBAR_SECTIONS.length) % DOC_SIDEBAR_SECTIONS.length
+      ];
+    showDocSidebarSection(next);
+    strip.querySelector(`button[data-section="${next}"]`)?.focus();
+  });
+  showDocSidebarSection(localStorage.getItem(DOC_SIDEBAR_STORE) || "list");
+}
+
 function initNotesSubtabs() {
   const strip = document.getElementById("notes-subtabs");
   if (!strip || strip.dataset.ready) return;
@@ -21310,6 +21352,7 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
 initNotesSubtabs();
+initDocSidebarTabs();
 initSelectionPopup();
 initEntryListKeyboardNav();
 scrollTopUpdate = initScrollTopButton();

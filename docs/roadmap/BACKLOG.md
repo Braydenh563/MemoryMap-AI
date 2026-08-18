@@ -2271,4 +2271,44 @@ pinned, search term, semantic vs. keyword), not just the note's id. That
 second part is real routing logic, not a UI tweak, and deserves its own
 design pass rather than being bolted onto the simpler page-size control.
 
+## 78. Whether the backend needs more concurrency than it already has
+
+Asked for directly: should the app be asynchronous, able to run a chat
+response, an Ask-tab semantic-search query, and a background job (a weekly
+digest, the autonomous agent) all at once? Checked rather than assumed —
+this is less true and less false than it sounds.
+
+**What already happens today.** Routes are plain `def`, not `async def`
+(3 real exceptions out of ~300, both streaming endpoints) — but FastAPI
+still runs each sync request in its own worker thread by default, so two
+requests already don't block each other at the HTTP layer. More to the
+point, the genuinely slow work — model downloads, extras install, the
+autonomous agent's loop, embedding warm-up, Ollama/model-manager calls —
+already runs on its own daemon `threading.Thread` (`embedmodels.py`,
+`extras.py`, `ai/autonomous.py`, `ai/embeddings.py`, `ai/model_manager.py`),
+explicitly "off the request thread" per `deps.refuse_multiple_workers`'s
+own docstring. A chat reply streaming does not block the Ask tab today.
+
+**What actually limits it, and isn't a code change:** `deps.
+refuse_multiple_workers()` deliberately refuses more than one *process*
+(not thread) — the config, database handle, log buffer, unlock sessions
+and SearXNG subprocess are all one-per-process singletons, and that
+refusal is a considered decision (single-user local app, not a
+production API), not an oversight to "fix." The real ceilings are
+elsewhere: (1) SQLite serialises writers regardless of how many Python
+threads are asking — a digest job and a chat reply both writing at once
+queue at the database, not the app; (2) most local Ollama installs
+default to one in-flight generation — two simultaneous "AI, please
+answer this" calls (a chat message and a digest summary) may queue at
+Ollama itself even though the app dispatched both without blocking.
+
+**Scope, if pursued:** not a rewrite to `asyncio` — the thread-per-slow-
+task pattern already in place solves the stated problem for CPU/network-
+bound work. What would need real design: a visible queue/status for
+overlapping AI requests (so a digest running in the background doesn't
+silently starve a chat reply, or vice versa, and the user can see both are
+in flight), and confirming empirically how the target audience's actual
+Ollama setups behave under two concurrent requests before promising
+anything faster feels.
+
 ---

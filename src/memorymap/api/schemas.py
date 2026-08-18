@@ -128,6 +128,7 @@ class EntryOut(BaseModel):
     is_private: bool = False
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
+    archived_at: datetime | None = None  # set only when archived (BACKLOG §30b)
     links: list[LinkOut] = Field(default_factory=list)
     attachments: list[AttachmentOut] = Field(default_factory=list)
     # Documents this note is attached to: [{"id": 3, "title": "Trip plan"}].

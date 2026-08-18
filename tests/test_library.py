@@ -211,6 +211,27 @@ def test_a_malformed_conversation_costs_its_preview_not_the_library(client, sess
     assert _of_kind(body, "document")[0]["title"] == "still here"
 
 
+def test_a_shelved_note_appears_once_not_twice(client, session):
+    """A real archive (BACKLOG §30b), distinct from `_archive()`'s bin
+    despite the similar-sounding name — see routes_library.py's own
+    comment on why the two are named differently at the code level.
+    A shelved note must appear under "shelved" and *not* also under
+    "note", or it would be double-counted and double-managed."""
+    kept = Entry(content="still active")
+    shelved = Entry(content="kept, but out of the way")
+    session.add_all([kept, shelved])
+    session.commit()
+    client.post(f"/entries/{shelved.id}/archive")
+
+    body = client.get("/library").json()
+    assert len(_of_kind(body, "shelved")) == 1
+    assert _of_kind(body, "shelved")[0]["entry_id"] == shelved.id
+    note_ids = {item["entry_id"] for item in _of_kind(body, "note")}
+    assert shelved.id not in note_ids
+    assert kept.id in note_ids
+    assert body["overview"]["shelved"] == 1
+
+
 def test_the_library_is_behind_the_unlock_gate(client):
     """It lists documents, chats, files and binned notes — every kind of thing
     the lock screen exists to keep behind it.

@@ -1652,6 +1652,30 @@ function entryOverflowMenu(entry) {
     { label: "ph:images-square Attach from Library", run: () => attachFromLibrary(entry) },
   ];
 
+  // Not destructive, so not grouped with "danger" below — but visually
+  // adjacent to it (asked for directly: a way to keep a note but get it
+  // out of the way, distinct from binning it) so the two "get this off my
+  // list" actions sit together rather than one being buried in a group.
+  const archive = entry.archived_at
+    ? {
+        label: "ph:arrow-u-up-left Unarchive",
+        title: "Bring this note back into your notebook",
+        run: async () => {
+          await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
+          await loadEntries();
+          toast("Unarchived.");
+        },
+      }
+    : {
+        label: "ph:archive Archive",
+        title: "Keep it, but out of the way — not the bin",
+        run: async () => {
+          await apiJson(`/entries/${entry.id}/archive`, { method: "POST" });
+          await loadEntries();
+          toast("Archived.");
+        },
+      };
+
   const danger = {
     label: "ph:trash Move to bin",
     danger: true,
@@ -1671,6 +1695,7 @@ function entryOverflowMenu(entry) {
   menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
   menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
   menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
+  menu.appendChild(buildMenuItemButton(archive));
   menu.appendChild(buildMenuItemButton(danger));
 
   // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move
@@ -16735,6 +16760,11 @@ const LIBRARY_KINDS = [
   { key: "chat", icon: "ph:chat-circle", label: "Chats" },
   { key: "file", icon: "ph:paperclip", label: "Files" },
   { key: "tag", icon: "ph:tag", label: "Tags" },
+  // "archived" is the bin's own internal kind (see routes_library.py's
+  // _archive()) — this app's real archive uses "shelved" specifically so
+  // the two are never confused at the code level, even though the words
+  // read almost the same to a user.
+  { key: "shelved", icon: "ph:archive", label: "Archived" },
   { key: "archived", icon: "ph:trash", label: "Bin" },
   { key: "activity", icon: "ph:scroll", label: "Activity" },
 ];
@@ -16748,6 +16778,7 @@ const LIBRARY_OVERVIEW_TILES = [
   { key: "documents", icon: "ph:file-text", label: "documents", kind: "document" },
   { key: "chats", icon: "ph:chat-circle", label: "chats", kind: "chat" },
   { key: "tags", icon: "ph:tag", label: "tags", kind: "tag" },
+  { key: "shelved", icon: "ph:archive", label: "archived", kind: "shelved" },
   { key: "binned", icon: "ph:trash", label: "in the bin", kind: "archived" },
 ];
 
@@ -16919,6 +16950,12 @@ function renderLibrary() {
     if (!$("library-show-binned")?.checked) {
       items = items.filter((i) => i.kind !== "archived");
     }
+    // Shelved notes get the same "kept, out of the way" treatment as
+    // activity — no extra checkbox, since the "Archived" chip already
+    // gives full access, and this is the one place "kept out of the way"
+    // actually matters: the mixed view is exactly where an archived note
+    // would otherwise clutter the notebook it was archived to get out of.
+    items = items.filter((i) => i.kind !== "shelved");
   }
   if (query) {
     // Title *and* preview, for the same reason the conversation search reads
@@ -17047,9 +17084,32 @@ function libraryActions(item) {
       }),
     ];
   }
+  if (item.kind === "shelved") {
+    return [
+      makeMenuItem("ph:arrow-u-up-left Unarchive", "Bring this note back into your notebook", async () => {
+        await apiJson(`/entries/${item.id}/unarchive`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Unarchived.");
+        reload();
+        loadEntries();
+      }),
+      // No delete-for-good here: an archived note was never at risk of
+      // being lost — that's the whole difference from the bin above — so
+      // the only way out of this list is back to the notebook.
+    ];
+  }
   if (item.kind === "note") {
     return [
       makeMenuItem("ph:arrow-square-out Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not the bin", async () => {
+        await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
+          toast(e.message, true)
+        );
+        toast("Archived.");
+        reload();
+        loadEntries();
+      }),
       makeMenuItem("ph:trash Move to bin", "Bin this note — recoverable", async () => {
         await apiJson(`/entries/${item.id}`, { method: "DELETE" }).catch((e) =>
           toast(e.message, true)

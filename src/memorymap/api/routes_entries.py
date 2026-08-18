@@ -99,6 +99,7 @@ def _to_out(
         is_private=bool(getattr(entry, "is_private", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
+        archived_at=entry.archived_at,
         dates=[
             EntryDateOut(phrase=d.phrase, at=d.at.date(), precision=d.precision)
             for d in resolved_dates
@@ -570,11 +571,16 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
 @router.get("", response_model=list[EntryOut])
 def list_entries(
     deleted: bool = False,
+    archived: bool = False,
     semantic: bool = False,
     q: str = "",
     session: Session = Depends(get_session),
 ) -> list[EntryOut]:
-    """Normal list, the recycle bin when ?deleted=true, or a concept search.
+    """Normal list, the recycle bin when ?deleted=true, the archive when
+    ?archived=true, or a concept search. `deleted` and `archived` are
+    mutually exclusive views (each its own held-back set), not filters
+    that combine — same as `deleted` already worked before `archived`
+    existed.
 
     `?semantic=true&q=…` is the one case the browser cannot do for itself: the
     notes list is filtered client-side by keyword, but cosine distance needs
@@ -582,6 +588,8 @@ def list_entries(
     """
     if deleted:
         entries = manager.list_deleted_entries(session)
+    elif archived:
+        entries = manager.list_archived_entries(session)
     else:
         entries = manager.list_entries(session)
 
@@ -711,6 +719,25 @@ def restore_entry(entry_id: int, session: Session = Depends(get_session)) -> Ent
     entry = _existing_entry(session, entry_id)
     if entry.is_deleted:
         manager.restore_entry(session, entry)
+    return _to_out(session, entry)
+
+
+@router.post("/{entry_id}/archive", response_model=EntryOut)
+def archive_entry(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
+    """Kept, but out of the way (BACKLOG §30b) — distinct from the recycle
+    bin: never auto-cleared, never purgeable, no confirmation needed since
+    nothing is at risk of being lost."""
+    entry = _existing_entry(session, entry_id)
+    if not entry.archived_at:
+        manager.archive_entry(session, entry)
+    return _to_out(session, entry)
+
+
+@router.post("/{entry_id}/unarchive", response_model=EntryOut)
+def unarchive_entry(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
+    entry = _existing_entry(session, entry_id)
+    if entry.archived_at:
+        manager.unarchive_entry(session, entry)
     return _to_out(session, entry)
 
 

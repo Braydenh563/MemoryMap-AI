@@ -92,23 +92,34 @@ def create_entry(
     return entry
 
 
-def list_entries(session: Session, include_deleted: bool = False) -> list[Entry]:
-    """Pinned first, then newest first. Deleted entries stay hidden until
-    the recycle bin UI asks for them explicitly."""
+def list_entries(
+    session: Session, include_deleted: bool = False, include_archived: bool = False
+) -> list[Entry]:
+    """Pinned first, then newest first. Deleted and archived entries stay
+    hidden until the recycle bin / archive UI asks for them explicitly —
+    archiving is not deleting, but it means the same "out of the way until
+    asked for" thing for an ordinary list."""
     query = select(Entry).order_by(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
     if not include_deleted:
         query = query.where(Entry.is_deleted == False)  # noqa: E712
+    if not include_archived:
+        query = query.where(Entry.archived_at.is_(None))
     return list(session.scalars(query))
 
 
 def most_accessed_entries(session: Session, limit: int = 5) -> list[Entry]:
-    """Most-used non-deleted entries; untouched entries don't qualify."""
+    """Most-used non-deleted, non-archived entries; untouched entries don't
+    qualify."""
     return list(
         session.scalars(
             select(Entry)
-            .where(Entry.is_deleted == False, Entry.access_count > 0)  # noqa: E712
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.archived_at.is_(None),
+                Entry.access_count > 0,
+            )
             .order_by(Entry.access_count.desc(), Entry.id.desc())
             .limit(limit)
         )
@@ -122,6 +133,20 @@ def list_deleted_entries(session: Session) -> list[Entry]:
             select(Entry)
             .where(Entry.is_deleted == True)  # noqa: E712
             .order_by(Entry.deleted_at.desc(), Entry.id.desc())
+        )
+    )
+
+
+def list_archived_entries(session: Session) -> list[Entry]:
+    """The archive, most recently archived first. Independent of the
+    recycle bin — an archived note that's also deleted still belongs to
+    the bin, not here (list_entries' own is_deleted filter already keeps
+    the two from double-counting in the normal view)."""
+    return list(
+        session.scalars(
+            select(Entry)
+            .where(Entry.archived_at.is_not(None), Entry.is_deleted == False)  # noqa: E712
+            .order_by(Entry.archived_at.desc(), Entry.id.desc())
         )
     )
 
@@ -367,6 +392,19 @@ def restore_entry(session: Session, entry: Entry) -> None:
     entry.is_deleted = False
     entry.deleted_at = None
     log_action(session, "restored", "entry", entry.id)
+    session.commit()
+
+
+def archive_entry(session: Session, entry: Entry) -> None:
+    """Out of the way, but never deleted — no auto-clear, no purge."""
+    entry.archived_at = utcnow()
+    log_action(session, "archived", "entry", entry.id)
+    session.commit()
+
+
+def unarchive_entry(session: Session, entry: Entry) -> None:
+    entry.archived_at = None
+    log_action(session, "unarchived", "entry", entry.id)
     session.commit()
 
 

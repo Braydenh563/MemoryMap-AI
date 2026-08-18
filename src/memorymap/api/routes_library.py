@@ -237,6 +237,54 @@ def _archive(session: Session) -> list[dict]:
     return items
 
 
+def _shelved(session: Session) -> list[dict]:
+    """A real archive (BACKLOG §30b / ROADMAP Tier 3), distinct on purpose
+    from `_archive()` above despite the similar name.
+
+    `_archive()`'s own docstring records a deliberate earlier decision:
+    this app has no separate archive, it has a bin, and inventing a second
+    concept just to match the word "archive" would give a deleted note two
+    possible homes. This is not that — `Entry.archived_at` never implies
+    `is_deleted`, nothing here is bound for auto-clear or purge, and a
+    shelved note stays reachable everywhere except the ordinary list and
+    the Notes tab, the same "kept, out of the way" shape the bin already
+    has for a genuinely different reason. Named "shelved" (`kind`, not the
+    user-facing label) specifically so it cannot be confused with
+    `"kind": "archived"` above at the code level, even though the two
+    English words mean almost the same thing.
+    """
+    rows = session.scalars(
+        select(Entry)
+        .where(
+            Entry.archived_at.is_not(None),
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+        )
+        .order_by(Entry.archived_at.desc())
+        .limit(PER_KIND_LIMIT)
+    )
+    items = []
+    for entry in rows:
+        content = entry.content or ""
+        own_title = extract_title(content) if content else None
+        preview_source = remove_title(content) if own_title else content
+        items.append(
+            {
+                "kind": "shelved",
+                "id": entry.id,
+                "title": own_title or (_clip(content)[:60] or "Empty note"),
+                "preview": _clip(preview_source),
+                "updated_at": entry.archived_at.isoformat(),
+                "detail": "archived",
+                "size": len(content),
+                "entry_id": entry.id,
+                "mime": None,
+                "pinned": False,
+            }
+        )
+    return items
+
+
 def _notes(session: Session) -> list[dict]:
     """Your live notes.
 
@@ -252,7 +300,7 @@ def _notes(session: Session) -> list[dict]:
     rows = session.execute(
         select(Entry, Category.name)
         .outerjoin(Category, Entry.category_id == Category.id)
-        .where(Entry.is_deleted == False)  # noqa: E712
+        .where(Entry.is_deleted == False, Entry.archived_at.is_(None))  # noqa: E712
         .order_by(Entry.pinned.desc(), Entry.created_at.desc())
         .limit(PER_KIND_LIMIT)
     ).all()
@@ -419,6 +467,7 @@ def _overview(session: Session, items: list[dict]) -> dict:
         "files": kinds.get("file", 0),
         "tags": kinds.get("tag", 0),
         "binned": kinds.get("archived", 0),
+        "shelved": kinds.get("shelved", 0),
         "attachment_bytes": stored,
         "attachment_size": _human_size(stored),
         "words": sum(
@@ -431,10 +480,10 @@ def _overview(session: Session, items: list[dict]) -> dict:
 def library(session: Session = Depends(get_session)) -> dict:
     """Everything you made, newest first within each kind.
 
-    One call for seven kinds, because the Library is now the app's management
+    One call for eight kinds, because the Library is now the app's management
     screen rather than a browser for two lists: a client assembling this from
-    seven endpoints would fire seven requests to paint one page and would still
-    miss the eighth kind the next person adds.
+    eight endpoints would fire eight requests to paint one page and would still
+    miss the ninth kind the next person adds.
 
     `counts` is sent alongside rather than left for the client to derive: the
     filter chips show them, and a chip reading "Files 0" is a useful thing to
@@ -447,6 +496,7 @@ def library(session: Session = Depends(get_session)) -> dict:
         + _images(session)
         + _tags(session)
         + _archive(session)
+        + _shelved(session)
         + _activity(session)
     )
     counts: dict[str, int] = {}

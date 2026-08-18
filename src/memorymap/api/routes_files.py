@@ -37,12 +37,52 @@ media_router = APIRouter(tags=["files"])
 
 MAX_FILE_BYTES = 50 * 1024 * 1024  # a personal notebook, not a fileserver
 
+#: Note attachments, unlike /media/upload above, had no allowlist at all —
+#: any file, of any type, attached without a single refusal (asked for
+#: directly: "make sure incompatible files are currently refused upon
+#: attempted upload with an error message"). This one is broader than
+#: MEDIA_SUFFIXES on purpose — attachments are downloaded (FileResponse's
+#: default Content-Disposition: attachment, not rendered inline the way
+#: /media/{name} is), so the stored-XSS concern that shaped that allowlist
+#: doesn't apply here in the same way — but video and audio are still out
+#: (no player exists for either yet; audio specifically is tracked as a
+#: real feature to add, not a permanent refusal) and so are the obvious
+#: executable/script shapes, since nothing in this app ever needs to run
+#: an attachment.
+ATTACHMENT_SUFFIXES = frozenset(
+    {
+        # Images
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".bmp", ".ico", ".svg", ".tiff", ".tif",
+        # Documents
+        ".pdf", ".docx", ".doc", ".odt", ".rtf",
+        ".pptx", ".ppt", ".odp",
+        ".xlsx", ".xls", ".ods", ".csv",
+        # Text & markup
+        ".txt", ".md", ".markdown", ".json", ".xml", ".yaml", ".yml", ".html", ".htm", ".css",
+        # Code
+        ".js", ".ts", ".jsx", ".tsx", ".py", ".java", ".c", ".h", ".cpp", ".hpp", ".cs", ".go",
+        ".rs", ".rb", ".php", ".sh", ".sql", ".swift", ".kt",
+        # Archives
+        ".zip",
+    }
+)
+
 
 @router.post("/entries/{entry_id}/files", response_model=EntryOut, status_code=201)
 def upload_file(
     entry_id: int, file: UploadFile, session: Session = Depends(get_session)
 ) -> EntryOut:
     entry = _existing_entry(session, entry_id)
+    suffix = Path(file.filename or "file").suffix[:12].lower()
+    if suffix not in ATTACHMENT_SUFFIXES:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                f"'{suffix or 'that file type'}' can't be attached. "
+                "Images, PDFs, office documents, text and code files are supported — "
+                "video and audio attachments aren't yet."
+            ),
+        )
     uploads_dir: Path = deps.get_config().uploads_dir
     # The folder is created at startup, but it only has to go missing once —
     # a cleanup tool, a synced or unmounted data directory, a restore that
@@ -52,7 +92,6 @@ def upload_file(
     uploads_dir.mkdir(parents=True, exist_ok=True)
 
     # Random stored name, original extension kept for double-click opening.
-    suffix = Path(file.filename or "file").suffix[:12]
     stored_name = f"{uuid.uuid4().hex}{suffix}"
     destination = uploads_dir / stored_name
 

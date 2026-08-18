@@ -2118,7 +2118,14 @@ button {
 
 .doc-title-input {
   flex: 1 1 12rem;
-  min-width: 0;
+  /* Was min-width: 0, which let the title absorb all of a narrow window's
+     shortfall before .doc-toolbar's own flex-wrap ever kicked in — .doc-
+     actions' row of buttons wraps internally instead of shrinking, so the
+     title had nowhere to stop and was crushed to a few illegible pixels
+     (reported live, screenshotted). This floor forces the toolbar to wrap
+     the actions onto their own row once the title would otherwise go below
+     a readable width, instead of shrinking the title toward zero. */
+  min-width: 8rem;
   font-size: 1.15rem;
   font-weight: 650;
   border: 1px solid transparent;

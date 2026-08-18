@@ -90,6 +90,19 @@ def test_upload_download_delete_attachment(client):
     assert uploads == []
 
 
+def test_an_incompatible_attachment_is_refused_with_a_clear_error(client):
+    entry = _save(client, "note with an unwelcome file")
+    upload = client.post(
+        f"/entries/{entry['id']}/files",
+        files={"file": ("clip.mp4", io.BytesIO(b"not really a video"), "video/mp4")},
+    )
+    assert upload.status_code == 415
+    assert "mp4" in upload.json()["detail"]
+    # And nothing was attached or written to disk.
+    assert client.get(f"/entries/{entry['id']}").json()["attachments"] == []
+    assert list(deps.get_config().uploads_dir.iterdir()) == []
+
+
 def test_hard_delete_removes_attachment_files(client):
     entry = _save(client, "doomed note")
     client.post(

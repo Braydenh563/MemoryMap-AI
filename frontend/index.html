@@ -314,6 +314,25 @@
     </div>
   </dialog>
 
+  <!-- Was a bare window.prompt() — functional, but the one dialog in the app
+       with no app styling at all: no theme, no font, not even a title.
+       Asked for directly ("customise the set word goal popup... same design
+       style as the rest of the application"). Same shape as the space
+       dialogs above. -->
+  <dialog id="doc-word-goal-dialog" class="card space-dialog">
+    <h3>Word-count goal</h3>
+    <p class="muted">
+      Set a target for this document. The word count in the toolbar shows
+      your progress toward it as you write.
+    </p>
+    <label for="doc-word-goal-input">Goal (0 to clear)</label>
+    <input type="number" id="doc-word-goal-input" min="0" step="1" inputmode="numeric" autocomplete="off">
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="doc-word-goal-dialog">Cancel</button>
+      <button type="button" class="accent" id="doc-word-goal-submit">Set goal</button>
+    </div>
+  </dialog>
+
   <!-- Widget picker (roadmap §26): a dedicated surface for the same
        dashboard_layout preference the inline "Edit layout" mode writes.
        Rows are built by renderDashWidgetsList() in app.js. -->

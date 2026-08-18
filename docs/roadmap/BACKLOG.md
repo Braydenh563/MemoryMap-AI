@@ -2212,4 +2212,63 @@ kept as metadata rather than folded into searchable body text. Not scoped
 importer is a real integration and should be sized separately before
 committing to it.
 
+## 75. Voice memos: capture, storage, playback, and a dedicated library page
+
+Asked for directly. `/entries/{id}/files` now has a real allowlist
+(`ATTACHMENT_SUFFIXES` in `routes_files.py` — images, PDF, common office
+formats, text and code, refusing anything else with a 415, e.g. video), but
+audio is deliberately not on that list yet — there is no player anywhere in
+the app, so an uploaded `.mp3` would just be a file nobody could listen to.
+Three separable pieces, roughly in the order they'd need building: (1) a
+record-a-voice-memo control (browser `MediaRecorder`, saved as an
+attachment once `.mp3`/`.wav`/`.m4a`/`.webm` are added to the allowlist and
+a size ceiling suited to audio rather than documents is picked — 50MB is
+generous for a PDF and stingy for 20 minutes of audio), (2) an `<audio>`
+player wherever an attachment is already rendered inline (the note card,
+the lightbox), and (3) a Library subtab alongside AI Skills/Whiteboards/
+Image Gallery listing every audio attachment across the notebook, the way
+`routes_library.py`'s `_notes()`/`_archive()`/`_shelved()` already do for
+images via `thumb_by_entry`. Meeting notes were the specific use case
+raised — a memo recorded during a meeting, attached to that note.
+
+## 76. Keyword-only note filing while the AI is unavailable, flagged for later AI review
+
+Asked for directly, and specifically **not** the same as `janitor.categorise`'s
+existing low-confidence path (routes_entries.py's `create_entry` already
+falls back to `UNCATEGORISED` when the AI call itself fails — that's a
+"give up" fallback, not a second opinion). What's being asked for is a real
+non-AI filer: while no local model is available at all, look at a new
+note's own words (keyword/term overlap against existing categories and
+tags — no embeddings, no model call) to make a real best-effort filing
+guess instead of dumping everything into Uncategorised, and tag every note
+filed this way so it's unmistakable later. Once the AI is available again —
+on its own schedule, not necessarily right away — the autonomous agent's
+existing stale/orphaned-note review pass (§17 in the session's
+completed-work list) checks that tag specifically: did the keyword guess
+get the filing and metadata right, and correct it if not. Scope: a
+keyword-overlap filer as a genuine alternative code path when
+`deps.get_ollama()`/the model manager reports unavailable (not merely a
+lower-confidence branch of the AI path), a `filed_by="keyword_fallback"` (or
+similar) marker distinct from the existing `"none"`/`"thread"`/`"user"`
+values, and a query added to the existing review pass rather than a new one.
+
+## 77. Notes-tab pagination and page-aware note links
+
+Asked for directly, with a concrete reason: a large notebook's Notes tab is
+one continuously growing list (backed by the paginated `GET /entries` added
+this session, but presented to the user as an unbroken scroll — see §35/
+the pagination work above) rather than a paged view with a page-size choice
+and a page selector top and bottom. Two things this is NOT the same as: the
+"1000 rows per fetch" pagination `GET /entries` already does under the
+hood (invisible to the user, purely a payload-size guard), and the Library's
+own grid/list views (unrelated screen). Real scope, if built: (1) a page-
+size preference and page selector UI in the Notes tab, sized the way
+`ENTRIES_PAGE_SIZE`/`ENTRIES_PAGE_SIZE_MAX` already are in
+`routes_entries.py`; (2) the harder part — a wiki-link/note-reference
+click has to land on the right *page* of the list, which depends on
+whatever sort and filter the user currently has active (category, tag,
+pinned, search term, semantic vs. keyword), not just the note's id. That
+second part is real routing logic, not a UI tweak, and deserves its own
+design pass rather than being bolted onto the simpler page-size control.
+
 ---

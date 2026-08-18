@@ -109,13 +109,21 @@
     flex: 0 0 auto;
   }
 
+  /* Not position: static — the collapse toggle inside is position: absolute,
+     and static doesn't establish a positioning context for it. With no
+     positioned ancestor left, the toggle fell through to the page's own
+     initial containing block and rendered pinned near the viewport's top
+     edge instead of this card's corner — on top of the app header on a
+     phone (reported live, with a screenshot). relative keeps the sidebar's
+     own static-like flow (no offset is set) while still containing the
+     toggle. */
   .doc-sidebar {
-    position: static;
+    position: relative;
   }
 
   #chat-sidebar,
   #doc-sidebar {
-    position: static;
+    position: relative;
     align-self: stretch;
   }
 
@@ -1827,10 +1835,16 @@ textarea.autogrow {
 
   /* By id, so this beats the id-level sticky rule rather than tying with the
      class one. On a phone the sidebars stack above the content, and pinning a
-     full-height panel over what you're reading is worse than losing it. */
+     full-height panel over what you're reading is worse than losing it.
+     relative, not static: the collapse toggle inside each sidebar is
+     position: absolute, and static gives it no positioning context to size
+     against, so it fell through to the page's initial containing block and
+     rendered pinned to the viewport's top-left — over the app header
+     (reported live, screenshotted). relative keeps this rule's own static-
+     like flow (no offset set here) while still containing the toggle. */
   #chat-sidebar,
   #doc-sidebar {
-    position: static;
+    position: relative;
     align-self: stretch;
     height: auto;
     max-height: 50vh;

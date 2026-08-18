@@ -6621,14 +6621,9 @@ function renderDocStats() {
 function promptDocWordGoal() {
   if (!currentDoc) return;
   const current = getDocWordGoal(currentDoc.id);
-  const answer = window.prompt(
-    "Word-count goal for this document (0 to clear):",
-    current || ""
-  );
-  if (answer === null) return;
-  const goal = Math.max(0, Math.round(Number(answer)) || 0);
-  setDocWordGoal(currentDoc.id, goal);
-  renderDocStats();
+  $("doc-word-goal-input").value = current || "";
+  $("doc-word-goal-dialog").showModal();
+  $("doc-word-goal-input").focus();
 }
 
 // --- find and replace (16b: "a bunch of missing features" — this is the
@@ -21872,6 +21867,13 @@ $("voice-model-select").addEventListener("change", (e) =>
   setPreference("voice_model", e.target.value)
 );
 $("doc-word-goal").addEventListener("click", promptDocWordGoal);
+$("doc-word-goal-submit").addEventListener("click", () => {
+  if (!currentDoc) return;
+  const goal = Math.max(0, Math.round(Number($("doc-word-goal-input").value)) || 0);
+  setDocWordGoal(currentDoc.id, goal);
+  renderDocStats();
+  $("doc-word-goal-dialog").close();
+});
 $("doc-preview-toggle").addEventListener("click", toggleDocPreview);
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);

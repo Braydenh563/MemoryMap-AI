@@ -7,6 +7,63 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — an allowlist for note attachments
+
+Reported directly: `POST /entries/{id}/files` (the generic "attach a file"
+button on a note) had no file-type validation at all — anything uploaded,
+video included. `/media/upload` (pasted/dropped images) already had a real
+allowlist for a stored-XSS reason specific to that route; this one is
+broader (attachments download rather than render inline) but still refuses
+video, audio and executable shapes with a clear 415, while covering images,
+PDF, common office formats, and text/code files. Audio specifically is
+tracked as a real feature to add (BACKLOG §75 — capture, playback, a
+library page) rather than a permanent refusal.
+
+### Changed — a themed dialog for the document word-count goal
+
+Was a bare `window.prompt()` — functional, but the only dialog in the app
+with no app styling, font or theme at all. Reported directly. Now a `card
+space-dialog` matching every other small dialog in the app (the space
+create/rename/delete ones, the documents-storage one).
+
+### Fixed — three UI issues at the top of the Documents sidebar
+
+All reported directly, with a photo. (1) The document title input had no
+floor on how far it could shrink, so on a narrow window it was crushed to
+a few illegible pixels before the toolbar ever wrapped its buttons onto
+their own row — given a real minimum width, the toolbar now wraps instead.
+(2) The four new help-tooltip circles (below) rendered as ovals, not
+circles, everywhere except the Graph/Timeline tabs — `--control-h`, the
+custom property they sized themselves against, is only declared in a
+handful of scopes, and silently resolved to nothing everywhere else,
+falling back to `button.small`'s asymmetric padding. Fixed with a literal
+size instead of a token that isn't always in scope. (3) The Documents/
+Outline pill toggle's "Recent"/"+ New" row was reserving the same
+right-side clearance for the collapse toggle that the tab strip above it
+already reserves, even though the toggle only ever appears once — "+ New"
+sat well short of the sidebar's real edge with dead space beside it. Given
+its own clearance instead, plus a little extra beyond the bare minimum for
+visual breathing room next to the toggle.
+
+### Fixed — the sidebar collapse toggle escaping to the page's top-left on a phone
+
+Reported directly: the collapse toggle (Notes, Chat and Documents sidebars
+alike) could render pinned near the very top of the viewport, over the app
+header, instead of in its own sidebar's corner. The toggle is `position:
+absolute`; two separate mobile breakpoints set its sidebar to `position:
+static` to disable the desktop sticky behaviour, and `static` doesn't
+establish a positioning context for an absolutely-positioned child, so the
+toggle fell through to the page's own initial containing block. `position:
+relative` disables sticky the same way while still containing the toggle.
+
+### Removed — two dead files at the repo root
+
+`find_emojis.py` was an unreferenced one-off debugging script (scanned
+`app.js` for stray emoji during a past cleanup pass); `mkdocs.yml`
+configured a docs site nothing builds — no CI step, no Makefile target, no
+`mkdocs` dependency anywhere, and the real GitHub Pages site is the
+hand-built `docs/index.html` renderer. Asked for directly.
+
 ### Added — help tooltips on Timeline and the three Library subtabs
 
 Asked for directly, matching the existing Graph tab pattern. The Timeline

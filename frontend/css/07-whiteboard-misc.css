@@ -1249,7 +1249,11 @@ body.has-agent-monitor .doc-sidebar .doc-list {
      reserved lane past the toggle so the tab strip doesn't run under it.
      Reported live: the strip was sitting under/clipped by the toggle. */
   margin-top: calc(var(--sidebar-toggle-inset) - var(--space-6));
-  padding-right: var(--sidebar-toggle-lane);
+  /* The bare lane (toggle width + one --space-2) put "Outline" close enough
+     to read as crowding the toggle at narrower sidebar widths, reported
+     directly. An extra --space-3 of clearance on top of the lane everywhere
+     else already reserves. */
+  padding-right: calc(var(--sidebar-toggle-lane) + var(--space-3));
   min-height: var(--sidebar-toggle-size);
   margin-bottom: var(--space-4);
   flex: 0 0 auto;
@@ -1257,9 +1261,16 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 
 /* .sidebar-head's own pull-up above is for whichever element is first in
    the card — that's #doc-sidebar-tabs now, so the "Recent" row one level
-   further in must not *also* pull itself up into the tab strip above it. */
+   further in must not *also* pull itself up into the tab strip above it.
+   Same story for the reserved lane on the right: the collapse toggle sits
+   once, on the tab strip above, and .sidebar-head's own padding-right
+   reserved that same width again here for nothing beside it — "+ New"
+   stopped 16px short of the card's real content edge with empty space past
+   it, reported as sitting oddly off to the side rather than flush with
+   anything. */
 #doc-sidebar-list .sidebar-head {
   margin-top: 0;
+  padding-right: 0;
 }
 
 /* Each tab's whole content column, so #doc-outline-wrap's own `flex: 1 1

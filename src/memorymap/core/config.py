@@ -82,6 +82,11 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # whole new kind of thing to the notebook (an entity) rather than
     # changing an existing note, which deserves an even more deliberate opt-in.
     "auto_entities_enabled": False,
+    # ROADMAP.md item 31. Off by default for the same reason as entities
+    # above: this one makes a judgement call about which notes count as
+    # "forgotten" rather than performing a request the user already made
+    # (tag/link/dedupe are all reactions to a note's own content).
+    "auto_stale_review_enabled": False,
     "autonomous_tasks_interval_hours": 6,
     #: Skip the expensive extras — similarity edges on the graph, the
     #: background pass — on a laptop running off its battery.

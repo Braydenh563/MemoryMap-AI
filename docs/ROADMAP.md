@@ -1035,13 +1035,22 @@ Worth doing, and worth doing after the above.
 31. **Expand the autonomous background agent's capabilities.** Asked for
     directly, without a specific gap named — today it does three things
     (`_enabled_tasks` in `ai/autonomous.py`): tag untagged notes, link
-    conceptually related ones, flag duplicates. Candidates worth scoping
-    before picking one: acting on stale/orphaned notes (nothing currently
-    reviews a note nobody has touched in months), running the digest or
-    on-this-day surfacing proactively rather than only on request, or
-    letting a saved skill run on the same schedule instead of only the three
-    fixed tasks. Needs a real "which of these, and why" before building —
-    "expand the capabilities" alone isn't a spec.
+    conceptually related ones, flag duplicates. ~~Candidates worth scoping
+    before picking one: acting on stale/orphaned notes~~ — **chosen and
+    built this session (HISTORY.md §72)**: `entry/staleness.py`'s
+    `find_stale_orphaned_notes()`, a new deterministic pass in
+    `_run_optimization()` behind its own `auto_stale_review_enabled`
+    preference (off by default, like entities), tags a qualifying note
+    `stale` rather than acting on it further — nobody's watching an
+    unattended pass, so the same caution `blocked_tools` already applies
+    to `delete_note` applies here too. **Covered by 11 new tests
+    (pytest), not yet checked live in a browser** — the toggle and its
+    Settings checkbox exist but a real end-to-end run (enable the
+    preference, trigger a pass, see the tag land in the Library/note
+    editor) wasn't driven through Playwright this session; worth doing
+    first thing next time this area is touched. The other two candidates
+    — proactive digest/on-this-day surfacing, and letting a saved skill run
+    on the same schedule — are still open.
 32. ~~**Keyword search has no IDF weighting and can't use an index.**~~
     **Done.** An external-content FTS5 table (`entries_fts`) replaced the
     leading-wildcard `ILIKE` scan, ranked by `bm25()`. See HISTORY.md/the

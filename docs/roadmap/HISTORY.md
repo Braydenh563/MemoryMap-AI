@@ -4137,3 +4137,54 @@ untransitioned direct-manipulation zoom, matching common practice, and the
 button zoom already has its own 200ms eased transition). New layouts
 beyond Arc (mind map, treemap, adjacency matrix) are a separate, larger
 ask this didn't touch.
+
+## 72. Stale/orphaned-note review, the fourth thing the autonomous agent does (ROADMAP.md item 31)
+
+The user picked this from item 31's own list of scoped candidates
+("acting on stale/orphaned notes" over proactive digest surfacing or
+letting a skill run on schedule). Built the same way `entry/duplicates.py`
+already argues for its own task — arithmetic, not AI, because age and
+connectedness are plain columns and joins, already exact, and asking a
+model to guess which notes feel "forgotten" would be slower and no more
+correct:
+
+- `entry/staleness.py`'s `find_stale_orphaned_notes(session, days=90)` —
+  conservative on purpose, every signal has to agree: untouched (`updated_at`
+  past the cutoff), no link either direction, no thread (not a reply, no
+  replies of its own), and not pinned. A false positive here means nagging
+  someone about a note they deliberately keep untouched, the same cost
+  `duplicates.py` weighs for a wrongly-matched pair.
+- Wired into `_run_optimization()` as a fourth deterministic pass, same
+  shape as the entity-extraction and link-reason-audit passes beside it —
+  not routed through `agent.run_agent()`, and bounded to
+  `STALE_REVIEW_BATCH_SIZE` (20) notes per tick for the same reason
+  `AUDIT_BATCH_SIZE` bounds the link audit: a big backlog is worked through
+  one interval at a time, not in one tick.
+- Its own preference, `auto_stale_review_enabled`, **off by default** —
+  unlike tag/link/dedupe (which react to a note's own content), this one
+  makes a judgement call about which notes count as forgotten, the same
+  caution `auto_entities_enabled` already gets for the same reason.
+- Flags by tagging (`stale`), not by acting further — archiving or deleting
+  would need a human to actually decide, and there's nobody watching an
+  unattended pass to ask. A tag is reviewable and reversible the same way
+  `_tag_note` already is for a tag someone asks for directly.
+- A Settings → Background tasks checkbox ("Flag stale or orphaned notes"),
+  same pattern as its three siblings (`pref-auto-*` id, `renderAutonomous
+  Settings()` line, its own `setPreference` change listener — no shared
+  form rebuild, so a stale/default DOM value can't silently overwrite a
+  real saved preference the way the section's own past bug did).
+
+11 new tests: 8 for `find_stale_orphaned_notes()` itself
+(`test_staleness.py` — fresh/old/linked/threaded/pinned/binned/archived,
+matching the "everything has to agree" shape) and 3 pinning the background
+job actually reaches it, tags what it finds, and the preference switches
+it off (`test_autonomous.py`, same section-comment pattern the link-reason
+audit tests already use, for the same reason — a feature written inside
+`_run_optimization` with nothing proving the pass reaches it is exactly
+this module's own founding bug). **Not yet checked live in a browser** —
+enabling the preference, triggering a real pass, and watching a genuinely
+old, disconnected note pick up the `stale` tag in the Library wasn't
+driven through Playwright this session (the sitting ran out of room for
+it); the mechanism is pytest-verified end to end, but "the toggle actually
+does something a person can see" is not yet observed, only reasoned about.
+Worth 10 minutes with a real server before this area is touched again.

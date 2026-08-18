@@ -14959,6 +14959,7 @@ function renderAutonomousSettings() {
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
   $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
+  $("pref-auto-stale-review").checked = Boolean(prefsCache.auto_stale_review_enabled);
   $("pref-autonomous-interval").value = prefsCache.autonomous_tasks_interval_hours || 6;
   $("pref-autonomous-model").value = prefsCache.autonomous_tasks_model || "";
   $("pref-battery-mode").checked = Boolean(prefsCache.battery_efficient_mode);
@@ -21025,6 +21026,9 @@ $("pref-auto-link").addEventListener("change", (e) =>
 );
 $("pref-auto-dedupe").addEventListener("change", (e) =>
   setPreference("auto_dedupe_enabled", e.target.checked)
+);
+$("pref-auto-stale-review").addEventListener("change", (e) =>
+  setPreference("auto_stale_review_enabled", e.target.checked)
 );
 $("pref-battery-mode").addEventListener("change", (e) => {
   setPreference("battery_efficient_mode", e.target.checked);

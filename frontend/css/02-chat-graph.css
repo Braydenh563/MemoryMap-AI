@@ -2081,6 +2081,21 @@ html {
   cursor: default;
 }
 
+/* Stands in for the image when it fails to decode — a deleted underlying
+   file, most often — so paging to it shows a plain explanation instead of a
+   blank box with no feedback at all. */
+.lightbox-broken {
+  max-width: 60vw;
+  padding: var(--space-8);
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  cursor: default;
+}
+
+.lightbox-broken.hidden {
+  display: none;
+}
+
 /* Click-anywhere-to-close alone isn't discoverable — reported directly —
    so there's now an explicit close affordance too. Fixed to the viewport
    corner, not the image, so it's in the same place regardless of image size

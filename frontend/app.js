@@ -1070,6 +1070,27 @@ function entryItem(entry, options = {}) {
   }
   if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
   if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
+  // Captured from the text-selection popup and not yet looked at. A chip
+  // rather than a separate "Drafts" view — the note is in its normal place
+  // in the list either way, this just marks it not reviewed yet. Click to
+  // clear it once you have.
+  if (entry.is_draft) {
+    const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
+      event.stopPropagation();
+      try {
+        await apiJson(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ is_draft: false }),
+        });
+        entry.is_draft = false;
+        await loadEntries();
+      } catch (error) {
+        toast(error.message || "Couldn't update that note.", true);
+      }
+    });
+    draftChip.title = "Captured from a selection, not reviewed yet — click to mark reviewed";
+    meta.insertBefore(draftChip, meta.firstChild);
+  }
   li.appendChild(meta);
 
   // Attachments (Wave B; images become thumbnails in Wave M).
@@ -2091,117 +2112,6 @@ async function attachFromLibrary(entry) {
 // the bytes once per attachment and cache an object URL (Wave M).
 const thumbUrlCache = new Map();
 
-// Library → Image Gallery. Reported live as broken (a phantom "2 of 2" with
-// a second page that never loads) — traced to there being no code anywhere
-// that reads #library-subtabs' own data-target, so the four sub-views never
-// actually switched and this grid was never populated; whatever was on
-// screen was left over from an unrelated render. Built fresh, not patched.
-async function loadLibraryImages() {
-  const grid = $("library-images-grid");
-  const empty = $("library-images-empty");
-  if (!grid) return;
-  const images = await apiJson("/media", { silent: true }).catch(() => null);
-  grid.replaceChildren();
-  const items = images || [];
-  empty?.classList.toggle("hidden", items.length > 0);
-  const isPdf = (url) => /\.pdf$/i.test(url);
-  const lightboxItems = items
-    .filter((image) => !isPdf(image.url))
-    .map((image) => ({ filename: image.original_name, getUrl: () => mediaSrc(image.url) }));
-  for (const image of items) {
-    const fig = document.createElement("figure");
-    fig.className = "library-image-tile";
-    const button = document.createElement("button");
-    button.type = "button";
-    button.title = image.original_name;
-    if (isPdf(image.url)) {
-      const icon = document.createElement("i");
-      icon.className = "ph ph-file-pdf";
-      icon.setAttribute("aria-hidden", "true");
-      button.appendChild(icon);
-      button.addEventListener("click", () => window.open(mediaSrc(image.url), "_blank"));
-    } else {
-      const img = document.createElement("img");
-      img.src = mediaSrc(image.url);
-      img.alt = "";
-      img.loading = "lazy";
-      button.appendChild(img);
-      button.addEventListener("click", () => {
-        const at = lightboxItems.findIndex((i) => i.filename === image.original_name);
-        openLightbox(lightboxItems, Math.max(0, at));
-      });
-    }
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "library-image-delete";
-    setLabel(del, "ph:trash");
-    del.title = `Delete "${image.original_name}"`;
-    del.setAttribute("aria-label", del.title);
-    del.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      if (!(await confirmDialog(`Delete "${image.original_name}" from the Library?`))) return;
-      try {
-        await apiJson(`/media/${image.id}`, { method: "DELETE" });
-        loadLibraryImages();
-      } catch (error) {
-        toast(error.message || "Couldn't delete that file.", true);
-      }
-    });
-    const cap = document.createElement("figcaption");
-    cap.textContent = image.original_name;
-    cap.title = image.original_name;
-    fig.append(button, del, cap);
-    grid.appendChild(fig);
-  }
-}
-
-async function uploadLibraryImages(files) {
-  for (const file of files) {
-    const form = new FormData();
-    form.append("file", file);
-    try {
-      // No Content-Type here — the browser sets the multipart boundary
-      // itself. api()'s own default header would force application/json and
-      // break the upload, same fix as every other file-upload call site.
-      await api("/media/upload", {
-        method: "POST", body: form, headers: { "X-Auth-Token": authToken() },
-      });
-    } catch (error) {
-      toast(`Couldn't upload ${file.name}.`, true);
-    }
-  }
-  loadLibraryImages();
-}
-
-function initLibrarySubtabs() {
-  const strip = $("library-subtabs");
-  if (!strip || strip.dataset.ready) return;
-  strip.dataset.ready = "1";
-  const sections = [...document.querySelectorAll("#tab-library > .library-view-section")];
-  const show = (targetId) => {
-    for (const section of sections) section.classList.toggle("hidden", section.id !== targetId);
-    for (const button of strip.querySelectorAll("button[data-target]")) {
-      const active = button.dataset.target === targetId;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-    }
-    if (targetId === "library-view-media") loadLibraryImages();
-  };
-  strip.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-target]");
-    if (button) show(button.dataset.target);
-  });
-  $("library-images-upload")?.addEventListener("click", () =>
-    $("library-images-upload-input").click()
-  );
-  $("library-images-upload-input")?.addEventListener("change", (event) => {
-    const files = [...event.target.files];
-    event.target.value = "";
-    if (files.length) uploadLibraryImages(files);
-  });
-  $("library-images-refresh")?.addEventListener("click", loadLibraryImages);
-}
-
 async function attachmentObjectUrl(attachment) {
   if (thumbUrlCache.has(attachment.id)) return thumbUrlCache.get(attachment.id);
   const response = await api(`/files/${attachment.id}`);
@@ -2238,6 +2148,8 @@ function openLightbox(items, startIndex = 0) {
   setLabel(closeBtn, "ph:x");
 
   const img = document.createElement("img");
+  const broken = document.createElement("p");
+  broken.className = "lightbox-broken hidden";
   const meta = document.createElement("div");
   meta.className = "lightbox-meta";
 
@@ -2261,7 +2173,7 @@ function openLightbox(items, startIndex = 0) {
   // live; measured a ~14px gap on a 400×300 test image. Positioned against
   // the image's actual rendered box instead of assumed from viewport math.
   function positionNav() {
-    const rect = img.getBoundingClientRect();
+    const rect = (broken.classList.contains("hidden") ? img : broken).getBoundingClientRect();
     if (!rect.height) return;
     const center = `${rect.top + rect.height / 2}px`;
     prevBtn.style.top = center;
@@ -2273,7 +2185,18 @@ function openLightbox(items, startIndex = 0) {
     const item = items[index];
     img.alt = item.filename || "";
     img.src = await item.getUrl();
-    await img.decode().catch(() => {});
+    // A failed decode used to be swallowed here, leaving a blank box with no
+    // explanation — reported live as "the second page doesn't load" (an
+    // image whose underlying file was gone, paged to from a gallery that
+    // itself hides broken tiles, so the lightbox was the only place the
+    // failure was ever visible, and it said nothing). Now it says so.
+    const ok = await img.decode().then(
+      () => true,
+      () => false
+    );
+    img.classList.toggle("hidden", !ok);
+    broken.classList.toggle("hidden", ok);
+    if (!ok) broken.textContent = `Couldn't load "${item.filename || "this image"}" — the file may have been deleted.`;
     overlay.setAttribute("aria-label", item.filename || "Image preview");
     meta.textContent =
       items.length > 1
@@ -2310,11 +2233,141 @@ function openLightbox(items, startIndex = 0) {
   });
   document.addEventListener("keydown", onKey);
 
-  overlay.append(closeBtn, img, meta);
+  overlay.append(closeBtn, img, broken, meta);
   if (items.length > 1) overlay.append(prevBtn, nextBtn);
   document.body.appendChild(overlay);
   closeBtn.focus();
   show(startIndex);
+}
+
+// A small toolbar near wherever the user just selected text, anywhere in
+// the app's actual content — a document, the graph, a web search result, a
+// chat message, a note. Asked for directly: "if the user highlights an
+// output or piece of text... the user can save it as a note, search the
+// notebook for similar phrases or meaning/topics, ask the ai about it".
+//
+// Denylist rather than an allowlist of containers: excluding form fields
+// (which already have their own selection/context-menu behaviour a popup
+// stealing focus would fight) and the popup's own text is simpler than
+// naming every readable surface in the app and it can't silently miss one
+// that gets added later.
+const SELECTION_POPUP_EXCLUDED = "input, textarea, [contenteditable], .selection-popup";
+
+let selectionPopupEl = null;
+
+function selectionPopup() {
+  if (selectionPopupEl) return selectionPopupEl;
+  const box = document.createElement("div");
+  box.className = "selection-popup hidden";
+  box.setAttribute("role", "toolbar");
+  box.setAttribute("aria-label", "Actions for the selected text");
+  const draft = document.createElement("button");
+  draft.type = "button";
+  setLabel(draft, "ph:note-pencil Save as draft note");
+  const search = document.createElement("button");
+  search.type = "button";
+  setLabel(search, "ph:magnifying-glass Search notebook");
+  const ask = document.createElement("button");
+  ask.type = "button";
+  setLabel(ask, "ph:chat-circle Ask AI about this");
+  box.append(draft, search, ask);
+  document.body.appendChild(box);
+
+  draft.addEventListener("mousedown", (e) => e.preventDefault()); // don't clear the selection
+  draft.addEventListener("click", async () => {
+    const text = selectionPopupText;
+    hideSelectionPopup();
+    if (!text) return;
+    try {
+      await apiJson("/entries", {
+        method: "POST",
+        body: JSON.stringify({ content: text, is_draft: true }),
+      });
+      toast("Saved as a draft note.");
+      if (localStorage.getItem("activeTab") === "notes") loadEntries();
+    } catch (error) {
+      toast(error.message || "Couldn't save that note.", true);
+    }
+  });
+
+  search.addEventListener("mousedown", (e) => e.preventDefault());
+  search.addEventListener("click", () => {
+    const text = selectionPopupText;
+    hideSelectionPopup();
+    if (!text) return;
+    switchTab("notes");
+    showNotesSection("browse");
+    noteSearch = text;
+    $("note-search").value = text;
+    $("save-search").classList.remove("hidden");
+    renderEntries();
+    if ($("semantic-search-toggle")?.checked) loadEntries();
+  });
+
+  ask.addEventListener("mousedown", (e) => e.preventDefault());
+  ask.addEventListener("click", () => {
+    const text = selectionPopupText;
+    hideSelectionPopup();
+    if (!text) return;
+    switchTab("chat");
+    const input = $("chat-input");
+    input.value = `Tell me about this: "${text}"`;
+    input.focus();
+  });
+
+  selectionPopupEl = box;
+  return box;
+}
+
+let selectionPopupText = "";
+
+function hideSelectionPopup() {
+  selectionPopupEl?.classList.add("hidden");
+  selectionPopupText = "";
+}
+
+function showSelectionPopupAt(rect, text) {
+  const box = selectionPopup();
+  selectionPopupText = text;
+  box.classList.remove("hidden");
+  // Above the selection, centred on it, clamped so it can't run off any
+  // edge of the viewport regardless of where the selection sits.
+  const margin = 8;
+  const boxRect = box.getBoundingClientRect();
+  let left = rect.left + rect.width / 2 - boxRect.width / 2;
+  left = Math.min(Math.max(margin, left), window.innerWidth - boxRect.width - margin);
+  let top = rect.top - boxRect.height - margin;
+  if (top < margin) top = rect.bottom + margin; // no room above — go below instead
+  top = Math.min(Math.max(margin, top), window.innerHeight - boxRect.height - margin);
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+}
+
+function initSelectionPopup() {
+  document.addEventListener("mouseup", (event) => {
+    if (event.target.closest(".selection-popup")) return;
+    const selection = window.getSelection();
+    const text = (selection.toString() || "").trim();
+    if (!text || selection.isCollapsed) {
+      hideSelectionPopup();
+      return;
+    }
+    const anchor = selection.anchorNode;
+    const el = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentElement);
+    if (!el || el.closest(SELECTION_POPUP_EXCLUDED)) {
+      hideSelectionPopup();
+      return;
+    }
+    showSelectionPopupAt(selection.getRangeAt(0).getBoundingClientRect(), text);
+  });
+  document.addEventListener("mousedown", (event) => {
+    if (!event.target.closest(".selection-popup")) hideSelectionPopup();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hideSelectionPopup();
+  });
+  window.addEventListener("scroll", hideSelectionPopup, true);
+  window.addEventListener("resize", hideSelectionPopup);
 }
 
 async function downloadAttachment(attachment) {
@@ -21239,7 +21292,7 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
 initNotesSubtabs();
-initLibrarySubtabs();
+initSelectionPopup();
 initEntryListKeyboardNav();
 scrollTopUpdate = initScrollTopButton();
 // Reminder watching moved into startApp() (below `_active_tokens` note in

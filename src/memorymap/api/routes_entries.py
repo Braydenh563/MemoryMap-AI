@@ -97,6 +97,7 @@ def _to_out(
         pinned=entry.pinned,
         user_filed=entry.user_filed,
         is_private=bool(getattr(entry, "is_private", False)),
+        is_draft=bool(getattr(entry, "is_draft", False)),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         archived_at=entry.archived_at,
@@ -215,6 +216,8 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.parent_id = parent.id
     if filed_by == "user":
         entry.user_filed = True
+    if body.is_draft:
+        entry.is_draft = True
     session.commit()
 
     # Best effort: a failed embedding only means this entry is invisible
@@ -681,6 +684,9 @@ def update_entry(
         manager.log_action(
             session, "edited", "entry", entry.id, "pinned" if body.pinned else "unpinned"
         )
+        session.commit()
+    if body.is_draft is not None and body.is_draft != entry.is_draft:
+        entry.is_draft = body.is_draft
         session.commit()
     if content_changed:
         # The old vector describes the old text — refresh it, best effort.

@@ -1131,6 +1131,36 @@
   font-size: 0.8rem;
 }
 
+/* The text-selection toolbar: save-as-draft / search-notebook / ask-AI,
+   near wherever the user just highlighted something. position:fixed (not
+   absolute) because it can be triggered from anywhere on the page, not one
+   scrollable container with a known offset parent — its left/top are set
+   in JS from the selection's own getBoundingClientRect(), already in
+   viewport coordinates. */
+.selection-popup {
+  position: fixed;
+  z-index: 90;
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+
+.selection-popup.hidden {
+  display: none;
+}
+
+.selection-popup button {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
 .graph-popup {
   position: absolute;
   z-index: 40;

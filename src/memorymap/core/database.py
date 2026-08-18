@@ -226,6 +226,13 @@ class Entry(Base, WorkspaceMixin):
     # rather than a boolean so a future re-scan policy ("older than 30
     # days") has something to compare against without a second column.
     entities_extracted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    # A note captured quickly — from a text-selection popup, say — and not
+    # yet looked at properly. Shown normally everywhere (unlike is_private,
+    # this changes nothing about how the note reads or where it appears),
+    # just flagged, so nothing captured on the fly gets lost in the list
+    # before its author comes back to it. Scalar default so the additive
+    # auto-migrator backfills every existing row as not-a-draft.
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Entity(Base):

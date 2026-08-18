@@ -964,16 +964,18 @@ Worth doing, and worth doing after the above.
     item rather than a tuning pass on the existing force simulation.
 25. ~~**Mind-mapping — decided: a whiteboard mode, not a third tab.**~~
     **Done, verified live (HISTORY.md §57).**
-26. **Widgets: a picker**, and more of them. Customisable sidebars, and note
-    view options in the Notes tab. Asked for directly as "a widget management
-    hub popup on the dashboard, like a widget marketplace" — the foundation
-    is already substantial and worth knowing about before rebuilding it:
-    `DASH_WIDGETS` in app.js already registers 17 widgets, `dashboard_layout`
-    (order/hidden/wide) is a real preference, and Edit layout mode already
-    supports add/remove/reorder/wide-toggle inline on the dashboard. What's
-    actually missing is a *dedicated surface* — a button opening a proper
-    modal/picker rather than an inline edit mode — and more widgets to fill
-    it. A UI-surface change on an existing data model, not new plumbing.
+26. ~~**Widgets: a picker.**~~ **Already done and live-verified this
+    session (checked before building, not after) — the `dash-widgets-dialog`
+    modal (index.html), its own comment already citing "roadmap §26", was
+    merged in from elsewhere and was never re-checked against this item.**
+    Playwright: clicking "Widgets" opens the dialog with all 17
+    `DASH_WIDGETS` rows, the search box filters them, a row's Add/Remove
+    button flips the widget on the dashboard in real time (confirmed the
+    grid actually lost the card, not just the row's own label), and "Done"
+    closes it. Zero console errors. Still open, and genuinely unscoped:
+    **more widgets to fill the picker** — customisable sidebars, and note
+    view options in the Notes tab were the other two asks bundled into this
+    item and neither has a concrete list yet.
 27. **llama.cpp, actually wired in.** A new `ai/provider.py` entry alongside
     Ollama/OpenAI-compatible, a GGUF file picker (files on disk, not a
     registry to pull from), and `core/extras.py`'s `unavailable` string

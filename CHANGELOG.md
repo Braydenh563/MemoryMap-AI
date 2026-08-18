@@ -7,6 +7,28 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — Library thumbnails for pasted/dropped images, not just sketches
+
+Asked for directly ("make the sketches render... the same as how images are
+visually displayed"). Found the opposite of the assumed direction: sketches
+already got a Library thumbnail (a real `Attachment`), but a note with a
+pasted or dropped image — inline markdown in the note's own text, no
+`Attachment` row — got none at all, and its title/preview showed the raw
+`![alt](url)` syntax literally. Root cause: `routes_library.py`'s
+`thumb_by_entry` only ever looked at `Attachment` rows, and `_clip()` never
+stripped inline markdown the way `routes_graph.py`'s node-label preview
+already did.
+
+Fixed by factoring the shared fix out (`manager.strip_inline_markdown`,
+reused by both `routes_graph.py` and `routes_library.py` instead of two
+near-duplicate regexes) and adding a `thumb_url` fallback — the note's own
+first inline image, same URL shapes the note editor itself already renders
+— checked only when there's no `Attachment` thumbnail, so a sketch's own
+drawing always wins over anything mentioned in its caption. Extended to the
+recycle bin and archive views too, which had no thumbnails of either kind
+before. Verified live: a pasted-image note and a sketch note both show
+correct thumbnails in grid and list view, with clean (non-markdown) titles.
+
 ### Added — pagination for `GET /entries`
 
 Requested directly ("that is a real app feature... probably needed for

@@ -37,7 +37,7 @@ from memorymap.core.database import (
     Entry,
 )
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import extract_title, remove_title
+from memorymap.entry.manager import extract_title, remove_title, strip_inline_markdown
 
 router = APIRouter(tags=["library"])
 
@@ -73,8 +73,42 @@ _MD_BLOCK_MARKER = re.compile(r"^(?:#{1,6}\s+|>\s?)", re.MULTILINE)
 
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     text = _MD_BLOCK_MARKER.sub("", text or "")
+    # An image-only note (a sketch, most often, but any note that's just a
+    # pasted image works the same way) read as literal `![sketch](/media/
+    # ...)` here — the graph's node labels had the identical bug and this is
+    # the same fix, factored out so a third copy of it never has to happen.
+    text = strip_inline_markdown(text)
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+#: A pasted or dropped image lives as inline markdown in a note's own
+#: content (`![alt](url)`), never as an Attachment — only a sketch's drawing
+#: is stored that way. `thumb_by_entry` below only ever looks at Attachment
+#: rows, so a note like that got no thumbnail at all: a sketch's card showed
+#: its drawing and a pasted-image note's card showed nothing, which is the
+#: exact inconsistency reported ("make sketches render the same as images").
+#: Bounded, linear-scan character classes — no nested quantifiers — same
+#: ReDoS-avoidance shape as every other content-scanning regex in this app.
+_INLINE_IMAGE_URL = re.compile(r"!\[[^\]\n]{0,200}\]\(([^)\n\s]{1,500})\)")
+
+
+def _first_inline_image_url(content: str) -> str | None:
+    """The first image a note's *text* points at, if any — same URL shapes
+    the note editor itself already renders inline (`isRenderableUrl` in
+    app.js: same-origin absolute paths or a plain `https://` link), so a
+    thumbnail never appears here for something the note itself wouldn't
+    have shown as a picture.
+    """
+    match = _INLINE_IMAGE_URL.search(content or "")
+    if not match:
+        return None
+    url = match.group(1)
+    if url.startswith("/") and not url.startswith("//"):
+        return url
+    if url.lower().startswith(("http://", "https://")):
+        return url
+    return None
 
 
 def _human_size(size: int) -> str:
@@ -210,7 +244,21 @@ def _archive(session: Session) -> list[dict]:
         )
         .order_by(Entry.created_at.desc())
         .limit(PER_KIND_LIMIT)
-    )
+    ).all()
+    # Same reasoning as `_notes()` below: a bin card showed a sketch's
+    # drawing (a real Attachment) but nothing for a pasted-image note (inline
+    # markdown, no Attachment) — the bin shouldn't be less consistent than
+    # the live list just because it's a smaller surface.
+    entry_ids = [entry.id for entry in rows]
+    thumb_by_entry: dict[int, int] = {}
+    if entry_ids:
+        thumb_rows = session.execute(
+            select(Attachment.entry_id, Attachment.id)
+            .where(Attachment.entry_id.in_(entry_ids), Attachment.mime.like("image/%"))
+            .order_by(Attachment.created_at.asc())
+        ).all()
+        for owner_id, attachment_id in thumb_rows:
+            thumb_by_entry.setdefault(owner_id, attachment_id)
     items = []
     for entry in rows:
         content = entry.content or ""
@@ -220,6 +268,7 @@ def _archive(session: Session) -> list[dict]:
         # *and* opened the preview line with it again right underneath.
         own_title = extract_title(content) if content else None
         preview_source = remove_title(content) if own_title else content
+        thumb_id = thumb_by_entry.get(entry.id)
         items.append(
             {
                 "kind": "archived",
@@ -232,6 +281,8 @@ def _archive(session: Session) -> list[dict]:
                 "entry_id": entry.id,
                 "mime": None,
                 "pinned": False,
+                "thumb_attachment_id": thumb_id,
+                "thumb_url": None if thumb_id else _first_inline_image_url(content),
             }
         )
     return items
@@ -262,12 +313,25 @@ def _shelved(session: Session) -> list[dict]:
         )
         .order_by(Entry.archived_at.desc())
         .limit(PER_KIND_LIMIT)
-    )
+    ).all()
+    # Same reasoning as `_notes()`/`_archive()`: this shouldn't be less
+    # consistent about sketch vs. pasted-image thumbnails than either.
+    entry_ids = [entry.id for entry in rows]
+    thumb_by_entry: dict[int, int] = {}
+    if entry_ids:
+        thumb_rows = session.execute(
+            select(Attachment.entry_id, Attachment.id)
+            .where(Attachment.entry_id.in_(entry_ids), Attachment.mime.like("image/%"))
+            .order_by(Attachment.created_at.asc())
+        ).all()
+        for owner_id, attachment_id in thumb_rows:
+            thumb_by_entry.setdefault(owner_id, attachment_id)
     items = []
     for entry in rows:
         content = entry.content or ""
         own_title = extract_title(content) if content else None
         preview_source = remove_title(content) if own_title else content
+        thumb_id = thumb_by_entry.get(entry.id)
         items.append(
             {
                 "kind": "shelved",
@@ -280,6 +344,8 @@ def _shelved(session: Session) -> list[dict]:
                 "entry_id": entry.id,
                 "mime": None,
                 "pinned": False,
+                "thumb_attachment_id": thumb_id,
+                "thumb_url": None if thumb_id else _first_inline_image_url(content),
             }
         )
     return items
@@ -354,6 +420,17 @@ def _notes(session: Session) -> list[dict]:
                 # thumbnail of what it's a photo of would be the same
                 # encryption bypass showing the preview text would be.
                 "thumb_attachment_id": None if private else thumb_by_entry.get(entry.id),
+                # The other half of the same picture: a note whose image was
+                # pasted or dropped in (inline markdown, no Attachment row)
+                # rather than drawn (a sketch, an Attachment) — only checked
+                # once there's no Attachment thumbnail, so a sketch that also
+                # happens to mention `![...]() ` in its caption still shows
+                # its own drawing, not whatever the caption points at.
+                "thumb_url": (
+                    None
+                    if private or thumb_by_entry.get(entry.id)
+                    else _first_inline_image_url(text)
+                ),
             }
         )
     return items

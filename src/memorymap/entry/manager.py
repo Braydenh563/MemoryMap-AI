@@ -1346,6 +1346,34 @@ def remove_title(content: str) -> str:
     return "\n".join(lines)
 
 
+#: Inline markdown markers, matched with their content so stripping keeps
+#: the words. An image or link becomes its alt/link text — the URL is never
+#: captured, only whichever group actually matched ("first non-None group
+#: wins", same trick every alternative here relies on). Originally lived
+#: only in routes_graph.py (graph node labels); routes_library.py's Library
+#: title/preview needed the identical fix — an image-only note (a sketch,
+#: most often, but any note whose whole content is a pasted image works the
+#: same way) read as literal `![sketch](/media/...)` there too, one surface
+#: at a time, until this was factored out to stop that from happening a
+#: third time somewhere else.
+_INLINE_MD = re.compile(
+    r"\*\*([^*\n]{1,500})\*\*|\*([^*\n]{1,500})\*|__([^_\n]{1,500})__"
+    r"|_([^_\n]{1,500})_|~~([^~\n]{1,500})~~|`([^`\n]{1,500})`"
+    r"|!\[([^\]\n]{0,200})\]\((?:[^)\n]{1,500})\)"
+    r"|\[([^\]\n]{1,200})\]\((?:[^)\n]{1,500})\)"
+)
+
+
+def strip_inline_markdown(text: str) -> str:
+    """A note's text as plain words: bold/italic/strike/code markers gone,
+    an image or link reduced to its alt/link text. Markers only — block
+    structure (headings, blockquotes, wiki-links) is each caller's own
+    concern, since callers disagree on what to do with those."""
+    return _INLINE_MD.sub(
+        lambda m: next(g for g in m.groups() if g is not None), text
+    )
+
+
 def set_private(session: Session, entry: Entry, private: bool) -> bool:
     """Encrypt or decrypt one note in place. False if the vault is locked.
 

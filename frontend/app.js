@@ -17866,13 +17866,26 @@ function libraryCard(item) {
     // a bug in the Library rather than as a missing file.
     thumb.addEventListener("error", () => thumb.remove());
     card.appendChild(thumb);
-  } else if ((item.kind === "note" || item.kind === "shelved") && item.thumb_attachment_id) {
+  } else if (
+    (item.kind === "note" || item.kind === "shelved" || item.kind === "archived") &&
+    (item.thumb_attachment_id || item.thumb_url)
+  ) {
     // A sketch is a note whose actual content is a file attachment, not
     // text — without this a sketch card in the Library was a bare title
     // with nothing under it, indistinguishable from any empty note.
+    //
+    // `thumb_url` is the other half of the same fix: a pasted or dropped
+    // image lives as inline markdown in the note's own content, never as an
+    // Attachment, so it needed its own source — a sketch's card showed its
+    // drawing and a pasted-image note's card showed nothing at all, which
+    // is the inconsistency this closes. Already an absolute URL
+    // (`/media/...` or `https://...`, whatever the note itself renders it
+    // as), so it goes to mediaSrc() as-is rather than through `/files/{id}`.
     const thumb = document.createElement("img");
     thumb.className = "library-card-thumb";
-    thumb.src = mediaSrc(`/files/${item.thumb_attachment_id}`);
+    thumb.src = item.thumb_attachment_id
+      ? mediaSrc(`/files/${item.thumb_attachment_id}`)
+      : mediaSrc(item.thumb_url);
     thumb.alt = "";
     thumb.loading = "lazy";
     thumb.addEventListener("error", () => thumb.remove());

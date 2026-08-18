@@ -105,32 +105,21 @@ def reset_graph_cache() -> None:
 deps.register_cache_reset(reset_graph_cache)
 
 
-# The inline markers the note editor supports, matched with their content so
-# stripping keeps the words. Mirrors the frontend's notePreviewText — these
-# labels are clipped to ~40 characters, and a clip that lands mid-`**` shows
-# scaffolding ("**Seraphine…") instead of the note.
-_INLINE_MD = re.compile(
-    r"\*\*([^*\n]{1,500})\*\*|\*([^*\n]{1,500})\*|__([^_\n]{1,500})__"
-    r"|_([^_\n]{1,500})_|~~([^~\n]{1,500})~~|`([^`\n]{1,500})`"
-    # Images and links: an image-only note (a sketch, most often) survived
-    # this untouched, so its graph label read as literal
-    # `![sketch](/media/...)` instead of the plain word "sketch" every other
-    # preview surface already shows. The URL itself is never captured — only
-    # the readable alt/link text is, same "first non-None group wins" trick
-    # every alternative above already relies on.
-    r"|!\[([^\]\n]{0,200})\]\((?:[^)\n]{1,500})\)"
-    r"|\[([^\]\n]{1,200})\]\((?:[^)\n]{1,500})\)"
-)
 _HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
 
 
 def _preview(text: str, length: int = 40) -> str:
-    """One line of a note as plain words — markers stripped, not rendered."""
+    """One line of a note as plain words — markers stripped, not rendered.
+
+    Mirrors the frontend's notePreviewText: these labels are clipped to ~40
+    characters, and a clip that lands mid-`**` shows scaffolding
+    ("**Seraphine…") instead of the note. Inline marker stripping is
+    `manager.strip_inline_markdown` — heading/wiki-link handling stays here
+    since those are specific to what a graph label is for.
+    """
     text = _HEADING_MD.sub("", text)
     text = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", text)
-    text = _INLINE_MD.sub(
-        lambda m: next(g for g in m.groups() if g is not None), text
-    )
+    text = manager.strip_inline_markdown(text)
     text = " ".join(text.split())
     return text if len(text) <= length else text[: length - 1] + "…"
 

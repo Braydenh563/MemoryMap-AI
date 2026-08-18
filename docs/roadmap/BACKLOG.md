@@ -1695,6 +1695,22 @@ thing anywhere in the app.
   the database, uploads and preferences and start over, distinct from
   `--reset-password` which only clears the credential. Worth being as
   explicit about what it destroys as `--reset-password` already is.
+- **A real storage breakdown, not just the database file.** Asked for
+  directly: "can the user see a visual depiction of the storage size the
+  application takes up... so they can manage and uninstall optional
+  dependencies they don't really use." `GET /storage` today reports only
+  `database_bytes` — nothing for `uploads/` (attachments, sketches),
+  nothing for the installed extras themselves (`core/extras.py`, which
+  already has a real install/uninstall path but no size next to the
+  button — `sentence-transformers` alone is the "~2 GB, it pulls in
+  PyTorch" case named in its own catalogue entry, exactly the kind of
+  thing worth seeing before deciding to keep it). Not a quick add: needs a
+  directory-walk per extra's actual installed footprint (import metadata
+  doesn't give you bytes on disk), likely cached rather than computed on
+  every Settings load. The "uninstall now, reinstall later" half already
+  works (`core/extras.py`'s remove/start) — this is purely the missing
+  "how much is this costing me" number and a chart on top of facts that
+  mostly already exist.
 - **One actual "your data" page, not the pieces scattered.** The individual
   facts already exist — where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do

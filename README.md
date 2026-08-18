@@ -8,6 +8,7 @@
 
 [![CI](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml/badge.svg)](https://github.com/Braydenh563/MemoryMap-AI/actions/workflows/codeql.yml)
+[![Latest release](https://img.shields.io/github/v/release/Braydenh563/MemoryMap-AI)](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
@@ -28,9 +29,9 @@ capture text  →  AI files it  →  ask a question  →  answer + the notes beh
 Everything runs on your own computer. No account, no cloud, no telemetry.
 Your notes are a SQLite file in a folder you control.
 
-**Getting started** — [download the Windows installer](#windows-installer)
-or [run the launcher script](docs/INSTALL.md) — no terminal experience
-needed either way.
+**Getting started** — [download a prebuilt package](#windows-installer) for
+Windows or Linux, or [run the launcher script](docs/INSTALL.md) — no
+terminal experience needed either way.
 
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="MemoryMap AI dashboard - capture streak, notebook stats, a force-directed constellation of your notes, pinned notes and recent activity" width="850">
@@ -80,6 +81,7 @@ needed either way.
 - [Why this exists](#why-this-exists)
 - [What's in it](#whats-in-it)
 - [Windows installer](#windows-installer)
+- [Linux package](#linux-package)
 - [Get started another way](#get-started-another-way)
 - [Your data and privacy](#your-data-and-privacy)
 - [Troubleshooting](#troubleshooting)
@@ -145,17 +147,26 @@ for the core app to work.
 ## Windows installer
 
 The simplest way in, no terminal or Python install required: download the
-latest `MemoryMap-AI-Setup-*.exe` from
-[Releases](https://github.com/Braydenh563/MemoryMap-AI/releases) and run
-it. Full walkthrough — including the SmartScreen warning you'll see and
-how the desktop app runs without a terminal window — in
+latest `MemoryMap-AI-Setup-*.exe` from the
+**[latest release](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)**
+and run it. Full walkthrough — including the SmartScreen warning you'll
+see and how the desktop app runs without a terminal window — in
 **[`docs/INSTALL.md`](docs/INSTALL.md#windows-installer)**.
+
+## Linux package
+
+A prebuilt `MemoryMap-AI-*-linux-x86_64.zip` is on the same
+**[latest release](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)**
+page — unzip it and run `MemoryMap AI` inside. Needs GTK/WebKit
+(`python3-gi`, `gir1.2-webkit2-4.1` or your distro's equivalent) already
+on the system, and ships without a system tray icon for now. Prefer a
+package manager instead? The launcher script below works just as well.
 
 ## Get started another way
 
-- **macOS / Linux / build it yourself on Windows:** the launcher script —
-  `./start.sh` or `start.bat` — installs everything and opens the app in
-  one command. Full step-by-step (including for a first-ever terminal
+- **macOS, or building it yourself on any platform:** the launcher script
+  — `./start.sh` or `start.bat` — installs everything and opens the app
+  in one command. Full step-by-step (including for a first-ever terminal
   user): **[`docs/INSTALL.md`](docs/INSTALL.md)**.
 - **Prefer to manage the virtual environment yourself?** Manual setup,
   updating and uninstalling are all in the same guide.

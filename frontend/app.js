@@ -2135,21 +2135,43 @@ function openLightbox(items, startIndex = 0) {
   nextBtn.setAttribute("aria-label", "Next image");
   setLabel(nextBtn, "ph:caret-right");
 
+  // The nav arrows used to be centred on the viewport (`top: 50%`), which
+  // only matches the image's own centre when nothing else in `.lightbox`'s
+  // centred stack has height — but the close button above and the filename
+  // caption below both do, so the whole group's midpoint sits above the
+  // image's true centre and the arrows read as floating too low. Reported
+  // live; measured a ~14px gap on a 400×300 test image. Positioned against
+  // the image's actual rendered box instead of assumed from viewport math.
+  function positionNav() {
+    const rect = img.getBoundingClientRect();
+    if (!rect.height) return;
+    const center = `${rect.top + rect.height / 2}px`;
+    prevBtn.style.top = center;
+    nextBtn.style.top = center;
+  }
+
   async function show(i) {
     index = (i + items.length) % items.length;
     const item = items[index];
     img.alt = item.filename || "";
     img.src = await item.getUrl();
+    await img.decode().catch(() => {});
     overlay.setAttribute("aria-label", item.filename || "Image preview");
     meta.textContent =
       items.length > 1
         ? `${item.filename || ""} — ${index + 1} of ${items.length}`
         : item.filename || "";
+    // After the caption text is set, not before — an empty vs. filled
+    // caption changes the height of the centred stack `img` sits in, which
+    // moves the image's own centre by exactly that much.
+    positionNav();
   }
 
+  window.addEventListener("resize", positionNav);
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
+    window.removeEventListener("resize", positionNav);
   };
   const onKey = (e) => {
     if (e.key === "Escape") close();
@@ -6534,6 +6556,63 @@ function renderDocPreview() {
   preview.replaceChildren();
   const title = ($("doc-title").value || "").trim();
   renderMarkdown(preview, title ? `# ${title}\n\n${$("doc-content").value}` : $("doc-content").value);
+  layerDocWikiLinks(preview);
+}
+
+// [[Document title]] as clickable links in the preview, the same idea as a
+// note's [[wiki link]] (renderNoteText) but resolving against `docs` by
+// title instead of by content prefix — documents have real titles. A
+// post-process over renderMarkdown's already-built DOM rather than a change
+// to the parser itself: renderMarkdown is a hand-rolled block parser shared
+// with notes/chat/dashboard, and layering a second concern into its inline
+// pass is exactly the kind of touch that's cheap to get subtly wrong for
+// every other caller. Skips text inside <code>/<pre> so a literal "[[x]]" in
+// a fenced snippet isn't turned into a button.
+function layerDocWikiLinks(container) {
+  const targets = [];
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (node.parentElement && node.parentElement.closest("code, pre")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return /\[\[[^[\]]{1,120}\]\]/.test(node.nodeValue)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP;
+    },
+  });
+  let node;
+  while ((node = walker.nextNode())) targets.push(node);
+
+  for (const textNode of targets) {
+    const text = textNode.nodeValue;
+    const pattern = /\[\[([^[\]]{1,120})\]\]/g;
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > cursor) {
+        frag.appendChild(document.createTextNode(text.slice(cursor, match.index)));
+      }
+      const name = match[1].trim();
+      const target = docs.find((d) => d.title.toLowerCase() === name.toLowerCase());
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "wiki-link";
+      link.textContent = name;
+      link.title = target ? `Open "${target.title}"` : `No document called "${name}" yet.`;
+      link.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (target) openDocument(target.id);
+        else toast(`No document called "${name}" yet.`, true);
+      });
+      frag.appendChild(link);
+      cursor = pattern.lastIndex;
+    }
+    if (cursor < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(cursor)));
+    }
+    textNode.parentNode.replaceChild(frag, textNode);
+  }
 }
 
 function toggleDocPreview() {

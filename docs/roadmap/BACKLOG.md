@@ -2029,19 +2029,15 @@ that logic (the standing caveat at the top of this file applies here like
 everywhere else). The whiteboard's real pointer-driven multi-select gesture
 was not driven live either, for the reason above.
 
-## 63. Ship a starter skills library
+## 63. Ship a starter skills library — DONE, this claim was stale
 
-The Skills system (`ai/skills.py`) is real and working but ships **zero**
-built-in skills — every one has to be hand-authored via `save_skill`
-before it exists. Confirmed: no `DEFAULT_SKILLS`/`BUILT_IN_SKILLS`-shaped
-constant anywhere in the file. Surfaced by the Kortex read (ANALYSIS.md
-§66) — its "25+ prebuilt workflows" is the same primitive this app already
-has, just with nothing in the box. Cheap relative to the value: a
-one-time list of maybe 10-15 starter skills covering the app's own common
-tasks (weekly review, meeting-notes cleanup, tag consolidation, a
-"summarise what changed this week" digest) seeded on first run, through the
-exact same `save_skill` validation path a user's own skill goes through —
-not a second, parallel skill format.
+Re-checked before starting a rebuild (per the standing rule at the top of
+CLAUDE.md): `ai/skills.py` already ships `BUILTIN_SKILLS`, 14 skills —
+the five-skill notebook-audit set, plus weekly review, tag/link clean-up,
+a daily-review-with-reminders skill, and more — served through `builtins()`
+/`catalog()` at `GET /skills`, the exact same `normalise()` validation path
+a user's own skill goes through. This section's "ships zero" claim predates
+that build. See HISTORY.md for when it landed.
 
 ## 64. Documents editor — behind the rest of the app, needs its own pass
 

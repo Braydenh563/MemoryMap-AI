@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
@@ -51,7 +51,11 @@ def web_search_providers() -> dict:
 
 
 @router.get("/websearch")
-def web_search(q: str, limit: int = 5, session: Session = Depends(get_session)) -> dict:
+def web_search(
+    q: str,
+    limit: int = Query(default=5, ge=1, le=20),
+    session: Session = Depends(get_session),
+) -> dict:
     """Opt-in web lookup through whichever engine the user chose."""
     _require_web_search()
     searxng, provider = websearch.settings_from(deps.get_config())

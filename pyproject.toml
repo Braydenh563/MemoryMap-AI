@@ -40,7 +40,7 @@ memorymap = "memorymap.__main__:main"
 #   pip install -e ".[desktop]"   # `python -m memorymap --desktop` app window
 [project.optional-dependencies]
 voice = ["faster-whisper"]
-desktop = ["pywebview"]
+desktop = ["pywebview", "pystray", "Pillow"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

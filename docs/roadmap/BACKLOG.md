@@ -402,6 +402,26 @@ Windows build the moment it runs; what's unverified is specifically whether
 that first real run succeeds without a fix. Worth watching the first
 tagged release's Actions run rather than assuming green.
 
+**"Does the installer stay up to date?" — built: a check, not an auto-update.**
+Asked directly. Answer: no, and it was never going to — a static installer
+build has no mechanism to patch itself, and building one (differential
+updates, a signed update feed) is a lot of infrastructure for a project at
+this stage. What shipped instead, since the alternative is a user on a
+six-month-old build with no way to know it: `update_check_enabled`
+preference (off by default, same reasoning as `web_search_enabled` — see
+`core/config.py`), a `GET /update/check` endpoint that compares
+`memorymap.__version__` against GitHub's `releases/latest` tag numerically
+(never lexically — "0.10.0" has to sort after "0.9.0"), and Settings → About
+wiring: the checkbox, a "Check now" button, and a silent check on startup
+that only ever toasts when a newer version genuinely exists. Two real bugs
+were caught testing this live rather than trusting it once it typechecked:
+`PreferencesBody` (routes_settings.py) never declared the new field, so
+Pydantic silently dropped it from every PUT; and `get_preferences()` built
+its response as an explicit field-by-field dict that never echoed the new
+key back — the exact bug this same file's own comment already describes
+happening once before, to `autonomous_tasks_enabled` and friends. Both fixed
+and re-verified live (Playwright: toggle, reload, confirm it survives).
+
 **Why.** Asked for: "run as a professional product".
 
 **Recommendation: not Electron.** The app is Python + static files; Electron
@@ -1561,6 +1581,34 @@ on-this-day, focus timer) — this is more of the same shape, not a new system.
 ---
 
 ## 25. App control: tray, health checks, and dependency repair
+
+**The tray itself: built.** Asked directly — "hide the terminal but let it be
+reached", "manage it through the system tray and popup windows" — and
+answered: closing the desktop window now minimizes to a tray icon instead of
+quitting (`window.events.closing` returns `False` to cancel the real close),
+and the tray menu is Open / View Logs (opens Settings → Logs, the third
+AskUserQuestion answer this session) / Restart (`os.execv`, same process
+re-launched rather than a second one spawned) / Quit (`window.destroy()`,
+which is what actually unblocks the `webview.start()` call and lets the
+process exit). See `memorymap.__main__._start_tray`. `pystray` + `Pillow`
+ride along with the existing `desktop` extra in `core/extras.py` — same
+button that already installs `pywebview` — and the Windows installer's
+PyInstaller spec bundles both, so this is always on for anyone who used the
+installer.
+
+Degrades the same way every other optional extra in this app does: no
+`pystray`/`Pillow` (or, seen for real in this sandbox, a `pystray` backend
+that fails at import — `Xlib.error.DisplayNameError` on Linux with no X
+server) means `_start_tray` returns `None`, logs why, and the window goes
+back to closing for real. That fallback path is what's actually been run in
+this sandbox; the tray *appearing*, the menu *working*, and minimize-to-tray
+*behaving* on a real Windows taskbar have not — no Windows box and no GUI
+toolkit here to run pywebview at all, so this carries the same "built,
+reasoned through, not yet seen" caveat §7's installer already carries, for
+the same reason.
+
+The health-check screen and repair actions below are still open — this
+covers only the tray/console half of the section's original ask.
 
 **Why.** Several asks that are really one request in different words: "an
 interface for managing the application… backend, cmd prompt console, quit,

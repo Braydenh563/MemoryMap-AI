@@ -155,6 +155,8 @@ class PreferencesBody(BaseModel):
     tool_focus: Literal["auto", "all"] | None = None
     # The ONE feature that goes online — off unless the user opts in.
     web_search_enabled: bool | None = None
+    # The other opt-in network call (Settings -> About) — see core.config.
+    update_check_enabled: bool | None = None
     searxng_autostart: bool | None = None
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
@@ -284,6 +286,7 @@ def get_preferences() -> dict:
         "local_only_ai": config.get_preference("local_only_ai", True),
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
+        "update_check_enabled": config.get_preference("update_check_enabled", False),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
         "search_provider": websearch.normalise_provider(

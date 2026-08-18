@@ -175,6 +175,22 @@ reinstall, and left alone if you uninstall the app itself. Voice dictation,
 search-by-meaning, and the desktop window are all still installed the same
 way afterwards: **Settings → Packages**.
 
+**The installer is a snapshot, not a subscription.** It doesn't phone home or
+patch itself — a release built today is exactly what you'll be running a year
+from now unless you download a newer one by hand. Turn on **Settings → About
+→ "Check GitHub for a newer version"** (off by default, same "100% offline
+unless you ask" rule as web search) and the app will tell you when a newer
+release exists — it only ever checks, it never downloads or installs
+anything on its own.
+
+**No terminal window.** The desktop app runs its server in the background and
+puts an icon in the system tray — closing the window minimizes it there
+rather than quitting, and the tray menu (Open / View Logs / Restart / Quit)
+is how you get it back or shut it down for real. If Settings → Packages
+shows the desktop extra as installed but no tray icon appears, the tray
+piece (`pystray` + `Pillow`) didn't come along with it — reinstall the
+desktop extra from that same panel.
+
 Prefer to build it yourself, or want it on macOS/Linux? See
 [Quick start](#quick-start) below — `start.sh`/`start.bat` work on all three,
 today.

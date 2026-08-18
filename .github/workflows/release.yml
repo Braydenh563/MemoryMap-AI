@@ -104,7 +104,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install fastapi "uvicorn[standard]" SQLAlchemy python-dotenv \
             requests numpy "fsspec[http]" bcrypt cryptography \
-            python-multipart pywebview pyinstaller
+            python-multipart pywebview pystray Pillow pyinstaller
           pip install -e . --no-deps
 
       - name: Build the frozen app (PyInstaller)

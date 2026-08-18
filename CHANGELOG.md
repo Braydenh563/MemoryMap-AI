@@ -21,6 +21,24 @@ below). Versioning is `0.x` while the app stabilises.
   Notes now default to `%APPDATA%\MemoryMap AI` (or the platform
   equivalent) only for a frozen build; a source checkout is unaffected.
 
+### Added — system tray, update check
+
+- **System tray for the desktop window.** Closing the window now minimizes it
+  to a tray icon instead of quitting; the tray menu is Open / View Logs /
+  Restart / Quit. `pystray` + `Pillow` join `pywebview` as the `desktop`
+  extra (`core/extras.py`) and are bundled into the Windows installer. Missing
+  or unusable on the running platform (no display, package not installed) is
+  a soft fallback, not a crash — the window just closes for real, same as
+  before.
+- **"Check for updates" (Settings → About).** Off by default, same reasoning
+  as web search. A `GET /update/check` endpoint compares the running version
+  against GitHub's latest release tag; the checkbox, a "Check now" button,
+  and a silent startup check (toasts only when a newer version genuinely
+  exists) are all new. Caught live rather than merely reasoned about: the new
+  `update_check_enabled` preference wasn't declared on `PreferencesBody`, so
+  the PUT silently dropped it, and `get_preferences()`'s hand-built response
+  dict never echoed it back either — both fixed.
+
 ### Fixed / Added — CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
 
 - **Security.** All 81 open CodeQL alerts closed. Separately: a private

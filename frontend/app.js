@@ -401,6 +401,12 @@ function startApp() {
   // below about switchTab painting from a pile of 401s.
   step("load spaces", loadSpaces);
   step("tell the server your timezone", reportTimezone);
+  // Fires only if the user opted in (Settings -> About); the endpoint itself
+  // also checks the preference server-side, but skipping the call here means
+  // an opted-out install makes zero network attempts, not a wasted one.
+  step("check for an update", () => {
+    if (prefsCache && prefsCache.update_check_enabled) return checkForUpdate(true);
+  });
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
@@ -14767,6 +14773,8 @@ async function openSettingsModal(section = "models") {
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
   } · ${allEntries.length} entries loaded`;
+  $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
+  $("update-check-status").textContent = "";
   showSettingsSection(section);
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
@@ -15500,6 +15508,38 @@ async function saveWebSearchSettings() {
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
+  }
+}
+
+// Shared by the "Check now" button and the silent startup check. `silent`
+// suppresses the status-line text and the toast for the common "you're on
+// the latest version" outcome — the startup check should only ever speak up
+// when there's actually something to say.
+async function checkForUpdate(silent = false) {
+  const status = $("update-check-status");
+  if (!silent && status) status.textContent = "Checking…";
+  let result;
+  try {
+    result = await apiJson("/update/check", { silent: true });
+  } catch (error) {
+    if (!silent && status) status.textContent = "Couldn't check for updates.";
+    return;
+  }
+  if (!result || !result.checked) {
+    if (!silent && status) {
+      status.textContent =
+        result && result.reason === "disabled"
+          ? "Enable the checkbox above, then try again."
+          : "Couldn't reach GitHub to check for updates.";
+    }
+    return;
+  }
+  if (result.update_available) {
+    const msg = `Version ${result.latest} is available (you have ${result.current}).`;
+    if (status) status.textContent = msg;
+    toast(msg);
+  } else if (!silent && status) {
+    status.textContent = `You're on the latest version (${result.current}).`;
   }
 }
 
@@ -21517,6 +21557,11 @@ $("settings-modal").addEventListener("click", (event) => {
 // is the shape of "this control does nothing" that keeps getting reported.
 $("pref-web-search").addEventListener("change", saveWebSearchSettings);
 $("pref-searxng").addEventListener("change", saveWebSearchSettings);
+
+$("pref-update-check").addEventListener("change", (e) =>
+  setPreference("update_check_enabled", e.target.checked)
+);
+$("update-check-now").addEventListener("click", () => checkForUpdate());
 
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");

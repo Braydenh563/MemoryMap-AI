@@ -3615,6 +3615,18 @@ Link to another note with [[its first few words]]."></textarea>
               this computer.
             </p>
             <p class="muted" id="about-version"></p>
+            <!-- Off by default (core/config.py's update_check_enabled) —
+                 "100% offline" two lines up has to stay true until this is
+                 switched on by hand, the same reasoning Settings -> Web
+                 search already uses for its own opt-in network call. -->
+            <div class="row space-between">
+              <label for="pref-update-check">Check GitHub for a newer version</label>
+              <input type="checkbox" id="pref-update-check">
+            </div>
+            <div class="row" id="update-check-row">
+              <button id="update-check-now" class="ghost small" type="button">Check now</button>
+              <span class="muted" id="update-check-status"></span>
+            </div>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded
                  shut: it is long, and About is not where you go to read it

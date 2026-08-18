@@ -62,6 +62,12 @@ a = Analysis(
         # PyInstaller's analysis has been seen to miss.
         "multipart",
         "bcrypt",
+        # pystray's own backend selection (__main__._start_tray) is the same
+        # "picked by name at runtime" shape as pywebview's platforms above —
+        # win32 is the only one this build ever runs, but PyInstaller's
+        # static analysis has no way to know that from `import pystray` alone.
+        "pystray._win32",
+        "PIL.Image",
     ],
     hookspath=[],
     hooksconfig={},

@@ -9,6 +9,7 @@
 import argparse
 import logging
 import os
+import sys
 import threading
 import time
 from pathlib import Path
@@ -48,7 +49,7 @@ def _run_desktop() -> None:
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     time.sleep(1.0)  # give uvicorn a moment to bind before the window loads
-    webview.create_window(
+    window = webview.create_window(
         "MemoryMap AI",
         f"http://{HOST}:{PORT}",
         width=1200,
@@ -71,7 +72,6 @@ def _run_desktop() -> None:
     # The storage lives beside the notes rather than in pywebview's own
     # default, so "where your data is" stays one answer, and deleting the data
     # directory really does remove everything.
-    import sys
 
     # The app icon — replaces the default Python snake in the taskbar and
     # title bar. Two levels up from src/memorymap/__main__.py lands at the
@@ -106,6 +106,21 @@ def _run_desktop() -> None:
             # Logged, not swallowed.
             logger.warning("could not set the Windows AppUserModelID: %s", exc)
 
+    # Asked for directly, alongside the installer: a way to manage the app
+    # without a terminal window sitting open, and a place for "close" to go
+    # that isn't "quit" — the whole point of a background app.  Optional in
+    # the same way voice/semantic search are (see core/extras.py): a source
+    # checkout without pystray+Pillow installed still gets a normal window,
+    # it just closes for real instead of minimizing.
+    tray_icon = _start_tray(window, _icon_path)
+    if tray_icon is not None:
+
+        def _on_closing() -> bool:
+            window.hide()
+            return False  # cancels the real close — pywebview just hides it
+
+        window.events.closing += _on_closing
+
     storage = Path(os.getenv("MEMORYMAP_DATA_DIR", "data")).resolve() / "webview"
     storage.mkdir(parents=True, exist_ok=True)
     try:
@@ -123,6 +138,98 @@ def _run_desktop() -> None:
             "(pip install -U pywebview). Starting anyway."
         )
         webview.start()
+    finally:
+        # Only reached once the window is really gone (Quit, not a hide) —
+        # an icon left running with no window behind it is a stray process
+        # nothing can get back to.
+        if tray_icon is not None:
+            tray_icon.stop()
+
+
+def _start_tray(window, icon_path: Path):
+    """The system tray icon: Open / View Logs / Restart / Quit.
+
+    Returns None — and the caller falls back to an ordinary window that
+    really closes on the X button — when pystray or Pillow aren't installed.
+    Both are optional for the same reason pywebview itself is (core/extras.py):
+    a source checkout that never asked for the desktop window shouldn't need
+    them, and the packaged Windows installer bundles both so this path is
+    always taken there.
+
+    Runs pystray's own event loop in a daemon thread: `webview.start()` below
+    blocks the main thread until the window is really destroyed, and pystray's
+    `run()` blocks too — two things that both want to block forever can't
+    share one thread. Windows' pystray backend (the only platform this ships
+    on) tolerates running off the main thread; that would not be true on
+    macOS, which is one reason the desktop build doesn't target it.
+    """
+    try:
+        import pystray
+        from PIL import Image
+    except ImportError:
+        logger.info(
+            "no system tray: install pystray + Pillow for one "
+            "(pip install pystray Pillow), or use the Windows installer, "
+            "which bundles both"
+        )
+        return None
+    except Exception as exc:
+        # Not just ImportError: pystray picks a backend at import time (Xorg,
+        # AppKit, win32...) and that backend's own init can raise anything —
+        # found in this sandbox as Xlib.error.DisplayNameError on a headless
+        # Linux box with no X server. A missing tray icon is cosmetic; the
+        # window is not, so this must degrade the same way a genuinely
+        # missing package does rather than take the whole launcher down.
+        logger.warning("system tray unavailable, continuing without one: %s", exc)
+        return None
+
+    image = None
+    if icon_path.is_file():
+        try:
+            image = Image.open(icon_path)
+        except OSError as exc:
+            logger.warning("couldn't load %s for the tray icon: %s", icon_path, exc)
+    if image is None:
+        # A flat brand-blue square rather than no icon at all — pystray
+        # requires a real image, and a missing tray icon reads as "the app
+        # crashed", not "cosmetic fallback".
+        image = Image.new("RGBA", (64, 64), (74, 108, 247, 255))
+
+    def _open(icon, item) -> None:
+        window.show()
+
+    def _view_logs(icon, item) -> None:
+        window.show()
+        window.evaluate_js(
+            "if (typeof openSettingsModal === 'function') {"
+            " openSettingsModal(); showSettingsSection('logs'); }"
+        )
+
+    def _restart(icon, item) -> None:
+        # Re-execs this same process rather than spawning a second one — no
+        # window during the gap, and never two copies of the app arguing
+        # over the same SQLite file if something goes wrong mid-relaunch.
+        icon.stop()
+        window.destroy()
+        os.execv(sys.executable, [sys.executable, *sys.argv])
+
+    def _quit(icon, item) -> None:
+        icon.stop()
+        window.destroy()
+
+    icon = pystray.Icon(
+        "memorymap",
+        image,
+        "MemoryMap AI",
+        pystray.Menu(
+            pystray.MenuItem("Open MemoryMap AI", _open, default=True),
+            pystray.MenuItem("View Logs", _view_logs),
+            pystray.MenuItem("Restart", _restart),
+            pystray.MenuItem("Quit", _quit),
+        ),
+    )
+    threading.Thread(target=icon.run, daemon=True).start()
+    return icon
 
 
 def _reset_password() -> int:

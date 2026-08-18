@@ -40,6 +40,16 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # than something inferred from whether a SearXNG address happens to be
     # filled in. See `search/websearch.PROVIDERS`.
     "web_search_enabled": False,
+    # Asked for directly, alongside the Windows installer: since a release
+    # only ships when someone remembers to tag one, nothing ever told a
+    # person running an installed build that a newer version existed. The
+    # only other opt-in network call in the app — off by default for the
+    # same reason web_search_enabled is: "100% offline" (Settings -> About)
+    # has to stay true until someone deliberately switches it off, not
+    # something the app quietly does anyway for a good reason. Checks
+    # GitHub's own releases API for the latest tag; nothing about the
+    # notebook itself is ever sent.
+    "update_check_enabled": False,
     # Bring the user's own SearXNG up with the app. Off by default: starting a
     # container is not something a local-first app does unasked.
     "searxng_autostart": False,

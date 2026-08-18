@@ -457,17 +457,21 @@ fresh session should pick them up:
    yet investigated this session — the `logging`-routing fix landed but
    nobody has since captured the real Settings → Logs output for a live
    failure to confirm it works. Start there before changing anything else.
-9. **Asked for directly: extras install/reinstall/remove, embedding-model
+9. ~~**Asked for directly: extras install/reinstall/remove, embedding-model
    downloads, AI-model downloads, and the `start.bat`/`start.sh` launch
-   scripts should all retry and fall back automatically on failure**,
-   rather than surfacing a bare pip/download error. Not scoped. Needs a
-   design pass before building: what counts as a retryable failure
-   (network blip) vs. one that needs a different approach entirely (wrong
-   platform wheel, disk full) vs. one that just needs to be reported
-   clearly (bad credentials, no internet at all) — a retry loop around the
-   wrong failure mode wastes the user's time and bandwidth instead of
-   saving it. Should share findings with item 8 above rather than being
-   built separately from it.
+   scripts should all retry and fall back automatically on failure**~~
+   **Partly done (HISTORY.md §68).** The design pass this item called for
+   turned out already built: `is_network_error()` (a prior session)
+   already classifies network-blip vs. real-error vs. report-clearly, it
+   just wasn't being retried on. `start.sh`'s pip-install pipeline now
+   retries a network-shaped failure automatically (3 attempts, 5s/10s
+   backoff), anything else falls straight through unchanged. **Not done,
+   on purpose:** `start.bat`'s equivalent (needs a `goto`-based retry
+   reaching across an existing parenthesized block, in a file whose own
+   header documents a past cmd.exe parsing incident of exactly that
+   shape — no cmd.exe in any sandbox so far to verify a control-flow
+   change against) and the embedding-model/Ollama-model downloads
+   (background-threaded jobs, a materially bigger separate change).
 10. **Timeline tab's "line/branch" view — asked for a redesign, "more
     professional" look.** Not scoped, not started. Built around
     `app.js:14517`'s "Timeline: the branch/line view" section; queue after
@@ -522,18 +526,13 @@ fresh session should pick them up:
     this 401 fix as unmerged/missing. That was a false alarm caused by its
     stale starting point — `8b9b7f6` has been an ancestor of this branch's
     `HEAD` since it landed; nothing to redo here.)
-14. **A proper generating/loading spinner, themed to the app** — asked for
-    directly. There is no single spinner component today: `grep spinner
-    frontend/app.js` turns up ad hoc "spinner chip" markup at a few call
-    sites (re-evaluate, per-card AI work) rather than one reusable piece, and
-    line 16012's own comment records a deliberate earlier choice of "…" over
-    a spinner for the web-panel connecting state specifically because "a
-    frozen spinner under `prefers-reduced-motion` looks like a hang" — any
-    new component has to keep that reduced-motion fallback, not regress it.
-    Not scoped further: should read `--accent` (so it matches the user's
-    chosen theme/palette, not a hardcoded colour) and reuse the
-    `--motion-*` scale item 12 added, but the actual mark (ring, dots,
-    bars) is a design call for whoever builds it.
+14. ~~**A proper generating/loading spinner, themed to the app**~~ **Done
+    (HISTORY.md §68).** `.spinner` (CSS) + `spinnerEl()` (app.js, beside
+    `chip()`): reads `--accent`, sized in em, and swaps to a static "…"
+    with no animation and no border under `prefers-reduced-motion` rather
+    than freezing mid-spin. The one existing ad hoc user (the note
+    re-evaluate busy chip) was migrated onto it rather than left as a
+    second, still-unguarded ring definition beside the new correct one.
 
 ## #0 priority — codebase quality review, still-open items
 
@@ -924,8 +923,12 @@ Worth doing, and worth doing after the above.
 20b. ~~**An "Agent Activity" background-task popup cleanup pass.**~~ **Done
     (HISTORY.md §61).** `.agent-monitor` shared `right: 20px` with several
     whiteboard floating panels; moved to `left: 20px`.
-21. **A persona on the welcome messages.** Small, and it makes the app feel
-    like one thing rather than a chat bolted to a notebook.
+21. ~~**A persona on the welcome messages.**~~ **Done, and extended live
+    (HISTORY.md §68).** The Chat tab's empty-state greeting now names the
+    active persona ("Chat with your Coach"), matching the dashboard
+    greeting and AI replies, which already did. Extended live into a
+    second, independent `dashboard_persona` preference (empty = "same as
+    Chat"), with its own picker in Settings → Personas.
 22. **Meeting recordings as first-class objects**: pause/resume, replay, save
     as a voice note, transcribe in the background. Blocked on Tier 1 item 1.
 23. **Notification expansion**: reminders, and opt-in AI nudges from the
@@ -969,12 +972,11 @@ Worth doing, and worth doing after the above.
     blocking them, and not duplicated by anything above. Ranked by impact
     versus how contained the change is, highest first. **MCP support**
     (BACKLOG §29, ANALYSIS §60) is no longer in this list — see item 38.
-    30a. **Note-list keyboard navigation** (BACKLOG §16). Arrow keys move
-        through the list, Enter opens the focused note. Named directly as
-        "the one interaction pattern used constantly enough that its absence
-        would be felt every session, not just noticed in an audit" — the
-        highest-frequency gap on this list, and self-contained: one list
-        component, no schema change.
+    30a. ~~**Note-list keyboard navigation**~~ **Done (HISTORY.md §68).** A
+        roving tabindex through `#entry-list` — arrows move focus, Enter
+        opens the focused note the same way its Edit button does.
+        Live-verified: Tab into the list, ArrowDown moves the tab stop,
+        Enter opens edit mode.
     30b. **Archive** (BACKLOG §4 item 3, elaborated in §26). One `archived_at`
         column each on notes, chats and documents (additive migration), a
         state between "active" and "binned" for things kept but out of the
@@ -994,17 +996,16 @@ Worth doing, and worth doing after the above.
         that whiteboard photo from March" answerable. A new pipeline stage
         (extract → index), not a wider drop-handler — the drop-handler side
         of file uploads is already done.
-    30e. **Undo toasts for soft-deletes, in place of confirm dialogs**
-        (BACKLOG §16). A "Deleted — Undo" toast instead of an interrupting
-        confirm dialog, for the delete paths that are already soft (bin,
-        not gone) — reads as more trustworthy than a dialog and is less
-        friction on the common case.
-    30f. **README and GitHub Pages drift** (BACKLOG §22). Doc-only, cheapest
-        item here: the README's own tab table and "Next up" list are stale
-        (both name pre-rebuild systems as still open). Worth doing in the
-        same sitting as any other roadmap-accuracy pass, since it's the same
-        failure this document itself warns about — a description of the app
-        that only some of the description-holders get updated.
+    30e. ~~**Undo toasts for soft-deletes, in place of confirm dialogs**~~
+        **Done (HISTORY.md §68).** `batchDelete()` already built the undo
+        toast under a real soft delete and *also* gated it behind a
+        confirm — removed the confirm, matching the single-note "Move to
+        bin" action, which already had none.
+    30f. ~~**README and GitHub Pages drift**~~ **Done (HISTORY.md §68).**
+        Both had settled into naming pre-rebuild systems as current — README
+        pointed at "Settings → Activity"/"Settings → Optional extras" (moved
+        to the Library / renamed "Packages"); the Pages site claimed "Six
+        tabs" and still listed a standalone Documents tab. Fixed both.
     30g. **A per-chat token meter, and an eval harness** — kept as a pointer
         only, not scoped further here; see BACKLOG.md directly for both.
 31. **Expand the autonomous background agent's capabilities.** Asked for

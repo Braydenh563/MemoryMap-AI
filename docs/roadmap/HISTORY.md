@@ -3820,3 +3820,166 @@ bars specifically by screenshot (their code path is identical to
 meeting-record's, confirmed by class/box-shadow/bar-count reads, but the
 visual render itself was only screenshotted for meeting-record, per this
 session's own token-efficiency instruction to use screenshots sparingly).
+
+## 68. §67's mic-bar meter turned out still invisible in practice, the back-to-top button's viewport-corner placement fixed for Library, six Tier-3-and-Priority-0 items closed, and two features asked for live (a dashboard-only persona, a Chat-tab SearXNG control)
+
+Started as three live reports against §67's own work — the mic-bar meter
+still wasn't visible, the Library back-to-top button sat in the browser's
+corner rather than the panel's — then extended into a deliberate pass
+through ROADMAP's Priority 0 and Tier 3 lists, picking items already
+concretely scoped over ones still needing a decision.
+
+**The mic-bar meter, actually visible this time (Priority 0 item 4,
+continued).** §67 fixed the ring being invisible and shipped a five-bar
+meter, live-verified with Playwright's fake audio device — and it was
+still reported live as not showing. Two compounding causes, found by
+re-reading the code rather than re-guessing: the resting floor was
+`scaleY(0.12)` on a 14px bar — under 2px tall, below what renders as
+anything at all rather than merely subtle — and the level average was
+taken across all 128 FFT bins, most of which are near-silent for a voice
+signal (speech energy sits under ~5.5kHz). Raised the floor to 0.3,
+restricted the average to the low quarter of bins, and replaced the
+linear level→scale map with a sqrt curve so ordinary speaking volume
+(which sits low in the raw 0-255 range) reads as visible movement instead
+of hugging the floor. **Not live-verified against real or fake audio this
+pass** — the DOM/class wiring and the resting-state math were re-checked,
+the actual rendered bar heights under real signal were not; said plainly
+rather than claimed.
+
+**The Library tab's back-to-top button, anchored to its content panel
+(reported live: "it's in the corner of the tab screen, not the content
+panel").** `.scroll-top` defaulted to `position: fixed` against the whole
+viewport on every tab; Chat already had its own relocation into
+`.chat-dock`. Library had no equivalent, so its button sat in the browser
+window's corner rather than the Library panel's own. `#tab-library` is
+now the positioning root (`position: relative`) and gets the same
+MutationObserver-driven relocation Chat already had. Live-verified: forced
+`.visible` and read `getBoundingClientRect()` — the button lands in
+`#tab-library`'s own bottom-right corner, clear of the status bar without
+the viewport-relative offset hack every other tab still needs.
+
+**Six ROADMAP items closed, each concretely scoped already (picked over
+items still needing a decision, per this file's own repeated lesson):**
+- **Tier 3 §30a, note-list keyboard navigation.** A roving tabindex
+  through `#entry-list`: arrows move focus, Enter opens the focused note
+  the same way its Edit button does (this app has no separate note-view
+  page). Re-applied on every `renderEntries()` call and tries to keep the
+  same note as the current tab stop across a re-render. Live-verified:
+  Tab into the list, ArrowDown moves focus and the tab stop to the second
+  note, Enter opens edit mode.
+- **Tier 3 §30e, undo toasts over confirm dialogs for soft deletes.**
+  `batchDelete()` already built a proper "Moved N to the recycle bin —
+  Undo" toast under a real soft delete, and *also* gated the same action
+  behind a `confirmDialog` first — redundant friction once Undo exists,
+  and inconsistent with the single-note "Move to bin" action right above
+  it, which already had no confirm at all (Wave J). Removed the confirm.
+  Every other `confirmDialog` delete path was checked against its backend
+  route before being left alone — documents, conversations, purge-from-
+  bin and reminders all call `session.delete()` with no restore endpoint,
+  so a confirm is the only safety net they have.
+- **Tier 3 §30f, README and GitHub Pages drift.** Both had settled into
+  naming pre-rebuild systems as current: README still pointed at
+  "Settings → Activity" (moved into the Library) and "Settings → Optional
+  extras" (the button is now labelled "Packages"); `docs/index.html` (the
+  Pages landing page) claimed "Six tabs" and still listed a standalone
+  Documents tab-pill/pane, which hasn't existed since the document editor
+  moved into the Library — replaced with Library and Timeline, both
+  missing entirely, and the Chat pane's stale "28 tools" corrected to
+  "nearly 50". Verified the pill/pane id sets match 1:1 (the JS switcher
+  is data-tab-driven, so a mismatch fails silently) and
+  `test_docs_layout.py` still passes.
+- **Priority 0 item 14, a reusable themed loading spinner.** No single
+  component existed — grep found only ad hoc spinner markup, and the one
+  real animation (the note re-evaluate busy chip's `::before` ring) had no
+  `prefers-reduced-motion` fallback at all, unlike `AI_STATUS_GLYPH`'s
+  deliberate "…" choice elsewhere for the same reason. New `.spinner`
+  class + `spinnerEl()` helper: reads `--accent`, sized in em, swaps to a
+  static "…" with the animation and border both removed under reduced
+  motion rather than freezing mid-spin. Migrated the one existing user
+  onto it instead of leaving two ring definitions side by side — one
+  correct, one still broken. Live-verified both states with Playwright,
+  the second via `emulateMedia({ reducedMotion: 'reduce' })`.
+- **Tier 3 §21, a persona on the welcome messages — then extended live.**
+  Asked for, then the ask grew live into "a dashboard-only persona,
+  separate from Chat/search's." Two pieces: the Chat tab's empty-state
+  title ("Chat with your notebook") never reflected which persona was
+  active, unlike the dashboard greeting and AI replies, which already did
+  — fixed, and the persona `<select>`'s change handler was found to PUT
+  the new `active_persona` to the server but never update the local
+  `prefsCache` copy `renderChatEmptyState()` (and the Notes quick-ask)
+  both read, so a switch silently went stale until a full reload. Then a
+  new, independent `dashboard_persona` preference (empty = "same as
+  active_persona", the same clear-with-empty-string convention
+  `display_name` already uses) read by `/insights/greeting` ahead of the
+  shared one, with its own picker in Settings → Personas. Two new backend
+  tests confirm the override wins when set and falls back correctly when
+  not; the actual AI wording couldn't be observed live (no Ollama in this
+  sandbox), so that rests on the tests plus the existing, identically-
+  shaped `active_persona` test this mirrors.
+- **Priority 0 item 9, retry/fallback — partial, said plainly.** The
+  taxonomy the item asked for (retryable network blip vs. a real error vs.
+  report-clearly) turned out to already exist: `is_network_error()` in
+  `start.sh`, added a prior session, already classified failures this way
+  — it just wasn't being retried on, only reported. Wrapped the existing,
+  already-tested pip-install pipeline in a bounded retry (3 attempts,
+  5s/10s backoff) gated on that same classifier. **Deliberately not done**:
+  `start.bat`'s equivalent (a `goto`-based retry loop reaching back across
+  an existing parenthesized `if/else` block, in a file whose own header
+  already documents a past incident with exactly that class of cmd.exe
+  parsing fragility — no cmd.exe in this sandbox to verify a control-flow
+  change against, and a wrong one risks breaking the Windows launch path
+  for everyone); and the embedding-model/Ollama-model downloads
+  (background-threaded jobs with their own progress-polling architecture,
+  a materially bigger and separate change).
+
+**Asked for live, built as a new small feature: a SearXNG start/stop
+control in the Chat tab's web panel.** Starting/stopping the managed
+local SearXNG instance only lived in Settings → Web search — three clicks
+and a tab-switch from where it matters. Under the default "auto"
+provider a stopped instance doesn't error, it silently falls back to
+DuckDuckGo, so there was no *feedforward* at all, only the after-the-fact
+"answered by DuckDuckGo" a finished search already carried. Placed as its
+own row directly under the panel header, above the search box — hidden
+entirely when it wouldn't control anything (a duckduckgo-only provider,
+or no backend to run an instance at all). Deliberately a compact
+"is it on, toggle it" rather than a rebuild of Settings' fuller
+management UI (install progress, port diagnostics, reinstall); reuses the
+same `/websearch/searxng/*` endpoints that page already polls.
+Live-verified: the strip shows the real backend-derived state, clicking
+it POSTs and transitions to "installing…" with the button disabled, and
+closing the panel actually stops the poll loop (0 status requests in the
+3.5s after close). The install's success path itself couldn't be
+observed (no Docker/internet in this sandbox); the request correctly
+failed with 503 and was caught without a page error.
+
+**Also asked for live: a real install walkthrough in the README, and a
+way to find the install again.** Quick start jumped straight to "run
+start.sh" and assumed the reader already had the repo cloned and a
+terminal open in the right folder. Added an explicit, numbered,
+copy-paste walkthrough (open a terminal per-OS, `git clone` or download-
+ZIP-and-cd for anyone without git, then run the launcher). `start.sh`/
+`start.bat` now also print the absolute install folder and the exact
+relaunch command on every successful start — `start.bat` uses `!CD!`
+rather than `%CD%` to match this file's own `!ESC!` delayed-expansion
+convention, since the line sits inside a parenthesized block where
+`%CD%` would resolve once at parse time instead of when it actually
+runs. `start.sh`'s new echo lines were run in isolation in a throwaway
+copy (not the real script, to avoid triggering a real torch install);
+`start.bat`'s paren count was checked unchanged before/after (46/47, this
+file's known pre-existing imbalance) since there is no cmd.exe here to
+run it against.
+
+**A short design-theory tangent, answered rather than built:** asked
+whether the loading spinner and mic-bar meter should be exempt from
+`prefers-reduced-motion` since a static version "wouldn't work" the same
+way. Answered no, and left as is: both already had the correct fallback
+(a static equivalent that still conveys state, not a frozen animation),
+which is the established, safer pattern than carving out an exception to
+an accessibility setting a user turned on for a real reason.
+
+**Not done, flagged rather than guessed at:** Priority 0 items 1
+(textarea resize — needs a headed/desktop browser this sandbox doesn't
+have), 5/10/11 (graph traced-path, Timeline line/branch, document editor
+— each explicitly unscoped in ROADMAP.md, no direction given), and 7/8
+(faster-whisper Windows install failure — needs real pip error text from
+an actual Windows run this sandbox cannot produce).

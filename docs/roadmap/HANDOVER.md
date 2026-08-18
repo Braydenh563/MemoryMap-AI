@@ -2,7 +2,68 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a second round on the same branch: a real Library layout bug, a wrong claim from the immediately preceding entry corrected, and the launcher/uninstaller scripts made considerably more robust
+## Latest session — a live-reported mic-bar/back-to-top fix, six ROADMAP items closed, two features asked for live, and a CI failure that turned out to be a GitHub outage, not this branch
+
+Full detail in HISTORY.md §68. This entry is the "start here" version:
+what's still unverified, and the traps worth knowing before touching the
+same files again.
+
+**CI note, checked first because it was the session's opening question:**
+a CodeQL run on `main`'s HEAD (`da45070`, PR #118's merge) showed
+`conclusion: failure`. Pulled the actual job log rather than guessing —
+`"No server is currently available to service your request"`, GitHub's
+own infra error during `Perform CodeQL analysis`, not a finding in this
+repo's code. Re-queued via `rerun_failed_jobs`; if it's still red next
+session, that's worth a fresh look, but the branch itself was clean.
+
+**What's still unverified, said plainly:**
+- **The mic-bar meter's actual rendered heights under real signal.** This
+  session raised the resting floor (0.12→0.3 scale) and restricted the
+  frequency average to the low quarter of FFT bins (speech lives under
+  ~5.5kHz; averaging in ~100 near-silent high bins was diluting real
+  speech toward the floor) — reasoned from the code and the math, not
+  reproduced against a real or fake microphone. If "the bars still don't
+  move enough" gets reported a third time, the next lever to pull is
+  probably the sqrt curve's steepness or the bin-fraction constant
+  (`MIC_BAR_SPEECH_BIN_FRACTION`), not another floor bump.
+- **The SearXNG chat-panel control's actual install success path** — no
+  Docker or internet in this sandbox, so only the failure path (a 503,
+  caught cleanly) was observed live. The state-machine code is identical
+  to Settings' own already-exercised `refreshSearxngHost()`, which is
+  the basis for trusting it, not a substitute for watching it happen.
+- **`start.bat`'s new retry-adjacent output lines** (`Installed at:` /
+  `Next time:`) — paren-balance-checked and pattern-matched against this
+  file's own `!ESC!` convention, never executed. No cmd.exe in any
+  sandbox so far. The `start.sh` side of the same change *was* run (in a
+  throwaway copy) and its retry-loop mechanics were tested in isolation
+  against four fake-command scenarios (immediate success, network-blip-
+  then-recovery is the one case a test-harness quoting bug left
+  unconfirmed — the other three all passed and exercise the same
+  branches).
+
+**Traps worth knowing:**
+- **`pkill -f uvicorn` / `pkill -f "pip install"` kills this shell too**
+  (CLAUDE.md already says so; cost real time twice this session anyway
+  when a stray pattern matched broader than intended). Use
+  `lsof -t -i:<port>` to find a specific PID instead, and prefer `kill
+  <pid>` over any `pkill` whose pattern isn't airtight.
+- **`playwright.text=X` locators over-match generic UI text** — `text=Your
+  notes` resolved to 16 elements (a `<p>` mentioning "notes" won over the
+  actual subtab button) and hung retrying against an invisible one.
+  Scope to the real control: `#notes-subtabs button[data-section="browse"]`.
+- **Faster-whisper installs cleanly and does *not* pull in torch** —
+  worth knowing since CLAUDE.md's torch/sentence-transformers ban reads,
+  at a skim, like it might cover the whole `[voice]` extra. It doesn't;
+  `pip install faster-whisper` alone was enough to get `/voice/status`
+  reporting available and exercise the meeting-recorder path for real.
+- **Running the real `start.sh` in a throwaway copy triggers a real
+  `pip install -r requirements.txt`**, which pulls torch/sentence-
+  transformers exactly as CLAUDE.md warns — verify launcher-script output
+  by extracting just the new lines into an isolated snippet instead of
+  running the whole script, unless actually testing the install path on
+  purpose.
+
+## Previous session — a second round on the same branch: a real Library layout bug, a wrong claim from the immediately preceding entry corrected, and the launcher/uninstaller scripts made considerably more robust
 
 Continuation of the same working session as the entry below, after its PR
 (#117) had already merged — this round's fixes went out as their own PR

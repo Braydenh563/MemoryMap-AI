@@ -50,6 +50,11 @@ let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
 let graphDims = { w: 0, h: 0 };
+// Set once the camera has auto-framed the map for the tab's current visit,
+// and cleared again by switchTab() on the next fresh entry — see the two
+// uses below for why. `renderGraph()` alone can't tell "just opened the
+// tab" from "a filter checkbox changed" apart; the caller has to say which.
+let graphAutoFitDone = false;
 let graphHoveredId = null; // node the pointer is over (spotlight its links)
 let graphIsPanning = false; // an active pan/zoom drag — see zoomBehavior below
 let graphAdjacency = null; // Map<id, Set<neighbourId>>
@@ -1168,7 +1173,24 @@ async function renderGraph() {
   // In a tree the drawn edges *are* the hierarchy: the note links are a
   // different structure, and overlaying them turns the tree back into the
   // web it exists to be an alternative to.
-  const nodes = tree ? tree.nodes : visibleNodes.map((n) => ({ ...n }));
+  //
+  // A force-layout note that was already on screen keeps the spot it had
+  // settled into — read from `graphNodesRef` before it's overwritten below
+  // — instead of every render restarting the whole map's "explode outward
+  // from the centre" animation from scratch. Before this, toggling a single
+  // legend filter or dragging a physics slider replayed that same
+  // full-notebook animation, which read as the map never actually being at
+  // rest. A genuinely new node (nothing to inherit) still gets D3's normal
+  // spiral placement — only existing notes are pinned in place at start.
+  const priorPositions = new Map(
+    (graphNodesRef || []).map((n) => [n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy }])
+  );
+  const nodes = tree
+    ? tree.nodes
+    : visibleNodes.map((n) => {
+        const prior = priorPositions.get(n.id);
+        return prior ? { ...n, ...prior } : { ...n };
+      });
   const edges = tree ? tree.links : visibleEdges.map((e) => ({ ...e }));
   graphNodesRef = nodes;
   // Adjacency for hover-highlight: which notes each note is linked to.
@@ -1637,10 +1659,16 @@ async function renderGraph() {
 
   if (tree) {
     // Laid out, not simulated: the paths are already drawn, so this only has
-    // to place the nodes and frame the result.
+    // to place the nodes and frame the result. Same guard as the force
+    // layout's own fit-on-settle below — a fresh tab visit frames the tree,
+    // a legend-filter or physics-slider re-render doesn't recentre a camera
+    // the user may have already zoomed in with on purpose.
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
     labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
-    frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+    if (!graphAutoFitDone) {
+      graphAutoFitDone = true;
+      frameTree(svg, zoomBehavior, canvas, nodes, width, height, tree.radial);
+    }
   }
 
   let fitted = false;
@@ -1700,9 +1728,17 @@ async function renderGraph() {
       return `translate(${cx},${cy})`;
     });
     // Once the layout settles, frame all the notes so nothing sits off
-    // the edge (Wave N — the old view often had nodes half-cropped).
-    if (!fitted && graphSimulation.alpha() < 0.08) {
+    // the edge (Wave N — the old view often had nodes half-cropped). Only
+    // for a fresh visit to the tab, though (graphAutoFitDone, set by
+    // switchTab() below) — every render used to re-fit unconditionally, so
+    // toggling a legend filter or dragging a physics slider while looking
+    // at a note you'd zoomed in on would silently recentre and rescale the
+    // camera out from under you. Panning and zooming after that point is
+    // the user's business; the dedicated Fit button (graph-zoom-fit) is
+    // still there for "put it back".
+    if (!fitted && !graphAutoFitDone && graphSimulation.alpha() < 0.08) {
       fitted = true;
+      graphAutoFitDone = true;
       fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
     }
   });

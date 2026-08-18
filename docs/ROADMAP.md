@@ -957,11 +957,12 @@ Worth doing, and worth doing after the above.
     half (skins, minimap, PNG export) is the smaller contained piece if a
     session wants a quicker win. Asked for by name as "an Obsidian-style
     knowledge graph": Obsidian's is a force layout, which this app already
-    has — the gap reported is closer to *interaction* (smooth pan/zoom feel,
-    node-drag responsiveness, a cleaner minimal aesthetic at rest) than a
-    new layout algorithm. Worth reproducing what specifically feels
-    different — screenshot the two side by side — before assuming it's this
-    item rather than a tuning pass on the existing force simulation.
+    has. ~~The interaction half — smooth pan/zoom feel, node-drag
+    responsiveness, a cleaner minimal aesthetic at rest — done this
+    session (HISTORY.md §71): a tuning pass on the existing force
+    simulation, not a new layout algorithm, per this item's own note that a
+    new algorithm probably wasn't the actual gap.~~ **New layouts
+    themselves are still open** — nothing above touched that part.
 25. ~~**Mind-mapping — decided: a whiteboard mode, not a third tab.**~~
     **Done, verified live (HISTORY.md §57).**
 26. ~~**Widgets: a picker.**~~ **Already done and live-verified this

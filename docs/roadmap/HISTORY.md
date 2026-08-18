@@ -4081,3 +4081,59 @@ rendered with the dotted ring and the correct connecting edge, `0`
 console/page errors. `node --check`, `ruff check .`,
 `test_frontend_ids.py`, `test_frontend_handlers.py`, `test_style_scale.py`
 and `test_docs_layout.py` all still pass.
+
+## 71. The graph's force/Arc "feel" (ROADMAP.md item 24) — not a new layout, two concrete re-render bugs found by measuring instead of guessing
+
+The item's own text already doubted a new layout algorithm was the actual
+gap ("Obsidian's is a force layout, which this app already has") and asked
+for the two reproduced side by side before assuming otherwise — no
+reference build to compare against here, so this pass instead read the
+existing `d3.forceSimulation`/`d3.zoom`/drag code closely (already fairly
+mature: other-node freezing during a drag so the target you're aiming at
+doesn't drift, a world-bounds clamp instead of a repeated re-fit "because a
+re-fit would zoom the map out from under someone who had just zoomed in on
+purpose" — that exact stated principle turned out not to hold everywhere
+else in the file) and found two concrete, measurable defects rather than
+retuning force constants on a guess:
+
+- **Every `renderGraph()` call rebuilt every node from scratch with no
+  starting position**, including the ones already on screen and unchanged —
+  not just the very first load, but every legend-filter click, every
+  physics-slider drag, every "hide unlinked" toggle, the refresh button,
+  and even editing a note while the Graph tab happened to be open. Each one
+  replayed the full "explode outward from the centre, then resettle"
+  animation for the whole notebook, which is what "never actually feels at
+  rest" looks like from measurements, not just impression. Fixed by seeding
+  each surviving node's `x`/`y`/`vx`/`vy` from the previous render
+  (`graphNodesRef`, read before it's overwritten) before the new simulation
+  starts; only a genuinely new node still gets D3's default spiral
+  placement.
+- **`fitGraphToView`/`frameTree` also re-ran on every one of those same
+  renders**, recentring and rescaling the camera regardless of whether the
+  user had manually panned or zoomed in on something first — the fit-once
+  intent was already right there in the `fitted` flag's own comment, it
+  was just re-declared fresh (`let fitted = false`) inside every call
+  instead of surviving between them. Fixed with a module-level
+  `graphAutoFitDone` flag: `switchTab()` clears it on a genuine fresh visit
+  to the tab, the layout radios clear it on a real shape change (a radial
+  ring isn't a force cloud — that one *should* re-fit), and every other
+  `renderGraph()` call — filters, sliders, refresh, a background note edit
+  — leaves the camera exactly where the user put it. The dedicated Fit
+  button (`graph-zoom-fit`) still exists for "put it back" on request.
+
+Verified with measurements, not a screenshot comparison, since there's no
+Obsidian install here to diff against: Playwright, 8 linked notes, zoomed
+in by hand via the +/- button, then toggled "Hide unlinked" — camera
+transform (`d3.zoomTransform`) identical before and after (previously
+always reset to a fresh `fitGraphToView` scale); node positions for
+surviving notes carried over. Then switched Force → Arc and confirmed the
+camera *did* change, so the fit-on-shape-change path still works. `0`
+console/page errors throughout. `node --check`,
+`test_frontend_ids.py`/`test_frontend_handlers.py`/`test_style_scale.py`
+all still pass. **Not touched**: node-drag mechanics (already reads as
+deliberately tuned — froze other nodes, remembered drop target — with no
+measurable defect found) and the wheel/button zoom step itself (standard
+untransitioned direct-manipulation zoom, matching common practice, and the
+button zoom already has its own 200ms eased transition). New layouts
+beyond Arc (mind map, treemap, adjacency matrix) are a separate, larger
+ask this didn't touch.

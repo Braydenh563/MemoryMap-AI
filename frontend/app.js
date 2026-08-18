@@ -12842,6 +12842,10 @@ function switchTab(name) {
   }
   if (name === "dashboard") renderDashboard();
   if (name === "graph") {
+    // A fresh visit to the tab frames the whole map; the filter/slider
+    // changes that call renderGraph() again while already on this tab
+    // leave whatever the user last panned or zoomed to alone (graph.js).
+    graphAutoFitDone = false;
     const layout = graphLayout();
     const layoutInput = document.querySelector(`input[name="graph-layout"][value="${layout}"]`);
     if (layoutInput) layoutInput.checked = true;
@@ -13685,6 +13689,10 @@ $("entry-document").addEventListener("change", async (event) => {
 $("graph-layout").addEventListener("change", (event) => {
   localStorage.setItem("graph-layout", event.target.value);
   setGraphPhysicsEnabled(event.target.value);
+  // A different layout is a different shape (a radial ring is nothing like
+  // a force-directed cloud) — re-frame for it, unlike the filter/slider
+  // changes that intentionally leave the camera alone.
+  graphAutoFitDone = false;
   renderGraph();
 });
 

@@ -1956,6 +1956,38 @@
   padding-block: 0;
 }
 
+/* Last in the row (see index.html) so this pushes only itself to the far
+   end instead of the whole row, putting it in the card's top-right corner
+   regardless of how many controls sit before it at a given width. */
+.graph-help-toggle {
+  margin-left: auto;
+  width: var(--control-h);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.graph-help-panel {
+  position: absolute;
+  top: 3.5rem;
+  right: var(--space-6);
+  z-index: 30;
+  width: min(26rem, calc(100% - var(--space-8)));
+  padding: var(--space-4);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+
+.graph-help-panel p {
+  margin: 0;
+}
+
 .graph-toolbar .segmented-control {
   height: var(--control-h);
 }

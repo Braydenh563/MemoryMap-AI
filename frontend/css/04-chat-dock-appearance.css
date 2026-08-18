@@ -252,6 +252,10 @@
      big gap at the bottom". The same reasoning zeroes it on the chat tab's two
      columns; the page's padding is what spaces a full-height card. */
   margin: 0;
+  /* The positioning root for .graph-help-panel (below) — an absolutely
+     positioned popup anchors to the nearest positioned ancestor, and
+     without this it would fall back to the page. */
+  position: relative;
 }
 
 /* 12rem, not 22, and the card clips.
@@ -945,17 +949,13 @@
   z-index: 40;
 }
 
-/* Same idea for the Library tab: anchor to the content panel's own corner
-   (#tab-library is the positioning root, see 07-whiteboard-misc.css)
-   instead of the viewport corner every other tab uses. Its box already
-   excludes --status-bar-h (see --page-viewport), so no extra clearance is
-   needed here. */
-#tab-library .scroll-top {
-  position: absolute;
-  right: 1.5rem;
-  bottom: var(--space-4);
-  z-index: 40;
-}
+/* Library's own `right`/`bottom` are computed in JS instead
+   (positionScrollTopForLibrary in app.js) — a CSS constant here doesn't
+   know the panel's real edge (behind a real scrollbar the offset has to
+   clear) or whether the panel's own box runs taller than the viewport
+   (the offset then has to clamp above the fold instead of below it). The
+   button stays `position: fixed` (the base rule above) the whole time;
+   only its inline `right`/`bottom` change per tab. */
 
 .chat-dock>* {
   flex: 0 0 auto;

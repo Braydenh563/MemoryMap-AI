@@ -579,8 +579,20 @@ body.has-agent-monitor .tab-page {
   padding-bottom: calc(var(--page-bottom) + var(--space-9) * 9);
 }
 
+/* Documents never got this treatment when Notes and Chat did — same shape
+   as the comment above describes: #tab-documents is a plain flex column
+   (.doc-layout), not the thing that scrolls, so the generic buffer just
+   shrank the whole card grid to a fraction of the tab's height instead of
+   protecting anything (reported: "the documents sidebar/main panel need
+   to be full height like chat"). The list that actually needs to clear
+   the panel's footprint is .doc-list, one level down. */
+body.has-agent-monitor #tab-documents {
+  padding-bottom: var(--page-bottom);
+}
+
 body.has-agent-monitor #tab-notes .layout > main,
-body.has-agent-monitor #tab-chat .layout > main {
+body.has-agent-monitor #tab-chat .layout > main,
+body.has-agent-monitor .doc-sidebar .doc-list {
   padding-bottom: calc(var(--space-9) * 9);
 }
 

@@ -1161,6 +1161,31 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
         <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
         <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
+        <!-- Was a permanently-visible "How to use this map" dropdown taking a
+             full row above the canvas on every visit. An icon button instead:
+             the tooltip (hover/focus, native title) answers a quick "what
+             does dashed mean" without a click, and the panel (click) still
+             has the full text for someone reading it end to end. Last in
+             the row with margin-left: auto (CSS) so it sits at the card's
+             top-right corner regardless of how many controls sit before it. -->
+        <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
+          aria-expanded="false" aria-controls="graph-help-panel"
+          title="Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, drag to arrange, scroll or use the buttons to zoom, click a note to edit it right here, double-click to pin it in place, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
+          aria-label="How to use this map">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div id="graph-help-panel" class="graph-help-panel hidden" role="dialog" aria-label="How to use this map">
+        <p class="muted">
+          Solid lines are links you made, dashed lines are trains of thought,
+          dotted lines are notes that mean similar things. Hover a note to
+          spotlight its connections, drag to arrange, scroll or use the buttons
+          to zoom, click a note to edit it right here, double-click to pin it in
+          place, and click a legend colour to hide that category. Double-click
+          empty space to add a note there. Gravity and Spread reshape the layout.
+          <strong>Drop one note onto another to link them</strong>, and use
+          <strong>Trace</strong> to see how any two notes connect.
+        </p>
       </div>
       <!-- The tuned-once controls. One row, one control height, margins
            zeroed — the control-strip rule in DESIGN.md. -->
@@ -1221,20 +1246,6 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
-      <!-- Tucked away so it doesn't eat the map on every visit -->
-      <details class="graph-help">
-        <summary class="muted">How to use this map</summary>
-        <p class="muted">
-          Solid lines are links you made, dashed lines are trains of thought,
-          dotted lines are notes that mean similar things. Hover a note to
-          spotlight its connections, drag to arrange, scroll or use the buttons
-          to zoom, click a note to edit it right here, double-click to pin it in
-          place, and click a legend colour to hide that category. Double-click
-          empty space to add a note there. Gravity and Spread reshape the layout.
-          <strong>Drop one note onto another to link them</strong>, and use
-          <strong>Trace</strong> to see how any two notes connect.
-        </p>
-      </details>
       <div id="link-suggestions" class="hidden"></div>
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">

@@ -4240,3 +4240,60 @@ question the roadmap already flags. Attempting it under the same time
 pressure that caused the trace-path redo above would have risked the
 identical mistake at a much larger scale. Still open, first thing next
 session if this area comes up.
+
+## 74. Three more live-reported bugs, one of them a real find: the Documents sidebar's missing-height bug tracked to a documented mechanism that never got extended to cover it
+
+Three fixes asked for directly, all live-verified with Playwright before
+being called done:
+
+- **Library's back-to-top button** overlapped the panel's own scrollbar
+  and could end up below the visible fold. The earlier fix (reparenting
+  the button into `#tab-library`'s DOM so a CSS `position: absolute`
+  offset would anchor to the panel instead of the viewport) was correct
+  in principle but fragile: `right: 1.5rem` had no scrollbar clearance,
+  and nothing clamped the offset if the panel's own box ran taller than
+  the viewport. Replaced with `positionScrollTopForLibrary()` (app.js) —
+  the button stays `position: fixed` (never reparented, which also
+  sidesteps a real trap: any ancestor that ever gains a `transform`/
+  `filter`/`backdrop-filter` silently becomes fixed-position's containing
+  block too), and its `right`/`bottom` are computed from `#tab-library`'s
+  live `getBoundingClientRect()` on every scroll/resize, clamped so it
+  can never render outside the viewport.
+- **The graph's "How to use this map" `<details>` dropdown** replaced
+  with a `?` icon button (`#graph-help-toggle`), last in `.graph-toolbar`
+  with `margin-left: auto` so it sits in the card's top-right corner. Its
+  `title` attribute covers hover/focus (a real tooltip, zero JS); a click
+  opens `#graph-help-panel`, a small popover with the same text the
+  dropdown used to hold, closing on a second click, Escape, or a click
+  outside — the same three ways every other popover in this app closes.
+- **The Documents sidebar and main panel weren't full height, unlike
+  Chat's.** Reported directly, and it reproduced cleanly once tested with
+  a *realistic* amount of content (three real documents; an empty
+  notebook didn't show it) — measured `.doc-layout` at 325px tall inside
+  a 661px-tall `#tab-documents`, a `336px` gap. Traced to
+  `07-whiteboard-misc.css`'s own documented Agent-Activity-panel
+  clearance mechanism: `body.has-agent-monitor .tab-page` adds a 320px
+  bottom buffer to every tab so the floating "Agent Activity" panel never
+  permanently hides content under it, and a second, more specific rule
+  moves that buffer onto the *actual* scrolling element for Notes and
+  Chat (`#tab-notes .layout > main`, `#tab-chat .layout > main`) instead
+  — because for those two, `.tab-page` itself is a plain flex column, not
+  the thing that scrolls, so padding it directly just shrinks the whole
+  card grid instead of protecting anything. The comment beside that rule
+  already named Graph as a still-open case for the identical reason;
+  Documents was the same gap, just never written down. Fixed by adding
+  `#tab-documents` to the reset group and `.doc-sidebar .doc-list` (the
+  one part of the Documents layout that actually scrolls a long list) to
+  the clearance group — `.doc-layout` went from 325px to 613px in the
+  same live check. **Known remaining gap, not fixed this pass**: the
+  document editor's own bottom hint text (below the textarea) can still
+  end up visually under the Agent Activity panel when it's open, since
+  only `.doc-list` got the clearance treatment, not `.doc-main`. Matches
+  Graph's own already-accepted-as-open state for the same underlying
+  mechanism rather than a regression introduced here — worth closing
+  properly if `.doc-main` is touched again.
+
+All three verified with Playwright measurements and screenshots, not
+assumed from the CSS reading alone — `test_style_scale.py`,
+`test_frontend_ids.py`, `test_frontend_handlers.py` and `ruff check .`
+all still pass.

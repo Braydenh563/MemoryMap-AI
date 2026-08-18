@@ -13932,6 +13932,29 @@ function scrollTopTargetEl() {
   return NESTED_SCROLL_TABS[tab]?.() || scrollingPage();
 }
 
+// Library's content panel is narrower than the viewport and sits behind its
+// own real scrollbar, which a fixed CSS `right` offset doesn't know to clear
+// — and the panel's own box can run taller than the viewport, which a fixed
+// CSS `bottom` offset doesn't know to stay above. Reported: the button
+// overlapped the scrollbar and sat below the visible fold. Computed here
+// instead of in CSS, from the panel's own live `getBoundingClientRect()`,
+// clamped so the button can never end up outside the visible viewport no
+// matter how tall the panel's box actually is.
+function positionScrollTopForLibrary(button, tab) {
+  if (tab !== "library") {
+    button.style.right = "";
+    button.style.bottom = "";
+    return;
+  }
+  const panel = document.getElementById("tab-library");
+  const rect = panel?.getBoundingClientRect();
+  if (!rect) return;
+  const margin = 24; // 1.5rem, matching every other tab's own offset
+  const scrollbarClearance = 10; // past a real (non-overlay) scrollbar
+  button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+  button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
+}
+
 function initScrollTopButton() {
   const button = document.createElement("button");
   button.id = "scroll-top";
@@ -13954,6 +13977,7 @@ function initScrollTopButton() {
     const scrollTop = scrollTopTargetEl()?.scrollTop || 0;
     const show = scrollTop > 400 && !NO_SCROLL_TOP_TABS.has(tab);
     button.classList.toggle("visible", show);
+    positionScrollTopForLibrary(button, tab);
   };
   // Capture, because scroll events do not bubble: the listener has to see them
   // on whichever .tab-page is currently the scroll container, and that changes
@@ -13979,24 +14003,16 @@ if (chatTabNode) {
   }).observe(chatTabNode, { attributes: true, attributeFilter: ["class"] });
 }
 
-// Same relocation for Library: parked in its content panel (#tab-library,
-// position: relative — see 07-whiteboard-misc.css) so .scroll-top's corner
-// offset is relative to that panel instead of the viewport. Chat's observer
-// above already returns the button to document.body on its own tab-out, so
-// this only needs to grab it back when Library becomes the active tab.
-const libraryTabNode = document.getElementById("tab-library");
-if (libraryTabNode) {
-  new MutationObserver(() => {
-    const btn = document.querySelector(".scroll-top");
-    if (!btn) return;
-
-    if (!libraryTabNode.classList.contains("hidden")) {
-      libraryTabNode.appendChild(btn);
-    } else if (btn.parentElement === libraryTabNode) {
-      document.body.appendChild(btn);
-    }
-  }).observe(libraryTabNode, { attributes: true, attributeFilter: ["class"] });
-}
+// Library used to relocate the button into #tab-library's own DOM subtree
+// the same way Chat does, relying on CSS `position: absolute` there. Moved
+// to a JS-computed `position: fixed` offset instead (positionScrollTopForLibrary,
+// called from initScrollTopButton's own `update()`) — reparenting the button
+// is no longer needed, and not reparenting it also sidesteps a real CSS trap:
+// if any ancestor between it and <body> ever gains a `transform`/`filter`/
+// `backdrop-filter` (Library's glass-tier cards are exactly the kind of
+// element that might), that ancestor silently becomes the containing block
+// for `position: fixed` too, and the button would jump to being positioned
+// relative to *that* instead of the viewport again.
 
 // --- what the AI remembers (ROADMAP §39B) ------------------------------------------
 //
@@ -21765,6 +21781,31 @@ $("graph-options-toggle").addEventListener("click", () => {
 $("graph-trace-toggle").addEventListener("click", () =>
   setTracePanelOpen($("graph-trace").classList.contains("hidden"))
 );
+// Replaced the permanently-visible "How to use this map" dropdown with this
+// icon: the button's own `title` already covers hover/focus (a real,
+// zero-JS tooltip), and this click handler adds the panel for reading it
+// end to end. Closes on a second click, Escape, or a click outside it —
+// the same three ways every other popover in this app closes.
+$("graph-help-toggle").addEventListener("click", (event) => {
+  event.stopPropagation();
+  const panel = $("graph-help-panel");
+  const open = panel.classList.toggle("hidden") === false;
+  $("graph-help-toggle").setAttribute("aria-expanded", String(open));
+});
+document.addEventListener("click", (event) => {
+  const panel = $("graph-help-panel");
+  if (!panel || panel.classList.contains("hidden")) return;
+  if (panel.contains(event.target) || event.target === $("graph-help-toggle")) return;
+  panel.classList.add("hidden");
+  $("graph-help-toggle").setAttribute("aria-expanded", "false");
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const panel = $("graph-help-panel");
+  if (!panel || panel.classList.contains("hidden")) return;
+  panel.classList.add("hidden");
+  $("graph-help-toggle").setAttribute("aria-expanded", "false");
+});
 $("graph-focus-clear").addEventListener("click", () => {
   graphFocusModeId = null;
   $("graph-focus-clear").classList.add("hidden");

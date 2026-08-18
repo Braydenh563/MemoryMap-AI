@@ -155,6 +155,30 @@ features on — dictation, the desktop window, search-by-meaning — and shows t
 remove them. Nothing there is needed to write, search, tag or organise notes,
 and anything that has nothing calling it yet is greyed out and says so.
 
+## Windows installer
+
+The simplest way in on Windows, no terminal or Python install required:
+
+1. Download the latest `MemoryMap-AI-Setup-*.exe` from
+   [Releases](https://github.com/Braydenh563/MemoryMap-AI/releases).
+2. Run it. **Windows will show a blue "Windows protected your PC" screen** —
+   this build isn't code-signed yet (a certificate costs money per year, and
+   isn't worth it before there's a real user base to justify it), which is
+   why Windows flags it as from an unrecognised publisher. Click **More
+   info**, then **Run anyway**. The installer itself does nothing but copy
+   the app into your own user folder — nothing system-wide, no admin prompt.
+3. It installs a Start Menu shortcut (and, optionally, a desktop one) and
+   offers to launch the app when it finishes.
+
+Your notes live in `%APPDATA%\MemoryMap AI` — untouched by an update or
+reinstall, and left alone if you uninstall the app itself. Voice dictation,
+search-by-meaning, and the desktop window are all still installed the same
+way afterwards: **Settings → Packages**.
+
+Prefer to build it yourself, or want it on macOS/Linux? See
+[Quick start](#quick-start) below — `start.sh`/`start.bat` work on all three,
+today.
+
 ## Quick start
 
 **You need Python 3.11 or newer.** That's it to get running. If you've never

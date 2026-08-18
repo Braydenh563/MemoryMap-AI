@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -97,6 +98,36 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
 }
 
 
+def _default_data_dir() -> str:
+    """Where notes live when nothing else says otherwise.
+
+    `"data"` (relative to the current directory) is right for every way this
+    app has run until now: cloned from git, `./start.sh`'d, or run from a
+    source checkout in tests — the working directory is always the repo, and
+    "data" next to it is obvious and easy to find.
+
+    A PyInstaller-frozen, installed build breaks that assumption twice over.
+    `sys.frozen` distinguishes it from every case above (never true running
+    from source, so this can't change behaviour for the existing git-clone
+    workflow or the test suite at all). And an installed app's own folder is
+    Program Files, or wherever else it happens to run from — not writable by
+    a standard Windows account, and not something a reinstall or an update
+    should be trusted to leave alone. The OS-standard per-user data location
+    is both writable and survives a reinstall; an explicit
+    `MEMORYMAP_DATA_DIR` always overrides this regardless of how the app is
+    running.
+    """
+    if not getattr(sys, "frozen", False):
+        return "data"
+    if sys.platform == "win32":
+        base = os.getenv("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+    elif sys.platform == "darwin":
+        base = str(Path.home() / "Library" / "Application Support")
+    else:
+        base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return str(Path(base) / "MemoryMap AI")
+
+
 class ConfigManager:
     """Knows the app's folders, files, and saved preferences."""
 
@@ -104,7 +135,7 @@ class ConfigManager:
         # .env lets a user relocate their data without touching code.
         load_dotenv()
         self.data_dir = Path(
-            data_dir or os.getenv("MEMORYMAP_DATA_DIR", "data")
+            data_dir or os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()
         ).resolve()
         self.data_dir.mkdir(parents=True, exist_ok=True)
 

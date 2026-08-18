@@ -70,3 +70,61 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.notes }}
           generate_release_notes: ${{ steps.changelog.outputs.notes == '' }}
+
+  build-windows-installer:
+    name: Build Windows installer
+    # After github-release, not in parallel with it: this job uploads an
+    # asset to the release that job creates, via the same action run again
+    # with the same tag — softprops/action-gh-release adds to an existing
+    # release under that tag rather than making a second one, but only if
+    # the release already exists by the time this runs.
+    needs: github-release
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        # The base app's own deps, minus sentence-transformers/torch:
+        # Settings -> Packages already treats semantic search as an
+        # optional install fetched after the app is running (core/extras.py
+        # id="semantic"), same as voice dictation and the desktop window
+        # itself — bundling a torch download into the base installer would
+        # be inconsistent with that and a few hundred MB for a feature this
+        # build already has a working path to install on demand.
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastapi "uvicorn[standard]" SQLAlchemy python-dotenv \
+            requests numpy "fsspec[http]" bcrypt cryptography \
+            python-multipart pywebview pyinstaller
+          pip install -e . --no-deps
+
+      - name: Build the frozen app (PyInstaller)
+        shell: bash
+        run: |
+          pyinstaller packaging/windows/memorymap.spec --distpath dist --workpath build --noconfirm
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        shell: pwsh
+        env:
+          MEMORYMAP_VERSION: ${{ github.ref_name }}
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $env:MEMORYMAP_VERSION = $version
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+
+      - name: Upload installer to the release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist/installer/MemoryMap-AI-Setup-*.exe

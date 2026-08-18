@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import threading
 from pathlib import Path
 
@@ -52,8 +53,19 @@ from memorymap.core import backup, deps, logbuffer, security
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
-# repo-root/frontend — three levels up from src/memorymap/api/app.py.
-FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
+# repo-root/frontend — three levels up from src/memorymap/api/app.py in a
+# source checkout. A PyInstaller build has no "three levels up": everything
+# bundled lands directly under the extraction root (sys._MEIPASS in onefile
+# mode, or the executable's own directory in onedir mode) with the `src/`
+# layer gone, so the same parents[3] math would resolve to the extraction
+# root's own *parent* — a directory this app has no business reading, let
+# alone one that happens to contain a "frontend" folder. Checked first and
+# explicitly, not inferred from a path that only looks the same in both
+# cases by coincidence.
+if getattr(sys, "frozen", False):
+    FRONTEND_DIR = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "frontend"
+else:
+    FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 
 # (Embedding warm-up now lives in ai/embeddings.start_warmup, which also

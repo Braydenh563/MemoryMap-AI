@@ -7,6 +7,20 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — Windows installer
+
+- A real installed build for Windows: `packaging/windows/memorymap.spec`
+  (PyInstaller, onedir) and `packaging/windows/installer.iss` (Inno Setup,
+  per-user install — no admin prompt). `release.yml` now builds and attaches
+  it to the GitHub Release whenever a `v*` tag is pushed. Unsigned for now
+  (see README's Windows install note); ships to GitHub Releases only.
+- `core/config.py` and `api/app.py` both located `frontend/` and the app
+  icon via a path relative to the source file's own position, which assumes
+  a `src/` layer a PyInstaller bundle doesn't have — both now branch on
+  `sys.frozen` and resolve against the bundle's own extraction root instead.
+  Notes now default to `%APPDATA%\MemoryMap AI` (or the platform
+  equivalent) only for a frozen build; a source checkout is unaffected.
+
 ### Fixed / Added — CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
 
 - **Security.** All 81 open CodeQL alerts closed. Separately: a private

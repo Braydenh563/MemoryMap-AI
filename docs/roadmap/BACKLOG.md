@@ -378,6 +378,30 @@ the number is kept here so §6 references still land somewhere sensible.
 
 ## 7. Desktop packaging
 
+**Windows installer: built, not yet run for real.** Asked directly which of
+portable/installed/both, which platform(s) first, whether to pay for code
+signing, and where to distribute — answers: installed (not portable),
+Windows only for v1, unsigned for now (a certificate isn't worth it before
+there's a user base to justify the yearly cost), GitHub Releases only. Built
+on those answers: `packaging/windows/memorymap.spec` (PyInstaller, onedir —
+onefile re-extracts itself on every launch, a bad fit for something meant to
+open like a normal desktop app), `packaging/windows/installer.iss` (Inno
+Setup, per-user install so an unsigned build doesn't *also* need an admin
+prompt on top of the SmartScreen click-through), and a `build-windows-
+installer` job on `release.yml` that builds and attaches the installer to
+the GitHub Release a `v*` tag already creates. `core/config.py`'s
+`_default_data_dir()` and `api/app.py`'s `FRONTEND_DIR` both needed a
+`sys.frozen` branch — their existing path math assumes a `src/` layer a
+PyInstaller bundle doesn't have, which would have pointed both at the wrong
+directory silently.
+
+**Honestly unverified**: this repo has no Windows machine to build or run it
+on, so none of the above has executed for real yet — only reasoned through.
+It ships from CI (windows-latest) on the next `v*` tag, which is a real
+Windows build the moment it runs; what's unverified is specifically whether
+that first real run succeeds without a fix. Worth watching the first
+tagged release's Actions run rather than assuming green.
+
 **Why.** Asked for: "run as a professional product".
 
 **Recommendation: not Electron.** The app is Python + static files; Electron

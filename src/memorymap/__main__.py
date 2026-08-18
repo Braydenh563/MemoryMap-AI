@@ -71,15 +71,23 @@ def _run_desktop() -> None:
     # The storage lives beside the notes rather than in pywebview's own
     # default, so "where your data is" stays one answer, and deleting the data
     # directory really does remove everything.
+    import sys
+
     # The app icon — replaces the default Python snake in the taskbar and
-    # title bar. Three levels up from src/memorymap/__main__.py lands at the
-    # repo root; frontend/icon.ico sits there. The ICO contains a 512px PNG
-    # entry, which pywebview on Windows and WebKit on macOS both accept.
-    # None is a valid fallback: a missing file never blocks the window.
-    _icon_path = Path(__file__).resolve().parents[2] / "frontend" / "icon.ico"
+    # title bar. Two levels up from src/memorymap/__main__.py lands at the
+    # repo root; frontend/icon.ico sits there. A PyInstaller build has no
+    # "two levels up" — everything bundled lands directly under the
+    # extraction root with the `src/` layer gone, same reasoning and same
+    # fix as FRONTEND_DIR in api/app.py. The ICO contains a 512px PNG entry,
+    # which pywebview on Windows and WebKit on macOS both accept. None is a
+    # valid fallback: a missing file never blocks the window.
+    if getattr(sys, "frozen", False):
+        _frontend_dir = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "frontend"
+    else:
+        _frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+    _icon_path = _frontend_dir / "icon.ico"
     _icon = str(_icon_path) if _icon_path.is_file() else None
 
-    import sys
     if sys.platform == "win32":
         try:
             import ctypes

@@ -21975,19 +21975,40 @@ $("draft-discard").addEventListener("click", async () => {
   updateDraftCount();
   saveDraftLocally();
 });
-// "What is this?" — it toggled `hidden` on the intro paragraph, which is a
-// child of a card that starts *collapsed*. So the paragraph was already not
-// displayed, the click changed nothing anyone could see, and the button read
-// as dead. It now opens the section and explains what the writing room is,
-// including what happens when there's no AI running — which is when someone
-// is most likely to press it.
-// "What is this?" — it used to toggle `hidden` on a paragraph inside a card
-// that started collapsed, so the paragraph was already not displayed and the
-// click changed nothing anyone could see. The section is always open when you
-// can press this now, so it's a plain show/hide of the explanation.
-$("draft-help").addEventListener("click", () => {
-  $("draft-intro").classList.toggle("hidden");
-});
+// Same pattern as #graph-help-toggle (asked for directly, then extended to
+// every other tab that used to carry a permanently-visible explanation
+// paragraph — Timeline, and the Skills/Whiteboard/Image-Gallery Library
+// sub-tabs): the button's own `title` is a real, zero-JS hover tooltip, and
+// a click opens a floating panel for reading the same text end to end.
+// Closes on a second click, Escape, or a click outside it, the same three
+// ways every other popover in this app closes. One shared wiring function
+// rather than five copies of the same three listeners.
+function initHelpToggle(buttonId, panelId) {
+  const button = $(buttonId);
+  const panel = $(panelId);
+  if (!button || !panel) return;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = panel.classList.toggle("hidden") === false;
+    button.setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", (event) => {
+    if (panel.classList.contains("hidden")) return;
+    if (panel.contains(event.target) || event.target === button) return;
+    panel.classList.add("hidden");
+    button.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || panel.classList.contains("hidden")) return;
+    panel.classList.add("hidden");
+    button.setAttribute("aria-expanded", "false");
+  });
+}
+initHelpToggle("draft-help", "draft-intro");
+initHelpToggle("timeline-help", "timeline-intro");
+initHelpToggle("skills-help", "skills-intro");
+initHelpToggle("wb-boards-help", "wb-boards-intro");
+initHelpToggle("library-images-help", "library-images-intro");
 restoreDraftLocally();
 
 // --- note picker wiring ---

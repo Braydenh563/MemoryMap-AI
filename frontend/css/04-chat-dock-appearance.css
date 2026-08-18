@@ -1874,6 +1874,14 @@ button {
 }
 
 /* --- the writing room -------------------------------------------------------- */
+#writing-room {
+  /* The positioning root for #draft-intro's .graph-help-panel treatment —
+     an absolutely positioned popup anchors to the nearest positioned
+     ancestor, and without this it would fall back to the page. Same
+     reasoning as #graph-card's own identical comment. */
+  position: relative;
+}
+
 /* Thoughts on the left, the draft on the right, so you can see the raw material
    and what the AI made of it at the same time. */
 .draft-columns {

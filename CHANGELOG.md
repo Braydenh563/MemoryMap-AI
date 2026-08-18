@@ -7,6 +7,30 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — help tooltips on Timeline and the three Library subtabs
+
+Asked for directly, matching the existing Graph tab pattern. The Timeline
+toolbar and the AI Skills, Whiteboards and Image Gallery subtabs each had a
+permanently-visible subtext paragraph explaining what the screen does;
+replaced each with a `?` icon button (native `title` tooltip on hover, a
+click-to-open panel for the full explanation) so the space is available for
+content on every later visit instead of repeating itself. The four new
+toggles and the original `#draft-help` one now share a single
+`initHelpToggle()` function in `app.js` instead of four more copies of the
+same click/outside-click/Escape listener trio. Verified live: all five
+panels are hidden by default, open correctly positioned under their button,
+and close on outside-click and Escape.
+
+### Fixed — sketch/attachment images rendering below a note's metadata
+
+Reported directly ("attached sketches are below note metadata"). The note
+card built its attachment thumbnails and appended them to the list item
+*after* the metadata footer was already appended, so images and sketches
+always rendered under the category/date line instead of above it. Fixed by
+inserting the attachment row before the metadata element rather than
+appending after it. Verified live: attachments now render above the
+metadata footer in the note list.
+
 ### Fixed — two error-prevention gaps
 
 Asked for directly. `deleteAskHistoryTurn` deleted a Q&A permanently with

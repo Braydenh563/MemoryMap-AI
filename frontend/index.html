@@ -458,10 +458,19 @@ Link to another note with [[its first few words]]."></textarea>
         <section class="card" id="writing-room">
           <div class="row space-between">
             <h2>Write with the AI</h2>
-            <button id="draft-help" class="ghost small" type="button"
-              title="What is this?">?</button>
+            <!-- Same pattern as #graph-help-toggle: a circular icon button
+                 whose native title is a real, zero-JS hover tooltip, plus a
+                 click-to-open panel for reading the whole thing end to end.
+                 Replaces a paragraph that used to sit here permanently, on
+                 every visit, before anyone had asked what this tab does. -->
+            <button type="button" id="draft-help" class="ghost small graph-help-toggle"
+              aria-expanded="false" aria-controls="draft-intro"
+              title="Type whatever's in your head — half sentences are fine. The AI turns it into a note. Edit the draft, add more thoughts, and it folds them in without undoing your changes. Your own words stay in the box: nothing here overwrites what you typed, and ↩ Undo steps back through every AI pass. This is the one part of the app that needs the local AI running — with it off, the Draft button is disabled and everything else on this tab still works."
+              aria-label="What is this?">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
           </div>
-          <p class="muted" id="draft-intro">
+          <p class="muted graph-help-panel hidden" id="draft-intro" role="dialog" aria-label="What is this?">
             Type whatever's in your head — half sentences are fine. The AI turns
             it into a note. Edit the draft, add more thoughts, and it folds them
             in without undoing your changes. Your own words stay in the box:
@@ -1048,6 +1057,16 @@ Link to another note with [[its first few words]]."></textarea>
         <label class="muted" for="timeline-search">Highlight</label>
         <input type="text" id="timeline-search" class="timeline-search" placeholder="Type to filter…">
         <span id="timeline-count" class="muted"></span>
+        <!-- Same pattern as the graph's own #graph-help-toggle: a hover
+             tooltip via `title`, plus a click-to-open panel for the same
+             text end to end. Replaces a paragraph that used to sit under
+             the toolbar permanently, on every visit. -->
+        <button type="button" id="timeline-help" class="ghost small graph-help-toggle"
+          aria-expanded="false" aria-controls="timeline-intro"
+          title="A note sits where it is about when it says so — &quot;the deadline is next Friday&quot; plots on that Friday, marked with a clock — and at when it was written otherwise. Click any note to open it."
+          aria-label="How to read this">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
       </div>
       <div class="graph-options hidden" id="timeline-options" role="group"
         aria-label="Timeline display options">
@@ -1079,7 +1098,7 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="0">Everything</option>
         </select>
       </div>
-      <p class="muted">
+      <p class="muted graph-help-panel hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
         A note sits where it is <em>about</em> when it says so — "the deadline
         is next Friday" plots on that Friday, marked with a clock — and at when it was
         written otherwise. Click any note to open it.
@@ -1694,9 +1713,17 @@ Link to another note with [[its first few words]]."></textarea>
           <section id="library-skills-section" class="card glass">
           <div class="row space-between">
             <h2>AI Skill Library</h2>
-            <button id="skills-add-new" class="small">+ New Skill</button>
+            <span class="row">
+              <button id="skills-add-new" class="small">+ New Skill</button>
+              <button type="button" id="skills-help" class="ghost small graph-help-toggle"
+                aria-expanded="false" aria-controls="skills-intro"
+                title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
+                aria-label="What is this?">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+            </span>
           </div>
-          <p class="muted">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
+          <p class="muted graph-help-panel hidden" id="skills-intro" role="dialog" aria-label="What is this?">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
           <div id="skills-dashboard-list" class="skills-grid"></div>
         </section>
 
@@ -1723,9 +1750,15 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="row">
             <button id="wb-boards-new" class="small" type="button">＋ New board</button>
             <button id="library-media-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+            <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"
+              aria-expanded="false" aria-controls="wb-boards-intro"
+              title="Every board something has been placed on. Pick one to open it."
+              aria-label="What is this?">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
           </span>
         </div>
-        <p class="muted">Every board something has been placed on. Pick one to open it.</p>
+        <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board something has been placed on. Pick one to open it.</p>
         <div id="library-boards-grid" class="library-grid"></div>
         <p id="library-boards-empty" class="muted hidden">No boards yet — create one, or draw on the default board below.</p>
       </section>
@@ -2183,9 +2216,15 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
           <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          <button type="button" id="library-images-help" class="ghost small graph-help-toggle"
+            aria-expanded="false" aria-controls="library-images-intro"
+            title="Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own &quot;Attach from Library&quot; action."
+            aria-label="What is this?">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
-      <p class="muted">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
+      <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
       <div id="library-images-grid" class="library-image-grid"></div>
       <p id="library-images-empty" class="muted hidden">No images yet.</p>
     </section>

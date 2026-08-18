@@ -1988,6 +1988,26 @@
   margin: 0;
 }
 
+/* A .graph-help-panel used as a standalone element (Timeline, the Skills/
+   Whiteboard/Image-Gallery Library sub-tabs) rather than nested one level
+   down like the graph's own <div><p>…</p></div> shape — this file's own
+   `.graph-help-panel p { margin: 0 }` rule above doesn't reach a panel that
+   *is* the <p>, so it needs the same reset directly. */
+p.graph-help-panel {
+  margin: 0;
+}
+
+/* The positioning root each of these panels anchors to — an absolutely
+   positioned popup anchors to the nearest positioned ancestor, and without
+   this it would fall back to the page (same reasoning as #graph-card's own
+   comment, and #writing-room's in 04-chat-dock-appearance.css). */
+#tab-timeline > .card,
+#library-skills-section,
+#wb-boards-landing .card,
+#library-view-media .card {
+  position: relative;
+}
+
 .graph-toolbar .segmented-control {
   height: var(--control-h);
 }

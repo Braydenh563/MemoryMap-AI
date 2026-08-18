@@ -1257,6 +1257,31 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   min-height: var(--sidebar-toggle-size);
   margin-bottom: var(--space-4);
   flex: 0 0 auto;
+  /* Redesigned away from .seg's filled-pill look (reported live, with a
+     photo — the active tab rendered as a noticeably oversized, heavily
+     rounded block next to the toggle and "+ New", neither of which use
+     that shape here). A plain underline tab strip has no background fill,
+     no border-radius, and no padding to size wrong under a theme's own
+     font/density scaling — there's nothing left for it to look chunky
+     with. */
+  background: none;
+  padding-left: 0;
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: 0;
+  gap: var(--space-5);
+}
+
+.doc-sidebar-tabs button {
+  padding: 0 0 var(--space-2);
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  font-size: var(--text-md);
+}
+
+.doc-sidebar-tabs button.active {
+  background: none;
+  color: var(--ink);
+  border-bottom-color: var(--accent);
 }
 
 /* .sidebar-head's own pull-up above is for whichever element is first in

@@ -137,11 +137,21 @@ MemoryMap-AI-v0/
 │   │   ├── embedmodels.py   # the same shape for embedding models: an
 │   │   │                    #   allowlist, their real size in the HuggingFace
 │   │   │                    #   cache, and download / re-download / remove
-│   │   └── logbuffer.py     # in-memory log capture + safe_value() for
-│   │                        #   anything untrusted going into a log line
+│   │   ├── logbuffer.py     # in-memory log capture + safe_value() for
+│   │   │                    #   anything untrusted going into a log line
+│   │   ├── security.py      # OriginCheckMiddleware, backend-URL local-only lock
+│   │   ├── vault.py         # the private-note encryption key, derived + held in memory
+│   │   ├── crypto.py        # scrypt key derivation, encrypt/decrypt primitives
+│   │   ├── atomic_io.py     # temp-file + fsync + rename writes for preferences.json
+│   │   ├── taskhistory.py   # "recently finished" record for Settings -> Background tasks
+│   │   └── media_gc.py      # sweeps orphaned /media uploads nothing references any more
 │   ├── entry/
 │   │   ├── manager.py       # create/read/soft-delete entries, audit log
-│   │   └── timewords.py     # what "tomorrow" meant, resolved at capture
+│   │   ├── timewords.py     # what "tomorrow" meant, resolved at capture
+│   │   ├── duplicates.py    # near-duplicate finder + AI merge (routes_duplicates)
+│   │   ├── importer.py      # markdown/document import (routes_settings, routes_documents)
+│   │   ├── paths.py         # the graph's own traversal index (Trace, notebook_structure)
+│   │   └── staleness.py     # the "forgotten notes" review the autonomous agent can run
 │   ├── ai/
 │   │   ├── provider.py      # what every backend must answer, + what doesn't
 │   │   │                    #   vary by backend: the think-tag splitter, the
@@ -160,14 +170,27 @@ MemoryMap-AI-v0/
 │   │   │                    #   agent pass over the whole notebook. Off by
 │   │   │                    #   default — it is the only place the model
 │   │   │                    #   writes with nobody watching
-│   │   ├── tools.py         # the agent's tool registry (see §7)
+│   │   ├── tools/            # the agent's tool registry (see §7) — a package,
+│   │   │                    #   split out of one file: __init__.py + categories.py,
+│   │   │                    #   documents.py, whiteboard.py, _common.py
+│   │   ├── context.py       # sizes one whole turn against the model's window (§7)
 │   │   ├── skills.py        # what a skill is: steps, tools, inputs (§7b)
 │   │   ├── skill_runner.py  # runs one, a step at a time, with a result
+│   │   ├── extractor.py     # extract notes: free text -> AI-drafted, linked notes
+│   │   ├── links.py         # link-reason generation between two notes
+│   │   ├── entities.py      # auto-entities pass (people/places/etc, opt-in)
+│   │   ├── reminder_parser.py # "call mum tomorrow evening" -> a due_at
+│   │   ├── grounding.py · intent.py · drafter.py # chat-answer support: what
+│   │   │                    #   the model is actually being asked, grounding
+│   │   │                    #   an answer in retrieved notes, drafting one
 │   │   └── voice.py         # optional local Whisper dictation
 │   ├── search/
 │   │   ├── search_manager.py# semantic + keyword search, with fallback
+│   │   ├── query.py         # search-operator parsing (tag:, cat:, is:pinned, …)
 │   │   ├── websearch.py     # opt-in web search (off by default) + PROVIDERS
-│   │   └── searxng_manager.py # install/start/stop a local SearXNG
+│   │   └── searxng_manager.py · searxng_install.py · searxng_process.py ·
+│   │       searxng_docker.py · searxng_settings.py # install/start/stop a
+│   │                        #   local SearXNG, split by concern out of one file
 │   └── api/
 │       ├── app.py           # builds the FastAPI app, mounts frontend, gate
 │       ├── schemas.py       # Pydantic request/response models
@@ -197,13 +220,18 @@ are grouped by feature area:
 | `routes_entries` | `/entries` | create/read/edit/soft-delete notes, links, related, restore |
 | `routes_chat` | `/chat` | ask questions, streaming answers, agentic tools, suggestions |
 | `routes_conversations` | `/conversations` | saved chat threads |
+| `routes_ask_history` | `/ask-history` | the Ask tab's past question/answer turns, independent of saved chats |
 | `routes_models` | `/models` | Ollama status, pull models, switch chat/embedding/utility model |
-| `routes_settings` | `/` | preferences, skills (`GET /skills`), audit log, JSON/CSV/Markdown export & import, backups, logs, web search + SearXNG lifecycle, optional extras (`/extras`), embedding models (`/embedding-models`) |
+| `routes_settings` | `/` | preferences, skills (`GET /skills`), audit log, JSON/CSV/Markdown export & import, logs, optional extras (`/extras`), embedding models (`/embedding-models`) |
+| `routes_websearch` | `/websearch` | web search provider selection + SearXNG install/start/status lifecycle — split out of `routes_settings` |
+| `routes_backups` | `/`, `/backups` | `GET /storage` (where the data lives, how big it is) + daily local backup list/create/restore/delete |
+| `routes_spaces` | `/spaces` | separate note "spaces" (workspaces) within the one notebook |
 | `routes_documents` | `/documents` | long-form markdown documents, export, AI edit |
 | `routes_duplicates` | `/duplicates` | near-duplicate finder + AI merge |
 | `routes_drafts` | `/drafts` | the writing room's compose/rewrite calls |
-| `routes_files` | `/` | attachments upload/download/delete |
+| `routes_files` | `/`, `/media` | attachments upload/download/delete. `media_router` (`/media`, pasted/dropped inline images) is a second router from the same file, gated by `require_unlock_media` rather than the ordinary unlock dependency — it accepts a query-param token, since an `<img src>` can't carry a header |
 | `routes_tags` | `/tags` | list/rename/delete tags |
+| `routes_categories` | `/categories` | list/rename/merge/delete categories |
 | `routes_graph` | `/` | force-directed graph data + link suggestions |
 | `routes_insights` | `/insights` | dashboard: stats, most-accessed, on-this-day, digest |
 | `routes_reminders` | `/reminders` | create/list/complete reminders |
@@ -251,28 +279,49 @@ job is not a task, and a screen that accumulates them is the Logs screen.
 
 ## 7. The agent's tools (Wave G)
 
-`ai/tools.py` defines a registry the chat model can call — **32 tools**. Read-only
-tools run inline; the **destructive** ones (marked ⚠️ below) emit a confirmation
-event to the UI instead of executing.
+`ai/tools/` (a package now — `__init__.py` plus `categories.py`,
+`documents.py`, `whiteboard.py`, `_common.py`, split out once the registry
+outgrew one file) defines a registry the chat model can call — **50 tools**.
+Read-only tools run inline; the **destructive** ones (marked ⚠️ below) emit a
+confirmation event to the UI instead of executing.
 
 *Reading the notebook:* `search_notes` · `get_note` · `list_notes` ·
-`count_notes` · `list_tags` · `list_categories` · `summarize_notes`
+`count_notes` · `list_tags` · `list_categories` · `summarize_notes` ·
+`find_similar_notes` · `related_notes`
 
 *Reading everything else:* `list_documents` · `get_document` ·
 `search_chat_history` · `get_current_time`
 
 *Writing:* `create_note` · `edit_note` · `tag_note` · `pin_note` · `link_notes` ·
-`restore_note` · `rename_tag` · `delete_note` ⚠️ · `delete_tag` ⚠️
+`unlink_notes` ⚠️ · `restore_note` · `rename_tag` · `delete_note` ⚠️ ·
+`delete_tag` ⚠️ · `audit_link_reasons`
 
 *Categories:* `create_category` · `rename_category` · `merge_categories` ⚠️ ·
 `delete_category` ⚠️ — by name, never by id, since the model has never seen
-one. Deleting a category keeps its notes (they become Uncategorised); the two
-marked destructive are so because neither is reversible afterwards — nothing
-records which notes came from where.
+one. Deleting a category keeps its notes (they become Uncategorised); the
+destructive ones are so because none is reversible afterwards — nothing
+records which notes came from where, or which two notes an unlinked pair was.
+
+*Documents:* `create_document` · `get_document` · `list_documents` ·
+`delete_document` ⚠️
+
+*Whiteboard (§37G):* `add_whiteboard_card` · `add_whiteboard_link` ·
+`read_whiteboard` · `search_whiteboard` · `generate_diagram` — lay out a
+whole diagram from a set of notes in one call
+
+*Planning and structure:* `make_plan` — a ticked-step plan shown in the chat
+timeline; `notebook_structure` and `path_between` — the same graph traversal
+the Graph tab's own "Trace" feature uses, so the agent can read the
+notebook's structure rather than only search it
 
 *Reminders:* `set_reminder` · `list_reminders` · `complete_reminder`
 
-*Skills:* `list_skills` · `save_skill` · `delete_skill`
+*Skills:* `list_skills` · `run_skill` · `save_skill` · `delete_skill` ⚠️
+
+*Conversation flow:* `ask_user` — the model asks a clarifying question
+instead of guessing which note you meant; `compress_chat` ·
+`save_user_preference` — a standing instruction ("always answer in British
+English") remembered across conversations
 
 *Online (opt-in, off by default):* `web_search` · `read_url`
 
@@ -804,7 +853,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest` (≈560 tests, about a minute). Uses a
+- **Run locally:** `PYTHONPATH=src pytest` (≈1,900 tests, a few minutes). Uses a
   throwaway database and fakes every AI call (`tests/fakes.py` +
   `tests/conftest.py`), so it's fast and fully offline.
 - **The suite cannot see the UI.** Every layout and wiring bug fixed so far
@@ -864,7 +913,7 @@ and embedding, and both already run off the request thread.
 | --- | --- |
 | Change how notes are categorised | `src/memorymap/ai/janitor.py` |
 | Change how questions are answered | `src/memorymap/ai/librarian.py` |
-| Add/adjust an agent action | `src/memorymap/ai/tools.py` (+ `agent.py`) |
+| Add/adjust an agent action | `src/memorymap/ai/tools/` (+ `agent.py`) |
 | Add an API endpoint | the matching `src/memorymap/api/routes_*.py` |
 | Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py` — one rule, one test row |
@@ -878,7 +927,7 @@ and embedding, and both already run off the request thread.
 | Add a preference | `DEFAULT_PREFERENCES` in `core/config.py`, then `PreferencesBody` + `get_preferences()` in `routes_settings.py` |
 | Add a Settings screen | §10 invariant 11 — three places, all three needed |
 | Change which search engine answers | `websearch.PROVIDERS` + `settings_from()`; never read the preference directly |
-| Add an agent tool | `ai/tools.py`, then run `tests/test_prompt_budget.py` — schemas are 77% of the per-round cost |
+| Add an agent tool | `ai/tools/`, then run `tests/test_prompt_budget.py` — schemas are 77% of the per-round cost |
 | Change what a skill can be | `ai/skills.py` — `normalise` is the one validator both the editor and `save_skill` go through |
 | Add a built-in skill | `skills.BUILTIN_SKILLS`, not `app.js`; name its tools (§7b) |
 | Log something a user or a website typed | `logbuffer.safe_value()` at the call site; `sanitise` only protects the in-app viewer |

@@ -1157,7 +1157,11 @@ function entryItem(entry, options = {}) {
         fileRow.appendChild(fileChip);
       }
     }
-    li.appendChild(fileRow);
+    // Before `meta` (the category/date/pin/actions footer), not after —
+    // reported directly: a sketch or attached image sat below the note's
+    // own metadata row, sandwiched between the footer and whatever came
+    // after it, rather than reading as part of the note's own content.
+    li.insertBefore(fileRow, meta);
   }
 
   // Inline add-context / continue-thought forms (Wave B).

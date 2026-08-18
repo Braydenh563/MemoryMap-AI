@@ -451,10 +451,13 @@ shipping alongside it. Alternatives weighed: Tauri and Wails (Rust/Go shells,
 tiny binaries, but neither solves shipping Python), Neutralino (immature), plain
 PWA (already supported via `manifest.webmanifest` + `sw.js`).
 
-**Plan.** Harden the existing pywebview mode — single instance, native menus,
-tray, graceful port fallback when 8000 is taken, first-run flow — then
-PyInstaller one-file builds for Windows/macOS/Linux. pywebview's webview is also
-where the genuine embedded browser from §3 becomes possible.
+**Plan, updated — some of this is now built, not still planned.** Hardening
+the pywebview mode: **tray — built**, see §25. Single instance, native menus,
+graceful port fallback when 8000 is taken, and a first-run flow specific to
+the packaged build are still open. The "PyInstaller one-file" half of this
+paragraph is superseded by the actual decision recorded above — **onedir**,
+not onefile, because onefile re-extracts itself on every launch. pywebview's
+webview is also where the genuine embedded browser from §3 becomes possible.
 
 **Portable vs installed, worth deciding rather than defaulting into one.**
 PyInstaller can build either — a one-file executable that runs from a USB
@@ -1934,7 +1937,7 @@ the fourth — links to objects — is still open.
   - `dragEndNode`'s own hit-test (app.js) loops `for (const node of
     wbState.nodes)` — an object is never even considered as a drop target
     for the live drag-to-link gesture.
-  - `add_whiteboard_link` (`src/memorymap/ai/tools.py`) does
+  - `add_whiteboard_link` (`src/memorymap/ai/tools/__init__.py`) does
     `session.get(WhiteboardNode, ...)` for both ends — passing an object's
     id raises "No whiteboard card with id …", not a working link.
   - The link sketch's own data shape (`sourceId`/`targetId`) has no
@@ -2006,7 +2009,7 @@ there as colliding with the no-torch constraint).
   has no label. Would matter if `generate_diagram` output is ever meant to
   carry relationship text ("depends on," "leads to"), not just a line.
 - **AI-readability additions**, extending what `readwhiteboard`/
-  `searchwhiteboard`/`generate_diagram` already do (`ai/tools.py`): an
+  `searchwhiteboard`/`generate_diagram` already do (`ai/tools/__init__.py`): an
   outline-text export mode (Mermaid-adjacent, for the AI or a human to read
   a board as a flat description); a semantic (embedding-based) index over
   whiteboard text-box content, since `searchwhiteboard` is keyword-only

@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-18
+
 ### Added — an allowlist for note attachments
 
 Reported directly: `POST /entries/{id}/files` (the generic "attach a file"

@@ -226,29 +226,50 @@ if [ "$NEED_INSTALL" = "1" ]; then
   # `pipefail` (set at the top of this script) makes `$?` reflect pip's
   # exit status rather than tee's.
   PIP_LOG="$(mktemp 2>/dev/null || echo "/tmp/mm_pip_$$.log")"
-  if run_with_timeout 20 "$VENV_PY" -m pip install --upgrade pip --timeout 5 --retries 0 2>&1 | tee "$PIP_LOG" && \
-     run_with_timeout 180 "$VENV_PY" -m pip install -r requirements.txt --timeout 5 --retries 0 2>&1 | tee -a "$PIP_LOG" && \
-     run_with_timeout 60 "$VENV_PY" -m pip install -e . --timeout 5 --retries 0 2>&1 | tee -a "$PIP_LOG"; then
-    cksum requirements.txt | awk '{print $1}' > ".venv/.mm_installed"
-  else
-    if is_network_error "$PIP_LOG"; then
-      echo " ${YELLOW}[!]${RESET} No internet - skipping dependency update."
-    else
-      # Not a network shape - show the real reason rather than guessing.
-      # A silently-mislabelled dependency failure is the trap CLAUDE.md
-      # calls out: it reads as "offline" and costs the next session an hour
-      # finding out the real cause was a broken requirements.txt.
-      echo " ${YELLOW}[!]${RESET} Could not update dependencies:"
-      tail -n 8 "$PIP_LOG" | sed 's/^/        /'
+  # Retries only a network-*shaped* failure, and only automatically - a real
+  # one (bad requirements.txt, a wrong platform wheel, disk full) is retried
+  # zero times on purpose. Looping the same failing command against a broken
+  # requirements.txt would just waste the user's time and bandwidth instead
+  # of saving it (ROADMAP Priority 0 #9); is_network_error is the same
+  # classifier the (non-retrying) reporting below already trusted, not a new
+  # one built for this. `tee "$PIP_LOG"` (no -a) on the first command of each
+  # attempt already truncates the log fresh, so a retry's own is_network_error
+  # check never sees the previous attempt's output.
+  PIP_ATTEMPT=1
+  PIP_MAX_ATTEMPTS=3
+  PIP_DELAY=5
+  while true; do
+    if run_with_timeout 20 "$VENV_PY" -m pip install --upgrade pip --timeout 5 --retries 0 2>&1 | tee "$PIP_LOG" && \
+       run_with_timeout 180 "$VENV_PY" -m pip install -r requirements.txt --timeout 5 --retries 0 2>&1 | tee -a "$PIP_LOG" && \
+       run_with_timeout 60 "$VENV_PY" -m pip install -e . --timeout 5 --retries 0 2>&1 | tee -a "$PIP_LOG"; then
+      cksum requirements.txt | awk '{print $1}' > ".venv/.mm_installed"
+      break
     fi
-    rm -f "$PIP_LOG" 2>/dev/null || true
-    if "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
-      echo "        Launching with existing installation..."
-    else
-      echo " ${RED}[X]${RESET} First-time setup requires an internet connection to install dependencies."
-      exit 1
+    if [ "$PIP_ATTEMPT" -ge "$PIP_MAX_ATTEMPTS" ] || ! is_network_error "$PIP_LOG"; then
+      if is_network_error "$PIP_LOG"; then
+        echo " ${YELLOW}[!]${RESET} No internet - skipping dependency update."
+      else
+        # Not a network shape - show the real reason rather than guessing.
+        # A silently-mislabelled dependency failure is the trap CLAUDE.md
+        # calls out: it reads as "offline" and costs the next session an hour
+        # finding out the real cause was a broken requirements.txt.
+        echo " ${YELLOW}[!]${RESET} Could not update dependencies:"
+        tail -n 8 "$PIP_LOG" | sed 's/^/        /'
+      fi
+      rm -f "$PIP_LOG" 2>/dev/null || true
+      if "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
+        echo "        Launching with existing installation..."
+      else
+        echo " ${RED}[X]${RESET} First-time setup requires an internet connection to install dependencies."
+        exit 1
+      fi
+      break
     fi
-  fi
+    echo " ${YELLOW}[!]${RESET} Looked like a network hiccup (attempt $PIP_ATTEMPT/$PIP_MAX_ATTEMPTS) - retrying in ${PIP_DELAY}s..."
+    sleep "$PIP_DELAY"
+    PIP_ATTEMPT=$((PIP_ATTEMPT + 1))
+    PIP_DELAY=$((PIP_DELAY * 2))
+  done
   rm -f "$PIP_LOG" 2>/dev/null || true
 else
   echo " ${TEAL}[2/4]${RESET} Dependencies already up to date - skipping install."

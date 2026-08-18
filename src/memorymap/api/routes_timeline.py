@@ -24,7 +24,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -75,7 +75,12 @@ def timeline(
     # column, which is the shape the Timeline exists to break up.
     scale: str = "day",
     group: str = "category",
-    days: int = 365,
+    # 0 means "everything" (see below) and is a real, used value — the lower
+    # bound has to allow it. The upper bound exists because `timedelta(days=…)`
+    # raises OverflowError past ~999999999 days, which an unvalidated `days`
+    # let straight through as an unhandled 500 instead of a clean 422; ~110
+    # years is generously past any real notebook's age.
+    days: int = Query(default=365, ge=0, le=40000),
     session: Session = Depends(get_session),
 ) -> dict:
     """Notes on a time axis, in bands.

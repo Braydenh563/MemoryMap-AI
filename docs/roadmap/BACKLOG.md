@@ -1291,25 +1291,31 @@ Deserves one deliberate pass rather than more ad-hoc fixes:
   a background thread (§25's health-check screen would be a natural place
   to surface "an indexing job is running" if one is) versus which quietly
   block.
-- **Singletons and worker count are coupled, and that coupling isn't written
-  down anywhere.** `core/config`, the database connection, the in-memory log
-  buffer (§1) and the SearXNG process handle are all singletons per
-  `ARCHITECTURE.md` — correct and simple for a single process. If the app is
-  ever launched with more than one worker (`uvicorn --workers 2`, or a
-  well-meaning perf tweak by someone unfamiliar with the codebase), every one
-  of those becomes silently per-worker instead of shared — the log console
-  would show a fraction of what actually happened, and two workers could
-  each think they own the SearXNG subprocess. Cheap to prevent: either
-  enforce single-worker at startup (refuse `--workers > 1` with a clear
-  message) or write the constraint down where someone deciding to scale it
-  would actually see it.
-- **No enforced page size on list endpoints, as far as this document
-  establishes.** A notebook that's grown for years, all returned from
-  `search_notes` or the note list in one response, is a real failure mode
-  for a "just works" app that's supposed to degrade gracefully rather than
-  time out. Worth confirming every list-shaped route has a cap and a
-  cursor/offset, not just the ones that happened to need one during testing
-  on a small notebook.
+- ~~**Singletons and worker count are coupled, and that coupling isn't written
+  down anywhere.**~~ **done — checked in the running code, not assumed.**
+  `deps.refuse_multiple_workers()` already exists and already runs first
+  thing in `create_app()`, before any singleton is built: it reads
+  `--workers`/`-w` off `sys.argv` and the `WEB_CONCURRENCY` env var (what
+  uvicorn and gunicorn both honour), and raises `MultipleWorkersError` with
+  the full reason and the fix rather than a warning nobody reads. Covered by
+  `tests/test_worker_guard.py`. This item can be struck rather than built.
+- **Confirmed, not just suspected: `GET /entries` is genuinely unbounded.**
+  `routes_entries.list_entries` takes no `limit`/`offset` at all, and
+  `entry/manager.list_entries` / `list_deleted_entries` / `list_archived_entries`
+  all run their query with no `.limit()` — every note, every time the Notes
+  tab loads, the recycle bin opens, or the archive is browsed. `GET
+  /conversations` already caps at 200 (`routes_conversations.py`) precisely
+  because an *earlier*, tighter cap (50) made older chats unreachable from
+  the sidebar with no way to page past it — that comment is the reason not
+  to just copy the same fix onto entries without more thought. The whole
+  Notes tab is built around one client-side `allEntries` array — search-as-
+  you-type, keyboard nav, the sidebar — so a silent server-side cap here
+  wouldn't degrade gracefully the way the backend-hardening framing
+  suggests; it would make everything past the cap invisible everywhere at
+  once, which is worse than the slow-response risk it would be fixing. This
+  needs real cursor pagination plus a client-side incremental-load change,
+  not a one-line `.limit()` — genuinely a "needs-design-thought" item, not
+  a quick win, despite how it reads at a glance.
 - **What happens when Ollama hangs, rather than errors.** The app already
   handles Ollama being *off* gracefully (design principle 2) — a request
   that never comes back is a different failure, and a more likely one on

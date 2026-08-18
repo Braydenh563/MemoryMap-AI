@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import threading
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -377,8 +377,15 @@ def graph(
 
 @router.get("/graph/local/{entry_id}")
 def graph_local(
-    entry_id: int, 
-    depth: int = 2, 
+    entry_id: int,
+    # Unbounded before this: `?depth=999999999` ran the BFS loop below that
+    # many times on a bare Python range() — no per-note work once the
+    # frontier empties, but the loop itself still costs real wall-clock time
+    # per iteration, and this server is single-worker (deps.py), so it stalls
+    # every other request for however long that takes. 6 hops covers any
+    # notebook a "local neighbourhood" view is meant for; Focus Mode never
+    # asks for more than 2-3 today.
+    depth: int = Query(default=2, ge=1, le=6),
     similarity: bool = False,
     session: Session = Depends(get_session)
 ) -> dict:
@@ -421,7 +428,9 @@ def graph_local(
                     visited.add(neighbor)
                     next_queue.append(neighbor)
         queue = next_queue
-        
+        if not queue:
+            break  # nothing left to expand — further iterations would be no-ops
+
     category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
     nodes = [
         {

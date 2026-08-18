@@ -38,10 +38,12 @@ this package needs to change what it imports.
 from __future__ import annotations
 
 import os
+import queue
 import shutil
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -165,6 +167,13 @@ def _run_streaming(
     building lxml prints steadily for minutes and the user saw none of it, so
     a working install and a hung one looked identical. The lines are the
     evidence that something is happening.
+
+    Reads the pipe from a background thread rather than the caller's `for
+    line in process.stdout`: that loop's own deadline check only runs
+    *between* lines, so a child that goes quiet without exiting — a stalled
+    network mid-download, a hung subprocess — blocked here forever no matter
+    what `timeout` said. A daemon thread feeding a queue lets the main thread
+    poll with a real timeout even while nothing is being read.
     """
     output: list[str] = []
     try:
@@ -177,16 +186,36 @@ def _run_streaming(
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc
+
+    lines: queue.Queue[str | None] = queue.Queue()
+
+    def _pump() -> None:
+        try:
+            for line in process.stdout or []:
+                lines.put(line)
+        finally:
+            lines.put(None)  # sentinel: the pipe is closed, one way or another
+
+    reader = threading.Thread(target=_pump, daemon=True)
+    reader.start()
+
     deadline = time.time() + timeout
     try:
-        for line in process.stdout or []:
-            output.append(line)
-            on_line(line)
-            if time.time() > deadline:
+        while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
                 process.kill()
                 raise SearxngError(
                     f"{args[0]} took longer than {timeout}s and was stopped."
                 )
+            try:
+                line = lines.get(timeout=min(remaining, 1.0))
+            except queue.Empty:
+                continue  # still within the deadline — just nothing new yet
+            if line is None:
+                break
+            output.append(line)
+            on_line(line)
         process.wait(timeout=max(1, int(deadline - time.time())))
     except subprocess.TimeoutExpired as exc:
         process.kill()
@@ -194,6 +223,7 @@ def _run_streaming(
     finally:
         if process.stdout:
             process.stdout.close()
+        reader.join(timeout=5)  # the close() above unblocks the pump's read
     return subprocess.CompletedProcess(
         args, process.returncode, stdout="".join(output), stderr=""
     )

@@ -7,6 +7,39 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — backend hardening pass
+
+Requested directly ("harden the backend, make sure it's robust"); found by a
+targeted audit rather than guessed at, each verified live before being
+called fixed:
+
+- `GET /graph/local/{id}?depth=` had no upper bound; the BFS loop ran
+  `range(depth)` regardless, so a large `depth` blocked this single-worker
+  server's one request thread for real wall-clock time — a trivial DoS on a
+  personal-notebook app. Now `Query(ge=1, le=6)`, plus the loop breaks as
+  soon as its frontier empties instead of finishing out the range.
+- `GET /timeline?days=` had no upper bound either, and fed straight into
+  `timedelta(days=days)` — a large enough value raised an unhandled
+  `OverflowError` (Python int too large to convert to C int), surfacing as a
+  raw 500 instead of a clean error. Now `Query(ge=0, le=40000)` (0 still
+  means "everything").
+- `POST /import/markdown` capped each file's size but not how many files one
+  request could carry, unlike its sibling `/import/document`
+  (`MAX_DOCUMENT_IMPORT_NOTES`). Now capped at `MAX_IMPORT_FILES = 500` with
+  a clear 422 past that, rather than unbounded work per request.
+- Wiki-link resync failures in `create_entry`/`update_entry` were swallowed
+  with no logging — the embedding-refresh block three lines above both of
+  them explicitly logs on failure ("logged rather than swallowed" is the
+  comment right there), and the wiki-link block didn't follow its own
+  neighbour's pattern. A real link-resolution bug was invisible in both the
+  UI and Settings → Logs; now it isn't.
+- `searxng_manager._run_streaming`'s deadline was only checked *between*
+  output lines — a child process that went quiet without exiting (a stalled
+  download, a hung subprocess) blocked the call forever no matter what
+  `timeout` said. Reads the pipe from a background thread into a queue now,
+  so the deadline is checked on a real poll loop even when nothing is being
+  read. Reproduced the actual hang locally before and after the fix.
+
 ### Added — Windows installer
 
 - A real installed build for Windows: `packaging/windows/memorymap.spec`

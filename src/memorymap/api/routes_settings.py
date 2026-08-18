@@ -1112,6 +1112,13 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
 
 
 MAX_IMPORT_BYTES = 1024 * 1024  # a single markdown note, not a novel
+#: `import_markdown` below had a per-file size cap but no cap on how many
+#: files one request could carry — each one does its own `create_entry` +
+#: `session.commit()`, so a request with an unbounded file count ran
+#: unbounded work. Same instinct as `MAX_DOCUMENT_IMPORT_NOTES` just below:
+#: a real "import my Obsidian vault" drag-and-drop is at most a few hundred
+#: files, so this is generous headroom, not a real-world ceiling.
+MAX_IMPORT_FILES = 500
 
 
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
@@ -1142,6 +1149,12 @@ def import_markdown(
 ) -> dict:
     """Turn uploaded .md files into notes (Obsidian-friendly: the same
     frontmatter the export writes is understood on the way back in)."""
+    if len(files) > MAX_IMPORT_FILES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{len(files)} files at once is more than one import handles "
+            f"({MAX_IMPORT_FILES} max) — split it into smaller batches.",
+        )
     imported = 0
     skipped: list[str] = []
     for file in files:

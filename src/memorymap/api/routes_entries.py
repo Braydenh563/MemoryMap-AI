@@ -233,6 +233,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         session.commit()
     except Exception:
         session.rollback()
+        logger.warning("couldn't sync wiki links for entry %s", entry.id, exc_info=True)
 
     # Documents this note belongs with, attached as it is saved. A document
     # that has since been deleted is skipped rather than refused: the note is
@@ -708,6 +709,7 @@ def update_entry(
             session.commit()
         except Exception:
             session.rollback()
+            logger.warning("couldn't sync wiki links for entry %s", entry.id, exc_info=True)
     return _to_out(session, entry)
 
 

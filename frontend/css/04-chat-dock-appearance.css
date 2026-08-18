@@ -54,13 +54,18 @@
   color: var(--muted);
 }
 
-/* The strip's own caption — redesigned (ROADMAP.md item 5) from one
-   run-on sentence ("note — reason — note — reason — note") into a stops-
-   on-a-line list, one row per note with the connecting reason labelled on
-   the line between. A path of any real length used to wrap into a wall of
-   text with no visual break between one hop and the next; this gives each
-   hop its own row instead, the same shape a route list already uses for
-   "each link matters as much as each stop". */
+/* The strip's own caption — redesigned twice this session (ROADMAP.md
+   item 5). Round one put one row per note plus one row per connector,
+   stacked vertically, and was reported back immediately as "crushes the
+   graph, takes up most of the page": a path of four or five hops was
+   eight-plus rows tall, in a box that sits in normal document flow
+   directly above the canvas, so it pushed the whole map down out of
+   view — never actually looked at running before that. Round two goes
+   back to the original's horizontal, wrapping shape (chips and
+   connectors flow and wrap together like a sentence, same footprint the
+   pre-redesign version had) with `max-height` + scroll as a hard floor
+   underneath: whatever the wrapping does, this box cannot grow past a
+   few lines regardless of how long a traced path gets. */
 .graph-trace-result {
   margin: 0 0 var(--space-3);
   font-size: var(--text-md);
@@ -75,31 +80,30 @@
 
 .graph-trace-path {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-/* The connector is its own row between two note buttons: a short vertical
-   line (purely decorative — `aria-hidden`) with the "how" label beside it,
-   quiet relative to the notes because the notes are what you clicked for. */
-.graph-trace-connector {
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-left: var(--space-2);
-  padding: var(--space-1) 0;
+  /* The hard floor: roughly 3 wrapped lines at this box's font size, then
+     it scrolls internally instead of pushing the canvas below it down. */
+  max-height: 5.5rem;
+  overflow-y: auto;
+}
+
+/* Arrow + reason, one unit between two note chips — quiet relative to the
+   chips, because the chips are what you clicked for. `white-space: nowrap`
+   keeps the arrow glued to its label; the *unit* still wraps freely with
+   the rest of the row, it just never splits mid-arrow. */
+.graph-trace-connector {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   color: var(--muted);
-}
-
-.graph-trace-connector-line {
-  display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  background: var(--border);
-}
-
-.graph-trace-connector-label {
   font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.graph-trace-arrow-icon {
+  color: var(--border);
 }
 
 .graph-trace-step {
@@ -107,19 +111,31 @@
   font-size: var(--text-sm);
 }
 
+/* A real chip — the earlier plain text-link read as a wall of underlined
+   words with nothing marking where one note ended and the next began.
+   `--card`/`--border` rather than a new colour: same materials every
+   other chip in the app already uses. */
 .graph-trace-note {
-  background: none;
+  background: var(--accent-soft);
   border: none;
-  padding: 0;
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
   margin: 0;
   font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--accent);
   cursor: pointer;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12rem;
 }
 
 .graph-trace-note:hover {
-  text-decoration: underline;
+  filter: brightness(1.08);
+  text-decoration: none;
 }
 
 /* "Generate story from path" — a real call-to-action, not another quiet

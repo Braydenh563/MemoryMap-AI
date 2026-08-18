@@ -423,17 +423,19 @@ fresh session should pick them up:
    sandbox — this is the second time a sandbox-unreachable class of bug has
    shipped from sound reasoning alone; see CLAUDE.md's standing caveat.
 5. ~~**The graph tab's traced-path text visualisation at the top of the
-   canvas needs a redesign**~~ **Done.** Was one run-on sentence (note —
-   reason — note — reason — note) wrapping onto however many lines it
-   needed, Story button trailing off the last one. Now a stops-on-a-line
-   list, `.graph-trace-path`/`.graph-trace-connector` in graph.js/
-   `04-chat-dock-appearance.css` — one row per note, the connecting reason
-   labelled on a short line between rows, step count and the Story button
-   moved to a header above the list. **Not yet checked live in a
-   browser** — built and passed `test_frontend_ids`/`test_frontend_
-   handlers`/`test_style_scale` under heavy token-budget pressure at the
-   end of a long session; worth a real Playwright pass (trigger a
-   multi-hop trace, screenshot it) before trusting it looks right.
+   canvas needs a redesign**~~ **Done, and re-done.** First pass put one
+   row per note plus one row per connector, stacked vertically — shipped
+   without a live check, and reported back immediately as "crushes the
+   graph, takes up most of the page" (correctly: a 5-hop path was ~10 rows
+   tall, in a box sitting in normal flow directly above the canvas). Second
+   pass, **live-verified with Playwright this time**: a horizontal,
+   wrapping row of pill chips (`.graph-trace-note`, same materials as the
+   app's existing `.chip`) joined by a small arrow + reason connector, and
+   `.graph-trace-path` capped at `max-height: 5.5rem` with internal scroll
+   as a hard floor so no path length can repeat the mistake. Measured live:
+   a real 5-hop chain rendered as a ~125px header+chips block (was
+   uncapped before), canvas stayed clearly visible with room to spare —
+   screenshot confirms it, not just the measurement.
 6. ~~Recent searches / search history / past results in the Ask tab~~ **Done
    — built as a browsable history, not a dropdown.** Clarified directly
    mid-build: *"I want the ask feature to be basically a personal notes

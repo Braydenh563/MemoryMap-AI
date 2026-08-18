@@ -1,9 +1,19 @@
-# Release: builds the Python package and publishes to PyPI whenever a
-# version tag (v*) is pushed. Also creates a matching GitHub Release.
+# Release: creates a GitHub Release and attaches the Windows installer
+# whenever a version tag (v*) is pushed.
 #
-# Prerequisites:
-#   1. Add a PyPI API token as a repo secret named PYPI_API_TOKEN.
-#   2. Push a tag: git tag v0.1.0 && git push origin v0.1.0
+# Not on PyPI, deliberately: this app ships as an installed Windows app via
+# GitHub Releases (see BACKLOG.md §7), not as something `pip install`s, so a
+# PyPI step would just be one more credential to manage and one more
+# irreversible-publish footgun for a feature nobody downstream uses. If that
+# ever changes, `pypa/gh-action-pypi-publish` is the action to reach for —
+# see this file's git history for the job this replaced.
+#
+# Prerequisites: just push a tag —
+#   git tag v0.1.0 && git push origin v0.1.0
+# Before tagging: rename CHANGELOG.md's "## [Unreleased]" header to the
+# version you're releasing (e.g. "## [0.1.0] - 2026-08-18") — the changelog-
+# extraction step below matches on that exact number, and an empty match
+# falls back to GitHub's auto-generated notes instead.
 
 name: Release
 
@@ -16,37 +26,8 @@ permissions:
   contents: write   # needed to create the GitHub Release
 
 jobs:
-  build-and-publish:
-    name: Build & publish to PyPI
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0  # full history so setuptools-scm can read tags if ever added
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Install build tools
-        run: python -m pip install --upgrade pip build twine
-
-      - name: Build sdist + wheel
-        run: python -m build
-
-      - name: Check distribution
-        run: twine check dist/*
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-
   github-release:
     name: Create GitHub Release
-    needs: build-and-publish
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

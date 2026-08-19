@@ -549,6 +549,19 @@ textarea.drag-over {
   animation: slide-up 0.3s ease-out;
 }
 
+@media (max-width: 600px) {
+  .agent-monitor {
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+  }
+}
+
 /* `document.body.classList.toggle("has-agent-monitor", …)` (app.js) sets this
    with no CSS ever consuming it — the fixed-position panel above just sat on
    top of whatever a tab's own scroll container put underneath it, live-

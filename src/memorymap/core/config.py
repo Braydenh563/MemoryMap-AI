@@ -105,6 +105,8 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     #: Let background work use the (smaller, faster) utility model instead of
     #: tying up the chat model. Off means everything uses the chat model.
     "smart_model_routing_enabled": True,
+    # How long a session can be idle before the user must log in again.
+    "session_idle_ttl_minutes": 720,
 }
 
 

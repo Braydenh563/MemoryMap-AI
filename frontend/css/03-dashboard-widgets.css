@@ -2099,3 +2099,29 @@ p.graph-help-panel {
   display: none;
 }
 
+
+/* --- Mobile Graph Toolbar Collapse --- */
+#graph-mobile-more-toggle {
+  display: none;
+}
+.graph-toolbar-secondary {
+  display: contents;
+}
+
+@media (max-width: 600px) {
+  #graph-mobile-more-toggle {
+    display: inline-flex;
+  }
+  .graph-toolbar-secondary {
+    display: none;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+  }
+  .graph-toolbar-secondary.open {
+    display: flex;
+  }
+}

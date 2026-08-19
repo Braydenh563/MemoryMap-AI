@@ -1290,6 +1290,8 @@ def run_agent(
                     "label": result.get("label") or name,
                     "ok": "error" not in result,
                     "error": result.get("error"),
+                    "arguments": arguments,
+                    "result_summary": result.get("summary") or (str(result)[:300] + "..." if len(str(result)) > 300 else str(result)),
                 }
                 if change:
                     event["change"] = change

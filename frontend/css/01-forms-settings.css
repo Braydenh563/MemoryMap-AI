@@ -791,6 +791,7 @@ progress {
    visible keyboard focus ring. */
 .chip-interactive {
   cursor: pointer;
+  min-height: 1.5rem; /* 24px tap target minimum */
 }
 
 .chip-interactive:hover {

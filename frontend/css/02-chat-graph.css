@@ -1155,10 +1155,25 @@ button.ghost.danger {
   background: var(--accent-soft);
 }
 
+/* Group headers inserted between Commands / Notes / Documents result sections.
+   Non-interactive, so cursor:default and no hover background. */
+#palette-list li.palette-group-header {
+  padding: 0.5rem 0.6rem 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  cursor: default;
+  pointer-events: none;
+  background: none !important;
+}
+
 .palette-hint {
   font-size: 0.75rem;
   margin: 0.5rem 0 0;
 }
+
 
 /* --- Wave F: whiteboard-lite ---------------------------------------------------- */
 #sketch-overlay {
@@ -1384,7 +1399,7 @@ button.recording.live-level {
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--recording-ring);
-  transform: scaleY(var(--bar-scale, 0.12));
+  transform: scaleY(var(--bar-scale, 0.3));
   transform-origin: bottom;
   transition: transform 90ms linear;
 }

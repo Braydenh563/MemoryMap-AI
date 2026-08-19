@@ -2095,3 +2095,13 @@ header#top-bar.tabs-wrapped #tab-bar {
     inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent);
 }
 
+
+/* Center icon-only buttons by squaring their padding */
+button.icon-only,
+button.icon-button {
+  padding-inline: 0.5em;
+  aspect-ratio: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

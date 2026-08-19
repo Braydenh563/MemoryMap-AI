@@ -1069,6 +1069,9 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="grid" selected>Grid</option>
           <option value="line">Line</option>
         </select>
+        <button id="timeline-jump-today" class="ghost small" type="button" title="Jump to today">
+          <i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> Today
+        </button>
         <button id="timeline-options-toggle" class="ghost small" type="button" aria-expanded="false"
           aria-controls="timeline-options"
           title="Bucket size, bands and how far back to show"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
@@ -1115,7 +1118,13 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="90">Last 3 months</option>
           <option value="365" selected>Last year</option>
           <option value="0">Everything</option>
+          <option value="custom">Custom range</option>
         </select>
+        <span id="timeline-custom-range" class="hidden row align-center" style="gap: var(--space-1); margin-left: var(--space-2);">
+          <input type="date" id="timeline-start-date" aria-label="Start date">
+          <span class="muted" style="font-size: var(--text-sm);">to</span>
+          <input type="date" id="timeline-end-date" aria-label="End date">
+        </span>
       </div>
       <p class="muted graph-help-panel hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
         A note sits where it is <em>about</em> when it says so — "the deadline
@@ -1167,45 +1176,34 @@ Link to another note with [[its first few words]]."></textarea>
            remembers whether it was open. Nothing was removed. -->
       <div class="graph-toolbar">
         <h2>Graph</h2>
-        <input id="graph-search" type="search" placeholder="Highlight notes…"
-          aria-label="Highlight matching notes in the graph">
-        <label class="muted" for="graph-layout">Layout</label>
-        <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
-          <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-          <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-          <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-          <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+        <button id="graph-mobile-more-toggle" class="ghost small icon-only mobile-only" aria-expanded="false" aria-controls="graph-toolbar-secondary" title="More options"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+        <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
+
+        <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
+          <input id="graph-search" type="search" placeholder="Highlight notes…"
+            aria-label="Highlight matching notes in the graph">
+          <label class="muted" for="graph-layout">Layout</label>
+          <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
+            <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+            <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+            <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+            <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+          </div>
+          <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
+            <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
+            <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+          </div>
+          <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
+            aria-controls="graph-options"
+            title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
+          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
+            aria-controls="graph-trace"
+            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+          <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
+          <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
+          <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
-        <!-- A layout decides where a note goes; this decides what its colour
-             means. Category is the filing; cluster is the structure — which
-             notes can actually reach each other (§9). -->
-        <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
-          <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
-          <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
-        </div>
-        <button id="graph-add-node" class="small"
-          title="Add a new note straight onto the map">＋ New note</button>
-        <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
-          aria-controls="graph-options"
-          title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
-        <!-- §37F: Trace used to be a permanently-drawn second row — the one
-             control here that is a distinct mode (finding a path between two
-             named notes) rather than a setting left on, so it gets the same
-             Options treatment: folded away, remembered whether it was open,
-             nothing removed. -->
-        <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-          aria-controls="graph-trace"
-          title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-        <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
-        <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
-        <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
-        <!-- Was a permanently-visible "How to use this map" dropdown taking a
-             full row above the canvas on every visit. An icon button instead:
-             the tooltip (hover/focus, native title) answers a quick "what
-             does dashed mean" without a click, and the panel (click) still
-             has the full text for someone reading it end to end. Last in
-             the row with margin-left: auto (CSS) so it sits at the card's
-             top-right corner regardless of how many controls sit before it. -->
+
         <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
           aria-expanded="false" aria-controls="graph-help-panel"
           title="Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, drag to arrange, scroll or use the buttons to zoom, click a note to edit it right here, double-click to pin it in place, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
@@ -1340,7 +1338,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-fullscreen" class="graph-zoom-btn" title="Toggle Full Screen" aria-label="Toggle full screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
-          <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
+          <span class="empty-icon" aria-hidden="true"><i class="ph ph-share-network ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title">Nothing to map yet</p>
           <p class="muted">
             Save a few notes and link some together (<i class="ph ph-link ph-lead" aria-hidden="true"></i> on any entry) —
@@ -1616,7 +1614,7 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div id="reminder-groups"></div>
       <div id="reminders-empty" class="empty-state hidden">
-        <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm" aria-hidden="true"></i></span>
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No reminders yet</p>
         <p class="muted">Add one above, or hit Remind on any note.</p>
       </div>
@@ -1719,7 +1717,7 @@ Link to another note with [[its first few words]]."></textarea>
         </section>
         <div id="library-grid" class="library-grid"></div>
         <div id="library-empty" class="empty-state library-empty hidden">
-          <span class="empty-icon" aria-hidden="true"><i class="ph ph-books" aria-hidden="true"></i></span>
+          <span class="empty-icon" aria-hidden="true"><i class="ph ph-books ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title" id="library-empty-title"></p>
         </div>
 
@@ -3486,6 +3484,13 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="import-md" class="small">Import</button>
               </div>
               <p id="import-md-status" class="status" role="status"></p>
+              
+              <h3>Bulk Directory Import</h3>
+              <div class="row" style="margin-top: var(--space-2);">
+                <input id="import-dir-path" type="text" placeholder="C:\path\to\Obsidian\vault" style="flex: 1;">
+                <button id="import-dir" class="small">Import Folder</button>
+              </div>
+              <p id="import-dir-status" class="status" role="status"></p>
               <p class="muted">
                 Each file becomes a note. Obsidian-style frontmatter
                 (category, tags) is understood.
@@ -3501,6 +3506,22 @@ Link to another note with [[its first few words]]."></textarea>
                 Turns a PDF, Word file or slide deck into notes — one per
                 chapter or slide when the file has that shape, one note
                 otherwise. Needs the markitdown extra below.
+              </p>
+            </div>
+
+            <div class="settings-group">
+              <h3>Export data</h3>
+              <div class="row">
+                <button id="export-json" class="small ghost">JSON</button>
+                <button id="export-markdown" class="small ghost">Markdown</button>
+                <button id="export-csv" class="small ghost">CSV</button>
+              </div>
+              <div class="row" style="margin-top: var(--space-2);">
+                <button id="export-backup-zip" class="small primary">Export Full Backup (.zip)</button>
+              </div>
+              <p class="muted">
+                JSON contains everything in one file. Markdown creates a folder
+                of notes with frontmatter. CSV exports tabular data. Full Backup creates a portable zip with your database and all media.
               </p>
             </div>
 
@@ -3565,6 +3586,17 @@ Link to another note with [[its first few words]]."></textarea>
                 restarting the app locks it again. Changing your password ends
                 every other session.
               </p>
+              
+              <label class="stacked-label" for="account-idle-ttl">Auto-lock when idle</label>
+              <select id="account-idle-ttl" style="margin-bottom: 1.5rem; max-width: 14rem;">
+                <option value="5">5 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+                <option value="240">4 hours</option>
+                <option value="720">12 hours</option>
+              </select>
+
               <div class="row">
                 <button id="account-lock-all" class="ghost small">
                   <i class="ph ph-lock ph-lead" aria-hidden="true"></i> Lock everywhere now</button>
@@ -3693,6 +3725,9 @@ Link to another note with [[its first few words]]."></textarea>
               <summary>What's new</summary>
               <div id="changelog-body" class="changelog-body"></div>
             </details>
+            <div class="row" style="margin-top: 1rem;">
+              <button id="about-take-tour" class="ghost small" type="button"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Take tour again</button>
+            </div>
             <h3>Keyboard shortcuts</h3>
             <!-- This used to be a second, static list. Someone looking for
                  "how do I change a shortcut?" naturally opens Settings, so the
@@ -4032,6 +4067,7 @@ Link to another note with [[its first few words]]."></textarea>
        time (only `document` and `d3`, the latter already loaded above), so
        it can safely go first. See frontend/graph.js's own header for the
        full explanation. -->
+
   <script src="/graph.js"></script>
   <script src="/app.js"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item

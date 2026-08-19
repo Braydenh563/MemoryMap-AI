@@ -81,6 +81,8 @@ def timeline(
     # let straight through as an unhandled 500 instead of a clean 422; ~110
     # years is generously past any real notebook's age.
     days: int = Query(default=365, ge=0, le=40000),
+    start: str | None = None,
+    end: str | None = None,
     session: Session = Depends(get_session),
 ) -> dict:
     """Notes on a time axis, in bands.
@@ -99,7 +101,14 @@ def timeline(
         Entry.is_deleted == False,  # noqa: E712
         Entry.is_private == False,  # noqa: E712 — private text stays out of a view
     )
-    if days > 0:
+    if start and end:
+        try:
+            start_dt = datetime.fromisoformat(start)
+            end_dt = datetime.fromisoformat(end)
+            query = query.where(Entry.created_at >= start_dt, Entry.created_at <= end_dt)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid date format for start/end")
+    elif days > 0:
         query = query.where(Entry.created_at >= utcnow() - timedelta(days=days))
     entries = list(session.scalars(query.order_by(Entry.created_at.desc()).limit(MAX_NOTES)))
 

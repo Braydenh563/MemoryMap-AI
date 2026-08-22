@@ -1627,36 +1627,43 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* Had no styling at all before — a plain inline button between the image
    and caption, not the corner overlay a delete control on a tile usually
    is anywhere else in this app. Hover/focus-revealed so a grid of images
-   doesn't carry a permanent row of trash-can icons; the button itself
-   stays in the DOM (not display:none) so it's still keyboard-reachable
-   without hovering. */
-.library-image-tile .library-image-edit,
-.library-image-tile .library-image-delete {
+   doesn't carry a permanent row of trash-can icons; the buttons themselves
+   stay in the DOM (not display:none) so they're still keyboard-reachable
+   without hovering.
+
+   Edit and delete are laid out as a flex pair sharing one absolutely-
+   positioned wrapper, rather than each button computing its own `right`
+   offset independently. Two buttons each doing their own math (delete at
+   `right: var(--space-2)`, edit at `right: calc(var(--space-2) + 2.2rem)`)
+   silently assumed a button was exactly 2.2rem wide — it wasn't quite,
+   at every density/zoom this app's own settings allow, so edit's right
+   edge sat a few pixels *under* delete. Delete, later in paint order,
+   covered it — edit's own border was there the whole time, just hidden
+   under the button next to it. Reported as "the border only goes around
+   the delete button". `gap` can't get this wrong: it measures the real
+   rendered width of whatever's actually in the row. */
+.library-image-actions {
   position: absolute;
   top: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  gap: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--motion-base) ease;
+}
+
+.library-image-tile .library-image-edit,
+.library-image-tile .library-image-delete {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
-  opacity: 0;
-  transition: opacity var(--motion-base) ease;
 }
 
-.library-image-tile .library-image-edit {
-  right: calc(var(--space-2) + 2.2rem);
-}
-
-.library-image-tile .library-image-delete {
-  right: var(--space-2);
-}
-
-.library-image-tile:hover .library-image-edit,
-.library-image-tile:focus-within .library-image-edit,
-.library-image-tile .library-image-edit:focus-visible,
-.library-image-tile:hover .library-image-delete,
-.library-image-tile:focus-within .library-image-delete,
-.library-image-tile .library-image-delete:focus-visible {
+.library-image-tile:hover .library-image-actions,
+.library-image-tile:focus-within .library-image-actions,
+.library-image-actions:focus-within {
   opacity: 1;
 }
 
@@ -1667,8 +1674,7 @@ header#top-bar.tabs-wrapped #tab-bar {
    "broken" rather than "hidden". Always visible where hovering isn't a
    thing; unchanged, hover-revealed behaviour everywhere a mouse is. */
 @media (hover: none) {
-  .library-image-tile .library-image-edit,
-  .library-image-tile .library-image-delete {
+  .library-image-actions {
     opacity: 1;
   }
 }

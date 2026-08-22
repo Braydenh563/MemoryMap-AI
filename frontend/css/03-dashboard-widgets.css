@@ -506,6 +506,27 @@
   margin-bottom: var(--space-3);
 }
 
+/* Recent-search chips (renderWebSearchHistory, app.js) — wraps rather than
+   the row's own default single line, since a narrow panel would otherwise
+   clip chips past `.web-panel`'s `overflow-x: hidden` with no scrollbar to
+   say so. */
+.web-search-history {
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.web-search-history.hidden {
+  display: none;
+}
+
+/* "Show N more" sits as one more row in the results list, not a button
+   bolted below it — same border-top rhythm every .web-result already has,
+   so it reads as part of the list rather than chrome after it. */
+.web-show-more {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
 .web-panel .web-panel-searxng {
   margin-bottom: var(--space-3);
 }
@@ -1948,6 +1969,11 @@
 .graph-toolbar .tools-toggle {
   white-space: nowrap;
   margin: 0;
+}
+
+.timeline-custom-range {
+  gap: var(--space-1);
+  margin-left: var(--space-2);
 }
 
 .graph-toolbar button {

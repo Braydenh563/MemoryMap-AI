@@ -75,6 +75,12 @@ let entriesEverLoaded = false;
 // replaced allEntries would silently splice stale/duplicate rows back in.
 let _entriesLoadGeneration = 0;
 let activeCategory = null; // sidebar filter; null = All
+// A second, orthogonal sidebar filter (not a category) — asked for
+// directly, so drafts (Writing Room saves, "Save as draft note" captures)
+// are findable as a group instead of only a per-note chip. Mutually
+// exclusive with activeCategory: picking one clears the other, same as
+// switching categories already does.
+let draftsOnly = false;
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
@@ -1084,10 +1090,13 @@ function entryItem(entry, options = {}) {
   }
   if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
   if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
-  // Captured from the text-selection popup and not yet looked at. A chip
-  // rather than a separate "Drafts" view — the note is in its normal place
-  // in the list either way, this just marks it not reviewed yet. Click to
-  // clear it once you have.
+  // Set either by the text-selection popup's "Save as draft note" (not yet
+  // looked at) or by the Writing Room's "Save as note" (drafted with the AI,
+  // however much it was edited before saving) — asked for directly: both
+  // should be findable as drafts, not just marked in passing. The note stays
+  // in its normal place in the list either way; the sidebar/Library Drafts
+  // filter (renderSidebar, library-view-drafts) is what makes them findable
+  // as a group. Click the chip to clear the label once it's not needed.
   if (entry.is_draft) {
     const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
       event.stopPropagation();
@@ -1102,7 +1111,7 @@ function entryItem(entry, options = {}) {
         toast(error.message || "Couldn't update that note.", true);
       }
     });
-    draftChip.title = "Captured from a selection, not reviewed yet — click to mark reviewed";
+    draftChip.title = "Marked as a draft — click to clear the label";
     meta.insertBefore(draftChip, meta.firstChild);
   }
   li.appendChild(meta);
@@ -3119,22 +3128,26 @@ function renderEntries() {
   const noMatch = $("no-match-message");
   list.replaceChildren();
 
-  let visible = activeCategory
-    ? allEntries.filter((e) => e.category === activeCategory)
-    : allEntries;
+  let visible = draftsOnly
+    ? allEntries.filter((e) => e.is_draft)
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory)
+      : allEntries;
   visible = visible.filter(matchesSearch);
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
   // status-bar note count) — this heading used to say "entries" (the API's
   // internal name, /entries), the one place on the tab that didn't match
   // (Part C terminology audit).
-  const scope = activeCategory ? `${activeCategory} notes` : "All notes";
+  const scope = draftsOnly ? "Drafts" : activeCategory ? `${activeCategory} notes` : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
-  const total = activeCategory
-    ? allEntries.filter((e) => e.category === activeCategory).length
-    : allEntries.length;
+  const total = draftsOnly
+    ? allEntries.filter((e) => e.is_draft).length
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory).length
+      : allEntries.length;
   $("entries-heading-label").textContent =
     noteSearch && visible.length !== total
       ? `${scope} — ${visible.length} of ${total}`
@@ -3269,6 +3282,7 @@ function renderSidebar() {
     li.append(name, badge);
     li.addEventListener("click", () => {
       activeCategory = category;
+      draftsOnly = false; // exclusive with the Drafts filter below
       // The list this filters lives in the "browse" sub-tab, and the sidebar
       // is visible from all four — so picking a category while writing a note
       // or asking a question filtered a list that was `display: none`, and the
@@ -3303,6 +3317,32 @@ function renderSidebar() {
   };
 
   addRow("All", allEntries.length, null);
+
+  // A drafts count, not a category — asked for directly: a Drafts filter
+  // findable in the same place categories are, so a note drafted with the
+  // AI (Writing Room) or captured from a selection isn't only markable one
+  // at a time via its own chip (entryItem). Always shown, even at 0, so it
+  // stays discoverable rather than appearing only once something lands in it.
+  const draftCount = allEntries.filter((e) => e.is_draft).length;
+  const draftRow = document.createElement("li");
+  draftRow.className = "category-drafts-row";
+  if (draftsOnly) draftRow.classList.add("active");
+  const draftName = document.createElement("span");
+  draftName.className = "category-name";
+  setLabel(draftName, "ph:pencil-simple-line Drafts");
+  const draftBadge = document.createElement("span");
+  draftBadge.className = "count";
+  draftBadge.textContent = draftCount;
+  draftRow.append(draftName, draftBadge);
+  draftRow.addEventListener("click", () => {
+    draftsOnly = !draftsOnly;
+    activeCategory = null;
+    showNotesSection("browse");
+    renderSidebar();
+    renderEntries();
+  });
+  ul.appendChild(draftRow);
+
   for (const [category, count] of [...counts.entries()].sort()) {
     addRow(category, count, category);
   }
@@ -3759,6 +3799,7 @@ function flashEntry(id) {
   // wiki link silently did nothing (user-reported).
   showNotesSection("browse");
   activeCategory = null;
+  draftsOnly = false; // same reasoning: a non-draft target would be filtered out
   // Clear any active filter too: a note that doesn't match the current search
   // is filtered out of the list, so there'd be nothing to scroll to.
   noteSearch = "";
@@ -3820,6 +3861,7 @@ function flashCategory(name) {
   switchTab("notes");
   showNotesSection("browse");
   activeCategory = name;
+  draftsOnly = false;
   noteSearch = "";
   const searchBox = $("note-search");
   if (searchBox) searchBox.value = "";
@@ -4577,7 +4619,21 @@ async function viewAskHistoryTurn(id) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[turn.search_mode] || turn.search_mode;
   const rawList = $("raw-results");
   rawList.replaceChildren();
-  for (const entry of turn.raw_results) rawList.appendChild(clickableResult(entry));
+  // Same badges as a live Ask answer: this turn's own match_info/connected_ids
+  // were saved alongside it (routes_chat.py's _save_ask_turn) for exactly
+  // this reason — browsing back shouldn't lose the "why" a result showed up.
+  const connected = new Set(turn.connected_ids || []);
+  const matchInfo = turn.match_info || {};
+  for (const entry of turn.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    rawList.appendChild(row);
+  }
   if (turn.omitted_results) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -4685,6 +4741,56 @@ function chatMessageActions(actions) {
     row.appendChild(button);
   }
   return row;
+}
+
+// One-click capture from a chat answer. The text-selection popup's "Save as
+// draft note" already reaches chat bubbles, but only for whatever's
+// highlighted — this needs no selection at all, so the whole answer is one
+// press away instead of a select-then-click.
+async function saveChatAnswerAsNote(question, answer) {
+  try {
+    const content = question ? `${question}\n\n${answer}` : answer;
+    await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
+    });
+    toast("Saved as a draft note.");
+    if (localStorage.getItem("activeTab") === "notes") loadEntries();
+  } catch (error) {
+    toast(error.message || "Couldn't save that note.", true);
+  }
+}
+
+// Same one-click idea for reminders. No AI parse and no due-date prompt —
+// either would need a round trip or a decision before anything is saved,
+// which is exactly what "one click" was asked to avoid — so this picks a
+// plain default (tomorrow, 9am) and creates the reminder right away; the
+// toast's "Edit" action jumps straight to it in the Reminders tab for
+// anyone who wants a different time.
+async function reminderFromChatAnswer(answer) {
+  const text = answer.length > 100 ? answer.slice(0, 97).trim() + "…" : answer;
+  const due = new Date();
+  due.setDate(due.getDate() + 1);
+  due.setHours(9, 0, 0, 0);
+  try {
+    const reminder = await apiJson("/reminders", {
+      method: "POST",
+      body: JSON.stringify({
+        text: `Follow up: ${text}`,
+        due_at: due.toISOString(),
+        priority: "normal",
+        recurring: "none",
+      }),
+    });
+    askNotificationPermission();
+    loadReminders();
+    toastAction("Reminder set for tomorrow, 9am.", "Edit", () => {
+      editingReminderId = reminder.id;
+      return flashReminder(reminder.id);
+    });
+  } catch (error) {
+    toast(error.message || "Couldn't set a reminder.", true);
+  }
 }
 
 // The offer to carry on, shown under a turn that stopped before it was done.
@@ -5194,6 +5300,7 @@ function toggleWebPanel(force) {
       status.textContent = "";
     }
     refreshWebSearxngStrip();
+    renderWebSearchHistory();
     $("web-query").focus();
   } else {
     clearTimeout(webSearxngTimer);
@@ -5280,6 +5387,128 @@ async function refreshWebSearxngStrip() {
   }
 }
 
+// One search result row — split out so the initial batch and the "Show
+// more" reveal (below) build identical rows from one code path.
+function buildWebResultRow(result) {
+  const row = document.createElement("div");
+  row.className = "web-result";
+
+  const title = document.createElement("button");
+  title.type = "button";
+  title.className = "web-result-title";
+  title.textContent = result.title || result.url;
+  title.addEventListener("click", () => openWebReader(result.url));
+  row.appendChild(title);
+
+  const meta = document.createElement("div");
+  meta.className = "web-result-meta muted";
+  meta.textContent = result.domain || "";
+  // SearXNG is a metasearch engine, so "via SearXNG" says where the query
+  // was assembled rather than who answered it. Naming the upstream engines
+  // is what makes a self-hosted instance legible rather than a black box.
+  // textContent throughout — these names come from a third party.
+  if (Array.isArray(result.via) && result.via.length) {
+    const via = document.createElement("span");
+    via.className = "web-result-via";
+    via.textContent = result.via.join(" · ");
+    via.title = `Found by ${result.via.join(", ")}`;
+    meta.append(" — ", via);
+  }
+  row.appendChild(meta);
+
+  if (result.snippet) {
+    const snippet = document.createElement("div");
+    snippet.className = "web-result-snippet muted";
+    snippet.textContent = result.snippet;
+    row.appendChild(snippet);
+  }
+
+  // The actions, in the row's corner and revealed on hover — the same
+  // pattern the note cards use, and for the same reason. Measured before:
+  // three labelled buttons under every result made each one 127px tall, so
+  // barely two and a half results fitted in the panel. **"Read here Read here" is
+  // gone entirely**: the title does exactly that, one line above, which
+  // makes it a button whose whole job was to repeat the thing next to it.
+  const actions = document.createElement("div");
+  actions.className = "web-result-actions";
+  const open = document.createElement("a");
+  open.href = result.url;
+  open.target = "_blank";
+  open.rel = "noopener noreferrer";
+  open.className = "ghost small web-open-link";
+  setLabel(open, "ph:arrow-square-out");
+  open.title = "Open in your browser";
+  open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
+  actions.appendChild(open);
+  const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
+    askAboutPage(result.url, result.title)
+  );
+  ask.setAttribute("aria-label", "Ask the AI about this page");
+  actions.appendChild(ask);
+  row.appendChild(actions);
+  return row;
+}
+
+// Last few distinct web queries, newest first — asked for directly ("missing
+// features... history"). Client-side only: these are the person's own past
+// searches, same privacy tier as the search itself (already opt-in, already
+// logged locally via manager.log_action), nothing new leaves the machine.
+const WEB_SEARCH_HISTORY_KEY = "webSearchHistory";
+const WEB_SEARCH_HISTORY_MAX = 8;
+// Results already fetched for the current query but not yet shown — "Show
+// more" reveals from here rather than re-searching, since the backend
+// already returns up to 20 in one call (routes_websearch.py).
+let webSearchPending = [];
+
+function loadWebSearchHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WEB_SEARCH_HISTORY_KEY) || "[]");
+    return Array.isArray(raw) ? raw.filter((q) => typeof q === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushWebSearchHistory(query) {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+  const history = [trimmed, ...loadWebSearchHistory().filter((q) => q !== trimmed)].slice(
+    0,
+    WEB_SEARCH_HISTORY_MAX
+  );
+  try {
+    localStorage.setItem(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    /* storage full or blocked — the search itself still worked */
+  }
+}
+
+// Shown only while the query box is empty: recent searches are a way *in*,
+// not chrome that sits above every result list.
+function renderWebSearchHistory() {
+  const box = $("web-search-history");
+  if (!box) return;
+  const history = loadWebSearchHistory();
+  box.replaceChildren();
+  if ($("web-query").value.trim() || !history.length) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  for (const query of history) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip chip-interactive tag";
+    setLabel(chip, `ph:clock-counter-clockwise ${query}`);
+    chip.title = `Search again: ${query}`;
+    chip.addEventListener("click", () => {
+      $("web-query").value = query;
+      runWebSearch();
+    });
+    box.appendChild(chip);
+  }
+}
+
 async function runWebSearch() {
   const query = $("web-query").value.trim();
   if (!query) return;
@@ -5287,16 +5516,23 @@ async function runWebSearch() {
   const box = $("web-results");
   $("web-reader").classList.add("hidden");
   box.replaceChildren();
+  webSearchPending = [];
   status.classList.remove("error");
   status.textContent = "Searching the web…";
   let body;
   try {
-    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=8`);
+    // Asks for the route's full cap in one call — both providers already
+    // fetch one page and slice it, so this costs nothing extra over asking
+    // for 8, and "Show more" below can reveal the rest without a second
+    // request (or a second hit against a rate limit).
+    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=20`);
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
     return;
   }
+  pushWebSearchHistory(query);
+  renderWebSearchHistory();
   const results = body.results || [];
   // Name the engine that ANSWERED — which under "Automatic" is not
   // necessarily the one configured — and say what that means for privacy.
@@ -5317,64 +5553,23 @@ async function runWebSearch() {
     detail.textContent = ` · ${answered.detail}`;
     status.appendChild(detail);
   }
-  for (const result of results) {
-    const row = document.createElement("div");
-    row.className = "web-result";
 
-    const title = document.createElement("button");
-    title.type = "button";
-    title.className = "web-result-title";
-    title.textContent = result.title || result.url;
-    title.addEventListener("click", () => openWebReader(result.url));
-    row.appendChild(title);
-
-    const meta = document.createElement("div");
-    meta.className = "web-result-meta muted";
-    meta.textContent = result.domain || "";
-    // SearXNG is a metasearch engine, so "via SearXNG" says where the query
-    // was assembled rather than who answered it. Naming the upstream engines
-    // is what makes a self-hosted instance legible rather than a black box.
-    // textContent throughout — these names come from a third party.
-    if (Array.isArray(result.via) && result.via.length) {
-      const via = document.createElement("span");
-      via.className = "web-result-via";
-      via.textContent = result.via.join(" · ");
-      via.title = `Found by ${result.via.join(", ")}`;
-      meta.append(" — ", via);
-    }
-    row.appendChild(meta);
-
-    if (result.snippet) {
-      const snippet = document.createElement("div");
-      snippet.className = "web-result-snippet muted";
-      snippet.textContent = result.snippet;
-      row.appendChild(snippet);
-    }
-
-    // The actions, in the row's corner and revealed on hover — the same
-    // pattern the note cards use, and for the same reason. Measured before:
-    // three labelled buttons under every result made each one 127px tall, so
-    // barely two and a half results fitted in the panel. **"Read here Read here" is
-    // gone entirely**: the title does exactly that, one line above, which
-    // makes it a button whose whole job was to repeat the thing next to it.
-    const actions = document.createElement("div");
-    actions.className = "web-result-actions";
-    const open = document.createElement("a");
-    open.href = result.url;
-    open.target = "_blank";
-    open.rel = "noopener noreferrer";
-    open.className = "ghost small web-open-link";
-    setLabel(open, "ph:arrow-square-out");
-    open.title = "Open in your browser";
-    open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
-    actions.appendChild(open);
-    const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
-      askAboutPage(result.url, result.title)
-    );
-    ask.setAttribute("aria-label", "Ask the AI about this page");
-    actions.appendChild(ask);
-    row.appendChild(actions);
-    box.appendChild(row);
+  const INITIAL_SHOWN = 8;
+  for (const result of results.slice(0, INITIAL_SHOWN)) {
+    box.appendChild(buildWebResultRow(result));
+  }
+  webSearchPending = results.slice(INITIAL_SHOWN);
+  if (webSearchPending.length) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "ghost small web-show-more";
+    setLabel(more, `ph:caret-down Show ${webSearchPending.length} more`);
+    more.addEventListener("click", () => {
+      for (const result of webSearchPending) box.insertBefore(buildWebResultRow(result), more);
+      webSearchPending = [];
+      more.remove();
+    });
+    box.appendChild(more);
   }
 }
 
@@ -6372,7 +6567,23 @@ function renderRecordsDetails(holder, meta) {
   details.appendChild(summary);
   const list = document.createElement("ul");
   list.className = "entry-list";
-  for (const entry of meta.raw_results) list.appendChild(clickableResult(entry));
+  // Same provenance badges as the Ask tab (matchReasonBadge / renderRawResults
+  // above) — the backend's "meta" SSE event already carries match_info and
+  // connected_ids for a chat turn, same shape as an Ask turn's; this just
+  // hadn't been wired up here, so a chat search result showed no reason at
+  // all while the identical Ask result did.
+  const connected = new Set(meta.connected_ids || []);
+  const matchInfo = meta.match_info || {};
+  for (const entry of meta.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    list.appendChild(row);
+  }
   details.appendChild(list);
   holder.appendChild(details);
 }
@@ -7359,9 +7570,14 @@ async function saveDraftAsNote() {
     .map((t) => t.trim())
     .filter(Boolean);
   try {
+    // Marked as a draft on the way in, same as the text-selection popup's
+    // "Save as draft note" — asked for directly, so a note drafted here is
+    // just as findable in the Drafts filter (sidebar, Library) as one
+    // captured that way, not silently indistinguishable from a note typed
+    // straight into Notes.
     const entry = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags }),
+      body: JSON.stringify({ content, tags, is_draft: true }),
     });
     foldedThoughts = "";
     $("draft-thoughts").value = "";
@@ -8165,12 +8381,15 @@ async function sendChatMessage(preset, opts = {}) {
     }
     return;
   }
-  // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices).
+  // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices),
+  // save-as-note and add-reminder (one-click capture, ROADMAP.md).
   bubble.appendChild(
     chatMessageActions([
       { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
       { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
       { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(answerRaw) },
+      { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(question, answerRaw) },
+      { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(answerRaw) },
       { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
     ])
   );
@@ -8979,6 +9198,8 @@ async function openConversation(id) {
             onClick: () => editChatAnswer(handles, turnIndex, message.content),
           },
           { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(message.content) },
+          { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(lastQuestionText, message.content) },
+          { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(message.content) },
           { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
       );
@@ -10036,6 +10257,7 @@ const DASH_WIDGETS = {
   pinned: { title: "ph:push-pin Pinned notes", description: "Notes you've pinned, so they're always one click away.", render: renderPinnedWidget },
   "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
   "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
+  "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections — the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
   "on-this-day": { title: "ph:calendar-blank On this day", description: "Notes from this date in previous years.", render: renderOnThisDayWidget },
@@ -11832,6 +12054,31 @@ async function renderMostUsedWidget(body) {
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
 }
 
+// The graph tab already knows how connected every note is (edges from
+// EntryLink rows plus reply threads) — this just ranks by how many of those
+// edges touch each note, rather than asking the user to eyeball the graph
+// for its own densest cluster. Perplexity brainstorm doc review flagged the
+// gap: a "most-linked notes / hub" widget was one of the few ideas the app
+// didn't already have a version of.
+async function renderMostLinkedWidget(body) {
+  const [entries, data] = await Promise.all([
+    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
+    apiJson("/graph").catch(() => null),
+  ]);
+  const degree = new Map();
+  for (const edge of (data && data.edges) || []) {
+    if (typeof edge.source === "number") degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
+    if (typeof edge.target === "number") degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
+  }
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const ranked = [...degree.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => byId.get(id))
+    .filter(Boolean)
+    .slice(0, 6);
+  miniEntryList(body, ranked, "Link notes to each other and the most-connected ones show up here.");
+}
+
 async function renderRecentNotesWidget(body) {
   const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
   const newest = [...entries].sort(
@@ -12199,6 +12446,7 @@ async function renderCategoriesWidget(body) {
     row.append(label, track, num);
     row.addEventListener("click", () => {
       activeCategory = name;
+      draftsOnly = false;
       switchTab("notes");
       renderEntries();
       renderSidebar();
@@ -12472,6 +12720,19 @@ async function renderFocusTimerWidget(body) {
 
 let reminderFilter = "open"; // open | all | done
 
+// list | calendar. Persisted the same way timeline's own view toggle is
+// (a bare localStorage key) — a display mode, not data, so it doesn't need
+// the weight of a real preference round-tripped through the backend.
+let reminderView = localStorage.getItem("reminderView") === "calendar" ? "calendar" : "list";
+// The month the calendar is showing, always pinned to day 1 so "next month"
+// arithmetic can't land on the 31st of a shorter month.
+let reminderCalMonth = (() => {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+})();
+
 async function loadReminders() {
   const all = await apiJson("/reminders").catch(() => []);
   const groupsBox = $("reminder-groups");
@@ -12480,7 +12741,11 @@ async function loadReminders() {
   const reminders = all.filter((r) =>
     reminderFilter === "all" ? true : reminderFilter === "done" ? r.done : !r.done
   );
-  $("reminders-empty").classList.toggle("hidden", all.length > 0);
+  const isList = reminderView === "list";
+  $("reminder-groups").classList.toggle("hidden", !isList);
+  $("reminders-empty").classList.toggle("hidden", !isList || all.length > 0);
+  $("reminder-calendar").classList.toggle("hidden", isList);
+  if (!isList) renderReminderCalendar(all);
   $("reminder-clear-done").classList.toggle("hidden", !all.some((r) => r.done));
   // Surface anything due on the tab itself, from wherever you are.
   updateReminderBadge(all);
@@ -12525,6 +12790,120 @@ async function loadReminders() {
     for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+}
+
+// Month-grid view of due dates (ROADMAP.md gap 4: the flat list has no way
+// to see "what's due this week" laid out as a calendar). `all` is every
+// reminder regardless of reminderFilter — a month view answers "what's on
+// this day," which isn't the same question the Open/All/Done filter above it
+// answers, so it deliberately ignores that filter rather than surprising
+// someone who switches view mid-browse and sees fewer days than expected.
+function renderReminderCalendar(all) {
+  const box = $("reminder-calendar");
+  box.replaceChildren();
+
+  const byDay = new Map(); // "YYYY-MM-DD" -> reminders due that local day
+  for (const reminder of all) {
+    const due = new Date(reminder.due_at);
+    const key = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(reminder);
+  }
+
+  const head = document.createElement("div");
+  head.className = "reminder-cal-head";
+  const prev = smallButton("‹", "Previous month", () => {
+    reminderCalMonth.setMonth(reminderCalMonth.getMonth() - 1);
+    renderReminderCalendar(all);
+  });
+  const today = smallButton("Today", "Jump to this month", () => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    reminderCalMonth = d;
+    renderReminderCalendar(all);
+  });
+  const next = smallButton("›", "Next month", () => {
+    reminderCalMonth.setMonth(reminderCalMonth.getMonth() + 1);
+    renderReminderCalendar(all);
+  });
+  const title = document.createElement("h3");
+  title.className = "reminder-cal-title";
+  title.textContent = reminderCalMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  head.append(prev, title, today, next);
+  box.appendChild(head);
+
+  const grid = document.createElement("div");
+  grid.className = "reminder-cal-grid";
+  for (const label of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
+    const dow = document.createElement("span");
+    dow.className = "reminder-cal-dow muted";
+    dow.textContent = label;
+    grid.appendChild(dow);
+  }
+
+  const monthStart = new Date(reminderCalMonth);
+  const lead = monthStart.getDay(); // blank cells so day 1 lands in its real weekday column
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+  const todayKey = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  for (let i = 0; i < lead; i++) {
+    const blank = document.createElement("span");
+    blank.className = "reminder-cal-cell reminder-cal-blank";
+    grid.appendChild(blank);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayReminders = byDay.get(key) || [];
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "reminder-cal-cell";
+    if (key === todayKey) cell.classList.add("reminder-cal-today");
+    if (dayReminders.length) cell.classList.add("reminder-cal-has-items");
+
+    const num = document.createElement("span");
+    num.className = "reminder-cal-daynum";
+    num.textContent = day;
+    cell.appendChild(num);
+
+    if (dayReminders.length) {
+      const dots = document.createElement("span");
+      dots.className = "reminder-cal-dots";
+      for (const reminder of dayReminders.slice(0, 4)) {
+        const dot = document.createElement("span");
+        dot.className = `reminder-cal-dot priority-${reminder.priority || "normal"}${reminder.done ? " done" : ""}`;
+        dots.appendChild(dot);
+      }
+      cell.appendChild(dots);
+      cell.title = dayReminders.map((r) => r.text).join("\n");
+      cell.setAttribute("aria-label", `${day}: ${dayReminders.length} reminder${dayReminders.length === 1 ? "" : "s"}`);
+      cell.addEventListener("click", () => {
+        // Jump into the list at the first one — reuses flashReminder's own
+        // switch-to-list/scroll/flash rather than inventing a day-filtered
+        // list view just for this.
+        reminderView = "list";
+        localStorage.setItem("reminderView", "list");
+        for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
+          b.classList.toggle("active", b.dataset.view === "list");
+        }
+        flashReminder(dayReminders[0].id);
+      });
+    } else {
+      cell.setAttribute("aria-label", `${day}, no reminders`);
+      cell.title = "Add a reminder on this day";
+      cell.addEventListener("click", () => {
+        const iso = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        $("reminder-date").value = iso;
+        $("reminder-text").focus();
+      });
+    }
+    grid.appendChild(cell);
+  }
+  box.appendChild(grid);
 }
 
 // A count of due-or-overdue reminders on the Reminders tab button, so you
@@ -14004,6 +14383,7 @@ function openTimelineBand(band, group) {
   switchTab("notes");
   showNotesSection("browse");
   const box = $("note-search");
+  draftsOnly = false;
   if (group === "category" && band.name !== TIMELINE_OTHER_BAND) {
     activeCategory = band.name;
     if (box) box.value = "";
@@ -14942,6 +15322,12 @@ async function openSettingsModal(section = "models") {
   } · ${allEntries.length} entries loaded`;
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
   $("update-check-status").textContent = "";
+  const isDesktop = await desktopShell();
+  $("desktop-console-row").classList.toggle("hidden", !isDesktop);
+  $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
+  if (isDesktop) {
+    $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
+  }
   showSettingsSection(section);
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
@@ -15791,9 +16177,11 @@ async function deleteProfile() {
 // bytes and hand the browser a blob instead.
 async function downloadExport(kind) {
   const response = await api(`/export/${kind}`);
-  // Markdown arrives as a zip of .md files; the rest are single files.
+  // Markdown and the full backup arrive as zips; the rest are single files.
   const name =
-    kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
+    kind === "markdown" ? "memorymap-markdown.zip" :
+    kind === "backup" ? "memorymap-backup.zip" :
+    `memorymap-export.${kind}`;
   await saveFile(name, await response.blob());
 }
 
@@ -19227,6 +19615,11 @@ function renderChatActiveModelBadge() {
   const name = modelStatus && modelStatus.chat_model;
   badge.hidden = !name;
   badge.textContent = name || "";
+  // The badge itself ellipsis-truncates a long id (a full HuggingFace path
+  // easily runs past the header) — the full name is still one hover away.
+  badge.title = name
+    ? `The model currently answering in this chat: ${name} — change it in Settings → Models`
+    : "";
 }
 
 function renderUtilityModelPicker(status) {
@@ -21848,6 +22241,10 @@ $("pref-update-check").addEventListener("change", (e) =>
 );
 $("update-check-now").addEventListener("click", () => checkForUpdate());
 
+$("pref-show-console").addEventListener("change", (e) =>
+  setPreference("show_console_on_startup", e.target.checked)
+);
+
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");
   if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
@@ -22517,6 +22914,7 @@ $("graph-refresh").addEventListener("click", () => {
   graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
   renderGraph();
 });
+$("graph-export-png")?.addEventListener("click", exportGraphPng);
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
 $("graph-documents")?.addEventListener("change", renderGraph);
@@ -22845,6 +23243,7 @@ $("web-go").addEventListener("click", runWebSearch);
 $("web-query").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runWebSearch();
 });
+$("web-query").addEventListener("input", renderWebSearchHistory);
 $("web-reader-back").addEventListener("click", () =>
   $("web-reader").classList.add("hidden")
 );
@@ -22889,6 +23288,20 @@ for (const button of document.querySelectorAll("#reminder-filter button")) {
     }
     loadReminders();
   });
+}
+for (const button of document.querySelectorAll("#reminder-view-toggle button")) {
+  button.addEventListener("click", () => {
+    reminderView = button.dataset.view;
+    localStorage.setItem("reminderView", reminderView);
+    for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
+      b.classList.toggle("active", b === button);
+    }
+    loadReminders();
+  });
+  // The markup hardcodes "List" as the active button; a returning visitor
+  // whose last choice (localStorage) was "calendar" needs that reflected
+  // here too, not just in which container loadReminders() shows.
+  button.classList.toggle("active", button.dataset.view === reminderView);
 }
 $("reminder-magic-add").addEventListener("click", magicAddReminder);
 $("reminder-magic").addEventListener("keydown", (e) => {
@@ -24239,16 +24652,7 @@ $("entry-content").addEventListener("input", (e) => {
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);
 $("import-dir")?.addEventListener("click", importDirectory);
-
-for (const fmt of ["json", "markdown", "csv", "backup-zip"]) {
-  const btn = $(`export-${fmt}`);
-  if (btn) {
-    btn.addEventListener("click", () => {
-      let path = fmt === "backup-zip" ? "/export/backup" : `/export/${fmt}`;
-      window.location.href = path + `?token=${authToken()}`;
-    });
-  }
-}
+$("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
 $("import-document").addEventListener("click", importDocument);
 $("backup-now").addEventListener("click", backupNow);
 

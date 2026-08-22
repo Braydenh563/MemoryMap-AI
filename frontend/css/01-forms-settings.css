@@ -1077,6 +1077,25 @@ progress {
   gap: var(--space-2);
 }
 
+/* Settings sections: a second row of controls below an existing one that
+   needs a little breathing room from it. */
+.settings-row-spaced {
+  margin-top: var(--space-2);
+}
+
+.settings-row-spaced-6 {
+  margin-top: var(--space-6);
+}
+
+.import-dir-path-input {
+  flex: 1 1 0;
+}
+
+.account-idle-ttl-select {
+  margin-bottom: var(--space-8);
+  max-width: 14rem;
+}
+
 .chip.link {
   cursor: default;
 }
@@ -2014,6 +2033,120 @@ html.modal-open body {
 
 .entry-list li.priority-low .reminder-text {
   color: var(--muted);
+}
+
+/* --- reminders: month-grid view (ROADMAP.md gap 4) ----------------------- */
+.reminder-cal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.reminder-cal-title {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+}
+
+.reminder-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-2);
+}
+
+.reminder-cal-dow {
+  text-align: center;
+  font-size: 0.8rem;
+  padding-bottom: var(--space-2);
+}
+
+.reminder-cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  /* A fixed floor, not aspect-ratio: 1 — square cells at 7-across on a wide
+     window measured 179px tall, so a 5-6 week month needed over 1100px of
+     scroll just to reach the grid's own bottom row for what's meant to be a
+     glance at "what's due this week." This keeps cells wide enough for the
+     day number plus a row of dots without the grid outgrowing the page. */
+  min-height: 3.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: var(--space-2);
+}
+
+.reminder-cal-cell:hover {
+  background: var(--chip-bg);
+}
+
+.reminder-cal-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.reminder-cal-blank {
+  border: none;
+  cursor: default;
+  pointer-events: none;
+}
+
+.reminder-cal-blank:hover {
+  background: none;
+}
+
+.reminder-cal-today {
+  border-color: var(--accent);
+  font-weight: 650;
+}
+
+.reminder-cal-has-items {
+  background: var(--chip-bg);
+}
+
+.reminder-cal-daynum {
+  font-size: 0.85rem;
+}
+
+.reminder-cal-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+}
+
+.reminder-cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.reminder-cal-dot.priority-high {
+  background: var(--error);
+}
+
+.reminder-cal-dot.priority-low {
+  background: var(--muted);
+}
+
+.reminder-cal-dot.done {
+  opacity: 0.35;
+}
+
+@media (max-width: 720px) {
+  .reminder-cal-dow {
+    font-size: 0.7rem;
+  }
+
+  .reminder-cal-daynum {
+    font-size: 0.75rem;
+  }
 }
 
 #reminder-magic {

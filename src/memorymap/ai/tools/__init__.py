@@ -2256,11 +2256,19 @@ TOOLS: dict[str, ToolSpec] = {
         ToolSpec(
             "get_document",
             "Read one document in full, by id. Use after list_documents, "
-            "whose results are only previews.",
+            "whose results are only previews. For a long document, pass "
+            "query to get back the few paragraphs most relevant to it "
+            "instead of a plain head-of-document truncation.",
             {
                 "type": "object",
                 "properties": {
-                    "document_id": {"type": "integer", "description": "The document's id"}
+                    "document_id": {"type": "integer", "description": "The document's id"},
+                    "query": {
+                        "type": "string",
+                        "description": "Optional — what you're looking for in this "
+                        "document. Narrows a long document down to its most "
+                        "relevant paragraphs instead of just the start.",
+                    },
                 },
                 "required": ["document_id"],
             },

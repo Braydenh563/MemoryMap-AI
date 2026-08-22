@@ -379,7 +379,7 @@
    wants to be", and `flex-shrink` lets the conversation win when the window
    is genuinely narrow. Widened a step (was 19/26rem, user-reported "a little
    wider") — still well inside the drag range's own ceiling
-   (`WEB_PANEL_MAX` = 640px = 40rem in app.js). */
+   (`WEB_PANEL_MAX` = 900px = 56.25rem in app.js). */
 #web-panel {
   flex: 0 1 clamp(21rem, 32%, 30rem);
   /* Was 0 — with #chat-main's own auto flex-basis competing for room in a
@@ -430,6 +430,14 @@
   min-height: 0;
   height: 100%;
   flex: 1 1 auto;
+  /* Same trap #chat-messages/.msg already guard against (see their own
+     comments), one level up: a flex item's automatic minimum width is its
+     content's, so without this #chat-main refused to shrink below a long
+     unbroken line — a URL, a long code token — in a message, even though
+     flex-shrink is 1. With the Web panel open, that content ran past
+     #chat-main's own column and under/behind #web-panel next to it
+     (reported directly, from a screenshot). */
+  min-width: 0;
 }
 
 #chat-messages {
@@ -480,6 +488,29 @@
   gap: var(--space-3);
   font-size: var(--text-sm);
   color: var(--muted);
+  /* Same flex-shrink trap as #chat-main, one level further down the tree:
+     without this, this row's own automatic minimum width is whichever
+     child text is longest — and #chat-active-model can hold a full model
+     id (e.g. a HuggingFace path), reported directly as running off the
+     header past the sidebar. Every child gets its own ellipsis below
+     rather than clipping the row as a whole, so the token-usage text and
+     the "reading a summary" note stay fully readable even when the model
+     name is the one that's long. */
+  min-width: 0;
+}
+
+.chat-subline > * {
+  min-width: 0;
+}
+
+/* The two plain-text badges — token usage and the active-model name — are
+   the ones whose length is actually variable; give each its own ellipsis
+   rather than truncating the whole row, so a long model id doesn't also
+   eat into the (short, fixed-shape) "reading a summary" badge beside it. */
+#chat-active-model,
+#chat-usage {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-subline:empty {

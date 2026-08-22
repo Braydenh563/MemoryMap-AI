@@ -63,6 +63,47 @@ def test_markdown_import_plain_file_and_skips(client):
     assert client.get("/entries").json()[0]["category"] == "Uncategorised"
 
 
+def test_directory_import_walks_a_folder_and_files_notes(client, tmp_path):
+    """The Settings -> Data "Bulk Directory Import" path (an Obsidian-vault-
+    style import): a background task rather than an upload, so it has to
+    open its own DB session rather than reuse the request's."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "recipe.md").write_text(
+        "---\ncategory: Recipes\ntags: [dinner]\n---\n\nPasta night.", encoding="utf-8"
+    )
+    (vault / "plain.md").write_text("just a plain thought", encoding="utf-8")
+    (vault / "empty.md").write_text("   ", encoding="utf-8")
+
+    response = client.post("/import/directory", json={"path": str(vault)})
+    assert response.status_code == 202
+    assert response.json()["status"] == "started"
+
+    entries = client.get("/entries").json()
+    assert len(entries) == 2  # empty.md skipped
+    by_content = {e["content"]: e for e in entries}
+    assert by_content["Pasta night."]["category"] == "Recipes"
+    assert by_content["Pasta night."]["tags"] == ["dinner"]
+    assert by_content["Pasta night."]["user_filed"] is True
+    assert by_content["just a plain thought"]["category"] == "Uncategorised"
+
+
+def test_directory_import_refuses_a_path_that_is_not_a_directory(client, tmp_path):
+    response = client.post("/import/directory", json={"path": str(tmp_path / "nope")})
+    assert response.status_code == 400
+
+
+def test_full_backup_export_is_a_zip_of_the_database(client):
+    """Settings -> Data "Export Full Backup (.zip)"."""
+    _save(client, "back this up")
+
+    response = client.get("/export/backup")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    archive = zipfile.ZipFile(io.BytesIO(response.content))
+    assert "memorymap.db" in archive.namelist()
+
+
 def test_markdown_roundtrip(client):
     _save(client, "roundtrip me", category="Ideas", tags=["keep"])
     exported = client.get("/export/markdown").content

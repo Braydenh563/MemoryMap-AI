@@ -88,7 +88,7 @@ def test_expiry_forgets_the_private_note_key_too(client):
         time.time(),
         time.time() - routes_auth._SESSION_IDLE_TTL - 1,
     ]
-    routes_auth._sweep_expired()
+    routes_auth._sweep_expired(routes_auth._SESSION_IDLE_TTL)
     assert not vault.is_open()
 
 

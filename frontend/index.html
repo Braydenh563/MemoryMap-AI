@@ -1023,6 +1023,10 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="Search the web">
             <button id="web-go" class="small">Search</button>
           </div>
+          <!-- Recent searches — a way back in, not a permanent fixture: hidden
+               the moment there's a query typed or a result on screen. -->
+          <div id="web-search-history" class="row web-search-history hidden"
+            aria-label="Recent web searches"></div>
           <p id="web-status" class="status" role="status"></p>
           <div id="web-results" class="web-results"></div>
           <div id="web-reader" class="web-reader hidden">
@@ -1120,9 +1124,9 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="0">Everything</option>
           <option value="custom">Custom range</option>
         </select>
-        <span id="timeline-custom-range" class="hidden row align-center" style="gap: var(--space-1); margin-left: var(--space-2);">
+        <span id="timeline-custom-range" class="hidden row align-center timeline-custom-range">
           <input type="date" id="timeline-start-date" aria-label="Start date">
-          <span class="muted" style="font-size: var(--text-sm);">to</span>
+          <span class="muted timeline-custom-range-sep">to</span>
           <input type="date" id="timeline-end-date" aria-label="End date">
         </span>
       </div>
@@ -1201,6 +1205,7 @@ Link to another note with [[its first few words]]."></textarea>
             title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
           <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
+          <button id="graph-export-png" class="ghost small" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
           <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
 
@@ -1609,10 +1614,24 @@ Link to another note with [[its first few words]]."></textarea>
           <button data-filter="all">All</button>
           <button data-filter="done">Done</button>
         </div>
+        <!-- List/Calendar is a display mode, not a data filter, so it's a
+             second .seg rather than folded into reminder-filter above — the
+             two answer different questions ("which reminders" vs. "shown
+             how") and DESIGN.md's own toolbars keep those apart elsewhere
+             (Notes' category sidebar vs. its sort order, for one). -->
+        <div class="seg" id="reminder-view-toggle" role="group" aria-label="List or calendar view">
+          <button data-view="list" class="active">List</button>
+          <button data-view="calendar">Calendar</button>
+        </div>
         <button id="reminder-clear-done" class="ghost small"
           title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
       </div>
       <div id="reminder-groups"></div>
+      <!-- A month grid alongside the flat list (ROADMAP.md gap 4): "what's due
+           this week" as a calendar rather than scrolling a list grouped only
+           into Overdue/Today/Upcoming buckets. Hidden unless the toggle above
+           picks it. -->
+      <div id="reminder-calendar" class="reminder-calendar hidden"></div>
       <div id="reminders-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No reminders yet</p>
@@ -3456,7 +3475,13 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
               </div>
-              <p class="muted">Exports include everything, even binned notes.</p>
+              <div class="row settings-row-spaced">
+                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export Full Backup (.zip)</button>
+              </div>
+              <p class="muted">
+                JSON/CSV/Markdown exports include everything, even binned notes.
+                Full Backup is a portable zip of the raw database and media folder.
+              </p>
             </div>
 
             <div class="settings-group">
@@ -3486,8 +3511,8 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="import-md-status" class="status" role="status"></p>
               
               <h3>Bulk Directory Import</h3>
-              <div class="row" style="margin-top: var(--space-2);">
-                <input id="import-dir-path" type="text" placeholder="C:\path\to\Obsidian\vault" style="flex: 1;">
+              <div class="row settings-row-spaced">
+                <input id="import-dir-path" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
                 <button id="import-dir" class="small">Import Folder</button>
               </div>
               <p id="import-dir-status" class="status" role="status"></p>
@@ -3506,22 +3531,6 @@ Link to another note with [[its first few words]]."></textarea>
                 Turns a PDF, Word file or slide deck into notes — one per
                 chapter or slide when the file has that shape, one note
                 otherwise. Needs the markitdown extra below.
-              </p>
-            </div>
-
-            <div class="settings-group">
-              <h3>Export data</h3>
-              <div class="row">
-                <button id="export-json" class="small ghost">JSON</button>
-                <button id="export-markdown" class="small ghost">Markdown</button>
-                <button id="export-csv" class="small ghost">CSV</button>
-              </div>
-              <div class="row" style="margin-top: var(--space-2);">
-                <button id="export-backup-zip" class="small primary">Export Full Backup (.zip)</button>
-              </div>
-              <p class="muted">
-                JSON contains everything in one file. Markdown creates a folder
-                of notes with frontmatter. CSV exports tabular data. Full Backup creates a portable zip with your database and all media.
               </p>
             </div>
 
@@ -3588,7 +3597,7 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               
               <label class="stacked-label" for="account-idle-ttl">Auto-lock when idle</label>
-              <select id="account-idle-ttl" style="margin-bottom: 1.5rem; max-width: 14rem;">
+              <select id="account-idle-ttl" class="account-idle-ttl-select">
                 <option value="5">5 minutes</option>
                 <option value="15">15 minutes</option>
                 <option value="30">30 minutes</option>
@@ -3709,14 +3718,34 @@ Link to another note with [[its first few words]]."></textarea>
                  "100% offline" two lines up has to stay true until this is
                  switched on by hand, the same reasoning Settings -> Web
                  search already uses for its own opt-in network call. -->
-            <div class="row space-between">
-              <label for="pref-update-check">Check GitHub for a newer version</label>
+            <!-- Same switch every other on/off setting in this app uses
+                 (06-timeline-dialogs.css's ".settings-section label>input" —
+                 "I want to ditch the radio buttons ... application wide").
+                 These two fell through that pass: the input used to sit as
+                 a <label for> sibling rather than a child, which is a plain
+                 unstyled browser checkbox as far as that rule can see. -->
+            <label class="row space-between" for="pref-update-check">
+              Check GitHub for a newer version
               <input type="checkbox" id="pref-update-check">
-            </div>
+            </label>
             <div class="row" id="update-check-row">
               <button id="update-check-now" class="ghost small" type="button">Check now</button>
               <span class="muted" id="update-check-status"></span>
             </div>
+            <!-- Only meaningful running from start.bat/start-desktop.bat, which
+                 open a console window behind the app — the packaged installer's
+                 build has none to show at all. Shown only in the desktop shell
+                 (app.js checks /health's own "desktop" flag), same gating as
+                 the file-save path this same flag already drives. -->
+            <label class="row space-between hidden" id="desktop-console-row" for="pref-show-console">
+              Show the console window on startup
+              <input type="checkbox" id="pref-show-console">
+            </label>
+            <p class="muted hidden" id="desktop-console-hint">
+              Off by default — the console is hidden as soon as the app starts.
+              You can also show or hide it live from the system tray icon's
+              own menu, which remembers your choice for next time too.
+            </p>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded
                  shut: it is long, and About is not where you go to read it
@@ -3725,7 +3754,7 @@ Link to another note with [[its first few words]]."></textarea>
               <summary>What's new</summary>
               <div id="changelog-body" class="changelog-body"></div>
             </details>
-            <div class="row" style="margin-top: 1rem;">
+            <div class="row settings-row-spaced-6">
               <button id="about-take-tour" class="ghost small" type="button"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Take tour again</button>
             </div>
             <h3>Keyboard shortcuts</h3>

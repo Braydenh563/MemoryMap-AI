@@ -159,6 +159,8 @@ class PreferencesBody(BaseModel):
     update_check_enabled: bool | None = None
     searxng_autostart: bool | None = None
     session_idle_ttl_minutes: int | None = Field(default=None, ge=1)
+    # The desktop launcher's console window — see core.config's own comment.
+    show_console_on_startup: bool | None = None
 
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
@@ -1182,11 +1184,10 @@ class ImportDirectoryRequest(BaseModel):
     path: str
 
 def _run_directory_import(directory_path: str):
-    from memorymap.core.deps import SessionLocal
     p = Path(directory_path)
     if not p.is_dir():
         return
-    with SessionLocal() as session:
+    with deps.get_db().session() as session:
         imported = 0
         skipped = 0
         for f in p.rglob("*.md"):

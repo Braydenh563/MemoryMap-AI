@@ -12,6 +12,7 @@ import os
 import sys
 import threading
 import time
+import warnings
 from pathlib import Path
 
 import uvicorn
@@ -278,7 +279,18 @@ def _start_tray(window, icon_path: Path, console_hwnd: int | None, console_hidde
     image = None
     if icon_path.is_file():
         try:
-            image = Image.open(icon_path)
+            # Pillow's ICO decoder warns "Image was not the expected size"
+            # for any .ico whose largest frame doesn't match the size in its
+            # directory header — true of frontend/icon.ico, and harmless here
+            # since we only ever want the largest frame. Scoped to this one
+            # call so a genuine UserWarning from elsewhere still surfaces.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="Image was not the expected size",
+                    category=UserWarning,
+                )
+                image = Image.open(icon_path)
         except OSError as exc:
             logger.warning("couldn't load %s for the tray icon: %s", icon_path, exc)
     if image is None:

@@ -18,6 +18,8 @@ from __future__ import annotations
 import os
 import sys
 import types
+import warnings
+from pathlib import Path
 
 import pytest
 
@@ -243,6 +245,61 @@ def _fake_pystray_and_pil(monkeypatch):
     monkeypatch.setitem(sys.modules, "PIL.Image", fake_image_mod)
 
     return created
+
+
+def _fake_pystray_only(monkeypatch):
+    """Like `_fake_pystray_and_pil`, but leaves the real `PIL.Image` in place
+    so a test can exercise the actual ICO decoder against a real file."""
+    created = {}
+
+    class FakeMenuItem:
+        def __init__(self, text, action, default=False, checked=None):
+            self.text = text
+            self.action = action
+            self.checked = checked
+
+    class FakeMenu:
+        def __init__(self, *items):
+            self.items = items
+
+    class FakeIcon:
+        def __init__(self, name, image, title, menu):
+            created["menu"] = menu
+            created["image"] = image
+
+        def run(self):
+            pass
+
+        def stop(self):
+            pass
+
+    fake_pystray = types.ModuleType("pystray")
+    fake_pystray.MenuItem = FakeMenuItem
+    fake_pystray.Menu = FakeMenu
+    fake_pystray.Icon = FakeIcon
+    monkeypatch.setitem(sys.modules, "pystray", fake_pystray)
+
+    return created
+
+
+def test_tray_icon_loads_the_real_ico_without_a_pillow_size_warning(monkeypatch):
+    """frontend/icon.ico's largest frame doesn't match the size recorded in
+    its own directory header, which makes Pillow's ICO decoder raise a
+    `UserWarning: Image was not the expected size` — reproduced directly
+    against this exact file before this test was written. `_start_tray`
+    must load it without that warning escaping, not merely without raising
+    an exception (a warning is silent by default, which is exactly what let
+    it go unnoticed for as long as it did)."""
+    _fake_pystray_only(monkeypatch)
+    icon_path = Path(__file__).resolve().parent.parent / "frontend" / "icon.ico"
+    assert icon_path.is_file()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        icon = launcher._start_tray(_fake_window(), icon_path, None, False)
+
+    assert icon is not None
+    assert not any(issubclass(w.category, UserWarning) for w in caught)
 
 
 def _fake_window():

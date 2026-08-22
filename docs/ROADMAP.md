@@ -171,17 +171,17 @@ against the wrong app rather than this one.
    pairing with gap 1 above (a photo of a document could go through OCR *or*
    straight to a vision model, user's choice) but is a smaller, more
    self-contained piece of work on its own.
-3. **The graph has no minimap, no way to save/name a view, and no export.**
-   Confirmed the options panel (`#graph-options`, `index.html:1110-1298`)
-   covers physics, labels, similarity, entities, orphans, and the time
-   slider — genuinely thorough — but there's nothing to re-find a specific
-   arrangement once the canvas gets busy (no minimap, `grep minimap` is
-   empty across `frontend/`), no "save this layout/filter combination as a
-   view," and no export-as-image (unlike the whiteboard, which already
-   exports PNG — `whiteboard.js:2024`). Once a notebook has enough notes
-   that the force layout becomes visually dense, all three matter; today
-   there's no way back to a state other than re-configuring the same toggles
-   by hand.
+3. **The graph has no minimap and no way to save/name a view.** ~~and no
+   export~~ — **the export third is done**: `#graph-export-png`
+   (`index.html`, wired in `app.js`/`graph.js`) captures what's currently on
+   screen (the live SVG's viewBox plus whatever pan/zoom transform is
+   applied) as a PNG, matching the whiteboard's own "what's on screen now"
+   option. Live-verified in both themes. Minimap and saved views are still
+   genuinely open: there's nothing to re-find a specific arrangement once
+   the canvas gets busy (no minimap, `grep minimap` is empty across
+   `frontend/`) and no "save this layout/filter combination as a view."
+   Once a notebook has enough notes that the force layout becomes visually
+   dense, both still matter.
 4. **Reminders have no calendar/month view.** The list (`#reminder-groups`,
    `index.html:1436-1543`) has a solid Open/All/Done filter, priority levels,
    recurrence, quick-add presets (30 min through "Next week"), and ±15-minute/

@@ -22914,6 +22914,7 @@ $("graph-refresh").addEventListener("click", () => {
   graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
   renderGraph();
 });
+$("graph-export-png")?.addEventListener("click", exportGraphPng);
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
 $("graph-documents")?.addEventListener("change", renderGraph);

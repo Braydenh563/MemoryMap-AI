@@ -2591,3 +2591,102 @@ async function saveGraphNewNote() {
   }
 }
 
+// --- export as PNG (ROADMAP.md gap 3) --------------------------------------
+//
+// Captures exactly what's on screen right now — the live SVG's own viewBox
+// plus whatever pan/zoom transform the canvas <g> currently carries — rather
+// than trying to fit the whole graph into frame, matching the whiteboard's
+// own "what's on screen now" export option (whiteboard.js's wbExportPng).
+//
+// The exported SVG is rasterized via a detached <img>, completely outside
+// the page's own stylesheets and :root custom properties — so anything
+// this app relies on a CSS class or a var(--token) for (node fill, edge
+// stroke, label font) would silently vanish. Inlining the resolved
+// (already var()-substituted) computed style onto every cloned element is
+// what survives that isolation; embedding the stylesheet text instead would
+// still leave every var(--accent)-style colour unresolved.
+const GRAPH_EXPORT_STYLE_PROPS = [
+  "fill", "stroke", "stroke-width", "stroke-opacity", "stroke-dasharray",
+  "fill-opacity", "opacity", "font-family", "font-size", "font-weight",
+];
+
+function graphInlineComputedStyle(liveEl, cloneEl) {
+  const computed = getComputedStyle(liveEl);
+  let css = "";
+  for (const prop of GRAPH_EXPORT_STYLE_PROPS) {
+    const value = computed.getPropertyValue(prop);
+    if (value) css += `${prop}:${value};`;
+  }
+  if (css) cloneEl.setAttribute("style", css);
+  for (let i = 0; i < liveEl.children.length; i++) {
+    graphInlineComputedStyle(liveEl.children[i], cloneEl.children[i]);
+  }
+}
+
+function graphRasterizeSvg(svgString, width, height) {
+  return new Promise((resolve, reject) => {
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(width));
+      canvas.height = Math.max(1, Math.round(height));
+      const ctx = canvas.getContext("2d");
+      // A transparent PNG over a dark page reads as "half my graph is
+      // missing" the moment it's opened anywhere else — paint a background
+      // first, same reasoning as the whiteboard's own PNG export.
+      //
+      // Neither `body` nor `.card` has a plain colour to read here: `body`
+      // has none at all (the page's real background is a gradient painted on
+      // `<html>`, `00-tokens-shell.css`), and `.card`/`--card` is
+      // deliberately translucent (the app's glass look, `color-mix(...,
+      // transparent)`), so both resolve to something that isn't a flat fill
+      // — found by actually checking, not assumed: the first draft read
+      // `body`'s background and got the same `rgba(0,0,0,0)` in both themes,
+      // silently painting nothing (a transparent PNG that a viewer renders
+      // as white, which happened to look right only in light mode by
+      // coincidence). A flat approximation tied to the resolved theme is a
+      // deliberately simpler choice than reproducing the gradient exactly —
+      // the export just needs to not look broken, not to be a pixel match.
+      ctx.fillStyle = resolvedTheme() === "dark" ? "#12141c" : "#eef1f5";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(
+        (result) => (result ? resolve(result) : reject(new Error("Couldn't rasterize the graph."))),
+        "image/png"
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Couldn't rasterize the graph."));
+    };
+    img.src = url;
+  });
+}
+
+async function exportGraphPng() {
+  const liveSvg = document.getElementById("graph-svg");
+  if (!liveSvg || !liveSvg.querySelector("circle")) {
+    toast("Nothing to export yet.", true);
+    return;
+  }
+  const clone = liveSvg.cloneNode(true);
+  graphInlineComputedStyle(liveSvg, clone);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const viewBox = liveSvg.viewBox.baseVal;
+  const width = viewBox && viewBox.width ? viewBox.width : liveSvg.clientWidth;
+  const height = viewBox && viewBox.height ? viewBox.height : liveSvg.clientHeight;
+  clone.setAttribute("width", width);
+  clone.setAttribute("height", height);
+  const svgString = new XMLSerializer().serializeToString(clone);
+  try {
+    const blob = await graphRasterizeSvg(svgString, width, height);
+    await saveFile("graph.png", blob);
+    toast("Graph exported as PNG.");
+  } catch (error) {
+    toast(error.message || "Couldn't export the graph.", true);
+  }
+}
+

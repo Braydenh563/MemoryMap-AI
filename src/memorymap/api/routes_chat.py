@@ -518,6 +518,8 @@ def _save_ask_turn(session: Session, question: str, answer: str, prepared: dict)
             raw_result_ids=json.dumps([r.id for r in prepared["raw_results"]]),
             search_mode=prepared["search_mode"],
             when_phrase=prepared["when_phrase"],
+            match_info=json.dumps(prepared["match_info"]),
+            connected_ids=json.dumps(prepared["connected_ids"]),
         )
     )
     session.commit()

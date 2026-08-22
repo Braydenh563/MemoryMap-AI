@@ -4577,7 +4577,21 @@ async function viewAskHistoryTurn(id) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[turn.search_mode] || turn.search_mode;
   const rawList = $("raw-results");
   rawList.replaceChildren();
-  for (const entry of turn.raw_results) rawList.appendChild(clickableResult(entry));
+  // Same badges as a live Ask answer: this turn's own match_info/connected_ids
+  // were saved alongside it (routes_chat.py's _save_ask_turn) for exactly
+  // this reason — browsing back shouldn't lose the "why" a result showed up.
+  const connected = new Set(turn.connected_ids || []);
+  const matchInfo = turn.match_info || {};
+  for (const entry of turn.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    rawList.appendChild(row);
+  }
   if (turn.omitted_results) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -6372,7 +6386,23 @@ function renderRecordsDetails(holder, meta) {
   details.appendChild(summary);
   const list = document.createElement("ul");
   list.className = "entry-list";
-  for (const entry of meta.raw_results) list.appendChild(clickableResult(entry));
+  // Same provenance badges as the Ask tab (matchReasonBadge / renderRawResults
+  // above) — the backend's "meta" SSE event already carries match_info and
+  // connected_ids for a chat turn, same shape as an Ask turn's; this just
+  // hadn't been wired up here, so a chat search result showed no reason at
+  // all while the identical Ask result did.
+  const connected = new Set(meta.connected_ids || []);
+  const matchInfo = meta.match_info || {};
+  for (const entry of meta.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    list.appendChild(row);
+  }
   details.appendChild(list);
   holder.appendChild(details);
 }

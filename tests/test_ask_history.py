@@ -93,6 +93,24 @@ def test_getting_one_turn_hydrates_its_notes(ai_client, fake_ollama, session):
     assert turn["omitted_results"] == 0
 
 
+def test_a_turn_s_match_info_survives_to_browse_it_back(ai_client, fake_ollama, session):
+    """The badge the live Ask answer shows ("Matched 'beans'") must still be
+    there when the same turn is reopened from history — the whole point of
+    saving match_info/connected_ids alongside the turn (routes_chat.py's
+    _save_ask_turn) rather than only the note ids."""
+    entry = manager.create_entry(session, "The beans need netting next week")
+    session.commit()
+    fake_ollama.librarian_reply = "You wrote about netting the beans."
+    _ask(ai_client, "what did I write about beans")
+
+    turn_id = ai_client.get("/ask-history").json()["turns"][0]["id"]
+    turn = ai_client.get(f"/ask-history/{turn_id}").json()
+    info = turn["match_info"][str(entry.id)]
+    assert info["type"] == "keyword"
+    assert "beans" in info["terms"]
+    assert turn["connected_ids"] == []
+
+
 def test_a_note_deleted_since_is_dropped_not_shown_stale(ai_client, fake_ollama, session):
     entry = manager.create_entry(session, "The beans need netting next week")
     session.commit()

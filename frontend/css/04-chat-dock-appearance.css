@@ -379,7 +379,7 @@
    wants to be", and `flex-shrink` lets the conversation win when the window
    is genuinely narrow. Widened a step (was 19/26rem, user-reported "a little
    wider") — still well inside the drag range's own ceiling
-   (`WEB_PANEL_MAX` = 640px = 40rem in app.js). */
+   (`WEB_PANEL_MAX` = 900px = 56.25rem in app.js). */
 #web-panel {
   flex: 0 1 clamp(21rem, 32%, 30rem);
   /* Was 0 — with #chat-main's own auto flex-basis competing for room in a

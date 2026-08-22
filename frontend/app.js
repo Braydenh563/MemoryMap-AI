@@ -75,6 +75,12 @@ let entriesEverLoaded = false;
 // replaced allEntries would silently splice stale/duplicate rows back in.
 let _entriesLoadGeneration = 0;
 let activeCategory = null; // sidebar filter; null = All
+// A second, orthogonal sidebar filter (not a category) — asked for
+// directly, so drafts (Writing Room saves, "Save as draft note" captures)
+// are findable as a group instead of only a per-note chip. Mutually
+// exclusive with activeCategory: picking one clears the other, same as
+// switching categories already does.
+let draftsOnly = false;
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
@@ -1084,10 +1090,13 @@ function entryItem(entry, options = {}) {
   }
   if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
   if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
-  // Captured from the text-selection popup and not yet looked at. A chip
-  // rather than a separate "Drafts" view — the note is in its normal place
-  // in the list either way, this just marks it not reviewed yet. Click to
-  // clear it once you have.
+  // Set either by the text-selection popup's "Save as draft note" (not yet
+  // looked at) or by the Writing Room's "Save as note" (drafted with the AI,
+  // however much it was edited before saving) — asked for directly: both
+  // should be findable as drafts, not just marked in passing. The note stays
+  // in its normal place in the list either way; the sidebar/Library Drafts
+  // filter (renderSidebar, library-view-drafts) is what makes them findable
+  // as a group. Click the chip to clear the label once it's not needed.
   if (entry.is_draft) {
     const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
       event.stopPropagation();
@@ -1102,7 +1111,7 @@ function entryItem(entry, options = {}) {
         toast(error.message || "Couldn't update that note.", true);
       }
     });
-    draftChip.title = "Captured from a selection, not reviewed yet — click to mark reviewed";
+    draftChip.title = "Marked as a draft — click to clear the label";
     meta.insertBefore(draftChip, meta.firstChild);
   }
   li.appendChild(meta);
@@ -3119,22 +3128,26 @@ function renderEntries() {
   const noMatch = $("no-match-message");
   list.replaceChildren();
 
-  let visible = activeCategory
-    ? allEntries.filter((e) => e.category === activeCategory)
-    : allEntries;
+  let visible = draftsOnly
+    ? allEntries.filter((e) => e.is_draft)
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory)
+      : allEntries;
   visible = visible.filter(matchesSearch);
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
   // status-bar note count) — this heading used to say "entries" (the API's
   // internal name, /entries), the one place on the tab that didn't match
   // (Part C terminology audit).
-  const scope = activeCategory ? `${activeCategory} notes` : "All notes";
+  const scope = draftsOnly ? "Drafts" : activeCategory ? `${activeCategory} notes` : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
-  const total = activeCategory
-    ? allEntries.filter((e) => e.category === activeCategory).length
-    : allEntries.length;
+  const total = draftsOnly
+    ? allEntries.filter((e) => e.is_draft).length
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory).length
+      : allEntries.length;
   $("entries-heading-label").textContent =
     noteSearch && visible.length !== total
       ? `${scope} — ${visible.length} of ${total}`
@@ -3269,6 +3282,7 @@ function renderSidebar() {
     li.append(name, badge);
     li.addEventListener("click", () => {
       activeCategory = category;
+      draftsOnly = false; // exclusive with the Drafts filter below
       // The list this filters lives in the "browse" sub-tab, and the sidebar
       // is visible from all four — so picking a category while writing a note
       // or asking a question filtered a list that was `display: none`, and the
@@ -3303,6 +3317,32 @@ function renderSidebar() {
   };
 
   addRow("All", allEntries.length, null);
+
+  // A drafts count, not a category — asked for directly: a Drafts filter
+  // findable in the same place categories are, so a note drafted with the
+  // AI (Writing Room) or captured from a selection isn't only markable one
+  // at a time via its own chip (entryItem). Always shown, even at 0, so it
+  // stays discoverable rather than appearing only once something lands in it.
+  const draftCount = allEntries.filter((e) => e.is_draft).length;
+  const draftRow = document.createElement("li");
+  draftRow.className = "category-drafts-row";
+  if (draftsOnly) draftRow.classList.add("active");
+  const draftName = document.createElement("span");
+  draftName.className = "category-name";
+  setLabel(draftName, "ph:pencil-simple-line Drafts");
+  const draftBadge = document.createElement("span");
+  draftBadge.className = "count";
+  draftBadge.textContent = draftCount;
+  draftRow.append(draftName, draftBadge);
+  draftRow.addEventListener("click", () => {
+    draftsOnly = !draftsOnly;
+    activeCategory = null;
+    showNotesSection("browse");
+    renderSidebar();
+    renderEntries();
+  });
+  ul.appendChild(draftRow);
+
   for (const [category, count] of [...counts.entries()].sort()) {
     addRow(category, count, category);
   }
@@ -3759,6 +3799,7 @@ function flashEntry(id) {
   // wiki link silently did nothing (user-reported).
   showNotesSection("browse");
   activeCategory = null;
+  draftsOnly = false; // same reasoning: a non-draft target would be filtered out
   // Clear any active filter too: a note that doesn't match the current search
   // is filtered out of the list, so there'd be nothing to scroll to.
   noteSearch = "";
@@ -3820,6 +3861,7 @@ function flashCategory(name) {
   switchTab("notes");
   showNotesSection("browse");
   activeCategory = name;
+  draftsOnly = false;
   noteSearch = "";
   const searchBox = $("note-search");
   if (searchBox) searchBox.value = "";
@@ -7389,9 +7431,14 @@ async function saveDraftAsNote() {
     .map((t) => t.trim())
     .filter(Boolean);
   try {
+    // Marked as a draft on the way in, same as the text-selection popup's
+    // "Save as draft note" — asked for directly, so a note drafted here is
+    // just as findable in the Drafts filter (sidebar, Library) as one
+    // captured that way, not silently indistinguishable from a note typed
+    // straight into Notes.
     const entry = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags }),
+      body: JSON.stringify({ content, tags, is_draft: true }),
     });
     foldedThoughts = "";
     $("draft-thoughts").value = "";
@@ -12229,6 +12276,7 @@ async function renderCategoriesWidget(body) {
     row.append(label, track, num);
     row.addEventListener("click", () => {
       activeCategory = name;
+      draftsOnly = false;
       switchTab("notes");
       renderEntries();
       renderSidebar();
@@ -14034,6 +14082,7 @@ function openTimelineBand(band, group) {
   switchTab("notes");
   showNotesSection("browse");
   const box = $("note-search");
+  draftsOnly = false;
   if (group === "category" && band.name !== TIMELINE_OTHER_BAND) {
     activeCategory = band.name;
     if (box) box.value = "";

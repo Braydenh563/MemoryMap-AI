@@ -89,6 +89,37 @@ def _run_desktop() -> None:
         _run_server()
         return
 
+    # Hide the console before starting anything else, unless the user has
+    # asked to keep seeing it — asked for directly: "I want it to be hidden
+    # but the user can make it show ... if they want", both as a startup
+    # preference (Settings, this) and live (the tray toggle below). None on
+    # any non-Windows platform, or the packaged installer's console-less
+    # build — nothing to hide either way.
+    #
+    # This used to run after _wait_for_server(), on the theory that reading
+    # the preference needed deps.get_config()'s singleton, which create_app()
+    # only builds on the server thread. That made the console fully visible
+    # for the entire startup wait — which on a cold start (embeddings warmup,
+    # etc.) is the same multi-second gap §"sometimes takes a while to
+    # initially load" is about — so "hidden at startup" was true only after
+    # a visible delay, reported directly as the console "still showing".
+    # ConfigManager reads preferences.json straight off disk with no server
+    # dependency at all (deps.init_app_state hasn't run, and doesn't need
+    # to), so a throwaway instance here reads the same preference safely
+    # before the server thread — or the process's own console — has done
+    # anything, hiding it in milliseconds instead of after the warm-up.
+    console_hwnd = _get_console_hwnd() if sys.platform == "win32" else None
+    console_hidden = False
+    if console_hwnd is not None:
+        from memorymap.core.config import ConfigManager
+
+        show_on_startup = ConfigManager().get_preference("show_console_on_startup", False)
+        if not show_on_startup:
+            import ctypes
+
+            ctypes.windll.user32.ShowWindow(console_hwnd, 0)  # SW_HIDE
+            console_hidden = True
+
     # Tells /health — and through it the frontend — that this is the window
     # rather than a browser tab, so exports get written by the server instead
     # of clicking an `<a download>` that pywebview silently swallows (§35E).
@@ -97,28 +128,6 @@ def _run_desktop() -> None:
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     _wait_for_server()
-
-    # Hide the console before the window even opens, unless the user has
-    # asked to keep seeing it — asked for directly: "I want it to be hidden
-    # but the user can make it show ... if they want", both as a startup
-    # preference (Settings, this) and live (the tray toggle below). Safe to
-    # read config now: _wait_for_server() only returns once create_app()
-    # (which builds the config singleton) has already run on the server
-    # thread. None on any non-Windows platform, or the packaged installer's
-    # console-less build — nothing to hide either way.
-    console_hwnd = _get_console_hwnd() if sys.platform == "win32" else None
-    console_hidden = False
-    if console_hwnd is not None:
-        from memorymap.core import deps
-
-        show_on_startup = deps.get_config().get_preference(
-            "show_console_on_startup", False
-        )
-        if not show_on_startup:
-            import ctypes
-
-            ctypes.windll.user32.ShowWindow(console_hwnd, 0)  # SW_HIDE
-            console_hidden = True
 
     window = webview.create_window(
         "MemoryMap AI",

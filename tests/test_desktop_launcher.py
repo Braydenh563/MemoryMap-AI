@@ -416,6 +416,35 @@ def test_desktop_startup_hides_the_console_unless_the_preference_says_show(
     assert show_window_calls == [(99, 0)]  # SW_HIDE, default preference is off
 
 
+def test_console_is_hidden_before_the_slow_server_wait_not_after(monkeypatch, tmp_path, _config_dir):
+    """The console used to hide only after _wait_for_server() returned, which
+    reads deps.get_config()'s singleton — safe only once create_app() has run
+    on the server thread. On a slow/cold start (embeddings warmup etc.) that
+    wait is exactly the multi-second gap this app is already known for, so
+    the console sat fully visible for all of it — reported directly as "the
+    terminal still shows on startup" despite the preference being off. The
+    fix reads preferences.json with a throwaway ConfigManager before the
+    server thread even starts, so hiding no longer waits on it at all —
+    proven here by recording whether the hide already happened by the time
+    _wait_for_server is reached, not just that it eventually happens."""
+    show_window_calls = []
+    _fake_windll(monkeypatch, console_hwnd=99, show_window_calls=show_window_calls)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(launcher, "_start_tray", lambda *a, **k: None)
+    monkeypatch.setattr(launcher, "_run_server", lambda: None)
+    hidden_before_wait = []
+    monkeypatch.setattr(
+        launcher,
+        "_wait_for_server",
+        lambda timeout=20.0: hidden_before_wait.append(list(show_window_calls)) or True,
+    )
+    _fake_webview(monkeypatch)
+
+    launcher._run_desktop()
+
+    assert hidden_before_wait == [[(99, 0)]]  # already hidden by the time we'd wait
+
+
 def test_desktop_startup_leaves_the_console_shown_when_the_preference_says_so(
     monkeypatch, tmp_path, _config_dir
 ):

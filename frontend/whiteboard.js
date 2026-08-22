@@ -5598,7 +5598,19 @@ async function renderLibraryImagesGallery() {
     img.src = mediaSrc(image.url);
     img.alt = image.original_name;
     img.loading = "lazy";
-    img.addEventListener("error", () => fig.remove());
+    img.addEventListener("error", () => {
+      fig.remove();
+      // Every tile's click handler closes over this same `images` array by
+      // reference and re-reads it at click time, not a snapshot taken here
+      // — so removing the broken entry from it is what every *other* tile's
+      // "N of M" and prev/next actually see. Without this, a gallery whose
+      // underlying file was deleted from disk (but not from the DB) would
+      // hide the broken tile yet still count it: reported live as "it says
+      // 1 of 2 when I only have one image" on a gallery with exactly one
+      // real tile and one 404ing one.
+      const idx = images.indexOf(image);
+      if (idx !== -1) images.splice(idx, 1);
+    });
     img.addEventListener("click", () => {
       openLightbox(
         images.map((i) => ({ filename: i.original_name, getUrl: () => mediaSrc(i.url) })),

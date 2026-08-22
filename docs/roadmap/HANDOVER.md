@@ -2,7 +2,124 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a planned queue of 11 items worked in order (documents in the graph, a stale ROADMAP claim caught before rebuilding, graph camera/physics bugs found by measurement, a fourth autonomous-agent task), plus four live-reported UI bugs fixed mid-session on request
+## Latest session — auditing a squashed commit of changes an external agent (Gemini/Antigravity) made outside this codebase's own session history, then six fresh live-reported requests
+
+A different tool (Gemini, via Antigravity) had been making changes directly
+against a local checkout, outside any Claude session — the only record of
+what it did is a chat-log export the user attached, not this repo's own
+history. One squashed commit (`6e25d65`, already on this branch before the
+session started) held what actually landed; a large amount the chat log
+describes as "done" (a full note-drafts UI in the Capture and Library tabs,
+a login-screen syntax-error fix, a Pillow warning suppression) was **never
+actually committed** — grepping for its own ids (`capture-drafts-container`,
+`save-draft-btn`) found nothing, and existing "draft" support in app.js
+matched the chat log's own *starting* point, not its end state. Not rebuilt:
+it wasn't part of what the user actually asked this session (see below), and
+guessing back a multi-step feature from a chat transcript alone, past what
+was asked, risks reproducing whatever broke it the first time.
+
+**Auditing the commit that did land found the exact four failure shapes
+CLAUDE.md's own review section names, every one of them real, not
+hypothetical:**
+1. **A route that 500'd on every call**: `_sweep_expired()` gained a
+   required `idle_ttl` argument (for a new configurable
+   `session_idle_ttl_minutes` preference) but `/auth/account`'s own call
+   site was never updated — Settings → Account was completely broken.
+2. **Two features that never ran once**: the four new Export buttons
+   (JSON/Markdown/CSV/Full Backup) navigated via `window.location.href`
+   with the auth token in a query string, but `/export/*` only ever reads
+   the `X-Auth-Token` header — every click 401'd, invisibly (a plain
+   navigation shows no console error). Bulk Directory Import's background
+   task imported `SessionLocal` from `memorymap.core.deps`, which does not
+   exist there — its `ImportError` went to the server log, never to the
+   user, so a "started" response was the only thing anyone ever saw.
+3. **A duplicate id silently disabling half a UI**: the new Export section
+   duplicated `export-json`/`export-csv`'s ids from the pre-existing one —
+   `test_frontend_ids.py` catches this now, but the buttons in the new
+   section were simply inert (`getElementById` only ever finds the first
+   match) until it was caught.
+4. **A CSP violation with no visible symptom in the diff itself**: four new
+   inline `style="..."` attributes, refused outright by this app's CSP,
+   rendering as no styling at all — `test_security_boundaries.py`'s own
+   inline-style check caught these; without it they'd have shipped looking
+   fine in the raw HTML and wrong in every browser.
+
+Also found and fixed: `get_document`'s "RAG snippet extraction" called
+`embeddings.embed(backend_id, text)`, a method that doesn't exist (it's
+`embed_text(text)`) — the bare `except Exception:` around it meant it always
+silently fell back to plain truncation, and its tool schema was never
+updated to expose the `query` argument the code branched on regardless. All
+of the above are now fixed **and covered by tests that actually exercise the
+fixed code path** (not just "it imports cleanly") — `test_get_document_
+with_a_query_returns_the_relevant_paragraphs` genuinely ranks chunks with the
+fake embedding backend, `test_directory_import_walks_a_folder_and_files_
+notes` genuinely runs the background task against a real temp directory,
+`test_full_backup_export_is_a_zip_of_the_database` genuinely opens the
+returned zip. Five throwaway `patch_*.py`/`replace_timeline.py` scripts
+Gemini used to apply its own edits had been committed to the repo root by
+mistake (unreferenced by anything) — deleted.
+
+**The six fresh, live-reported requests, all addressed:**
+- **"Prefer start-desktop.bat"** — README.md and docs/INSTALL.md now lead
+  with it on Windows (opens the app's own window, not a browser tab);
+  `start.bat` is the explicit alternative for a browser tab.
+- **Hide the terminal, with a way to show it again** — a "Hide console
+  window" checkbox item on the tray menu (`GetConsoleWindow()` +
+  `ShowWindow(SW_HIDE/SW_SHOW)` via ctypes), present only when a real
+  console is attached — absent on the packaged installer build, which has
+  no console at all (`console=False` in the PyInstaller spec already).
+  Two new tests exercise the menu-building logic against fake
+  pystray/PIL/`ctypes.windll` stand-ins, the same pattern this suite
+  already uses for the AppUserModelID branch.
+- **Trace resets when a note in the trace path is clicked** — clicking a
+  note chip in a *completed* trace jumps to the Notes tab (`flashEntry`);
+  coming back to Graph re-opens the trace panel (localStorage remembers it
+  was open) via `setTracePanelOpen(true)`, which unconditionally
+  overwrote the readout with "Click a note to start.", discarding the path
+  that had just been found. Fixed to show what's actually true. **Live-
+  verified with Playwright**: created two linked notes via the API, ran a
+  real trace, clicked the note-in-path button, switched back to Graph —
+  the full path readout was still there, byte-identical to before the
+  click, not reset.
+- **Chat text running behind the web search panel** (reported with a
+  screenshot) — `#chat-main`, a flex sibling of `#web-panel` in the same
+  row, had no `min-width: 0`, so a long unbroken line refused to shrink
+  the column even though `#chat-messages`/`.msg` already guard against
+  exactly this one level down (their own comments say so) — the guard was
+  just missing one level higher in the same chain. No ground-up redesign
+  of the panel itself: its own history (§36G) shows substantial prior
+  iteration (resizable, widened per feedback, the SearXNG control moved
+  in), so a rebuild would have mostly duplicated settled work; this was
+  the actual defect. **Live-verified**: injected a 140-character unbroken
+  string into a rendered message with the panel open, measured every
+  descendant's `getBoundingClientRect()` — nothing crossed `#chat-main`'s
+  own right edge or `#web-panel`'s left edge.
+- **A slow, sometimes-black-screen desktop startup** — `_run_desktop`
+  opened the pywebview window after a flat `time.sleep(1.0)` guess at how
+  long uvicorn takes to bind, before pointing the window at the URL.
+  `create_app()`'s own singleton/embeddings-warmup init runs on the server
+  thread *before* uvicorn even binds its socket, so any cold start slower
+  than one second left the window loading against nothing yet listening.
+  Replaced with `_wait_for_server()`, which polls a real socket until the
+  app is actually ready (bounded at 20s) — verified with a test against a
+  real listening socket, proving it returns `False` while nothing is
+  listening and `True` the moment something is.
+- **Centre the quit button** — already fixed in the audited commit
+  (`button.icon-only { aspect-ratio: 1; ... }`); **live-verified** rather
+  than trusted: `#quit-btn`'s icon sits 13.8px from both the left and right
+  edge and within 0.02px top-to-bottom.
+
+**What's still unverified, said plainly:** the tray "Hide console window"
+item and the `start-desktop.bat` preference are Windows-only — this sandbox
+is Linux, so both are proven correct in isolation (fake win32 APIs standing
+in for the real ones) rather than end-to-end against a real console window,
+the same standing caveat as every other Windows-only piece already in this
+file. The black-screen fix removes one concrete, real race condition
+(window opening before the server was listening) but cannot rule out
+WebView2's own first-paint/cold-start lag as a second, separate contributor
+outside this app's control.
+
+## Previous session — a planned queue of 11 items worked in order (documents in the graph, a stale ROADMAP claim caught before rebuilding, graph camera/physics bugs found by measurement, a fourth autonomous-agent task), plus four live-reported UI bugs fixed mid-session on request
 
 Full detail in HISTORY.md §68 (the pre-queue bug fixes and earlier session
 work), §69 (Library upload/attach), §70 (documents in the graph), §71

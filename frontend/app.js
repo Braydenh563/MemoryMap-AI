@@ -10257,6 +10257,7 @@ const DASH_WIDGETS = {
   pinned: { title: "ph:push-pin Pinned notes", description: "Notes you've pinned, so they're always one click away.", render: renderPinnedWidget },
   "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
   "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
+  "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections — the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
   "on-this-day": { title: "ph:calendar-blank On this day", description: "Notes from this date in previous years.", render: renderOnThisDayWidget },
@@ -12051,6 +12052,31 @@ async function renderPinnedWidget(body) {
 async function renderMostUsedWidget(body) {
   const entries = await apiJson("/entries/most-accessed");
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
+}
+
+// The graph tab already knows how connected every note is (edges from
+// EntryLink rows plus reply threads) — this just ranks by how many of those
+// edges touch each note, rather than asking the user to eyeball the graph
+// for its own densest cluster. Perplexity brainstorm doc review flagged the
+// gap: a "most-linked notes / hub" widget was one of the few ideas the app
+// didn't already have a version of.
+async function renderMostLinkedWidget(body) {
+  const [entries, data] = await Promise.all([
+    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
+    apiJson("/graph").catch(() => null),
+  ]);
+  const degree = new Map();
+  for (const edge of (data && data.edges) || []) {
+    if (typeof edge.source === "number") degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
+    if (typeof edge.target === "number") degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
+  }
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const ranked = [...degree.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => byId.get(id))
+    .filter(Boolean)
+    .slice(0, 6);
+  miniEntryList(body, ranked, "Link notes to each other and the most-connected ones show up here.");
 }
 
 async function renderRecentNotesWidget(body) {

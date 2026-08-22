@@ -289,7 +289,16 @@ def test_tray_icon_loads_the_real_ico_without_a_pillow_size_warning(monkeypatch)
     against this exact file before this test was written. `_start_tray`
     must load it without that warning escaping, not merely without raising
     an exception (a warning is silent by default, which is exactly what let
-    it go unnoticed for as long as it did)."""
+    it go unnoticed for as long as it did).
+
+    Needs *real* Pillow, unlike every other test in this file — pystray is
+    faked, but the point here is decoding the real icon.ico, which a fake
+    PIL can't stand in for. Pillow is the "desktop" extra
+    (pyproject.toml), not requirements.txt, so plain CI doesn't have it —
+    caught by a real CI failure (Tests (Python 3.11), passing locally only
+    because Pillow happens to already be in this venv) after this test was
+    first written skip-less."""
+    pytest.importorskip("PIL")
     _fake_pystray_only(monkeypatch)
     icon_path = Path(__file__).resolve().parent.parent / "frontend" / "icon.ico"
     assert icon_path.is_file()

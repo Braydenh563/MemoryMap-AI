@@ -12720,6 +12720,19 @@ async function renderFocusTimerWidget(body) {
 
 let reminderFilter = "open"; // open | all | done
 
+// list | calendar. Persisted the same way timeline's own view toggle is
+// (a bare localStorage key) — a display mode, not data, so it doesn't need
+// the weight of a real preference round-tripped through the backend.
+let reminderView = localStorage.getItem("reminderView") === "calendar" ? "calendar" : "list";
+// The month the calendar is showing, always pinned to day 1 so "next month"
+// arithmetic can't land on the 31st of a shorter month.
+let reminderCalMonth = (() => {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+})();
+
 async function loadReminders() {
   const all = await apiJson("/reminders").catch(() => []);
   const groupsBox = $("reminder-groups");
@@ -12728,7 +12741,11 @@ async function loadReminders() {
   const reminders = all.filter((r) =>
     reminderFilter === "all" ? true : reminderFilter === "done" ? r.done : !r.done
   );
-  $("reminders-empty").classList.toggle("hidden", all.length > 0);
+  const isList = reminderView === "list";
+  $("reminder-groups").classList.toggle("hidden", !isList);
+  $("reminders-empty").classList.toggle("hidden", !isList || all.length > 0);
+  $("reminder-calendar").classList.toggle("hidden", isList);
+  if (!isList) renderReminderCalendar(all);
   $("reminder-clear-done").classList.toggle("hidden", !all.some((r) => r.done));
   // Surface anything due on the tab itself, from wherever you are.
   updateReminderBadge(all);
@@ -12773,6 +12790,120 @@ async function loadReminders() {
     for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+}
+
+// Month-grid view of due dates (ROADMAP.md gap 4: the flat list has no way
+// to see "what's due this week" laid out as a calendar). `all` is every
+// reminder regardless of reminderFilter — a month view answers "what's on
+// this day," which isn't the same question the Open/All/Done filter above it
+// answers, so it deliberately ignores that filter rather than surprising
+// someone who switches view mid-browse and sees fewer days than expected.
+function renderReminderCalendar(all) {
+  const box = $("reminder-calendar");
+  box.replaceChildren();
+
+  const byDay = new Map(); // "YYYY-MM-DD" -> reminders due that local day
+  for (const reminder of all) {
+    const due = new Date(reminder.due_at);
+    const key = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(reminder);
+  }
+
+  const head = document.createElement("div");
+  head.className = "reminder-cal-head";
+  const prev = smallButton("‹", "Previous month", () => {
+    reminderCalMonth.setMonth(reminderCalMonth.getMonth() - 1);
+    renderReminderCalendar(all);
+  });
+  const today = smallButton("Today", "Jump to this month", () => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    reminderCalMonth = d;
+    renderReminderCalendar(all);
+  });
+  const next = smallButton("›", "Next month", () => {
+    reminderCalMonth.setMonth(reminderCalMonth.getMonth() + 1);
+    renderReminderCalendar(all);
+  });
+  const title = document.createElement("h3");
+  title.className = "reminder-cal-title";
+  title.textContent = reminderCalMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  head.append(prev, title, today, next);
+  box.appendChild(head);
+
+  const grid = document.createElement("div");
+  grid.className = "reminder-cal-grid";
+  for (const label of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
+    const dow = document.createElement("span");
+    dow.className = "reminder-cal-dow muted";
+    dow.textContent = label;
+    grid.appendChild(dow);
+  }
+
+  const monthStart = new Date(reminderCalMonth);
+  const lead = monthStart.getDay(); // blank cells so day 1 lands in its real weekday column
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+  const todayKey = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  for (let i = 0; i < lead; i++) {
+    const blank = document.createElement("span");
+    blank.className = "reminder-cal-cell reminder-cal-blank";
+    grid.appendChild(blank);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayReminders = byDay.get(key) || [];
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "reminder-cal-cell";
+    if (key === todayKey) cell.classList.add("reminder-cal-today");
+    if (dayReminders.length) cell.classList.add("reminder-cal-has-items");
+
+    const num = document.createElement("span");
+    num.className = "reminder-cal-daynum";
+    num.textContent = day;
+    cell.appendChild(num);
+
+    if (dayReminders.length) {
+      const dots = document.createElement("span");
+      dots.className = "reminder-cal-dots";
+      for (const reminder of dayReminders.slice(0, 4)) {
+        const dot = document.createElement("span");
+        dot.className = `reminder-cal-dot priority-${reminder.priority || "normal"}${reminder.done ? " done" : ""}`;
+        dots.appendChild(dot);
+      }
+      cell.appendChild(dots);
+      cell.title = dayReminders.map((r) => r.text).join("\n");
+      cell.setAttribute("aria-label", `${day}: ${dayReminders.length} reminder${dayReminders.length === 1 ? "" : "s"}`);
+      cell.addEventListener("click", () => {
+        // Jump into the list at the first one — reuses flashReminder's own
+        // switch-to-list/scroll/flash rather than inventing a day-filtered
+        // list view just for this.
+        reminderView = "list";
+        localStorage.setItem("reminderView", "list");
+        for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
+          b.classList.toggle("active", b.dataset.view === "list");
+        }
+        flashReminder(dayReminders[0].id);
+      });
+    } else {
+      cell.setAttribute("aria-label", `${day}, no reminders`);
+      cell.title = "Add a reminder on this day";
+      cell.addEventListener("click", () => {
+        const iso = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        $("reminder-date").value = iso;
+        $("reminder-text").focus();
+      });
+    }
+    grid.appendChild(cell);
+  }
+  box.appendChild(grid);
 }
 
 // A count of due-or-overdue reminders on the Reminders tab button, so you
@@ -23156,6 +23287,20 @@ for (const button of document.querySelectorAll("#reminder-filter button")) {
     }
     loadReminders();
   });
+}
+for (const button of document.querySelectorAll("#reminder-view-toggle button")) {
+  button.addEventListener("click", () => {
+    reminderView = button.dataset.view;
+    localStorage.setItem("reminderView", reminderView);
+    for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
+      b.classList.toggle("active", b === button);
+    }
+    loadReminders();
+  });
+  // The markup hardcodes "List" as the active button; a returning visitor
+  // whose last choice (localStorage) was "calendar" needs that reflected
+  // here too, not just in which container loadReminders() shows.
+  button.classList.toggle("active", button.dataset.view === reminderView);
 }
 $("reminder-magic-add").addEventListener("click", magicAddReminder);
 $("reminder-magic").addEventListener("keydown", (e) => {

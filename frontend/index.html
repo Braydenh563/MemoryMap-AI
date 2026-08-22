@@ -1613,10 +1613,24 @@ Link to another note with [[its first few words]]."></textarea>
           <button data-filter="all">All</button>
           <button data-filter="done">Done</button>
         </div>
+        <!-- List/Calendar is a display mode, not a data filter, so it's a
+             second .seg rather than folded into reminder-filter above — the
+             two answer different questions ("which reminders" vs. "shown
+             how") and DESIGN.md's own toolbars keep those apart elsewhere
+             (Notes' category sidebar vs. its sort order, for one). -->
+        <div class="seg" id="reminder-view-toggle" role="group" aria-label="List or calendar view">
+          <button data-view="list" class="active">List</button>
+          <button data-view="calendar">Calendar</button>
+        </div>
         <button id="reminder-clear-done" class="ghost small"
           title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
       </div>
       <div id="reminder-groups"></div>
+      <!-- A month grid alongside the flat list (ROADMAP.md gap 4): "what's due
+           this week" as a calendar rather than scrolling a list grouped only
+           into Overdue/Today/Upcoming buckets. Hidden unless the toggle above
+           picks it. -->
+      <div id="reminder-calendar" class="reminder-calendar hidden"></div>
       <div id="reminders-empty" class="empty-state hidden">
         <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No reminders yet</p>

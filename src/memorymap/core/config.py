@@ -109,10 +109,21 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "session_idle_ttl_minutes": 720,
     #: The desktop launcher's console window (start.bat/start-desktop.bat
     #: open one; the packaged installer's build has none to show at all).
-    #: Off by default — asked for directly: "I want it to be hidden but the
-    #: user can make it show ... if they want." Read by __main__.py before
-    #: the window opens, and kept in sync with the tray's own live toggle.
-    "show_console_on_startup": False,
+    #: "Dev view" (console visible, True) is the default a fresh install
+    #: starts on — asked for directly, reversing an earlier default in this
+    #: same app: "dev view is the default on install and the user will be
+    #: presented with a popup option to change it just after install."
+    #: "User view" (False) is the one that hides it — genuinely never
+    #: creates a console at all when the app supports that (see
+    #: __main__.py's pythonw.exe relaunch), rather than trying to hide one
+    #: that already exists. Read by __main__.py before the window opens,
+    #: and kept in sync with the tray's own live toggle and Settings.
+    "show_console_on_startup": True,
+    #: Whether the first-run "Dev view or User view?" prompt has already
+    #: been shown, so it asks exactly once per install rather than on every
+    #: launch. Distinct from show_console_on_startup itself so a later
+    #: change via Settings/tray doesn't make the intro reappear.
+    "console_view_intro_seen": False,
 }
 
 

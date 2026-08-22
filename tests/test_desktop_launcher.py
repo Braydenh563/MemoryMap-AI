@@ -330,14 +330,28 @@ def _config_dir(tmp_path, monkeypatch):
 
 
 def _fake_windll(monkeypatch, *, console_hwnd, show_window_calls=None):
+    """`IsWindowVisible`/`GetClassNameW` cover `_apply_console_visibility`
+    and `_window_class_name`'s own diagnostic logging; the ancestor-walk
+    (`CreateToolhelp32Snapshot` etc.) is deliberately left unfaked — its own
+    try/except degrading to "found nothing extra" on a missing/incomplete
+    `ctypes.windll` shape is exactly the behaviour worth exercising here,
+    the same way this sandbox itself exercises it on every real test run.
+    """
     import ctypes
+
+    visible_state = {console_hwnd: True}
+
+    def _show_window(hwnd, flag):
+        if show_window_calls is not None:
+            show_window_calls.append((hwnd, flag))
+        visible_state[hwnd] = flag != 0  # SW_HIDE == 0, everything else shows it
 
     fake = types.SimpleNamespace(
         kernel32=types.SimpleNamespace(GetConsoleWindow=lambda: console_hwnd),
         user32=types.SimpleNamespace(
-            ShowWindow=lambda hwnd, flag: (
-                show_window_calls.append((hwnd, flag)) if show_window_calls is not None else None
-            )
+            ShowWindow=_show_window,
+            IsWindowVisible=lambda hwnd: visible_state.get(hwnd, True),
+            GetClassNameW=lambda hwnd, buf, size: None,
         ),
     )
     monkeypatch.setattr(ctypes, "windll", fake, raising=False)
@@ -407,12 +421,24 @@ def test_get_console_hwnd_returns_none_on_this_non_windows_platform():
     assert launcher._get_console_hwnd() is None
 
 
-def test_desktop_startup_hides_the_console_unless_the_preference_says_show(
+def test_desktop_startup_hides_the_console_when_user_view_is_chosen(
     monkeypatch, tmp_path, _config_dir
 ):
-    """`_run_desktop` reads show_console_on_startup (default off) and hides
-    the console before the window opens — the actual fix for "the terminal
-    still shows when I run the application, I want it hidden by default"."""
+    """`_run_desktop` reads show_console_on_startup and hides the console
+    before the window opens when it's off ("User view") — the actual fix
+    for "the terminal still shows when I run the application, I want it
+    hidden." "Dev view" (console visible) is the default a fresh install
+    starts on now — asked for directly — so this exercises the explicit
+    User-view choice, not the out-of-the-box state.
+
+    No pythonw.exe exists next to this sandbox's own interpreter, so
+    `_maybe_relaunch_hidden` falls back to this ShowWindow attempt rather
+    than actually relaunching — exercising the same fallback path a real
+    Windows install without a standard CPython layout would hit."""
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("show_console_on_startup", False)
+
     show_window_calls = []
     _fake_windll(monkeypatch, console_hwnd=99, show_window_calls=show_window_calls)
     monkeypatch.setattr(sys, "platform", "win32")
@@ -422,7 +448,7 @@ def test_desktop_startup_hides_the_console_unless_the_preference_says_show(
 
     launcher._run_desktop()
 
-    assert show_window_calls == [(99, 0)]  # SW_HIDE, default preference is off
+    assert show_window_calls == [(99, 0)]  # SW_HIDE
 
 
 def test_console_is_hidden_before_the_slow_server_wait_not_after(monkeypatch, tmp_path, _config_dir):
@@ -431,11 +457,15 @@ def test_console_is_hidden_before_the_slow_server_wait_not_after(monkeypatch, tm
     on the server thread. On a slow/cold start (embeddings warmup etc.) that
     wait is exactly the multi-second gap this app is already known for, so
     the console sat fully visible for all of it — reported directly as "the
-    terminal still shows on startup" despite the preference being off. The
+    terminal still shows on startup" despite User view being chosen. The
     fix reads preferences.json with a throwaway ConfigManager before the
     server thread even starts, so hiding no longer waits on it at all —
     proven here by recording whether the hide already happened by the time
     _wait_for_server is reached, not just that it eventually happens."""
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("show_console_on_startup", False)
+
     show_window_calls = []
     _fake_windll(monkeypatch, console_hwnd=99, show_window_calls=show_window_calls)
     monkeypatch.setattr(sys, "platform", "win32")

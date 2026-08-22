@@ -451,6 +451,41 @@ function startApp() {
   // *before* this asks — otherwise the tour opens, the flag arrives a moment
   // later, and the person is welcomed to an app they have used for a month.
   looksReady.then(maybeShowOnboarding);
+  looksReady.then(maybeShowConsoleViewIntro);
+}
+
+// First-run "Dev view or User view?" prompt for the desktop app — asked
+// for directly: "dev view is the default on install and the user will be
+// presented with a popup option to change it just after install." Gated on
+// its own preference (console_view_intro_seen) rather than piggybacking on
+// onboardingDone, so changing the console mode later from Settings doesn't
+// make this reappear, and vice versa. Browser-tab users never see this —
+// there's no console to speak of outside the desktop shell.
+async function maybeShowConsoleViewIntro() {
+  if (!(await desktopShell())) return;
+  if (prefsCache?.console_view_intro_seen) return;
+  const wantsDevView = await confirmDialog(
+    "Keep a console window open when MemoryMap AI starts?\n\n" +
+      "Dev view shows a terminal window alongside the app — useful for " +
+      "logs and troubleshooting. User view runs quietly in the background " +
+      "with no console window at all, just this app window and a system " +
+      "tray icon. Either way, you can switch any time from Settings or " +
+      "the tray icon's own menu.",
+    { confirmLabel: "Dev view", cancelLabel: "User view", danger: false }
+  );
+  try {
+    const result = await apiJson("/system/console-mode", {
+      method: "POST",
+      body: JSON.stringify({ show_console_on_startup: wantsDevView }),
+    });
+    if (prefsCache) prefsCache.show_console_on_startup = result.show_console_on_startup;
+  } catch (error) {
+    toast(error.message || "Couldn't save your console view choice.", true);
+  }
+  // Recorded regardless of whether the save above succeeded — the prompt
+  // itself was answered, and asking again next launch would be the more
+  // annoying failure mode if the save quietly retries later.
+  setPreference("console_view_intro_seen", true);
 }
 
 // The browser is the only thing that knows where the user actually is. The
@@ -22241,9 +22276,29 @@ $("pref-update-check").addEventListener("change", (e) =>
 );
 $("update-check-now").addEventListener("click", () => checkForUpdate());
 
-$("pref-show-console").addEventListener("change", (e) =>
-  setPreference("show_console_on_startup", e.target.checked)
-);
+// Not a plain setPreference: switching Dev view/User view is meant to take
+// effect live, not just on the next launch (asked for directly — togglable
+// from Settings as well as the tray). /system/console-mode saves the same
+// preference and, in the desktop app on Windows, restarts the whole
+// process into the new console mode right after responding.
+$("pref-show-console").addEventListener("change", async (e) => {
+  const checked = e.target.checked;
+  try {
+    const result = await apiJson("/system/console-mode", {
+      method: "POST",
+      body: JSON.stringify({ show_console_on_startup: checked }),
+    });
+    if (prefsCache) prefsCache.show_console_on_startup = result.show_console_on_startup;
+    toast(
+      result.restarting
+        ? `Switching to ${checked ? "Dev" : "User"} view — restarting…`
+        : `Will switch to ${checked ? "Dev" : "User"} view next launch.`
+    );
+  } catch (error) {
+    e.target.checked = !checked; // the change didn't take — don't leave the switch lying
+    toast(error.message || "Couldn't switch view.", true);
+  }
+});
 
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");

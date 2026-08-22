@@ -23,6 +23,15 @@ logger = logging.getLogger("memorymap.launcher")
 
 HOST, PORT = "127.0.0.1", 8000  # local only — this is a private app
 
+# start.bat's own console window (the one visible when start-desktop.bat is
+# double-clicked) blocks synchronously on this process, then falls through to
+# an "app has stopped" message and `pause` — a keypress prompt that would
+# leave that window sitting on screen indefinitely. This exit code is the
+# signal back to the batch file that a "User view" relaunch already handed
+# the app off to a separate, console-less process and it should close itself
+# immediately instead — see the errorlevel check in start.bat.
+RELAUNCHED_HIDDEN_EXIT_CODE = 42
+
 
 def _run_server() -> None:
     uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
@@ -75,9 +84,316 @@ def _get_console_hwnd() -> int | None:
         return None
 
 
-def _run_desktop() -> None:
+def _pythonw_path() -> Path | None:
+    """`pythonw.exe` next to the interpreter currently running this — the
+    windowless CPython build every standard Windows install/venv ships
+    alongside `python.exe`. None if it isn't there (a non-standard Python
+    build) or this isn't Windows."""
+    if sys.platform != "win32":
+        return None
+    candidate = Path(sys.executable).with_name("pythonw.exe")
+    return candidate if candidate.is_file() else None
+
+
+def _spawn_desktop(hidden: bool):
+    """Start a fresh `memorymap --desktop` process in the given console
+    mode, independent of whatever process/window is calling this — the one
+    spawn primitive `_maybe_relaunch_hidden` (startup), the tray's live
+    toggle, and the Settings-triggered restart (`routes_settings.py`'s
+    `/system/console-mode`) all share, so the three call sites can't drift
+    into three slightly different flag combinations. Returns the `Popen`,
+    or None if this isn't win32 or (for hidden) no pythonw.exe was found.
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        import subprocess
+
+        if hidden:
+            pythonw = _pythonw_path()
+            if pythonw is None:
+                logger.warning(
+                    "no pythonw.exe next to %s — can't relaunch console-less",
+                    sys.executable,
+                )
+                return None
+            # CREATE_NO_WINDOW: even pythonw.exe can end up with a console
+            # if one is inherited from the parent rather than allocated
+            # fresh — this refuses one outright. DETACHED_PROCESS: don't
+            # inherit this process's own console/handles either, so the new
+            # process is fully independent of whatever cmd/terminal window
+            # launched it — which is what lets that window close on its own
+            # once this process exits, instead of staying open because
+            # something it spawned is still attached to it.
+            CREATE_NO_WINDOW = 0x08000000
+            DETACHED_PROCESS = 0x00000008
+            return subprocess.Popen(
+                [str(pythonw), "-m", "memorymap", "--desktop", "--hidden-relaunch"],
+                creationflags=CREATE_NO_WINDOW | DETACHED_PROCESS,
+                close_fds=True,
+                cwd=os.getcwd(),
+            )
+        # Going visible: a plain python.exe (console-subsystem) child with
+        # CREATE_NEW_CONSOLE explicitly gets a fresh console from Windows
+        # regardless of whether this process — hidden/console-less, if it
+        # got here via the pythonw.exe path above — has one of its own to
+        # offer it.
+        CREATE_NEW_CONSOLE = 0x00000010
+        return subprocess.Popen(
+            [sys.executable, "-m", "memorymap", "--desktop"],
+            creationflags=CREATE_NEW_CONSOLE,
+            close_fds=True,
+            cwd=os.getcwd(),
+        )
+    except Exception as exc:
+        logger.warning("couldn't relaunch in %s console mode: %s", "hidden" if hidden else "visible", exc)
+        return None
+
+
+def restart_in_console_mode(hidden: bool) -> bool:
+    """Public entry point for switching Dev view / User view from outside
+    this process entirely — the HTTP route Settings' own toggle calls
+    (`/system/console-mode`), which runs on the server thread and has no
+    access to pywebview's `window`/`icon` objects the tray's own toggle
+    uses for a tidier teardown. Spawns the replacement first and only exits
+    this process if that succeeded, so a failed relaunch (no pythonw.exe,
+    Windows refused the spawn) leaves the running app running rather than
+    killing it for nothing.
+    """
+    process = _spawn_desktop(hidden)
+    if process is None:
+        return False
+    os._exit(0)
+
+
+def _maybe_relaunch_hidden(show_on_startup: bool, already_relaunched: bool):
+    """"User view", done properly: instead of creating a console and then
+    trying to hide it — which `ShowWindow`/`GetConsoleWindow` turned out
+    not to reliably do, reported live as hiding "just changes what window
+    is currently focused" without anything actually disappearing, the
+    likely cause being Windows Terminal's ConPTY plumbing returning a
+    handle to a hidden pseudo-console host rather than the real on-screen
+    window — this relaunches via `pythonw.exe`, which never allocates a
+    console in the first place. Nothing to hide, nothing to get wrong.
+
+    Only for a *source* checkout (`start.bat`/`start-desktop.bat`): the
+    packaged installer's PyInstaller build already sets `console=False`, so
+    `_get_console_hwnd()` returns None there and this whole question never
+    comes up. `already_relaunched` is this function's own recursion guard —
+    the relaunched pythonw.exe process runs this same code path again with
+    `--hidden-relaunch` set, and must not try to relaunch itself forever.
+
+    Returns the spawned `Popen` on success (the caller's job is to exit
+    right after — see `RELAUNCHED_HIDDEN_EXIT_CODE`), or None to mean
+    "carry on in this process" — the platform is wrong, the preference asks
+    for the console to stay visible, this already *is* the relaunched
+    process, or spawning failed for a reason worth falling back from rather
+    than crashing the launcher over.
+    """
+    if (
+        sys.platform != "win32"
+        or getattr(sys, "frozen", False)
+        or show_on_startup
+        or already_relaunched
+    ):
+        return None
+    process = _spawn_desktop(hidden=True)
+    if process is None:
+        logger.warning(
+            "falling back to hiding the console window instead of never creating one"
+        )
+    return process
+
+
+def _ancestor_console_hwnds(own_hwnd: int | None) -> list[int]:
+    """Every other visible top-level window owned by this process's parent
+    chain (the shell that launched it — cmd.exe, and above that whatever
+    hosts it), skipping `own_hwnd` if it's already in that chain.
+
+    `GetConsoleWindow()` alone is reported not to be enough: hiding it was
+    seen live to change which window has focus without making anything
+    disappear — the one failure mode that fits is Windows Terminal, whose
+    ConPTY plumbing means the handle a child process gets back from
+    `GetConsoleWindow()` can belong to a hidden pseudo-console host rather
+    than the actual on-screen terminal tab (that window belongs to
+    WindowsTerminal.exe, several processes up, not to conhost.exe or to
+    this Python process at all). Walking the real parent-process chain and
+    hiding whatever top-level windows those processes own is a second,
+    independent way to reach the actual visible window regardless of which
+    terminal is hosting it — legacy conhost included, where this usually
+    just finds the same window `_get_console_hwnd` already did.
+
+    Unverified on real Windows, same as the rest of this file's console
+    handling — every step is wrapped so a wrong assumption here degrades to
+    "did nothing extra" rather than crashing the launcher.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    hwnds: list[int] = []
+    try:
+        kernel32 = ctypes.windll.kernel32
+        user32 = ctypes.windll.user32
+
+        class PROCESSENTRY32(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_void_p),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", ctypes.c_long),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", ctypes.c_char * 260),
+            ]
+
+        TH32CS_SNAPPROCESS = 0x00000002
+        snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if snapshot == -1:
+            return hwnds
+        try:
+            parent_of: dict[int, int] = {}
+            entry = PROCESSENTRY32()
+            entry.dwSize = ctypes.sizeof(PROCESSENTRY32)
+            if kernel32.Process32First(snapshot, ctypes.byref(entry)):
+                while True:
+                    parent_of[entry.th32ProcessID] = entry.th32ParentProcessID
+                    if not kernel32.Process32Next(snapshot, ctypes.byref(entry)):
+                        break
+        finally:
+            kernel32.CloseHandle(snapshot)
+
+        # Up to the shell (cmd.exe) and whatever hosts *that* — start.bat's
+        # own self-update relaunch (os.execv-free here, but the tray's
+        # Restart uses it elsewhere) means this can legitimately be several
+        # levels, not just one; capped so a corrupt/cyclic PPID chain (a
+        # dead process's PID reused by something unrelated) can't loop.
+        ancestry: set[int] = set()
+        pid = os.getpid()
+        for _ in range(8):
+            parent = parent_of.get(pid)
+            if not parent or parent in ancestry or parent == 0:
+                break
+            ancestry.add(parent)
+            pid = parent
+        if not ancestry:
+            return hwnds
+
+        found: list[int] = []
+        WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+        def _each_window(hwnd, _lparam):
+            if hwnd == own_hwnd or not user32.IsWindowVisible(hwnd):
+                return True
+            owner_pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner_pid))
+            # GetWindow(hwnd, GW_OWNER) != 0 means this is a child/owned
+            # window (a dialog, a tooltip) rather than a real top-level
+            # shell window — skipping those keeps this to "the terminal
+            # window itself", not every popup any ancestor process has open.
+            GW_OWNER = 4
+            if owner_pid.value in ancestry and not user32.GetWindow(hwnd, GW_OWNER):
+                found.append(hwnd)
+            return True
+
+        user32.EnumWindows(WNDENUMPROC(_each_window), 0)
+        hwnds = found
+    except Exception as exc:
+        logger.warning("couldn't walk the parent process chain for console windows: %s", exc)
+    return hwnds
+
+
+def _window_class_name(hwnd: int) -> str:
+    """Diagnostic only: which window class actually owns a handle, so a log
+    line can tell "ConsoleWindowClass" (legacy conhost, expected to hide
+    cleanly) apart from anything else (Windows Terminal's own class,
+    or a handle that isn't what was intended at all) without needing
+    someone to attach a debugger to find out."""
+    import ctypes
+
+    try:
+        buf = ctypes.create_unicode_buffer(256)
+        ctypes.windll.user32.GetClassNameW(hwnd, buf, 256)
+        return buf.value or "?"
+    except Exception:
+        return "?"
+
+
+def _console_window_targets(console_hwnd: int) -> dict[int, str]:
+    """Every window this app will show/hide together as "the console":
+    `console_hwnd` itself plus whatever `_ancestor_console_hwnds` finds,
+    each mapped to its window class name for the diagnostic log line in
+    `_apply_console_visibility`. Split out from applying visibility so the
+    startup path and the tray's live toggle act on the exact same set
+    computed once, rather than the ancestor walk (a live enumeration) maybe
+    disagreeing with itself between two separate calls.
+    """
+    targets = {console_hwnd: _window_class_name(console_hwnd)}
+    for hwnd in _ancestor_console_hwnds(console_hwnd):
+        targets.setdefault(hwnd, _window_class_name(hwnd))
+    return targets
+
+
+def _apply_console_visibility(targets: dict[int, str], hidden: bool) -> None:
+    """Hide or show a set of windows found by `_console_window_targets`, and
+    say what actually happened — reported live that the startup hide "just
+    changes what window is currently focused" rather than making anything
+    disappear, which a silent `ShowWindow` call gives no way to diagnose
+    after the fact. Every step here is logged (visible in Settings -> Logs,
+    or on stdout if the console itself is what's being tested) so the
+    *next* report can say which of these actually ran and what Windows
+    said back, instead of "still doesn't work."
+    """
+    import ctypes
+
+    user32 = ctypes.windll.user32
+    SW_HIDE, SW_SHOW = 0, 5
+    for hwnd, class_name in targets.items():
+        # One bad handle/API surface must not stop the rest — same reasoning
+        # as the AppUserModelID call's own try/except: an unexpected
+        # ctypes.windll shape this wasn't tested against should degrade to
+        # "skipped one window, logged why" rather than take the whole
+        # attempt down.
+        try:
+            was_visible = bool(user32.IsWindowVisible(hwnd))
+            user32.ShowWindow(hwnd, SW_HIDE if hidden else SW_SHOW)
+            now_visible = bool(user32.IsWindowVisible(hwnd))
+            logger.info(
+                "console %s: hwnd=%s class=%r was_visible=%s now_visible=%s",
+                "hide" if hidden else "show", hwnd, class_name, was_visible, now_visible,
+            )
+        except Exception as exc:
+            logger.warning(
+                "couldn't %s hwnd=%s class=%r: %s",
+                "hide" if hidden else "show", hwnd, class_name, exc,
+            )
+
+
+def _run_desktop(hidden_relaunch: bool = False) -> None:
     """A real app window: uvicorn in a background thread,
-    pywebview in front. Closing the window exits the process."""
+    pywebview in front. Closing the window exits the process.
+
+    `hidden_relaunch` is True only when this process IS the console-less
+    `pythonw.exe` relaunch `_maybe_relaunch_hidden` spawned — see there for
+    why relaunching, rather than hiding an already-created console, is
+    "User view"'s actual mechanism now.
+    """
+    # Read the preference — and try a relaunch if it calls for one — before
+    # anything else, including importing webview: if this is about to hand
+    # off to a separate process and exit, nothing below matters. ConfigManager
+    # reads preferences.json straight off disk with no server dependency at
+    # all (deps.init_app_state hasn't run, and doesn't need to), so this is
+    # safe before the server thread — or the process's own console — has
+    # done anything.
+    from memorymap.core.config import ConfigManager
+
+    show_on_startup = ConfigManager().get_preference("show_console_on_startup", True)
+    relaunched = _maybe_relaunch_hidden(show_on_startup, hidden_relaunch)
+    if relaunched is not None:
+        raise SystemExit(RELAUNCHED_HIDDEN_EXIT_CODE)
+
     try:
         import webview  # the optional pywebview package
     except ImportError:
@@ -94,7 +410,12 @@ def _run_desktop() -> None:
     # but the user can make it show ... if they want", both as a startup
     # preference (Settings, this) and live (the tray toggle below). None on
     # any non-Windows platform, or the packaged installer's console-less
-    # build — nothing to hide either way.
+    # build — nothing to hide either way. Only reached at all when
+    # _maybe_relaunch_hidden declined above — platform/frozen/preference
+    # said not to, or spawning pythonw.exe itself failed — so this is now
+    # the fallback path, not the primary one: same ShowWindow-based attempt
+    # this app always had, kept for whatever situation made the relaunch
+    # not apply.
     #
     # This used to run after _wait_for_server(), on the theory that reading
     # the preference needed deps.get_config()'s singleton, which create_app()
@@ -103,21 +424,15 @@ def _run_desktop() -> None:
     # etc.) is the same multi-second gap §"sometimes takes a while to
     # initially load" is about — so "hidden at startup" was true only after
     # a visible delay, reported directly as the console "still showing".
-    # ConfigManager reads preferences.json straight off disk with no server
-    # dependency at all (deps.init_app_state hasn't run, and doesn't need
-    # to), so a throwaway instance here reads the same preference safely
-    # before the server thread — or the process's own console — has done
-    # anything, hiding it in milliseconds instead of after the warm-up.
+    # Reading the preference above, before the server thread starts, is what
+    # fixed that half of it.
     console_hwnd = _get_console_hwnd() if sys.platform == "win32" else None
     console_hidden = False
+    console_targets: dict[int, str] = {}
     if console_hwnd is not None:
-        from memorymap.core.config import ConfigManager
-
-        show_on_startup = ConfigManager().get_preference("show_console_on_startup", False)
+        console_targets = _console_window_targets(console_hwnd)
         if not show_on_startup:
-            import ctypes
-
-            ctypes.windll.user32.ShowWindow(console_hwnd, 0)  # SW_HIDE
+            _apply_console_visibility(console_targets, hidden=True)
             console_hidden = True
 
     # Tells /health — and through it the frontend — that this is the window
@@ -211,7 +526,7 @@ def _run_desktop() -> None:
     # for real instead, the same fallback already in place when pystray
     # simply isn't installed.
     tray_icon = (
-        _start_tray(window, _icon_path, console_hwnd, console_hidden)
+        _start_tray(window, _icon_path, console_hwnd, console_hidden, console_targets)
         if sys.platform == "win32"
         else None
     )
@@ -248,7 +563,13 @@ def _run_desktop() -> None:
             tray_icon.stop()
 
 
-def _start_tray(window, icon_path: Path, console_hwnd: int | None, console_hidden: bool):
+def _start_tray(
+    window,
+    icon_path: Path,
+    console_hwnd: int | None,
+    console_hidden: bool,
+    console_targets: dict[int, str] | None = None,
+):
     """The system tray icon: Open / View Logs / Restart / Quit.
 
     Returns None — and the caller falls back to an ordinary window that
@@ -329,24 +650,38 @@ def _start_tray(window, icon_path: Path, console_hwnd: int | None, console_hidde
     def _toggle_console(icon, item) -> None:
         if console_hwnd is None:
             return
-        import ctypes
+        going_hidden = not console_state["hidden"]
 
-        SW_HIDE, SW_SHOW = 0, 5
-        console_state["hidden"] = not console_state["hidden"]
-        ctypes.windll.user32.ShowWindow(
-            console_hwnd, SW_HIDE if console_state["hidden"] else SW_SHOW
-        )
+        # Best-effort, same as the startup path's own fallback: works for
+        # legacy conhost, a no-op under Windows Terminal's ConPTY (see
+        # _maybe_relaunch_hidden's docstring) — which the restart below is
+        # what actually guarantees, at the cost of a brief relaunch instead
+        # of an instant toggle.
+        _apply_console_visibility(console_targets or {console_hwnd: _window_class_name(console_hwnd)}, hidden=going_hidden)
+        console_state["hidden"] = going_hidden
+
         try:
             from memorymap.core import deps
 
-            deps.get_config().set_preference(
-                "show_console_on_startup", not console_state["hidden"]
-            )
+            deps.get_config().set_preference("show_console_on_startup", not going_hidden)
         except Exception as exc:
             # Remembering the choice is a nicety on top of the live toggle,
             # which has already happened above — never let a failure here
             # make the menu item look like it did nothing.
             logger.warning("couldn't save the console visibility preference: %s", exc)
+
+        # The reliable half: relaunch into the correct mode from scratch
+        # rather than trust the ShowWindow attempt just above actually
+        # worked — same _spawn_desktop the startup path and the
+        # Settings-triggered restart both use, so all three take identical
+        # action for the same mode switch.
+        process = _spawn_desktop(hidden=going_hidden)
+        if process is None:
+            return  # nothing to relaunch into; the ShowWindow attempt above is all there is
+
+        icon.stop()
+        window.destroy()
+        os._exit(0)
 
     def _view_logs(icon, item) -> None:
         # Reported directly: this used to open Settings -> Logs unconditionally,
@@ -480,11 +815,16 @@ def main() -> None:
         help="forgot your password: clear it so you can set a new one "
         "(private notes encrypted with it are lost)",
     )
+    # Internal — set by _maybe_relaunch_hidden's own pythonw.exe relaunch to
+    # mark "this already is the console-less process," so it doesn't try to
+    # relaunch itself again. Not something a person should ever type, hence
+    # SUPPRESS rather than a documented flag.
+    parser.add_argument("--hidden-relaunch", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.reset_password:
         raise SystemExit(_reset_password())
     if args.desktop:
-        _run_desktop()
+        _run_desktop(hidden_relaunch=args.hidden_relaunch)
     else:
         _run_server()
 

@@ -8,6 +8,7 @@ import asyncio
 import csv
 import io
 import json
+import os
 import platform
 import re
 import sys
@@ -161,6 +162,14 @@ class PreferencesBody(BaseModel):
     session_idle_ttl_minutes: int | None = Field(default=None, ge=1)
     # The desktop launcher's console window — see core.config's own comment.
     show_console_on_startup: bool | None = None
+    # Whether the first-run Dev-view/User-view prompt has already been
+    # shown. Missing from this model entirely was its own bug: a PUT for a
+    # field Pydantic doesn't know about is silently dropped rather than
+    # rejected, so the prompt would have recorded nothing and reappeared on
+    # every single launch — caught live, before this ever shipped, by the
+    # same round of testing that found show_console_on_startup missing from
+    # GET /preferences.
+    console_view_intro_seen: bool | None = None
 
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
@@ -342,6 +351,16 @@ def get_preferences() -> dict:
         "notifications_muted_except_reminders": config.get_preference(
             "notifications_muted_except_reminders", False
         ),
+        # Same shape of bug as the autonomous-prefs block above, on the same
+        # checkbox this session already restyled: PUT /preferences has always
+        # accepted show_console_on_startup (PreferencesBody's own field), but
+        # this response never echoed it back — so prefsCache.show_console_
+        # on_startup was always undefined, the Settings checkbox always
+        # rendered unchecked regardless of what was actually saved, and the
+        # first-run Dev-view/User-view intro (console_view_intro_seen, gated
+        # on this same response) would have shown on every single launch.
+        "show_console_on_startup": config.get_preference("show_console_on_startup", True),
+        "console_view_intro_seen": config.get_preference("console_view_intro_seen", False),
     }
 
 
@@ -387,6 +406,52 @@ def update_preferences(
 
         autonomous.wake()
     return get_preferences()
+
+
+@router.post("/system/console-mode")
+def set_console_mode(
+    body: dict, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
+) -> dict:
+    """Switch Dev view / User view *live*, not just for the next launch —
+    asked for directly: togglable from Settings as well as the tray. Saves
+    the preference the same way PUT /preferences would, then (desktop app,
+    Windows only) restarts the whole process into the new console mode via
+    __main__.restart_in_console_mode.
+
+    The restart itself runs as a FastAPI background task, which the ASGI
+    server only invokes *after* this response has actually gone out — doing
+    it inline would mean `os._exit(0)` races the response itself off the
+    wire, and the frontend's toast would never show ("did it even work?").
+    A relaunch this can't reach (not the desktop app, not Windows, no
+    pythonw.exe next to this interpreter) still saves the preference; the
+    caller just won't see it take effect until the next launch, same as any
+    other preference.
+
+    Only restarts when the value actually changes — the first-run intro
+    prompt calls this unconditionally with whatever was picked, and picking
+    the option that already matches the current mode (the default, most of
+    the time) must not restart the app the user just opened.
+    """
+    show_console = bool(body.get("show_console_on_startup"))
+    config = deps.get_config()
+    already = bool(config.get_preference("show_console_on_startup", True))
+    config.set_preference("show_console_on_startup", show_console)
+    manager.log_action(
+        session, "edited", "preferences", detail=f"show_console_on_startup={show_console}"
+    )
+    session.commit()
+
+    restarting = False
+    if (
+        show_console != already
+        and os.getenv("MEMORYMAP_DESKTOP") == "1"
+        and sys.platform == "win32"
+    ):
+        from memorymap.__main__ import restart_in_console_mode
+
+        restarting = True
+        background_tasks.add_task(restart_in_console_mode, not show_console)
+    return {"show_console_on_startup": show_console, "restarting": restarting}
 
 
 def _validated_skills(raw: list[dict]) -> list[dict]:

@@ -3736,15 +3736,23 @@ Link to another note with [[its first few words]]."></textarea>
                  open a console window behind the app — the packaged installer's
                  build has none to show at all. Shown only in the desktop shell
                  (app.js checks /health's own "desktop" flag), same gating as
-                 the file-save path this same flag already drives. -->
+                 the file-save path this same flag already drives.
+
+                 "Dev view"/"User view" naming asked for directly, alongside
+                 the console-hide mechanism itself changing from hiding an
+                 already-created window to never creating one for User view
+                 (see __main__.py's pythonw.exe relaunch) — hiding one after
+                 the fact turned out unreliable under some terminal setups. -->
             <label class="row space-between hidden" id="desktop-console-row" for="pref-show-console">
-              Show the console window on startup
+              Dev view — keep a console window open
               <input type="checkbox" id="pref-show-console">
             </label>
             <p class="muted hidden" id="desktop-console-hint">
-              Off by default — the console is hidden as soon as the app starts.
-              You can also show or hide it live from the system tray icon's
-              own menu, which remembers your choice for next time too.
+              On by default. Turn it off for "User view" — the app runs with
+              no console window at all, just this app window and a system
+              tray icon. You can also switch live from the tray icon's own
+              menu, which remembers your choice for next time too, and the
+              app briefly restarts itself when you switch this way.
             </p>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded

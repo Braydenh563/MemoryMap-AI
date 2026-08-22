@@ -1950,6 +1950,11 @@
   margin: 0;
 }
 
+.timeline-custom-range {
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+}
+
 .graph-toolbar button {
   white-space: nowrap;
   height: var(--control-h);

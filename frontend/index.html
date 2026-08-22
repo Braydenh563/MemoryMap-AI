@@ -1120,9 +1120,9 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="0">Everything</option>
           <option value="custom">Custom range</option>
         </select>
-        <span id="timeline-custom-range" class="hidden row align-center" style="gap: var(--space-1); margin-left: var(--space-2);">
+        <span id="timeline-custom-range" class="hidden row align-center timeline-custom-range">
           <input type="date" id="timeline-start-date" aria-label="Start date">
-          <span class="muted" style="font-size: var(--text-sm);">to</span>
+          <span class="muted timeline-custom-range-sep">to</span>
           <input type="date" id="timeline-end-date" aria-label="End date">
         </span>
       </div>
@@ -3456,7 +3456,13 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
               </div>
-              <p class="muted">Exports include everything, even binned notes.</p>
+              <div class="row settings-row-spaced">
+                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export Full Backup (.zip)</button>
+              </div>
+              <p class="muted">
+                JSON/CSV/Markdown exports include everything, even binned notes.
+                Full Backup is a portable zip of the raw database and media folder.
+              </p>
             </div>
 
             <div class="settings-group">
@@ -3486,8 +3492,8 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="import-md-status" class="status" role="status"></p>
               
               <h3>Bulk Directory Import</h3>
-              <div class="row" style="margin-top: var(--space-2);">
-                <input id="import-dir-path" type="text" placeholder="C:\path\to\Obsidian\vault" style="flex: 1;">
+              <div class="row settings-row-spaced">
+                <input id="import-dir-path" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
                 <button id="import-dir" class="small">Import Folder</button>
               </div>
               <p id="import-dir-status" class="status" role="status"></p>
@@ -3506,22 +3512,6 @@ Link to another note with [[its first few words]]."></textarea>
                 Turns a PDF, Word file or slide deck into notes — one per
                 chapter or slide when the file has that shape, one note
                 otherwise. Needs the markitdown extra below.
-              </p>
-            </div>
-
-            <div class="settings-group">
-              <h3>Export data</h3>
-              <div class="row">
-                <button id="export-json" class="small ghost">JSON</button>
-                <button id="export-markdown" class="small ghost">Markdown</button>
-                <button id="export-csv" class="small ghost">CSV</button>
-              </div>
-              <div class="row" style="margin-top: var(--space-2);">
-                <button id="export-backup-zip" class="small primary">Export Full Backup (.zip)</button>
-              </div>
-              <p class="muted">
-                JSON contains everything in one file. Markdown creates a folder
-                of notes with frontmatter. CSV exports tabular data. Full Backup creates a portable zip with your database and all media.
               </p>
             </div>
 
@@ -3588,7 +3578,7 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               
               <label class="stacked-label" for="account-idle-ttl">Auto-lock when idle</label>
-              <select id="account-idle-ttl" style="margin-bottom: 1.5rem; max-width: 14rem;">
+              <select id="account-idle-ttl" class="account-idle-ttl-select">
                 <option value="5">5 minutes</option>
                 <option value="15">15 minutes</option>
                 <option value="30">30 minutes</option>
@@ -3725,7 +3715,7 @@ Link to another note with [[its first few words]]."></textarea>
               <summary>What's new</summary>
               <div id="changelog-body" class="changelog-body"></div>
             </details>
-            <div class="row" style="margin-top: 1rem;">
+            <div class="row settings-row-spaced-6">
               <button id="about-take-tour" class="ghost small" type="button"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Take tour again</button>
             </div>
             <h3>Keyboard shortcuts</h3>

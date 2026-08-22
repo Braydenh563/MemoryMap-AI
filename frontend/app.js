@@ -15791,9 +15791,11 @@ async function deleteProfile() {
 // bytes and hand the browser a blob instead.
 async function downloadExport(kind) {
   const response = await api(`/export/${kind}`);
-  // Markdown arrives as a zip of .md files; the rest are single files.
+  // Markdown and the full backup arrive as zips; the rest are single files.
   const name =
-    kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
+    kind === "markdown" ? "memorymap-markdown.zip" :
+    kind === "backup" ? "memorymap-backup.zip" :
+    `memorymap-export.${kind}`;
   await saveFile(name, await response.blob());
 }
 
@@ -24239,16 +24241,7 @@ $("entry-content").addEventListener("input", (e) => {
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);
 $("import-dir")?.addEventListener("click", importDirectory);
-
-for (const fmt of ["json", "markdown", "csv", "backup-zip"]) {
-  const btn = $(`export-${fmt}`);
-  if (btn) {
-    btn.addEventListener("click", () => {
-      let path = fmt === "backup-zip" ? "/export/backup" : `/export/${fmt}`;
-      window.location.href = path + `?token=${authToken()}`;
-    });
-  }
-}
+$("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
 $("import-document").addEventListener("click", importDocument);
 $("backup-now").addEventListener("click", backupNow);
 

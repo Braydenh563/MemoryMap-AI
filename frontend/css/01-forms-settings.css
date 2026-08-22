@@ -1077,6 +1077,25 @@ progress {
   gap: var(--space-2);
 }
 
+/* Settings sections: a second row of controls below an existing one that
+   needs a little breathing room from it. */
+.settings-row-spaced {
+  margin-top: var(--space-2);
+}
+
+.settings-row-spaced-6 {
+  margin-top: var(--space-6);
+}
+
+.import-dir-path-input {
+  flex: 1 1 0;
+}
+
+.account-idle-ttl-select {
+  margin-bottom: var(--space-8);
+  max-width: 14rem;
+}
+
 .chip.link {
   cursor: default;
 }

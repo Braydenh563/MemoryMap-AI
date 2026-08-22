@@ -495,7 +495,22 @@ function setTracePanelOpen(open) {
   localStorage.setItem("graph-trace-open", open ? "1" : "0");
   if (open) {
     renderTraceState();
-    showTraceMessage("Click a note to start.");
+    // Re-opening the panel — most commonly by coming back to the Graph tab
+    // after clicking a note in the trace path's own readout, which jumps to
+    // the Notes tab (flashEntry) and left the panel "open" in localStorage —
+    // used to unconditionally overwrite #graph-trace-result with the opening
+    // prompt, discarding a trace someone had already run (reported: "trace
+    // resets when a note hyperlink in the trace path is clicked on"). Show
+    // whatever's actually true instead of always restarting the script.
+    if (!traceFromNode) {
+      showTraceMessage("Click a note to start.");
+    } else if (!traceToNode) {
+      showTraceMessage("Click where to end.");
+    } else if (graphTrace) {
+      renderTraceReadout({ ...graphTrace, hops: graphTrace.steps.length });
+    }
+    // else: both ends picked but no result yet — a trace is mid-flight,
+    // leave whatever runTrace() last wrote (e.g. "Tracing…") alone.
   }
 }
 

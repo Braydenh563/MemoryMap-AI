@@ -430,6 +430,14 @@
   min-height: 0;
   height: 100%;
   flex: 1 1 auto;
+  /* Same trap #chat-messages/.msg already guard against (see their own
+     comments), one level up: a flex item's automatic minimum width is its
+     content's, so without this #chat-main refused to shrink below a long
+     unbroken line — a URL, a long code token — in a message, even though
+     flex-shrink is 1. With the Web panel open, that content ran past
+     #chat-main's own column and under/behind #web-panel next to it
+     (reported directly, from a screenshot). */
+  min-width: 0;
 }
 
 #chat-messages {

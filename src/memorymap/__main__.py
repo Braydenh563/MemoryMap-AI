@@ -27,6 +27,35 @@ def _run_server() -> None:
     uvicorn.run(create_app(), host=HOST, port=PORT, log_level="info")
 
 
+def _wait_for_server(timeout: float = 20.0) -> bool:
+    """Poll until uvicorn is actually accepting connections on HOST:PORT,
+    instead of guessing a fixed delay before pointing the window at it.
+
+    `create_app()` (singleton init, embeddings warmup, etc.) runs
+    synchronously on the server thread BEFORE uvicorn binds its listening
+    socket — so this genuinely waits for the app to be ready, not merely
+    for a thread to have started. Reported directly: the desktop window
+    "sits on a black screen for a while before loading in", which a flat
+    `sleep(1.0)` fully explains on a cold start (first run, heavier
+    startup work, a slower machine) that takes longer than a second — the
+    window opened and tried to load the page before anything was
+    listening, with nothing to make it retry. Bounded, so a server that
+    genuinely fails to start doesn't hang the launcher forever — the window
+    still opens either way; this only affects when it opens relative to the
+    server being ready to answer it.
+    """
+    import socket
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((HOST, PORT), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.05)
+    return False
+
+
 def _run_desktop() -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process."""
@@ -48,7 +77,7 @@ def _run_desktop() -> None:
     os.environ["MEMORYMAP_DESKTOP"] = "1"
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
-    time.sleep(1.0)  # give uvicorn a moment to bind before the window loads
+    _wait_for_server()
     window = webview.create_window(
         "MemoryMap AI",
         f"http://{HOST}:{PORT}",
@@ -216,6 +245,38 @@ def _start_tray(window, icon_path: Path):
     def _open(icon, item) -> None:
         window.show()
 
+    # Running from start.bat/start-desktop.bat rather than the packaged
+    # installer (whose PyInstaller build sets console=False, so there is no
+    # window to find) leaves a cmd.exe console sitting behind the app —
+    # asked for directly: a way to get rid of it without losing the ability
+    # to bring it back for a stray print/traceback. GetConsoleWindow()
+    # returns 0/NULL when this process has no console of its own, which is
+    # also true on every non-Windows platform were this ever imported, so
+    # the check alone is enough to skip the menu item there — no separate
+    # platform guard needed on top of the sys.platform == "win32" this
+    # function is already only called under.
+    console_hwnd = None
+    try:
+        import ctypes
+
+        console_hwnd = ctypes.windll.kernel32.GetConsoleWindow() or None
+    except Exception as exc:
+        logger.warning("couldn't look up the console window: %s", exc)
+
+    console_hidden = {"value": False}
+
+    def _console_hidden(item) -> bool:
+        return console_hidden["value"]
+
+    def _toggle_console(icon, item) -> None:
+        if console_hwnd is None:
+            return
+        SW_HIDE, SW_SHOW = 0, 5
+        console_hidden["value"] = not console_hidden["value"]
+        ctypes.windll.user32.ShowWindow(
+            console_hwnd, SW_HIDE if console_hidden["value"] else SW_SHOW
+        )
+
     def _view_logs(icon, item) -> None:
         # Reported directly: this used to open Settings -> Logs unconditionally,
         # which reaches straight past the lock screen if the app is locked —
@@ -252,16 +313,23 @@ def _start_tray(window, icon_path: Path):
         # terminal it's running in — actually ends.
         os._exit(0)
 
+    menu_items = [
+        pystray.MenuItem("Open MemoryMap AI", _open, default=True),
+        pystray.MenuItem("View Logs", _view_logs),
+    ]
+    if console_hwnd is not None:
+        menu_items.append(
+            pystray.MenuItem("Hide console window", _toggle_console, checked=_console_hidden)
+        )
+    menu_items += [
+        pystray.MenuItem("Restart", _restart),
+        pystray.MenuItem("Quit", _quit),
+    ]
     icon = pystray.Icon(
         "memorymap",
         image,
         "MemoryMap AI",
-        pystray.Menu(
-            pystray.MenuItem("Open MemoryMap AI", _open, default=True),
-            pystray.MenuItem("View Logs", _view_logs),
-            pystray.MenuItem("Restart", _restart),
-            pystray.MenuItem("Quit", _quit),
-        ),
+        pystray.Menu(*menu_items),
     )
     threading.Thread(target=icon.run, daemon=True).start()
     return icon

@@ -65,10 +65,39 @@ def _fake_webview(monkeypatch, *, icon_kwarg_supported=True):
 
 
 def _quiet_server_thread(monkeypatch):
-    """`_run_desktop` starts uvicorn on a background thread and sleeps a
-    second to let it bind. Neither is needed to test the window setup."""
+    """`_run_desktop` starts uvicorn on a background thread and waits for it
+    to actually start accepting connections. Neither is needed to test the
+    window setup — and since `_run_server` is mocked to a no-op below,
+    nothing real is ever listening on HOST:PORT for `_wait_for_server`'s own
+    poll loop to find, which would otherwise burn its whole real-time
+    timeout on every test that uses this fixture."""
     monkeypatch.setattr(launcher, "_run_server", lambda: None)
-    monkeypatch.setattr(launcher.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(launcher, "_wait_for_server", lambda timeout=20.0: True)
+
+
+def test_wait_for_server_returns_once_something_is_actually_listening(monkeypatch):
+    """The desktop window used to open after a flat `time.sleep(1.0)` guess
+    at how long uvicorn takes to bind — reported directly as a black screen
+    on startup on a cold/slow start that took longer than that. This proves
+    the replacement polls a real socket rather than guessing: it returns
+    False while nothing is listening on that port, and True as soon as
+    something is."""
+    import socket
+
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    host, port = listener.getsockname()
+    monkeypatch.setattr(launcher, "HOST", host)
+    monkeypatch.setattr(launcher, "PORT", port)
+
+    # Bound but not listening yet: connections are refused.
+    assert launcher._wait_for_server(timeout=0.3) is False
+
+    listener.listen(1)
+    try:
+        assert launcher._wait_for_server(timeout=2.0) is True
+    finally:
+        listener.close()
 
 
 def test_windows_only_branch_is_not_taken_on_this_platform(monkeypatch, tmp_path):
@@ -164,3 +193,107 @@ def test_desktop_launcher_degrades_if_icon_kwarg_is_unsupported(monkeypatch, tmp
     launcher._run_desktop()  # must not raise, even though start() TypeErrors once
 
     assert calls["start"] is not None
+
+
+# --- the tray's "Hide console window" item ----------------------------------
+#
+# `_start_tray` itself is not gated by sys.platform (its caller is), so
+# unlike the AppUserModelID/pystray-event-loop branches above, this can be
+# called directly here with fake pystray/PIL/ctypes.windll stand-ins — this
+# sandbox still can't prove a real Windows console actually hides, but it can
+# prove the menu item is built (or skipped) correctly and drives the right
+# Win32 call with the right flag.
+
+
+def _fake_pystray_and_pil(monkeypatch):
+    created = {}
+
+    class FakeMenuItem:
+        def __init__(self, text, action, default=False, checked=None):
+            self.text = text
+            self.action = action
+            self.checked = checked
+
+    class FakeMenu:
+        def __init__(self, *items):
+            self.items = items
+
+    class FakeIcon:
+        def __init__(self, name, image, title, menu):
+            created["menu"] = menu
+
+        def run(self):
+            pass
+
+        def stop(self):
+            pass
+
+    fake_pystray = types.ModuleType("pystray")
+    fake_pystray.MenuItem = FakeMenuItem
+    fake_pystray.Menu = FakeMenu
+    fake_pystray.Icon = FakeIcon
+    monkeypatch.setitem(sys.modules, "pystray", fake_pystray)
+
+    fake_image_mod = types.ModuleType("PIL.Image")
+    fake_image_mod.new = lambda *a, **k: object()
+    fake_image_mod.open = lambda *a, **k: object()
+    fake_pil = types.ModuleType("PIL")
+    fake_pil.Image = fake_image_mod
+    monkeypatch.setitem(sys.modules, "PIL", fake_pil)
+    monkeypatch.setitem(sys.modules, "PIL.Image", fake_image_mod)
+
+    return created
+
+
+def _fake_window():
+    return types.SimpleNamespace(show=lambda: None, evaluate_js=lambda js: None)
+
+
+def test_tray_hide_console_item_toggles_a_real_console_window(monkeypatch, tmp_path):
+    import ctypes
+
+    show_window_calls = []
+    fake_windll = types.SimpleNamespace(
+        kernel32=types.SimpleNamespace(GetConsoleWindow=lambda: 12345),
+        user32=types.SimpleNamespace(
+            ShowWindow=lambda hwnd, flag: show_window_calls.append((hwnd, flag))
+        ),
+    )
+    monkeypatch.setattr(ctypes, "windll", fake_windll, raising=False)
+    created = _fake_pystray_and_pil(monkeypatch)
+
+    icon = launcher._start_tray(_fake_window(), tmp_path / "missing.ico")
+    assert icon is not None
+
+    items = {item.text: item for item in created["menu"].items}
+    hide_item = items["Hide console window"]
+    assert hide_item.checked(None) is False
+
+    hide_item.action(icon, hide_item)
+    assert show_window_calls == [(12345, 0)]  # SW_HIDE
+    assert hide_item.checked(None) is True
+
+    hide_item.action(icon, hide_item)
+    assert show_window_calls[-1] == (12345, 5)  # SW_SHOW
+    assert hide_item.checked(None) is False
+
+
+def test_tray_has_no_hide_console_item_without_a_real_console(monkeypatch, tmp_path):
+    """The packaged installer's PyInstaller build sets console=False, so
+    GetConsoleWindow() returns NULL there — nothing to hide, and the menu
+    item asked for a way to bring back must not appear with no console to
+    bring back."""
+    import ctypes
+
+    fake_windll = types.SimpleNamespace(
+        kernel32=types.SimpleNamespace(GetConsoleWindow=lambda: 0),
+        user32=types.SimpleNamespace(ShowWindow=lambda hwnd, flag: None),
+    )
+    monkeypatch.setattr(ctypes, "windll", fake_windll, raising=False)
+    created = _fake_pystray_and_pil(monkeypatch)
+
+    launcher._start_tray(_fake_window(), tmp_path / "missing.ico")
+
+    texts = [item.text for item in created["menu"].items]
+    assert "Hide console window" not in texts
+    assert texts == ["Open MemoryMap AI", "View Logs", "Restart", "Quit"]

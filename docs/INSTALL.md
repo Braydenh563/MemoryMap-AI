@@ -88,16 +88,20 @@ cd MemoryMap-AI
    terminals fill in the correct path for you — then press Enter.
 
 Either way, you should now be sitting *inside* the `MemoryMap-AI` folder.
-`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`, `start.bat` and
-this repo's `README.md` among the files.
+`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`, `start-desktop.bat`
+and this repo's `README.md` among the files.
 
 ### 3. Run the launcher
 
 From inside that same folder:
 
-- **Windows** — double-click **`start.bat`** in File Explorer, or type
-  `start.bat` and press Enter in the terminal you're already in.
-- **macOS / Linux** — run **`./start.sh`**
+- **Windows** — double-click **`start-desktop.bat`** in File Explorer, or
+  type `start-desktop.bat` and press Enter in the terminal you're already
+  in. This opens the app in its own window rather than a browser tab —
+  prefer it unless you specifically want a browser tab (`start.bat`, no
+  arguments, does that instead).
+- **macOS / Linux** — run **`./start.sh`** for a browser tab, or
+  `./start.sh --desktop` for the app's own window.
 
 The launcher builds the virtual environment, installs everything, starts the
 app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The
@@ -117,8 +121,8 @@ That line is your answer any time you can't remember where you put it —
 scroll up in that terminal window, or just re-run the launcher from the same
 place you ran it the first time.
 
-For the app in its own window instead of a browser tab: `start-desktop.bat`,
-or `./start.sh --desktop`.
+Prefer a browser tab over the app's own window? `start.bat`/`./start.sh`
+with no arguments does that instead.
 
 ## Manual setup
 

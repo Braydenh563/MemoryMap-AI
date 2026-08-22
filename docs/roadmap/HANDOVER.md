@@ -2,7 +2,122 @@
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — auditing a squashed commit of changes an external agent (Gemini/Antigravity) made outside this codebase's own session history, then six fresh live-reported requests
+## Latest session — a real height-collapse bug traced to a duplicate padding rule, four ROADMAP.md gaps found already built and retracted, and five new features (drafts filter, chat one-click note/reminder, most-linked widget, reminders calendar, graph PNG export)
+
+Continuation of the Gemini-audit session below, then a user request batch
+(note drafts surfaced properly, the startup console bug, radio buttons
+restyled to switches, the version string), then an explicit "go to sleep,
+work autonomously, impress me" grant — commit/push as it went, work through
+the Perplexity brainstorm doc, then the roadmap's highest-impact items once
+requests ran out. `pytest tests/` (~1,600 tests) was run after every batch —
+clean throughout — plus `ruff check .` and `node --check` on every changed
+JS file before each push.
+
+**Console-hide timing bug, actually root-caused rather than re-patched.**
+The "hide console on startup" checkbox was already wired correctly — the bug
+was *when* it ran. `_run_desktop()` checked the preference via
+`deps.get_config()`, which needs `create_app()` to have run on the server
+thread first, which only finishes after `_wait_for_server()`'s multi-second
+wait — so the console was hidden several seconds into every startup, plenty
+of time to see it flash. Fixed by reading the preference through a
+standalone `ConfigManager()` (reads `preferences.json` straight off disk,
+no server dependency) *before* the server thread starts. New test proves the
+ordering itself (mocks `_wait_for_server` and records the hide call's
+argument at call time), not just the eventual outcome — a test that only
+checked "hidden by the end" would have passed against the broken code too.
+
+**Two Settings checkboxes restyled from bare `<input>` to the app's own pill
+switch** (GitHub version-check, show-console-on-startup) — asked for
+directly ("I don't like radiobuttons"). Root cause was markup structure, not
+a missing rule: every other Settings checkbox already used
+`<label class="row space-between"><input>...</label>` and the existing CSS
+already covered that shape; these two were `<label for="…">` siblings next
+to the `<input>`, which the selector never matched. Restructuring the markup
+was the whole fix.
+
+**A real, measured height-collapse bug found while live-verifying an
+unrelated feature (web search's "show more"), the strongest example this
+session has for "measure and look before claiming a UI change works."** On
+a fresh profile's first empty "New chat," `#chat-main` measured **137px**
+against a **713px** flex parent — traced through the whole chain
+(`.layout`'s `height: 100%` resolving to only 425px of a 761px `#tab-chat`)
+to one line: `body.has-agent-monitor .tab-page { padding-bottom: calc(...)
+}` was still landing on `#tab-chat`/`#tab-notes` themselves (both carry the
+`.tab-page` class) *on top of* the correct, already-existing override on
+their real scroll container (`.layout > main`). This is the identical bug
+`#tab-documents` was already patched for — "Documents never got this
+treatment when Notes and Chat did" turned out backwards; Notes and Chat
+never got the *outer* override Documents did. Fixed by adding both to that
+existing override (`07-whiteboard-misc.css`). Invisible with a real
+conversation loaded (the inner scroll container's own overflow just clips
+the extra) — the trap for a future session is that this class of bug hides
+completely behind "just test with some data in it."
+
+**ROADMAP.md's "Gaps found, ranked by value" list was significantly
+stale — four of eight items already fully built, all four found by actually
+checking the running app rather than trusting the doc**, in the middle of
+picking a next item to implement (this file's own opening rule, applied to
+its own sibling doc): auto-lock idle timeout (`session_idle_ttl_minutes`,
+Settings → Account & security's working dropdown), the per-note "Duplicate"
+action (already in the note's overflow menu), the command palette's
+title/Documents/Reminders/Conversations search (already covers all of it),
+and Timeline's "jump to today" + custom date range (both already built and
+wired). Each retraction is written in place — struck through, not deleted —
+so the claim and its correction both stay on record. Gaps 1–2 (image OCR,
+vision-model chat input) and two-thirds of gap 3 (graph minimap, saved
+views — the export third is now done, below) are genuinely still open, also
+re-verified rather than assumed.
+
+**Five new features, each live-verified with Playwright before commit:**
+- **Drafts get a dedicated sidebar filter** in Notes (both origins — the
+  text-selection popup's "Save as draft note" and the Writing Room's "Save
+  as note" — converge on the same `is_draft` flag and the same filter).
+  Deliberately *not* duplicated into Library — that tab's own code comment
+  already states "don't duplicate surfaces" as a design principle.
+- **Web search**: the route's own `limit` clamp was silently capped at 10
+  even though its bound is 20 and both providers already fetch a full page
+  before slicing — raised to match, and the frontend now shows 8 results
+  with a "Show N more" reveal plus clickable recent-search history chips
+  (localStorage, client-only).
+- **Chat answers get one-click "Save as draft note" / "Set a reminder"
+  buttons** (Perplexity brainstorm doc review's one clear gap for Ask/Chat).
+  The reminder button deliberately skips an AI-parse round trip and a
+  due-date prompt — either costs a decision before anything is saved, which
+  defeats "one click" — and instead creates the reminder immediately with a
+  plain default (tomorrow, 9am); its toast carries an "Edit" action that
+  jumps straight to it in Reminders, opened in its edit form.
+- **A "Most-linked notes" dashboard widget** (the Perplexity doc's other
+  clear gap) — reuses the existing `/graph` endpoint client-side, ranks by
+  edge count, no new backend route.
+- **Reminders gets a month-grid calendar view** next to the existing flat
+  list (ROADMAP.md gap 4, re-verified genuinely open). Cell height started
+  at `aspect-ratio: 1` — measured 179px square, 1140px for the whole grid —
+  fixed to a 3.75rem floor before committing; a month view that needs
+  scrolling to see its own last week defeats the point.
+- **Graph tab gets PNG export** (the export third of gap 3) — captures
+  what's on screen via a cloned, computed-style-inlined SVG (the export is
+  rasterized via a detached `<img>`, completely outside the page's own
+  stylesheets and `:root` custom properties, so a plain clone would lose
+  everything driven by a CSS class or `var()`). Caught by testing *both*
+  themes rather than one: the first draft's background fill read `body`'s
+  computed background, which resolves to `rgba(0,0,0,0)` in both themes
+  (the real background is a gradient on `<html>`; `.card`/`--card` is
+  deliberately translucent glass) — happened to look right in light mode
+  purely because a transparent PNG renders as white in most viewers, and
+  was visibly wrong in dark mode. Fixed by keying a flat fallback off the
+  app's own `resolvedTheme()` helper; both themes reconfirmed by opening
+  the downloaded PNGs directly, not just checking they existed.
+
+**Not verified, said plainly:** none of this session's UI work went
+untested — everything above was checked live in Chromium, including both
+colour themes for the graph export and both the seeded and fresh-profile
+states for the height-collapse bug. What *wasn't* checked: how the new
+Reminders calendar view holds up against the design-audit checklist
+(Nielsen/Gestalt/breakpoint matrix) that Notes/Reminders' flat list already
+went through — it's a genuinely new surface, not yet through any round of
+that.
+
+## Previous session — auditing a squashed commit of changes an external agent (Gemini/Antigravity) made outside this codebase's own session history, then six fresh live-reported requests
 
 A different tool (Gemini, via Antigravity) had been making changes directly
 against a local checkout, outside any Claude session — the only record of

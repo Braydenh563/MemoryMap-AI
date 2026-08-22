@@ -1182,11 +1182,10 @@ class ImportDirectoryRequest(BaseModel):
     path: str
 
 def _run_directory_import(directory_path: str):
-    from memorymap.core.deps import SessionLocal
     p = Path(directory_path)
     if not p.is_dir():
         return
-    with SessionLocal() as session:
+    with deps.get_db().session() as session:
         imported = 0
         skipped = 0
         for f in p.rglob("*.md"):

@@ -72,6 +72,29 @@ def test_reading_a_missing_document_is_an_error_not_a_crash(client, session):
     assert "error" in result
 
 
+def test_get_document_with_a_query_returns_the_relevant_paragraphs(client, session):
+    """A query narrows a long document down to its most relevant chunks
+    instead of a plain head-of-document truncation — RAG snippet extraction."""
+    from tests.fakes import FakeEmbeddingService
+
+    deps.override_ai(embeddings=FakeEmbeddingService(available=True))
+    body = (
+        "The 100m sprint final is the highlight of the athletics carnival.\n\n"
+        "Why did the scarecrow win an award? He was outstanding in his field.\n\n"
+        "One more unrelated thought that says nothing about any of this.\n\n"
+        "Need to buy milk and eggs from the shops this week."
+    )
+    doc = _doc(client, "Mixed notes", body)
+
+    result = tools.execute_tool(
+        session, "get_document", {"document_id": doc["id"], "query": "milk"}
+    )
+    # The shopping paragraph is the only one that matches the query's topic —
+    # it should rank first even though it's last in the document.
+    assert result["content"].startswith("Need to buy milk")
+    assert "(extracted snippets for query)" in result["label"]
+
+
 # --- past conversations ------------------------------------------------------------
 
 

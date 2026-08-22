@@ -14942,6 +14942,12 @@ async function openSettingsModal(section = "models") {
   } · ${allEntries.length} entries loaded`;
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
   $("update-check-status").textContent = "";
+  const isDesktop = await desktopShell();
+  $("desktop-console-row").classList.toggle("hidden", !isDesktop);
+  $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
+  if (isDesktop) {
+    $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
+  }
   showSettingsSection(section);
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
@@ -19229,6 +19235,11 @@ function renderChatActiveModelBadge() {
   const name = modelStatus && modelStatus.chat_model;
   badge.hidden = !name;
   badge.textContent = name || "";
+  // The badge itself ellipsis-truncates a long id (a full HuggingFace path
+  // easily runs past the header) — the full name is still one hover away.
+  badge.title = name
+    ? `The model currently answering in this chat: ${name} — change it in Settings → Models`
+    : "";
 }
 
 function renderUtilityModelPicker(status) {
@@ -21849,6 +21860,10 @@ $("pref-update-check").addEventListener("change", (e) =>
   setPreference("update_check_enabled", e.target.checked)
 );
 $("update-check-now").addEventListener("click", () => checkForUpdate());
+
+$("pref-show-console").addEventListener("change", (e) =>
+  setPreference("show_console_on_startup", e.target.checked)
+);
 
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");

@@ -159,6 +159,8 @@ class PreferencesBody(BaseModel):
     update_check_enabled: bool | None = None
     searxng_autostart: bool | None = None
     session_idle_ttl_minutes: int | None = Field(default=None, ge=1)
+    # The desktop launcher's console window — see core.config's own comment.
+    show_console_on_startup: bool | None = None
 
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)

@@ -56,6 +56,24 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
     return False
 
 
+def _get_console_hwnd() -> int | None:
+    """The Win32 handle of this process's own console window, or None.
+
+    None means either this isn't Windows, or this Windows process genuinely
+    has no console to show/hide — the packaged installer's PyInstaller build
+    sets `console=False`, so `GetConsoleWindow()` correctly returns NULL
+    there. Shared between the startup auto-hide below and the tray's own
+    live toggle so both agree on the same handle.
+    """
+    try:
+        import ctypes
+
+        return ctypes.windll.kernel32.GetConsoleWindow() or None
+    except Exception as exc:
+        logger.warning("couldn't look up the console window: %s", exc)
+        return None
+
+
 def _run_desktop() -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process."""
@@ -78,6 +96,29 @@ def _run_desktop() -> None:
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
     _wait_for_server()
+
+    # Hide the console before the window even opens, unless the user has
+    # asked to keep seeing it — asked for directly: "I want it to be hidden
+    # but the user can make it show ... if they want", both as a startup
+    # preference (Settings, this) and live (the tray toggle below). Safe to
+    # read config now: _wait_for_server() only returns once create_app()
+    # (which builds the config singleton) has already run on the server
+    # thread. None on any non-Windows platform, or the packaged installer's
+    # console-less build — nothing to hide either way.
+    console_hwnd = _get_console_hwnd() if sys.platform == "win32" else None
+    console_hidden = False
+    if console_hwnd is not None:
+        from memorymap.core import deps
+
+        show_on_startup = deps.get_config().get_preference(
+            "show_console_on_startup", False
+        )
+        if not show_on_startup:
+            import ctypes
+
+            ctypes.windll.user32.ShowWindow(console_hwnd, 0)  # SW_HIDE
+            console_hidden = True
+
     window = webview.create_window(
         "MemoryMap AI",
         f"http://{HOST}:{PORT}",
@@ -159,7 +200,11 @@ def _run_desktop() -> None:
     # built or run against — the Linux build gets a real window that closes
     # for real instead, the same fallback already in place when pystray
     # simply isn't installed.
-    tray_icon = _start_tray(window, _icon_path) if sys.platform == "win32" else None
+    tray_icon = (
+        _start_tray(window, _icon_path, console_hwnd, console_hidden)
+        if sys.platform == "win32"
+        else None
+    )
     if tray_icon is not None:
 
         def _on_closing() -> bool:
@@ -193,7 +238,7 @@ def _run_desktop() -> None:
             tray_icon.stop()
 
 
-def _start_tray(window, icon_path: Path):
+def _start_tray(window, icon_path: Path, console_hwnd: int | None, console_hidden: bool):
     """The system tray icon: Open / View Logs / Restart / Quit.
 
     Returns None — and the caller falls back to an ordinary window that
@@ -249,33 +294,38 @@ def _start_tray(window, icon_path: Path):
     # installer (whose PyInstaller build sets console=False, so there is no
     # window to find) leaves a cmd.exe console sitting behind the app —
     # asked for directly: a way to get rid of it without losing the ability
-    # to bring it back for a stray print/traceback. GetConsoleWindow()
-    # returns 0/NULL when this process has no console of its own, which is
-    # also true on every non-Windows platform were this ever imported, so
-    # the check alone is enough to skip the menu item there — no separate
-    # platform guard needed on top of the sys.platform == "win32" this
-    # function is already only called under.
-    console_hwnd = None
-    try:
-        import ctypes
-
-        console_hwnd = ctypes.windll.kernel32.GetConsoleWindow() or None
-    except Exception as exc:
-        logger.warning("couldn't look up the console window: %s", exc)
-
-    console_hidden = {"value": False}
+    # to bring it back for a stray print/traceback. `console_hwnd` and its
+    # initial `console_hidden` state come from the caller, which already
+    # applied the show_console_on_startup preference before the window even
+    # opened — this menu item is the *live* control, and toggling it also
+    # writes the preference back, so "hide it" or "show it" from here is
+    # remembered for the next launch too, not just this one.
+    console_state = {"hidden": console_hidden}
 
     def _console_hidden(item) -> bool:
-        return console_hidden["value"]
+        return console_state["hidden"]
 
     def _toggle_console(icon, item) -> None:
         if console_hwnd is None:
             return
+        import ctypes
+
         SW_HIDE, SW_SHOW = 0, 5
-        console_hidden["value"] = not console_hidden["value"]
+        console_state["hidden"] = not console_state["hidden"]
         ctypes.windll.user32.ShowWindow(
-            console_hwnd, SW_HIDE if console_hidden["value"] else SW_SHOW
+            console_hwnd, SW_HIDE if console_state["hidden"] else SW_SHOW
         )
+        try:
+            from memorymap.core import deps
+
+            deps.get_config().set_preference(
+                "show_console_on_startup", not console_state["hidden"]
+            )
+        except Exception as exc:
+            # Remembering the choice is a nicety on top of the live toggle,
+            # which has already happened above — never let a failure here
+            # make the menu item look like it did nothing.
+            logger.warning("couldn't save the console visibility preference: %s", exc)
 
     def _view_logs(icon, item) -> None:
         # Reported directly: this used to open Settings -> Logs unconditionally,

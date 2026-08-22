@@ -5691,7 +5691,11 @@ async function renderLibraryImagesGallery() {
       box.addEventListener("blur", save);
     });
 
-    fig.append(img, rename, del, cap);
+    const actions = document.createElement("div");
+    actions.className = "library-image-actions";
+    actions.append(rename, del);
+
+    fig.append(img, actions, cap);
     grid.appendChild(fig);
   }
 }

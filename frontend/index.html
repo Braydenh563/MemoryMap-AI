@@ -3707,6 +3707,20 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="update-check-now" class="ghost small" type="button">Check now</button>
               <span class="muted" id="update-check-status"></span>
             </div>
+            <!-- Only meaningful running from start.bat/start-desktop.bat, which
+                 open a console window behind the app — the packaged installer's
+                 build has none to show at all. Shown only in the desktop shell
+                 (app.js checks /health's own "desktop" flag), same gating as
+                 the file-save path this same flag already drives. -->
+            <div class="row space-between hidden" id="desktop-console-row">
+              <label for="pref-show-console">Show the console window on startup</label>
+              <input type="checkbox" id="pref-show-console">
+            </div>
+            <p class="muted hidden" id="desktop-console-hint">
+              Off by default — the console is hidden as soon as the app starts.
+              You can also show or hide it live from the system tray icon's
+              own menu, which remembers your choice for next time too.
+            </p>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded
                  shut: it is long, and About is not where you go to read it

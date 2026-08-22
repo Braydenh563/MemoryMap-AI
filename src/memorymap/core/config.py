@@ -107,6 +107,12 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "smart_model_routing_enabled": True,
     # How long a session can be idle before the user must log in again.
     "session_idle_ttl_minutes": 720,
+    #: The desktop launcher's console window (start.bat/start-desktop.bat
+    #: open one; the packaged installer's build has none to show at all).
+    #: Off by default — asked for directly: "I want it to be hidden but the
+    #: user can make it show ... if they want." Read by __main__.py before
+    #: the window opens, and kept in sync with the tray's own live toggle.
+    "show_console_on_startup": False,
 }
 
 

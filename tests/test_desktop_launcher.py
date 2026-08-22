@@ -249,20 +249,42 @@ def _fake_window():
     return types.SimpleNamespace(show=lambda: None, evaluate_js=lambda js: None)
 
 
-def test_tray_hide_console_item_toggles_a_real_console_window(monkeypatch, tmp_path):
+@pytest.fixture()
+def _config_dir(tmp_path, monkeypatch):
+    """`_toggle_console` persists the show_console_on_startup preference via
+    deps.get_config(), a global singleton — point it at a fresh temp dir for
+    this test only, and reset it afterward so it can't leak into other
+    tests in this file or the ones that run after it."""
+    from memorymap.core import deps
+
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    deps.reset_app_state()
+    yield
+    deps.reset_app_state()
+
+
+def _fake_windll(monkeypatch, *, console_hwnd, show_window_calls=None):
     import ctypes
 
-    show_window_calls = []
-    fake_windll = types.SimpleNamespace(
-        kernel32=types.SimpleNamespace(GetConsoleWindow=lambda: 12345),
+    fake = types.SimpleNamespace(
+        kernel32=types.SimpleNamespace(GetConsoleWindow=lambda: console_hwnd),
         user32=types.SimpleNamespace(
-            ShowWindow=lambda hwnd, flag: show_window_calls.append((hwnd, flag))
+            ShowWindow=lambda hwnd, flag: (
+                show_window_calls.append((hwnd, flag)) if show_window_calls is not None else None
+            )
         ),
     )
-    monkeypatch.setattr(ctypes, "windll", fake_windll, raising=False)
+    monkeypatch.setattr(ctypes, "windll", fake, raising=False)
+
+
+def test_tray_hide_console_item_toggles_a_real_console_window_and_persists_it(
+    monkeypatch, tmp_path, _config_dir
+):
+    show_window_calls = []
+    _fake_windll(monkeypatch, console_hwnd=12345, show_window_calls=show_window_calls)
     created = _fake_pystray_and_pil(monkeypatch)
 
-    icon = launcher._start_tray(_fake_window(), tmp_path / "missing.ico")
+    icon = launcher._start_tray(_fake_window(), tmp_path / "missing.ico", 12345, False)
     assert icon is not None
 
     items = {item.text: item for item in created["menu"].items}
@@ -277,23 +299,80 @@ def test_tray_hide_console_item_toggles_a_real_console_window(monkeypatch, tmp_p
     assert show_window_calls[-1] == (12345, 5)  # SW_SHOW
     assert hide_item.checked(None) is False
 
+    # The last toggle left it shown — that choice must survive to the next
+    # launch, not just this session (asked for directly).
+    from memorymap.core import deps
+
+    assert deps.get_config().get_preference("show_console_on_startup") is True
+
+
+def test_tray_hide_console_item_reflects_the_caller_s_initial_state(monkeypatch, tmp_path):
+    """The window has already been hidden by _run_desktop before the tray is
+    even built (the show_console_on_startup preference, applied before the
+    window opens) — the checkbox must start checked, not always False."""
+    _fake_windll(monkeypatch, console_hwnd=12345)
+    created = _fake_pystray_and_pil(monkeypatch)
+
+    launcher._start_tray(_fake_window(), tmp_path / "missing.ico", 12345, True)
+
+    items = {item.text: item for item in created["menu"].items}
+    assert items["Hide console window"].checked(None) is True
+
 
 def test_tray_has_no_hide_console_item_without_a_real_console(monkeypatch, tmp_path):
     """The packaged installer's PyInstaller build sets console=False, so
     GetConsoleWindow() returns NULL there — nothing to hide, and the menu
     item asked for a way to bring back must not appear with no console to
     bring back."""
-    import ctypes
-
-    fake_windll = types.SimpleNamespace(
-        kernel32=types.SimpleNamespace(GetConsoleWindow=lambda: 0),
-        user32=types.SimpleNamespace(ShowWindow=lambda hwnd, flag: None),
-    )
-    monkeypatch.setattr(ctypes, "windll", fake_windll, raising=False)
     created = _fake_pystray_and_pil(monkeypatch)
 
-    launcher._start_tray(_fake_window(), tmp_path / "missing.ico")
+    launcher._start_tray(_fake_window(), tmp_path / "missing.ico", None, False)
 
     texts = [item.text for item in created["menu"].items]
     assert "Hide console window" not in texts
     assert texts == ["Open MemoryMap AI", "View Logs", "Restart", "Quit"]
+
+
+def test_get_console_hwnd_returns_none_on_this_non_windows_platform():
+    """No `ctypes.windll` on this sandbox, and _get_console_hwnd must
+    degrade to None rather than raise — the same shape as every other
+    Windows-only ctypes call in this launcher."""
+    assert sys.platform != "win32", "this test's premise requires a non-Windows sandbox"
+    assert launcher._get_console_hwnd() is None
+
+
+def test_desktop_startup_hides_the_console_unless_the_preference_says_show(
+    monkeypatch, tmp_path, _config_dir
+):
+    """`_run_desktop` reads show_console_on_startup (default off) and hides
+    the console before the window opens — the actual fix for "the terminal
+    still shows when I run the application, I want it hidden by default"."""
+    show_window_calls = []
+    _fake_windll(monkeypatch, console_hwnd=99, show_window_calls=show_window_calls)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(launcher, "_start_tray", lambda *a, **k: None)
+    _quiet_server_thread(monkeypatch)
+    _fake_webview(monkeypatch)
+
+    launcher._run_desktop()
+
+    assert show_window_calls == [(99, 0)]  # SW_HIDE, default preference is off
+
+
+def test_desktop_startup_leaves_the_console_shown_when_the_preference_says_so(
+    monkeypatch, tmp_path, _config_dir
+):
+    from memorymap.core import deps
+
+    deps.get_config().set_preference("show_console_on_startup", True)
+
+    show_window_calls = []
+    _fake_windll(monkeypatch, console_hwnd=99, show_window_calls=show_window_calls)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(launcher, "_start_tray", lambda *a, **k: None)
+    _quiet_server_thread(monkeypatch)
+    _fake_webview(monkeypatch)
+
+    launcher._run_desktop()
+
+    assert show_window_calls == []  # never hidden

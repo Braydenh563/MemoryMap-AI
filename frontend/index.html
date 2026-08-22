@@ -1023,6 +1023,10 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="Search the web">
             <button id="web-go" class="small">Search</button>
           </div>
+          <!-- Recent searches — a way back in, not a permanent fixture: hidden
+               the moment there's a query typed or a result on screen. -->
+          <div id="web-search-history" class="row web-search-history hidden"
+            aria-label="Recent web searches"></div>
           <p id="web-status" class="status" role="status"></p>
           <div id="web-results" class="web-results"></div>
           <div id="web-reader" class="web-reader hidden">

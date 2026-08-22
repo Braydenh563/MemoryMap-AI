@@ -5250,6 +5250,7 @@ function toggleWebPanel(force) {
       status.textContent = "";
     }
     refreshWebSearxngStrip();
+    renderWebSearchHistory();
     $("web-query").focus();
   } else {
     clearTimeout(webSearxngTimer);
@@ -5336,6 +5337,128 @@ async function refreshWebSearxngStrip() {
   }
 }
 
+// One search result row — split out so the initial batch and the "Show
+// more" reveal (below) build identical rows from one code path.
+function buildWebResultRow(result) {
+  const row = document.createElement("div");
+  row.className = "web-result";
+
+  const title = document.createElement("button");
+  title.type = "button";
+  title.className = "web-result-title";
+  title.textContent = result.title || result.url;
+  title.addEventListener("click", () => openWebReader(result.url));
+  row.appendChild(title);
+
+  const meta = document.createElement("div");
+  meta.className = "web-result-meta muted";
+  meta.textContent = result.domain || "";
+  // SearXNG is a metasearch engine, so "via SearXNG" says where the query
+  // was assembled rather than who answered it. Naming the upstream engines
+  // is what makes a self-hosted instance legible rather than a black box.
+  // textContent throughout — these names come from a third party.
+  if (Array.isArray(result.via) && result.via.length) {
+    const via = document.createElement("span");
+    via.className = "web-result-via";
+    via.textContent = result.via.join(" · ");
+    via.title = `Found by ${result.via.join(", ")}`;
+    meta.append(" — ", via);
+  }
+  row.appendChild(meta);
+
+  if (result.snippet) {
+    const snippet = document.createElement("div");
+    snippet.className = "web-result-snippet muted";
+    snippet.textContent = result.snippet;
+    row.appendChild(snippet);
+  }
+
+  // The actions, in the row's corner and revealed on hover — the same
+  // pattern the note cards use, and for the same reason. Measured before:
+  // three labelled buttons under every result made each one 127px tall, so
+  // barely two and a half results fitted in the panel. **"Read here Read here" is
+  // gone entirely**: the title does exactly that, one line above, which
+  // makes it a button whose whole job was to repeat the thing next to it.
+  const actions = document.createElement("div");
+  actions.className = "web-result-actions";
+  const open = document.createElement("a");
+  open.href = result.url;
+  open.target = "_blank";
+  open.rel = "noopener noreferrer";
+  open.className = "ghost small web-open-link";
+  setLabel(open, "ph:arrow-square-out");
+  open.title = "Open in your browser";
+  open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
+  actions.appendChild(open);
+  const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
+    askAboutPage(result.url, result.title)
+  );
+  ask.setAttribute("aria-label", "Ask the AI about this page");
+  actions.appendChild(ask);
+  row.appendChild(actions);
+  return row;
+}
+
+// Last few distinct web queries, newest first — asked for directly ("missing
+// features... history"). Client-side only: these are the person's own past
+// searches, same privacy tier as the search itself (already opt-in, already
+// logged locally via manager.log_action), nothing new leaves the machine.
+const WEB_SEARCH_HISTORY_KEY = "webSearchHistory";
+const WEB_SEARCH_HISTORY_MAX = 8;
+// Results already fetched for the current query but not yet shown — "Show
+// more" reveals from here rather than re-searching, since the backend
+// already returns up to 20 in one call (routes_websearch.py).
+let webSearchPending = [];
+
+function loadWebSearchHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WEB_SEARCH_HISTORY_KEY) || "[]");
+    return Array.isArray(raw) ? raw.filter((q) => typeof q === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushWebSearchHistory(query) {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+  const history = [trimmed, ...loadWebSearchHistory().filter((q) => q !== trimmed)].slice(
+    0,
+    WEB_SEARCH_HISTORY_MAX
+  );
+  try {
+    localStorage.setItem(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    /* storage full or blocked — the search itself still worked */
+  }
+}
+
+// Shown only while the query box is empty: recent searches are a way *in*,
+// not chrome that sits above every result list.
+function renderWebSearchHistory() {
+  const box = $("web-search-history");
+  if (!box) return;
+  const history = loadWebSearchHistory();
+  box.replaceChildren();
+  if ($("web-query").value.trim() || !history.length) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  for (const query of history) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip chip-interactive tag";
+    setLabel(chip, `ph:clock-counter-clockwise ${query}`);
+    chip.title = `Search again: ${query}`;
+    chip.addEventListener("click", () => {
+      $("web-query").value = query;
+      runWebSearch();
+    });
+    box.appendChild(chip);
+  }
+}
+
 async function runWebSearch() {
   const query = $("web-query").value.trim();
   if (!query) return;
@@ -5343,16 +5466,23 @@ async function runWebSearch() {
   const box = $("web-results");
   $("web-reader").classList.add("hidden");
   box.replaceChildren();
+  webSearchPending = [];
   status.classList.remove("error");
   status.textContent = "Searching the web…";
   let body;
   try {
-    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=8`);
+    // Asks for the route's full cap in one call — both providers already
+    // fetch one page and slice it, so this costs nothing extra over asking
+    // for 8, and "Show more" below can reveal the rest without a second
+    // request (or a second hit against a rate limit).
+    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=20`);
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
     return;
   }
+  pushWebSearchHistory(query);
+  renderWebSearchHistory();
   const results = body.results || [];
   // Name the engine that ANSWERED — which under "Automatic" is not
   // necessarily the one configured — and say what that means for privacy.
@@ -5373,64 +5503,23 @@ async function runWebSearch() {
     detail.textContent = ` · ${answered.detail}`;
     status.appendChild(detail);
   }
-  for (const result of results) {
-    const row = document.createElement("div");
-    row.className = "web-result";
 
-    const title = document.createElement("button");
-    title.type = "button";
-    title.className = "web-result-title";
-    title.textContent = result.title || result.url;
-    title.addEventListener("click", () => openWebReader(result.url));
-    row.appendChild(title);
-
-    const meta = document.createElement("div");
-    meta.className = "web-result-meta muted";
-    meta.textContent = result.domain || "";
-    // SearXNG is a metasearch engine, so "via SearXNG" says where the query
-    // was assembled rather than who answered it. Naming the upstream engines
-    // is what makes a self-hosted instance legible rather than a black box.
-    // textContent throughout — these names come from a third party.
-    if (Array.isArray(result.via) && result.via.length) {
-      const via = document.createElement("span");
-      via.className = "web-result-via";
-      via.textContent = result.via.join(" · ");
-      via.title = `Found by ${result.via.join(", ")}`;
-      meta.append(" — ", via);
-    }
-    row.appendChild(meta);
-
-    if (result.snippet) {
-      const snippet = document.createElement("div");
-      snippet.className = "web-result-snippet muted";
-      snippet.textContent = result.snippet;
-      row.appendChild(snippet);
-    }
-
-    // The actions, in the row's corner and revealed on hover — the same
-    // pattern the note cards use, and for the same reason. Measured before:
-    // three labelled buttons under every result made each one 127px tall, so
-    // barely two and a half results fitted in the panel. **"Read here Read here" is
-    // gone entirely**: the title does exactly that, one line above, which
-    // makes it a button whose whole job was to repeat the thing next to it.
-    const actions = document.createElement("div");
-    actions.className = "web-result-actions";
-    const open = document.createElement("a");
-    open.href = result.url;
-    open.target = "_blank";
-    open.rel = "noopener noreferrer";
-    open.className = "ghost small web-open-link";
-    setLabel(open, "ph:arrow-square-out");
-    open.title = "Open in your browser";
-    open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
-    actions.appendChild(open);
-    const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
-      askAboutPage(result.url, result.title)
-    );
-    ask.setAttribute("aria-label", "Ask the AI about this page");
-    actions.appendChild(ask);
-    row.appendChild(actions);
-    box.appendChild(row);
+  const INITIAL_SHOWN = 8;
+  for (const result of results.slice(0, INITIAL_SHOWN)) {
+    box.appendChild(buildWebResultRow(result));
+  }
+  webSearchPending = results.slice(INITIAL_SHOWN);
+  if (webSearchPending.length) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "ghost small web-show-more";
+    setLabel(more, `ph:caret-down Show ${webSearchPending.length} more`);
+    more.addEventListener("click", () => {
+      for (const result of webSearchPending) box.insertBefore(buildWebResultRow(result), more);
+      webSearchPending = [];
+      more.remove();
+    });
+    box.appendChild(more);
   }
 }
 
@@ -22941,6 +23030,7 @@ $("web-go").addEventListener("click", runWebSearch);
 $("web-query").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runWebSearch();
 });
+$("web-query").addEventListener("input", renderWebSearchHistory);
 $("web-reader-back").addEventListener("click", () =>
   $("web-reader").classList.add("hidden")
 );

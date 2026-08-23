@@ -5522,6 +5522,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("library-images-search")?.addEventListener("input", filterLibraryImagesGallery);
   $("library-drafts-refresh")?.addEventListener("click", renderLibraryDraftsList);
   $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
   $("library-images-upload-input")?.addEventListener("change", async (event) => {
@@ -5624,17 +5625,50 @@ async function renderLibraryBoardsGallery() {
 // note or whiteboard still referencing a *deleted* url gets its own
 // placeholder instead of a broken glyph; see `renderInlineMarkdown`'s own
 // image `error` handler and `wbRenderObjects`'s image-object one.
+//: The last `GET /media` fetch, so the search box (below) can filter and
+//: re-render without a round-trip on every keystroke — the same reasoning
+//: the main Library search already uses against `libraryItems`.
+let libraryImagesCache = [];
+
 async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
   const images = await apiJson("/media", { silent: true }).catch(() => null);
-  grid.replaceChildren();
-  if (!images || !images.length) {
+  libraryImagesCache = images || [];
+  if (!images) {
+    grid.replaceChildren();
     empty?.classList.remove("hidden");
     return;
   }
+  filterLibraryImagesGallery();
+}
+
+// Filters `libraryImagesCache` against the search box's own value — the
+// filename *and* any OCR text found on the image (ROADMAP.md item 30d), so
+// "what was on that whiteboard photo from March" is answerable by typing
+// a word that was written on it, not just what it happened to be named.
+function filterLibraryImagesGallery() {
+  const grid = $("library-images-grid");
+  const empty = $("library-images-empty");
+  const noMatch = $("library-images-no-match");
+  if (!grid) return;
+  const query = ($("library-images-search")?.value || "").trim().toLowerCase();
+  const images = query
+    ? libraryImagesCache.filter(
+        (i) =>
+          (i.original_name || "").toLowerCase().includes(query) ||
+          (i.ocr_text || "").toLowerCase().includes(query)
+      )
+    : libraryImagesCache;
+  grid.replaceChildren();
+  if (!libraryImagesCache.length) {
+    empty?.classList.remove("hidden");
+    noMatch?.classList.add("hidden");
+    return;
+  }
   empty?.classList.add("hidden");
+  noMatch?.classList.toggle("hidden", images.length > 0);
   for (const image of images) {
     const fig = document.createElement("figure");
     fig.className = "library-image-tile";
@@ -5670,8 +5704,9 @@ async function renderLibraryImagesGallery() {
       e.stopPropagation();
       if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
       await apiJson(`/media/${image.id}`, { method: "DELETE" }).catch((err) => toast(err.message, true));
-      fig.remove();
-      if (!grid.children.length) empty?.classList.remove("hidden");
+      const idx = libraryImagesCache.indexOf(image);
+      if (idx !== -1) libraryImagesCache.splice(idx, 1);
+      filterLibraryImagesGallery();
     });
     // Rename. Reported as simply missing: there was no way to rename an image
     // in the Library at all. The stylesheet already had `.library-image-edit`

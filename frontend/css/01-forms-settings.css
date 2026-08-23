@@ -335,6 +335,27 @@ button.small {
   font-size: 0.85rem;
 }
 
+/* The update-available dialog's "View release" is a real <a>, not a button
+   with a navigate-on-click handler (right-click/middle-click/Ctrl-click all
+   need to keep working), so it can't pick up `button`/`button.small`'s own
+   rules above — this is that same look, on an element those selectors
+   don't reach. */
+.update-dialog-link {
+  display: inline-block;
+  padding: 0.25rem 0.8rem;
+  border-radius: var(--radius-lg);
+  background: var(--accent-surface);
+  color: var(--on-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.update-dialog-link:hover {
+  filter: brightness(1.07);
+}
+
 .row {
   display: flex;
   gap: 0.6rem;
@@ -1415,7 +1436,12 @@ li.link-source {
   }
 }
 
-.entry-list li.flash {
+.entry-list li.flash,
+/* Same highlight, for a jump-to-setting target outside the entry list —
+   e.g. openSettingsModal's scrollToId (Search relevance, jumped to from the
+   Dashboard/Ask/Chat quick-access links) landing on a group buried in a long
+   settings section, not just the top of it. */
+.flash-target.flash {
   outline: 3px solid transparent;
   outline-offset: 2px;
   border-radius: var(--radius);
@@ -1424,7 +1450,8 @@ li.link-source {
 
 /* Reduced motion still gets the highlight — it just doesn't animate away. */
 @media (prefers-reduced-motion: reduce) {
-  .entry-list li.flash {
+  .entry-list li.flash,
+  .flash-target.flash {
     animation: none;
     outline-color: var(--accent);
     background: var(--accent-soft);
@@ -2180,6 +2207,20 @@ html.modal-open body {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
+}
+
+/* Web search off (the far more common state — it's opt-in, off by default):
+   asked for directly, a plain `.ghost` button here read as no different from
+   Skills/Ask/Plan next to it — every one of them equally clickable, equally
+   neutral — so there was nothing on screen saying "this one goes online and
+   currently can't". Still fully clickable (this button IS how you turn it
+   on from the chat dock, not just a status readout), so this dims rather
+   than disables — the same "present but visibly not armed" role opacity
+   plays for a muted notification bell elsewhere in this app, not the
+   `button:disabled` look above, which reads as busy/unavailable rather than
+   off. */
+#web-search-toggle:not(.active) {
+  opacity: 0.6;
 }
 
 /* Typing indicator (Wave D): three bouncing dots until the first token */

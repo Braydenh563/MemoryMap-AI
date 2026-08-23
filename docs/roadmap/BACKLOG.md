@@ -177,14 +177,16 @@ navigate anywhere. **This ties §3 to §7.**
 
 ## 4. Library tab: chats, documents, images, archive
 
-> **Status (audited this session): item 4 (the Library tab itself) is done —
-> §36F/G built it and it now absorbed the Notes tab's Bin/Activity/Tags panels
-> too, well past this section's original scope. Items 1 (drag-drop any file
-> type onto the capture box, OCR on uploaded images) and 3 (`archived_at` —
-> confirmed absent from the schema) are still genuinely open.** This section
-> read as entirely unbuilt before the audit, which is exactly the kind of
-> staleness that costs a session; check `routes_library.py` and the `Entry`/
-> `Document`/`Conversation` models before assuming otherwise.
+> **Status: item 4 (the Library tab itself) is done — §36F/G built it and it
+> now absorbed the Notes tab's Bin/Activity/Tags panels too, well past this
+> section's original scope. Item 1 (drag-drop any file type onto the capture
+> box, OCR on uploaded images) is now also fully done, OCR being the last
+> genuinely open piece (ROADMAP.md item 30d). Item 3 (`archived_at` — notes'
+> own archive shipped; chats/documents still don't have one, see ROADMAP.md
+> item 30b) is still genuinely open.** This section read as entirely unbuilt
+> before an earlier audit, which is exactly the kind of staleness that costs
+> a session; check `routes_library.py` and the `Entry`/`Document`/
+> `Conversation` models before assuming otherwise.
 
 **Why.** Asked for directly. Everything that isn't a note lives only in its own
 tab, and there is no archive at all.
@@ -223,18 +225,15 @@ store:**
      `/media/` uploads only — an arbitrary external link's extension isn't
      trustworthy enough to icon the same way) instead of reading identically
      to a plain URL.
-   - **A step further, genuinely new: extracting text from what's
-     uploaded, not just storing it.** An image of a whiteboard photo or a
-     handwritten page currently attaches as an opaque file — nothing reads
-     it. Local OCR (`pytesseract` or similar, no cloud call needed) run on
-     an attached image at upload time could feed its text into the same
-     search index notes already use, so "what was on that whiteboard photo
-     from March" becomes answerable. This is a genuinely separate capability
-     from the file-storage work above — it's the one part of "handle image
-     and file uploads" that isn't already half-built — worth scoping as its
-     own follow-on rather than folding into the attach-path widening, since
-     it needs a new pipeline stage (extract → index), not just a wider
-     drop-handler.
+   - ~~**A step further, genuinely new: extracting text from what's
+     uploaded, not just storing it.**~~ **Done — see ROADMAP.md item 30d
+     and HANDOVER.md's latest entry.** Local `pytesseract`/Tesseract, on a
+     background thread, feeds the Library's own Image Gallery search (new)
+     rather than the notes' FTS5 index this bullet originally pointed at —
+     a `MediaUpload` isn't an `Entry`, so that was the honest integration
+     point once the actual schema was checked, not the literal one this
+     text guessed at. "What was on that whiteboard photo from March" is
+     now answerable.
 2. **A bigger sketch board — asked for again: "improve sketches board, maybe
    a whiteboard tab??"** See below; promoted out of this list into its own
    full write-up given how much is actually being asked for.

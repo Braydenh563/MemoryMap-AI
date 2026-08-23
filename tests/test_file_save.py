@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pytest
 
+from memorymap.api import routes_files
 from memorymap.api.routes_files import EXPORTS_DIRNAME, safe_filename
 
 
@@ -127,3 +128,87 @@ def test_health_says_whether_this_is_the_desktop_window(client, monkeypatch):
     assert client.get("/health").json()["desktop"] is False
     monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
     assert client.get("/health").json()["desktop"] is True
+
+
+# --- a configurable save location (asked for directly, alongside the above:
+# "a configurable save location for exported images") ------------------------
+
+
+def test_export_save_dir_defaults_to_empty_and_exports_go_to_the_usual_place(
+    client, app_state
+):
+    assert client.get("/preferences").json()["export_save_dir"] == ""
+    written = Path(_save(client, "chat.md", b"x").json()["path"])
+    assert written.parent == (app_state.data_dir / EXPORTS_DIRNAME)
+
+
+def test_export_save_dir_redirects_where_files_are_saved(client, app_state, tmp_path):
+    custom = tmp_path / "my-exports"
+    custom.mkdir()
+    updated = client.put("/preferences", json={"export_save_dir": str(custom)}).json()
+    assert updated["export_save_dir"] == str(custom)
+    written = Path(_save(client, "chat.md", b"x").json()["path"])
+    assert written.parent == custom
+    assert not (app_state.data_dir / EXPORTS_DIRNAME).exists()
+
+
+def test_export_save_dir_empty_string_resets_to_default(client, app_state, tmp_path):
+    custom = tmp_path / "my-exports"
+    custom.mkdir()
+    client.put("/preferences", json={"export_save_dir": str(custom)})
+    reset = client.put("/preferences", json={"export_save_dir": ""}).json()
+    assert reset["export_save_dir"] == ""
+    written = Path(_save(client, "chat.md", b"x").json()["path"])
+    assert written.parent == (app_state.data_dir / EXPORTS_DIRNAME)
+
+
+def test_export_save_dir_rejects_a_relative_path(client):
+    response = client.put("/preferences", json={"export_save_dir": "relative/path"})
+    assert response.status_code == 422
+
+
+def test_export_save_dir_rejects_a_path_that_does_not_exist(client, tmp_path):
+    missing = tmp_path / "does-not-exist"
+    response = client.put("/preferences", json={"export_save_dir": str(missing)})
+    assert response.status_code == 422
+
+
+def test_export_save_dir_rejects_a_file_that_is_not_a_directory(client, tmp_path):
+    a_file = tmp_path / "not-a-folder.txt"
+    a_file.write_text("x")
+    response = client.put("/preferences", json={"export_save_dir": str(a_file)})
+    assert response.status_code == 422
+
+
+def test_export_save_dir_bad_value_leaves_the_old_one_in_place(client, tmp_path):
+    """A rejected PUT must not half-apply — the preference the export path
+    actually reads stays whatever it was before this request."""
+    good = tmp_path / "good"
+    good.mkdir()
+    client.put("/preferences", json={"export_save_dir": str(good)})
+    client.put("/preferences", json={"export_save_dir": "relative/nope"})
+    assert client.get("/preferences").json()["export_save_dir"] == str(good)
+
+
+# --- opening the exports folder in the OS file manager (desktop only) -------
+
+
+def test_open_exports_folder_refused_off_the_desktop_app(client):
+    response = client.post("/files/open-exports-folder")
+    assert response.status_code == 409
+
+
+def test_open_exports_folder_creates_the_folder_before_trying_to_open_it(
+    client, app_state, monkeypatch
+):
+    """However the OS call itself goes, the folder it's pointed at has to be
+    real first — nothing to reveal is worse than nothing happening."""
+    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setattr(routes_files.subprocess, "Popen", lambda *a, **k: None)
+    monkeypatch.setattr(routes_files.sys, "platform", "linux")
+    exports = app_state.data_dir / EXPORTS_DIRNAME
+    assert not exports.exists()
+    response = client.post("/files/open-exports-folder")
+    assert response.status_code == 200
+    assert response.json()["path"] == str(exports)
+    assert exports.is_dir()

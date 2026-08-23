@@ -618,10 +618,32 @@ body.has-agent-monitor #tab-chat {
 }
 
 body.has-agent-monitor #tab-notes .layout > main,
-body.has-agent-monitor #tab-chat .layout > main,
 body.has-agent-monitor .doc-sidebar .doc-list {
   padding-bottom: calc(var(--space-9) * 9);
 }
+
+/* Chat used to be listed alongside Notes above (`#tab-chat .layout > main`)
+   and that was a real, user-reported bug, reproduced live: opening the
+   Agent Activity monitor visibly shoved the whole chat card up the page —
+   the Send button's own Y position moved by ~113px. `#tab-notes .layout >
+   main` IS Notes' own `overflow-y: auto` scroll box
+   (04-chat-dock-appearance.css), so padding-bottom there just grows its
+   scrollable area. Chat's equivalent, `#chat-main`, is NOT a scroll
+   container — `#chat-messages` (a `flex: 1 1 auto` child two levels down)
+   is — and padding on any ancestor above that point either shrinks the
+   whole fixed-height card (the original bug) or, tried and measured next,
+   still doesn't cleanly translate into extra scroll room without the
+   composer's own fixed-size flex sibling absorbing part of the push.
+   Removed for Chat entirely instead of chasing a third selector blind — the
+   monitor is `left: 20px; width: 350px` (07-whiteboard-misc.css above) —
+   measured live, that footprint lands on the "Chats" sidebar column
+   (`.layout > aside`), not `.layout > main` at all (`main`'s own `x` starts
+   at 348px in a 1024px-wide test window, past the monitor's right edge).
+   Nothing in the conversation column needs protecting from an overlay that
+   never covers it; the only thing actually behind the monitor is the
+   bottom of the chat list, and unlike a hidden composer control, a chat you
+   can't currently see in the list is one scroll or one click on "New" away,
+   not a broken control. */
 
 .monitor-log-item {
   animation: fade-in 0.2s ease-out;

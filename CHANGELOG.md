@@ -7,6 +7,60 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-08-23
+
+### Fixed — chat citation badges silently dropped in the Chat tab
+
+The backend already computed per-sentence note grounding and sent a `grounding` event for any notes-related turn, but the frontend only ever rendered it in the Ask tab — the Chat tab never listened for the event at all, so a chat answer that clearly drew on specific notes named none of them. Each chat bubble now gets its own "Grounded in:" chip strip, the same one the Ask tab already had.
+
+### Added — search-relevance help and quick-access links
+
+Settings → Preferences → "Search relevance (advanced)" (minimum similarity, above-average margin) had no explanation and no way in except scrolling Settings by hand. Added a hover tooltip and a click-open panel explaining both numbers, plus three quick-access links — the Dashboard's Tools & Features catalog, the Ask tab's Matching Records heading, and Chat's per-turn matching-notes summary — that jump straight to the setting and highlight it.
+
+### Added — an "Open exports folder" button, and a configurable export location
+
+Graph PNGs, chat exports and the like landed in the app's data folder with only a toast naming the path. Settings → Data now has a button to open that folder directly (desktop app only), and a new preference to redirect where exports are saved, validated as a real, writable folder before it's accepted.
+
+### Fixed — three preferences silently dropped by Settings
+
+`auto_stale_review_enabled` (the autonomous stale/orphaned-note reviewer), `session_idle_ttl_minutes` (Settings → Account's sign-out timer), and `response_mode` (the Quick/Normal/Detailed picker) each had a working Settings control that saved without error but never actually took effect — some were never echoed back after saving (so the control looked reset on reload even though the saved value was in effect), one was never actually accepted by the save endpoint at all. All three now round-trip correctly.
+
+### Fixed — the in-app package installer failing on the packaged Windows build
+
+Reported by a real user: installing "Search by meaning" or dictation from Settings → Packages failed with a cryptic "unrecognized arguments" error and no visible cause. The installer was accidentally re-launching the packaged app itself instead of running `pip`, a mistake only possible in the installed .exe, not a source checkout — which is also the real explanation for two earlier, unresolved "pip install just fails" reports. It now finds a real Python on the system and uses that; if none is found, it says so plainly instead of failing mysteriously. The same fix was needed, and applied, to the SearXNG (private web search) setup process for the same reason.
+
+### Fixed — a missing search-engine component in the packaged build
+
+The packaged Windows app was missing four internal files needed for the optional local web-search engine (SearXNG) to install itself, producing a "module not found" error for anyone who tried. Fixed, and guarded against happening again for any future addition to that engine.
+
+### Fixed — the background-activity notification visibly shrinking the Chat tab
+
+Reported and reproduced live: opening the small "Agent Activity" notification panel while on the Chat tab visibly shoved the whole conversation — messages, the composer, the Send button — up the page. The panel was never meant to overlap the conversation at all (only the chat list beside it), so the leftover spacing rule causing the squeeze was removed.
+
+### Added — a one-click fix when the built-in search engine can't install
+
+If the offline "search by meaning" engine can't be installed (a known limitation on some systems), Settings → Models now offers a single button to switch to an equivalent Ollama-based engine (nomic-embed-text) instead — downloading it and switching over automatically, rather than requiring several manual steps across two different settings panels.
+
+### Changed — the in-chat "Web" toggle now visibly shows when it's off
+
+The web-search toggle in the chat composer looked identical whether it was on or off, which made it easy to overlook that it was left on (or think it was on when it wasn't). It now dims clearly when off, while staying just as easy to turn on.
+
+### Added — automatic updates for the packaged Windows app
+
+Settings → About can now download and install a new release itself — no more being sent back through a browser to redownload and re-run the installer by hand. A popup after login offers it the moment a real release is found (once per version, not every login); Settings → About has the same "Update automatically" action as a manual fallback. Two new, separate switches: whether the app may check GitHub for a release at all, and whether it may apply one automatically once found — turning either off is respected everywhere, including the popup. A "choose a specific version" picker lists recent releases directly in Settings, and a "track the main branch" channel option is now a real, storable preference (main-branch tracking itself still reports honestly as not yet available — no nightly-build pipeline exists yet to make good on it). Every step — checking, downloading, and applying — degrades cleanly when offline or blocked by a firewall/antivirus, and a failed attempt can always be retried, either from the next login's popup or by hand in Settings. Source checkouts (`start.sh`/`start.bat`) already auto-update on every launch via `git pull`; they now default to tracking main (since that's what they're actually doing) and show their own "you were just updated" popup after a real update, using the same mechanism.
+
+### Fixed — a background embedding-model install failure now retries itself
+
+Reported by a real user: when the BGE semantic-search model failed to install, the app fell back to a lower-quality model and stayed there, even after the underlying cause (a transient `pip` failure) resolved itself. A missing `sentence_transformers` package now triggers one automatic reinstall attempt in the background, and search quality recovers on its own once it succeeds — no more permanently stuck on the fallback after a one-off install hiccup.
+
+### Added — search inside uploaded images (OCR), and a search box for the Image Gallery
+
+A whiteboard photo or a scanned page attached to a note used to sit as an opaque file — nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text — "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected. Settings → Packages can now install this feature like any other optional extra, and tries to install the Tesseract program itself automatically too (winget/brew/apt/dnf/pacman, whichever this computer has) rather than only pointing at manual instructions.
+
+### Fixed — a security review found two real issues in the new auto-update code, both fixed
+
+`POST /update/apply`'s specific-version picker built a GitHub URL from the requested version without checking its shape first; it now only accepts a real release-tag pattern. A failed install used to report the raw system error, which on Windows could include a local file path; it now reports a safe, generic message while the full detail still goes to the app's own logs.
+
 ## [0.1.2] - 2026-08-23
 
 ### Added — Dev view / User view console mode, a terminal-style log view, advanced search settings

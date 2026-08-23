@@ -421,6 +421,13 @@ function startApp() {
   step("check for an update", () => {
     if (prefsCache && prefsCache.update_check_enabled) return checkForUpdate(true);
   });
+  // Independent of update_check_enabled above — this isn't a network
+  // check, it's reporting a fact: start.sh/start.bat already git-pulled a
+  // real update before this process even started (their own step 0, no
+  // preference gates it either). "Only if the app auto updates though,
+  // not every time they login" — the endpoint self-clears after one read,
+  // so this only ever fires the run right after a real update landed.
+  step("check for a source-checkout update notice", checkForSourceUpdateNotice);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
@@ -4016,8 +4023,7 @@ function clickableResult(entry) {
 // often share a note, and a chip per sentence would repeat itself), the
 // chip's title carrying the actual sentence(s) it backs. Clicking a chip
 // opens that note, same as a search result row already does.
-function renderAnswerGrounding(box, sentences, rawResults) {
-  const target = $("ai-answer-grounding");
+function renderAnswerGrounding(target, sentences, rawResults) {
   if (!target) return;
   target.replaceChildren();
   if (!sentences || !sentences.length) {
@@ -4541,7 +4547,7 @@ async function askQuestion(preset) {
         status.textContent = "";
       },
       onGrounding: (event) => {
-        renderAnswerGrounding(answerBox, event.sentences, groundingRawResults);
+        renderAnswerGrounding($("ai-answer-grounding"), event.sentences, groundingRawResults);
       },
     });
 
@@ -6477,13 +6483,21 @@ function addAssistantBubble() {
   stepsHolder.className = "agent-steps";
 
   const recordsHolder = document.createElement("div");
+  // Same "grounded in" chip strip the Ask tab shows (renderAnswerGrounding) —
+  // that function only ever wrote to the Ask tab's single fixed element, so a
+  // Chat-tab notes question got the "grounding" SSE event from the backend
+  // (it's emitted for any non-conversational /chat/stream call, not just the
+  // Ask box) but nothing ever rendered it. One holder per bubble, since Chat
+  // has many turns where Ask has one answer.
+  const groundingHolder = document.createElement("div");
+  groundingHolder.className = "answer-grounding hidden";
 
-  bubble.append(stepsHolder, recordsHolder);
+  bubble.append(stepsHolder, recordsHolder, groundingHolder);
   $("chat-messages").appendChild(bubble);
   renderEmblem(avatar, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
   const timeline = agentTimeline(stepsHolder);
-  return { bubble, stepsHolder, recordsHolder, timeline };
+  return { bubble, stepsHolder, recordsHolder, groundingHolder, timeline };
 }
 
 // One "the AI did something" chip in a bubble (Wave G).
@@ -6695,6 +6709,16 @@ function renderRecordsDetails(holder, meta) {
   summary.textContent = `${meta.raw_results.length} matching note${
     meta.raw_results.length === 1 ? "" : "s"
   } (${label}) — click one to open it`;
+  // Same quick-access link as the Ask tab's "Matching records" heading and
+  // Settings → Preferences itself — a chat turn with weak-looking matches is
+  // exactly the moment someone wants the relevance sliders, not a hunt
+  // through Settings to find them.
+  const tune = smallButton("ph:sliders-horizontal", "Tune search sensitivity", (event) => {
+    event.stopPropagation(); // inside a <summary>: don't also toggle the <details>
+    openSettingsModal("preferences", "search-relevance-group");
+  });
+  tune.classList.add("icon-only", "records-tune-btn");
+  summary.appendChild(tune);
   details.appendChild(summary);
   const list = document.createElement("ul");
   list.className = "entry-list";
@@ -8102,7 +8126,7 @@ async function sendChatMessage(preset, opts = {}) {
   // and hiding the request entirely would leave the plan looking as though it
   // came from nowhere; the button they pressed is the explanation.
   if (!opts.skipUserBubble) addBubble("user", opts.displayText || question);
-  const { bubble, stepsHolder, recordsHolder, timeline } = addAssistantBubble();
+  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
@@ -8216,6 +8240,9 @@ async function sendChatMessage(preset, opts = {}) {
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
+      },
+      onGrounding: (event) => {
+        renderAnswerGrounding(groundingHolder, event.sentences, meta?.raw_results || []);
       },
       onPlan: (event) => {
         clearPending();
@@ -10212,7 +10239,14 @@ async function saveFile(filename, blob) {
       });
       // Where it went matters more here than in a browser: there is no
       // downloads shelf to look at, so an unannounced file is a lost one.
-      toast(`Saved to ${saved.path}`);
+      // An action button on the toast itself, not just a path in the text,
+      // is what makes that true rather than aspirational — asked for
+      // directly after "I have to dig in the app data files to find them".
+      toastAction(`Saved to ${saved.path}`, "Open folder", () => {
+        apiJson("/files/open-exports-folder", { method: "POST" }).catch((error) => {
+          toast(error.message || "Couldn't open the exports folder.", true);
+        });
+      });
       return saved;
     } catch (error) {
       toast(`Couldn't save ${filename}: ${error.message}`, true);
@@ -11270,6 +11304,7 @@ function featureCatalog() {
       { name: "Agent mode", desc: "Let the assistant use its tools — search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
       { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
       { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
+      { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", run: () => openSettingsModal("preferences", "search-relevance-group") },
     ]},
     { group: "Map & discovery", items: [
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
@@ -15444,7 +15479,12 @@ function updatePeekAvailability(section) {
   if (!appearance) setSettingsPeek(false);
 }
 
-async function openSettingsModal(section = "models") {
+// `scrollToId`: a quick-access link into one setting buried in a long
+// section (e.g. "Search relevance (advanced)" from the Dashboard, the Ask
+// sub-tab, or Chat) needs to land on that control, not just the top of
+// Preferences — otherwise it's a link to "somewhere in here, scroll and
+// find it yourself", which is what it was before this existed.
+async function openSettingsModal(section = "models", scrollToId = null) {
   overlayReturnFocus = document.activeElement;
   $("settings-modal").classList.remove("hidden");
   $("settings-close").focus();
@@ -15452,10 +15492,18 @@ async function openSettingsModal(section = "models") {
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
   } · ${allEntries.length} entries loaded`;
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
+  $("pref-auto-update").checked = Boolean(prefsCache?.auto_update_enabled);
+  $("pref-update-channel-main").checked = prefsCache?.update_channel === "main";
   $("update-check-status").textContent = "";
+  $("update-version-select").classList.add("hidden");
+  $("update-install-version").classList.add("hidden");
+  $("update-version-status").textContent = "";
   const isDesktop = await desktopShell();
   $("desktop-console-row").classList.toggle("hidden", !isDesktop);
   $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
+  $("open-exports-row").classList.toggle("hidden", !isDesktop);
+  $("export-save-dir-row").classList.toggle("hidden", !isDesktop);
+  if (isDesktop) $("pref-export-dir").value = prefsCache?.export_save_dir || "";
   if (isDesktop) {
     $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
   }
@@ -15465,6 +15513,17 @@ async function openSettingsModal(section = "models") {
   }
   loadChangelog();
   refreshModelStatus();
+  if (scrollToId) {
+    requestAnimationFrame(() => {
+      const target = $(scrollToId);
+      if (!target) return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      target.classList.remove("flash");
+      void target.offsetWidth;
+      target.classList.add("flash");
+    });
+  }
 }
 
 // CHANGELOG.md, rendered in Settings → About (§36E). Loaded once per session
@@ -16268,6 +16327,7 @@ async function saveWebSearchSettings() {
 // when there's actually something to say.
 async function checkForUpdate(silent = false) {
   const status = $("update-check-status");
+  const applyBtn = $("update-apply-now");
   if (!silent && status) status.textContent = "Checking…";
   let result;
   try {
@@ -16283,15 +16343,218 @@ async function checkForUpdate(silent = false) {
           ? "Enable the checkbox above, then try again."
           : "Couldn't reach GitHub to check for updates.";
     }
+    applyBtn?.classList.add("hidden");
     return;
   }
+  // Settings -> About's own fallback for "or they can manually do it in the
+  // settings" — same button, same apiJson('/update/apply') call the
+  // post-login dialog's "Update automatically" makes.
+  applyBtn?.classList.toggle("hidden", !(result.update_available && result.can_auto_apply));
   if (result.update_available) {
     const msg = `Version ${result.latest} is available (you have ${result.current}).`;
     if (status) status.textContent = msg;
-    toast(msg);
+    // The silent startup check is the one that runs on every login — asked
+    // for directly: a popup after login, but "only if... not every time
+    // they login". A toast alone auto-dismisses in 5.5s and is easy to miss
+    // entirely if it fires mid-startup while other things are still
+    // loading, so a newly-detected version also gets a real dialog — but
+    // only once per version, via the same localStorage-latch pattern the
+    // rest of this app uses for "seen it" state (e.g. the graph layout/
+    // colour prefs above). Re-showing it every login for a version the
+    // user has already dismissed would be the exact nagging this was
+    // asked to avoid.
+    if (silent && localStorage.getItem(UPDATE_SEEN_KEY) !== result.latest) {
+      showUpdateAvailableDialog(result);
+    } else {
+      toast(msg);
+    }
   } else if (!silent && status) {
     status.textContent = `You're on the latest version (${result.current}).`;
   }
+}
+
+//: The last version this profile was already told about, so the post-login
+//: dialog fires once per newly-available release rather than every login
+//: for as long as the user hasn't updated.
+const UPDATE_SEEN_KEY = "update-seen-version";
+
+// Shared by the dialog's "Update automatically" button and Settings ->
+// About's manual one — asked for directly: "either by the message popping
+// up the next time they load up the app and are connected to the internet,
+// and/or they can manually do it in the settings." `onProgress(state)` is
+// called on every poll (`{step, done_bytes, total_bytes}` from
+// GET /update/apply/status) so each caller can render it its own way; the
+// promise resolves `true` on outcome "launched" and `false` on "failed" —
+// never rejects, since a failed apply is exactly the case both callers have
+// to handle gracefully (offline, GitHub unreachable, no asset), not an
+// exception to propagate.
+async function applyUpdateNow(onProgress, tag = null) {
+  const url = tag ? `/update/apply?tag=${encodeURIComponent(tag)}` : "/update/apply";
+  const start = await apiJson(url, { method: "POST" }).catch((error) => {
+    onProgress?.({ step: error.message, failed: true });
+    return null;
+  });
+  if (!start) return false;
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const state = await apiJson("/update/apply/status", { silent: true }).catch(() => null);
+    if (!state) continue; // a transient miss mid-poll isn't a failure
+    onProgress?.(state);
+    if (state.outcome === "launched") return true;
+    if (state.outcome === "failed") return false;
+    if (!state.running) return false; // shouldn't happen, but never loop forever
+  }
+}
+
+function showUpdateAvailableDialog(result) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "A new version is available");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card";
+  const heading = document.createElement("h3");
+  heading.textContent = "A new version is available";
+  const text = document.createElement("p");
+  text.className = "confirm-text";
+  text.textContent = result.can_auto_apply
+    ? `MemoryMap AI ${result.latest} is out — you're on ${result.current}. ` +
+      "Update automatically (downloads and installs it, then closes MemoryMap " +
+      "AI — reopen it in a minute or two to start using the new version), or " +
+      "download it yourself from the release page."
+    : `MemoryMap AI ${result.latest} is out — you're on ${result.current}. ` +
+      "This app never updates itself without asking: download the new " +
+      "version yourself whenever you're ready.";
+  const progress = document.createElement("p");
+  progress.className = "muted";
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    localStorage.setItem(UPDATE_SEEN_KEY, result.latest);
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      dismiss();
+    }
+  };
+
+  const later = smallButton("Remind me next time", "Remind me next time", dismiss);
+  const view = document.createElement("a");
+  view.href = result.url;
+  view.target = "_blank";
+  view.rel = "noopener";
+  // A real <a>, not a button with a click handler that navigates — right-
+  // click "open in new tab", middle-click, and Ctrl-click all need to keep
+  // working the way they do on every other external link in this app. The
+  // `.small`/`.ghost` button rules are scoped to `button.small` and don't
+  // reach an anchor at all, hence the dedicated class below rather than
+  // relying on those.
+  view.className = "small update-dialog-link";
+  view.textContent = "View release";
+  view.addEventListener("click", dismiss);
+  row.append(later, view);
+
+  if (result.can_auto_apply) {
+    const auto = smallButton("Update automatically", "Update automatically", async () => {
+      auto.disabled = true;
+      later.disabled = true;
+      const ok = await applyUpdateNow((state) => {
+        progress.textContent = state.total_bytes
+          ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
+          : state.step;
+      });
+      if (!ok) {
+        // A failed apply must not mark this version "seen" — asked for
+        // directly: it has to come back next login while still offline (or
+        // whatever the real cause was), not go quiet. Re-enabling the
+        // buttons also lets them retry immediately without waiting for
+        // that next login at all.
+        auto.disabled = false;
+        later.disabled = false;
+        toast(progress.textContent || "Couldn't apply the update.", true);
+      }
+      // On success the app exits itself shortly after (routes_update.py) —
+      // nothing left to do here; the dialog just stays up, showing the
+      // last progress line, until the process closes.
+    }, false);
+    row.appendChild(auto);
+  }
+
+  card.append(heading, text, progress, row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) dismiss();
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  later.focus();
+}
+
+// A source checkout (start.sh/start.bat) auto-updates via `git pull` before
+// the server even starts — asked for directly, the same "popup after
+// login, only if the app auto updates" the packaged-Windows dialog above
+// gives, for the other install type that also auto-updates but had no way
+// to say so. GET /update/source-status is a plain env-var read with no
+// network call and self-clears after one read, so this never fires twice
+// for the same real update and never blocks on being offline.
+async function checkForSourceUpdateNotice() {
+  const result = await apiJson("/update/source-status", { silent: true }).catch(() => null);
+  if (!result || !result.just_updated) return;
+  showSourceUpdatedDialog(result);
+}
+
+function showSourceUpdatedDialog(result) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "MemoryMap AI was updated");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card";
+  const heading = document.createElement("h3");
+  heading.textContent = "MemoryMap AI was updated";
+  const text = document.createElement("p");
+  text.className = "confirm-text";
+  text.textContent = result.from
+    ? `Your checkout auto-updated from ${result.from} to ${result.to} when you started it just now.`
+    : `Your checkout auto-updated to ${result.to} when you started it just now.`;
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      dismiss();
+    }
+  };
+  const ok = smallButton("Got it", "Got it", dismiss, false);
+  row.appendChild(ok);
+
+  card.append(heading, text, row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) dismiss();
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  ok.focus();
 }
 
 //: Which checkbox in Settings mirrors which one elsewhere in the app. Two
@@ -17922,6 +18185,19 @@ let statusEverAnswered = false;
 let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
 
+// The Ollama embedding model offered as a one-click fallback when the
+// built-in (sentence-transformers) engine can't load — asked for directly,
+// after a real support-bundle report: the built-in engine needs
+// sentence-transformers, which isn't bundled (see CLAUDE.md/requirements.txt
+// — installing it has broken past sessions, and a packaged Windows build
+// excludes torch on purpose), so a fresh install with no working Python on
+// PATH for Settings -> Packages to fall back to has no way to make the
+// built-in engine work at all. nomic-embed-text: small, well-known, and
+// exactly what Settings -> Models' own "quick fix" sentence already named
+// before this button existed.
+const EMBEDDING_FALLBACK_MODEL = "nomic-embed-text";
+let embeddingFallbackRunning = false;
+
 function settingsOpen() {
   // The Models section lives inside the settings modal now (Wave A).
   return settingsModalOpen();
@@ -19221,6 +19497,21 @@ function renderSettings() {
       "an Ollama embedding model (download nomic-embed-text from the list) — " +
       "it runs fully offline. Full details in Settings → Logs.";
   }
+  // The one-click version of the "quick fix" sentence above — only offered
+  // when it can actually be carried out (Ollama has to be running to either
+  // pull or use an Ollama embedding model), and not while the fix is
+  // already running or already switched over.
+  const fixRow = $("embedding-error-fix-row");
+  const alreadyOnOllama = status.embedding_backend === "ollama"
+    && status.embedding_model === EMBEDDING_FALLBACK_MODEL;
+  fixRow.classList.toggle(
+    "hidden",
+    !status.embedding_error
+      || !status.ollama_running
+      || !status.supports_pull
+      || embeddingFallbackRunning
+      || alreadyOnOllama
+  );
   renderSearchEngineHealth(status);
   // The "install Ollama" advice only helps someone who chose Ollama.
   $("ollama-help").classList.toggle(
@@ -20031,6 +20322,78 @@ function renderSuggested(status) {
     }
   }
 }
+
+// One click for the sentence #embedding-error already prints: download
+// nomic-embed-text (skipped if it's already installed), then switch the
+// search engine to it and re-index. Self-contained polling rather than
+// riding the shared `modelStatus` refresh loop — that loop backs off to a
+// slow cadence when nothing else is running, which would make a fresh
+// download look stalled for up to 20s at a time; this polls every second
+// for exactly as long as this one operation is in flight.
+async function runEmbeddingFallback() {
+  if (embeddingFallbackRunning) return;
+  embeddingFallbackRunning = true;
+  const button = $("embedding-error-fix");
+  const status = $("embedding-error-fix-status");
+  button.disabled = true;
+  const setStatus = (text) => {
+    status.textContent = text;
+  };
+  try {
+    const already = (modelStatus?.installed_models || []).some(
+      (m) => m.name === EMBEDDING_FALLBACK_MODEL || m.name.split(":")[0] === EMBEDDING_FALLBACK_MODEL
+    );
+    if (!already) {
+      setStatus(`Downloading ${EMBEDDING_FALLBACK_MODEL}…`);
+      try {
+        await api("/models/pull", {
+          method: "POST",
+          body: JSON.stringify({ name: EMBEDDING_FALLBACK_MODEL }),
+        });
+      } catch (error) {
+        // 409 "Already downloading" means someone else (or a previous
+        // click) already started this exact pull — fall through to the
+        // same wait loop rather than treating it as a failure.
+        if (!/already downloading/i.test(error.message || "")) throw error;
+      }
+      // Poll until the pull leaves "running" — succeeded (it drops out of
+      // `pulls` once installed) or failed (status "error").
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const poll = await apiJson("/models/status", { silent: true }).catch(() => null);
+        if (!poll) continue; // a transient miss mid-download isn't a failure
+        const pull = (poll.pulls || {})[EMBEDDING_FALLBACK_MODEL];
+        if (pull && pull.status === "error") {
+          throw new Error(pull.error || `Couldn't download ${EMBEDDING_FALLBACK_MODEL}.`);
+        }
+        const nowInstalled = (poll.installed_models || []).some(
+          (m) => m.name === EMBEDDING_FALLBACK_MODEL || m.name.split(":")[0] === EMBEDDING_FALLBACK_MODEL
+        );
+        if (nowInstalled || !pull) break;
+        setStatus(
+          pull.total
+            ? `Downloading ${EMBEDDING_FALLBACK_MODEL}… ${Math.round((pull.done / pull.total) * 100)}%`
+            : `Downloading ${EMBEDDING_FALLBACK_MODEL}…`
+        );
+      }
+    }
+    setStatus("Switching search engine and re-indexing…");
+    await api("/models/embedding-backend", {
+      method: "POST",
+      body: JSON.stringify({ backend: "ollama", model: EMBEDDING_FALLBACK_MODEL }),
+    });
+    toast(`Switched to ${EMBEDDING_FALLBACK_MODEL} — re-indexing your notes now.`);
+    setStatus("");
+  } catch (error) {
+    toast(error.message || `Couldn't switch to ${EMBEDDING_FALLBACK_MODEL}.`, true);
+    setStatus("");
+  } finally {
+    embeddingFallbackRunning = false;
+    button.disabled = false;
+    refreshModelStatus();
+  }
+}
+$("embedding-error-fix").addEventListener("click", runEmbeddingFallback);
 
 async function applyChatModel() {
   const select = $("chat-model-select");
@@ -22447,6 +22810,94 @@ $("pref-update-check").addEventListener("change", (e) =>
   setPreference("update_check_enabled", e.target.checked)
 );
 $("update-check-now").addEventListener("click", () => checkForUpdate());
+$("update-apply-now").addEventListener("click", async () => {
+  const button = $("update-apply-now");
+  const status = $("update-check-status");
+  button.disabled = true;
+  const ok = await applyUpdateNow((state) => {
+    if (status) {
+      status.textContent = state.total_bytes
+        ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
+        : state.step;
+    }
+  });
+  if (!ok) {
+    // Failed (offline, GitHub unreachable, no asset) — never leave the
+    // button stuck disabled over a real network error someone can just
+    // retry once they're back online.
+    button.disabled = false;
+    toast((status && status.textContent) || "Couldn't apply the update.", true);
+  }
+});
+$("pref-auto-update").addEventListener("change", (e) =>
+  setPreference("auto_update_enabled", e.target.checked)
+);
+$("pref-update-channel-main").addEventListener("change", (e) =>
+  setPreference("update_channel", e.target.checked ? "main" : "stable")
+);
+// "Choose a specific version…" fetches the release list only on demand —
+// not on every Settings open — so leaving this tab open doesn't mean
+// repeated GitHub calls, same restraint as the rest of this app's opt-in
+// network features.
+$("update-show-versions").addEventListener("click", async () => {
+  const select = $("update-version-select");
+  const installBtn = $("update-install-version");
+  const status = $("update-version-status");
+  status.textContent = "Loading releases…";
+  const result = await apiJson("/update/releases", { silent: true }).catch(() => null);
+  if (!result || !result.available) {
+    select.classList.add("hidden");
+    installBtn.classList.add("hidden");
+    status.textContent =
+      result?.reason === "channel_unavailable"
+        ? "Not available while tracking the main branch."
+        : result?.reason === "not_supported"
+          ? "Only available for the packaged Windows app."
+          : result?.reason === "disabled"
+            ? "Enable 'Check GitHub for a newer version' first."
+            : "Couldn't reach GitHub to list releases.";
+    return;
+  }
+  select.innerHTML = "";
+  for (const release of result.releases) {
+    const option = document.createElement("option");
+    option.value = release.tag;
+    option.textContent = release.tag === `v${result.current}` || release.version === result.current
+      ? `${release.name} (current)`
+      : release.name;
+    select.appendChild(option);
+  }
+  select.classList.toggle("hidden", result.releases.length === 0);
+  installBtn.classList.toggle("hidden", result.releases.length === 0);
+  status.textContent = result.releases.length ? "" : "No installable releases found.";
+});
+$("update-install-version").addEventListener("click", async () => {
+  const select = $("update-version-select");
+  const button = $("update-install-version");
+  const status = $("update-version-status");
+  const tag = select.value;
+  if (!tag) return;
+  if (
+    !(await confirmDialog(
+      `Download and install ${tag} now? MemoryMap AI will close once the installer starts.`,
+      { confirmLabel: "Install" }
+    ))
+  ) {
+    return;
+  }
+  button.disabled = true;
+  select.disabled = true;
+  const ok = await applyUpdateNow((state) => {
+    status.textContent = state.total_bytes
+      ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
+      : state.step;
+  }, tag);
+  if (!ok) {
+    button.disabled = false;
+    select.disabled = false;
+    toast(status.textContent || "Couldn't install that version.", true);
+  }
+});
 
 // Not a plain setPreference: switching Dev view/User view is meant to take
 // effect live, not just on the next launch (asked for directly — togglable
@@ -22470,6 +22921,43 @@ $("pref-show-console").addEventListener("change", async (e) => {
     e.target.checked = !checked; // the change didn't take — don't leave the switch lying
     toast(error.message || "Couldn't switch view.", true);
   }
+});
+
+$("open-exports-folder").addEventListener("click", async () => {
+  try {
+    const result = await apiJson("/files/open-exports-folder", { method: "POST" });
+    toast(`Opened ${result.path}`);
+  } catch (error) {
+    toast(error.message || "Couldn't open the exports folder.", true);
+  }
+});
+
+// Saved on blur/Enter, not on every keystroke — a half-typed path is not a
+// preference worth validating server-side yet. Reverts the field on a
+// rejected value rather than leaving a bad path sitting there looking saved.
+async function saveExportSaveDir() {
+  const input = $("pref-export-dir");
+  const value = input.value.trim();
+  if (value === (prefsCache?.export_save_dir || "")) return; // nothing changed
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ export_save_dir: value }),
+    });
+    input.value = prefsCache.export_save_dir;
+    toast(value ? `Exports will now be saved to ${prefsCache.export_save_dir}` : "Exports will save to the default location.");
+  } catch (error) {
+    input.value = prefsCache?.export_save_dir || "";
+    toast(error.message || "Couldn't save that folder.", true);
+  }
+}
+$("pref-export-dir").addEventListener("blur", saveExportSaveDir);
+$("pref-export-dir").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") $("pref-export-dir").blur();
+});
+$("pref-export-dir-reset").addEventListener("click", () => {
+  $("pref-export-dir").value = "";
+  saveExportSaveDir();
 });
 
 function toggleAutonomousPanel() {
@@ -22860,6 +23348,7 @@ function initHelpToggle(buttonId, panelId) {
   });
 }
 initHelpToggle("draft-help", "draft-intro");
+initHelpToggle("search-relevance-help", "search-relevance-intro");
 initHelpToggle("timeline-help", "timeline-intro");
 initHelpToggle("skills-help", "skills-intro");
 initHelpToggle("wb-boards-help", "wb-boards-intro");

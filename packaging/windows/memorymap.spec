@@ -68,6 +68,18 @@ a = Analysis(
         # static analysis has no way to know that from `import pystray` alone.
         "pystray._win32",
         "PIL.Image",
+        # search/searxng_manager.py's own module __getattr__ reaches these
+        # four facade files exclusively through importlib.import_module —
+        # the same "picked by name at runtime" shape as every entry above,
+        # and confirmed missing from a real packaged build by a support
+        # bundle: "ModuleNotFoundError: No module named
+        # 'memorymap.search.searxng_docker'". None of the four is ever
+        # imported by its own name anywhere else in this app, so PyInstaller's
+        # static analysis has no path to any of them without this.
+        "memorymap.search.searxng_settings",
+        "memorymap.search.searxng_docker",
+        "memorymap.search.searxng_install",
+        "memorymap.search.searxng_process",
     ],
     hookspath=[],
     hooksconfig={},

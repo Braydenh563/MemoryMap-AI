@@ -16,7 +16,6 @@ import sys
 import threading
 from pathlib import Path
 
-import requests
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -45,6 +44,7 @@ from memorymap.api import (
     routes_tasks,
     routes_timeline,
     routes_tags,
+    routes_update,
     routes_voice,
     routes_websearch,
     routes_whiteboard,
@@ -225,6 +225,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_ask_history.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
     app.include_router(routes_backups.router, dependencies=locked)
     app.include_router(routes_spaces.router, dependencies=locked)
@@ -265,49 +266,10 @@ def create_app() -> FastAPI:
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
         }
 
-    @app.get("/update/check", tags=["system"])
-    def check_for_update() -> dict:
-        """Is a newer release on GitHub than the one running right now?
-
-        The only other opt-in network call in the app besides web search
-        (Settings -> About, update_check_enabled — off until switched on,
-        same reasoning as web_search_enabled). Never raises: a failed check
-        just means "couldn't tell," not something worth a 500 over, and the
-        frontend treats {"checked": false} as "say nothing" either way.
-        """
-        config = deps.get_config()
-        if not config.get_preference("update_check_enabled", False):
-            return {"checked": False, "reason": "disabled"}
-        try:
-            response = requests.get(
-                "https://api.github.com/repos/Braydenh563/MemoryMap-AI/releases/latest",
-                timeout=4,
-                headers={"Accept": "application/vnd.github+json"},
-            )
-            response.raise_for_status()
-            latest = str(response.json().get("tag_name") or "").lstrip("vV")
-        except Exception:
-            logging.getLogger("memorymap.update").info(
-                "update check failed (offline, rate-limited, or no releases yet)",
-                exc_info=True,
-            )
-            return {"checked": False, "reason": "unreachable"}
-
-        def version_tuple(text: str) -> tuple[int, ...]:
-            parts = []
-            for piece in text.split("."):
-                digits = "".join(ch for ch in piece if ch.isdigit())
-                parts.append(int(digits) if digits else 0)
-            return tuple(parts) or (0,)
-
-        return {
-            "checked": True,
-            "current": __version__,
-            "latest": latest,
-            "update_available": bool(latest)
-            and version_tuple(latest) > version_tuple(__version__),
-            "url": "https://github.com/Braydenh563/MemoryMap-AI/releases/latest",
-        }
+    # GET /update/check, /update/releases, /update/source-status, and
+    # POST /update/apply all live in routes_update.py now — this endpoint
+    # used to be defined inline here, but it feeds and is fed by the rest
+    # of that module's update machinery, so it moved to sit next to it.
 
     @app.get("/changelog", tags=["system"])
     def changelog() -> dict:

@@ -273,10 +273,19 @@ def test_removing_voice_while_its_model_is_loaded_is_refused(monkeypatch):
 
 def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch):
     """The common case — nobody has recorded anything yet, or the process is
-    fresh — must not be caught by the same guard."""
+    fresh — must not be caught by the same guard.
+
+    `threading.Thread` is mocked like every other test that reaches `remove()`
+    — without it this spawns a *real* background thread that runs real pip
+    uninstall against the live environment. Found live: it outlived this test,
+    and a later, unrelated test in the OCR extra's own install path picked up
+    its real "WARNING: Skipping faster-whisper as it is not installed." output
+    through the shared `_state` global, failing on an assertion that had
+    nothing to do with faster-whisper at all."""
     from memorymap.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", None)
+    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
     started, message = extras.remove("voice")
     assert started is True
 
@@ -418,6 +427,164 @@ def test_pip_reason_falls_back_to_the_prefix_when_nothing_is_useful(client):
         "[notice] To update, run: python.exe -m pip install --upgrade pip",
     ]
     assert extras._pip_reason(log, "pip exited with code 1") == "pip exited with code 1"
+
+
+# --- a real support-bundle report: "pip exited with code 2: memorymap:
+# error: unrecognized arguments: -m pip install ..." from the packaged
+# Windows app. Root cause: `sys.executable -m pip` is right for a source
+# install but sys.executable in a frozen (PyInstaller) build is the app's
+# own .exe, so that command re-launches *the app* with pip's own arguments,
+# which its argparse (only --desktop/--reset-password) rejects. This had
+# been reported twice before as an unexplained "pip exited with code 1/2,
+# no error text visible" — there never was any real pip output, because pip
+# was never actually run. -----------------------------------------------
+
+
+def test_find_system_python_is_sys_executable_when_not_frozen(monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", False, raising=False)
+    assert extras.find_system_python() == extras.sys.executable
+
+
+def test_find_system_python_frozen_uses_path_lookup(monkeypatch):
+    """The general helper `_pip_base_command` and searxng_install.py's own
+    venv-creation call both build on — same real bug, two call sites, one
+    fix. `python3` is only tried when `python` isn't found."""
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(
+        extras.shutil, "which", lambda name: "/usr/bin/python3" if name == "python3" else None
+    )
+    assert extras.find_system_python() == "/usr/bin/python3"
+
+
+def test_pip_base_command_uses_sys_executable_when_not_frozen(monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", False, raising=False)
+    assert extras._pip_base_command() == [extras.sys.executable, "-m", "pip"]
+
+
+def test_pip_base_command_finds_a_system_python_when_frozen(monkeypatch):
+    """INSTALL.md documents Settings -> Packages as the no-terminal,
+    no-Python-required way in from the Windows installer, so a frozen build
+    still has to work when a real Python happens to be on PATH — refusing
+    outright would break that promise, not just tighten an error message."""
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(
+        extras.shutil, "which", lambda name: r"C:\Python312\python.exe" if name == "python" else None
+    )
+    assert extras._pip_base_command() == [r"C:\Python312\python.exe", "-m", "pip"]
+
+
+def test_pip_base_command_returns_none_when_frozen_and_no_python_found(monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(extras.shutil, "which", lambda name: None)
+    assert extras._pip_base_command() is None
+
+
+def test_install_gives_an_actionable_message_instead_of_the_argparse_crash(
+    client, monkeypatch
+):
+    """The exact scenario from the real report: frozen, no system Python.
+    Before this fix, `_run_install` would have built the broken command and
+    handed it to subprocess.Popen (the mock below would fail the test with
+    the wrong call), producing the "unrecognized arguments" crash instead of
+    this message."""
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(extras.shutil, "which", lambda name: None)
+
+    def _unexpected_popen(*args, **kwargs):
+        raise AssertionError("pip must not be invoked when no interpreter was found")
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _unexpected_popen)
+
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    state = extras.current()
+    assert state.outcome == "failed"
+    assert state.step == extras.NO_PYTHON_FOUND_MESSAGE
+    assert not state.running
+
+
+def test_uninstall_gives_the_same_actionable_message(client, monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(extras.shutil, "which", lambda name: None)
+
+    def _unexpected_popen(*args, **kwargs):
+        raise AssertionError("pip must not be invoked when no interpreter was found")
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _unexpected_popen)
+
+    extras._run_uninstall(extras.EXTRAS_BY_ID["voice"])
+
+    state = extras.current()
+    assert state.outcome == "failed"
+    assert state.step == extras.NO_PYTHON_FOUND_MESSAGE
+
+
+class _SucceedingPip:
+    """A `pip install` that exits 0 with a boring, realistic transcript."""
+
+    def __init__(self, command, **kwargs):
+        self.stdout = [
+            "Collecting pytesseract\n",
+            "Successfully installed pytesseract-0.3.13 Pillow-12.3.0\n",
+        ]
+
+    def wait(self):
+        return 0
+
+
+# --- the "ocr" extra's own system-binary half, asked for directly ("add the
+# option for install assistance for the tesseract program installation,
+# automate it if possible") -------------------------------------------------
+
+
+def test_a_successful_ocr_install_also_attempts_the_tesseract_binary(client, monkeypatch):
+    monkeypatch.setattr(extras.subprocess, "Popen", _SucceedingPip)
+    calls = []
+
+    def _fake_attempt(timeout=None):
+        calls.append(timeout)
+        return True, "Tesseract installed."
+
+    monkeypatch.setattr(extras.ocr, "attempt_binary_install", _fake_attempt)
+    extras._run_install(extras.EXTRAS_BY_ID["ocr"])
+
+    state = extras.current()
+    assert state.outcome == "completed"
+    assert len(calls) == 1
+    assert "Tesseract installed." in state.step
+    assert "Tesseract installed." in state.log[-1]
+
+
+def test_a_failed_tesseract_binary_attempt_does_not_fail_the_whole_ocr_install(
+    client, monkeypatch
+):
+    """The pip packages genuinely installed and are genuinely useful on
+    their own (ocr.py degrades cleanly without the binary) — a failed
+    *binary* attempt must not turn a real, working pip install into a
+    reported failure."""
+    monkeypatch.setattr(extras.subprocess, "Popen", _SucceedingPip)
+    monkeypatch.setattr(
+        extras.ocr,
+        "attempt_binary_install",
+        lambda timeout=None: (False, "Couldn't install Tesseract automatically."),
+    )
+    extras._run_install(extras.EXTRAS_BY_ID["ocr"])
+
+    state = extras.current()
+    assert state.outcome == "completed"
+    assert "Couldn't install Tesseract automatically." in state.step
+
+
+def test_other_extras_never_touch_the_tesseract_binary_attempt(client, monkeypatch):
+    monkeypatch.setattr(extras.subprocess, "Popen", _SucceedingPip)
+    calls = []
+    monkeypatch.setattr(
+        extras.ocr, "attempt_binary_install", lambda timeout=None: calls.append(1) or (True, "")
+    )
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    assert calls == []
+    assert extras.current().outcome == "completed"
 
 
 def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):

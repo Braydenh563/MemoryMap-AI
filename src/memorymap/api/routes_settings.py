@@ -26,7 +26,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
-from memorymap.ai import skills
+from memorymap.ai import presets, skills
 from memorymap.core import deps, embedmodels, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
@@ -122,6 +122,11 @@ class SkillItem(BaseModel):
 
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
+    # Empty string resets to the default (data_dir/exports). Validated in
+    # update_preferences (_validated_export_dir) — must be an absolute,
+    # existing, writable directory, checked at save time rather than at
+    # export time when a bad path means a lost file.
+    export_save_dir: str | None = Field(default=None, max_length=500)
     search_min_similarity: float | None = Field(default=None, ge=0, le=1)
     search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
@@ -160,6 +165,10 @@ class PreferencesBody(BaseModel):
     web_search_enabled: bool | None = None
     # The other opt-in network call (Settings -> About) — see core.config.
     update_check_enabled: bool | None = None
+    # Separate switch: "notify me" vs. "download and run the installer
+    # without asking each time" — see core.config's own comment.
+    auto_update_enabled: bool | None = None
+    update_channel: Literal["stable", "main"] | None = None
     searxng_autostart: bool | None = None
     session_idle_ttl_minutes: int | None = Field(default=None, ge=1)
     # The desktop launcher's console window — see core.config's own comment.
@@ -179,6 +188,13 @@ class PreferencesBody(BaseModel):
     # rather than free text, so a bad value is rejected at the door instead of
     # sitting in preferences quietly meaning "auto" forever.
     search_provider: str | None = None
+    # "Remember what I chose" for the Quick/Normal/Detailed response-mode
+    # picker (setResponseMode in app.js) — was never declared here at all,
+    # so the PUT it fires on every change returned 200 while silently
+    # dropping the value; the dropdown looked like it saved (it updates its
+    # own <select> client-side regardless) but reverted to presets.DEFAULT_MODE
+    # on the very next reload.
+    response_mode: str | None = None
     # Autonomous Tasks settings. These were declared twice — once here with
     # bare types and once above with the validated ones — and Pydantic silently
     # keeps the last definition, so the bounds below were the only ones that
@@ -187,6 +203,15 @@ class PreferencesBody(BaseModel):
     auto_tag_enabled: bool | None = None
     auto_link_enabled: bool | None = None
     auto_dedupe_enabled: bool | None = None
+    # ROADMAP.md item 31's stale/orphaned-note review. Missing from here was
+    # the same shape of bug Tier 1 item 4a already found and fixed for eight
+    # other preferences: the Settings checkbox (#pref-auto-stale-review)
+    # calls setPreference exactly like its tag/link/dedupe siblings, but
+    # Pydantic silently drops any key this model doesn't declare — so every
+    # PUT that turned the toggle on was a no-op the whole time, and the
+    # autonomous pass could never actually pick up any candidates no matter
+    # what the checkbox showed.
+    auto_stale_review_enabled: bool | None = None
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     battery_efficient_mode: bool | None = None
@@ -257,6 +282,23 @@ class PreferencesBody(BaseModel):
             )
         return value
 
+    @field_validator("response_mode")
+    @classmethod
+    def _known_response_mode(cls, value: str | None) -> str | None:
+        """Same reasoning as `_known_provider` above: `_resolve_mode` would
+        happily fall back to the default for a bad value at read time, which
+        is right for a value already sitting in storage — but rejecting a
+        bad one at the door means the picker finds out immediately rather
+        than saving a typo that silently never takes effect."""
+        if value is None:
+            return value
+        if value not in presets.MODES:
+            raise ValueError(
+                f"Unknown response mode {value!r} — expected one of "
+                + ", ".join(sorted(presets.MODES))
+            )
+        return value
+
     # Named filters the user has saved from the Notes tab.
     saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
 
@@ -284,10 +326,18 @@ def get_preferences() -> dict:
     config = deps.get_config()
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
+        "export_save_dir": config.get_preference("export_save_dir", ""),
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
         "display_name": config.get_preference("display_name", ""),
+        # Saved correctly and honoured correctly (routes_auth.py's three
+        # idle-timeout checks all read it) but never once echoed back here —
+        # the same shape of bug Tier 1 item 4a already fixed for eight other
+        # preferences. Settings → Account's timeout field showed its HTML
+        # default on every reload no matter what had actually been saved and
+        # was actually in effect, which reads as "my setting didn't save."
+        "session_idle_ttl_minutes": config.get_preference("session_idle_ttl_minutes", 720),
         "user_profile": config.get_preference("user_profile", ""),
         "profile_enabled": config.get_preference("profile_enabled", False),
         "custom_templates": config.get_preference("custom_templates", []),
@@ -304,11 +354,14 @@ def get_preferences() -> dict:
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "update_check_enabled": config.get_preference("update_check_enabled", False),
+        "auto_update_enabled": config.get_preference("auto_update_enabled", False),
+        "update_channel": config.get_preference("update_channel", "stable"),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
         "search_provider": websearch.normalise_provider(
             config.get_preference("search_provider", websearch.DEFAULT_PROVIDER)
         ),
+        "response_mode": config.get_preference("response_mode", presets.DEFAULT_MODE),
         "disabled_tools": config.get_preference("disabled_tools", []),
         "voice_model": config.get_preference("voice_model", "base"),
         "saved_searches": config.get_preference("saved_searches", []),
@@ -344,6 +397,7 @@ def get_preferences() -> dict:
         "auto_tag_enabled": config.get_preference("auto_tag_enabled", True),
         "auto_link_enabled": config.get_preference("auto_link_enabled", True),
         "auto_dedupe_enabled": config.get_preference("auto_dedupe_enabled", True),
+        "auto_stale_review_enabled": config.get_preference("auto_stale_review_enabled", False),
         "autonomous_tasks_interval_hours": config.get_preference(
             "autonomous_tasks_interval_hours", 6
         ),
@@ -380,6 +434,7 @@ _AUTONOMOUS_PREFS = frozenset(
         "auto_tag_enabled",
         "auto_link_enabled",
         "auto_dedupe_enabled",
+        "auto_stale_review_enabled",
     }
 )
 
@@ -399,6 +454,8 @@ def update_preferences(
             value = _validated_skills(value)
         if key == "custom_templates":
             value = _validated_templates(value)
+        if key == "export_save_dir":
+            value = _validated_export_dir(value)
         config.set_preference(key, value)
         changed_keys.add(key)
         # Don't copy profile text into the audit log — it's personal.
@@ -510,6 +567,27 @@ def _validated_templates(raw: list[dict]) -> list[dict]:
         seen.add(name)
         out.append(item)
     return out
+
+
+def _validated_export_dir(raw: str) -> str:
+    """An absolute, existing, writable directory — or a 422 saying which
+    check failed. Empty string always passes (resets to the default,
+    `data_dir/exports`). Checked here, at save time, rather than at export
+    time: a bad path caught now is a rejected preference; caught later it's
+    a lost file, discovered only when the next export silently goes nowhere
+    the user can find.
+    """
+    value = raw.strip()
+    if not value:
+        return ""
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise HTTPException(status_code=422, detail="Use a full path, not a relative one.")
+    if not path.is_dir():
+        raise HTTPException(status_code=422, detail=f"{path} isn't a folder that exists.")
+    if not os.access(path, os.W_OK):
+        raise HTTPException(status_code=422, detail=f"{path} isn't writable.")
+    return str(path)
 
 
 @router.get("/skills")

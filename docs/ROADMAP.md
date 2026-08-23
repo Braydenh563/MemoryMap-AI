@@ -12,7 +12,129 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 80. Newest — Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view (read this first, above the mobile audit below)
+## 83. Newest — v0.1.3 released, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry.
+Continuation of item 82 below: the BGE embedding install now retries itself
+automatically on a `ModuleNotFoundError` (a background `extras.start`, with
+`importlib.invalidate_caches()` before the retry — the CPython import-cache
+gotcha would otherwise have made this silently not work), and the in-chat
+Web toggle now dims visibly when web search is off. v0.1.3 shipped from
+there.
+
+Then the auto-update framework, asked for across several messages:
+`GET /update/check` moved out of `app.py` into a new `routes_update.py` and
+made channel-aware (`update_channel == "main"` honestly reports itself
+unavailable rather than fabricating a nightly-build pipeline that doesn't
+exist); `POST /update/apply` now gates on a *second*, separate
+`auto_update_enabled` preference (not just "checking is on") and accepts an
+optional `?tag=` to install a specific past release; a new
+`GET /update/releases` lists installable versions for a Settings picker;
+blocked-download vs. blocked-installer-execution (antivirus/SmartScreen)
+now get distinct, actionable messages instead of one generic failure.
+Separately, `start.sh`/`start.bat` — which already auto-update via
+`git pull` on every launch, unconditionally, before the server even starts —
+now report a real version change to the app via two env vars
+(`MM_UPDATED_FROM`/`MM_UPDATED_TO`), read by a new self-clearing
+`GET /update/source-status` with zero network calls, so a source checkout
+gets the same "you were just updated" post-login popup the packaged-Windows
+path gets. Channel default is now install-type-aware: a source checkout
+defaults to `"main"` (it already tracks main for real) rather than
+`"stable"` (a channel it has no way to act on), corrected mid-session after
+the user pointed out the mismatch directly.
+
+27 new tests in `test_update.py`; `pytest tests/`, `ruff check .`,
+`node --check frontend/app.js` all clean. **Not verified against a real
+Windows machine** — same standing caveat as everything else here that
+touches `sys.frozen`.
+
+## 82. A real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by auditing for the same pattern
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Four
+root causes from one user's Windows install: (1) the in-app package
+installer (Settings → Packages) was fundamentally broken in the packaged
+build — `sys.executable -m pip` re-launches the frozen `.exe` itself, not a
+Python interpreter, which is also the real answer to two earlier "pip
+exited with code 1/2, no error text visible" mysteries this file recorded —
+fixed with a `_pip_base_command()` that finds a real system Python when
+frozen, with an honest message when none exists; (2) four SearXNG facade
+modules missing from the PyInstaller `hiddenimports` (reached only via
+`importlib.import_module`, the same shape already handled for uvicorn/
+sqlalchemy/pywebview elsewhere in the same spec file) — fixed, plus a new
+test that parses the facade list and asserts every one is in the spec, so a
+fifth can't repeat this silently; (3) a real, reproduced UI bug — opening
+the Agent Activity monitor visibly shoved the whole Chat card (composer,
+Send button) up the page, root-caused after the user pushed back on an
+initial "couldn't reproduce it" with the exact tab and their own screenshot
+— the monitor's actual footprint never covers `.layout > main` at all, so
+the padding-bottom rule protecting it from an overlap that doesn't exist
+was simply removed for Chat, verified with the Send button's Y position now
+byte-identical open vs. closed; (4) a requested feature, generalising past
+this one report: a "Switch to nomic-embed-text (Ollama)" button next to the
+existing "Search engine problem" banner in Settings → Models, automating
+the fix that banner's own text already described by hand (download →
+switch backend → re-index), built entirely on two existing, already-tested
+routes.
+
+**(5), found by auditing rather than waiting for a fifth report**: grepping
+for the same `sys.executable`-in-a-frozen-build pattern once (1) was
+understood found one more live instance — `searxng_install.py`'s venv
+creation for SearXNG's from-source install path. Same bug, same fix,
+pulled into a shared `find_system_python()` both call sites now use.
+
+`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
+
+## 81. Chat citation badges (item 36's grounding) were computed and sent by the backend but never rendered in the Chat tab, only the Ask tab
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Reported
+as "semantic search results in chat responses disappeared" with a transcript;
+turned out to be a wiring gap, not a missing feature or a regression in the
+search itself. `ai/grounding.py`'s per-sentence grounding (§36) already ran
+inside `/chat/stream` for every non-conversational turn and emitted a
+`grounding` SSE event regardless of which tab asked — but `renderAnswerGrounding`
+hardcoded the Ask tab's one fixed DOM element and ignored the target it was
+actually passed, and the Chat tab's `sendChatMessage` never listened for the
+event at all. Fixed: `renderAnswerGrounding` now renders into whatever
+element it's given, each chat bubble gets its own grounding holder, and
+`onGrounding` is wired in Chat the same way `onMeta` already was. Verified
+live with Playwright — a synthetic grounding payload renders a "Grounded in:"
+chip inside a real Chat-tab bubble and opens the note on click; **not**
+verified against a real model's own prose, since this sandbox has no Ollama.
+
+Same session: tooltip + quick-access links for the "Search relevance
+(advanced)" preferences group, reachable from the Dashboard's "Tools &
+features" catalog, the Ask tab's "Matching records" heading, and Chat's
+per-turn "N matching notes" summary — all jump to and flash the group via a
+new `openSettingsModal(section, scrollToId)` parameter. Verified live:
+jump/flash/tooltip/panel all work, feature-catalog entry is findable, no
+console errors.
+
+Same session, third fix: every generated export (`saveFile`/`/files/save` —
+graph PNGs, chat exports, whiteboard PNGs) landed in `data_dir/exports` with
+only a toast naming the path, reported as "I have to dig in the app data
+files to find and access them." Added `POST /files/open-exports-folder`
+(desktop-only, `os.startfile`/`subprocess.Popen(["open"/"xdg-open", ...])`
+per platform, `Popen` not `run()` so a slow-to-exit file manager can't hang
+the response), a "Open exports folder" button in Settings → Data, and made
+`saveFile`'s own success toast actionable (`toastAction`, an "Open folder"
+button) instead of just naming the path in text. Verified live that the
+button shows/hides with desktop mode and the request reaches the backend;
+**the actual OS window never verified** — no desktop environment in this
+sandbox at all (`xdg-open` isn't installed), so what got exercised was the
+endpoint's own clean-failure path, not a real file manager opening.
+
+Same session, closing the pair: a configurable save location too —
+`export_save_dir` preference, validated (absolute/exists/writable) at save
+time rather than export time, a shared `_exports_dir()` used by both the
+save and open-folder routes, and a typed path field (not a native
+pywebview picker — real, but unverifiable in this sandbox, so left for a
+session with an actual desktop window to test it in). 8 new backend tests
+plus a live Playwright pass (bad path rejected and reverts with the exact
+reason shown, good path sticks, Reset works).
+
+`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
+
+## 80. Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view
 
 Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry; this is
 the index pointer HISTORY.md's own convention asks for. Session driven
@@ -1114,12 +1236,29 @@ Worth doing, and worth doing after the above.
         opens the focused note the same way its Edit button does.
         Live-verified: Tab into the list, ArrowDown moves the tab stop,
         Enter opens edit mode.
-    30b. **Archive** (BACKLOG §4 item 3, elaborated in §26). One `archived_at`
-        column each on notes, chats and documents (additive migration), a
-        state between "active" and "binned" for things kept but out of the
-        way. Already fully scoped; §26 lists three things that build on it
-        afterwards (a "delete everything" control, one assembled "your data"
-        page, opt-in auto-archive-by-age) but none of those block this one.
+    30b. ~~**Archive, for notes.**~~ **Done** (commit `4825e70`, this file's
+        own tracking never got updated when it landed — caught this session
+        by checking the running app before assuming the item was still
+        open, per CLAUDE.md's own top rule). `Entry.archived_at`
+        (additive auto-migration), `POST /entries/{id}/archive`/`/unarchive`,
+        `GET /entries?archived=true`, a Library "Archived" filter chip +
+        overview tile (`_shelved()` in `routes_library.py` — deliberately
+        named apart from the pre-existing `_archive()`, which is actually
+        the bin under an earlier, different naming decision; both
+        docstrings cross-reference the collision so it can't cause
+        confusion again), and a Notes-tab "Archive" action next to (not
+        grouped with) "Move to bin". 13 backend tests
+        (`test_archive.py`, `test_library.py`) plus live Playwright
+        verification at the time. **Re-verified this session**: archived a
+        fresh note via the API, confirmed it appears under the Library's
+        Archived chip with the right count, zero console errors.
+        **Deliberately scoped to notes only** — chats and documents (BACKLOG
+        §4 item 3 also names both) are the real remaining work, one
+        `archived_at` column and one pair of routes each, same shape as the
+        notes version above to copy from. §26 lists three things that build
+        on the full archive afterwards (a "delete everything" control, one
+        assembled "your data" page, opt-in auto-archive-by-age) but none of
+        those block extending to chats/documents first.
     30c. ~~**Chat metadata not surviving a reload**~~ **Checked before
         building, found already fixed (HISTORY.md §70).** `_turn_messages`
         (routes_conversations.py) persists `stats`/`elapsed_ms` on the
@@ -1129,13 +1268,19 @@ Worth doing, and worth doing after the above.
         live: single-turn, multi-turn, and a turn with tool chips all show
         the correct meta line after a real reload. Whatever prompted this
         item is either already resolved or a different, unreported bug.
-    30d. **OCR text extraction on an uploaded image** (BACKLOG §4 item 1).
-        A whiteboard photo or a scanned page attaches today as an opaque
-        file nothing reads. Local `pytesseract` (no torch, no cloud call) at
-        upload time, fed into the existing keyword index, makes "what was on
-        that whiteboard photo from March" answerable. A new pipeline stage
-        (extract → index), not a wider drop-handler — the drop-handler side
-        of file uploads is already done.
+    30d. ~~**OCR text extraction on an uploaded image**~~ (BACKLOG §4 item
+        1). **Done, verified live (HANDOVER.md's latest entry).** Local
+        `pytesseract`/Tesseract (no torch, no cloud call), on a background
+        thread so the upload response never waits on it. Fed into the
+        Library's own Image Gallery search (new — that tab had no search
+        box before) rather than the notes' `entries_fts` index this item's
+        own text originally pointed at — a `MediaUpload` isn't an `Entry`,
+        and that index's triggers are wired to the `entries` table
+        specifically, so this was the honest integration point, not the
+        literal one. `tesseract` is a system binary `pip` can't install;
+        degrades to "no OCR text" cleanly when it's missing, documented in
+        INSTALL.md. "What was on that whiteboard photo from March" is now
+        answerable by typing a word from the photo into that search box.
     30e. ~~**Undo toasts for soft-deletes, in place of confirm dialogs**~~
         **Done (HISTORY.md §68).** `batchDelete()` already built the undo
         toast under a real soft delete and *also* gated it behind a
@@ -1159,12 +1304,17 @@ Worth doing, and worth doing after the above.
     preference (off by default, like entities), tags a qualifying note
     `stale` rather than acting on it further — nobody's watching an
     unattended pass, so the same caution `blocked_tools` already applies
-    to `delete_note` applies here too. **Covered by 11 new tests
-    (pytest), not yet checked live in a browser** — the toggle and its
-    Settings checkbox exist but a real end-to-end run (enable the
-    preference, trigger a pass, see the tag land in the Library/note
-    editor) wasn't driven through Playwright this session; worth doing
-    first thing next time this area is touched. The other two candidates
+    to `delete_note` applies here too. **Checked live this session, and a
+    real bug found in the process**: `auto_stale_review_enabled` had a live
+    Settings checkbox but was never declared on `PreferencesBody` —
+    Tier 1 item 4a's exact bug shape, just missed on this one preference —
+    so every attempt to turn it on silently did nothing, which is why it
+    could never be end-to-end verified before now. Fixed (field declared,
+    echoed back from `GET /preferences`, added to `_AUTONOMOUS_PREFS`), then
+    verified for real: backdated a note's `updated_at` 200 days in the
+    database directly, enabled the preference through the real route,
+    triggered a pass via `POST /tasks/trigger-autonomous`, and the note came
+    back tagged `stale`. Two new regression tests. The other two candidates
     — proactive digest/on-this-day surfacing, and letting a saved skill run
     on the same schedule — are still open.
 32. ~~**Keyword search has no IDF weighting and can't use an index.**~~
@@ -1239,6 +1389,41 @@ Worth doing, and worth doing after the above.
     measuring before it ships, the same discipline already applied to §33's
     semantic-tool-retrieval item — a background job that mis-files something
     nobody asked to capture is a worse failure than one that misses something.
+40. **Help page overhaul, plus an embedded mini AI chat for in-app guidance.**
+    Asked for directly, in detail, across several messages — logged here
+    before being built, not yet started. Two parts:
+    - **The docs/guides half.** Today's Help is thin. Wants proper docs and
+      guides in-app: hyperlinks, tutorials, step-by-step instructions, and
+      quick-access links into the actual menus/commands/settings a topic
+      describes (the same "jump straight to the setting and highlight it"
+      pattern item 83/§82's search-relevance links already established —
+      reuse that mechanism rather than inventing a second one).
+    - **The mini AI chat half**, specified precisely:
+      - Lives in the Help/Settings area, small and basic by design, not a
+        second full Chat tab.
+      - Uses the user's already-configured **utility model** (not the main
+        chat model), specialised via its own system prompt for app guidance
+        only — answering "how do I…" / troubleshooting, not general Q&A over
+        the notebook.
+      - Can hand back **hyperlinked badges** pointing at specific app
+        features (same quick-access-link mechanism as the docs half).
+      - **No persisted history at all** — asked for directly: not saved to
+        the database, not listed anywhere past chats are. The *current*
+        chat persists only within the user's current session (survives a
+        tab switch, does not survive "start a new help chat" or the session
+        ending) — likely a plain in-memory/module-state or `sessionStorage`
+        pattern, not `conversations`/`ChatMessage`, since those are exactly
+        the persistence this was asked to avoid.
+      - Model parameters tuned for **speed and accuracy over creativity** —
+        low temperature, no extended thinking, a tight prompt/context
+        budget (this repo already asserts `agent.PROSE_BUDGET_CHARS` for the
+        same reason: every sentence in a system prompt is resent every
+        round, and a help chat that's slow to answer "how do I turn off web
+        search" defeats its own purpose).
+    Not scoped further than this — no route names, no component layout — on
+    purpose: worth a full session's own design pass rather than a rushed
+    half-build, and the auto-update framework (item 83) was an explicit
+    prerequisite gate for starting this one, now cleared.
 
 ### Tier 4 — deferred, with the reason
 

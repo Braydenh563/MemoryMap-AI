@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.search import searxng_manager
+from memorymap.search import searxng_install, searxng_manager
 
 
 @pytest.fixture(autouse=True)
@@ -179,6 +179,42 @@ def test_the_install_downloads_an_archive_and_never_shells_out_to_git(
     assert (src / "setup.py").exists()
     # The archive itself is not left behind in the user's data directory.
     assert not list(src.parent.glob("*.tar.gz"))
+
+
+# --- creating the virtualenv itself (real bug, same shape as core/extras.py's
+# pip fix): `sys.executable -m venv` re-launches a frozen (packaged) build's
+# own .exe with "-m venv ..." as if they were its own flags, which its
+# argparse rejects. -----------------------------------------------------------
+
+
+def test_venv_creation_uses_a_found_system_python_when_frozen(app_state, monkeypatch):
+    """Not `_fake_venv` — this test needs the venv-creation branch itself to
+    run, not be skipped past. `_run` is mocked (it doesn't really create a
+    venv), so the install still ends in an error after this — the only
+    thing under test is *which interpreter* the installer tried to use."""
+    commands = _Commands()
+    monkeypatch.setattr(searxng_manager, "_run", commands)
+    monkeypatch.setattr(searxng_install, "find_system_python", lambda: "/usr/bin/python3")
+
+    _install_and_wait(app_state.data_dir)
+
+    venv_calls = [c for c in commands.calls if "venv" in c]
+    assert venv_calls, "the installer never tried to create a virtualenv"
+    assert venv_calls[0][0] == "/usr/bin/python3"
+
+
+def test_venv_creation_fails_clearly_when_frozen_with_no_python_found(
+    app_state, monkeypatch
+):
+    def _unexpected_run(*args, **kwargs):
+        raise AssertionError("must not attempt venv creation with no interpreter")
+
+    monkeypatch.setattr(searxng_manager, "_run", _unexpected_run)
+    monkeypatch.setattr(searxng_install, "find_system_python", lambda: None)
+
+    _install_and_wait(app_state.data_dir)
+
+    assert "No Python interpreter found" in searxng_manager._install_state["error"]
 
 
 def test_a_leftover_source_folder_is_replaced_rather_than_installed(

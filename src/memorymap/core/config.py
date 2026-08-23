@@ -28,6 +28,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "embedding_backend": "sentence-transformers",  # or "ollama"
     "embedding_model": "nomic-embed-text",  # only used when backend == "ollama"
     "recycle_bin_days": 30,
+    # Where a generated export (graph PNG, chat export, whiteboard PNG — see
+    # routes_files.py's save_generated_file) is written. Empty means the
+    # default, `data_dir/exports`; validated at save time (PUT /preferences),
+    # not at export time, so a bad path is a rejected preference rather than
+    # a lost file. Asked for directly, alongside the "Open exports folder"
+    # button: "a configurable save location for exported images."
+    "export_save_dir": "",
     # Semantic search relevance (search_manager.py). Defaults match that
     # module's own MIN_SIMILARITY/RELATIVE_Z_MARGIN constants — kept here
     # too, as plain values rather than an import, so Settings -> Preferences
@@ -57,6 +64,31 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # GitHub's own releases API for the latest tag; nothing about the
     # notebook itself is ever sent.
     "update_check_enabled": False,
+    # Separate from update_check_enabled on purpose: "tell me a new version
+    # exists" and "download and run an installer without me clicking
+    # anything in a browser" are different sizes of consequence — asked for
+    # directly ("the option to turn auto update off entirely"), with its own
+    # switch rather than folding it into the check preference, so someone
+    # can want the notification without ever wanting the second part. Off by
+    # default for the same reason the check itself is: this is opt-in, not
+    # opt-out, the first time.
+    "auto_update_enabled": False,
+    # "stable" (tagged GitHub releases) or "main" (asked for directly: track
+    # the main branch and update on every push to it). "main" is accepted as
+    # a real, storable choice — the Settings toggle isn't fake — but
+    # routes_update.py's own check honestly reports it as not yet available
+    # for the GitHub-releases flow rather than pretending to find updates
+    # that don't exist: that would need a second release pipeline (a rolling
+    # nightly build published on every main-branch push) this repo does not
+    # have yet, and building that blind, unreviewed, was judged a larger and
+    # riskier undertaking than the rest of this feature — see HANDOVER.md.
+    #
+    # This literal value only ever applies to a packaged (frozen) Windows
+    # install — ConfigManager._load_preferences overrides it to "main" for
+    # every other install type before merging in whatever the user has
+    # actually saved, since a source checkout already tracks main for real
+    # via start.sh/start.bat's own `git pull` on every launch.
+    "update_channel": "stable",
     # Bring the user's own SearXNG up with the app. Off by default: starting a
     # container is not something a local-first app does unasked.
     "searxng_autostart": False,
@@ -192,6 +224,19 @@ class ConfigManager:
         from starting — we just fall back to defaults.
         """
         prefs = dict(DEFAULT_PREFERENCES)
+        # A source checkout (git clone + start.sh/start.bat) already auto-
+        # updates on every launch via `git pull` on whatever branch is
+        # checked out — that IS tracking main, unconditionally, before this
+        # preference is ever read. Defaulting such an install to "stable"
+        # would point its *other* update path (routes_update.py's GitHub-
+        # releases check) at a channel that install has no way to actually
+        # apply anyway (can_auto_apply requires a frozen Windows build), so
+        # it would just silently do nothing useful. A packaged Windows
+        # install has the opposite situation — no git pull, no main branch
+        # to track — so it keeps "stable", the one channel it can act on.
+        # Overridden below by whatever the user has actually saved, the
+        # moment they have ever touched the setting themselves.
+        prefs["update_channel"] = "stable" if getattr(sys, "frozen", False) else "main"
         if self.preferences_path.exists():
             try:
                 prefs.update(json.loads(self.preferences_path.read_text()))

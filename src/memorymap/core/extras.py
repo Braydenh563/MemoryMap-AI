@@ -32,6 +32,7 @@ import importlib.util
 import logging
 import os
 import re
+import shutil
 import subprocess  # noqa: S404 — fixed args, no shell; see _install below
 import sys
 import tempfile
@@ -39,6 +40,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from memorymap.core import ocr
 
 #: Reported: a failed install showed "pip exited with code 1. The log above
 #: says why." in the Background tasks "Recently finished" history card, with
@@ -99,6 +102,59 @@ def _pip_reason(log: list[str], prefix: str) -> str:
         if line.lower().startswith(("error", "fatal", "exception")) or "error:" in line.lower()
     ]
     return f"{prefix}: {(named or useful)[-1]}"
+
+
+def find_system_python() -> str | None:
+    """A real Python interpreter to hand to `subprocess`, or `None` if
+    there isn't one.
+
+    `sys.executable` is right for this in a normal venv/source install — but
+    wrong in a *frozen* build (`sys.frozen`, set by PyInstaller):
+    `sys.executable` there is the packaged app's own .exe, not a Python
+    interpreter, so `[sys.executable, "-m", X, ...]` actually re-launches
+    the app with `-m X ...` as if they were *its* own command-line flags.
+    `__main__.py`'s argparse (which only knows `--desktop`/`--reset-
+    password`) rejects them — confirmed from a real Windows installer
+    user's support bundle: `pip install` came back as "unrecognized
+    arguments: -m pip install ...", the real answer to two earlier
+    "pip exited with code 1/2, no visible output" mysteries, because there
+    was never any real pip output — pip was never actually run. The same
+    shape reaches `venv` creation too (`search/searxng_install.py`), not
+    just pip, which is why this is a general helper rather than living
+    inside `_pip_base_command` alone.
+
+    Two callers document why failing outright in frozen mode isn't
+    acceptable here: INSTALL.md promises Settings → Packages works with "no
+    terminal or Python install required" from the Windows installer, and
+    Managed SearXNG's from-source install is offered from that same
+    packaged build. So this looks for a real Python already on PATH first
+    (common: many people installing an AI-adjacent app like this already
+    have one from something else) rather than refusing unconditionally.
+    `None` means genuinely none was found — every caller turns that into an
+    honest, actionable message instead of the argparse crash.
+    """
+    if not getattr(sys, "frozen", False):
+        return sys.executable
+    return shutil.which("python") or shutil.which("python3")
+
+
+def _pip_base_command() -> list[str] | None:
+    """`[python, "-m", "pip"]`, or `None` if `find_system_python` found no
+    real interpreter to run it with."""
+    python = find_system_python()
+    return [python, "-m", "pip"] if python else None
+
+
+#: Shown when `_pip_base_command()` returns `None` — frozen, and no system
+#: Python found. Names the actual fix (not just "something went wrong"),
+#: since "install Python" is not the answer most error messages in this
+#: no-terminal-required app would ever need to give.
+NO_PYTHON_FOUND_MESSAGE = (
+    "No Python interpreter found on this system, and the packaged app can't "
+    "install a package without one. Install Python from python.org (any "
+    "recent version, tick \"Add python.exe to PATH\" during setup), then "
+    "try again."
+)
 
 
 @dataclass(frozen=True)
@@ -191,6 +247,22 @@ EXTRAS: tuple[Extra, ...] = (
         size="~20 MB",
     ),
     Extra(
+        id="ocr",
+        label="Search inside images (Tesseract OCR)",
+        enables="Text found in an uploaded image (a whiteboard photo, a "
+        "scanned page) becomes searchable in the Library's Image Gallery — "
+        "asked for directly: 'what was on that whiteboard photo from March.'",
+        packages=("pytesseract", "Pillow"),
+        module="pytesseract",
+        size="~10 MB",
+        caveat="Also needs the separate 'tesseract' program on this computer — "
+        "pip can't install that part, since it isn't a Python package. This "
+        "button tries to install it automatically too (winget/brew/apt/dnf/"
+        "pacman, whichever this system has); if that doesn't work, install it "
+        "by hand (see INSTALL.md). Without it, uploads still work, they just "
+        "get no searchable text.",
+    ),
+    Extra(
         id="localllm",
         label="Built-in model runner (llama-cpp-python)",
         enables="Runs a GGUF model in this process, for machines where "
@@ -277,10 +349,13 @@ def _run_uninstall(extra: Extra) -> None:
     thing" must not quietly take five.
     """
     try:
+        pip_base = _pip_base_command()
+        if pip_base is None:
+            _state.outcome = "failed"
+            _state.step = NO_PYTHON_FOUND_MESSAGE
+            return
         command = [
-            sys.executable,
-            "-m",
-            "pip",
+            *pip_base,
             "uninstall",
             "-y",
             "--disable-pip-version-check",
@@ -361,10 +436,14 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
     """pip, in a worker thread, with its output kept for the panel."""
     constraints_copy: Path | None = None
     try:
-        # `sys.executable -m pip` and never a bare `pip`: the app may well be
-        # running inside a venv whose pip is not the one on PATH, and installing
-        # into the wrong environment looks exactly like an install that did
-        # nothing.
+        # `sys.executable -m pip` and never a bare `pip` — see
+        # `_pip_base_command`'s own docstring for why that's not quite right
+        # either once the app is a frozen build, and what this does instead.
+        pip_base = _pip_base_command()
+        if pip_base is None:
+            _state.outcome = "failed"
+            _state.step = NO_PYTHON_FOUND_MESSAGE
+            return
         # Constrain every extra install against requirements.txt so an optional
         # package's own dependency resolution can't drag a base package (e.g.
         # tokenizers, numpy) to a version the rest of the app doesn't expect.
@@ -373,9 +452,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         constraint = ["-c", str(constraints_copy)] if constraints_copy else []
 
         command = [
-            sys.executable,
-            "-m",
-            "pip",
+            *pip_base,
             "install",
             "--disable-pip-version-check",
             # A reinstall is for the case the button exists to serve: it is
@@ -406,11 +483,22 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             _state.step = line[:120]
         code = process.wait()
         _state.outcome = "completed" if code == 0 else "failed"
-        _state.step = (
-            f"{extra.label} installed — restart MemoryMap to use it."
-            if code == 0
-            else _pip_reason(_state.log, f"pip exited with code {code}")
-        )
+        if code != 0:
+            _state.step = _pip_reason(_state.log, f"pip exited with code {code}")
+        elif extra.id == "ocr":
+            # The one extra with a system-binary half pip can't touch —
+            # asked for directly ("automate it if possible"). Best-effort:
+            # a failed *binary* install never flips this extra's own
+            # outcome to "failed" — the pip packages are genuinely
+            # installed and useful (ocr.py degrades cleanly without the
+            # binary), so the honest outcome is still "completed", just
+            # with the binary attempt's own result folded into the message.
+            _state.step = "Installing the Tesseract program…"
+            _, binary_message = ocr.attempt_binary_install()
+            _state.log.append(binary_message)
+            _state.step = f"{extra.label} installed — restart MemoryMap to use it. {binary_message}"
+        else:
+            _state.step = f"{extra.label} installed — restart MemoryMap to use it."
     except (OSError, subprocess.SubprocessError):
         # See `_run_uninstall`'s except block: same CodeQL
         # `py/stack-trace-exposure` shape, same fix — full detail to the log,

@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 import re
+import subprocess
+import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -20,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, media_gc
+from memorymap.core import deps, media_gc, ocr
 from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -192,13 +195,24 @@ def rename_file(
 # than a download in every shell, and it is the only thing that works in the
 # window.
 
-#: Where generated files land. Beside the notes rather than in the OS Downloads
-#: folder, so "where your data is" stays one answer and nothing is written
-#: outside the directory the user pointed the app at.
+#: Where generated files land by default. Beside the notes rather than in the
+#: OS Downloads folder, so "where your data is" stays one answer unless the
+#: user deliberately points it elsewhere — see `_exports_dir` below, added
+#: after a direct request for a configurable location ("I have to dig in the
+#: app data files to find and access them").
 EXPORTS_DIRNAME = "exports"
 
 #: A generated export is text or a small archive, never a media library.
 MAX_SAVE_BYTES = 50 * 1024 * 1024
+
+
+def _exports_dir() -> Path:
+    """`export_save_dir` preference if set (validated at save time — see
+    `_validated_export_dir` in routes_settings.py — so this is always a real,
+    writable directory when non-empty), else the default beside the notes.
+    """
+    custom = deps.get_config().get_preference("export_save_dir", "")
+    return Path(custom) if custom else deps.get_config().data_dir / EXPORTS_DIRNAME
 
 
 class SaveFileBody(BaseModel):
@@ -233,7 +247,7 @@ def save_generated_file(body: SaveFileBody) -> dict:
     if len(data) > MAX_SAVE_BYTES:
         raise HTTPException(status_code=413, detail="That file is too large to save.")
 
-    exports: Path = deps.get_config().data_dir / EXPORTS_DIRNAME
+    exports = _exports_dir()
     exports.mkdir(parents=True, exist_ok=True)
     name = safe_filename(body.filename)
     target = exports / name
@@ -245,6 +259,45 @@ def save_generated_file(body: SaveFileBody) -> dict:
         target = exports / f"{stem}-{stamp}{suffix}"
     target.write_bytes(data)
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
+
+
+@router.post("/files/open-exports-folder")
+def open_exports_folder() -> dict:
+    """Reveal the exports folder in the OS file manager.
+
+    Asked for directly ("I have to dig in the app data files to find and
+    access them") after `save_generated_file` above started writing graph
+    PNGs, chat exports and the like into `data_dir/exports` with only a
+    toast naming the path — real, but no help finding it again later.
+    Desktop only: a browser tab has no file manager to hand this to, and
+    `webbrowser.open`-ing a `file://` URL from a server request a browser
+    could also reach is a foothold a purely local desktop shell doesn't
+    have to give a page.
+    """
+    if os.getenv("MEMORYMAP_DESKTOP") != "1":
+        raise HTTPException(
+            status_code=409, detail="Only the desktop app can open a file manager window."
+        )
+    exports = _exports_dir()
+    exports.mkdir(parents=True, exist_ok=True)
+    try:
+        if sys.platform == "win32":
+            # Safe even though the path can now be user-configured: passed as
+            # a single argument, never through a shell, and _validated_export_dir
+            # already refused anything that isn't a real, writable directory.
+            os.startfile(exports)
+        elif sys.platform == "darwin":
+            # Popen, not run(): the launcher forks its own file-manager window
+            # and normally returns at once, but this request must not hang
+            # waiting on a GUI process either way — same reasoning as
+            # `restart_in_console_mode` being fire-and-forget rather than
+            # something this response waits on.
+            subprocess.Popen(["open", str(exports)])
+        else:
+            subprocess.Popen(["xdg-open", str(exports)])
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Couldn't open {exports}: {exc}") from exc
+    return {"path": str(exports)}
 
 
 #: What `/media/` will accept and, more to the point, what it will serve.
@@ -298,6 +351,12 @@ def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> d
     session.add(upload)
     session.commit()
     session.refresh(upload)
+    # OCR (ROADMAP.md item 30d) runs on a background thread, never on this
+    # request — Tesseract can take a second or two per image, and nothing
+    # about "was the upload accepted" should wait on it. Raster images only
+    # (see ocr.OCR_SUFFIXES); a PDF here just never gets ocr_text, honestly.
+    if suffix in ocr.OCR_SUFFIXES:
+        ocr.extract_in_background(upload.id, destination)
     # `id` lets a caller that changes its mind (the capture form's own
     # attachment chip, removable with a click) call DELETE /media/{id}
     # instead of just detaching the markdown reference and leaving the
@@ -309,6 +368,10 @@ class MediaUploadOut(BaseModel):
     id: int
     url: str
     original_name: str
+    #: "" until OCR finishes (or never, off the tesseract binary, or a PDF)
+    #: — never null over the wire, so the frontend can filter on it with a
+    #: plain substring match without a null check at every call site.
+    ocr_text: str = ""
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -319,7 +382,12 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
     """
     uploads = session.query(MediaUpload).order_by(MediaUpload.created_at.desc()).all()
     return [
-        MediaUploadOut(id=u.id, url=f"/media/{u.filename}", original_name=u.original_name)
+        MediaUploadOut(
+            id=u.id,
+            url=f"/media/{u.filename}",
+            original_name=u.original_name,
+            ocr_text=u.ocr_text or "",
+        )
         for u in uploads
     ]
 

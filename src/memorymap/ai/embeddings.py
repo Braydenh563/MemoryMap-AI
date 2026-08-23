@@ -262,6 +262,9 @@ class EmbeddingService:
         self._load_failed_at: float | None = None
         # Why the last embed failed, for the Models screen — None = fine.
         self.last_error: str | None = None
+        # Guards _maybe_auto_install_missing_package: try the self-heal at
+        # most once per process, not once per failed embed.
+        self._auto_install_attempted = False
         # text -> vector, bounded and FIFO. See embed_text for why.
         self._embed_cache: dict[str, np.ndarray] = {}
 
@@ -369,8 +372,75 @@ class EmbeddingService:
             # looks like it's "warming up" forever (user-reported bug).
             self.last_error = f"{type(exc).__name__}: {exc}"
             self._load_failed_at = time.monotonic()
+            self._maybe_auto_install_missing_package(exc)
             logger.exception("embedding backend failed")
             return None
+
+    def _maybe_auto_install_missing_package(self, exc: Exception) -> None:
+        """Self-heal a missing `sentence-transformers` install, once per
+        process, instead of leaving it to the user to find Settings ->
+        Packages themselves.
+
+        Search-by-meaning is the *default* engine — it already silently
+        downloads its own ~130MB model from Hugging Face on first use with
+        no separate opt-in, so installing the one PyPI package that makes
+        it importable at all is the same "works without being asked" shape,
+        not a new consent-requiring action the way turning on web search or
+        checking GitHub for updates would be.
+
+        Deliberately narrow: only a genuine "the package flat-out isn't
+        there" `ModuleNotFoundError` triggers this. A different failure —
+        a corrupted install, an incompatible wheel, an out-of-memory crash
+        — retrying the exact same `pip install` would do nothing but burn
+        bandwidth and hide a real problem behind "installing…" forever;
+        `is_installed`'s own docstring already notes that import-success
+        isn't "it's sound", which is a different, harder problem than this
+        (`reinstall`, the manual escape hatch in Settings, exists for that
+        one). Reuses `core.extras.start`, the same machinery the Settings ->
+        Packages button calls — including this session's `find_system_python`
+        fix, so this now actually works on a packaged (frozen) build, not
+        just a source checkout.
+        """
+        if self._auto_install_attempted:
+            return
+        if not isinstance(exc, ModuleNotFoundError) or "sentence_transformers" not in str(exc):
+            return
+        self._auto_install_attempted = True
+        from memorymap.core import extras
+
+        started, message = extras.start("semantic")
+        if not started:
+            # Already installed (so this was a *different* failure — sound
+            # but broken, `reinstall`'s job, not this one's), already
+            # running (someone beat this to it), or genuinely unavailable
+            # on this platform. Nothing safe to do automatically either way.
+            logger.info("sentence-transformers auto-install not started: %s", message)
+            return
+        logger.info("sentence-transformers missing — installing it automatically")
+
+        def _retry_once_installed() -> None:
+            while extras.current().running:
+                time.sleep(1)
+            if extras.current().outcome == "completed":
+                logger.info(
+                    "sentence-transformers auto-install finished — retrying the load"
+                )
+                # CPython's path-based import finders cache directory
+                # listings for speed, so a package that didn't exist the
+                # first time this process looked can still come up
+                # "missing" on a naive retry even though pip just put it
+                # there — invalidate_caches() is the documented fix
+                # (importlib docs, "Caching and invalidation"), and is what
+                # makes this an actual same-process fix rather than a
+                # "restart MemoryMap" instruction in different words.
+                import importlib
+
+                importlib.invalidate_caches()
+                self.reset_failure_state()
+
+        threading.Thread(
+            target=_retry_once_installed, name="embedding-auto-install-watch", daemon=True
+        ).start()
 
     def store_for_entry(self, session: Session, entry: Entry) -> bool:
         """Save an entry's vector. Returns False on failure — which only

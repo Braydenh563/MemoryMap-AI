@@ -6,6 +6,49 @@ Split out of test_antigravity_regressions.py.
 
 from __future__ import annotations
 
+from memorymap.api import routes_files
+
+
+def test_media_upload_triggers_background_ocr_for_an_image(ai_client, monkeypatch):
+    """ROADMAP.md item 30d — OCR runs in the background, never on the
+    request itself, so this only checks it was *asked to start*, not that
+    it finished (see test_ocr.py for the extraction logic itself)."""
+    calls = []
+    monkeypatch.setattr(
+        routes_files.ocr, "extract_in_background", lambda upload_id, path: calls.append((upload_id, path))
+    )
+    response = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    )
+    assert response.status_code == 200
+    assert len(calls) == 1
+    assert calls[0][0] == response.json()["id"]
+
+
+def test_media_upload_never_triggers_ocr_for_a_pdf(ai_client, monkeypatch):
+    """Tesseract can't OCR a PDF directly (no page-rasterisation step here
+    — see ocr.py's own docstring) — a PDF upload must never even try."""
+    calls = []
+    monkeypatch.setattr(
+        routes_files.ocr, "extract_in_background", lambda upload_id, path: calls.append((upload_id, path))
+    )
+    response = ai_client.post(
+        "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
+    )
+    assert response.status_code == 200
+    assert calls == []
+
+
+def test_media_list_and_upload_include_ocr_text(ai_client):
+    """`ocr_text` is always a string over the wire, never null, so the
+    frontend gallery's substring filter never needs a null check."""
+    response = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    )
+    listed = ai_client.get("/media").json()
+    row = next(r for r in listed if r["id"] == response.json()["id"])
+    assert row["ocr_text"] == ""
+
 
 def test_media_upload_refuses_anything_that_is_not_an_image(ai_client):
     """`/media/{name}` serves from the app's own origin, so an .html or .svg

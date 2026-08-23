@@ -1,37 +1,592 @@
 # Session handover
 
+## Latest session — real-support-bundle fixes finished and released as v0.1.3, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
+
+Continuation of the previous session's real-support-bundle work (four bugs
+found and fixed there — see below). This session first closed out a run of
+live-reported follow-ups, cut the v0.1.3 release, then built the auto-update
+framework the user asked for in detail across several messages. **None of the
+Win32 mechanics below have been exercised on a real Windows machine** — same
+standing caveat as everything else in this codebase that touches
+`sys.frozen`/PyInstaller; the shape is sound and every test that can run
+without one does, but a real report is still the first thing to trust over
+this write-up if one comes back wrong.
+
+**Closed out from the support bundle, before the release:**
+1. **BGE embedding install now retries itself.** A missing
+   `sentence_transformers` (`ModuleNotFoundError`) now triggers one
+   background `extras.start("semantic")` automatically, with a watcher
+   thread that calls `importlib.invalidate_caches()` + `reset_failure_state()`
+   once the install finishes — the CPython import-cache gotcha (a package
+   installed mid-process still needs its finder caches invalidated before a
+   retry `import` finds it) would have made this silently "not work" without
+   that call. `embeddings.py`, 6 new tests in `test_embedding_reset.py`.
+2. **The in-chat Web toggle dims when web search is off** (`#web-search-toggle:not(.active) { opacity: 0.6; }`, `01-forms-settings.css`) — asked for directly, so a user can tell at a glance whether a chat turn will actually search.
+3. **v0.1.3 released**: `__version__`/`pyproject.toml` bumped, `CHANGELOG.md` (and its `docs/` mirror) written up per entry.
+
+**The auto-update framework (`routes_update.py`, new), asked for across
+several messages in the same session:**
+
+- **`GET /update/check`** moved here from `app.py` (it used to sit inline)
+  and is now channel-aware: `update_channel == "main"` returns
+  `{"checked": false, "reason": "channel_unavailable"}` honestly rather than
+  fabricating a check against a release pipeline that does not exist —
+  there is no nightly build published on every main-branch push, and this
+  repo is not building one blind. `"stable"` behaves as before (GitHub's
+  `releases/latest`, `can_auto_apply`/`asset` only populated for a frozen
+  Windows build).
+- **`POST /update/apply`** now requires *both* `update_check_enabled` and
+  a new, separate `auto_update_enabled` preference (403 if either is off —
+  asked for directly: "the option to turn auto update off entirely",
+  distinct from just being told a release exists), and accepts an optional
+  `?tag=` to install a specific past release instead of always latest
+  (`releases/tags/{tag}` vs `releases/latest`). Still never trusts a
+  client-supplied URL — always re-fetches the release by tag/latest itself
+  before touching `subprocess.Popen`.
+- **`GET /update/releases`** — up to 10 recent releases with a matching
+  Windows asset, for a "choose a specific version" picker in Settings.
+  Honestly empty (with a `reason`) off the main channel, off a non-frozen
+  build, or when checking is disabled — never a picker that silently does
+  nothing when used.
+- **Blocked download vs. blocked installer execution are now distinguished**
+  in `_run_apply` — asked for directly ("handle the case that the new
+  installer download is blocked by browser, firewall or other security").
+  Two separate `try`/`except` phases: a download failure gets a
+  firewall/proxy/offline-flavoured message, while `PermissionError`/`OSError`
+  from `subprocess.Popen` (the WinError 5/1260 shape antivirus or
+  SmartScreen quarantining a fresh download takes) gets its own message
+  pointing at antivirus quarantine specifically, not a generic failure.
+- **`GET /update/source-status`** — a *different* auto-update path than any
+  of the above. `start.sh`/`start.bat` already `git pull --ff-only` on every
+  launch, unconditionally, before the server even starts — that mechanism
+  predates this session and was never gated by any preference. Both scripts
+  now read `__version__` before and after a successful pull and, if it
+  actually changed, export `MM_UPDATED_FROM`/`MM_UPDATED_TO` (start.bat's
+  own `:read_version` subroutine leaves the quotes from
+  `__version__ = "0.1.3"` on rather than fight cmd.exe's quoting rules for
+  embedding a literal `"` inside `set "VAR=..."` — `.strip('"')` on the
+  Python side handles it). The endpoint reads those two env vars, no network
+  call, and **self-clears after one read** so re-polling or a second tab
+  doesn't repeat the popup. Frontend: `checkForSourceUpdateNotice()` +
+  `showSourceUpdatedDialog()` in `app.js`, called from the same post-login
+  step pipeline as the Windows check, independent of
+  `update_check_enabled` (it is reporting a fact, not making a network call).
+- **Channel default is now install-type-aware**
+  (`config.py::ConfigManager._load_preferences`): a frozen Windows build
+  defaults `update_channel` to `"stable"` (unchanged); every other install
+  — i.e. a source checkout — now defaults to `"main"`, computed from the
+  real `sys.frozen` at `ConfigManager.__init__` time and overridden the
+  moment the user has ever actually saved the preference themselves. This
+  was a live correction mid-session: a source checkout already tracks main
+  for real via its own `git pull`, so defaulting it to "stable" pointed its
+  *other* update path (the GitHub-releases check, which it can't apply
+  anyway — `can_auto_apply` requires a frozen build) at a channel it has no
+  way to act on.
+- **Settings → About** gained: an "Update automatically" checkbox
+  (`auto_update_enabled`), a "Track the main branch" checkbox
+  (`update_channel`), and a version picker ("Choose a specific version…" →
+  populates a `<select>` from `/update/releases` on demand, not on every
+  Settings open → "Install this version" calls `applyUpdateNow(onProgress,
+  tag)`).
+- **27 tests in `test_update.py`** cover every guard, both new endpoints,
+  the tag-specific apply path, both new failure-message branches, and
+  `source-status`'s self-clearing/quote-stripping/no-op-on-unchanged-version
+  behaviour — all against a fake `requests`/`subprocess`, per this file's
+  standing caveat about provider/network tests never touching anything real.
+
+**The Help-page overhaul plus an embedded mini AI-chat widget** (utility
+model, session-only history, tuned for speed/accuracy) the user described in
+detail across several messages is **logged, not built** — ROADMAP.md item
+40 (Tier 3) records the full spec verbatim so the next session that picks
+it up starts from the actual ask rather than re-deriving it. It was
+explicitly scoped to start only after the auto-update work above was
+completely finished; that gate cleared, and this session spent its
+remaining budget on a different, smaller, immediately-shippable item
+instead (below), leaving the Help page itself for next time.
+
+**OCR text on uploaded images, ROADMAP.md item 30d — done.** A whiteboard
+photo or scanned page attached via `POST /media/upload` was an opaque file
+nothing could search. New `core/ocr.py`: `tesseract_available()`
+(`shutil.which("tesseract")`), `extract_text()` (best-effort, never
+raises — a missing binary, a missing `pytesseract`/Pillow install, and a
+corrupt/unreadable image are three different "logged once, not per
+upload" no-ops, not three different crashes), and
+`extract_in_background()`/`extract_and_store()` (a daemon thread per
+upload, split so tests can call the synchronous half directly). Wired into
+`upload_media` for raster suffixes only (`ocr.OCR_SUFFIXES` — no PDF; that
+would need page rasterisation, a dependency this pass doesn't pull in) —
+never blocks the upload response. New `MediaUpload.ocr_text` column
+(additive auto-migration, nothing to do by hand). Deliberately **not**
+routed through the entries FTS5 index the roadmap item's own text
+suggested — a `MediaUpload` isn't an `Entry`, and the FTS triggers are
+wired to the `entries` table specifically; forcing it in there would need
+a cross-table hack for no real benefit. Instead: `GET /media`'s
+`ocr_text` field feeds the Library's own Image Gallery search box (new —
+this tab, `whiteboard.js`, had none before), client-side substring
+filtering against filename *and* OCR text, the same pattern the main
+Library search already uses against `preview`. `pytesseract`/Pillow are
+optional (`requirements.txt`'s "Optional extras" block, same as
+`faster-whisper`) — the actual capability lives in the `tesseract` system
+binary, which `pip` cannot install, so `INSTALL.md` now says so plainly
+(apt/brew/choco, or "nothing breaks without it, you just get no OCR
+text").
+
+**Verified live, not just reasoned about** (this sandbox has Tesseract
+5.3.4 installed for the occasion): a real PNG with rendered text, uploaded
+through the actual file input, produced real (imperfect, as real OCR is)
+extracted text within ~1-2s, findable by both a real word from that text
+and by filename, with the "no images match your search" state correctly
+distinguished from "no images at all." 9 new tests (`test_ocr.py`,
+`test_media_api.py`) all mock Tesseract/pytesseract, so they pass with or
+without the binary present — Tesseract itself is not assumed to exist in
+CI.
+
+Also fixed in passing: while tracing how the Library's Image Gallery
+sub-tab switches (needed to know where to hook the search box), grepping
+`app.js` alone for its wiring came up completely empty — a real "did I
+find a dead feature?" moment per this file's own caution about features
+that never ran once. It wasn't: the wiring lives in `whiteboard.js`, a
+separate frontend file this session hadn't checked yet. Confirmed live via
+Playwright before concluding either way, rather than reporting a false
+bug off a grep miss.
+
+**Tesseract binary install assistance, asked for directly** ("add the
+option for install assistance for the tesseract program installation,
+automate it if possible"): the "ocr" extra is now a real entry in
+`core/extras.py`'s installable-extras registry (pip installs `pytesseract`/
+Pillow like any other extra), and `_run_install` follows it with a
+best-effort, non-interactive attempt to install the `tesseract` **system
+binary** itself — the one part pip can never touch. New
+`ocr.attempt_binary_install()`: tries winget (Windows) / brew (macOS) /
+apt-get, dnf, pacman (Linux, whichever exists), every command fully
+non-interactive so it can never hang on a password prompt or a UAC dialog
+nothing can answer — a non-root Linux process tries a `sudo -n` variant
+first (fails immediately rather than prompting), falling back to the bare
+command. Wall-clock bounded (90s) either way. `installed` is only ever
+reported `True` once `tesseract_available()` is confirmed **after** the
+attempt — the installer's own exit code is never trusted alone, the same
+"a POST response can lie about stored state" caution this app applies
+everywhere else that reports success. A failed binary attempt never fails
+the extra's own install outcome — the pip packages are genuinely useful on
+their own, `ocr.py` already degrades cleanly without the binary. 19 new
+tests across `test_ocr.py`/`test_extras.py`, none touching a real package
+manager.
+
+**A subscribed PR's CI turned up real findings, all fixed same-session**
+(PR #123, `claude/docs-review-bug-fixes-rae8zd` → `main`) — asked for
+directly ("review and fix the codeql failures"):
+- **3 real test failures, not CodeQL**: `test_embedding_reset.py`'s BGE
+  auto-install tests (an earlier session's work) relied on the *ambient*
+  fact that `sentence-transformers` genuinely isn't installed in this
+  sandbox to naturally produce a `ModuleNotFoundError` — true here, false
+  on GitHub Actions, whose own workflow installs the full
+  `requirements.txt` including the real package. CI's `embed_text` call
+  just succeeded for real (downloading the model from Hugging Face, visible
+  in the job log), so the auto-install trigger it meant to test never
+  fired. Fixed by mocking `_load_st_model` to raise the exact exception
+  directly, the same pattern the file's own sibling test already used —
+  never rely on an ambient environment fact a different CI runner won't
+  share.
+- **CRITICAL, CodeQL `py/partial-ssrf`**: `POST /update/apply?tag=` built
+  a GitHub API URL by interpolating the client-supplied `tag` straight in
+  (`f"{GITHUB_REPO_API}/releases/tags/{tag}"`) — the host was fixed, but
+  the path wasn't, which is exactly what "partial" SSRF means. **First
+  attempt (regex-validate `tag` against `v\d+\.\d+\.\d+` before use, refuse
+  a mismatch with 400) was not enough** — CodeQL re-flagged the exact same
+  line on the next scan, meaning its data-flow analysis doesn't treat a
+  `re.match` + early-raise as a recognised sanitiser for this query. Fixed
+  properly by removing the tainted value from the URL entirely instead of
+  validating it: a specific tag is now found by fetching the plain, fixed
+  `/releases` listing (same URL `GET /update/releases` already uses) and
+  matching `tag_name` against it in memory, so `tag` never reaches a
+  request URL at all, validated or not. The regex check stays too, as a
+  cheap early 400 — defense in depth, not the load-bearing fix anymore.
+  **Lesson for next time a security scanner is re-flagging something after
+  a fix**: check whether the *value* was actually removed from the tainted
+  sink, not just filtered — a static analyzer's sanitiser recognition is
+  narrower than "the code is provably safe."
+- **MEDIUM, CodeQL `py/stack-trace-exposure`**: `routes_update.py`'s
+  `_run_apply` put raw `str(exc)` into `_state.error`, which `GET
+  /apply/status` returns straight to the browser — a real `PermissionError`
+  on Windows carries the full local path it couldn't open. Same shape
+  `core/extras.py`'s own module docstring already documents fixing once
+  for the package installer. **Also needed a second pass**: an initial fix
+  conditionally let one exception's `str()` through (`isinstance(exc,
+  _DownloadIncomplete)`, believed safe since this module wrote that
+  specific message itself) — CodeQL flagged it again, same reasoning as
+  the SSRF re-flag: a conditional pass-through of an exception's `str()` is
+  still a recognised flow to the query, regardless of what's actually in
+  the string at runtime. Fixed by severing the flow completely instead:
+  `_download` now sets `_state.error` directly, from plain integers (byte
+  counts), *before* raising a bare `OSError` purely for control flow —
+  `_run_apply`'s except block never reads any caught exception's `str()`
+  at all, for any branch, full stop. The custom `_DownloadIncomplete`
+  exception class this replaced is gone too — it existed only to support
+  the isinstance check that's no longer needed.
+- **5 notes, `py/unused-global-variable` ×4 and a duplicate-import ×1**:
+  four loose module-level flags (`ocr.py`'s two "log this once" bools,
+  `routes_update.py`'s four source-update-popup fields) read a false
+  positive from CodeQL's single-function view of a "check once, across
+  separate calls" idiom — genuinely used, just not in a shape that query
+  recognises. Fixed by removing the shape entirely rather than arguing with
+  the tool: `ocr.py`'s two flags became `functools.lru_cache(maxsize=1)`-
+  wrapped log-once helpers (no mutable state at all); `routes_update.py`'s
+  four became one `_SourceUpdateState` instance, mirroring the
+  `_ApplyState`/`_state` pattern the same file already uses for the apply
+  flow. `test_file_save.py` had a genuine, harmless duplicate import
+  (`from ... import X` at module level, `import ... as routes_files`
+  again inside one test) — collapsed into one module-level import.
+- All fixes verified with new/updated tests (`test_update.py` ×2 new,
+  `test_ocr.py` caplog-based rewrite of the log-once test), full suite,
+  `ruff check .` green.
+
+**A real, latent test-isolation bug found chasing down why `pytest
+tests/test_update.py` alone kept dying silently** — 24 of 30 tests, then
+nothing: no failure, no traceback, exit code 0, process just gone.
+`_exit_once_launched` (a background thread `POST /apply` starts on the
+"launched" path) polls for the apply thread to finish, then sleeps 2s and
+calls the real `os._exit(0)` — by design, so the installer can overwrite
+files this process is holding open. Two existing tests mock `os._exit` to
+stop that from actually killing the test run, and both look correct in
+isolation: `client.post(...)`, `_wait_until_idle()`, assert, done. The bug
+is in the gap between "done" and "actually done": `_wait_until_idle` only
+waits for `_state.running` to go False, which happens *before* the
+watcher's own 2-second sleep — so the test function returns, `monkeypatch`
+reverts `os._exit` back to the real one at teardown, and ~2 seconds later
+(from a background thread still running, unaffected by the test having
+"finished") the *real* `os._exit(0)` fires and kills the whole pytest
+process. Invisible in the full suite (by the time it detonates, deep into
+a multi-minute run, pytest is already finishing up on its own) and fatal
+running this one file alone (short enough that the 2-second bomb goes off
+squarely mid-run). Fixed two ways together, neither sufficient alone: (1)
+`EXIT_DELAY_SECONDS` pulled out as a module constant the two affected
+tests shrink to `0`, and (2) both tests now explicitly wait for the
+*mocked* `os._exit` to actually have been called (`_wait_until_exit_called`,
+a bounded poll on a list the mock appends to) before returning, so
+`monkeypatch` never reverts out from under a still-in-flight background
+thread. The general shape worth remembering: a test that mocks something a
+*background thread* will call later has to wait for that call to actually
+happen, not just for the request/response cycle that started the thread.
+
+**The exact same bug shape, found a second time by CI rather than locally, in
+a different file:** pushing the fixes above turned CI green on CodeQL but
+red on `Tests (Python 3.12)` — one failure, `test_extras.py::
+test_a_failed_tesseract_binary_attempt_does_not_fail_the_whole_ocr_install`,
+asserting on `state.step` and getting back `'WARNING: Skipping faster-whisper
+as it is not installed.'` instead. That string is real `pip uninstall`
+output, not anything either test's own mock produces. Cause: its neighbour,
+`test_voice_actions_are_unblocked_once_nothing_is_loaded`, calls
+`extras.remove("voice")` without mocking `threading.Thread` or
+`subprocess.Popen` — unlike every other test that reaches `start()`/`remove()`
+in the file, which all mock `Thread` with the local `_NoThread` for exactly
+this reason (one of them says so directly, in a docstring added after an
+earlier live report of the same class of bug racing `test_tasks.py`). So it
+spawns a *real* background `pip uninstall faster-whisper` against the actual
+sandbox environment (where it isn't installed, hence the WARNING), which
+outlives the test that started it and later overwrites the shared
+`extras._state` module global while a completely unrelated test elsewhere in
+the same file is mid-assertion. Passed every time run locally in this
+session (evidently fast/lucky pip timing) and only showed up once, in CI, on
+Python 3.12 specifically — this is not an environment difference worth
+chasing, it is the same race CLAUDE.md already documents (a leaked background
+thread mutating shared global state after its own test has returned) showing
+up wherever a test forgets the one line its neighbours all remembered. Fixed
+by adding the same `monkeypatch.setattr(extras.threading, "Thread",
+_NoThread)` line the other `start()`/`remove()` tests already have. Worth a
+project-wide sweep if this class of bug turns up a third time: grep for every
+test that reaches `extras.start(`/`extras.remove(`/`routes_update.py`'s apply
+path without mocking `threading.Thread`, not just wait for CI to find them
+one at a time.
+
+## Previous session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
+
+A user hit real problems on a packaged Windows install and sent a support
+bundle (logs.json/preferences.json/status.json/counts.json). Four separate,
+confirmed root causes came out of it — worth reading in full before the next
+session assumes any of "pip install fails," "SearXNG modules missing," or
+"the agent notification pushes the UI" are still mysteries.
+
+**A fifth, found by auditing rather than waiting for a fifth report**: once
+the `sys.executable`-in-a-frozen-build bug (item 1 below) was understood,
+grepping the whole codebase for the same pattern (`sys.executable`) found
+one more live instance — `searxng_install.py`'s `sys.executable -m venv
+...`, creating the virtualenv for SearXNG's from-source install path. Same
+bug, same fix: the interpreter-finding logic was pulled out of
+`core/extras.py` into a shared `find_system_python()` (still frozen-aware,
+still falls back to a PATH lookup, still `None` with an honest message
+when nothing is found) and reused in both places. Two new tests
+(`test_searxng_install.py`) exercise the venv-creation branch specifically
+— every other test in that file uses `_fake_venv()` to skip past it, so
+none of them would have caught this on their own.
+
+**1. The in-app package installer was fundamentally broken in the packaged
+build**, not the app's optional-dependency logic — `_run_install`/
+`_run_uninstall` (`core/extras.py`) ran `[sys.executable, "-m", "pip", ...]`,
+which is correct for a source/venv install but wrong for a frozen
+(PyInstaller) build: `sys.executable` there is the packaged `.exe` itself,
+so the command re-launched *the app* with pip's own arguments, which
+`__main__.py`'s argparse (only `--desktop`/`--reset-password`) rejected —
+exactly the user's log line: `"unrecognized arguments: -m pip install
+--disable-pip-version-check sentence-transformers"`. This is also the real
+answer to two long-standing "pip exited with code 1/2, no error text
+visible" mysteries this file recorded in earlier sessions — there was never
+any real pip output, because pip was never actually run. Fixed with a new
+`_pip_base_command()`: unchanged for a source install, but for a frozen one
+it looks for a real Python on PATH (`shutil.which`) and uses that instead —
+INSTALL.md documents Settings → Packages as the no-terminal/no-Python-
+required path in from the Windows installer, so failing outright would
+break a documented promise, not just tighten an error message. `None` (no
+Python found anywhere) now surfaces one clear, actionable sentence
+(`NO_PYTHON_FOUND_MESSAGE`) instead of the argparse crash. 7 new tests
+(`test_extras.py`), all passing without a real Windows build.
+
+**2. `ModuleNotFoundError: No module named 'memorymap.search.searxng_docker'`
+in the same bundle** — a real packaging gap, not a user misconfiguration (the
+user doesn't want web search at all and this didn't block them, but the
+module error is real). `searxng_manager.py`'s own module `__getattr__`
+reaches four facade files (`searxng_settings`/`searxng_docker`/
+`searxng_install`/`searxng_process`) exclusively via
+`importlib.import_module` — none of the four is ever imported by name
+anywhere else, so PyInstaller's static analysis has no path to any of them,
+the same "picked by name at runtime" shape already handled for uvicorn/
+sqlalchemy/pywebview/pystray in the spec's own `hiddenimports`, just missed
+for this one. Added all four. New `tests/test_packaging_spec.py` parses
+`searxng_manager._FACADE_NAMES` and asserts every one is listed in the spec
+file, so a fifth facade module added later can't silently repeat this.
+
+**3. A real, reproduced UI bug** — "a background agent notification
+actually displaced and pushed up the entire ui... sat at the bottom instead
+of floating in front." First pass (checking `#agent-monitor`'s own CSS,
+multiple viewports, fresh and populated profiles) found nothing — the panel
+really is `position: fixed` and really does float correctly everywhere it
+was checked. **The user was right and pushed back with the exact tab
+(Chat) and pointed at the very screenshot that showed it**, which is what
+found the real mechanism: `body.has-agent-monitor #tab-chat .layout > main
+{ padding-bottom: calc(var(--space-9) * 9) }` (07-whiteboard-misc.css) — a
+288px buffer meant to keep the last message clear of the overlay, copied
+from the working Notes-tab rule onto a Chat element that isn't a scroll
+container. `#tab-chat`'s `main` is `height: 100%` (fixed, via `align-items:
+stretch`) with `overflow: visible`; padding on a fixed-height box just eats
+the space its own content needs, so the whole card — header, messages,
+composer, Send — got squeezed into a shorter box (Send's own Y position
+moved ~113px). Two more attempts (moving the padding to `#chat-messages`,
+then also forcing `flex-basis: 0` on it) each changed the failure mode but
+didn't fix it — flexbox distributed the extra space in ways that still
+pushed the composer, just by a different amount each time (measured live
+each time: 113px, then 89px, then still 89px). **Root cause, checked
+directly rather than guessed a fourth time**: the monitor is `left: 20px;
+width: 350px` — measured live, that footprint lands entirely on the "Chats"
+sidebar column, never on `.layout > main` at all (`main`'s own `x` starts
+at 348px in the test window). Nothing in the conversation column was ever
+covered, so it never needed protecting. Fixed by removing the rule for Chat
+entirely rather than finding a fourth selector. **Verified live**: Send
+button's Y position is now byte-identical whether the monitor is open or
+closed (was 530→417, then 530→619, then 530→619; now 530→530).
+
+**4. A real, requested feature, not a bug**: automate the fix the app's own
+"Search engine problem" banner already told people to do by hand — asked
+for directly, generalising past this one user's report ("if a user
+experiences the same issues with the embedding model install, I want the
+app to suggest installing nomic embed text and switching to that with the
+process automated if the user selects their agreement"). Added a "Switch to
+nomic-embed-text (Ollama)" button next to `#embedding-error` in Settings →
+Models, shown only when there's an embedding error *and* Ollama is actually
+running and pull-capable (nothing to automate otherwise) and the app isn't
+already on it. One click: `POST /models/pull` (skipped if already
+installed — a real, exercised code path, not just the happy path), a 1s
+poll loop watching `/models/status`'s own `pulls` map until it resolves,
+then `POST /models/embedding-backend` — both routes already existed and
+already do the right thing (re-index included), so this is UI orchestration
+over existing, tested backend behaviour, not new backend logic. Verified
+live with route-mocked network responses (real Ollama isn't available in
+this sandbox): the button's visibility toggles correctly across three
+states (hidden — Ollama down; visible with the right label — error present
+and Ollama up; hidden again — already switched), and a full click-through
+correctly calls both endpoints with the right bodies. **Not verified**: an
+actual Ollama pulling a real model — the standing caveat, same as always.
+
+`pytest tests/` (~1,660 now), `ruff check .`, `node --check frontend/app.js`
+all clean throughout.
+
+## Earlier this session — chat citation badges were silently dropped, found and fixed; a queue of live requests below, none started
+
+**"Semantic search results in chat responses disappeared"**, reported with a
+transcript: a Chat-tab answer about "gaming notes" that clearly drew on
+specific notes but named none of them. Root-caused, not the missing feature
+it first looked like: ROADMAP.md item 36's per-sentence grounding
+(`ai/grounding.py`'s `ground_answer_sentences`, no extra LLM call — scored by
+word overlap between each answer sentence and each retrieved note) already
+runs inside `/chat/stream` for *any* non-conversational turn and emits a
+`{"type": "grounding"}` SSE event — not just for the Ask tab, which is the
+only place anyone had wired it up. `renderAnswerGrounding` (`app.js`)
+hardcoded `$("ai-answer-grounding")`, the Ask tab's one fixed element, and
+silently ignored the `box` argument callers already passed it. The Chat
+tab's `sendChatMessage` never set an `onGrounding` handler at all, so the
+event the backend was already sending every time landed nowhere.
+
+Fixed by making `renderAnswerGrounding` take its target element as a real
+parameter (Ask tab passes `$("ai-answer-grounding")` explicitly now), giving
+each chat bubble its own `.answer-grounding` holder (`addAssistantBubble`,
+next to the existing `recordsHolder`), and wiring `onGrounding` in
+`sendChatMessage` the same way `onMeta` already was. **Verified live**
+(Playwright): note creation, the chat round-trip, and — since this sandbox
+has no Ollama, so no live model prose to ground against — a direct call to
+`renderAnswerGrounding` with a synthetic grounding payload inside a real
+Chat-tab bubble, confirming the chip renders, is titled with the backing
+sentence, and opens the note on click. **Not verified**: a real model
+actually producing prose that clears `MIN_OVERLAP_RATIO` end-to-end — that
+needs a running Ollama, which this sandbox doesn't have. `pytest tests/`
+(~1,600, all green), `ruff check .`, `node --check frontend/app.js` all run
+clean.
+
+**Same session, next queue item**: tooltips + quick-access links for
+Settings → Preferences → "Search relevance (advanced)" (min similarity /
+above-average margin), reachable from the Dashboard, the Ask sub-tab and
+Chat — previously the settings worked but had no explanation and no
+shortcut in from anywhere. Wrapped the group in `#search-relevance-group`
+(`class="flash-target"`), added a `#search-relevance-help` button with the
+same `initHelpToggle`/`graph-help-toggle` pattern as `#draft-help` (hover
+`title` + click-to-open `#search-relevance-intro` panel), and gave
+`openSettingsModal` an optional `scrollToId` param that scrolls to and
+flashes any element after the section opens — a new `.flash-target.flash`
+CSS rule generalises the existing entry-list-only `.flash` highlight so it
+isn't a copy. Quick-access links: a "Search relevance" entry in the
+Dashboard's existing "Tools & features" catalog (`featureCatalog()`, opened
+from a Quick-start button already on the Dashboard — no new dashboard
+widget needed), a small sliders icon button next to the Ask tab's "Matching
+records" heading, and the same button appended to Chat's per-turn "N
+matching notes" `<summary>` (`renderRecordsDetails`). All three call
+`openSettingsModal("preferences", "search-relevance-group")`. **Verified
+live** (Playwright): the jump scrolls to and flashes the group, the tooltip
+text is present, the help panel opens on click, and the Dashboard →
+features catalog finds and lists the new entry — all with zero console
+errors. `pytest tests/`, `ruff check .`, `node --check frontend/app.js`
+clean.
+
+**Same session, third item — half of the next queued request**: "easier
+access... for exported images" turned out to be true of every generated
+export (`saveFile`/`/files/save` in desktop mode — graph PNGs, chat
+exports, whiteboard PNGs, all land in `data_dir/exports`), not images
+specifically. Added `POST /files/open-exports-folder`
+(`routes_files.py`, desktop-only — 409 in browser mode, since a browser tab
+has no file manager to hand a `file://` path to) using `os.startfile`
+(Windows) / `subprocess.Popen(["open", ...])` (macOS) /
+`subprocess.Popen(["xdg-open", ...])` (Linux) — `Popen`, not `run()`, so a
+file-manager window that doesn't exit promptly can't hang the response.
+Wired to a new "Open exports folder" button in Settings → Data (shown only
+in desktop mode, same `desktopShell()` gate as the console-mode row), and
+`saveFile`'s own success toast is now `toastAction(...)` with an "Open
+folder" button on it, not just the path as text. **Verified live**: the
+button appears/hides correctly with desktop mode, the request reaches the
+backend and returns the exports path; **the actual OS window never
+verified** — this sandbox has no desktop environment at all (`xdg-open` isn't
+even installed), so the endpoint's own graceful-failure path (a clean 500
+naming what's missing) is what got exercised, not a real file manager
+opening.
+
+**Same session, closing out the pair**: the other half — a configurable
+save location — added as `export_save_dir` (`DEFAULT_PREFERENCES`,
+`PreferencesBody`, empty = default `data_dir/exports`). Validated at *save*
+time (`_validated_export_dir` in `routes_settings.py`: must be absolute,
+must exist, must be writable — a bad path is a rejected PUT, not a lost
+file discovered later), not export time. `routes_files.py` gained a shared
+`_exports_dir()` read by both `save_generated_file` and
+`open_exports_folder`, so setting the preference redirects both at once. A
+typed path field in Settings → Data (`#pref-export-dir`, save-on-blur/Enter,
+reverts to the last-good value on a rejected path), not a native folder
+picker — pywebview (confirmed in use: `__main__.py` imports it for the
+desktop window) does have `create_file_dialog`, but wiring a picker through
+to this route and shipping it unverified (no real desktop session in this
+sandbox to test it in) risked a worse bug than the one being fixed; a typed
+path is at least fully testable, which it was: 8 new backend tests
+(`test_file_save.py`, default/redirect/reset/relative-rejected/
+missing-rejected/not-a-directory-rejected/bad-value-doesn't-partially-apply/
+open-folder-creates-first) plus a live Playwright pass confirming the field
+populates, a bad path shows the exact rejection reason and reverts, a good
+path sticks, and Reset clears it. `pytest tests/` (~1,650 now), `ruff check
+.`, `node --check frontend/app.js` all clean.
+
+**Same session, past the live-request queue — a roadmap sweep, per this
+file's own top rule ("check the running app first").** ROADMAP.md's Tier 1
+had exactly one open (non-struck-through) item: claim-specificity in
+`agent.unsupported_claims` (§7). Left alone — its own text already says it
+"needs real model output to tune against, which this sandbox cannot
+provide," and this sandbox still has no Ollama; attempting it blind is
+exactly the class of speculative-pattern-matching mistake this project's
+standing caveat warns against. Moved to §30b instead, which claimed Archive
+was "not yet built": checking the running app first (rather than believing
+the roadmap) found it fully shipped for notes — `Entry.archived_at`, `POST
+/entries/{id}/archive`/`/unarchive`, a Library "Archived" chip — in commit
+`4825e70`, whose own docs update just never happened. Corrected ROADMAP.md
+§30b to say so, re-verified live (archived a fresh note via the API,
+confirmed it shows under the Library's Archived chip with the right count,
+zero console errors), and left chats/documents archiving as the real
+remaining scope, same shape as notes to copy from.
+
+**A real bug found along the way, not invented**: item 31's stale/orphaned-
+note review (11 tests, built and merged, "not yet checked live") turned out
+un-checkable for a reason worse than "nobody got to it" — `auto_stale_
+review_enabled` has a live Settings checkbox (`#pref-auto-stale-review`,
+wired to `setPreference` exactly like its `auto_tag`/`auto_link`/`auto_
+dedupe` siblings) but was never declared on `PreferencesBody`, so every PUT
+that turned it on returned 200 while silently dropping the value — the
+exact shape of bug Tier 1 item 4a already fixed for eight *other*
+preferences, just not this one, which must have been added afterwards.
+The autonomous pass could never once actually see the toggle on, no matter
+what the checkbox showed. Fixed: the field declared, echoed back from `GET
+/preferences`, and added to `_AUTONOMOUS_PREFS` (wakes the loop early like
+its siblings, rather than waiting up to the full interval). **Verified
+live, end to end, not just via the API round-trip**: unlocked a real
+server, backdated a note's `updated_at` 200 days directly in the SQLite
+file (the one part `curl` couldn't do — no API sets a date in the past),
+`PUT`d both `autonomous_tasks_enabled` and `auto_stale_review_enabled`
+through the real route, called `POST /tasks/trigger-autonomous`, and
+confirmed the note came back tagged `stale`. Two new tests
+(`test_preferences_api.py`): the standard GET round-trip, plus one that
+asserts `config.get_preference` directly rather than only the echoed GET —
+the shape of assertion that would have caught the original bug, since the
+value never reached `set_preference` at all. `pytest tests/`, `ruff check
+.`, `node --check frontend/app.js` all clean.
+
+**Same sweep, two more of the identical bug shape, found by diffing
+`DEFAULT_PREFERENCES` keys against `PreferencesBody` fields and
+`get_preferences()`'s echoed keys** (script, not manual reading — the
+fastest way to be sure no fourth one was missed): `session_idle_ttl_minutes`
+was declared and honoured (`routes_auth.py`'s three idle-timeout checks) but
+never echoed — Settings → Account's field always showed its HTML default on
+reload. `response_mode` wasn't declared *at all* — `setResponseMode` (app.js)
+PUTs it on every Quick/Normal/Detailed pick, silently dropped every time,
+so "remember what I chose" (the feature's whole stated purpose in its own
+code comment) never once worked. Fixed both, plus a `_known_response_mode`
+validator (mirrors `_known_provider`) so a bad value is rejected at the door
+rather than sitting in storage forever. **Ruled out as false positives,
+checked rather than assumed**: `chat_model`/`embedding_backend`/
+`embedding_model`/`llm_provider`/`llm_base_url`/`llm_api_key` all go through
+a separate "Apply & re-index" flow, not `PUT /preferences` at all —
+different subsystem, not the same bug. `auto_entities_enabled` has no
+frontend control yet (backend-only, as HANDOVER already notes elsewhere) —
+nothing live to be broken. Four new tests. `pytest tests/`, `ruff check .`
+clean.
+
 ## Start here next session — a queue of live requests, none started
 
 Landed at 95%+ quota with no time left to act on them. In the order they
 came in:
 
-1. **Note-citation/hyperlink badges in chat.** When the model names a
-   specific note in prose, stack small badges at the end of that paragraph
-   linking to it. Investigated only: no existing infra for this specific
-   shape (the "View" button system in agent.py's `_change_*` resolvers +
-   `changeRow` in app.js is comprehensive but covers *tool-call results*,
-   not prose mentions — a different, unbuilt thing). ROADMAP.md §80 and
-   earlier in this file have more detail from the original ask.
-2. **Question-mark info tooltips + quick-access links** for the new
-   Settings → Preferences → "Search relevance (advanced)" group (min
-   similarity / above-average margin, added this session), from the
-   Dashboard, the Ask sub-tab, and Chat. Not started — the settings
-   themselves work, just no tooltip and no shortcut into them yet. Same
-   `graph-help-toggle`/`aria-controls` pattern used elsewhere in this file
-   (e.g. `#draft-help`) is the one to copy for the tooltip half.
-3. **Easier access + a configurable save location for exported images.**
-   User: "I have to dig in the app data files to find and access them."
-   Not investigated at all — start by finding where an export actually
-   writes the file today.
-4. **Small-notebook search speed** — reported as "shouldn't take multiple
-   seconds." Checked this session: `keyword_search` is SQLite FTS5
-   (indexed), `semantic_search` is one vectorized numpy pass over
-   pre-stored vectors (no per-note re-embedding, no N+1 queries) — neither
-   should be slow for a small notebook. Not reproduced or timed on real
-   hardware; the likely cause, if real, is one-time embedding-model
-   warmup or LLM answer-generation time being felt as "search" rather
-   than the search algorithm itself. Worth asking the user to time it
-   with the model already warm before assuming the algorithm needs work.
+1. **Small-notebook search speed** — reported as "shouldn't take multiple
+   seconds." Now actually timed, not just read: `POST /chat` (keyword path,
+   this sandbox has no embedding model) against a live server seeded with
+   ~240 notes answered in 22ms, and a plain `GET /entries?search=` in 95ms
+   — no N+1, no visible scaling problem, confirming last session's
+   code-reading conclusion with a real measurement instead of just one.
+   **Still not reproduced end-to-end** (no Ollama in this sandbox, so the
+   generation-time half of the theory is untested) — but the search half is
+   now cleared with real numbers, not inference. If a report comes back,
+   time the search phase specifically rather than the whole answer (there's
+   no existing per-phase duration logging in `routes_chat.py` to read it
+   from — would need adding, or timing client-side between the `status`
+   and first `thinking`/`answer` SSE events) since the rest is model
+   generation on real hardware, not search.
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 

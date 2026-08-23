@@ -77,10 +77,24 @@ if not defined MM_CHILD (
   where git >nul 2>nul && if exist ".git" (
     set "MM_CHILD=1"
     echo  Checking for updates...
+    REM Read before the pull so a real version change can be reported to
+    REM the app after relaunch, the same way start.sh's own self-update
+    REM block does - this script's update runs and finishes before the
+    REM server (and browser tab) exist, so nothing else can tell "was I
+    REM just updated?" without this.
+    call :read_version MM_VERSION_BEFORE
     set "MM_GIT_LOG=%TEMP%\mm_git_update_%RANDOM%.log"
     git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 pull --ff-only > "!MM_GIT_LOG!" 2>&1
     set "MM_GIT_STATUS=!errorlevel!"
     if "!MM_GIT_STATUS!"=="0" type "!MM_GIT_LOG!"
+    if "!MM_GIT_STATUS!"=="0" call :read_version MM_VERSION_AFTER
+    if "!MM_GIT_STATUS!"=="0" if not "!MM_VERSION_AFTER!"=="" if not "!MM_VERSION_AFTER!"=="!MM_VERSION_BEFORE!" (
+      REM Picked up by routes_update.py's GET /update/source-status, purely
+      REM from these two env vars - no network call on the app's own side,
+      REM so this stays offline-safe like everything else update-related.
+      set "MM_UPDATED_FROM=!MM_VERSION_BEFORE!"
+      set "MM_UPDATED_TO=!MM_VERSION_AFTER!"
+    )
     set "MM_GIT_NET=0"
     if not "!MM_GIT_STATUS!"=="0" findstr /I /C:"could not resolve" /C:"unable to access" /C:"timed out" /C:"connection refused" /C:"connection reset" /C:"network is unreachable" /C:"could not connect" /C:"bytes/sec" /C:"proxy" /C:"ssl certificate" /C:"getaddrinfo" "!MM_GIT_LOG!" >nul 2>nul
     if not "!MM_GIT_STATUS!"=="0" if not errorlevel 1 set "MM_GIT_NET=1"
@@ -318,3 +332,24 @@ echo.
 echo  MemoryMap AI has stopped.
 pause
 endlocal
+goto :eof
+
+REM --- Subroutine: read __version__ out of src\memorymap\__init__.py ----
+REM  Called with the name of the variable to set (e.g. `call :read_version
+REM  MM_VERSION_BEFORE`) - batch has no return value, only "set a variable
+REM  in the caller's scope", which `set "%~1=..."` under
+REM  enabledelayedexpansion (set at the top of this script) does.
+REM
+REM  Deliberately left quoted (token 3 of `__version__ = "0.1.3"`, split on
+REM  spaces, is `"0.1.3"` with the quotes still on) rather than stripped
+REM  here - putting a literal double-quote character inside a batch
+REM  `set "VAR=..."` line is exactly the kind of thing this project's own
+REM  start.bat has already been bitten by once (see the top-of-file note
+REM  on parens inside IF blocks). routes_update.py strips the quotes on
+REM  the Python side instead, where it's one `.strip('"')` and not a
+REM  cmd.exe quoting puzzle.
+:read_version
+set "MM_VER_TMP="
+for /f "tokens=1,2,* delims= " %%A in ('findstr /B "__version__" "src\memorymap\__init__.py" 2^>nul') do set "MM_VER_TMP=%%C"
+set "%~1=!MM_VER_TMP!"
+exit /b 0

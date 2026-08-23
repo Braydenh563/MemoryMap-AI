@@ -1233,7 +1233,13 @@
 .entry-meta>.entry-date {
   display: inline-flex;
   align-items: center;
-  min-height: 1.45rem;
+  /* 1.5rem, not the 1.45rem this used to be, and the 0.8px matters: this rule
+     is more specific than `.chip-interactive`'s own `min-height: 1.5rem`, so a
+     *clickable* tag chip inside `.entry-meta` was being pulled back to 23.2px
+     — one pixel under WCAG 2.5.8's 24px minimum target size, measured live
+     rather than inferred. The optical-alignment intent this rule exists for is
+     unaffected; every chip still shares one min-height. */
+  min-height: 1.5rem;
   line-height: 1.2;
 }
 
@@ -2384,3 +2390,28 @@ aside[data-resizable="1"] {
   position: relative;
 }
 
+
+/* ---- WCAG 2.5.8 target size ------------------------------------------------
+   A `<label>` wrapping a checkbox makes the *label* the click target, not the
+   box — which is why these pass on width and failed on height: measured live,
+   `#semantic-search-toggle`'s label was 124x20 and `#library-show-binned`'s
+   113x20, both a comfortable width and four pixels short vertically. Setting a
+   floor on the label is the whole fix; the toggle inside keeps its own size.
+
+   Recorded because the roadmap's own finding here was half wrong and cost time
+   to re-derive: it named these as "13x13 unstyled native checkboxes", which
+   describes the input rather than the target, and listed three `#skills-auto-*`
+   controls that a live sweep across every tab found already passing. */
+.checkbox-label,
+.library-sort-check {
+  min-height: 1.5rem;
+}
+
+/* The Library's per-card selection tick is the one genuinely undersized
+   control in the app: a bare 13x13 native checkbox, and nothing wraps it, so
+   13x13 is the entire target. It only appears in select mode, which is why a
+   sweep of the resting page missed it. */
+.library-card-tick {
+  width: 1.5rem;
+  height: 1.5rem;
+}

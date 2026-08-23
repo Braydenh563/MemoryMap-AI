@@ -40,12 +40,13 @@ from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, text
 
 from memorymap.ai import agent
 from memorymap.core import deps
+from memorymap.core.database import Conversation
 
 logger = logging.getLogger("memorymap.autonomous")
 
@@ -352,6 +353,61 @@ def _vacuum() -> None:
 
     embeddings.clean_orphaned_vectors(deps.get_db().session)
     clean_orphaned_board_cards()
+    purge_old_conversations()
+
+
+def purge_old_conversations() -> int:
+    """Drop saved chats older than the user's retention setting.
+
+    **Why this exists.** Notes have had a recycle bin with a configurable
+    auto-purge for a long time; chat history had nothing. It grew forever, and
+    nothing in the app would ever have noticed — no cap, no warning, no
+    "oldest first" anything. On a notebook used daily for a year that is the
+    single largest table in the database, and every row of it is a
+    conversation the user finished with months ago.
+
+    **Off by default (`0` means keep everything), and that is deliberate.**
+    Deleting somebody's history because a background job decided it was old is
+    the kind of "helpful" behaviour a local-first notebook must not have. The
+    user turns this on; until they do, nothing is removed.
+
+    **Pinned chats are never purged, at any age.** Pinning is the existing,
+    already-understood way to say "this one matters" (`Conversation.pinned`,
+    used by the chat list's own sort), so it is the right signal to reuse
+    rather than inventing a second one — and a retention rule that could
+    delete the thread you deliberately kept would make pinning useless.
+
+    Age is measured from `updated_at`, not `created_at`: a long-running thread
+    you added to yesterday is not an old conversation, however long ago it
+    started.
+    """
+    config = deps.get_config()
+    days = int(config.get_preference("conversation_retention_days", 0) or 0)
+    if days <= 0:
+        return 0
+
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
+    db = deps.get_db()
+    with db.session() as session:
+        # `workspace_id="all"`: this is maintenance over the whole database,
+        # not a view of one space. Without it the session's own workspace
+        # filter would scope the purge to whichever space happened to be
+        # active, and the others would grow forever regardless of the setting.
+        session.info["workspace_id"] = "all"
+        stale = list(
+            session.scalars(
+                select(Conversation).where(
+                    Conversation.updated_at < cutoff,
+                    Conversation.pinned == False,  # noqa: E712
+                )
+            )
+        )
+        for conversation in stale:
+            session.delete(conversation)
+        session.commit()
+    if stale:
+        logger.info("conversation retention: removed %d chat(s) older than %d days", len(stale), days)
+    return len(stale)
 
 
 def clean_orphaned_board_cards() -> int:

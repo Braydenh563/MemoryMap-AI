@@ -2144,3 +2144,15 @@ button.icon-button {
   align-items: center;
   justify-content: center;
 }
+
+/* The incremental renderer's chunk marker. Zero height, no list marker, no
+   part in layout — it exists only to be watched by an IntersectionObserver,
+   and `aria-hidden` plus no `data-id` keeps it out of the keyboard walk and
+   the accessibility tree. */
+.list-window-sentinel {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  list-style: none;
+}

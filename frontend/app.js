@@ -3654,6 +3654,93 @@ function sortEntries(entries) {
   return [...entries].sort((a, b) => byPinned(a, b) || cmp(a, b));
 }
 
+// --- incremental list rendering (ROADMAP §85.4 items 3 and 4) ---------------
+//
+// **The problem this solves, measured rather than assumed.** Four of this
+// app's lists — the Notes list, the Library grid, the Timeline, the log
+// console — built one DOM node per record for the *entire* collection, with
+// no cap and no windowing. At 1,501 notes `renderEntries()` took ~533ms, and
+// it re-runs on every search keystroke, sort change, filter and save.
+//
+// **Why chunk-on-scroll rather than true virtualisation.** Real
+// virtualisation (absolute positioning against a scroll offset) needs to know
+// each row's height before it renders one. Every list here has variable
+// heights — a note card grows with its text, its tags, its attachments and
+// whether its inline actions are open — so a virtualiser would either need
+// measurement passes that cost what it saves, or fixed heights the design
+// does not have. Rendering in chunks as the end of the list approaches keeps
+// the DOM proportional to what has been *scrolled past* rather than to the
+// notebook, needs no height information at all, and leaves the list one
+// continuous scroll rather than turning it into pages — which is the
+// distinction BACKLOG §77 draws and deliberately asks for.
+//
+// **The honest trade:** the browser's own Ctrl+F cannot find text in a chunk
+// that has not rendered yet. That is a real loss, and it is why `initial` is
+// generous rather than minimal — a screenful and change is always present —
+// and why it is applied to lists that have their own search box sitting
+// directly above them. It is not applied anywhere that the browser's find is
+// the only way through.
+//
+// `root: null` (the viewport) rather than the scroll container: an element
+// inside the scrolled-away part of a *nested* scroller is not intersecting
+// the viewport either, so one observer is correct for both a page-level and a
+// container-level scroll, without having to find which one this list is in.
+const listWindows = new WeakMap();
+
+function renderIncrementally(container, items, buildItem, options = {}) {
+  const { initial = 60, chunk = 40, afterChunk } = options;
+
+  // Tear down the previous run first. Without this a re-render (a keystroke in
+  // the search box) leaves the old observer alive, still holding the old
+  // items, still appending them into a container that has moved on — the
+  // "listener added without removal" shape, and the reason this is a
+  // WeakMap rather than a local.
+  listWindows.get(container)?.disconnect();
+  listWindows.delete(container);
+
+  const paint = (from, to) => {
+    const fragment = document.createDocumentFragment();
+    for (let i = from; i < to; i++) fragment.appendChild(buildItem(items[i], i));
+    container.appendChild(fragment);
+  };
+
+  paint(0, Math.min(initial, items.length));
+  afterChunk?.();
+  if (items.length <= initial) return;
+
+  let rendered = initial;
+  // A zero-height marker after the last painted item. It is the *list's* own
+  // last child rather than a sibling of the container, so it moves down as
+  // chunks land and it inherits whatever scroller the list is in.
+  const sentinel = document.createElement("li");
+  sentinel.className = "list-window-sentinel";
+  sentinel.setAttribute("aria-hidden", "true");
+  container.appendChild(sentinel);
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      const next = Math.min(rendered + chunk, items.length);
+      // Insert *before* the sentinel so it stays last and keeps observing.
+      const fragment = document.createDocumentFragment();
+      for (let i = rendered; i < next; i++) fragment.appendChild(buildItem(items[i], i));
+      container.insertBefore(fragment, sentinel);
+      rendered = next;
+      afterChunk?.();
+      if (rendered >= items.length) {
+        observer.disconnect();
+        listWindows.delete(container);
+        sentinel.remove();
+      }
+    },
+    // Start the next chunk while the sentinel is still a screen away, so the
+    // list refills before the user reaches the bottom rather than after.
+    { root: null, rootMargin: "600px 0px" }
+  );
+  observer.observe(sentinel);
+  listWindows.set(container, observer);
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
@@ -3695,10 +3782,12 @@ function renderEntries() {
   // list — thread nesting only applies to the default newest view.
   const flat = Boolean(noteSearch) || noteSort !== "newest";
   if (flat) {
-    for (const entry of sortEntries(visible)) {
-      list.appendChild(entryItem(entry, { actions: true }));
-    }
-    applyEntryListTabOrder(list);
+    renderIncrementally(
+      list,
+      sortEntries(visible),
+      (entry) => entryItem(entry, { actions: true }),
+      { afterChunk: () => applyEntryListTabOrder(list) }
+    );
     return;
   }
 
@@ -3713,13 +3802,16 @@ function renderEntries() {
     }
   }
 
+  // Flattened to `[entry, depth]` pairs *before* rendering, rather than
+  // recursing straight into the DOM. A thread has to stay whole — a parent and
+  // its continuations are one unit and must never be split across a chunk
+  // boundary — so the recursion produces the order and the depth, and the
+  // renderer below decides how much of that order to paint. Threads are the
+  // reason this list cannot simply be sliced: position in `visible` is not
+  // position on screen.
+  const ordered = [];
   const addWithChildren = (entry, depth) => {
-    const li = entryItem(entry, { actions: true });
-    if (depth > 0) {
-      li.classList.add("thread-child");
-      li.style.marginLeft = `${Math.min(depth, 4) * 1.4}rem`;
-    }
-    list.appendChild(li);
+    ordered.push([entry, depth]);
     // Oldest continuation first — a thread reads top to bottom.
     const children = (childrenOf.get(entry.id) || []).slice().reverse();
     for (const child of children) addWithChildren(child, depth + 1);
@@ -3729,10 +3821,28 @@ function renderEntries() {
     const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
     if (!parentVisible) addWithChildren(entry, 0);
   }
-  applyEntryListTabOrder(list);
-  // After the list is in the DOM: drop the clamp from any note that turned
-  // out to fit. No-op while the sub-tab is hidden; showNotesSection re-runs it.
-  settleNoteClamps();
+
+  renderIncrementally(
+    list,
+    ordered,
+    ([entry, depth]) => {
+      const li = entryItem(entry, { actions: true });
+      if (depth > 0) {
+        li.classList.add("thread-child");
+        li.style.marginLeft = `${Math.min(depth, 4) * 1.4}rem`;
+      }
+      return li;
+    },
+    {
+      afterChunk: () => {
+        applyEntryListTabOrder(list);
+        // After the list is in the DOM: drop the clamp from any note that
+        // turned out to fit. No-op while the sub-tab is hidden;
+        // showNotesSection re-runs it.
+        settleNoteClamps();
+      },
+    }
+  );
 }
 
 // --- note-list keyboard navigation (ROADMAP Tier 3 §30a / BACKLOG §16) ------------
@@ -3741,8 +3851,15 @@ function renderEntries() {
 // A roving tabindex: only one <li> is ever a Tab stop, so the list is one
 // stop in the page's tab order rather than one per note, matching the
 // standard listbox/grid keyboard pattern.
+// `li[data-id]`, not `list.children`: the incremental renderer parks a
+// zero-height sentinel `<li>` at the end of the list to know when to paint the
+// next chunk, and it is not a note. Left in `children` it would join the
+// roving tabindex and the arrow-key walk below, so ArrowDown at the bottom of
+// the list would focus an invisible element and appear to do nothing.
+const entryListItems = (list) => Array.from(list.querySelectorAll(":scope > li[data-id]"));
+
 function applyEntryListTabOrder(list) {
-  const items = Array.from(list.children);
+  const items = entryListItems(list);
   const current = document.activeElement;
   // Re-renders happen constantly (search-as-you-type, sort, edits) — if the
   // previously-focused note is still present, keep it as the one Tab stop
@@ -3758,7 +3875,7 @@ function initEntryListKeyboardNav() {
   const list = $("entry-list");
   list.addEventListener("keydown", (event) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
-    const items = Array.from(list.children);
+    const items = entryListItems(list);
     const current = event.target.closest("li");
     const index = current ? items.indexOf(current) : -1;
     if (index === -1) return;
@@ -8277,30 +8394,67 @@ function renderExtractPreview(body) {
     body.message ||
     `${body.notes.length} note${body.notes.length === 1 ? "" : "s"} proposed — review, then save.`;
 
+  // Built with createElement, not an `innerHTML` template per iteration.
+  // The old version escaped everything correctly, so this is not a security
+  // fix — it is this file's own rule (see the header comment: "All DOM nodes
+  // are built with createElement/textContent, never innerHTML"), and the rule
+  // exists because an `innerHTML` assignment inside a loop re-invokes the HTML
+  // parser once per proposed note, and because the next person to add a field
+  // here is one forgotten `escapeHtml` away from an injection.
+  const field = (type, className, { placeholder, label, value } = {}) => {
+    const input = document.createElement("input");
+    input.type = type;
+    input.className = className;
+    if (placeholder) input.placeholder = placeholder;
+    if (label) input.setAttribute("aria-label", label);
+    if (value !== undefined) input.value = value;
+    return input;
+  };
+
   const list = $("extract-notes-list");
-  list.innerHTML = "";
+  list.replaceChildren();
   for (const note of body.notes) {
     const card = document.createElement("div");
     card.className = "extract-note-card";
     card.dataset.ref = note.ref;
-    card.innerHTML = `
-      <label class="row align-center checkbox-label">
-        <input type="checkbox" class="extract-note-keep" checked> Keep this note
-      </label>
-      <input type="text" class="extract-note-title" placeholder="Title (optional)"
-        aria-label="Note title" value="${escapeHtml(note.title || "")}">
-      <textarea class="extract-note-content" rows="6" aria-label="Note content">${escapeHtml(note.content)}</textarea>
-      <div class="row extract-note-meta">
-        <span class="muted extract-note-category">Filed under: ${escapeHtml(note.category)}</span>
-        <input type="text" class="extract-note-tags" placeholder="Tags, comma separated"
-          aria-label="Tags for this note">
-      </div>
-    `;
+
+    const keepLabel = document.createElement("label");
+    keepLabel.className = "row align-center checkbox-label";
+    const keep = field("checkbox", "extract-note-keep");
+    keep.checked = true;
+    keepLabel.append(keep, document.createTextNode(" Keep this note"));
+
+    const title = field("text", "extract-note-title", {
+      placeholder: "Title (optional)",
+      label: "Note title",
+      value: note.title || "",
+    });
+
+    const content = document.createElement("textarea");
+    content.className = "extract-note-content";
+    content.rows = 6;
+    content.setAttribute("aria-label", "Note content");
+    content.value = note.content;
+
+    const meta = document.createElement("div");
+    meta.className = "row extract-note-meta";
+    const category = document.createElement("span");
+    category.className = "muted extract-note-category";
+    category.textContent = `Filed under: ${note.category}`;
+    meta.append(
+      category,
+      field("text", "extract-note-tags", {
+        placeholder: "Tags, comma separated",
+        label: "Tags for this note",
+      })
+    );
+
+    card.append(keepLabel, title, content, meta);
     list.appendChild(card);
   }
 
   const linksBox = $("extract-links-list");
-  linksBox.innerHTML = "";
+  linksBox.replaceChildren();
   if (body.links.length) {
     const heading = document.createElement("p");
     heading.className = "muted";
@@ -8313,14 +8467,25 @@ function renderExtractPreview(body) {
     row.dataset.sourceRef = link.source_ref;
     row.dataset.targetRef = link.target_ref;
     const kindLabel = EXTRACT_LINK_KIND_LABEL[link.kind] || "note";
-    const target = link.target_preview
-      ? escapeHtml(link.target_preview)
-      : escapeHtml(extractRefLabel(link.target_ref, body.notes));
-    row.innerHTML = `
-      <input type="checkbox" class="extract-link-keep" checked>
-      <span class="extract-link-desc">${escapeHtml(extractRefLabel(link.source_ref, body.notes))}
-        → ${target} <span class="muted">(${kindLabel}: ${escapeHtml(link.reason)})</span></span>
-    `;
+    // Raw, not escaped: this now goes into a text node, where escaping would
+    // render the entities literally ("A &amp; B" on screen).
+    const target = link.target_preview || extractRefLabel(link.target_ref, body.notes);
+    const keep = document.createElement("input");
+    keep.type = "checkbox";
+    keep.className = "extract-link-keep";
+    keep.checked = true;
+    const desc = document.createElement("span");
+    desc.className = "extract-link-desc";
+    const why = document.createElement("span");
+    why.className = "muted";
+    why.textContent = `(${kindLabel}: ${link.reason})`;
+    desc.append(
+      document.createTextNode(
+        `${extractRefLabel(link.source_ref, body.notes)} → ${target} `
+      ),
+      why
+    );
+    row.append(keep, desc);
     linksBox.appendChild(row);
   }
 
@@ -14512,6 +14677,13 @@ async function renderTimeline() {
     return;
   }
 
+  // **Not incrementally rendered, unlike the note and library lists.** This is
+  // a CSS grid, not a list: every cell's position comes from grid flow, so the
+  // order and completeness of `appendChild` calls *is* the layout, and a
+  // sentinel or a half-painted chunk would not be a shorter grid — it would be
+  // a wrong one. Its cost is also a different shape (bands x buckets, sized by
+  // the chosen scale) rather than one node per note, and the backend already
+  // bounds both.
   const buckets = body.buckets;
   const byId = new Map(body.notes.map((note) => [note.id, note]));
   // Columns: one label column for the band names, then one per bucket.
@@ -16422,6 +16594,16 @@ function renderLogList() {
   const visible = logRecords.filter(logMatchesFilters);
 
   list.replaceChildren();
+  // **Deliberately not `renderIncrementally`, unlike every other list here.**
+  // Two reasons, and the second is the disqualifying one. This list is already
+  // bounded — `MAX_LOG_ROWS` (1000) is a real cap, not an unbounded notebook —
+  // so the problem the incremental renderer solves is one the cap has already
+  // solved. And the log's "follow" mode scrolls to the *newest* row, which
+  // sits at the end: a renderer that paints the first chunk and fills in
+  // towards the end as you scroll would leave follow mode scrolling to the
+  // bottom of whatever happened to be painted, not to the newest line. Making
+  // this incremental would mean inverting the window, which is a different
+  // mechanism built to fix a cost that is already capped.
   for (const record of visible) list.appendChild(logRow(record));
 
   renderLogSharedUI(visible.length);
@@ -16693,6 +16875,7 @@ async function renderPrefs() {
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
+  $("pref-chat-retention").value = prefsCache.conversation_retention_days ?? 0;
   $("pref-search-min-sim").value = prefsCache.search_min_similarity;
   $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
@@ -17107,6 +17290,7 @@ async function savePrefs() {
       body: JSON.stringify({
         display_name: $("pref-display-name").value.trim(),
         recycle_bin_days: recycleBinDays,
+        conversation_retention_days: Number($("pref-chat-retention").value) || 0,
         search_min_similarity: searchMinSim,
         search_relative_z_margin: searchZMargin,
         communication_style: $("pref-style").value,
@@ -19225,6 +19409,53 @@ function librarySorted(items) {
   return copy;
 }
 
+// Meaning-matched note ids for the Library's current query, or null when the
+// Semantic toggle is off (or the query is empty, or the search failed).
+//
+// **The design question this answers, which is why it was not built sooner.**
+// The Library mixes notes, documents, chats, images and skills, and only
+// *notes* have embeddings — nothing in this app has ever embedded a PDF, a
+// conversation or an image. So "semantic search over the Library" has no
+// single honest meaning, and the two tempting answers are both wrong: pretend
+// everything is searched by meaning (it is not, and the results would quietly
+// be keyword results for four of the five kinds), or refuse to offer it at all
+// (which is what happened, and left the Library the one search box in the app
+// with no meaning option).
+//
+// The answer taken: **meaning where there is meaning to search, words
+// everywhere else, and say so on the control.** A note matches if the semantic
+// search returned it *or* its words match; every other kind matches on words,
+// exactly as before. Turning the toggle on can therefore only ever *add*
+// results, never remove one — which is the property that makes it safe to
+// leave on, and the reason the two filters are OR-ed rather than swapped.
+//
+// Reuses `GET /entries?semantic=true`, the same endpoint and the same
+// server-side bound (`SEMANTIC_LIST_LIMIT`) the Notes tab's own toggle uses.
+let librarySemanticIds = null;
+let librarySemanticQuery = "";
+
+async function refreshLibrarySemantic() {
+  const query = ($("library-search")?.value || "").trim();
+  const on = $("library-semantic-toggle")?.checked;
+  if (!on || !query) {
+    librarySemanticIds = null;
+    librarySemanticQuery = "";
+    return;
+  }
+  if (query === librarySemanticQuery) return; // already have this one
+  try {
+    const results = await apiJson(`/entries?q=${encodeURIComponent(query)}&semantic=true`);
+    librarySemanticIds = new Set(results.map((entry) => entry.id));
+    librarySemanticQuery = query;
+  } catch {
+    // No embedding backend, or the search failed. Falling back to keyword-only
+    // is the same graceful degradation the rest of the app uses when the AI is
+    // unavailable — never a failed search, just a less clever one.
+    librarySemanticIds = null;
+    librarySemanticQuery = "";
+  }
+}
+
 function renderLibrary() {
   const grid = $("library-grid");
   if (!grid) return;
@@ -19257,19 +19488,27 @@ function renderLibrary() {
     // Title *and* preview, for the same reason the conversation search reads
     // message text: you remember what a thing was about far more often than
     // what it ended up being called.
-    items = items.filter(
-      (i) =>
-        (i.title || "").toLowerCase().includes(query) ||
-        (i.preview || "").toLowerCase().includes(query)
-    );
+    const wordMatch = (i) =>
+      (i.title || "").toLowerCase().includes(query) ||
+      (i.preview || "").toLowerCase().includes(query);
+    // With Semantic on, a note also matches if the meaning search returned it,
+    // even when it shares no words with the query. Everything else is
+    // unchanged — see `librarySemanticIds`.
+    items = librarySemanticIds
+      ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
+      : items.filter(wordMatch);
   }
   items = librarySorted(items);
 
   const updateDOM = () => {
     grid.replaceChildren();
     grid.classList.toggle("library-list", libraryView() === "list");
-    for (const item of items) grid.appendChild(libraryCard(item));
-    renderLibraryContextBars();
+    // Same incremental renderer the Notes list uses. The Library holds notes,
+    // documents, images, chats and skills together, so it is the one list that
+    // can be larger than any single collection in the app.
+    renderIncrementally(grid, items, (item) => libraryCard(item), {
+      afterChunk: renderLibraryContextBars,
+    });
 
     const empty = $("library-empty");
     empty.classList.toggle("hidden", items.length > 0);
@@ -19855,6 +20094,13 @@ function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
     button.appendChild(text);
   }
   button.title = title || "";
+  // The title doubles as the accessible name, exactly as `smallButton` already
+  // does — without this the three icon-only status buttons (Undo, Redo,
+  // Commands) announce as a bare "button" to a screen reader. The ones that
+  // also paint a `value`/`label` have real text and do not need it, but
+  // setting it uniformly keeps the two from drifting apart.
+  if (title) button.setAttribute("aria-label", title);
+  else button.removeAttribute("aria-label");
   button.classList.toggle("status-due", tone === "due");
 }
 
@@ -24111,9 +24357,14 @@ $("status-command").addEventListener("click", () => openPalette());
 // afterthought, so they are wired like controls: every change re-renders from
 // the list already in memory, with no round trip.
 let librarySearchDebounceTimeout;
+async function runLibrarySearch() {
+  await refreshLibrarySemantic();
+  renderLibrary();
+}
+$("library-semantic-toggle").addEventListener("change", runLibrarySearch);
 $("library-search").addEventListener("input", () => {
   clearTimeout(librarySearchDebounceTimeout);
-  librarySearchDebounceTimeout = setTimeout(renderLibrary, 150);
+  librarySearchDebounceTimeout = setTimeout(runLibrarySearch, 150);
 });
 $("library-sort").addEventListener("change", renderLibrary);
 for (const button of document.querySelectorAll("#library-sort-seg button")) {
@@ -25461,10 +25712,18 @@ document.addEventListener("click", (e) => {
 // stale, and it goes stale silently, because a dialog with no focus trap
 // looks completely normal until somebody presses Tab.
 //
-// So: ask the DOM instead. Every dialog in this app already carries
-// `role="dialog"` — it is the thing that makes it a dialog to a screen reader,
-// so it cannot be forgotten without the dialog being broken in a more obvious
-// way first. A new dialog is trapped from the moment it exists.
+// So: ask the DOM instead, and ask it the question that actually matters —
+// **`aria-modal="true"`, not merely `role="dialog"`.** That distinction is the
+// whole correctness of this function. Of the 27 `role="dialog"` elements in
+// `index.html`, 13 are anchored *popovers* rather than modals: the
+// notifications panel, the note picker, the chat dock's disclosure, the graph
+// and timeline popups, and the six `*-intro` help panels. The page behind
+// those stays live and interactive by design, so trapping Tab inside one
+// would strand the user in a dropdown — and telling a screen reader they are
+// modal would be a straight lie about the page. `aria-modal` is exactly the
+// declaration of "everything else is inert", so a dialog that wants a focus
+// trap says so in the one attribute that already means it, and a new modal is
+// trapped from the moment it exists.
 //
 // Topmost wins, and "topmost" is document order: the static overlays sit in
 // `index.html` in a fixed sequence, and the dynamic ones (`confirmDialog` and
@@ -25479,9 +25738,9 @@ document.addEventListener("click", (e) => {
 // filter below uses `offsetParent` on the *children*, which are not fixed, so
 // it is correct there and would have been wrong here.
 function activeOverlay() {
-  const open = [...document.querySelectorAll('[role="dialog"]')].filter(
-    (el) => !el.classList.contains("hidden") && el.getClientRects().length > 0
-  );
+  const open = [
+    ...document.querySelectorAll('[role="dialog"][aria-modal="true"]'),
+  ].filter((el) => !el.classList.contains("hidden") && el.getClientRects().length > 0);
   return open.length ? open[open.length - 1] : null;
 }
 
@@ -26367,17 +26626,30 @@ async function renderSkillLogs() {
     return;
   }
   
+  // createElement rather than an `innerHTML` template per row, per this file's
+  // own rule. Worth noting what the old template actually contained: a
+  // trailing `</div>` with nothing open to close, which the HTML parser
+  // silently discarded on every single row. That is the argument for the rule
+  // in one line — a structural mistake in a string is invisible, and the same
+  // mistake in `append()` calls does not compile.
   for (const log of skillLogs) {
     const div = document.createElement("div");
     div.className = "entry-item";
-    div.innerHTML = `
-      <div class="row space-between">
-        <strong>${escapeHtml(log.action)}</strong>
-        <span class="muted text-sm">${new Date(log.created_at).toLocaleString()}</span>
-      </div>
-      <div class="muted text-sm log-detail">${escapeHtml(log.detail || log.entity_id || "")}</div>
-    </div>
-    `;
+
+    const head = document.createElement("div");
+    head.className = "row space-between";
+    const action = document.createElement("strong");
+    action.textContent = log.action;
+    const when = document.createElement("span");
+    when.className = "muted text-sm";
+    when.textContent = new Date(log.created_at).toLocaleString();
+    head.append(action, when);
+
+    const detail = document.createElement("div");
+    detail.className = "muted text-sm log-detail";
+    detail.textContent = log.detail || log.entity_id || "";
+
+    div.append(head, detail);
     logList.appendChild(div);
   }
 }
@@ -26714,7 +26986,6 @@ function spaceIconPicker(container, hiddenInput) {
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(hiddenInput.value === name));
     button.setAttribute("aria-label", name.replace("ph-", "").replace(/-/g, " "));
-    button.innerHTML = "";
     const icon = document.createElement("i");
     icon.className = `ph ${name}`;
     icon.setAttribute("aria-hidden", "true");

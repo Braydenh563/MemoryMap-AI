@@ -122,6 +122,11 @@ class SkillItem(BaseModel):
 
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
+    # 0 means "keep everything", which is the default — see
+    # `autonomous.purge_old_conversations` for why this is opt-in rather than
+    # on with a sensible number. `ge=0`, not `ge=1`, so switching it back off
+    # is expressible.
+    conversation_retention_days: int | None = Field(default=None, ge=0, le=3650)
     # Empty string resets to the default (data_dir/exports). Validated in
     # update_preferences (_validated_export_dir) — must be an absolute,
     # existing, writable directory, checked at save time rather than at
@@ -326,6 +331,7 @@ def get_preferences() -> dict:
     config = deps.get_config()
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
+        "conversation_retention_days": config.get_preference("conversation_retention_days", 0),
         "export_save_dir": config.get_preference("export_save_dir", ""),
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
@@ -991,6 +997,7 @@ DIAGNOSTIC_PREFERENCES = frozenset(
         "embedding_backend",
         "embedding_model",
         "recycle_bin_days",
+        "conversation_retention_days",
         "timezone",
         "web_search_enabled",
         "searxng_autostart",

@@ -165,6 +165,10 @@ class PreferencesBody(BaseModel):
     web_search_enabled: bool | None = None
     # The other opt-in network call (Settings -> About) — see core.config.
     update_check_enabled: bool | None = None
+    # Separate switch: "notify me" vs. "download and run the installer
+    # without asking each time" — see core.config's own comment.
+    auto_update_enabled: bool | None = None
+    update_channel: Literal["stable", "main"] | None = None
     searxng_autostart: bool | None = None
     session_idle_ttl_minutes: int | None = Field(default=None, ge=1)
     # The desktop launcher's console window — see core.config's own comment.
@@ -350,6 +354,8 @@ def get_preferences() -> dict:
         "tool_focus": config.get_preference("tool_focus", "auto"),
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "update_check_enabled": config.get_preference("update_check_enabled", False),
+        "auto_update_enabled": config.get_preference("auto_update_enabled", False),
+        "update_channel": config.get_preference("update_channel", "stable"),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
         "search_provider": websearch.normalise_provider(

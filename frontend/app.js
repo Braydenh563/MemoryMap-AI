@@ -421,6 +421,13 @@ function startApp() {
   step("check for an update", () => {
     if (prefsCache && prefsCache.update_check_enabled) return checkForUpdate(true);
   });
+  // Independent of update_check_enabled above — this isn't a network
+  // check, it's reporting a fact: start.sh/start.bat already git-pulled a
+  // real update before this process even started (their own step 0, no
+  // preference gates it either). "Only if the app auto updates though,
+  // not every time they login" — the endpoint self-clears after one read,
+  // so this only ever fires the run right after a real update landed.
+  step("check for a source-checkout update notice", checkForSourceUpdateNotice);
   step("load conversations", loadConversationList);
   step("check the AI model status", refreshModelStatus);
   // Reminders poll on their own timer once running (see startReminderWatch);
@@ -15485,7 +15492,12 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
   } · ${allEntries.length} entries loaded`;
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
+  $("pref-auto-update").checked = Boolean(prefsCache?.auto_update_enabled);
+  $("pref-update-channel-main").checked = prefsCache?.update_channel === "main";
   $("update-check-status").textContent = "";
+  $("update-version-select").classList.add("hidden");
+  $("update-install-version").classList.add("hidden");
+  $("update-version-status").textContent = "";
   const isDesktop = await desktopShell();
   $("desktop-console-row").classList.toggle("hidden", !isDesktop);
   $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
@@ -16315,6 +16327,7 @@ async function saveWebSearchSettings() {
 // when there's actually something to say.
 async function checkForUpdate(silent = false) {
   const status = $("update-check-status");
+  const applyBtn = $("update-apply-now");
   if (!silent && status) status.textContent = "Checking…";
   let result;
   try {
@@ -16330,15 +16343,218 @@ async function checkForUpdate(silent = false) {
           ? "Enable the checkbox above, then try again."
           : "Couldn't reach GitHub to check for updates.";
     }
+    applyBtn?.classList.add("hidden");
     return;
   }
+  // Settings -> About's own fallback for "or they can manually do it in the
+  // settings" — same button, same apiJson('/update/apply') call the
+  // post-login dialog's "Update automatically" makes.
+  applyBtn?.classList.toggle("hidden", !(result.update_available && result.can_auto_apply));
   if (result.update_available) {
     const msg = `Version ${result.latest} is available (you have ${result.current}).`;
     if (status) status.textContent = msg;
-    toast(msg);
+    // The silent startup check is the one that runs on every login — asked
+    // for directly: a popup after login, but "only if... not every time
+    // they login". A toast alone auto-dismisses in 5.5s and is easy to miss
+    // entirely if it fires mid-startup while other things are still
+    // loading, so a newly-detected version also gets a real dialog — but
+    // only once per version, via the same localStorage-latch pattern the
+    // rest of this app uses for "seen it" state (e.g. the graph layout/
+    // colour prefs above). Re-showing it every login for a version the
+    // user has already dismissed would be the exact nagging this was
+    // asked to avoid.
+    if (silent && localStorage.getItem(UPDATE_SEEN_KEY) !== result.latest) {
+      showUpdateAvailableDialog(result);
+    } else {
+      toast(msg);
+    }
   } else if (!silent && status) {
     status.textContent = `You're on the latest version (${result.current}).`;
   }
+}
+
+//: The last version this profile was already told about, so the post-login
+//: dialog fires once per newly-available release rather than every login
+//: for as long as the user hasn't updated.
+const UPDATE_SEEN_KEY = "update-seen-version";
+
+// Shared by the dialog's "Update automatically" button and Settings ->
+// About's manual one — asked for directly: "either by the message popping
+// up the next time they load up the app and are connected to the internet,
+// and/or they can manually do it in the settings." `onProgress(state)` is
+// called on every poll (`{step, done_bytes, total_bytes}` from
+// GET /update/apply/status) so each caller can render it its own way; the
+// promise resolves `true` on outcome "launched" and `false` on "failed" —
+// never rejects, since a failed apply is exactly the case both callers have
+// to handle gracefully (offline, GitHub unreachable, no asset), not an
+// exception to propagate.
+async function applyUpdateNow(onProgress, tag = null) {
+  const url = tag ? `/update/apply?tag=${encodeURIComponent(tag)}` : "/update/apply";
+  const start = await apiJson(url, { method: "POST" }).catch((error) => {
+    onProgress?.({ step: error.message, failed: true });
+    return null;
+  });
+  if (!start) return false;
+  for (;;) {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    const state = await apiJson("/update/apply/status", { silent: true }).catch(() => null);
+    if (!state) continue; // a transient miss mid-poll isn't a failure
+    onProgress?.(state);
+    if (state.outcome === "launched") return true;
+    if (state.outcome === "failed") return false;
+    if (!state.running) return false; // shouldn't happen, but never loop forever
+  }
+}
+
+function showUpdateAvailableDialog(result) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "A new version is available");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card";
+  const heading = document.createElement("h3");
+  heading.textContent = "A new version is available";
+  const text = document.createElement("p");
+  text.className = "confirm-text";
+  text.textContent = result.can_auto_apply
+    ? `MemoryMap AI ${result.latest} is out — you're on ${result.current}. ` +
+      "Update automatically (downloads and installs it, then closes MemoryMap " +
+      "AI — reopen it in a minute or two to start using the new version), or " +
+      "download it yourself from the release page."
+    : `MemoryMap AI ${result.latest} is out — you're on ${result.current}. ` +
+      "This app never updates itself without asking: download the new " +
+      "version yourself whenever you're ready.";
+  const progress = document.createElement("p");
+  progress.className = "muted";
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    localStorage.setItem(UPDATE_SEEN_KEY, result.latest);
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      dismiss();
+    }
+  };
+
+  const later = smallButton("Remind me next time", "Remind me next time", dismiss);
+  const view = document.createElement("a");
+  view.href = result.url;
+  view.target = "_blank";
+  view.rel = "noopener";
+  // A real <a>, not a button with a click handler that navigates — right-
+  // click "open in new tab", middle-click, and Ctrl-click all need to keep
+  // working the way they do on every other external link in this app. The
+  // `.small`/`.ghost` button rules are scoped to `button.small` and don't
+  // reach an anchor at all, hence the dedicated class below rather than
+  // relying on those.
+  view.className = "small update-dialog-link";
+  view.textContent = "View release";
+  view.addEventListener("click", dismiss);
+  row.append(later, view);
+
+  if (result.can_auto_apply) {
+    const auto = smallButton("Update automatically", "Update automatically", async () => {
+      auto.disabled = true;
+      later.disabled = true;
+      const ok = await applyUpdateNow((state) => {
+        progress.textContent = state.total_bytes
+          ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
+          : state.step;
+      });
+      if (!ok) {
+        // A failed apply must not mark this version "seen" — asked for
+        // directly: it has to come back next login while still offline (or
+        // whatever the real cause was), not go quiet. Re-enabling the
+        // buttons also lets them retry immediately without waiting for
+        // that next login at all.
+        auto.disabled = false;
+        later.disabled = false;
+        toast(progress.textContent || "Couldn't apply the update.", true);
+      }
+      // On success the app exits itself shortly after (routes_update.py) —
+      // nothing left to do here; the dialog just stays up, showing the
+      // last progress line, until the process closes.
+    }, false);
+    row.appendChild(auto);
+  }
+
+  card.append(heading, text, progress, row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) dismiss();
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  later.focus();
+}
+
+// A source checkout (start.sh/start.bat) auto-updates via `git pull` before
+// the server even starts — asked for directly, the same "popup after
+// login, only if the app auto updates" the packaged-Windows dialog above
+// gives, for the other install type that also auto-updates but had no way
+// to say so. GET /update/source-status is a plain env-var read with no
+// network call and self-clears after one read, so this never fires twice
+// for the same real update and never blocks on being offline.
+async function checkForSourceUpdateNotice() {
+  const result = await apiJson("/update/source-status", { silent: true }).catch(() => null);
+  if (!result || !result.just_updated) return;
+  showSourceUpdatedDialog(result);
+}
+
+function showSourceUpdatedDialog(result) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "MemoryMap AI was updated");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card";
+  const heading = document.createElement("h3");
+  heading.textContent = "MemoryMap AI was updated";
+  const text = document.createElement("p");
+  text.className = "confirm-text";
+  text.textContent = result.from
+    ? `Your checkout auto-updated from ${result.from} to ${result.to} when you started it just now.`
+    : `Your checkout auto-updated to ${result.to} when you started it just now.`;
+  const row = document.createElement("div");
+  row.className = "row confirm-actions";
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      dismiss();
+    }
+  };
+  const ok = smallButton("Got it", "Got it", dismiss, false);
+  row.appendChild(ok);
+
+  card.append(heading, text, row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) dismiss();
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  ok.focus();
 }
 
 //: Which checkbox in Settings mirrors which one elsewhere in the app. Two
@@ -22594,6 +22810,94 @@ $("pref-update-check").addEventListener("change", (e) =>
   setPreference("update_check_enabled", e.target.checked)
 );
 $("update-check-now").addEventListener("click", () => checkForUpdate());
+$("update-apply-now").addEventListener("click", async () => {
+  const button = $("update-apply-now");
+  const status = $("update-check-status");
+  button.disabled = true;
+  const ok = await applyUpdateNow((state) => {
+    if (status) {
+      status.textContent = state.total_bytes
+        ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
+        : state.step;
+    }
+  });
+  if (!ok) {
+    // Failed (offline, GitHub unreachable, no asset) — never leave the
+    // button stuck disabled over a real network error someone can just
+    // retry once they're back online.
+    button.disabled = false;
+    toast((status && status.textContent) || "Couldn't apply the update.", true);
+  }
+});
+$("pref-auto-update").addEventListener("change", (e) =>
+  setPreference("auto_update_enabled", e.target.checked)
+);
+$("pref-update-channel-main").addEventListener("change", (e) =>
+  setPreference("update_channel", e.target.checked ? "main" : "stable")
+);
+// "Choose a specific version…" fetches the release list only on demand —
+// not on every Settings open — so leaving this tab open doesn't mean
+// repeated GitHub calls, same restraint as the rest of this app's opt-in
+// network features.
+$("update-show-versions").addEventListener("click", async () => {
+  const select = $("update-version-select");
+  const installBtn = $("update-install-version");
+  const status = $("update-version-status");
+  status.textContent = "Loading releases…";
+  const result = await apiJson("/update/releases", { silent: true }).catch(() => null);
+  if (!result || !result.available) {
+    select.classList.add("hidden");
+    installBtn.classList.add("hidden");
+    status.textContent =
+      result?.reason === "channel_unavailable"
+        ? "Not available while tracking the main branch."
+        : result?.reason === "not_supported"
+          ? "Only available for the packaged Windows app."
+          : result?.reason === "disabled"
+            ? "Enable 'Check GitHub for a newer version' first."
+            : "Couldn't reach GitHub to list releases.";
+    return;
+  }
+  select.innerHTML = "";
+  for (const release of result.releases) {
+    const option = document.createElement("option");
+    option.value = release.tag;
+    option.textContent = release.tag === `v${result.current}` || release.version === result.current
+      ? `${release.name} (current)`
+      : release.name;
+    select.appendChild(option);
+  }
+  select.classList.toggle("hidden", result.releases.length === 0);
+  installBtn.classList.toggle("hidden", result.releases.length === 0);
+  status.textContent = result.releases.length ? "" : "No installable releases found.";
+});
+$("update-install-version").addEventListener("click", async () => {
+  const select = $("update-version-select");
+  const button = $("update-install-version");
+  const status = $("update-version-status");
+  const tag = select.value;
+  if (!tag) return;
+  if (
+    !(await confirmDialog(
+      `Download and install ${tag} now? MemoryMap AI will close once the installer starts.`,
+      { confirmLabel: "Install" }
+    ))
+  ) {
+    return;
+  }
+  button.disabled = true;
+  select.disabled = true;
+  const ok = await applyUpdateNow((state) => {
+    status.textContent = state.total_bytes
+      ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
+      : state.step;
+  }, tag);
+  if (!ok) {
+    button.disabled = false;
+    select.disabled = false;
+    toast(status.textContent || "Couldn't install that version.", true);
+  }
+});
 
 // Not a plain setPreference: switching Dev view/User view is meant to take
 // effect live, not just on the next launch (asked for directly — togglable

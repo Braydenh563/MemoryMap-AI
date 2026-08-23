@@ -1,6 +1,107 @@
 # Session handover
 
-## Latest session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
+## Latest session — real-support-bundle fixes finished and released as v0.1.3, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
+
+Continuation of the previous session's real-support-bundle work (four bugs
+found and fixed there — see below). This session first closed out a run of
+live-reported follow-ups, cut the v0.1.3 release, then built the auto-update
+framework the user asked for in detail across several messages. **None of the
+Win32 mechanics below have been exercised on a real Windows machine** — same
+standing caveat as everything else in this codebase that touches
+`sys.frozen`/PyInstaller; the shape is sound and every test that can run
+without one does, but a real report is still the first thing to trust over
+this write-up if one comes back wrong.
+
+**Closed out from the support bundle, before the release:**
+1. **BGE embedding install now retries itself.** A missing
+   `sentence_transformers` (`ModuleNotFoundError`) now triggers one
+   background `extras.start("semantic")` automatically, with a watcher
+   thread that calls `importlib.invalidate_caches()` + `reset_failure_state()`
+   once the install finishes — the CPython import-cache gotcha (a package
+   installed mid-process still needs its finder caches invalidated before a
+   retry `import` finds it) would have made this silently "not work" without
+   that call. `embeddings.py`, 6 new tests in `test_embedding_reset.py`.
+2. **The in-chat Web toggle dims when web search is off** (`#web-search-toggle:not(.active) { opacity: 0.6; }`, `01-forms-settings.css`) — asked for directly, so a user can tell at a glance whether a chat turn will actually search.
+3. **v0.1.3 released**: `__version__`/`pyproject.toml` bumped, `CHANGELOG.md` (and its `docs/` mirror) written up per entry.
+
+**The auto-update framework (`routes_update.py`, new), asked for across
+several messages in the same session:**
+
+- **`GET /update/check`** moved here from `app.py` (it used to sit inline)
+  and is now channel-aware: `update_channel == "main"` returns
+  `{"checked": false, "reason": "channel_unavailable"}` honestly rather than
+  fabricating a check against a release pipeline that does not exist —
+  there is no nightly build published on every main-branch push, and this
+  repo is not building one blind. `"stable"` behaves as before (GitHub's
+  `releases/latest`, `can_auto_apply`/`asset` only populated for a frozen
+  Windows build).
+- **`POST /update/apply`** now requires *both* `update_check_enabled` and
+  a new, separate `auto_update_enabled` preference (403 if either is off —
+  asked for directly: "the option to turn auto update off entirely",
+  distinct from just being told a release exists), and accepts an optional
+  `?tag=` to install a specific past release instead of always latest
+  (`releases/tags/{tag}` vs `releases/latest`). Still never trusts a
+  client-supplied URL — always re-fetches the release by tag/latest itself
+  before touching `subprocess.Popen`.
+- **`GET /update/releases`** — up to 10 recent releases with a matching
+  Windows asset, for a "choose a specific version" picker in Settings.
+  Honestly empty (with a `reason`) off the main channel, off a non-frozen
+  build, or when checking is disabled — never a picker that silently does
+  nothing when used.
+- **Blocked download vs. blocked installer execution are now distinguished**
+  in `_run_apply` — asked for directly ("handle the case that the new
+  installer download is blocked by browser, firewall or other security").
+  Two separate `try`/`except` phases: a download failure gets a
+  firewall/proxy/offline-flavoured message, while `PermissionError`/`OSError`
+  from `subprocess.Popen` (the WinError 5/1260 shape antivirus or
+  SmartScreen quarantining a fresh download takes) gets its own message
+  pointing at antivirus quarantine specifically, not a generic failure.
+- **`GET /update/source-status`** — a *different* auto-update path than any
+  of the above. `start.sh`/`start.bat` already `git pull --ff-only` on every
+  launch, unconditionally, before the server even starts — that mechanism
+  predates this session and was never gated by any preference. Both scripts
+  now read `__version__` before and after a successful pull and, if it
+  actually changed, export `MM_UPDATED_FROM`/`MM_UPDATED_TO` (start.bat's
+  own `:read_version` subroutine leaves the quotes from
+  `__version__ = "0.1.3"` on rather than fight cmd.exe's quoting rules for
+  embedding a literal `"` inside `set "VAR=..."` — `.strip('"')` on the
+  Python side handles it). The endpoint reads those two env vars, no network
+  call, and **self-clears after one read** so re-polling or a second tab
+  doesn't repeat the popup. Frontend: `checkForSourceUpdateNotice()` +
+  `showSourceUpdatedDialog()` in `app.js`, called from the same post-login
+  step pipeline as the Windows check, independent of
+  `update_check_enabled` (it is reporting a fact, not making a network call).
+- **Channel default is now install-type-aware**
+  (`config.py::ConfigManager._load_preferences`): a frozen Windows build
+  defaults `update_channel` to `"stable"` (unchanged); every other install
+  — i.e. a source checkout — now defaults to `"main"`, computed from the
+  real `sys.frozen` at `ConfigManager.__init__` time and overridden the
+  moment the user has ever actually saved the preference themselves. This
+  was a live correction mid-session: a source checkout already tracks main
+  for real via its own `git pull`, so defaulting it to "stable" pointed its
+  *other* update path (the GitHub-releases check, which it can't apply
+  anyway — `can_auto_apply` requires a frozen build) at a channel it has no
+  way to act on.
+- **Settings → About** gained: an "Update automatically" checkbox
+  (`auto_update_enabled`), a "Track the main branch" checkbox
+  (`update_channel`), and a version picker ("Choose a specific version…" →
+  populates a `<select>` from `/update/releases` on demand, not on every
+  Settings open → "Install this version" calls `applyUpdateNow(onProgress,
+  tag)`).
+- **27 tests in `test_update.py`** cover every guard, both new endpoints,
+  the tag-specific apply path, both new failure-message branches, and
+  `source-status`'s self-clearing/quote-stripping/no-op-on-unchanged-version
+  behaviour — all against a fake `requests`/`subprocess`, per this file's
+  standing caveat about provider/network tests never touching anything real.
+
+**Not done, next session should pick up here:** the Help-page overhaul plus
+an embedded mini AI-chat widget (utility model, session-only history, tuned
+for speed/accuracy) that the user described in detail across several
+messages — explicitly scoped to start only after the auto-update work above
+was completely finished, tested, documented, committed and pushed, "nothing
+unfinished, untouched, or half finished." That gate is now clear.
+
+## Previous session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
 
 A user hit real problems on a packaged Windows install and sent a support
 bundle (logs.json/preferences.json/status.json/counts.json). Four separate,

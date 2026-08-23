@@ -110,6 +110,12 @@ is_network_error() {
 if [ -z "${MM_CHILD:-}" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
   echo " Checking for updates..."
   GIT_LOG="$(mktemp 2>/dev/null || echo "/tmp/mm_git_$$.log")"
+  # Read before the pull so a real version change can be reported to the
+  # app after relaunch (below) — the whole point of this script's own
+  # update mechanism being invisible otherwise: it runs and finishes
+  # before the server (and the browser tab) even exist, so nothing else
+  # in the app can tell "was I just updated?" without this.
+  MM_VERSION_BEFORE="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/memorymap/__init__.py 2>/dev/null | head -1)"
   # `http.lowSpeedLimit`/`http.lowSpeedTime` abort a connection that has
   # gone quiet mid-transfer (a proxy that stalls after accepting bytes);
   # `run_with_timeout` is the hard wall-clock backstop for a connect phase
@@ -121,6 +127,15 @@ if [ -z "${MM_CHILD:-}" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
     # genuinely useful - captured above only so a *failure* can be
     # classified, not to hide it on the success path.
     cat "$GIT_LOG"
+    MM_VERSION_AFTER="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/memorymap/__init__.py 2>/dev/null | head -1)"
+    if [ -n "$MM_VERSION_AFTER" ] && [ "$MM_VERSION_BEFORE" != "$MM_VERSION_AFTER" ]; then
+      # Picked up by routes_update.py's GET /update/source-status, purely
+      # from these two env vars — no network call needed on the app's own
+      # side, so this stays offline-safe the same way everything else that
+      # touches "was there an update" in this app is required to be.
+      export MM_UPDATED_FROM="$MM_VERSION_BEFORE"
+      export MM_UPDATED_TO="$MM_VERSION_AFTER"
+    fi
   else
     if is_network_error "$GIT_LOG"; then
       echo "        No internet - skipping update check."

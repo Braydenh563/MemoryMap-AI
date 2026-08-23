@@ -12,7 +12,43 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 82. Newest — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by auditing for the same pattern
+## 83. Newest — v0.1.3 released, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry.
+Continuation of item 82 below: the BGE embedding install now retries itself
+automatically on a `ModuleNotFoundError` (a background `extras.start`, with
+`importlib.invalidate_caches()` before the retry — the CPython import-cache
+gotcha would otherwise have made this silently not work), and the in-chat
+Web toggle now dims visibly when web search is off. v0.1.3 shipped from
+there.
+
+Then the auto-update framework, asked for across several messages:
+`GET /update/check` moved out of `app.py` into a new `routes_update.py` and
+made channel-aware (`update_channel == "main"` honestly reports itself
+unavailable rather than fabricating a nightly-build pipeline that doesn't
+exist); `POST /update/apply` now gates on a *second*, separate
+`auto_update_enabled` preference (not just "checking is on") and accepts an
+optional `?tag=` to install a specific past release; a new
+`GET /update/releases` lists installable versions for a Settings picker;
+blocked-download vs. blocked-installer-execution (antivirus/SmartScreen)
+now get distinct, actionable messages instead of one generic failure.
+Separately, `start.sh`/`start.bat` — which already auto-update via
+`git pull` on every launch, unconditionally, before the server even starts —
+now report a real version change to the app via two env vars
+(`MM_UPDATED_FROM`/`MM_UPDATED_TO`), read by a new self-clearing
+`GET /update/source-status` with zero network calls, so a source checkout
+gets the same "you were just updated" post-login popup the packaged-Windows
+path gets. Channel default is now install-type-aware: a source checkout
+defaults to `"main"` (it already tracks main for real) rather than
+`"stable"` (a channel it has no way to act on), corrected mid-session after
+the user pointed out the mismatch directly.
+
+27 new tests in `test_update.py`; `pytest tests/`, `ruff check .`,
+`node --check frontend/app.js` all clean. **Not verified against a real
+Windows machine** — same standing caveat as everything else here that
+touches `sys.frozen`.
+
+## 82. A real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by auditing for the same pattern
 
 Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Four
 root causes from one user's Windows install: (1) the in-app package

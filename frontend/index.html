@@ -3873,8 +3873,47 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
             <div class="row" id="update-check-row">
               <button id="update-check-now" class="ghost small" type="button">Check now</button>
+              <!-- Shown only once a check finds a newer version this app can
+                   actually apply itself (the post-login dialog's own
+                   "Update automatically" — same underlying flow, same
+                   apiJson('/update/apply') call) — asked for directly: a
+                   manual fallback for whoever dismissed the popup, or
+                   started this check from here in the first place. -->
+              <button id="update-apply-now" class="small hidden" type="button">Update automatically</button>
               <span class="muted" id="update-check-status"></span>
             </div>
+            <!-- Separate from "Check GitHub for a newer version" above on
+                 purpose — asked for directly: "the option to turn auto
+                 update off entirely" as its own switch, not the same one
+                 that gates whether the app can even see a release exists.
+                 Checking and auto-applying are two different decisions:
+                 someone can want to know a release exists (Settings shows
+                 it, the popup mentions it) without ever wanting this app
+                 to run an installer by itself. -->
+            <label class="row space-between" for="pref-auto-update">
+              Update automatically when a new version is found
+              <input type="checkbox" id="pref-auto-update">
+            </label>
+            <!-- "Maybe they can have the option to select the specific
+                 versions they wish to switch to??" — asked for directly.
+                 Stable/main is a preference (core/config.py's
+                 update_channel), but "main" only ever reports itself
+                 honestly unavailable right now (routes_update.py's own
+                 GET /update/check) — there's no nightly-build pipeline
+                 that publishes a Windows installer on every push yet, and
+                 fabricating one here would be exactly the kind of silent
+                 lie CLAUDE.md calls out as costly. Storing the choice is
+                 real; the behaviour catches up once that pipeline exists. -->
+            <label class="row space-between" for="pref-update-channel-main">
+              Track the main branch instead of stable releases (not yet available)
+              <input type="checkbox" id="pref-update-channel-main">
+            </label>
+            <div class="row" id="update-version-row">
+              <button id="update-show-versions" class="ghost small" type="button">Choose a specific version…</button>
+              <select id="update-version-select" class="small-select hidden" aria-label="Choose a release to install"></select>
+              <button id="update-install-version" class="small hidden" type="button">Install this version</button>
+            </div>
+            <span class="muted" id="update-version-status"></span>
             <!-- Only meaningful running from start.bat/start-desktop.bat, which
                  open a console window behind the app — the packaged installer's
                  build has none to show at all. Shown only in the desktop shell

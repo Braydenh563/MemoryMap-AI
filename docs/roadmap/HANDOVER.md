@@ -8,10 +8,40 @@ Driven entirely by live user reports across a long session (continued from
 an earlier compaction), not a roadmap sweep. ROADMAP.md §80 has the short
 version; this is the full one. `pytest tests/` (~1,600 tests), `ruff check
 .`, and `node --check frontend/app.js` were run clean before every push —
-four pushes total this session, all to PR #121
+pushed repeatedly this session, all to PR #121
 (`claude/gemini-changes-review-vpvud2` → `feat/gemini-additions-3`), which
 the web UI created and which stays the one PR for this branch: **push more
 commits to it, do not open a new one.**
+
+**Later in the same session, past this entry's original writing (kept
+short — quota ran low):** drafts fixed end-to-end (no save-as-draft in the
+main Capture box at all; no Drafts sub-tab in Library despite HISTORY.md
+and a stray comment both claiming one existed — both built, live-verified).
+Semantic search fixed: `MIN_SIMILARITY=0.25` (`search_manager.py`) was
+tuned for the old default embedding model (all-MiniLM); the current one
+(BGE-family, anisotropic) routinely scores unrelated notes 0.4-0.6, which
+is exactly what got reported (a Pokemon-image note at 57% for a "social
+skills" query). Added a second, relative floor from each query's own score
+distribution — self-calibrating, doesn't need a new guessed magic number.
+Chat header: a long model id with no spaces (an Ollama tag) grew past its
+box instead of eliding, pushing Compress/Export/Delete onto their own row —
+`white-space: nowrap` + a real `max-width` fixed it; `overflow`/
+`text-overflow` alone don't truncate without both.
+
+**Two requests landed with no time left to act on them — not started,
+just recorded so they aren't lost:**
+- Advanced search settings (Settings → Preferences is the natural home,
+  matching its existing numeric-pref pattern like `pref-bin-days`): expose
+  `MIN_SIMILARITY` and the new `RELATIVE_Z_MARGIN` (both in
+  `search_manager.py`) as preferences with a reset-to-default. Backend
+  plumbing is the same shape as every other preference in this app
+  (`DEFAULT_PREFERENCES`, `PreferencesBody`, `get_preferences()`) — the one
+  thing to check first is whether `deps.get_config()` is safe to call from
+  inside `semantic_search()` given several unit tests call it directly with
+  only a bare `session` fixture, no `app_state`.
+- Exported images are hard to find/access ("I have to dig in the app data
+  files") and their save location isn't configurable. Not investigated at
+  all — start by finding where an export actually writes the file today.
 
 **Dev view / User view console mode** — asked for directly: a first-run
 popup plus a live Settings/tray toggle between a visible console ("Dev

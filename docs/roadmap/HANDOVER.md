@@ -55,15 +55,39 @@ features catalog finds and lists the new entry — all with zero console
 errors. `pytest tests/`, `ruff check .`, `node --check frontend/app.js`
 clean.
 
+**Same session, third item — half of the next queued request**: "easier
+access... for exported images" turned out to be true of every generated
+export (`saveFile`/`/files/save` in desktop mode — graph PNGs, chat
+exports, whiteboard PNGs, all land in `data_dir/exports`), not images
+specifically. Added `POST /files/open-exports-folder`
+(`routes_files.py`, desktop-only — 409 in browser mode, since a browser tab
+has no file manager to hand a `file://` path to) using `os.startfile`
+(Windows) / `subprocess.Popen(["open", ...])` (macOS) /
+`subprocess.Popen(["xdg-open", ...])` (Linux) — `Popen`, not `run()`, so a
+file-manager window that doesn't exit promptly can't hang the response.
+Wired to a new "Open exports folder" button in Settings → Data (shown only
+in desktop mode, same `desktopShell()` gate as the console-mode row), and
+`saveFile`'s own success toast is now `toastAction(...)` with an "Open
+folder" button on it, not just the path as text. **Verified live**: the
+button appears/hides correctly with desktop mode, the request reaches the
+backend and returns the exports path; **the actual OS window never
+verified** — this sandbox has no desktop environment at all (`xdg-open` isn't
+even installed), so the endpoint's own graceful-failure path (a clean 500
+naming what's missing) is what got exercised, not a real file manager
+opening. **Not done**: the configurable-save-location half of the original
+ask — still just `data_dir/exports`, no preference for where it goes.
+
 ## Start here next session — a queue of live requests, none started
 
 Landed at 95%+ quota with no time left to act on them. In the order they
 came in:
 
-1. **Easier access + a configurable save location for exported images.**
-   User: "I have to dig in the app data files to find and access them."
-   Not investigated at all — start by finding where an export actually
-   writes the file today.
+1. **A configurable save location for exports** (the remaining half of the
+   item above) — currently hardcoded to `data_dir/exports` inside
+   `routes_files.py`'s `save_generated_file`. Would need a preference (same
+   shape as every other one: `DEFAULT_PREFERENCES`, `PreferencesBody`) plus
+   validating that whatever path the user types is writable before saving
+   the preference, not at export time when a bad path is a lost file.
 2. **Small-notebook search speed** — reported as "shouldn't take multiple
    seconds." Checked this session: `keyword_search` is SQLite FTS5
    (indexed), `semantic_search` is one vectorized numpy pass over

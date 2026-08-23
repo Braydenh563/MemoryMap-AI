@@ -3567,6 +3567,17 @@ Link to another note with [[its first few words]]."></textarea>
                 JSON/CSV/Markdown exports include everything, even binned notes.
                 Full Backup is a portable zip of the raw database and media folder.
               </p>
+              <!-- Desktop only (shown/hidden by desktopShell() in JS): a graph
+                   PNG, a chat export, and the like all land in data_dir/exports
+                   with just a toast naming the path — real, but easy to lose
+                   track of. Asked for directly: "I have to dig in the app data
+                   files to find and access them." -->
+              <div class="row hidden" id="open-exports-row">
+                <button id="open-exports-folder" class="ghost small" type="button">
+                  <i class="ph ph-folder-open ph-lead" aria-hidden="true"></i> Open exports folder
+                </button>
+                <span class="muted">Where graph images, chat exports and the like are saved.</span>
+              </div>
             </div>
 
             <div class="settings-group">

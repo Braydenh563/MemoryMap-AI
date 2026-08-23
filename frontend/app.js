@@ -10232,7 +10232,14 @@ async function saveFile(filename, blob) {
       });
       // Where it went matters more here than in a browser: there is no
       // downloads shelf to look at, so an unannounced file is a lost one.
-      toast(`Saved to ${saved.path}`);
+      // An action button on the toast itself, not just a path in the text,
+      // is what makes that true rather than aspirational — asked for
+      // directly after "I have to dig in the app data files to find them".
+      toastAction(`Saved to ${saved.path}`, "Open folder", () => {
+        apiJson("/files/open-exports-folder", { method: "POST" }).catch((error) => {
+          toast(error.message || "Couldn't open the exports folder.", true);
+        });
+      });
       return saved;
     } catch (error) {
       toast(`Couldn't save ${filename}: ${error.message}`, true);
@@ -15482,6 +15489,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   const isDesktop = await desktopShell();
   $("desktop-console-row").classList.toggle("hidden", !isDesktop);
   $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
+  $("open-exports-row").classList.toggle("hidden", !isDesktop);
   if (isDesktop) {
     $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
   }
@@ -22506,6 +22514,15 @@ $("pref-show-console").addEventListener("change", async (e) => {
   } catch (error) {
     e.target.checked = !checked; // the change didn't take — don't leave the switch lying
     toast(error.message || "Couldn't switch view.", true);
+  }
+});
+
+$("open-exports-folder").addEventListener("click", async () => {
+  try {
+    const result = await apiJson("/files/open-exports-folder", { method: "POST" });
+    toast(`Opened ${result.path}`);
+  } catch (error) {
+    toast(error.message || "Couldn't open the exports folder.", true);
   }
 });
 

@@ -37,6 +37,22 @@ new `openSettingsModal(section, scrollToId)` parameter. Verified live:
 jump/flash/tooltip/panel all work, feature-catalog entry is findable, no
 console errors.
 
+Same session, third fix: every generated export (`saveFile`/`/files/save` —
+graph PNGs, chat exports, whiteboard PNGs) landed in `data_dir/exports` with
+only a toast naming the path, reported as "I have to dig in the app data
+files to find and access them." Added `POST /files/open-exports-folder`
+(desktop-only, `os.startfile`/`subprocess.Popen(["open"/"xdg-open", ...])`
+per platform, `Popen` not `run()` so a slow-to-exit file manager can't hang
+the response), a "Open exports folder" button in Settings → Data, and made
+`saveFile`'s own success toast actionable (`toastAction`, an "Open folder"
+button) instead of just naming the path in text. Verified live that the
+button shows/hides with desktop mode and the request reaches the backend;
+**the actual OS window never verified** — no desktop environment in this
+sandbox at all (`xdg-open` isn't installed), so what got exercised was the
+endpoint's own clean-failure path, not a real file manager opening.
+**Configurable save location — the other half of the original ask — is
+still not done**: still hardcoded to `data_dir/exports`.
+
 `pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
 
 ## 80. Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view

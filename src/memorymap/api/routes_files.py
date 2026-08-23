@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import base64
 import binascii
+import os
 import re
+import subprocess
+import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -245,6 +248,42 @@ def save_generated_file(body: SaveFileBody) -> dict:
         target = exports / f"{stem}-{stamp}{suffix}"
     target.write_bytes(data)
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
+
+
+@router.post("/files/open-exports-folder")
+def open_exports_folder() -> dict:
+    """Reveal the exports folder in the OS file manager.
+
+    Asked for directly ("I have to dig in the app data files to find and
+    access them") after `save_generated_file` above started writing graph
+    PNGs, chat exports and the like into `data_dir/exports` with only a
+    toast naming the path — real, but no help finding it again later.
+    Desktop only: a browser tab has no file manager to hand this to, and
+    `webbrowser.open`-ing a `file://` URL from a server request a browser
+    could also reach is a foothold a purely local desktop shell doesn't
+    have to give a page.
+    """
+    if os.getenv("MEMORYMAP_DESKTOP") != "1":
+        raise HTTPException(
+            status_code=409, detail="Only the desktop app can open a file manager window."
+        )
+    exports: Path = deps.get_config().data_dir / EXPORTS_DIRNAME
+    exports.mkdir(parents=True, exist_ok=True)
+    try:
+        if sys.platform == "win32":
+            os.startfile(exports)  # fixed path under our own data dir, not user input
+        elif sys.platform == "darwin":
+            # Popen, not run(): the launcher forks its own file-manager window
+            # and normally returns at once, but this request must not hang
+            # waiting on a GUI process either way — same reasoning as
+            # `restart_in_console_mode` being fire-and-forget rather than
+            # something this response waits on.
+            subprocess.Popen(["open", str(exports)])
+        else:
+            subprocess.Popen(["xdg-open", str(exports)])
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Couldn't open {exports}: {exc}") from exc
+    return {"path": str(exports)}
 
 
 #: What `/media/` will accept and, more to the point, what it will serve.

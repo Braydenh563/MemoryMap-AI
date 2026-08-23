@@ -12,7 +12,7 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 82. Newest — a real support bundle from a real test user, four bugs found and fixed
+## 82. Newest — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by auditing for the same pattern
 
 Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Four
 root causes from one user's Windows install: (1) the in-app package
@@ -39,6 +39,12 @@ existing "Search engine problem" banner in Settings → Models, automating
 the fix that banner's own text already described by hand (download →
 switch backend → re-index), built entirely on two existing, already-tested
 routes.
+
+**(5), found by auditing rather than waiting for a fifth report**: grepping
+for the same `sys.executable`-in-a-frozen-build pattern once (1) was
+understood found one more live instance — `searxng_install.py`'s venv
+creation for SearXNG's from-source install path. Same bug, same fix,
+pulled into a shared `find_system_python()` both call sites now use.
 
 `pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
 

@@ -102,40 +102,45 @@ def _pip_reason(log: list[str], prefix: str) -> str:
     return f"{prefix}: {(named or useful)[-1]}"
 
 
-def _pip_base_command() -> list[str] | None:
-    """`[python, "-m", "pip"]`, or `None` if there is no real interpreter to
-    run it with.
+def find_system_python() -> str | None:
+    """A real Python interpreter to hand to `subprocess`, or `None` if
+    there isn't one.
 
-    `sys.executable -m pip` is right for a normal venv/source install — the
-    comment on `_run_install` explains why `sys.executable` beats a bare
-    `pip` there. It is wrong for a *frozen* build (`sys.frozen`, set by
-    PyInstaller): `sys.executable` there is the packaged app's own .exe, not
-    a Python interpreter, so `sys.executable -m pip install ...` actually
-    re-launches the app with `-m pip install ...` as if they were *its* own
-    command-line flags. `__main__.py`'s argparse (which only knows
-    `--desktop`/`--reset-password`) rejects them, and the failure that
-    reaches the user is "unrecognized arguments: -m pip install ..." — a
-    real one, from a real Windows installer user's support bundle, that had
-    previously been reported here twice as an unexplained "pip exited with
-    code 1/2" with no visible pip output at all, because there never was any
-    real pip output to show.
+    `sys.executable` is right for this in a normal venv/source install — but
+    wrong in a *frozen* build (`sys.frozen`, set by PyInstaller):
+    `sys.executable` there is the packaged app's own .exe, not a Python
+    interpreter, so `[sys.executable, "-m", X, ...]` actually re-launches
+    the app with `-m X ...` as if they were *its* own command-line flags.
+    `__main__.py`'s argparse (which only knows `--desktop`/`--reset-
+    password`) rejects them — confirmed from a real Windows installer
+    user's support bundle: `pip install` came back as "unrecognized
+    arguments: -m pip install ...", the real answer to two earlier
+    "pip exited with code 1/2, no visible output" mysteries, because there
+    was never any real pip output — pip was never actually run. The same
+    shape reaches `venv` creation too (`search/searxng_install.py`), not
+    just pip, which is why this is a general helper rather than living
+    inside `_pip_base_command` alone.
 
-    INSTALL.md documents Settings → Packages as the no-terminal,
-    no-Python-required way to add search-by-meaning/dictation from the
-    Windows installer — so failing outright in frozen mode would be
-    breaking a documented promise, not just tightening an error message.
-    Instead this looks for a real Python on PATH (common: many people
-    installing an AI-adjacent app like this already have one from something
-    else) and uses that. `None` means genuinely no interpreter was found —
-    the caller turns that into an honest, actionable message instead of the
-    argparse crash.
+    Two callers document why failing outright in frozen mode isn't
+    acceptable here: INSTALL.md promises Settings → Packages works with "no
+    terminal or Python install required" from the Windows installer, and
+    Managed SearXNG's from-source install is offered from that same
+    packaged build. So this looks for a real Python already on PATH first
+    (common: many people installing an AI-adjacent app like this already
+    have one from something else) rather than refusing unconditionally.
+    `None` means genuinely none was found — every caller turns that into an
+    honest, actionable message instead of the argparse crash.
     """
     if not getattr(sys, "frozen", False):
-        return [sys.executable, "-m", "pip"]
-    python = shutil.which("python") or shutil.which("python3")
-    if not python:
-        return None
-    return [python, "-m", "pip"]
+        return sys.executable
+    return shutil.which("python") or shutil.which("python3")
+
+
+def _pip_base_command() -> list[str] | None:
+    """`[python, "-m", "pip"]`, or `None` if `find_system_python` found no
+    real interpreter to run it with."""
+    python = find_system_python()
+    return [python, "-m", "pip"] if python else None
 
 
 #: Shown when `_pip_base_command()` returns `None` — frozen, and no system

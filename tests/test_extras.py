@@ -431,6 +431,22 @@ def test_pip_reason_falls_back_to_the_prefix_when_nothing_is_useful(client):
 # was never actually run. -----------------------------------------------
 
 
+def test_find_system_python_is_sys_executable_when_not_frozen(monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", False, raising=False)
+    assert extras.find_system_python() == extras.sys.executable
+
+
+def test_find_system_python_frozen_uses_path_lookup(monkeypatch):
+    """The general helper `_pip_base_command` and searxng_install.py's own
+    venv-creation call both build on — same real bug, two call sites, one
+    fix. `python3` is only tried when `python` isn't found."""
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(
+        extras.shutil, "which", lambda name: "/usr/bin/python3" if name == "python3" else None
+    )
+    assert extras.find_system_python() == "/usr/bin/python3"
+
+
 def test_pip_base_command_uses_sys_executable_when_not_frozen(monkeypatch):
     monkeypatch.setattr(extras.sys, "frozen", False, raising=False)
     assert extras._pip_base_command() == [extras.sys.executable, "-m", "pip"]

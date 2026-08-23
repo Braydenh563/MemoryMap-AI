@@ -21,6 +21,7 @@ import threading
 import time
 from pathlib import Path
 
+from memorymap.core.extras import find_system_python
 from memorymap.search import searxng_manager
 from memorymap.search.searxng_manager import (
     COMMAND_TIMEOUT,
@@ -376,7 +377,22 @@ def install_source(data_dir: Path, on_ready=None) -> None:
             _import_ok.discard(str(Path(data_dir)))
             venv = _venv_dir(data_dir)
             if not searxng_manager._venv_python(data_dir).exists():
-                searxng_manager._run([sys.executable, "-m", "venv", str(venv)], timeout=180)
+                # Not `sys.executable` directly — see `core.extras.
+                # find_system_python`'s own docstring: in a frozen (packaged)
+                # build, `sys.executable` is the app's own .exe, and
+                # `[that, "-m", "venv", ...]` re-launches the app with
+                # "-m venv ..." as if they were its own flags, which its
+                # argparse rejects. Same bug the pip installer had, same fix.
+                python = find_system_python()
+                if python is None:
+                    raise SearxngError(
+                        "No Python interpreter found on this system, and a "
+                        "packaged app can't create a virtualenv without one. "
+                        "Install Python from python.org (any recent version, "
+                        'tick "Add python.exe to PATH" during setup), then '
+                        "try again — or use the Docker-based install instead."
+                    )
+                searxng_manager._run([python, "-m", "venv", str(venv)], timeout=180)
                 _install_log(f"Virtualenv created at {venv}")
                 if not searxng_manager._venv_python(data_dir).exists():
                     raise SearxngError(

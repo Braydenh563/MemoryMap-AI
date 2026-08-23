@@ -1,12 +1,25 @@
 # Session handover
 
-## Latest session — a real support bundle from a real test user, four bugs found and fixed
+## Latest session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
 
 A user hit real problems on a packaged Windows install and sent a support
 bundle (logs.json/preferences.json/status.json/counts.json). Four separate,
 confirmed root causes came out of it — worth reading in full before the next
 session assumes any of "pip install fails," "SearXNG modules missing," or
 "the agent notification pushes the UI" are still mysteries.
+
+**A fifth, found by auditing rather than waiting for a fifth report**: once
+the `sys.executable`-in-a-frozen-build bug (item 1 below) was understood,
+grepping the whole codebase for the same pattern (`sys.executable`) found
+one more live instance — `searxng_install.py`'s `sys.executable -m venv
+...`, creating the virtualenv for SearXNG's from-source install path. Same
+bug, same fix: the interpreter-finding logic was pulled out of
+`core/extras.py` into a shared `find_system_python()` (still frozen-aware,
+still falls back to a PATH lookup, still `None` with an honest message
+when nothing is found) and reused in both places. Two new tests
+(`test_searxng_install.py`) exercise the venv-creation branch specifically
+— every other test in that file uses `_fake_venv()` to skip past it, so
+none of them would have caught this on their own.
 
 **1. The in-app package installer was fundamentally broken in the packaged
 build**, not the app's optional-dependency logic — `_run_install`/
@@ -26,7 +39,7 @@ INSTALL.md documents Settings → Packages as the no-terminal/no-Python-
 required path in from the Windows installer, so failing outright would
 break a documented promise, not just tighten an error message. `None` (no
 Python found anywhere) now surfaces one clear, actionable sentence
-(`NO_PYTHON_FOUND_MESSAGE`) instead of the argparse crash. 5 new tests
+(`NO_PYTHON_FOUND_MESSAGE`) instead of the argparse crash. 7 new tests
 (`test_extras.py`), all passing without a real Windows build.
 
 **2. `ModuleNotFoundError: No module named 'memorymap.search.searxng_docker'`

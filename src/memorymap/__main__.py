@@ -164,6 +164,7 @@ def restart_in_console_mode(hidden: bool) -> bool:
     if process is None:
         return False
     os._exit(0)
+    return True  # unreachable — os._exit() never returns; keeps every path explicit
 
 
 def _maybe_relaunch_hidden(show_on_startup: bool, already_relaunched: bool):
@@ -228,7 +229,7 @@ def _ancestor_console_hwnds(own_hwnd: int | None) -> list[int]:
     "did nothing extra" rather than crashing the launcher.
     """
     import ctypes
-    from ctypes import wintypes
+    import ctypes.wintypes as wintypes
 
     hwnds: list[int] = []
     try:

@@ -3196,11 +3196,13 @@ function renderEntries() {
   const noMatch = $("no-match-message");
   list.replaceChildren();
 
+  // Drafts stay out of All/category views entirely — user-reported: they
+  // should only show up in the Drafts filter until saved as a real note.
   let visible = draftsOnly
     ? allEntries.filter((e) => e.is_draft)
     : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory)
-      : allEntries;
+      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+      : allEntries.filter((e) => !e.is_draft);
   visible = visible.filter(matchesSearch);
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
@@ -3214,8 +3216,8 @@ function renderEntries() {
   const total = draftsOnly
     ? allEntries.filter((e) => e.is_draft).length
     : activeCategory
-      ? allEntries.filter((e) => e.category === activeCategory).length
-      : allEntries.length;
+      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
+      : allEntries.filter((e) => !e.is_draft).length;
   $("entries-heading-label").textContent =
     noteSearch && visible.length !== total
       ? `${scope} — ${visible.length} of ${total}`
@@ -3329,8 +3331,12 @@ async function loadCategories() {
 function renderSidebar() {
   // Categories + counts are derived from the loaded entries — the
   // simplest thing that works; no extra endpoint needed yet.
+  // Drafts only belong in the Drafts row (user-reported: they were still
+  // showing under All/category counts, undercutting the point of a
+  // separate section) — until saved as a real note, a draft doesn't count.
   const counts = new Map();
   for (const entry of allEntries) {
+    if (entry.is_draft) continue;
     counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
   }
 
@@ -3384,7 +3390,7 @@ function renderSidebar() {
     ul.appendChild(li);
   };
 
-  addRow("All", allEntries.length, null);
+  addRow("All", allEntries.filter((e) => !e.is_draft).length, null);
 
   // A drafts count, not a category — asked for directly: a Drafts filter
   // findable in the same place categories are, so a note drafted with the
@@ -3921,7 +3927,10 @@ function flashEntry(id) {
   // wiki link silently did nothing (user-reported).
   showNotesSection("browse");
   activeCategory = null;
-  draftsOnly = false; // same reasoning: a non-draft target would be filtered out
+  // A draft target needs the Drafts filter ON now that drafts are excluded
+  // from every other view (user-reported) — otherwise jumping to one from
+  // Library's "Open" button would find nothing.
+  draftsOnly = allEntries.some((e) => e.id === id && e.is_draft);
   // Clear any active filter too: a note that doesn't match the current search
   // is filtered out of the list, so there'd be nothing to scroll to.
   noteSearch = "";

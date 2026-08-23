@@ -303,6 +303,32 @@ def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
     assert routes_update.current()["outcome"] == "launched"
 
 
+def test_apply_refuses_a_tag_that_isnt_a_real_release_tag_shape(
+    client, app_state, monkeypatch
+):
+    """`tag` used to go straight into a GitHub API URL — flagged by CodeQL
+    as a partial SSRF (py/partial-ssrf): the host is fixed, but the path
+    wasn't, so a crafted value could still steer the request somewhere this
+    endpoint never meant to fetch. Every real tag this repo's release
+    workflow ever creates looks like `v0.1.3`; anything else is refused
+    before it ever reaches a URL, let alone a network call."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+
+    calls = []
+    monkeypatch.setattr(
+        routes_update.requests, "get", lambda *a, **k: calls.append(a) or _FakeResponse({})
+    )
+
+    for hostile in ["../../etc/passwd", "v1.0.0/../../repos/other/repo", "v1.0#frag", "not-a-tag"]:
+        response = client.post("/update/apply", params={"tag": hostile})
+        assert response.status_code == 400, hostile
+
+    assert calls == [], "a rejected tag must never reach a network call"
+
+
 # --- GET /update/check — moved from app.py, now channel-aware --------------
 
 
@@ -524,3 +550,40 @@ def test_an_installer_blocked_by_antivirus_gets_an_execution_specific_message(
     state = routes_update.current()
     assert state["outcome"] == "failed"
     assert "antivirus" in state["step"].lower() or "smartscreen" in state["step"].lower()
+
+
+def test_error_field_never_carries_a_raw_local_path_from_an_os_error(
+    client, app_state, monkeypatch, tmp_path
+):
+    """Flagged by CodeQL (py/stack-trace-exposure): `_state.error` reaches
+    the browser over GET /apply/status, and a real `PermissionError`'s own
+    `str()` on Windows includes the full path it couldn't open — the exact
+    shape `core/extras.py`'s own module docstring already documents fixing
+    once for this app's other installer. The full detail still reaches the
+    log (`logger.exception`); only the HTTP-facing field is sanitised."""
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+
+    secret_path = str(tmp_path / "definitely-not-meant-to-leak" / "installer.exe")
+
+    def _fake_get(url, **kwargs):
+        if "releases/latest" in url:
+            return _FakeResponse(RELEASE_WITH_ASSET)
+        return _FakeResponse(content=b"MZ-fake-installer", headers={"Content-Length": "17"})
+
+    def _blocked_popen(*a, **k):
+        raise PermissionError(f"[WinError 5] Access is denied: '{secret_path}'")
+
+    monkeypatch.setattr(routes_update.requests, "get", _fake_get)
+    monkeypatch.setattr(routes_update.subprocess, "Popen", _blocked_popen)
+    monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
+
+    client.post("/update/apply")
+    _wait_until_idle()
+
+    state = routes_update.current()
+    assert state["outcome"] == "failed"
+    assert secret_path not in state["error"]
+    assert "definitely-not-meant-to-leak" not in state["error"]

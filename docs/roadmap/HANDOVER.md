@@ -150,6 +150,76 @@ separate frontend file this session hadn't checked yet. Confirmed live via
 Playwright before concluding either way, rather than reporting a false
 bug off a grep miss.
 
+**Tesseract binary install assistance, asked for directly** ("add the
+option for install assistance for the tesseract program installation,
+automate it if possible"): the "ocr" extra is now a real entry in
+`core/extras.py`'s installable-extras registry (pip installs `pytesseract`/
+Pillow like any other extra), and `_run_install` follows it with a
+best-effort, non-interactive attempt to install the `tesseract` **system
+binary** itself — the one part pip can never touch. New
+`ocr.attempt_binary_install()`: tries winget (Windows) / brew (macOS) /
+apt-get, dnf, pacman (Linux, whichever exists), every command fully
+non-interactive so it can never hang on a password prompt or a UAC dialog
+nothing can answer — a non-root Linux process tries a `sudo -n` variant
+first (fails immediately rather than prompting), falling back to the bare
+command. Wall-clock bounded (90s) either way. `installed` is only ever
+reported `True` once `tesseract_available()` is confirmed **after** the
+attempt — the installer's own exit code is never trusted alone, the same
+"a POST response can lie about stored state" caution this app applies
+everywhere else that reports success. A failed binary attempt never fails
+the extra's own install outcome — the pip packages are genuinely useful on
+their own, `ocr.py` already degrades cleanly without the binary. 19 new
+tests across `test_ocr.py`/`test_extras.py`, none touching a real package
+manager.
+
+**A subscribed PR's CI turned up real findings, all fixed same-session**
+(PR #123, `claude/docs-review-bug-fixes-rae8zd` → `main`) — asked for
+directly ("review and fix the codeql failures"):
+- **3 real test failures, not CodeQL**: `test_embedding_reset.py`'s BGE
+  auto-install tests (an earlier session's work) relied on the *ambient*
+  fact that `sentence-transformers` genuinely isn't installed in this
+  sandbox to naturally produce a `ModuleNotFoundError` — true here, false
+  on GitHub Actions, whose own workflow installs the full
+  `requirements.txt` including the real package. CI's `embed_text` call
+  just succeeded for real (downloading the model from Hugging Face, visible
+  in the job log), so the auto-install trigger it meant to test never
+  fired. Fixed by mocking `_load_st_model` to raise the exact exception
+  directly, the same pattern the file's own sibling test already used —
+  never rely on an ambient environment fact a different CI runner won't
+  share.
+- **CRITICAL, CodeQL `py/partial-ssrf`**: `POST /update/apply?tag=` built
+  a GitHub API URL by interpolating the client-supplied `tag` straight in
+  (`f"{GITHUB_REPO_API}/releases/tags/{tag}"`) — the host was fixed, but
+  the path wasn't, which is exactly what "partial" SSRF means. Fixed by
+  validating `tag` against this repo's own real tag shape (`v\d+\.\d+\.\d+`)
+  and refusing anything else with a 400 before it ever reaches a URL.
+- **MEDIUM, CodeQL `py/stack-trace-exposure`**: `routes_update.py`'s
+  `_run_apply` put raw `str(exc)` into `_state.error`, which `GET
+  /apply/status` returns straight to the browser — a real `PermissionError`
+  on Windows carries the full local path it couldn't open. Same shape
+  `core/extras.py`'s own module docstring already documents fixing once
+  for the package installer; fixed the same way here — a safe, generic
+  message on the HTTP-facing field, the full exception still going to
+  `logger.exception` (log-only). One exception, `_DownloadIncomplete`, is
+  this module's own crafted message (byte counts only, safe by
+  construction) and is allowed through unchanged.
+- **5 notes, `py/unused-global-variable` ×4 and a duplicate-import ×1**:
+  four loose module-level flags (`ocr.py`'s two "log this once" bools,
+  `routes_update.py`'s four source-update-popup fields) read a false
+  positive from CodeQL's single-function view of a "check once, across
+  separate calls" idiom — genuinely used, just not in a shape that query
+  recognises. Fixed by removing the shape entirely rather than arguing with
+  the tool: `ocr.py`'s two flags became `functools.lru_cache(maxsize=1)`-
+  wrapped log-once helpers (no mutable state at all); `routes_update.py`'s
+  four became one `_SourceUpdateState` instance, mirroring the
+  `_ApplyState`/`_state` pattern the same file already uses for the apply
+  flow. `test_file_save.py` had a genuine, harmless duplicate import
+  (`from ... import X` at module level, `import ... as routes_files`
+  again inside one test) — collapsed into one module-level import.
+- All fixes verified with new/updated tests (`test_update.py` ×2 new,
+  `test_ocr.py` caplog-based rewrite of the log-once test), full suite,
+  `ruff check .` green.
+
 ## Previous session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
 
 A user hit real problems on a packaged Windows install and sent a support

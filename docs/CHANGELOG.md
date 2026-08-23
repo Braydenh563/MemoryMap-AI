@@ -55,7 +55,11 @@ Reported by a real user: when the BGE semantic-search model failed to install, t
 
 ### Added — search inside uploaded images (OCR), and a search box for the Image Gallery
 
-A whiteboard photo or a scanned page attached to a note used to sit as an opaque file — nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text — "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected.
+A whiteboard photo or a scanned page attached to a note used to sit as an opaque file — nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text — "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected. Settings → Packages can now install this feature like any other optional extra, and tries to install the Tesseract program itself automatically too (winget/brew/apt/dnf/pacman, whichever this computer has) rather than only pointing at manual instructions.
+
+### Fixed — a security review found two real issues in the new auto-update code, both fixed
+
+`POST /update/apply`'s specific-version picker built a GitHub URL from the requested version without checking its shape first; it now only accepts a real release-tag pattern. A failed install used to report the raw system error, which on Windows could include a local file path; it now reports a safe, generic message while the full detail still goes to the app's own logs.
 
 ## [0.1.2] - 2026-08-23
 

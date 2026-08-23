@@ -510,6 +510,74 @@ def test_uninstall_gives_the_same_actionable_message(client, monkeypatch):
     assert state.step == extras.NO_PYTHON_FOUND_MESSAGE
 
 
+class _SucceedingPip:
+    """A `pip install` that exits 0 with a boring, realistic transcript."""
+
+    def __init__(self, command, **kwargs):
+        self.stdout = [
+            "Collecting pytesseract\n",
+            "Successfully installed pytesseract-0.3.13 Pillow-12.3.0\n",
+        ]
+
+    def wait(self):
+        return 0
+
+
+# --- the "ocr" extra's own system-binary half, asked for directly ("add the
+# option for install assistance for the tesseract program installation,
+# automate it if possible") -------------------------------------------------
+
+
+def test_a_successful_ocr_install_also_attempts_the_tesseract_binary(client, monkeypatch):
+    monkeypatch.setattr(extras.subprocess, "Popen", _SucceedingPip)
+    calls = []
+
+    def _fake_attempt(timeout=None):
+        calls.append(timeout)
+        return True, "Tesseract installed."
+
+    monkeypatch.setattr(extras.ocr, "attempt_binary_install", _fake_attempt)
+    extras._run_install(extras.EXTRAS_BY_ID["ocr"])
+
+    state = extras.current()
+    assert state.outcome == "completed"
+    assert len(calls) == 1
+    assert "Tesseract installed." in state.step
+    assert "Tesseract installed." in state.log[-1]
+
+
+def test_a_failed_tesseract_binary_attempt_does_not_fail_the_whole_ocr_install(
+    client, monkeypatch
+):
+    """The pip packages genuinely installed and are genuinely useful on
+    their own (ocr.py degrades cleanly without the binary) — a failed
+    *binary* attempt must not turn a real, working pip install into a
+    reported failure."""
+    monkeypatch.setattr(extras.subprocess, "Popen", _SucceedingPip)
+    monkeypatch.setattr(
+        extras.ocr,
+        "attempt_binary_install",
+        lambda timeout=None: (False, "Couldn't install Tesseract automatically."),
+    )
+    extras._run_install(extras.EXTRAS_BY_ID["ocr"])
+
+    state = extras.current()
+    assert state.outcome == "completed"
+    assert "Couldn't install Tesseract automatically." in state.step
+
+
+def test_other_extras_never_touch_the_tesseract_binary_attempt(client, monkeypatch):
+    monkeypatch.setattr(extras.subprocess, "Popen", _SucceedingPip)
+    calls = []
+    monkeypatch.setattr(
+        extras.ocr, "attempt_binary_install", lambda timeout=None: calls.append(1) or (True, "")
+    )
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    assert calls == []
+    assert extras.current().outcome == "completed"
+
+
 def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
     """A "Base Requirements (requirements.txt)" extra was added with
     `packages=("-r", "requirements.txt")` and `module="fastapi"`. Since

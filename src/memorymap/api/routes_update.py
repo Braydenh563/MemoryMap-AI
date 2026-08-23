@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -52,6 +53,17 @@ GITHUB_REPO_API = "https://api.github.com/repos/Braydenh563/MemoryMap-AI"
 GITHUB_HEADERS = {"Accept": "application/vnd.github+json"}
 ASSET_PREFIX = "MemoryMap-AI-Setup-"
 ASSET_SUFFIX = ".exe"
+
+#: Every tag this repo's own release workflow ever creates looks like this
+#: (`resolve-version` in release.yml: `v$VERSION`, VERSION always three dot-
+#: separated numbers). `POST /apply`'s `tag` query param is client-supplied
+#: and was being interpolated straight into a GitHub API URL — flagged by
+#: CodeQL as a partial SSRF (`py/partial-ssrf`): the host is fixed, but the
+#: *path* wasn't, so a crafted value could still steer the request to a
+#: different path than "a release tag" was ever meant to name. Validated
+#: against this pattern before it ever reaches a URL, rather than trusting
+#: it because the host happens to be hardcoded.
+_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
 
 
 def _version_tuple(text: str) -> tuple[int, ...]:
@@ -99,6 +111,15 @@ _state = _ApplyState()
 _lock = threading.Lock()
 
 
+class _DownloadIncomplete(OSError):
+    """Raised only by `_download` below, with a message this module wrote
+    itself (byte counts only — no path, no library internals). Distinct
+    from a bare `OSError` specifically so `_run_apply`'s except block can
+    tell "our own safe, crafted message" apart from an arbitrary exception
+    from `requests`/the filesystem, whose `str()` is not safe to hand back
+    over `GET /apply/status` — see that block's own comment."""
+
+
 def reset_for_tests() -> None:
     """Process-global, like `core.extras._state` — tests have to clear it or
     one test's apply attempt leaks into the next one's assertions."""
@@ -141,7 +162,7 @@ def _download(url: str, dest: Path) -> None:
     # CDNs omit it, and refusing every such download over a header that was
     # never promised would be its own bug.
     if _state.total_bytes and written < _state.total_bytes:
-        raise OSError(
+        raise _DownloadIncomplete(
             f"Download incomplete: got {written} of {_state.total_bytes} bytes "
             "— check your connection and try again."
         )
@@ -160,9 +181,19 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         installer_path = tmp_dir / asset_name
         _download(download_url, installer_path)
     except Exception as exc:
+        # Full detail to the log only — `_state.error` reaches the browser
+        # via GET /apply/status, and an arbitrary exception's own `str()`
+        # (a `requests` connection error, a filesystem OSError) can carry a
+        # local path or other internal detail. CodeQL: py/stack-trace-
+        # exposure, the same shape `core/extras.py`'s own module docstring
+        # already documents fixing once. `_DownloadIncomplete` is the one
+        # exception in this phase this module wrote itself — its message is
+        # safe by construction (byte counts only), so it passes through.
         logger.exception("update download failed")
         _state.outcome = "failed"
-        _state.error = str(exc)
+        _state.error = str(exc) if isinstance(exc, _DownloadIncomplete) else (
+            "Download failed — see Settings → Logs for details."
+        )
         _state.step = (
             "Couldn't download the update — this can happen if a firewall, "
             "proxy, or antivirus is blocking the download, or if you're "
@@ -197,7 +228,7 @@ def _run_apply(download_url: str, asset_name: str) -> None:
             "minute or two to start using the new version."
         )
         logger.info("update installer launched (%s), exiting to let it run", asset_name)
-    except (PermissionError, OSError) as exc:
+    except (PermissionError, OSError):
         # WinError 5 (access denied) / WinError 1260 (blocked by policy) are
         # exactly the shape antivirus or Windows SmartScreen quarantining a
         # freshly-downloaded, unsigned-looking .exe takes — a plain "failed"
@@ -205,7 +236,9 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         # end for what is actually a security-software decision.
         logger.exception("update installer failed to launch")
         _state.outcome = "failed"
-        _state.error = str(exc)
+        # Not str(exc) — a WinError from Popen/the filesystem can carry a
+        # real local path. See the download except block's own comment.
+        _state.error = "Couldn't start the installer — see Settings → Logs for details."
         _state.step = (
             "The downloaded update was blocked from running — this is "
             "usually antivirus or Windows SmartScreen quarantining a new "
@@ -213,10 +246,10 @@ def _run_apply(download_url: str, asset_name: str) -> None:
             "the file, and try again, or download the installer manually "
             "from the release page."
         )
-    except Exception as exc:
+    except Exception:
         logger.exception("update apply failed")
         _state.outcome = "failed"
-        _state.error = str(exc)
+        _state.error = "Update failed — see Settings → Logs for details."
         _state.step = "Couldn't apply the update — see Settings → Logs for why."
     finally:
         _state.running = False
@@ -329,19 +362,28 @@ def list_releases() -> dict:
     return {"available": True, "current": __version__, "releases": out}
 
 
-_source_updated_env_checked = False
-_source_updated_value = False
-_source_updated_from = ""
-_source_updated_to = ""
+class _SourceUpdateState:
+    """One instance, one module-level `global`, instead of four loose
+    bool/str variables — the same `_ApplyState` shape this file already
+    uses above for the apply flow. CodeQL flagged the four-loose-variables
+    version as `py/unused-global-variable` (a note, not a real defect: each
+    one *is* read, just only within this same function across separate
+    calls) — collecting them onto one object sidesteps that shape entirely,
+    the same way `_ApplyState`/`_state` already does for `_run_apply`."""
+
+    def __init__(self) -> None:
+        self.env_checked = False
+        self.just_updated = False
+        self.from_version = ""
+        self.to_version = ""
+
+
+_source_state = _SourceUpdateState()
 
 
 def _reset_source_status_for_tests() -> None:
-    global _source_updated_env_checked, _source_updated_value
-    global _source_updated_from, _source_updated_to
-    _source_updated_env_checked = False
-    _source_updated_value = False
-    _source_updated_from = ""
-    _source_updated_to = ""
+    global _source_state
+    _source_state = _SourceUpdateState()
 
 
 @router.get("/source-status")
@@ -358,22 +400,24 @@ def source_update_status() -> dict:
     this process's lifetime so re-opening a second tab, or polling again
     later in the same session, doesn't repeat the popup.
     """
-    global _source_updated_env_checked, _source_updated_value
-    global _source_updated_from, _source_updated_to
-    if not _source_updated_env_checked:
-        _source_updated_env_checked = True
+    if not _source_state.env_checked:
+        _source_state.env_checked = True
         # start.bat's own subroutine leaves the quotes from
         # `__version__ = "0.1.3"` on rather than fight cmd.exe's quoting
         # rules for embedding a literal `"` inside `set "VAR=..."` — see
         # start.bat's :read_version. start.sh already strips them via sed.
         from_v = os.environ.get("MM_UPDATED_FROM", "").strip().strip('"')
         to_v = os.environ.get("MM_UPDATED_TO", "").strip().strip('"')
-        _source_updated_value = bool(to_v and from_v != to_v)
-        _source_updated_from = from_v
-        _source_updated_to = to_v
-    if _source_updated_value:
-        _source_updated_value = False  # one shot
-        return {"just_updated": True, "from": _source_updated_from, "to": _source_updated_to}
+        _source_state.just_updated = bool(to_v and from_v != to_v)
+        _source_state.from_version = from_v
+        _source_state.to_version = to_v
+    if _source_state.just_updated:
+        _source_state.just_updated = False  # one shot
+        return {
+            "just_updated": True,
+            "from": _source_state.from_version,
+            "to": _source_state.to_version,
+        }
     return {"just_updated": False, "from": "", "to": ""}
 
 
@@ -385,6 +429,10 @@ def apply_update(tag: str | None = None) -> dict:
     name, the same "never trust client-cached data for the thing about to
     run an executable" reasoning the latest-only version always used."""
     from memorymap.core import deps
+
+    if tag is not None and not _TAG_RE.match(tag):
+        # Never reaches a URL otherwise — see _TAG_RE's own comment.
+        raise HTTPException(status_code=400, detail="Not a valid release tag.")
 
     config = deps.get_config()
     if not config.get_preference("update_check_enabled", False):

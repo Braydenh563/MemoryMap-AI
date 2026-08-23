@@ -41,6 +41,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from memorymap.core import ocr
+
 #: Reported: a failed install showed "pip exited with code 1. The log above
 #: says why." in the Background tasks "Recently finished" history card, with
 #: no log anywhere near it. Two separate bugs turned out to be behind that one
@@ -243,6 +245,22 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("markitdown",),
         module="markitdown",
         size="~20 MB",
+    ),
+    Extra(
+        id="ocr",
+        label="Search inside images (Tesseract OCR)",
+        enables="Text found in an uploaded image (a whiteboard photo, a "
+        "scanned page) becomes searchable in the Library's Image Gallery — "
+        "asked for directly: 'what was on that whiteboard photo from March.'",
+        packages=("pytesseract", "Pillow"),
+        module="pytesseract",
+        size="~10 MB",
+        caveat="Also needs the separate 'tesseract' program on this computer — "
+        "pip can't install that part, since it isn't a Python package. This "
+        "button tries to install it automatically too (winget/brew/apt/dnf/"
+        "pacman, whichever this system has); if that doesn't work, install it "
+        "by hand (see INSTALL.md). Without it, uploads still work, they just "
+        "get no searchable text.",
     ),
     Extra(
         id="localllm",
@@ -465,11 +483,22 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             _state.step = line[:120]
         code = process.wait()
         _state.outcome = "completed" if code == 0 else "failed"
-        _state.step = (
-            f"{extra.label} installed — restart MemoryMap to use it."
-            if code == 0
-            else _pip_reason(_state.log, f"pip exited with code {code}")
-        )
+        if code != 0:
+            _state.step = _pip_reason(_state.log, f"pip exited with code {code}")
+        elif extra.id == "ocr":
+            # The one extra with a system-binary half pip can't touch —
+            # asked for directly ("automate it if possible"). Best-effort:
+            # a failed *binary* install never flips this extra's own
+            # outcome to "failed" — the pip packages are genuinely
+            # installed and useful (ocr.py degrades cleanly without the
+            # binary), so the honest outcome is still "completed", just
+            # with the binary attempt's own result folded into the message.
+            _state.step = "Installing the Tesseract program…"
+            _, binary_message = ocr.attempt_binary_install()
+            _state.log.append(binary_message)
+            _state.step = f"{extra.label} installed — restart MemoryMap to use it. {binary_message}"
+        else:
+            _state.step = f"{extra.label} installed — restart MemoryMap to use it."
     except (OSError, subprocess.SubprocessError):
         # See `_run_uninstall`'s except block: same CodeQL
         # `py/stack-trace-exposure` shape, same fix — full detail to the log,

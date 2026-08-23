@@ -7,24 +7,31 @@ image once, in the background, and stores what it found on
 `MediaUpload.ocr_text`, so the Library's Image Gallery search (client-side,
 same as the rest of the Library's own search box) can find it.
 
-Deliberately **not** wired through `core/extras.py`'s pip-based installer
-registry: the actual capability lives in the `tesseract` system binary
-(Tesseract OCR), which is not something this app can `pip install` for
-someone — unlike `sentence-transformers`, there's no PyPI wheel that ships
-the binary. `pytesseract` (the thin Python wrapper this module imports) is
-a small, pure-Python package listed directly in `requirements.txt` — safe
-by CLAUDE.md's own standing rule, which only bans `torch`/
-`sentence-transformers` specifically. When the `tesseract` binary itself
-isn't on PATH, this degrades to "extracts nothing," logged once per
-process rather than once per upload, never a failed upload — the same
-"never blocks or fails the thing it's attached to" contract
-`ai/embeddings.py`'s own background retry already follows.
+`pytesseract`/Pillow (the thin Python wrapper this module imports) are
+listed as the "ocr" entry in `core/extras.py`'s installable-extras
+registry — pip installable, so `_run_install` handles that half exactly
+like every other extra. The `tesseract` **system binary** itself is a
+different problem: no PyPI wheel ships it, so `pip install` alone can
+never make it appear. `attempt_binary_install` below (asked for directly:
+"automate it if possible") tries the platform's own package manager
+non-interactively — winget/brew/apt/dnf/pacman — and `core/extras.py`'s
+`_run_install` calls it, best-effort, right after the pip half succeeds
+for this one extra specifically. When neither the automated attempt nor a
+manual `apt install tesseract-ocr` (INSTALL.md) has happened yet, this
+degrades to "extracts nothing," logged once per process rather than once
+per upload, never a failed upload — the same "never blocks or fails the
+thing it's attached to" contract `ai/embeddings.py`'s own background retry
+already follows.
 """
 
 from __future__ import annotations
 
+import functools
 import logging
+import os
 import shutil
+import subprocess  # noqa: S404 — fixed args from a hardcoded table below, no shell, no user input
+import sys
 import threading
 from pathlib import Path
 
@@ -36,43 +43,49 @@ logger = logging.getLogger("memorymap.ocr")
 #: feature doesn't pull in) before Tesseract could see anything at all.
 OCR_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
 
-_binary_missing_logged = False
-_package_missing_logged = False
-
-
 def tesseract_available() -> bool:
     return shutil.which("tesseract") is not None
+
+
+@functools.lru_cache(maxsize=1)
+def _log_binary_missing() -> None:
+    """Called on every missing-binary path but only ever logs once per
+    process — `lru_cache` runs the body on the first call and returns the
+    cached `None` on every later one, which needs no mutable module-level
+    flag at all (CodeQL flagged the plain-bool version of this as an
+    unused-global-variable note: `py/unused-global-variable`)."""
+    logger.info(
+        "the 'tesseract' binary isn't on PATH — uploaded images won't "
+        "get searchable OCR text until Tesseract OCR is installed "
+        "separately (see INSTALL.md); this is not an error"
+    )
+
+
+@functools.lru_cache(maxsize=1)
+def _log_package_missing() -> None:
+    """Same once-per-process shape as `_log_binary_missing` above, for the
+    other gap: the binary is there but `pytesseract`/Pillow aren't."""
+    logger.info(
+        "tesseract is installed but the pytesseract/Pillow Python "
+        "packages aren't — run: pip install pytesseract Pillow"
+    )
 
 
 def extract_text(image_path: Path) -> str:
     """Best-effort OCR text for one image file. Never raises — a missing
     binary, a corrupt image, or an unsupported format all just mean no text
     was found, exactly as if the image genuinely had none."""
-    global _binary_missing_logged
     if not tesseract_available():
-        if not _binary_missing_logged:
-            _binary_missing_logged = True
-            logger.info(
-                "the 'tesseract' binary isn't on PATH — uploaded images won't "
-                "get searchable OCR text until Tesseract OCR is installed "
-                "separately (see INSTALL.md); this is not an error"
-            )
+        _log_binary_missing()
         return ""
-    global _package_missing_logged
     try:
         import pytesseract
         from PIL import Image
     except ImportError:
         # The tesseract *binary* is on PATH (checked above) but the
         # `pytesseract`/`Pillow` Python packages aren't installed — a
-        # different gap than the binary-missing one, and worth its own
-        # once-per-process message rather than a warning on every upload.
-        if not _package_missing_logged:
-            _package_missing_logged = True
-            logger.info(
-                "tesseract is installed but the pytesseract/Pillow Python "
-                "packages aren't — run: pip install pytesseract Pillow"
-            )
+        # different gap than the binary-missing one, worth its own message.
+        _log_package_missing()
         return ""
     try:
         with Image.open(image_path) as img:
@@ -122,3 +135,98 @@ def extract_in_background(upload_id: int, image_path: Path) -> None:
         daemon=True,
         name="ocr-extract",
     ).start()
+
+
+#: Per platform, the first package manager found on PATH gets tried. Every
+#: command is fixed and non-interactive — no shell, no string built from
+#: user input, and every flag exists specifically to prevent a prompt this
+#: process has no way to answer (a password, a EULA dialog, an "are you
+#: sure?"). Linux tries three, in order, since which one exists varies by
+#: distro; Windows and macOS have one first-party option each.
+_BINARY_INSTALL_COMMANDS: dict[str, list[tuple[str, list[str]]]] = {
+    "win32": [
+        (
+            "winget",
+            [
+                "winget",
+                "install",
+                "--id",
+                "UB-Mannheim.Tesseract-OCR",
+                "-e",
+                "--silent",
+                "--accept-package-agreements",
+                "--accept-source-agreements",
+            ],
+        )
+    ],
+    "darwin": [("brew", ["brew", "install", "tesseract"])],
+    "linux": [
+        ("apt-get", ["apt-get", "install", "-y", "tesseract-ocr"]),
+        ("dnf", ["dnf", "install", "-y", "tesseract"]),
+        ("pacman", ["pacman", "-S", "--noconfirm", "tesseract"]),
+    ],
+}
+
+BINARY_INSTALL_TIMEOUT = 90
+
+
+def attempt_binary_install(timeout: int = BINARY_INSTALL_TIMEOUT) -> tuple[bool, str]:
+    """Best-effort, non-interactive install of the `tesseract` system binary
+    itself — the one part `pip install pytesseract` can never do, since it
+    isn't a Python package. Asked for directly: "add the option for install
+    assistance for the tesseract program installation, automate it if
+    possible."
+
+    Tries the platform's own package manager with fully non-interactive
+    flags. Never prompts, never hangs waiting on a password or a UAC dialog
+    it has no way to answer — every attempt is wall-clock bounded — and
+    never raises; any failure is reported back as an honest, actionable
+    message rather than a crash. `installed` is only ever `True` once
+    `tesseract_available()` is confirmed **after** the attempt — the
+    installer's own exit code is not trusted alone, the same "a POST
+    response can lie about stored state" caution this app applies
+    everywhere else that reports success.
+    """
+    if tesseract_available():
+        return True, "Tesseract is already installed."
+
+    platform_key = "linux" if sys.platform.startswith("linux") else sys.platform
+    candidates = _BINARY_INSTALL_COMMANDS.get(platform_key, [])
+    available = [(name, cmd) for name, cmd in candidates if shutil.which(name)]
+    if not available:
+        return False, (
+            "Couldn't find a package manager to install Tesseract "
+            "automatically on this system — install it by hand (see "
+            "INSTALL.md)."
+        )
+
+    # Linux package managers need root. Tried as-is first (already root —
+    # common inside a container) and, only if that's not the case, once
+    # more through `sudo -n`, which fails immediately rather than prompting
+    # for a password this non-interactive process has no way to answer,
+    # instead of silently hanging until the timeout above kills it.
+    manager_name, base_command = available[0]
+    attempts = [base_command]
+    if platform_key == "linux" and hasattr(os, "geteuid") and os.geteuid() != 0:
+        attempts = [["sudo", "-n", *base_command], base_command]
+
+    last_error = ""
+    for attempt in attempts:
+        try:
+            result = subprocess.run(  # noqa: S603 — fixed args from the table above, no shell
+                attempt, capture_output=True, text=True, timeout=timeout
+            )
+        except FileNotFoundError:
+            continue  # `sudo` itself isn't installed — fall through to the bare command
+        except subprocess.TimeoutExpired:
+            last_error = f"{attempt[0]} timed out after {timeout}s"
+            continue
+        if result.returncode == 0 and tesseract_available():
+            return True, "Tesseract installed."
+        tail = (result.stderr or result.stdout or "").strip().splitlines()
+        last_error = tail[-1] if tail else f"{manager_name} exited with code {result.returncode}"
+
+    return False, (
+        f"Couldn't install Tesseract automatically ({last_error or 'unknown error'}) "
+        "— install it by hand (see INSTALL.md)."
+    )

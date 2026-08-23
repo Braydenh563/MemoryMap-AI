@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pytest
 
+from memorymap.api import routes_files
 from memorymap.api.routes_files import EXPORTS_DIRNAME, safe_filename
 
 
@@ -202,8 +203,6 @@ def test_open_exports_folder_creates_the_folder_before_trying_to_open_it(
 ):
     """However the OS call itself goes, the folder it's pointed at has to be
     real first — nothing to reveal is worse than nothing happening."""
-    import memorymap.api.routes_files as routes_files
-
     monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
     monkeypatch.setattr(routes_files.subprocess, "Popen", lambda *a, **k: None)
     monkeypatch.setattr(routes_files.sys, "platform", "linux")

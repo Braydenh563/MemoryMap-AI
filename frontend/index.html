@@ -3633,6 +3633,10 @@ Link to another note with [[its first few words]]."></textarea>
 
           <section class="settings-section hidden" id="settings-logs">
             <div class="row log-toolbar">
+              <div class="seg" id="log-view-toggle" role="group" aria-label="List or terminal view">
+                <button data-view="list" class="active">List</button>
+                <button data-view="terminal">Terminal</button>
+              </div>
               <select id="log-source" aria-label="Which log to show">
                 <option value="all">Everything</option>
                 <option value="server">Server logs</option>
@@ -3655,8 +3659,24 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Save a zip with the log, your settings and app status, for a bug report">⬇ Support bundle</button>
               <button id="logs-clear" class="ghost small">Clear</button>
             </div>
+            <!-- Terminal view: the same records the List view shows, formatted
+                 the way they would print to a real console window, tracebacks
+                 shown inline rather than folded. Asked for directly, as the GUI
+                 answer to "User view" hiding the console entirely — there is
+                 now somewhere to see what would have gone to that window
+                 without opening one. Fixed dark styling on purpose (.log-terminal
+                 in 06-timeline-dialogs.css): it stands in for a terminal window,
+                 so it looks like one regardless of the app's own light/dark
+                 theme, the same reasoning .code-block's syntax colours would
+                 use if this project had any. -->
+            <p class="muted hidden" id="log-terminal-hint">
+              Approximates what would print to the console window — not a byte-for-byte
+              capture, since nothing here runs a real terminal emulator.
+            </p>
             <p id="logs-dropped" class="log-dropped hidden" role="status"></p>
             <ul id="log-list" class="log-list"></ul>
+            <pre id="log-terminal" class="log-terminal hidden" tabindex="0"
+              aria-label="Server and browser logs, terminal style"></pre>
             <p id="logs-empty" class="muted hidden">No log records yet.</p>
             <p id="logs-filtered-out" class="muted hidden"></p>
           </section>

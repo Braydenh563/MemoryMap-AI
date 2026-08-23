@@ -28,15 +28,15 @@ function recordBrowserLog(level, parts) {
   if (browserLogs.length > MAX_BROWSER_LOGS) browserLogs.shift();
 
   // Live-push into the Logs page if it is currently open.
-  // `logRecords`, `logScreenOpen`, and `renderLogList` are defined later in
-  // this file, so guard with typeof to avoid errors during early boot.
+  // `logRecords`, `logScreenOpen`, and `renderActiveLogView` are defined later
+  // in this file, so guard with typeof to avoid errors during early boot.
   if (typeof logRecords !== "undefined" && typeof logScreenOpen !== "undefined") {
     const liveRecord = { ...record, source: "browser", logger: "browser",
       key: `b-live-${Date.now()}-${Math.random()}` };
     logRecords.push(liveRecord);
     if (typeof sortLogRecords === "function") sortLogRecords();
-    if (logScreenOpen && typeof renderLogList === "function") {
-      renderLogList();
+    if (logScreenOpen && typeof renderActiveLogView === "function") {
+      renderActiveLogView();
       // Scroll to bottom so the new error is visible without manual scroll.
       if (typeof scrollLogToBottom === "function") scrollLogToBottom();
     }
@@ -461,31 +461,64 @@ function startApp() {
 // onboardingDone, so changing the console mode later from Settings doesn't
 // make this reappear, and vice versa. Browser-tab users never see this —
 // there's no console to speak of outside the desktop shell.
+//
+// Two bugs reported live, both fixed here:
+//
+// 1. "Showed both before and after I signed in, and kept coming back." The
+//    guard only checked `prefsCache?.console_view_intro_seen` — but
+//    `startApp()` also runs with a *stale* token (comment above `apiJson`'s
+//    401 handling: "a stale token in localStorage... fire[s] a dozen
+//    requests... before the user has unlocked anything"), and on that run
+//    the silent /preferences fetch 401s and leaves prefsCache null. `null?.x`
+//    is `undefined`, which is falsy, so the prompt fired on that pass too —
+//    before the real sign-in the user was about to do. It then fired AGAIN
+//    on the real post-login startApp(), because whatever this function saved
+//    the first time round never reached a real, authenticated session.
+//    Requiring prefsCache to actually exist closes that: a failed fetch is
+//    "we don't know yet", not "this is a fresh profile that hasn't seen it".
+//
+// 2. "Randomly signed me out." This used to POST /system/console-mode, the
+//    same route Settings and the tray use — which restarts the whole desktop
+//    process (pythonw.exe/python.exe relaunch, see __main__.py) the instant
+//    the choice differs from the default. That is the right call for an
+//    explicit Settings/tray toggle, where the user just asked for a live
+//    switch and the toast says "restarting…". It is the wrong call for a
+//    popup that appears on its own during first login: killing the server
+//    (in-memory sessions and all — core/config.py, "restarting locks it
+//    again") out from under someone who hasn't even finished signing in is
+//    exactly the "signed out at random" report. It also raced its own
+//    "remember this was answered" write against that same process exit —
+//    the second request sometimes lost, which is why the popup came back
+//    "every other time" rather than never or always. A single PUT that sets
+//    both preferences at once, with no restart, has neither problem: the
+//    choice takes effect next launch (said plainly below), same as every
+//    other preference in this app that isn't asking for a live switch.
 async function maybeShowConsoleViewIntro() {
   if (!(await desktopShell())) return;
-  if (prefsCache?.console_view_intro_seen) return;
+  if (!prefsCache || prefsCache.console_view_intro_seen) return;
   const wantsDevView = await confirmDialog(
     "Keep a console window open when MemoryMap AI starts?\n\n" +
       "Dev view shows a terminal window alongside the app — useful for " +
       "logs and troubleshooting. User view runs quietly in the background " +
       "with no console window at all, just this app window and a system " +
       "tray icon. Either way, you can switch any time from Settings or " +
-      "the tray icon's own menu.",
+      "the tray icon's own menu.\n\nTakes effect next launch.",
     { confirmLabel: "Dev view", cancelLabel: "User view", danger: false }
   );
   try {
-    const result = await apiJson("/system/console-mode", {
-      method: "POST",
-      body: JSON.stringify({ show_console_on_startup: wantsDevView }),
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({
+        show_console_on_startup: wantsDevView,
+        console_view_intro_seen: true,
+      }),
     });
-    if (prefsCache) prefsCache.show_console_on_startup = result.show_console_on_startup;
+    toast(
+      `${wantsDevView ? "Dev" : "User"} view — starting from next launch.`
+    );
   } catch (error) {
     toast(error.message || "Couldn't save your console view choice.", true);
   }
-  // Recorded regardless of whether the save above succeeded — the prompt
-  // itself was answered, and asking again next launch would be the more
-  // annoying failure mode if the save quietly retries later.
-  setPreference("console_view_intro_seen", true);
 }
 
 // The browser is the only thing that knows where the user actually is. The
@@ -15588,6 +15621,11 @@ let logStreamRetry = null;
 let logFollowPinned = true; // false once the user scrolls up to read something
 let logErrorsSinceOpened = 0;
 let logScreenOpen = false;
+// "List" (structured rows, foldable tracebacks) or "Terminal" (raw lines,
+// styled like a real console — see .log-terminal). Same persistence pattern
+// as reminderView/timeline-view: a per-browser display preference, not
+// something worth round-tripping through /preferences.
+let logView = localStorage.getItem("logView") === "terminal" ? "terminal" : "list";
 
 function logLevelRank(level) {
   return LOG_LEVEL_RANK[String(level || "").toUpperCase()] ?? 1;
@@ -15732,15 +15770,36 @@ function logRecordText(record) {
   return record.trace ? `${head}\n${record.trace}` : head;
 }
 
+function activeLogContainer() {
+  return $(logView === "terminal" ? "log-terminal" : "log-list");
+}
+
 function nearLogBottom() {
-  const list = $("log-list");
+  const list = activeLogContainer();
   // 40px of slack: "close enough to the bottom that you meant to be there".
   return list.scrollHeight - list.scrollTop - list.clientHeight < 40;
 }
 
 function scrollLogToBottom() {
-  const list = $("log-list");
+  const list = activeLogContainer();
   list.scrollTop = list.scrollHeight;
+}
+
+// Shared by both views: the empty state, the "N hidden by filters" note, and
+// the copy-button label all describe the filtered set, not how it is drawn.
+function renderLogSharedUI(visibleCount) {
+  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
+  // "Nothing matches" and "nothing happened" are different answers, and only
+  // the first one is fixed by changing the filter.
+  const hiddenCount = logRecords.length - visibleCount;
+  const filtered = $("logs-filtered-out");
+  if (hiddenCount > 0) {
+    filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
+    filtered.classList.remove("hidden");
+  } else {
+    filtered.classList.add("hidden");
+  }
+  renderCopyLogsLabel();
 }
 
 function renderLogList() {
@@ -15751,19 +15810,59 @@ function renderLogList() {
   list.replaceChildren();
   for (const record of visible) list.appendChild(logRow(record));
 
-  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
-  // "Nothing matches" and "nothing happened" are different answers, and only
-  // the first one is fixed by changing the filter.
-  const hiddenCount = logRecords.length - visible.length;
-  const filtered = $("logs-filtered-out");
-  if (hiddenCount > 0) {
-    filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
-    filtered.classList.remove("hidden");
-  } else {
-    filtered.classList.add("hidden");
-  }
-  renderCopyLogsLabel();
+  renderLogSharedUI(visible.length);
   if (shouldStick) scrollLogToBottom();
+}
+
+// One line the way it would print to a real console: "HH:MM:SS LEVEL   logger
+// — message", level padded like uvicorn's own default formatter pads
+// "INFO:"/"WARNING:"/"ERROR:" so a column of mixed levels still lines up.
+function logTerminalLineText(record) {
+  const when = new Date(record.time).toLocaleTimeString();
+  const level = `${record.level}:`.padEnd(9);
+  const body = record.logger ? `${record.logger} — ${record.message}` : record.message;
+  return `${when} ${level}${body}`;
+}
+
+function logTerminalRow(record) {
+  const line = document.createElement("div");
+  line.className = "log-term-line";
+  const rank = logLevelRank(record.level);
+  if (rank >= 3) line.classList.add("is-error");
+  else if (rank === 2) line.classList.add("is-warn");
+  line.textContent = logTerminalLineText(record);
+  return line;
+}
+
+// A real terminal never folds a traceback behind a click, so this view
+// doesn't either — every line prints, indented, right under the record that
+// raised it. That is the one real advantage this view has over List, not
+// just a different coat of paint on the same data.
+function logTerminalTraceRow(record) {
+  const trace = document.createElement("div");
+  trace.className = "log-term-trace";
+  trace.textContent = record.trace;
+  return trace;
+}
+
+function renderLogTerminal() {
+  const el = $("log-terminal");
+  const shouldStick = $("log-follow").checked && logFollowPinned;
+  const visible = logRecords.filter(logMatchesFilters);
+
+  el.replaceChildren();
+  for (const record of visible) {
+    el.appendChild(logTerminalRow(record));
+    if (record.trace) el.appendChild(logTerminalTraceRow(record));
+  }
+
+  renderLogSharedUI(visible.length);
+  if (shouldStick) scrollLogToBottom();
+}
+
+function renderActiveLogView() {
+  if (logView === "terminal") renderLogTerminal();
+  else renderLogList();
 }
 
 function setLogLive(state, detail) {
@@ -15846,7 +15945,7 @@ async function startLogStream() {
           logRecords.push(serverLogRecord(event.record));
           bumpLogErrorBadge(event.record);
           sortLogRecords();
-          if (logScreenOpen) renderLogList();
+          if (logScreenOpen) renderActiveLogView();
         } else if (event.type === "ping") {
           logStreamCursor = event.cursor || logStreamCursor;
         } else if (event.type === "reconnect") {
@@ -15892,7 +15991,7 @@ async function renderLogs() {
   logRecords = [...records.map(serverLogRecord), ...browserLogRecords()];
   sortLogRecords();
   renderLogGap(stats);
-  renderLogList();
+  renderActiveLogView();
   scrollLogToBottom();
   logFollowPinned = true;
   startLogStream();
@@ -22427,12 +22526,12 @@ $("autonomous-trigger").addEventListener("click", () => {
 });
 // Filters only re-draw what is already held — they never refetch, so changing
 // one mid-incident cannot lose the records you were looking at.
-$("log-source").addEventListener("change", renderLogList);
-$("log-level").addEventListener("change", renderLogList);
+$("log-source").addEventListener("change", renderActiveLogView);
+$("log-level").addEventListener("change", renderActiveLogView);
 let logFilterDebounceTimeout;
 $("log-filter").addEventListener("input", () => {
   clearTimeout(logFilterDebounceTimeout);
-  logFilterDebounceTimeout = setTimeout(renderLogList, 150);
+  logFilterDebounceTimeout = setTimeout(renderActiveLogView, 150);
 });
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);
@@ -22446,11 +22545,37 @@ $("log-follow").addEventListener("change", (event) => {
 // Scrolling up is how you say "stop moving, I am reading this" — so it pauses
 // the follow rather than fighting you for the scroll position. Scrolling back
 // to the bottom resumes it, which is the same gesture every terminal uses.
-$("log-list").addEventListener("scroll", () => {
-  if (!$("log-follow").checked) return;
-  logFollowPinned = nearLogBottom();
-  $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
-});
+// Both containers get the listener — only one is ever visible at a time, but
+// whichever it is has to pause Follow the same way.
+for (const id of ["log-list", "log-terminal"]) {
+  $(id).addEventListener("scroll", () => {
+    if (!$("log-follow").checked) return;
+    logFollowPinned = nearLogBottom();
+    $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
+  });
+}
+
+for (const button of document.querySelectorAll("#log-view-toggle button")) {
+  button.addEventListener("click", () => {
+    logView = button.dataset.view;
+    localStorage.setItem("logView", logView);
+    for (const b of document.querySelectorAll("#log-view-toggle button")) {
+      b.classList.toggle("active", b === button);
+    }
+    $("log-list").classList.toggle("hidden", logView !== "list");
+    $("log-terminal").classList.toggle("hidden", logView !== "terminal");
+    $("log-terminal-hint").classList.toggle("hidden", logView !== "terminal");
+    renderActiveLogView();
+    scrollLogToBottom();
+  });
+  // The markup hardcodes "List" as the active button; a returning visitor
+  // whose last choice (localStorage) was "terminal" needs that reflected
+  // here too, not just in which container renders.
+  button.classList.toggle("active", button.dataset.view === logView);
+}
+$("log-list").classList.toggle("hidden", logView !== "list");
+$("log-terminal").classList.toggle("hidden", logView !== "terminal");
+$("log-terminal-hint").classList.toggle("hidden", logView !== "terminal");
 
 // There is no Tags / Recycle bin / Activity shortcut in the notes sidebar, and
 // `openLibraryOn` went with them. The buttons were dropped once with their

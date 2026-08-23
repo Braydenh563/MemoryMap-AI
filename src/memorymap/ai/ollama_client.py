@@ -56,11 +56,31 @@ class OllamaClient(Provider):
     name = "ollama"
 
     def __init__(
-        self, base_url: str = "http://localhost:11434", timeout: float = 120.0
+        self,
+        base_url: str = "http://localhost:11434",
+        timeout: float = 600.0,
+        keep_alive: str = "30m",
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        # Generous default: small local models on modest hardware are slow.
+        # 120s used to be the default here and was too short by design, not
+        # by accident: on modest hardware, loading a model bigger than about
+        # 4B parameters into RAM/VRAM for the first time can take well past
+        # two minutes on its own, before a single token is generated. Ollama
+        # sends nothing over the wire during that load, so `requests` read
+        # timeout fires and the app reports "the model didn't respond" for a
+        # model that was, in fact, still loading. Reported live: "models
+        # larger than like 4B params struggle to even load or respond".
+        # 600s is generous enough to cover a slow cold load on CPU-only
+        # hardware while still eventually giving up with a clear error
+        # rather than hanging forever.
         self.timeout = timeout
+        # Ollama unloads an idle model after its own default keep-alive (5
+        # minutes) and reloads it — cold, hitting the same timeout risk
+        # above — on the next request. A notebook app used on and off through
+        # the day spends most of its requests idle-then-reload under that
+        # default. 30 minutes keeps a model warm across a normal working
+        # session instead of paying the load cost on almost every turn.
+        self.keep_alive = keep_alive
         # model name -> context length in tokens. Asked once per model per
         # process: it cannot change without the model being re-pulled, and the
         # answer is needed on every agent round.
@@ -299,6 +319,7 @@ class OllamaClient(Provider):
                     "model": model,
                     "messages": messages,
                     "stream": False,
+                    "keep_alive": self.keep_alive,
                     "options": self.runtime_options(model, mode=mode),
                     **self.request_extras(mode, model),
                 },
@@ -329,6 +350,7 @@ class OllamaClient(Provider):
                     "model": model,
                     "messages": messages,
                     "stream": True,
+                    "keep_alive": self.keep_alive,
                     "options": self.runtime_options(model, mode=mode),
                     **self.request_extras(mode, model),
                 },
@@ -416,6 +438,7 @@ class OllamaClient(Provider):
                     "messages": messages,
                     "stream": True,
                     "tools": tools,
+                    "keep_alive": self.keep_alive,
                     "options": self.runtime_options(model, mode=mode),
                     **self.request_extras(mode, model),
                 },
@@ -520,6 +543,7 @@ class OllamaClient(Provider):
                     "messages": messages,
                     "stream": False,
                     "tools": tools,
+                    "keep_alive": self.keep_alive,
                     "options": self.runtime_options(model, mode=mode),
                     **self.request_extras(mode, model),
                 },

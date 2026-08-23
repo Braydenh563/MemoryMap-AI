@@ -67,19 +67,50 @@ def _list_documents(session: Session, args: dict) -> dict:
 
 def _get_document(session: Session, args: dict) -> dict:
     from memorymap.core.database import Document
+    from memorymap.core import deps
 
     document = session.get(Document, int(args["document_id"]))
     if document is None:
         raise ToolError(f"No document with id {args.get('document_id')}")
     text = document.content
-    clipped = _clip(text, DOCUMENT_CHARS)
+
+    query = args.get("query")
+    clipped = None
+    used_snippets = False
+    if query:
+        # A long document blows out the model's context; when the agent
+        # already knows what it's looking for, rank paragraph chunks by
+        # similarity to the query and hand back only the best few instead
+        # of a plain head-of-document truncation.
+        from memorymap.ai.embeddings import cosine_similarity
+
+        embeddings = deps.get_embeddings()
+        chunks = [p.strip() for p in text.split("\n\n") if len(p.strip()) > 20]
+        if chunks:
+            q_vec = embeddings.embed_text(query)
+            if q_vec is not None:
+                chunk_vecs = [embeddings.embed_text(c) for c in chunks]
+                scored = [
+                    (cosine_similarity(q_vec, cv), c)
+                    for cv, c in zip(chunk_vecs, chunks)
+                    if cv is not None
+                ]
+                if scored:
+                    scored.sort(key=lambda x: x[0], reverse=True)
+                    best_chunks = [c for _, c in scored[:3]]
+                    clipped = "\n\n...\n\n".join(best_chunks)
+                    used_snippets = True
+    if clipped is None:
+        clipped = _clip(text, DOCUMENT_CHARS)
+
     return {
         "id": document.id,
         "title": document.title,
         "content": clipped,
         "truncated": len(clipped) < len(text),
         "words": len(text.split()),
-        "label": f"ph:file-text Read the document “{_clip(document.title, 40)}”",
+        "label": f"ph:file-text Read the document “{_clip(document.title, 40)}”"
+        + (" (extracted snippets for query)" if used_snippets else ""),
     }
 
 

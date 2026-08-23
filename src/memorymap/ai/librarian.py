@@ -237,6 +237,22 @@ def build_conversational_messages(
     return messages
 
 
+def _match_info_hint(match_info: dict | None) -> str:
+    """" (similarity: 0.81)" or " (matched: gym, membership)" — a short,
+    honest note on *why* this result showed up, the same reasoning the
+    "(attached by me)"/"(not a match)" flags beside it already use: told
+    nothing, the model has no way to weigh a strong semantic match against
+    a loose keyword one, or a borderline result the relative-floor logic
+    only just let through."""
+    if not match_info:
+        return ""
+    if match_info.get("type") == "semantic" and "score" in match_info:
+        return f" (similarity: {match_info['score']})"
+    if match_info.get("type") == "keyword" and match_info.get("terms"):
+        return f" (matched: {', '.join(match_info['terms'][:5])})"
+    return ""
+
+
 def build_messages(
     question: str,
     notes: list[dict],
@@ -276,7 +292,8 @@ def build_messages(
         # did not.
         f"{i}. [{note['category']}]"
         f"{' (attached by me)' if note.get('attached') else ''}"
-        f"{' (not a match — linked to one of the above)' if note.get('connected') else ''} "
+        f"{' (not a match — linked to one of the above)' if note.get('connected') else ''}"
+        f"{_match_info_hint(note.get('match_info'))} "
         # No tools on this path by definition — it is the plain librarian
         # prompt — so notes get the larger allowance and an honest marker.
         f"{note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False)}"

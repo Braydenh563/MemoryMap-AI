@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import io
+import sys
 
 from memorymap.core import deps
 
@@ -129,6 +130,68 @@ def test_preferences_validated(client):
         client.put("/preferences", json={"communication_style": "sarcastic"}).status_code
         == 422
     )
+
+
+# --- console mode (Dev view / User view) -------------------------------------------
+
+
+def test_show_console_on_startup_defaults_to_dev_view(client):
+    """A fresh install starts on "Dev view" (console visible) — asked for
+    directly, reversing an earlier default in this same app. "User view"
+    is the one a person opts into, via the first-run prompt or Settings."""
+    assert client.get("/preferences").json()["show_console_on_startup"] is True
+
+
+def test_console_mode_route_saves_the_preference_even_off_the_desktop_app(client):
+    """Not running as the desktop app (no MEMORYMAP_DESKTOP=1, which the
+    test client never sets) — still saves the preference for next launch,
+    just doesn't try to restart anything live."""
+    body = client.post(
+        "/system/console-mode", json={"show_console_on_startup": False}
+    ).json()
+    assert body == {"show_console_on_startup": False, "restarting": False}
+    assert deps.get_config().get_preference("show_console_on_startup") is False
+
+
+def test_console_mode_route_does_not_restart_when_nothing_actually_changed(
+    client, monkeypatch
+):
+    """Picking the option that already matches the current mode — the
+    common case for the first-run intro prompt, since Dev view is already
+    the default it's asking about — must not trigger a restart. A route
+    that always restarts on any POST would bounce the app the user just
+    opened for confirming a choice they hadn't changed."""
+    # Imported (and, transitively, uvicorn along with it — memorymap.__main__
+    # does `import uvicorn` at module level) BEFORE sys.platform is patched
+    # below: this is the same module the route imports lazily, and if THIS
+    # is the first time anything in the whole test session imports it, doing
+    # so while sys.platform lies about being "win32" makes uvicorn.server's
+    # own module-level `signal.SIGBREAK` reference — real on Windows, absent
+    # on Linux — blow up at import time, taking every test after this one
+    # down with a confusing unrelated-looking collection error.
+    import memorymap.__main__  # noqa: F401
+
+    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setattr(sys, "platform", "win32")
+    restarted = []
+    monkeypatch.setattr(
+        "memorymap.__main__.restart_in_console_mode",
+        lambda hidden: restarted.append(hidden),
+    )
+
+    # Preference already defaults to True — asking for True again is a no-op.
+    body = client.post(
+        "/system/console-mode", json={"show_console_on_startup": True}
+    ).json()
+    assert body["restarting"] is False
+    assert restarted == []
+
+    # Actually changing it does restart.
+    body = client.post(
+        "/system/console-mode", json={"show_console_on_startup": False}
+    ).json()
+    assert body["restarting"] is True
+    assert restarted == [True]  # hidden=True, since show_console_on_startup is now False
 
 
 def test_autonomous_and_battery_preferences_round_trip_through_get(client):

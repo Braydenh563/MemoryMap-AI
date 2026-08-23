@@ -47,6 +47,23 @@ def test_websearch_enabled_returns_parsed_results(client, monkeypatch):
     assert body["provider"] == "duckduckgo"
 
 
+def test_websearch_passes_through_up_to_the_route_s_own_cap(client, monkeypatch):
+    """Used to silently clamp to 10 regardless of what was asked for, so the
+    frontend's "show more" (up to 20, one request) had nothing extra to
+    reveal. Both providers already fetch one page and slice it, so nothing
+    stops asking for the route's full `le=20` bound in one call."""
+    client.put("/preferences", json={"web_search_enabled": True})
+    seen_limits = []
+
+    def fake_search_web(q, limit=5, searxng_url=None, provider="auto"):
+        seen_limits.append(limit)
+        return []
+
+    monkeypatch.setattr(websearch, "search_web", fake_search_web)
+    client.get("/websearch?q=brisbane&limit=20")
+    assert seen_limits == [20]
+
+
 def test_ddg_parser_has_a_backup_pattern():
     """If the primary result markup disappears, the looser pattern still works."""
     websearch.clear_cache()

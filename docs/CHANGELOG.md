@@ -7,6 +7,32 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-23
+
+### Added — Dev view / User view console mode, a terminal-style log view, advanced search settings
+
+A first-run choice, and a live Settings/tray toggle, for whether the desktop app keeps a console window open ("Dev view") or runs with none at all ("User view"). The mechanism is a relaunch — a detached `pythonw.exe` that never allocates a console — rather than hiding one already created, after "hide console" reports turned out to trace to Windows Terminal/ConPTY returning a handle to a hidden pseudo-console host rather than the real window. Settings → Logs gained a List/Terminal toggle rendering the same records as raw console-style lines, the GUI answer to User view hiding the real thing. Settings → Preferences gained "Search relevance (advanced)" (minimum similarity, above-average margin, reset to default) for tuning semantic search directly instead of only via a code constant.
+
+### Fixed — a sign-out bug in the console-mode feature above, found the same session it shipped
+
+The first-run popup could fire before real sign-in, fire again after, and randomly sign the user out. It guarded only on a preference flag that read as "unseen" during a stale-token bootstrap pass (not just "not yet answered"), and it called the same route Settings/tray use to live-restart the desktop process — killing the in-memory session mid-login and racing its own "mark this answered" write against that exit. The popup now requires the preferences fetch to have actually succeeded, and never restarts the process itself.
+
+### Fixed — semantic search returning irrelevant results
+
+An unrelated note scored 57% cosine similarity for an unconnected query. The similarity floor assumed "0 means unrelated," which doesn't hold for the current embedding model (BGE-family, anisotropic — unrelated notes routinely land at 0.4-0.6). Added a second, relative floor from each query's own score distribution, self-calibrating rather than a fixed number.
+
+### Fixed — larger local models timing out or failing to respond
+
+Both the Ollama and OpenAI-compatible clients defaulted their request timeout to 120s, unconfigurable — too short for a cold load of a model past roughly 4B parameters on modest hardware. Raised to 600s, and Ollama chat requests now ask the server to keep a model loaded for 30 minutes of idle time instead of its own 5-minute default.
+
+### Fixed — drafts
+
+The primary Capture box had no way to save a note as a draft at all (only three other, less obvious paths did); it does now. Drafts were also never actually surfaced in the Library despite being documented as such — the sub-tab didn't exist — and, separately, kept showing up in All notes and category views, undercutting the point of a separate Drafts section. All three fixed.
+
+### Fixed — a batch of smaller reports
+
+The Image Gallery lightbox miscounting images when one's backing file was missing on disk; the tool-call output panel in chat truncating to 300 characters for no reason tied to cost (raised to 4000); a long model id pushing the chat header's buttons onto their own row; a form-alignment gap in Capture's "File under" row; the AI never seeing the similarity score or matched keyword terms behind its own search results, despite that data already existing for the frontend's badges.
+
 ## [0.1.1] - 2026-08-18
 
 ### Fixed — two system tray bugs

@@ -377,6 +377,12 @@ class AskTurn(Base, WorkspaceMixin):
     raw_result_ids: Mapped[str] = mapped_column(Text, default="[]")
     search_mode: Mapped[str] = mapped_column(String(40), default="")
     when_phrase: Mapped[str] = mapped_column(String(120), default="")
+    # Same provenance the live Ask box shows as a badge on each result
+    # (similarity score, matched keyword(s), or "linked to a match") — kept
+    # so browsing back through history shows the same explanation the
+    # answer originally had, not results with no reason attached.
+    match_info: Mapped[str] = mapped_column(Text, default="{}")
+    connected_ids: Mapped[str] = mapped_column(Text, default="[]")
     # Pinned turns survive "clear history" and sort first — the same shape
     # Conversation.pinned already uses for saved chats.
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)

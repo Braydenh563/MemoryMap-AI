@@ -8,6 +8,7 @@ import asyncio
 import csv
 import io
 import json
+import os
 import platform
 import re
 import sys
@@ -18,8 +19,8 @@ from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, UploadFile
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -121,6 +122,8 @@ class SkillItem(BaseModel):
 
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
+    search_min_similarity: float | None = Field(default=None, ge=0, le=1)
+    search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
@@ -158,6 +161,18 @@ class PreferencesBody(BaseModel):
     # The other opt-in network call (Settings -> About) — see core.config.
     update_check_enabled: bool | None = None
     searxng_autostart: bool | None = None
+    session_idle_ttl_minutes: int | None = Field(default=None, ge=1)
+    # The desktop launcher's console window — see core.config's own comment.
+    show_console_on_startup: bool | None = None
+    # Whether the first-run Dev-view/User-view prompt has already been
+    # shown. Missing from this model entirely was its own bug: a PUT for a
+    # field Pydantic doesn't know about is silently dropped rather than
+    # rejected, so the prompt would have recorded nothing and reappeared on
+    # every single launch — caught live, before this ever shipped, by the
+    # same round of testing that found show_console_on_startup missing from
+    # GET /preferences.
+    console_view_intro_seen: bool | None = None
+
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
     # Which engine answers: "auto" | "searxng" | "duckduckgo". Validated
@@ -269,6 +284,8 @@ def get_preferences() -> dict:
     config = deps.get_config()
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
+        "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
+        "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
         "display_name": config.get_preference("display_name", ""),
         "user_profile": config.get_preference("user_profile", ""),
@@ -338,6 +355,16 @@ def get_preferences() -> dict:
         "notifications_muted_except_reminders": config.get_preference(
             "notifications_muted_except_reminders", False
         ),
+        # Same shape of bug as the autonomous-prefs block above, on the same
+        # checkbox this session already restyled: PUT /preferences has always
+        # accepted show_console_on_startup (PreferencesBody's own field), but
+        # this response never echoed it back — so prefsCache.show_console_
+        # on_startup was always undefined, the Settings checkbox always
+        # rendered unchecked regardless of what was actually saved, and the
+        # first-run Dev-view/User-view intro (console_view_intro_seen, gated
+        # on this same response) would have shown on every single launch.
+        "show_console_on_startup": config.get_preference("show_console_on_startup", True),
+        "console_view_intro_seen": config.get_preference("console_view_intro_seen", False),
     }
 
 
@@ -383,6 +410,52 @@ def update_preferences(
 
         autonomous.wake()
     return get_preferences()
+
+
+@router.post("/system/console-mode")
+def set_console_mode(
+    body: dict, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
+) -> dict:
+    """Switch Dev view / User view *live*, not just for the next launch —
+    asked for directly: togglable from Settings as well as the tray. Saves
+    the preference the same way PUT /preferences would, then (desktop app,
+    Windows only) restarts the whole process into the new console mode via
+    __main__.restart_in_console_mode.
+
+    The restart itself runs as a FastAPI background task, which the ASGI
+    server only invokes *after* this response has actually gone out — doing
+    it inline would mean `os._exit(0)` races the response itself off the
+    wire, and the frontend's toast would never show ("did it even work?").
+    A relaunch this can't reach (not the desktop app, not Windows, no
+    pythonw.exe next to this interpreter) still saves the preference; the
+    caller just won't see it take effect until the next launch, same as any
+    other preference.
+
+    Only restarts when the value actually changes — the first-run intro
+    prompt calls this unconditionally with whatever was picked, and picking
+    the option that already matches the current mode (the default, most of
+    the time) must not restart the app the user just opened.
+    """
+    show_console = bool(body.get("show_console_on_startup"))
+    config = deps.get_config()
+    already = bool(config.get_preference("show_console_on_startup", True))
+    config.set_preference("show_console_on_startup", show_console)
+    manager.log_action(
+        session, "edited", "preferences", detail=f"show_console_on_startup={show_console}"
+    )
+    session.commit()
+
+    restarting = False
+    if (
+        show_console != already
+        and os.getenv("MEMORYMAP_DESKTOP") == "1"
+        and sys.platform == "win32"
+    ):
+        from memorymap.__main__ import restart_in_console_mode
+
+        restarting = True
+        background_tasks.add_task(restart_in_console_mode, not show_console)
+    return {"show_console_on_startup": show_console, "restarting": restarting}
 
 
 def _validated_skills(raw: list[dict]) -> list[dict]:
@@ -1013,7 +1086,39 @@ def _export_rows(session: Session) -> tuple[list[Category], list[Entry], list[En
     return categories, entries, links
 
 
+
+@router.get("/export/backup")
+def export_backup(background_tasks: BackgroundTasks):
+    import os
+    config = deps.get_config()
+    db_path = config.data_dir / "memorymap.db"
+    media_dir = config.data_dir / "media"
+    
+    fd, tmp_path = tempfile.mkstemp(suffix=".zip", prefix="memorymap_backup_")
+    os.close(fd)
+    
+    def cleanup():
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass  # already gone, or never got written — nothing left to clean up
+            
+    background_tasks.add_task(cleanup)
+    
+    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        if db_path.exists():
+            zf.write(db_path, "memorymap.db")
+        if media_dir.exists() and media_dir.is_dir():
+            for root, _, files in os.walk(media_dir):
+                for f in files:
+                    file_path = Path(root) / f
+                    arcname = file_path.relative_to(config.data_dir)
+                    zf.write(file_path, str(arcname))
+                    
+    return FileResponse(tmp_path, media_type="application/zip", filename="memorymap_backup.zip", background=background_tasks)
+
 @router.get("/export/json")
+
 def export_json(session: Session = Depends(get_session)) -> Response:
     categories, entries, links = _export_rows(session)
     payload = {
@@ -1143,7 +1248,87 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
     return meta, text[end + 5 :].lstrip("\n")
 
 
+
+class ImportDirectoryRequest(BaseModel):
+    path: str
+
+def _validated_import_directory(path_value: str) -> Path:
+    """The one place `import_directory`'s request path is turned into a
+    real, checked filesystem path — both the route and the background job
+    it schedules use this, and both pass its *return value* on, never the
+    original string.
+
+    CodeQL flags the raw `req.path` reaching file I/O as "uncontrolled
+    data used in a path expression" — correct about the data flow, but
+    this route's whole job is letting the already-authenticated owner of
+    this single-user, local-only notebook pick any folder on their own
+    machine to import from (the Obsidian-vault-import feature). There is
+    no narrower base directory to confine it to without breaking that.
+    What this *can* do, and didn't before: reject a null byte outright
+    (the one thing no legitimate path contains), confirm the path
+    genuinely resolves to an existing directory before anything reads
+    from it, and — the part a first pass at this missed — make sure the
+    resolved, checked `Path` is what actually gets used downstream rather
+    than the original unchecked string living on past this function.
+    """
+    if not path_value or "\x00" in path_value:
+        raise ValueError("Invalid directory path")
+    try:
+        p = Path(path_value).resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("Invalid directory path") from exc
+    if not p.is_dir():
+        raise ValueError("Invalid directory path")
+    return p
+
+def _run_directory_import(directory_path: str):
+    try:
+        p = _validated_import_directory(directory_path)
+    except ValueError:
+        return
+    with deps.get_db().session() as session:
+        imported = 0
+        skipped = 0
+        for f in p.rglob("*.md"):
+            try:
+                text = f.read_text(encoding="utf-8")
+                meta, body = _parse_frontmatter(text)
+                if not body.strip():
+                    skipped += 1
+                    continue
+                entry = manager.create_entry(
+                    session,
+                    body.strip(),
+                    category_name=meta.get("category") or manager.UNCATEGORISED,
+                    tags=meta.get("tags") or [],
+                    ai_confidence=100 if meta.get("category") else 0,
+                )
+                if meta.get("category"):
+                    entry.user_filed = True
+                deps.store_quietly(session, entry)
+                imported += 1
+                if imported % 50 == 0:
+                    session.commit()
+            except Exception:
+                skipped += 1
+        if imported > 0:
+            manager.log_action(session, "imported", "data", detail=f"markdown dir x{imported}")
+            session.commit()
+
+@router.post("/import/directory", status_code=202)
+def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
+    try:
+        p = _validated_import_directory(req.path)
+    except ValueError:
+        raise HTTPException(400, "Invalid directory path") from None
+    # The validated, resolved path — not req.path — is what the background
+    # job and the response both carry from here on.
+    canonical_path = str(p)
+    background_tasks.add_task(_run_directory_import, canonical_path)
+    return {"status": "started", "path": canonical_path}
+
 @router.post("/import/markdown", status_code=201)
+
 def import_markdown(
     files: list[UploadFile], session: Session = Depends(get_session)
 ) -> dict:

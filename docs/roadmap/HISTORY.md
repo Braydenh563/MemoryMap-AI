@@ -7,6 +7,37 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Done this session — Dev view/User view console mode, a terminal-style Settings → Logs view, and a batch of live-reported fixes
+
+Full narrative: HANDOVER.md's latest entry. ROADMAP.md §80 has the
+mid-length version. This entry exists so a future `grep` for any of these
+finds "already built" before rebuilding it — CLAUDE.md's own opening
+warning, applied to itself.
+
+**Now exists and is checkable in the running app:**
+- **Console mode toggle**, Settings → About (`#pref-show-console`,
+  `#desktop-console-row`) and the system tray menu: switches the desktop
+  app between a visible console window on startup ("Dev view", the
+  fresh-install default) and none at all ("User view"). A first-run popup
+  (`maybeShowConsoleViewIntro` in `frontend/app.js`) asks once, gated on the
+  `console_view_intro_seen` preference. Backend: `POST /system/console-mode`
+  (`routes_settings.py`), `restart_in_console_mode`/`_spawn_desktop` in
+  `__main__.py`. Desktop-shell-only — a browser tab never sees the row or
+  the popup.
+- **Settings → Logs has two view modes**: `#log-view-toggle` switches
+  between the original structured/foldable List and a new Terminal view
+  (`#log-terminal`) that renders the same records as raw console-style
+  lines, dark styling fixed regardless of app theme.
+- **Ollama and LM Studio/OpenAI-compatible request timeout is 600s**
+  (`ai/ollama_client.py`, `ai/openai_client.py`), not 120s — check here
+  before assuming a "model doesn't respond" report needs new code; it may
+  just need this number raised further on a slower machine.
+- **Ollama chat requests send `keep_alive: "30m"`** — a model stays loaded
+  for half an hour of idle time instead of Ollama's own 5-minute default.
+- **The tool-call disclosure in chat (`.tool-chip` → expand) shows up to
+  4000 characters of raw tool output**, not 300 — `agent.py`'s
+  `result_summary` fallback, UI-display only.
+
 ## Done this session — the broad apple-design pass: an elevation + motion token scale, app-wide, plus a live look at the timeline and document editor
 
 The first pass (below) was deliberately narrow. This one is the broader

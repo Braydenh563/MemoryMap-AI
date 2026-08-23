@@ -101,11 +101,21 @@ class OpenAICompatClient(Provider):
     def __init__(
         self,
         base_url: str = "http://localhost:1234/v1",
-        timeout: float = 120.0,
+        timeout: float = 600.0,
         api_key: str = "",
     ) -> None:
         self.base_url = (base_url or "").rstrip("/")
-        # Generous default: small local models on modest hardware are slow.
+        # 120s used to be the default here and was too short by design, not
+        # by accident, for the same reason as ollama_client.py's own version
+        # of this comment: loading a model bigger than about 4B parameters
+        # on modest hardware can take well past two minutes on its own, and
+        # LM Studio/llama.cpp send nothing over the wire until that finishes
+        # — so the old timeout fired mid-load, and the app reported "no
+        # response" for a model that hadn't failed, just hadn't finished
+        # loading yet. Reported live: "models larger than like 4B params
+        # struggle to even load or respond". 600s covers a slow cold load on
+        # CPU-only hardware while still eventually giving up with a clear
+        # error rather than hanging forever.
         self.timeout = timeout
         self.api_key = (api_key or "").strip()
         # model id -> context length. Asked once per model per process, the

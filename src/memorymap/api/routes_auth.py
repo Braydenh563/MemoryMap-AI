@@ -22,7 +22,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.core import crypto, vault
-from memorymap.core.deps import get_session
+from memorymap.core.config import ConfigManager
+from memorymap.core.deps import get_config, get_session
 from memorymap.core.database import Entry, User, Vault
 from memorymap.entry.manager import log_action
 
@@ -47,14 +48,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # it to a cross-site request on its own. That is a stronger position than a
 # SameSite cookie rather than a gap in one — the risk a SameSite flag addresses
 # is the browser sending credentials unprompted, and nothing here does.
-_SESSION_IDLE_TTL = 12 * 60 * 60  # unused this long → expired
+_SESSION_IDLE_TTL = 12 * 60 * 60  # fallback default; overridden by the
+# session_idle_ttl_minutes preference (Settings → Account) once one is set
 _SESSION_MAX_AGE = 7 * 24 * 60 * 60  # this old → expired, however busy
 
 # token -> [issued_at, last_used_at]
 _active_tokens: dict[str, list[float]] = {}
 
 
-def _sweep_expired() -> None:
+def _sweep_expired(idle_ttl: int) -> None:
     """Drop dead tokens, and forget the data key once none are left.
 
     Closing the vault matters as much as dropping the token: expiry that left
@@ -65,7 +67,7 @@ def _sweep_expired() -> None:
     dead = [
         token
         for token, (issued, seen) in _active_tokens.items()
-        if now - seen > _SESSION_IDLE_TTL or now - issued > _SESSION_MAX_AGE
+        if now - seen > idle_ttl or now - issued > _SESSION_MAX_AGE
     ]
     for token in dead:
         del _active_tokens[token]
@@ -73,9 +75,9 @@ def _sweep_expired() -> None:
         vault.close()
 
 
-def _token_valid(token: str | None) -> bool:
+def _token_valid(token: str | None, idle_ttl: int) -> bool:
     """Is this token live? Using it also keeps it alive."""
-    _sweep_expired()
+    _sweep_expired(idle_ttl)
     if not token or token not in _active_tokens:
         return False
     _active_tokens[token][1] = time.time()
@@ -130,17 +132,20 @@ def _get_user(session: Session) -> User | None:
 
 def require_unlock(
     session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
 ) -> None:
     """Dependency that gates every data route once a password exists."""
     if _get_user(session) is None:
         return  # setup not done yet — nothing to protect
-    if not _token_valid(x_auth_token):
+    idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
+    if not _token_valid(x_auth_token, idle_ttl):
         raise HTTPException(status_code=401, detail="Locked — unlock first")
 
 
 def require_unlock_media(
     session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
     token: str | None = None,
 ) -> None:
@@ -157,7 +162,8 @@ def require_unlock_media(
     """
     if _get_user(session) is None:
         return
-    if not _token_valid(x_auth_token or token):
+    idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
+    if not _token_valid(x_auth_token or token, idle_ttl):
         raise HTTPException(status_code=401, detail="Locked — unlock first")
 
 
@@ -221,14 +227,18 @@ class ChangePasswordBody(BaseModel):
 
 
 @router.get("/account", dependencies=[Depends(require_unlock)])
-def account(session: Session = Depends(get_session)) -> dict:
+def account(
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
     """What Settings → Account needs to describe the current state.
 
     Deliberately says nothing secret: whether a password exists, whether the
     vault is open, and how many sessions are live.
     """
     user = _get_user(session)
-    _sweep_expired()  # or the session count reports tokens that no longer work
+    idle_ttl = config.get_preference("session_idle_ttl_minutes", _SESSION_IDLE_TTL // 60) * 60
+    _sweep_expired(idle_ttl)  # or the session count reports tokens that no longer work
     return {
         "configured": user is not None,
         "username": user.username if user else None,

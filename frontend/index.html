@@ -462,6 +462,18 @@ Link to another note with [[its first few words]]."></textarea>
             <label for="entry-category" class="muted capture-field-label">File under</label>
             <select id="entry-category"></select>
             <button id="save-btn">Save</button>
+            <!-- Reported live: "no option to save a note as a draft in the
+                 capture section" — true before this. is_draft: true already
+                 existed as a note field (the text-selection popup, the
+                 Writing Room's "Save as note", and "save this answer as a
+                 draft note" in chat all set it) but the primary capture box
+                 had no path to it at all. Skips category resolution on
+                 purpose: a draft is "save this fast, decide later", the same
+                 reasoning the other three draft-creating paths already use —
+                 none of them file a category either. -->
+            <button id="save-draft-btn" class="ghost"
+              title="Save without filing it yet — find it later under Drafts in the sidebar"
+              aria-label="Save as draft">Save as draft</button>
             <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
             <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone" aria-hidden="true"></i></button>
@@ -1023,6 +1035,10 @@ Link to another note with [[its first few words]]."></textarea>
               aria-label="Search the web">
             <button id="web-go" class="small">Search</button>
           </div>
+          <!-- Recent searches — a way back in, not a permanent fixture: hidden
+               the moment there's a query typed or a result on screen. -->
+          <div id="web-search-history" class="row web-search-history hidden"
+            aria-label="Recent web searches"></div>
           <p id="web-status" class="status" role="status"></p>
           <div id="web-results" class="web-results"></div>
           <div id="web-reader" class="web-reader hidden">
@@ -1069,6 +1085,9 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="grid" selected>Grid</option>
           <option value="line">Line</option>
         </select>
+        <button id="timeline-jump-today" class="ghost small" type="button" title="Jump to today">
+          <i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> Today
+        </button>
         <button id="timeline-options-toggle" class="ghost small" type="button" aria-expanded="false"
           aria-controls="timeline-options"
           title="Bucket size, bands and how far back to show"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
@@ -1115,7 +1134,13 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="90">Last 3 months</option>
           <option value="365" selected>Last year</option>
           <option value="0">Everything</option>
+          <option value="custom">Custom range</option>
         </select>
+        <span id="timeline-custom-range" class="hidden row align-center timeline-custom-range">
+          <input type="date" id="timeline-start-date" aria-label="Start date">
+          <span class="muted timeline-custom-range-sep">to</span>
+          <input type="date" id="timeline-end-date" aria-label="End date">
+        </span>
       </div>
       <p class="muted graph-help-panel hidden" id="timeline-intro" role="dialog" aria-label="How to read this">
         A note sits where it is <em>about</em> when it says so — "the deadline
@@ -1167,45 +1192,35 @@ Link to another note with [[its first few words]]."></textarea>
            remembers whether it was open. Nothing was removed. -->
       <div class="graph-toolbar">
         <h2>Graph</h2>
-        <input id="graph-search" type="search" placeholder="Highlight notes…"
-          aria-label="Highlight matching notes in the graph">
-        <label class="muted" for="graph-layout">Layout</label>
-        <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
-          <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-          <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-          <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-          <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+        <button id="graph-mobile-more-toggle" class="ghost small icon-only mobile-only" aria-expanded="false" aria-controls="graph-toolbar-secondary" title="More options"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+        <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
+
+        <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
+          <input id="graph-search" type="search" placeholder="Highlight notes…"
+            aria-label="Highlight matching notes in the graph">
+          <label class="muted" for="graph-layout">Layout</label>
+          <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
+            <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+            <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+            <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+            <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+          </div>
+          <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
+            <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
+            <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+          </div>
+          <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
+            aria-controls="graph-options"
+            title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
+          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
+            aria-controls="graph-trace"
+            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+          <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
+          <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
+          <button id="graph-export-png" class="ghost small" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
+          <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
-        <!-- A layout decides where a note goes; this decides what its colour
-             means. Category is the filing; cluster is the structure — which
-             notes can actually reach each other (§9). -->
-        <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
-          <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
-          <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
-        </div>
-        <button id="graph-add-node" class="small"
-          title="Add a new note straight onto the map">＋ New note</button>
-        <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
-          aria-controls="graph-options"
-          title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
-        <!-- §37F: Trace used to be a permanently-drawn second row — the one
-             control here that is a distinct mode (finding a path between two
-             named notes) rather than a setting left on, so it gets the same
-             Options treatment: folded away, remembered whether it was open,
-             nothing removed. -->
-        <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-          aria-controls="graph-trace"
-          title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-        <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
-        <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
-        <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
-        <!-- Was a permanently-visible "How to use this map" dropdown taking a
-             full row above the canvas on every visit. An icon button instead:
-             the tooltip (hover/focus, native title) answers a quick "what
-             does dashed mean" without a click, and the panel (click) still
-             has the full text for someone reading it end to end. Last in
-             the row with margin-left: auto (CSS) so it sits at the card's
-             top-right corner regardless of how many controls sit before it. -->
+
         <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
           aria-expanded="false" aria-controls="graph-help-panel"
           title="Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, drag to arrange, scroll or use the buttons to zoom, click a note to edit it right here, double-click to pin it in place, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
@@ -1340,7 +1355,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-fullscreen" class="graph-zoom-btn" title="Toggle Full Screen" aria-label="Toggle full screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
-          <div id="graph-empty-emblem" class="emblem emblem-centred" aria-hidden="true"></div>
+          <span class="empty-icon" aria-hidden="true"><i class="ph ph-share-network ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title">Nothing to map yet</p>
           <p class="muted">
             Save a few notes and link some together (<i class="ph ph-link ph-lead" aria-hidden="true"></i> on any entry) —
@@ -1611,12 +1626,26 @@ Link to another note with [[its first few words]]."></textarea>
           <button data-filter="all">All</button>
           <button data-filter="done">Done</button>
         </div>
+        <!-- List/Calendar is a display mode, not a data filter, so it's a
+             second .seg rather than folded into reminder-filter above — the
+             two answer different questions ("which reminders" vs. "shown
+             how") and DESIGN.md's own toolbars keep those apart elsewhere
+             (Notes' category sidebar vs. its sort order, for one). -->
+        <div class="seg" id="reminder-view-toggle" role="group" aria-label="List or calendar view">
+          <button data-view="list" class="active">List</button>
+          <button data-view="calendar">Calendar</button>
+        </div>
         <button id="reminder-clear-done" class="ghost small"
           title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
       </div>
       <div id="reminder-groups"></div>
+      <!-- A month grid alongside the flat list (ROADMAP.md gap 4): "what's due
+           this week" as a calendar rather than scrolling a list grouped only
+           into Overdue/Today/Upcoming buckets. Hidden unless the toggle above
+           picks it. -->
+      <div id="reminder-calendar" class="reminder-calendar hidden"></div>
       <div id="reminders-empty" class="empty-state hidden">
-        <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm" aria-hidden="true"></i></span>
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-alarm ph-lead" aria-hidden="true"></i></span>
         <p class="empty-title">No reminders yet</p>
         <p class="muted">Add one above, or hit Remind on any note.</p>
       </div>
@@ -1640,6 +1669,12 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
       <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
+      <!-- Reported live: HISTORY.md and a stray code comment both already
+           claimed drafts were surfaced "in the Notes tab + Library" — only
+           the Notes-tab sidebar filter (.category-drafts-row) ever existed;
+           this sub-tab never did, so "it didn't appear anywhere" was
+           literally true for anyone looking here first. -->
+      <button role="tab" aria-selected="false" data-target="library-view-drafts">Drafts</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -1719,7 +1754,7 @@ Link to another note with [[its first few words]]."></textarea>
         </section>
         <div id="library-grid" class="library-grid"></div>
         <div id="library-empty" class="empty-state library-empty hidden">
-          <span class="empty-icon" aria-hidden="true"><i class="ph ph-books" aria-hidden="true"></i></span>
+          <span class="empty-icon" aria-hidden="true"><i class="ph ph-books ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title" id="library-empty-title"></p>
         </div>
 
@@ -2246,6 +2281,24 @@ Link to another note with [[its first few words]]."></textarea>
       <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
       <div id="library-images-grid" class="library-image-grid"></div>
       <p id="library-images-empty" class="muted hidden">No images yet.</p>
+    </section>
+  </div>
+
+  <div id="library-view-drafts" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="row space-between library-head">
+        <h2>Drafts</h2>
+        <div class="row">
+          <button id="library-drafts-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <p class="muted">
+        Notes saved without being filed yet — from Notes' own "Save as
+        draft", selecting text anywhere in the app, or a chat answer saved
+        for later. Open one to finish it or file it properly.
+      </p>
+      <ul id="library-drafts-list" class="entry-list"></ul>
+      <p id="library-drafts-empty" class="muted hidden">No drafts right now.</p>
     </section>
   </div>
   <!-- Closes #tab-library, opened near the top of this tab's markup. A stray
@@ -3196,6 +3249,28 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="concise">Concise</option>
                 <option value="detailed">Detailed</option>
               </select>
+              <!-- Asked for directly, after a live report of an unrelated note
+                   scoring 57% "similar" — see search_manager.py's own comment
+                   on why a flat floor isn't enough for the current embedding
+                   model. Exposed rather than left as a code constant so a
+                   notebook whose real behaviour still looks off has a lever
+                   without a code change. -->
+              <h3>Search relevance (advanced)</h3>
+              <p class="muted">
+                How strict semantic search is about what counts as a real
+                match. Higher numbers show fewer, more confident results.
+              </p>
+              <div class="row">
+                <label for="pref-search-min-sim" class="muted">Minimum similarity</label>
+                <input id="pref-search-min-sim" type="number" min="0" max="1" step="0.01">
+              </div>
+              <div class="row">
+                <label for="pref-search-z-margin" class="muted">Above-average margin</label>
+                <input id="pref-search-z-margin" type="number" min="0" max="3" step="0.1">
+              </div>
+              <div class="row">
+                <button id="pref-search-reset" class="ghost small" type="button">Reset to default</button>
+              </div>
             </div>
             <div class="settings-group">
               <h3>Notifications</h3>
@@ -3458,7 +3533,13 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
               </div>
-              <p class="muted">Exports include everything, even binned notes.</p>
+              <div class="row settings-row-spaced">
+                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export Full Backup (.zip)</button>
+              </div>
+              <p class="muted">
+                JSON/CSV/Markdown exports include everything, even binned notes.
+                Full Backup is a portable zip of the raw database and media folder.
+              </p>
             </div>
 
             <div class="settings-group">
@@ -3486,6 +3567,13 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="import-md" class="small">Import</button>
               </div>
               <p id="import-md-status" class="status" role="status"></p>
+              
+              <h3>Bulk Directory Import</h3>
+              <div class="row settings-row-spaced">
+                <input id="import-dir-path" type="text" class="import-dir-path-input" placeholder="C:\path\to\Obsidian\vault">
+                <button id="import-dir" class="small">Import Folder</button>
+              </div>
+              <p id="import-dir-status" class="status" role="status"></p>
               <p class="muted">
                 Each file becomes a note. Obsidian-style frontmatter
                 (category, tags) is understood.
@@ -3565,6 +3653,17 @@ Link to another note with [[its first few words]]."></textarea>
                 restarting the app locks it again. Changing your password ends
                 every other session.
               </p>
+              
+              <label class="stacked-label" for="account-idle-ttl">Auto-lock when idle</label>
+              <select id="account-idle-ttl" class="account-idle-ttl-select">
+                <option value="5">5 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+                <option value="240">4 hours</option>
+                <option value="720">12 hours</option>
+              </select>
+
               <div class="row">
                 <button id="account-lock-all" class="ghost small">
                   <i class="ph ph-lock ph-lead" aria-hidden="true"></i> Lock everywhere now</button>
@@ -3592,6 +3691,10 @@ Link to another note with [[its first few words]]."></textarea>
 
           <section class="settings-section hidden" id="settings-logs">
             <div class="row log-toolbar">
+              <div class="seg" id="log-view-toggle" role="group" aria-label="List or terminal view">
+                <button data-view="list" class="active">List</button>
+                <button data-view="terminal">Terminal</button>
+              </div>
               <select id="log-source" aria-label="Which log to show">
                 <option value="all">Everything</option>
                 <option value="server">Server logs</option>
@@ -3614,8 +3717,24 @@ Link to another note with [[its first few words]]."></textarea>
                 title="Save a zip with the log, your settings and app status, for a bug report">⬇ Support bundle</button>
               <button id="logs-clear" class="ghost small">Clear</button>
             </div>
+            <!-- Terminal view: the same records the List view shows, formatted
+                 the way they would print to a real console window, tracebacks
+                 shown inline rather than folded. Asked for directly, as the GUI
+                 answer to "User view" hiding the console entirely — there is
+                 now somewhere to see what would have gone to that window
+                 without opening one. Fixed dark styling on purpose (.log-terminal
+                 in 06-timeline-dialogs.css): it stands in for a terminal window,
+                 so it looks like one regardless of the app's own light/dark
+                 theme, the same reasoning .code-block's syntax colours would
+                 use if this project had any. -->
+            <p class="muted hidden" id="log-terminal-hint">
+              Approximates what would print to the console window — not a byte-for-byte
+              capture, since nothing here runs a real terminal emulator.
+            </p>
             <p id="logs-dropped" class="log-dropped hidden" role="status"></p>
             <ul id="log-list" class="log-list"></ul>
+            <pre id="log-terminal" class="log-terminal hidden" tabindex="0"
+              aria-label="Server and browser logs, terminal style"></pre>
             <p id="logs-empty" class="muted hidden">No log records yet.</p>
             <p id="logs-filtered-out" class="muted hidden"></p>
           </section>
@@ -3677,14 +3796,42 @@ Link to another note with [[its first few words]]."></textarea>
                  "100% offline" two lines up has to stay true until this is
                  switched on by hand, the same reasoning Settings -> Web
                  search already uses for its own opt-in network call. -->
-            <div class="row space-between">
-              <label for="pref-update-check">Check GitHub for a newer version</label>
+            <!-- Same switch every other on/off setting in this app uses
+                 (06-timeline-dialogs.css's ".settings-section label>input" —
+                 "I want to ditch the radio buttons ... application wide").
+                 These two fell through that pass: the input used to sit as
+                 a <label for> sibling rather than a child, which is a plain
+                 unstyled browser checkbox as far as that rule can see. -->
+            <label class="row space-between" for="pref-update-check">
+              Check GitHub for a newer version
               <input type="checkbox" id="pref-update-check">
-            </div>
+            </label>
             <div class="row" id="update-check-row">
               <button id="update-check-now" class="ghost small" type="button">Check now</button>
               <span class="muted" id="update-check-status"></span>
             </div>
+            <!-- Only meaningful running from start.bat/start-desktop.bat, which
+                 open a console window behind the app — the packaged installer's
+                 build has none to show at all. Shown only in the desktop shell
+                 (app.js checks /health's own "desktop" flag), same gating as
+                 the file-save path this same flag already drives.
+
+                 "Dev view"/"User view" naming asked for directly, alongside
+                 the console-hide mechanism itself changing from hiding an
+                 already-created window to never creating one for User view
+                 (see __main__.py's pythonw.exe relaunch) — hiding one after
+                 the fact turned out unreliable under some terminal setups. -->
+            <label class="row space-between hidden" id="desktop-console-row" for="pref-show-console">
+              Dev view — keep a console window open
+              <input type="checkbox" id="pref-show-console">
+            </label>
+            <p class="muted hidden" id="desktop-console-hint">
+              On by default. Turn it off for "User view" — the app runs with
+              no console window at all, just this app window and a system
+              tray icon. You can also switch live from the tray icon's own
+              menu, which remembers your choice for next time too, and the
+              app briefly restarts itself when you switch this way.
+            </p>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded
                  shut: it is long, and About is not where you go to read it
@@ -3693,6 +3840,9 @@ Link to another note with [[its first few words]]."></textarea>
               <summary>What's new</summary>
               <div id="changelog-body" class="changelog-body"></div>
             </details>
+            <div class="row settings-row-spaced-6">
+              <button id="about-take-tour" class="ghost small" type="button"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Take tour again</button>
+            </div>
             <h3>Keyboard shortcuts</h3>
             <!-- This used to be a second, static list. Someone looking for
                  "how do I change a shortcut?" naturally opens Settings, so the
@@ -4032,6 +4182,7 @@ Link to another note with [[its first few words]]."></textarea>
        time (only `document` and `d3`, the latter already loaded above), so
        it can safely go first. See frontend/graph.js's own header for the
        full explanation. -->
+
   <script src="/graph.js"></script>
   <script src="/app.js"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item

@@ -104,6 +104,10 @@ def get_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
         "answer": turn.answer,
         "raw_results": [r.model_dump(mode="json") for r in _to_out_bulk(session, entries)],
         "omitted_results": len(ids) - len(entries),
+        # Same badge data the live answer had — older rows saved before this
+        # field existed fall back to "no explanation" rather than an error.
+        "match_info": json.loads(turn.match_info or "{}"),
+        "connected_ids": json.loads(turn.connected_ids or "[]"),
     }
 
 

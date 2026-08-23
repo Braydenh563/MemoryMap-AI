@@ -345,6 +345,45 @@
   color: var(--warn);
 }
 
+/* A <details> tool chip (arguments/result available to inspect) instead of
+   a plain <div> — reset the native <summary> marker/cursor so it still
+   reads as the same chip, and keep the disclosed body from ever forcing
+   the chat column wider than it is. */
+details.tool-chip {
+  padding: 0.25rem 0.6rem;
+}
+
+details.tool-chip > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+details.tool-chip > summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-chip-body {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tool-chip-args,
+.tool-chip-result {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
 .tool-confirm {
   margin: 0.25rem 0;
   padding: 0.6rem;
@@ -1155,10 +1194,25 @@ button.ghost.danger {
   background: var(--accent-soft);
 }
 
+/* Group headers inserted between Commands / Notes / Documents result sections.
+   Non-interactive, so cursor:default and no hover background. */
+#palette-list li.palette-group-header {
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: default;
+  pointer-events: none;
+  background: none !important;
+}
+
 .palette-hint {
   font-size: 0.75rem;
   margin: 0.5rem 0 0;
 }
+
 
 /* --- Wave F: whiteboard-lite ---------------------------------------------------- */
 #sketch-overlay {
@@ -1384,7 +1438,7 @@ button.recording.live-level {
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--recording-ring);
-  transform: scaleY(var(--bar-scale, 0.12));
+  transform: scaleY(var(--bar-scale, 0.3));
   transform-origin: bottom;
   transition: transform 90ms linear;
 }

@@ -12,6 +12,94 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
+## 80. Newest — Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view (read this first, above the mobile audit below)
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry; this is
+the index pointer HISTORY.md's own convention asks for. Session driven
+entirely by live user reports rather than a roadmap sweep — see HANDOVER.md
+for the reasoning behind each fix, this entry is deliberately short.
+
+**Shipped, tests + ruff + node --check green throughout, pushed to PR #121:**
+- **Dev view / User view console mode** (`__main__.py`, `core/config.py`,
+  `api/routes_settings.py`, `frontend/index.html`, `frontend/app.js`): a
+  first-run prompt plus a live Settings/tray toggle between a visible
+  console ("Dev view") and none at all ("User view", via a `pythonw.exe`
+  relaunch rather than hiding an already-created window — see HISTORY.md for
+  why hiding was unreliable under Windows Terminal/ConPTY). **Windows-only
+  mechanics unverified on real Windows**, same caveat as always.
+- **A serious bug in that same feature, live-reported and fixed same
+  session**: the first-run popup could fire before real sign-in, fire again
+  after, and randomly sign the user out — traced to `prefsCache` being
+  `null` (not "seen: false") on a stale-token bootstrap pass, and to the
+  popup calling the same route that restarts the whole desktop process for
+  an explicit Settings toggle. Fixed: the popup now requires `prefsCache` to
+  actually exist, and never restarts the process itself — the choice takes
+  effect next launch. Verified live with Playwright (zero calls to the
+  restart route from the popup path, does not fire when `prefsCache` is
+  null, persists in one atomic write, does not reappear on reload).
+- **Terminal-style Settings → Logs view**: a List/Terminal toggle
+  (`#log-view-toggle`, same segmented-control pattern as the reminders view)
+  renders the same filtered log records as raw console-style lines —
+  tracebacks inline, fixed dark styling regardless of app theme. Answers
+  "what would have printed to the terminal" now that User view can hide the
+  console entirely.
+- **Image Gallery lightbox "1 of 2" phantom-image bug**: a tile whose file
+  is missing on disk removed its own DOM tile on `<img>` error but left the
+  shared `images` array stale, so the lightbox kept counting it. Fixed in
+  `whiteboard.js`; reproduced and fixed live with `git stash`/`pop`. The
+  separately-reported "nav arrows aren't centred" could not be reproduced
+  (measured 0px offset in every scenario tried) — likely the same root
+  cause read differently, said plainly rather than guessing a second fix.
+- **Local models past ~4B params timing out or failing to respond**
+  (reported live): both `OllamaClient` and `OpenAICompatClient` defaulted
+  their request timeout to 120s, unconfigurable, with nothing overriding
+  it — a cold model load on modest/CPU hardware can take well past that
+  before a single token is generated, and the client's read timeout fires
+  mid-load. Ollama compounds it by unloading an idle model after 5 minutes,
+  so most turns in a normal session paid the cold-load cost. Raised both
+  timeouts to 600s and added `keep_alive: "30m"` to Ollama chat requests.
+  **Reasoned from the timeout mechanics, not reproduced against a real
+  large model — no Ollama/large model in this sandbox.** Next session:
+  verify against real hardware if a report comes back either way.
+- **Tool-call output in chat read as truncated despite an already-scrollable
+  box**: `.tool-chip-result` already had `max-height` + `overflow-y: auto`;
+  what starved it was `agent.py` cutting the UI-facing `result_summary`
+  fallback to 300 characters — a number never tied to token cost (the
+  model-facing copy is a separate variable with its own real budget a few
+  lines down). Raised to 4000.
+
+**Answered, not implemented — small-model tool-call recognition** (asked:
+"is it possible to make the agent better at recognising instructions or
+requests for specific tool calls... a structured framework with recognised
+phrases... while not bloating context"). The honest answer is that this
+already exists in a weaker form (`agent.py`'s per-mode tool subsetting,
+`PROSE_BUDGET_CHARS`) and the request describes a real gap, but the
+"recognised phrases" framing is the wrong shape for it: a phrase matcher
+sitting in front of the model either duplicates what a 4B model is already
+adequate at (matching "remind me" to `create_reminder`) or fails silently
+on the paraphrases that matter (matching it costs nothing; missing it is
+invisible). The tractable version is **narrowing the offered tool set by
+detected intent before the model ever sees it** — a small keyword/embedding
+classifier over the user's message picks a tool subset (already the shape
+`tool_focus` half-implements) rather than trying to recognise phrases for
+individual calls. Not started; worth a design pass before code, since the
+wrong version of this makes small models *worse* at tools they already use
+fine, not better.
+
+**Still open, unstarted, from the same request batch as the tool-recognition
+question** (§28-§31 numbering is this session's task tracker, not this doc's
+— cross-reference is in HANDOVER.md's latest entry):
+- Hyperlinked note-mention badges in AI chat answers, stacked at the end of
+  a paragraph, when the model names a specific note.
+- Image OCR for notes (`pytesseract` against a system `tesseract` binary —
+  same "don't assume the dependency is there" caution as the Pillow test
+  fix this session already needed once).
+- Letting a vision-capable model see images in chat (multimodal message
+  construction — neither provider client currently sends image content at
+  all, so this is new wiring, not a toggle).
+- Graph minimap and saved/named views (§9's decorative half, still
+  untouched — PNG export from that same section is already done).
+
 ## Newest — a mobile/responsive audit, and a blind feature-completeness brainstorm across every screen (read this first, above Priority 0)
 
 ### The mobile/responsive audit

@@ -1291,7 +1291,21 @@ def run_agent(
                     "ok": "error" not in result,
                     "error": result.get("error"),
                     "arguments": arguments,
-                    "result_summary": result.get("summary") or (str(result)[:300] + "..." if len(str(result)) > 300 else str(result)),
+                    # UI display only — the version fed back to the model as
+                    # conversation context is `payload` below, with its own
+                    # separate, real token budget (`result_cap`). This is just
+                    # what the chat transcript's tool-call disclosure shows,
+                    # and that box already scrolls (.tool-chip-result, 12rem
+                    # max-height) — 300 chars cut it down to a couple of
+                    # lines for no reason tied to cost. Reported live: "make
+                    # the tool call output view a scrollable text box rather
+                    # than it being truncated" — the box already was one;
+                    # this is what was starving it. 4000 is generous enough
+                    # that raw JSON from a typical note/search/fetch result
+                    # reads in full, while still bounding a pathological
+                    # single result (a huge page fetch) from bloating the
+                    # SSE event.
+                    "result_summary": result.get("summary") or (str(result)[:4000] + "…" if len(str(result)) > 4000 else str(result)),
                 }
                 if change:
                     event["change"] = change

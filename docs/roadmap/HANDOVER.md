@@ -89,14 +89,19 @@ came in:
    validating that whatever path the user types is writable before saving
    the preference, not at export time when a bad path is a lost file.
 2. **Small-notebook search speed** — reported as "shouldn't take multiple
-   seconds." Checked this session: `keyword_search` is SQLite FTS5
-   (indexed), `semantic_search` is one vectorized numpy pass over
-   pre-stored vectors (no per-note re-embedding, no N+1 queries) — neither
-   should be slow for a small notebook. Not reproduced or timed on real
-   hardware; the likely cause, if real, is one-time embedding-model
-   warmup or LLM answer-generation time being felt as "search" rather
-   than the search algorithm itself. Worth asking the user to time it
-   with the model already warm before assuming the algorithm needs work.
+   seconds." Now actually timed, not just read: `POST /chat` (keyword path,
+   this sandbox has no embedding model) against a live server seeded with
+   ~240 notes answered in 22ms, and a plain `GET /entries?search=` in 95ms
+   — no N+1, no visible scaling problem, confirming last session's
+   code-reading conclusion with a real measurement instead of just one.
+   **Still not reproduced end-to-end** (no Ollama in this sandbox, so the
+   generation-time half of the theory is untested) — but the search half is
+   now cleared with real numbers, not inference. If a report comes back,
+   time the search phase specifically rather than the whole answer (there's
+   no existing per-phase duration logging in `routes_chat.py` to read it
+   from — would need adding, or timing client-side between the `status`
+   and first `thinking`/`answer` SSE events) since the rest is model
+   generation on real hardware, not search.
 
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 

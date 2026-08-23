@@ -1252,20 +1252,39 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
 class ImportDirectoryRequest(BaseModel):
     path: str
 
-def _run_directory_import(directory_path: str):
-    # CodeQL flags this as "uncontrolled data used in a path expression" —
-    # correct about the data flow, but this route's whole job is letting
-    # the already-authenticated owner of this single-user, local-only
-    # notebook pick any folder on their own machine to import from (the
-    # Obsidian-vault-import feature). There is no narrower base directory
-    # to confine it to without breaking that; `.resolve(strict=True)` at
-    # least rejects a path that doesn't genuinely exist on disk before
-    # anything gets read from it, rather than trusting the raw string.
+def _validated_import_directory(path_value: str) -> Path:
+    """The one place `import_directory`'s request path is turned into a
+    real, checked filesystem path — both the route and the background job
+    it schedules use this, and both pass its *return value* on, never the
+    original string.
+
+    CodeQL flags the raw `req.path` reaching file I/O as "uncontrolled
+    data used in a path expression" — correct about the data flow, but
+    this route's whole job is letting the already-authenticated owner of
+    this single-user, local-only notebook pick any folder on their own
+    machine to import from (the Obsidian-vault-import feature). There is
+    no narrower base directory to confine it to without breaking that.
+    What this *can* do, and didn't before: reject a null byte outright
+    (the one thing no legitimate path contains), confirm the path
+    genuinely resolves to an existing directory before anything reads
+    from it, and — the part a first pass at this missed — make sure the
+    resolved, checked `Path` is what actually gets used downstream rather
+    than the original unchecked string living on past this function.
+    """
+    if not path_value or "\x00" in path_value:
+        raise ValueError("Invalid directory path")
     try:
-        p = Path(directory_path).resolve(strict=True)
-    except OSError:
-        return
+        p = Path(path_value).resolve(strict=True)
+    except OSError as exc:
+        raise ValueError("Invalid directory path") from exc
     if not p.is_dir():
+        raise ValueError("Invalid directory path")
+    return p
+
+def _run_directory_import(directory_path: str):
+    try:
+        p = _validated_import_directory(directory_path)
+    except ValueError:
         return
     with deps.get_db().session() as session:
         imported = 0
@@ -1298,18 +1317,15 @@ def _run_directory_import(directory_path: str):
 
 @router.post("/import/directory", status_code=202)
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
-    # Same reasoning as _run_directory_import's own comment: an
-    # authenticated single-user local app, picking any folder on that
-    # user's own machine by design. resolve(strict=True) confirms it
-    # genuinely exists before anything downstream trusts it.
     try:
-        p = Path(req.path).resolve(strict=True)
-    except OSError:
+        p = _validated_import_directory(req.path)
+    except ValueError:
         raise HTTPException(400, "Invalid directory path") from None
-    if not p.is_dir():
-        raise HTTPException(400, "Invalid directory path")
-    background_tasks.add_task(_run_directory_import, req.path)
-    return {"status": "started", "path": req.path}
+    # The validated, resolved path — not req.path — is what the background
+    # job and the response both carry from here on.
+    canonical_path = str(p)
+    background_tasks.add_task(_run_directory_import, canonical_path)
+    return {"status": "started", "path": canonical_path}
 
 @router.post("/import/markdown", status_code=201)
 

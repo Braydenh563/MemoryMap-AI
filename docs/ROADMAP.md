@@ -1164,12 +1164,29 @@ Worth doing, and worth doing after the above.
         opens the focused note the same way its Edit button does.
         Live-verified: Tab into the list, ArrowDown moves the tab stop,
         Enter opens edit mode.
-    30b. **Archive** (BACKLOG §4 item 3, elaborated in §26). One `archived_at`
-        column each on notes, chats and documents (additive migration), a
-        state between "active" and "binned" for things kept but out of the
-        way. Already fully scoped; §26 lists three things that build on it
-        afterwards (a "delete everything" control, one assembled "your data"
-        page, opt-in auto-archive-by-age) but none of those block this one.
+    30b. ~~**Archive, for notes.**~~ **Done** (commit `4825e70`, this file's
+        own tracking never got updated when it landed — caught this session
+        by checking the running app before assuming the item was still
+        open, per CLAUDE.md's own top rule). `Entry.archived_at`
+        (additive auto-migration), `POST /entries/{id}/archive`/`/unarchive`,
+        `GET /entries?archived=true`, a Library "Archived" filter chip +
+        overview tile (`_shelved()` in `routes_library.py` — deliberately
+        named apart from the pre-existing `_archive()`, which is actually
+        the bin under an earlier, different naming decision; both
+        docstrings cross-reference the collision so it can't cause
+        confusion again), and a Notes-tab "Archive" action next to (not
+        grouped with) "Move to bin". 13 backend tests
+        (`test_archive.py`, `test_library.py`) plus live Playwright
+        verification at the time. **Re-verified this session**: archived a
+        fresh note via the API, confirmed it appears under the Library's
+        Archived chip with the right count, zero console errors.
+        **Deliberately scoped to notes only** — chats and documents (BACKLOG
+        §4 item 3 also names both) are the real remaining work, one
+        `archived_at` column and one pair of routes each, same shape as the
+        notes version above to copy from. §26 lists three things that build
+        on the full archive afterwards (a "delete everything" control, one
+        assembled "your data" page, opt-in auto-archive-by-age) but none of
+        those block extending to chats/documents first.
     30c. ~~**Chat metadata not surviving a reload**~~ **Checked before
         building, found already fixed (HISTORY.md §70).** `_turn_messages`
         (routes_conversations.py) persists `stats`/`elapsed_ms` on the
@@ -1209,12 +1226,17 @@ Worth doing, and worth doing after the above.
     preference (off by default, like entities), tags a qualifying note
     `stale` rather than acting on it further — nobody's watching an
     unattended pass, so the same caution `blocked_tools` already applies
-    to `delete_note` applies here too. **Covered by 11 new tests
-    (pytest), not yet checked live in a browser** — the toggle and its
-    Settings checkbox exist but a real end-to-end run (enable the
-    preference, trigger a pass, see the tag land in the Library/note
-    editor) wasn't driven through Playwright this session; worth doing
-    first thing next time this area is touched. The other two candidates
+    to `delete_note` applies here too. **Checked live this session, and a
+    real bug found in the process**: `auto_stale_review_enabled` had a live
+    Settings checkbox but was never declared on `PreferencesBody` —
+    Tier 1 item 4a's exact bug shape, just missed on this one preference —
+    so every attempt to turn it on silently did nothing, which is why it
+    could never be end-to-end verified before now. Fixed (field declared,
+    echoed back from `GET /preferences`, added to `_AUTONOMOUS_PREFS`), then
+    verified for real: backdated a note's `updated_at` 200 days in the
+    database directly, enabled the preference through the real route,
+    triggered a pass via `POST /tasks/trigger-autonomous`, and the note came
+    back tagged `stale`. Two new regression tests. The other two candidates
     — proactive digest/on-this-day surfacing, and letting a saved skill run
     on the same schedule — are still open.
 32. ~~**Keyword search has no IDF weighting and can't use an index.**~~

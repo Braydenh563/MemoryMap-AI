@@ -98,6 +98,48 @@ populates, a bad path shows the exact rejection reason and reverts, a good
 path sticks, and Reset clears it. `pytest tests/` (~1,650 now), `ruff check
 .`, `node --check frontend/app.js` all clean.
 
+**Same session, past the live-request queue — a roadmap sweep, per this
+file's own top rule ("check the running app first").** ROADMAP.md's Tier 1
+had exactly one open (non-struck-through) item: claim-specificity in
+`agent.unsupported_claims` (§7). Left alone — its own text already says it
+"needs real model output to tune against, which this sandbox cannot
+provide," and this sandbox still has no Ollama; attempting it blind is
+exactly the class of speculative-pattern-matching mistake this project's
+standing caveat warns against. Moved to §30b instead, which claimed Archive
+was "not yet built": checking the running app first (rather than believing
+the roadmap) found it fully shipped for notes — `Entry.archived_at`, `POST
+/entries/{id}/archive`/`/unarchive`, a Library "Archived" chip — in commit
+`4825e70`, whose own docs update just never happened. Corrected ROADMAP.md
+§30b to say so, re-verified live (archived a fresh note via the API,
+confirmed it shows under the Library's Archived chip with the right count,
+zero console errors), and left chats/documents archiving as the real
+remaining scope, same shape as notes to copy from.
+
+**A real bug found along the way, not invented**: item 31's stale/orphaned-
+note review (11 tests, built and merged, "not yet checked live") turned out
+un-checkable for a reason worse than "nobody got to it" — `auto_stale_
+review_enabled` has a live Settings checkbox (`#pref-auto-stale-review`,
+wired to `setPreference` exactly like its `auto_tag`/`auto_link`/`auto_
+dedupe` siblings) but was never declared on `PreferencesBody`, so every PUT
+that turned it on returned 200 while silently dropping the value — the
+exact shape of bug Tier 1 item 4a already fixed for eight *other*
+preferences, just not this one, which must have been added afterwards.
+The autonomous pass could never once actually see the toggle on, no matter
+what the checkbox showed. Fixed: the field declared, echoed back from `GET
+/preferences`, and added to `_AUTONOMOUS_PREFS` (wakes the loop early like
+its siblings, rather than waiting up to the full interval). **Verified
+live, end to end, not just via the API round-trip**: unlocked a real
+server, backdated a note's `updated_at` 200 days directly in the SQLite
+file (the one part `curl` couldn't do — no API sets a date in the past),
+`PUT`d both `autonomous_tasks_enabled` and `auto_stale_review_enabled`
+through the real route, called `POST /tasks/trigger-autonomous`, and
+confirmed the note came back tagged `stale`. Two new tests
+(`test_preferences_api.py`): the standard GET round-trip, plus one that
+asserts `config.get_preference` directly rather than only the echoed GET —
+the shape of assertion that would have caught the original bug, since the
+value never reached `set_preference` at all. `pytest tests/`, `ruff check
+.`, `node --check frontend/app.js` all clean.
+
 ## Start here next session — a queue of live requests, none started
 
 Landed at 95%+ quota with no time left to act on them. In the order they

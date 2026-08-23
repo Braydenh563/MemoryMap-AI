@@ -209,6 +209,7 @@ def test_autonomous_and_battery_preferences_round_trip_through_get(client):
             "auto_tag_enabled": False,
             "auto_link_enabled": False,
             "auto_dedupe_enabled": False,
+            "auto_stale_review_enabled": True,
             "autonomous_tasks_interval_hours": 2,
             "autonomous_tasks_model": "phi3.5",
             "battery_efficient_mode": True,
@@ -220,10 +221,28 @@ def test_autonomous_and_battery_preferences_round_trip_through_get(client):
     assert fresh["auto_tag_enabled"] is False
     assert fresh["auto_link_enabled"] is False
     assert fresh["auto_dedupe_enabled"] is False
+    assert fresh["auto_stale_review_enabled"] is True
     assert fresh["autonomous_tasks_interval_hours"] == 2
     assert fresh["autonomous_tasks_model"] == "phi3.5"
     assert fresh["battery_efficient_mode"] is True
     assert fresh["smart_model_routing_enabled"] is False
+
+
+def test_auto_stale_review_preference_was_silently_dropped_before_this_fix(client):
+    """The checkbox (#pref-auto-stale-review) called setPreference exactly
+    like its tag/link/dedupe siblings, but PreferencesBody never declared
+    this field — so the PUT below returned 200 while quietly discarding the
+    value, and `config.get_preference("auto_stale_review_enabled")`, which
+    `autonomous.py`'s optimisation pass actually reads, stayed False no
+    matter what the checkbox showed. Asserting the config layer directly
+    (not just the GET echo, which the round-trip test above already covers)
+    is what would have caught the original bug: the field simply never
+    reached `body.model_dump()` to be saved at all."""
+    from memorymap.core import deps
+
+    assert deps.get_config().get_preference("auto_stale_review_enabled", False) is False
+    client.put("/preferences", json={"auto_stale_review_enabled": True})
+    assert deps.get_config().get_preference("auto_stale_review_enabled") is True
 
 
 def test_notification_mute_preference_round_trips_through_get(client):

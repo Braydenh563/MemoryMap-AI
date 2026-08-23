@@ -192,6 +192,15 @@ class PreferencesBody(BaseModel):
     auto_tag_enabled: bool | None = None
     auto_link_enabled: bool | None = None
     auto_dedupe_enabled: bool | None = None
+    # ROADMAP.md item 31's stale/orphaned-note review. Missing from here was
+    # the same shape of bug Tier 1 item 4a already found and fixed for eight
+    # other preferences: the Settings checkbox (#pref-auto-stale-review)
+    # calls setPreference exactly like its tag/link/dedupe siblings, but
+    # Pydantic silently drops any key this model doesn't declare — so every
+    # PUT that turned the toggle on was a no-op the whole time, and the
+    # autonomous pass could never actually pick up any candidates no matter
+    # what the checkbox showed.
+    auto_stale_review_enabled: bool | None = None
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     battery_efficient_mode: bool | None = None
@@ -350,6 +359,7 @@ def get_preferences() -> dict:
         "auto_tag_enabled": config.get_preference("auto_tag_enabled", True),
         "auto_link_enabled": config.get_preference("auto_link_enabled", True),
         "auto_dedupe_enabled": config.get_preference("auto_dedupe_enabled", True),
+        "auto_stale_review_enabled": config.get_preference("auto_stale_review_enabled", False),
         "autonomous_tasks_interval_hours": config.get_preference(
             "autonomous_tasks_interval_hours", 6
         ),
@@ -386,6 +396,7 @@ _AUTONOMOUS_PREFS = frozenset(
         "auto_tag_enabled",
         "auto_link_enabled",
         "auto_dedupe_enabled",
+        "auto_stale_review_enabled",
     }
 )
 

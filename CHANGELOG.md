@@ -7,6 +7,38 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — the text-selection popup is now a kebab, with nine actions instead of three
+
+Highlight text anywhere in the app and a single ⋯ appears; clicking it opens a menu that stays inside the window, flipping up or sideways near an edge rather than running off it. It now offers *Save as a note*, *Save as a draft*, *Add to a note…*, *Save with its source* (when the passage came from the web reader — a quoted clipping with a link back), *Copy*, *Search the notebook*, *Set a reminder*, *Extract notes…* and *Ask the AI about this*. The old three-button bar could not fit on a phone screen, never appeared for a touch selection or a keyboard one, and had no room to grow.
+
+### Added — the selection menu is reachable without a mouse
+
+A long-press drag on a touchscreen now raises the kebab (the popup listened for `mouseup` and nothing else before, so touch selections raised nothing at all), and a new rebindable `Ctrl+Shift+E` opens the menu for a selection made with Shift+Arrow.
+
+### Fixed — the selection popup could render off the left edge of the screen
+
+The clamp that was meant to keep it on screen was nested the wrong way round, so a popup wider than the viewport — which the old three-label bar was, on any phone — ended up at a negative left position instead of pinned to the margin.
+
+### Fixed — arrow keys did nothing in most of the app's ⋯ menus
+
+Arrow-key navigation was written inside the note card's menu specifically, so every other kebab menu — saved conversations, the sidebars, and the new selection menu — had none, even though they announce themselves as menus to a screen reader.
+
+### Fixed — eight dialogs let keyboard focus escape behind them
+
+The confirm and prompt dialogs, the image viewer, note history, the recycle bin, the skill-run panel, the agent command palette and the graph's connection dialog were all missing a focus trap, because the trap worked from a hard-coded list of dialogs that nobody adding a new one knew about. It now recognises any dialog automatically. The image viewer and command palette also gained the dialog semantics they were missing.
+
+### Performance — the note list builds around 76% fewer DOM elements
+
+Every note card was eagerly building its full 19-item ⋯ menu, hidden, at render time — and rebuilding it on every search keystroke, sort change and save. Menus are now built when first opened. Measured on a 1,501-note notebook: 133,748 elements before, 31,680 after.
+
+### Performance — the notebook's list queries are served from an index
+
+The `entries` table had no index on any of the columns its list queries filter and sort by, so SQLite sorted every live note in the notebook on each request. On a 20,000-note database the main list query went from 46 ms to 15 ms; saving a note is 0.02 ms slower.
+
+### Performance — responses are compressed
+
+The app served roughly 2.3MB of uncompressed frontend on a cold load, and uncompressed JSON besides. `app.js` is now 70% smaller over the wire (1071.7 KB → 320.1 KB) and `index.html` 75% smaller. Chat streaming, the weekly digest and the live log are unaffected — they still arrive incrementally.
+
 ### Added — a global Undo/Redo system
 
 Two new buttons in the status bar (Undo/Redo), plus Ctrl+Z / Ctrl+Shift+Z, wired into note delete (single and multi-select), note creation, reminder delete, linking/unlinking notes, and note content edits (which covers attaching or removing an image, since that's just a content edit). Session-only, and deliberately steps aside for a text field's own native undo while you're typing in it.

@@ -653,6 +653,7 @@ class DatabaseManager:
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()
         self._ensure_fts5()
+        self._ensure_indexes()
         self._session_factory = sessionmaker(
             bind=self.engine, expire_on_commit=False
         )
@@ -737,6 +738,70 @@ class DatabaseManager:
                 "VALUES (new.id, new.content, new.tags); "
                 "END"
             )
+
+    #: The list queries that run on essentially every page load, and the
+    #: composite index each one needs to be served from an index instead of a
+    #: sort. Kept as data in one place rather than as `Index()` objects on the
+    #: model, for a reason worth stating: `create_all()` "creates missing
+    #: tables only" (see its call site above), so an index declared on an
+    #: already-existing table would be created on a *fresh* database and
+    #: silently never appear on anybody's real one — the same
+    #: works-on-a-new-profile-only trap `_add_missing_columns` exists to avoid
+    #: for columns.
+    #:
+    #: The column order in each is the query's own shape: equality filters
+    #: first, then the ORDER BY terms in order and in their own direction.
+    #: SQLite will only skip the sort if the index's trailing columns match
+    #: the ORDER BY exactly, direction included — which is why `pinned DESC`
+    #: is spelled out rather than left to default ASC.
+    _INDEXES: tuple[tuple[str, str], ...] = (
+        # manager.list_entries() — the Notes tab, GET /entries, and most
+        # background jobs. Measured before this existed: EXPLAIN QUERY PLAN
+        # reported "USE TEMP B-TREE FOR ORDER BY", i.e. SQLite sorted every
+        # live note in the notebook on every call.
+        (
+            "ix_entries_live",
+            "entries (workspace_id, is_deleted, archived_at, "
+            "pinned DESC, created_at DESC, id DESC)",
+        ),
+        # manager.list_deleted_entries() — the recycle bin.
+        (
+            "ix_entries_bin",
+            "entries (workspace_id, is_deleted, deleted_at DESC, id DESC)",
+        ),
+        # manager.list_archived_entries() — the archive.
+        (
+            "ix_entries_archive",
+            "entries (workspace_id, is_deleted, archived_at DESC, id DESC)",
+        ),
+        # routes_library._notes() and routes_graph's entry scan both add
+        # `is_draft = 0` to the live filter; without `is_draft` in an index
+        # they fall back to the same full scan the live index above removes.
+        (
+            "ix_entries_live_nodraft",
+            "entries (workspace_id, is_deleted, is_draft, archived_at, "
+            "created_at DESC, id DESC)",
+        ),
+    )
+
+    def _ensure_indexes(self) -> None:
+        """Create the composite indexes the hot list queries need.
+
+        `IF NOT EXISTS` throughout, run on every startup — the same additive
+        convention `_ensure_fts5` and `_add_missing_columns` already use, and
+        for the same reason: it has to be correct on a database created by any
+        earlier version, not only on a fresh one.
+
+        Adding an index is not free — every write to `entries` maintains it —
+        but these are read-heavy paths by a wide margin in a notebook app, and
+        the alternative measured on a 20k-note database was a temp B-tree sort
+        of the whole table per request.
+        """
+        with self.engine.begin() as connection:
+            for name, definition in self._INDEXES:
+                connection.exec_driver_sql(
+                    f"CREATE INDEX IF NOT EXISTS {name} ON {definition}"
+                )
 
     def _add_missing_columns(self) -> None:
         """Additive auto-migration for existing databases.

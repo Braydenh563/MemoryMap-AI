@@ -12,7 +12,284 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 84. Newest — a global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
+## 85. Newest — a deep whole-app audit, six top findings built and measured, and a ranked hand-off list
+
+Asked for directly: *"the deepest audit and analysis of everything missing and
+wrong with the application"* — missing features large and small, optimisation
+headroom, bugs, scalability and storage limits, sub-par functionality, poor
+accessibility and UX, and what would boost the app's core essence. Then:
+build the items where the reasoning is the expensive part, and **leave the
+rest here, fully scoped, to be handed to Claude Sonnet.** That hand-off list
+is §85.4 below — start there.
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry.
+
+**The honest headline: this app is feature-complete to an unusual degree, and
+the real headroom is not new tabs.** The brainstormed-gap exercise two
+sessions ago already established that (~140 capabilities brainstormed, the
+large majority already built). This audit went at the *quality* of what
+exists instead, and found five things worth doing, four of which are
+invisible from the feature list.
+
+### 85.1 What was built this session, with the measurements
+
+1. **The text-selection popup is now a kebab (⋯), and it is the app's real
+   capture surface for the first time.** Asked for directly: *"a kebab 3-dot
+   button which when clicked on shows the Popup buttons within the application
+   window"*. The old three-button bar had six problems, all confirmed against
+   source before anything was touched:
+   - **It ran off the left edge of a phone.** `showSelectionPopupAt` clamped
+     with `Math.min(Math.max(margin, left), innerWidth - width - margin)`.
+     When the box is wider than the viewport that upper bound falls *below*
+     the lower bound, `Math.min` wins, and `left` goes negative. The bar could
+     not wrap (`white-space: nowrap`, no `flex-wrap`) and its three labels ran
+     to ~50 characters — wider than a 360px viewport. **The nesting order was
+     the whole bug**; it is now `Math.max(margin, Math.min(wanted, limit))`,
+     and `tests/test_selection_menu.py` asserts on that nesting specifically,
+     because a future tidy-up could swap it back and nothing else would notice.
+   - **It never appeared on touch and never from the keyboard.** The only
+     trigger was `mouseup`. There was no `selectionchange` handler anywhere in
+     the frontend, so a long-press drag on a phone raised nothing; Shift+Arrow
+     raised nothing either. Now: `mouseup` (immediate, so a mouse still feels
+     instant), a debounced `selectionchange` (the touch path), and a new
+     rebindable `Ctrl+Shift+E` that opens the menu itself.
+   - **A one-frame flash on first use** — `hidden` was removed before
+     `left`/`top` were assigned, so a `position: fixed` element painted once at
+     the bottom of `<body>`. Positioned before revealing now.
+   - **Only `anchorNode` was tested against the denylist**, so a drag starting
+     in prose and ending in a textarea still raised the bar over a form field.
+     Both ends are checked.
+   - **Three actions was a hard ceiling** — the app's richest capture surface
+     offered less than a note card's own ⋯ menu. It now offers eight, built
+     on `kebabMenu`/`makeMenuItem` rather than a second menu system: *Save as
+     a note*, *Save as a draft*, *Add to a note…*, *Save with its source*
+     (only when there is one), *Copy*, *Search the notebook*, *Set a
+     reminder*, *Extract notes…*, *Ask the AI about this*. Each reuses what
+     already existed — `openExtractPreview` (BACKLOG §62, previously reachable
+     only from the Writing Room, Documents and the whiteboard),
+     `/reminders/parse` (the same parser the Reminders tab's magic-add uses),
+     `copyToClipboard` (the fallback-aware helper), and the global undo stack.
+   - **"Save with its source" is BACKLOG §65's capture half**, the piece that
+     item calls small: when the selection sits in the web reader, the passage
+     is saved as a markdown blockquote with a real link back to the page it
+     came from. Everywhere else the honest answer is "no external source" and
+     the item is simply not offered.
+
+   Two things were found **live in Chromium that reading the source had not**:
+   at 360×640 the kebab rendered in exactly the right place and was still
+   unclickable, because `#agent-monitor` (`z-index: 1000`) sat on top of it —
+   the popup's `z-index: 90` was also below `.modal-overlay`'s 55 only by
+   accident of source order. It is now 1010: above the persistent panels,
+   below the toast box's 1050, which has to outrank everything. And
+   `ArrowDown` did nothing in the new menu, because arrow-key navigation was
+   written *inline inside `entryOverflowMenu`* — so the note card's ⋯ had it
+   and every menu built by `kebabMenu` (conversations, sidebars, and now this
+   one) had none. Extracted to a shared `wireMenuKeyboard(menu, opener)`,
+   which closes that gap everywhere at once rather than only where it was
+   noticed.
+
+   **Verified live**, not reasoned: the kebab appears from mouse, from
+   `selectionchange` alone with no `mouseup` at all (the touch path), and from
+   `Ctrl+Shift+E`; at 360×640 the menu flips **up and left** and measures
+   fully inside the viewport (left 147, top 153, right 347, bottom 560 against
+   360×640); arrow keys, Home/End and Escape all move focus correctly; *Save
+   as a note* creates a note and the status bar's Undo removes it again; *Add
+   to a note…* opens a picker that `activeOverlay()` traps Tab inside with no
+   registration step. Zero console errors throughout. Screenshotted and
+   visually reviewed at both widths.
+
+2. **The Notes list built ~68 permanently-hidden DOM nodes per note, and
+   rebuilt them on every render.** `entryItem()` called `entryOverflowMenu()`
+   eagerly, and that menu is 19 items across four groups. Since the Notes list
+   renders the whole notebook (there is no windowing — see §85.4 item 4), the
+   cost scaled with the notebook and was paid again on every search keystroke,
+   sort change, filter and save. The menu is now built on first open; the
+   opener and its `aria-haspopup`/`aria-expanded` state still render eagerly,
+   so focus order is unchanged.
+
+   **Measured directly, in one page, at 1,501 notes**: 133,748 DOM nodes with
+   the menus built eagerly against **31,680 lazily — 102,068 nodes saved, 76%,
+   68 per card.** (The A/B was done by forcing every card's menu to build in
+   the live page and re-counting, not by arithmetic.)
+
+3. **The `entries` table had no index on any column its list queries actually
+   use.** `created_at`, `is_deleted`, `is_draft`, `archived_at`, `pinned` —
+   none indexed; only `workspace_id` and the foreign keys were.
+   `manager.list_entries()` (behind `GET /entries`, the Notes tab and most
+   background jobs) filters on three of those and orders by
+   `pinned DESC, created_at DESC, id DESC`, so `EXPLAIN QUERY PLAN` reported
+   **`USE TEMP B-TREE FOR ORDER BY`** — SQLite sorting every live note in the
+   notebook, per request. Four composite indexes added, covering the live
+   list, the bin, the archive, and the Library's `is_draft = 0` variant.
+
+   **Measured on a 20,000-note database**: the live query went from **46 ms to
+   15 ms per call** and the temp B-tree is gone; a single-note save went from
+   **0.470 ms to 0.491 ms**, so the write cost of four indexes is inside the
+   noise. `tests/test_entry_indexes.py` asserts on the *query plans* rather
+   than on the indexes existing — an index that exists but is never chosen is
+   indistinguishable from no index at all, and reordering one `ORDER BY` term
+   would silently undo this.
+
+   **The trap worth recording**: `Base.metadata.create_all()` creates missing
+   *tables* only, so an index declared on the model appears on a fresh profile
+   and never on anybody's real notebook. They go through an explicit
+   `_ensure_indexes()` with `CREATE INDEX IF NOT EXISTS`, on every startup —
+   the same additive convention `_ensure_fts5` and `_add_missing_columns`
+   already use. A test builds a database with indexing disabled and reopens it
+   to pin exactly that.
+
+4. **There was no compression anywhere.** `grep -rn "gzip"` over
+   `src/memorymap/` returned nothing. The frontend ships ~2.3MB uncompressed
+   and there is no bundler or minifier *by design* (CLAUDE.md: "no build
+   step"), so this was the only remaining lever on transfer size.
+   **Measured**: `app.js` 1071.7 KB → 320.1 KB (**70% smaller**),
+   `index.html` 262.0 → 65.1 KB (**75%**), the largest CSS file 77.2 → 25.1 KB
+   (**67%**), and a 200-note `GET /entries` 114.2 → 2.8 KB (that last figure
+   is flattered by repetitive seeded text — real notes will compress less).
+
+   **Two things were checked rather than assumed**, and one of them changed
+   the implementation:
+   - *"gzip buffers a stream into uselessness"* is true of some
+     implementations and **not** of Starlette's:
+     `GZipResponder._compress_body` flushes with `Z_SYNC_FLUSH` on every chunk
+     carrying `more_body`, so this app's three streaming endpoints (chat, the
+     weekly digest, the live log) still stream. `text/event-stream` is in
+     Starlette's own exclusion list; the two NDJSON streams are not, so they
+     are named explicitly.
+   - **Middleware order is load-bearing here.** Both existing middlewares are
+     `BaseHTTPMiddleware`, which re-wraps every response as a *streaming*
+     one — and Starlette's gzip only consults `minimum_size` on a response it
+     can measure. With gzip added last (outermost), `GET /health` (70 bytes)
+     and `GET /tags` (2 bytes) both came back `content-encoding: gzip`, i.e.
+     CPU spent making small responses larger, with `minimum_size` silently
+     doing nothing. Measured, then moved innermost, where it works.
+
+5. **Eight dialogs had no focus trap, and the list was the bug.**
+   `activeOverlay()` hard-coded eight overlay ids; the dialogs it did not name
+   were `confirmDialog`, `promptDialog`, the image lightbox, the note-history
+   overlay, the recycle-bin overlay, the skill-run overlay, the agent command
+   palette, and the graph's connection dialog. Every one was added by somebody
+   with no reason to know the list existed. It now asks the DOM instead —
+   every dialog already carries `role="dialog"`, and the topmost visible one
+   wins — so a new dialog is trapped from the moment it exists, with no
+   registration step. The lightbox and the command palette gained the
+   `role="dialog"`/`aria-modal` they were missing anyway. The focusable filter
+   also gained `[tabindex]:not([tabindex="-1"])` and `[contenteditable]`,
+   which is why `#graph-box` (`tabIndex = 0`) was never a tab stop.
+
+   Visibility is tested with `.hidden` plus `getClientRects()`, deliberately
+   **not** `offsetParent !== null` — `.modal-overlay` is `position: fixed`, and
+   a fixed element's `offsetParent` is null even when plainly on screen.
+
+6. **Two queries materialised every `Entry` in the notebook to read one
+   column.** `routes_entries.py`'s semantic-scope check built full mapped
+   entities just to collect `.id` — while its own comment directly above said
+   *"ids only, no row bodies"*, which is worse than no comment, because the
+   next profiler run has to rediscover it. `manager.all_tags()` did the same
+   to read `.tags`. Both are column-only selects now (`manager.entry_id_scope`,
+   and `select(Entry.tags)`), the same fix `search_manager.semantic_search`
+   already documents as ~85% of a search's cost at 20k+ notes.
+
+   **A real risk was checked, not assumed**: the workspace filter is a
+   `with_loader_criteria` on the mapped class, so *"does it still apply to a
+   column-only select?"* is a genuine question — a silent no would leak one
+   space's notes into another's search scope. It does apply; verified against
+   a real two-space database and pinned by two tests, because this is exactly
+   the "a guard removed while the shape around it was kept" shape the review
+   checklist in CLAUDE.md warns about.
+
+### 85.2 Confirmed healthy — do not "fix" these
+
+Recorded so no future session spends a day on a non-problem:
+
+- **Route handlers are sync `def` on purpose** — 238 sync against 1 async
+  across `routes_*.py`, so FastAPI runs them in a threadpool and blocking IO
+  is correct rather than a bug. **BACKLOG §78's "should the backend be
+  asynchronous" is already answered by the code**, and §20's "async httpx
+  client" is a smaller and more optional item than it reads.
+- **Keyword search is already FTS5 with `bm25()`**, external-content table
+  plus three triggers (`_ensure_fts5`). Not a `LIKE`.
+- SQLite **WAL + `busy_timeout=5000` + `synchronous=NORMAL`**, set per
+  connection, pinned by a test.
+- **Orphaned-media GC exists and is wired** (`core/media_gc.py` →
+  `routes_files.py`), including the correct refusal to delete anything when a
+  locked private note cannot be read.
+- **`VACUUM`** runs outside a Session (`ai/autonomous.py`); recycle-bin
+  auto-purge runs at startup.
+- Only **six** `except Exception: … pass` sites in the entire backend.
+- Export covers backup/JSON/markdown/CSV; import covers directory/markdown/
+  document (PDF/Word/PowerPoint/Excel/HTML via `markitdown`).
+- Spaces isolate every workspace-scoped query via `WorkspaceMixin` +
+  `do_orm_execute` — **including column-only selects**, now verified.
+
+### 85.3 Found, not fixed, and small enough to note here
+
+- **`.floating-format-menu` is dead CSS.** A full rule at
+  `07-whiteboard-misc.css:425` with `z-index: 1000`, and the class appears in
+  no JS and no HTML anywhere in `frontend/`. Either a feature that never
+  shipped or one that was removed without its styles — the CSS version of the
+  "features that never ran once" shape CLAUDE.md's review checklist names.
+  Worth a wider sweep for orphaned rules rather than deleting just this one.
+- **Conversations and their messages have no retention policy.** Notes have a
+  recycle-bin auto-purge; chat history grows forever, and
+  `ai/autonomous.py`'s job list has no pruning pass. Not urgent, but nothing
+  in the app would ever notice.
+- **`renderEntries()` takes ~533 ms at 1,501 notes** even with the lazy-menu
+  fix, because it still builds one card per note. That is §85.4 item 4.
+
+### 85.4 The hand-off list — ranked, scoped, ready to pick up
+
+Everything below was located and scoped during this audit. **Nothing here
+needs re-deriving; each names the file and the shape of the work.** Ranked by
+value per unit of effort.
+
+1. **13 icon-only buttons have `title` but no `aria-label`** — a screen reader
+   announces "button". `index.html` lines 1199, 1483, 1485, 1490, 1499, 1500,
+   1730, 1907, 1910, 2112, 2113, 2114, 2257. Mechanical: copy the `title` text
+   into an `aria-label`, the same way `smallButton()` (`app.js`) already does
+   for every JS-built button. **Also**: of 27 `role="dialog"` elements, 11 now
+   carry `aria-modal` — the six native `<dialog>` elements are exempt (the
+   browser traps those), the rest are not and should have it.
+2. **WCAG 2.5.8 tap targets** — carried unfixed from the mobile audit above,
+   and now the oldest open accessibility item. `#semantic-search-toggle`,
+   `#library-show-binned`, `#skills-auto-toggle`/`-tag`/`-link` (13×13px
+   unstyled native checkboxes), two unlabelled Settings checkboxes, and
+   `.chip.chip-interactive` (~21px). At least three separate styling
+   situations, so scope a real pass rather than patching pixel values.
+3. **`renderLibrary()`, `renderTimeline()` and `renderLogList()` have the same
+   unbounded shape** the Notes list has (`app.js:18879`, `:14092`, `:16035`),
+   and two places assign `innerHTML` **inside a loop** —
+   `renderExtractPreview()` (`app.js:7894-7938`) and the skill-log renderer
+   (`:25944-25957`). The `innerHTML` sites are the cheaper half and worth
+   doing first.
+4. **Notes-list windowing.** The real remaining scalability item, and the
+   bigger piece: `renderEntries()` still builds one card per note for the
+   entire notebook — measured at ~533 ms for 1,501 notes *after* the lazy-menu
+   fix. Note this is **not** BACKLOG §77 (a user-facing page selector with
+   page-aware note links); this is invisible virtualisation of a list that
+   stays one continuous scroll. §77's harder half — landing a wiki-link on the
+   right page under the current sort and filter — does not arise here.
+5. **Library's search box still has no semantic-search option**, unlike the
+   Notes tab. Carried from the previous session. Needs one design decision
+   first — what "semantic" means for documents, media and conversations, none
+   of which have embeddings — so it is a design question, not a one-liner.
+6. **Reminders have no calendar/month view** (gap 4 of the brainstorm above).
+   The flat list is genuinely thorough; seeing "what's due this week" as a
+   grid is the missing shape.
+7. **The graph has no minimap and no saved/named views** (gap 3). Both matter
+   once a notebook is dense enough that the force layout stops being
+   readable. Export is already done.
+8. **Vision-capable models still cannot be shown an image** (gap 2 / Tier 3
+   item 35). `ai/ollama_client.py` already detects and records the `vision`
+   capability; nothing downstream ever uses the flag.
+9. **A conversation retention policy** — see §85.3.
+10. **The Graph tab's mobile toolbar** — `#graph-box` starts at `top: 522px`
+    on a 320×568 viewport, so the canvas and the "+ New note" button are
+    unreachable without scrolling first, with no affordance saying so.
+    Carried unfixed from the mobile audit; real design work.
+11. **A sweep for orphaned CSS**, starting from `.floating-format-menu`.
+
+## 84. A global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
 
 Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Asked
 for directly: a session-only global undo/redo stack, two new buttons in the

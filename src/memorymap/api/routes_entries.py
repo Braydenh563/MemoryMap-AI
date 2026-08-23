@@ -618,16 +618,7 @@ def list_entries(
         # only, no row bodies — cheap even at real notebook scale, and the
         # thing the original unbounded-response risk was actually about was
         # sending full rows over HTTP, not counting ids in-process.
-        if deleted:
-            scope_ids = {
-                e.id for e in manager.list_deleted_entries(session)
-            }
-        elif archived:
-            scope_ids = {
-                e.id for e in manager.list_archived_entries(session)
-            }
-        else:
-            scope_ids = {e.id for e in manager.list_entries(session)}
+        scope_ids = manager.entry_id_scope(session, deleted=deleted, archived=archived)
 
         # Ranked, and returned ranked. The first version rebuilt the result as
         # `[e for e in entries if e.id in found_ids]`, which is the *notebook's*

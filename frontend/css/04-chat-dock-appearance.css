@@ -1182,7 +1182,18 @@
    viewport coordinates. */
 .selection-popup {
   position: fixed;
-  z-index: 90;
+  /* Above the persistent chrome, below the toasts.
+     Found live, not reasoned: at 360x640 the kebab landed at (142, 559) —
+     correctly on screen and correctly clamped — and was still unclickable,
+     because `#agent-monitor` (`z-index: 1000`, fixed to the bottom-left) was
+     sitting on top of it and swallowing the pointer. At `z-index: 90` this
+     popup was also below `.modal-overlay`'s 55 only by accident of source
+     order, so selecting text inside a dialog was a coin toss too.
+     1010 puts it above the two 1000 layers (the agent monitor and the unused
+     `.floating-format-menu` rule) and below the toast box's 1050, which has
+     to stay on top of everything — a toast reporting that the save failed is
+     worth more than the menu that started the save. */
+  z-index: 1010;
   display: flex;
   gap: var(--space-2);
   padding: var(--space-2);
@@ -1198,10 +1209,22 @@
   display: none;
 }
 
-.selection-popup button {
+/* The kebab opener only — scoped through `.menu-wrap` on purpose.
+   As a bare `.selection-popup button` this also matched every `.menu-item`
+   inside the popup's own menu, and won on specificity (0,1,1 against
+   `.menu-item`'s 0,1,0), so the menu's rows silently inherited the old
+   toolbar's padding, size and `nowrap`. */
+.selection-popup > .menu-wrap > button {
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   white-space: nowrap;
+}
+
+/* The popup is now a single ⋯ rather than a row of labelled buttons, so it
+   no longer needs to lay several children out — but it is still the
+   positioned, fixed anchor the menu hangs off. */
+.selection-popup {
+  padding: var(--space-1);
 }
 
 .graph-popup {
@@ -2323,3 +2346,47 @@ button {
   flex: 1;
 }
 
+
+/* The "choose a note" dialog `pickEntryDialog()` builds — used by the
+   selection kebab's "Add to a note…". A scrolling list inside a modal card,
+   capped so a long notebook cannot push the dialog past the viewport. */
+.entry-pick-card {
+  width: min(32rem, calc(100vw - var(--space-8)));
+}
+
+.entry-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 40vh;
+  margin-top: var(--space-3);
+  overflow-y: auto;
+}
+
+.entry-pick-row {
+  padding: var(--space-3);
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font-size: var(--text-md);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-pick-row:hover,
+.entry-pick-row:focus-visible {
+  border-color: var(--border);
+  background: var(--card-bg-hover);
+}
+
+/* The selection menu's own width. `.action-menu`'s 12.5rem default suits the
+   note card's short verbs ("History", "Duplicate"); these labels are whole
+   phrases ("Search the notebook", "Remind me about this") and wrapped onto
+   two lines at that width, which reads as crowded next to every other menu in
+   the app. Measured at 200px wrapping, 15rem fits them on one line. */
+.selection-popup .action-menu {
+  min-width: 15rem;
+}

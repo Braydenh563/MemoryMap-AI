@@ -1,6 +1,130 @@
 # Session handover
 
-## Latest session — a global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
+## Latest session — a deep whole-app audit, six findings built and measured, and a ranked hand-off list for the next session
+
+Asked for directly: *"the deepest audit and analysis of everything missing and
+wrong with the application"*, then *"if you feel some of the important things
+should be done by you, do those, then mark the rest to be done at the top of
+the roadmap"*. So this session is an audit first and a build second, and the
+audit itself is the deliverable — it lives in
+[ROADMAP.md §85](../ROADMAP.md), with the hand-off list at §85.4.
+
+**Read §85.4 first if you are picking this up.** It is eleven items, each
+already located in the source and scoped, ranked by value per unit of effort.
+None of them needs re-deriving.
+
+### The finding that shaped everything else
+
+**This app is feature-complete to an unusual degree, and the useful headroom
+is not new features.** The blind brainstorm two sessions ago already
+established that from the outside (~140 capabilities brainstormed, the large
+majority already built). This audit went at the *quality* of what exists, and
+four of its five real findings are invisible from a feature list: DOM weight,
+missing indexes, no compression, and a focus-trap registry that had gone
+stale. Only one — the selection popup — is a feature at all.
+
+### What was built, and what the numbers actually were
+
+Everything below has a measurement, because CLAUDE.md's standing rule is that
+reasoning about behaviour instead of reproducing it has cost real time here
+more than once.
+
+1. **The text-selection popup is now a kebab (⋯) with a nine-item menu**, and
+   for the first time it is reachable by touch and by keyboard. Six confirmed
+   problems with the old three-button bar, the full list in §85.1. The one
+   worth carrying forward: **the off-screen bug was a clamp nested the wrong
+   way round** — `Math.min(Math.max(margin, x), limit)` puts a box wider than
+   the viewport *off* the left edge, because the limit falls below the floor
+   and `min` wins. `Math.max(margin, Math.min(x, limit))` is correct, and
+   `tests/test_selection_menu.py` asserts on the nesting order specifically,
+   since a tidy-up could swap it back with nothing else noticing.
+2. **Note-card overflow menus build on first open instead of at render.**
+   Measured live at 1,501 notes by forcing every menu to build in the same
+   page and re-counting: **133,748 DOM nodes → 31,680. 102,068 saved, 76%, 68
+   per card.**
+3. **Four composite indexes on `entries`.** `EXPLAIN QUERY PLAN` said
+   `USE TEMP B-TREE FOR ORDER BY` before them — SQLite sorting every live note
+   per request. At 20,000 notes: **46 ms → 15 ms** per list call, write cost
+   **0.470 → 0.491 ms** per save.
+4. **Gzip.** `app.js` **1071.7 KB → 320.1 KB (70%)**, `index.html` 262 → 65 KB
+   (75%), largest CSS 77 → 25 KB (67%).
+5. **Focus traps now ask the DOM instead of a hard-coded list.** Eight dialogs
+   were untrapped.
+6. **Two queries stopped materialising every `Entry` to read one column.**
+
+### The three things that were only found by running it
+
+This is the part worth reading, because all three contradict what the source
+says at the line involved.
+
+- **A correctly-positioned button that could not be clicked.** At 360×640 the
+  new kebab rendered at exactly the right coordinates and was inert, because
+  `#agent-monitor` (`z-index: 1000`, fixed bottom-left) was sitting on top of
+  it. The popup's own `z-index: 90` also put it *below* `.modal-overlay`'s 55,
+  and it only ever painted above modals by accident of source order. Now 1010:
+  above the persistent panels, below the toast box's 1050. **`getBoundingClientRect`
+  said the button was in the right place and `getBoundingClientRect` was
+  right** — the shape to remember is the one CLAUDE.md already names: a value
+  that is wrong where it is *used*, not where it is set.
+- **Arrow keys did nothing in the new menu**, because arrow-key navigation had
+  been written inline inside `entryOverflowMenu`. So the note card's ⋯ had it,
+  and every menu built by `kebabMenu` — conversations, sidebars, and the new
+  selection menu — had none. Extracted to `wireMenuKeyboard(menu, opener)`,
+  which fixes it everywhere rather than only where it was noticed. This was
+  ROADMAP item E.5 on the hand-off list; it came off the list because my own
+  new feature depended on it.
+- **Gzip in the wrong middleware position silently disabled its own size
+  threshold.** Both existing middlewares are `BaseHTTPMiddleware`, which
+  re-wraps every response as *streaming*, and Starlette's gzip only consults
+  `minimum_size` on a response it can measure. Added outermost, `GET /health`
+  (70 bytes) and `GET /tags` (2 bytes) both came back gzipped — CPU spent
+  making small responses bigger, with the threshold doing nothing at all.
+  Measured, then moved innermost.
+
+### Two assumptions that were checked and turned out false
+
+Both were in my own plan before I tested them. Recorded because acting on
+either would have produced worse code:
+
+- **"Naive gzip buffers a stream into uselessness."** Not Starlette's:
+  `GZipResponder._compress_body` flushes with `Z_SYNC_FLUSH` on every chunk
+  carrying `more_body`, so chat streaming, the weekly digest and the live log
+  all still stream. The plan called for a hand-written middleware to avoid a
+  problem that does not exist.
+- **"A column-only `select(Entry.tags)` might drop the workspace filter",**
+  since that filter is a `with_loader_criteria` on the mapped class. A silent
+  yes would have leaked one space's notes into another's search scope — the
+  exact "guard removed while the shape around it was kept" failure the review
+  checklist names. Tested against a real two-space database: it does apply.
+  Pinned by two tests anyway, because the invariant is not obvious from
+  reading either side.
+
+### What could not be verified, said plainly
+
+- **Real touch hardware.** The touch path was verified by dispatching a
+  selection with *no* `mouseup` at all and confirming the kebab still appears —
+  which is the mechanism a long-press drag relies on — but no finger has
+  touched this. Whether the OS's own selection handles crowd the kebab on a
+  real phone is unknown.
+- **A real model.** `Extract notes…` and `Set a reminder` were verified as far
+  as the network call; this sandbox has no Ollama, so the AI's actual
+  splitting and reminder-parsing judgement is still only covered by the
+  fake-transport tests. The standing caveat at the top of CLAUDE.md applies.
+- **The 98% figure for `GET /entries` under gzip** is flattered by repetitive
+  seeded text. Real notes will compress less; the 70–75% figures for the
+  static frontend are honest, since those are the real files.
+- **`renderEntries()` still takes ~533 ms at 1,501 notes** after the lazy-menu
+  fix, because it still builds one card per note. That is hand-off item 4 and
+  it is the real remaining scalability ceiling.
+
+### Where to start
+
+§85.4. Items 1–3 are mechanical and have exact line numbers; item 4 is the
+one with real substance.
+
+---
+
+## Previous session — a global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
 
 Driven by live user requests rather than a roadmap sweep. Everything below is
 `pytest tests/` (1,600+ tests) green, `ruff check .` clean, `node --check

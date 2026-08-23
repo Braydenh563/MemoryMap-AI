@@ -140,6 +140,26 @@ the shape of assertion that would have caught the original bug, since the
 value never reached `set_preference` at all. `pytest tests/`, `ruff check
 .`, `node --check frontend/app.js` all clean.
 
+**Same sweep, two more of the identical bug shape, found by diffing
+`DEFAULT_PREFERENCES` keys against `PreferencesBody` fields and
+`get_preferences()`'s echoed keys** (script, not manual reading — the
+fastest way to be sure no fourth one was missed): `session_idle_ttl_minutes`
+was declared and honoured (`routes_auth.py`'s three idle-timeout checks) but
+never echoed — Settings → Account's field always showed its HTML default on
+reload. `response_mode` wasn't declared *at all* — `setResponseMode` (app.js)
+PUTs it on every Quick/Normal/Detailed pick, silently dropped every time,
+so "remember what I chose" (the feature's whole stated purpose in its own
+code comment) never once worked. Fixed both, plus a `_known_response_mode`
+validator (mirrors `_known_provider`) so a bad value is rejected at the door
+rather than sitting in storage forever. **Ruled out as false positives,
+checked rather than assumed**: `chat_model`/`embedding_backend`/
+`embedding_model`/`llm_provider`/`llm_base_url`/`llm_api_key` all go through
+a separate "Apply & re-index" flow, not `PUT /preferences` at all —
+different subsystem, not the same bug. `auto_entities_enabled` has no
+frontend control yet (backend-only, as HANDOVER already notes elsewhere) —
+nothing live to be broken. Four new tests. `pytest tests/`, `ruff check .`
+clean.
+
 ## Start here next session — a queue of live requests, none started
 
 Landed at 95%+ quota with no time left to act on them. In the order they

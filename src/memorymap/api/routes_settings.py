@@ -26,7 +26,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap import __version__
-from memorymap.ai import skills
+from memorymap.ai import presets, skills
 from memorymap.core import deps, embedmodels, extras, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
@@ -184,6 +184,13 @@ class PreferencesBody(BaseModel):
     # rather than free text, so a bad value is rejected at the door instead of
     # sitting in preferences quietly meaning "auto" forever.
     search_provider: str | None = None
+    # "Remember what I chose" for the Quick/Normal/Detailed response-mode
+    # picker (setResponseMode in app.js) — was never declared here at all,
+    # so the PUT it fires on every change returned 200 while silently
+    # dropping the value; the dropdown looked like it saved (it updates its
+    # own <select> client-side regardless) but reverted to presets.DEFAULT_MODE
+    # on the very next reload.
+    response_mode: str | None = None
     # Autonomous Tasks settings. These were declared twice — once here with
     # bare types and once above with the validated ones — and Pydantic silently
     # keeps the last definition, so the bounds below were the only ones that
@@ -271,6 +278,23 @@ class PreferencesBody(BaseModel):
             )
         return value
 
+    @field_validator("response_mode")
+    @classmethod
+    def _known_response_mode(cls, value: str | None) -> str | None:
+        """Same reasoning as `_known_provider` above: `_resolve_mode` would
+        happily fall back to the default for a bad value at read time, which
+        is right for a value already sitting in storage — but rejecting a
+        bad one at the door means the picker finds out immediately rather
+        than saving a typo that silently never takes effect."""
+        if value is None:
+            return value
+        if value not in presets.MODES:
+            raise ValueError(
+                f"Unknown response mode {value!r} — expected one of "
+                + ", ".join(sorted(presets.MODES))
+            )
+        return value
+
     # Named filters the user has saved from the Notes tab.
     saved_searches: list["SavedSearch"] | None = Field(default=None, max_length=30)
 
@@ -303,6 +327,13 @@ def get_preferences() -> dict:
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
         "display_name": config.get_preference("display_name", ""),
+        # Saved correctly and honoured correctly (routes_auth.py's three
+        # idle-timeout checks all read it) but never once echoed back here —
+        # the same shape of bug Tier 1 item 4a already fixed for eight other
+        # preferences. Settings → Account's timeout field showed its HTML
+        # default on every reload no matter what had actually been saved and
+        # was actually in effect, which reads as "my setting didn't save."
+        "session_idle_ttl_minutes": config.get_preference("session_idle_ttl_minutes", 720),
         "user_profile": config.get_preference("user_profile", ""),
         "profile_enabled": config.get_preference("profile_enabled", False),
         "custom_templates": config.get_preference("custom_templates", []),
@@ -324,6 +355,7 @@ def get_preferences() -> dict:
         "search_provider": websearch.normalise_provider(
             config.get_preference("search_provider", websearch.DEFAULT_PROVIDER)
         ),
+        "response_mode": config.get_preference("response_mode", presets.DEFAULT_MODE),
         "disabled_tools": config.get_preference("disabled_tools", []),
         "voice_model": config.get_preference("voice_model", "base"),
         "saved_searches": config.get_preference("saved_searches", []),

@@ -74,21 +74,36 @@ backend and returns the exports path; **the actual OS window never
 verified** — this sandbox has no desktop environment at all (`xdg-open` isn't
 even installed), so the endpoint's own graceful-failure path (a clean 500
 naming what's missing) is what got exercised, not a real file manager
-opening. **Not done**: the configurable-save-location half of the original
-ask — still just `data_dir/exports`, no preference for where it goes.
+opening.
+
+**Same session, closing out the pair**: the other half — a configurable
+save location — added as `export_save_dir` (`DEFAULT_PREFERENCES`,
+`PreferencesBody`, empty = default `data_dir/exports`). Validated at *save*
+time (`_validated_export_dir` in `routes_settings.py`: must be absolute,
+must exist, must be writable — a bad path is a rejected PUT, not a lost
+file discovered later), not export time. `routes_files.py` gained a shared
+`_exports_dir()` read by both `save_generated_file` and
+`open_exports_folder`, so setting the preference redirects both at once. A
+typed path field in Settings → Data (`#pref-export-dir`, save-on-blur/Enter,
+reverts to the last-good value on a rejected path), not a native folder
+picker — pywebview (confirmed in use: `__main__.py` imports it for the
+desktop window) does have `create_file_dialog`, but wiring a picker through
+to this route and shipping it unverified (no real desktop session in this
+sandbox to test it in) risked a worse bug than the one being fixed; a typed
+path is at least fully testable, which it was: 8 new backend tests
+(`test_file_save.py`, default/redirect/reset/relative-rejected/
+missing-rejected/not-a-directory-rejected/bad-value-doesn't-partially-apply/
+open-folder-creates-first) plus a live Playwright pass confirming the field
+populates, a bad path shows the exact rejection reason and reverts, a good
+path sticks, and Reset clears it. `pytest tests/` (~1,650 now), `ruff check
+.`, `node --check frontend/app.js` all clean.
 
 ## Start here next session — a queue of live requests, none started
 
 Landed at 95%+ quota with no time left to act on them. In the order they
 came in:
 
-1. **A configurable save location for exports** (the remaining half of the
-   item above) — currently hardcoded to `data_dir/exports` inside
-   `routes_files.py`'s `save_generated_file`. Would need a preference (same
-   shape as every other one: `DEFAULT_PREFERENCES`, `PreferencesBody`) plus
-   validating that whatever path the user types is writable before saving
-   the preference, not at export time when a bad path is a lost file.
-2. **Small-notebook search speed** — reported as "shouldn't take multiple
+1. **Small-notebook search speed** — reported as "shouldn't take multiple
    seconds." Now actually timed, not just read: `POST /chat` (keyword path,
    this sandbox has no embedding model) against a live server seeded with
    ~240 notes answered in 22ms, and a plain `GET /entries?search=` in 95ms

@@ -28,6 +28,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "embedding_backend": "sentence-transformers",  # or "ollama"
     "embedding_model": "nomic-embed-text",  # only used when backend == "ollama"
     "recycle_bin_days": 30,
+    # Where a generated export (graph PNG, chat export, whiteboard PNG — see
+    # routes_files.py's save_generated_file) is written. Empty means the
+    # default, `data_dir/exports`; validated at save time (PUT /preferences),
+    # not at export time, so a bad path is a rejected preference rather than
+    # a lost file. Asked for directly, alongside the "Open exports folder"
+    # button: "a configurable save location for exported images."
+    "export_save_dir": "",
     # Semantic search relevance (search_manager.py). Defaults match that
     # module's own MIN_SIMILARITY/RELATIVE_Z_MARGIN constants — kept here
     # too, as plain values rather than an import, so Settings -> Preferences

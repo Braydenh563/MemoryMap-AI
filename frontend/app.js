@@ -15490,6 +15490,8 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   $("desktop-console-row").classList.toggle("hidden", !isDesktop);
   $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
   $("open-exports-row").classList.toggle("hidden", !isDesktop);
+  $("export-save-dir-row").classList.toggle("hidden", !isDesktop);
+  if (isDesktop) $("pref-export-dir").value = prefsCache?.export_save_dir || "";
   if (isDesktop) {
     $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
   }
@@ -22524,6 +22526,34 @@ $("open-exports-folder").addEventListener("click", async () => {
   } catch (error) {
     toast(error.message || "Couldn't open the exports folder.", true);
   }
+});
+
+// Saved on blur/Enter, not on every keystroke — a half-typed path is not a
+// preference worth validating server-side yet. Reverts the field on a
+// rejected value rather than leaving a bad path sitting there looking saved.
+async function saveExportSaveDir() {
+  const input = $("pref-export-dir");
+  const value = input.value.trim();
+  if (value === (prefsCache?.export_save_dir || "")) return; // nothing changed
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ export_save_dir: value }),
+    });
+    input.value = prefsCache.export_save_dir;
+    toast(value ? `Exports will now be saved to ${prefsCache.export_save_dir}` : "Exports will save to the default location.");
+  } catch (error) {
+    input.value = prefsCache?.export_save_dir || "";
+    toast(error.message || "Couldn't save that folder.", true);
+  }
+}
+$("pref-export-dir").addEventListener("blur", saveExportSaveDir);
+$("pref-export-dir").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") $("pref-export-dir").blur();
+});
+$("pref-export-dir-reset").addEventListener("click", () => {
+  $("pref-export-dir").value = "";
+  saveExportSaveDir();
 });
 
 function toggleAutonomousPanel() {

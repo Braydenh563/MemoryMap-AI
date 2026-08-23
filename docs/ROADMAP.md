@@ -50,8 +50,15 @@ button shows/hides with desktop mode and the request reaches the backend;
 **the actual OS window never verified** — no desktop environment in this
 sandbox at all (`xdg-open` isn't installed), so what got exercised was the
 endpoint's own clean-failure path, not a real file manager opening.
-**Configurable save location — the other half of the original ask — is
-still not done**: still hardcoded to `data_dir/exports`.
+
+Same session, closing the pair: a configurable save location too —
+`export_save_dir` preference, validated (absolute/exists/writable) at save
+time rather than export time, a shared `_exports_dir()` used by both the
+save and open-folder routes, and a typed path field (not a native
+pywebview picker — real, but unverifiable in this sandbox, so left for a
+session with an actual desktop window to test it in). 8 new backend tests
+plus a live Playwright pass (bad path rejected and reverts with the exact
+reason shown, good path sticks, Reset works).
 
 `pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
 

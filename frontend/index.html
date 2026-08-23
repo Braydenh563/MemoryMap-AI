@@ -3578,6 +3578,20 @@ Link to another note with [[its first few words]]."></textarea>
                 </button>
                 <span class="muted">Where graph images, chat exports and the like are saved.</span>
               </div>
+              <!-- Desktop only, same gate as the row above: this is a path on
+                   the server's own filesystem, which only means anything when
+                   the browser tab *is* the local server. Validated server-side
+                   on save (an absolute, existing, writable folder, or empty
+                   for the default) — a typed path, not a native picker, since
+                   pywebview's own file-dialog API isn't wired up to this route
+                   and shipping that blind (unverifiable outside a real desktop
+                   session) risked a worse bug than the one being fixed. -->
+              <div class="row hidden" id="export-save-dir-row">
+                <label for="pref-export-dir" class="muted">Save exports to</label>
+                <input id="pref-export-dir" type="text" placeholder="Default: inside the app data folder">
+                <button id="pref-export-dir-reset" class="ghost small" type="button">Reset to default</button>
+              </div>
+              <p class="muted hidden" id="export-save-dir-status"></p>
             </div>
 
             <div class="settings-group">

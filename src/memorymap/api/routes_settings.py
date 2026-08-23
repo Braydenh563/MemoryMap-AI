@@ -122,6 +122,11 @@ class SkillItem(BaseModel):
 
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
+    # Empty string resets to the default (data_dir/exports). Validated in
+    # update_preferences (_validated_export_dir) — must be an absolute,
+    # existing, writable directory, checked at save time rather than at
+    # export time when a bad path means a lost file.
+    export_save_dir: str | None = Field(default=None, max_length=500)
     search_min_similarity: float | None = Field(default=None, ge=0, le=1)
     search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
@@ -284,6 +289,7 @@ def get_preferences() -> dict:
     config = deps.get_config()
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
+        "export_save_dir": config.get_preference("export_save_dir", ""),
         "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
@@ -399,6 +405,8 @@ def update_preferences(
             value = _validated_skills(value)
         if key == "custom_templates":
             value = _validated_templates(value)
+        if key == "export_save_dir":
+            value = _validated_export_dir(value)
         config.set_preference(key, value)
         changed_keys.add(key)
         # Don't copy profile text into the audit log — it's personal.
@@ -510,6 +518,27 @@ def _validated_templates(raw: list[dict]) -> list[dict]:
         seen.add(name)
         out.append(item)
     return out
+
+
+def _validated_export_dir(raw: str) -> str:
+    """An absolute, existing, writable directory — or a 422 saying which
+    check failed. Empty string always passes (resets to the default,
+    `data_dir/exports`). Checked here, at save time, rather than at export
+    time: a bad path caught now is a rejected preference; caught later it's
+    a lost file, discovered only when the next export silently goes nowhere
+    the user can find.
+    """
+    value = raw.strip()
+    if not value:
+        return ""
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise HTTPException(status_code=422, detail="Use a full path, not a relative one.")
+    if not path.is_dir():
+        raise HTTPException(status_code=422, detail=f"{path} isn't a folder that exists.")
+    if not os.access(path, os.W_OK):
+        raise HTTPException(status_code=422, detail=f"{path} isn't writable.")
+    return str(path)
 
 
 @router.get("/skills")

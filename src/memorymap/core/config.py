@@ -28,6 +28,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "embedding_backend": "sentence-transformers",  # or "ollama"
     "embedding_model": "nomic-embed-text",  # only used when backend == "ollama"
     "recycle_bin_days": 30,
+    # Semantic search relevance (search_manager.py). Defaults match that
+    # module's own MIN_SIMILARITY/RELATIVE_Z_MARGIN constants — kept here
+    # too, as plain values rather than an import, so Settings -> Preferences
+    # can offer a real "reset to default" without importing search_manager
+    # into config.py.
+    "search_min_similarity": 0.25,
+    "search_relative_z_margin": 0.5,
     # The user's IANA timezone, e.g. "Australia/Brisbane". Reported by the
     # browser on startup, because the browser is the only thing that knows
     # where the person actually is — the server may well be running in UTC
@@ -107,6 +114,23 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "smart_model_routing_enabled": True,
     # How long a session can be idle before the user must log in again.
     "session_idle_ttl_minutes": 720,
+    #: The desktop launcher's console window (start.bat/start-desktop.bat
+    #: open one; the packaged installer's build has none to show at all).
+    #: "Dev view" (console visible, True) is the default a fresh install
+    #: starts on — asked for directly, reversing an earlier default in this
+    #: same app: "dev view is the default on install and the user will be
+    #: presented with a popup option to change it just after install."
+    #: "User view" (False) is the one that hides it — genuinely never
+    #: creates a console at all when the app supports that (see
+    #: __main__.py's pythonw.exe relaunch), rather than trying to hide one
+    #: that already exists. Read by __main__.py before the window opens,
+    #: and kept in sync with the tray's own live toggle and Settings.
+    "show_console_on_startup": True,
+    #: Whether the first-run "Dev view or User view?" prompt has already
+    #: been shown, so it asks exactly once per install rather than on every
+    #: launch. Distinct from show_console_on_startup itself so a later
+    #: change via Settings/tray doesn't make the intro reappear.
+    "console_view_intro_seen": False,
 }
 
 

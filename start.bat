@@ -278,6 +278,17 @@ if defined MM_DESKTOP (
   echo  !ESC![1;38;5;73mNext time:!ESC![0m    open a terminal there and run start-desktop.bat again
   echo.
   "%VENV_PY%" -m memorymap --desktop
+  REM  Exit code 42 (RELAUNCHED_HIDDEN_EXIT_CODE, __main__.py) means "User
+  REM  view" handed off to a separate, console-less pythonw.exe process and
+  REM  this one exited on purpose - its job here is done. Falling through to
+  REM  the shared "has stopped" message and `pause` below would leave this
+  REM  window sitting on a keypress prompt forever, which is exactly the
+  REM  visible terminal "User view" exists to avoid - exit here instead so
+  REM  it closes itself the same way a normal double-click launch would.
+  if !errorlevel! equ 42 (
+    endlocal
+    exit /b 0
+  )
 ) else (
   echo  !ESC![1;38;5;73m[4/4]!ESC![0m Starting MemoryMap AI at http://localhost:8000
   echo        A browser tab opens in a moment. Close THIS window, or press

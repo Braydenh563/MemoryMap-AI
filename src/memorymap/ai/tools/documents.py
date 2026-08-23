@@ -73,44 +73,44 @@ def _get_document(session: Session, args: dict) -> dict:
     if document is None:
         raise ToolError(f"No document with id {args.get('document_id')}")
     text = document.content
-    
+
     query = args.get("query")
+    clipped = None
+    used_snippets = False
     if query:
-        # Simple semantic chunking for Local RAG
+        # A long document blows out the model's context; when the agent
+        # already knows what it's looking for, rank paragraph chunks by
+        # similarity to the query and hand back only the best few instead
+        # of a plain head-of-document truncation.
         from memorymap.ai.embeddings import cosine_similarity
+
         embeddings = deps.get_embeddings()
-        
-        # Split into paragraphs
         chunks = [p.strip() for p in text.split("\n\n") if len(p.strip()) > 20]
         if chunks:
-            # Embed the query
-            try:
-                q_vec = embeddings.embed(embeddings.backend_id(), query)
-                
-                # We could embed all chunks, but that might be slow. 
-                # For Local RAG polish, we embed them and rank:
-                chunk_vecs = [embeddings.embed(embeddings.backend_id(), c) for c in chunks]
-                scored = [(cosine_similarity(q_vec, cv), c) for cv, c in zip(chunk_vecs, chunks)]
-                scored.sort(key=lambda x: x[0], reverse=True)
-                
-                # Take top 3 chunks
-                best_chunks = [c for _, c in scored[:3]]
-                clipped = "\n\n...\n\n".join(best_chunks)
-            except Exception:
-                # Fallback if embedding fails
-                clipped = _clip(text, DOCUMENT_CHARS)
-        else:
-            clipped = _clip(text, DOCUMENT_CHARS)
-    else:
+            q_vec = embeddings.embed_text(query)
+            if q_vec is not None:
+                chunk_vecs = [embeddings.embed_text(c) for c in chunks]
+                scored = [
+                    (cosine_similarity(q_vec, cv), c)
+                    for cv, c in zip(chunk_vecs, chunks)
+                    if cv is not None
+                ]
+                if scored:
+                    scored.sort(key=lambda x: x[0], reverse=True)
+                    best_chunks = [c for _, c in scored[:3]]
+                    clipped = "\n\n...\n\n".join(best_chunks)
+                    used_snippets = True
+    if clipped is None:
         clipped = _clip(text, DOCUMENT_CHARS)
-        
+
     return {
         "id": document.id,
         "title": document.title,
         "content": clipped,
         "truncated": len(clipped) < len(text),
         "words": len(text.split()),
-        "label": f"ph:file-text Read the document “{_clip(document.title, 40)}”" + (f" (extracted snippets for query)" if query else ""),
+        "label": f"ph:file-text Read the document “{_clip(document.title, 40)}”"
+        + (" (extracted snippets for query)" if used_snippets else ""),
     }
 
 

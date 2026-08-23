@@ -17,6 +17,7 @@ from memorymap.ai.embeddings import (
     vector_to_bytes,
 )
 from memorymap.core import deps
+from memorymap.core.database import EmbeddingRecord
 from memorymap.entry import manager
 from memorymap.search import search_manager
 from tests.fakes import FakeEmbeddingService, FakeOllama, GarbageOllama
@@ -146,6 +147,68 @@ def test_semantic_search_ranks_same_topic_first(session):
     assert results is not None
     contents = [entry.content for entry, _score in results]
     assert contents == ["a funny scarecrow joke"]  # shopping is below the floor
+
+
+def test_semantic_search_relative_floor_rejects_anisotropic_noise(session):
+    """A real bug, reported live: an unrelated note scored 57% cosine
+    similarity for an unconnected query. The flat MIN_SIMILARITY floor
+    (0.25) assumes "0 is unrelated", which does not hold for the current
+    default embedding model (BGE-family, anisotropic — see
+    search_manager.py's own comment on RELATIVE_Z_MARGIN): unrelated notes
+    routinely land at 0.4-0.6, well above that floor.
+
+    Builds that shape directly with hand-picked vectors rather than
+    FakeEmbeddingService's clean one-hot topics (which cannot produce it —
+    orthogonal axes give exactly 0.0 for "unrelated", never anisotropic
+    noise). A corpus where every note happens to be similarly-but-not-really
+    related to the query (~0.5, simulating the anisotropic baseline) plus
+    one note that is genuinely on-topic (~0.9) — the relative floor should
+    keep only the real match, not just whatever clears the absolute 0.25."""
+    rng = np.random.default_rng(0)
+
+    def _near(base: np.ndarray, spread: float) -> np.ndarray:
+        return (base + rng.normal(0, spread, size=base.shape)).astype("float32")
+
+    query_vector = np.array([1.0, 0.0, 0.0, 0.0], dtype="float32")
+    # A direction close enough to the query to land around ~0.5 cosine
+    # similarity — "moderately similar", not "unrelated by chance".
+    baseline_direction = np.array([0.5, 0.5, 0.5, 0.5], dtype="float32")
+
+    entries = []
+    for i in range(6):
+        entry = manager.create_entry(session, f"baseline note {i}")
+        entries.append(entry)
+        session.add(
+            EmbeddingRecord(
+                entry_id=entry.id,
+                embedding=vector_to_bytes(_near(baseline_direction, 0.02)),
+                dim=4,
+                model_version="fake:relative-floor-test",
+            )
+        )
+    real_match = manager.create_entry(session, "the actual match")
+    session.add(
+        EmbeddingRecord(
+            entry_id=real_match.id,
+            embedding=vector_to_bytes(_near(query_vector, 0.02)),
+            dim=4,
+            model_version="fake:relative-floor-test",
+        )
+    )
+    session.commit()
+
+    class _FixedQueryEmbeddings(FakeEmbeddingService):
+        def backend_id(self) -> str:
+            return "fake:relative-floor-test"
+
+        def embed_text(self, text: str) -> np.ndarray:  # noqa: ARG002
+            return query_vector
+
+    results = search_manager.semantic_search(session, "anything", _FixedQueryEmbeddings())
+    assert results is not None
+    result_ids = {entry.id for entry, _score in results}
+    assert real_match.id in result_ids
+    assert result_ids.isdisjoint({e.id for e in entries})
 
 
 def test_semantic_search_returns_its_matches_in_rank_order(ai_client, session):

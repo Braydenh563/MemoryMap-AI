@@ -62,7 +62,13 @@ def web_search(
     try:
         results = websearch.search_web(
             q,
-            limit=max(1, min(limit, 10)),
+            # Matches this route's own `le=20` bound. Used to clamp to 10
+            # regardless of what was asked for: both providers already fetch
+            # one page and slice it (rows[:limit] / _parse_results(body,
+            # limit)), so nothing about asking for up to 20 costs a second
+            # request — the frontend's "show more" reveals the rest of what
+            # was already fetched, not a second search.
+            limit=max(1, min(limit, 20)),
             searxng_url=searxng or None,
             provider=provider,
         )

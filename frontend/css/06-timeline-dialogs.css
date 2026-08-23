@@ -739,6 +739,49 @@
   cursor: pointer;
 }
 
+/* Terminal view: the same filtered records List draws, styled to look like a
+   real console rather than the app's own theme. Fixed dark colours on
+   purpose, not theme tokens — the point is "what would have printed to a
+   terminal window", and a terminal doesn't switch to light mode along with
+   the rest of the app just because Settings → Appearance does. Doubles as
+   the answer to User view hiding the console entirely: this is where that
+   output goes instead. */
+.log-terminal {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  max-height: 32rem;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  background: #10141c;
+  color: #d7dee8;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-term-line {
+  padding: 0.05rem 0;
+}
+
+.log-term-line.is-warn {
+  color: #f5c451;
+}
+
+.log-term-line.is-error {
+  color: #ff6b6b;
+}
+
+/* Indented under the line that raised it, same idea as List's fold — just
+   never folded, because a real console never folds one either. */
+.log-term-trace {
+  margin: 0 0 0 1.25rem;
+  padding-bottom: 0.25rem;
+  color: #8891a1;
+  white-space: pre-wrap;
+}
+
 /* The last-resort copy dialog: the text is on screen and already selected. */
 .copy-fallback-card {
   max-width: min(46rem, 92vw);

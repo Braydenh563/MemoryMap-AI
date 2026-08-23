@@ -1,8 +1,493 @@
 # Session handover
 
+## Start here next session — a queue of live requests, none started
+
+Landed at 95%+ quota with no time left to act on them. In the order they
+came in:
+
+1. **Note-citation/hyperlink badges in chat.** When the model names a
+   specific note in prose, stack small badges at the end of that paragraph
+   linking to it. Investigated only: no existing infra for this specific
+   shape (the "View" button system in agent.py's `_change_*` resolvers +
+   `changeRow` in app.js is comprehensive but covers *tool-call results*,
+   not prose mentions — a different, unbuilt thing). ROADMAP.md §80 and
+   earlier in this file have more detail from the original ask.
+2. **Question-mark info tooltips + quick-access links** for the new
+   Settings → Preferences → "Search relevance (advanced)" group (min
+   similarity / above-average margin, added this session), from the
+   Dashboard, the Ask sub-tab, and Chat. Not started — the settings
+   themselves work, just no tooltip and no shortcut into them yet. Same
+   `graph-help-toggle`/`aria-controls` pattern used elsewhere in this file
+   (e.g. `#draft-help`) is the one to copy for the tooltip half.
+3. **Easier access + a configurable save location for exported images.**
+   User: "I have to dig in the app data files to find and access them."
+   Not investigated at all — start by finding where an export actually
+   writes the file today.
+4. **Small-notebook search speed** — reported as "shouldn't take multiple
+   seconds." Checked this session: `keyword_search` is SQLite FTS5
+   (indexed), `semantic_search` is one vectorized numpy pass over
+   pre-stored vectors (no per-note re-embedding, no N+1 queries) — neither
+   should be slow for a small notebook. Not reproduced or timed on real
+   hardware; the likely cause, if real, is one-time embedding-model
+   warmup or LLM answer-generation time being felt as "search" rather
+   than the search algorithm itself. Worth asking the user to time it
+   with the model already warm before assuming the algorithm needs work.
+
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
-## Latest session — a planned queue of 11 items worked in order (documents in the graph, a stale ROADMAP claim caught before rebuilding, graph camera/physics bugs found by measurement, a fourth autonomous-agent task), plus four live-reported UI bugs fixed mid-session on request
+## Latest session — Dev view/User view console mode shipped, a live sign-out bug in that same feature found and fixed same-session, a real model-timeout fix, and a batch of user-reported quick fixes
+
+Driven entirely by live user reports across a long session (continued from
+an earlier compaction), not a roadmap sweep. ROADMAP.md §80 has the short
+version; this is the full one. `pytest tests/` (~1,600 tests), `ruff check
+.`, and `node --check frontend/app.js` were run clean before every push —
+pushed repeatedly this session, all to PR #121
+(`claude/gemini-changes-review-vpvud2` → `feat/gemini-additions-3`), which
+the web UI created and which stays the one PR for this branch: **push more
+commits to it, do not open a new one.**
+
+**Later in the same session, past this entry's original writing (kept
+short — quota ran low):** drafts fixed end-to-end (no save-as-draft in the
+main Capture box at all; no Drafts sub-tab in Library despite HISTORY.md
+and a stray comment both claiming one existed — both built, live-verified).
+Semantic search fixed: `MIN_SIMILARITY=0.25` (`search_manager.py`) was
+tuned for the old default embedding model (all-MiniLM); the current one
+(BGE-family, anisotropic) routinely scores unrelated notes 0.4-0.6, which
+is exactly what got reported (a Pokemon-image note at 57% for a "social
+skills" query). Added a second, relative floor from each query's own score
+distribution — self-calibrating, doesn't need a new guessed magic number.
+Chat header: a long model id with no spaces (an Ollama tag) grew past its
+box instead of eliding, pushing Compress/Export/Delete onto their own row —
+`white-space: nowrap` + a real `max-width` fixed it; `overflow`/
+`text-overflow` alone don't truncate without both.
+
+**Two requests landed with no time left to act on them — not started,
+just recorded so they aren't lost:**
+- Advanced search settings (Settings → Preferences is the natural home,
+  matching its existing numeric-pref pattern like `pref-bin-days`): expose
+  `MIN_SIMILARITY` and the new `RELATIVE_Z_MARGIN` (both in
+  `search_manager.py`) as preferences with a reset-to-default. Backend
+  plumbing is the same shape as every other preference in this app
+  (`DEFAULT_PREFERENCES`, `PreferencesBody`, `get_preferences()`) — the one
+  thing to check first is whether `deps.get_config()` is safe to call from
+  inside `semantic_search()` given several unit tests call it directly with
+  only a bare `session` fixture, no `app_state`.
+- Exported images are hard to find/access ("I have to dig in the app data
+  files") and their save location isn't configurable. Not investigated at
+  all — start by finding where an export actually writes the file today.
+
+**Dev view / User view console mode** — asked for directly: a first-run
+popup plus a live Settings/tray toggle between a visible console ("Dev
+view", now the fresh-install default — `DEFAULT_PREFERENCES` in
+`core/config.py`) and none at all ("User view"). The mechanism is a
+**relaunch**, not a hide: `_run_desktop()` in `__main__.py` used to call
+`ShowWindow` on an already-created console, which the user reported as
+unreliable ("just changes what window is focused... doesn't stop it from
+showing"). Root-caused (unverified on real Windows) to Windows
+Terminal/ConPTY: `GetConsoleWindow()` from a child process can return a
+handle to a hidden pseudo-console host rather than the actual visible
+terminal window under that hosting mode. Fixed architecturally instead of
+patched: User view now spawns a fresh, detached `pythonw.exe` (which never
+allocates a console at all) via `CREATE_NO_WINDOW | DETACHED_PROCESS`; Dev
+view spawns ordinary `python.exe` with `CREATE_NEW_CONSOLE`. `start.bat`
+recognises exit code 42 (`RELAUNCHED_HIDDEN_EXIT_CODE`) as "handed off on
+purpose," not a crash. **None of the Win32 mechanics are verified on real
+Windows** — this sandbox has no console to hide or relaunch into. If a
+report comes back either way next session, that is the first thing to
+check, not the code.
+
+**A serious bug in that same feature, found and fixed in the same
+session because the user was actively testing it live.** Reported: "showed
+both before and after I signed in... randomly signed me out... popup kept
+appearing every other time." Root cause, in `maybeShowConsoleViewIntro`
+(`frontend/app.js`):
+
+1. Its only guard was `prefsCache?.console_view_intro_seen`. `startApp()`
+   also runs once with a stale token before a real sign-in (pre-existing
+   behaviour, documented in `apiJson`'s own comment about a dozen parallel
+   401s on a restarted server) — on that pass the silent `/preferences`
+   fetch fails and `prefsCache` stays `null`. `null?.x` is `undefined`,
+   which is falsy, so the popup fired on that unauthenticated pass too, then
+   fired *again* on the real post-login `startApp()` because nothing from
+   the first pass had actually been saved.
+2. It POSTed to `/system/console-mode` — the same route Settings/tray use,
+   which restarts the whole desktop process the instant the choice differs
+   from the default. Right for an explicit toggle; wrong for a popup that
+   appears on its own, since it killed the server's in-memory session
+   mid-login (the "signed out at random") and raced its own "mark this
+   answered" write against that same process exit, which is why the popup
+   came back "every other time" rather than never or always.
+
+Fixed by requiring `prefsCache` to actually exist (a failed fetch now reads
+as "don't know yet," not "fresh profile, ask") and replacing the two racing
+requests with one atomic `PUT /preferences` that sets both preferences and
+never restarts — the choice takes effect next launch, said in both the
+dialog text and the toast. **This part is verified live** (Playwright,
+since it is a pure preferences/auth-state bug, not Win32 mechanics): the
+popup makes zero calls to `/system/console-mode`, does not fire when
+`prefsCache` is `null` (the exact race that caused the loop), persists in
+one request, and does not reappear on a normal reload.
+
+**Terminal-style Settings → Logs view**, asked for right after the console
+work ("upgrade the logs page with an additional terminal view... to show
+the logs that would appear in the terminal there instead but through the
+gui"). A `List`/`Terminal` segmented toggle (`#log-view-toggle`, same
+pattern as the reminders view's own toggle) renders the same filtered
+`logRecords` as raw console-style lines instead of the structured/foldable
+rows — `.log-terminal` in `06-timeline-dialogs.css`, fixed dark colours on
+purpose since it is standing in for a terminal window and should not follow
+the app's own light/dark theme. Tracebacks print inline rather than
+folding, which is the one real advantage over the List view, not just a
+different coat of paint. **Verified live**: renders real log data with
+correct level colouring classes, toggle state persists across reload
+(localStorage, `logView` key), Follow/scroll work against whichever
+container is active.
+
+**Image Gallery lightbox "1 of 2" phantom-image bug**, reported with a
+screenshot: a tile whose backing file is missing on disk (deleted, or a
+leftover DB row from a partial delete) removes its own DOM tile on the
+`<img>` `error` event, but left the shared `images` array in
+`whiteboard.js` stale — so a gallery with one real image and one broken one
+showed one tile while the lightbox still counted two. Fixed by splicing the
+broken entry out of `images` on the same error handler. **Reproduced and
+fixed live**: created two uploads via `/media/upload`, deleted one file on
+disk, `git stash`/`git stash pop` to prove the bug pre-fix ("2 of 2" with
+one visible tile) and its absence post-fix. The separately-reported
+"nav arrows aren't centred" was investigated by measuring
+`getBoundingClientRect()` offsets in three scenarios (real image, 404
+image, the exact broken-entry repro) — all came back exactly 0px. Reported
+as "couldn't reproduce, likely the same root cause read differently" rather
+than inventing a second fix for a bug that may not exist separately.
+
+**Local models past roughly 4B parameters timing out or failing to
+respond**, reported live and genuinely root-caused this time (earlier
+sessions had flagged "backend issue or too tight on slower devices" without
+digging in). `OllamaClient` and `OpenAICompatClient` (`ai/ollama_client.py`,
+`ai/openai_client.py`) both defaulted their `requests` timeout to 120
+seconds, hardcoded, nothing overriding it anywhere in `deps.py`. A model
+past ~4B loaded cold on modest or CPU-only hardware can take well past two
+minutes just to load into RAM/VRAM — the server sends nothing over the wire
+during that load, so the read timeout fires mid-load and the app reports
+"no response" for a model that was working the whole time. Ollama makes
+this worse on its own: it unloads an idle model after its own 5-minute
+default and reloads it cold on the next request, so a notebook used on and
+off through a day pays the load cost on most turns, not just the first.
+Fixed: both timeouts raised to 600s, and `keep_alive: "30m"` added to every
+Ollama chat request so a model stays warm across a normal session. **This
+is reasoned from the timeout mechanics, not reproduced** — there is no
+Ollama and no large model in this sandbox to actually cold-load and time.
+The existing fake-transport test suite still passes (nothing in it asserts
+the literal timeout value or the new `keep_alive` key), which rules out a
+regression but says nothing about whether 600s is the right number on real
+hardware. **If a user reports this again, the first question is whether
+600s was still too short**, not whether the theory was wrong.
+
+**Tool-call output in chat looked truncated despite an already-scrollable
+box**, reported live: "make the tool call output view... a small scrollable
+text box rather than it being truncated." The box already was one —
+`.tool-chip-result` in `02-chat-graph.css` already had
+`max-height: 12rem; overflow-y: auto; white-space: pre-wrap`. What starved
+it was `agent.py` building the UI-facing `result_summary` (a separate field
+from the `payload` actually fed back to the model, which has its own real
+token budget a few lines down) by cutting raw tool output to 300 characters
+for any tool that doesn't provide its own human-written `summary`. That
+number was never tied to cost. Raised to 4000.
+
+**Answered but not implemented — a small-model tool-call recognition
+framework**, asked as a design question: "is it possible to make the agent
+better at recognising instructions or requests for specific tool calls...
+without bloating context... models larger than like 4B struggle to even
+load." (The second half of that question is the timeout bug above, now
+fixed; the first half is answered, not built.) The honest answer: a literal
+"recognised phrases" matcher in front of the model is the wrong shape —
+either it duplicates what even a 4B model already does fine (matching
+"remind me" to `create_reminder`), or it fails silently on the paraphrase
+that matters, and a silent miss is worse than the status quo because it
+looks like intelligence rather than a lookup table. The tractable version
+of the actual ask is **narrowing which tools are even offered, by detected
+intent, before the model sees the list at all** — `agent.py`'s per-mode
+tool subsetting and `tool_focus` preference already half-implement this
+shape; the gap is a real classifier deciding the subset instead of a fixed
+per-mode list. Worth a design pass before code — full sketch is in
+ROADMAP.md §80.
+
+**Still open from the same request batch, unstarted, in the order asked**
+(ROADMAP.md §80 has the one-paragraph version of each):
+1. Hyperlinked note-mention badges in AI chat answers, stacked at the end
+   of a paragraph when the model names a specific note.
+2. Image OCR for notes — `pytesseract` against a system `tesseract` binary.
+   Optional-dependency caution applies here exactly like it did for Pillow
+   this session (see "traps," below): CI will not have `tesseract`
+   installed unless a workflow step adds it, and this sandbox's own
+   presence/absence of the binary is not evidence either way.
+3. Letting a vision-capable model see images in chat. Neither provider
+   client currently sends image content in a message at all — this is new
+   multimodal wiring (base64 image parts in the message list), not a
+   toggle on existing plumbing.
+4. Graph minimap and saved/named views — §9's decorative half, still
+   untouched. PNG export from that same section is already done, so this
+   is not starting from nothing.
+
+### Traps for next session
+
+- **The Win32 relaunch mechanics (console-mode feature) are entirely
+  unverified.** Read the reasoning above before assuming a Windows bug
+  report means the code is wrong — it might be, but so might 600s still be
+  too short, or a detail of `pythonw.exe`'s path resolution on a packaged
+  install rather than a `start.bat` run. Ask what changed before re-deriving.
+- **`prefsCache` can legitimately be `null` mid-bootstrap** (a stale-token
+  pass before real sign-in) — any *new* code gated on `prefsCache?.something`
+  needs to decide on purpose whether `null` means "ask/show" or "wait," the
+  same mistake this session's own popup bug made. Default to "wait" unless
+  there is a good reason not to.
+- **A UI-facing display value and the value actually fed back to the model
+  are not always the same variable** (`result_summary` vs `payload` in
+  `agent.py`) — a truncation limit on one is not automatically about token
+  cost, and conflating them either wastes tokens (loosening the wrong one)
+  or under-displays (this session's actual bug). Check which one a number
+  belongs to before changing it.
+- **Optional dependencies not in `requirements.txt` can be present in this
+  sandbox's venv and absent in CI** — Pillow was the second time this exact
+  shape has cost a session (`pytest.importorskip` is the fix, not assuming
+  local pass means CI passes). `tesseract`/`pytesseract` for OCR (#29 above)
+  and any future vision-model image handling are the next places this trap
+  is waiting.
+
+---
+
+## Previous session — a real height-collapse bug traced to a duplicate padding rule, four ROADMAP.md gaps found already built and retracted, and five new features (drafts filter, chat one-click note/reminder, most-linked widget, reminders calendar, graph PNG export)
+
+Continuation of the Gemini-audit session below, then a user request batch
+(note drafts surfaced properly, the startup console bug, radio buttons
+restyled to switches, the version string), then an explicit "go to sleep,
+work autonomously, impress me" grant — commit/push as it went, work through
+the Perplexity brainstorm doc, then the roadmap's highest-impact items once
+requests ran out. `pytest tests/` (~1,600 tests) was run after every batch —
+clean throughout — plus `ruff check .` and `node --check` on every changed
+JS file before each push.
+
+**Console-hide timing bug, actually root-caused rather than re-patched.**
+The "hide console on startup" checkbox was already wired correctly — the bug
+was *when* it ran. `_run_desktop()` checked the preference via
+`deps.get_config()`, which needs `create_app()` to have run on the server
+thread first, which only finishes after `_wait_for_server()`'s multi-second
+wait — so the console was hidden several seconds into every startup, plenty
+of time to see it flash. Fixed by reading the preference through a
+standalone `ConfigManager()` (reads `preferences.json` straight off disk,
+no server dependency) *before* the server thread starts. New test proves the
+ordering itself (mocks `_wait_for_server` and records the hide call's
+argument at call time), not just the eventual outcome — a test that only
+checked "hidden by the end" would have passed against the broken code too.
+
+**Two Settings checkboxes restyled from bare `<input>` to the app's own pill
+switch** (GitHub version-check, show-console-on-startup) — asked for
+directly ("I don't like radiobuttons"). Root cause was markup structure, not
+a missing rule: every other Settings checkbox already used
+`<label class="row space-between"><input>...</label>` and the existing CSS
+already covered that shape; these two were `<label for="…">` siblings next
+to the `<input>`, which the selector never matched. Restructuring the markup
+was the whole fix.
+
+**A real, measured height-collapse bug found while live-verifying an
+unrelated feature (web search's "show more"), the strongest example this
+session has for "measure and look before claiming a UI change works."** On
+a fresh profile's first empty "New chat," `#chat-main` measured **137px**
+against a **713px** flex parent — traced through the whole chain
+(`.layout`'s `height: 100%` resolving to only 425px of a 761px `#tab-chat`)
+to one line: `body.has-agent-monitor .tab-page { padding-bottom: calc(...)
+}` was still landing on `#tab-chat`/`#tab-notes` themselves (both carry the
+`.tab-page` class) *on top of* the correct, already-existing override on
+their real scroll container (`.layout > main`). This is the identical bug
+`#tab-documents` was already patched for — "Documents never got this
+treatment when Notes and Chat did" turned out backwards; Notes and Chat
+never got the *outer* override Documents did. Fixed by adding both to that
+existing override (`07-whiteboard-misc.css`). Invisible with a real
+conversation loaded (the inner scroll container's own overflow just clips
+the extra) — the trap for a future session is that this class of bug hides
+completely behind "just test with some data in it."
+
+**ROADMAP.md's "Gaps found, ranked by value" list was significantly
+stale — four of eight items already fully built, all four found by actually
+checking the running app rather than trusting the doc**, in the middle of
+picking a next item to implement (this file's own opening rule, applied to
+its own sibling doc): auto-lock idle timeout (`session_idle_ttl_minutes`,
+Settings → Account & security's working dropdown), the per-note "Duplicate"
+action (already in the note's overflow menu), the command palette's
+title/Documents/Reminders/Conversations search (already covers all of it),
+and Timeline's "jump to today" + custom date range (both already built and
+wired). Each retraction is written in place — struck through, not deleted —
+so the claim and its correction both stay on record. Gaps 1–2 (image OCR,
+vision-model chat input) and two-thirds of gap 3 (graph minimap, saved
+views — the export third is now done, below) are genuinely still open, also
+re-verified rather than assumed.
+
+**Five new features, each live-verified with Playwright before commit:**
+- **Drafts get a dedicated sidebar filter** in Notes (both origins — the
+  text-selection popup's "Save as draft note" and the Writing Room's "Save
+  as note" — converge on the same `is_draft` flag and the same filter).
+  Deliberately *not* duplicated into Library — that tab's own code comment
+  already states "don't duplicate surfaces" as a design principle.
+- **Web search**: the route's own `limit` clamp was silently capped at 10
+  even though its bound is 20 and both providers already fetch a full page
+  before slicing — raised to match, and the frontend now shows 8 results
+  with a "Show N more" reveal plus clickable recent-search history chips
+  (localStorage, client-only).
+- **Chat answers get one-click "Save as draft note" / "Set a reminder"
+  buttons** (Perplexity brainstorm doc review's one clear gap for Ask/Chat).
+  The reminder button deliberately skips an AI-parse round trip and a
+  due-date prompt — either costs a decision before anything is saved, which
+  defeats "one click" — and instead creates the reminder immediately with a
+  plain default (tomorrow, 9am); its toast carries an "Edit" action that
+  jumps straight to it in Reminders, opened in its edit form.
+- **A "Most-linked notes" dashboard widget** (the Perplexity doc's other
+  clear gap) — reuses the existing `/graph` endpoint client-side, ranks by
+  edge count, no new backend route.
+- **Reminders gets a month-grid calendar view** next to the existing flat
+  list (ROADMAP.md gap 4, re-verified genuinely open). Cell height started
+  at `aspect-ratio: 1` — measured 179px square, 1140px for the whole grid —
+  fixed to a 3.75rem floor before committing; a month view that needs
+  scrolling to see its own last week defeats the point.
+- **Graph tab gets PNG export** (the export third of gap 3) — captures
+  what's on screen via a cloned, computed-style-inlined SVG (the export is
+  rasterized via a detached `<img>`, completely outside the page's own
+  stylesheets and `:root` custom properties, so a plain clone would lose
+  everything driven by a CSS class or `var()`). Caught by testing *both*
+  themes rather than one: the first draft's background fill read `body`'s
+  computed background, which resolves to `rgba(0,0,0,0)` in both themes
+  (the real background is a gradient on `<html>`; `.card`/`--card` is
+  deliberately translucent glass) — happened to look right in light mode
+  purely because a transparent PNG renders as white in most viewers, and
+  was visibly wrong in dark mode. Fixed by keying a flat fallback off the
+  app's own `resolvedTheme()` helper; both themes reconfirmed by opening
+  the downloaded PNGs directly, not just checking they existed.
+
+**Not verified, said plainly:** none of this session's UI work went
+untested — everything above was checked live in Chromium, including both
+colour themes for the graph export and both the seeded and fresh-profile
+states for the height-collapse bug. What *wasn't* checked: how the new
+Reminders calendar view holds up against the design-audit checklist
+(Nielsen/Gestalt/breakpoint matrix) that Notes/Reminders' flat list already
+went through — it's a genuinely new surface, not yet through any round of
+that.
+
+## Previous session — auditing a squashed commit of changes an external agent (Gemini/Antigravity) made outside this codebase's own session history, then six fresh live-reported requests
+
+A different tool (Gemini, via Antigravity) had been making changes directly
+against a local checkout, outside any Claude session — the only record of
+what it did is a chat-log export the user attached, not this repo's own
+history. One squashed commit (`6e25d65`, already on this branch before the
+session started) held what actually landed; a large amount the chat log
+describes as "done" (a full note-drafts UI in the Capture and Library tabs,
+a login-screen syntax-error fix, a Pillow warning suppression) was **never
+actually committed** — grepping for its own ids (`capture-drafts-container`,
+`save-draft-btn`) found nothing, and existing "draft" support in app.js
+matched the chat log's own *starting* point, not its end state. Not rebuilt:
+it wasn't part of what the user actually asked this session (see below), and
+guessing back a multi-step feature from a chat transcript alone, past what
+was asked, risks reproducing whatever broke it the first time.
+
+**Auditing the commit that did land found the exact four failure shapes
+CLAUDE.md's own review section names, every one of them real, not
+hypothetical:**
+1. **A route that 500'd on every call**: `_sweep_expired()` gained a
+   required `idle_ttl` argument (for a new configurable
+   `session_idle_ttl_minutes` preference) but `/auth/account`'s own call
+   site was never updated — Settings → Account was completely broken.
+2. **Two features that never ran once**: the four new Export buttons
+   (JSON/Markdown/CSV/Full Backup) navigated via `window.location.href`
+   with the auth token in a query string, but `/export/*` only ever reads
+   the `X-Auth-Token` header — every click 401'd, invisibly (a plain
+   navigation shows no console error). Bulk Directory Import's background
+   task imported `SessionLocal` from `memorymap.core.deps`, which does not
+   exist there — its `ImportError` went to the server log, never to the
+   user, so a "started" response was the only thing anyone ever saw.
+3. **A duplicate id silently disabling half a UI**: the new Export section
+   duplicated `export-json`/`export-csv`'s ids from the pre-existing one —
+   `test_frontend_ids.py` catches this now, but the buttons in the new
+   section were simply inert (`getElementById` only ever finds the first
+   match) until it was caught.
+4. **A CSP violation with no visible symptom in the diff itself**: four new
+   inline `style="..."` attributes, refused outright by this app's CSP,
+   rendering as no styling at all — `test_security_boundaries.py`'s own
+   inline-style check caught these; without it they'd have shipped looking
+   fine in the raw HTML and wrong in every browser.
+
+Also found and fixed: `get_document`'s "RAG snippet extraction" called
+`embeddings.embed(backend_id, text)`, a method that doesn't exist (it's
+`embed_text(text)`) — the bare `except Exception:` around it meant it always
+silently fell back to plain truncation, and its tool schema was never
+updated to expose the `query` argument the code branched on regardless. All
+of the above are now fixed **and covered by tests that actually exercise the
+fixed code path** (not just "it imports cleanly") — `test_get_document_
+with_a_query_returns_the_relevant_paragraphs` genuinely ranks chunks with the
+fake embedding backend, `test_directory_import_walks_a_folder_and_files_
+notes` genuinely runs the background task against a real temp directory,
+`test_full_backup_export_is_a_zip_of_the_database` genuinely opens the
+returned zip. Five throwaway `patch_*.py`/`replace_timeline.py` scripts
+Gemini used to apply its own edits had been committed to the repo root by
+mistake (unreferenced by anything) — deleted.
+
+**The six fresh, live-reported requests, all addressed:**
+- **"Prefer start-desktop.bat"** — README.md and docs/INSTALL.md now lead
+  with it on Windows (opens the app's own window, not a browser tab);
+  `start.bat` is the explicit alternative for a browser tab.
+- **Hide the terminal, with a way to show it again** — a "Hide console
+  window" checkbox item on the tray menu (`GetConsoleWindow()` +
+  `ShowWindow(SW_HIDE/SW_SHOW)` via ctypes), present only when a real
+  console is attached — absent on the packaged installer build, which has
+  no console at all (`console=False` in the PyInstaller spec already).
+  Two new tests exercise the menu-building logic against fake
+  pystray/PIL/`ctypes.windll` stand-ins, the same pattern this suite
+  already uses for the AppUserModelID branch.
+- **Trace resets when a note in the trace path is clicked** — clicking a
+  note chip in a *completed* trace jumps to the Notes tab (`flashEntry`);
+  coming back to Graph re-opens the trace panel (localStorage remembers it
+  was open) via `setTracePanelOpen(true)`, which unconditionally
+  overwrote the readout with "Click a note to start.", discarding the path
+  that had just been found. Fixed to show what's actually true. **Live-
+  verified with Playwright**: created two linked notes via the API, ran a
+  real trace, clicked the note-in-path button, switched back to Graph —
+  the full path readout was still there, byte-identical to before the
+  click, not reset.
+- **Chat text running behind the web search panel** (reported with a
+  screenshot) — `#chat-main`, a flex sibling of `#web-panel` in the same
+  row, had no `min-width: 0`, so a long unbroken line refused to shrink
+  the column even though `#chat-messages`/`.msg` already guard against
+  exactly this one level down (their own comments say so) — the guard was
+  just missing one level higher in the same chain. No ground-up redesign
+  of the panel itself: its own history (§36G) shows substantial prior
+  iteration (resizable, widened per feedback, the SearXNG control moved
+  in), so a rebuild would have mostly duplicated settled work; this was
+  the actual defect. **Live-verified**: injected a 140-character unbroken
+  string into a rendered message with the panel open, measured every
+  descendant's `getBoundingClientRect()` — nothing crossed `#chat-main`'s
+  own right edge or `#web-panel`'s left edge.
+- **A slow, sometimes-black-screen desktop startup** — `_run_desktop`
+  opened the pywebview window after a flat `time.sleep(1.0)` guess at how
+  long uvicorn takes to bind, before pointing the window at the URL.
+  `create_app()`'s own singleton/embeddings-warmup init runs on the server
+  thread *before* uvicorn even binds its socket, so any cold start slower
+  than one second left the window loading against nothing yet listening.
+  Replaced with `_wait_for_server()`, which polls a real socket until the
+  app is actually ready (bounded at 20s) — verified with a test against a
+  real listening socket, proving it returns `False` while nothing is
+  listening and `True` the moment something is.
+- **Centre the quit button** — already fixed in the audited commit
+  (`button.icon-only { aspect-ratio: 1; ... }`); **live-verified** rather
+  than trusted: `#quit-btn`'s icon sits 13.8px from both the left and right
+  edge and within 0.02px top-to-bottom.
+
+**What's still unverified, said plainly:** the tray "Hide console window"
+item and the `start-desktop.bat` preference are Windows-only — this sandbox
+is Linux, so both are proven correct in isolation (fake win32 APIs standing
+in for the real ones) rather than end-to-end against a real console window,
+the same standing caveat as every other Windows-only piece already in this
+file. The black-screen fix removes one concrete, real race condition
+(window opening before the server was listening) but cannot rule out
+WebView2's own first-paint/cold-start lag as a second, separate contributor
+outside this app's control.
+
+## Previous session — a planned queue of 11 items worked in order (documents in the graph, a stale ROADMAP claim caught before rebuilding, graph camera/physics bugs found by measurement, a fourth autonomous-agent task), plus four live-reported UI bugs fixed mid-session on request
 
 Full detail in HISTORY.md §68 (the pre-queue bug fixes and earlier session
 work), §69 (Library upload/attach), §70 (documents in the graph), §71

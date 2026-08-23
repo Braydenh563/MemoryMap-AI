@@ -28,15 +28,15 @@ function recordBrowserLog(level, parts) {
   if (browserLogs.length > MAX_BROWSER_LOGS) browserLogs.shift();
 
   // Live-push into the Logs page if it is currently open.
-  // `logRecords`, `logScreenOpen`, and `renderLogList` are defined later in
-  // this file, so guard with typeof to avoid errors during early boot.
+  // `logRecords`, `logScreenOpen`, and `renderActiveLogView` are defined later
+  // in this file, so guard with typeof to avoid errors during early boot.
   if (typeof logRecords !== "undefined" && typeof logScreenOpen !== "undefined") {
     const liveRecord = { ...record, source: "browser", logger: "browser",
       key: `b-live-${Date.now()}-${Math.random()}` };
     logRecords.push(liveRecord);
     if (typeof sortLogRecords === "function") sortLogRecords();
-    if (logScreenOpen && typeof renderLogList === "function") {
-      renderLogList();
+    if (logScreenOpen && typeof renderActiveLogView === "function") {
+      renderActiveLogView();
       // Scroll to bottom so the new error is visible without manual scroll.
       if (typeof scrollLogToBottom === "function") scrollLogToBottom();
     }
@@ -75,6 +75,12 @@ let entriesEverLoaded = false;
 // replaced allEntries would silently splice stale/duplicate rows back in.
 let _entriesLoadGeneration = 0;
 let activeCategory = null; // sidebar filter; null = All
+// A second, orthogonal sidebar filter (not a category) — asked for
+// directly, so drafts (Writing Room saves, "Save as draft note" captures)
+// are findable as a group instead of only a per-note chip. Mutually
+// exclusive with activeCategory: picking one clears the other, same as
+// switching categories already does.
+let draftsOnly = false;
 let linkSource = null; // entry id waiting for its link partner
 let editingId = null; // entry id currently in inline-edit mode
 let inlineAction = null; // {id, kind: "context"|"continue"} open on a card
@@ -445,6 +451,74 @@ function startApp() {
   // *before* this asks — otherwise the tour opens, the flag arrives a moment
   // later, and the person is welcomed to an app they have used for a month.
   looksReady.then(maybeShowOnboarding);
+  looksReady.then(maybeShowConsoleViewIntro);
+}
+
+// First-run "Dev view or User view?" prompt for the desktop app — asked
+// for directly: "dev view is the default on install and the user will be
+// presented with a popup option to change it just after install." Gated on
+// its own preference (console_view_intro_seen) rather than piggybacking on
+// onboardingDone, so changing the console mode later from Settings doesn't
+// make this reappear, and vice versa. Browser-tab users never see this —
+// there's no console to speak of outside the desktop shell.
+//
+// Two bugs reported live, both fixed here:
+//
+// 1. "Showed both before and after I signed in, and kept coming back." The
+//    guard only checked `prefsCache?.console_view_intro_seen` — but
+//    `startApp()` also runs with a *stale* token (comment above `apiJson`'s
+//    401 handling: "a stale token in localStorage... fire[s] a dozen
+//    requests... before the user has unlocked anything"), and on that run
+//    the silent /preferences fetch 401s and leaves prefsCache null. `null?.x`
+//    is `undefined`, which is falsy, so the prompt fired on that pass too —
+//    before the real sign-in the user was about to do. It then fired AGAIN
+//    on the real post-login startApp(), because whatever this function saved
+//    the first time round never reached a real, authenticated session.
+//    Requiring prefsCache to actually exist closes that: a failed fetch is
+//    "we don't know yet", not "this is a fresh profile that hasn't seen it".
+//
+// 2. "Randomly signed me out." This used to POST /system/console-mode, the
+//    same route Settings and the tray use — which restarts the whole desktop
+//    process (pythonw.exe/python.exe relaunch, see __main__.py) the instant
+//    the choice differs from the default. That is the right call for an
+//    explicit Settings/tray toggle, where the user just asked for a live
+//    switch and the toast says "restarting…". It is the wrong call for a
+//    popup that appears on its own during first login: killing the server
+//    (in-memory sessions and all — core/config.py, "restarting locks it
+//    again") out from under someone who hasn't even finished signing in is
+//    exactly the "signed out at random" report. It also raced its own
+//    "remember this was answered" write against that same process exit —
+//    the second request sometimes lost, which is why the popup came back
+//    "every other time" rather than never or always. A single PUT that sets
+//    both preferences at once, with no restart, has neither problem: the
+//    choice takes effect next launch (said plainly below), same as every
+//    other preference in this app that isn't asking for a live switch.
+async function maybeShowConsoleViewIntro() {
+  if (!(await desktopShell())) return;
+  if (!prefsCache || prefsCache.console_view_intro_seen) return;
+  const wantsDevView = await confirmDialog(
+    "Keep a console window open when MemoryMap AI starts?\n\n" +
+      "Dev view shows a terminal window alongside the app — useful for " +
+      "logs and troubleshooting. User view runs quietly in the background " +
+      "with no console window at all, just this app window and a system " +
+      "tray icon. Either way, you can switch any time from Settings or " +
+      "the tray icon's own menu.\n\nTakes effect next launch.",
+    { confirmLabel: "Dev view", cancelLabel: "User view", danger: false }
+  );
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({
+        show_console_on_startup: wantsDevView,
+        console_view_intro_seen: true,
+      }),
+    });
+    toast(
+      `${wantsDevView ? "Dev" : "User"} view — starting from next launch.`
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't save your console view choice.", true);
+  }
 }
 
 // The browser is the only thing that knows where the user actually is. The
@@ -1084,10 +1158,13 @@ function entryItem(entry, options = {}) {
   }
   if (entry.is_private) meta.insertBefore(chip("ph:lock private"), meta.firstChild);
   if (entry.pinned) meta.insertBefore(chip("ph:push-pin pinned"), meta.firstChild);
-  // Captured from the text-selection popup and not yet looked at. A chip
-  // rather than a separate "Drafts" view — the note is in its normal place
-  // in the list either way, this just marks it not reviewed yet. Click to
-  // clear it once you have.
+  // Set either by the text-selection popup's "Save as draft note" (not yet
+  // looked at) or by the Writing Room's "Save as note" (drafted with the AI,
+  // however much it was edited before saving) — asked for directly: both
+  // should be findable as drafts, not just marked in passing. The note stays
+  // in its normal place in the list either way; the sidebar/Library Drafts
+  // filter (renderSidebar, library-view-drafts) is what makes them findable
+  // as a group. Click the chip to clear the label once it's not needed.
   if (entry.is_draft) {
     const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
       event.stopPropagation();
@@ -1102,7 +1179,7 @@ function entryItem(entry, options = {}) {
         toast(error.message || "Couldn't update that note.", true);
       }
     });
-    draftChip.title = "Captured from a selection, not reviewed yet — click to mark reviewed";
+    draftChip.title = "Marked as a draft — click to clear the label";
     meta.insertBefore(draftChip, meta.firstChild);
   }
   li.appendChild(meta);
@@ -3119,22 +3196,28 @@ function renderEntries() {
   const noMatch = $("no-match-message");
   list.replaceChildren();
 
-  let visible = activeCategory
-    ? allEntries.filter((e) => e.category === activeCategory)
-    : allEntries;
+  // Drafts stay out of All/category views entirely — user-reported: they
+  // should only show up in the Drafts filter until saved as a real note.
+  let visible = draftsOnly
+    ? allEntries.filter((e) => e.is_draft)
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+      : allEntries.filter((e) => !e.is_draft);
   visible = visible.filter(matchesSearch);
 
   // "Notes" everywhere else on this tab ("Your notes", "notebook", the
   // status-bar note count) — this heading used to say "entries" (the API's
   // internal name, /entries), the one place on the tab that didn't match
   // (Part C terminology audit).
-  const scope = activeCategory ? `${activeCategory} notes` : "All notes";
+  const scope = draftsOnly ? "Drafts" : activeCategory ? `${activeCategory} notes` : "All notes";
   // Say how many matched out of how many there are. Without it a filter that
   // hides most of the notebook looks identical to a notebook that's nearly
   // empty, and there's no signal that a filter is even active.
-  const total = activeCategory
-    ? allEntries.filter((e) => e.category === activeCategory).length
-    : allEntries.length;
+  const total = draftsOnly
+    ? allEntries.filter((e) => e.is_draft).length
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
+      : allEntries.filter((e) => !e.is_draft).length;
   $("entries-heading-label").textContent =
     noteSearch && visible.length !== total
       ? `${scope} — ${visible.length} of ${total}`
@@ -3248,8 +3331,12 @@ async function loadCategories() {
 function renderSidebar() {
   // Categories + counts are derived from the loaded entries — the
   // simplest thing that works; no extra endpoint needed yet.
+  // Drafts only belong in the Drafts row (user-reported: they were still
+  // showing under All/category counts, undercutting the point of a
+  // separate section) — until saved as a real note, a draft doesn't count.
   const counts = new Map();
   for (const entry of allEntries) {
+    if (entry.is_draft) continue;
     counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
   }
 
@@ -3269,6 +3356,7 @@ function renderSidebar() {
     li.append(name, badge);
     li.addEventListener("click", () => {
       activeCategory = category;
+      draftsOnly = false; // exclusive with the Drafts filter below
       // The list this filters lives in the "browse" sub-tab, and the sidebar
       // is visible from all four — so picking a category while writing a note
       // or asking a question filtered a list that was `display: none`, and the
@@ -3302,7 +3390,33 @@ function renderSidebar() {
     ul.appendChild(li);
   };
 
-  addRow("All", allEntries.length, null);
+  addRow("All", allEntries.filter((e) => !e.is_draft).length, null);
+
+  // A drafts count, not a category — asked for directly: a Drafts filter
+  // findable in the same place categories are, so a note drafted with the
+  // AI (Writing Room) or captured from a selection isn't only markable one
+  // at a time via its own chip (entryItem). Always shown, even at 0, so it
+  // stays discoverable rather than appearing only once something lands in it.
+  const draftCount = allEntries.filter((e) => e.is_draft).length;
+  const draftRow = document.createElement("li");
+  draftRow.className = "category-drafts-row";
+  if (draftsOnly) draftRow.classList.add("active");
+  const draftName = document.createElement("span");
+  draftName.className = "category-name";
+  setLabel(draftName, "ph:pencil-simple-line Drafts");
+  const draftBadge = document.createElement("span");
+  draftBadge.className = "count";
+  draftBadge.textContent = draftCount;
+  draftRow.append(draftName, draftBadge);
+  draftRow.addEventListener("click", () => {
+    draftsOnly = !draftsOnly;
+    activeCategory = null;
+    showNotesSection("browse");
+    renderSidebar();
+    renderEntries();
+  });
+  ul.appendChild(draftRow);
+
   for (const [category, count] of [...counts.entries()].sort()) {
     addRow(category, count, category);
   }
@@ -3639,6 +3753,25 @@ function withTitle(content, title) {
   return trimmed ? `# ${trimmed}\n\n${content}` : content;
 }
 
+// Shared by saveEntry and saveEntryAsDraft: clear the capture box and every
+// field that goes with it once the content has actually been saved
+// somewhere. Pulled out rather than left duplicated — both paths need
+// exactly this, and it drifting between two copies is how one of them ends
+// up leaving a stale category or template selected after a save.
+function resetCaptureForm(contentBox, titleBox) {
+  contentBox.value = "";
+  if (titleBox) titleBox.value = "";
+  renderEntryAttachmentChips();
+  autoGrow(contentBox); // the box shrinks back with its content
+  localStorage.removeItem("captureDraft"); // it's saved for real now
+  $("entry-count").textContent = "0 characters";
+  $("entry-tags").value = "";
+  $("entry-category").value = "";
+  captureDocuments.clear();
+  renderCaptureDocuments();
+  $("entry-template").value = "";
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
   const titleBox = $("entry-title");
@@ -3680,17 +3813,7 @@ async function saveEntry() {
           `to an existing note — “${saved.similar.preview}”`
       );
     }
-    contentBox.value = "";
-    if (titleBox) titleBox.value = "";
-    renderEntryAttachmentChips();
-    autoGrow(contentBox); // the box shrinks back with its content
-    localStorage.removeItem("captureDraft"); // it's saved for real now
-    $("entry-count").textContent = "0 characters";
-    $("entry-tags").value = "";
-    $("entry-category").value = "";
-    captureDocuments.clear();
-    renderCaptureDocuments();
-    $("entry-template").value = "";
+    resetCaptureForm(contentBox, titleBox);
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
     // Saving from Capture leaves you on Capture, with the note you just wrote
@@ -3699,6 +3822,51 @@ async function saveEntry() {
     // jump: capturing several thoughts in a row is the common case, and
     // teleporting away after each one would fight that.
     offerJumpToNewNote(saved, status);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// "No option to save a note as a draft in the capture section" (user-
+// reported). is_draft already existed as a note field — the text-selection
+// popup, the Writing Room, and "save this answer as a draft note" in chat
+// all set it — but the primary capture box had no path to it. Deliberately
+// skips category resolution: a draft is "save this fast, decide later", the
+// same reasoning the other three draft-creating call sites already use —
+// none of them file a category either.
+async function saveEntryAsDraft() {
+  const contentBox = $("entry-content");
+  const titleBox = $("entry-title");
+  const status = $("save-status");
+  const button = $("save-draft-btn");
+
+  const content = withTitle(contentBox.value.trim(), titleBox?.value);
+  if (!content) {
+    status.textContent = "Write something first!";
+    status.classList.add("error");
+    return;
+  }
+  const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
+
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Saving as draft…";
+  try {
+    await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({
+        content,
+        tags,
+        document_ids: [...captureDocuments],
+        is_draft: true,
+      }),
+    });
+    status.textContent = "Saved as a draft — find it later under Drafts in the sidebar.";
+    resetCaptureForm(contentBox, titleBox);
+    await loadEntries();
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -3759,6 +3927,10 @@ function flashEntry(id) {
   // wiki link silently did nothing (user-reported).
   showNotesSection("browse");
   activeCategory = null;
+  // A draft target needs the Drafts filter ON now that drafts are excluded
+  // from every other view (user-reported) — otherwise jumping to one from
+  // Library's "Open" button would find nothing.
+  draftsOnly = allEntries.some((e) => e.id === id && e.is_draft);
   // Clear any active filter too: a note that doesn't match the current search
   // is filtered out of the list, so there'd be nothing to scroll to.
   noteSearch = "";
@@ -3820,6 +3992,7 @@ function flashCategory(name) {
   switchTab("notes");
   showNotesSection("browse");
   activeCategory = name;
+  draftsOnly = false;
   noteSearch = "";
   const searchBox = $("note-search");
   if (searchBox) searchBox.value = "";
@@ -4577,7 +4750,21 @@ async function viewAskHistoryTurn(id) {
   $("search-mode").textContent = SEARCH_MODE_LABELS[turn.search_mode] || turn.search_mode;
   const rawList = $("raw-results");
   rawList.replaceChildren();
-  for (const entry of turn.raw_results) rawList.appendChild(clickableResult(entry));
+  // Same badges as a live Ask answer: this turn's own match_info/connected_ids
+  // were saved alongside it (routes_chat.py's _save_ask_turn) for exactly
+  // this reason — browsing back shouldn't lose the "why" a result showed up.
+  const connected = new Set(turn.connected_ids || []);
+  const matchInfo = turn.match_info || {};
+  for (const entry of turn.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    rawList.appendChild(row);
+  }
   if (turn.omitted_results) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -4685,6 +4872,56 @@ function chatMessageActions(actions) {
     row.appendChild(button);
   }
   return row;
+}
+
+// One-click capture from a chat answer. The text-selection popup's "Save as
+// draft note" already reaches chat bubbles, but only for whatever's
+// highlighted — this needs no selection at all, so the whole answer is one
+// press away instead of a select-then-click.
+async function saveChatAnswerAsNote(question, answer) {
+  try {
+    const content = question ? `${question}\n\n${answer}` : answer;
+    await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
+    });
+    toast("Saved as a draft note.");
+    if (localStorage.getItem("activeTab") === "notes") loadEntries();
+  } catch (error) {
+    toast(error.message || "Couldn't save that note.", true);
+  }
+}
+
+// Same one-click idea for reminders. No AI parse and no due-date prompt —
+// either would need a round trip or a decision before anything is saved,
+// which is exactly what "one click" was asked to avoid — so this picks a
+// plain default (tomorrow, 9am) and creates the reminder right away; the
+// toast's "Edit" action jumps straight to it in the Reminders tab for
+// anyone who wants a different time.
+async function reminderFromChatAnswer(answer) {
+  const text = answer.length > 100 ? answer.slice(0, 97).trim() + "…" : answer;
+  const due = new Date();
+  due.setDate(due.getDate() + 1);
+  due.setHours(9, 0, 0, 0);
+  try {
+    const reminder = await apiJson("/reminders", {
+      method: "POST",
+      body: JSON.stringify({
+        text: `Follow up: ${text}`,
+        due_at: due.toISOString(),
+        priority: "normal",
+        recurring: "none",
+      }),
+    });
+    askNotificationPermission();
+    loadReminders();
+    toastAction("Reminder set for tomorrow, 9am.", "Edit", () => {
+      editingReminderId = reminder.id;
+      return flashReminder(reminder.id);
+    });
+  } catch (error) {
+    toast(error.message || "Couldn't set a reminder.", true);
+  }
 }
 
 // The offer to carry on, shown under a turn that stopped before it was done.
@@ -5194,6 +5431,7 @@ function toggleWebPanel(force) {
       status.textContent = "";
     }
     refreshWebSearxngStrip();
+    renderWebSearchHistory();
     $("web-query").focus();
   } else {
     clearTimeout(webSearxngTimer);
@@ -5280,6 +5518,128 @@ async function refreshWebSearxngStrip() {
   }
 }
 
+// One search result row — split out so the initial batch and the "Show
+// more" reveal (below) build identical rows from one code path.
+function buildWebResultRow(result) {
+  const row = document.createElement("div");
+  row.className = "web-result";
+
+  const title = document.createElement("button");
+  title.type = "button";
+  title.className = "web-result-title";
+  title.textContent = result.title || result.url;
+  title.addEventListener("click", () => openWebReader(result.url));
+  row.appendChild(title);
+
+  const meta = document.createElement("div");
+  meta.className = "web-result-meta muted";
+  meta.textContent = result.domain || "";
+  // SearXNG is a metasearch engine, so "via SearXNG" says where the query
+  // was assembled rather than who answered it. Naming the upstream engines
+  // is what makes a self-hosted instance legible rather than a black box.
+  // textContent throughout — these names come from a third party.
+  if (Array.isArray(result.via) && result.via.length) {
+    const via = document.createElement("span");
+    via.className = "web-result-via";
+    via.textContent = result.via.join(" · ");
+    via.title = `Found by ${result.via.join(", ")}`;
+    meta.append(" — ", via);
+  }
+  row.appendChild(meta);
+
+  if (result.snippet) {
+    const snippet = document.createElement("div");
+    snippet.className = "web-result-snippet muted";
+    snippet.textContent = result.snippet;
+    row.appendChild(snippet);
+  }
+
+  // The actions, in the row's corner and revealed on hover — the same
+  // pattern the note cards use, and for the same reason. Measured before:
+  // three labelled buttons under every result made each one 127px tall, so
+  // barely two and a half results fitted in the panel. **"Read here Read here" is
+  // gone entirely**: the title does exactly that, one line above, which
+  // makes it a button whose whole job was to repeat the thing next to it.
+  const actions = document.createElement("div");
+  actions.className = "web-result-actions";
+  const open = document.createElement("a");
+  open.href = result.url;
+  open.target = "_blank";
+  open.rel = "noopener noreferrer";
+  open.className = "ghost small web-open-link";
+  setLabel(open, "ph:arrow-square-out");
+  open.title = "Open in your browser";
+  open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
+  actions.appendChild(open);
+  const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
+    askAboutPage(result.url, result.title)
+  );
+  ask.setAttribute("aria-label", "Ask the AI about this page");
+  actions.appendChild(ask);
+  row.appendChild(actions);
+  return row;
+}
+
+// Last few distinct web queries, newest first — asked for directly ("missing
+// features... history"). Client-side only: these are the person's own past
+// searches, same privacy tier as the search itself (already opt-in, already
+// logged locally via manager.log_action), nothing new leaves the machine.
+const WEB_SEARCH_HISTORY_KEY = "webSearchHistory";
+const WEB_SEARCH_HISTORY_MAX = 8;
+// Results already fetched for the current query but not yet shown — "Show
+// more" reveals from here rather than re-searching, since the backend
+// already returns up to 20 in one call (routes_websearch.py).
+let webSearchPending = [];
+
+function loadWebSearchHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WEB_SEARCH_HISTORY_KEY) || "[]");
+    return Array.isArray(raw) ? raw.filter((q) => typeof q === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushWebSearchHistory(query) {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+  const history = [trimmed, ...loadWebSearchHistory().filter((q) => q !== trimmed)].slice(
+    0,
+    WEB_SEARCH_HISTORY_MAX
+  );
+  try {
+    localStorage.setItem(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    /* storage full or blocked — the search itself still worked */
+  }
+}
+
+// Shown only while the query box is empty: recent searches are a way *in*,
+// not chrome that sits above every result list.
+function renderWebSearchHistory() {
+  const box = $("web-search-history");
+  if (!box) return;
+  const history = loadWebSearchHistory();
+  box.replaceChildren();
+  if ($("web-query").value.trim() || !history.length) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  for (const query of history) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip chip-interactive tag";
+    setLabel(chip, `ph:clock-counter-clockwise ${query}`);
+    chip.title = `Search again: ${query}`;
+    chip.addEventListener("click", () => {
+      $("web-query").value = query;
+      runWebSearch();
+    });
+    box.appendChild(chip);
+  }
+}
+
 async function runWebSearch() {
   const query = $("web-query").value.trim();
   if (!query) return;
@@ -5287,16 +5647,23 @@ async function runWebSearch() {
   const box = $("web-results");
   $("web-reader").classList.add("hidden");
   box.replaceChildren();
+  webSearchPending = [];
   status.classList.remove("error");
   status.textContent = "Searching the web…";
   let body;
   try {
-    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=8`);
+    // Asks for the route's full cap in one call — both providers already
+    // fetch one page and slice it, so this costs nothing extra over asking
+    // for 8, and "Show more" below can reveal the rest without a second
+    // request (or a second hit against a rate limit).
+    body = await apiJson(`/websearch?q=${encodeURIComponent(query)}&limit=20`);
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;
     return;
   }
+  pushWebSearchHistory(query);
+  renderWebSearchHistory();
   const results = body.results || [];
   // Name the engine that ANSWERED — which under "Automatic" is not
   // necessarily the one configured — and say what that means for privacy.
@@ -5317,64 +5684,23 @@ async function runWebSearch() {
     detail.textContent = ` · ${answered.detail}`;
     status.appendChild(detail);
   }
-  for (const result of results) {
-    const row = document.createElement("div");
-    row.className = "web-result";
 
-    const title = document.createElement("button");
-    title.type = "button";
-    title.className = "web-result-title";
-    title.textContent = result.title || result.url;
-    title.addEventListener("click", () => openWebReader(result.url));
-    row.appendChild(title);
-
-    const meta = document.createElement("div");
-    meta.className = "web-result-meta muted";
-    meta.textContent = result.domain || "";
-    // SearXNG is a metasearch engine, so "via SearXNG" says where the query
-    // was assembled rather than who answered it. Naming the upstream engines
-    // is what makes a self-hosted instance legible rather than a black box.
-    // textContent throughout — these names come from a third party.
-    if (Array.isArray(result.via) && result.via.length) {
-      const via = document.createElement("span");
-      via.className = "web-result-via";
-      via.textContent = result.via.join(" · ");
-      via.title = `Found by ${result.via.join(", ")}`;
-      meta.append(" — ", via);
-    }
-    row.appendChild(meta);
-
-    if (result.snippet) {
-      const snippet = document.createElement("div");
-      snippet.className = "web-result-snippet muted";
-      snippet.textContent = result.snippet;
-      row.appendChild(snippet);
-    }
-
-    // The actions, in the row's corner and revealed on hover — the same
-    // pattern the note cards use, and for the same reason. Measured before:
-    // three labelled buttons under every result made each one 127px tall, so
-    // barely two and a half results fitted in the panel. **"Read here Read here" is
-    // gone entirely**: the title does exactly that, one line above, which
-    // makes it a button whose whole job was to repeat the thing next to it.
-    const actions = document.createElement("div");
-    actions.className = "web-result-actions";
-    const open = document.createElement("a");
-    open.href = result.url;
-    open.target = "_blank";
-    open.rel = "noopener noreferrer";
-    open.className = "ghost small web-open-link";
-    setLabel(open, "ph:arrow-square-out");
-    open.title = "Open in your browser";
-    open.setAttribute("aria-label", `Open ${result.domain || result.url} in your browser`);
-    actions.appendChild(open);
-    const ask = smallButton("ph:chat-circle", "Open this page and ask the AI about it", () =>
-      askAboutPage(result.url, result.title)
-    );
-    ask.setAttribute("aria-label", "Ask the AI about this page");
-    actions.appendChild(ask);
-    row.appendChild(actions);
-    box.appendChild(row);
+  const INITIAL_SHOWN = 8;
+  for (const result of results.slice(0, INITIAL_SHOWN)) {
+    box.appendChild(buildWebResultRow(result));
+  }
+  webSearchPending = results.slice(INITIAL_SHOWN);
+  if (webSearchPending.length) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "ghost small web-show-more";
+    setLabel(more, `ph:caret-down Show ${webSearchPending.length} more`);
+    more.addEventListener("click", () => {
+      for (const result of webSearchPending) box.insertBefore(buildWebResultRow(result), more);
+      webSearchPending = [];
+      more.remove();
+    });
+    box.appendChild(more);
   }
 }
 
@@ -6372,7 +6698,23 @@ function renderRecordsDetails(holder, meta) {
   details.appendChild(summary);
   const list = document.createElement("ul");
   list.className = "entry-list";
-  for (const entry of meta.raw_results) list.appendChild(clickableResult(entry));
+  // Same provenance badges as the Ask tab (matchReasonBadge / renderRawResults
+  // above) — the backend's "meta" SSE event already carries match_info and
+  // connected_ids for a chat turn, same shape as an Ask turn's; this just
+  // hadn't been wired up here, so a chat search result showed no reason at
+  // all while the identical Ask result did.
+  const connected = new Set(meta.connected_ids || []);
+  const matchInfo = meta.match_info || {};
+  for (const entry of meta.raw_results) {
+    const row = clickableResult(entry);
+    const badge = matchReasonBadge(matchInfo[entry.id]);
+    if (badge) {
+      if (connected.has(entry.id)) row.classList.add("result-connected");
+      if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
+      row.appendChild(badge);
+    }
+    list.appendChild(row);
+  }
   details.appendChild(list);
   holder.appendChild(details);
 }
@@ -7359,9 +7701,14 @@ async function saveDraftAsNote() {
     .map((t) => t.trim())
     .filter(Boolean);
   try {
+    // Marked as a draft on the way in, same as the text-selection popup's
+    // "Save as draft note" — asked for directly, so a note drafted here is
+    // just as findable in the Drafts filter (sidebar, Library) as one
+    // captured that way, not silently indistinguishable from a note typed
+    // straight into Notes.
     const entry = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags }),
+      body: JSON.stringify({ content, tags, is_draft: true }),
     });
     foldedThoughts = "";
     $("draft-thoughts").value = "";
@@ -8165,12 +8512,15 @@ async function sendChatMessage(preset, opts = {}) {
     }
     return;
   }
-  // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices).
+  // Per-message actions: copy, regenerate, read-aloud, delete (Wave H voices),
+  // save-as-note and add-reminder (one-click capture, ROADMAP.md).
   bubble.appendChild(
     chatMessageActions([
       { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
       { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
       { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(answerRaw) },
+      { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(question, answerRaw) },
+      { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(answerRaw) },
       { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(bubble) },
     ])
   );
@@ -8979,6 +9329,8 @@ async function openConversation(id) {
             onClick: () => editChatAnswer(handles, turnIndex, message.content),
           },
           { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(message.content) },
+          { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(lastQuestionText, message.content) },
+          { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(message.content) },
           { label: "ph:trash", title: "Delete this message", onClick: () => deleteChatTurn(handles.bubble) },
         ])
       );
@@ -10036,6 +10388,7 @@ const DASH_WIDGETS = {
   pinned: { title: "ph:push-pin Pinned notes", description: "Notes you've pinned, so they're always one click away.", render: renderPinnedWidget },
   "recent-notes": { title: "ph:clock Recently added", description: "The last few notes you created, newest first.", render: renderRecentNotesWidget },
   "most-used": { title: "ph:flame Most used", description: "The categories and tags you reach for most often.", render: renderMostUsedWidget },
+  "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections — the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
   "on-this-day": { title: "ph:calendar-blank On this day", description: "Notes from this date in previous years.", render: renderOnThisDayWidget },
@@ -11832,6 +12185,31 @@ async function renderMostUsedWidget(body) {
   miniEntryList(body, entries, "Ask questions and your most-used notes appear here.");
 }
 
+// The graph tab already knows how connected every note is (edges from
+// EntryLink rows plus reply threads) — this just ranks by how many of those
+// edges touch each note, rather than asking the user to eyeball the graph
+// for its own densest cluster. Perplexity brainstorm doc review flagged the
+// gap: a "most-linked notes / hub" widget was one of the few ideas the app
+// didn't already have a version of.
+async function renderMostLinkedWidget(body) {
+  const [entries, data] = await Promise.all([
+    allEntries.length ? Promise.resolve(allEntries) : apiJson("/entries", { cacheMs: 4000 }),
+    apiJson("/graph").catch(() => null),
+  ]);
+  const degree = new Map();
+  for (const edge of (data && data.edges) || []) {
+    if (typeof edge.source === "number") degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
+    if (typeof edge.target === "number") degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
+  }
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const ranked = [...degree.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => byId.get(id))
+    .filter(Boolean)
+    .slice(0, 6);
+  miniEntryList(body, ranked, "Link notes to each other and the most-connected ones show up here.");
+}
+
 async function renderRecentNotesWidget(body) {
   const entries = allEntries.length ? allEntries : await apiJson("/entries", { cacheMs: 4000 });
   const newest = [...entries].sort(
@@ -12199,6 +12577,7 @@ async function renderCategoriesWidget(body) {
     row.append(label, track, num);
     row.addEventListener("click", () => {
       activeCategory = name;
+      draftsOnly = false;
       switchTab("notes");
       renderEntries();
       renderSidebar();
@@ -12472,6 +12851,19 @@ async function renderFocusTimerWidget(body) {
 
 let reminderFilter = "open"; // open | all | done
 
+// list | calendar. Persisted the same way timeline's own view toggle is
+// (a bare localStorage key) — a display mode, not data, so it doesn't need
+// the weight of a real preference round-tripped through the backend.
+let reminderView = localStorage.getItem("reminderView") === "calendar" ? "calendar" : "list";
+// The month the calendar is showing, always pinned to day 1 so "next month"
+// arithmetic can't land on the 31st of a shorter month.
+let reminderCalMonth = (() => {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+})();
+
 async function loadReminders() {
   const all = await apiJson("/reminders").catch(() => []);
   const groupsBox = $("reminder-groups");
@@ -12480,7 +12872,11 @@ async function loadReminders() {
   const reminders = all.filter((r) =>
     reminderFilter === "all" ? true : reminderFilter === "done" ? r.done : !r.done
   );
-  $("reminders-empty").classList.toggle("hidden", all.length > 0);
+  const isList = reminderView === "list";
+  $("reminder-groups").classList.toggle("hidden", !isList);
+  $("reminders-empty").classList.toggle("hidden", !isList || all.length > 0);
+  $("reminder-calendar").classList.toggle("hidden", isList);
+  if (!isList) renderReminderCalendar(all);
   $("reminder-clear-done").classList.toggle("hidden", !all.some((r) => r.done));
   // Surface anything due on the tab itself, from wherever you are.
   updateReminderBadge(all);
@@ -12525,6 +12921,120 @@ async function loadReminders() {
     for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+}
+
+// Month-grid view of due dates (ROADMAP.md gap 4: the flat list has no way
+// to see "what's due this week" laid out as a calendar). `all` is every
+// reminder regardless of reminderFilter — a month view answers "what's on
+// this day," which isn't the same question the Open/All/Done filter above it
+// answers, so it deliberately ignores that filter rather than surprising
+// someone who switches view mid-browse and sees fewer days than expected.
+function renderReminderCalendar(all) {
+  const box = $("reminder-calendar");
+  box.replaceChildren();
+
+  const byDay = new Map(); // "YYYY-MM-DD" -> reminders due that local day
+  for (const reminder of all) {
+    const due = new Date(reminder.due_at);
+    const key = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(reminder);
+  }
+
+  const head = document.createElement("div");
+  head.className = "reminder-cal-head";
+  const prev = smallButton("‹", "Previous month", () => {
+    reminderCalMonth.setMonth(reminderCalMonth.getMonth() - 1);
+    renderReminderCalendar(all);
+  });
+  const today = smallButton("Today", "Jump to this month", () => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    reminderCalMonth = d;
+    renderReminderCalendar(all);
+  });
+  const next = smallButton("›", "Next month", () => {
+    reminderCalMonth.setMonth(reminderCalMonth.getMonth() + 1);
+    renderReminderCalendar(all);
+  });
+  const title = document.createElement("h3");
+  title.className = "reminder-cal-title";
+  title.textContent = reminderCalMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  head.append(prev, title, today, next);
+  box.appendChild(head);
+
+  const grid = document.createElement("div");
+  grid.className = "reminder-cal-grid";
+  for (const label of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
+    const dow = document.createElement("span");
+    dow.className = "reminder-cal-dow muted";
+    dow.textContent = label;
+    grid.appendChild(dow);
+  }
+
+  const monthStart = new Date(reminderCalMonth);
+  const lead = monthStart.getDay(); // blank cells so day 1 lands in its real weekday column
+  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
+  const todayKey = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+
+  for (let i = 0; i < lead; i++) {
+    const blank = document.createElement("span");
+    blank.className = "reminder-cal-cell reminder-cal-blank";
+    grid.appendChild(blank);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayReminders = byDay.get(key) || [];
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "reminder-cal-cell";
+    if (key === todayKey) cell.classList.add("reminder-cal-today");
+    if (dayReminders.length) cell.classList.add("reminder-cal-has-items");
+
+    const num = document.createElement("span");
+    num.className = "reminder-cal-daynum";
+    num.textContent = day;
+    cell.appendChild(num);
+
+    if (dayReminders.length) {
+      const dots = document.createElement("span");
+      dots.className = "reminder-cal-dots";
+      for (const reminder of dayReminders.slice(0, 4)) {
+        const dot = document.createElement("span");
+        dot.className = `reminder-cal-dot priority-${reminder.priority || "normal"}${reminder.done ? " done" : ""}`;
+        dots.appendChild(dot);
+      }
+      cell.appendChild(dots);
+      cell.title = dayReminders.map((r) => r.text).join("\n");
+      cell.setAttribute("aria-label", `${day}: ${dayReminders.length} reminder${dayReminders.length === 1 ? "" : "s"}`);
+      cell.addEventListener("click", () => {
+        // Jump into the list at the first one — reuses flashReminder's own
+        // switch-to-list/scroll/flash rather than inventing a day-filtered
+        // list view just for this.
+        reminderView = "list";
+        localStorage.setItem("reminderView", "list");
+        for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
+          b.classList.toggle("active", b.dataset.view === "list");
+        }
+        flashReminder(dayReminders[0].id);
+      });
+    } else {
+      cell.setAttribute("aria-label", `${day}, no reminders`);
+      cell.title = "Add a reminder on this day";
+      cell.addEventListener("click", () => {
+        const iso = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        $("reminder-date").value = iso;
+        $("reminder-text").focus();
+      });
+    }
+    grid.appendChild(cell);
+  }
+  box.appendChild(grid);
 }
 
 // A count of due-or-overdue reminders on the Reminders tab button, so you
@@ -14004,6 +14514,7 @@ function openTimelineBand(band, group) {
   switchTab("notes");
   showNotesSection("browse");
   const box = $("note-search");
+  draftsOnly = false;
   if (group === "category" && band.name !== TIMELINE_OTHER_BAND) {
     activeCategory = band.name;
     if (box) box.value = "";
@@ -14942,6 +15453,12 @@ async function openSettingsModal(section = "models") {
   } · ${allEntries.length} entries loaded`;
   $("pref-update-check").checked = Boolean(prefsCache?.update_check_enabled);
   $("update-check-status").textContent = "";
+  const isDesktop = await desktopShell();
+  $("desktop-console-row").classList.toggle("hidden", !isDesktop);
+  $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
+  if (isDesktop) {
+    $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
+  }
   showSettingsSection(section);
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
@@ -15167,6 +15684,11 @@ let logStreamRetry = null;
 let logFollowPinned = true; // false once the user scrolls up to read something
 let logErrorsSinceOpened = 0;
 let logScreenOpen = false;
+// "List" (structured rows, foldable tracebacks) or "Terminal" (raw lines,
+// styled like a real console — see .log-terminal). Same persistence pattern
+// as reminderView/timeline-view: a per-browser display preference, not
+// something worth round-tripping through /preferences.
+let logView = localStorage.getItem("logView") === "terminal" ? "terminal" : "list";
 
 function logLevelRank(level) {
   return LOG_LEVEL_RANK[String(level || "").toUpperCase()] ?? 1;
@@ -15311,15 +15833,36 @@ function logRecordText(record) {
   return record.trace ? `${head}\n${record.trace}` : head;
 }
 
+function activeLogContainer() {
+  return $(logView === "terminal" ? "log-terminal" : "log-list");
+}
+
 function nearLogBottom() {
-  const list = $("log-list");
+  const list = activeLogContainer();
   // 40px of slack: "close enough to the bottom that you meant to be there".
   return list.scrollHeight - list.scrollTop - list.clientHeight < 40;
 }
 
 function scrollLogToBottom() {
-  const list = $("log-list");
+  const list = activeLogContainer();
   list.scrollTop = list.scrollHeight;
+}
+
+// Shared by both views: the empty state, the "N hidden by filters" note, and
+// the copy-button label all describe the filtered set, not how it is drawn.
+function renderLogSharedUI(visibleCount) {
+  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
+  // "Nothing matches" and "nothing happened" are different answers, and only
+  // the first one is fixed by changing the filter.
+  const hiddenCount = logRecords.length - visibleCount;
+  const filtered = $("logs-filtered-out");
+  if (hiddenCount > 0) {
+    filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
+    filtered.classList.remove("hidden");
+  } else {
+    filtered.classList.add("hidden");
+  }
+  renderCopyLogsLabel();
 }
 
 function renderLogList() {
@@ -15330,19 +15873,59 @@ function renderLogList() {
   list.replaceChildren();
   for (const record of visible) list.appendChild(logRow(record));
 
-  $("logs-empty").classList.toggle("hidden", logRecords.length > 0);
-  // "Nothing matches" and "nothing happened" are different answers, and only
-  // the first one is fixed by changing the filter.
-  const hiddenCount = logRecords.length - visible.length;
-  const filtered = $("logs-filtered-out");
-  if (hiddenCount > 0) {
-    filtered.textContent = `${hiddenCount.toLocaleString()} record${hiddenCount === 1 ? "" : "s"} hidden by the filters above.`;
-    filtered.classList.remove("hidden");
-  } else {
-    filtered.classList.add("hidden");
-  }
-  renderCopyLogsLabel();
+  renderLogSharedUI(visible.length);
   if (shouldStick) scrollLogToBottom();
+}
+
+// One line the way it would print to a real console: "HH:MM:SS LEVEL   logger
+// — message", level padded like uvicorn's own default formatter pads
+// "INFO:"/"WARNING:"/"ERROR:" so a column of mixed levels still lines up.
+function logTerminalLineText(record) {
+  const when = new Date(record.time).toLocaleTimeString();
+  const level = `${record.level}:`.padEnd(9);
+  const body = record.logger ? `${record.logger} — ${record.message}` : record.message;
+  return `${when} ${level}${body}`;
+}
+
+function logTerminalRow(record) {
+  const line = document.createElement("div");
+  line.className = "log-term-line";
+  const rank = logLevelRank(record.level);
+  if (rank >= 3) line.classList.add("is-error");
+  else if (rank === 2) line.classList.add("is-warn");
+  line.textContent = logTerminalLineText(record);
+  return line;
+}
+
+// A real terminal never folds a traceback behind a click, so this view
+// doesn't either — every line prints, indented, right under the record that
+// raised it. That is the one real advantage this view has over List, not
+// just a different coat of paint on the same data.
+function logTerminalTraceRow(record) {
+  const trace = document.createElement("div");
+  trace.className = "log-term-trace";
+  trace.textContent = record.trace;
+  return trace;
+}
+
+function renderLogTerminal() {
+  const el = $("log-terminal");
+  const shouldStick = $("log-follow").checked && logFollowPinned;
+  const visible = logRecords.filter(logMatchesFilters);
+
+  el.replaceChildren();
+  for (const record of visible) {
+    el.appendChild(logTerminalRow(record));
+    if (record.trace) el.appendChild(logTerminalTraceRow(record));
+  }
+
+  renderLogSharedUI(visible.length);
+  if (shouldStick) scrollLogToBottom();
+}
+
+function renderActiveLogView() {
+  if (logView === "terminal") renderLogTerminal();
+  else renderLogList();
 }
 
 function setLogLive(state, detail) {
@@ -15425,7 +16008,7 @@ async function startLogStream() {
           logRecords.push(serverLogRecord(event.record));
           bumpLogErrorBadge(event.record);
           sortLogRecords();
-          if (logScreenOpen) renderLogList();
+          if (logScreenOpen) renderActiveLogView();
         } else if (event.type === "ping") {
           logStreamCursor = event.cursor || logStreamCursor;
         } else if (event.type === "reconnect") {
@@ -15471,7 +16054,7 @@ async function renderLogs() {
   logRecords = [...records.map(serverLogRecord), ...browserLogRecords()];
   sortLogRecords();
   renderLogGap(stats);
-  renderLogList();
+  renderActiveLogView();
   scrollLogToBottom();
   logFollowPinned = true;
   startLogStream();
@@ -15559,6 +16142,8 @@ async function renderPrefs() {
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
+  $("pref-search-min-sim").value = prefsCache.search_min_similarity;
+  $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
@@ -15750,6 +16335,12 @@ async function savePrefs() {
       ? Math.min(365, Math.round(binDaysRaw))
       : 30;
     $("pref-bin-days").value = recycleBinDays;
+    const minSimRaw = Number($("pref-search-min-sim").value);
+    const searchMinSim = Number.isFinite(minSimRaw) ? Math.min(1, Math.max(0, minSimRaw)) : 0.25;
+    const zMarginRaw = Number($("pref-search-z-margin").value);
+    const searchZMargin = Number.isFinite(zMarginRaw) ? Math.min(3, Math.max(0, zMarginRaw)) : 0.5;
+    $("pref-search-min-sim").value = searchMinSim;
+    $("pref-search-z-margin").value = searchZMargin;
     // Only this section's own fields. Background tasks' checkboxes
     // (autonomous_tasks_enabled and everything under it) save independently
     // via `setPreference` now — see the comment on `renderAutonomousSettings`
@@ -15761,6 +16352,8 @@ async function savePrefs() {
       body: JSON.stringify({
         display_name: $("pref-display-name").value.trim(),
         recycle_bin_days: recycleBinDays,
+        search_min_similarity: searchMinSim,
+        search_relative_z_margin: searchZMargin,
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
@@ -15791,9 +16384,11 @@ async function deleteProfile() {
 // bytes and hand the browser a blob instead.
 async function downloadExport(kind) {
   const response = await api(`/export/${kind}`);
-  // Markdown arrives as a zip of .md files; the rest are single files.
+  // Markdown and the full backup arrive as zips; the rest are single files.
   const name =
-    kind === "markdown" ? "memorymap-markdown.zip" : `memorymap-export.${kind}`;
+    kind === "markdown" ? "memorymap-markdown.zip" :
+    kind === "backup" ? "memorymap-backup.zip" :
+    `memorymap-export.${kind}`;
   await saveFile(name, await response.blob());
 }
 
@@ -19227,6 +19822,11 @@ function renderChatActiveModelBadge() {
   const name = modelStatus && modelStatus.chat_model;
   badge.hidden = !name;
   badge.textContent = name || "";
+  // The badge itself ellipsis-truncates a long id (a full HuggingFace path
+  // easily runs past the header) — the full name is still one hover away.
+  badge.title = name
+    ? `The model currently answering in this chat: ${name} — change it in Settings → Models`
+    : "";
 }
 
 function renderUtilityModelPicker(status) {
@@ -21848,6 +22448,30 @@ $("pref-update-check").addEventListener("change", (e) =>
 );
 $("update-check-now").addEventListener("click", () => checkForUpdate());
 
+// Not a plain setPreference: switching Dev view/User view is meant to take
+// effect live, not just on the next launch (asked for directly — togglable
+// from Settings as well as the tray). /system/console-mode saves the same
+// preference and, in the desktop app on Windows, restarts the whole
+// process into the new console mode right after responding.
+$("pref-show-console").addEventListener("change", async (e) => {
+  const checked = e.target.checked;
+  try {
+    const result = await apiJson("/system/console-mode", {
+      method: "POST",
+      body: JSON.stringify({ show_console_on_startup: checked }),
+    });
+    if (prefsCache) prefsCache.show_console_on_startup = result.show_console_on_startup;
+    toast(
+      result.restarting
+        ? `Switching to ${checked ? "Dev" : "User"} view — restarting…`
+        : `Will switch to ${checked ? "Dev" : "User"} view next launch.`
+    );
+  } catch (error) {
+    e.target.checked = !checked; // the change didn't take — don't leave the switch lying
+    toast(error.message || "Couldn't switch view.", true);
+  }
+});
+
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");
   if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
@@ -21975,12 +22599,12 @@ $("autonomous-trigger").addEventListener("click", () => {
 });
 // Filters only re-draw what is already held — they never refetch, so changing
 // one mid-incident cannot lose the records you were looking at.
-$("log-source").addEventListener("change", renderLogList);
-$("log-level").addEventListener("change", renderLogList);
+$("log-source").addEventListener("change", renderActiveLogView);
+$("log-level").addEventListener("change", renderActiveLogView);
 let logFilterDebounceTimeout;
 $("log-filter").addEventListener("input", () => {
   clearTimeout(logFilterDebounceTimeout);
-  logFilterDebounceTimeout = setTimeout(renderLogList, 150);
+  logFilterDebounceTimeout = setTimeout(renderActiveLogView, 150);
 });
 $("logs-copy").addEventListener("click", copyLogs);
 $("logs-clear").addEventListener("click", clearLogs);
@@ -21994,11 +22618,37 @@ $("log-follow").addEventListener("change", (event) => {
 // Scrolling up is how you say "stop moving, I am reading this" — so it pauses
 // the follow rather than fighting you for the scroll position. Scrolling back
 // to the bottom resumes it, which is the same gesture every terminal uses.
-$("log-list").addEventListener("scroll", () => {
-  if (!$("log-follow").checked) return;
-  logFollowPinned = nearLogBottom();
-  $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
-});
+// Both containers get the listener — only one is ever visible at a time, but
+// whichever it is has to pause Follow the same way.
+for (const id of ["log-list", "log-terminal"]) {
+  $(id).addEventListener("scroll", () => {
+    if (!$("log-follow").checked) return;
+    logFollowPinned = nearLogBottom();
+    $("log-follow-label").classList.toggle("is-paused", !logFollowPinned);
+  });
+}
+
+for (const button of document.querySelectorAll("#log-view-toggle button")) {
+  button.addEventListener("click", () => {
+    logView = button.dataset.view;
+    localStorage.setItem("logView", logView);
+    for (const b of document.querySelectorAll("#log-view-toggle button")) {
+      b.classList.toggle("active", b === button);
+    }
+    $("log-list").classList.toggle("hidden", logView !== "list");
+    $("log-terminal").classList.toggle("hidden", logView !== "terminal");
+    $("log-terminal-hint").classList.toggle("hidden", logView !== "terminal");
+    renderActiveLogView();
+    scrollLogToBottom();
+  });
+  // The markup hardcodes "List" as the active button; a returning visitor
+  // whose last choice (localStorage) was "terminal" needs that reflected
+  // here too, not just in which container renders.
+  button.classList.toggle("active", button.dataset.view === logView);
+}
+$("log-list").classList.toggle("hidden", logView !== "list");
+$("log-terminal").classList.toggle("hidden", logView !== "terminal");
+$("log-terminal-hint").classList.toggle("hidden", logView !== "terminal");
 
 // There is no Tags / Recycle bin / Activity shortcut in the notes sidebar, and
 // `openLibraryOn` went with them. The buttons were dropped once with their
@@ -22517,6 +23167,7 @@ $("graph-refresh").addEventListener("click", () => {
   graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
   renderGraph();
 });
+$("graph-export-png")?.addEventListener("click", exportGraphPng);
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
 $("graph-documents")?.addEventListener("change", renderGraph);
@@ -22845,6 +23496,7 @@ $("web-go").addEventListener("click", runWebSearch);
 $("web-query").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runWebSearch();
 });
+$("web-query").addEventListener("input", renderWebSearchHistory);
 $("web-reader-back").addEventListener("click", () =>
   $("web-reader").classList.add("hidden")
 );
@@ -22889,6 +23541,20 @@ for (const button of document.querySelectorAll("#reminder-filter button")) {
     }
     loadReminders();
   });
+}
+for (const button of document.querySelectorAll("#reminder-view-toggle button")) {
+  button.addEventListener("click", () => {
+    reminderView = button.dataset.view;
+    localStorage.setItem("reminderView", reminderView);
+    for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
+      b.classList.toggle("active", b === button);
+    }
+    loadReminders();
+  });
+  // The markup hardcodes "List" as the active button; a returning visitor
+  // whose last choice (localStorage) was "calendar" needs that reflected
+  // here too, not just in which container loadReminders() shows.
+  button.classList.toggle("active", button.dataset.view === reminderView);
 }
 $("reminder-magic-add").addEventListener("click", magicAddReminder);
 $("reminder-magic").addEventListener("keydown", (e) => {
@@ -23235,6 +23901,11 @@ $("search-help").addEventListener("click", () => {
 });
 
 $("prefs-save").addEventListener("click", savePrefs);
+$("pref-search-reset").addEventListener("click", () => {
+  $("pref-search-min-sim").value = 0.25;
+  $("pref-search-z-margin").value = 0.5;
+  savePrefs();
+});
 // Managed SearXNG: show what's there, and start/stop it on request.
 async function refreshSearxngHost() {
   const badge = $("searxng-host-state");
@@ -23496,6 +24167,7 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
   });
 }
 $("save-btn").addEventListener("click", saveEntry);
+$("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
 $("stop-btn").addEventListener("click", stopAnswer);
 $("retry-btn").addEventListener("click", retryAnswer);
@@ -24239,16 +24911,7 @@ $("entry-content").addEventListener("input", (e) => {
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 $("import-md").addEventListener("click", importMarkdown);
 $("import-dir")?.addEventListener("click", importDirectory);
-
-for (const fmt of ["json", "markdown", "csv", "backup-zip"]) {
-  const btn = $(`export-${fmt}`);
-  if (btn) {
-    btn.addEventListener("click", () => {
-      let path = fmt === "backup-zip" ? "/export/backup" : `/export/${fmt}`;
-      window.location.href = path + `?token=${authToken()}`;
-    });
-  }
-}
+$("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
 $("import-document").addEventListener("click", importDocument);
 $("backup-now").addEventListener("click", backupNow);
 

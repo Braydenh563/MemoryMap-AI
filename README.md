@@ -165,9 +165,11 @@ package manager instead? The launcher script below works just as well.
 ## Get started another way
 
 - **macOS, or building it yourself on any platform:** the launcher script
-  — `./start.sh` or `start.bat` — installs everything and opens the app
-  in one command. Full step-by-step (including for a first-ever terminal
-  user): **[`docs/INSTALL.md`](docs/INSTALL.md)**.
+  — `./start.sh` or `start-desktop.bat` (Windows; opens the app in its own
+  window rather than a browser tab — prefer it over plain `start.bat`
+  unless you specifically want the browser tab) — installs everything and
+  opens the app in one command. Full step-by-step (including for a
+  first-ever terminal user): **[`docs/INSTALL.md`](docs/INSTALL.md)**.
 - **Prefer to manage the virtual environment yourself?** Manual setup,
   updating and uninstalling are all in the same guide.
 - **Adding the AI:** install [Ollama](https://ollama.com) and pull a model

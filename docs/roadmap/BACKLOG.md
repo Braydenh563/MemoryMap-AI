@@ -1473,40 +1473,24 @@ is what makes it reach for one.
 
 Small, concrete, each seen in the running app:
 
-- **Take me to the thing the agent just changed.** Asked for directly: *"if the
-  agent performs a task like making a note, a button or link will appear to
-  navigate to the new note or document or whatever was changed."*
+- ~~**Take me to the thing the agent just changed.**~~ **Done — this entry
+  was stale.** Checked against the running app (agent.py), not assumed:
+  `_change_note_id`/`_change_document_id`/`_change_reminder_id`/
+  `_change_category_name` all exist and are wired into every `change` event
+  (`create_note`, `edit_note`, `tag_note`, `pin_note`, `restore_note`,
+  `link_notes`, `unlink_notes` — all four route through the note's own id,
+  which is the right target for "View" either way; `create_document`;
+  `set_reminder`/`complete_reminder`; `create_category`/`rename_category`/
+  `merge_categories`). `changeRow` (`frontend/app.js`) renders the View
+  button from whichever id is present, and is called from both the live
+  per-turn tool-call rendering *and* a skill run's final "what changed"
+  list — the "two things to decide" below were both resolved. Only the
+  destructive-result question below is still open, and it's a small,
+  separate decision, not a rebuild.
 
-  Today a tool run reports **what** it did — `📝 Created note #41` — and then
-  leaves you to go and find #41 yourself, in another tab, by searching for text
-  you already know the app knows the id of. The result row is one click away
-  from being the shortest path to the thing and instead is a dead end.
-
-  Most of the machinery is already there and this is mostly wiring:
-  - Tool results already carry a `label`, and the undo work (§21) already
-    proved the runner can put **buttons on a result row** — Undo is one, so a
-    View beside it is the same shape.
-  - `flashEntry(id)` already exists and does exactly the right thing: switch
-    to Notes, scroll to the note, highlight it. The Rediscover widget uses it.
-    Documents, reminders and categories need their equivalent.
-  - What is missing is that handlers return prose, not a **target**. The fix
-    is for each writing tool to include something like
-    `{"target": {"kind": "note", "id": 41}}` in its result, and for the chat
-    UI to render a View button whenever one is present. Doing it per-tool
-    rather than by parsing the label keeps it honest — a label is for reading,
-    and pulling an id back out of one is the kind of thing that works until
-    someone rewords the sentence.
-
-  Worth covering every kind the agent can create or change, not just notes:
-  notes, documents, reminders, categories, tags, links. `create_note`,
-  `edit_note`, `pin_note`, `tag_note`, `link_notes`, `set_reminder`,
-  `create_category` and the rest all have an obvious destination.
-
-  Two things to decide when it is built: whether a **destructive** result
-  should offer to navigate to the recycle bin rather than a note that is no
-  longer there, and whether a skill run's final "what changed" list should
-  carry the same buttons (it should — that list is where a multi-step run's
-  results actually get read).
+  Still open: whether a **destructive** result (a note/document/category
+  delete) should offer to navigate to the recycle bin rather than to a
+  thing that no longer exists at that id.
 
 - ~~**Magic Add schedules relative reminders a whole timezone offset late.**~~
   **fixed** — the route built the user's clock as `utcnow() + offset`
@@ -1542,12 +1526,13 @@ Small, concrete, each seen in the running app:
   (websearch.fetch_readable), but actually reading such sites would take
   browser impersonation — decide deliberately whether that dependency is
   ever worth it before anyone "fixes" this again.
-- **Chat metadata disappears on a reload or app restart.** Distinct from the
-  already-fixed "no metadata when tools were used" bug above (§8) — that was
-  about the meta line never appearing; this is about it not surviving a
-  reload. `conversations.steps` is what a reopened chat replays (§8 of
-  `ARCHITECTURE.md`), so worth checking whether the metadata is part of
-  `steps` at all or lives only in the live DOM.
+- ~~**Chat metadata disappears on a reload or app restart.**~~ **Done — this
+  entry was stale.** Checked against the running app (`openConversation` in
+  `frontend/app.js`), not assumed: `message.stats` is persisted and the
+  function's own comment already says why — "Rebuild the metadata line...
+  it was only ever built from the live stream... Turns saved before this
+  stored no stats and correctly get no line, rather than a row of '?'s."
+  Whoever fixed this didn't strike the entry here.
 - **README and GitHub Pages drift out of date.** Asked for directly: "update
   the readme and gh pages site to have up to date information". The README's
   own "What's in it" table still said six tabs after the Timeline tab (§10)

@@ -12,6 +12,94 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
+## 80. Newest — Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view (read this first, above the mobile audit below)
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry; this is
+the index pointer HISTORY.md's own convention asks for. Session driven
+entirely by live user reports rather than a roadmap sweep — see HANDOVER.md
+for the reasoning behind each fix, this entry is deliberately short.
+
+**Shipped, tests + ruff + node --check green throughout, pushed to PR #121:**
+- **Dev view / User view console mode** (`__main__.py`, `core/config.py`,
+  `api/routes_settings.py`, `frontend/index.html`, `frontend/app.js`): a
+  first-run prompt plus a live Settings/tray toggle between a visible
+  console ("Dev view") and none at all ("User view", via a `pythonw.exe`
+  relaunch rather than hiding an already-created window — see HISTORY.md for
+  why hiding was unreliable under Windows Terminal/ConPTY). **Windows-only
+  mechanics unverified on real Windows**, same caveat as always.
+- **A serious bug in that same feature, live-reported and fixed same
+  session**: the first-run popup could fire before real sign-in, fire again
+  after, and randomly sign the user out — traced to `prefsCache` being
+  `null` (not "seen: false") on a stale-token bootstrap pass, and to the
+  popup calling the same route that restarts the whole desktop process for
+  an explicit Settings toggle. Fixed: the popup now requires `prefsCache` to
+  actually exist, and never restarts the process itself — the choice takes
+  effect next launch. Verified live with Playwright (zero calls to the
+  restart route from the popup path, does not fire when `prefsCache` is
+  null, persists in one atomic write, does not reappear on reload).
+- **Terminal-style Settings → Logs view**: a List/Terminal toggle
+  (`#log-view-toggle`, same segmented-control pattern as the reminders view)
+  renders the same filtered log records as raw console-style lines —
+  tracebacks inline, fixed dark styling regardless of app theme. Answers
+  "what would have printed to the terminal" now that User view can hide the
+  console entirely.
+- **Image Gallery lightbox "1 of 2" phantom-image bug**: a tile whose file
+  is missing on disk removed its own DOM tile on `<img>` error but left the
+  shared `images` array stale, so the lightbox kept counting it. Fixed in
+  `whiteboard.js`; reproduced and fixed live with `git stash`/`pop`. The
+  separately-reported "nav arrows aren't centred" could not be reproduced
+  (measured 0px offset in every scenario tried) — likely the same root
+  cause read differently, said plainly rather than guessing a second fix.
+- **Local models past ~4B params timing out or failing to respond**
+  (reported live): both `OllamaClient` and `OpenAICompatClient` defaulted
+  their request timeout to 120s, unconfigurable, with nothing overriding
+  it — a cold model load on modest/CPU hardware can take well past that
+  before a single token is generated, and the client's read timeout fires
+  mid-load. Ollama compounds it by unloading an idle model after 5 minutes,
+  so most turns in a normal session paid the cold-load cost. Raised both
+  timeouts to 600s and added `keep_alive: "30m"` to Ollama chat requests.
+  **Reasoned from the timeout mechanics, not reproduced against a real
+  large model — no Ollama/large model in this sandbox.** Next session:
+  verify against real hardware if a report comes back either way.
+- **Tool-call output in chat read as truncated despite an already-scrollable
+  box**: `.tool-chip-result` already had `max-height` + `overflow-y: auto`;
+  what starved it was `agent.py` cutting the UI-facing `result_summary`
+  fallback to 300 characters — a number never tied to token cost (the
+  model-facing copy is a separate variable with its own real budget a few
+  lines down). Raised to 4000.
+
+**Answered, not implemented — small-model tool-call recognition** (asked:
+"is it possible to make the agent better at recognising instructions or
+requests for specific tool calls... a structured framework with recognised
+phrases... while not bloating context"). The honest answer is that this
+already exists in a weaker form (`agent.py`'s per-mode tool subsetting,
+`PROSE_BUDGET_CHARS`) and the request describes a real gap, but the
+"recognised phrases" framing is the wrong shape for it: a phrase matcher
+sitting in front of the model either duplicates what a 4B model is already
+adequate at (matching "remind me" to `create_reminder`) or fails silently
+on the paraphrases that matter (matching it costs nothing; missing it is
+invisible). The tractable version is **narrowing the offered tool set by
+detected intent before the model ever sees it** — a small keyword/embedding
+classifier over the user's message picks a tool subset (already the shape
+`tool_focus` half-implements) rather than trying to recognise phrases for
+individual calls. Not started; worth a design pass before code, since the
+wrong version of this makes small models *worse* at tools they already use
+fine, not better.
+
+**Still open, unstarted, from the same request batch as the tool-recognition
+question** (§28-§31 numbering is this session's task tracker, not this doc's
+— cross-reference is in HANDOVER.md's latest entry):
+- Hyperlinked note-mention badges in AI chat answers, stacked at the end of
+  a paragraph, when the model names a specific note.
+- Image OCR for notes (`pytesseract` against a system `tesseract` binary —
+  same "don't assume the dependency is there" caution as the Pillow test
+  fix this session already needed once).
+- Letting a vision-capable model see images in chat (multimodal message
+  construction — neither provider client currently sends image content at
+  all, so this is new wiring, not a toggle).
+- Graph minimap and saved/named views (§9's decorative half, still
+  untouched — PNG export from that same section is already done).
+
 ## Newest — a mobile/responsive audit, and a blind feature-completeness brainstorm across every screen (read this first, above Priority 0)
 
 ### The mobile/responsive audit
@@ -171,17 +259,17 @@ against the wrong app rather than this one.
    pairing with gap 1 above (a photo of a document could go through OCR *or*
    straight to a vision model, user's choice) but is a smaller, more
    self-contained piece of work on its own.
-3. **The graph has no minimap, no way to save/name a view, and no export.**
-   Confirmed the options panel (`#graph-options`, `index.html:1110-1298`)
-   covers physics, labels, similarity, entities, orphans, and the time
-   slider — genuinely thorough — but there's nothing to re-find a specific
-   arrangement once the canvas gets busy (no minimap, `grep minimap` is
-   empty across `frontend/`), no "save this layout/filter combination as a
-   view," and no export-as-image (unlike the whiteboard, which already
-   exports PNG — `whiteboard.js:2024`). Once a notebook has enough notes
-   that the force layout becomes visually dense, all three matter; today
-   there's no way back to a state other than re-configuring the same toggles
-   by hand.
+3. **The graph has no minimap and no way to save/name a view.** ~~and no
+   export~~ — **the export third is done**: `#graph-export-png`
+   (`index.html`, wired in `app.js`/`graph.js`) captures what's currently on
+   screen (the live SVG's viewBox plus whatever pan/zoom transform is
+   applied) as a PNG, matching the whiteboard's own "what's on screen now"
+   option. Live-verified in both themes. Minimap and saved views are still
+   genuinely open: there's nothing to re-find a specific arrangement once
+   the canvas gets busy (no minimap, `grep minimap` is empty across
+   `frontend/`) and no "save this layout/filter combination as a view."
+   Once a notebook has enough notes that the force layout becomes visually
+   dense, both still matter.
 4. **Reminders have no calendar/month view.** The list (`#reminder-groups`,
    `index.html:1436-1543`) has a solid Open/All/Done filter, priority levels,
    recurrence, quick-add presets (30 min through "Next week"), and ±15-minute/
@@ -190,13 +278,15 @@ against the wrong app rather than this one.
    than a scrolling list isn't possible. The Dashboard's own heatmap widget
    is activity-in-the-past, not due-dates-in-the-future, so it doesn't cover
    this.
-5. **Timeline has no "jump to today" and no arbitrary custom date range.**
-   `timeline-days` (`index.html:1013-1110`) offers preset lookback windows
-   (e.g. "Last year"); grepped for `jump.*today`/`scrollToToday`/`today-
-   marker` and for any `date-range`/`daterange` control anywhere in
-   `index.html` — both empty. On a long timeline, getting back to "now" or
-   picking an arbitrary Jan–Mar window both require manual scrolling/preset
-   guessing.
+5. ~~**Timeline has no "jump to today" and no arbitrary custom date range.**~~
+   **Retracted — already built, both halves.** `#timeline-jump-today`
+   (`index.html:1076`, wired at `app.js:14301-14313`) scrolls the active view
+   to the newest end; `timeline-days`' own "Custom range" option
+   (`index.html:1125`) reveals a start/end date pair (`#timeline-custom-range`,
+   `index.html:1127-1129`, wired at `app.js:14280-14299`). The grep this was
+   based on used `date-range`/`daterange` as one hyphen-joined or camelCase
+   token — the real markup spells it `timeline-custom-range`, one word off
+   from every pattern tried. Moved to "already done" below.
 
 **Second pass, asked for directly** — the brainstorm above covered the 7 tab
 screens; this pass covers the features that don't get their own tab: Auth/
@@ -205,38 +295,35 @@ Insights, Backups, Voice, Tags/Categories, Models, and Conversations. Same
 method — brainstorm blind, then check the actual route file and frontend
 markup before trusting either "it's missing" or "it's there."
 
-6. **The auto-lock timeout isn't configurable.** `routes_auth.py`'s own
-   comment explains the two clocks it runs — `_SESSION_IDLE_TTL = 12 * 60 *
-   60` (12 hours unused → locks itself "like a phone does") and
-   `_SESSION_MAX_AGE = 7 * 24 * 60 * 60` (a hard weekly ceiling) — both are
-   plain module-level constants; grepped the whole backend for any
-   preference key that touches either (`"lock`, `lockAfter`, `idleLock`) and
-   the frontend for a matching Settings control — nothing either side. For a
-   password-protected local notebook, "walked away" is exactly the moment a
-   shorter timeout matters most — someone on a shared or public machine has
-   no way to make it 5 minutes instead of 12 hours.
-7. **The command palette's live note search only matches note body text —
-   not titles, and not Documents/Reminders/Conversations — and only by plain
-   substring.** Narrower than first reported, see the correction below: it
-   already searches as you type. `paletteMatches()` (`app.js:14904-14920`)
-   appends up to 6 matching notes below the static command list, filtering
-   `allEntries` by `e.content.toLowerCase().includes(lowered)`. Two real
-   gaps survive that correction: it checks `e.content` only, never
-   `e.title` (a separate field the app already generates via AI — "Generate
-   title"/"Regenerate title" in the note's own overflow menu — so a note
-   found entirely by its title elsewhere in the app can be invisible here),
-   and it doesn't reach Documents, Reminders, or Conversations, each of
-   which the palette already deep-links *into* by tab but not *by content*.
-8. **No quick "duplicate this note" action.** Not to be confused with
-    *duplicate detection* (finding near-identical notes to merge), which is
-    a real, well-built feature — `routes_duplicates.py`'s preview/merge
-    pair, the Settings "Tidy up duplicates" panel with its similarity
-    threshold slider (`index.html:3337-3351`). That's the opposite
-    operation from what most note apps also offer alongside it: deliberately
-    copying one note as a starting point for a similar one (a new meeting
-    note from last week's template, a variant of a recipe). Grepped for a
-    per-note "Duplicate"/"Make a copy" action — the only "Copy" found is a
-    clipboard-text copy (`app.js:5181`), not a new note.
+6. ~~**The auto-lock timeout isn't configurable.**~~ **Retracted — already
+   fully built, on both sides, and this is exactly the "grep for a name, not
+   what calls it" mistake the third pass below calls out.** The grep that
+   produced this claim searched for `"lock`, `lockAfter`, `idleLock` — the
+   actual preference key is `session_idle_ttl_minutes`, which
+   `require_unlock`/`require_unlock_media`/the account-status endpoint in
+   `routes_auth.py` already read in place of the `_SESSION_IDLE_TTL` fallback
+   constant, and which Settings → Account & security already exposes as a
+   real `<select id="account-idle-ttl">` (`index.html:3584`, wired in
+   `app.js:15820-15821` and `:21887`). Confirmed live: Settings → Account &
+   security shows "Auto-lock when idle" already set to 5 minutes, not the
+   12-hour default. Moved to "already done" below.
+7. ~~**The command palette's live note search only matches note body text —
+   not titles, and not Documents/Reminders/Conversations.**~~ **Retracted a
+   second time, now fully.** Current `paletteMatches()` (`app.js:16319-16370`)
+   already matches notes by `e.content` *or* `e.title` (the comment above it
+   literally says "match body or title"), and already searches Documents (by
+   title), Reminders (by content), and Conversations (by title), each
+   returned as its own labelled group. Whatever this was true of, it isn't
+   true of the code as it stands now — moved to "already done" below.
+8. ~~**No quick "duplicate this note" action.**~~ **Retracted — already
+   built.** The note's own overflow menu has a "ph:copy Duplicate" action
+   ("Make a copy of this note — opens ready to edit", `app.js:1676-1701`):
+   POSTs a new entry carrying the same content/category/tags (title suffixed
+   " (Copy)" when one exists), then opens the copy straight into edit mode.
+   The grep this claim was based on only checked for the word "Copy" near a
+   clipboard action (`app.js:5181`) and missed the note-menu entry sitting a
+   few lines above the *duplicate detection* code this item correctly
+   distinguished itself from. Moved to "already done" below.
 
 **Third pass — asked directly, twice, to double-check the above ("make sure
 you didn't miss anything, be very particular"), and both times it found real
@@ -334,12 +421,26 @@ a keyboard-shortcuts reference panel all already exist
 (`contrast-toggle`/`reduce-motion-toggle`/`shortcut-list-settings`,
 `index.html:2861-3045`) — the "Settings" brainstorm produced no gaps at all.
 None of the above needs a second look unless a live user report says
-otherwise.
+otherwise. Four more found stale on a later pass and retracted in place
+above rather than left to mislead a future session: the auto-lock idle
+timeout (gap 6) is already fully configurable, backend and Settings UI
+both; the per-note "Duplicate" action (gap 8) already exists in the note's
+own overflow menu; the command palette already searches note titles and
+already covers Documents/Reminders/Conversations (gap 7, retracted twice
+now — the first retraction narrowed the claim, the second found even the
+narrowed remainder already built); Timeline already has both a "jump to
+today" button and a custom date-range picker (gap 5). All four were missed
+by a grep for the wrong literal string, not by reading the wrong function —
+worth remembering that a grep miss and a real gap look identical from the
+outside, and only running the app (or reading the actual event listeners
+around the guessed id) tells them apart.
 
 **From the second pass:** Auth already separates an idle timeout from a
-hard max-age rather than having one crude "session length" (just not
-user-facing, per gap 6 above); token transport is a header, not a cookie, on
-purpose (no CSRF surface to begin with — see `app.py`'s own docstring).
+hard max-age rather than having one crude "session length," and the idle
+half is already user-configurable too — Settings → Account & security's
+"Auto-lock when idle" (see the gap 6 retraction above); token transport is
+a header, not a cookie, on purpose (no CSRF surface to begin with — see
+`app.py`'s own docstring).
 Duplicates has a real preview/merge flow with a similarity slider and
 tag-preserving merges into the recycle bin, not just detection. Drafts
 ("write a note from rough thoughts") composes and re-titles with the AI, with

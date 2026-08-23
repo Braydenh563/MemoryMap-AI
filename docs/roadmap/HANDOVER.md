@@ -94,12 +94,61 @@ several messages in the same session:**
   behaviour — all against a fake `requests`/`subprocess`, per this file's
   standing caveat about provider/network tests never touching anything real.
 
-**Not done, next session should pick up here:** the Help-page overhaul plus
-an embedded mini AI-chat widget (utility model, session-only history, tuned
-for speed/accuracy) that the user described in detail across several
-messages — explicitly scoped to start only after the auto-update work above
-was completely finished, tested, documented, committed and pushed, "nothing
-unfinished, untouched, or half finished." That gate is now clear.
+**The Help-page overhaul plus an embedded mini AI-chat widget** (utility
+model, session-only history, tuned for speed/accuracy) the user described in
+detail across several messages is **logged, not built** — ROADMAP.md item
+40 (Tier 3) records the full spec verbatim so the next session that picks
+it up starts from the actual ask rather than re-deriving it. It was
+explicitly scoped to start only after the auto-update work above was
+completely finished; that gate cleared, and this session spent its
+remaining budget on a different, smaller, immediately-shippable item
+instead (below), leaving the Help page itself for next time.
+
+**OCR text on uploaded images, ROADMAP.md item 30d — done.** A whiteboard
+photo or scanned page attached via `POST /media/upload` was an opaque file
+nothing could search. New `core/ocr.py`: `tesseract_available()`
+(`shutil.which("tesseract")`), `extract_text()` (best-effort, never
+raises — a missing binary, a missing `pytesseract`/Pillow install, and a
+corrupt/unreadable image are three different "logged once, not per
+upload" no-ops, not three different crashes), and
+`extract_in_background()`/`extract_and_store()` (a daemon thread per
+upload, split so tests can call the synchronous half directly). Wired into
+`upload_media` for raster suffixes only (`ocr.OCR_SUFFIXES` — no PDF; that
+would need page rasterisation, a dependency this pass doesn't pull in) —
+never blocks the upload response. New `MediaUpload.ocr_text` column
+(additive auto-migration, nothing to do by hand). Deliberately **not**
+routed through the entries FTS5 index the roadmap item's own text
+suggested — a `MediaUpload` isn't an `Entry`, and the FTS triggers are
+wired to the `entries` table specifically; forcing it in there would need
+a cross-table hack for no real benefit. Instead: `GET /media`'s
+`ocr_text` field feeds the Library's own Image Gallery search box (new —
+this tab, `whiteboard.js`, had none before), client-side substring
+filtering against filename *and* OCR text, the same pattern the main
+Library search already uses against `preview`. `pytesseract`/Pillow are
+optional (`requirements.txt`'s "Optional extras" block, same as
+`faster-whisper`) — the actual capability lives in the `tesseract` system
+binary, which `pip` cannot install, so `INSTALL.md` now says so plainly
+(apt/brew/choco, or "nothing breaks without it, you just get no OCR
+text").
+
+**Verified live, not just reasoned about** (this sandbox has Tesseract
+5.3.4 installed for the occasion): a real PNG with rendered text, uploaded
+through the actual file input, produced real (imperfect, as real OCR is)
+extracted text within ~1-2s, findable by both a real word from that text
+and by filename, with the "no images match your search" state correctly
+distinguished from "no images at all." 9 new tests (`test_ocr.py`,
+`test_media_api.py`) all mock Tesseract/pytesseract, so they pass with or
+without the binary present — Tesseract itself is not assumed to exist in
+CI.
+
+Also fixed in passing: while tracing how the Library's Image Gallery
+sub-tab switches (needed to know where to hook the search box), grepping
+`app.js` alone for its wiring came up completely empty — a real "did I
+find a dead feature?" moment per this file's own caution about features
+that never ran once. It wasn't: the wiring lives in `whiteboard.js`, a
+separate frontend file this session hadn't checked yet. Confirmed live via
+Playwright before concluding either way, rather than reporting a false
+bug off a grep miss.
 
 ## Previous session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
 

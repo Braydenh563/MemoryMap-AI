@@ -53,6 +53,10 @@ Settings → About can now download and install a new release itself — no more
 
 Reported by a real user: when the BGE semantic-search model failed to install, the app fell back to a lower-quality model and stayed there, even after the underlying cause (a transient `pip` failure) resolved itself. A missing `sentence_transformers` package now triggers one automatic reinstall attempt in the background, and search quality recovers on its own once it succeeds — no more permanently stuck on the fallback after a one-off install hiccup.
 
+### Added — search inside uploaded images (OCR), and a search box for the Image Gallery
+
+A whiteboard photo or a scanned page attached to a note used to sit as an opaque file — nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text — "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected.
+
 ## [0.1.2] - 2026-08-23
 
 ### Added — Dev view / User view console mode, a terminal-style log view, advanced search settings

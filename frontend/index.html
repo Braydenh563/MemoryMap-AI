@@ -2283,8 +2283,16 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
       <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
+      <!-- Filters client-side against each image's filename and its OCR
+           text (ROADMAP.md item 30d) — same pattern as the main Library
+           search box above, not a server round-trip, since a gallery is
+           small enough that a plain substring pass costs nothing. -->
+      <input id="library-images-search" type="search" class="library-search"
+        placeholder="Search filenames and text found in images…"
+        aria-label="Search the image gallery">
       <div id="library-images-grid" class="library-image-grid"></div>
       <p id="library-images-empty" class="muted hidden">No images yet.</p>
+      <p id="library-images-no-match" class="muted hidden">No images match your search.</p>
     </section>
   </div>
 

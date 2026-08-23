@@ -1268,13 +1268,19 @@ Worth doing, and worth doing after the above.
         live: single-turn, multi-turn, and a turn with tool chips all show
         the correct meta line after a real reload. Whatever prompted this
         item is either already resolved or a different, unreported bug.
-    30d. **OCR text extraction on an uploaded image** (BACKLOG §4 item 1).
-        A whiteboard photo or a scanned page attaches today as an opaque
-        file nothing reads. Local `pytesseract` (no torch, no cloud call) at
-        upload time, fed into the existing keyword index, makes "what was on
-        that whiteboard photo from March" answerable. A new pipeline stage
-        (extract → index), not a wider drop-handler — the drop-handler side
-        of file uploads is already done.
+    30d. ~~**OCR text extraction on an uploaded image**~~ (BACKLOG §4 item
+        1). **Done, verified live (HANDOVER.md's latest entry).** Local
+        `pytesseract`/Tesseract (no torch, no cloud call), on a background
+        thread so the upload response never waits on it. Fed into the
+        Library's own Image Gallery search (new — that tab had no search
+        box before) rather than the notes' `entries_fts` index this item's
+        own text originally pointed at — a `MediaUpload` isn't an `Entry`,
+        and that index's triggers are wired to the `entries` table
+        specifically, so this was the honest integration point, not the
+        literal one. `tesseract` is a system binary `pip` can't install;
+        degrades to "no OCR text" cleanly when it's missing, documented in
+        INSTALL.md. "What was on that whiteboard photo from March" is now
+        answerable by typing a word from the photo into that search box.
     30e. ~~**Undo toasts for soft-deletes, in place of confirm dialogs**~~
         **Done (HISTORY.md §68).** `batchDelete()` already built the undo
         toast under a real soft delete and *also* gated it behind a

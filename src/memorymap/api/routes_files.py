@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, media_gc
+from memorymap.core import deps, media_gc, ocr
 from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -351,6 +351,12 @@ def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> d
     session.add(upload)
     session.commit()
     session.refresh(upload)
+    # OCR (ROADMAP.md item 30d) runs on a background thread, never on this
+    # request — Tesseract can take a second or two per image, and nothing
+    # about "was the upload accepted" should wait on it. Raster images only
+    # (see ocr.OCR_SUFFIXES); a PDF here just never gets ocr_text, honestly.
+    if suffix in ocr.OCR_SUFFIXES:
+        ocr.extract_in_background(upload.id, destination)
     # `id` lets a caller that changes its mind (the capture form's own
     # attachment chip, removable with a click) call DELETE /media/{id}
     # instead of just detaching the markdown reference and leaving the
@@ -362,6 +368,10 @@ class MediaUploadOut(BaseModel):
     id: int
     url: str
     original_name: str
+    #: "" until OCR finishes (or never, off the tesseract binary, or a PDF)
+    #: — never null over the wire, so the frontend can filter on it with a
+    #: plain substring match without a null check at every call site.
+    ocr_text: str = ""
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -372,7 +382,12 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
     """
     uploads = session.query(MediaUpload).order_by(MediaUpload.created_at.desc()).all()
     return [
-        MediaUploadOut(id=u.id, url=f"/media/{u.filename}", original_name=u.original_name)
+        MediaUploadOut(
+            id=u.id,
+            url=f"/media/{u.filename}",
+            original_name=u.original_name,
+            ocr_text=u.ocr_text or "",
+        )
         for u in uploads
     ]
 

@@ -586,6 +586,13 @@ class MediaUpload(Base):
     #: label only — never used to resolve a path.
     original_name: Mapped[str] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: Local OCR text (core/ocr.py), filled in on a background thread after
+    #: upload — NULL means "not extracted yet or nothing found", never
+    #: distinguished from each other, since neither blocks the upload and a
+    #: caller only ever wants "is there searchable text here at all".
+    #: Populated for raster images only (`ocr.OCR_SUFFIXES`); a PDF upload
+    #: stays NULL forever, honestly — no page-rasterisation step exists.
+    ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class UserPreference(Base):

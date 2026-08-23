@@ -147,7 +147,22 @@ Optional extras, installed only if you want them:
 pip install pywebview        # the --desktop window
 pip install pystray Pillow   # tray icon for the desktop window above
 pip install faster-whisper   # local speech-to-text for the 🎙 buttons
+pip install pytesseract Pillow   # OCR text on uploaded images (Library -> Image Gallery search)
 ```
+
+The OCR extra also needs the `tesseract` **system binary** on your PATH —
+`pip` can't install that part for you, since it isn't a Python package:
+
+```
+# Debian/Ubuntu
+sudo apt install tesseract-ocr
+# macOS
+brew install tesseract
+# Windows: https://github.com/UB-Mannheim/tesseract/wiki
+```
+
+Without it, uploaded images just don't get searchable text — nothing else
+about the app is affected, and no upload ever fails because of it.
 
 ## Running it
 

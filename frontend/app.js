@@ -6702,6 +6702,16 @@ function renderRecordsDetails(holder, meta) {
   summary.textContent = `${meta.raw_results.length} matching note${
     meta.raw_results.length === 1 ? "" : "s"
   } (${label}) — click one to open it`;
+  // Same quick-access link as the Ask tab's "Matching records" heading and
+  // Settings → Preferences itself — a chat turn with weak-looking matches is
+  // exactly the moment someone wants the relevance sliders, not a hunt
+  // through Settings to find them.
+  const tune = smallButton("ph:sliders-horizontal", "Tune search sensitivity", (event) => {
+    event.stopPropagation(); // inside a <summary>: don't also toggle the <details>
+    openSettingsModal("preferences", "search-relevance-group");
+  });
+  tune.classList.add("icon-only", "records-tune-btn");
+  summary.appendChild(tune);
   details.appendChild(summary);
   const list = document.createElement("ul");
   list.className = "entry-list";
@@ -11280,6 +11290,7 @@ function featureCatalog() {
       { name: "Agent mode", desc: "Let the assistant use its tools — search your notes, open a page, create, tag, link and organise.", run: () => switchTab("chat") },
       { name: "Web search", desc: "Optional, opt-in: the one feature that goes online.", run: () => switchTab("chat") },
       { name: "Export chat", desc: "Download a conversation as Markdown.", run: () => switchTab("chat") },
+      { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", run: () => openSettingsModal("preferences", "search-relevance-group") },
     ]},
     { group: "Map & discovery", items: [
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", run: () => switchTab("graph") },
@@ -15454,7 +15465,12 @@ function updatePeekAvailability(section) {
   if (!appearance) setSettingsPeek(false);
 }
 
-async function openSettingsModal(section = "models") {
+// `scrollToId`: a quick-access link into one setting buried in a long
+// section (e.g. "Search relevance (advanced)" from the Dashboard, the Ask
+// sub-tab, or Chat) needs to land on that control, not just the top of
+// Preferences — otherwise it's a link to "somewhere in here, scroll and
+// find it yourself", which is what it was before this existed.
+async function openSettingsModal(section = "models", scrollToId = null) {
   overlayReturnFocus = document.activeElement;
   $("settings-modal").classList.remove("hidden");
   $("settings-close").focus();
@@ -15475,6 +15491,17 @@ async function openSettingsModal(section = "models") {
   }
   loadChangelog();
   refreshModelStatus();
+  if (scrollToId) {
+    requestAnimationFrame(() => {
+      const target = $(scrollToId);
+      if (!target) return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      target.classList.remove("flash");
+      void target.offsetWidth;
+      target.classList.add("flash");
+    });
+  }
 }
 
 // CHANGELOG.md, rendered in Settings → About (§36E). Loaded once per session
@@ -22870,6 +22897,7 @@ function initHelpToggle(buttonId, panelId) {
   });
 }
 initHelpToggle("draft-help", "draft-intro");
+initHelpToggle("search-relevance-help", "search-relevance-intro");
 initHelpToggle("timeline-help", "timeline-intro");
 initHelpToggle("skills-help", "skills-intro");
 initHelpToggle("wb-boards-help", "wb-boards-intro");

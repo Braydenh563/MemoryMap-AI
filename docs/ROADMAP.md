@@ -28,6 +28,15 @@ element it's given, each chat bubble gets its own grounding holder, and
 live with Playwright — a synthetic grounding payload renders a "Grounded in:"
 chip inside a real Chat-tab bubble and opens the note on click; **not**
 verified against a real model's own prose, since this sandbox has no Ollama.
+
+Same session: tooltip + quick-access links for the "Search relevance
+(advanced)" preferences group, reachable from the Dashboard's "Tools &
+features" catalog, the Ask tab's "Matching records" heading, and Chat's
+per-turn "N matching notes" summary — all jump to and flash the group via a
+new `openSettingsModal(section, scrollToId)` parameter. Verified live:
+jump/flash/tooltip/panel all work, feature-catalog entry is findable, no
+console errors.
+
 `pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
 
 ## 80. Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view

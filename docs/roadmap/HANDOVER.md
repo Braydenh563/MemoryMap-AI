@@ -31,23 +31,40 @@ needs a running Ollama, which this sandbox doesn't have. `pytest tests/`
 (~1,600, all green), `ruff check .`, `node --check frontend/app.js` all run
 clean.
 
+**Same session, next queue item**: tooltips + quick-access links for
+Settings → Preferences → "Search relevance (advanced)" (min similarity /
+above-average margin), reachable from the Dashboard, the Ask sub-tab and
+Chat — previously the settings worked but had no explanation and no
+shortcut in from anywhere. Wrapped the group in `#search-relevance-group`
+(`class="flash-target"`), added a `#search-relevance-help` button with the
+same `initHelpToggle`/`graph-help-toggle` pattern as `#draft-help` (hover
+`title` + click-to-open `#search-relevance-intro` panel), and gave
+`openSettingsModal` an optional `scrollToId` param that scrolls to and
+flashes any element after the section opens — a new `.flash-target.flash`
+CSS rule generalises the existing entry-list-only `.flash` highlight so it
+isn't a copy. Quick-access links: a "Search relevance" entry in the
+Dashboard's existing "Tools & features" catalog (`featureCatalog()`, opened
+from a Quick-start button already on the Dashboard — no new dashboard
+widget needed), a small sliders icon button next to the Ask tab's "Matching
+records" heading, and the same button appended to Chat's per-turn "N
+matching notes" `<summary>` (`renderRecordsDetails`). All three call
+`openSettingsModal("preferences", "search-relevance-group")`. **Verified
+live** (Playwright): the jump scrolls to and flashes the group, the tooltip
+text is present, the help panel opens on click, and the Dashboard →
+features catalog finds and lists the new entry — all with zero console
+errors. `pytest tests/`, `ruff check .`, `node --check frontend/app.js`
+clean.
+
 ## Start here next session — a queue of live requests, none started
 
 Landed at 95%+ quota with no time left to act on them. In the order they
 came in:
 
-1. **Question-mark info tooltips + quick-access links** for the new
-   Settings → Preferences → "Search relevance (advanced)" group (min
-   similarity / above-average margin, added this session), from the
-   Dashboard, the Ask sub-tab, and Chat. Not started — the settings
-   themselves work, just no tooltip and no shortcut into them yet. Same
-   `graph-help-toggle`/`aria-controls` pattern used elsewhere in this file
-   (e.g. `#draft-help`) is the one to copy for the tooltip half.
-2. **Easier access + a configurable save location for exported images.**
+1. **Easier access + a configurable save location for exported images.**
    User: "I have to dig in the app data files to find and access them."
    Not investigated at all — start by finding where an export actually
    writes the file today.
-3. **Small-notebook search speed** — reported as "shouldn't take multiple
+2. **Small-notebook search speed** — reported as "shouldn't take multiple
    seconds." Checked this session: `keyword_search` is SQLite FTS5
    (indexed), `semantic_search` is one vectorized numpy pass over
    pre-stored vectors (no per-note re-embedding, no N+1 queries) — neither

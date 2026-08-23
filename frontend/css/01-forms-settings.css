@@ -1415,7 +1415,12 @@ li.link-source {
   }
 }
 
-.entry-list li.flash {
+.entry-list li.flash,
+/* Same highlight, for a jump-to-setting target outside the entry list —
+   e.g. openSettingsModal's scrollToId (Search relevance, jumped to from the
+   Dashboard/Ask/Chat quick-access links) landing on a group buried in a long
+   settings section, not just the top of it. */
+.flash-target.flash {
   outline: 3px solid transparent;
   outline-offset: 2px;
   border-radius: var(--radius);
@@ -1424,7 +1429,8 @@ li.link-source {
 
 /* Reduced motion still gets the highlight — it just doesn't animate away. */
 @media (prefers-reduced-motion: reduce) {
-  .entry-list li.flash {
+  .entry-list li.flash,
+  .flash-target.flash {
     animation: none;
     outline-color: var(--accent);
     background: var(--accent-soft);

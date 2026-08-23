@@ -4016,8 +4016,7 @@ function clickableResult(entry) {
 // often share a note, and a chip per sentence would repeat itself), the
 // chip's title carrying the actual sentence(s) it backs. Clicking a chip
 // opens that note, same as a search result row already does.
-function renderAnswerGrounding(box, sentences, rawResults) {
-  const target = $("ai-answer-grounding");
+function renderAnswerGrounding(target, sentences, rawResults) {
   if (!target) return;
   target.replaceChildren();
   if (!sentences || !sentences.length) {
@@ -4541,7 +4540,7 @@ async function askQuestion(preset) {
         status.textContent = "";
       },
       onGrounding: (event) => {
-        renderAnswerGrounding(answerBox, event.sentences, groundingRawResults);
+        renderAnswerGrounding($("ai-answer-grounding"), event.sentences, groundingRawResults);
       },
     });
 
@@ -6477,13 +6476,21 @@ function addAssistantBubble() {
   stepsHolder.className = "agent-steps";
 
   const recordsHolder = document.createElement("div");
+  // Same "grounded in" chip strip the Ask tab shows (renderAnswerGrounding) —
+  // that function only ever wrote to the Ask tab's single fixed element, so a
+  // Chat-tab notes question got the "grounding" SSE event from the backend
+  // (it's emitted for any non-conversational /chat/stream call, not just the
+  // Ask box) but nothing ever rendered it. One holder per bubble, since Chat
+  // has many turns where Ask has one answer.
+  const groundingHolder = document.createElement("div");
+  groundingHolder.className = "answer-grounding hidden";
 
-  bubble.append(stepsHolder, recordsHolder);
+  bubble.append(stepsHolder, recordsHolder, groundingHolder);
   $("chat-messages").appendChild(bubble);
   renderEmblem(avatar, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
   const timeline = agentTimeline(stepsHolder);
-  return { bubble, stepsHolder, recordsHolder, timeline };
+  return { bubble, stepsHolder, recordsHolder, groundingHolder, timeline };
 }
 
 // One "the AI did something" chip in a bubble (Wave G).
@@ -8102,7 +8109,7 @@ async function sendChatMessage(preset, opts = {}) {
   // and hiding the request entirely would leave the plan looking as though it
   // came from nowhere; the button they pressed is the explanation.
   if (!opts.skipUserBubble) addBubble("user", opts.displayText || question);
-  const { bubble, stepsHolder, recordsHolder, timeline } = addAssistantBubble();
+  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
@@ -8216,6 +8223,9 @@ async function sendChatMessage(preset, opts = {}) {
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
+      },
+      onGrounding: (event) => {
+        renderAnswerGrounding(groundingHolder, event.sentences, meta?.raw_results || []);
       },
       onPlan: (event) => {
         clearPending();

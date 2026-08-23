@@ -12,7 +12,25 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 80. Newest — Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view (read this first, above the mobile audit below)
+## 81. Newest — chat citation badges (item 36's grounding) were computed and sent by the backend but never rendered in the Chat tab, only the Ask tab
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Reported
+as "semantic search results in chat responses disappeared" with a transcript;
+turned out to be a wiring gap, not a missing feature or a regression in the
+search itself. `ai/grounding.py`'s per-sentence grounding (§36) already ran
+inside `/chat/stream` for every non-conversational turn and emitted a
+`grounding` SSE event regardless of which tab asked — but `renderAnswerGrounding`
+hardcoded the Ask tab's one fixed DOM element and ignored the target it was
+actually passed, and the Chat tab's `sendChatMessage` never listened for the
+event at all. Fixed: `renderAnswerGrounding` now renders into whatever
+element it's given, each chat bubble gets its own grounding holder, and
+`onGrounding` is wired in Chat the same way `onMeta` already was. Verified
+live with Playwright — a synthetic grounding payload renders a "Grounded in:"
+chip inside a real Chat-tab bubble and opens the note on click; **not**
+verified against a real model's own prose, since this sandbox has no Ollama.
+`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
+
+## 80. Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view
 
 Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry; this is
 the index pointer HISTORY.md's own convention asks for. Session driven

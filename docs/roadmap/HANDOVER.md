@@ -1,29 +1,53 @@
 # Session handover
 
+## Latest session — chat citation badges were silently dropped, found and fixed; a queue of live requests below, none started
+
+**"Semantic search results in chat responses disappeared"**, reported with a
+transcript: a Chat-tab answer about "gaming notes" that clearly drew on
+specific notes but named none of them. Root-caused, not the missing feature
+it first looked like: ROADMAP.md item 36's per-sentence grounding
+(`ai/grounding.py`'s `ground_answer_sentences`, no extra LLM call — scored by
+word overlap between each answer sentence and each retrieved note) already
+runs inside `/chat/stream` for *any* non-conversational turn and emits a
+`{"type": "grounding"}` SSE event — not just for the Ask tab, which is the
+only place anyone had wired it up. `renderAnswerGrounding` (`app.js`)
+hardcoded `$("ai-answer-grounding")`, the Ask tab's one fixed element, and
+silently ignored the `box` argument callers already passed it. The Chat
+tab's `sendChatMessage` never set an `onGrounding` handler at all, so the
+event the backend was already sending every time landed nowhere.
+
+Fixed by making `renderAnswerGrounding` take its target element as a real
+parameter (Ask tab passes `$("ai-answer-grounding")` explicitly now), giving
+each chat bubble its own `.answer-grounding` holder (`addAssistantBubble`,
+next to the existing `recordsHolder`), and wiring `onGrounding` in
+`sendChatMessage` the same way `onMeta` already was. **Verified live**
+(Playwright): note creation, the chat round-trip, and — since this sandbox
+has no Ollama, so no live model prose to ground against — a direct call to
+`renderAnswerGrounding` with a synthetic grounding payload inside a real
+Chat-tab bubble, confirming the chip renders, is titled with the backing
+sentence, and opens the note on click. **Not verified**: a real model
+actually producing prose that clears `MIN_OVERLAP_RATIO` end-to-end — that
+needs a running Ollama, which this sandbox doesn't have. `pytest tests/`
+(~1,600, all green), `ruff check .`, `node --check frontend/app.js` all run
+clean.
+
 ## Start here next session — a queue of live requests, none started
 
 Landed at 95%+ quota with no time left to act on them. In the order they
 came in:
 
-1. **Note-citation/hyperlink badges in chat.** When the model names a
-   specific note in prose, stack small badges at the end of that paragraph
-   linking to it. Investigated only: no existing infra for this specific
-   shape (the "View" button system in agent.py's `_change_*` resolvers +
-   `changeRow` in app.js is comprehensive but covers *tool-call results*,
-   not prose mentions — a different, unbuilt thing). ROADMAP.md §80 and
-   earlier in this file have more detail from the original ask.
-2. **Question-mark info tooltips + quick-access links** for the new
+1. **Question-mark info tooltips + quick-access links** for the new
    Settings → Preferences → "Search relevance (advanced)" group (min
    similarity / above-average margin, added this session), from the
    Dashboard, the Ask sub-tab, and Chat. Not started — the settings
    themselves work, just no tooltip and no shortcut into them yet. Same
    `graph-help-toggle`/`aria-controls` pattern used elsewhere in this file
    (e.g. `#draft-help`) is the one to copy for the tooltip half.
-3. **Easier access + a configurable save location for exported images.**
+2. **Easier access + a configurable save location for exported images.**
    User: "I have to dig in the app data files to find and access them."
    Not investigated at all — start by finding where an export actually
    writes the file today.
-4. **Small-notebook search speed** — reported as "shouldn't take multiple
+3. **Small-notebook search speed** — reported as "shouldn't take multiple
    seconds." Checked this session: `keyword_search` is SQLite FTS5
    (indexed), `semantic_search` is one vectorized numpy pass over
    pre-stored vectors (no per-note re-embedding, no N+1 queries) — neither

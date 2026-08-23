@@ -16133,6 +16133,8 @@ async function renderPrefs() {
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
+  $("pref-search-min-sim").value = prefsCache.search_min_similarity;
+  $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
@@ -16324,6 +16326,12 @@ async function savePrefs() {
       ? Math.min(365, Math.round(binDaysRaw))
       : 30;
     $("pref-bin-days").value = recycleBinDays;
+    const minSimRaw = Number($("pref-search-min-sim").value);
+    const searchMinSim = Number.isFinite(minSimRaw) ? Math.min(1, Math.max(0, minSimRaw)) : 0.25;
+    const zMarginRaw = Number($("pref-search-z-margin").value);
+    const searchZMargin = Number.isFinite(zMarginRaw) ? Math.min(3, Math.max(0, zMarginRaw)) : 0.5;
+    $("pref-search-min-sim").value = searchMinSim;
+    $("pref-search-z-margin").value = searchZMargin;
     // Only this section's own fields. Background tasks' checkboxes
     // (autonomous_tasks_enabled and everything under it) save independently
     // via `setPreference` now — see the comment on `renderAutonomousSettings`
@@ -16335,6 +16343,8 @@ async function savePrefs() {
       body: JSON.stringify({
         display_name: $("pref-display-name").value.trim(),
         recycle_bin_days: recycleBinDays,
+        search_min_similarity: searchMinSim,
+        search_relative_z_margin: searchZMargin,
         communication_style: $("pref-style").value,
         user_profile: $("pref-profile").value,
         profile_enabled: $("pref-profile-enabled").checked,
@@ -23882,6 +23892,11 @@ $("search-help").addEventListener("click", () => {
 });
 
 $("prefs-save").addEventListener("click", savePrefs);
+$("pref-search-reset").addEventListener("click", () => {
+  $("pref-search-min-sim").value = 0.25;
+  $("pref-search-z-margin").value = 0.5;
+  savePrefs();
+});
 // Managed SearXNG: show what's there, and start/stop it on request.
 async function refreshSearxngHost() {
   const badge = $("searxng-host-state");

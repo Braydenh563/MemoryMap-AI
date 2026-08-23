@@ -170,11 +170,28 @@ def _meaningful_terms(query: str) -> list[str]:
     return kept
 
 
+def configured_thresholds() -> tuple[float, float]:
+    """(min_similarity, relative_z_margin), from user preferences if set,
+    the module defaults otherwise. One place for every real caller (the API
+    routes, /chat's retrieve() below) to read these, so semantic_search
+    itself stays a pure function of its arguments — no hidden global-state
+    dependency for a bare-session test to trip over."""
+    from memorymap.core import deps
+
+    config = deps.get_config()
+    return (
+        config.get_preference("search_min_similarity", MIN_SIMILARITY),
+        config.get_preference("search_relative_z_margin", RELATIVE_Z_MARGIN),
+    )
+
+
 def semantic_search(
     session: Session,
     query: str,
     embeddings: EmbeddingService,
     limit: int = 5,
+    min_similarity: float = MIN_SIMILARITY,
+    relative_z_margin: float = RELATIVE_Z_MARGIN,
 ) -> list[tuple[Entry, float]] | None:
     """Best-matching entries with scores, or None when embeddings are
     unavailable (caller should fall back to keyword search).
@@ -275,14 +292,14 @@ def semantic_search(
     # notebook has no "typical unrelated score" to measure against.
     valid_scores = scores[valid]
     if valid_scores.size >= RELATIVE_MIN_CANDIDATES:
-        relative_floor = float(np.mean(valid_scores) + RELATIVE_Z_MARGIN * np.std(valid_scores))
+        relative_floor = float(np.mean(valid_scores) + relative_z_margin * np.std(valid_scores))
     else:
         relative_floor = float("-inf")
 
     scored_ids = [
         (entry_ids[i], float(scores[i]))
         for i in range(len(entry_ids))
-        if scores[i] >= MIN_SIMILARITY and scores[i] >= relative_floor
+        if scores[i] >= min_similarity and scores[i] >= relative_floor
     ]
     scored_ids.sort(key=lambda pair: pair[1], reverse=True)
     if not scored_ids:
@@ -663,7 +680,11 @@ def _retrieve(
     # Searching for the subject rather than the sentence. Falls back to the
     # whole question when stripping left nothing to search for.
     subject = asked.subject or query
-    semantic = semantic_search(session, subject, embeddings, limit=FUSION_DEPTH)
+    _min_sim, _z_margin = configured_thresholds()
+    semantic = semantic_search(
+        session, subject, embeddings, limit=FUSION_DEPTH,
+        min_similarity=_min_sim, relative_z_margin=_z_margin,
+    )
     keyword = keyword_search(session, subject, limit=FUSION_DEPTH)
     # Kept before the range narrows them below, so a subject match outside
     # the stated window is still reachable as a fallback (see "outside the

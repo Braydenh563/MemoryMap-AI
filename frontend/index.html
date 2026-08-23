@@ -3249,6 +3249,28 @@ Link to another note with [[its first few words]]."></textarea>
                 <option value="concise">Concise</option>
                 <option value="detailed">Detailed</option>
               </select>
+              <!-- Asked for directly, after a live report of an unrelated note
+                   scoring 57% "similar" — see search_manager.py's own comment
+                   on why a flat floor isn't enough for the current embedding
+                   model. Exposed rather than left as a code constant so a
+                   notebook whose real behaviour still looks off has a lever
+                   without a code change. -->
+              <h3>Search relevance (advanced)</h3>
+              <p class="muted">
+                How strict semantic search is about what counts as a real
+                match. Higher numbers show fewer, more confident results.
+              </p>
+              <div class="row">
+                <label for="pref-search-min-sim" class="muted">Minimum similarity</label>
+                <input id="pref-search-min-sim" type="number" min="0" max="1" step="0.01">
+              </div>
+              <div class="row">
+                <label for="pref-search-z-margin" class="muted">Above-average margin</label>
+                <input id="pref-search-z-margin" type="number" min="0" max="3" step="0.1">
+              </div>
+              <div class="row">
+                <button id="pref-search-reset" class="ghost small" type="button">Reset to default</button>
+              </div>
             </div>
             <div class="settings-group">
               <h3>Notifications</h3>

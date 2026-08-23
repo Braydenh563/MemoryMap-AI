@@ -122,6 +122,8 @@ class SkillItem(BaseModel):
 
 class PreferencesBody(BaseModel):
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
+    search_min_similarity: float | None = Field(default=None, ge=0, le=1)
+    search_relative_z_margin: float | None = Field(default=None, ge=0, le=3)
     communication_style: Literal["friendly", "concise", "detailed"] | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
@@ -282,6 +284,8 @@ def get_preferences() -> dict:
     config = deps.get_config()
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
+        "search_min_similarity": config.get_preference("search_min_similarity", 0.25),
+        "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
         "display_name": config.get_preference("display_name", ""),
         "user_profile": config.get_preference("user_profile", ""),

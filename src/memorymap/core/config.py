@@ -28,6 +28,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     "embedding_backend": "sentence-transformers",  # or "ollama"
     "embedding_model": "nomic-embed-text",  # only used when backend == "ollama"
     "recycle_bin_days": 30,
+    # Semantic search relevance (search_manager.py). Defaults match that
+    # module's own MIN_SIMILARITY/RELATIVE_Z_MARGIN constants — kept here
+    # too, as plain values rather than an import, so Settings -> Preferences
+    # can offer a real "reset to default" without importing search_manager
+    # into config.py.
+    "search_min_similarity": 0.25,
+    "search_relative_z_margin": 0.5,
     # The user's IANA timezone, e.g. "Australia/Brisbane". Reported by the
     # browser on startup, because the browser is the only thing that knows
     # where the person actually is — the server may well be running in UTC

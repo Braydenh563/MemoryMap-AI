@@ -1,5 +1,38 @@
 # Session handover
 
+## Start here next session — a queue of live requests, none started
+
+Landed at 95%+ quota with no time left to act on them. In the order they
+came in:
+
+1. **Note-citation/hyperlink badges in chat.** When the model names a
+   specific note in prose, stack small badges at the end of that paragraph
+   linking to it. Investigated only: no existing infra for this specific
+   shape (the "View" button system in agent.py's `_change_*` resolvers +
+   `changeRow` in app.js is comprehensive but covers *tool-call results*,
+   not prose mentions — a different, unbuilt thing). ROADMAP.md §80 and
+   earlier in this file have more detail from the original ask.
+2. **Question-mark info tooltips + quick-access links** for the new
+   Settings → Preferences → "Search relevance (advanced)" group (min
+   similarity / above-average margin, added this session), from the
+   Dashboard, the Ask sub-tab, and Chat. Not started — the settings
+   themselves work, just no tooltip and no shortcut into them yet. Same
+   `graph-help-toggle`/`aria-controls` pattern used elsewhere in this file
+   (e.g. `#draft-help`) is the one to copy for the tooltip half.
+3. **Easier access + a configurable save location for exported images.**
+   User: "I have to dig in the app data files to find and access them."
+   Not investigated at all — start by finding where an export actually
+   writes the file today.
+4. **Small-notebook search speed** — reported as "shouldn't take multiple
+   seconds." Checked this session: `keyword_search` is SQLite FTS5
+   (indexed), `semantic_search` is one vectorized numpy pass over
+   pre-stored vectors (no per-note re-embedding, no N+1 queries) — neither
+   should be slow for a small notebook. Not reproduced or timed on real
+   hardware; the likely cause, if real, is one-time embedding-model
+   warmup or LLM answer-generation time being felt as "search" rather
+   than the search algorithm itself. Worth asking the user to time it
+   with the model already warm before assuming the algorithm needs work.
+
 > **The other four:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, including the licence constraint — AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 ## Latest session — Dev view/User view console mode shipped, a live sign-out bug in that same feature found and fixed same-session, a real model-timeout fix, and a batch of user-reported quick fixes

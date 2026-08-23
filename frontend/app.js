@@ -1346,8 +1346,26 @@ function entryItem(entry, options = {}) {
         unlink.textContent = "×";
         unlink.title = "Remove this link";
         unlink.addEventListener("click", async () => {
-          await api(`/entries/${entry.id}/links/${link.link_id}`, { method: "DELETE" });
+          const otherId = link.entry_id;
+          const reason = link.reason;
+          let liveLinkId = link.link_id;
+          await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
           await loadEntries();
+          pushUndo(
+            "Removed a link between notes",
+            async () => {
+              const updated = await apiJson(`/entries/${entry.id}/links`, {
+                method: "POST",
+                body: JSON.stringify({ target_id: otherId, reason }),
+              });
+              liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
+              await loadEntries();
+            },
+            async () => {
+              await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+              await loadEntries();
+            }
+          );
         });
         makeUnlinkAccessible(unlink);
         linkChip.appendChild(unlink);
@@ -1831,13 +1849,24 @@ function entryOverflowMenu(entry) {
   const danger = {
     label: "ph:trash Move to bin",
     danger: true,
-    // Instant + one-click Undo, soft delete underneath (Wave J).
+    // Instant + one-click Undo, soft delete underneath (Wave J). Also on the
+    // global undo stack (status bar / Ctrl+Z), so it survives past the
+    // toast's own timeout.
     run: async () => {
       await api(`/entries/${entry.id}`, { method: "DELETE" });
       await loadEntries();
-      toastAction("Moved to the recycle bin.", "Undo", async () => {
+      const restoreIt = async () => {
         await api(`/entries/${entry.id}/restore`, { method: "POST" });
         await loadEntries();
+      };
+      const binIt = async () => {
+        await api(`/entries/${entry.id}`, { method: "DELETE" });
+        await loadEntries();
+      };
+      const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
+      toastAction("Moved to the recycle bin.", "Undo", async () => {
+        settleUndoFromToast(action);
+        await restoreIt();
         toast("Note restored.");
       });
     },
@@ -1967,13 +1996,30 @@ function renderReevaluateResult(entry, wrap) {
       row.appendChild(
         smallButton("ph:link Link", "Link these two notes", async () => {
           try {
-            await api(`/entries/${entry.id}/links`, {
+            const updated = await apiJson(`/entries/${entry.id}/links`, {
               method: "POST",
               body: JSON.stringify({ target_id: link.id }),
             });
             row.remove();
             toast("Notes linked.");
             loadEntries();
+            let liveLinkId = updated.links.find((l) => l.entry_id === link.id)?.link_id;
+            pushUndo(
+              "Linked two notes",
+              async () => {
+                if (liveLinkId == null) return;
+                await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+                await loadEntries();
+              },
+              async () => {
+                const redone = await apiJson(`/entries/${entry.id}/links`, {
+                  method: "POST",
+                  body: JSON.stringify({ target_id: link.id }),
+                });
+                liveLinkId = redone.links.find((l) => l.entry_id === link.id)?.link_id ?? liveLinkId;
+                await loadEntries();
+              }
+            );
           } catch (error) {
             toast(error.message, true);
           }
@@ -2222,6 +2268,12 @@ async function attachFromLibrary(entry) {
         toast(`Attached ${image.original_name}.`);
         done();
         await loadEntries();
+        pushEntryPutUndo(
+          entry.id,
+          `Attached ${image.original_name}`,
+          { content: entry.content },
+          { content: nextContent }
+        );
       } catch (error) {
         toast(error.message || "Couldn't attach that file.", true);
       }
@@ -2555,17 +2607,17 @@ function renderEditForm(li, entry) {
       async () => {
         const category = await resolveCategoryChoice(categorySelect);
         if (category === undefined) return; // user cancelled the prompt
-        await api(`/entries/${entry.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            content: textarea.value.trim() || entry.content,
-            category,
-            tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
-          }),
-        });
+        const before = { content: entry.content, category: entry.category, tags: entry.tags };
+        const after = {
+          content: textarea.value.trim() || entry.content,
+          category,
+          tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
+        };
+        await api(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify(after) });
         editingId = null;
         toast("Entry updated.");
         await loadEntries();
+        pushEntryPutUndo(entry.id, "Edited a note", before, after);
       },
       false
     )
@@ -2627,13 +2679,31 @@ function beginOrCompleteLink(entry) {
     return;
   }
   const source = linkSource;
+  const target = entry.id;
   linkSource = null;
-  api(`/entries/${source}/links`, {
+  apiJson(`/entries/${source}/links`, {
     method: "POST",
-    body: JSON.stringify({ target_id: entry.id }),
+    body: JSON.stringify({ target_id: target }),
   })
-    .then(() => {
+    .then((updated) => {
       toast("Linked!");
+      let liveLinkId = updated.links.find((l) => l.entry_id === target)?.link_id;
+      pushUndo(
+        "Linked two notes",
+        async () => {
+          if (liveLinkId == null) return;
+          await api(`/entries/${source}/links/${liveLinkId}`, { method: "DELETE" });
+          await loadEntries();
+        },
+        async () => {
+          const redone = await apiJson(`/entries/${source}/links`, {
+            method: "POST",
+            body: JSON.stringify({ target_id: target }),
+          });
+          liveLinkId = redone.links.find((l) => l.entry_id === target)?.link_id ?? liveLinkId;
+          await loadEntries();
+        }
+      );
       return loadEntries();
     })
     .catch((error) => {
@@ -3823,6 +3893,17 @@ async function saveEntry() {
     resetCaptureForm(contentBox, titleBox);
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
+    pushUndo(
+      "Created a note",
+      async () => {
+        await api(`/entries/${saved.id}`, { method: "DELETE" });
+        await loadEntries();
+      },
+      async () => {
+        await api(`/entries/${saved.id}/restore`, { method: "POST" });
+        await loadEntries();
+      }
+    );
     // Saving from Capture leaves you on Capture, with the note you just wrote
     // now somewhere in a list on another sub-tab. Offer to go to it rather
     // than making you switch tabs and hunt (user request). An offer, not a
@@ -10400,9 +10481,18 @@ async function batchDelete() {
   for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
   exitSelectMode();
   await loadEntries();
-  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+  const restoreAll = async () => {
     for (const id of ids) await api(`/entries/${id}/restore`, { method: "POST" });
     await loadEntries();
+  };
+  const binAll = async () => {
+    for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
+    await loadEntries();
+  };
+  const action = pushUndo(`Moved ${ids.length} note${ids.length === 1 ? "" : "s"} to the bin`, restoreAll, binAll);
+  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await restoreAll();
     toast("Notes restored.");
   });
 }
@@ -13206,9 +13296,13 @@ function reminderItem(reminder, label) {
     smallButton("×", "Delete this reminder", async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
-      // Deleting a reminder is as undo-able as binning a note.
-      toastAction("Reminder deleted.", "Undo", async () => {
-        await apiJson("/reminders", {
+      // Deleting a reminder is as undo-able as binning a note. There's no
+      // restore endpoint here (unlike entries) — undo recreates it, which
+      // means a redo's own delete target has to track the *new* id, not the
+      // one this closure started with.
+      let liveId = reminder.id;
+      const recreate = async () => {
+        const created = await apiJson("/reminders", {
           method: "POST",
           body: JSON.stringify({
             text: reminder.text,
@@ -13217,8 +13311,18 @@ function reminderItem(reminder, label) {
             priority: reminder.priority || "normal",
             recurring: reminder.recurring || "none",
           }),
-        }).catch((e) => toast(e.message, true));
+        });
+        liveId = created.id;
         loadReminders();
+      };
+      const redelete = async () => {
+        await apiJson(`/reminders/${liveId}`, { method: "DELETE" });
+        loadReminders();
+      };
+      const action = pushUndo("Deleted a reminder", recreate, redelete);
+      toastAction("Reminder deleted.", "Undo", async () => {
+        settleUndoFromToast(action);
+        await recreate().catch((e) => toast(e.message, true));
         toast("Reminder restored.");
       });
     })
@@ -18118,6 +18222,114 @@ function toastAction(message, actionLabel, onAction) {
   box.appendChild(note);
   setTimeout(() => note.remove(), 8000);
 }
+
+// --- global undo/redo (status bar) ------------------------------------------------
+//
+// The app already had per-action undo scattered across it — a toast's Undo
+// button on note/reminder delete, the whiteboard's own local history, a
+// per-tool-call "put this back" in the agent panel. None of those help once
+// the toast has timed out, or for the actions that never got one (linking
+// two notes, editing a note's body, attaching an image). This is the one
+// mechanism that catches all of it: any mutation that can name its own
+// inverse calls `pushUndo(label, undo, redo)`, and the status bar's Undo/Redo
+// buttons (plus Ctrl+Z/Ctrl+Shift+Z) work the two stacks below. Session-only
+// by design — like the rest of this app's undo, it does not survive a reload,
+// which is the same lifetime a browser's own Ctrl+Z already has.
+const undoStack = [];
+const redoStack = [];
+const UNDO_STACK_LIMIT = 50;
+
+function pushUndo(label, undo, redo) {
+  const action = { label, undo, redo };
+  undoStack.push(action);
+  if (undoStack.length > UNDO_STACK_LIMIT) undoStack.shift();
+  // A fresh action invalidates whatever was available to redo — the same
+  // rule every text editor's undo stack already follows.
+  redoStack.length = 0;
+  renderUndoBar();
+  return action;
+}
+
+// A few call sites also offer an immediate toast "Undo" button alongside the
+// global stack (Wave J's pattern, from before this stack existed). If that
+// button is used, the action has to come off the undo stack — otherwise a
+// later Ctrl+Z would redo the exact same restore, since the closure runs
+// fine either way and nothing stops it firing twice.
+function settleUndoFromToast(action) {
+  const idx = undoStack.indexOf(action);
+  if (idx !== -1) undoStack.splice(idx, 1);
+  redoStack.push(action);
+  renderUndoBar();
+}
+
+// A `PUT /entries/{id}` before/after snapshot — the shared inverse for every
+// kind of note-content edit (a manual text correction, an image attached or
+// removed from the body, a tag/category change from the edit form), since
+// all of them are just this one request with a different body.
+function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
+  pushUndo(
+    label,
+    async () => {
+      await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(beforeBody) });
+      await loadEntries();
+    },
+    async () => {
+      await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(afterBody) });
+      await loadEntries();
+    }
+  );
+}
+
+async function performUndo() {
+  const action = undoStack.pop();
+  if (!action) return;
+  try {
+    await action.undo();
+    redoStack.push(action);
+    toast(`Undone: ${action.label}`);
+  } catch (error) {
+    // Nothing changed — put it back rather than silently dropping it off
+    // the stack, so a transient network error doesn't cost the undo itself.
+    undoStack.push(action);
+    toast(error.message || "Couldn't undo that.", true);
+  }
+  renderUndoBar();
+}
+
+async function performRedo() {
+  const action = redoStack.pop();
+  if (!action) return;
+  try {
+    await action.redo();
+    undoStack.push(action);
+    toast(`Redone: ${action.label}`);
+  } catch (error) {
+    redoStack.push(action);
+    toast(error.message || "Couldn't redo that.", true);
+  }
+  renderUndoBar();
+}
+
+function renderUndoBar() {
+  const undoBtn = $("status-undo");
+  const redoBtn = $("status-redo");
+  if (!undoBtn || !redoBtn) return;
+  const last = undoStack[undoStack.length - 1];
+  const next = redoStack[redoStack.length - 1];
+  undoBtn.disabled = !last;
+  redoBtn.disabled = !next;
+  paintStatusItem("status-undo", {
+    icon: "ph:arrow-u-up-left",
+    title: last ? `Undo: ${last.label} (${shortcuts.undo.keys})` : "Nothing to undo",
+  });
+  paintStatusItem("status-redo", {
+    icon: "ph:arrow-u-up-right",
+    title: next ? `Redo: ${next.label} (${shortcuts.redo.keys})` : "Nothing to redo",
+  });
+}
+
+$("status-undo").addEventListener("click", performUndo);
+$("status-redo").addEventListener("click", performRedo);
 
 // --- quick access: recent questions + most-used entries (Phase 5) -------------------
 
@@ -24658,6 +24870,14 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
 $("save-btn").addEventListener("click", saveEntry);
 $("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
+// Reported: "the semantic search settings button in the ask tab doesn't
+// work" — it does exist in the markup (`#ask-search-tune`, same icon/title
+// as Chat's own per-turn tune button) but nothing ever wired a listener to
+// it. Same destination as the other two quick-access links into this
+// preferences group (Chat's per-turn tune button, the Dashboard catalog).
+$("ask-search-tune").addEventListener("click", () => {
+  openSettingsModal("preferences", "search-relevance-group");
+});
 $("stop-btn").addEventListener("click", stopAnswer);
 $("retry-btn").addEventListener("click", retryAnswer);
 $("copy-btn").addEventListener("click", copyAnswer);
@@ -24699,10 +24919,19 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   // Chorded shortcuts (anything with a modifier) work even while typing —
-  // Ctrl+K from inside the note box should still open the palette.
+  // Ctrl+K from inside the note box should still open the palette. Undo/redo
+  // are the deliberate exception: Ctrl+Z/Ctrl+Shift+Z are already the
+  // browser's own undo for whatever text field has focus (correcting a typo
+  // you just made), and that has to win over this app's global stack —
+  // otherwise fixing a typo in the note box would silently restore a
+  // deleted note instead of undoing the keystroke.
   const chorded = e.ctrlKey || e.metaKey || e.altKey;
   if (chorded) {
+    const inTextField =
+      ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) ||
+      document.activeElement?.isContentEditable;
     for (const [id, def] of Object.entries(shortcuts)) {
+      if ((id === "undo" || id === "redo") && inTextField) continue;
       if (matchesShortcut(e, def.keys)) {
         e.preventDefault();
         runShortcut(id);
@@ -25031,6 +25260,8 @@ const DEFAULT_SHORTCUTS = {
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
   toggleTheme: { keys: "Ctrl+Shift+L", label: "Switch light / dark" },
+  undo: { keys: "Ctrl+Z", label: "Undo the last change" },
+  redo: { keys: "Ctrl+Shift+Z", label: "Redo" },
 };
 
 const SHORTCUT_STORE = "keyboardShortcuts";
@@ -25050,6 +25281,10 @@ function loadShortcuts() {
 }
 
 let shortcuts = loadShortcuts();
+// Sets the status-bar Undo/Redo buttons' icons and "nothing to undo yet"
+// tooltips on load — both stacks are empty at this point, so this only
+// establishes the disabled state the HTML already carries, not a real render.
+renderUndoBar();
 
 // "g" then a letter jumps tabs — GitHub and Gmail's own "go to" chord, and
 // the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
@@ -25127,6 +25362,8 @@ function runShortcut(id) {
       createDocument();
     },
     toggleTheme,
+    undo: performUndo,
+    redo: performRedo,
   };
   actions[id]?.();
 }

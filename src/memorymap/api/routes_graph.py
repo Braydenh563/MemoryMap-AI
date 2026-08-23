@@ -181,8 +181,18 @@ def graph(
     include_documents: bool = False,
     session: Session = Depends(get_session),
 ) -> dict:
+    # A draft is unfinished by definition, and the Notes tab already keeps
+    # every draft out of the notebook it draws from — the graph is a map of
+    # your notes and their connections, not a staging area, and a half-typed
+    # draft has nothing worth connecting yet. Reported directly alongside the
+    # same gap in Library (routes_library.py's `_notes()`).
     entries = list(
-        session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
+        session.scalars(
+            select(Entry).where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_draft == False,  # noqa: E712
+            )
+        )
     )
     node_ids = {e.id for e in entries}
     category_names = manager.bulk_category_names(session, entries)

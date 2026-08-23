@@ -7,6 +7,22 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — a global Undo/Redo system
+
+Two new buttons in the status bar (Undo/Redo), plus Ctrl+Z / Ctrl+Shift+Z, wired into note delete (single and multi-select), note creation, reminder delete, linking/unlinking notes, and note content edits (which covers attaching or removing an image, since that's just a content edit). Session-only, and deliberately steps aside for a text field's own native undo while you're typing in it.
+
+### Fixed — the Ask tab's search-relevance button did nothing
+
+`#ask-search-tune` existed in the markup with the right icon and tooltip, but no click handler was ever attached to it. It now opens the same Settings → Preferences "Search relevance" group its sibling buttons elsewhere in the app already jump to, and sits at the right edge of its row instead of squeezed against the mode chip.
+
+### Fixed — draft notes appearing in Library and Graph
+
+A draft is unfinished by definition, and the Notes tab already excludes drafts from its own note lists — Library's mixed "note" view and the Graph's node list didn't, so an unfinished draft showed up as a first-class card and graph node.
+
+### Security — a real path-injection finding, closed
+
+CodeQL flagged `POST /files/save`'s filename handling (`py/path-injection`) despite an existing whitelist sanitiser; the sanitiser is now built on `os.path.basename` and the write path is checked for real containment inside the exports folder before it's ever used.
+
 ## [0.1.3] - 2026-08-23
 
 ### Fixed — chat citation badges silently dropped in the Chat tab

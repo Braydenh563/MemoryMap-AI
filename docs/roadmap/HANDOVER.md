@@ -1,6 +1,178 @@
 # Session handover
 
-## Latest session — real-support-bundle fixes finished and released as v0.1.3, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
+## Latest session — a global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
+
+Driven by live user requests rather than a roadmap sweep. Everything below is
+`pytest tests/` (1,600+ tests) green, `ruff check .` clean, `node --check
+frontend/app.js` clean, and the UI claims were checked live in this sandbox's
+Chromium (screenshots taken, described below) — this file's own standing
+caveat about model-*behaviour* claims still applies (no real Ollama here).
+
+**Global Undo/Redo, asked for directly** ("an undo and redo feature, maybe in
+the bottom bar... so I can undo application mistakes like deleting, or
+linking smth or doing something else like adding or removing an image from a
+note"). Built as one small stack manager in `app.js` (`pushUndo`/
+`performUndo`/`performRedo`, session-only — same lifetime as a browser's own
+Ctrl+Z, does not survive a reload) plus two new buttons in the existing
+`#status-bar` footer (`#status-undo`/`#status-redo`, `paintStatusItem`,
+disabled/dimmed when their stack is empty) and two new entries in the
+existing rebindable-shortcuts system (`DEFAULT_SHORTCUTS.undo`/`.redo`,
+Ctrl+Z/Ctrl+Shift+Z by default, shows up in the "?" panel and Settings →
+Keyboard shortcuts for free since both already render from that registry).
+
+**The one real design decision**: Ctrl+Z/Ctrl+Shift+Z are *excluded* from
+this app's existing "chorded shortcuts fire even while typing" rule — they're
+already the browser's own undo/redo for whatever text field has focus, and
+that has to win over the global stack, or fixing a typo in the note box would
+silently restore a deleted note instead of undoing the keystroke. The keydown
+handler checks `document.activeElement` (INPUT/TEXTAREA/`isContentEditable`)
+specifically for the `undo`/`redo` ids before dispatching. **Verified live**:
+typing in the Capture textarea, then Ctrl+Z, shrinks the typed text (native
+undo) and leaves the note list untouched; Ctrl+Z from outside a text field
+bins the last-created note, and Ctrl+Shift+Z brings it back.
+
+Wired into the actions the user named directly, each pushing a real inverse
+(not a fake one — every undo/redo actually round-trips through the same API
+the original action used):
+- **Delete a note** (single card and multi-select bulk delete) — undo calls
+  the existing `/entries/{id}/restore`, redo re-deletes. The existing
+  toast-with-Undo (Wave J) still fires too; a new `settleUndoFromToast`
+  helper keeps the two in sync (clicking the toast's own Undo button pops the
+  same entry off the global stack and onto the redo stack, so a later Ctrl+Z
+  can't redo a restore that already happened a different way).
+- **Create a note** (Capture's Save) — undo bins it, redo restores it.
+- **Delete a reminder** — no restore endpoint exists for reminders (unlike
+  entries), so undo re-`POST`s a new one and tracks its *new* id in a mutable
+  closure variable, so a subsequent redo deletes the right row rather than
+  the id that no longer exists.
+- **Link two notes / remove a link** — both of this app's three link-creation
+  call sites (a note's own "Connect" submenu, the reevaluate-suggestions
+  panel, graph-adjacent click-to-link) and its one unlink control. `POST
+  .../links` only returns the *updated entry*, not the new link's own id, so
+  each site finds it by matching `updated.links` against the target id it
+  just sent — same shape as the reminder case, a live-tracked id for redo.
+- **Note content edits that add or remove an image** — `attachFromLibrary`
+  (Library → note "Attach from Library") and the note editor's "Save
+  changes" form both go through one new shared helper,
+  `pushEntryPutUndo(entryId, label, before, after)`, a before/after
+  `PUT /entries/{id}` snapshot. This is *why* "remove an image from a note"
+  is covered without new code of its own — an embedded image is just
+  markdown inside `content`, so any content edit's undo already covers it.
+
+**Deliberately not wired**, so a later session doesn't assume it is: tag
+batch-add, category rename/delete, document create/delete, and every
+Whiteboard/Skills/Settings mutation — the Whiteboard already has its own
+local undo/redo (HISTORY.md), and the rest either have no natural single
+inverse or weren't part of what was asked. `UNDO_STACK_LIMIT` is 50.
+
+**Verified live end-to-end with Playwright** (fresh data dir): create two
+notes → status bar's Undo button shows "Undo: Created a note (Ctrl+Z)" →
+delete one → Undo restores it → Redo re-deletes it → Ctrl+Z (outside a text
+field) restores it again → typing in the Capture box and pressing Ctrl+Z
+shrinks the typed text and leaves the note list alone → Ctrl+Shift+Z redoes a
+keyboard-driven delete. The "?" shortcuts panel and Settings → Keyboard
+shortcuts both list and can rebind the two new entries.
+
+**Three live-reported bugs, each confirmed by reading the actual code path
+before fixing, then confirmed fixed with Playwright:**
+
+1. **"The semantic search settings button in the ask tab doesn't work."**
+   True — `#ask-search-tune` (`index.html`) existed in the markup with the
+   right icon/title but `grep`ing `app.js` for its id turned up nothing: no
+   listener was ever attached. The two other quick-access links into the
+   same Settings group (Chat's own per-turn tune button, the Dashboard
+   catalog) both call `openSettingsModal("preferences",
+   "search-relevance-group")`; the static Ask-tab button just never got the
+   same one-line wiring. Fixed. **Also asked**: "aligned to the right, not
+   weirdly after the other elements and in the middle" — the heading is
+   already a flex row (`.chat-half h3`, for the answer side's own action
+   buttons); `#ask-search-tune { margin-left: auto }` pushes it to the row's
+   trailing edge. Verified live: the button's right edge is now pixel-exact
+   with the heading row's own right edge (measured via `boundingBox()`), and
+   clicking it opens Settings scrolled/flashed to the right group.
+2. **"Draft notes appear as regular notes in the main library section."**
+   True — `routes_library.py`'s `_notes()` query filtered `is_deleted`/
+   `archived_at` but never `is_draft`, unlike the Notes tab's own browse list
+   (`app.js` filters `!e.is_draft` in every list/count it builds). Added
+   `Entry.is_draft == False` to the query. Verified via the actual API
+   response, not just the query: a real draft created through `POST
+   /entries {"is_draft": true}` is absent from `/library`'s `"note"` items
+   while a normal note is present. New test,
+   `test_a_draft_note_does_not_appear_in_the_library`.
+3. **"I don't think drafts should be in the graph either??"** — checked
+   rather than assumed: also true, same root shape. `/graph`'s node query
+   (`routes_graph.py`) filtered only `is_deleted`. Added `Entry.is_draft ==
+   False`. **Scoped deliberately**: only the main `/graph` endpoint (what
+   actually renders the map) was changed — `graph_local`'s Focus Mode and
+   `paths.build()` (the shared BFS index also used by link-suggestion and
+   path-tracing) were left alone rather than risking a wider, unverified
+   change to code three other features depend on; since drafts no longer
+   appear as `/graph` nodes, there's no click-path into Focus Mode that would
+   reach one anyway in normal use. New test, `test_graph_excludes_drafts`.
+
+**A real CodeQL alert, not a false positive** (`py/path-injection`, High,
+alerts #289/#290 on `main` — the user pasted the GitHub alert screenshots
+directly): `routes_files.py`'s `save_generated_file` built `exports / name`
+from a whitelisted-but-still-CodeQL-tainted filename. `safe_filename` already
+existed as a real whitelist (strip to basename, then `[^A-Za-z0-9._ -]` →
+`_`), but used `Path(str(name)).name` rather than `os.path.basename` — a
+plausible reason CodeQL's sanitiser recognition didn't credit it, the same
+"a query's sanitiser recognition is narrower than 'the code is provably
+safe'" lesson this file already recorded once for the update-apply SSRF fix.
+Fixed two ways together: `safe_filename` now uses `os.path.basename`, and a
+new `_within_exports(exports, name)` helper does a real containment check
+(`target.resolve().relative_to(exports.resolve())`, raising 422 on escape) at
+both places `target` is constructed — the initial join and the
+overwrite-avoidance rename — so both alerted lines are downstream of an
+actual guard, not just a stronger filter upstream of it. 2 new tests
+(`test_within_exports_*`); all 24 existing `test_file_save.py` tests still
+pass unchanged, including the existing path-traversal parametrised test.
+
+**The other alert batch in the same screenshots — "Explicit export is not
+defined" ×12+ in `searxng_manager.py` — needed no new work.** Checked before
+touching anything: this branch already contains `1824a79`/`7afd4f7` (a prior
+session's `__all__`-based fix for exactly this facade-re-export shape,
+predating this session), and `git merge-base --is-ancestor origin/main HEAD`
+confirms those commits sit ahead of `main`. The alerts are real but stale —
+GitHub is scanning `main`, which doesn't have this branch's fix yet. Nothing
+to fix here now; they clear once this branch merges.
+
+**A security scan, asked for directly** ("check for security flaws and bugs
+along the way"), beyond the CodeQL alert above: grepped for `shell=True`
+(none), `eval`/`exec` (none), unescaped `.innerHTML =`/`insertAdjacentHTML`
+assignments (checked every hit in `app.js` by hand — all either static
+markup or run every interpolated value through the existing `escapeHtml()`),
+raw SQL string-formatting (none — the whole backend goes through the SQLAlchemy
+ORM), `pickle.load`/unsafe `yaml.load` (none), and hardcoded
+secret-shaped string literals (none). Not exhaustive — a full audit is its
+own session — but nothing beyond the path-injection alert turned up.
+
+**One stale ROADMAP.md item retracted, found while looking for a cheap add**:
+the mobile-audit "no scroll affordance" nav-bar gap (Tier-listed as cheap to
+fix) turned out already built — `#tab-bar.fade-end`/`.fade-start`
+(`00-tokens-shell.css`) plus `syncTabOverflowFade()` (`app.js`, wired to
+load/resize/scroll). Checked before starting a rebuild, per this file's own
+opening paragraph; confirmed live at 360px (`#tab-bar` carries `fade-end`,
+"Graph" visibly fades at the trailing edge, screenshotted). Retracted in
+place in ROADMAP.md rather than left to mislead the next session.
+
+**Not done, and worth saying plainly rather than leaving ambiguous**: the
+broader "semantic search enhancements throughout the app" ask was
+investigated, not built. `MATCH_REASON_LABEL`/`matchReasonBadge` (`app.js`)
+already surface a cosine-similarity percentage, matched keywords, hybrid
+scoring, and 1-hop/2-hop connection provenance on every Ask/Chat result —
+reading that code before proposing anything found it materially more
+complete than a generic "add relevance badges" idea would have improved on,
+so nothing was added there rather than duplicating it. The one real,
+concrete gap found and *not* closed: Library's own search box
+(`#library-search`) and the command palette's live note search are still
+plain substring, with no semantic option the way the Notes tab's own search
+has (`#semantic-search-toggle`). Left open rather than half-built — extending
+Library search would need deciding what a semantic toggle means for the
+other kinds it mixes in (documents, media, conversations have no embeddings
+today), which is a real design question, not a one-line wire-up.
+
+## Previous session — real-support-bundle fixes finished and released as v0.1.3, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
 
 Continuation of the previous session's real-support-bundle work (four bugs
 found and fixed there — see below). This session first closed out a run of

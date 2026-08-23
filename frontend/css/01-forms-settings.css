@@ -468,6 +468,13 @@ progress {
   overflow-wrap: anywhere;
 }
 
+/* Reported: sitting right after the mode chip read as squeezed into the
+   middle of the heading rather than a deliberately placed control. Same
+   flex row as above, just pushed to the row's own trailing edge. */
+#ask-search-tune {
+  margin-left: auto;
+}
+
 #thinking-box {
   margin-bottom: 0.6rem;
   font-size: 0.85rem;

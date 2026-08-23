@@ -174,6 +174,17 @@ def test_graph_excludes_deleted_notes(client):
     assert body["edges"] == []  # its only edge pointed at the deleted note
 
 
+def test_graph_excludes_drafts(client):
+    """A draft is unfinished by definition — reported directly ("drafts
+    appear... in the graph"). The Notes tab already keeps drafts out of
+    every list it draws; `/graph` didn't."""
+    keeper = _save(client, "a finished thought", category="Stuff")
+    _save(client, "half a thought", is_draft=True)
+
+    body = client.get("/graph").json()
+    assert [n["id"] for n in body["nodes"]] == [keeper["id"]]
+
+
 def test_graph_similarity_edges_opt_in(ai_client):
     # The fake embedder puts both "joke" notes on the same axis → cosine 1.
     a = _save(ai_client, "a funny scarecrow joke")

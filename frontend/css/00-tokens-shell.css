@@ -1857,6 +1857,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--ink);
 }
 
+/* Undo/Redo (status-undo/status-redo): empty-stack is the default state on
+   every fresh load, so it has to read as "nothing to do here" rather than a
+   broken button — dimmed and inert, same shape as a disabled toolbar icon
+   anywhere else in the app. */
+.status-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
 .status-item b {
   color: var(--ink);
   font-weight: 650;

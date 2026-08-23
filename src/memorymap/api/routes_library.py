@@ -366,7 +366,18 @@ def _notes(session: Session) -> list[dict]:
     rows = session.execute(
         select(Entry, Category.name)
         .outerjoin(Category, Entry.category_id == Category.id)
-        .where(Entry.is_deleted == False, Entry.archived_at.is_(None))  # noqa: E712
+        # A draft is unfinished by definition — the Notes tab's own browse
+        # list already keeps every draft out of "All notes" and every
+        # category filter (`app.js`'s `!e.is_draft` throughout) for exactly
+        # that reason. This query didn't match it: an unfinished draft was
+        # showing up as a first-class card in Library → "Everything",
+        # reported directly ("draft notes appear as regular notes in the
+        # main library section").
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.archived_at.is_(None),
+            Entry.is_draft == False,  # noqa: E712
+        )
         .order_by(Entry.pinned.desc(), Entry.created_at.desc())
         .limit(PER_KIND_LIMIT)
     ).all()

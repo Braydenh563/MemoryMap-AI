@@ -12,7 +12,60 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 83. Newest — v0.1.3 released, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
+## 84. Newest — a global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Asked
+for directly: a session-only global undo/redo stack, two new buttons in the
+existing `#status-bar` footer, Ctrl+Z/Ctrl+Shift+Z added to the existing
+rebindable-shortcuts system — deliberately excluded from firing while a text
+field has focus, so it never steals a text field's own native undo. Wired
+into note delete (single + bulk), note create, reminder delete, note linking/
+unlinking, and note content edits (which is what covers "add/remove an image
+from a note" — an embedded image is just markdown inside `content`).
+Deliberately not wired into tags, categories, documents, or Whiteboard/
+Skills/Settings — the Whiteboard already has its own local undo/redo, and the
+rest weren't part of what was asked.
+
+Three live-reported bugs, each confirmed against the actual code before
+fixing: the Ask tab's `#ask-search-tune` button existed in the markup but had
+no click listener at all (now wired to the same `search-relevance-group`
+Settings jump the other two quick-access links use) and was squeezed mid-row
+rather than right-aligned (`margin-left: auto`); draft notes were appearing
+in both Library's mixed "note" list and the Graph's node list, neither of
+which filtered `is_draft` the way the Notes tab's own browse list already
+does (both fixed with one `Entry.is_draft == False` clause each, new tests
+for both).
+
+A real CodeQL alert, not a false positive this time (`py/path-injection`,
+alerts #289/#290 on `main`, pasted directly as screenshots):
+`save_generated_file`'s already-whitelisting `safe_filename` used
+`Path(...).name` rather than `os.path.basename`, which CodeQL's sanitiser
+recognition apparently didn't credit — fixed with `os.path.basename` plus a
+new `_within_exports()` containment check (`resolve().relative_to(...)`) at
+both places the export path is built. The other alert batch in the same
+screenshots ("Explicit export is not defined" ×12+ in `searxng_manager.py`)
+needed no new work — this branch already has a prior session's `__all__` fix
+for that exact shape, just not yet merged to `main`, where the (stale) alerts
+were scanned.
+
+A security scan beyond the CodeQL alert (`shell=True`, `eval`/`exec`,
+unescaped `innerHTML`, raw SQL string-formatting, unsafe `pickle`/`yaml`,
+hardcoded secrets) found nothing further. One stale roadmap item retracted
+after being checked rather than rebuilt: the nav-bar scroll-affordance fade
+mask (below, Tier "SUBOPTIMAL" list) turned out already built by a prior
+session.
+
+`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
+Everything UI-shaped verified live with Playwright in this sandbox — see
+HANDOVER.md for exactly what was measured. **Not done, said plainly rather
+than half-built**: the broader "semantic search throughout the app" ask
+turned out mostly already excellent (match-reason badges already show
+similarity %, matched keywords, and connection provenance) — the one real
+gap, semantic search in Library's own search box, needs a design decision
+about what "semantic" means for the non-note kinds Library mixes in, so it
+was left open rather than partially wired.
+
+## 83. v0.1.3 released, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
 
 Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry.
 Continuation of item 82 below: the BGE embedding install now retries itself
@@ -294,13 +347,16 @@ next session, roughly in this order:
    tall). These aren't one shared component — at least three separate
    styling situations — so this is more than a one-line fix; scope a real
    pass rather than patching pixel values blind.
-4. **SUBOPTIMAL — the 7-tab nav bar shows only ~4 tabs at once at
-   320–375px width with no scroll affordance.** Confirmed genuinely
-   scrollable (not clipped/lost — `scrollWidth` 640px vs `clientWidth`
-   294–349px, and the active tab does auto-scroll into view), just
-   undiscoverable: nothing hints Library/Timeline/Reminders exist further
-   right except a partially-cut label at rest. A fade-mask or scroll-arrow
-   hint at the nav bar's trailing edge would close this cheaply.
+4. ~~**SUBOPTIMAL — the 7-tab nav bar shows only ~4 tabs at once at
+   320–375px width with no scroll affordance.**~~ **Retracted — already
+   built.** Checked before starting a rebuild (per this file's own opening
+   paragraph): `#tab-bar.fade-end`/`.fade-start` (`00-tokens-shell.css`) plus
+   `syncTabOverflowFade()` (`app.js`, wired to load/resize/scroll) already
+   mask the trailing edge exactly as this item asked for. Confirmed live at
+   360px — `#tab-bar` carries `fade-end` and "Graph" visibly fades at the
+   right edge, screenshotted. Whatever state this was true of, a later
+   session already closed it; this item's own "would close this cheaply"
+   phrasing was the tell that it hadn't been checked against source.
 5. **SUBOPTIMAL — the Graph "+ New note" popup visually overlaps the
    zoom-in/zoom-out/fullscreen toolbar buttons while open** (confirmed
    56–71% bounding-box overlap at 320–412px widths), with no backdrop to

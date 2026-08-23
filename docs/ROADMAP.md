@@ -1383,6 +1383,41 @@ Worth doing, and worth doing after the above.
     measuring before it ships, the same discipline already applied to §33's
     semantic-tool-retrieval item — a background job that mis-files something
     nobody asked to capture is a worse failure than one that misses something.
+40. **Help page overhaul, plus an embedded mini AI chat for in-app guidance.**
+    Asked for directly, in detail, across several messages — logged here
+    before being built, not yet started. Two parts:
+    - **The docs/guides half.** Today's Help is thin. Wants proper docs and
+      guides in-app: hyperlinks, tutorials, step-by-step instructions, and
+      quick-access links into the actual menus/commands/settings a topic
+      describes (the same "jump straight to the setting and highlight it"
+      pattern item 83/§82's search-relevance links already established —
+      reuse that mechanism rather than inventing a second one).
+    - **The mini AI chat half**, specified precisely:
+      - Lives in the Help/Settings area, small and basic by design, not a
+        second full Chat tab.
+      - Uses the user's already-configured **utility model** (not the main
+        chat model), specialised via its own system prompt for app guidance
+        only — answering "how do I…" / troubleshooting, not general Q&A over
+        the notebook.
+      - Can hand back **hyperlinked badges** pointing at specific app
+        features (same quick-access-link mechanism as the docs half).
+      - **No persisted history at all** — asked for directly: not saved to
+        the database, not listed anywhere past chats are. The *current*
+        chat persists only within the user's current session (survives a
+        tab switch, does not survive "start a new help chat" or the session
+        ending) — likely a plain in-memory/module-state or `sessionStorage`
+        pattern, not `conversations`/`ChatMessage`, since those are exactly
+        the persistence this was asked to avoid.
+      - Model parameters tuned for **speed and accuracy over creativity** —
+        low temperature, no extended thinking, a tight prompt/context
+        budget (this repo already asserts `agent.PROSE_BUDGET_CHARS` for the
+        same reason: every sentence in a system prompt is resent every
+        round, and a help chat that's slow to answer "how do I turn off web
+        search" defeats its own purpose).
+    Not scoped further than this — no route names, no component layout — on
+    purpose: worth a full session's own design pass rather than a rushed
+    half-build, and the auto-update framework (item 83) was an explicit
+    prerequisite gate for starting this one, now cleared.
 
 ### Tier 4 — deferred, with the reason
 

@@ -1759,9 +1759,14 @@ dialog::backdrop {
    spacing token because it is sized to the TEXT it holds, which is what a
    label column is — a spacing step would be a coincidence that broke the first
    time a label was reworded. */
+/* Shared by "Add to document" and "File under" so their dropdowns line up
+   on one left edge — 8.5rem was sized for the longer of the two, which left
+   a noticeably wider, oddly empty-looking gap after the shorter "File
+   under" (reported live). 7rem keeps both rows close enough to aligned
+   without stretching the short one so far past its own text. */
 .capture-field-label {
   flex: 0 0 auto;
-  min-width: 8.5rem;
+  min-width: 7rem;
 }
 
 /* Rows of controls sit on one rhythm, and wrap as whole controls rather than

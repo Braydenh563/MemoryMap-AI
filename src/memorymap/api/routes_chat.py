@@ -399,6 +399,14 @@ def _prepare(
             # prompt renders this as a caveat, so an answer can say "you linked
             # this to the note about X" instead of implying it was a hit.
             "connected": entry.id in connected_ids,
+            # Already computed (match_info feeds the frontend's own similarity/
+            # hops badges) and already shown to the user — just never reached
+            # the model itself before. Asked for directly: "can the ai see the
+            # link reasons and similarity scores in the searches?" It's the
+            # score half of that; a linked note's own reason text would need
+            # tracing back to the specific Link row, a bigger change not made
+            # here.
+            "match_info": match_info.get(entry.id),
         }
 
     notes = [as_note(entry) for entry in entries]

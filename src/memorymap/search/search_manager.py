@@ -44,8 +44,20 @@ def _user_today(session: Session):
     except Exception:  # noqa: BLE001 — a script or a test with no app state
         return datetime.now().date()
 
-# Below this cosine similarity a match is probably noise — hide it.
+# Below this cosine similarity a match is probably noise — hide it. An
+# absolute floor, kept as a sanity check alongside the relative one below
+# (RELATIVE_Z_MARGIN) — see semantic_search's own comment on why an
+# absolute number alone is not enough for an anisotropic embedding space.
 MIN_SIMILARITY = 0.25
+
+# How many standard deviations above this query's own mean score a
+# candidate needs to clear the *relative* floor in semantic_search.
+RELATIVE_Z_MARGIN = 0.5
+
+# Below this many valid candidate scores, a mean/std is too noisy an
+# estimate to reject anything by — semantic_search falls back to
+# MIN_SIMILARITY alone.
+RELATIVE_MIN_CANDIDATES = 5
 
 # When nothing matches, hand the assistant this many recent entries so
 # broad/overview questions ("what have I saved?") still get answered.
@@ -240,10 +252,37 @@ def semantic_search(
     if np.any(valid):
         scores[valid] = np.dot(vectors[valid], query_vector) / (norms[valid] * query_norm)
 
+    # MIN_SIMILARITY alone assumes "0.25" means the same thing regardless of
+    # which embedding model produced the vectors — it does not. A BGE-family
+    # model (the current DEFAULT_ST_MODEL, embeddings.py) is anisotropic:
+    # its vectors cluster in a narrow cone, so two genuinely unrelated notes
+    # routinely land at 0.4-0.6 cosine similarity, nowhere near the "0 is
+    # unrelated" an absolute floor implicitly assumes. Reported live: an
+    # unrelated note scored 57% for an unconnected query, comfortably above
+    # this floor. MIN_SIMILARITY predates that model (the built-in default
+    # was all-MiniLM before it, which does not have anisotropy to nearly the
+    # same degree — see embeddings.py's own comment on the switch) and was
+    # never recalibrated.
+    #
+    # Rather than guess a new fixed number for BGE specifically — unverified
+    # in this sandbox, which cannot run sentence-transformers at all per
+    # CLAUDE.md — this adds a second, *relative* floor from the query's own
+    # score distribution: a candidate has to beat what an unrelated note
+    # typically scores for THIS query, not just clear an absolute number
+    # picked for a different model. Self-calibrating regardless of backend,
+    # and it degrades to "floor only" (relative_floor = -inf) when there
+    # are too few candidates for a mean/std to mean anything — a two-note
+    # notebook has no "typical unrelated score" to measure against.
+    valid_scores = scores[valid]
+    if valid_scores.size >= RELATIVE_MIN_CANDIDATES:
+        relative_floor = float(np.mean(valid_scores) + RELATIVE_Z_MARGIN * np.std(valid_scores))
+    else:
+        relative_floor = float("-inf")
+
     scored_ids = [
         (entry_ids[i], float(scores[i]))
         for i in range(len(entry_ids))
-        if scores[i] >= MIN_SIMILARITY
+        if scores[i] >= MIN_SIMILARITY and scores[i] >= relative_floor
     ]
     scored_ids.sort(key=lambda pair: pair[1], reverse=True)
     if not scored_ids:

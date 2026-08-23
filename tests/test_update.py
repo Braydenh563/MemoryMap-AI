@@ -61,6 +61,23 @@ def _wait_until_idle(timeout=5.0):
     assert not routes_update.current()["running"], "apply thread never finished"
 
 
+def _wait_until_exit_called(exit_calls, timeout=3.0):
+    """For a test on the "launched" path: `_exit_once_launched` runs on its
+    own background thread and only calls `os._exit` *after* this test's own
+    `_wait_until_idle` above already sees `_state.running` go False — so
+    without this, the test can return (and `monkeypatch` revert its mock of
+    `os._exit`) before that background thread ever gets there. The real
+    `os._exit(0)` then fires a couple hundred ms later against no mock at
+    all, silently killing the whole pytest process mid-suite. Found by
+    running `pytest tests/test_update.py` alone: a truncated run, no
+    failure reported, no traceback — exactly what an unmocked `os._exit(0)`
+    looks like from the outside."""
+    deadline = time.time() + timeout
+    while not exit_calls and time.time() < deadline:
+        time.sleep(0.02)
+    assert exit_calls, "the exit-watcher thread never called the (mocked) os._exit"
+
+
 # --- guards, none of which should ever touch the network -------------------
 
 
@@ -211,13 +228,19 @@ def test_a_successful_apply_downloads_then_launches_the_official_installer_only(
     popen_calls = []
     monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: popen_calls.append(a))
     monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
-    # The exit-once-launched watcher calling os._exit(0) would kill the test
-    # process — not what "launched" should do here.
-    monkeypatch.setattr(routes_update.os, "_exit", lambda code: None)
+    # The exit-once-launched watcher calling the real os._exit(0) would
+    # kill the test process — mocked, and EXIT_DELAY_SECONDS shrunk so the
+    # watcher thread doesn't sit in its own 2s sleep long after this test
+    # has already returned — see _wait_until_exit_called's own comment for
+    # why both matter together, not just the mock alone.
+    monkeypatch.setattr(routes_update, "EXIT_DELAY_SECONDS", 0)
+    exit_calls = []
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: exit_calls.append(code))
 
     response = client.post("/update/apply")
     assert response.status_code == 200
     _wait_until_idle()
+    _wait_until_exit_called(exit_calls)
 
     state = routes_update.current()
     assert state["outcome"] == "launched"
@@ -267,40 +290,72 @@ def test_apply_status_reports_idle_before_anything_runs(client):
 def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
     client, app_state, monkeypatch, tmp_path
 ):
+    """`tag` is never interpolated into a request URL at all (CodeQL
+    py/partial-ssrf) — a specific tag is found by matching `tag_name` in
+    the plain, fixed `/releases` listing instead of `/releases/tags/{tag}`,
+    so the request this test observes is always the same fixed URL
+    regardless of which tag was asked for."""
     app_state.set_preference("update_check_enabled", True)
     app_state.set_preference("auto_update_enabled", True)
     monkeypatch.setattr(routes_update.sys, "platform", "win32")
     monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
 
     requested_urls = []
+    other_release = dict(RELEASE_WITH_ASSET)  # v9.9.9 — must NOT be the one picked
+    tagged_release = {
+        "tag_name": "v8.8.8",
+        "assets": [
+            {
+                "name": "MemoryMap-AI-Setup-8.8.8.exe",
+                "browser_download_url": "https://example.com/MemoryMap-AI-Setup-8.8.8.exe",
+                "size": 12,
+            }
+        ],
+    }
 
     def _fake_get(url, **kwargs):
         requested_urls.append(url)
-        if "releases/tags/v8.8.8" in url:
-            release = dict(RELEASE_WITH_ASSET)
-            release["tag_name"] = "v8.8.8"
-            release["assets"] = [
-                {
-                    "name": "MemoryMap-AI-Setup-8.8.8.exe",
-                    "browser_download_url": "https://example.com/MemoryMap-AI-Setup-8.8.8.exe",
-                    "size": 12,
-                }
-            ]
-            return _FakeResponse(release)
+        if url == f"{routes_update.GITHUB_REPO_API}/releases":
+            return _FakeResponse([other_release, tagged_release])
         return _FakeResponse(content=b"old-installer", headers={"Content-Length": "13"})
 
     monkeypatch.setattr(routes_update.requests, "get", _fake_get)
     monkeypatch.setattr(routes_update.subprocess, "Popen", lambda *a, **k: None)
     monkeypatch.setattr(routes_update.tempfile, "mkdtemp", lambda prefix="": str(tmp_path))
-    monkeypatch.setattr(routes_update.os, "_exit", lambda code: None)
+    # See _wait_until_exit_called's own comment: both the shrunk delay and
+    # waiting for the mocked call are needed, or the real os._exit(0) fires
+    # after this test has already returned and unmocked it.
+    monkeypatch.setattr(routes_update, "EXIT_DELAY_SECONDS", 0)
+    exit_calls = []
+    monkeypatch.setattr(routes_update.os, "_exit", lambda code: exit_calls.append(code))
 
     response = client.post("/update/apply", params={"tag": "v8.8.8"})
     assert response.status_code == 200
     _wait_until_idle()
+    _wait_until_exit_called(exit_calls)
 
-    assert any("releases/tags/v8.8.8" in u for u in requested_urls)
-    assert not any("releases/latest" in u for u in requested_urls)
-    assert routes_update.current()["outcome"] == "launched"
+    # First call is the release lookup — always this one fixed URL,
+    # regardless of which tag was asked for; the second is the download
+    # itself, hitting the asset URL that lookup resolved to.
+    assert requested_urls[0] == f"{routes_update.GITHUB_REPO_API}/releases"
+    assert not any("releases/latest" in u or "releases/tags" in u for u in requested_urls)
+    state = routes_update.current()
+    assert state["outcome"] == "launched"
+
+
+def test_apply_with_a_tag_that_has_no_matching_release_is_a_clean_404(
+    client, app_state, monkeypatch
+):
+    app_state.set_preference("update_check_enabled", True)
+    app_state.set_preference("auto_update_enabled", True)
+    monkeypatch.setattr(routes_update.sys, "platform", "win32")
+    monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(
+        routes_update.requests, "get", lambda *a, **k: _FakeResponse([RELEASE_WITH_ASSET])
+    )
+
+    response = client.post("/update/apply", params={"tag": "v1.2.3"})
+    assert response.status_code == 404
 
 
 def test_apply_refuses_a_tag_that_isnt_a_real_release_tag_shape(

@@ -65,6 +65,22 @@ ASSET_SUFFIX = ".exe"
 #: it because the host happens to be hardcoded.
 _TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
 
+#: How long `_exit_once_launched` waits after the apply thread finishes
+#: before calling the real `os._exit` — a module constant specifically so
+#: tests can shrink it to ~0. A real, latent test-isolation bug lived here
+#: once: a test that mocks `os._exit` returns as soon as `_wait_until_idle`
+#: sees `_state.running` go False, but the *watcher* thread is still mid-
+#: sleep at that point — by the time it wakes and calls the mocked
+#: `os._exit`, `monkeypatch`'s teardown has already reverted it back to the
+#: real one, and the real `os._exit(0)` then kills the whole test process a
+#: couple of seconds later with no traceback, no summary, just silence.
+#: Harmless at the tail of a multi-minute full suite run (the process was
+#: about to exit anyway); fatal running this file alone, which is short
+#: enough that the delayed bomb detonates mid-run instead. Found by running
+#: `pytest tests/test_update.py` alone and getting a truncated run with no
+#: failure reported. See EXIT_DELAY_SECONDS's own test-side use.
+EXIT_DELAY_SECONDS = 2
+
 
 def _version_tuple(text: str) -> tuple[int, ...]:
     parts = []
@@ -111,15 +127,6 @@ _state = _ApplyState()
 _lock = threading.Lock()
 
 
-class _DownloadIncomplete(OSError):
-    """Raised only by `_download` below, with a message this module wrote
-    itself (byte counts only — no path, no library internals). Distinct
-    from a bare `OSError` specifically so `_run_apply`'s except block can
-    tell "our own safe, crafted message" apart from an arbitrary exception
-    from `requests`/the filesystem, whose `str()` is not safe to hand back
-    over `GET /apply/status` — see that block's own comment."""
-
-
 def reset_for_tests() -> None:
     """Process-global, like `core.extras._state` — tests have to clear it or
     one test's apply attempt leaks into the next one's assertions."""
@@ -162,10 +169,15 @@ def _download(url: str, dest: Path) -> None:
     # CDNs omit it, and refusing every such download over a header that was
     # never promised would be its own bug.
     if _state.total_bytes and written < _state.total_bytes:
-        raise _DownloadIncomplete(
+        # The safe, byte-counts-only text goes straight onto `_state` here,
+        # not into the exception that follows — see `_run_apply`'s own
+        # except block for why an exception's `str()` never reaches
+        # `_state.error` at all, not even one this module wrote itself.
+        _state.error = (
             f"Download incomplete: got {written} of {_state.total_bytes} bytes "
             "— check your connection and try again."
         )
+        raise OSError("download truncated")
 
 
 def _run_apply(download_url: str, asset_name: str) -> None:
@@ -180,20 +192,22 @@ def _run_apply(download_url: str, asset_name: str) -> None:
         tmp_dir = Path(tempfile.mkdtemp(prefix="memorymap-update-"))
         installer_path = tmp_dir / asset_name
         _download(download_url, installer_path)
-    except Exception as exc:
+    except Exception:
         # Full detail to the log only — `_state.error` reaches the browser
         # via GET /apply/status, and an arbitrary exception's own `str()`
         # (a `requests` connection error, a filesystem OSError) can carry a
         # local path or other internal detail. CodeQL: py/stack-trace-
         # exposure, the same shape `core/extras.py`'s own module docstring
-        # already documents fixing once. `_DownloadIncomplete` is the one
-        # exception in this phase this module wrote itself — its message is
-        # safe by construction (byte counts only), so it passes through.
+        # already documents fixing once — this is the stricter version:
+        # never read the caught exception's own text at all, not even
+        # conditionally. `_download` already set `_state.error` itself, with
+        # a safe, byte-counts-only message, for the one failure in this
+        # phase worth naming specifically (a truncated download); anything
+        # else falls through to the generic message below.
         logger.exception("update download failed")
         _state.outcome = "failed"
-        _state.error = str(exc) if isinstance(exc, _DownloadIncomplete) else (
-            "Download failed — see Settings → Logs for details."
-        )
+        if not _state.error:
+            _state.error = "Download failed — see Settings → Logs for details."
         _state.step = (
             "Couldn't download the update — this can happen if a firewall, "
             "proxy, or antivirus is blocking the download, or if you're "
@@ -463,19 +477,33 @@ def apply_update(tag: str | None = None) -> dict:
         # in the whole flow that is about to run an executable, so it gets
         # its own source of truth rather than trusting a payload the client
         # could (even accidentally, via a stale page) send stale.
-        url = (
-            f"{GITHUB_REPO_API}/releases/tags/{tag}" if tag else f"{GITHUB_REPO_API}/releases/latest"
-        )
+        #
+        # Always one of these two *fixed* URLs — `tag` (already validated
+        # against _TAG_RE above) never gets interpolated into a request URL
+        # at all, not even a validated one: when a tag is given, the release
+        # is found by matching `tag_name` in the plain `/releases` listing's
+        # own response instead. Belt-and-suspenders on top of the _TAG_RE
+        # check — CodeQL (py/partial-ssrf) flagged the interpolated version
+        # even with that validation in place, so this removes the
+        # client-influenced value from the URL entirely rather than trust
+        # a sanitizer its data-flow analysis doesn't recognise.
+        url = f"{GITHUB_REPO_API}/releases" if tag else f"{GITHUB_REPO_API}/releases/latest"
         try:
             response = requests.get(url, timeout=4, headers=GITHUB_HEADERS)
             response.raise_for_status()
-            release = response.json()
+            body = response.json()
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
                 detail="Couldn't reach GitHub to fetch the update — check your "
                 "internet connection and try again.",
             ) from exc
+        if tag:
+            release = next((r for r in body if r.get("tag_name") == tag), None)
+            if release is None:
+                raise HTTPException(status_code=404, detail="No release found for that tag.")
+        else:
+            release = body
         asset = _windows_asset(release)
         download_url = asset.get("download_url") if asset else None
         if not download_url:
@@ -517,5 +545,5 @@ def _exit_once_launched() -> None:
     while _state.running:
         time.sleep(0.5)
     if _state.outcome == "launched":
-        time.sleep(2)  # let the last status poll's response actually go out
+        time.sleep(EXIT_DELAY_SECONDS)  # let the last status poll's response actually go out
         os._exit(0)

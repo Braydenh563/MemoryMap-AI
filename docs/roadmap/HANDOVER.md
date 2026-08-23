@@ -190,19 +190,39 @@ directly ("review and fix the codeql failures"):
 - **CRITICAL, CodeQL `py/partial-ssrf`**: `POST /update/apply?tag=` built
   a GitHub API URL by interpolating the client-supplied `tag` straight in
   (`f"{GITHUB_REPO_API}/releases/tags/{tag}"`) — the host was fixed, but
-  the path wasn't, which is exactly what "partial" SSRF means. Fixed by
-  validating `tag` against this repo's own real tag shape (`v\d+\.\d+\.\d+`)
-  and refusing anything else with a 400 before it ever reaches a URL.
+  the path wasn't, which is exactly what "partial" SSRF means. **First
+  attempt (regex-validate `tag` against `v\d+\.\d+\.\d+` before use, refuse
+  a mismatch with 400) was not enough** — CodeQL re-flagged the exact same
+  line on the next scan, meaning its data-flow analysis doesn't treat a
+  `re.match` + early-raise as a recognised sanitiser for this query. Fixed
+  properly by removing the tainted value from the URL entirely instead of
+  validating it: a specific tag is now found by fetching the plain, fixed
+  `/releases` listing (same URL `GET /update/releases` already uses) and
+  matching `tag_name` against it in memory, so `tag` never reaches a
+  request URL at all, validated or not. The regex check stays too, as a
+  cheap early 400 — defense in depth, not the load-bearing fix anymore.
+  **Lesson for next time a security scanner is re-flagging something after
+  a fix**: check whether the *value* was actually removed from the tainted
+  sink, not just filtered — a static analyzer's sanitiser recognition is
+  narrower than "the code is provably safe."
 - **MEDIUM, CodeQL `py/stack-trace-exposure`**: `routes_update.py`'s
   `_run_apply` put raw `str(exc)` into `_state.error`, which `GET
   /apply/status` returns straight to the browser — a real `PermissionError`
   on Windows carries the full local path it couldn't open. Same shape
   `core/extras.py`'s own module docstring already documents fixing once
-  for the package installer; fixed the same way here — a safe, generic
-  message on the HTTP-facing field, the full exception still going to
-  `logger.exception` (log-only). One exception, `_DownloadIncomplete`, is
-  this module's own crafted message (byte counts only, safe by
-  construction) and is allowed through unchanged.
+  for the package installer. **Also needed a second pass**: an initial fix
+  conditionally let one exception's `str()` through (`isinstance(exc,
+  _DownloadIncomplete)`, believed safe since this module wrote that
+  specific message itself) — CodeQL flagged it again, same reasoning as
+  the SSRF re-flag: a conditional pass-through of an exception's `str()` is
+  still a recognised flow to the query, regardless of what's actually in
+  the string at runtime. Fixed by severing the flow completely instead:
+  `_download` now sets `_state.error` directly, from plain integers (byte
+  counts), *before* raising a bare `OSError` purely for control flow —
+  `_run_apply`'s except block never reads any caught exception's `str()`
+  at all, for any branch, full stop. The custom `_DownloadIncomplete`
+  exception class this replaced is gone too — it existed only to support
+  the isinstance check that's no longer needed.
 - **5 notes, `py/unused-global-variable` ×4 and a duplicate-import ×1**:
   four loose module-level flags (`ocr.py`'s two "log this once" bools,
   `routes_update.py`'s four source-update-popup fields) read a false
@@ -219,6 +239,34 @@ directly ("review and fix the codeql failures"):
 - All fixes verified with new/updated tests (`test_update.py` ×2 new,
   `test_ocr.py` caplog-based rewrite of the log-once test), full suite,
   `ruff check .` green.
+
+**A real, latent test-isolation bug found chasing down why `pytest
+tests/test_update.py` alone kept dying silently** — 24 of 30 tests, then
+nothing: no failure, no traceback, exit code 0, process just gone.
+`_exit_once_launched` (a background thread `POST /apply` starts on the
+"launched" path) polls for the apply thread to finish, then sleeps 2s and
+calls the real `os._exit(0)` — by design, so the installer can overwrite
+files this process is holding open. Two existing tests mock `os._exit` to
+stop that from actually killing the test run, and both look correct in
+isolation: `client.post(...)`, `_wait_until_idle()`, assert, done. The bug
+is in the gap between "done" and "actually done": `_wait_until_idle` only
+waits for `_state.running` to go False, which happens *before* the
+watcher's own 2-second sleep — so the test function returns, `monkeypatch`
+reverts `os._exit` back to the real one at teardown, and ~2 seconds later
+(from a background thread still running, unaffected by the test having
+"finished") the *real* `os._exit(0)` fires and kills the whole pytest
+process. Invisible in the full suite (by the time it detonates, deep into
+a multi-minute run, pytest is already finishing up on its own) and fatal
+running this one file alone (short enough that the 2-second bomb goes off
+squarely mid-run). Fixed two ways together, neither sufficient alone: (1)
+`EXIT_DELAY_SECONDS` pulled out as a module constant the two affected
+tests shrink to `0`, and (2) both tests now explicitly wait for the
+*mocked* `os._exit` to actually have been called (`_wait_until_exit_called`,
+a bounded poll on a list the mock appends to) before returning, so
+`monkeypatch` never reverts out from under a still-in-flight background
+thread. The general shape worth remembering: a test that mocks something a
+*background thread* will call later has to wait for that call to actually
+happen, not just for the request/response cycle that started the thread.
 
 ## Previous session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
 

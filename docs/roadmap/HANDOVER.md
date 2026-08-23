@@ -1,6 +1,103 @@
 # Session handover
 
-## Latest session — chat citation badges were silently dropped, found and fixed; a queue of live requests below, none started
+## Latest session — a real support bundle from a real test user, four bugs found and fixed
+
+A user hit real problems on a packaged Windows install and sent a support
+bundle (logs.json/preferences.json/status.json/counts.json). Four separate,
+confirmed root causes came out of it — worth reading in full before the next
+session assumes any of "pip install fails," "SearXNG modules missing," or
+"the agent notification pushes the UI" are still mysteries.
+
+**1. The in-app package installer was fundamentally broken in the packaged
+build**, not the app's optional-dependency logic — `_run_install`/
+`_run_uninstall` (`core/extras.py`) ran `[sys.executable, "-m", "pip", ...]`,
+which is correct for a source/venv install but wrong for a frozen
+(PyInstaller) build: `sys.executable` there is the packaged `.exe` itself,
+so the command re-launched *the app* with pip's own arguments, which
+`__main__.py`'s argparse (only `--desktop`/`--reset-password`) rejected —
+exactly the user's log line: `"unrecognized arguments: -m pip install
+--disable-pip-version-check sentence-transformers"`. This is also the real
+answer to two long-standing "pip exited with code 1/2, no error text
+visible" mysteries this file recorded in earlier sessions — there was never
+any real pip output, because pip was never actually run. Fixed with a new
+`_pip_base_command()`: unchanged for a source install, but for a frozen one
+it looks for a real Python on PATH (`shutil.which`) and uses that instead —
+INSTALL.md documents Settings → Packages as the no-terminal/no-Python-
+required path in from the Windows installer, so failing outright would
+break a documented promise, not just tighten an error message. `None` (no
+Python found anywhere) now surfaces one clear, actionable sentence
+(`NO_PYTHON_FOUND_MESSAGE`) instead of the argparse crash. 5 new tests
+(`test_extras.py`), all passing without a real Windows build.
+
+**2. `ModuleNotFoundError: No module named 'memorymap.search.searxng_docker'`
+in the same bundle** — a real packaging gap, not a user misconfiguration (the
+user doesn't want web search at all and this didn't block them, but the
+module error is real). `searxng_manager.py`'s own module `__getattr__`
+reaches four facade files (`searxng_settings`/`searxng_docker`/
+`searxng_install`/`searxng_process`) exclusively via
+`importlib.import_module` — none of the four is ever imported by name
+anywhere else, so PyInstaller's static analysis has no path to any of them,
+the same "picked by name at runtime" shape already handled for uvicorn/
+sqlalchemy/pywebview/pystray in the spec's own `hiddenimports`, just missed
+for this one. Added all four. New `tests/test_packaging_spec.py` parses
+`searxng_manager._FACADE_NAMES` and asserts every one is listed in the spec
+file, so a fifth facade module added later can't silently repeat this.
+
+**3. A real, reproduced UI bug** — "a background agent notification
+actually displaced and pushed up the entire ui... sat at the bottom instead
+of floating in front." First pass (checking `#agent-monitor`'s own CSS,
+multiple viewports, fresh and populated profiles) found nothing — the panel
+really is `position: fixed` and really does float correctly everywhere it
+was checked. **The user was right and pushed back with the exact tab
+(Chat) and pointed at the very screenshot that showed it**, which is what
+found the real mechanism: `body.has-agent-monitor #tab-chat .layout > main
+{ padding-bottom: calc(var(--space-9) * 9) }` (07-whiteboard-misc.css) — a
+288px buffer meant to keep the last message clear of the overlay, copied
+from the working Notes-tab rule onto a Chat element that isn't a scroll
+container. `#tab-chat`'s `main` is `height: 100%` (fixed, via `align-items:
+stretch`) with `overflow: visible`; padding on a fixed-height box just eats
+the space its own content needs, so the whole card — header, messages,
+composer, Send — got squeezed into a shorter box (Send's own Y position
+moved ~113px). Two more attempts (moving the padding to `#chat-messages`,
+then also forcing `flex-basis: 0` on it) each changed the failure mode but
+didn't fix it — flexbox distributed the extra space in ways that still
+pushed the composer, just by a different amount each time (measured live
+each time: 113px, then 89px, then still 89px). **Root cause, checked
+directly rather than guessed a fourth time**: the monitor is `left: 20px;
+width: 350px` — measured live, that footprint lands entirely on the "Chats"
+sidebar column, never on `.layout > main` at all (`main`'s own `x` starts
+at 348px in the test window). Nothing in the conversation column was ever
+covered, so it never needed protecting. Fixed by removing the rule for Chat
+entirely rather than finding a fourth selector. **Verified live**: Send
+button's Y position is now byte-identical whether the monitor is open or
+closed (was 530→417, then 530→619, then 530→619; now 530→530).
+
+**4. A real, requested feature, not a bug**: automate the fix the app's own
+"Search engine problem" banner already told people to do by hand — asked
+for directly, generalising past this one user's report ("if a user
+experiences the same issues with the embedding model install, I want the
+app to suggest installing nomic embed text and switching to that with the
+process automated if the user selects their agreement"). Added a "Switch to
+nomic-embed-text (Ollama)" button next to `#embedding-error` in Settings →
+Models, shown only when there's an embedding error *and* Ollama is actually
+running and pull-capable (nothing to automate otherwise) and the app isn't
+already on it. One click: `POST /models/pull` (skipped if already
+installed — a real, exercised code path, not just the happy path), a 1s
+poll loop watching `/models/status`'s own `pulls` map until it resolves,
+then `POST /models/embedding-backend` — both routes already existed and
+already do the right thing (re-index included), so this is UI orchestration
+over existing, tested backend behaviour, not new backend logic. Verified
+live with route-mocked network responses (real Ollama isn't available in
+this sandbox): the button's visibility toggles correctly across three
+states (hidden — Ollama down; visible with the right label — error present
+and Ollama up; hidden again — already switched), and a full click-through
+correctly calls both endpoints with the right bodies. **Not verified**: an
+actual Ollama pulling a real model — the standing caveat, same as always.
+
+`pytest tests/` (~1,660 now), `ruff check .`, `node --check frontend/app.js`
+all clean throughout.
+
+## Earlier this session — chat citation badges were silently dropped, found and fixed; a queue of live requests below, none started
 
 **"Semantic search results in chat responses disappeared"**, reported with a
 transcript: a Chat-tab answer about "gaming notes" that clearly drew on

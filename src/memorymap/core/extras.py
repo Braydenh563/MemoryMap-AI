@@ -32,6 +32,7 @@ import importlib.util
 import logging
 import os
 import re
+import shutil
 import subprocess  # noqa: S404 — fixed args, no shell; see _install below
 import sys
 import tempfile
@@ -99,6 +100,54 @@ def _pip_reason(log: list[str], prefix: str) -> str:
         if line.lower().startswith(("error", "fatal", "exception")) or "error:" in line.lower()
     ]
     return f"{prefix}: {(named or useful)[-1]}"
+
+
+def _pip_base_command() -> list[str] | None:
+    """`[python, "-m", "pip"]`, or `None` if there is no real interpreter to
+    run it with.
+
+    `sys.executable -m pip` is right for a normal venv/source install — the
+    comment on `_run_install` explains why `sys.executable` beats a bare
+    `pip` there. It is wrong for a *frozen* build (`sys.frozen`, set by
+    PyInstaller): `sys.executable` there is the packaged app's own .exe, not
+    a Python interpreter, so `sys.executable -m pip install ...` actually
+    re-launches the app with `-m pip install ...` as if they were *its* own
+    command-line flags. `__main__.py`'s argparse (which only knows
+    `--desktop`/`--reset-password`) rejects them, and the failure that
+    reaches the user is "unrecognized arguments: -m pip install ..." — a
+    real one, from a real Windows installer user's support bundle, that had
+    previously been reported here twice as an unexplained "pip exited with
+    code 1/2" with no visible pip output at all, because there never was any
+    real pip output to show.
+
+    INSTALL.md documents Settings → Packages as the no-terminal,
+    no-Python-required way to add search-by-meaning/dictation from the
+    Windows installer — so failing outright in frozen mode would be
+    breaking a documented promise, not just tightening an error message.
+    Instead this looks for a real Python on PATH (common: many people
+    installing an AI-adjacent app like this already have one from something
+    else) and uses that. `None` means genuinely no interpreter was found —
+    the caller turns that into an honest, actionable message instead of the
+    argparse crash.
+    """
+    if not getattr(sys, "frozen", False):
+        return [sys.executable, "-m", "pip"]
+    python = shutil.which("python") or shutil.which("python3")
+    if not python:
+        return None
+    return [python, "-m", "pip"]
+
+
+#: Shown when `_pip_base_command()` returns `None` — frozen, and no system
+#: Python found. Names the actual fix (not just "something went wrong"),
+#: since "install Python" is not the answer most error messages in this
+#: no-terminal-required app would ever need to give.
+NO_PYTHON_FOUND_MESSAGE = (
+    "No Python interpreter found on this system, and the packaged app can't "
+    "install a package without one. Install Python from python.org (any "
+    "recent version, tick \"Add python.exe to PATH\" during setup), then "
+    "try again."
+)
 
 
 @dataclass(frozen=True)
@@ -277,10 +326,13 @@ def _run_uninstall(extra: Extra) -> None:
     thing" must not quietly take five.
     """
     try:
+        pip_base = _pip_base_command()
+        if pip_base is None:
+            _state.outcome = "failed"
+            _state.step = NO_PYTHON_FOUND_MESSAGE
+            return
         command = [
-            sys.executable,
-            "-m",
-            "pip",
+            *pip_base,
             "uninstall",
             "-y",
             "--disable-pip-version-check",
@@ -361,10 +413,14 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
     """pip, in a worker thread, with its output kept for the panel."""
     constraints_copy: Path | None = None
     try:
-        # `sys.executable -m pip` and never a bare `pip`: the app may well be
-        # running inside a venv whose pip is not the one on PATH, and installing
-        # into the wrong environment looks exactly like an install that did
-        # nothing.
+        # `sys.executable -m pip` and never a bare `pip` — see
+        # `_pip_base_command`'s own docstring for why that's not quite right
+        # either once the app is a frozen build, and what this does instead.
+        pip_base = _pip_base_command()
+        if pip_base is None:
+            _state.outcome = "failed"
+            _state.step = NO_PYTHON_FOUND_MESSAGE
+            return
         # Constrain every extra install against requirements.txt so an optional
         # package's own dependency resolution can't drag a base package (e.g.
         # tokenizers, numpy) to a version the rest of the app doesn't expect.
@@ -373,9 +429,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         constraint = ["-c", str(constraints_copy)] if constraints_copy else []
 
         command = [
-            sys.executable,
-            "-m",
-            "pip",
+            *pip_base,
             "install",
             "--disable-pip-version-check",
             # A reinstall is for the case the button exists to serve: it is

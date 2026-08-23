@@ -17969,6 +17969,19 @@ let statusEverAnswered = false;
 let suggestedCatalog = null; // loaded once, it never changes
 let statusTimer = null;
 
+// The Ollama embedding model offered as a one-click fallback when the
+// built-in (sentence-transformers) engine can't load — asked for directly,
+// after a real support-bundle report: the built-in engine needs
+// sentence-transformers, which isn't bundled (see CLAUDE.md/requirements.txt
+// — installing it has broken past sessions, and a packaged Windows build
+// excludes torch on purpose), so a fresh install with no working Python on
+// PATH for Settings -> Packages to fall back to has no way to make the
+// built-in engine work at all. nomic-embed-text: small, well-known, and
+// exactly what Settings -> Models' own "quick fix" sentence already named
+// before this button existed.
+const EMBEDDING_FALLBACK_MODEL = "nomic-embed-text";
+let embeddingFallbackRunning = false;
+
 function settingsOpen() {
   // The Models section lives inside the settings modal now (Wave A).
   return settingsModalOpen();
@@ -19268,6 +19281,21 @@ function renderSettings() {
       "an Ollama embedding model (download nomic-embed-text from the list) — " +
       "it runs fully offline. Full details in Settings → Logs.";
   }
+  // The one-click version of the "quick fix" sentence above — only offered
+  // when it can actually be carried out (Ollama has to be running to either
+  // pull or use an Ollama embedding model), and not while the fix is
+  // already running or already switched over.
+  const fixRow = $("embedding-error-fix-row");
+  const alreadyOnOllama = status.embedding_backend === "ollama"
+    && status.embedding_model === EMBEDDING_FALLBACK_MODEL;
+  fixRow.classList.toggle(
+    "hidden",
+    !status.embedding_error
+      || !status.ollama_running
+      || !status.supports_pull
+      || embeddingFallbackRunning
+      || alreadyOnOllama
+  );
   renderSearchEngineHealth(status);
   // The "install Ollama" advice only helps someone who chose Ollama.
   $("ollama-help").classList.toggle(
@@ -20078,6 +20106,78 @@ function renderSuggested(status) {
     }
   }
 }
+
+// One click for the sentence #embedding-error already prints: download
+// nomic-embed-text (skipped if it's already installed), then switch the
+// search engine to it and re-index. Self-contained polling rather than
+// riding the shared `modelStatus` refresh loop — that loop backs off to a
+// slow cadence when nothing else is running, which would make a fresh
+// download look stalled for up to 20s at a time; this polls every second
+// for exactly as long as this one operation is in flight.
+async function runEmbeddingFallback() {
+  if (embeddingFallbackRunning) return;
+  embeddingFallbackRunning = true;
+  const button = $("embedding-error-fix");
+  const status = $("embedding-error-fix-status");
+  button.disabled = true;
+  const setStatus = (text) => {
+    status.textContent = text;
+  };
+  try {
+    const already = (modelStatus?.installed_models || []).some(
+      (m) => m.name === EMBEDDING_FALLBACK_MODEL || m.name.split(":")[0] === EMBEDDING_FALLBACK_MODEL
+    );
+    if (!already) {
+      setStatus(`Downloading ${EMBEDDING_FALLBACK_MODEL}…`);
+      try {
+        await api("/models/pull", {
+          method: "POST",
+          body: JSON.stringify({ name: EMBEDDING_FALLBACK_MODEL }),
+        });
+      } catch (error) {
+        // 409 "Already downloading" means someone else (or a previous
+        // click) already started this exact pull — fall through to the
+        // same wait loop rather than treating it as a failure.
+        if (!/already downloading/i.test(error.message || "")) throw error;
+      }
+      // Poll until the pull leaves "running" — succeeded (it drops out of
+      // `pulls` once installed) or failed (status "error").
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const poll = await apiJson("/models/status", { silent: true }).catch(() => null);
+        if (!poll) continue; // a transient miss mid-download isn't a failure
+        const pull = (poll.pulls || {})[EMBEDDING_FALLBACK_MODEL];
+        if (pull && pull.status === "error") {
+          throw new Error(pull.error || `Couldn't download ${EMBEDDING_FALLBACK_MODEL}.`);
+        }
+        const nowInstalled = (poll.installed_models || []).some(
+          (m) => m.name === EMBEDDING_FALLBACK_MODEL || m.name.split(":")[0] === EMBEDDING_FALLBACK_MODEL
+        );
+        if (nowInstalled || !pull) break;
+        setStatus(
+          pull.total
+            ? `Downloading ${EMBEDDING_FALLBACK_MODEL}… ${Math.round((pull.done / pull.total) * 100)}%`
+            : `Downloading ${EMBEDDING_FALLBACK_MODEL}…`
+        );
+      }
+    }
+    setStatus("Switching search engine and re-indexing…");
+    await api("/models/embedding-backend", {
+      method: "POST",
+      body: JSON.stringify({ backend: "ollama", model: EMBEDDING_FALLBACK_MODEL }),
+    });
+    toast(`Switched to ${EMBEDDING_FALLBACK_MODEL} — re-indexing your notes now.`);
+    setStatus("");
+  } catch (error) {
+    toast(error.message || `Couldn't switch to ${EMBEDDING_FALLBACK_MODEL}.`, true);
+    setStatus("");
+  } finally {
+    embeddingFallbackRunning = false;
+    button.disabled = false;
+    refreshModelStatus();
+  }
+}
+$("embedding-error-fix").addEventListener("click", runEmbeddingFallback);
 
 async function applyChatModel() {
   const select = $("chat-model-select");

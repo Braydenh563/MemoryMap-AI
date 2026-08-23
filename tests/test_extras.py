@@ -420,6 +420,80 @@ def test_pip_reason_falls_back_to_the_prefix_when_nothing_is_useful(client):
     assert extras._pip_reason(log, "pip exited with code 1") == "pip exited with code 1"
 
 
+# --- a real support-bundle report: "pip exited with code 2: memorymap:
+# error: unrecognized arguments: -m pip install ..." from the packaged
+# Windows app. Root cause: `sys.executable -m pip` is right for a source
+# install but sys.executable in a frozen (PyInstaller) build is the app's
+# own .exe, so that command re-launches *the app* with pip's own arguments,
+# which its argparse (only --desktop/--reset-password) rejects. This had
+# been reported twice before as an unexplained "pip exited with code 1/2,
+# no error text visible" — there never was any real pip output, because pip
+# was never actually run. -----------------------------------------------
+
+
+def test_pip_base_command_uses_sys_executable_when_not_frozen(monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", False, raising=False)
+    assert extras._pip_base_command() == [extras.sys.executable, "-m", "pip"]
+
+
+def test_pip_base_command_finds_a_system_python_when_frozen(monkeypatch):
+    """INSTALL.md documents Settings -> Packages as the no-terminal,
+    no-Python-required way in from the Windows installer, so a frozen build
+    still has to work when a real Python happens to be on PATH — refusing
+    outright would break that promise, not just tighten an error message."""
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(
+        extras.shutil, "which", lambda name: r"C:\Python312\python.exe" if name == "python" else None
+    )
+    assert extras._pip_base_command() == [r"C:\Python312\python.exe", "-m", "pip"]
+
+
+def test_pip_base_command_returns_none_when_frozen_and_no_python_found(monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(extras.shutil, "which", lambda name: None)
+    assert extras._pip_base_command() is None
+
+
+def test_install_gives_an_actionable_message_instead_of_the_argparse_crash(
+    client, monkeypatch
+):
+    """The exact scenario from the real report: frozen, no system Python.
+    Before this fix, `_run_install` would have built the broken command and
+    handed it to subprocess.Popen (the mock below would fail the test with
+    the wrong call), producing the "unrecognized arguments" crash instead of
+    this message."""
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(extras.shutil, "which", lambda name: None)
+
+    def _unexpected_popen(*args, **kwargs):
+        raise AssertionError("pip must not be invoked when no interpreter was found")
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _unexpected_popen)
+
+    extras._run_install(extras.EXTRAS_BY_ID["voice"])
+
+    state = extras.current()
+    assert state.outcome == "failed"
+    assert state.step == extras.NO_PYTHON_FOUND_MESSAGE
+    assert not state.running
+
+
+def test_uninstall_gives_the_same_actionable_message(client, monkeypatch):
+    monkeypatch.setattr(extras.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(extras.shutil, "which", lambda name: None)
+
+    def _unexpected_popen(*args, **kwargs):
+        raise AssertionError("pip must not be invoked when no interpreter was found")
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _unexpected_popen)
+
+    extras._run_uninstall(extras.EXTRAS_BY_ID["voice"])
+
+    state = extras.current()
+    assert state.outcome == "failed"
+    assert state.step == extras.NO_PYTHON_FOUND_MESSAGE
+
+
 def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
     """A "Base Requirements (requirements.txt)" extra was added with
     `packages=("-r", "requirements.txt")` and `module="fastapi"`. Since

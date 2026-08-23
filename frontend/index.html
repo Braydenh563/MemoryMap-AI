@@ -2469,6 +2469,19 @@ Link to another note with [[its first few words]]."></textarea>
             <p id="ollama-status" class="status"></p>
             <p id="search-engine-health" class="status"></p>
             <p id="embedding-error" class="status error hidden"></p>
+            <!-- The text above already told people the fix ("switch to an
+                 Ollama embedding model, download nomic-embed-text") — this
+                 is that fix as a button instead of a set of instructions to
+                 follow by hand across three different controls. Asked for
+                 directly: automate the whole thing behind one click, only
+                 shown when there's actually a fix to offer (Ollama has to
+                 be running to pull or use an Ollama model at all). -->
+            <div id="embedding-error-fix-row" class="row hidden">
+              <button id="embedding-error-fix" class="small" type="button">
+                Switch to nomic-embed-text (Ollama)
+              </button>
+              <span id="embedding-error-fix-status" class="muted"></span>
+            </div>
             <p id="ollama-help" class="muted hidden">
               Ollama powers the chat answers and auto-filing.
               <a href="https://ollama.com" target="_blank" rel="noopener">Install it from ollama.com</a>,

@@ -12,7 +12,37 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 81. Newest — chat citation badges (item 36's grounding) were computed and sent by the backend but never rendered in the Chat tab, only the Ask tab
+## 82. Newest — a real support bundle from a real test user, four bugs found and fixed
+
+Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Four
+root causes from one user's Windows install: (1) the in-app package
+installer (Settings → Packages) was fundamentally broken in the packaged
+build — `sys.executable -m pip` re-launches the frozen `.exe` itself, not a
+Python interpreter, which is also the real answer to two earlier "pip
+exited with code 1/2, no error text visible" mysteries this file recorded —
+fixed with a `_pip_base_command()` that finds a real system Python when
+frozen, with an honest message when none exists; (2) four SearXNG facade
+modules missing from the PyInstaller `hiddenimports` (reached only via
+`importlib.import_module`, the same shape already handled for uvicorn/
+sqlalchemy/pywebview elsewhere in the same spec file) — fixed, plus a new
+test that parses the facade list and asserts every one is in the spec, so a
+fifth can't repeat this silently; (3) a real, reproduced UI bug — opening
+the Agent Activity monitor visibly shoved the whole Chat card (composer,
+Send button) up the page, root-caused after the user pushed back on an
+initial "couldn't reproduce it" with the exact tab and their own screenshot
+— the monitor's actual footprint never covers `.layout > main` at all, so
+the padding-bottom rule protecting it from an overlap that doesn't exist
+was simply removed for Chat, verified with the Send button's Y position now
+byte-identical open vs. closed; (4) a requested feature, generalising past
+this one report: a "Switch to nomic-embed-text (Ollama)" button next to the
+existing "Search engine problem" banner in Settings → Models, automating
+the fix that banner's own text already described by hand (download →
+switch backend → re-index), built entirely on two existing, already-tested
+routes.
+
+`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
+
+## 81. Chat citation badges (item 36's grounding) were computed and sent by the backend but never rendered in the Chat tab, only the Ask tab
 
 Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Reported
 as "semantic search results in chat responses disappeared" with a transcript;

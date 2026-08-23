@@ -268,6 +268,36 @@ thread. The general shape worth remembering: a test that mocks something a
 *background thread* will call later has to wait for that call to actually
 happen, not just for the request/response cycle that started the thread.
 
+**The exact same bug shape, found a second time by CI rather than locally, in
+a different file:** pushing the fixes above turned CI green on CodeQL but
+red on `Tests (Python 3.12)` — one failure, `test_extras.py::
+test_a_failed_tesseract_binary_attempt_does_not_fail_the_whole_ocr_install`,
+asserting on `state.step` and getting back `'WARNING: Skipping faster-whisper
+as it is not installed.'` instead. That string is real `pip uninstall`
+output, not anything either test's own mock produces. Cause: its neighbour,
+`test_voice_actions_are_unblocked_once_nothing_is_loaded`, calls
+`extras.remove("voice")` without mocking `threading.Thread` or
+`subprocess.Popen` — unlike every other test that reaches `start()`/`remove()`
+in the file, which all mock `Thread` with the local `_NoThread` for exactly
+this reason (one of them says so directly, in a docstring added after an
+earlier live report of the same class of bug racing `test_tasks.py`). So it
+spawns a *real* background `pip uninstall faster-whisper` against the actual
+sandbox environment (where it isn't installed, hence the WARNING), which
+outlives the test that started it and later overwrites the shared
+`extras._state` module global while a completely unrelated test elsewhere in
+the same file is mid-assertion. Passed every time run locally in this
+session (evidently fast/lucky pip timing) and only showed up once, in CI, on
+Python 3.12 specifically — this is not an environment difference worth
+chasing, it is the same race CLAUDE.md already documents (a leaked background
+thread mutating shared global state after its own test has returned) showing
+up wherever a test forgets the one line its neighbours all remembered. Fixed
+by adding the same `monkeypatch.setattr(extras.threading, "Thread",
+_NoThread)` line the other `start()`/`remove()` tests already have. Worth a
+project-wide sweep if this class of bug turns up a third time: grep for every
+test that reaches `extras.start(`/`extras.remove(`/`routes_update.py`'s apply
+path without mocking `threading.Thread`, not just wait for CI to find them
+one at a time.
+
 ## Previous session — a real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by the audit that followed
 
 A user hit real problems on a packaged Windows install and sent a support

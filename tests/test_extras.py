@@ -273,10 +273,19 @@ def test_removing_voice_while_its_model_is_loaded_is_refused(monkeypatch):
 
 def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch):
     """The common case — nobody has recorded anything yet, or the process is
-    fresh — must not be caught by the same guard."""
+    fresh — must not be caught by the same guard.
+
+    `threading.Thread` is mocked like every other test that reaches `remove()`
+    — without it this spawns a *real* background thread that runs real pip
+    uninstall against the live environment. Found live: it outlived this test,
+    and a later, unrelated test in the OCR extra's own install path picked up
+    its real "WARNING: Skipping faster-whisper as it is not installed." output
+    through the shared `_state` global, failing on an assertion that had
+    nothing to do with faster-whisper at all."""
     from memorymap.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", None)
+    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
     started, message = extras.remove("voice")
     assert started is True
 

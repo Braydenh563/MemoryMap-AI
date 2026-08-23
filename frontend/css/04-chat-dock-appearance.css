@@ -506,11 +506,23 @@
 /* The two plain-text badges — token usage and the active-model name — are
    the ones whose length is actually variable; give each its own ellipsis
    rather than truncating the whole row, so a long model id doesn't also
-   eat into the (short, fixed-shape) "reading a summary" badge beside it. */
+   eat into the (short, fixed-shape) "reading a summary" badge beside it.
+
+   overflow/text-overflow alone do nothing without white-space: nowrap and
+   a real width to shrink against — `min-width: 0` above only *permits* a
+   flex child to shrink, it doesn't force it to. Without both, a model id
+   with no spaces to wrap at (an Ollama tag copied whole, e.g.
+   "hf.co/user/Some-Very-Long-Model-Name-Ollama:Q4_K_M") just kept growing
+   .chat-headline's own width instead of eliding, which pushed the
+   Compress/Export/Delete buttons onto their own row (reported live, with
+   a screenshot). max-width caps it at roughly #chat-title's own 22rem
+   minus room for the token-usage badge beside it on the same line. */
 #chat-active-model,
 #chat-usage {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 16rem;
 }
 
 .chat-subline:empty {

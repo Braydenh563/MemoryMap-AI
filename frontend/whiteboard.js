@@ -5437,6 +5437,46 @@ async function dragEndNode(event, d) {
   }
 }
 
+// The Library sub-tab drafts were supposed to live in from the start — a
+// stray comment already claimed "the sidebar/Library Drafts filter... is
+// what makes them findable" and HISTORY.md said the same, but no
+// library-view-drafts section ever existed to check off. Reported live:
+// "there is no drafts section in the library." Fetches its own list rather
+// than trusting Notes-tab state (`allEntries`) to already be loaded — the
+// Library can be opened first, before Notes ever has been.
+async function renderLibraryDraftsList() {
+  const list = $("library-drafts-list");
+  const empty = $("library-drafts-empty");
+  if (!list) return;
+  const entries = await apiJson("/entries?limit=1000", { silent: true }).catch(() => null);
+  const drafts = (entries || []).filter((e) => e.is_draft);
+  list.replaceChildren();
+  if (!drafts.length) {
+    empty?.classList.remove("hidden");
+    return;
+  }
+  empty?.classList.add("hidden");
+  for (const draft of drafts) {
+    const li = document.createElement("li");
+    li.className = "library-drafts-row";
+    const text = document.createElement("span");
+    text.className = "library-drafts-preview";
+    const preview = notePreviewText(draft.content).trim();
+    text.textContent = preview.length > 140 ? `${preview.slice(0, 140)}…` : preview || "(empty)";
+    const when = document.createElement("span");
+    when.className = "muted library-drafts-when";
+    when.textContent = new Date(draft.created_at).toLocaleDateString();
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "ghost small";
+    open.textContent = "Open";
+    open.title = "Open this draft in Notes";
+    open.addEventListener("click", () => flashEntry(draft.id));
+    li.append(text, when, open);
+    list.appendChild(li);
+  }
+}
+
 // Hook into the library subtabs to switch views and initialize whiteboard
 document.addEventListener("DOMContentLoaded", () => {
   const librarySubtabs = document.getElementById("library-subtabs");
@@ -5444,6 +5484,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const buttons = librarySubtabs.querySelectorAll("button");
     const sections = [
       "library-view-documents", "library-view-skills", "library-view-whiteboard", "library-view-media",
+      "library-view-drafts",
     ];
 
     buttons.forEach(btn => {
@@ -5474,11 +5515,14 @@ document.addEventListener("DOMContentLoaded", () => {
           wbShowBoardsLanding();
         } else if (targetId === "library-view-media") {
           renderLibraryImagesGallery();
+        } else if (targetId === "library-view-drafts") {
+          renderLibraryDraftsList();
         }
       });
     });
   }
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
+  $("library-drafts-refresh")?.addEventListener("click", renderLibraryDraftsList);
   $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
   $("library-images-upload-input")?.addEventListener("change", async (event) => {
     const input = event.target;

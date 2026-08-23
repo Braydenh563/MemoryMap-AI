@@ -1749,6 +1749,29 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--accent);
 }
 
+/* Library → Drafts (§80 this session): one row per draft, same .entry-list
+   card look every other list in this app uses, laid out as a row rather
+   than left to the default block flow of a <span><span><button> — those
+   three would otherwise just wrap inline with no consistent alignment. */
+.library-drafts-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.library-drafts-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-drafts-when {
+  flex: 0 0 auto;
+  font-size: var(--text-sm);
+}
+
 @media (max-width: 720px) {
   .library-toolbar {
     gap: var(--space-2);

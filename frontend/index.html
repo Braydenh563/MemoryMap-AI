@@ -462,6 +462,18 @@ Link to another note with [[its first few words]]."></textarea>
             <label for="entry-category" class="muted capture-field-label">File under</label>
             <select id="entry-category"></select>
             <button id="save-btn">Save</button>
+            <!-- Reported live: "no option to save a note as a draft in the
+                 capture section" — true before this. is_draft: true already
+                 existed as a note field (the text-selection popup, the
+                 Writing Room's "Save as note", and "save this answer as a
+                 draft note" in chat all set it) but the primary capture box
+                 had no path to it at all. Skips category resolution on
+                 purpose: a draft is "save this fast, decide later", the same
+                 reasoning the other three draft-creating paths already use —
+                 none of them file a category either. -->
+            <button id="save-draft-btn" class="ghost"
+              title="Save without filing it yet — find it later under Drafts in the sidebar"
+              aria-label="Save as draft">Save as draft</button>
             <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
             <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone" aria-hidden="true"></i></button>
@@ -1657,6 +1669,12 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
       <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
+      <!-- Reported live: HISTORY.md and a stray code comment both already
+           claimed drafts were surfaced "in the Notes tab + Library" — only
+           the Notes-tab sidebar filter (.category-drafts-row) ever existed;
+           this sub-tab never did, so "it didn't appear anywhere" was
+           literally true for anyone looking here first. -->
+      <button role="tab" aria-selected="false" data-target="library-view-drafts">Drafts</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -2263,6 +2281,24 @@ Link to another note with [[its first few words]]."></textarea>
       <p class="muted graph-help-panel hidden" id="library-images-intro" role="dialog" aria-label="What is this?">Every image pasted, dropped, or uploaded — in a note, a document, or on a whiteboard — or added directly here, then attachable to any note from its own "Attach from Library" action.</p>
       <div id="library-images-grid" class="library-image-grid"></div>
       <p id="library-images-empty" class="muted hidden">No images yet.</p>
+    </section>
+  </div>
+
+  <div id="library-view-drafts" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="row space-between library-head">
+        <h2>Drafts</h2>
+        <div class="row">
+          <button id="library-drafts-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <p class="muted">
+        Notes saved without being filed yet — from Notes' own "Save as
+        draft", selecting text anywhere in the app, or a chat answer saved
+        for later. Open one to finish it or file it properly.
+      </p>
+      <ul id="library-drafts-list" class="entry-list"></ul>
+      <p id="library-drafts-empty" class="muted hidden">No drafts right now.</p>
     </section>
   </div>
   <!-- Closes #tab-library, opened near the top of this tab's markup. A stray

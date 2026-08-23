@@ -3747,6 +3747,25 @@ function withTitle(content, title) {
   return trimmed ? `# ${trimmed}\n\n${content}` : content;
 }
 
+// Shared by saveEntry and saveEntryAsDraft: clear the capture box and every
+// field that goes with it once the content has actually been saved
+// somewhere. Pulled out rather than left duplicated — both paths need
+// exactly this, and it drifting between two copies is how one of them ends
+// up leaving a stale category or template selected after a save.
+function resetCaptureForm(contentBox, titleBox) {
+  contentBox.value = "";
+  if (titleBox) titleBox.value = "";
+  renderEntryAttachmentChips();
+  autoGrow(contentBox); // the box shrinks back with its content
+  localStorage.removeItem("captureDraft"); // it's saved for real now
+  $("entry-count").textContent = "0 characters";
+  $("entry-tags").value = "";
+  $("entry-category").value = "";
+  captureDocuments.clear();
+  renderCaptureDocuments();
+  $("entry-template").value = "";
+}
+
 async function saveEntry() {
   const contentBox = $("entry-content");
   const titleBox = $("entry-title");
@@ -3788,17 +3807,7 @@ async function saveEntry() {
           `to an existing note — “${saved.similar.preview}”`
       );
     }
-    contentBox.value = "";
-    if (titleBox) titleBox.value = "";
-    renderEntryAttachmentChips();
-    autoGrow(contentBox); // the box shrinks back with its content
-    localStorage.removeItem("captureDraft"); // it's saved for real now
-    $("entry-count").textContent = "0 characters";
-    $("entry-tags").value = "";
-    $("entry-category").value = "";
-    captureDocuments.clear();
-    renderCaptureDocuments();
-    $("entry-template").value = "";
+    resetCaptureForm(contentBox, titleBox);
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
     // Saving from Capture leaves you on Capture, with the note you just wrote
@@ -3807,6 +3816,51 @@ async function saveEntry() {
     // jump: capturing several thoughts in a row is the common case, and
     // teleporting away after each one would fight that.
     offerJumpToNewNote(saved, status);
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// "No option to save a note as a draft in the capture section" (user-
+// reported). is_draft already existed as a note field — the text-selection
+// popup, the Writing Room, and "save this answer as a draft note" in chat
+// all set it — but the primary capture box had no path to it. Deliberately
+// skips category resolution: a draft is "save this fast, decide later", the
+// same reasoning the other three draft-creating call sites already use —
+// none of them file a category either.
+async function saveEntryAsDraft() {
+  const contentBox = $("entry-content");
+  const titleBox = $("entry-title");
+  const status = $("save-status");
+  const button = $("save-draft-btn");
+
+  const content = withTitle(contentBox.value.trim(), titleBox?.value);
+  if (!content) {
+    status.textContent = "Write something first!";
+    status.classList.add("error");
+    return;
+  }
+  const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
+
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Saving as draft…";
+  try {
+    await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({
+        content,
+        tags,
+        document_ids: [...captureDocuments],
+        is_draft: true,
+      }),
+    });
+    status.textContent = "Saved as a draft — find it later under Drafts in the sidebar.";
+    resetCaptureForm(contentBox, titleBox);
+    await loadEntries();
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -24089,6 +24143,7 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
   });
 }
 $("save-btn").addEventListener("click", saveEntry);
+$("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
 $("stop-btn").addEventListener("click", stopAnswer);
 $("retry-btn").addEventListener("click", retryAnswer);

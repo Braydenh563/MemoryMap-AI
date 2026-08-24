@@ -1,5 +1,58 @@
 # Session handover
 
+## Latest session (continued) — Phases C and D, and a long live-report tail
+
+The same session continued well past the editor layer. **Start at
+[ROADMAP.md §88](../ROADMAP.md)** — it is the ordered work queue, and §88.0
+lists what was already fixed so nothing gets re-fixed.
+
+### Built after the editor layer
+
+- **Typed links (Phase D).** `EntryLink.link_type`, a nullable additive column
+  over a closed six-word vocabulary, plus a drag-to-link dialog in the graph
+  offering the kind, a reason, and **cancel** (nothing is written until
+  "Create link"). **Verified against a real pre-existing database** — the
+  auto-migrator added the column and existing rows kept null, which is the only
+  thing that could have gone wrong. The vocabulary is duplicated between
+  `core/database.py` and `graph.js` by necessity, so `tests/test_link_types.py`
+  fails the build if the two drift.
+- **The whiteboard render scheduler (Phase C).** `renderWhiteboard()` — a full
+  d3 join over every item — was called from **48 sites**, and one user action
+  touches several. All now coalesce into one `requestAnimationFrame`. Checked
+  every site first: none reads the DOM immediately after rendering, which is
+  what made batching safe. `renderWhiteboardNow()` is kept for anything that
+  ever does.
+- **Six live-reported bugs**, each traced to a cause rather than patched — see
+  §88.0 for the table. The two worth remembering:
+  - **"Run Skill is broken"** and the `app.js:10495` console error were **one
+    line with two bugs**: a name string passed where an object was expected,
+    and a missing argument that made `Object.values(undefined)` throw.
+  - **The hanging circles** were a layer split the cleanup never caught up
+    with: handles are appended to the overlay layer, both existing clears only
+    swept the base layer, and every render appended another group.
+
+### The shape worth carrying forward
+
+Three of this session's bugs were the same shape: **a fix applied to one
+place while a second place was added later** — one flash call site without the
+cleanup its two siblings had, one handle layer the sweep never learned about,
+one scroll listener that could not tell its own menu from the page. When
+something is done in more than one place here, the question to ask is which
+copy was added last.
+
+### What could not be verified
+
+- **No real model is reachable in this sandbox.** The Ask-tab "AI isn't
+  available" report and the `/models/status` timeout are therefore
+  **undiagnosed**, not fixed — §88.1 item 1 says to check which model slot
+  `routes_chat` reads, and notes the two reports may be one bug.
+- **The whiteboard scheduler was not measured against a large board.** The
+  reasoning is sound and the call-site audit was real, but "48 renders became
+  1 per frame" is an argument, not a measurement. Say so if it is re-reported.
+- **The graph being slow** is still not diagnosed, deliberately. §88.1 item 6.
+
+---
+
 ## Latest session — the editor layer (a "/" menu, callouts, links that reach), then a long tail of live-reported UI work
 
 Two halves. The first was a planned build; the second was a stream of reports

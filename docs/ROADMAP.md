@@ -27,6 +27,12 @@ caught by one grep: the Reminders calendar view (listed as a gap, already
 built and wired) and the graph's own non-visual keyboard layer. A grep miss
 and a real gap look identical from the outside.
 
+**Start at [§88](#88--the-live-report-backlog-the-kortexeden-read-and-the-appjs-split).**
+It is the current work queue: §88.1 is everything reported and still open, in
+order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split, which is the
+priority once §88.1 and §88.2 are done; §88.4 is the context/memory analysis.
+**§88.0 lists what was already fixed — check it before fixing anything.**
+
 **A fifteen-ask report plus a second round of ideas landed together — all of
 it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
 below. Five of those fifteen were already built; §87.1 says which, and where.**
@@ -147,6 +153,240 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
 - **`GET /entries?semantic=true` is now called from two places** (the Notes
   tab and the Library). If a third appears, the fetch-and-cache shape in
   `refreshLibrarySemantic` is the one to extract.
+
+## §88 — the live-report backlog, the Kortex/Eden read, and the app.js split
+
+**This section is the next session's work queue, in order.** §88.1 is what was
+reported and is still open; §88.2 is the competitor read the user asked for;
+§88.3 is the app.js split, which is the priority *after* §88.1 and §88.2 are
+done; §88.4 is the context/memory/harness analysis.
+
+Everything here was reported live in one long session. What was fixed in that
+same session is in §88.0 so nobody re-fixes it.
+
+### 88.0 Fixed already — do not re-fix
+
+| Report | Cause |
+| --- | --- |
+| "Run Skill buttons in the AI Skills library are broken" **and** the `app.js:10495` console error | One line, two symptoms: `startSkill(skill.name)` passed the name *string* where the skill object was expected **and** omitted `values`, so `Object.values(undefined)` threw. Now `runSkill(skill)` |
+| "The documents subtab cards don't even do anything" | `openDocument()` loaded correctly but the Documents *page* stayed hidden behind the Library tab. Needed `switchTab("documents")` first |
+| "The Open button on a selected draft does nothing" | `openLibraryItem` had no branch for the `draft` kind, which arrived with the new Drafts chip. `flashEntry` already knew how to reveal a draft |
+| "There's no way to publish a draft as a proper note" | There was — the draft chip — labelled "click to clear the label", which names the mechanism and not the outcome. Relabelled |
+| "The `/` command popup isn't scrollable and disappears when I try" | A capture-phase `scroll` listener saw the menu's *own* wheel event and closed it. Now ignores scrolls inside the menu, plus `overscroll-behavior: contain` |
+| "The top menu bar shifts when I open the settings modal" | `scrollbar-gutter: stable` was applied **only** under `.modal-open`, so opening a dialog *added* a gutter that had not been there a frame earlier. Now reserved permanently |
+| "Weird small circles left hanging when I change where links connect" | Link endpoint handles are appended to `#wb-overlay-zoom-group`; **both** existing clears only swept `#wb-zoom-group`. Every render appended a group and none was removed. One `wbClearSketchHandles()` now clears both layers |
+| Whiteboard "janky and uncomfortable" | `renderWhiteboard()` (a full d3 join over every item) was called from **48 sites**; one action touches several. All now coalesce into one rAF via `wbScheduleRender()` |
+| "Make link creation on the graph offer a kind, a reason, and a cancel" | Built — see §87.5's typed links, now shipped as `EntryLink.link_type` plus the drag-to-link dialog |
+
+### 88.1 Reported and still open — work this list top-down
+
+**Tier A — broken behaviour.**
+
+1. **"The AI randomly fails in the Ask sub-tab saying it isn't available."**
+   The user notes they set the chat model to their *utility* model, and that is
+   very likely relevant: two model slots exist (`chat_model`,
+   `utility_model`) and a slot pointing at a model the backend has not loaded
+   reports unavailable. **Reproduce before theorising** — check
+   `/models/status` and which slot `routes_chat` actually reads. Related:
+   `GET /models/status — signal timed out` in the same log, which suggests the
+   status poll itself is timing out and the UI is reading that as "no AI".
+   These may be one bug.
+2. **`Unhandled promise rejection: TypeError: Cannot read properties of null
+   (reading 'replace')`.** Not yet located — no line number was captured. Next
+   session should reproduce with the console open and get one; grep for
+   `.replace(` on values that can be null (`prefsCache` fields and
+   `doc.title` are the likely shapes).
+3. **The notebook constellation canvas keeps disappearing.** ARCHITECTURE §10
+   already documents the general version of this bug (p5 measures a canvas as
+   zero inside a hidden tab and must redraw on theme change). The widget was
+   fixed once for theme changes; this is a *second* trigger. Check what else
+   hides/reshows the dashboard.
+4. **The new-chat button disappeared from the Ask tab.**
+5. **The AI Skills sub-tab "is just very unfinished and nothing really
+   works."** Confirmed in passing: its **Schedule** button is a literal
+   placeholder (`toast("Scheduler functionality coming soon!")`). Needs its own
+   audit pass — treat "nothing works" as a scope, not a bug.
+6. **The graph is slow and janky to move around.** Still **not diagnosed** and
+   deliberately not guessed at. Profile a pan and a node drag *separately*
+   before changing anything — the whiteboard's equivalent had one specific
+   cause, and HISTORY §71 already took the cheap wins here.
+
+**Tier B — UI/UX, each concrete.**
+
+7. **Back/forward should also move between sub-tabs**, not just top-level tabs.
+   The history stack is `tabHistory` in app.js; sub-tabs go through
+   `showNotesSection` and the Library's own `#library-subtabs` handler, so this
+   means recording a `{tab, section}` pair rather than a tab name.
+8. **The Documents Library sub-tab is ugly and needs a redesign**, and its
+   **search box is a different height** from the other controls (the
+   `--control-h` rule the graph toolbar uses is the pattern to copy).
+9. **The Whiteboards Library sub-tab is bland** — same pass.
+10. **Settings: "open exports folder" and "save exports to" rows have no gap.**
+11. **The graph dock may get too tall and squish the graph.** Now three
+    deliberate rows; if it grows again, the answer is an overflow menu rather
+    than a fourth row.
+12. **The minimap needs a visual and usability upgrade** (its corner is now a
+    user setting, but the map itself is unchanged).
+13. **The skill-logs right sidebar should be sticky and viewport-height**, like
+    the other sidebars, regardless of scroll.
+14. **The chat sidebar's new-chat button clashes with the collapse button**
+    when the sidebar is collapsed but hover-expanded.
+15. **"Tune semantic search" should always be visible**, not only once a query
+    is typed.
+16. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).
+    The label builder should strip block markers the way `extract_title`
+    already strips a leading `#`.
+17. **Timeline line view redesign** — the concrete design is §87.6: threads as
+    tributaries off a time trunk, using `Entry.parent_id`, which that view
+    currently ignores entirely.
+18. **Semantic search ignores time words** ("recents"). Belongs in
+    `ai/intent.py`, which already classifies `needs_retrieval`.
+
+**Tier C — the big editor feature, worth its own session.**
+
+19. **A hybrid live-rendering document editor.** Asked for precisely: "a mix
+    between the straight md editor and the rendered version where it renders as
+    the user finishes typing… if you click on the line or the section it will
+    unrender until unselected, in which it will rerender." This is the
+    Obsidian Live Preview / Typora model.
+
+    **This is not a small change and must not be started casually.** The
+    current editor is a `<textarea>` plus a separate rendered preview pane, and
+    everything built on it assumes that: `applyMarkdown`, `wrapDocSelection`,
+    find/replace, the `/` menu's caret maths, the `[[` autocomplete, autosave.
+    A live-preview editor is a `contenteditable` or a block-based document
+    model, and every one of those has to be re-implemented against it.
+
+    **Recommended path: a per-block editor, not a whole-document
+    contenteditable.** Render each block (paragraph, heading, callout, list) as
+    rendered HTML; the block containing the caret swaps to a plain textarea
+    holding that block's markdown; blur re-renders it. That keeps the existing
+    textarea machinery working *inside one block at a time* rather than
+    replacing it, and it is exactly the "unrender the section you are on"
+    behaviour asked for. Do it behind a Settings toggle, with the current
+    editor as the default until it is proven.
+
+### 88.2 Kortex / Eden — what is worth taking, and what is not
+
+Two analyses were supplied. Eden is Kortex's successor and is a **cloud,
+social-media** product; the user's instruction is explicit: *"make sure to keep
+everything local, I don't want the cloud stuff."* So the social corpus, the
+multi-platform scheduler, the creator index and the affiliate system are all
+**out** — not because they are bad, but because they are the half of Eden that
+cannot exist in a local-first notebook.
+
+**Already built here — do not "add" these:** an MCP server
+(`src/memorymap/mcp_server.py`), markdown export, a document/notes split, AI
+synthesis over the notebook, saved prompts (skills), audio (read-aloud), and a
+web reader with highlight capture.
+
+**Worth taking, ranked by value per unit of effort:**
+
+1. **Boards hold *references*, never copies.** Eden's single best structural
+   idea, and it is the honest answer to the still-open **note clusters** ask
+   (§87.3): a cluster is a *board of references* — nothing is duplicated, a
+   note can be on many boards, and removing it from one changes nothing else.
+   This app already has a whiteboard with `group_id`; the missing piece is that
+   a board can hold a *reference to a note* as a first-class citizen.
+2. **Drag from an item's connection dot onto empty canvas to spawn a chat
+   already connected to it.** The whiteboard already has real anchor points and
+   AI actions; this joins them into one gesture and is the single most
+   compelling interaction in either product.
+3. **The pane system** — open anything in a side pane while writing, and keep
+   research/chat visible beside the draft. The document editor already has a
+   sidebar; this generalises it to "open *any* item in a pane".
+4. **Custom AI = instructions + chosen knowledge sources**, with **"use when"
+   rules** so the assistant knows when to reach for a source. This is a direct
+   upgrade to the existing skills/personas: today a skill is a prompt, and the
+   gap is attaching a *bounded* knowledge set to it. Local equivalent of
+   sources: selected notes, documents, boards and tags — never creators.
+5. **The interview technique.** Kortex's "interview me, then help me apply
+   this" prompt pattern extracts the *user's* ideas instead of generating
+   generic text. Cheap: it is a skill, not a feature.
+6. **Reader-mode capture with citations preserved.** Partly built (the web
+   reader); the missing half is that a highlight becomes its own first-class
+   item with its source link intact.
+7. **Audio overview of a notebook/document**, generated locally with the
+   existing read-aloud voices and saved as a file. The private-RSS half is
+   cloud and should be dropped; the "listen to my research" half is not.
+8. **Automation pipelines** — user-facing trigger→action rules. The autonomous
+   agent already does four fixed jobs; this is the same machinery with a UI.
+
+**Explicitly not taken:** the social corpus and outlier detection, multi-platform
+scheduling, auto-DM, creator-as-voice-clone, pooled team credits, affiliate
+links. All require a cloud service and other people's data.
+
+**On the UI/UX quality the user admired:** the concrete, copyable parts are
+(a) keyboard-first navigation with visible shortcuts, (b) one primary loop
+stated plainly — capture → discover → write, (c) panes instead of modal
+context-switching, and (d) restraint: few controls visible at rest, more on
+demand. This session's graph-toolbar work is (d); the pane system is (c).
+
+### 88.3 The app.js split — the priority after §88.1 and §88.2
+
+**Do this next, and deliberately.** `app.js` is ~27,400 lines.
+`graph.js` (3.0k), `whiteboard.js` (5.9k) and now `editor.js` (~0.9k) are
+already out, so the pattern is proven three times over.
+
+Order, easiest and most self-contained first:
+
+1. **`documents.js`** — the document editor (`app.js:7331-8127` before this
+   session's edits): autosave, outline, find/replace, preview, AI edit,
+   export. It has clear seams and one entry point (`openDocument`).
+2. **`library.js`** — the Library (`app.js:19209+`), which already has its own
+   sub-tab switcher living in `whiteboard.js` (an accident worth fixing while
+   splitting).
+3. **`dashboard.js`** — widgets, masonry, the generative art.
+4. **`settings.js`** — the settings modal, logs console, appearance.
+
+**The rules that make it safe**, all learned here: never split in the same diff
+as a behaviour change; load order is load-bearing only where a file is read at
+*parse* time (see index.html's own note on why `graph.js` must precede
+`app.js`); and add every new file to `tests/test_frontend_handlers.py`'s
+`_source()` — a lint that cannot see a file cannot catch anything in it.
+
+### 88.4 Context, memory and harness engineering — an analysis
+
+Asked for directly. What exists, and where the real headroom is.
+
+**What exists.** Retrieval is `search_manager.retrieve_detailed`
+(`routes_chat.py`), gated by `ai/intent.py`'s `needs_retrieval` so a chat turn
+that needs no notes does not pay for a search. The system prompt is budgeted
+and **asserted** (`agent.PROSE_BUDGET_CHARS`) because every sentence is resent
+each round. Conversations can be compressed (§35I). Tools are a fixed registry
+in `ai/tools/`. There is a "what the AI remembers" surface (§39B).
+
+**The five real gaps, in order of value:**
+
+1. **Retrieval is single-shot and similarity-only.** Candidates come from
+   embedding cosine; there is no re-ranking, no query expansion, and no second
+   pass when the first returns nothing useful. The cheapest meaningful upgrade
+   is **hybrid retrieval** — combine the existing FTS keyword index with the
+   vector search and merge by reciprocal rank. Both indexes already exist.
+2. **The graph is not used for retrieval.** This app's differentiator is that
+   it *knows how notes connect*, and the chat context is assembled by
+   similarity alone. Once §87.5's `link_type` is populated, expand retrieval
+   along strong edges from the top hits — `entry/paths.py` already walks them.
+   This is the single highest-value item on this list.
+3. **Memory is a surface, not a system.** There is no tiered notion of
+   "always in context" (a small durable profile), "retrieved when relevant"
+   (the notebook), and "this conversation only". A short, user-editable
+   always-on memory block — explicitly capped and shown in Settings — is a
+   contained change with a large effect on how the assistant reads.
+4. **No token accounting per stage.** The prompt budget is asserted, but there
+   is no measurement of how much of a real context window goes to system
+   prompt vs. retrieved notes vs. history. Instrument it before tuning it; a
+   per-turn breakdown makes every later decision evidence-based. (BACKLOG's
+   per-chat token meter is the same idea.)
+5. **Tool retrieval is all-or-nothing.** Every tool definition is sent every
+   round. §33 already scoped semantic tool retrieval and rightly said it needs
+   measuring first — item 4 is the prerequisite.
+
+**One caution that applies to all five.** Every provider test in this repo runs
+against a fake transport, and this sandbox has no reachable model. Retrieval
+quality changes cannot be evaluated here at all. Build the measurement (item 4)
+and a small fixed question set *first*, or every one of these becomes a change
+nobody can prove helped.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

@@ -472,6 +472,188 @@ button.ai-unavailable {
   background: var(--accent-soft);
 }
 
+/* --- the "/" menu and block frames -------------------------------------------
+   Sibling of the [[ autocomplete above, and deliberately styled to match it:
+   they are the same gesture (type a token, pick from a list) and a user who
+   learns one should recognise the other. The difference is placement — this
+   one is positioned at the caret from script, so it is `fixed` and starts
+   off-screen rather than sitting in the flow under its textarea. */
+.editor-menu {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  z-index: 60;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  width: 19rem;
+  max-width: calc(100vw - var(--space-9));
+  max-height: 17rem;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--modal-bg, var(--card));
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(12px);
+}
+
+.editor-menu.hidden {
+  display: none;
+}
+
+.editor-menu-group {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.editor-menu-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.editor-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The hint is the syntax the command inserts. It is the part that teaches the
+   markdown behind the menu, so it stays legible rather than decorative — but
+   it must never win space from the label it annotates. */
+.editor-menu-hint {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-menu-item.active,
+.editor-menu-item:hover {
+  background: var(--accent-soft);
+}
+
+/* --- callouts ("specialised boxes and frames") -------------------------------
+   Written as `> [!kind] Title`, which is an ordinary blockquote to any other
+   markdown reader — that portability is the reason for this syntax over a
+   custom fence, and it is why the base rule below is a blockquote that has
+   been given a left edge and a tint rather than a new kind of element.
+
+   Each kind's colour comes from a token that already carries that meaning
+   elsewhere in the app (--warn is the same amber the task warnings use), so a
+   theme change moves callouts with everything else instead of stranding them
+   at a hard-coded hue. */
+.callout {
+  /* The defaults live here rather than as fallbacks inside each var() —
+     a declared token read with a fallback makes the fallback dead code, which
+     test_style_scale.py fails the build over, and rightly: two places stating
+     the same default is how they drift apart. The .callout-{kind} rules below
+     override these; same specificity, later in source, so they win. */
+  --callout-accent: var(--accent);
+  --callout-tint: var(--accent-soft);
+  --callout-edge: var(--border);
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--callout-edge);
+  border-left: 3px solid var(--callout-accent);
+  border-radius: var(--radius-md);
+  background: var(--callout-tint);
+}
+
+.callout-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-weight: 700;
+  font-size: var(--text-md);
+  color: var(--callout-accent);
+}
+
+/* The body is rendered by renderMarkdown, so it can hold lists, code and
+   links. Its first and last children lose their outer margin or the box gains
+   a stripe of dead space at each end. */
+.callout-body > :first-child {
+  margin-top: 0;
+}
+
+.callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+/* A callout with no body is a title in a box — legible, not broken. */
+.callout-body:empty {
+  display: none;
+}
+
+.callout-note,
+.callout-info,
+.callout-question {
+  --callout-accent: var(--accent);
+  --callout-tint: var(--accent-soft);
+}
+
+.callout-tip,
+.callout-todo {
+  --callout-accent: var(--ok);
+  --callout-tint: var(--ok-soft);
+}
+
+.callout-warning {
+  --callout-accent: var(--warn);
+  --callout-tint: var(--warn-soft);
+}
+
+.callout-danger {
+  --callout-accent: var(--error);
+  --callout-tint: var(--error-soft);
+}
+
+.callout-quote {
+  --callout-accent: var(--muted);
+  --callout-tint: transparent;
+}
+
+/* --- transcluded notes (![[note]]) -------------------------------------------
+   An embedded note is somebody else's text living inside this one, and the
+   single most important thing the styling has to do is say so — otherwise a
+   later reader edits the host document expecting the words to be there. */
+.note-embed {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.note-embed-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.note-embed-body > :first-child {
+  margin-top: 0;
+}
+
+.note-embed-body > :last-child {
+  margin-bottom: 0;
+}
+
 /* --- duplicate tidy-up -------------------------------------------------------- */
 .duplicate-group {
   margin: 0.6rem 0;

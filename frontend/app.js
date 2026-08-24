@@ -3564,6 +3564,31 @@ function bodyWithoutTitleLine(content) {
   return lines.join("\n");
 }
 
+// The note a [[wiki link]] names, or null.
+//
+// One resolver, because there were two: renderNoteText matched notes by the
+// opening words and layerDocWikiLinks matched documents by exact title, so the
+// same [[name]] meant different things depending on which pane rendered it.
+// Notes are matched first and by prefix (that is what applyWikiSuggestion
+// inserts — a note's opening words); documents fall back to an exact,
+// case-insensitive title. Private notes are never a target: they cannot be
+// linked, and resolving to one would leak that it exists.
+function resolveWikiTarget(name) {
+  const needle = String(name || "").trim().toLowerCase();
+  if (!needle) return null;
+  const entries = typeof allEntries !== "undefined" ? allEntries : [];
+  const note = entries.find(
+    (e) => !e.is_private && (e.content || "").toLowerCase().startsWith(needle)
+  );
+  if (note) return { kind: "note", entry: note };
+  const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
+  const doc = (documents || []).find(
+    (d) => (d.title || "").trim().toLowerCase() === needle
+  );
+  if (doc) return { kind: "document", doc };
+  return null;
+}
+
 function renderNoteText(element, text, terms) {
   element.replaceChildren();
   const pattern = /\[\[([^[\]]{1,120})\]\]/g;
@@ -3583,11 +3608,14 @@ function renderNoteText(element, text, terms) {
     link.title = `Go to the note starting "${name}"`;
     link.addEventListener("click", (event) => {
       event.stopPropagation();
-      const target = allEntries.find((e) =>
-        (e.content || "").toLowerCase().startsWith(name.toLowerCase())
-      );
-      if (target) flashEntry(target.id);
-      else toast(`No note starts with "${name}" yet.`, true);
+      const target = resolveWikiTarget(name);
+      if (target && target.kind === "note") flashEntry(target.entry.id);
+      else if (target && target.kind === "document") openDocument(target.doc.id);
+      // Nothing by that name yet — offer to make it rather than dead-ending.
+      // A link you typed on purpose is the clearest possible statement that
+      // the thing should exist; making the user go and create it by hand, then
+      // come back, is the friction this removes.
+      else offerToCreateWikiTarget(name);
     });
     element.appendChild(link);
     cursor = pattern.lastIndex;
@@ -14296,11 +14324,45 @@ function columnAlign(spec) {
   return "";
 }
 
-function renderMarkdown(container, text) {
+// A heading's anchor id: lowercase, spaces to dashes, punctuation dropped.
+//
+// The document outline could already jump to a heading, but it did it by
+// moving the caret in the textarea (jumpToDocLine) — which works only inside
+// the editor, and not at all for a link written into the text. Real ids mean a
+// heading is addressable the way every other markdown tool assumes.
+function mdHeadingId(text, taken) {
+  const base =
+    String(text)
+      .toLowerCase()
+      .replace(/[`*_~\[\]()]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "section";
+  // Two headings can share a name ("Notes" under three chapters), and a
+  // duplicate id makes every link to it resolve to the first one.
+  if (!taken) return base;
+  let id = base;
+  let n = 2;
+  while (taken.has(id)) id = `${base}-${n++}`;
+  taken.add(id);
+  return id;
+}
+
+//: How deep a callout or an embed may nest before rendering stops.
+//
+// Both recurse into renderMarkdown, so both can loop: a callout containing a
+// callout is legitimate and useful, but note A embedding note B embedding note
+// A is an infinite regress that would hang the tab. The cap is generous enough
+// that no honest document reaches it and low enough that a cycle costs
+// nothing.
+const MD_MAX_DEPTH = 4;
+
+function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
   let i = 0;
   let list = null; // the <ul>/<ol> currently being filled, or null
+  const headingIds = new Set(); // so two "Notes" headings get distinct anchors
 
   const closeList = () => {
     if (list) container.appendChild(list);
@@ -14416,13 +14478,75 @@ function renderMarkdown(container, text) {
       // Map #→h3 … ######→h6 (the app reserves h1/h2 for its own chrome).
       const level = Math.min(6, heading[1].length + 2);
       const el = document.createElement(`h${level}`);
+      // An id makes the heading a real jump target, for the outline and for
+      // any [](#anchor) link written into the text.
+      el.id = mdHeadingId(heading[2], headingIds);
       appendInline(el, heading[2]);
       container.appendChild(el);
       i++;
       continue;
     }
 
-    // Blockquote: gather consecutive "> …" lines into one <blockquote>.
+    // Transclusion: a line that is nothing but ![[name]] inlines that note's
+    // text here, rather than linking to it. This is what makes a document
+    // genuinely *composed of* notes instead of merely pointing at them.
+    //
+    // **Notes only, deliberately.** GET /documents returns id/title/words and
+    // no content (routes_documents._summary), so embedding a document would
+    // need a fetch — and renderMarkdown runs on every streamed chat chunk, so
+    // a fetch in this path is a request storm waiting to happen. A document
+    // target therefore renders as a labelled link, and the inline version
+    // waits for a content-bearing endpoint rather than being bolted on here.
+    const embedded = line.match(/^\s*!\[\[([^[\]]{1,120})\]\]\s*$/);
+    if (embedded) {
+      closeList();
+      const name = embedded[1].trim();
+      const box = document.createElement("div");
+      box.className = "note-embed";
+
+      const head = document.createElement("p");
+      head.className = "note-embed-head";
+      const marker = document.createElement("span");
+      marker.setAttribute("aria-hidden", "true");
+      marker.textContent = "\u{1F4CE}";
+      head.append(marker, document.createTextNode(` Embedded — ${name}`));
+      box.appendChild(head);
+
+      const body = document.createElement("div");
+      body.className = "note-embed-body";
+      const target = resolveWikiTarget(name);
+      if (depth >= MD_MAX_DEPTH) {
+        // A embeds B embeds A. The cap is what stops that hanging the tab, and
+        // saying so beats rendering nothing and looking like a bug.
+        body.textContent = "…(embedded too deep to show)";
+      } else if (target && target.kind === "note") {
+        renderMarkdown(body, target.entry.content || "", depth + 1);
+      } else if (target && target.kind === "document") {
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "wiki-link";
+        open.textContent = target.doc.title || name;
+        open.title = "Open this document";
+        open.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openDocument(target.doc.id);
+        });
+        body.appendChild(open);
+      } else {
+        body.textContent = `Nothing called “${name}” yet.`;
+      }
+      box.appendChild(body);
+      container.appendChild(box);
+      i++;
+      continue;
+    }
+
+    // Blockquote, and its dressed-up form the callout.
+    //
+    // `> [!warning] Watch out` on the first quoted line turns the whole quote
+    // into a titled box. The syntax is GitHub/Obsidian's, chosen because it
+    // degrades to an ordinary blockquote everywhere else — a note that leaves
+    // this app stays readable, which a custom fence would not.
     if (/^\s*>\s?/.test(line)) {
       closeList();
       const quoted = [];
@@ -14430,6 +14554,40 @@ function renderMarkdown(container, text) {
         quoted.push(lines[i].replace(/^\s*>\s?/, ""));
         i++;
       }
+
+      const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]\s*(.*)$/);
+      if (callout && depth < MD_MAX_DEPTH) {
+        const kind = callout[1].toLowerCase();
+        const meta =
+          (typeof CALLOUT_KINDS !== "undefined" && CALLOUT_KINDS[kind]) || null;
+        const box = document.createElement("div");
+        // An unrecognised kind still renders as a box rather than as literal
+        // "[!whatever]" text — a typo should look slightly wrong, not broken.
+        box.className = `callout callout-${meta ? kind : "note"}`;
+
+        const head = document.createElement("p");
+        head.className = "callout-head";
+        const icon = document.createElement("span");
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = meta ? meta.icon : "\u{1F4DD}";
+        head.appendChild(icon);
+        const title = document.createElement("span");
+        // The title after the marker wins; failing that, the kind's own name.
+        title.textContent = callout[2].trim() || (meta ? meta.label : kind);
+        head.appendChild(title);
+        box.appendChild(head);
+
+        const body = document.createElement("div");
+        body.className = "callout-body";
+        // Rendered rather than inlined, so a callout can hold a list, a code
+        // block or a link — which is most of why it beats a bold paragraph.
+        renderMarkdown(body, quoted.slice(1).join("\n"), depth + 1);
+        box.appendChild(body);
+
+        container.appendChild(box);
+        continue;
+      }
+
       const bq = document.createElement("blockquote");
       appendInline(bq, quoted.join(" "));
       container.appendChild(bq);
@@ -14515,11 +14673,12 @@ function renderMarkdown(container, text) {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-// "documents" is still a page and still switchable-to — it is the document
-// editor, opened from the Library (§36F). It is no longer in the tab *bar*, so
-// it sits at the end here: TABS drives which pages hide, and the arrow-key
-// order comes from the bar's own buttons.
-const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
+// TABS drives which pages hide; the arrow-key order comes from the bar's own
+// buttons, so this list's order is not load-bearing. It is kept in step with
+// the bar anyway — "documents" sat at the end for as long as it had no button
+// (§36F), and leaving it stranded there now that it does would be a small lie
+// for the next reader to trip over.
+const TABS = ["dashboard", "notes", "chat", "graph", "documents", "library", "timeline", "reminders"];
 
 // The DOM-only half of switchTab: which panel is visible, which tab button
 // is active. No network calls here, so this is safe to run before a token
@@ -14529,12 +14688,13 @@ function revealTab(name) {
   for (const tab of TABS) {
     $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
   }
-  // `documents` is a sub-view of Library — there is no `data-tab="documents"`
-  // button in the tab bar, so the name that determines which button is active
-  // must be "library" whenever we are showing the documents pane. Without this,
-  // switchTab("documents") leaves every tab button deactivated, making it look
-  // as though nothing is selected while the Documents page is visible.
-  const activeTabName = name === "documents" ? "library" : name;
+  // Documents has its own tab button again (index.html; §36F's removal was
+  // reversed after "documents feel inaccessible" was reported directly), so
+  // the aliasing that used to light up Library while the Documents page was
+  // showing is gone: the name is now simply the name. Kept as a named variable
+  // rather than inlined because this is exactly the spot a future sub-view
+  // would need it back, and the history is worth one line.
+  const activeTabName = name;
   for (const button of document.querySelectorAll("#tab-bar button")) {
     const active = button.dataset.tab === activeTabName;
     button.classList.toggle("active", active);

@@ -27,6 +27,10 @@ caught by one grep: the Reminders calendar view (listed as a gap, already
 built and wired) and the graph's own non-visual keyboard layer. A grep miss
 and a real gap look identical from the outside.
 
+**A fifteen-ask report plus a second round of ideas landed together — all of
+it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
+below. Five of those fifteen were already built; §87.1 says which, and where.**
+
 ### The live list
 
 Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
@@ -143,6 +147,233 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
 - **`GET /entries?semantic=true` is now called from two places** (the Notes
   tab and the Library). If a third appears, the fetch-and-cache shape in
   `refreshLibrarySemantic` is the one to extract.
+
+## §87 — the connected-notebook pass: the editor layer, and everything reported with it
+
+Fifteen asks arrived in one message, then a second round of ideas on top. This
+section is the whole of it, **audit-first**: every ask was checked against the
+source *before* being scoped, because this project's most expensive recurring
+mistake is rebuilding something that already exists. **Five of the fifteen
+turned out to be already built or half-built.** Those rows are the most
+valuable part of this section — they are what stops a sixth session rebuilding
+them.
+
+### 87.1 The audit — do not rebuild these
+
+| Ask | Verdict | Where it already lives |
+| --- | --- | --- |
+| Slash commands | ABSENT (now built, 87.2) | BACKLOG §64 confirmed it |
+| Callout boxes / frames | ABSENT (now built, 87.2) | `renderMarkdown`'s blockquote branch had no `[!kind]` sniffing |
+| Wiki-links | PARTIAL | Worked in notes (`renderNoteText`) and doc preview (`layerDocWikiLinks`) — but two *different* resolvers, `[[` autocomplete on `#entry-content` only, and no create-on-miss. Backend hook: `sync_wiki_links`, `entry/manager.py:1496` |
+| Gravity / spread sliders | **ALREADY BUILT** | `index.html:1263-1269`, applied `graph.js:1255-1273`, persisted. Known gap: no effect under tree/radial (BACKLOG §536) |
+| Move nodes freely | PARTIAL | Drag exists (`graph.js:1411-1476`) but **clears `fx/fy` on drop**. Double-click pin exists (`:1496-1508`) but is **never persisted** |
+| Hide nodes / groups | PARTIAL | Category-legend hide, orphan hide and time filter all exist. **No per-node hide, no marquee** — a full marquee exists only in `whiteboard.js:3167-3320` |
+| Graph → whiteboard | ABSENT | But **both auto-layout engines already exist**: `ai/tools/whiteboard.py:263-432` and `wbMindMapSpanningTree` |
+| Custom graph configurations | **ALREADY BUILT** | Saved views, `graph.js:2839-2958` |
+| Document outline / sections | PARTIAL | `renderDocOutline` existed; jumping was caret-based and `renderMarkdown` emitted no heading ids |
+| Document → notes | **ALREADY BUILT** | `#doc-extract` → `openExtractPreview`, backend `source_document_id`. Note→doc too (`expandNoteIntoDocument`) |
+| Parent / child notes | **ALREADY BUILT** | `Entry.parent_id`, `core/database.py:198`, commented "a child continues its parent". Rendered nested, walked by pathfinding, feeds staleness |
+| Thought continuation | PARTIAL | "Continue" exists **on note cards** (`app.js:1877`, posts `parent_id`). **Not in Capture** |
+| Capture: manual link picker | ABSENT | `saveEntry` posts only `{content, tags, category, document_ids}` |
+| Suggest links + editable reasons | **ALREADY BUILT — in the Graph tab** | `#link-suggest-btn` → `loadLinkSuggestions` (`app.js:21358-21500`), confidence + editable reason + Link/Dismiss. **Relocate, do not rebuild** |
+| Note clusters | ABSENT as specified | See 87.5 — four adjacent concepts exist and none fits |
+| AI link quality | PARTIAL | Candidates are **pure embedding cosine** (`routes_entries.py:476-502`); the LLM only writes the reason afterwards (`ai/links.py:97-185`). `EntryLink` is untyped |
+| Ask latency | NOT a frontend bug | Explicit submit, so debounce is correctly absent. Cost is `search_manager.retrieve_detailed` + model streaming. No client answer cache |
+| Loading animations | PARTIAL | `spinnerEl`, `typingDots`, shimmer skeletons and progress bars all exist with reduced-motion fallbacks. **Uncovered:** graph link-suggestions fetch, Library semantic refresh, note-picker search |
+| Documents editor "behind the app" | **STRONGER THAN ROADMAP CLAIMED** | Already had autosave + beforeunload guard, word goal, preview, AI edit, extract-notes, find/replace, md/PDF export, outline sidebar |
+| Features feel disconnected | STRUCTURAL | **Documents was not in the tab bar** — `TABS` carried it but `revealTab` aliased it to Library |
+| Whiteboard "janky" | **ROOT CAUSE FOUND** | `renderWhiteboard()` is a full d3 data-join over every item, called from **49 sites**, no dirty flag, no rAF batching, drag handlers re-allocated inside the render |
+
+### 87.2 Built this session
+
+- **`frontend/editor.js`** (new file — deliberately not more of `app.js`; see
+  Tier 4 on why a split must not share a diff with live edits). The `/` menu:
+  caret-anchored popup measured with a mirror div, four command groups
+  (blocks/frames, links/references, AI actions, templates), ranked matching,
+  and **one delegated listener per event** rather than per-textarea — which is
+  why `ALLOWED_DOUBLES` in `test_frontend_handlers.py` needed no new entry.
+- **Callouts**, `> [!kind] Title`, eight kinds. Syntax chosen because it
+  degrades to an ordinary blockquote in any other reader — portability is the
+  premise of a local-first notebook that stores plain markdown. Body is
+  markdown-rendered, so a callout can hold lists and code.
+- **Heading anchors** in `renderMarkdown`, de-duplicated per render.
+- **Transclusion `![[note]]`**, notes only and deliberately so: `GET /documents`
+  returns no content, and `renderMarkdown` runs on every streamed chat chunk,
+  so a fetch in that path is a request storm waiting to happen.
+- **One wiki resolver** (`resolveWikiTarget`) replacing the note-only and
+  document-only pair, so `[[name]]` finally means the same thing in every pane.
+- **Create-on-miss**: clicking an unresolved link offers to create the note or
+  the document. **User-confirmed, never background** — silently materialising
+  notes from typos is exactly what the autonomous agent is careful not to do.
+- **Documents promoted to a real tab**, reversing §36F. That reversal is
+  commented at both sites rather than silently applied: §36F correctly removed
+  a *second list*; what it did not anticipate is that being reachable only
+  *through* another tab is what made the feature read as second-class.
+- **`test_frontend_handlers.py` extended to scan `editor.js`** — a lint that
+  cannot see a file cannot catch anything in it.
+
+### 87.3 Tags as first-class objects — the decision behind note clusters
+
+The cluster ask ("group notes for a purpose, without affecting links") has
+**four adjacent concepts that each fail it**: *spaces* partition (a note is in
+exactly one, others vanish), *categories* are one-per-note, *whiteboard
+`group_id`* is board items only, and the graph's own "clusters" are **computed
+connected components** — the literal opposite of link-independent. *Tags* are
+the only many-per-note, user-defined, link-independent thing already here.
+
+So the recommendation is **not a fifth concept — promote tags**. Today
+`Entry.tags` is a JSON array of strings (`database.py:189`). First-class means
+a `Tag` table (id, name, description, colour, created_at) plus an association
+table, and it buys, in one change:
+
+- **Rename a tag everywhere at once.** Today a rename means rewriting the JSON
+  array on every note that carries it.
+- **Merge two tags** (`work` / `Work` / `work-stuff`) — the single most common
+  real tag-hygiene job, and currently impossible without a script.
+- **A description and a colour**, which the graph can then key off.
+- **A tag becomes an object**, so it can be a node, collapse, and be saved in a
+  view — which is what the cluster ask actually wanted.
+
+**Two warnings, both load-bearing:**
+
+1. **This makes Alembic (live-list item 7) a real prerequisite, not a
+   nice-to-have.** A new table plus a one-time backfill of every note's JSON
+   array is precisely the change the additive auto-migrator "cannot rename or
+   drop" warning is about. Do not start this while migrations are hand-rolled.
+2. **Keep `entry.tags` working as a property.** Every read path in the app and
+   the AI tools reads it as a list of strings. If the promotion changes that
+   shape, the blast radius is the whole codebase; if it stays a hybrid
+   property over the new rows, it is contained.
+
+### 87.4 Grouping the graph by tag — the real problem is the many-to-many
+
+Asked for directly. Worth stating plainly: **the rendering is the easy half.**
+`graph.js` already colours by category and already has hierarchy layouts. The
+actual design problem is that a note has **one** category but **many** tags, so
+"group by tag" is ambiguous for every multi-tagged note. Three honest options:
+
+- **(a) Primary tag** — first tag wins. Trivial, and quietly wrong for the
+  notes that matter most (the well-tagged ones).
+- **(b) Tag supernodes** — each tag is a node; notes link to their tags. A note
+  with three tags sits between three anchors and the force layout does the
+  rest. Composes with 87.3, and is the closest to what was asked for.
+- **(c) Duplicate the note per group** with ghost edges. Reads well, but two
+  dots for one note breaks every count and every selection.
+
+**Recommendation: (b)**, and only after 87.3 — a supernode needs a tag object
+to *be*.
+
+### 87.5 Link strength and typed links (extends the Phase D work)
+
+Asked for directly and it is a good idea, partly because **half the field
+already exists**: `EntryLink.reason_confidence` is a float that today only ever
+holds an embedding cosine score. Generalising it into a composite strength over
+several signals is the natural next step:
+
+| Signal | Where it already is |
+| --- | --- |
+| Embedding similarity | `routes_entries.py:476-502` |
+| Explicit `[[wiki link]]` | `sync_wiki_links` — should be the **strongest**; the user typed it on purpose |
+| Thread parent/child | `Entry.parent_id` — structural, not inferred |
+| Shared tags (Jaccard) | `Entry.tags`, better after 87.3 |
+| Same category | `Entry.category_id` |
+| Temporal proximity | `created_at` — written the same afternoon is a real signal |
+
+**Two design calls to make before writing any of it:**
+
+1. **Store the components, not just the number.** This app already learned that
+   "these are related" is not good enough — that is why link *reasons* exist. A
+   single blended 0.72 is the same mistake in numeric form. Store the
+   contributing signals so the UI can say *"shared tags (work, q3), same
+   category, written the same day"*. That is also what makes the score
+   debuggable when it is wrong.
+2. **Store explicit, compute derived.** An explicit link's type and strength
+   belong in the row. Shared-tag and same-category strength changes every time a
+   tag changes, so storing it means an invalidation problem; compute those at
+   query time, which is what `_similarity_edges` already does for similarity.
+
+**And the part that makes it worth doing:** `entry/paths.py`'s traversal is
+currently unweighted, so "trace a path between these two notes" treats a
+throwaway similarity edge and a hand-typed wiki link as equal. Weighting the
+traversal by strength improves *both* the Trace feature and the AI's context
+retrieval, which share that code. That is the payoff — not the number itself.
+
+### 87.6 The Timeline line view — a concrete design, at last
+
+Live-list item 3 has said "needs a real visual pass" and nothing more, twice.
+Here is the specific version, and it comes from joining two things already in
+the repo that nobody has connected:
+
+- `IDEAS.md` asks for **"a visual timeline like a branching line with off
+  shoots"**.
+- `Entry.parent_id` **already stores exactly that branch structure** — threads,
+  where a child continues its parent. The line view currently ignores it
+  entirely and renders one flat chronological line.
+
+So the design is: **the trunk is time; a thread is a tributary.** A note with
+children sprouts a branch that runs alongside the trunk and rejoins nowhere —
+it just ends where the thread ended. No new data, no new endpoint; the branch
+structure is a `parent_id` walk the pathfinder already knows how to do
+(`entry/paths.py:189-191`). Everything else (curve style, density, labels) is
+polish on top of a structure that finally means something.
+
+### 87.7 General visual pass — what is actually worth doing
+
+Grounded in the audit rather than invented, and marked where already tracked:
+
+- **Loading states on the three uncovered surfaces** (87.9 item 4). The
+  primitives all exist; this is application, not design.
+- **Colour contrast has never been measured against WCAG AA** — already an open
+  live-list item, still true, and now with more surfaces (callouts add eight
+  tinted backgrounds that nobody has measured text against).
+- **Emoji vs. icons is a *pending decision*, item 16f** — and note that this
+  session's callouts and `/` menu use emoji, consistent with the app as it
+  stands today. If 16f lands on an SVG set, `CALLOUT_KINDS` in `editor.js` is a
+  single data table and the `/` menu's labels are one more; both are cheap to
+  convert, which is why they were written as data.
+- **Empty states**, unscoped and worth a sweep: what the graph, timeline and
+  dashboard show before the first note exists is already named as the
+  highest-leverage onboarding work.
+- **The whiteboard has no minimap** though the graph now does — an asymmetry,
+  not a bug.
+
+### 87.8 Still open from this pass, mine to finish
+
+- Backlinks panel ("what links here") — edges already stored by
+  `sync_wiki_links`; a query plus a sidebar section.
+- Whiteboard render scheduler (the 49-call-site fix above).
+- Typed links / `link_type` as the first slice of 87.5.
+
+### 87.9 Handoff list — each item already located, none needs re-deriving
+
+1. **Capture: manual link picker + suggest-links button.** Reuse
+   `loadLinkSuggestions` (`app.js:21358-21500`) and its editable-reason rows.
+   **Do not write a second suggester.** Links apply after save (a note needs an
+   id), so hold a pending set and flush it in `saveEntry` (`app.js:4380`).
+2. **Capture: "continues from…" picker.** `Entry.parent_id` and its validation
+   already exist (`routes_entries.py:183-216`). A note-picker plus one field.
+3. **Graph: persist node positions, add per-node hide.** Stop clearing `fx/fy`
+   at `graph.js:1473-1474` when free layout is on; persist pins beside the
+   other per-device graph state (`GRAPH_VIEWS_KEY`, `graph.js:2839`). Add a
+   right-click node menu as the one surface for hide/pin/expand/open.
+4. **Loading states** for the graph link-suggestions fetch (`app.js:21358`),
+   Library semantic refresh (`app.js:19437`) and note-picker search. Respect
+   the existing reduced-motion fallbacks.
+5. **Ask: a client-side answer cache** keyed on question + notebook version.
+   **Say in the handover that the real latency is server-side retrieval** —
+   this makes a repeat feel instant, nothing more. Do not claim a fix.
+6. **Graph → whiteboard.** Marquee-select in the graph first (port
+   `whiteboard.js:3167-3320`), then hand the ids to the **existing** layout
+   engines (`ai/tools/whiteboard.py:263-432`).
+7. **Document → graph / whiteboard**, building on `openExtractPreview`.
+8. **Ctrl+K as a true omni-jump.** The palette exists (`app.js:17486-17620`);
+   widen its index to notes, documents, boards and saved graph views.
+9. **Unlinked mentions.** Scan **titles only** or it floods, and **offer, never
+   auto-apply**. Reuse the accept/dismiss row from `loadLinkSuggestions`.
+10. **Document sub-pages.** Notes have `parent_id`; documents do not. One
+    nullable additive column plus nesting in `#doc-list`.
+11. **AI-authored callouts.** Let the agent emit `> [!question]` blocks. Note
+    `agent.PROSE_BUDGET_CHARS` is **asserted** — the prompt has a budget.
 
 ## Read these two first
 

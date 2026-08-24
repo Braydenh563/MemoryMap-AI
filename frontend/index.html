@@ -136,11 +136,18 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
-      <!-- Library replaces Documents in the bar rather than joining it (§36F).
-           The Documents *page* is still here and is still where you write; it
-           is reached by opening a document from the Library, the same way the
-           editor was always reached by clicking a title in its sidebar. What
-           went is the second list. -->
+      <!-- Documents is back in the bar, and §36F's removal of it is reversed
+           deliberately rather than quietly. §36F's reasoning was sound at the
+           time — it removed a *second list* of the same documents, which the
+           Library already showed. What it did not anticipate is that being
+           reachable only *through* another tab is what made the whole feature
+           read as second-class: reported directly as "documents feel
+           inaccessible" and "the main features need to be easier to go
+           between". The second list is still gone; what comes back is the
+           front door. Documents was always in TABS (see app.js) — only the
+           button was missing. -->
+      <button role="tab" id="tab-btn-documents" data-tab="documents"
+        aria-selected="false" aria-controls="tab-documents" tabindex="-1">Documents</button>
       <button role="tab" id="tab-btn-library" data-tab="library"
         aria-selected="false" aria-controls="tab-library" tabindex="-1">Library</button>
       <button role="tab" id="tab-btn-timeline" data-tab="timeline"
@@ -4315,6 +4322,14 @@ Link to another note with [[its first few words]]."></textarea>
 
 
 
+  <!-- The "/" command menu and the document editor's [[ picker share one
+       popup: only ever one can be open, and a single element means one set of
+       styles and one listbox for a screen reader to track. Positioned at the
+       caret from script (see editor.js), which is why it sits here at the end
+       of <body> instead of inside either editor. -->
+  <ul id="editor-menu" class="editor-menu hidden" role="listbox"
+      aria-label="Insert a block, or link to a note"></ul>
+
   <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>
   <script src="/vendor/p5.min.js"></script>
@@ -4341,5 +4356,12 @@ Link to another note with [[its first few words]]."></textarea>
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
   <script src="/whiteboard.js"></script>
+  <!-- The editor layer: the "/" command menu, the block frames it inserts, and
+       the caret-anchored popup the document editor's [[ autocomplete uses.
+       Loaded after app.js for the same reason whiteboard.js is — every
+       cross-file call happens at runtime, never at parse time, and it reads
+       app.js globals (MD_ACTIONS, allEntries, markDocDirty) rather than the
+       other way round. -->
+  <script src="/editor.js"></script>
 </body>
 </html>

@@ -1403,12 +1403,16 @@
    `min-height` fix on `#tab-notes #sidebar` still didn't close it — this is
    why: that fix set a correct floor, but this rule was still refusing to
    let the box grow past it. */
-/* Was 0.92rem — the same size as the h3s under it, so the sidebar had a
-   heading level that looked like its own children (§35L). */
-#sidebar h2 {
-  font-size: var(--text-lg);
-  padding-right: 56px;
-}
+/* This used to set font-size to var(--text-lg) (0.92rem) and a hardcoded
+   56px padding-right. Both are stale: `.card h2` (01-forms-settings.css,
+   §35L) already unifies every card-level h2 to --text-body (1rem), and
+   `.sidebar-head` (05-sidebars-themes.css) already reserves the collapse-
+   toggle lane via padding-right on the row, not the heading. Being an ID
+   selector, this rule's old font-size silently outranked both and left
+   Categories the only sidebar heading smaller than its siblings (Chats,
+   Documents) — reported directly as "the Categories title is smaller and
+   different than the rest of the sidebar titles". Removed rather than
+   corrected: there was never a reason for Categories to differ. */
 
 #sidebar #most-used li {
   font-size: 0.85rem;

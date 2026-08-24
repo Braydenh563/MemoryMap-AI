@@ -53,10 +53,19 @@ for (const level of ["log", "info", "warn", "error"]) {
   };
 }
 window.addEventListener("error", (e) =>
-  recordBrowserLog("ERROR", [`${e.message} (${e.filename}:${e.lineno})`])
+  // e.error.stack, when present, is what actually locates the bug — the
+  // message/filename/lineno triple alone has sent more than one session
+  // hunting for a null-dereference with no line number to start from.
+  recordBrowserLog("ERROR", [
+    `${e.message} (${e.filename}:${e.lineno}:${e.colno})`,
+    e.error?.stack || "",
+  ])
 );
 window.addEventListener("unhandledrejection", (e) =>
-  recordBrowserLog("ERROR", ["Unhandled promise rejection:", String(e.reason)])
+  recordBrowserLog("ERROR", [
+    "Unhandled promise rejection:",
+    e.reason?.stack || String(e.reason),
+  ])
 );
 
 // Below this confidence an entry gets a "check this" flag (plan Phase 3).
@@ -11955,6 +11964,32 @@ function noteQuickLinkUse(label) {
 const RECENT_SKILLS_KEY = "recentSkills";
 
 function noteSkillRun(name) {
+  // **Refuse a nameless run rather than storing it.** This guard exists
+  // because the absence of it cost the whole dashboard, and the failure is
+  // worth recording in full because nothing about it is visible at this line.
+  //
+  // §88.0 fixed a call site that read `startSkill(skill.name)` where an object
+  // was expected. While that bug was live, `skill` was a *string*, so
+  // `skill.name` was `undefined`, and this function was called with it. That
+  // alone would have been harmless — but `JSON.stringify` converts `undefined`
+  // inside an array to **`null`**, so what landed in localStorage was a real
+  // `null` element, not a missing one. Fixing the call site stopped new poison
+  // and did nothing about the `null` already written, which persists across
+  // every reload, forever, in any profile that ran a skill during that window.
+  //
+  // The damage then surfaced nowhere near here: `recentSkillLinks` below
+  // reads that array on every dashboard render, and `withoutLeadingEmoji`
+  // calls `.replace()` on the `null`. That throw propagated out of
+  // `renderQuickLinks` -> `renderDashboard` -> `refreshActiveTab`, i.e. it
+  // escaped *before* `grid.replaceChildren()` and the widget loop had run, so
+  // the reported symptoms were "the dashboard widgets are completely broken"
+  // and a toast reading "Couldn't load this tab: Cannot read properties of
+  // null (reading 'replace')" — two reports, one cause, neither of them
+  // pointing at the skills feature that actually caused it.
+  //
+  // The shape CLAUDE.md names: a value that is invalid where it is *used*,
+  // not where it is *set*, does its damage nowhere near the code at fault.
+  if (typeof name !== "string" || !name) return;
   let recent = [];
   try {
     recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
@@ -11978,10 +12013,17 @@ function noteSkillRun(name) {
 const LEADING_EMOJI = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u;
 
 function withoutLeadingEmoji(name) {
-  const stripped = name.replace(LEADING_EMOJI, "");
+  // `String(...)` rather than a bare `.replace`: this is the line that threw
+  // for every profile carrying the poisoned `recentSkills` entry described in
+  // `noteSkillRun`, and it took the whole dashboard down with it. The write
+  // guard and the read filter below both prevent that now, so this coercion is
+  // the third of three — but it is the cheapest, and it is the one standing
+  // between any future bad value and another blank dashboard.
+  const text = String(name ?? "");
+  const stripped = text.replace(LEADING_EMOJI, "");
   // A skill named with nothing but an emoji would otherwise become a blank
   // chip; keeping the original is the lesser of the two.
-  return stripped.trim() || name;
+  return stripped.trim() || text;
 }
 
 function recentSkillLinks() {
@@ -11991,7 +12033,18 @@ function recentSkillLinks() {
   } catch {
     return [];
   }
-  return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
+  if (!Array.isArray(recent)) return [];
+  // **This filter is the repair, not just a guard.** The write side is fixed,
+  // but a profile that ran a skill while the §88.0 bug was live already has a
+  // `null` on disk and would keep crashing its own dashboard on every load
+  // forever — a fix that only prevents new bad data would leave exactly the
+  // people who hit the bug still broken. Rewriting the cleaned list back means
+  // one load repairs the profile permanently.
+  const clean = recent.filter((n) => typeof n === "string" && n);
+  if (clean.length !== recent.length) {
+    localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(clean));
+  }
+  return clean.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
     icon: "ph:lightning",
     label: withoutLeadingEmoji(name),
     // The full name, unaltered, is what the button remembers itself by: the

@@ -1,6 +1,108 @@
 # Session handover
 
-## Latest session — a deep whole-app audit, six findings built and measured, and a ranked hand-off list for the next session
+## Latest session — the §85.4 list built, three stale claims retracted, and a full docs clear-out
+
+Two asks, done in that order deliberately: **build the rest of the hand-off
+list, then reorganise the docs** — so the docs describe the final state rather
+than being rewritten twice.
+
+### Read this first
+
+`ROADMAP.md` went from **1,875 lines to 680** and now opens with what is
+actually open. Six sessions of finished narrative (§80–§86), the mobile audit,
+the feature brainstorm, Priority 0 and the #0 quality review all moved to
+`HISTORY.md`. **The live list is the first thing in the file.** Item 1
+(vision-model image support) is the only large piece left.
+
+### The part worth reading: three claims that were wrong
+
+Each was on the list I wrote myself last session, and each was caught by
+checking before building — which is the entire point of this project's
+opening rule, and it caught *me* three times in one session.
+
+1. **The Reminders month/calendar view was already fully built.**
+   `renderReminderCalendar`, month navigation, view mode persisted in
+   localStorage, the toggle wired. It had been listed as a gap. I was one grep
+   away from rebuilding it. There is no better illustration of why the rule
+   exists than making the mistake while executing a list *about* not making it.
+
+2. **My own focus-trap fix from last session was too broad, and shipped.**
+   I replaced a hard-coded list of eight dialog ids with "any visible
+   `[role="dialog"]`" and called it strictly better. It was not: **13 of this
+   app's `role="dialog"` elements are anchored popovers** — the notifications
+   panel, the note picker, the chat dock disclosure, the graph and timeline
+   popups, six `*-intro` help panels — whose page stays live and interactive.
+   Trapping Tab inside a dropdown strands the user, and telling a screen
+   reader it is modal is a straight lie about the page. Now gated on
+   `aria-modal="true"`, the attribute that actually declares "everything else
+   is inert". Found by scanning for dialogs missing `aria-modal` and asking
+   why so many were missing it — the answer was that they *should* be.
+
+3. **The Graph mobile claim was stale.** Reported as `#graph-box` at
+   `top: 522px`, unreachable at 320×568 without scrolling. Measured: **340px,
+   fully visible.** Somebody improved it and the item was never updated. The
+   real squeeze was the agent-activity panel eating a third of the viewport —
+   fixed by collapsing its log area on narrow screens, which is also the one
+   thing the earlier scroll-container padding could never reach, because the
+   Graph has no document-flow scroller.
+
+A fourth, smaller one: the tap-target finding named "13×13 unstyled native
+checkboxes" and three `#skills-auto-*` controls. **A wrapping `<label>` makes
+the label the target**, so those pass. A live sweep of every tab found five
+real failures — none of them the ones named.
+
+### Built, with the numbers
+
+- **One shared incremental renderer** (`renderIncrementally`) for the Notes
+  list and Library grid. At 1,501 notes: **533 ms → 16 ms**, **31,680 → 4,306
+  DOM nodes**. Chunk-on-scroll, not true virtualisation, because every row
+  here has a variable height — a virtualiser would need measurement passes
+  costing what it saves. It stays one continuous scroll, so it is explicitly
+  **not** BACKLOG §77's page selector.
+- **Deliberately not applied to two lists**, both commented at the call site:
+  the **Timeline** is a CSS grid whose cell order *is* its layout, and the
+  **log console** is already capped at 1,000 rows and its follow mode needs
+  the *newest* rows, which a from-the-top renderer would never paint.
+- **Graph minimap and saved views.** 1,501 dots, a live viewport rectangle,
+  click to recentre keeping zoom. Views capture layout, colour, every filter
+  and the pan/zoom, in localStorage beside the other per-device graph state.
+- **Conversation retention** — the one collection that grew forever.
+- **49 buttons given `aria-label`**, plus `paintStatusItem` now mirroring
+  `title`→`aria-label` centrally so the status bar cannot drift again.
+- **Two `innerHTML`-in-a-loop sites converted.** One had a trailing `</div>`
+  with nothing open to close, silently discarded by the parser on every row —
+  which is the argument for the no-`innerHTML` rule in one line.
+
+### Not built, and why
+
+**Vision-model image support.** It is now item 1 of the live list. The
+detection half exists (`ollama_client.capabilities()`/`supports()`, and Ollama
+reports `vision` for a multimodal model); nothing downstream uses it, and no
+image input is wired into the chat send path at all. The real work is the
+provider layer passing images through in whatever shape each backend wants —
+that is a session of its own, not a tail-end item, and starting it here would
+have meant leaving it half-done.
+
+### What could not be verified
+
+- **Real touch hardware.** The touch path for the selection kebab was proved
+  by dispatching a selection with no `mouseup` at all, which is the mechanism
+  a long-press drag relies on — but no finger has touched this.
+- **A real model.** Extract-notes and the reminder parser were driven as far
+  as the network call only; this sandbox has no Ollama.
+- **The minimap on a real dense graph.** Verified at 1,501 uncategorised
+  notes, which produces one wide band rather than the clustered map a real
+  categorised notebook would. The projection maths is extent-based so it
+  should hold, but "should" is the word.
+
+### Where to start
+
+`ROADMAP.md`'s live list, top of the file. It is 11 items and item 1 is the
+only large one.
+
+---
+
+## Previous session — a deep whole-app audit, six findings built and measured, and a ranked hand-off list for the next session
 
 Asked for directly: *"the deepest audit and analysis of everything missing and
 wrong with the application"*, then *"if you feel some of the important things

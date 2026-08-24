@@ -12,1126 +12,137 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-## 85. Newest — a deep whole-app audit, six top findings built and measured, and a ranked hand-off list
-
-Asked for directly: *"the deepest audit and analysis of everything missing and
-wrong with the application"* — missing features large and small, optimisation
-headroom, bugs, scalability and storage limits, sub-par functionality, poor
-accessibility and UX, and what would boost the app's core essence. Then:
-build the items where the reasoning is the expensive part, and **leave the
-rest here, fully scoped, to be handed to Claude Sonnet.** That hand-off list
-is §85.4 below — start there.
-
-Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry.
-
-**The honest headline: this app is feature-complete to an unusual degree, and
-the real headroom is not new tabs.** The brainstormed-gap exercise two
-sessions ago already established that (~140 capabilities brainstormed, the
-large majority already built). This audit went at the *quality* of what
-exists instead, and found five things worth doing, four of which are
-invisible from the feature list.
-
-### 85.1 What was built this session, with the measurements
-
-1. **The text-selection popup is now a kebab (⋯), and it is the app's real
-   capture surface for the first time.** Asked for directly: *"a kebab 3-dot
-   button which when clicked on shows the Popup buttons within the application
-   window"*. The old three-button bar had six problems, all confirmed against
-   source before anything was touched:
-   - **It ran off the left edge of a phone.** `showSelectionPopupAt` clamped
-     with `Math.min(Math.max(margin, left), innerWidth - width - margin)`.
-     When the box is wider than the viewport that upper bound falls *below*
-     the lower bound, `Math.min` wins, and `left` goes negative. The bar could
-     not wrap (`white-space: nowrap`, no `flex-wrap`) and its three labels ran
-     to ~50 characters — wider than a 360px viewport. **The nesting order was
-     the whole bug**; it is now `Math.max(margin, Math.min(wanted, limit))`,
-     and `tests/test_selection_menu.py` asserts on that nesting specifically,
-     because a future tidy-up could swap it back and nothing else would notice.
-   - **It never appeared on touch and never from the keyboard.** The only
-     trigger was `mouseup`. There was no `selectionchange` handler anywhere in
-     the frontend, so a long-press drag on a phone raised nothing; Shift+Arrow
-     raised nothing either. Now: `mouseup` (immediate, so a mouse still feels
-     instant), a debounced `selectionchange` (the touch path), and a new
-     rebindable `Ctrl+Shift+E` that opens the menu itself.
-   - **A one-frame flash on first use** — `hidden` was removed before
-     `left`/`top` were assigned, so a `position: fixed` element painted once at
-     the bottom of `<body>`. Positioned before revealing now.
-   - **Only `anchorNode` was tested against the denylist**, so a drag starting
-     in prose and ending in a textarea still raised the bar over a form field.
-     Both ends are checked.
-   - **Three actions was a hard ceiling** — the app's richest capture surface
-     offered less than a note card's own ⋯ menu. It now offers eight, built
-     on `kebabMenu`/`makeMenuItem` rather than a second menu system: *Save as
-     a note*, *Save as a draft*, *Add to a note…*, *Save with its source*
-     (only when there is one), *Copy*, *Search the notebook*, *Set a
-     reminder*, *Extract notes…*, *Ask the AI about this*. Each reuses what
-     already existed — `openExtractPreview` (BACKLOG §62, previously reachable
-     only from the Writing Room, Documents and the whiteboard),
-     `/reminders/parse` (the same parser the Reminders tab's magic-add uses),
-     `copyToClipboard` (the fallback-aware helper), and the global undo stack.
-   - **"Save with its source" is BACKLOG §65's capture half**, the piece that
-     item calls small: when the selection sits in the web reader, the passage
-     is saved as a markdown blockquote with a real link back to the page it
-     came from. Everywhere else the honest answer is "no external source" and
-     the item is simply not offered.
-
-   Two things were found **live in Chromium that reading the source had not**:
-   at 360×640 the kebab rendered in exactly the right place and was still
-   unclickable, because `#agent-monitor` (`z-index: 1000`) sat on top of it —
-   the popup's `z-index: 90` was also below `.modal-overlay`'s 55 only by
-   accident of source order. It is now 1010: above the persistent panels,
-   below the toast box's 1050, which has to outrank everything. And
-   `ArrowDown` did nothing in the new menu, because arrow-key navigation was
-   written *inline inside `entryOverflowMenu`* — so the note card's ⋯ had it
-   and every menu built by `kebabMenu` (conversations, sidebars, and now this
-   one) had none. Extracted to a shared `wireMenuKeyboard(menu, opener)`,
-   which closes that gap everywhere at once rather than only where it was
-   noticed.
-
-   **Verified live**, not reasoned: the kebab appears from mouse, from
-   `selectionchange` alone with no `mouseup` at all (the touch path), and from
-   `Ctrl+Shift+E`; at 360×640 the menu flips **up and left** and measures
-   fully inside the viewport (left 147, top 153, right 347, bottom 560 against
-   360×640); arrow keys, Home/End and Escape all move focus correctly; *Save
-   as a note* creates a note and the status bar's Undo removes it again; *Add
-   to a note…* opens a picker that `activeOverlay()` traps Tab inside with no
-   registration step. Zero console errors throughout. Screenshotted and
-   visually reviewed at both widths.
-
-2. **The Notes list built ~68 permanently-hidden DOM nodes per note, and
-   rebuilt them on every render.** `entryItem()` called `entryOverflowMenu()`
-   eagerly, and that menu is 19 items across four groups. Since the Notes list
-   renders the whole notebook (there is no windowing — see §85.4 item 4), the
-   cost scaled with the notebook and was paid again on every search keystroke,
-   sort change, filter and save. The menu is now built on first open; the
-   opener and its `aria-haspopup`/`aria-expanded` state still render eagerly,
-   so focus order is unchanged.
-
-   **Measured directly, in one page, at 1,501 notes**: 133,748 DOM nodes with
-   the menus built eagerly against **31,680 lazily — 102,068 nodes saved, 76%,
-   68 per card.** (The A/B was done by forcing every card's menu to build in
-   the live page and re-counting, not by arithmetic.)
-
-3. **The `entries` table had no index on any column its list queries actually
-   use.** `created_at`, `is_deleted`, `is_draft`, `archived_at`, `pinned` —
-   none indexed; only `workspace_id` and the foreign keys were.
-   `manager.list_entries()` (behind `GET /entries`, the Notes tab and most
-   background jobs) filters on three of those and orders by
-   `pinned DESC, created_at DESC, id DESC`, so `EXPLAIN QUERY PLAN` reported
-   **`USE TEMP B-TREE FOR ORDER BY`** — SQLite sorting every live note in the
-   notebook, per request. Four composite indexes added, covering the live
-   list, the bin, the archive, and the Library's `is_draft = 0` variant.
-
-   **Measured on a 20,000-note database**: the live query went from **46 ms to
-   15 ms per call** and the temp B-tree is gone; a single-note save went from
-   **0.470 ms to 0.491 ms**, so the write cost of four indexes is inside the
-   noise. `tests/test_entry_indexes.py` asserts on the *query plans* rather
-   than on the indexes existing — an index that exists but is never chosen is
-   indistinguishable from no index at all, and reordering one `ORDER BY` term
-   would silently undo this.
-
-   **The trap worth recording**: `Base.metadata.create_all()` creates missing
-   *tables* only, so an index declared on the model appears on a fresh profile
-   and never on anybody's real notebook. They go through an explicit
-   `_ensure_indexes()` with `CREATE INDEX IF NOT EXISTS`, on every startup —
-   the same additive convention `_ensure_fts5` and `_add_missing_columns`
-   already use. A test builds a database with indexing disabled and reopens it
-   to pin exactly that.
-
-4. **There was no compression anywhere.** `grep -rn "gzip"` over
-   `src/memorymap/` returned nothing. The frontend ships ~2.3MB uncompressed
-   and there is no bundler or minifier *by design* (CLAUDE.md: "no build
-   step"), so this was the only remaining lever on transfer size.
-   **Measured**: `app.js` 1071.7 KB → 320.1 KB (**70% smaller**),
-   `index.html` 262.0 → 65.1 KB (**75%**), the largest CSS file 77.2 → 25.1 KB
-   (**67%**), and a 200-note `GET /entries` 114.2 → 2.8 KB (that last figure
-   is flattered by repetitive seeded text — real notes will compress less).
-
-   **Two things were checked rather than assumed**, and one of them changed
-   the implementation:
-   - *"gzip buffers a stream into uselessness"* is true of some
-     implementations and **not** of Starlette's:
-     `GZipResponder._compress_body` flushes with `Z_SYNC_FLUSH` on every chunk
-     carrying `more_body`, so this app's three streaming endpoints (chat, the
-     weekly digest, the live log) still stream. `text/event-stream` is in
-     Starlette's own exclusion list; the two NDJSON streams are not, so they
-     are named explicitly.
-   - **Middleware order is load-bearing here.** Both existing middlewares are
-     `BaseHTTPMiddleware`, which re-wraps every response as a *streaming*
-     one — and Starlette's gzip only consults `minimum_size` on a response it
-     can measure. With gzip added last (outermost), `GET /health` (70 bytes)
-     and `GET /tags` (2 bytes) both came back `content-encoding: gzip`, i.e.
-     CPU spent making small responses larger, with `minimum_size` silently
-     doing nothing. Measured, then moved innermost, where it works.
-
-5. **Eight dialogs had no focus trap, and the list was the bug.**
-   `activeOverlay()` hard-coded eight overlay ids; the dialogs it did not name
-   were `confirmDialog`, `promptDialog`, the image lightbox, the note-history
-   overlay, the recycle-bin overlay, the skill-run overlay, the agent command
-   palette, and the graph's connection dialog. Every one was added by somebody
-   with no reason to know the list existed. It now asks the DOM instead —
-   every dialog already carries `role="dialog"`, and the topmost visible one
-   wins — so a new dialog is trapped from the moment it exists, with no
-   registration step. The lightbox and the command palette gained the
-   `role="dialog"`/`aria-modal` they were missing anyway. The focusable filter
-   also gained `[tabindex]:not([tabindex="-1"])` and `[contenteditable]`,
-   which is why `#graph-box` (`tabIndex = 0`) was never a tab stop.
-
-   Visibility is tested with `.hidden` plus `getClientRects()`, deliberately
-   **not** `offsetParent !== null` — `.modal-overlay` is `position: fixed`, and
-   a fixed element's `offsetParent` is null even when plainly on screen.
-
-6. **Two queries materialised every `Entry` in the notebook to read one
-   column.** `routes_entries.py`'s semantic-scope check built full mapped
-   entities just to collect `.id` — while its own comment directly above said
-   *"ids only, no row bodies"*, which is worse than no comment, because the
-   next profiler run has to rediscover it. `manager.all_tags()` did the same
-   to read `.tags`. Both are column-only selects now (`manager.entry_id_scope`,
-   and `select(Entry.tags)`), the same fix `search_manager.semantic_search`
-   already documents as ~85% of a search's cost at 20k+ notes.
-
-   **A real risk was checked, not assumed**: the workspace filter is a
-   `with_loader_criteria` on the mapped class, so *"does it still apply to a
-   column-only select?"* is a genuine question — a silent no would leak one
-   space's notes into another's search scope. It does apply; verified against
-   a real two-space database and pinned by two tests, because this is exactly
-   the "a guard removed while the shape around it was kept" shape the review
-   checklist in CLAUDE.md warns about.
-
-### 85.2 Confirmed healthy — do not "fix" these
-
-Recorded so no future session spends a day on a non-problem:
-
-- **Route handlers are sync `def` on purpose** — 238 sync against 1 async
-  across `routes_*.py`, so FastAPI runs them in a threadpool and blocking IO
-  is correct rather than a bug. **BACKLOG §78's "should the backend be
-  asynchronous" is already answered by the code**, and §20's "async httpx
-  client" is a smaller and more optional item than it reads.
-- **Keyword search is already FTS5 with `bm25()`**, external-content table
-  plus three triggers (`_ensure_fts5`). Not a `LIKE`.
-- SQLite **WAL + `busy_timeout=5000` + `synchronous=NORMAL`**, set per
-  connection, pinned by a test.
-- **Orphaned-media GC exists and is wired** (`core/media_gc.py` →
-  `routes_files.py`), including the correct refusal to delete anything when a
-  locked private note cannot be read.
-- **`VACUUM`** runs outside a Session (`ai/autonomous.py`); recycle-bin
-  auto-purge runs at startup.
-- Only **six** `except Exception: … pass` sites in the entire backend.
-- Export covers backup/JSON/markdown/CSV; import covers directory/markdown/
-  document (PDF/Word/PowerPoint/Excel/HTML via `markitdown`).
-- Spaces isolate every workspace-scoped query via `WorkspaceMixin` +
-  `do_orm_execute` — **including column-only selects**, now verified.
-
-### 85.3 Found, not fixed, and small enough to note here
-
-- **`.floating-format-menu` is dead CSS.** A full rule at
-  `07-whiteboard-misc.css:425` with `z-index: 1000`, and the class appears in
-  no JS and no HTML anywhere in `frontend/`. Either a feature that never
-  shipped or one that was removed without its styles — the CSS version of the
-  "features that never ran once" shape CLAUDE.md's review checklist names.
-  Worth a wider sweep for orphaned rules rather than deleting just this one.
-- **Conversations and their messages have no retention policy.** Notes have a
-  recycle-bin auto-purge; chat history grows forever, and
-  `ai/autonomous.py`'s job list has no pruning pass. Not urgent, but nothing
-  in the app would ever notice.
-- **`renderEntries()` takes ~533 ms at 1,501 notes** even with the lazy-menu
-  fix, because it still builds one card per note. That is §85.4 item 4.
-
-### 85.4 The hand-off list — ranked, scoped, ready to pick up
-
-Everything below was located and scoped during this audit. **Nothing here
-needs re-deriving; each names the file and the shape of the work.** Ranked by
-value per unit of effort.
-
-1. **13 icon-only buttons have `title` but no `aria-label`** — a screen reader
-   announces "button". `index.html` lines 1199, 1483, 1485, 1490, 1499, 1500,
-   1730, 1907, 1910, 2112, 2113, 2114, 2257. Mechanical: copy the `title` text
-   into an `aria-label`, the same way `smallButton()` (`app.js`) already does
-   for every JS-built button. **Also**: of 27 `role="dialog"` elements, 11 now
-   carry `aria-modal` — the six native `<dialog>` elements are exempt (the
-   browser traps those), the rest are not and should have it.
-2. **WCAG 2.5.8 tap targets** — carried unfixed from the mobile audit above,
-   and now the oldest open accessibility item. `#semantic-search-toggle`,
-   `#library-show-binned`, `#skills-auto-toggle`/`-tag`/`-link` (13×13px
-   unstyled native checkboxes), two unlabelled Settings checkboxes, and
-   `.chip.chip-interactive` (~21px). At least three separate styling
-   situations, so scope a real pass rather than patching pixel values.
-3. **`renderLibrary()`, `renderTimeline()` and `renderLogList()` have the same
-   unbounded shape** the Notes list has (`app.js:18879`, `:14092`, `:16035`),
-   and two places assign `innerHTML` **inside a loop** —
-   `renderExtractPreview()` (`app.js:7894-7938`) and the skill-log renderer
-   (`:25944-25957`). The `innerHTML` sites are the cheaper half and worth
-   doing first.
-4. **Notes-list windowing.** The real remaining scalability item, and the
-   bigger piece: `renderEntries()` still builds one card per note for the
-   entire notebook — measured at ~533 ms for 1,501 notes *after* the lazy-menu
-   fix. Note this is **not** BACKLOG §77 (a user-facing page selector with
-   page-aware note links); this is invisible virtualisation of a list that
-   stays one continuous scroll. §77's harder half — landing a wiki-link on the
-   right page under the current sort and filter — does not arise here.
-5. **Library's search box still has no semantic-search option**, unlike the
-   Notes tab. Carried from the previous session. Needs one design decision
-   first — what "semantic" means for documents, media and conversations, none
-   of which have embeddings — so it is a design question, not a one-liner.
-6. **Reminders have no calendar/month view** (gap 4 of the brainstorm above).
-   The flat list is genuinely thorough; seeing "what's due this week" as a
-   grid is the missing shape.
-7. **The graph has no minimap and no saved/named views** (gap 3). Both matter
-   once a notebook is dense enough that the force layout stops being
-   readable. Export is already done.
-8. **Vision-capable models still cannot be shown an image** (gap 2 / Tier 3
-   item 35). `ai/ollama_client.py` already detects and records the `vision`
-   capability; nothing downstream ever uses the flag.
-9. **A conversation retention policy** — see §85.3.
-10. **The Graph tab's mobile toolbar** — `#graph-box` starts at `top: 522px`
-    on a 320×568 viewport, so the canvas and the "+ New note" button are
-    unreachable without scrolling first, with no affordance saying so.
-    Carried unfixed from the mobile audit; real design work.
-11. **A sweep for orphaned CSS**, starting from `.floating-format-menu`.
-
-## 84. A global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
-
-Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Asked
-for directly: a session-only global undo/redo stack, two new buttons in the
-existing `#status-bar` footer, Ctrl+Z/Ctrl+Shift+Z added to the existing
-rebindable-shortcuts system — deliberately excluded from firing while a text
-field has focus, so it never steals a text field's own native undo. Wired
-into note delete (single + bulk), note create, reminder delete, note linking/
-unlinking, and note content edits (which is what covers "add/remove an image
-from a note" — an embedded image is just markdown inside `content`).
-Deliberately not wired into tags, categories, documents, or Whiteboard/
-Skills/Settings — the Whiteboard already has its own local undo/redo, and the
-rest weren't part of what was asked.
-
-Three live-reported bugs, each confirmed against the actual code before
-fixing: the Ask tab's `#ask-search-tune` button existed in the markup but had
-no click listener at all (now wired to the same `search-relevance-group`
-Settings jump the other two quick-access links use) and was squeezed mid-row
-rather than right-aligned (`margin-left: auto`); draft notes were appearing
-in both Library's mixed "note" list and the Graph's node list, neither of
-which filtered `is_draft` the way the Notes tab's own browse list already
-does (both fixed with one `Entry.is_draft == False` clause each, new tests
-for both).
-
-A real CodeQL alert, not a false positive this time (`py/path-injection`,
-alerts #289/#290 on `main`, pasted directly as screenshots):
-`save_generated_file`'s already-whitelisting `safe_filename` used
-`Path(...).name` rather than `os.path.basename`, which CodeQL's sanitiser
-recognition apparently didn't credit — fixed with `os.path.basename` plus a
-new `_within_exports()` containment check (`resolve().relative_to(...)`) at
-both places the export path is built. The other alert batch in the same
-screenshots ("Explicit export is not defined" ×12+ in `searxng_manager.py`)
-needed no new work — this branch already has a prior session's `__all__` fix
-for that exact shape, just not yet merged to `main`, where the (stale) alerts
-were scanned.
-
-A security scan beyond the CodeQL alert (`shell=True`, `eval`/`exec`,
-unescaped `innerHTML`, raw SQL string-formatting, unsafe `pickle`/`yaml`,
-hardcoded secrets) found nothing further. One stale roadmap item retracted
-after being checked rather than rebuilt: the nav-bar scroll-affordance fade
-mask (below, Tier "SUBOPTIMAL" list) turned out already built by a prior
-session.
-
-`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
-Everything UI-shaped verified live with Playwright in this sandbox — see
-HANDOVER.md for exactly what was measured. **Not done, said plainly rather
-than half-built**: the broader "semantic search throughout the app" ask
-turned out mostly already excellent (match-reason badges already show
-similarity %, matched keywords, and connection provenance) — the one real
-gap, semantic search in Library's own search box, needs a design decision
-about what "semantic" means for the non-note kinds Library mixes in, so it
-was left open rather than partially wired.
-
-## 83. v0.1.3 released, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
-
-Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry.
-Continuation of item 82 below: the BGE embedding install now retries itself
-automatically on a `ModuleNotFoundError` (a background `extras.start`, with
-`importlib.invalidate_caches()` before the retry — the CPython import-cache
-gotcha would otherwise have made this silently not work), and the in-chat
-Web toggle now dims visibly when web search is off. v0.1.3 shipped from
-there.
-
-Then the auto-update framework, asked for across several messages:
-`GET /update/check` moved out of `app.py` into a new `routes_update.py` and
-made channel-aware (`update_channel == "main"` honestly reports itself
-unavailable rather than fabricating a nightly-build pipeline that doesn't
-exist); `POST /update/apply` now gates on a *second*, separate
-`auto_update_enabled` preference (not just "checking is on") and accepts an
-optional `?tag=` to install a specific past release; a new
-`GET /update/releases` lists installable versions for a Settings picker;
-blocked-download vs. blocked-installer-execution (antivirus/SmartScreen)
-now get distinct, actionable messages instead of one generic failure.
-Separately, `start.sh`/`start.bat` — which already auto-update via
-`git pull` on every launch, unconditionally, before the server even starts —
-now report a real version change to the app via two env vars
-(`MM_UPDATED_FROM`/`MM_UPDATED_TO`), read by a new self-clearing
-`GET /update/source-status` with zero network calls, so a source checkout
-gets the same "you were just updated" post-login popup the packaged-Windows
-path gets. Channel default is now install-type-aware: a source checkout
-defaults to `"main"` (it already tracks main for real) rather than
-`"stable"` (a channel it has no way to act on), corrected mid-session after
-the user pointed out the mismatch directly.
-
-27 new tests in `test_update.py`; `pytest tests/`, `ruff check .`,
-`node --check frontend/app.js` all clean. **Not verified against a real
-Windows machine** — same standing caveat as everything else here that
-touches `sys.frozen`.
-
-## 82. A real support bundle from a real test user, four bugs found and fixed, plus a fifth caught by auditing for the same pattern
-
-Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Four
-root causes from one user's Windows install: (1) the in-app package
-installer (Settings → Packages) was fundamentally broken in the packaged
-build — `sys.executable -m pip` re-launches the frozen `.exe` itself, not a
-Python interpreter, which is also the real answer to two earlier "pip
-exited with code 1/2, no error text visible" mysteries this file recorded —
-fixed with a `_pip_base_command()` that finds a real system Python when
-frozen, with an honest message when none exists; (2) four SearXNG facade
-modules missing from the PyInstaller `hiddenimports` (reached only via
-`importlib.import_module`, the same shape already handled for uvicorn/
-sqlalchemy/pywebview elsewhere in the same spec file) — fixed, plus a new
-test that parses the facade list and asserts every one is in the spec, so a
-fifth can't repeat this silently; (3) a real, reproduced UI bug — opening
-the Agent Activity monitor visibly shoved the whole Chat card (composer,
-Send button) up the page, root-caused after the user pushed back on an
-initial "couldn't reproduce it" with the exact tab and their own screenshot
-— the monitor's actual footprint never covers `.layout > main` at all, so
-the padding-bottom rule protecting it from an overlap that doesn't exist
-was simply removed for Chat, verified with the Send button's Y position now
-byte-identical open vs. closed; (4) a requested feature, generalising past
-this one report: a "Switch to nomic-embed-text (Ollama)" button next to the
-existing "Search engine problem" banner in Settings → Models, automating
-the fix that banner's own text already described by hand (download →
-switch backend → re-index), built entirely on two existing, already-tested
-routes.
-
-**(5), found by auditing rather than waiting for a fifth report**: grepping
-for the same `sys.executable`-in-a-frozen-build pattern once (1) was
-understood found one more live instance — `searxng_install.py`'s venv
-creation for SearXNG's from-source install path. Same bug, same fix,
-pulled into a shared `find_system_python()` both call sites now use.
-
-`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
-
-## 81. Chat citation badges (item 36's grounding) were computed and sent by the backend but never rendered in the Chat tab, only the Ask tab
-
-Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry. Reported
-as "semantic search results in chat responses disappeared" with a transcript;
-turned out to be a wiring gap, not a missing feature or a regression in the
-search itself. `ai/grounding.py`'s per-sentence grounding (§36) already ran
-inside `/chat/stream` for every non-conversational turn and emitted a
-`grounding` SSE event regardless of which tab asked — but `renderAnswerGrounding`
-hardcoded the Ask tab's one fixed DOM element and ignored the target it was
-actually passed, and the Chat tab's `sendChatMessage` never listened for the
-event at all. Fixed: `renderAnswerGrounding` now renders into whatever
-element it's given, each chat bubble gets its own grounding holder, and
-`onGrounding` is wired in Chat the same way `onMeta` already was. Verified
-live with Playwright — a synthetic grounding payload renders a "Grounded in:"
-chip inside a real Chat-tab bubble and opens the note on click; **not**
-verified against a real model's own prose, since this sandbox has no Ollama.
-
-Same session: tooltip + quick-access links for the "Search relevance
-(advanced)" preferences group, reachable from the Dashboard's "Tools &
-features" catalog, the Ask tab's "Matching records" heading, and Chat's
-per-turn "N matching notes" summary — all jump to and flash the group via a
-new `openSettingsModal(section, scrollToId)` parameter. Verified live:
-jump/flash/tooltip/panel all work, feature-catalog entry is findable, no
-console errors.
-
-Same session, third fix: every generated export (`saveFile`/`/files/save` —
-graph PNGs, chat exports, whiteboard PNGs) landed in `data_dir/exports` with
-only a toast naming the path, reported as "I have to dig in the app data
-files to find and access them." Added `POST /files/open-exports-folder`
-(desktop-only, `os.startfile`/`subprocess.Popen(["open"/"xdg-open", ...])`
-per platform, `Popen` not `run()` so a slow-to-exit file manager can't hang
-the response), a "Open exports folder" button in Settings → Data, and made
-`saveFile`'s own success toast actionable (`toastAction`, an "Open folder"
-button) instead of just naming the path in text. Verified live that the
-button shows/hides with desktop mode and the request reaches the backend;
-**the actual OS window never verified** — no desktop environment in this
-sandbox at all (`xdg-open` isn't installed), so what got exercised was the
-endpoint's own clean-failure path, not a real file manager opening.
-
-Same session, closing the pair: a configurable save location too —
-`export_save_dir` preference, validated (absolute/exists/writable) at save
-time rather than export time, a shared `_exports_dir()` used by both the
-save and open-folder routes, and a typed path field (not a native
-pywebview picker — real, but unverifiable in this sandbox, so left for a
-session with an actual desktop window to test it in). 8 new backend tests
-plus a live Playwright pass (bad path rejected and reverts with the exact
-reason shown, good path sticks, Reset works).
-
-`pytest tests/`, `ruff check .`, `node --check frontend/app.js` all clean.
-
-## 80. Dev view/User view console mode, a live sign-out bug found and fixed the same session, a real model-timeout fix, and a terminal-style log view
-
-Full narrative in [HANDOVER.md](roadmap/HANDOVER.md)'s latest entry; this is
-the index pointer HISTORY.md's own convention asks for. Session driven
-entirely by live user reports rather than a roadmap sweep — see HANDOVER.md
-for the reasoning behind each fix, this entry is deliberately short.
-
-**Shipped, tests + ruff + node --check green throughout, pushed to PR #121:**
-- **Dev view / User view console mode** (`__main__.py`, `core/config.py`,
-  `api/routes_settings.py`, `frontend/index.html`, `frontend/app.js`): a
-  first-run prompt plus a live Settings/tray toggle between a visible
-  console ("Dev view") and none at all ("User view", via a `pythonw.exe`
-  relaunch rather than hiding an already-created window — see HISTORY.md for
-  why hiding was unreliable under Windows Terminal/ConPTY). **Windows-only
-  mechanics unverified on real Windows**, same caveat as always.
-- **A serious bug in that same feature, live-reported and fixed same
-  session**: the first-run popup could fire before real sign-in, fire again
-  after, and randomly sign the user out — traced to `prefsCache` being
-  `null` (not "seen: false") on a stale-token bootstrap pass, and to the
-  popup calling the same route that restarts the whole desktop process for
-  an explicit Settings toggle. Fixed: the popup now requires `prefsCache` to
-  actually exist, and never restarts the process itself — the choice takes
-  effect next launch. Verified live with Playwright (zero calls to the
-  restart route from the popup path, does not fire when `prefsCache` is
-  null, persists in one atomic write, does not reappear on reload).
-- **Terminal-style Settings → Logs view**: a List/Terminal toggle
-  (`#log-view-toggle`, same segmented-control pattern as the reminders view)
-  renders the same filtered log records as raw console-style lines —
-  tracebacks inline, fixed dark styling regardless of app theme. Answers
-  "what would have printed to the terminal" now that User view can hide the
-  console entirely.
-- **Image Gallery lightbox "1 of 2" phantom-image bug**: a tile whose file
-  is missing on disk removed its own DOM tile on `<img>` error but left the
-  shared `images` array stale, so the lightbox kept counting it. Fixed in
-  `whiteboard.js`; reproduced and fixed live with `git stash`/`pop`. The
-  separately-reported "nav arrows aren't centred" could not be reproduced
-  (measured 0px offset in every scenario tried) — likely the same root
-  cause read differently, said plainly rather than guessing a second fix.
-- **Local models past ~4B params timing out or failing to respond**
-  (reported live): both `OllamaClient` and `OpenAICompatClient` defaulted
-  their request timeout to 120s, unconfigurable, with nothing overriding
-  it — a cold model load on modest/CPU hardware can take well past that
-  before a single token is generated, and the client's read timeout fires
-  mid-load. Ollama compounds it by unloading an idle model after 5 minutes,
-  so most turns in a normal session paid the cold-load cost. Raised both
-  timeouts to 600s and added `keep_alive: "30m"` to Ollama chat requests.
-  **Reasoned from the timeout mechanics, not reproduced against a real
-  large model — no Ollama/large model in this sandbox.** Next session:
-  verify against real hardware if a report comes back either way.
-- **Tool-call output in chat read as truncated despite an already-scrollable
-  box**: `.tool-chip-result` already had `max-height` + `overflow-y: auto`;
-  what starved it was `agent.py` cutting the UI-facing `result_summary`
-  fallback to 300 characters — a number never tied to token cost (the
-  model-facing copy is a separate variable with its own real budget a few
-  lines down). Raised to 4000.
-
-**Answered, not implemented — small-model tool-call recognition** (asked:
-"is it possible to make the agent better at recognising instructions or
-requests for specific tool calls... a structured framework with recognised
-phrases... while not bloating context"). The honest answer is that this
-already exists in a weaker form (`agent.py`'s per-mode tool subsetting,
-`PROSE_BUDGET_CHARS`) and the request describes a real gap, but the
-"recognised phrases" framing is the wrong shape for it: a phrase matcher
-sitting in front of the model either duplicates what a 4B model is already
-adequate at (matching "remind me" to `create_reminder`) or fails silently
-on the paraphrases that matter (matching it costs nothing; missing it is
-invisible). The tractable version is **narrowing the offered tool set by
-detected intent before the model ever sees it** — a small keyword/embedding
-classifier over the user's message picks a tool subset (already the shape
-`tool_focus` half-implements) rather than trying to recognise phrases for
-individual calls. Not started; worth a design pass before code, since the
-wrong version of this makes small models *worse* at tools they already use
-fine, not better.
-
-**Still open, unstarted, from the same request batch as the tool-recognition
-question** (§28-§31 numbering is this session's task tracker, not this doc's
-— cross-reference is in HANDOVER.md's latest entry):
-- Hyperlinked note-mention badges in AI chat answers, stacked at the end of
-  a paragraph, when the model names a specific note.
-- Image OCR for notes (`pytesseract` against a system `tesseract` binary —
-  same "don't assume the dependency is there" caution as the Pillow test
-  fix this session already needed once).
-- Letting a vision-capable model see images in chat (multimodal message
-  construction — neither provider client currently sends image content at
-  all, so this is new wiring, not a toggle).
-- Graph minimap and saved/named views (§9's decorative half, still
-  untouched — PNG export from that same section is already done).
-
-## Newest — a mobile/responsive audit, and a blind feature-completeness brainstorm across every screen (read this first, above Priority 0)
-
-### The mobile/responsive audit
-
-Two background agents drove the real app live in headless Chromium across 9
-common breakpoints (320×568 through 1920×1080) and all 7 tabs plus Settings,
-the command palette, and a modal — the first attempt died mid-run
-(infrastructure, not a task problem) and was retried clean. Two real BROKEN
-findings, both root-caused and fixed this session, live-verified after the
-fix rather than trusted from the diagnosis alone:
-
-1. **Graph's "+ New note" popup rendered its Save/Close/Tags controls below
-   the fold at 320×568 and 375×667, with nothing to scroll them into view.**
-   Root cause: `placeGraphPopup()` (the *existing*-note popup) sets
-   `popup.style.maxHeight` from the map's own box height before measuring,
-   so it self-scrolls when tall — its sibling `openGraphNewNote()` (the
-   *new*-note popup the audit actually hit) never did, so the popup just
-   grew past `#graph-box`'s bounds with `overflow-y: auto` sitting on an
-   element that never actually overflowed anything. Fixed by copying the one
-   line `openGraphNewNote()` was missing (`graph.js`). **Verified live,
-   before/after**: at 375×667, `#graph-new-save`'s bottom went from 701px
-   (134px past the 667px viewport, per the audit) to 418px (well within);
-   `popup.scrollHeight` (408px) now genuinely exceeds `clientHeight` (174px),
-   confirming the internal scroll is doing real work instead of never
-   engaging. **A second, more fundamental issue surfaced while verifying,
-   not yet fixed**: at 320×568 on a fresh/empty profile, `#graph-box` itself
-   renders with `top: 522px` — the Graph tab's own toolbar consumes so much
-   of the 568px viewport that the canvas, and therefore the "+ New note"
-   button itself, isn't reachable without scrolling first, with no affordance
-   hinting that. This is a mobile layout problem with the Graph toolbar
-   specifically, separate from the popup bug above, real design work rather
-   than a one-line fix, and not addressed this session — next one should
-   start here rather than re-deriving it.
-2. **A persistent "Agent Activity" panel (`#agent-monitor`, fixed-position,
-   `z-index: 1000`) overlapped real content on every tab at 320px width**,
-   confirmed visually (not just bounding-box math) — text bled through
-   underneath its translucent backdrop on Notes, Graph, and others. Root
-   cause: `document.body.classList.toggle("has-agent-monitor", …)` (`app.js`)
-   had no matching CSS rule anywhere — a dead hook, the exact "feature that
-   never ran once" shape this file's own review-checklist section warns
-   about. Fixed in `07-whiteboard-misc.css`: the class now pads the active
-   tab's scroll container so content can be scrolled clear of the panel's
-   footprint. **This needed two passes to actually work, and the wrong first
-   attempt is worth recording**: padding `.tab-page` alone (the general
-   scroll container) measurably did nothing for the Notes or Chat tabs
-   specifically — `04-chat-dock-appearance.css:147-186` makes `.tab-page` a
-   plain flex column for those two and moves the real `overflow-y: auto`
-   onto a nested `.layout > main` instead, confirmed by measuring computed
-   `padding-bottom` on the wrong element and getting an unchanged value
-   before catching it. A second selector targeting that inner container
-   fixed it — verified live, computed `padding-bottom` going from `0px` to
-   `288px` on Notes' and Chat's real scroll containers once the class is
-   set. **Still not addressed**: Graph has no document-flow scroll container
-   at all (a pan/zoom canvas), so this class-driven padding can't help it
-   the same way — the panel can still temporarily obstruct the map there.
-   Also gave the panel `max-width: calc(100vw - 40px)` so its fixed 350px
-   width can't itself force horizontal crowding on a narrow screen.
-
-Three more findings, real but lower severity, not fixed this session —
-next session, roughly in this order:
-
-3. **SUBOPTIMAL — several toggle/checkbox controls fall under the WCAG
-   2.5.8 24×24px minimum tap-target size**, consistently across viewports:
-   `#semantic-search-toggle` and `#library-show-binned` (plain native
-   checkboxes styled only with `accent-color`, no explicit size — the
-   `.accent-check` class that names the intent sets nothing else),
-   `#skills-auto-toggle`/`#skills-auto-tag`/`#skills-auto-link` (13×13
-   unstyled native checkboxes), two unlabeled checkboxes in Settings, and
-   Chat's three quick-suggestion chips (`.chip.chip-interactive`, ~21px
-   tall). These aren't one shared component — at least three separate
-   styling situations — so this is more than a one-line fix; scope a real
-   pass rather than patching pixel values blind.
-4. ~~**SUBOPTIMAL — the 7-tab nav bar shows only ~4 tabs at once at
-   320–375px width with no scroll affordance.**~~ **Retracted — already
-   built.** Checked before starting a rebuild (per this file's own opening
-   paragraph): `#tab-bar.fade-end`/`.fade-start` (`00-tokens-shell.css`) plus
-   `syncTabOverflowFade()` (`app.js`, wired to load/resize/scroll) already
-   mask the trailing edge exactly as this item asked for. Confirmed live at
-   360px — `#tab-bar` carries `fade-end` and "Graph" visibly fades at the
-   right edge, screenshotted. Whatever state this was true of, a later
-   session already closed it; this item's own "would close this cheaply"
-   phrasing was the tell that it hadn't been checked against source.
-5. **SUBOPTIMAL — the Graph "+ New note" popup visually overlaps the
-   zoom-in/zoom-out/fullscreen toolbar buttons while open** (confirmed
-   56–71% bounding-box overlap at 320–412px widths), with no backdrop to
-   signal the rest of the canvas is temporarily inactive. Low severity, but
-   cheap to fix alongside item 1's toolbar work above.
-
-Confirmed clean at every viewport, so nobody re-audits it: no horizontal
-document overflow anywhere, no sub-11px text anywhere, the Settings modal
-renders correctly at every width tested (single-column at 320px, sidebar+
-content at 768px+), and each tab's own scroll container correctly stops
-exactly at the footer's top edge (several "controls cut off near the
-bottom" findings from the automated pass turned out to be false positives
-from that — reachable by scrolling, not actually clipped).
-
-Two separate passes this session, both driven by the same worry CLAUDE.md
-names directly: rebuilding something that already exists. So the method for
-the second half was deliberately blind — for each of the app's 9 screens
-(Dashboard, Notes, Ask/Chat, Graph, Library incl. Documents/Skills/Media, the
-Whiteboard, Timeline, Reminders, Settings) the brainstorm was written first,
-from general knowledge of what that *kind* of feature looks like across
-well-known apps (Notion, Obsidian, Apple Notes, Todoist, Miro/Excalidraw,
-ChatGPT), with the running app deliberately not open — then, only after the
-list was written, checked line-by-line against this codebase's actual routes
-and frontend code (grep for the concrete symbol, not "I recall this exists").
-
-**The honest headline result: this app is far more complete than a generic
-brainstorm assumes.** Of a brainstormed ~140 individual capabilities across
-the 9 screens, the large majority already exist — often as a named, documented
-feature (`DASH_WIDGETS.streak`, `DASH_WIDGETS["on-this-day"]`,
-`DASH_WIDGETS.heatmap`, `DASH_WIDGETS.capture`, note pin/tag/category,
-`entry_revisions`/version history with restore, GFM task-list checkboxes as
-real checkboxes, `[[link]]`s with AI-deduced reasons, capture templates
-(built-in and custom), graph physics/similarity/time-slider/trace/link-suggest,
-whiteboard grouping/alignment/rotation/anchors/multi-board, reminder
-priority/recurring/presets/nudges, chat regenerate-and-resend, conversation
-compression). Re-proposing any of that would be exactly the mistake this
-file's own opening paragraph warns about, so it isn't listed below — what
-follows is only the gap between the brainstorm and what a targeted grep
-actually found, confirmed missing rather than assumed missing.
-
-**Not brainstormed as gaps, on purpose:** collaboration/multi-user editing,
-cloud sync, sharing-with-others, and any thumbs-up/down-style feedback meant
-to tune model behaviour over time. All four are stock ideas for this *class*
-of app but actively wrong for this one — it's 100% offline and single-user by
-design (no server to sync through, no account system, no telemetry channel a
-feedback signal could even reach), so including them would be brainstorming
-against the wrong app rather than this one.
-
-### Gaps found, ranked by value
-
-1. **No OCR for a photographed or scanned image — narrower than first
-   reported, see the correction below.** `routes_documents.py` (Library →
-   Documents are hand-written markdown, not an upload pipeline) and
-   `routes_files.py` (attachments/Media Gallery store opaque blobs) really
-   don't read a file's content — but `/import/document`
-   (`routes_settings.py:1176-1235`) already does, for PDF, Word, PowerPoint,
-   Excel, and HTML, via `markitdown` (an optional extra, `core/extras.py`'s
-   `"documents"` entry) — it converts the file to markdown and files one
-   note per top-level heading. What's actually still missing, confirmed by
-   the `accept` attribute on `#import-document-file`
-   (`index.html:3368` — `.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm`,
-   no image type) and by there being no OCR library anywhere in
-   `src/memorymap/`: a photographed receipt, whiteboard, or scanned page —
-   anything that's pixels, not an embedded text layer — still can't be read
-   into a note. A local OCR pass (`pytesseract` against a system `tesseract`
-   binary — no torch, consistent with this project's dependency rule),
-   feeding the same `create_entry`/"Imports" pipeline `import_document`
-   already uses, would close the remaining gap. Real, but a materially
-   smaller piece of work than first described below.
-2. **Vision-capable local models can't be used as vision models.**
-   `ai/ollama_client.py` already inspects and records whether the active
-   model reports a `vision` capability (`memorymap.ai.ollama_client`), but
-   nothing downstream ever uses that flag — `chat-attachments` in the chat
-   dock (`index.html:791`) is the note-picker's attached-*notes* list, not a
-   file/image upload, and grepping `app.js` for any image-file input wired
-   into the chat send path returns nothing. A model this app already detects
-   as capable of reading images currently cannot be shown one. Natural
-   pairing with gap 1 above (a photo of a document could go through OCR *or*
-   straight to a vision model, user's choice) but is a smaller, more
-   self-contained piece of work on its own.
-3. **The graph has no minimap and no way to save/name a view.** ~~and no
-   export~~ — **the export third is done**: `#graph-export-png`
-   (`index.html`, wired in `app.js`/`graph.js`) captures what's currently on
-   screen (the live SVG's viewBox plus whatever pan/zoom transform is
-   applied) as a PNG, matching the whiteboard's own "what's on screen now"
-   option. Live-verified in both themes. Minimap and saved views are still
-   genuinely open: there's nothing to re-find a specific arrangement once
-   the canvas gets busy (no minimap, `grep minimap` is empty across
-   `frontend/`) and no "save this layout/filter combination as a view."
-   Once a notebook has enough notes that the force layout becomes visually
-   dense, both still matter.
-4. **Reminders have no calendar/month view.** The list (`#reminder-groups`,
-   `index.html:1436-1543`) has a solid Open/All/Done filter, priority levels,
-   recurrence, quick-add presets (30 min through "Next week"), and ±15-minute/
-   ±1-day nudges — genuinely thorough for a flat list — but there is no
-   month-grid view, so seeing "what's due this week" as a calendar rather
-   than a scrolling list isn't possible. The Dashboard's own heatmap widget
-   is activity-in-the-past, not due-dates-in-the-future, so it doesn't cover
-   this.
-5. ~~**Timeline has no "jump to today" and no arbitrary custom date range.**~~
-   **Retracted — already built, both halves.** `#timeline-jump-today`
-   (`index.html:1076`, wired at `app.js:14301-14313`) scrolls the active view
-   to the newest end; `timeline-days`' own "Custom range" option
-   (`index.html:1125`) reveals a start/end date pair (`#timeline-custom-range`,
-   `index.html:1127-1129`, wired at `app.js:14280-14299`). The grep this was
-   based on used `date-range`/`daterange` as one hyphen-joined or camelCase
-   token — the real markup spells it `timeline-custom-range`, one word off
-   from every pattern tried. Moved to "already done" below.
-
-**Second pass, asked for directly** — the brainstorm above covered the 7 tab
-screens; this pass covers the features that don't get their own tab: Auth/
-security, the command palette, Spaces (workspaces), Duplicates, Drafts,
-Insights, Backups, Voice, Tags/Categories, Models, and Conversations. Same
-method — brainstorm blind, then check the actual route file and frontend
-markup before trusting either "it's missing" or "it's there."
-
-6. ~~**The auto-lock timeout isn't configurable.**~~ **Retracted — already
-   fully built, on both sides, and this is exactly the "grep for a name, not
-   what calls it" mistake the third pass below calls out.** The grep that
-   produced this claim searched for `"lock`, `lockAfter`, `idleLock` — the
-   actual preference key is `session_idle_ttl_minutes`, which
-   `require_unlock`/`require_unlock_media`/the account-status endpoint in
-   `routes_auth.py` already read in place of the `_SESSION_IDLE_TTL` fallback
-   constant, and which Settings → Account & security already exposes as a
-   real `<select id="account-idle-ttl">` (`index.html:3584`, wired in
-   `app.js:15820-15821` and `:21887`). Confirmed live: Settings → Account &
-   security shows "Auto-lock when idle" already set to 5 minutes, not the
-   12-hour default. Moved to "already done" below.
-7. ~~**The command palette's live note search only matches note body text —
-   not titles, and not Documents/Reminders/Conversations.**~~ **Retracted a
-   second time, now fully.** Current `paletteMatches()` (`app.js:16319-16370`)
-   already matches notes by `e.content` *or* `e.title` (the comment above it
-   literally says "match body or title"), and already searches Documents (by
-   title), Reminders (by content), and Conversations (by title), each
-   returned as its own labelled group. Whatever this was true of, it isn't
-   true of the code as it stands now — moved to "already done" below.
-8. ~~**No quick "duplicate this note" action.**~~ **Retracted — already
-   built.** The note's own overflow menu has a "ph:copy Duplicate" action
-   ("Make a copy of this note — opens ready to edit", `app.js:1676-1701`):
-   POSTs a new entry carrying the same content/category/tags (title suffixed
-   " (Copy)" when one exists), then opens the copy straight into edit mode.
-   The grep this claim was based on only checked for the word "Copy" near a
-   clipboard action (`app.js:5181`) and missed the note-menu entry sitting a
-   few lines above the *duplicate detection* code this item correctly
-   distinguished itself from. Moved to "already done" below.
-
-**Third pass — asked directly, twice, to double-check the above ("make sure
-you didn't miss anything, be very particular"), and both times it found real
-mistakes, corrected in place rather than left standing.** Of the 10 original
-claims, 2 were retracted outright and 2 more were half-wrong and had to be
-narrowed. Each was caught by reading one function further than the first
-grep had bothered to:
-
-- **A claim of "no graph accessibility alternative" was retracted outright.**
-  Originally its own numbered gap. Wrong — `graph.js`'s `initGraphKeyboard()`
-  (`graph.js:1859-1927`) is a real, deliberately built non-visual navigation
-  layer: `role="application"`, arrow keys move between notes spatially, `n`
-  steps through a note's own connections specifically (the relationship
-  graph exists to show, which spatial nearest-neighbour wouldn't preserve),
-  Enter opens the note, and every move calls `announce()`
-  (`app.js:3164-3171`) into a real `aria-live` region with the note's
-  preview text, category, and connection count read aloud. That is a
-  complete non-visual alternative, just not a *list-shaped* one — the
-  original grep (`"graph.*list.view\|accessib"`) missed it because neither
-  word appears near the actual implementation. Found by reading graph.js's
-  full function index end to end, the second time through.
-- **A claim of no PDF/document text extraction was retracted outright.**
-  Wrong — `/import/document` (found by actually reading `importDocument()`'s
-  network call in `app.js`, not just grepping for library names like
-  `pdfplumber` that this codebase doesn't happen to use) already extracts
-  PDF/Word/PowerPoint/Excel/HTML into real notes via `markitdown`. What
-  survives, narrowed and renumbered as gap 1 above: OCR for *images*
-  specifically, which is a materially smaller claim than "no extraction at
-  all."
-- **A claim that the command palette had no content search was retracted
-  outright, then partly reinstated once narrowed.** Wrong as stated — it
-  already appends live, substring-matched notes below the static command
-  list. It was written from `paletteCommands()` alone, without reading
-  `renderPalette`/`paletteMatches`, the two functions that actually call it.
-  What survives, narrowed and renumbered as gap 7 above: title text and
-  three other content types (Documents/Reminders/Conversations) still
-  aren't covered.
-- **A claim that Spaces had no per-space export/backup scoping was
-  overstated, not wrong outright, and doesn't survive as a gap.** Exports
-  were reported as vault-wide with "no space filter." In fact
-  `core/database.py`'s `WorkspaceMixin` plus a SQLAlchemy `do_orm_execute`
-  listener (`_add_workspace_filter`) transparently scopes *every* query —
-  including the export routes, which share the same `get_session`
-  dependency — to whichever space the `X-Workspace-ID` header names, unless
-  it's explicitly `"all"`. Exports are already correctly scoped to the
-  active space. What's true and isn't a bug: the on-disk backup snapshots
-  the whole SQLite file, so restoring one restores every space at once —
-  but the space-creation dialog's own copy ("your settings, models and
-  skills stay shared") says that sharing is intentional, so this reads as
-  documented behaviour, not a leak. Moved to "already done" below.
-
-The lesson worth stating plainly, since it's exactly what this file's own
-opening paragraph and CLAUDE.md's "check before building" rule are both
-about: a grep for a library name, or reading one function in isolation from
-what calls it, is not verification. `renderPalette()` calling
-`paletteMatches()` calling `paletteCommands()` was three function names away
-from where the first pass stopped reading; `initGraphKeyboard()` was sitting
-in plain sight in a function-name grep the first pass ran but didn't open;
-the workspace filter was one file away. All three would have sent a future
-session to build something that already works — which is the one mistake
-this entire exercise exists to prevent, so getting caught making it twice in
-the same session, on a task about avoiding exactly that, is worth recording
-rather than quietly fixing and moving on.
-
-### What was checked and found already done (recorded so nobody re-proposes it)
-
-Dashboard: quick-capture-without-leaving-the-dashboard, a streak counter, a
-focus timer, "on this day," a weekly digest, an activity heatmap, a tag
-cloud, a "rediscover a random old note" widget, drag-to-reorder with
-add/remove and a persisted layout — all in `DASH_WIDGETS`
-(`app.js:9154-9171`), not just planned. Notes: pin, tags, categories, GFM
-task-list checkboxes rendered as real checkboxes, wikilink-style `[[]]`
-linking with AI-deduced reasons and a confidence score, note version history
-with restore (`entry_revisions`, `routes_entries.py:660-774`), built-in and
-custom capture templates (`app.js:486-520`), recycle bin with configurable
-auto-purge. Ask/Chat: saved/browsable conversations, context compression,
-regenerate-and-resend, per-message note attachments via a searchable picker,
-personas, plan mode, tool/skill use, integrated web search with a reader
-view, local dictation. Graph: multiple layouts, colour-by, physics controls,
-a time slider, similarity lines, entity nodes, orphan hiding, AI link
-suggestions, path tracing between two notes, fullscreen, **and a full
-non-visual navigation layer** — `role="application"`, arrow-key movement
-between notes, a dedicated key to step through a note's own connections,
-and every move announced via `aria-live` with the note's content, category
-and connection count (`initGraphKeyboard()`, `graph.js:1859-1927`) — missed
-entirely on the first two passes and only found on the third. Library: grid/list
-toggle, four sort orders, bulk select/open/restore/delete, a bin with its own
-context bar, a separate Skills sub-tab and Media Gallery sub-tab. Whiteboard:
-multiple named boards with a switcher, a properties panel, resize, grouping,
-alignment/distribute, rotation, arrow-key nudge, undo/redo, real anchor/
-connection points, PNG export. Reminders: natural-language "magic add,"
-priority, recurrence, quick presets, ±15 min/±1 day nudges. Settings:
-high-contrast mode, reduce-motion (with an "auto — follow system" mode), and
-a keyboard-shortcuts reference panel all already exist
-(`contrast-toggle`/`reduce-motion-toggle`/`shortcut-list-settings`,
-`index.html:2861-3045`) — the "Settings" brainstorm produced no gaps at all.
-None of the above needs a second look unless a live user report says
-otherwise. Four more found stale on a later pass and retracted in place
-above rather than left to mislead a future session: the auto-lock idle
-timeout (gap 6) is already fully configurable, backend and Settings UI
-both; the per-note "Duplicate" action (gap 8) already exists in the note's
-own overflow menu; the command palette already searches note titles and
-already covers Documents/Reminders/Conversations (gap 7, retracted twice
-now — the first retraction narrowed the claim, the second found even the
-narrowed remainder already built); Timeline already has both a "jump to
-today" button and a custom date-range picker (gap 5). All four were missed
-by a grep for the wrong literal string, not by reading the wrong function —
-worth remembering that a grep miss and a real gap look identical from the
-outside, and only running the app (or reading the actual event listeners
-around the guessed id) tells them apart.
-
-**From the second pass:** Auth already separates an idle timeout from a
-hard max-age rather than having one crude "session length," and the idle
-half is already user-configurable too — Settings → Account & security's
-"Auto-lock when idle" (see the gap 6 retraction above); token transport is
-a header, not a cookie, on purpose (no CSRF surface to begin with — see
-`app.py`'s own docstring).
-Duplicates has a real preview/merge flow with a similarity slider and
-tag-preserving merges into the recycle bin, not just detection. Drafts
-("write a note from rough thoughts") composes and re-titles with the AI, with
-a help panel. Insights covers stats, a time-of-day greeting, the heatmap,
-tag cloud, "on this day," and a streamed weekly digest. Backups list, restore,
-and delete named snapshots, on top of the daily automatic one, all kept local
-by design (`backup.py`'s own docstring: "next to the database, never in the
-cloud"). Voice covers both a single dictation pass and a longer
-record-a-meeting flow, the latter feeding the existing action-item extraction
-feature. Tags/Categories both support rename and delete. Models supports
-switching the chat and utility models independently, switching provider, and
-pulling/deleting models with job cancellation. Conversations support pinning,
-retitling, truncating, and editing a specific past answer in place, not just
-create/delete. None of this needs a second look either.
-
-**From the third pass's corrections:** PDF/Word/PowerPoint/Excel/HTML import
-already exists end-to-end (`/import/document`, `markitdown`, one note per
-top-level heading, `routes_settings.py:1176-1235`) — don't rebuild this, only
-the image-OCR sliver above is open. The command palette already appends live,
-substring-matched note results below its static commands
-(`paletteMatches()`, `app.js:14904-14920`) — don't rebuild the search itself,
-only its coverage (title text, Documents/Reminders/Conversations) is open.
-Spaces already isolate every workspace-scoped query, including all three
-export formats, via `WorkspaceMixin` + the `X-Workspace-ID` header
-(`core/database.py`) — nothing to build there; only the daily backup covers
-every space in one file, and that's by design, not a gap.
-
-## Priority 0 — left unfinished this session, read before anything else
-
-Ended on session-usage limits, not on running out of work. In the order a
-fresh session should pick them up:
-
-1. ~~The document-textarea resize gap.~~ **Fixed, but the fix's *effect* is
-   unverified — read this before trusting it closed.** `app.js` now detects a
-   real manual resize (`mousedown`→`mouseup` height diff on `#doc-content`,
-   since nothing else changes its `offsetHeight`) and relaxes `#doc-panes`
-   from `flex: 1 1 auto` to `flex: 0 1 auto` once one happens, so the freed
-   space should collect at the card's bottom instead of between the textarea
-   and `.doc-hint`. **This file's own instruction ("needs a live Chromium
-   session to verify... do not ship one unverified") was not fully met**:
-   Playwright could not trigger the native resize-handle drag in this
-   sandbox's headless Chromium — real mouse events and CDP-level ones alike
-   left the textarea's rendered height unchanged, and an isolated minimal
-   repro of the same flex structure showed the same thing (the drag *does*
-   register — `style="height: …px"` lands on the element — but flex-grow
-   visibly re-absorbs it back to 100% in the same layout pass). Whether
-   that's this Chromium build, or evidence the original root-cause theory
-   needs revisiting, wasn't chased down. **Next session: open the real app in
-   a headed/desktop browser, drag the handle, and look** — that's the one
-   thing this fix still needs.
-2. ~~`app.js`/`style.css`/`index.html` are still monolithic~~ **Both
-   mechanically-splittable pieces are now done — `style.css` into eight
-   files under `frontend/css/`, `app.js`'s whiteboard and graph-view
-   subsystems into `frontend/whiteboard.js`/`frontend/graph.js`.** `index.html`
-   stays whole on purpose (splitting it needs a build step, which conflicts
-   with this project's no-bundler design). See HISTORY.md for the byte-order
-   proof, the load-order gotcha between the two extracted files, and the
-   401-burst red herring this surfaced (item 13 below).
-3. ~~**Notes/Documents/Graph "extract notes" feature**~~ **Done** — see
-   BACKLOG.md §62 for the resolution note (what shipped, and what's UI-only
-   and unverified live).
-4. ~~A live visual indicator when the mic picks up sound~~ **Done, and the
-   exact live-only bug the first pass couldn't catch has since shown up and
-   been fixed.** `startMicLevelMeter()` in `app.js` runs an `AnalyserNode`
-   off the same `MediaStream` `toggleDictation()` already opened — no new
-   permission, no new stream — and writes `--mic-level` (0–1) onto the
-   button every frame. `button.recording.live-level` in `02-chat-graph.css`
-   swaps the old fixed-cadence pulse for a box-shadow driven straight off
-   that value, with a `prefers-reduced-motion` fallback to a static ring.
-   Shipped with an honest "**not live-verified** — no real microphone in
-   this sandbox" note, since the level would read near-zero either way and
-   nothing would look obviously wrong from code alone. **Reported live as
-   "the animation doesn't show" and reproduced by reasoning, not by ear**:
-   some browsers create a fresh `AudioContext` already `suspended`, even
-   from inside a click handler, so the analyser read silence forever —
-   `--mic-level` never left 0, and since adding `.live-level` also
-   unconditionally kills the old pulse animation (`animation: none`), the
-   button just sat flat with no motion of any kind. Fixed with an explicit
-   `ctx.resume()` right after construction (a no-op if the context was
-   already running). Still not live-verified with a real microphone in this
-   sandbox — this is the second time a sandbox-unreachable class of bug has
-   shipped from sound reasoning alone; see CLAUDE.md's standing caveat.
-5. ~~**The graph tab's traced-path text visualisation at the top of the
-   canvas needs a redesign**~~ **Done, and re-done.** First pass put one
-   row per note plus one row per connector, stacked vertically — shipped
-   without a live check, and reported back immediately as "crushes the
-   graph, takes up most of the page" (correctly: a 5-hop path was ~10 rows
-   tall, in a box sitting in normal flow directly above the canvas). Second
-   pass, **live-verified with Playwright this time**: a horizontal,
-   wrapping row of pill chips (`.graph-trace-note`, same materials as the
-   app's existing `.chip`) joined by a small arrow + reason connector, and
-   `.graph-trace-path` capped at `max-height: 5.5rem` with internal scroll
-   as a hard floor so no path length can repeat the mistake. Measured live:
-   a real 5-hop chain rendered as a ~125px header+chips block (was
-   uncapped before), canvas stayed clearly visible with room to spare —
-   screenshot confirms it, not just the measurement.
-6. ~~Recent searches / search history / past results in the Ask tab~~ **Done
-   — built as a browsable history, not a dropdown.** Clarified directly
-   mid-build: *"I want the ask feature to be basically a personal notes
-   browser."* See HISTORY.md for what shipped (`AskTurn` table, the
-   `/ask-history` routes, and the panel in the Ask card).
-7. **faster-whisper reported still failing to install**, pip exiting non-zero,
-   from the same live Windows session as the temp-file bug below. Two things
-   were fixed blind this session, without seeing the actual pip error: (a)
-   `_run_install`/`_run_uninstall` in `core/extras.py` now also log the
-   outcome through `logging` (`memorymap.extras`), not just into the
-   Background-tasks panel's own `_state.log` — the install failure was
-   reported as invisible on the Logs page, and it was: `logbuffer.py` only
-   ever sees records that went through Python's `logging` module, and pip's
-   captured output never did. (b) unrelated to this pip failure but same
-   report: the pin/unpin icon was also fixed — see HISTORY.md's "UI polish
-   batch" entry. **The pip install failure itself is still unexplained** —
-   no error text was seen, only "pip exited with code 1." If it recurs,
-   Settings → Logs should now show it (search "memorymap.extras"); that
-   text is what a fresh session needs to actually fix the install rather
-   than guess again.
-8. **faster-whisper still fails to install, re-reported with a screenshot**:
-   the Background-tasks history card still says "pip exited with code 1.
-   The log above says why" with no actual pip output visible above it —
-   meaning item 7's `logging` fix (routed into Settings → Logs) has not yet
-   been confirmed to actually surface the real error either, or the log
-   line itself only ever held the summary sentence, never the detail. Not
-   yet investigated this session — the `logging`-routing fix landed but
-   nobody has since captured the real Settings → Logs output for a live
-   failure to confirm it works. Start there before changing anything else.
-9. ~~**Asked for directly: extras install/reinstall/remove, embedding-model
-   downloads, AI-model downloads, and the `start.bat`/`start.sh` launch
-   scripts should all retry and fall back automatically on failure**~~
-   **Partly done (HISTORY.md §68).** The design pass this item called for
-   turned out already built: `is_network_error()` (a prior session)
-   already classifies network-blip vs. real-error vs. report-clearly, it
-   just wasn't being retried on. `start.sh`'s pip-install pipeline now
-   retries a network-shaped failure automatically (3 attempts, 5s/10s
-   backoff), anything else falls straight through unchanged. **Not done,
-   on purpose:** `start.bat`'s equivalent (needs a `goto`-based retry
-   reaching across an existing parenthesized block, in a file whose own
-   header documents a past cmd.exe parsing incident of exactly that
-   shape — no cmd.exe in any sandbox so far to verify a control-flow
-   change against) and the embedding-model/Ollama-model downloads
-   (background-threaded jobs, a materially bigger separate change).
-10. **Timeline tab's "line/branch" view — asked for a redesign, "more
-    professional" look.** Not scoped, not started. Built around
-    `app.js:14517`'s "Timeline: the branch/line view" section; queue after
-    the whiteboard.js extraction (item 2) lands, since both touch `app.js`
-    and running them concurrently risks a merge conflict.
-11. **Document editor — asked to "improve and expand."** Not scoped: no
-    specific gaps were named, so a fresh session should look at what it
-    currently does (BACKLOG.md §64 already flags it as "behind the rest of
-    the app, needs its own pass" — read that first) before proposing
-    additions. Same app.js overlap caution as item 10.
-12. **Asked directly: run a full pass with the `apple-design` skill to
-    refine the frontend's visual design and UI/UX.** A first, narrow pass
-    landed earlier (two tabs' empty states, a title-duplication bug — see
-    HISTORY.md). **A second, broader pass done this session** — an elevation
-    (`--shadow-sm/md/lg`) and motion (`--motion-fast/base/slow`) token scale
-    added to DESIGN.md and applied app-wide, collapsing twelve one-off
-    `box-shadow` values and ten distinct transition durations into the same
-    kind of scale spacing/type already have. Driven against a populated app
-    (9 notes, links, 3 reminders, a document, a whiteboard board with 3
-    cards — via API, not placeholders), screenshotted light+dark at 1400px.
-    Full detail in HISTORY.md's newest entry, including what was screenshotted
-    and what wasn't. **Deliberately not done, scoped instead of guessed at:**
-    the timeline line/branch view's real layout problem (dead canvas space,
-    no on-canvas band labels, same-bucket notes stacking with no
-    differentiation — a `renderTimelineBranch` layout change, not a CSS fix,
-    see DESIGN.md's "What is not done yet") and a global
-    `prefers-reduced-motion` sweep (still per-component, not one rule). The
-    document editor was checked live and found already visually consistent —
-    its real gap is BACKLOG §5's feature list (wiki-links, slash menu,
-    live-preview, sub-pages), a product decision not a design one.
-13. ~~A burst of 401s on dashboard/insights endpoints on page load.~~ **Root
-    cause found and fixed — the earlier "only on a reused data directory"
-    theory above was wrong; it reproduces on every cold load, fresh data dir
-    or not, with no server restart or reuse needed at all.** Confirmed via a
-    bare Playwright page load with *no login attempted*: `switchTab
-    ("dashboard")` and `startReminderWatch()` both ran unconditionally at
-    module load, before `initAuth()` ever checks whether a token exists —
-    every cold load fired the dashboard's ~20 widget requests plus a
-    reminders poll, all with an empty `X-Auth-Token` header, all 401ing
-    before the lock screen was even dismissed. `switchTab` is now split into
-    `revealTab()` (DOM-only tab visibility, safe to run before a token
-    exists) and the data-loading dispatch; the module-level boot call is
-    `revealTab("dashboard")`, and `startReminderWatch()` moved into
-    `startApp()`, which only runs once a session is confirmed. Verified live:
-    the same bare-page-load repro now shows a single `/auth/status` call and
-    nothing else. See HANDOVER.md's newest entry for the sandbox-specific
-    trap that cost the most time chasing this (`pgrep -f` self-matching its
-    own invoking shell — use `lsof -t -i:<port>` instead).
-
-    *(Note: the apple-design-audit session that ran this item's first scoped
-    pass was on a worktree branched from the wrong base and briefly reported
-    this 401 fix as unmerged/missing. That was a false alarm caused by its
-    stale starting point — `8b9b7f6` has been an ancestor of this branch's
-    `HEAD` since it landed; nothing to redo here.)
-14. ~~**A proper generating/loading spinner, themed to the app**~~ **Done
-    (HISTORY.md §68).** `.spinner` (CSS) + `spinnerEl()` (app.js, beside
-    `chip()`): reads `--accent`, sized in em, and swaps to a static "…"
-    with no animation and no border under `prefers-reduced-motion` rather
-    than freezing mid-spin. The one existing ad hoc user (the note
-    re-evaluate busy chip) was migrated onto it rather than left as a
-    second, still-unguarded ring definition beside the new correct one.
-
-## #0 priority — codebase quality review, still-open items
-
-A dead-code/duplication/complexity audit across backend, `app.js`,
-`style.css` and `tests/`, worked over several sessions. Everything confirmed
-done — dead code, the `.msg` CSS merge, the `GET /entries` N+1, the tag-cloud
-duplicate scan, `on_this_day`'s SQL filter, `janitor.py`'s vectorization, the
-`routes_settings.py` split, the pagination-ceiling fix, the Notes-search
-debounce, the whole test-suite reorg — has been moved to the "#0 priority"
-entry near the end of [roadmap/HISTORY.md](roadmap/HISTORY.md),
-re-verified against current source before archiving rather than trusted from
-old prose (which had already gone stale once, mid-session — the reason this
-split exists at all). What's left, all re-checked against source this pass:
-
-- ~~`whiteboard.js` extraction~~, ~~markdown-renderer merge~~,
-  ~~HTTPException dedup~~, ~~`searxng_manager.py` split~~, ~~`all_tags()`
-  caching~~ — all done since this list was last written; see HISTORY.md's
-  newest entry for what each one actually found (two real bugs surfaced
-  fixing the markdown merge alone).
-- **`src/memorymap/ai/tools/__init__.py`** — still ~3,360 lines (the `TOOLS`
-  registry and the bulk of note-CRUD/agent-orchestration handlers), left
-  there deliberately when `_common.py`/`categories.py`/`documents.py`/
-  `whiteboard.py` were extracted — it's the most interleaved, most
-  load-bearing part of the file. Splitting it further needs its own
-  session.
-- **`manager.all_tags()`** loads every non-deleted entry with no cap, unlike
-  every sibling section of the same responses (all capped at 200 or similar)
-  — still true, still low-urgency at this app's realistic notebook sizes.
-- **Not re-verified this pass, so not claimed either way** — check against
-  source before trusting a "still open" label as much as a "done" one:
-  the frontend/backend Big-O findings beyond what's listed above (Log
-  filter's per-keystroke rebuild, the note-picker modal's per-keystroke
-  filter/sort, `all_tags`'s cap), and feature-gap items 2-4 from the old
-  §12 (Notes tab's missing error/retry state, Whiteboard's `aria-label`
-  coverage vs Graph's, `GET /documents`'s missing search param).
+## What is open right now — start here
+
+Six sessions of finished narrative used to sit above this line. It has moved
+to [roadmap/HISTORY.md](roadmap/HISTORY.md)'s "§80 to §86" index, because a
+live work plan should open with what is *live* — and because this file has a
+2,000-line ceiling that `tests/test_docs_layout.py` enforces, and narrating
+completed work at the top is how it got there.
+
+**Before starting anything below, read
+[roadmap/HISTORY.md](roadmap/HISTORY.md).** Four sessions have now rebuilt
+something that already existed, and the two most recent near-misses were both
+caught by one grep: the Reminders calendar view (listed as a gap, already
+built and wired) and the graph's own non-visual keyboard layer. A grep miss
+and a real gap look identical from the outside.
+
+### The live list
+
+Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
+
+1. **Vision-capable models still cannot be shown an image.** `ai/ollama_client.py`
+   already has the generic `capabilities()`/`supports()` pair, and Ollama
+   reports `vision` in that list for a multimodal model — so the detection
+   half exists and nothing downstream ever uses it. Confirmed missing by grep
+   over `app.js`: no image-file input is wired into the chat send path at all
+   (`chat-attachments` in the chat dock is the note-picker's attached-*notes*
+   list, not a file upload). Needs: an image input on the composer, multipart
+   handling on the chat route, and the provider layer passing images through
+   in whatever shape each backend expects — that last part is the real work,
+   and it is why this is the largest item left. Pairs naturally with the OCR
+   path, which already exists (`core/ocr.py`): a photo of a page could go to
+   OCR *or* to a vision model, the user's choice.
+
+2. **Notes-tab pagination with page-aware note links** — BACKLOG §77, and
+   **not** the same as the windowing built in §86. That made the list render
+   incrementally while staying one continuous scroll; this is the *user-facing*
+   page-size control and page selector that was asked for directly. Its hard
+   half is unchanged and still unscoped: a wiki-link click has to land on the
+   right *page*, which depends on the sort and filter currently active, not
+   just the note's id. Real routing logic; deserves its own design pass.
+
+3. **The Timeline's line view needs a real visual pass** — reported as needing
+   to look "very professional and ready for public use", and never scoped
+   beyond that. Say what specifically, next time it is reported. The grid
+   view's text-cropping half is done; a re-report after that fix was never
+   reproduced in this sandbox's Chromium and needs the actual browser/OS it
+   happens on.
+
+4. **The Documents editor is behind the rest of the app** (BACKLOG §64). Also
+   still open there: `GET /documents` has no search parameter, and the
+   whiteboard's `aria-label` coverage lags the Graph's.
+
+5. **Claim-specificity in the hallucination net.** `agent.unsupported_claims`
+   catches a claim with *no* matching write ("I tagged it" when nothing was)
+   but not one that mismatches what happened ("I tagged it as Work" when a
+   different tag was applied). Needs real model output to tune against, which
+   this sandbox cannot provide.
+
+6. **Guided first-run tour**, and the rest of onboarding: offering to pull a
+   model, a data-dir writability check, and seeded example notes so the graph,
+   timeline and dashboard have something to show before the first note exists
+   — named by the project's own outside review as the highest-leverage version
+   of onboarding. `#onboarding-overlay` already exists as a surface.
+
+7. **Alembic migrations.** The additive auto-migrator cannot rename or drop,
+   and will not survive a real schema change. Nothing has needed it yet, which
+   is exactly why it is still here.
+
+8. **What happens when Ollama hangs, rather than errors.** The app handles
+   Ollama being *off* gracefully; a request that never returns is a different
+   failure and a likelier one on this hardware — a model loading for the first
+   time can leave a request pending indefinitely. Wants a timeout with a real
+   message rather than an unbounded spinner.
+
+9. **Crash-safe recovery for an interrupted re-index or model download.**
+   Unknown whether it resumes cleanly or leaves half-written state; worth
+   checking directly rather than assuming either way.
+
+10. **macOS release packaging.** Linux is done; macOS is not.
+
+10a. **faster-whisper will not install, and nobody has yet seen the real
+    error.** Reported twice from a live Windows session, the second time with
+    a screenshot: the Background-tasks card says "pip exited with code 1. The
+    log above says why" and there is no pip output above it. A fix landed to
+    route `core/extras.py`'s install output through Python `logging` (so
+    `logbuffer.py` can see it and Settings → Logs can show it), because pip's
+    captured output never went through `logging` and was therefore invisible
+    on the Logs page. **That fix has never been confirmed to surface anything**
+    — no session has captured the real Settings → Logs output from a live
+    failure since. Next step is not a code change: it is one run on the
+    machine that fails, searching the Logs page for `memorymap.extras`, and
+    pasting what it says. Everything before that is guessing, and two sessions
+    have already guessed.
+
+11. **Sorting and grouping saved chats** — conversations sort by recency and
+    nothing else. The data to sort by (model, token cost, timestamps) is
+    already stored per turn, so this is a list-rendering job.
+
+### Smaller, and genuinely cheap
+
+- **`ai/tools/__init__.py` is still ~3,360 lines** — the `TOOLS` registry plus
+  most note-CRUD and agent orchestration. Left deliberately when the other
+  four modules were extracted; it is the most interleaved part of the file and
+  needs its own session.
+- **`manager.all_tags()` has no cap**, unlike every sibling section of the
+  same responses. Now cheap on a cache miss (§86 made it a column-only
+  select), so this is lower urgency than it was, not gone.
+- **Mirroring ordinary toasts into the notifications panel** — the other half
+  of the mute feature. Every `toast()` call site needs a `kind` first, or the
+  panel floods with routine "Saved." noise.
+- **A `prefers-reduced-motion` audit of the remaining meaningful animations**,
+  and a screen-reader pass over the dynamic regions that announce nothing
+  (BACKLOG §19; the focus-trap and tap-target halves are now done).
+- **Colour-contrast verification against WCAG AA** for the newer palettes and
+  the glass surfaces specifically. Never actually measured.
+
+### New this session, not yet scoped
+
+- **The Library grid and the Notes list now share `renderIncrementally`, and
+  the Timeline and log console deliberately do not.** The Timeline is a CSS
+  grid whose cell order *is* its layout; the log console is already capped and
+  its follow mode needs the newest rows, which an from-the-top renderer would
+  never paint. Both decisions are commented at the call site. If a third list
+  ever wants windowing, check which shape it is first.
+- **33 CSS selectors look orphaned to a naive sweep and are not** — they are
+  built by template (`heat-${n}`, `library-${kind}`, `priority-${p}`,
+  `result-reason-${r}`, `plan-step-${s}`, `outline-h${n}`, `graph-edge-${k}`).
+  Three genuinely dead rules were removed in §86. Anyone re-running that sweep
+  should expect the same 33 false positives rather than deleting them.
+- **`GET /entries?semantic=true` is now called from two places** (the Notes
+  tab and the Library). If a third appears, the fetch-and-cache shape in
+  `refreshLibrarySemantic` is the one to extract.
 
 ## Read these two first
 
@@ -1156,76 +167,27 @@ The tiers are not equal. Nothing in Tier 2 is worth more than any Tier 1 item.
 
 Things that are wrong, lose work, or make the app feel unreliable.
 
-1. ~~**Meeting transcription errors out.**~~ **Re-confirmed fixed
-   (HISTORY.md §50).** A real WAV clip against a live server now gets a
-   distinct 503 with a clear cause, not the old mystery error. **Not fully
-   verified**: this sandbox's network policy blocks `huggingface.co`, so an
-   actual successful transcription still hasn't been observed by any
-   session — that's the half still worth checking if this recurs.
-2. ~~**"The AI fails to respond while still saying it is writing" — and the
-   skill step counted as done.**~~ **Found already done (HISTORY.md §50,
-   §41)** — checked the code before rebuilding, per this file's own rule.
-3. ~~**Skills producing network errors, or models that cannot run them.**~~
-   **Found already done (HISTORY.md §50, §41).**
-4. ~~**Contradictions in the agent prompt around small talk.**~~ **Found
-   already done (HISTORY.md §50, §41).** Grepped and tested, not assumed —
-   see `test_a_bare_yes_is_ordinarily_smalltalk_not_the_agent`.
-4a. ~~**Eight preferences saved correctly and were honoured correctly, but
-    never came back from `GET /preferences`.**~~ **Fixed (HISTORY.md §49).**
-5. ~~**Decide what notifications are for.**~~ **Already done** — audited and
-   traced by call site (HISTORY.md), not driven in a browser — say so if
-   this is re-reported.
-6. ~~**Background tasks that never appear.**~~ **Found already done
-   (HISTORY.md §50).** Every `threading.Thread(` call site checked against
-   `routes_tasks.collect()`; all nine are covered.
-7. **Claim-specificity in the hallucination net.** `agent.unsupported_claims`
-   catches a claim with *no* matching write ("I tagged it" when nothing was)
-   but not one that mismatches what happened ("I tagged it as Work" when a
-   different tag was applied). Needs real model output to tune against, which
-   this sandbox cannot provide — named rather than guessed at.
-8. ~~**Two backend perf findings.**~~ **Done (HISTORY.md §44).**
-9. ~~**A "completed" notification for a background pass the user never
-   enabled.**~~ **Done (HISTORY.md §44).**
-10. ~~**Every graph layout except Force shows no connections when the Time
-    Filter is moved off "All time".**~~ **Fixed and verified live
-    (HISTORY.md §50).**
-11. ~~**Dragging on empty graph canvas sometimes highlights an unrelated
-    note.**~~ **Fixed and verified live (HISTORY.md §50).**
-12. ~~**Clicking a whiteboard card or object to select it silently didn't
-    work.**~~ **Fixed and verified live (HISTORY.md §57).**
-13. ~~**Two features silently shared the same Ctrl+K shortcut.**~~ **Fixed
-    (HISTORY.md §57).**
+**This tier is empty, and that is the point of saying so.** Every item that
+was here has been fixed and re-verified against source; the resolutions are in
+[roadmap/HISTORY.md](roadmap/HISTORY.md). Two carry a caveat worth keeping
+rather than a clean tick:
+
+- **Meeting transcription** now fails with a distinct 503 and a clear cause
+  rather than a mystery error — but **no session has ever observed a
+  successful transcription**, because this sandbox's network policy blocks
+  `huggingface.co`. If it is re-reported, that is the untested half.
+- **Notifications** were audited and traced by call site rather than driven in
+  a browser. Say so if the behaviour is re-reported.
+
+The one genuinely open correctness item, **claim-specificity in the
+hallucination net**, is item 5 of the live list at the top of this file — it
+needs real model output to tune against, which this sandbox cannot provide.
 
 ### Tier 2 — half-built features, cheap to finish
 
 Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
-8. ~~**Skill runs: an auto/manual mode.**~~ **Done (HISTORY.md §45).**
-   **Not built**: the same pause for a plan run (`opts.plan`) — the
-   existing Resume-from-failure button was already skill-only before this,
-   so extending both to plans is a separate change. **Not verified live** —
-   backend tests cover it through a fake model; the checkbox and pause card
-   were not driven in a browser.
-9. ~~**A reason on every link.**~~ **Done, including a confidence score,
-   an editor, backfill, and a visual graph treatment (HISTORY.md §43, §44,
-   §61).** `entry_links.reason` (deduced from embedding similarity when
-   nobody supplies one, editable/clearable by hand), surfaced on the graph
-   edge, in Trace, in `related_notes`, and in link suggestions.
-   **Asked for directly, not yet built:** the backfill as an agent-callable
-   tool/skill so it can run unattended (see item 31). ~~Also asked for: the
-   deduction should weigh temporal words as well as embedding similarity.~~
-   **Done.** A pair below threshold on embedding similarity alone now gets
-   rescued by `_shares_a_date` (same resolved `EntryDate` day, or written the
-   same calendar day) within `TEMPORAL_RESCUE_BOOST` (0.15) of
-   `AUTO_REASON_THRESHOLD`, surfaced as its own reason text ("similar in
-   meaning, and around the same time") so it reads as a distinct signal, not
-   a silently lowered bar. Deliberately can't manufacture a reason alone —
-   only rescues a pair the embedding score already put close. Confirmed this
-   fires on ordinary "today"/"next Tuesday" phrasing *inside* note text, not
-   just an explicit date field — `entry.timewords`' `record_dates()` already
-   runs on every save, so no new capture-side code was needed, only the
-   rescue logic in `_deduce_reason`. 7 new tests in `test_link_reasons.py`.
 10. **The sketch pad.** ~~The highlighter at 5% opacity was effectively
     invisible~~ **Fixed (HISTORY.md §46).** ~~A background colour for the
     canvas~~ **Done (HISTORY.md §46)**, including a real CSS-vs-canvas-pixel
@@ -1263,38 +225,13 @@ into a good one.
     was verified.**
 
     **Still genuinely open, ranked by what's actually left.**
-    - ~~**Real anchor/connection points**~~, **and dragging an endpoint to
-      reattach or detach it,** **Done, verified live (HISTORY.md §56,
-      §61).** Found and fixed two real architecture bugs along the way —
-      invisible resize/rotate handles still winning the hit-test, and the
-      SVG layer rendering under the HTML card layer — see HISTORY.md.
-    - ~~**A mind-mapping mode**~~ **Done — see item 25's own entry (Tier 3)
-      and HISTORY.md §57.**
-    - ~~**AI + whiteboard, three pieces**~~ **Done, verified (HISTORY.md
-      §57).** `read_whiteboard`/`search_whiteboard`/`add_whiteboard_card`/
-      `add_whiteboard_link`. **Not verified against a live model** — this
-      sandbox's standing caveat about provider behaviour applies here too.
-    - ~~**Sketch rotation.**~~ **Done, verified live (HISTORY.md §61).**
     - **Image cropping.** Asked about directly; not scoped or built —
       needs a decision on the interaction (a crop rectangle over the full
       image vs. a separate "adjust" mode) before building.
-    - ~~**Uploaded images showing in the Library, and a way to delete
-      one.**~~ **Done (HISTORY.md §61).** ~~**Orphaned `/media/` garbage
-      collection.**~~ **Done.** See item 20a below.
-    - ~~**Smart alignment guides while dragging, colour-coded, with
-      equal-spacing detection**~~ **Done, verified live (HISTORY.md §58).**
-    - ~~**Rectangle select and lasso, export selection**~~ **Done, verified
-      live (HISTORY.md §58, §61 for a real lasso/drag-filter bug found and
-      fixed along the way).**
-    - ~~**Renaming a board, and a Library gallery of every board/mind-map
-      and every uploaded image.**~~ **Done (HISTORY.md §61).**
-    - ~~**A structured, small-model-friendly "generate a diagram from my
-      notes" tool.**~~ **Done (HISTORY.md §61).** `generate_diagram`.
     - ~~**A whiteboard backend/perf pass**~~ **Partly done (HISTORY.md
       §57).** The one real client-side O(cards × notebook size) issue found
       is fixed. **Not done**: a real profile against a large, many-hundred-
       item board — nothing this session was measured against one.
-    - ~~**A full line/arrow end-cap system**~~ **Done (HISTORY.md §61).**
 12. ~~**Links that are links.**~~ **Already done — corrected, not rebuilt
     (HISTORY.md §47).** Checked before touching anything, per this file's
     own rule — nothing here needed building.
@@ -1316,38 +253,6 @@ into a good one.
     ("very professional and ready for public use"), and grid view could
     still take general UX polish beyond the text-cropping fix (not scoped
     further — say what specifically, next time it's reported).
-15. ~~**Arc view: labels clashing with the connection arcs**~~ **Fixed and
-    verified live with a screenshot (HISTORY.md §52), through two rounds
-    of re-reports** (tilt direction, then label density/spacing) — the
-    second round's fix (`ARC_STEP`/`ARC_LABEL_LIMIT`/tilt angle) was **not
-    re-verified with a fresh screenshot** (token budget); worth a check
-    first thing next session if this recurs. Category labels also got a
-    distinct colour (`fill: var(--accent)`), asked for directly.
-16. ~~**Documents in the graph.** They are notes' equal everywhere else.~~
-    **Done (HISTORY.md §70).** An `include_documents` opt-in flag on `GET
-    /graph`, same shape as `include_entities` above it: prefixed node ids
-    (`document:N`), edges from the existing `DocumentLink` table, view-only
-    (no trace-path/centrality/similarity integration this pass — a bigger,
-    separate change). Live-verified with Playwright: a note linked to a
-    document renders a connected, distinctly-ringed node when the
-    "Documents" checkbox is on, and none when it's off.
-16a. ~~**The document editor's sidebar, reported directly with
-    screenshots.**~~ **Checked and fixed (HISTORY.md §51).** The
-    sticky/floating half was stale-by-report, already done. The
-    outline-collapses bug was real (a `flex: 0 0 auto` disclosure exempting
-    itself from shrinking while the outline above had no floor) and fixed.
-16b. ~~**The document editor's bold/italic don't toggle off.**~~ **Fixed
-    and verified live (HISTORY.md §51).** `wrapDocSelection` now detects
-    and strips existing markers instead of only ever wrapping. The
-    "improve and expand" ask was never itemised — checked what already
-    existed first (word count, reading time, a word-count goal, an
-    outline sidebar, notes-it-draws-on, AI edit, extract-to-notes, .md/PDF
-    export were all already built) rather than guessing broadly. **Find
-    and replace, concretely missing and now built and live-verified
-    (HISTORY.md §73)** — the browser's own Ctrl+F can't reach a
-    textarea's content at all, so there was no way to find a word again
-    in a long document short of scrolling and reading. The rest of "could
-    be improved a lot more" is still unitemised.
 16c. ~~**Images and files still can't be copied, pasted, or dragged into
     notes.**~~ **Two of three already worked — checked live before
     building anything (HISTORY.md §51).** The third path — a file-picker
@@ -1388,18 +293,6 @@ into a good one.
     twice, which this project's own history (HISTORY.md's repeated "checked
     before building" theme) is precisely the failure mode it keeps warning
     about.
-17. ~~**Battery-saver: an indicator and an honest description.**~~ **Done —
-    both halves, one already there (the indicator).** The "honest" half had
-    a real bug, now fixed: the autonomous loop only re-read
-    `battery_efficient_mode`/the toggle/the interval once per scheduled
-    tick, so turning either off did nothing until the sleep ran out.
-    `autonomous.wake()` now interrupts it.
-18. ~~**The full-screen graph's suggested-links list ran off the bottom
-    without scrolling.**~~ **Fixed and verified live (HISTORY.md §51).**
-    An id-vs-class specificity tie (`#graph-card`'s `overflow: hidden`
-    beating a plain `.graph-fullscreen` rule). **"The sketch/image
-    toggles" part of this item couldn't be matched to anything in the
-    current Options panel** — left unaddressed rather than guessed at.
 19. **First-run onboarding, the rest.** Reachability diagnostics are built;
     still open: offering to pull a model, a data-dir writability check,
     seeded example notes so the graph, timeline and dashboard have something
@@ -1411,10 +304,6 @@ into a good one.
     this is about someone new knowing where to look). `#onboarding-overlay`
     already exists as a surface (see CLAUDE.md's login recipe); worth
     checking what it currently does before scoping a tour on top of it.
-19a. ~~**The graph toolbar's controls read as one undifferentiated strip.**~~
-    **Done (HISTORY.md §44).** Grouped under `.graph-toggle-group` with
-    dividers. **Not verified live** — CSS-only, reasoned from the DOM, not
-    screenshotted.
 19b. **A mute-notifications option, asked for directly**, alongside making
     the toast/notification split clearer: "there can be an option to mute
     notifications except for reminders." Built as
@@ -1480,44 +369,6 @@ into a good one.
 
 Worth doing, and worth doing after the above.
 
-20. ~~**Files and images on notes, and standalone in the Library.**~~ **Done,
-    and a stale claim in this item corrected (HISTORY.md §69).** The "still
-    not built" gallery over note attachments specifically was checked
-    against the actual code before believing it — it already existed
-    (the Library's own "Files" filter, `app.js:16985`, download + delete)
-    — this item's own text just hadn't been updated to say so, the exact
-    trap CLAUDE.md warns about. What was genuinely missing — asked for
-    directly — was uploading an image/PDF straight into the Library
-    without a note first, and attaching an already-uploaded one to a note
-    afterward: an Upload button on the Image Gallery (`POST /media/upload`,
-    no note involved), and a new "Attach from Library" note action
-    alongside the existing "Attach a file" (which only ever uploads fresh
-    from disk) — a picker over `GET /media` that inserts the chosen
-    image/PDF's markdown reference into the note's content. General file
-    attachments (docs, audio — the `Attachment` model) have no "floating,
-    not yet attached to anything" state the way `MediaUpload` does, so
-    that half stays exactly as it already worked: through the note first.
-20a. ~~**A Library "Media/Images" gallery tab, and garbage-collecting
-    orphaned `/media/` files.**~~ **Done.** `core/media_gc.py` reconciles
-    every `MediaUpload` against live references in note content (through
-    `manager.readable_content`, so an encrypted private note is scanned
-    too — decrypted), documents, and whiteboard image objects.
-    `GET /media/orphans` lists them, `DELETE /media/orphans` deletes; both
-    declared before the existing `/media/{upload_id}` route so the literal
-    segment isn't shadowed by the path-parameter one. **Refuses to delete
-    anything at all** if any private note couldn't be decrypted (vault
-    locked) rather than risk treating "can't check" as "not referenced" —
-    the one case where a false orphan means real data loss. 7 tests
-    (`test_media_gc.py`), including that locked-vault refusal.
-20b. ~~**An "Agent Activity" background-task popup cleanup pass.**~~ **Done
-    (HISTORY.md §61).** `.agent-monitor` shared `right: 20px` with several
-    whiteboard floating panels; moved to `left: 20px`.
-21. ~~**A persona on the welcome messages.**~~ **Done, and extended live
-    (HISTORY.md §68).** The Chat tab's empty-state greeting now names the
-    active persona ("Chat with your Coach"), matching the dashboard
-    greeting and AI replies, which already did. Extended live into a
-    second, independent `dashboard_persona` preference (empty = "same as
-    Chat"), with its own picker in Settings → Personas.
 22. **Meeting recordings as first-class objects**: pause/resume, replay, save
     as a voice note, transcribe in the background. Blocked on Tier 1 item 1.
 23. **Notification expansion**: reminders, and opt-in AI nudges from the
@@ -1534,8 +385,6 @@ Worth doing, and worth doing after the above.
     simulation, not a new layout algorithm, per this item's own note that a
     new algorithm probably wasn't the actual gap.~~ **New layouts
     themselves are still open** — nothing above touched that part.
-25. ~~**Mind-mapping — decided: a whiteboard mode, not a third tab.**~~
-    **Done, verified live (HISTORY.md §57).**
 26. ~~**Widgets: a picker.**~~ **Already done and live-verified this
     session (checked before building, not after) — the `dash-widgets-dialog`
     modal (index.html), its own comment already citing "roadmap §26", was
@@ -1650,18 +499,6 @@ Worth doing, and worth doing after the above.
     back tagged `stale`. Two new regression tests. The other two candidates
     — proactive digest/on-this-day surfacing, and letting a saved skill run
     on the same schedule — are still open.
-32. ~~**Keyword search has no IDF weighting and can't use an index.**~~
-    **Done.** An external-content FTS5 table (`entries_fts`) replaced the
-    leading-wildcard `ILIKE` scan, ranked by `bm25()`. See HISTORY.md/the
-    ANALYSIS.md §59-adjacent write-up for detail.
-33. ~~**`graph_expansion` is hard-capped at one hop, on purpose.**~~ **Done
-    — automatic, not a "search deeper" action.** `GRAPH_EXPANSION_HOP2_LIMIT`,
-    tagged `connected_2hop` rather than merged into `connected`.
-34. ~~**No entity/concept layer above notes — only note-to-note links.**~~
-    **Done, at the scoped-down size this item asked for.** `Entity` +
-    `EntityMention` (membership only), `ai/entities.py`, behind
-    `auto_entities_enabled` (default off), `GET /graph?include_entities=true`.
-    Seven tests (`tests/test_entities.py`), graph rendering checked live.
 35. **No vision-capable image understanding.** Confirmed by grep, not
     assumed: `ollama_client.py` already reads a model's `vision` capability
     alongside `tools`/`thinking` from the same `/api/show` call §6 built, but
@@ -1680,38 +517,6 @@ Worth doing, and worth doing after the above.
     where the description is stored (a note field vs. a side table) and
     whether the agent narrates "generated from an image" the way whiteboard
     AI actions already disclose their own source.
-36. ~~**Q&A answers cite which notes matched, not which claim inside the
-    answer's prose came from which note.**~~ **Done, backend and frontend.**
-    `ai/grounding.py`'s `ground_answer_sentences` scores each answer
-    sentence against retrieved notes by shared words (no second LLM call),
-    streamed as `/chat/stream`'s own `grounding` NDJSON event, rendered as
-    a small per-source-note chip (`renderAnswerGrounding`). Seven backend
-    tests (`test_grounding.py`) plus a live Playwright smoke check — the
-    actual "a chip renders and says the right thing" path needs a running
-    Ollama this sandbox doesn't have, so say so rather than claim it was
-    watched. Narrower than a full claim-ledger (ANALYSIS.md §59) on
-    purpose: `match_info`, `unsupported_claims` (Tier 1 item 7) and link
-    `reason`/`reason_confidence` (Tier 2 item 9) already cover the other
-    three related cases; this is just the direct-Q&A-sentence one.
-37. ~~**`preferences.json` isn't crash-safe** (ANALYSIS.md §60).~~ **Done.**
-    `core/atomic_io.py`'s `atomic_write_json`/`atomic_write_text` (tempfile +
-    fsync + `os.replace`) replaced `ConfigManager.set_preference`'s plain
-    `write_text()`. Two tests in `test_core.py`, including one that
-    monkeypatches `os.fsync` to raise and confirms the on-disk file is
-    untouched and no stray temp file is left — confirmed to fail against the
-    pre-fix code via `git stash`.
-38. ~~**MCP support, now with a concrete shape to build from**~~ **Done, the
-    expose half.** `src/memorymap/mcp_server.py`: a stdio JSON-RPC server
-    (`initialize`/`tools/list`/`tools/call`/`ping`) over the existing tool
-    registry, run with `python -m memorymap.mcp_server`. Only non-destructive,
-    currently-enabled tools are ever listed or runnable — no confirm card
-    exists on this path to gate `delete_note` and its five siblings the way
-    the chat UI's agent loop does, so the safe default is to never offer them,
-    checked even when a client asks for one by name directly. 13 tests
-    (`test_mcp_server.py`), including a real `serve()` pass over `StringIO`
-    stdin/stdout. Consuming external MCP servers is still the separate,
-    harder feature BACKLOG §29 already flagged as needing its own trust
-    model; not attempted here.
 39. **Passive capture: a fifth autonomous-tasks job that mines chat for
     un-filed facts** (ANALYSIS.md §60). Today a note is only filed on an
     explicit instruction or an explicit tool call — something mentioned in

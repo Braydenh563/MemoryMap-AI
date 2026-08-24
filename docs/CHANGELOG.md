@@ -7,6 +7,38 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — a minimap and saved views for the Graph
+
+A minimap in the corner of the map shows every note at once with a rectangle marking what you're currently looking at; click anywhere on it to jump there, keeping your zoom level. Alongside it, **saved views**: name a combination of layout, colouring, filters and position, and come back to it later. Both were the missing half of "the graph is a tool" once a notebook gets dense enough that the force layout stops being readable.
+
+### Added — the Library search box can search by meaning
+
+Notes match on meaning as well as words, the same way the Notes tab already worked. Documents, chats, images and skills still match on their words — they have no embeddings — and the toggle says so rather than implying more than it does. Turning it on can only ever add results, never remove one.
+
+### Added — chat history can expire
+
+Saved chats had no retention policy at all and grew forever. Settings → Preferences now takes a number of days after which old chats are deleted. Off by default, and **pinned chats are never deleted, however old they are**.
+
+### Performance — the notes list no longer builds the whole notebook at once
+
+It renders what fits and fills in as you scroll, staying one continuous list rather than becoming pages. On a 1,501-note notebook that took first paint from 533ms to 16ms and the page from 31,680 elements to 4,306. The Library grid does the same.
+
+### Fixed — 49 icon-only buttons were unnamed to a screen reader
+
+Buttons across the whiteboard, sketch pad, document toolbar and status bar announced only as "button". A re-scan found 56 such buttons, not the 13 previously recorded.
+
+### Fixed — several controls were too small to tap reliably
+
+Measured across every tab: a tag chip one pixel under the 24px minimum, two toggle labels four pixels short, the Library's per-card selection tick at 13×13, and a link in Settings.
+
+### Fixed — dropdown panels trapped keyboard focus
+
+The previous release made every dialog trap Tab inside it, which was right for real dialogs and wrong for the notifications panel, the note picker, the graph popups and the help panels — those sit over a page that stays usable, so focus should be able to leave them.
+
+### Fixed — the Agent Activity panel took a third of a phone screen
+
+On the Graph tab in particular, where there is no way to scroll it out of the way, it left barely a third of the screen for the map. Its log area is now compact on narrow screens; it still scrolls, so nothing is lost.
+
 ### Added — the text-selection popup is now a kebab, with nine actions instead of three
 
 Highlight text anywhere in the app and a single ⋯ appears; clicking it opens a menu that stays inside the window, flipping up or sideways near an edge rather than running off it. It now offers *Save as a note*, *Save as a draft*, *Add to a note…*, *Save with its source* (when the passage came from the web reader — a quoted clipping with a link back), *Copy*, *Search the notebook*, *Set a reminder*, *Extract notes…* and *Ask the AI about this*. The old three-button bar could not fit on a phone screen, never appeared for a touch selection or a keyboard one, and had no room to grow.

@@ -7,6 +7,191 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Done — sessions §80 to §86, the condensed index
+
+Moved out of `ROADMAP.md` when it hit the 2,000-line ceiling
+`tests/test_docs_layout.py` enforces. These were six session narratives of
+**finished** work sitting at the top of the live work plan, which is exactly
+backwards: the live list should open with what is still open. The full prose
+for each is in `HANDOVER.md`; what follows is the "has this been done?" index
+that this file exists to be.
+
+**§86 — the §85.4 hand-off list, built.** One shared incremental renderer
+(`renderIncrementally` in `app.js`) for the Notes list and the Library grid;
+an accessibility pass (49 buttons given `aria-label`, `paintStatusItem` now
+mirrors `title`→`aria-label`, five real tap-target failures fixed); Library
+semantic search; the graph **minimap** and **named saved views**
+(`graphMinimapPaint`, `graphSavedViews` in `graph.js`); **conversation
+retention** (`autonomous.purge_old_conversations`, off by default, pinned
+chats exempt); the agent monitor's log area collapsed on narrow screens; two
+`innerHTML`-in-a-loop sites converted; three dead CSS rules removed.
+
+Measured: Notes list at 1,501 notes **533 ms → 16 ms**, **31,680 → 4,306 DOM
+nodes**.
+
+Three claims corrected in the same pass, each by checking before building:
+- **The Reminders month/calendar view was already built** and fully wired
+  (`renderReminderCalendar`, month navigation, persisted view mode). It was
+  listed as a gap and was one grep away from being rebuilt.
+- **The focus-trap rewrite in §85 was too broad.** It trapped Tab in any
+  `[role="dialog"]`, but 13 of those are anchored popovers (the notifications
+  panel, the note picker, the graph and timeline popups, six `*-intro` help
+  panels) whose page stays interactive. Now gated on `aria-modal="true"` —
+  the attribute that actually declares "everything else is inert".
+- **The Graph mobile claim was stale.** `#graph-box` was reported at
+  `top: 522px` and unreachable at 320×568; measured at **340px and fully
+  visible**. The real squeeze was the agent-activity panel taking a third of
+  the viewport.
+
+**§85 — a deep whole-app audit.** The selection popup rebuilt as a kebab (⋯)
+with nine actions, reachable by touch and keyboard for the first time; note
+menus built lazily (**133,748 → 31,680** DOM nodes at 1,501 notes); four
+composite indexes on `entries` (**46 ms → 15 ms** at 20k notes, temp B-tree
+sort gone); gzip (**app.js 1071.7 KB → 320.1 KB**); focus traps; two
+column-only query fixes. Also established, and worth not re-deriving:
+**route handlers are sync `def` on purpose** (238 sync vs 1 async — FastAPI
+threadpools them, so BACKLOG §78's "should the backend be async" is answered),
+**keyword search is already FTS5 with `bm25()`**, and media GC, WAL, `VACUUM`
+and the recycle-bin purge all already exist.
+
+**§84 — a global Undo/Redo system.** Status-bar buttons plus Ctrl+Z /
+Ctrl+Shift+Z on the rebindable-shortcuts system, wired into note delete
+(single and bulk), creation, reminder delete, link/unlink and content edits.
+Deliberately steps aside for a text field's own native undo. Also: the Ask
+tab's `#ask-search-tune` button had no click handler at all; drafts were
+leaking into the Library list and the Graph; a real CodeQL path-injection
+finding closed in `routes_files.py`.
+
+**§83 — v0.1.3 released**, plus the auto-update framework end to end
+(packaged Windows installer and source checkouts).
+
+**§82 — a real support bundle from a real test user.** Four bugs found and
+fixed, plus a fifth caught by auditing for the same pattern.
+
+**§81 — chat citation badges** (item 36's grounding) were computed and sent
+by the backend and never rendered in the Chat tab, only the Ask tab. Fixed.
+
+**§80 — Dev view / User view console mode**, a live sign-out bug found and
+fixed the same session, a real model-timeout fix, and the terminal-style log
+view.
+
+## Done — the mobile/responsive audit, the feature-completeness brainstorm, and Priority 0
+
+Moved out of `ROADMAP.md` in the same clear-out as the §80–§86 index above.
+All three were resolved or retracted; what remained open from them is now in
+that file's live list. Kept here because the *retractions* are the valuable
+part — each one is a session that would otherwise have rebuilt something.
+
+### The mobile/responsive audit — resolved
+
+Two background agents drove the real app in headless Chromium across nine
+breakpoints (320×568 to 1920×1080), all seven tabs, Settings, the command
+palette and a modal.
+
+- **Graph's "+ New note" popup rendered its controls below the fold** at
+  320×568 and 375×667. Root cause: `placeGraphPopup()` sets `maxHeight` from
+  the map's box before measuring; its sibling `openGraphNewNote()` never did.
+  Fixed and verified before/after (`#graph-new-save` bottom 701px → 418px).
+- **The `#agent-monitor` panel overlapped content on every tab at 320px.**
+  Root cause was a dead hook: `classList.toggle("has-agent-monitor", …)` had
+  no matching CSS rule anywhere. Fixed by padding the *inner* scroll
+  container — the first attempt padded `.tape-page`, which measurably did
+  nothing for Notes and Chat because those move `overflow-y` onto a nested
+  `.layout > main`. §86 later collapsed the panel's log area on narrow
+  screens as well, which is what finally gave the Graph tab its room back.
+- **Tap targets** — reported as "13×13 unstyled native checkboxes". Half
+  wrong: a wrapping `<label>` makes the label the target, and a live sweep of
+  every tab in §86 found five real failures (not the ones named) and fixed
+  them. The `#skills-auto-*` controls listed here already passed.
+- **The 7-tab nav bar's scroll affordance** — retracted, already built
+  (`#tab-bar.fade-end` + `syncTabOverflowFade()`).
+- **The Graph "+ New note" popup overlapping the zoom toolbar** — still true,
+  still low severity, never fixed. Cheap if anyone is in that file.
+
+### The blind feature-completeness brainstorm — the honest result
+
+~140 capabilities were brainstormed blind (from what that *kind* of feature
+looks like across Notion, Obsidian, Apple Notes, Todoist, Miro, ChatGPT) and
+only then checked against the codebase. **The large majority already
+existed.** Of ten claimed gaps, **four were retracted outright** on a second
+and third pass, each by reading one function further than the first grep had:
+
+- **"No graph accessibility alternative"** — wrong. `initGraphKeyboard()`
+  is a complete non-visual layer: `role="application"`, arrow keys move
+  between notes spatially, `n` steps a note's own connections, and every move
+  announces through a real `aria-live` region.
+- **"No PDF/document text extraction"** — wrong. `/import/document` already
+  handles PDF, Word, PowerPoint, Excel and HTML via `markitdown`.
+- **"The command palette has no content search"** — wrong. It already matches
+  notes by body *and* title, and already covers Documents, Reminders and
+  Conversations.
+- **"Spaces have no per-space export scoping"** — wrong. `WorkspaceMixin` plus
+  a `do_orm_execute` listener scopes every query, exports included.
+- Also retracted: the auto-lock timeout **is** configurable
+  (`session_idle_ttl_minutes`, Settings → Account & security), a per-note
+  **Duplicate** action already exists in the note kebab, and the Timeline has
+  both a jump-to-today button and a custom date-range picker.
+
+Two survived and are now built (§86): the **graph minimap and saved views**,
+and the **Reminders calendar view** — except that last one turned out to be
+built already too, making it the fifth retraction.
+
+What survives as genuinely open is **image understanding by a vision model**,
+now item 1 of the live list.
+
+**Deliberately not brainstormed, and still correct not to:** collaboration,
+cloud sync, sharing, and thumbs-up/down model feedback. All four are stock
+ideas for this class of app and actively wrong for this one — 100% offline
+and single-user by design, with no server, no accounts and no telemetry
+channel a feedback signal could reach.
+
+### What was checked and found already built — the anti-rebuild record
+
+Do not re-propose any of this. Dashboard: quick capture, streak counter, focus
+timer, "on this day", weekly digest, activity heatmap, tag cloud, random-note
+rediscovery, drag-to-reorder with a persisted layout. Notes: pin, tags,
+categories, GFM task-list checkboxes as real checkboxes, `[[wikilinks]]` with
+AI-deduced reasons and a confidence score, version history with restore,
+built-in and custom capture templates, a recycle bin with configurable
+auto-purge. Ask/Chat: saved conversations, context compression,
+regenerate-and-resend, per-message note attachments, personas, plan mode,
+tools and skills, integrated web search with a reader view, local dictation.
+Graph: multiple layouts, colour-by, physics controls, a time slider,
+similarity lines, entity nodes, orphan hiding, AI link suggestions, path
+tracing, fullscreen, PNG export, and the full keyboard layer above. Library:
+grid/list toggle, four sort orders, bulk select/open/restore/delete, a bin
+with its own context bar, Skills and Media Gallery sub-tabs. Whiteboard:
+multiple named boards, a properties panel, resize, grouping, alignment,
+rotation, arrow-key nudge, undo/redo, real anchor points, PNG export.
+Reminders: natural-language magic add, priority, recurrence, quick presets,
+±15-minute and ±1-day nudges, **and the month/calendar view**. Settings:
+high-contrast mode, reduce-motion with an auto option, and a keyboard
+shortcuts reference — the Settings brainstorm produced no gaps at all.
+
+### Priority 0 — resolved
+
+The document-textarea resize gap (fixed; the fix's *effect* was never
+confirmed because headless Chromium would not drive a native resize handle —
+still wants one look in a headed browser). `style.css` split into eight files
+and `app.js`'s whiteboard and graph subsystems extracted; `index.html` stays
+whole on purpose, since splitting it needs a build step this project does not
+have. Extract-notes built (BACKLOG §62). The mic level meter built, then
+fixed for real when a suspended `AudioContext` made it read silence forever.
+
+What was still open here has moved to the live list: **faster-whisper's
+install failure**, the **Timeline line view**, and the **Documents editor**.
+
+### The #0 codebase quality review — resolved
+
+Dead code, the `.msg` CSS merge, the `GET /entries` N+1, the tag-cloud
+duplicate scan, `on_this_day`'s SQL filter, `janitor.py`'s vectorisation, the
+`routes_settings.py` split, the pagination ceiling, the Notes-search debounce,
+the whole test-suite reorganisation, the `whiteboard.js` extraction, the
+markdown-renderer merge (which surfaced two real bugs), the `HTTPException`
+dedup, the `searxng_manager.py` split and `all_tags()` caching — all done and
+re-verified against source before archiving. What remains is in the live
+list's "Smaller, and genuinely cheap".
+
 ## Done this session — Dev view/User view console mode, a terminal-style Settings → Logs view, and a batch of live-reported fixes
 
 Full narrative: HANDOVER.md's latest entry. ROADMAP.md §80 has the

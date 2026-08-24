@@ -380,6 +380,49 @@ Grounded in the audit rather than invented, and marked where already tracked:
   giving it the same cleanup its two siblings already had, and verified with
   the browser context set to `reducedMotion: "reduce"`.
 
+### 87.7d The Library restructure, and the Documents-tab reversal
+
+Decided with the user, and worth recording because it **reverses a decision
+made earlier the same session** — Documents was promoted to a top-level tab
+and then moved back.
+
+The reason the reversal is right: the original complaint ("documents feel
+inaccessible") was diagnosed as *depth of click*, and it was not. The Library
+sub-tab labelled **"Documents" actually showed everything** — notes, chats,
+files and documents together — so the one place a person would look for their
+documents was the one place with no documents-only view. Promoting a top-level
+tab treated the symptom; giving Documents its own Library section treats the
+cause.
+
+What changed:
+
+- Library sub-tabs are now **All · Documents · Whiteboards · Image Gallery ·
+  AI Skills**. The first kept its `library-view-documents` id (referenced in
+  several places; a rename buys nothing) and is now labelled "All".
+- **Documents gets its own section**, `library-view-docs`, with title search,
+  a new-document button and word/updated metadata. It reuses `GET /documents`
+  and `openDocument()` rather than adding an endpoint or a second path into
+  the editor.
+- **Drafts stopped being a sub-tab and became a chip** in the All view's
+  filter row. A draft is a state a note is in, not a separate kind of object.
+  This needed a real backend collector (`_drafts()` in `routes_library.py`),
+  **not** a relaxed filter: drafts are deliberately excluded from `_notes()`
+  because "draft notes appear as regular notes in the main library" was
+  reported and fixed once already. They carry `kind: "draft"` so the chip
+  finds them while "Everything" still does not show them.
+- The top-level Documents tab is gone and `revealTab`'s
+  documents→library button alias is restored, with a comment recording both
+  the promotion and the reversal so it is not re-derived.
+
+Verified live: the main tab is absent, the five sub-tabs read in the right
+order, the Drafts chip appears in the filter row, and the Documents section
+renders and opens documents. Zero console errors.
+
+**One process note worth keeping.** The Drafts chip first measured `0` and the
+cause was not the code: `routes_library.py` had changed and **uvicorn had not
+been restarted**. That is CLAUDE.md's own documented trap, hit while working
+from the file that documents it.
+
 ### 87.7c Reported live, NOT yet built — next session starts here
 
 1. **The graph is slow and janky to move around.** Reported directly and not
@@ -394,7 +437,24 @@ Grounded in the audit rather than invented, and marked where already tracked:
 3. **Graph node labels show raw callout syntax** — a note starting with a
    callout renders its label as `Review > [!tip] Remem…`. The label builder
    should strip block markers the way `extract_title` strips a leading `#`.
-4. **Timeline line view redesign** — the concrete design is §87.6 above
+4. **Semantic search ignores time words.** Reported: typing "recents" did not
+   bias results by recency, only by meaning. This is `IDEAS.md`'s own
+   long-standing ask ("a slight ai nudge for the semantic notes search, so if
+   I ask 'what notes did I save in the last two days'…"). The retrieval path
+   is `search_manager.retrieve_detailed` (`routes_chat.py:333-374`); a
+   temporal-intent pass that detects recency/date words and applies a
+   `created_at` filter or a recency weight alongside the vector score is the
+   shape. Note `ai/intent.py` already exists and already classifies
+   `needs_retrieval`, so this belongs there rather than in a new module.
+5. **The graph minimap "can no longer be hidden or shown."** The toggle button
+   became a dropdown with **Off** as its first option, and that dropdown is
+   verified working (`MINIMAP -> off hides it: true`). So either this is a
+   stale cached bundle — the service worker serving an older `app.js`, which
+   this repo has been caught by before — or the dropdown is simply less
+   discoverable than the button was. If it is re-reported after a hard
+   refresh, the answer is discoverability, and the fix is a visible toggle
+   next to the position select rather than folding both into one control.
+6. **Timeline line view redesign** — the concrete design is §87.6 above
    (threads as tributaries off a time trunk, using `Entry.parent_id`, which
    the view currently ignores entirely). Still unbuilt.
 

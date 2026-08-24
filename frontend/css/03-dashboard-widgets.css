@@ -1934,6 +1934,8 @@
   gap: 0.6rem;
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
+  /* Anchor for the help button's corner placement below. */
+  position: relative;
   /* Same rule DESIGN.md states for the chat dock: one height for every
      select/input/button/segmented-control in the strip. Measured, not
      assumed — the search box and the segmented Layout/Colour groups were
@@ -1946,6 +1948,31 @@
 .graph-toolbar h2 {
   margin: 0;
   margin-right: 0.25rem;
+}
+
+/* Two deliberate rows, not one run that happens to wrap. Reported twice as
+   "ugly and poorly aligned": with a single wrapping flex row the break lands
+   wherever the width runs out, which cut mid-group and left a half-empty
+   second line. Row one is reading the map, row two is acting on it. */
+.graph-toolbar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* A select sized to its widest option, so nothing truncates to "Minimap: t…".
+   The browser's own intrinsic sizing does not account for the dropdown arrow,
+   which is what pushed these two past their box. */
+.graph-toolbar select {
+  min-width: 8.5rem;
+}
+
+/* Wide enough for "No saved views" plus the arrow — at 10rem it still
+   truncated to "No saved vi…", which was the reported symptom. */
+.graph-toolbar #graph-view-picker {
+  min-width: 12.5rem;
 }
 
 /* Related controls read as one thing, with a hairline between groups.
@@ -2180,4 +2207,18 @@ p.graph-help-panel {
   .graph-toolbar-secondary.open {
     display: flex;
   }
+}
+
+/* The graph's help button, pinned to the strip's top-right corner.
+   `margin-left: auto` only reaches the end of the line it is on, and with the
+   toolbar now wrapping into three deliberate lines it ended up alone on a
+   fourth. Absolute placement puts it where it belongs regardless of how many
+   rows the controls take, and takes it out of the wrap calculation entirely.
+   Scoped to the id so the other strips reusing .graph-help-toggle keep their
+   own single-row behaviour. */
+#graph-help-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0;
 }

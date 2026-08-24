@@ -5444,36 +5444,62 @@ async function dragEndNode(event, d) {
 // "there is no drafts section in the library." Fetches its own list rather
 // than trusting Notes-tab state (`allEntries`) to already be loaded — the
 // Library can be opened first, before Notes ever has been.
-async function renderLibraryDraftsList() {
-  const list = $("library-drafts-list");
-  const empty = $("library-drafts-empty");
+// Documents, on their own Library sub-tab.
+//
+// Reuses GET /documents — the same call the editor's sidebar makes — rather
+// than adding an endpoint, and openDocument() to open one, so there is exactly
+// one code path from "a document in a list" to "the editor showing it".
+//
+// This replaces the Drafts list that used to live here. Drafts are now a chip
+// in the All view's filter row (LIBRARY_KINDS in app.js, _drafts() in
+// routes_library.py) because a draft is a state a note is in, not a separate
+// kind of object.
+async function renderLibraryDocuments() {
+  const list = document.getElementById("library-docs-list");
+  const empty = document.getElementById("library-docs-empty");
   if (!list) return;
-  const entries = await apiJson("/entries?limit=1000", { silent: true }).catch(() => null);
-  const drafts = (entries || []).filter((e) => e.is_draft);
-  list.replaceChildren();
-  if (!drafts.length) {
-    empty?.classList.remove("hidden");
+  const needle = (document.getElementById("library-docs-search")?.value || "")
+    .trim()
+    .toLowerCase();
+
+  let docs = [];
+  try {
+    docs = await apiJson("/documents");
+  } catch (error) {
+    toast(error.message || "Could not load documents.", true);
     return;
   }
-  empty?.classList.add("hidden");
-  for (const draft of drafts) {
-    const li = document.createElement("li");
-    li.className = "library-drafts-row";
-    const text = document.createElement("span");
-    text.className = "library-drafts-preview";
-    const preview = notePreviewText(draft.content).trim();
-    text.textContent = preview.length > 140 ? `${preview.slice(0, 140)}…` : preview || "(empty)";
-    const when = document.createElement("span");
-    when.className = "muted library-drafts-when";
-    when.textContent = new Date(draft.created_at).toLocaleDateString();
+  if (needle) {
+    docs = docs.filter((d) => (d.title || "").toLowerCase().includes(needle));
+  }
+
+  list.replaceChildren();
+  empty?.classList.toggle("hidden", docs.length > 0);
+  if (empty && needle && !docs.length) {
+    empty.textContent = `No documents match \u201C${needle}\u201D.`;
+  } else if (empty) {
+    empty.textContent = "No documents yet — press ＋ New document to start one.";
+  }
+
+  for (const doc of docs) {
+    const item = document.createElement("li");
     const open = document.createElement("button");
     open.type = "button";
-    open.className = "ghost small";
-    open.textContent = "Open";
-    open.title = "Open this draft in Notes";
-    open.addEventListener("click", () => flashEntry(draft.id));
-    li.append(text, when, open);
-    list.appendChild(li);
+    open.className = "doc-list-item";
+    const title = document.createElement("span");
+    title.className = "doc-list-title";
+    title.textContent = doc.title || "Untitled";
+    const meta = document.createElement("span");
+    meta.className = "muted doc-list-meta";
+    // Words and when it was last touched — the two facts that tell you which
+    // of five similarly-named drafts is the one you meant.
+    const words = typeof doc.words === "number" ? `${doc.words} words` : "";
+    const when = doc.updated_at ? relativeTime(doc.updated_at) : "";
+    meta.textContent = [words, when].filter(Boolean).join(" · ");
+    open.append(title, meta);
+    open.addEventListener("click", () => openDocument(doc.id));
+    item.appendChild(open);
+    list.appendChild(item);
   }
 }
 
@@ -5482,9 +5508,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const librarySubtabs = document.getElementById("library-subtabs");
   if (librarySubtabs) {
     const buttons = librarySubtabs.querySelectorAll("button");
+    // "library-view-documents" is the *All* view — it kept its id when it was
+    // renamed, because the id is referenced from several places and a rename
+    // buys nothing. "library-view-docs" is the new documents-only section.
+    // "library-view-drafts" is gone: drafts became a chip in the All view's
+    // filter row (see LIBRARY_KINDS in app.js and _drafts() in
+    // routes_library.py).
     const sections = [
-      "library-view-documents", "library-view-skills", "library-view-whiteboard", "library-view-media",
-      "library-view-drafts",
+      "library-view-documents", "library-view-docs", "library-view-skills",
+      "library-view-whiteboard", "library-view-media",
     ];
 
     buttons.forEach(btn => {
@@ -5515,15 +5547,23 @@ document.addEventListener("DOMContentLoaded", () => {
           wbShowBoardsLanding();
         } else if (targetId === "library-view-media") {
           renderLibraryImagesGallery();
-        } else if (targetId === "library-view-drafts") {
-          renderLibraryDraftsList();
+        } else if (targetId === "library-view-docs") {
+          renderLibraryDocuments();
         }
       });
     });
   }
   $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
   $("library-images-search")?.addEventListener("input", filterLibraryImagesGallery);
-  $("library-drafts-refresh")?.addEventListener("click", renderLibraryDraftsList);
+  $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
+  $("library-docs-new")?.addEventListener("click", async () => {
+    const doc = await createDocumentNamed();
+    if (doc) openDocument(doc.id);
+  });
+  // Filter as you type. No debounce: the list is already in memory after the
+  // first fetch and re-rendering it is cheap, unlike the semantic searches
+  // elsewhere that a debounce exists to protect.
+  $("library-docs-search")?.addEventListener("input", renderLibraryDocuments);
   $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
   $("library-images-upload-input")?.addEventListener("change", async (event) => {
     const input = event.target;

@@ -14821,11 +14821,9 @@ function renderMarkdown(container, text, depth = 0) {
 // --- tabs (Wave A) ----------------------------------------------------------------
 
 // TABS drives which pages hide; the arrow-key order comes from the bar's own
-// buttons, so this list's order is not load-bearing. It is kept in step with
-// the bar anyway — "documents" sat at the end for as long as it had no button
-// (§36F), and leaving it stranded there now that it does would be a small lie
-// for the next reader to trip over.
-const TABS = ["dashboard", "notes", "chat", "graph", "documents", "library", "timeline", "reminders"];
+// buttons, so this list's order is not load-bearing. "documents" sits last
+// because it has no button of its own — it is reached from the Library.
+const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
 
 // The DOM-only half of switchTab: which panel is visible, which tab button
 // is active. No network calls here, so this is safe to run before a token
@@ -14835,13 +14833,18 @@ function revealTab(name) {
   for (const tab of TABS) {
     $(`tab-${tab}`).classList.toggle("hidden", tab !== name);
   }
-  // Documents has its own tab button again (index.html; §36F's removal was
-  // reversed after "documents feel inaccessible" was reported directly), so
-  // the aliasing that used to light up Library while the Documents page was
-  // showing is gone: the name is now simply the name. Kept as a named variable
-  // rather than inlined because this is exactly the spot a future sub-view
-  // would need it back, and the history is worth one line.
-  const activeTabName = name;
+  // `documents` is a sub-view of Library — there is no `data-tab="documents"`
+  // button in the tab bar, so the name that determines which button is active
+  // must be "library" whenever we are showing the documents pane. Without
+  // this, switchTab("documents") leaves every tab button deactivated, making
+  // it look as though nothing is selected while the Documents page is visible.
+  //
+  // This was briefly removed when Documents was promoted to a top-level tab,
+  // and restored when that was reversed — the real fix for "documents feel
+  // inaccessible" was giving them their own section in the Library instead of
+  // leaving them inside a catch-all view called "Documents" that showed
+  // everything. Worth the note so the next session does not re-derive it.
+  const activeTabName = name === "documents" ? "library" : name;
   for (const button of document.querySelectorAll("#tab-bar button")) {
     const active = button.dataset.tab === activeTabName;
     button.classList.toggle("active", active);
@@ -19629,6 +19632,12 @@ const LIBRARY_KINDS = [
   { key: "chat", icon: "ph:chat-circle", label: "Chats" },
   { key: "file", icon: "ph:paperclip", label: "Files" },
   { key: "tag", icon: "ph:tag", label: "Tags" },
+  // Drafts used to be a Library sub-tab of its own. It is a *filter over
+  // notes*, not a separate kind of thing, and it only sat up there because
+  // this chip row did not exist when it was added — so it moved here, which
+  // is also where someone looking for "notes I have not finished" would
+  // reasonably expect to find it.
+  { key: "draft", icon: "ph:pencil-simple-line", label: "Drafts" },
   // "archived" is the bin's own internal kind (see routes_library.py's
   // _archive()) — this app's real archive uses "shelved" specifically so
   // the two are never confused at the code level, even though the words
@@ -19750,7 +19759,7 @@ function renderLibraryFilters() {
     // included it disagreed with what pressing the chip actually shows.
     const count =
       kind.key === "all"
-        ? libraryItems.length - (libraryCounts.activity || 0)
+        ? libraryItems.length - (libraryCounts.activity || 0) - (libraryCounts.draft || 0)
         : libraryCounts[kind.key] || 0;
     const button = document.createElement("button");
     button.type = "button";
@@ -19862,7 +19871,11 @@ function renderLibrary() {
     // notebook rather than a thing in it, and burying twelve documents under
     // it would make the default view useless in exactly the way a management
     // screen must not be. Its own chip shows it in full.
-    items = items.filter((i) => i.kind !== "activity");
+    // Drafts join activity in being excluded from "Everything": they are
+    // unfinished by definition, and a draft appearing as a first-class card
+    // here was reported and fixed once already (see _notes() in
+    // routes_library.py). The Drafts chip is how you ask for them.
+    items = items.filter((i) => i.kind !== "activity" && i.kind !== "draft");
     if (!$("library-show-binned")?.checked) {
       items = items.filter((i) => i.kind !== "archived");
     }

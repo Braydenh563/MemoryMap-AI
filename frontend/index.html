@@ -136,18 +136,14 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
-      <!-- Documents is back in the bar, and §36F's removal of it is reversed
-           deliberately rather than quietly. §36F's reasoning was sound at the
-           time — it removed a *second list* of the same documents, which the
-           Library already showed. What it did not anticipate is that being
-           reachable only *through* another tab is what made the whole feature
-           read as second-class: reported directly as "documents feel
-           inaccessible" and "the main features need to be easier to go
-           between". The second list is still gone; what comes back is the
-           front door. Documents was always in TABS (see app.js) — only the
-           button was missing. -->
-      <button role="tab" id="tab-btn-documents" data-tab="documents"
-        aria-selected="false" aria-controls="tab-documents" tabindex="-1">Documents</button>
+      <!-- Documents deliberately has no button here. It was promoted to a
+           top-level tab earlier and then moved back: the complaint it was
+           meant to fix ("documents feel inaccessible") turned out to be about
+           being conflated with the Library's catch-all view, not about the
+           depth of the click. So the fix landed in the Library's own sub-tabs
+           instead, where Documents now has a section of its own. `documents`
+           is still in TABS and still switchable-to; see revealTab on why the
+           Library button lights up while it is showing. -->
       <button role="tab" id="tab-btn-library" data-tab="library"
         aria-selected="false" aria-controls="tab-library" tabindex="-1">Library</button>
       <button role="tab" id="tab-btn-timeline" data-tab="timeline"
@@ -1208,6 +1204,13 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
 
         <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
+          <!-- Row one: the controls you reach for while reading the map —
+               finding something, and changing its shape. Row two (below) is
+               everything you do *to* the map: panels, saved views, output.
+               Two explicit rows, because the strip has more controls than fit
+               on one at any realistic width and an accidental wrap put an
+               arbitrary cut in the middle of a group. Reported twice. -->
+          <div class="graph-toolbar-row">
           <!-- The strip is grouped rather than being one flat run of a dozen
                controls. Reported directly ("the docked ui at the top of the
                graph needs a cleanup and redesign") and visible in the
@@ -1238,6 +1241,9 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </div>
 
+          </div>
+
+          <div class="graph-toolbar-row">
           <div class="graph-toolbar-group">
             <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
               aria-controls="graph-options"
@@ -1246,13 +1252,14 @@ Link to another note with [[its first few words]]."></textarea>
                  adding a separate corner picker beside it would have made the
                  crowding this redesign is fixing measurably worse, and "off"
                  is just another position as far as the user is concerned. -->
+            <label class="muted" for="graph-minimap-corner">Minimap</label>
             <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
               title="Where the minimap sits, or off">
-              <option value="off">Minimap: off</option>
-              <option value="tl">Minimap: top left</option>
-              <option value="tr">Minimap: top right</option>
-              <option value="bl">Minimap: bottom left</option>
-              <option value="br">Minimap: bottom right</option>
+              <option value="off">Off</option>
+              <option value="tl">Top left</option>
+              <option value="tr">Top right</option>
+              <option value="bl">Bottom left</option>
+              <option value="br">Bottom right</option>
             </select>
           </div>
 
@@ -1272,6 +1279,7 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Contextual: each appears only in the mode it exits, so they sit
                apart from the permanent controls rather than in a group. -->
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
+          </div>
           <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
 
@@ -1740,16 +1748,22 @@ Link to another note with [[its first few words]]."></textarea>
        existed would be a third place to look. -->
   <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1">
     <div class="seg library-subtabs" id="library-subtabs" role="tablist">
-      <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">Documents</button>
-      <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
+      <!-- Reordered, and the first one renamed. It was called "Documents"
+           while actually showing everything you have ever made — notes,
+           chats, files and documents together — so the one place a person
+           would look for their documents was the one place that did not have
+           a documents-only view. Reported directly. "All" now says what it
+           is, and Documents has a section of its own beside it.
+
+           Drafts left this strip and became a chip in the All view's own
+           filter row: it was a *filter over notes*, not a separate kind of
+           thing, and it sat here as a tab only because the filter row did not
+           exist yet when it was added. -->
+      <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">All</button>
+      <button role="tab" aria-selected="false" data-target="library-view-docs">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
       <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
-      <!-- Reported live: HISTORY.md and a stray code comment both already
-           claimed drafts were surfaced "in the Notes tab + Library" — only
-           the Notes-tab sidebar filter (.category-drafts-row) ever existed;
-           this sub-tab never did, so "it didn't appear anywhere" was
-           literally true for anyone looking here first. -->
-      <button role="tab" aria-selected="false" data-target="library-view-drafts">Drafts</button>
+      <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -1845,6 +1859,32 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
 
         <!-- Inject the Skills section here -->
+    </div>
+
+    <!-- Documents, on their own. Reuses the document editor's own list
+         rendering rather than a second one — see renderLibraryDocuments in
+         app.js, which fills this from the same GET /documents the editor
+         sidebar uses. -->
+    <div id="library-view-docs" class="library-view-section hidden">
+      <section class="card glass">
+        <div class="row space-between library-head">
+          <h2>Documents</h2>
+          <div class="row">
+            <input id="library-docs-search" type="search" placeholder="Search documents…"
+              aria-label="Search documents by title">
+            <button id="library-docs-new" class="small" type="button"
+              title="Start a new document">＋ New document</button>
+            <button id="library-docs-refresh" class="ghost small" type="button"
+              title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <p class="muted">
+          Everything you have written long-form. Open one to keep writing, or
+          start a new one — the editor is the same either way.
+        </p>
+        <ul id="library-docs-list" class="doc-list"></ul>
+        <p id="library-docs-empty" class="muted hidden">No documents yet — press ＋ New document to start one.</p>
+      </section>
     </div>
 
     <div id="library-view-skills" class="library-view-section hidden">
@@ -2378,23 +2418,6 @@ Link to another note with [[its first few words]]."></textarea>
     </section>
   </div>
 
-  <div id="library-view-drafts" class="library-view-section hidden">
-    <section class="card glass">
-      <div class="row space-between library-head">
-        <h2>Drafts</h2>
-        <div class="row">
-          <button id="library-drafts-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-        </div>
-      </div>
-      <p class="muted">
-        Notes saved without being filed yet — from Notes' own "Save as
-        draft", selecting text anywhere in the app, or a chat answer saved
-        for later. Open one to finish it or file it properly.
-      </p>
-      <ul id="library-drafts-list" class="entry-list"></ul>
-      <p id="library-drafts-empty" class="muted hidden">No drafts right now.</p>
-    </section>
-  </div>
   <!-- Closes #tab-library, opened near the top of this tab's markup. A stray
        extra `</div>` used to sit right after the whiteboard sidebar instead
        of here, which closed #tab-library three sub-views early — the gallery

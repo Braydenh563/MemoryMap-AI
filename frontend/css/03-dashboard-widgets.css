@@ -1948,6 +1948,36 @@
   margin-right: 0.25rem;
 }
 
+/* Related controls read as one thing, with a hairline between groups.
+   The strip was a flat run of a dozen equally-weighted controls that wrapped
+   into a mostly-empty second row — reported directly, with a screenshot. The
+   separator is a border rather than a spacer element so it disappears cleanly
+   when a group wraps to the start of a new line. */
+.graph-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+}
+
+/* The first group needs no separator, and neither does one that has wrapped
+   to the start of a row — a leading hairline on a new line reads as a stray
+   mark rather than a divider. */
+.graph-toolbar-group:first-of-type {
+  padding-left: 0;
+  border-left: 0;
+}
+
+@media (max-width: 700px) {
+  /* At this width almost every group wraps, so every separator would be a
+     leading one. Drop them and let the row gap do the grouping instead. */
+  .graph-toolbar-group {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
 .graph-toolbar #graph-search,
 .graph-toolbar .timeline-search {
   width: 11rem;

@@ -2701,6 +2701,14 @@ async function exportGraphPng() {
 
 
 // --- minimap + saved views (ROADMAP §85.4 items 7) ---------------------------
+
+//: The four corners the minimap can be pinned to, and where that choice lives.
+//: Top-left is the default because it is the one corner nothing else claims —
+//: the toolbar owns the top strip, the agent monitor bottom-left, and the zoom
+//: buttons bottom-right (which is what the old hard-coded position collided
+//: with).
+const GRAPH_MINIMAP_CORNERS = ["off", "tl", "tr", "bl", "br"];
+const GRAPH_MINIMAP_CORNER_KEY = "graph-minimap-corner";
 //
 // Both exist for the same reason, named in the roadmap's own words: once a
 // notebook is dense enough that the force layout stops being readable, there
@@ -2821,19 +2829,37 @@ function initGraphMinimap() {
       );
   };
   svg.addEventListener("click", jump);
-  document.getElementById("graph-minimap-toggle")?.addEventListener("click", () => {
+  // One control for both "is it showing" and "where" — see index.html on why
+  // these were merged rather than sitting beside each other.
+  //
+  // Per-device workspace state, so localStorage beside `graph-layout` and the
+  // saved views below, not preferences.
+  const applyMinimapPosition = (choice) => {
     const box = document.getElementById("graph-minimap");
-    const hidden = box.classList.toggle("hidden");
-    localStorage.setItem("graph-minimap-hidden", hidden ? "1" : "0");
-    document
-      .getElementById("graph-minimap-toggle")
-      .setAttribute("aria-pressed", String(!hidden));
-    if (!hidden) graphMinimapPaint();
+    if (!box) return;
+    const chosen = GRAPH_MINIMAP_CORNERS.includes(choice) ? choice : "tl";
+    for (const c of GRAPH_MINIMAP_CORNERS) box.classList.remove(`graph-minimap-${c}`);
+    box.classList.toggle("hidden", chosen === "off");
+    if (chosen !== "off") {
+      box.classList.add(`graph-minimap-${chosen}`);
+      graphMinimapPaint();
+    }
+    const picker = document.getElementById("graph-minimap-corner");
+    if (picker) picker.value = chosen;
+  };
+
+  // Existing installs kept only "hidden or not" under an older key. Read it
+  // once so nobody who had deliberately turned the minimap off has it come
+  // back on after an update; the new key takes over from the first change.
+  const storedCorner = localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY);
+  const legacyHidden = localStorage.getItem("graph-minimap-hidden") === "1";
+  applyMinimapPosition(storedCorner || (legacyHidden ? "off" : "tl"));
+
+  document.getElementById("graph-minimap-corner")?.addEventListener("change", (event) => {
+    const choice = event.target.value;
+    localStorage.setItem(GRAPH_MINIMAP_CORNER_KEY, choice);
+    applyMinimapPosition(choice);
   });
-  if (localStorage.getItem("graph-minimap-hidden") === "1") {
-    document.getElementById("graph-minimap")?.classList.add("hidden");
-    document.getElementById("graph-minimap-toggle")?.setAttribute("aria-pressed", "false");
-  }
 }
 
 // --- saved views -------------------------------------------------------------

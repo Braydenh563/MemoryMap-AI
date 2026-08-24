@@ -337,12 +337,76 @@ Grounded in the audit rather than invented, and marked where already tracked:
 - **The whiteboard has no minimap** though the graph now does — an asymmetry,
   not a bug.
 
+### 87.7b Reported live during this session — fixed, with what was measured
+
+- **The minimap covered the zoom buttons.** Reported, then measured rather
+  than assumed: at 1400×900 the minimap spanned x1160–1338 and the zoom
+  buttons x1298–1334, and at z-index 5 against their 2 it won outright.
+  **Its corner is now a user setting** (the user's own suggestion, and the
+  right one — no corner is free on every layout: the toolbar owns the top, the
+  agent monitor bottom-left, the zoom buttons bottom-right). Default top-left.
+  Verified: `overlapsZoom: false`, the choice persists, "off" hides it.
+- **The graph toolbar was a flat run of a dozen equally-weighted controls**
+  that wrapped into a mostly-empty second row. Now five labelled groups with
+  hairline separators. Measured after: 5 groups, 2 rows, **every control 32px**
+  (the one-height rule DESIGN.md states for this strip), no horizontal
+  overflow. The minimap's visibility and position were **merged into one
+  control** rather than added as a second — the redesign should not be paid
+  for with more clutter.
+- **Back/forward between pages**, in the status bar as asked, visually
+  distinct from undo/redo (caret icons vs. u-turn arrows, plus a divider —
+  they move you between pages; undo/redo change your notes). Deliberately not
+  `pushState`: this is a single page with no routing, so browser history
+  entries would let its Back button walk out of the app entirely. Verified
+  including the browser rule that a new visit mid-stack discards what was
+  ahead.
+- **40 form controls had no accessible name at all** — mostly whiteboard
+  ones, which confirms the roadmap's own note that the whiteboard's
+  `aria-label` coverage lags the graph's. All 40 now carry a name and a
+  tooltip; a re-run of the audit reports zero remaining. Worth recording how
+  that number was reached: a naive sweep flagged **212 buttons**, but a
+  visible text label *is* an accessible name, so a tooltip on a button that
+  says "Save" is noise rather than a fix. Filtering to controls with no
+  visible text left 9, of which 7 are labelled at runtime by
+  `paintStatusItem` — the genuine gap was the form controls, not the buttons.
+- **"The search relevance settings section stays highlighted permanently."**
+  Real, and a good example of the shape this codebase keeps meeting. Three
+  places add a `flash` class; two clear it on a 2,700 ms timer and this one
+  never did. It looked harmless because the animation ends on `transparent`,
+  so on an ordinary machine the highlight fades and the stuck class is
+  invisible — but under `prefers-reduced-motion: reduce` the stylesheet
+  deliberately swaps the animation for a **static** outline and background,
+  and with nothing removing the class that highlight is permanent. Fixed by
+  giving it the same cleanup its two siblings already had, and verified with
+  the browser context set to `reducedMotion: "reduce"`.
+
+### 87.7c Reported live, NOT yet built — next session starts here
+
+1. **The graph is slow and janky to move around.** Reported directly and not
+   yet diagnosed. Do not guess: this is the same shape as the whiteboard's
+   jank, which turned out to have one findable cause (a full re-render on
+   every frame), so **profile it before theorising**. `graph.js` already had a
+   force/render tuning pass (HISTORY §71) that fixed two concrete re-render
+   bugs, so the cheap wins may already be taken — start by measuring frame
+   cost during a pan and during a drag, separately.
+2. **The saved-view select truncates to "No saved vi…"** in the redesigned
+   toolbar. Cosmetic, one width rule.
+3. **Graph node labels show raw callout syntax** — a note starting with a
+   callout renders its label as `Review > [!tip] Remem…`. The label builder
+   should strip block markers the way `extract_title` strips a leading `#`.
+4. **Timeline line view redesign** — the concrete design is §87.6 above
+   (threads as tributaries off a time trunk, using `Entry.parent_id`, which
+   the view currently ignores entirely). Still unbuilt.
+
 ### 87.8 Still open from this pass, mine to finish
 
 - Backlinks panel ("what links here") — edges already stored by
   `sync_wiki_links`; a query plus a sidebar section.
 - Whiteboard render scheduler (the 49-call-site fix above).
 - Typed links / `link_type` as the first slice of 87.5.
+- Graph performance (§87.7c item 1) — now ahead of the whiteboard scheduler in
+  priority, because it was reported live and the whiteboard's cause is at
+  least already known.
 
 ### 87.9 Handoff list — each item already located, none needs re-deriving
 

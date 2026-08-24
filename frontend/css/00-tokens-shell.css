@@ -2156,3 +2156,26 @@ button.icon-button {
   border: 0;
   list-style: none;
 }
+
+/* --- back / forward through pages --------------------------------------------
+   In the status bar, immediately before undo/redo. Asked for specifically to
+   be distinguishable from that pair, so as well as a different icon shape
+   (carets vs. u-turn arrows) they get a divider marking them off: these move
+   you between pages, undo/redo change your notes, and two adjacent pairs of
+   arrows with no seam invite exactly that confusion. */
+.status-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-right: var(--space-2);
+  margin-right: var(--space-1);
+  border-right: 1px solid var(--border);
+}
+
+/* A disabled arrow stays visible rather than vanishing: a control that
+   disappears when it has nothing to do shifts everything beside it, and the
+   status bar reshuffling as you navigate is worse than a dimmed arrow. */
+.status-nav .status-item[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}

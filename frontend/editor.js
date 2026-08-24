@@ -182,6 +182,10 @@ function editorCommands(context) {
     commands.push({
       id: `callout-${kind}`,
       group: "Blocks & frames",
+      // Eight callout kinds would fill the whole menu on their own and push
+      // Links, AI and Templates below the fold — which is exactly what a live
+      // browser check caught. Four show by default; typing finds the rest.
+      primary: ["note", "tip", "warning", "danger"].includes(kind),
       label: `${meta.icon} ${meta.label} box`,
       hint: `> [!${kind}]`,
       keywords: ["callout", "box", "frame", "admonition", kind, meta.label],
@@ -192,6 +196,7 @@ function editorCommands(context) {
   commands.push(
     {
       id: "table",
+      primary: true,
       group: "Blocks & frames",
       label: "\u{1F4CA} Table",
       hint: "3 columns",
@@ -200,6 +205,7 @@ function editorCommands(context) {
     },
     {
       id: "codeblock",
+      primary: true,
       group: "Blocks & frames",
       label: "\u{1F4BB} Code block",
       hint: "```",
@@ -208,6 +214,7 @@ function editorCommands(context) {
     },
     {
       id: "checklist",
+      primary: true,
       group: "Blocks & frames",
       label: "\u{2611}\u{FE0F} Checklist",
       hint: "- [ ]",
@@ -224,6 +231,7 @@ function editorCommands(context) {
     },
     {
       id: "divider",
+      primary: true,
       group: "Blocks & frames",
       label: "\u{2014} Divider",
       hint: "---",
@@ -232,6 +240,7 @@ function editorCommands(context) {
     },
     {
       id: "heading",
+      primary: true,
       group: "Blocks & frames",
       label: "\u{1F516} Section heading",
       hint: "## — becomes a jump target",
@@ -244,6 +253,7 @@ function editorCommands(context) {
   commands.push(
     {
       id: "wikilink",
+      primary: true,
       group: "Links & references",
       label: "\u{1F517} Link to a note",
       hint: "[[…]]",
@@ -257,6 +267,7 @@ function editorCommands(context) {
     },
     {
       id: "embed",
+      primary: true,
       group: "Links & references",
       label: "\u{1F4CE} Embed a note inline",
       hint: "![[…]] — shows its text here",
@@ -268,6 +279,7 @@ function editorCommands(context) {
     },
     {
       id: "weblink",
+      primary: true,
       group: "Links & references",
       label: "\u{1F310} Web link",
       hint: "[text](url)",
@@ -292,6 +304,7 @@ function editorCommands(context) {
     commands.push(
       {
         id: "ai-edit",
+      primary: true,
         group: "AI",
         label: "\u{2728} AI edit this selection",
         hint: "rewrite, expand, tighten",
@@ -300,6 +313,7 @@ function editorCommands(context) {
       },
       {
         id: "ai-extract",
+      primary: true,
         group: "AI",
         label: "\u{2702}\u{FE0F} Extract notes from here",
         hint: "split into linked notes",
@@ -314,6 +328,7 @@ function editorCommands(context) {
   commands.push(
     {
       id: "stamp-date",
+      primary: true,
       group: "Templates",
       label: "\u{1F4C5} Today's date",
       hint: now.toLocaleDateString(),
@@ -623,12 +638,23 @@ function editorRefreshMenu() {
 
   editorMenuState.start = token.start;
   const context = EDITOR_SURFACES[textarea.id] || "note";
-  const items =
-    trigger === "/"
-      ? editorRankCommands(editorCommands(context), token.fragment)
-      : editorLinkMatches(token.fragment);
+  let items;
+  if (trigger === "/") {
+    const all = editorCommands(context);
+    // With nothing typed, show a curated shortlist so that every group is
+    // represented and reachable; once there is a query, search the full set.
+    // Found the hard way: a flat cap over an alphabetically-grouped list meant
+    // Links, AI and Templates were unreachable without already knowing to type
+    // for them, which defeats the point of a discovery menu.
+    const pool = token.fragment ? all : all.filter((c) => c.primary);
+    items = editorRankCommands(pool, token.fragment);
+  } else {
+    items = editorLinkMatches(token.fragment);
+  }
 
-  editorMenuState.items = items.slice(0, 12);
+  // The menu scrolls (max-height in CSS), so the cap only exists to stop a
+  // pathological list, not to fit the viewport.
+  editorMenuState.items = items.slice(0, 20);
   editorMenuState.index = Math.min(editorMenuState.index, Math.max(0, editorMenuState.items.length - 1));
   editorRenderMenu();
 }

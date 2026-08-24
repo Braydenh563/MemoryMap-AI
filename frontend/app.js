@@ -2844,9 +2844,19 @@ function showSelectionPopupAt(rect, text, source) {
   // Note the bound order: `max(margin, min(wanted, limit))`. Written the other
   // way round (`min(max(...), limit)`) a box wider than the viewport produces
   // a limit below the floor, `min` wins, and the popup lands off-screen left.
+  // Anchored to the selection's top-right corner, just clear of the last
+  // character. Asked for directly ("appear to the top right of the selection
+  // while still remaining within the screen/window"), and it is the better
+  // anchor than the centre this used to use: centred, the kebab drifts as the
+  // selection grows, so it is never in the same place twice and it sits over
+  // the middle of what you just highlighted. The right-hand end is where the
+  // cursor already is when a left-to-right drag finishes.
+  //
+  // Both clamps keep the bound order `max(margin, min(wanted, limit))` — see
+  // the note below on why the other way round puts it off-screen.
   const left = Math.max(
     margin,
-    Math.min(rect.left + rect.width / 2 - boxRect.width / 2, window.innerWidth - boxRect.width - margin)
+    Math.min(rect.right + 4, window.innerWidth - boxRect.width - margin)
   );
   let wantedTop = rect.top - boxRect.height - margin;
   if (wantedTop < margin) wantedTop = rect.bottom + margin; // no room above — go below
@@ -3589,8 +3599,64 @@ function resolveWikiTarget(name) {
   return null;
 }
 
+// A note card's text: block constructs first, then the inline pass.
+//
+// Notes deliberately do not go through renderMarkdown — this pass keeps
+// search-term highlighting, which that renderer has no concept of. So the two
+// block constructs the "/" menu can insert are handled here explicitly and
+// everything else falls through to exactly the inline rendering this function
+// always did. When a note contains neither, the DOM produced is identical to
+// before, which is why the fall-through appends to `element` directly rather
+// than wrapping runs in a container.
 function renderNoteText(element, text, terms) {
   element.replaceChildren();
+  const lines = String(text ?? "").replace(/\r\n/g, "\n").split("\n");
+  let buffer = [];
+  const flush = () => {
+    if (!buffer.length) return;
+    renderNoteInline(element, buffer.join("\n"), terms);
+    buffer = [];
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    const embedded = line.match(/^\s*!\[\[([^[\]]{1,120})\]\]\s*$/);
+    if (embedded) {
+      flush();
+      element.appendChild(mdEmbedElement(embedded[1].trim(), 0));
+      i++;
+      continue;
+    }
+
+    if (/^\s*>\s?/.test(line)) {
+      const quoted = [];
+      let j = i;
+      while (j < lines.length && /^\s*>\s?/.test(lines[j])) {
+        quoted.push(lines[j].replace(/^\s*>\s?/, ""));
+        j++;
+      }
+      const box = mdCalloutElement(quoted, 0);
+      if (box) {
+        flush();
+        element.appendChild(box);
+        i = j;
+        continue;
+      }
+      // An ordinary blockquote, not a callout: leave it to the inline pass
+      // exactly as it was written, rather than eating the "> " markers.
+    }
+
+    buffer.push(line);
+    i++;
+  }
+  flush();
+}
+
+// The inline half: [[wiki links]], emphasis, and search-term highlighting.
+// Appends to `parent`; does not clear it.
+function renderNoteInline(element, text, terms) {
   const pattern = /\[\[([^[\]]{1,120})\]\]/g;
   let cursor = 0;
   let match;
@@ -7447,11 +7513,64 @@ async function openDocument(id) {
   renderDocStats();
   renderDocOutline();
   renderDocNotes();
+  renderDocBacklinks();
   renderDocList();
 }
 
 // The notes this document draws on. Shown beside the outline because both
 // answer the same question — what is this document made of.
+// Which notes point at the open document with a [[wiki link]].
+//
+// The reverse direction of resolveWikiTarget, and deliberately computed from
+// `allEntries` on the client rather than added as an endpoint: the notes are
+// already loaded, the match is the same title comparison the resolver does, and
+// a round trip to learn something the browser already knows is a round trip
+// that will be slow exactly when the notebook is large.
+//
+// Note this is a *different* relationship from renderDocNotes above, which
+// lists notes explicitly attached to the document. A note can mention a
+// document without being filed under it, and that is the interesting case.
+function renderDocBacklinks() {
+  const wrap = $("doc-backlinks-wrap");
+  const list = $("doc-backlinks");
+  if (!wrap || !list) return;
+  const title = (currentDoc?.title || "").trim().toLowerCase();
+  const attached = new Set(((currentDoc && currentDoc.notes) || []).map((n) => n.id));
+
+  const linking = !title
+    ? []
+    : (typeof allEntries !== "undefined" ? allEntries : []).filter((entry) => {
+        if (entry.is_private) return false;
+        // Already shown under "Notes it draws on" — listing it twice says
+        // there are two connections when there is one.
+        if (attached.has(entry.id)) return false;
+        const pattern = /\[\[([^[\]]{1,120})\]\]/g;
+        let match;
+        while ((match = pattern.exec(entry.content || "")) !== null) {
+          if (match[1].trim().toLowerCase() === title) return true;
+        }
+        return false;
+      });
+
+  wrap.classList.toggle("hidden", !linking.length);
+  list.replaceChildren();
+  for (const entry of linking) {
+    const item = document.createElement("li");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "outline-link";
+    open.textContent = noteLabel(entry, 60);
+    open.title = "Show this note";
+    open.addEventListener("click", () => {
+      switchTab("notes");
+      showNotesSection("browse"); // focusing inside a hidden section does nothing
+      flashEntry(entry.id);
+    });
+    item.appendChild(open);
+    list.appendChild(item);
+  }
+}
+
 function renderDocNotes() {
   const wrap = $("doc-notes-wrap");
   const list = $("doc-notes");
@@ -7480,6 +7599,10 @@ function renderDocNotes() {
         { method: "DELETE" }
       );
       renderDocNotes();
+      // Detaching can move a note *into* the backlinks list: it may still
+      // mention this document by [[title]], and that connection only becomes
+      // visible once it is no longer filed under it.
+      renderDocBacklinks();
       // The note keeps existing — only the connection went.
       loadEntries();
     });
@@ -14348,6 +14471,92 @@ function mdHeadingId(text, taken) {
   return id;
 }
 
+// The two block-level constructs the "/" menu inserts, built once and shared.
+//
+// They live outside renderMarkdown because **notes do not go through
+// renderMarkdown at all** — a note card is rendered by renderNoteText, which
+// is an inline pass (wiki links + emphasis + search-term highlighting). That
+// asymmetry is easy to miss and was: the first live check of this feature
+// found callouts and embeds rendering perfectly in a document and not at all
+// in a note, which is half the feature missing in the surface people use most.
+
+// A `.callout` element for a run of blockquote lines, or null when the quote
+// is an ordinary one (no `[!kind]` marker) or nesting is already too deep.
+function mdCalloutElement(quoted, depth) {
+  const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]\s*(.*)$/);
+  if (!callout || depth >= MD_MAX_DEPTH) return null;
+
+  const kind = callout[1].toLowerCase();
+  const meta = (typeof CALLOUT_KINDS !== "undefined" && CALLOUT_KINDS[kind]) || null;
+  const box = document.createElement("div");
+  // An unrecognised kind still renders as a box rather than as literal
+  // "[!whatever]" text — a typo should look slightly wrong, not broken.
+  box.className = `callout callout-${meta ? kind : "note"}`;
+
+  const head = document.createElement("p");
+  head.className = "callout-head";
+  const icon = document.createElement("span");
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = meta ? meta.icon : "\u{1F4DD}";
+  head.appendChild(icon);
+  const title = document.createElement("span");
+  // The title after the marker wins; failing that, the kind's own name.
+  title.textContent = callout[2].trim() || (meta ? meta.label : kind);
+  head.appendChild(title);
+  box.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "callout-body";
+  // Rendered rather than inlined, so a callout can hold a list, a code block
+  // or a link — which is most of why it beats a bold paragraph.
+  renderMarkdown(body, quoted.slice(1).join("\n"), depth + 1);
+  box.appendChild(body);
+  return box;
+}
+
+// A `.note-embed` element for `![[name]]`.
+function mdEmbedElement(name, depth) {
+  const box = document.createElement("div");
+  box.className = "note-embed";
+
+  const head = document.createElement("p");
+  head.className = "note-embed-head";
+  const marker = document.createElement("span");
+  marker.setAttribute("aria-hidden", "true");
+  marker.textContent = "\u{1F4CE}";
+  head.append(marker, document.createTextNode(` Embedded — ${name}`));
+  box.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "note-embed-body";
+  const target = resolveWikiTarget(name);
+  if (depth >= MD_MAX_DEPTH) {
+    // A embeds B embeds A. The cap is what stops that hanging the tab, and
+    // saying so beats rendering nothing and looking like a bug.
+    body.textContent = "…(embedded too deep to show)";
+  } else if (target && target.kind === "note") {
+    renderMarkdown(body, target.entry.content || "", depth + 1);
+  } else if (target && target.kind === "document") {
+    // Documents have no content in the list payload (routes_documents._summary),
+    // so this is a way in rather than an inline copy. See renderMarkdown's own
+    // note on why a fetch does not belong in this path.
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "wiki-link";
+    open.textContent = target.doc.title || name;
+    open.title = "Open this document";
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openDocument(target.doc.id);
+    });
+    body.appendChild(open);
+  } else {
+    body.textContent = `Nothing called \u{201C}${name}\u{201D} yet.`;
+  }
+  box.appendChild(body);
+  return box;
+}
+
 //: How deep a callout or an embed may nest before rendering stops.
 //
 // Both recurse into renderMarkdown, so both can loop: a callout containing a
@@ -14501,42 +14710,7 @@ function renderMarkdown(container, text, depth = 0) {
     if (embedded) {
       closeList();
       const name = embedded[1].trim();
-      const box = document.createElement("div");
-      box.className = "note-embed";
-
-      const head = document.createElement("p");
-      head.className = "note-embed-head";
-      const marker = document.createElement("span");
-      marker.setAttribute("aria-hidden", "true");
-      marker.textContent = "\u{1F4CE}";
-      head.append(marker, document.createTextNode(` Embedded — ${name}`));
-      box.appendChild(head);
-
-      const body = document.createElement("div");
-      body.className = "note-embed-body";
-      const target = resolveWikiTarget(name);
-      if (depth >= MD_MAX_DEPTH) {
-        // A embeds B embeds A. The cap is what stops that hanging the tab, and
-        // saying so beats rendering nothing and looking like a bug.
-        body.textContent = "…(embedded too deep to show)";
-      } else if (target && target.kind === "note") {
-        renderMarkdown(body, target.entry.content || "", depth + 1);
-      } else if (target && target.kind === "document") {
-        const open = document.createElement("button");
-        open.type = "button";
-        open.className = "wiki-link";
-        open.textContent = target.doc.title || name;
-        open.title = "Open this document";
-        open.addEventListener("click", (event) => {
-          event.stopPropagation();
-          openDocument(target.doc.id);
-        });
-        body.appendChild(open);
-      } else {
-        body.textContent = `Nothing called “${name}” yet.`;
-      }
-      box.appendChild(body);
-      container.appendChild(box);
+      container.appendChild(mdEmbedElement(name, depth));
       i++;
       continue;
     }
@@ -14555,35 +14729,8 @@ function renderMarkdown(container, text, depth = 0) {
         i++;
       }
 
-      const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]\s*(.*)$/);
-      if (callout && depth < MD_MAX_DEPTH) {
-        const kind = callout[1].toLowerCase();
-        const meta =
-          (typeof CALLOUT_KINDS !== "undefined" && CALLOUT_KINDS[kind]) || null;
-        const box = document.createElement("div");
-        // An unrecognised kind still renders as a box rather than as literal
-        // "[!whatever]" text — a typo should look slightly wrong, not broken.
-        box.className = `callout callout-${meta ? kind : "note"}`;
-
-        const head = document.createElement("p");
-        head.className = "callout-head";
-        const icon = document.createElement("span");
-        icon.setAttribute("aria-hidden", "true");
-        icon.textContent = meta ? meta.icon : "\u{1F4DD}";
-        head.appendChild(icon);
-        const title = document.createElement("span");
-        // The title after the marker wins; failing that, the kind's own name.
-        title.textContent = callout[2].trim() || (meta ? meta.label : kind);
-        head.appendChild(title);
-        box.appendChild(head);
-
-        const body = document.createElement("div");
-        body.className = "callout-body";
-        // Rendered rather than inlined, so a callout can hold a list, a code
-        // block or a link — which is most of why it beats a bold paragraph.
-        renderMarkdown(body, quoted.slice(1).join("\n"), depth + 1);
-        box.appendChild(body);
-
+      const box = mdCalloutElement(quoted, depth);
+      if (box) {
         container.appendChild(box);
         continue;
       }
@@ -14720,7 +14867,74 @@ function revealTab(name) {
   }
 }
 
+// --- back / forward through the pages you have visited ----------------------
+//
+// Asked for directly. Deliberately *not* the browser's own history: this app
+// is a single page with no routing, so pushState would put entries in the
+// browser's stack that its Back button would then walk out of the app
+// entirely on the first press past the start. This is a small stack of its
+// own, capped, and behaving the way the browser's does — visiting a page
+// while somewhere in the middle of the stack discards what was ahead.
+const TAB_HISTORY_CAP = 50;
+const tabHistory = { stack: [], index: -1, navigating: false };
+
+function paintTabHistory() {
+  const back = $("status-back");
+  const forward = $("status-forward");
+  if (!back || !forward) return;
+  back.disabled = tabHistory.index <= 0;
+  forward.disabled = tabHistory.index >= tabHistory.stack.length - 1;
+  // Named pages in the tooltip, not a bare "Back": knowing where it goes is
+  // the difference between using it and guessing. paintStatusItem mirrors
+  // title into aria-label centrally, so the disabled state is honest to a
+  // screen reader too rather than still promising a previous page.
+  const prev = tabHistory.stack[tabHistory.index - 1];
+  const next = tabHistory.stack[tabHistory.index + 1];
+  paintStatusItem("status-back", {
+    icon: "ph:caret-left",
+    title: prev ? `Back to ${tabLabel(prev)}` : "Nothing to go back to",
+  });
+  paintStatusItem("status-forward", {
+    icon: "ph:caret-right",
+    title: next ? `Forward to ${tabLabel(next)}` : "Nothing to go forward to",
+  });
+}
+
+// The tab's own visible name, so a tooltip says "Back to Documents" rather
+// than "Back to documents" or, worse, an internal id.
+function tabLabel(name) {
+  const button = document.querySelector(`#tab-bar button[data-tab="${name}"]`);
+  return button?.textContent?.trim() || name;
+}
+
+function recordTabVisit(name) {
+  // A back/forward press is a move *through* history, not a new entry.
+  if (tabHistory.navigating) return;
+  if (tabHistory.stack[tabHistory.index] === name) return; // re-clicking the current tab
+  tabHistory.stack = tabHistory.stack.slice(0, tabHistory.index + 1);
+  tabHistory.stack.push(name);
+  if (tabHistory.stack.length > TAB_HISTORY_CAP) tabHistory.stack.shift();
+  tabHistory.index = tabHistory.stack.length - 1;
+  paintTabHistory();
+}
+
+function stepTabHistory(delta) {
+  const next = tabHistory.index + delta;
+  if (next < 0 || next >= tabHistory.stack.length) return;
+  tabHistory.index = next;
+  tabHistory.navigating = true;
+  try {
+    switchTab(tabHistory.stack[next]);
+  } finally {
+    // Cleared in a finally so a throw inside a tab's own setup cannot strand
+    // the flag on and silently stop recording every later visit.
+    tabHistory.navigating = false;
+  }
+  paintTabHistory();
+}
+
 function switchTab(name) {
+  recordTabVisit(name);
   revealTab(name);
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
@@ -16346,6 +16560,21 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       target.classList.remove("flash");
       void target.offsetWidth;
       target.classList.add("flash");
+      // Take it off again, the way flashEntry and flashReminder both already
+      // do. Reported directly: "the search relevance settings section stays
+      // highlighted permanently and doesn't return to normal."
+      //
+      // This was the one of the three flash call sites with no cleanup, and it
+      // looked harmless because the animation ends on `transparent` — so on an
+      // ordinary machine the highlight does fade and the stuck class is
+      // invisible. Under `prefers-reduced-motion: reduce` the stylesheet
+      // deliberately swaps the animation for a *static* outline and background
+      // (see .flash-target.flash there), and with nothing ever removing the
+      // class that static highlight is permanent. A value that is only wrong
+      // under a setting the author does not have on is exactly the shape this
+      // codebase keeps getting caught by.
+      clearTimeout(openSettingsModal.flashTimer);
+      openSettingsModal.flashTimer = setTimeout(() => target.classList.remove("flash"), 2700);
     });
   }
 }
@@ -25666,6 +25895,12 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
     radio.dataset.userChosen = "1";
   });
 }
+$("status-back").addEventListener("click", () => stepTabHistory(-1));
+$("status-forward").addEventListener("click", () => stepTabHistory(1));
+// Seed the stack with wherever the app opened, or the first tab clicked has
+// nothing behind it and Back stays dead until the second navigation — which
+// reads as the button being broken rather than empty.
+recordTabVisit(localStorage.getItem("activeTab") || "dashboard");
 $("save-btn").addEventListener("click", saveEntry);
 $("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset

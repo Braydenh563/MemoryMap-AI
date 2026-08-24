@@ -89,11 +89,20 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    and will not survive a real schema change. Nothing has needed it yet, which
    is exactly why it is still here.
 
-8. **What happens when Ollama hangs, rather than errors.** The app handles
-   Ollama being *off* gracefully; a request that never returns is a different
-   failure and a likelier one on this hardware — a model loading for the first
-   time can leave a request pending indefinitely. Wants a timeout with a real
-   message rather than an unbounded spinner.
+8. **What happens when Ollama hangs, rather than errors.** Checked this
+   session, not fixed — closer to already-handled than the item implies.
+   `OllamaClient.__init__` already sets a 600s request timeout with a
+   documented reason (a cold model load on CPU-only hardware can genuinely
+   take that long), and every chat/generate call wraps the underlying
+   `requests` exception into `OllamaError(f"Chat with '{model}' failed:
+   {exc}")`, which `routes_chat.py` already catches. So a hang is bounded and
+   does produce a real, if unpolished, message — not silence. What's
+   **unverified**, because this sandbox has no reachable Ollama to actually
+   hang: whether that message reaches the chat UI as something a user reads
+   as "it gave up and here's why" versus a raw exception string, and whether
+   ten minutes of a spinner before that message *feels* like "an unbounded
+   spinner" regardless of the technical bound. Needs a real slow-loading
+   model to observe, not more source reading.
 
 9. **Crash-safe recovery for an interrupted re-index or model download.**
    Unknown whether it resumes cleanly or leaves half-written state; worth
@@ -245,11 +254,17 @@ same session is in §88.0 so nobody re-fixes it.
    (reading 'replace')`.**~~ **Fixed** — see §88.0's row; it was
    `recentSkills` carrying a poisoned `null` entry from before §88.0's
    `startSkill` fix, read unguarded on every dashboard render.
-3. **The notebook constellation canvas keeps disappearing.** ARCHITECTURE §10
-   already documents the general version of this bug (p5 measures a canvas as
-   zero inside a hidden tab and must redraw on theme change). The widget was
-   fixed once for theme changes; this is a *second* trigger. Check what else
-   hides/reshows the dashboard.
+~~3. **The notebook constellation canvas keeps disappearing.**~~ **Fixed a
+   second, real trigger.** ARCHITECTURE §10's canvas-measures-zero pattern
+   was already handled for theme changes (`refreshArtForTheme`); what wasn't
+   handled at all was the canvas's own **size** going stale — the sketch had
+   no resize handling whatsoever, so `holder.clientWidth` was measured once
+   at setup and never re-synced. Added a `ResizeObserver` on the holder
+   (not just `p.windowResized`, which alone would miss the Edit-layout
+   "Wide" toggle — a card-width change with no window resize event at all).
+   Verified live: a window resize, the Wide toggle, and a tab-away-and-back
+   cycle all keep the canvas correctly sized and visible, zero console
+   errors in any case.
 4. **The new-chat button disappeared from the Ask tab.** Traced, not fixed:
    it only shows after a real (non-"hint") answer completes
    (`show("retry-btn", ..., "new-chat-btn")` in `app.js`), and the show logic

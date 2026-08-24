@@ -12868,6 +12868,31 @@ async function startArt(holder) {
       }
     };
     p.draw = () => scene(p.frameCount * 0.005);
+    // Was missing entirely — width was measured once at setup and never
+    // re-synced, so this canvas was the one p5 sketch in the app with no
+    // resize handling at all (the sibling in the whiteboard has its own).
+    // Reported as the constellation "keeps disappearing": a second trigger
+    // on top of the theme-change one ARCHITECTURE §10 already documents and
+    // `refreshArtForTheme` already handles. A ResizeObserver on the holder
+    // catches both a real window resize *and* the Edit-layout "Wide" toggle
+    // (which changes the card's width with no window resize event at all) —
+    // `p.windowResized` alone would have missed the second one entirely.
+    const resync = () => {
+      if (!holder.isConnected) return;
+      const next = holder.clientWidth;
+      // Guarded the same reason `holder.clientWidth || 300` is in setup: a
+      // transient 0 mid-reflow must not shrink the canvas to nothing.
+      if (!next || next === width) return;
+      width = next;
+      p.resizeCanvas(width, height);
+      particles = buildArtParticles(p, categories, total, width, height);
+    };
+    const observer = new ResizeObserver(resync);
+    observer.observe(holder);
+    p.remove = ((original) => () => {
+      observer.disconnect();
+      original.call(p);
+    })(p.remove);
   };
 
   // Superseded while we waited, or the widget was re-rendered out from under

@@ -41,6 +41,15 @@ exactly the trap CLAUDE.md names.
   is already stored per turn; `routes_conversations.py`'s `_summary()` has no
   model field at all, so that sort was never buildable this cheaply. Said so
   in ROADMAP.md rather than silently dropping it.
+- **The notebook constellation canvas "keeps disappearing"** (§88.1 item 3,
+  a second trigger on top of the theme-change one ARCHITECTURE §10 already
+  documents) — the p5 sketch had no resize handling at all, so
+  `holder.clientWidth` was measured once at setup and never re-synced. A
+  `ResizeObserver` on the holder catches both a real window resize and the
+  Edit-layout "Wide" toggle (a card-width change with no window resize event
+  at all — `p.windowResized` alone would have missed it). Verified live:
+  window resize (388px → 361px), the Wide toggle (361px → 779px), and a
+  tab-away-and-back cycle all keep the canvas correctly sized, zero errors.
 - **Back/forward across the Library's own sub-tabs** (§88.1 item 7, already
   scoped and located in an earlier session) — the click handler
   (`whiteboard.js`) now calls the same `recordTabVisit` Notes' sub-tabs use;

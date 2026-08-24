@@ -580,6 +580,16 @@ Link to another note with [[its first few words]]."></textarea>
             <select id="ask-mode-select" class="small-select"
               aria-label="Answer length"
               title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
+            <!-- Tuning lives here, beside Ask, and not next to the results.
+                 Asked for directly: "I want the tune semantic search to show
+                 at all times and not just when I put in a query." It used to
+                 sit in the "Matching records" heading — inside #chat-results,
+                 which is `hidden` until an answer exists — so the control that
+                 changes how a search behaves could only be reached *after*
+                 running one. -->
+            <button type="button" id="ask-search-tune" class="ghost small icon-only"
+              title="Tune how strict semantic search is (Settings → Preferences)"
+              aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
             <button id="ask-btn">Ask</button>
             <button id="stop-btn" class="ghost hidden" title="Stop the answer">Stop</button>
           </div>
@@ -638,11 +648,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="ai-answer-grounding" class="answer-grounding hidden"></div>
             </div>
             <div class="chat-half">
-              <h3>Matching records <span id="search-mode" class="chip"></span>
-                <button type="button" id="ask-search-tune" class="ghost small icon-only"
-                  title="Tune how strict semantic search is (Settings → Preferences)"
-                  aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
-              </h3>
+              <h3>Matching records <span id="search-mode" class="chip"></span></h3>
               <ul id="raw-results" class="entry-list"></ul>
             </div>
           </div>
@@ -3732,7 +3738,7 @@ Link to another note with [[its first few words]]."></textarea>
                    pywebview's own file-dialog API isn't wired up to this route
                    and shipping that blind (unverifiable outside a real desktop
                    session) risked a worse bug than the one being fixed. -->
-              <div class="row hidden" id="export-save-dir-row">
+              <div class="row hidden settings-row-spaced" id="export-save-dir-row">
                 <label for="pref-export-dir" class="muted">Save exports to</label>
                 <input id="pref-export-dir" type="text" placeholder="Default: inside the app data folder">
                 <button id="pref-export-dir-reset" class="ghost small" type="button">Reset to default</button>

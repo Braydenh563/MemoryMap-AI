@@ -759,9 +759,36 @@ button.ai-unavailable {
 /* Was a duplicate of .doc-sidebar above that re-set `align-self: start` — and
    being later in the file, it won, which is why fixing the rule above alone
    changed nothing. The one rule is .doc-sidebar. */
-#doc-sidebar {
+#doc-sidebar,
+/* The Skill Logs sidebar had **no rules at all** — it carried `card glass`
+   but not `sidebar-panel`, so it scrolled away with the page while every
+   other sidebar stayed put. Reported directly: "I want the skill logs right
+   sidebar to be sticky to the side and only the height of the screen,
+   regardless of scroll, like the other sidebars." */
+#skills-sidebar {
   position: sticky;
   top: 0;
+}
+
+/* Height of the viewport, scrolling its own contents — the second half of the
+   same report. Applied to the log sidebar specifically because the others
+   size themselves from their own layout grid. */
+#skills-sidebar {
+  max-height: 100vh;
+  overflow-y: auto;
+  align-self: start;
+}
+
+/* The collapse toggle is absolutely positioned at the sidebar's top-right
+   (see .sidebar-collapse-toggle in 07-whiteboard-misc.css), and the heading
+   row's own trailing button sits in exactly the same place — reported as the
+   New-chat button clashing with the collapse button while the sidebar is
+   hover-expanded. Reserving the toggle's width in the row keeps both
+   reachable instead of stacked. */
+.sidebar-head {
+  /* --sidebar-toggle-lane already exists for exactly this: the toggle's
+     width plus a gap. Reused rather than re-derived. */
+  padding-right: var(--sidebar-toggle-lane);
 }
 
 .sidebar-resize {

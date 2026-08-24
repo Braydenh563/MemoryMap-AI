@@ -468,11 +468,18 @@ progress {
   overflow-wrap: anywhere;
 }
 
-/* Reported: sitting right after the mode chip read as squeezed into the
-   middle of the heading rather than a deliberately placed control. Same
-   flex row as above, just pushed to the row's own trailing edge. */
+/* It sits in the ask row now (see index.html on why it left the results
+   heading), where it is one control among several rather than the trailing
+   item of a heading — so no auto margin. */
 #ask-search-tune {
-  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+/* Two stacked `.row`s have no space between them: `.row`'s own gap applies
+   *within* a row, not between siblings. Reported for the two export settings,
+   which read as one run-on control. */
+.settings-row-spaced {
+  margin-top: var(--space-3);
 }
 
 #thinking-box {

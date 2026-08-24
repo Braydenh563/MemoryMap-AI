@@ -175,6 +175,12 @@ same session is in §88.0 so nobody re-fixes it.
 | "The `/` command popup isn't scrollable and disappears when I try" | A capture-phase `scroll` listener saw the menu's *own* wheel event and closed it. Now ignores scrolls inside the menu, plus `overscroll-behavior: contain` |
 | "The top menu bar shifts when I open the settings modal" | `scrollbar-gutter: stable` was applied **only** under `.modal-open`, so opening a dialog *added* a gutter that had not been there a frame earlier. Now reserved permanently |
 | "Weird small circles left hanging when I change where links connect" | Link endpoint handles are appended to `#wb-overlay-zoom-group`; **both** existing clears only swept `#wb-zoom-group`. Every render appended a group and none was removed. One `wbClearSketchHandles()` now clears both layers |
+| "Tune semantic search should show at all times" | The control lived inside `#chat-results`, which is `hidden` until an answer exists — so the thing that changes how search behaves could only be reached *after* running one. Moved to the ask row |
+| "The export folder rows have no gap" | `.row`'s gap applies *within* a row, not between two of them. `.settings-row-spaced` |
+| "The documents sub-tab search box is a different height" | Same failure DESIGN.md names for the graph strip: an `<input>`'s own padding outgrows a button unless the row sets one height. `--control-h` applied to that head |
+| "The skill-logs sidebar should be sticky and viewport-height" | `#skills-sidebar` had **no CSS at all** — it carried `card glass` but not `sidebar-panel`, so it scrolled away with the page |
+| "The new-chat button clashes with the collapse button" | The collapse toggle is absolutely positioned at the sidebar's top-right and the heading row's trailing button sits in the same place. The head now reserves `--sidebar-toggle-lane`, a token that already existed for exactly this |
+| "Back/forward should handle sub-tabs too" | History entries are now `{tab, section}`; `showNotesSection` records one. Verified: browse → back → capture → back → ask → forward → capture |
 | Whiteboard "janky and uncomfortable" | `renderWhiteboard()` (a full d3 join over every item) was called from **48 sites**; one action touches several. All now coalesce into one rAF via `wbScheduleRender()` |
 | "Make link creation on the graph offer a kind, a reason, and a cancel" | Built — see §87.5's typed links, now shipped as `EntryLink.link_type` plus the drag-to-link dialog |
 
@@ -213,27 +219,21 @@ same session is in §88.0 so nobody re-fixes it.
 
 **Tier B — UI/UX, each concrete.**
 
-7. **Back/forward should also move between sub-tabs**, not just top-level tabs.
-   The history stack is `tabHistory` in app.js; sub-tabs go through
-   `showNotesSection` and the Library's own `#library-subtabs` handler, so this
-   means recording a `{tab, section}` pair rather than a tab name.
-8. **The Documents Library sub-tab is ugly and needs a redesign**, and its
-   **search box is a different height** from the other controls (the
-   `--control-h` rule the graph toolbar uses is the pattern to copy).
+7. **Back/forward across the Library's own sub-tabs.** The Notes sub-tabs are
+   done (§88.0); the Library's `#library-subtabs` handler lives in
+   `whiteboard.js` and does not record history yet — same `{tab, section}`
+   shape.
+8. **The Documents Library sub-tab needs a visual redesign.** Its search-box
+   height is fixed (§88.0); the *look* of the list is still the plain one this
+   session shipped — cards, metadata layout and empty state all unstyled
+   beyond the basics.
 9. **The Whiteboards Library sub-tab is bland** — same pass.
-10. **Settings: "open exports folder" and "save exports to" rows have no gap.**
-11. **The graph dock may get too tall and squish the graph.** Now three
+10. **The graph dock may get too tall and squish the graph.** Now three
     deliberate rows; if it grows again, the answer is an overflow menu rather
     than a fourth row.
 12. **The minimap needs a visual and usability upgrade** (its corner is now a
     user setting, but the map itself is unchanged).
-13. **The skill-logs right sidebar should be sticky and viewport-height**, like
-    the other sidebars, regardless of scroll.
-14. **The chat sidebar's new-chat button clashes with the collapse button**
-    when the sidebar is collapsed but hover-expanded.
-15. **"Tune semantic search" should always be visible**, not only once a query
-    is typed.
-16. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).
+13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).
     The label builder should strip block markers the way `extract_title`
     already strips a leading `#`.
 17. **Timeline line view redesign** — the concrete design is §87.6: threads as

@@ -2222,3 +2222,26 @@ p.graph-help-panel {
   right: 0;
   margin-left: 0;
 }
+
+/* --- Library → Documents ------------------------------------------------------
+   The search box stood taller than the buttons beside it — reported directly,
+   and the same failure DESIGN.md names for the graph strip: an <input>'s own
+   padding makes it a few pixels taller than a button unless a height is set
+   for the whole row. One height for every control in the head, exactly as
+   .graph-toolbar does it. */
+#library-view-docs .library-head {
+  --control-h: 2rem;
+  gap: var(--space-2);
+}
+
+#library-view-docs .library-head input,
+#library-view-docs .library-head button {
+  height: var(--control-h);
+  padding-block: 0;
+}
+
+#library-docs-search {
+  width: 14rem;
+  max-width: 100%;
+  margin: 0;
+}

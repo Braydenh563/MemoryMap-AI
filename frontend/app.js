@@ -14935,11 +14935,11 @@ function paintTabHistory() {
   const next = tabHistory.stack[tabHistory.index + 1];
   paintStatusItem("status-back", {
     icon: "ph:caret-left",
-    title: prev ? `Back to ${tabLabel(prev)}` : "Nothing to go back to",
+    title: prev ? `Back to ${entryLabel(prev)}` : "Nothing to go back to",
   });
   paintStatusItem("status-forward", {
     icon: "ph:caret-right",
-    title: next ? `Forward to ${tabLabel(next)}` : "Nothing to go forward to",
+    title: next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to",
   });
 }
 
@@ -14950,12 +14950,29 @@ function tabLabel(name) {
   return button?.textContent?.trim() || name;
 }
 
-function recordTabVisit(name) {
+// "Notes → Capture" rather than just "Notes", so Back names the step it
+// actually takes when the move was between sub-tabs of one tab.
+function entryLabel(entry) {
+  const tab = tabLabel(entry.tab);
+  if (!entry.section) return tab;
+  const button = document.querySelector(`[data-section="${entry.section}"]`);
+  const section = button?.textContent?.trim() || entry.section;
+  return `${tab} → ${section}`;
+}
+
+// One history entry. `section` is the sub-tab within a tab, when that tab has
+// them — asked for directly: "have the back and forward navigation also handle
+// navigation between sub tabs as well." Notes has four (browse / capture /
+// writing-room / ask) and moving between them is as much a navigation as
+// moving between tabs, so Back should undo it.
+function recordTabVisit(name, section = null) {
   // A back/forward press is a move *through* history, not a new entry.
   if (tabHistory.navigating) return;
-  if (tabHistory.stack[tabHistory.index] === name) return; // re-clicking the current tab
+  const current = tabHistory.stack[tabHistory.index];
+  // Re-selecting exactly where you already are is not a step.
+  if (current && current.tab === name && current.section === section) return;
   tabHistory.stack = tabHistory.stack.slice(0, tabHistory.index + 1);
-  tabHistory.stack.push(name);
+  tabHistory.stack.push({ tab: name, section });
   if (tabHistory.stack.length > TAB_HISTORY_CAP) tabHistory.stack.shift();
   tabHistory.index = tabHistory.stack.length - 1;
   paintTabHistory();
@@ -14964,10 +14981,14 @@ function recordTabVisit(name) {
 function stepTabHistory(delta) {
   const next = tabHistory.index + delta;
   if (next < 0 || next >= tabHistory.stack.length) return;
+  const entry = tabHistory.stack[next];
   tabHistory.index = next;
   tabHistory.navigating = true;
   try {
-    switchTab(tabHistory.stack[next]);
+    switchTab(entry.tab);
+    // The sub-tab is restored after the tab, because showNotesSection acts on
+    // elements the tab switch has just revealed.
+    if (entry.section) showNotesSection(entry.section);
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
     // the flag on and silently stop recording every later visit.
@@ -15926,6 +15947,12 @@ function showNotesSection(name, { focus = false } = {}) {
   // loaded — a stale list is how "add to document" ends up offering nothing.
   if (name === "capture") loadCaptureDocuments();
   const wanted = NOTES_SECTIONS.includes(name) ? name : "browse";
+  // A sub-tab move is a navigation, so it becomes a history step too. Recorded
+  // against the Notes tab specifically because that is the tab these sections
+  // belong to — switchTab records its own entry when the *tab* changes, and
+  // recordTabVisit ignores a repeat of where you already are, so arriving at
+  // Notes and then landing on a section does not produce two entries.
+  recordTabVisit("notes", wanted);
   for (const id of NOTES_SECTIONS) {
     const card = document.getElementById(id);
     if (card) card.classList.toggle("hidden", id !== wanted);
@@ -25958,7 +25985,7 @@ $("status-forward").addEventListener("click", () => stepTabHistory(1));
 // Seed the stack with wherever the app opened, or the first tab clicked has
 // nothing behind it and Back stays dead until the second navigation — which
 // reads as the button being broken rather than empty.
-recordTabVisit(localStorage.getItem("activeTab") || "dashboard");
+recordTabVisit(localStorage.getItem("activeTab") || "dashboard", null);
 $("save-btn").addEventListener("click", saveEntry);
 $("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset

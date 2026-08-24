@@ -410,9 +410,9 @@ web reader with highlight capture.
    upgrade to the existing skills/personas: today a skill is a prompt, and the
    gap is attaching a *bounded* knowledge set to it. Local equivalent of
    sources: selected notes, documents, boards and tags — never creators.
-5. **The interview technique.** Kortex's "interview me, then help me apply
-   this" prompt pattern extracts the *user's* ideas instead of generating
-   generic text. Cheap: it is a skill, not a feature.
+~~5. **The interview technique.**~~ **Built** — "Interview me about an idea"
+   in `ai/skills.py`'s `BUILTIN_SKILLS`, using the existing `ask_user` tool
+   for a real back-and-forth mid-run rather than a one-shot prompt.
 6. **Reader-mode capture with citations preserved.** Partly built (the web
    reader); the missing half is that a highlight becomes its own first-class
    item with its source link intact.

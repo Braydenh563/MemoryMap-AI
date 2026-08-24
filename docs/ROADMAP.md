@@ -115,9 +115,18 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
     pasting what it says. Everything before that is guessing, and two sessions
     have already guessed.
 
-11. **Sorting and grouping saved chats** — conversations sort by recency and
-    nothing else. The data to sort by (model, token cost, timestamps) is
-    already stored per turn, so this is a list-rendering job.
+~~11. **Sorting and grouping saved chats** — conversations sort by recency and
+    nothing else.~~ **Built**: a sort `<select>` in the Chats sidebar (Recent
+    / Most turns / Most tokens / A–Z), persisted in localStorage, pinned
+    conversations always staying first regardless of mode (the existing
+    divider still marks that boundary). One correction to this item's own
+    premise: **model is not actually stored per turn** —
+    `routes_conversations.py`'s `_summary()` returns `tokens`/`turns`/
+    `updated_at`/`title` only, no model field exists on a message at all — so
+    "sort by model" was never available to build cheaply as claimed. The
+    three sorts that *were* real data are shipped; a model-based sort would
+    need a schema change first. Verified live: A–Z sort correctly orders
+    three test conversations, the choice survives a reload.
 
 12. **The Documents Library sub-tab needs a full visual redesign.** Reported
     directly and bluntly: "SOOOO ugly and not consistent with the other
@@ -214,6 +223,9 @@ same session is in §88.0 so nobody re-fixes it.
 | Skill Logs sidebar still not full height after the first fix | Same bug `.doc-sidebar` already hit once: `align-self: start` + `max-height` alone is a ceiling with no floor. Applied `.doc-sidebar`'s complete pattern (`align-self: stretch`, `height: 100%`, `max-height: var(--page-sticky-h)`, flex column, list scrolls not the card) instead of the partial version tried first |
 | Link-kind dialog ("How are these connected?") text unreadable in dark theme | `.link-kind-option` overrode `background` to transparent but not `color`, so it kept the global `button` rule's `color: var(--on-accent)` — `#0d1017` in dark theme, meant for text on that same rule's bright accent fill, not a transparent button. Added `color: var(--ink)` |
 | Back-to-top button "too much to the left" on Notes, displaced on Library | `positionScrollTopForNested` always pulled the button in from the panel's own edge, stacking a second margin on top of the page's own — Notes has no right-side element to clear at all. Now only pulls in when a real right-side panel (the Skill Logs sidebar) is actually present; otherwise matches every other tab's flat offset |
+| Graph toolbar still 3 rows after the first redesign pass | The two hard-split `.graph-toolbar-row`s merged into one flexible row (Options now wraps up rather than living on a pinned second row), and the search/Trace group moved out of the `display: contents` `#graph-toolbar-secondary` wrapper onto the header's own line beside "Graph" — a flex item inside that wrapper would not size to its own content no matter what was tried in CSS, confirmed by direct measurement, not assumption. Down to 2 rows |
+| Graph Options panel minimap combobox taller than the buttons beside it | `.graph-options button` got `height: var(--control-h)`; the `<select>` in the same panel never did. Both now measure identically (30.4px) |
+| Chat "New" button clashes with the sidebar collapse toggle specifically while collapsed-but-hover-expanded | `.sidebar-collapsed .sidebar-head` zeroes the toggle's reserved padding lane, correct at the true 48px-collapsed width — but the element keeps that class throughout the hover-peek state too, where the toggle visually moves back to its normal `right: 1.25rem`. Reserve restored for that specific hover state |
 | Graph node labels show raw callout syntax (`Review > [!tip] Remem…`) | `routes_graph.py`'s `_preview()` stripped a leading `#` heading marker but not a callout's `> [!kind]` opening line. Added `_CALLOUT_MD`, the callout equivalent of the existing `_HEADING_MD` strip |
 
 ### 88.1 Reported and still open — work this list top-down
@@ -229,17 +241,22 @@ same session is in §88.0 so nobody re-fixes it.
    `GET /models/status — signal timed out` in the same log, which suggests the
    status poll itself is timing out and the UI is reading that as "no AI".
    These may be one bug.
-2. **`Unhandled promise rejection: TypeError: Cannot read properties of null
-   (reading 'replace')`.** Not yet located — no line number was captured. Next
-   session should reproduce with the console open and get one; grep for
-   `.replace(` on values that can be null (`prefsCache` fields and
-   `doc.title` are the likely shapes).
+~~2. **`Unhandled promise rejection: TypeError: Cannot read properties of null
+   (reading 'replace')`.**~~ **Fixed** — see §88.0's row; it was
+   `recentSkills` carrying a poisoned `null` entry from before §88.0's
+   `startSkill` fix, read unguarded on every dashboard render.
 3. **The notebook constellation canvas keeps disappearing.** ARCHITECTURE §10
    already documents the general version of this bug (p5 measures a canvas as
    zero inside a hidden tab and must redraw on theme change). The widget was
    fixed once for theme changes; this is a *second* trigger. Check what else
    hides/reshows the dashboard.
-4. **The new-chat button disappeared from the Ask tab.**
+4. **The new-chat button disappeared from the Ask tab.** Traced, not fixed:
+   it only shows after a real (non-"hint") answer completes
+   (`show("retry-btn", ..., "new-chat-btn")` in `app.js`), and the show logic
+   itself is correct — no bug found in it. Most likely the same root cause as
+   item 1 above (a hint/unavailable response never reaches that line), which
+   this sandbox cannot confirm without a reachable model. If re-reported
+   *with* a working AI connection, that would rule this theory out.
 5. **The AI Skills sub-tab "is just very unfinished and nothing really
    works."** Confirmed in passing: its **Schedule** button is a literal
    placeholder (`toast("Scheduler functionality coming soon!")`). Needs its own
@@ -251,10 +268,15 @@ same session is in §88.0 so nobody re-fixes it.
 
 **Tier B — UI/UX, each concrete.**
 
-7. **Back/forward across the Library's own sub-tabs.** The Notes sub-tabs are
-   done (§88.0); the Library's `#library-subtabs` handler lives in
-   `whiteboard.js` and does not record history yet — same `{tab, section}`
-   shape.
+~~7. **Back/forward across the Library's own sub-tabs.**~~ **Built.** The
+   click handler (`whiteboard.js`) now calls the same `recordTabVisit("library",
+   targetId)` Notes' sub-tabs use; `stepTabHistory` (`app.js`) restores by
+   clicking the matching sub-tab button rather than duplicating its
+   section-show/whiteboard-landing/gallery-render logic. A bare `{tab:
+   "library"}` entry (recorded when the tab itself opens, before any sub-tab
+   click) falls back to "All" rather than leaving a stale sub-view on screen.
+   Verified live: Whiteboards → back → Documents → back → All → forward →
+   Documents, in order.
 8. **The Documents Library sub-tab needs a visual redesign.** Its search-box
    height is fixed (§88.0); the *look* of the list is still the plain one this
    session shipped — cards, metadata layout and empty state all unstyled
@@ -704,8 +726,11 @@ from the file that documents it.
    force/render tuning pass (HISTORY §71) that fixed two concrete re-render
    bugs, so the cheap wins may already be taken — start by measuring frame
    cost during a pan and during a drag, separately.
-2. **The saved-view select truncates to "No saved vi…"** in the redesigned
-   toolbar. Cosmetic, one width rule.
+~~2. **The saved-view select truncates to "No saved vi…"** in the redesigned
+   toolbar.~~ **Already fixed** — `.graph-toolbar #graph-view-picker`
+   already carries `min-width: 12.5rem` with a comment recording this exact
+   symptom. Verified live: `scrollWidth` (198px) fits inside the rendered
+   width (200px), "No saved views" shows in full.
 ~~3. **Graph node labels show raw callout syntax**~~ **Fixed** — see the
    live list's item 13 above.
 4. **Semantic search ignores time words.** Reported: typing "recents" did not

@@ -1,6 +1,89 @@
 # Session handover
 
-## Latest session — the recentSkills null crash, and a live-report batch
+## Latest session (continued) — a second live-report batch, and two stale roadmap entries corrected
+
+Same session, continuing after the handover section below. Four more direct
+reports, each fixed and verified live; two ROADMAP.md items turned out to be
+already fixed by an earlier session and were only ever caught by checking —
+exactly the trap CLAUDE.md names.
+
+### Fixed and verified live
+
+- **Graph toolbar still 3 rows after the redesign pass in the section
+  below.** Two things stacked: the two hard-split `.graph-toolbar-row`s
+  merged into one flexible row (so Options wraps up onto whichever line has
+  room instead of being pinned to a permanent second row), and the
+  search/Trace group moved out of `#graph-toolbar-secondary` (which uses
+  `display: contents` for its mobile-collapse behaviour) onto the header's
+  own line beside "Graph". **Worth recording the dead end**: a flex item
+  inside a `display: contents` wrapper would not size to its own content no
+  matter what was tried in CSS on it directly — explicit `width`, `flex-basis`,
+  even `!important` on a freshly-injected stylesheet, measured with a live
+  page each time, all produced the exact same (wrong) pixel width. Moving the
+  group to be a genuine direct child of `.graph-toolbar` fixed it outright;
+  the CSS-only approach was a real dead end, not a config the CSS could have
+  been talked into given more time. Now 2 rows, verified with a screenshot.
+- **Graph Options panel's minimap combobox stood taller than its buttons.**
+  `.graph-options button` had `height: var(--control-h)`; the `<select>` in
+  the same panel never did, so it kept the browser default. Both now measure
+  30.4px exactly.
+- **Chat "New" button clashes with the sidebar collapse toggle while
+  collapsed-but-hover-expanded** (not the always-expanded state §88.0 already
+  fixed). `.sidebar-collapsed .sidebar-head` zeroes the toggle's reserved
+  padding lane — correct at the genuine 48px-collapsed width, but the element
+  keeps that class throughout the hover-peek state too, where the toggle
+  visually returns to its normal `right: 1.25rem`. Restored the reserve for
+  that specific hover selector. Verified: button rects no longer overlap
+  (6px gap).
+- **Sorting saved chats** (live-list item 11) — a sort `<select>` in the Chats
+  sidebar (Recent/Most turns/Most tokens/A–Z), persisted, pinned conversations
+  always first. **The item's own premise was partly wrong**: it claimed model
+  is already stored per turn; `routes_conversations.py`'s `_summary()` has no
+  model field at all, so that sort was never buildable this cheaply. Said so
+  in ROADMAP.md rather than silently dropping it.
+- **Back/forward across the Library's own sub-tabs** (§88.1 item 7, already
+  scoped and located in an earlier session) — the click handler
+  (`whiteboard.js`) now calls the same `recordTabVisit` Notes' sub-tabs use;
+  `stepTabHistory` restores by clicking the matching sub-tab button rather
+  than duplicating its section-show/whiteboard-landing/gallery-render logic.
+  One edge case found and fixed while verifying live, not in the original
+  scoping: the bare `{tab: "library"}` entry recorded when the tab itself
+  opens (before any sub-tab click) has no `section`, and restoring it did
+  nothing — left whatever sub-view was already on screen. Falls back to "All"
+  now. Verified: Whiteboards → back → Documents → back → All → forward →
+  Documents, in order.
+
+### One genuinely stale ROADMAP.md item corrected; one false alarm caught in time
+
+- **The saved-view select truncation** (§87.7c item 2, "No saved vi…") really
+  was stale: `min-width: 12.5rem` already exists on `#graph-view-picker` with
+  a comment naming this exact symptom, but the roadmap still listed it open.
+  Verified live (full text renders, no truncation) and marked fixed.
+- **Graph node labels showing raw callout syntax** — checked and found
+  already fixed, but **this was not an earlier session's work to rediscover
+  — it was built earlier in *this same* session**, in the commit before the
+  one below (`5f35c55`, before a context reset). ROADMAP.md already correctly
+  marked it `~~Fixed~~`. Worth recording the near-miss rather than quietly
+  correcting it: a context reset had made that commit invisible to me, and
+  for a few minutes I was about to re-verify-and-narrate it as "an earlier
+  session's fix" before `git log` caught the real authorship. The lesson
+  isn't "check ROADMAP.md" (it was already right) — it's **check `git log`
+  before writing session history**, the same way this file already says to
+  check ROADMAP.md before writing feature history.
+
+### Investigated, not fixed, said so plainly
+
+- **"The New chat button disappeared from the Ask tab."** Traced the button's
+  own show/hide logic (`app.js`) — it is correct: `show(...)` fires only
+  after a real (non-"hint") answer completes. No bug found in that code
+  itself. Most likely surfacing the same root cause as the already-tracked
+  "Ask tab says AI unavailable" report (item 1) — if the chat never reaches a
+  real answer, this button legitimately never shows. Cannot confirm without a
+  reachable model, which this sandbox does not have.
+
+---
+
+## Previous session — the recentSkills null crash, and a live-report batch
 
 Started from ROADMAP.md §88.1's queue and the live-reported `null.replace`
 crash (item 2). Reproduced everything below in this sandbox's Chromium

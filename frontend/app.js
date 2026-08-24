@@ -9937,11 +9937,30 @@ function relativeTime(iso) {
 //: fitting beside a conversation.
 const RECENT_CHATS_SHOWN = 8;
 
+const CHAT_SIDEBAR_SORT_KEY = "chatSidebarSort";
+
+// Pinned notes stay first regardless of sort — that promise (a divider marks
+// the boundary, just below) predates this control and a sort choice
+// shouldn't silently break it. Only the order *within* each of the two
+// groups changes.
+function sortConversations(conversations, mode) {
+  const pinned = conversations.filter((c) => c.pinned);
+  const rest = conversations.filter((c) => !c.pinned);
+  const byMode = {
+    recent: (a, b) => new Date(b.updated_at) - new Date(a.updated_at),
+    turns: (a, b) => (b.turns || 0) - (a.turns || 0),
+    tokens: (a, b) => (b.tokens || 0) - (a.tokens || 0),
+    alpha: (a, b) => a.title.localeCompare(b.title),
+  }[mode] || null;
+  if (!byMode) return conversations; // "recent" is already the server's own order
+  return [...pinned.sort(byMode), ...rest.sort(byMode)];
+}
+
 async function loadConversationList() {
-  const conversations = (await apiJson("/conversations").catch(() => [])).slice(
-    0,
-    RECENT_CHATS_SHOWN
-  );
+  const conversations = sortConversations(
+    await apiJson("/conversations").catch(() => []),
+    $("chat-sidebar-sort")?.value || "recent"
+  ).slice(0, RECENT_CHATS_SHOWN);
   const list = $("conversation-list");
   list.replaceChildren();
   const empty = $("conv-empty");
@@ -15039,9 +15058,27 @@ function stepTabHistory(delta) {
   tabHistory.navigating = true;
   try {
     switchTab(entry.tab);
-    // The sub-tab is restored after the tab, because showNotesSection acts on
-    // elements the tab switch has just revealed.
-    if (entry.section) showNotesSection(entry.section);
+    // The sub-tab is restored after the tab, because both restore paths below
+    // act on elements the tab switch has just revealed.
+    if (entry.tab === "notes" && entry.section) {
+      showNotesSection(entry.section);
+    } else if (entry.tab === "library") {
+      // Reuses the real click handler (whiteboard.js) rather than
+      // duplicating its section-show/whiteboard-landing/gallery-render
+      // logic here — a second copy is exactly the shape this codebase keeps
+      // getting bitten by. `tabHistory.navigating` (set above) makes the
+      // handler's own `recordTabVisit` call a no-op, the same guard
+      // `showNotesSection`'s call already relies on above. A bare `{tab:
+      // "library"}` entry (recorded the moment the tab itself was opened,
+      // before any sub-tab click) has no `section` — falls back to "All"
+      // (`library-view-documents`, the sub-tab that kept its old id) rather
+      // than leaving whatever sub-view happened to be on screen already.
+      document
+        .querySelector(
+          `#library-subtabs button[data-target="${entry.section || "library-view-documents"}"]`
+        )
+        ?.click();
+    }
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
     // the flag on and silently stop recording every later visit.
@@ -24806,6 +24843,14 @@ $("chat-dock-more-panel").addEventListener("keydown", (event) => {
 });
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
+{
+  const sortSelect = $("chat-sidebar-sort");
+  sortSelect.value = localStorage.getItem(CHAT_SIDEBAR_SORT_KEY) || "recent";
+  sortSelect.addEventListener("change", () => {
+    localStorage.setItem(CHAT_SIDEBAR_SORT_KEY, sortSelect.value);
+    loadConversationList();
+  });
+}
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
 // Searching your chats lives in the Library now (§36F) — with the documents,
 // the files and the bin, and with sort beside it. This is the way there, said

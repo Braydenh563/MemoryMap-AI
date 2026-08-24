@@ -1954,10 +1954,15 @@
   margin-right: 0.25rem;
 }
 
-/* Two deliberate rows, not one run that happens to wrap. Reported twice as
-   "ugly and poorly aligned": with a single wrapping flex row the break lands
-   wherever the width runs out, which cut mid-group and left a half-empty
-   second line. Row one is reading the map, row two is acting on it. */
+/* Was `width: 100%`, which forced this row to claim the whole line every
+   time — the highlight/trace group now lives beside "Graph" directly in
+   index.html instead (see its own comment there) precisely because a flex
+   item inside the `display: contents` `#graph-toolbar-secondary` wrapper
+   would not size to content no matter what was tried here (explicit widths,
+   flex-basis, even `!important` — measured with a live page, not assumed).
+   This still merges what used to be two hard-split rows into one, which
+   remains a real win: Options now wraps up onto whichever line has room
+   instead of being pinned to a permanent second row. */
 .graph-toolbar-row {
   display: flex;
   align-items: center;
@@ -2170,7 +2175,12 @@ p.graph-help-panel {
   -webkit-backdrop-filter: none;
 }
 
-.graph-options button {
+/* Reported: the minimap combobox stood taller than every button beside it —
+   the same DESIGN.md control-strip failure this file already names for the
+   graph search box. `.graph-options button` got --control-h; a <select> in
+   the same panel never did, so it kept the browser's own default height. */
+.graph-options button,
+.graph-options select {
   height: var(--control-h);
   margin: 0;
   padding-block: 0;

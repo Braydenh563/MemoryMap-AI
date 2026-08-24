@@ -745,6 +745,19 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="chat-new" class="small" type="button" title="Start a fresh conversation"
             aria-label="Start a fresh conversation"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
         </div>
+        <!-- Live list item 11: "conversations sort by recency and nothing
+             else... this is a list-rendering job" — the full sort/search
+             Library already has (title="Search and sort everything you
+             have ever asked", below) is one click further than this
+             sidebar, so a quick in-place choice here is worth its own small
+             control rather than sending every sort change through there. -->
+        <select id="chat-sidebar-sort" class="ghost small chat-sidebar-sort"
+          aria-label="Sort your saved chats" title="Sort your saved chats">
+          <option value="recent">Recent</option>
+          <option value="turns">Most turns</option>
+          <option value="tokens">Most tokens</option>
+          <option value="alpha">A–Z</option>
+        </select>
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
@@ -1206,15 +1219,33 @@ Link to another note with [[its first few words]]."></textarea>
            remembers whether it was open. Nothing was removed. -->
       <div class="graph-toolbar">
         <h2>Graph</h2>
+        <!-- Moved out of #graph-toolbar-secondary and onto the header's own
+             line, so the header row actually carries some of the toolbar
+             instead of just the title and the two end buttons — asked for
+             directly: "have some on the top row so the dock isn't taking up
+             three rows". `#graph-toolbar-secondary` uses `display: contents`
+             (for the mobile collapse below), and a flex item inside a
+             `display: contents` wrapper would not size to its own content no
+             matter what was tried in CSS — a real child of `.graph-toolbar`
+             does, with no such fight. -->
+        <div class="graph-toolbar-group graph-toolbar-group-header">
+          <input id="graph-search" type="search" placeholder="Highlight notes…"
+            aria-label="Highlight matching notes in the graph">
+          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
+            aria-controls="graph-trace"
+            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+        </div>
         <button id="graph-mobile-more-toggle" class="ghost small icon-only mobile-only" aria-expanded="false" aria-controls="graph-toolbar-secondary" title="More options" aria-label="More options"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
 
         <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
-          <!-- Row one: the controls you reach for while reading the map —
-               finding something, and changing its shape. Row two (below) is
-               everything you do *to* the map: panels, saved views, output.
-               Two explicit rows, because the strip has more controls than fit
-               on one at any realistic width and an accidental wrap put an
-               arbitrary cut in the middle of a group. Reported twice. -->
+          <!-- One flexible row, not two forced ones. It used to be a hard
+               split (reading-the-map controls above, acting-on-it controls
+               below) regardless of whether that much actually fit on one
+               line. flex-wrap now decides the break from real available
+               width, so a wide window gets one continuous row and only a
+               narrow one wraps — and only where a group actually runs out of
+               room, never mid-group, because .graph-toolbar-group itself
+               never splits. -->
           <div class="graph-toolbar-row">
           <!-- The strip is grouped rather than being one flat run of a dozen
                controls. Reported directly ("the docked ui at the top of the
@@ -1222,16 +1253,9 @@ Link to another note with [[its first few words]]."></textarea>
                screenshot that came with it: everything carried the same
                weight, so nothing read as related to anything else and the
                second row was mostly empty space. The groups below are the
-               actual categories — find, shape, panels, saved views, export —
-               and .graph-toolbar-group draws one separator between each. -->
-          <div class="graph-toolbar-group">
-            <input id="graph-search" type="search" placeholder="Highlight notes…"
-              aria-label="Highlight matching notes in the graph">
-            <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-              aria-controls="graph-trace"
-              title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-          </div>
-
+               actual categories — shape, panels, saved views, export — and
+               .graph-toolbar-group draws one separator between each. Find
+               (search/Trace) moved up to the header row, above. -->
           <div class="graph-toolbar-group">
             <label class="muted" for="graph-layout">Layout</label>
             <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
@@ -1256,9 +1280,6 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
           </div>
 
-          </div>
-
-          <div class="graph-toolbar-row">
           <div class="graph-toolbar-group">
             <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
               aria-controls="graph-options"

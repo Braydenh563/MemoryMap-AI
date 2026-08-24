@@ -5596,6 +5596,11 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.setAttribute("aria-selected", "true");
 
         const targetId = btn.getAttribute("data-target");
+        // Same {tab, section} shape showNotesSection already records —
+        // ROADMAP.md §88.1 item 7 / live-list item 13: Library's own
+        // sub-tabs were the one gap in "back/forward handles sub-tabs too"
+        // that was already scoped and located, not newly discovered here.
+        if (typeof recordTabVisit === "function") recordTabVisit("library", targetId);
         sections.forEach(id => {
           const el = document.getElementById(id);
           if (el) {

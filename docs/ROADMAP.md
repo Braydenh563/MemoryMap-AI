@@ -318,8 +318,18 @@ same session is in §88.0 so nobody re-fixes it.
 10. **The graph dock may get too tall and squish the graph.** Now three
     deliberate rows; if it grows again, the answer is an overflow menu rather
     than a fourth row.
-12. **The minimap needs a visual and usability upgrade** (its corner is now a
-    user setting, but the map itself is unchanged).
+12. **The minimap needs a visual and usability upgrade.** Checked before
+    touching it — it already has more than the vague ask implies: dots are
+    coloured by category (`node.colour`, matching the main graph), clicking
+    it re-centres the main view there (`initGraphMinimap`'s `jump`
+    handler), and the viewport frame is clamped to the box with a comment
+    recording the specific "201×39 inside a 168×112 box" edge case that fix
+    covers. What looked plain in a screenshot this session was the test
+    data (every note "Uncategorised", so every dot is one colour), not a
+    gap in the mechanism. Left alone rather than making speculative
+    cosmetic changes with no concrete complaint to act on — "say what
+    specifically, next time it's reported" is this file's own rule for
+    exactly this shape of ask.
 ~~13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).~~
     **Fixed** — `routes_graph.py`'s `_preview()` now strips a callout's
     opening line the same way it already strips a `#` heading.

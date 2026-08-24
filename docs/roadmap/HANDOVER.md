@@ -1,5 +1,138 @@
 # Session handover
 
+## Latest session (continued) — Phases C and D, and a long live-report tail
+
+The same session continued well past the editor layer. **Start at
+[ROADMAP.md §88](../ROADMAP.md)** — it is the ordered work queue, and §88.0
+lists what was already fixed so nothing gets re-fixed.
+
+### Built after the editor layer
+
+- **Typed links (Phase D).** `EntryLink.link_type`, a nullable additive column
+  over a closed six-word vocabulary, plus a drag-to-link dialog in the graph
+  offering the kind, a reason, and **cancel** (nothing is written until
+  "Create link"). **Verified against a real pre-existing database** — the
+  auto-migrator added the column and existing rows kept null, which is the only
+  thing that could have gone wrong. The vocabulary is duplicated between
+  `core/database.py` and `graph.js` by necessity, so `tests/test_link_types.py`
+  fails the build if the two drift.
+- **The whiteboard render scheduler (Phase C).** `renderWhiteboard()` — a full
+  d3 join over every item — was called from **48 sites**, and one user action
+  touches several. All now coalesce into one `requestAnimationFrame`. Checked
+  every site first: none reads the DOM immediately after rendering, which is
+  what made batching safe. `renderWhiteboardNow()` is kept for anything that
+  ever does.
+- **Six live-reported bugs**, each traced to a cause rather than patched — see
+  §88.0 for the table. The two worth remembering:
+  - **"Run Skill is broken"** and the `app.js:10495` console error were **one
+    line with two bugs**: a name string passed where an object was expected,
+    and a missing argument that made `Object.values(undefined)` throw.
+  - **The hanging circles** were a layer split the cleanup never caught up
+    with: handles are appended to the overlay layer, both existing clears only
+    swept the base layer, and every render appended another group.
+
+### The shape worth carrying forward
+
+Three of this session's bugs were the same shape: **a fix applied to one
+place while a second place was added later** — one flash call site without the
+cleanup its two siblings had, one handle layer the sweep never learned about,
+one scroll listener that could not tell its own menu from the page. When
+something is done in more than one place here, the question to ask is which
+copy was added last.
+
+### What could not be verified
+
+- **No real model is reachable in this sandbox.** The Ask-tab "AI isn't
+  available" report and the `/models/status` timeout are therefore
+  **undiagnosed**, not fixed — §88.1 item 1 says to check which model slot
+  `routes_chat` reads, and notes the two reports may be one bug.
+- **The whiteboard scheduler was not measured against a large board.** The
+  reasoning is sound and the call-site audit was real, but "48 renders became
+  1 per frame" is an argument, not a measurement. Say so if it is re-reported.
+- **The graph being slow** is still not diagnosed, deliberately. §88.1 item 6.
+
+---
+
+## Latest session — the editor layer (a "/" menu, callouts, links that reach), then a long tail of live-reported UI work
+
+Two halves. The first was a planned build; the second was a stream of reports
+arriving while it landed, each fixed and verified before moving on.
+
+### Read this first: five of fifteen asks were already built
+
+Fifteen feature asks arrived at once. **Audit before scoping** caught that
+five were already built or half-built — `Entry.parent_id` already implements
+"thought continuation" and is commented as such; the suggest-links button with
+editable reasons and confidence already exists in the Graph tab; gravity and
+spread sliders already exist; saved graph views already exist; document→notes
+extraction already exists. `ROADMAP.md` §87.1 is the table, with file:line for
+each. **That table is the deliverable most worth keeping** — it is what stops
+a sixth session rebuilding them.
+
+### Built and verified in a browser
+
+- **`frontend/editor.js`** (new file, not more of `app.js`): a `/` command
+  menu in both the capture box and the document editor, caret-anchored,
+  four command groups, one delegated listener per event.
+- **Callouts** (`> [!kind] Title`, eight kinds), **transclusion** (`![[note]]`,
+  notes only), **heading anchors**, **one wiki resolver** replacing the
+  note-only and document-only pair, and **create-on-miss**.
+- **Backlinks** ("Linked from") in the document sidebar.
+- **Graph toolbar redesign**, twice — the second pass after it was re-reported
+  with a screenshot. Now three deliberate lines instead of accidental wrapping,
+  every control 32px, no truncated selects, help button pinned to the corner.
+- **Minimap corner is a user setting** (default top-left) after measuring that
+  the old hard-coded bottom-right sat exactly on top of the zoom buttons.
+- **Back/forward page navigation** in the status bar, distinct from undo/redo.
+- **Library restructure**: sub-tabs are now All · Documents · Whiteboards ·
+  Image Gallery · AI Skills; Drafts became a filter chip with its own backend
+  collector; the top-level Documents tab was reverted (see §87.7d for why the
+  reversal is right).
+- **40 form controls given accessible names**, mostly whiteboard ones.
+- **Two real bugs**: a settings highlight that never cleared, and the CI
+  time-bomb in `test_a_searxng_start_is_a_visible_task`.
+
+### The three findings worth carrying forward
+
+1. **The whiteboard's jank has one findable cause.** `renderWhiteboard()` is a
+   full d3 data-join over every item, called from **49 sites**, with no dirty
+   flag, no rAF batching, and drag handlers re-allocated inside the render.
+   Not built — it is the largest remaining owned item.
+2. **A stuck highlight was invisible except under `prefers-reduced-motion`.**
+   Three call sites add a `flash` class; two clear it on a timer, one never
+   did. The animation ends on `transparent`, so on an ordinary machine it
+   faded and the stuck class showed nothing — but the reduced-motion branch
+   deliberately swaps the animation for a *static* outline, making it
+   permanent. Same shape as the `APPEARANCE_DEFAULTS` bug: **wrong where it is
+   used, not where it is set.**
+3. **Notes do not go through `renderMarkdown`.** They go through
+   `renderNoteText`, an inline pass that keeps search-term highlighting. The
+   first live check found callouts and embeds rendering perfectly in a document
+   and **not at all in a note** — half the feature missing in the surface used
+   most. Fixed by extracting the block builders and giving `renderNoteText` a
+   block pass. Reading the source would not have caught it.
+
+### What could not be verified
+
+- **No real model is reachable in this sandbox**, so the `/` menu's AI
+  commands were driven only as far as the network call.
+- **The graph being "slow and janky"** was reported and is **not diagnosed** —
+  deliberately not guessed at. §87.7c item 1 says to profile a pan and a drag
+  separately before theorising, because the whiteboard's equivalent turned out
+  to have one specific cause and HISTORY §71 already took the cheap wins.
+- **"Can no longer hide/show the minimap"** — the dropdown's Off option is
+  verified working here, so this is either a stale service-worker bundle or a
+  discoverability problem. §87.7c item 5 says what to do if it recurs after a
+  hard refresh.
+
+### Where to start
+
+`ROADMAP.md` §87.7c — four items reported live and not yet built, graph
+performance first. Then §87.8 (the whiteboard scheduler and typed links), then
+§87.9's located handoff list.
+
+---
+
 ## Latest session — the §85.4 list built, three stale claims retracted, and a full docs clear-out
 
 Two asks, done in that order deliberately: **build the rest of the hand-off

@@ -1170,8 +1170,15 @@ function entryItem(entry, options = {}) {
   // however much it was edited before saving) — asked for directly: both
   // should be findable as drafts, not just marked in passing. The note stays
   // in its normal place in the list either way; the sidebar/Library Drafts
-  // filter (renderSidebar, library-view-drafts) is what makes them findable
-  // as a group. Click the chip to clear the label once it's not needed.
+  // filter (renderSidebar, and the Library's Drafts chip — the old
+  // `library-view-drafts` sub-tab it used to name is gone) is what makes them
+  // findable as a group.
+  //
+  // **The chip is also how a draft becomes a real note**, and saying so is the
+  // fix: it was labelled "draft" with the tooltip "click to clear the label",
+  // which describes the mechanism and not the outcome — reported as "there is
+  // no way to edit and finalise drafts, or to publish one as a proper note",
+  // when publishing was one click away the whole time and simply unlabelled.
   if (entry.is_draft) {
     const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
       event.stopPropagation();
@@ -1186,7 +1193,8 @@ function entryItem(entry, options = {}) {
         toast(error.message || "Couldn't update that note.", true);
       }
     });
-    draftChip.title = "Marked as a draft — click to clear the label";
+    draftChip.title =
+      "This is a draft — click to publish it as a proper note. It stays where it is either way; only the Drafts filter changes.";
     meta.insertBefore(draftChip, meta.firstChild);
   }
   li.appendChild(meta);
@@ -2813,7 +2821,7 @@ function clampSelectionMenu(menu) {
   if (rect.left < margin) menu.classList.add("menu-flip-left");
 }
 
-function showSelectionPopupAt(rect, text, source) {
+function showSelectionPopupAt(rect, text, source, point) {
   const box = selectionPopup();
   selectionPopupText = text;
   selectionPopupSource = source;
@@ -2844,12 +2852,27 @@ function showSelectionPopupAt(rect, text, source) {
   // Note the bound order: `max(margin, min(wanted, limit))`. Written the other
   // way round (`min(max(...), limit)`) a box wider than the viewport produces
   // a limit below the floor, `min` wins, and the popup lands off-screen left.
+  // Anchored to the selection's top-right corner, just clear of the last
+  // character. Asked for directly ("appear to the top right of the selection
+  // while still remaining within the screen/window"), and it is the better
+  // anchor than the centre this used to use: centred, the kebab drifts as the
+  // selection grows, so it is never in the same place twice and it sits over
+  // the middle of what you just highlighted. The right-hand end is where the
+  // cursor already is when a left-to-right drag finishes.
+  //
+  // Both clamps keep the bound order `max(margin, min(wanted, limit))` — see
+  // the note below on why the other way round puts it off-screen.
+  // The cursor when we have one, the selection's right-hand end when we do
+  // not (keyboard selections, and any caller without a pointer event).
+  const anchorX = point ? point.x : rect.right;
+  const anchorY = point ? point.y : rect.top;
   const left = Math.max(
     margin,
-    Math.min(rect.left + rect.width / 2 - boxRect.width / 2, window.innerWidth - boxRect.width - margin)
+    Math.min(anchorX + 4, window.innerWidth - boxRect.width - margin)
   );
-  let wantedTop = rect.top - boxRect.height - margin;
-  if (wantedTop < margin) wantedTop = rect.bottom + margin; // no room above — go below
+  let wantedTop = anchorY - boxRect.height - margin;
+  // No room above the anchor — drop below it instead.
+  if (wantedTop < margin) wantedTop = (point ? point.y : rect.bottom) + margin;
   const top = Math.max(
     margin,
     Math.min(wantedTop, window.innerHeight - boxRect.height - margin)
@@ -2875,6 +2898,19 @@ function selectionIsActionable(selection) {
   return true;
 }
 
+// Where the pointer was when the selection finished, or null.
+//
+// Asked for directly: the kebab should appear off the top-right of the
+// *cursor*, not of the highlighted text. Those differ a lot on a multi-line
+// selection — the range's corner can be half a screen from where the user
+// actually let go, which is the one place they are already looking.
+//
+// Only a pointer can answer this: a keyboard selection (Shift+Arrow) and a
+// touch long-press dispatch `selectionchange` with no coordinates at all, so
+// those keep the range-rectangle anchoring. Cleared on keydown so a mouse
+// selection followed by Shift+Arrow does not keep using a stale point.
+let selectionPointerPoint = null;
+
 function syncSelectionPopup() {
   const selection = window.getSelection();
   const text = (selection?.toString() || "").trim();
@@ -2887,7 +2923,8 @@ function syncSelectionPopup() {
   showSelectionPopupAt(
     selection.getRangeAt(0).getBoundingClientRect(),
     text,
-    selectionSource(selection.anchorNode)
+    selectionSource(selection.anchorNode),
+    selectionPointerPoint
   );
 }
 
@@ -2904,7 +2941,20 @@ function initSelectionPopup() {
   // still feels instant rather than delayed by the debounce.
   document.addEventListener("mouseup", (event) => {
     if (event.target.closest(".selection-popup")) return;
+    selectionPointerPoint = { x: event.clientX, y: event.clientY };
     syncSelectionPopup();
+  });
+  // Touch releases carry coordinates too, on the changedTouches list rather
+  // than the event itself — a long-press drag should anchor to the finger for
+  // the same reason a mouse selection anchors to the cursor.
+  document.addEventListener("touchend", (event) => {
+    const touch = event.changedTouches && event.changedTouches[0];
+    if (touch) selectionPointerPoint = { x: touch.clientX, y: touch.clientY };
+  });
+  // A keyboard selection has no pointer, so fall back to the range rectangle
+  // rather than anchoring to wherever the mouse happened to be last.
+  document.addEventListener("keydown", (event) => {
+    if (event.shiftKey || event.key === "Escape") selectionPointerPoint = null;
   });
 
   let selectionSettleTimer;
@@ -3564,8 +3614,89 @@ function bodyWithoutTitleLine(content) {
   return lines.join("\n");
 }
 
+// The note a [[wiki link]] names, or null.
+//
+// One resolver, because there were two: renderNoteText matched notes by the
+// opening words and layerDocWikiLinks matched documents by exact title, so the
+// same [[name]] meant different things depending on which pane rendered it.
+// Notes are matched first and by prefix (that is what applyWikiSuggestion
+// inserts — a note's opening words); documents fall back to an exact,
+// case-insensitive title. Private notes are never a target: they cannot be
+// linked, and resolving to one would leak that it exists.
+function resolveWikiTarget(name) {
+  const needle = String(name || "").trim().toLowerCase();
+  if (!needle) return null;
+  const entries = typeof allEntries !== "undefined" ? allEntries : [];
+  const note = entries.find(
+    (e) => !e.is_private && (e.content || "").toLowerCase().startsWith(needle)
+  );
+  if (note) return { kind: "note", entry: note };
+  const documents = typeof editorDocumentCache !== "undefined" ? editorDocumentCache : null;
+  const doc = (documents || []).find(
+    (d) => (d.title || "").trim().toLowerCase() === needle
+  );
+  if (doc) return { kind: "document", doc };
+  return null;
+}
+
+// A note card's text: block constructs first, then the inline pass.
+//
+// Notes deliberately do not go through renderMarkdown — this pass keeps
+// search-term highlighting, which that renderer has no concept of. So the two
+// block constructs the "/" menu can insert are handled here explicitly and
+// everything else falls through to exactly the inline rendering this function
+// always did. When a note contains neither, the DOM produced is identical to
+// before, which is why the fall-through appends to `element` directly rather
+// than wrapping runs in a container.
 function renderNoteText(element, text, terms) {
   element.replaceChildren();
+  const lines = String(text ?? "").replace(/\r\n/g, "\n").split("\n");
+  let buffer = [];
+  const flush = () => {
+    if (!buffer.length) return;
+    renderNoteInline(element, buffer.join("\n"), terms);
+    buffer = [];
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    const embedded = line.match(/^\s*!\[\[([^[\]]{1,120})\]\]\s*$/);
+    if (embedded) {
+      flush();
+      element.appendChild(mdEmbedElement(embedded[1].trim(), 0));
+      i++;
+      continue;
+    }
+
+    if (/^\s*>\s?/.test(line)) {
+      const quoted = [];
+      let j = i;
+      while (j < lines.length && /^\s*>\s?/.test(lines[j])) {
+        quoted.push(lines[j].replace(/^\s*>\s?/, ""));
+        j++;
+      }
+      const box = mdCalloutElement(quoted, 0);
+      if (box) {
+        flush();
+        element.appendChild(box);
+        i = j;
+        continue;
+      }
+      // An ordinary blockquote, not a callout: leave it to the inline pass
+      // exactly as it was written, rather than eating the "> " markers.
+    }
+
+    buffer.push(line);
+    i++;
+  }
+  flush();
+}
+
+// The inline half: [[wiki links]], emphasis, and search-term highlighting.
+// Appends to `parent`; does not clear it.
+function renderNoteInline(element, text, terms) {
   const pattern = /\[\[([^[\]]{1,120})\]\]/g;
   let cursor = 0;
   let match;
@@ -3583,11 +3714,14 @@ function renderNoteText(element, text, terms) {
     link.title = `Go to the note starting "${name}"`;
     link.addEventListener("click", (event) => {
       event.stopPropagation();
-      const target = allEntries.find((e) =>
-        (e.content || "").toLowerCase().startsWith(name.toLowerCase())
-      );
-      if (target) flashEntry(target.id);
-      else toast(`No note starts with "${name}" yet.`, true);
+      const target = resolveWikiTarget(name);
+      if (target && target.kind === "note") flashEntry(target.entry.id);
+      else if (target && target.kind === "document") openDocument(target.doc.id);
+      // Nothing by that name yet — offer to make it rather than dead-ending.
+      // A link you typed on purpose is the clearest possible statement that
+      // the thing should exist; making the user go and create it by hand, then
+      // come back, is the friction this removes.
+      else offerToCreateWikiTarget(name);
     });
     element.appendChild(link);
     cursor = pattern.lastIndex;
@@ -7419,11 +7553,64 @@ async function openDocument(id) {
   renderDocStats();
   renderDocOutline();
   renderDocNotes();
+  renderDocBacklinks();
   renderDocList();
 }
 
 // The notes this document draws on. Shown beside the outline because both
 // answer the same question — what is this document made of.
+// Which notes point at the open document with a [[wiki link]].
+//
+// The reverse direction of resolveWikiTarget, and deliberately computed from
+// `allEntries` on the client rather than added as an endpoint: the notes are
+// already loaded, the match is the same title comparison the resolver does, and
+// a round trip to learn something the browser already knows is a round trip
+// that will be slow exactly when the notebook is large.
+//
+// Note this is a *different* relationship from renderDocNotes above, which
+// lists notes explicitly attached to the document. A note can mention a
+// document without being filed under it, and that is the interesting case.
+function renderDocBacklinks() {
+  const wrap = $("doc-backlinks-wrap");
+  const list = $("doc-backlinks");
+  if (!wrap || !list) return;
+  const title = (currentDoc?.title || "").trim().toLowerCase();
+  const attached = new Set(((currentDoc && currentDoc.notes) || []).map((n) => n.id));
+
+  const linking = !title
+    ? []
+    : (typeof allEntries !== "undefined" ? allEntries : []).filter((entry) => {
+        if (entry.is_private) return false;
+        // Already shown under "Notes it draws on" — listing it twice says
+        // there are two connections when there is one.
+        if (attached.has(entry.id)) return false;
+        const pattern = /\[\[([^[\]]{1,120})\]\]/g;
+        let match;
+        while ((match = pattern.exec(entry.content || "")) !== null) {
+          if (match[1].trim().toLowerCase() === title) return true;
+        }
+        return false;
+      });
+
+  wrap.classList.toggle("hidden", !linking.length);
+  list.replaceChildren();
+  for (const entry of linking) {
+    const item = document.createElement("li");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "outline-link";
+    open.textContent = noteLabel(entry, 60);
+    open.title = "Show this note";
+    open.addEventListener("click", () => {
+      switchTab("notes");
+      showNotesSection("browse"); // focusing inside a hidden section does nothing
+      flashEntry(entry.id);
+    });
+    item.appendChild(open);
+    list.appendChild(item);
+  }
+}
+
 function renderDocNotes() {
   const wrap = $("doc-notes-wrap");
   const list = $("doc-notes");
@@ -7452,6 +7639,10 @@ function renderDocNotes() {
         { method: "DELETE" }
       );
       renderDocNotes();
+      // Detaching can move a note *into* the backlinks list: it may still
+      // mention this document by [[title]], and that connection only becomes
+      // visible once it is no longer filed under it.
+      renderDocBacklinks();
       // The note keeps existing — only the connection went.
       loadEntries();
     });
@@ -14296,11 +14487,131 @@ function columnAlign(spec) {
   return "";
 }
 
-function renderMarkdown(container, text) {
+// A heading's anchor id: lowercase, spaces to dashes, punctuation dropped.
+//
+// The document outline could already jump to a heading, but it did it by
+// moving the caret in the textarea (jumpToDocLine) — which works only inside
+// the editor, and not at all for a link written into the text. Real ids mean a
+// heading is addressable the way every other markdown tool assumes.
+function mdHeadingId(text, taken) {
+  const base =
+    String(text)
+      .toLowerCase()
+      .replace(/[`*_~\[\]()]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "section";
+  // Two headings can share a name ("Notes" under three chapters), and a
+  // duplicate id makes every link to it resolve to the first one.
+  if (!taken) return base;
+  let id = base;
+  let n = 2;
+  while (taken.has(id)) id = `${base}-${n++}`;
+  taken.add(id);
+  return id;
+}
+
+// The two block-level constructs the "/" menu inserts, built once and shared.
+//
+// They live outside renderMarkdown because **notes do not go through
+// renderMarkdown at all** — a note card is rendered by renderNoteText, which
+// is an inline pass (wiki links + emphasis + search-term highlighting). That
+// asymmetry is easy to miss and was: the first live check of this feature
+// found callouts and embeds rendering perfectly in a document and not at all
+// in a note, which is half the feature missing in the surface people use most.
+
+// A `.callout` element for a run of blockquote lines, or null when the quote
+// is an ordinary one (no `[!kind]` marker) or nesting is already too deep.
+function mdCalloutElement(quoted, depth) {
+  const callout = quoted.length && quoted[0].match(/^\s*\[!(\w+)\]\s*(.*)$/);
+  if (!callout || depth >= MD_MAX_DEPTH) return null;
+
+  const kind = callout[1].toLowerCase();
+  const meta = (typeof CALLOUT_KINDS !== "undefined" && CALLOUT_KINDS[kind]) || null;
+  const box = document.createElement("div");
+  // An unrecognised kind still renders as a box rather than as literal
+  // "[!whatever]" text — a typo should look slightly wrong, not broken.
+  box.className = `callout callout-${meta ? kind : "note"}`;
+
+  const head = document.createElement("p");
+  head.className = "callout-head";
+  const icon = document.createElement("span");
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = meta ? meta.icon : "\u{1F4DD}";
+  head.appendChild(icon);
+  const title = document.createElement("span");
+  // The title after the marker wins; failing that, the kind's own name.
+  title.textContent = callout[2].trim() || (meta ? meta.label : kind);
+  head.appendChild(title);
+  box.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "callout-body";
+  // Rendered rather than inlined, so a callout can hold a list, a code block
+  // or a link — which is most of why it beats a bold paragraph.
+  renderMarkdown(body, quoted.slice(1).join("\n"), depth + 1);
+  box.appendChild(body);
+  return box;
+}
+
+// A `.note-embed` element for `![[name]]`.
+function mdEmbedElement(name, depth) {
+  const box = document.createElement("div");
+  box.className = "note-embed";
+
+  const head = document.createElement("p");
+  head.className = "note-embed-head";
+  const marker = document.createElement("span");
+  marker.setAttribute("aria-hidden", "true");
+  marker.textContent = "\u{1F4CE}";
+  head.append(marker, document.createTextNode(` Embedded — ${name}`));
+  box.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "note-embed-body";
+  const target = resolveWikiTarget(name);
+  if (depth >= MD_MAX_DEPTH) {
+    // A embeds B embeds A. The cap is what stops that hanging the tab, and
+    // saying so beats rendering nothing and looking like a bug.
+    body.textContent = "…(embedded too deep to show)";
+  } else if (target && target.kind === "note") {
+    renderMarkdown(body, target.entry.content || "", depth + 1);
+  } else if (target && target.kind === "document") {
+    // Documents have no content in the list payload (routes_documents._summary),
+    // so this is a way in rather than an inline copy. See renderMarkdown's own
+    // note on why a fetch does not belong in this path.
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "wiki-link";
+    open.textContent = target.doc.title || name;
+    open.title = "Open this document";
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openDocument(target.doc.id);
+    });
+    body.appendChild(open);
+  } else {
+    body.textContent = `Nothing called \u{201C}${name}\u{201D} yet.`;
+  }
+  box.appendChild(body);
+  return box;
+}
+
+//: How deep a callout or an embed may nest before rendering stops.
+//
+// Both recurse into renderMarkdown, so both can loop: a callout containing a
+// callout is legitimate and useful, but note A embedding note B embedding note
+// A is an infinite regress that would hang the tab. The cap is generous enough
+// that no honest document reaches it and low enough that a cycle costs
+// nothing.
+const MD_MAX_DEPTH = 4;
+
+function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
   const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
   let i = 0;
   let list = null; // the <ul>/<ol> currently being filled, or null
+  const headingIds = new Set(); // so two "Notes" headings get distinct anchors
 
   const closeList = () => {
     if (list) container.appendChild(list);
@@ -14416,13 +14727,40 @@ function renderMarkdown(container, text) {
       // Map #→h3 … ######→h6 (the app reserves h1/h2 for its own chrome).
       const level = Math.min(6, heading[1].length + 2);
       const el = document.createElement(`h${level}`);
+      // An id makes the heading a real jump target, for the outline and for
+      // any [](#anchor) link written into the text.
+      el.id = mdHeadingId(heading[2], headingIds);
       appendInline(el, heading[2]);
       container.appendChild(el);
       i++;
       continue;
     }
 
-    // Blockquote: gather consecutive "> …" lines into one <blockquote>.
+    // Transclusion: a line that is nothing but ![[name]] inlines that note's
+    // text here, rather than linking to it. This is what makes a document
+    // genuinely *composed of* notes instead of merely pointing at them.
+    //
+    // **Notes only, deliberately.** GET /documents returns id/title/words and
+    // no content (routes_documents._summary), so embedding a document would
+    // need a fetch — and renderMarkdown runs on every streamed chat chunk, so
+    // a fetch in this path is a request storm waiting to happen. A document
+    // target therefore renders as a labelled link, and the inline version
+    // waits for a content-bearing endpoint rather than being bolted on here.
+    const embedded = line.match(/^\s*!\[\[([^[\]]{1,120})\]\]\s*$/);
+    if (embedded) {
+      closeList();
+      const name = embedded[1].trim();
+      container.appendChild(mdEmbedElement(name, depth));
+      i++;
+      continue;
+    }
+
+    // Blockquote, and its dressed-up form the callout.
+    //
+    // `> [!warning] Watch out` on the first quoted line turns the whole quote
+    // into a titled box. The syntax is GitHub/Obsidian's, chosen because it
+    // degrades to an ordinary blockquote everywhere else — a note that leaves
+    // this app stays readable, which a custom fence would not.
     if (/^\s*>\s?/.test(line)) {
       closeList();
       const quoted = [];
@@ -14430,6 +14768,13 @@ function renderMarkdown(container, text) {
         quoted.push(lines[i].replace(/^\s*>\s?/, ""));
         i++;
       }
+
+      const box = mdCalloutElement(quoted, depth);
+      if (box) {
+        container.appendChild(box);
+        continue;
+      }
+
       const bq = document.createElement("blockquote");
       appendInline(bq, quoted.join(" "));
       container.appendChild(bq);
@@ -14515,10 +14860,9 @@ function renderMarkdown(container, text) {
 
 // --- tabs (Wave A) ----------------------------------------------------------------
 
-// "documents" is still a page and still switchable-to — it is the document
-// editor, opened from the Library (§36F). It is no longer in the tab *bar*, so
-// it sits at the end here: TABS drives which pages hide, and the arrow-key
-// order comes from the bar's own buttons.
+// TABS drives which pages hide; the arrow-key order comes from the bar's own
+// buttons, so this list's order is not load-bearing. "documents" sits last
+// because it has no button of its own — it is reached from the Library.
 const TABS = ["dashboard", "notes", "chat", "graph", "library", "timeline", "reminders", "documents"];
 
 // The DOM-only half of switchTab: which panel is visible, which tab button
@@ -14531,9 +14875,15 @@ function revealTab(name) {
   }
   // `documents` is a sub-view of Library — there is no `data-tab="documents"`
   // button in the tab bar, so the name that determines which button is active
-  // must be "library" whenever we are showing the documents pane. Without this,
-  // switchTab("documents") leaves every tab button deactivated, making it look
-  // as though nothing is selected while the Documents page is visible.
+  // must be "library" whenever we are showing the documents pane. Without
+  // this, switchTab("documents") leaves every tab button deactivated, making
+  // it look as though nothing is selected while the Documents page is visible.
+  //
+  // This was briefly removed when Documents was promoted to a top-level tab,
+  // and restored when that was reversed — the real fix for "documents feel
+  // inaccessible" was giving them their own section in the Library instead of
+  // leaving them inside a catch-all view called "Documents" that showed
+  // everything. Worth the note so the next session does not re-derive it.
   const activeTabName = name === "documents" ? "library" : name;
   for (const button of document.querySelectorAll("#tab-bar button")) {
     const active = button.dataset.tab === activeTabName;
@@ -14560,7 +14910,95 @@ function revealTab(name) {
   }
 }
 
+// --- back / forward through the pages you have visited ----------------------
+//
+// Asked for directly. Deliberately *not* the browser's own history: this app
+// is a single page with no routing, so pushState would put entries in the
+// browser's stack that its Back button would then walk out of the app
+// entirely on the first press past the start. This is a small stack of its
+// own, capped, and behaving the way the browser's does — visiting a page
+// while somewhere in the middle of the stack discards what was ahead.
+const TAB_HISTORY_CAP = 50;
+const tabHistory = { stack: [], index: -1, navigating: false };
+
+function paintTabHistory() {
+  const back = $("status-back");
+  const forward = $("status-forward");
+  if (!back || !forward) return;
+  back.disabled = tabHistory.index <= 0;
+  forward.disabled = tabHistory.index >= tabHistory.stack.length - 1;
+  // Named pages in the tooltip, not a bare "Back": knowing where it goes is
+  // the difference between using it and guessing. paintStatusItem mirrors
+  // title into aria-label centrally, so the disabled state is honest to a
+  // screen reader too rather than still promising a previous page.
+  const prev = tabHistory.stack[tabHistory.index - 1];
+  const next = tabHistory.stack[tabHistory.index + 1];
+  paintStatusItem("status-back", {
+    icon: "ph:caret-left",
+    title: prev ? `Back to ${entryLabel(prev)}` : "Nothing to go back to",
+  });
+  paintStatusItem("status-forward", {
+    icon: "ph:caret-right",
+    title: next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to",
+  });
+}
+
+// The tab's own visible name, so a tooltip says "Back to Documents" rather
+// than "Back to documents" or, worse, an internal id.
+function tabLabel(name) {
+  const button = document.querySelector(`#tab-bar button[data-tab="${name}"]`);
+  return button?.textContent?.trim() || name;
+}
+
+// "Notes → Capture" rather than just "Notes", so Back names the step it
+// actually takes when the move was between sub-tabs of one tab.
+function entryLabel(entry) {
+  const tab = tabLabel(entry.tab);
+  if (!entry.section) return tab;
+  const button = document.querySelector(`[data-section="${entry.section}"]`);
+  const section = button?.textContent?.trim() || entry.section;
+  return `${tab} → ${section}`;
+}
+
+// One history entry. `section` is the sub-tab within a tab, when that tab has
+// them — asked for directly: "have the back and forward navigation also handle
+// navigation between sub tabs as well." Notes has four (browse / capture /
+// writing-room / ask) and moving between them is as much a navigation as
+// moving between tabs, so Back should undo it.
+function recordTabVisit(name, section = null) {
+  // A back/forward press is a move *through* history, not a new entry.
+  if (tabHistory.navigating) return;
+  const current = tabHistory.stack[tabHistory.index];
+  // Re-selecting exactly where you already are is not a step.
+  if (current && current.tab === name && current.section === section) return;
+  tabHistory.stack = tabHistory.stack.slice(0, tabHistory.index + 1);
+  tabHistory.stack.push({ tab: name, section });
+  if (tabHistory.stack.length > TAB_HISTORY_CAP) tabHistory.stack.shift();
+  tabHistory.index = tabHistory.stack.length - 1;
+  paintTabHistory();
+}
+
+function stepTabHistory(delta) {
+  const next = tabHistory.index + delta;
+  if (next < 0 || next >= tabHistory.stack.length) return;
+  const entry = tabHistory.stack[next];
+  tabHistory.index = next;
+  tabHistory.navigating = true;
+  try {
+    switchTab(entry.tab);
+    // The sub-tab is restored after the tab, because showNotesSection acts on
+    // elements the tab switch has just revealed.
+    if (entry.section) showNotesSection(entry.section);
+  } finally {
+    // Cleared in a finally so a throw inside a tab's own setup cannot strand
+    // the flag on and silently stop recording every later visit.
+    tabHistory.navigating = false;
+  }
+  paintTabHistory();
+}
+
 function switchTab(name) {
+  recordTabVisit(name);
   revealTab(name);
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
@@ -15509,6 +15947,12 @@ function showNotesSection(name, { focus = false } = {}) {
   // loaded — a stale list is how "add to document" ends up offering nothing.
   if (name === "capture") loadCaptureDocuments();
   const wanted = NOTES_SECTIONS.includes(name) ? name : "browse";
+  // A sub-tab move is a navigation, so it becomes a history step too. Recorded
+  // against the Notes tab specifically because that is the tab these sections
+  // belong to — switchTab records its own entry when the *tab* changes, and
+  // recordTabVisit ignores a repeat of where you already are, so arriving at
+  // Notes and then landing on a section does not produce two entries.
+  recordTabVisit("notes", wanted);
   for (const id of NOTES_SECTIONS) {
     const card = document.getElementById(id);
     if (card) card.classList.toggle("hidden", id !== wanted);
@@ -16186,6 +16630,21 @@ async function openSettingsModal(section = "models", scrollToId = null) {
       target.classList.remove("flash");
       void target.offsetWidth;
       target.classList.add("flash");
+      // Take it off again, the way flashEntry and flashReminder both already
+      // do. Reported directly: "the search relevance settings section stays
+      // highlighted permanently and doesn't return to normal."
+      //
+      // This was the one of the three flash call sites with no cleanup, and it
+      // looked harmless because the animation ends on `transparent` — so on an
+      // ordinary machine the highlight does fade and the stuck class is
+      // invisible. Under `prefers-reduced-motion: reduce` the stylesheet
+      // deliberately swaps the animation for a *static* outline and background
+      // (see .flash-target.flash there), and with nothing ever removing the
+      // class that static highlight is permanent. A value that is only wrong
+      // under a setting the author does not have on is exactly the shape this
+      // codebase keeps getting caught by.
+      clearTimeout(openSettingsModal.flashTimer);
+      openSettingsModal.flashTimer = setTimeout(() => target.classList.remove("flash"), 2700);
     });
   }
 }
@@ -19240,6 +19699,12 @@ const LIBRARY_KINDS = [
   { key: "chat", icon: "ph:chat-circle", label: "Chats" },
   { key: "file", icon: "ph:paperclip", label: "Files" },
   { key: "tag", icon: "ph:tag", label: "Tags" },
+  // Drafts used to be a Library sub-tab of its own. It is a *filter over
+  // notes*, not a separate kind of thing, and it only sat up there because
+  // this chip row did not exist when it was added — so it moved here, which
+  // is also where someone looking for "notes I have not finished" would
+  // reasonably expect to find it.
+  { key: "draft", icon: "ph:pencil-simple-line", label: "Drafts" },
   // "archived" is the bin's own internal kind (see routes_library.py's
   // _archive()) — this app's real archive uses "shelved" specifically so
   // the two are never confused at the code level, even though the words
@@ -19361,7 +19826,7 @@ function renderLibraryFilters() {
     // included it disagreed with what pressing the chip actually shows.
     const count =
       kind.key === "all"
-        ? libraryItems.length - (libraryCounts.activity || 0)
+        ? libraryItems.length - (libraryCounts.activity || 0) - (libraryCounts.draft || 0)
         : libraryCounts[kind.key] || 0;
     const button = document.createElement("button");
     button.type = "button";
@@ -19473,7 +19938,11 @@ function renderLibrary() {
     // notebook rather than a thing in it, and burying twelve documents under
     // it would make the default view useless in exactly the way a management
     // screen must not be. Its own chip shows it in full.
-    items = items.filter((i) => i.kind !== "activity");
+    // Drafts join activity in being excluded from "Everything": they are
+    // unfinished by definition, and a draft appearing as a first-class card
+    // here was reported and fixed once already (see _notes() in
+    // routes_library.py). The Drafts chip is how you ask for them.
+    items = items.filter((i) => i.kind !== "activity" && i.kind !== "draft");
     if (!$("library-show-binned")?.checked) {
       items = items.filter((i) => i.kind !== "archived");
     }
@@ -19929,7 +20398,12 @@ function openLibraryItem(item) {
     // The note, not the raw file: a download is one click further and the note
     // is the thing that says why the file was kept.
     flashEntry(item.entry_id);
-  } else if (item.kind === "note") {
+  } else if (item.kind === "note" || item.kind === "draft") {
+    // Drafts open exactly like notes. flashEntry already knows how — it turns
+    // the Drafts filter on when its target is one, because drafts are excluded
+    // from every other view. What was missing was this branch: the "draft"
+    // kind arrived with the Library's new Drafts chip and nothing routed it,
+    // so selecting a draft and pressing Open did nothing at all.
     flashEntry(item.id);
   } else if (item.kind === "tag") {
     // A tag's job is finding the notes that carry it, so opening one does
@@ -25506,6 +25980,12 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
     radio.dataset.userChosen = "1";
   });
 }
+$("status-back").addEventListener("click", () => stepTabHistory(-1));
+$("status-forward").addEventListener("click", () => stepTabHistory(1));
+// Seed the stack with wherever the app opened, or the first tab clicked has
+// nothing behind it and Back stays dead until the second navigation — which
+// reads as the button being broken rather than empty.
+recordTabVisit(localStorage.getItem("activeTab") || "dashboard", null);
 $("save-btn").addEventListener("click", saveEntry);
 $("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
@@ -26573,9 +27053,22 @@ async function renderSkillsDashboard() {
     runBtn.className = "small";
     runBtn.textContent = "Run Skill";
     runBtn.onclick = () => {
-      // Switch to chat and run it
-      switchTab("chat");
-      startSkill(skill.name);
+      // runSkill, not startSkill. Reported as "the Run Skill buttons in the AI
+      // Skills library are broken", and it was two bugs in one line:
+      //
+      //   startSkill(skill.name)
+      //
+      // passed the *name string* where startSkill expects the skill object (so
+      // `skill.name` inside it was undefined), and omitted `values` entirely —
+      // which made `Object.values(values)` throw "Cannot convert undefined or
+      // null to object". That is the app.js:10495 console error reported
+      // alongside it: one line, two symptoms.
+      //
+      // runSkill() is the correct entry point: it prompts for the skill's
+      // inputs when it has any, then calls startSkill with a real values
+      // object. It also switches to chat itself, so doing it here as well
+      // would be a second, redundant tab change.
+      runSkill(skill);
     };
     
     const schedBtn = document.createElement("button");

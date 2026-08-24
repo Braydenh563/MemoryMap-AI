@@ -8,6 +8,7 @@ the app at several minutes, ran with nothing on that screen to say so.
 
 from __future__ import annotations
 
+import re
 import time
 
 import pytest
@@ -184,7 +185,15 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
     start = [t for t in tasks if t["kind"] == "searxng-start"]
     assert start, [t["kind"] for t in tasks]
     assert start[0]["label"] == "Starting SearXNG"
-    assert "12s of 90s" in start[0]["detail"]
+    # Not an exact "12s": the route reports int(now - since), and `now` is read
+    # when the request lands, not when `since` was set above. Any delay past a
+    # one-second boundary between the two — trivially reached on a loaded CI
+    # runner — reports 13 and failed the build, which is what happened. The
+    # behaviour worth asserting is "it counts the elapsed seconds against the
+    # 90s budget", so assert that, with enough slack to survive a slow machine.
+    elapsed = re.search(r"\((\d+)s of 90s\)", start[0]["detail"])
+    assert elapsed, start[0]["detail"]
+    assert 12 <= int(elapsed.group(1)) <= 20, start[0]["detail"]
     assert 0 < start[0]["progress"] < 1
     assert start[0]["cancellable"] is False
 

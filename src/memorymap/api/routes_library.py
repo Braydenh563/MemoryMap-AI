@@ -490,6 +490,53 @@ _ENTITY_WORDS = {
 }
 
 
+def _drafts(session: Session) -> list[dict]:
+    """Unfinished notes, as their own kind.
+
+    Drafts are *deliberately* absent from `_notes()` — an unfinished draft
+    showing up as a first-class card in the Library was reported and fixed,
+    and that exclusion is load-bearing (see the comment on that query). So
+    surfacing them here is a separate collector rather than a relaxed filter:
+    they get `kind: "draft"`, which means the Drafts chip can find them while
+    "Everything" still does not show them, exactly as before.
+
+    This replaces the Library's former Drafts *sub-tab*. A draft is a state a
+    note is in, not a different kind of object, so it belongs in the filter
+    row beside Notes and Documents rather than in a tab of its own.
+    """
+    rows = session.execute(
+        select(Entry, Category.name)
+        .outerjoin(Category, Entry.category_id == Category.id)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.archived_at.is_(None),
+            Entry.is_draft == True,  # noqa: E712
+        )
+        .order_by(Entry.created_at.desc())
+        .limit(PER_KIND_LIMIT)
+    ).all()
+
+    items = []
+    for entry, category in rows:
+        private = bool(getattr(entry, "is_private", False))
+        text = "" if private else (entry.content or "")
+        own_title = extract_title(text) if text else None
+        preview_source = remove_title(text) if own_title else text
+        items.append(
+            {
+                "kind": "draft",
+                "id": entry.id,
+                "title": own_title
+                or ((_clip(text)[:60] if text else "Private note") or "Empty draft"),
+                "preview": "" if private else _clip(preview_source, NOTE_PREVIEW_CHARS),
+                "updated_at": entry.created_at.isoformat(),
+                "detail": category or "Uncategorised",
+                "size": len(text),
+            }
+        )
+    return items
+
+
 def _activity(session: Session) -> list[dict]:
     """What you did, as a kind rather than as a panel.
 
@@ -605,6 +652,7 @@ def library(session: Session = Depends(get_session)) -> dict:
         + _tags(session)
         + _archive(session)
         + _shelved(session)
+        + _drafts(session)
         + _activity(session)
     )
     counts: dict[str, int] = {}

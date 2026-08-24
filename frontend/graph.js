@@ -934,6 +934,143 @@ function graphNodeUnder(dragged, event) {
   return null;
 }
 
+//: The kinds of connection a link can carry.
+//:
+//: **Mirrors `LINK_TYPES` in src/memorymap/core/database.py, and
+//: `tests/test_link_types.py` fails the build if the two drift.** Duplicated
+//: rather than fetched because this list is needed to draw a dialog before any
+//: request has been made, and a picker that has to wait on the network to know
+//: what it can offer is a picker that opens empty.
+const GRAPH_LINK_TYPES = [
+  ["related", "Related", "These belong together"],
+  ["continues", "Continues", "This carries on from that"],
+  ["context", "Extra context", "This explains or supports that"],
+  ["supports", "Supports", "This is evidence for that"],
+  ["contradicts", "Contradicts", "These disagree"],
+  ["example_of", "Example of", "This is an instance of that"],
+];
+
+// Ask what kind of link this is before making it. Resolves to
+// `{link_type, reason}`, or null when the user cancels.
+//
+// Asked for directly: dropping one note on another used to make a flat,
+// unexplained link with no way back except an Undo toast you had to catch in
+// time. Now the drop opens this, nothing is written until "Create link", and
+// Cancel leaves the notebook untouched — which is the "ability to cancel the
+// linkage" half of the request, and the reason this is a dialog rather than a
+// toast offering to edit afterwards.
+function askLinkDetails(from, to) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card link-kind-card";
+
+    const heading = document.createElement("h3");
+    heading.textContent = "How are these connected?";
+    card.appendChild(heading);
+
+    const pair = document.createElement("p");
+    pair.className = "muted link-kind-pair";
+    pair.textContent = `“${from.preview}” → “${to.preview}”`;
+    card.appendChild(pair);
+
+    // Direction matters for half the vocabulary — "continues" and "example of"
+    // read backwards if the arrow is the other way round — so it is stated
+    // above rather than left to be inferred from which node was dragged.
+    const list = document.createElement("div");
+    list.className = "link-kind-list";
+    let chosen = "related";
+    const buttons = [];
+    for (const [value, label, hint] of GRAPH_LINK_TYPES) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "link-kind-option" + (value === chosen ? " active" : "");
+      option.setAttribute("aria-pressed", String(value === chosen));
+      const name = document.createElement("span");
+      name.className = "link-kind-name";
+      name.textContent = label;
+      const why = document.createElement("span");
+      why.className = "link-kind-hint";
+      why.textContent = hint;
+      option.append(name, why);
+      option.addEventListener("click", () => {
+        chosen = value;
+        for (const other of buttons) {
+          const on = other.dataset.value === value;
+          other.classList.toggle("active", on);
+          other.setAttribute("aria-pressed", String(on));
+        }
+      });
+      option.dataset.value = value;
+      buttons.push(option);
+      list.appendChild(option);
+    }
+    card.appendChild(list);
+
+    const reasonLabel = document.createElement("label");
+    reasonLabel.className = "field";
+    const reasonText = document.createElement("span");
+    reasonText.textContent = "Why? (optional)";
+    const reasonBox = document.createElement("input");
+    reasonBox.type = "text";
+    reasonBox.maxLength = 200;
+    reasonBox.placeholder = "Left blank, the AI will try to work it out";
+    reasonLabel.append(reasonText, reasonBox);
+    card.appendChild(reasonLabel);
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const close = (answer) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(answer);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(null);
+      } else if (event.key === "Enter" && event.target.tagName === "INPUT") {
+        event.stopPropagation();
+        close({ link_type: chosen, reason: reasonBox.value.trim() || null });
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ghost small";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => close(null));
+    const create = document.createElement("button");
+    create.type = "button";
+    create.className = "small accent";
+    create.textContent = "Create link";
+    create.addEventListener("click", () =>
+      close({ link_type: chosen, reason: reasonBox.value.trim() || null })
+    );
+    row.append(cancel, create);
+    card.appendChild(row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close(null);
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    // Cancel takes focus, not Create: a stray Enter arriving with the dialog
+    // must not be the thing that writes a link into the notebook.
+    cancel.focus();
+  });
+}
+
 async function linkByDrop(from, to) {
   // Already connected: say so rather than firing a request that will 400. The
   // adjacency map is what the map itself is drawn from, so this agrees with
@@ -942,9 +1079,16 @@ async function linkByDrop(from, to) {
     toast("Those two are already connected.");
     return;
   }
+  const details = await askLinkDetails(from, to);
+  if (!details) return; // cancelled — nothing is written
+
   const updated = await apiJson(`/entries/${from.id}/links`, {
     method: "POST",
-    body: JSON.stringify({ target_id: to.id }),
+    body: JSON.stringify({
+      target_id: to.id,
+      reason: details.reason,
+      link_type: details.link_type,
+    }),
   }).catch((error) => {
     toast(error.message, true);
     return null;
@@ -2701,6 +2845,14 @@ async function exportGraphPng() {
 
 
 // --- minimap + saved views (ROADMAP §85.4 items 7) ---------------------------
+
+//: The four corners the minimap can be pinned to, and where that choice lives.
+//: Top-left is the default because it is the one corner nothing else claims —
+//: the toolbar owns the top strip, the agent monitor bottom-left, and the zoom
+//: buttons bottom-right (which is what the old hard-coded position collided
+//: with).
+const GRAPH_MINIMAP_CORNERS = ["off", "tl", "tr", "bl", "br"];
+const GRAPH_MINIMAP_CORNER_KEY = "graph-minimap-corner";
 //
 // Both exist for the same reason, named in the roadmap's own words: once a
 // notebook is dense enough that the force layout stops being readable, there
@@ -2821,19 +2973,37 @@ function initGraphMinimap() {
       );
   };
   svg.addEventListener("click", jump);
-  document.getElementById("graph-minimap-toggle")?.addEventListener("click", () => {
+  // One control for both "is it showing" and "where" — see index.html on why
+  // these were merged rather than sitting beside each other.
+  //
+  // Per-device workspace state, so localStorage beside `graph-layout` and the
+  // saved views below, not preferences.
+  const applyMinimapPosition = (choice) => {
     const box = document.getElementById("graph-minimap");
-    const hidden = box.classList.toggle("hidden");
-    localStorage.setItem("graph-minimap-hidden", hidden ? "1" : "0");
-    document
-      .getElementById("graph-minimap-toggle")
-      .setAttribute("aria-pressed", String(!hidden));
-    if (!hidden) graphMinimapPaint();
+    if (!box) return;
+    const chosen = GRAPH_MINIMAP_CORNERS.includes(choice) ? choice : "tl";
+    for (const c of GRAPH_MINIMAP_CORNERS) box.classList.remove(`graph-minimap-${c}`);
+    box.classList.toggle("hidden", chosen === "off");
+    if (chosen !== "off") {
+      box.classList.add(`graph-minimap-${chosen}`);
+      graphMinimapPaint();
+    }
+    const picker = document.getElementById("graph-minimap-corner");
+    if (picker) picker.value = chosen;
+  };
+
+  // Existing installs kept only "hidden or not" under an older key. Read it
+  // once so nobody who had deliberately turned the minimap off has it come
+  // back on after an update; the new key takes over from the first change.
+  const storedCorner = localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY);
+  const legacyHidden = localStorage.getItem("graph-minimap-hidden") === "1";
+  applyMinimapPosition(storedCorner || (legacyHidden ? "off" : "tl"));
+
+  document.getElementById("graph-minimap-corner")?.addEventListener("change", (event) => {
+    const choice = event.target.value;
+    localStorage.setItem(GRAPH_MINIMAP_CORNER_KEY, choice);
+    applyMinimapPosition(choice);
   });
-  if (localStorage.getItem("graph-minimap-hidden") === "1") {
-    document.getElementById("graph-minimap")?.classList.add("hidden");
-    document.getElementById("graph-minimap-toggle")?.setAttribute("aria-pressed", "false");
-  }
 }
 
 // --- saved views -------------------------------------------------------------

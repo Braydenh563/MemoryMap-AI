@@ -811,6 +811,10 @@ class LinkBody(BaseModel):
     # Optional — "why are these connected?" A shared tag or a reply thread
     # says why on its own; a manual link often doesn't.
     reason: str | None = Field(default=None, max_length=200)
+    # What kind of connection, from core.database.LINK_TYPES. Optional, and an
+    # unrecognised value is stored as null rather than rejected — see
+    # manager.create_link on why a typo should not cost you the link.
+    link_type: str | None = Field(default=None, max_length=24)
 
 
 class LinkReasonBody(BaseModel):
@@ -959,7 +963,9 @@ def create_link(
 ) -> EntryOut:
     source = _existing_entry(session, entry_id)
     target = _existing_entry(session, body.target_id)
-    link = manager.create_link(session, source, target, reason=body.reason)
+    link = manager.create_link(
+        session, source, target, reason=body.reason, link_type=body.link_type
+    )
     if link is None:
         raise HTTPException(
             status_code=400, detail="Already linked (or tried to link an entry to itself)"

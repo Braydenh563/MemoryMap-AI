@@ -27,6 +27,16 @@ caught by one grep: the Reminders calendar view (listed as a gap, already
 built and wired) and the graph's own non-visual keyboard layer. A grep miss
 and a real gap look identical from the outside.
 
+**Start at [§88](#88--the-live-report-backlog-the-kortexeden-read-and-the-appjs-split).**
+It is the current work queue: §88.1 is everything reported and still open, in
+order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split, which is the
+priority once §88.1 and §88.2 are done; §88.4 is the context/memory analysis.
+**§88.0 lists what was already fixed — check it before fixing anything.**
+
+**A fifteen-ask report plus a second round of ideas landed together — all of
+it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
+below. Five of those fifteen were already built; §87.1 says which, and where.**
+
 ### The live list
 
 Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
@@ -143,6 +153,591 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
 - **`GET /entries?semantic=true` is now called from two places** (the Notes
   tab and the Library). If a third appears, the fetch-and-cache shape in
   `refreshLibrarySemantic` is the one to extract.
+
+## §88 — the live-report backlog, the Kortex/Eden read, and the app.js split
+
+**This section is the next session's work queue, in order.** §88.1 is what was
+reported and is still open; §88.2 is the competitor read the user asked for;
+§88.3 is the app.js split, which is the priority *after* §88.1 and §88.2 are
+done; §88.4 is the context/memory/harness analysis.
+
+Everything here was reported live in one long session. What was fixed in that
+same session is in §88.0 so nobody re-fixes it.
+
+### 88.0 Fixed already — do not re-fix
+
+| Report | Cause |
+| --- | --- |
+| "Run Skill buttons in the AI Skills library are broken" **and** the `app.js:10495` console error | One line, two symptoms: `startSkill(skill.name)` passed the name *string* where the skill object was expected **and** omitted `values`, so `Object.values(undefined)` threw. Now `runSkill(skill)` |
+| "The documents subtab cards don't even do anything" | `openDocument()` loaded correctly but the Documents *page* stayed hidden behind the Library tab. Needed `switchTab("documents")` first |
+| "The Open button on a selected draft does nothing" | `openLibraryItem` had no branch for the `draft` kind, which arrived with the new Drafts chip. `flashEntry` already knew how to reveal a draft |
+| "There's no way to publish a draft as a proper note" | There was — the draft chip — labelled "click to clear the label", which names the mechanism and not the outcome. Relabelled |
+| "The `/` command popup isn't scrollable and disappears when I try" | A capture-phase `scroll` listener saw the menu's *own* wheel event and closed it. Now ignores scrolls inside the menu, plus `overscroll-behavior: contain` |
+| "The top menu bar shifts when I open the settings modal" | `scrollbar-gutter: stable` was applied **only** under `.modal-open`, so opening a dialog *added* a gutter that had not been there a frame earlier. Now reserved permanently |
+| "Weird small circles left hanging when I change where links connect" | Link endpoint handles are appended to `#wb-overlay-zoom-group`; **both** existing clears only swept `#wb-zoom-group`. Every render appended a group and none was removed. One `wbClearSketchHandles()` now clears both layers |
+| "Tune semantic search should show at all times" | The control lived inside `#chat-results`, which is `hidden` until an answer exists — so the thing that changes how search behaves could only be reached *after* running one. Moved to the ask row |
+| "The export folder rows have no gap" | `.row`'s gap applies *within* a row, not between two of them. `.settings-row-spaced` |
+| "The documents sub-tab search box is a different height" | Same failure DESIGN.md names for the graph strip: an `<input>`'s own padding outgrows a button unless the row sets one height. `--control-h` applied to that head |
+| "The skill-logs sidebar should be sticky and viewport-height" | `#skills-sidebar` had **no CSS at all** — it carried `card glass` but not `sidebar-panel`, so it scrolled away with the page |
+| "The new-chat button clashes with the collapse button" | The collapse toggle is absolutely positioned at the sidebar's top-right and the heading row's trailing button sits in the same place. The head now reserves `--sidebar-toggle-lane`, a token that already existed for exactly this |
+| "Back/forward should handle sub-tabs too" | History entries are now `{tab, section}`; `showNotesSection` records one. Verified: browse → back → capture → back → ask → forward → capture |
+| Whiteboard "janky and uncomfortable" | `renderWhiteboard()` (a full d3 join over every item) was called from **48 sites**; one action touches several. All now coalesce into one rAF via `wbScheduleRender()` |
+| "Make link creation on the graph offer a kind, a reason, and a cancel" | Built — see §87.5's typed links, now shipped as `EntryLink.link_type` plus the drag-to-link dialog |
+
+### 88.1 Reported and still open — work this list top-down
+
+**Tier A — broken behaviour.**
+
+1. **"The AI randomly fails in the Ask sub-tab saying it isn't available."**
+   The user notes they set the chat model to their *utility* model, and that is
+   very likely relevant: two model slots exist (`chat_model`,
+   `utility_model`) and a slot pointing at a model the backend has not loaded
+   reports unavailable. **Reproduce before theorising** — check
+   `/models/status` and which slot `routes_chat` actually reads. Related:
+   `GET /models/status — signal timed out` in the same log, which suggests the
+   status poll itself is timing out and the UI is reading that as "no AI".
+   These may be one bug.
+2. **`Unhandled promise rejection: TypeError: Cannot read properties of null
+   (reading 'replace')`.** Not yet located — no line number was captured. Next
+   session should reproduce with the console open and get one; grep for
+   `.replace(` on values that can be null (`prefsCache` fields and
+   `doc.title` are the likely shapes).
+3. **The notebook constellation canvas keeps disappearing.** ARCHITECTURE §10
+   already documents the general version of this bug (p5 measures a canvas as
+   zero inside a hidden tab and must redraw on theme change). The widget was
+   fixed once for theme changes; this is a *second* trigger. Check what else
+   hides/reshows the dashboard.
+4. **The new-chat button disappeared from the Ask tab.**
+5. **The AI Skills sub-tab "is just very unfinished and nothing really
+   works."** Confirmed in passing: its **Schedule** button is a literal
+   placeholder (`toast("Scheduler functionality coming soon!")`). Needs its own
+   audit pass — treat "nothing works" as a scope, not a bug.
+6. **The graph is slow and janky to move around.** Still **not diagnosed** and
+   deliberately not guessed at. Profile a pan and a node drag *separately*
+   before changing anything — the whiteboard's equivalent had one specific
+   cause, and HISTORY §71 already took the cheap wins here.
+
+**Tier B — UI/UX, each concrete.**
+
+7. **Back/forward across the Library's own sub-tabs.** The Notes sub-tabs are
+   done (§88.0); the Library's `#library-subtabs` handler lives in
+   `whiteboard.js` and does not record history yet — same `{tab, section}`
+   shape.
+8. **The Documents Library sub-tab needs a visual redesign.** Its search-box
+   height is fixed (§88.0); the *look* of the list is still the plain one this
+   session shipped — cards, metadata layout and empty state all unstyled
+   beyond the basics.
+9. **The Whiteboards Library sub-tab is bland** — same pass.
+10. **The graph dock may get too tall and squish the graph.** Now three
+    deliberate rows; if it grows again, the answer is an overflow menu rather
+    than a fourth row.
+12. **The minimap needs a visual and usability upgrade** (its corner is now a
+    user setting, but the map itself is unchanged).
+13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).
+    The label builder should strip block markers the way `extract_title`
+    already strips a leading `#`.
+17. **Timeline line view redesign** — the concrete design is §87.6: threads as
+    tributaries off a time trunk, using `Entry.parent_id`, which that view
+    currently ignores entirely.
+18. **Semantic search ignores time words** ("recents"). Belongs in
+    `ai/intent.py`, which already classifies `needs_retrieval`.
+
+**Tier C — the big editor feature, worth its own session.**
+
+19. **A hybrid live-rendering document editor.** Asked for precisely: "a mix
+    between the straight md editor and the rendered version where it renders as
+    the user finishes typing… if you click on the line or the section it will
+    unrender until unselected, in which it will rerender." This is the
+    Obsidian Live Preview / Typora model.
+
+    **This is not a small change and must not be started casually.** The
+    current editor is a `<textarea>` plus a separate rendered preview pane, and
+    everything built on it assumes that: `applyMarkdown`, `wrapDocSelection`,
+    find/replace, the `/` menu's caret maths, the `[[` autocomplete, autosave.
+    A live-preview editor is a `contenteditable` or a block-based document
+    model, and every one of those has to be re-implemented against it.
+
+    **Recommended path: a per-block editor, not a whole-document
+    contenteditable.** Render each block (paragraph, heading, callout, list) as
+    rendered HTML; the block containing the caret swaps to a plain textarea
+    holding that block's markdown; blur re-renders it. That keeps the existing
+    textarea machinery working *inside one block at a time* rather than
+    replacing it, and it is exactly the "unrender the section you are on"
+    behaviour asked for. Do it behind a Settings toggle, with the current
+    editor as the default until it is proven.
+
+### 88.2 Kortex / Eden — what is worth taking, and what is not
+
+Two analyses were supplied. Eden is Kortex's successor and is a **cloud,
+social-media** product; the user's instruction is explicit: *"make sure to keep
+everything local, I don't want the cloud stuff."* So the social corpus, the
+multi-platform scheduler, the creator index and the affiliate system are all
+**out** — not because they are bad, but because they are the half of Eden that
+cannot exist in a local-first notebook.
+
+**Already built here — do not "add" these:** an MCP server
+(`src/memorymap/mcp_server.py`), markdown export, a document/notes split, AI
+synthesis over the notebook, saved prompts (skills), audio (read-aloud), and a
+web reader with highlight capture.
+
+**Worth taking, ranked by value per unit of effort:**
+
+1. **Boards hold *references*, never copies.** Eden's single best structural
+   idea, and it is the honest answer to the still-open **note clusters** ask
+   (§87.3): a cluster is a *board of references* — nothing is duplicated, a
+   note can be on many boards, and removing it from one changes nothing else.
+   This app already has a whiteboard with `group_id`; the missing piece is that
+   a board can hold a *reference to a note* as a first-class citizen.
+2. **Drag from an item's connection dot onto empty canvas to spawn a chat
+   already connected to it.** The whiteboard already has real anchor points and
+   AI actions; this joins them into one gesture and is the single most
+   compelling interaction in either product.
+3. **The pane system** — open anything in a side pane while writing, and keep
+   research/chat visible beside the draft. The document editor already has a
+   sidebar; this generalises it to "open *any* item in a pane".
+4. **Custom AI = instructions + chosen knowledge sources**, with **"use when"
+   rules** so the assistant knows when to reach for a source. This is a direct
+   upgrade to the existing skills/personas: today a skill is a prompt, and the
+   gap is attaching a *bounded* knowledge set to it. Local equivalent of
+   sources: selected notes, documents, boards and tags — never creators.
+5. **The interview technique.** Kortex's "interview me, then help me apply
+   this" prompt pattern extracts the *user's* ideas instead of generating
+   generic text. Cheap: it is a skill, not a feature.
+6. **Reader-mode capture with citations preserved.** Partly built (the web
+   reader); the missing half is that a highlight becomes its own first-class
+   item with its source link intact.
+7. **Audio overview of a notebook/document**, generated locally with the
+   existing read-aloud voices and saved as a file. The private-RSS half is
+   cloud and should be dropped; the "listen to my research" half is not.
+8. **Automation pipelines** — user-facing trigger→action rules. The autonomous
+   agent already does four fixed jobs; this is the same machinery with a UI.
+
+**Explicitly not taken:** the social corpus and outlier detection, multi-platform
+scheduling, auto-DM, creator-as-voice-clone, pooled team credits, affiliate
+links. All require a cloud service and other people's data.
+
+**On the UI/UX quality the user admired:** the concrete, copyable parts are
+(a) keyboard-first navigation with visible shortcuts, (b) one primary loop
+stated plainly — capture → discover → write, (c) panes instead of modal
+context-switching, and (d) restraint: few controls visible at rest, more on
+demand. This session's graph-toolbar work is (d); the pane system is (c).
+
+### 88.3 The app.js split — the priority after §88.1 and §88.2
+
+**Do this next, and deliberately.** `app.js` is ~27,400 lines.
+`graph.js` (3.0k), `whiteboard.js` (5.9k) and now `editor.js` (~0.9k) are
+already out, so the pattern is proven three times over.
+
+Order, easiest and most self-contained first:
+
+1. **`documents.js`** — the document editor (`app.js:7331-8127` before this
+   session's edits): autosave, outline, find/replace, preview, AI edit,
+   export. It has clear seams and one entry point (`openDocument`).
+2. **`library.js`** — the Library (`app.js:19209+`), which already has its own
+   sub-tab switcher living in `whiteboard.js` (an accident worth fixing while
+   splitting).
+3. **`dashboard.js`** — widgets, masonry, the generative art.
+4. **`settings.js`** — the settings modal, logs console, appearance.
+
+**The rules that make it safe**, all learned here: never split in the same diff
+as a behaviour change; load order is load-bearing only where a file is read at
+*parse* time (see index.html's own note on why `graph.js` must precede
+`app.js`); and add every new file to `tests/test_frontend_handlers.py`'s
+`_source()` — a lint that cannot see a file cannot catch anything in it.
+
+### 88.4 Context, memory and harness engineering — an analysis
+
+Asked for directly. What exists, and where the real headroom is.
+
+**What exists.** Retrieval is `search_manager.retrieve_detailed`
+(`routes_chat.py`), gated by `ai/intent.py`'s `needs_retrieval` so a chat turn
+that needs no notes does not pay for a search. The system prompt is budgeted
+and **asserted** (`agent.PROSE_BUDGET_CHARS`) because every sentence is resent
+each round. Conversations can be compressed (§35I). Tools are a fixed registry
+in `ai/tools/`. There is a "what the AI remembers" surface (§39B).
+
+**The five real gaps, in order of value:**
+
+1. **Retrieval is single-shot and similarity-only.** Candidates come from
+   embedding cosine; there is no re-ranking, no query expansion, and no second
+   pass when the first returns nothing useful. The cheapest meaningful upgrade
+   is **hybrid retrieval** — combine the existing FTS keyword index with the
+   vector search and merge by reciprocal rank. Both indexes already exist.
+2. **The graph is not used for retrieval.** This app's differentiator is that
+   it *knows how notes connect*, and the chat context is assembled by
+   similarity alone. Once §87.5's `link_type` is populated, expand retrieval
+   along strong edges from the top hits — `entry/paths.py` already walks them.
+   This is the single highest-value item on this list.
+3. **Memory is a surface, not a system.** There is no tiered notion of
+   "always in context" (a small durable profile), "retrieved when relevant"
+   (the notebook), and "this conversation only". A short, user-editable
+   always-on memory block — explicitly capped and shown in Settings — is a
+   contained change with a large effect on how the assistant reads.
+4. **No token accounting per stage.** The prompt budget is asserted, but there
+   is no measurement of how much of a real context window goes to system
+   prompt vs. retrieved notes vs. history. Instrument it before tuning it; a
+   per-turn breakdown makes every later decision evidence-based. (BACKLOG's
+   per-chat token meter is the same idea.)
+5. **Tool retrieval is all-or-nothing.** Every tool definition is sent every
+   round. §33 already scoped semantic tool retrieval and rightly said it needs
+   measuring first — item 4 is the prerequisite.
+
+**One caution that applies to all five.** Every provider test in this repo runs
+against a fake transport, and this sandbox has no reachable model. Retrieval
+quality changes cannot be evaluated here at all. Build the measurement (item 4)
+and a small fixed question set *first*, or every one of these becomes a change
+nobody can prove helped.
+
+## §87 — the connected-notebook pass: the editor layer, and everything reported with it
+
+Fifteen asks arrived in one message, then a second round of ideas on top. This
+section is the whole of it, **audit-first**: every ask was checked against the
+source *before* being scoped, because this project's most expensive recurring
+mistake is rebuilding something that already exists. **Five of the fifteen
+turned out to be already built or half-built.** Those rows are the most
+valuable part of this section — they are what stops a sixth session rebuilding
+them.
+
+### 87.1 The audit — do not rebuild these
+
+| Ask | Verdict | Where it already lives |
+| --- | --- | --- |
+| Slash commands | ABSENT (now built, 87.2) | BACKLOG §64 confirmed it |
+| Callout boxes / frames | ABSENT (now built, 87.2) | `renderMarkdown`'s blockquote branch had no `[!kind]` sniffing |
+| Wiki-links | PARTIAL | Worked in notes (`renderNoteText`) and doc preview (`layerDocWikiLinks`) — but two *different* resolvers, `[[` autocomplete on `#entry-content` only, and no create-on-miss. Backend hook: `sync_wiki_links`, `entry/manager.py:1496` |
+| Gravity / spread sliders | **ALREADY BUILT** | `index.html:1263-1269`, applied `graph.js:1255-1273`, persisted. Known gap: no effect under tree/radial (BACKLOG §536) |
+| Move nodes freely | PARTIAL | Drag exists (`graph.js:1411-1476`) but **clears `fx/fy` on drop**. Double-click pin exists (`:1496-1508`) but is **never persisted** |
+| Hide nodes / groups | PARTIAL | Category-legend hide, orphan hide and time filter all exist. **No per-node hide, no marquee** — a full marquee exists only in `whiteboard.js:3167-3320` |
+| Graph → whiteboard | ABSENT | But **both auto-layout engines already exist**: `ai/tools/whiteboard.py:263-432` and `wbMindMapSpanningTree` |
+| Custom graph configurations | **ALREADY BUILT** | Saved views, `graph.js:2839-2958` |
+| Document outline / sections | PARTIAL | `renderDocOutline` existed; jumping was caret-based and `renderMarkdown` emitted no heading ids |
+| Document → notes | **ALREADY BUILT** | `#doc-extract` → `openExtractPreview`, backend `source_document_id`. Note→doc too (`expandNoteIntoDocument`) |
+| Parent / child notes | **ALREADY BUILT** | `Entry.parent_id`, `core/database.py:198`, commented "a child continues its parent". Rendered nested, walked by pathfinding, feeds staleness |
+| Thought continuation | PARTIAL | "Continue" exists **on note cards** (`app.js:1877`, posts `parent_id`). **Not in Capture** |
+| Capture: manual link picker | ABSENT | `saveEntry` posts only `{content, tags, category, document_ids}` |
+| Suggest links + editable reasons | **ALREADY BUILT — in the Graph tab** | `#link-suggest-btn` → `loadLinkSuggestions` (`app.js:21358-21500`), confidence + editable reason + Link/Dismiss. **Relocate, do not rebuild** |
+| Note clusters | ABSENT as specified | See 87.5 — four adjacent concepts exist and none fits |
+| AI link quality | PARTIAL | Candidates are **pure embedding cosine** (`routes_entries.py:476-502`); the LLM only writes the reason afterwards (`ai/links.py:97-185`). `EntryLink` is untyped |
+| Ask latency | NOT a frontend bug | Explicit submit, so debounce is correctly absent. Cost is `search_manager.retrieve_detailed` + model streaming. No client answer cache |
+| Loading animations | PARTIAL | `spinnerEl`, `typingDots`, shimmer skeletons and progress bars all exist with reduced-motion fallbacks. **Uncovered:** graph link-suggestions fetch, Library semantic refresh, note-picker search |
+| Documents editor "behind the app" | **STRONGER THAN ROADMAP CLAIMED** | Already had autosave + beforeunload guard, word goal, preview, AI edit, extract-notes, find/replace, md/PDF export, outline sidebar |
+| Features feel disconnected | STRUCTURAL | **Documents was not in the tab bar** — `TABS` carried it but `revealTab` aliased it to Library |
+| Whiteboard "janky" | **ROOT CAUSE FOUND** | `renderWhiteboard()` is a full d3 data-join over every item, called from **49 sites**, no dirty flag, no rAF batching, drag handlers re-allocated inside the render |
+
+### 87.2 Built this session
+
+- **`frontend/editor.js`** (new file — deliberately not more of `app.js`; see
+  Tier 4 on why a split must not share a diff with live edits). The `/` menu:
+  caret-anchored popup measured with a mirror div, four command groups
+  (blocks/frames, links/references, AI actions, templates), ranked matching,
+  and **one delegated listener per event** rather than per-textarea — which is
+  why `ALLOWED_DOUBLES` in `test_frontend_handlers.py` needed no new entry.
+- **Callouts**, `> [!kind] Title`, eight kinds. Syntax chosen because it
+  degrades to an ordinary blockquote in any other reader — portability is the
+  premise of a local-first notebook that stores plain markdown. Body is
+  markdown-rendered, so a callout can hold lists and code.
+- **Heading anchors** in `renderMarkdown`, de-duplicated per render.
+- **Transclusion `![[note]]`**, notes only and deliberately so: `GET /documents`
+  returns no content, and `renderMarkdown` runs on every streamed chat chunk,
+  so a fetch in that path is a request storm waiting to happen.
+- **One wiki resolver** (`resolveWikiTarget`) replacing the note-only and
+  document-only pair, so `[[name]]` finally means the same thing in every pane.
+- **Create-on-miss**: clicking an unresolved link offers to create the note or
+  the document. **User-confirmed, never background** — silently materialising
+  notes from typos is exactly what the autonomous agent is careful not to do.
+- **Documents promoted to a real tab**, reversing §36F. That reversal is
+  commented at both sites rather than silently applied: §36F correctly removed
+  a *second list*; what it did not anticipate is that being reachable only
+  *through* another tab is what made the feature read as second-class.
+- **`test_frontend_handlers.py` extended to scan `editor.js`** — a lint that
+  cannot see a file cannot catch anything in it.
+
+### 87.3 Tags as first-class objects — the decision behind note clusters
+
+The cluster ask ("group notes for a purpose, without affecting links") has
+**four adjacent concepts that each fail it**: *spaces* partition (a note is in
+exactly one, others vanish), *categories* are one-per-note, *whiteboard
+`group_id`* is board items only, and the graph's own "clusters" are **computed
+connected components** — the literal opposite of link-independent. *Tags* are
+the only many-per-note, user-defined, link-independent thing already here.
+
+So the recommendation is **not a fifth concept — promote tags**. Today
+`Entry.tags` is a JSON array of strings (`database.py:189`). First-class means
+a `Tag` table (id, name, description, colour, created_at) plus an association
+table, and it buys, in one change:
+
+- **Rename a tag everywhere at once.** Today a rename means rewriting the JSON
+  array on every note that carries it.
+- **Merge two tags** (`work` / `Work` / `work-stuff`) — the single most common
+  real tag-hygiene job, and currently impossible without a script.
+- **A description and a colour**, which the graph can then key off.
+- **A tag becomes an object**, so it can be a node, collapse, and be saved in a
+  view — which is what the cluster ask actually wanted.
+
+**Two warnings, both load-bearing:**
+
+1. **This makes Alembic (live-list item 7) a real prerequisite, not a
+   nice-to-have.** A new table plus a one-time backfill of every note's JSON
+   array is precisely the change the additive auto-migrator "cannot rename or
+   drop" warning is about. Do not start this while migrations are hand-rolled.
+2. **Keep `entry.tags` working as a property.** Every read path in the app and
+   the AI tools reads it as a list of strings. If the promotion changes that
+   shape, the blast radius is the whole codebase; if it stays a hybrid
+   property over the new rows, it is contained.
+
+### 87.4 Grouping the graph by tag — the real problem is the many-to-many
+
+Asked for directly. Worth stating plainly: **the rendering is the easy half.**
+`graph.js` already colours by category and already has hierarchy layouts. The
+actual design problem is that a note has **one** category but **many** tags, so
+"group by tag" is ambiguous for every multi-tagged note. Three honest options:
+
+- **(a) Primary tag** — first tag wins. Trivial, and quietly wrong for the
+  notes that matter most (the well-tagged ones).
+- **(b) Tag supernodes** — each tag is a node; notes link to their tags. A note
+  with three tags sits between three anchors and the force layout does the
+  rest. Composes with 87.3, and is the closest to what was asked for.
+- **(c) Duplicate the note per group** with ghost edges. Reads well, but two
+  dots for one note breaks every count and every selection.
+
+**Recommendation: (b)**, and only after 87.3 — a supernode needs a tag object
+to *be*.
+
+### 87.5 Link strength and typed links (extends the Phase D work)
+
+Asked for directly and it is a good idea, partly because **half the field
+already exists**: `EntryLink.reason_confidence` is a float that today only ever
+holds an embedding cosine score. Generalising it into a composite strength over
+several signals is the natural next step:
+
+| Signal | Where it already is |
+| --- | --- |
+| Embedding similarity | `routes_entries.py:476-502` |
+| Explicit `[[wiki link]]` | `sync_wiki_links` — should be the **strongest**; the user typed it on purpose |
+| Thread parent/child | `Entry.parent_id` — structural, not inferred |
+| Shared tags (Jaccard) | `Entry.tags`, better after 87.3 |
+| Same category | `Entry.category_id` |
+| Temporal proximity | `created_at` — written the same afternoon is a real signal |
+
+**Two design calls to make before writing any of it:**
+
+1. **Store the components, not just the number.** This app already learned that
+   "these are related" is not good enough — that is why link *reasons* exist. A
+   single blended 0.72 is the same mistake in numeric form. Store the
+   contributing signals so the UI can say *"shared tags (work, q3), same
+   category, written the same day"*. That is also what makes the score
+   debuggable when it is wrong.
+2. **Store explicit, compute derived.** An explicit link's type and strength
+   belong in the row. Shared-tag and same-category strength changes every time a
+   tag changes, so storing it means an invalidation problem; compute those at
+   query time, which is what `_similarity_edges` already does for similarity.
+
+**And the part that makes it worth doing:** `entry/paths.py`'s traversal is
+currently unweighted, so "trace a path between these two notes" treats a
+throwaway similarity edge and a hand-typed wiki link as equal. Weighting the
+traversal by strength improves *both* the Trace feature and the AI's context
+retrieval, which share that code. That is the payoff — not the number itself.
+
+### 87.6 The Timeline line view — a concrete design, at last
+
+Live-list item 3 has said "needs a real visual pass" and nothing more, twice.
+Here is the specific version, and it comes from joining two things already in
+the repo that nobody has connected:
+
+- `IDEAS.md` asks for **"a visual timeline like a branching line with off
+  shoots"**.
+- `Entry.parent_id` **already stores exactly that branch structure** — threads,
+  where a child continues its parent. The line view currently ignores it
+  entirely and renders one flat chronological line.
+
+So the design is: **the trunk is time; a thread is a tributary.** A note with
+children sprouts a branch that runs alongside the trunk and rejoins nowhere —
+it just ends where the thread ended. No new data, no new endpoint; the branch
+structure is a `parent_id` walk the pathfinder already knows how to do
+(`entry/paths.py:189-191`). Everything else (curve style, density, labels) is
+polish on top of a structure that finally means something.
+
+### 87.7 General visual pass — what is actually worth doing
+
+Grounded in the audit rather than invented, and marked where already tracked:
+
+- **Loading states on the three uncovered surfaces** (87.9 item 4). The
+  primitives all exist; this is application, not design.
+- **Colour contrast has never been measured against WCAG AA** — already an open
+  live-list item, still true, and now with more surfaces (callouts add eight
+  tinted backgrounds that nobody has measured text against).
+- **Emoji vs. icons is a *pending decision*, item 16f** — and note that this
+  session's callouts and `/` menu use emoji, consistent with the app as it
+  stands today. If 16f lands on an SVG set, `CALLOUT_KINDS` in `editor.js` is a
+  single data table and the `/` menu's labels are one more; both are cheap to
+  convert, which is why they were written as data.
+- **Empty states**, unscoped and worth a sweep: what the graph, timeline and
+  dashboard show before the first note exists is already named as the
+  highest-leverage onboarding work.
+- **The whiteboard has no minimap** though the graph now does — an asymmetry,
+  not a bug.
+
+### 87.7b Reported live during this session — fixed, with what was measured
+
+- **The minimap covered the zoom buttons.** Reported, then measured rather
+  than assumed: at 1400×900 the minimap spanned x1160–1338 and the zoom
+  buttons x1298–1334, and at z-index 5 against their 2 it won outright.
+  **Its corner is now a user setting** (the user's own suggestion, and the
+  right one — no corner is free on every layout: the toolbar owns the top, the
+  agent monitor bottom-left, the zoom buttons bottom-right). Default top-left.
+  Verified: `overlapsZoom: false`, the choice persists, "off" hides it.
+- **The graph toolbar was a flat run of a dozen equally-weighted controls**
+  that wrapped into a mostly-empty second row. Now five labelled groups with
+  hairline separators. Measured after: 5 groups, 2 rows, **every control 32px**
+  (the one-height rule DESIGN.md states for this strip), no horizontal
+  overflow. The minimap's visibility and position were **merged into one
+  control** rather than added as a second — the redesign should not be paid
+  for with more clutter.
+- **Back/forward between pages**, in the status bar as asked, visually
+  distinct from undo/redo (caret icons vs. u-turn arrows, plus a divider —
+  they move you between pages; undo/redo change your notes). Deliberately not
+  `pushState`: this is a single page with no routing, so browser history
+  entries would let its Back button walk out of the app entirely. Verified
+  including the browser rule that a new visit mid-stack discards what was
+  ahead.
+- **40 form controls had no accessible name at all** — mostly whiteboard
+  ones, which confirms the roadmap's own note that the whiteboard's
+  `aria-label` coverage lags the graph's. All 40 now carry a name and a
+  tooltip; a re-run of the audit reports zero remaining. Worth recording how
+  that number was reached: a naive sweep flagged **212 buttons**, but a
+  visible text label *is* an accessible name, so a tooltip on a button that
+  says "Save" is noise rather than a fix. Filtering to controls with no
+  visible text left 9, of which 7 are labelled at runtime by
+  `paintStatusItem` — the genuine gap was the form controls, not the buttons.
+- **"The search relevance settings section stays highlighted permanently."**
+  Real, and a good example of the shape this codebase keeps meeting. Three
+  places add a `flash` class; two clear it on a 2,700 ms timer and this one
+  never did. It looked harmless because the animation ends on `transparent`,
+  so on an ordinary machine the highlight fades and the stuck class is
+  invisible — but under `prefers-reduced-motion: reduce` the stylesheet
+  deliberately swaps the animation for a **static** outline and background,
+  and with nothing removing the class that highlight is permanent. Fixed by
+  giving it the same cleanup its two siblings already had, and verified with
+  the browser context set to `reducedMotion: "reduce"`.
+
+### 87.7d The Library restructure, and the Documents-tab reversal
+
+Decided with the user, and worth recording because it **reverses a decision
+made earlier the same session** — Documents was promoted to a top-level tab
+and then moved back.
+
+The reason the reversal is right: the original complaint ("documents feel
+inaccessible") was diagnosed as *depth of click*, and it was not. The Library
+sub-tab labelled **"Documents" actually showed everything** — notes, chats,
+files and documents together — so the one place a person would look for their
+documents was the one place with no documents-only view. Promoting a top-level
+tab treated the symptom; giving Documents its own Library section treats the
+cause.
+
+What changed:
+
+- Library sub-tabs are now **All · Documents · Whiteboards · Image Gallery ·
+  AI Skills**. The first kept its `library-view-documents` id (referenced in
+  several places; a rename buys nothing) and is now labelled "All".
+- **Documents gets its own section**, `library-view-docs`, with title search,
+  a new-document button and word/updated metadata. It reuses `GET /documents`
+  and `openDocument()` rather than adding an endpoint or a second path into
+  the editor.
+- **Drafts stopped being a sub-tab and became a chip** in the All view's
+  filter row. A draft is a state a note is in, not a separate kind of object.
+  This needed a real backend collector (`_drafts()` in `routes_library.py`),
+  **not** a relaxed filter: drafts are deliberately excluded from `_notes()`
+  because "draft notes appear as regular notes in the main library" was
+  reported and fixed once already. They carry `kind: "draft"` so the chip
+  finds them while "Everything" still does not show them.
+- The top-level Documents tab is gone and `revealTab`'s
+  documents→library button alias is restored, with a comment recording both
+  the promotion and the reversal so it is not re-derived.
+
+Verified live: the main tab is absent, the five sub-tabs read in the right
+order, the Drafts chip appears in the filter row, and the Documents section
+renders and opens documents. Zero console errors.
+
+**One process note worth keeping.** The Drafts chip first measured `0` and the
+cause was not the code: `routes_library.py` had changed and **uvicorn had not
+been restarted**. That is CLAUDE.md's own documented trap, hit while working
+from the file that documents it.
+
+### 87.7c Reported live, NOT yet built — next session starts here
+
+1. **The graph is slow and janky to move around.** Reported directly and not
+   yet diagnosed. Do not guess: this is the same shape as the whiteboard's
+   jank, which turned out to have one findable cause (a full re-render on
+   every frame), so **profile it before theorising**. `graph.js` already had a
+   force/render tuning pass (HISTORY §71) that fixed two concrete re-render
+   bugs, so the cheap wins may already be taken — start by measuring frame
+   cost during a pan and during a drag, separately.
+2. **The saved-view select truncates to "No saved vi…"** in the redesigned
+   toolbar. Cosmetic, one width rule.
+3. **Graph node labels show raw callout syntax** — a note starting with a
+   callout renders its label as `Review > [!tip] Remem…`. The label builder
+   should strip block markers the way `extract_title` strips a leading `#`.
+4. **Semantic search ignores time words.** Reported: typing "recents" did not
+   bias results by recency, only by meaning. This is `IDEAS.md`'s own
+   long-standing ask ("a slight ai nudge for the semantic notes search, so if
+   I ask 'what notes did I save in the last two days'…"). The retrieval path
+   is `search_manager.retrieve_detailed` (`routes_chat.py:333-374`); a
+   temporal-intent pass that detects recency/date words and applies a
+   `created_at` filter or a recency weight alongside the vector score is the
+   shape. Note `ai/intent.py` already exists and already classifies
+   `needs_retrieval`, so this belongs there rather than in a new module.
+5. **The graph minimap "can no longer be hidden or shown."** The toggle button
+   became a dropdown with **Off** as its first option, and that dropdown is
+   verified working (`MINIMAP -> off hides it: true`). So either this is a
+   stale cached bundle — the service worker serving an older `app.js`, which
+   this repo has been caught by before — or the dropdown is simply less
+   discoverable than the button was. If it is re-reported after a hard
+   refresh, the answer is discoverability, and the fix is a visible toggle
+   next to the position select rather than folding both into one control.
+6. **Timeline line view redesign** — the concrete design is §87.6 above
+   (threads as tributaries off a time trunk, using `Entry.parent_id`, which
+   the view currently ignores entirely). Still unbuilt.
+
+### 87.8 Still open from this pass, mine to finish
+
+- Backlinks panel ("what links here") — edges already stored by
+  `sync_wiki_links`; a query plus a sidebar section.
+- Whiteboard render scheduler (the 49-call-site fix above).
+- Typed links / `link_type` as the first slice of 87.5.
+- Graph performance (§87.7c item 1) — now ahead of the whiteboard scheduler in
+  priority, because it was reported live and the whiteboard's cause is at
+  least already known.
+
+### 87.9 Handoff list — each item already located, none needs re-deriving
+
+1. **Capture: manual link picker + suggest-links button.** Reuse
+   `loadLinkSuggestions` (`app.js:21358-21500`) and its editable-reason rows.
+   **Do not write a second suggester.** Links apply after save (a note needs an
+   id), so hold a pending set and flush it in `saveEntry` (`app.js:4380`).
+2. **Capture: "continues from…" picker.** `Entry.parent_id` and its validation
+   already exist (`routes_entries.py:183-216`). A note-picker plus one field.
+3. **Graph: persist node positions, add per-node hide.** Stop clearing `fx/fy`
+   at `graph.js:1473-1474` when free layout is on; persist pins beside the
+   other per-device graph state (`GRAPH_VIEWS_KEY`, `graph.js:2839`). Add a
+   right-click node menu as the one surface for hide/pin/expand/open.
+4. **Loading states** for the graph link-suggestions fetch (`app.js:21358`),
+   Library semantic refresh (`app.js:19437`) and note-picker search. Respect
+   the existing reduced-motion fallbacks.
+5. **Ask: a client-side answer cache** keyed on question + notebook version.
+   **Say in the handover that the real latency is server-side retrieval** —
+   this makes a repeat feel instant, nothing more. Do not claim a fix.
+6. **Graph → whiteboard.** Marquee-select in the graph first (port
+   `whiteboard.js:3167-3320`), then hand the ids to the **existing** layout
+   engines (`ai/tools/whiteboard.py:263-432`).
+7. **Document → graph / whiteboard**, building on `openExtractPreview`.
+8. **Ctrl+K as a true omni-jump.** The palette exists (`app.js:17486-17620`);
+   widen its index to notes, documents, boards and saved graph views.
+9. **Unlinked mentions.** Scan **titles only** or it floods, and **offer, never
+   auto-apply**. Reuse the accept/dismiss row from `loadLinkSuggestions`.
+10. **Document sub-pages.** Notes have `parent_id`; documents do not. One
+    nullable additive column plus nesting in `#doc-list`.
+11. **AI-authored callouts.** Let the agent emit `> [!question]` blocks. Note
+    `agent.PROSE_BUDGET_CHARS` is **asserted** — the prompt has a budget.
 
 ## Read these two first
 

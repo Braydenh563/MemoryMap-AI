@@ -1934,6 +1934,8 @@
   gap: 0.6rem;
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
+  /* Anchor for the help button's corner placement below. */
+  position: relative;
   /* Same rule DESIGN.md states for the chat dock: one height for every
      select/input/button/segmented-control in the strip. Measured, not
      assumed — the search box and the segmented Layout/Colour groups were
@@ -1946,6 +1948,61 @@
 .graph-toolbar h2 {
   margin: 0;
   margin-right: 0.25rem;
+}
+
+/* Two deliberate rows, not one run that happens to wrap. Reported twice as
+   "ugly and poorly aligned": with a single wrapping flex row the break lands
+   wherever the width runs out, which cut mid-group and left a half-empty
+   second line. Row one is reading the map, row two is acting on it. */
+.graph-toolbar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* A select sized to its widest option, so nothing truncates to "Minimap: t…".
+   The browser's own intrinsic sizing does not account for the dropdown arrow,
+   which is what pushed these two past their box. */
+.graph-toolbar select {
+  min-width: 8.5rem;
+}
+
+/* Wide enough for "No saved views" plus the arrow — at 10rem it still
+   truncated to "No saved vi…", which was the reported symptom. */
+.graph-toolbar #graph-view-picker {
+  min-width: 12.5rem;
+}
+
+/* Related controls read as one thing, with a hairline between groups.
+   The strip was a flat run of a dozen equally-weighted controls that wrapped
+   into a mostly-empty second row — reported directly, with a screenshot. The
+   separator is a border rather than a spacer element so it disappears cleanly
+   when a group wraps to the start of a new line. */
+.graph-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+}
+
+/* The first group needs no separator, and neither does one that has wrapped
+   to the start of a row — a leading hairline on a new line reads as a stray
+   mark rather than a divider. */
+.graph-toolbar-group:first-of-type {
+  padding-left: 0;
+  border-left: 0;
+}
+
+@media (max-width: 700px) {
+  /* At this width almost every group wraps, so every separator would be a
+     leading one. Drop them and let the row gap do the grouping instead. */
+  .graph-toolbar-group {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 .graph-toolbar #graph-search,
@@ -2150,4 +2207,41 @@ p.graph-help-panel {
   .graph-toolbar-secondary.open {
     display: flex;
   }
+}
+
+/* The graph's help button, pinned to the strip's top-right corner.
+   `margin-left: auto` only reaches the end of the line it is on, and with the
+   toolbar now wrapping into three deliberate lines it ended up alone on a
+   fourth. Absolute placement puts it where it belongs regardless of how many
+   rows the controls take, and takes it out of the wrap calculation entirely.
+   Scoped to the id so the other strips reusing .graph-help-toggle keep their
+   own single-row behaviour. */
+#graph-help-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0;
+}
+
+/* --- Library → Documents ------------------------------------------------------
+   The search box stood taller than the buttons beside it — reported directly,
+   and the same failure DESIGN.md names for the graph strip: an <input>'s own
+   padding makes it a few pixels taller than a button unless a height is set
+   for the whole row. One height for every control in the head, exactly as
+   .graph-toolbar does it. */
+#library-view-docs .library-head {
+  --control-h: 2rem;
+  gap: var(--space-2);
+}
+
+#library-view-docs .library-head input,
+#library-view-docs .library-head button {
+  height: var(--control-h);
+  padding-block: 0;
+}
+
+#library-docs-search {
+  width: 14rem;
+  max-width: 100%;
+  margin: 0;
 }

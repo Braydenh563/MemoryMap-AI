@@ -35,6 +35,10 @@ def test_graph_nodes_and_manual_link_edges(client):
             "id": link_id,
             "reason": None,
             "reason_confidence": None,
+            # Null on a link made without one, which is every link that
+            # existed before link types and still means what it always
+            # meant: "these are related". See core.database.LINK_TYPES.
+            "link_type": None,
         }
     ]
 
@@ -93,6 +97,10 @@ def test_graph_link_edge_carries_its_reason(client):
             "reason": "both about scheduling",
             # A reason someone typed, not one deduced — no score attached.
             "reason_confidence": None,
+            # Null on a link made without one, which is every link that
+            # existed before link types and still means what it always
+            # meant: "these are related". See core.database.LINK_TYPES.
+            "link_type": None,
         }
     ]
 

@@ -2280,15 +2280,21 @@ html {
 }
 
 /* --- graph minimap ---------------------------------------------------------
-   Bottom-right of the canvas, out of the way of the toolbar (top) and the
-   agent monitor (bottom-left). Non-interactive except for the click-to-centre
-   handled in graph.js, and `aria-hidden` because it is a redundant view of a
-   map that already has a full keyboard/screen-reader layer
-   (`initGraphKeyboard`) — announcing 1,500 unlabelled dots would be noise. */
+   Non-interactive except for the click-to-centre handled in graph.js, and
+   `aria-hidden` because it is a redundant view of a map that already has a
+   full keyboard/screen-reader layer (`initGraphKeyboard`) — announcing 1,500
+   unlabelled dots would be noise.
+
+   **Its corner is a user setting** (graph.js, `graph-minimap-corner`). It used
+   to be hard-coded bottom-right, which was reported and then measured: at
+   1400×900 the minimap spans x1160–1338 and the zoom buttons x1298–1334, so it
+   sat completely on top of them — and at z-index 5 against their 2, it won.
+   There is no corner that is free on every screen and every layout (the agent
+   monitor takes bottom-left, the toolbar the top), which is exactly why this
+   is a choice rather than a better hard-coded guess. Default is top-left: the
+   one corner nothing else claims by default. */
 .graph-minimap {
   position: absolute;
-  right: var(--space-3);
-  bottom: var(--space-3);
   z-index: 5;
   padding: var(--space-1);
   border: 1px solid var(--border);
@@ -2301,6 +2307,37 @@ html {
 
 .graph-minimap.hidden {
   display: none;
+}
+
+/* One class per corner. Both axes are set on every modifier rather than
+   relying on defaults, so switching corners cannot leave a stale offset from
+   the previous one pinning it to two edges at once. */
+.graph-minimap-tl {
+  top: var(--space-3);
+  left: var(--space-3);
+  right: auto;
+  bottom: auto;
+}
+
+.graph-minimap-tr {
+  top: var(--space-3);
+  right: var(--space-3);
+  left: auto;
+  bottom: auto;
+}
+
+.graph-minimap-bl {
+  bottom: var(--space-3);
+  left: var(--space-3);
+  right: auto;
+  top: auto;
+}
+
+.graph-minimap-br {
+  bottom: var(--space-3);
+  right: var(--space-3);
+  left: auto;
+  top: auto;
 }
 
 /* The current viewport, drawn over the dots. Stroke only — a fill would
@@ -2320,4 +2357,51 @@ html {
   .graph-minimap {
     display: none;
   }
+}
+
+/* --- "how are these connected?" ------------------------------------------------
+   The dialog a drag-to-link opens. Options are buttons rather than a <select>
+   because each one carries a sentence explaining it — direction matters for
+   half the vocabulary ("continues", "example of" read backwards if the arrow
+   is the other way round) and a dropdown has nowhere to say so. */
+.link-kind-card {
+  max-width: 26rem;
+}
+
+.link-kind-pair {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-md);
+}
+
+.link-kind-list {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.link-kind-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-kind-option.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.link-kind-name {
+  font-weight: 600;
+}
+
+.link-kind-hint {
+  font-size: var(--text-xs);
+  color: var(--muted);
 }

@@ -136,11 +136,14 @@
         aria-selected="false" aria-controls="tab-chat" tabindex="-1">Chat</button>
       <button role="tab" id="tab-btn-graph" data-tab="graph"
         aria-selected="false" aria-controls="tab-graph" tabindex="-1">Graph</button>
-      <!-- Library replaces Documents in the bar rather than joining it (§36F).
-           The Documents *page* is still here and is still where you write; it
-           is reached by opening a document from the Library, the same way the
-           editor was always reached by clicking a title in its sidebar. What
-           went is the second list. -->
+      <!-- Documents deliberately has no button here. It was promoted to a
+           top-level tab earlier and then moved back: the complaint it was
+           meant to fix ("documents feel inaccessible") turned out to be about
+           being conflated with the Library's catch-all view, not about the
+           depth of the click. So the fix landed in the Library's own sub-tabs
+           instead, where Documents now has a section of its own. `documents`
+           is still in TABS and still switchable-to; see revealTab on why the
+           Library button lights up while it is showing. -->
       <button role="tab" id="tab-btn-library" data-tab="library"
         aria-selected="false" aria-controls="tab-library" tabindex="-1">Library</button>
       <button role="tab" id="tab-btn-timeline" data-tab="timeline"
@@ -417,7 +420,7 @@
         <section class="card" id="capture">
           <div class="row space-between">
             <h2>Capture a thought</h2>
-            <select id="entry-template" class="small-select" title="Start from a template">
+            <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select" title="Start from a template">
               <option value="">No template</option>
             </select>
           </div>
@@ -480,7 +483,7 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone" aria-hidden="true"></i></button>
             <button id="entry-attach-file" class="ghost" type="button"
               title="Attach an image or file" aria-label="Attach an image or file"><i class="ph ph-paperclip ph-lead" aria-hidden="true"></i> Attach</button>
-            <input id="entry-attach-file-input" type="file" multiple class="hidden">
+            <input id="entry-attach-file-input" aria-label="Attach a file to this note" title="Attach a file to this note" type="file" multiple class="hidden">
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -577,6 +580,16 @@ Link to another note with [[its first few words]]."></textarea>
             <select id="ask-mode-select" class="small-select"
               aria-label="Answer length"
               title="How much effort to spend on the answer. Quick is short and literal; detailed is longer and slower."></select>
+            <!-- Tuning lives here, beside Ask, and not next to the results.
+                 Asked for directly: "I want the tune semantic search to show
+                 at all times and not just when I put in a query." It used to
+                 sit in the "Matching records" heading — inside #chat-results,
+                 which is `hidden` until an answer exists — so the control that
+                 changes how a search behaves could only be reached *after*
+                 running one. -->
+            <button type="button" id="ask-search-tune" class="ghost small icon-only"
+              title="Tune how strict semantic search is (Settings → Preferences)"
+              aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
             <button id="ask-btn">Ask</button>
             <button id="stop-btn" class="ghost hidden" title="Stop the answer">Stop</button>
           </div>
@@ -635,11 +648,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="ai-answer-grounding" class="answer-grounding hidden"></div>
             </div>
             <div class="chat-half">
-              <h3>Matching records <span id="search-mode" class="chip"></span>
-                <button type="button" id="ask-search-tune" class="ghost small icon-only"
-                  title="Tune how strict semantic search is (Settings → Preferences)"
-                  aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
-              </h3>
+              <h3>Matching records <span id="search-mode" class="chip"></span></h3>
               <ul id="raw-results" class="entry-list"></ul>
             </div>
           </div>
@@ -1201,35 +1210,82 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
 
         <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
-          <input id="graph-search" type="search" placeholder="Highlight notes…"
-            aria-label="Highlight matching notes in the graph">
-          <label class="muted" for="graph-layout">Layout</label>
-          <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
-            <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-            <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-            <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-            <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+          <!-- Row one: the controls you reach for while reading the map —
+               finding something, and changing its shape. Row two (below) is
+               everything you do *to* the map: panels, saved views, output.
+               Two explicit rows, because the strip has more controls than fit
+               on one at any realistic width and an accidental wrap put an
+               arbitrary cut in the middle of a group. Reported twice. -->
+          <div class="graph-toolbar-row">
+          <!-- The strip is grouped rather than being one flat run of a dozen
+               controls. Reported directly ("the docked ui at the top of the
+               graph needs a cleanup and redesign") and visible in the
+               screenshot that came with it: everything carried the same
+               weight, so nothing read as related to anything else and the
+               second row was mostly empty space. The groups below are the
+               actual categories — find, shape, panels, saved views, export —
+               and .graph-toolbar-group draws one separator between each. -->
+          <div class="graph-toolbar-group">
+            <input id="graph-search" type="search" placeholder="Highlight notes…"
+              aria-label="Highlight matching notes in the graph">
+            <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
+              aria-controls="graph-trace"
+              title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
           </div>
-          <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
-            <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
-            <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+
+          <div class="graph-toolbar-group">
+            <label class="muted" for="graph-layout">Layout</label>
+            <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
+              <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+              <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+              <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+              <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+            </div>
+            <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
+              <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
+              <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
+            </div>
           </div>
-          <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
-            aria-controls="graph-options"
-            title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
-          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-            aria-controls="graph-trace"
-            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+
+          </div>
+
+          <div class="graph-toolbar-row">
+          <div class="graph-toolbar-group">
+            <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
+              aria-controls="graph-options"
+              title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
+            <!-- One control for the minimap, not two. It was a toggle button;
+                 adding a separate corner picker beside it would have made the
+                 crowding this redesign is fixing measurably worse, and "off"
+                 is just another position as far as the user is concerned. -->
+            <label class="muted" for="graph-minimap-corner">Minimap</label>
+            <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
+              title="Where the minimap sits, or off">
+              <option value="off">Off</option>
+              <option value="tl">Top left</option>
+              <option value="tr">Top right</option>
+              <option value="bl">Bottom left</option>
+              <option value="br">Bottom right</option>
+            </select>
+          </div>
+
+          <div class="graph-toolbar-group">
+            <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
+            <button id="graph-view-save" class="ghost small" type="button"
+              title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save view</button>
+            <button id="graph-view-delete" class="ghost small" type="button"
+              title="Delete the selected saved view" aria-label="Delete the selected saved view"><i class="ph ph-trash" aria-hidden="true"></i></button>
+          </div>
+
+          <div class="graph-toolbar-group">
+            <button id="graph-refresh" class="ghost small" title="Reload the map from your notes"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
+            <button id="graph-export-png" class="ghost small" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
+          </div>
+
+          <!-- Contextual: each appears only in the mode it exits, so they sit
+               apart from the permanent controls rather than in a group. -->
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
-          <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
-          <button id="graph-export-png" class="ghost small" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
-          <button id="graph-minimap-toggle" class="ghost small" type="button" aria-pressed="true"
-            title="Show or hide the minimap"><i class="ph ph-map-trifold ph-lead" aria-hidden="true"></i> Minimap</button>
-          <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
-          <button id="graph-view-save" class="ghost small" type="button"
-            title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save view</button>
-          <button id="graph-view-delete" class="ghost small" type="button"
-            title="Delete the selected saved view" aria-label="Delete the selected saved view"><i class="ph ph-trash" aria-hidden="true"></i></button>
+          </div>
           <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
 
@@ -1434,6 +1490,18 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="doc-outline-wrap" class="doc-outline-wrap hidden">
             <h3>Outline</h3>
             <ul id="doc-outline" class="doc-outline"></ul>
+          </div>
+
+          <!-- What links *here*. The reverse of a [[wiki link]], and the
+               single most-used panel in tools of this shape — you can always
+               see what a page points at, and almost never what points at it.
+               Sits with the outline rather than in a tab of its own because
+               both answer the same question ("where am I, and what is this
+               connected to"), and the sidebar already has two tabs too many
+               for the space it has. -->
+          <div id="doc-backlinks-wrap" class="doc-outline-wrap hidden">
+            <h3>Linked from</h3>
+            <ul id="doc-backlinks" class="doc-outline"></ul>
           </div>
 
           <!-- The notes this document draws on. A document is something you
@@ -1686,16 +1754,22 @@ Link to another note with [[its first few words]]."></textarea>
        existed would be a third place to look. -->
   <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1">
     <div class="seg library-subtabs" id="library-subtabs" role="tablist">
-      <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">Documents</button>
-      <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
+      <!-- Reordered, and the first one renamed. It was called "Documents"
+           while actually showing everything you have ever made — notes,
+           chats, files and documents together — so the one place a person
+           would look for their documents was the one place that did not have
+           a documents-only view. Reported directly. "All" now says what it
+           is, and Documents has a section of its own beside it.
+
+           Drafts left this strip and became a chip in the All view's own
+           filter row: it was a *filter over notes*, not a separate kind of
+           thing, and it sat here as a tab only because the filter row did not
+           exist yet when it was added. -->
+      <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">All</button>
+      <button role="tab" aria-selected="false" data-target="library-view-docs">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
       <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
-      <!-- Reported live: HISTORY.md and a stray code comment both already
-           claimed drafts were surfaced "in the Notes tab + Library" — only
-           the Notes-tab sidebar filter (.category-drafts-row) ever existed;
-           this sub-tab never did, so "it didn't appear anywhere" was
-           literally true for anyone looking here first. -->
-      <button role="tab" aria-selected="false" data-target="library-view-drafts">Drafts</button>
+      <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -1743,7 +1817,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button data-sort="az" type="button" title="A-Z">A-Z</button>
               <button data-sort="biggest" type="button" title="Biggest first">Biggest</button>
             </div>
-            <select id="library-sort" hidden>
+            <select id="library-sort" aria-label="Sort the library" title="Sort the library" hidden>
               <option value="recent">Newest first</option>
               <option value="oldest">Oldest first</option>
               <option value="az">A–Z</option>
@@ -1791,6 +1865,32 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
 
         <!-- Inject the Skills section here -->
+    </div>
+
+    <!-- Documents, on their own. Reuses the document editor's own list
+         rendering rather than a second one — see renderLibraryDocuments in
+         app.js, which fills this from the same GET /documents the editor
+         sidebar uses. -->
+    <div id="library-view-docs" class="library-view-section hidden">
+      <section class="card glass">
+        <div class="row space-between library-head">
+          <h2>Documents</h2>
+          <div class="row">
+            <input id="library-docs-search" type="search" placeholder="Search documents…"
+              aria-label="Search documents by title">
+            <button id="library-docs-new" class="small" type="button"
+              title="Start a new document">＋ New document</button>
+            <button id="library-docs-refresh" class="ghost small" type="button"
+              title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <p class="muted">
+          Everything you have written long-form. Open one to keep writing, or
+          start a new one — the editor is the same either way.
+        </p>
+        <ul id="library-docs-list" class="doc-list"></ul>
+        <p id="library-docs-empty" class="muted hidden">No documents yet — press ＋ New document to start one.</p>
+      </section>
     </div>
 
     <div id="library-view-skills" class="library-view-section hidden">
@@ -1904,7 +2004,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
     <div class="whiteboard-floating-panel top-left card glass" data-panel-id="board">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <select id="wb-board-select" class="ghost small" title="Switch Board">
+      <select id="wb-board-select" aria-label="Which whiteboard to show" title="Which whiteboard to show" class="ghost small" title="Switch Board">
         <option value="">Default board</option>
       </select>
       <button id="wb-rename-board" class="ghost small icon-button" type="button" title="Rename this board" aria-label="Rename this board"><i class="ph ph-pencil-simple" aria-hidden="true"></i></button>
@@ -1916,13 +2016,13 @@ Link to another note with [[its first few words]]."></textarea>
       <button id="wb-add-note" class="ghost small" title="Toggle Library"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Library</button>
       <input
         type="color"
-        id="wb-bg-color-picker"
+        id="wb-bg-color-picker" aria-label="Board background colour" title="Board background colour"
         value="#1b1f2c"
         title="Board background colour"
         class="wb-color-picker"
       >
       <button id="wb-bg-color-reset" class="ghost small icon-button" type="button" title="Reset to theme default" aria-label="Reset to theme default"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
-      <select id="wb-grid-select" class="ghost small" title="Grid">
+      <select id="wb-grid-select" aria-label="Grid style" title="Grid style" class="ghost small" title="Grid">
         <option value="none">No grid</option>
         <option value="lines">Grid: lines</option>
         <option value="dots">Grid: dots</option>
@@ -1933,7 +2033,7 @@ Link to another note with [[its first few words]]."></textarea>
         <span>Snap</span>
       </label>
       <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
-      <input type="file" id="wb-bg-image-input" accept="image/*" class="hidden" aria-hidden="true">
+      <input type="file" id="wb-bg-image-input" aria-label="Choose a board background image" title="Choose a board background image" accept="image/*" class="hidden" aria-hidden="true">
       <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions">⟲</button>
       <button id="wb-clear-board" class="ghost small icon-button" type="button" title="Clear this board" aria-label="Clear this board"><i class="ph ph-trash" aria-hidden="true"></i></button>
       <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board">⬇</button>
@@ -2022,7 +2122,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-shape-menu-divider" role="separator"></div>
             <label class="wb-shape-menu-row" title="Applies to the Line and Arrow tools">
               <span>Line ends</span>
-              <select id="wb-arrow-style">
+              <select id="wb-arrow-style" aria-label="Arrowhead style" title="Arrowhead style">
                 <option value="end">End</option>
                 <option value="start">Start</option>
                 <option value="both">Both ends</option>
@@ -2040,8 +2140,8 @@ Link to another note with [[its first few words]]."></textarea>
             <label class="wb-shape-menu-row" title="Rectangle, Circle, Triangle and Diamond only">
               <span>Fill</span>
               <span class="row wb-inline-controls">
-                <input type="color" id="wb-fill-color" class="wb-color-picker" value="#3355ff">
-                <input type="range" id="wb-fill-opacity" min="0" max="100" step="5" value="100" title="Fill opacity">
+                <input type="color" id="wb-fill-color" aria-label="Shape fill colour" title="Shape fill colour" class="wb-color-picker" value="#3355ff">
+                <input type="range" id="wb-fill-opacity" aria-label="Shape fill opacity" title="Shape fill opacity" min="0" max="100" step="5" value="100" title="Fill opacity">
                 <label class="wb-snap-label" title="No fill — outline only">
                   <input type="checkbox" id="wb-fill-none" checked>
                   <span>None</span>
@@ -2050,7 +2150,7 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
             <label class="wb-shape-menu-row">
               <span>Stroke style</span>
-              <select id="wb-stroke-style">
+              <select id="wb-stroke-style" aria-label="Line style" title="Line style">
                 <option value="solid">Solid</option>
                 <option value="dashed">Dashed</option>
                 <option value="dotted">Dotted</option>
@@ -2073,15 +2173,15 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-shape-menu-divider" role="separator"></div>
             <label class="wb-shape-menu-row" title="Colour shown while dragging when an edge lines up with another item's edge">
               <span>Guide: edge</span>
-              <input type="color" id="wb-guide-color-edge" class="wb-color-picker" value="#ff00ff">
+              <input type="color" id="wb-guide-color-edge" aria-label="Alignment guide colour: edges" title="Alignment guide colour: edges" class="wb-color-picker" value="#ff00ff">
             </label>
             <label class="wb-shape-menu-row" title="Colour shown while dragging when a centre lines up with another item's centre">
               <span>Guide: center</span>
-              <input type="color" id="wb-guide-color-center" class="wb-color-picker" value="#00c8ff">
+              <input type="color" id="wb-guide-color-center" aria-label="Alignment guide colour: centres" title="Alignment guide colour: centres" class="wb-color-picker" value="#00c8ff">
             </label>
             <label class="wb-shape-menu-row" title="Colour shown while dragging when the gap to two neighbours becomes equal">
               <span>Guide: spacing</span>
-              <input type="color" id="wb-guide-color-spacing" class="wb-color-picker" value="#3ddc84">
+              <input type="color" id="wb-guide-color-spacing" aria-label="Alignment guide colour: spacing" title="Alignment guide colour: spacing" class="wb-color-picker" value="#3ddc84">
             </label>
           </div>
         </div>
@@ -2091,7 +2191,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="wb-add-image" class="ghost icon-button" type="button" title="Upload an image onto the board" aria-label="Upload an image onto the board">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         </button>
-        <input type="file" id="wb-image-file-input" accept="image/*" class="hidden" aria-hidden="true">
+        <input type="file" id="wb-image-file-input" aria-label="Choose an image to place on the board" title="Choose an image to place on the board" accept="image/*" class="hidden" aria-hidden="true">
         <button class="ghost icon-button" data-tool="eraser" title="Eraser (E) — drag over strokes and cards to remove them" aria-label="Eraser (E)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
         </button>
@@ -2117,7 +2217,7 @@ Link to another note with [[its first few words]]."></textarea>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
-        <input type="color" id="wb-color-picker" value="#ffffff" title="Stroke Color" class="wb-color-picker">
+        <input type="color" id="wb-color-picker" aria-label="Drawing colour" title="Drawing colour" value="#ffffff" title="Stroke Color" class="wb-color-picker">
         <!-- Asked for directly ("pen size, eraser size, line/shape width").
              The sketch pad's own `#sketch-size` already reaches every one of
              its tools (HISTORY.md §46); the whiteboard's pen/line/shapes/
@@ -2125,7 +2225,7 @@ Link to another note with [[its first few words]]."></textarea>
              with no way to change it before drawing (only after, and only
              for a sketch already on the board, via the properties panel's
              own Width field). -->
-        <input type="range" id="wb-stroke-width" min="1" max="24" step="1" value="3" title="Pen / shape / eraser size">
+        <input type="range" id="wb-stroke-width" aria-label="Line thickness" title="Line thickness" min="1" max="24" step="1" value="3" title="Pen / shape / eraser size">
         <!-- Asked for directly: a visual size readout while dragging, since
              a bare range input gives no idea what "8" actually looks like
              until you draw with it. `position: fixed`, positioned from JS —
@@ -2155,18 +2255,18 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <label class="wb-properties-row" id="wb-prop-color-row">
         <span>Colour</span>
-        <input type="color" id="wb-prop-color">
+        <input type="color" id="wb-prop-color" aria-label="Selected item colour" title="Selected item colour">
       </label>
       <label class="wb-properties-row" id="wb-prop-width-row">
         <span>Width</span>
-        <input type="number" id="wb-prop-width" min="1" max="40" step="1">
+        <input type="number" id="wb-prop-width" aria-label="Selected item line thickness" title="Selected item line thickness" min="1" max="40" step="1">
       </label>
       <!-- Independently per end, asked for directly ("a full line/arrow
            end-cap system... circle/square/multi-line ends"). Replaces the
            old single "which end gets the (only) arrowhead" dropdown. -->
       <label class="wb-properties-row hidden" id="wb-prop-startcap-row">
         <span>Start cap</span>
-        <select id="wb-prop-startcap">
+        <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
           <option value="none">None</option>
           <option value="arrow">Arrow</option>
           <option value="circle">Circle</option>
@@ -2176,7 +2276,7 @@ Link to another note with [[its first few words]]."></textarea>
       </label>
       <label class="wb-properties-row hidden" id="wb-prop-endcap-row">
         <span>End cap</span>
-        <select id="wb-prop-endcap">
+        <select id="wb-prop-endcap" aria-label="Line end style" title="Line end style">
           <option value="none">None</option>
           <option value="arrow">Arrow</option>
           <option value="circle">Circle</option>
@@ -2190,7 +2290,7 @@ Link to another note with [[its first few words]]."></textarea>
            see index.html's #wb-fill-color etc.). -->
       <label class="wb-properties-row hidden" id="wb-prop-dash-row">
         <span>Stroke style</span>
-        <select id="wb-prop-dash">
+        <select id="wb-prop-dash" aria-label="Dash pattern" title="Dash pattern">
           <option value="solid">Solid</option>
           <option value="dashed">Dashed</option>
           <option value="dotted">Dotted</option>
@@ -2203,7 +2303,7 @@ Link to another note with [[its first few words]]."></textarea>
       <label class="wb-properties-row hidden" id="wb-prop-shapefill-row">
         <span>Fill</span>
         <span class="row wb-inline-controls">
-          <input type="color" id="wb-prop-shapefill" class="wb-color-picker">
+          <input type="color" id="wb-prop-shapefill" aria-label="Selected shape fill" title="Selected shape fill" class="wb-color-picker">
           <label class="wb-snap-label" title="Fill the shape with the colour above, instead of just its outline">
             <input type="checkbox" id="wb-prop-shapefill-on">
             <span>Filled</span>
@@ -2213,20 +2313,20 @@ Link to another note with [[its first few words]]."></textarea>
       <label class="wb-properties-row hidden" id="wb-prop-bg-row">
         <span>Fill</span>
         <span class="row wb-inline-controls">
-          <input type="color" id="wb-prop-bg">
+          <input type="color" id="wb-prop-bg" aria-label="Selected card background" title="Selected card background">
           <input type="checkbox" id="wb-prop-bg-none" title="No background">
         </span>
       </label>
       <label class="wb-properties-row hidden" id="wb-prop-border-row">
         <span>Border</span>
         <span class="row wb-inline-controls">
-          <input type="color" id="wb-prop-border">
+          <input type="color" id="wb-prop-border" aria-label="Selected card border" title="Selected card border">
           <input type="checkbox" id="wb-prop-border-none" title="No border">
         </span>
       </label>
       <label class="wb-properties-row hidden" id="wb-prop-fontsize-row">
         <span>Text size</span>
-        <input type="number" id="wb-prop-fontsize" min="8" max="200" step="1">
+        <input type="number" id="wb-prop-fontsize" aria-label="Selected item text size" title="Selected item text size" min="8" max="200" step="1">
       </label>
       <!-- Mind-mapping (ROADMAP item 25): select a card connected to at
            least one other by a whiteboard link, arrange everything reached
@@ -2300,7 +2400,7 @@ Link to another note with [[its first few words]]."></textarea>
         <h2>Image Gallery</h2>
         <div class="row">
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
-          <input id="library-images-upload-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
+          <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
           <button id="library-images-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           <button type="button" id="library-images-help" class="ghost small graph-help-toggle"
             aria-expanded="false" aria-controls="library-images-intro"
@@ -2324,23 +2424,6 @@ Link to another note with [[its first few words]]."></textarea>
     </section>
   </div>
 
-  <div id="library-view-drafts" class="library-view-section hidden">
-    <section class="card glass">
-      <div class="row space-between library-head">
-        <h2>Drafts</h2>
-        <div class="row">
-          <button id="library-drafts-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-        </div>
-      </div>
-      <p class="muted">
-        Notes saved without being filed yet — from Notes' own "Save as
-        draft", selecting text anywhere in the app, or a chat answer saved
-        for later. Open one to finish it or file it properly.
-      </p>
-      <ul id="library-drafts-list" class="entry-list"></ul>
-      <p id="library-drafts-empty" class="muted hidden">No drafts right now.</p>
-    </section>
-  </div>
   <!-- Closes #tab-library, opened near the top of this tab's markup. A stray
        extra `</div>` used to sit right after the whiteboard sidebar instead
        of here, which closed #tab-library three sub-views early — the gallery
@@ -2402,6 +2485,17 @@ Link to another note with [[its first few words]]."></textarea>
     <span id="offline-indicator" class="chip warning hidden" role="status"
       title="No internet connection — web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i>Offline</span>
     <span class="status-spacer"></span>
+    <!-- Back/forward through the pages you have visited. Asked for directly,
+         then asked to live here rather than in the header — and specifically
+         to stay "distinct from the undo and redo buttons", which sit right
+         beside them. Two things do that work: caret icons against undo/redo's
+         u-turn arrows (a different shape, not just a different direction), and
+         the .status-nav rule's own divider marking them off as a separate
+         pair. They move you between pages; undo/redo change your notes. -->
+    <span class="status-nav" role="group" aria-label="Move between pages">
+      <button id="status-back" class="status-item" type="button" disabled></button>
+      <button id="status-forward" class="status-item" type="button" disabled></button>
+    </span>
     <button id="status-undo" class="status-item" type="button" disabled></button>
     <button id="status-redo" class="status-item" type="button" disabled></button>
     <button id="status-command" class="status-item" type="button"></button>
@@ -2535,7 +2629,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div id="backend-config" class="settings-group">
               <h3>Model backend</h3>
               <div class="row">
-                <select id="llm-provider-select">
+                <select id="llm-provider-select" aria-label="Which AI backend to use" title="Which AI backend to use">
                   <option value="ollama">Ollama</option>
                   <option value="openai">LM Studio / llama.cpp / Jan / vLLM</option>
                 </select>
@@ -2573,7 +2667,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div id="models-config" class="hidden settings-group">
               <h3>Chat model (answers your questions — switches instantly)</h3>
               <div class="row">
-                <select id="chat-model-select"></select>
+                <select id="chat-model-select" aria-label="Model used for chat" title="Model used for chat"></select>
                 <button id="chat-model-apply" class="small">Use this model</button>
               </div>
               <p id="chat-model-note" class="status"></p>
@@ -2585,7 +2679,7 @@ Link to another note with [[its first few words]]."></textarea>
               <dl id="model-spec" class="model-spec hidden"></dl>
               <h3>Utility model (filing, digest &amp; writing fixes)</h3>
               <div class="row">
-                <select id="utility-model-select"></select>
+                <select id="utility-model-select" aria-label="Model used for background jobs" title="Model used for background jobs"></select>
                 <button id="utility-model-apply" class="small">Use this model</button>
               </div>
               <div class="stack-top-gap">
@@ -2621,7 +2715,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Ollama embedding model:</span>
               </label>
               <div class="row">
-                <select id="embedding-model-select"></select>
+                <select id="embedding-model-select" aria-label="Model used for semantic search" title="Model used for semantic search"></select>
                 <button id="embedding-apply" class="small">Apply &amp; re-index</button>
               </div>
               <p class="muted" id="embedding-ollama-note">
@@ -2677,7 +2771,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="row">
               <button id="persona-export" class="ghost small">Export JSON</button>
               <button id="persona-import" class="ghost small">Import JSON</button>
-              <input id="persona-import-file" type="file" accept=".json" class="hidden">
+              <input id="persona-import-file" aria-label="Import a persona from a JSON file" title="Import a persona from a JSON file" type="file" accept=".json" class="hidden">
             </div>
           </section>
 
@@ -2723,7 +2817,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="row">
               <button id="skill-export" class="ghost small">Export JSON</button>
               <button id="skill-import" class="ghost small">Import JSON</button>
-              <input id="skill-import-file" type="file" accept=".json" class="hidden">
+              <input id="skill-import-file" aria-label="Import a skill from a JSON file" title="Import a skill from a JSON file" type="file" accept=".json" class="hidden">
             </div>
           </section>
 
@@ -3125,7 +3219,7 @@ Link to another note with [[its first few words]]."></textarea>
                      "particles" while the code implements "constellation",
                      "bubbles", "waves" and "mesh", so every option except
                      Aurora failed the name check and silently fell back. -->
-                <select id="bg-art-style" class="small-select setting-control">
+                <select id="bg-art-style" aria-label="Background artwork style" title="Background artwork style" class="small-select setting-control">
                   <option value="aurora">Aurora — flowing ribbons</option>
                   <option value="constellation">Constellation — linked stars</option>
                   <option value="waves">Waves — rolling lines</option>
@@ -3306,7 +3400,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <p class="muted text-sm">Pinned chats are never deleted, however old they are.</p>
               <h3>AI answer style</h3>
-              <select id="pref-style">
+              <select id="pref-style" aria-label="Writing style the AI uses" title="Writing style the AI uses">
                 <option value="friendly">Friendly (default)</option>
                 <option value="concise">Concise</option>
                 <option value="detailed">Detailed</option>
@@ -3644,7 +3738,7 @@ Link to another note with [[its first few words]]."></textarea>
                    pywebview's own file-dialog API isn't wired up to this route
                    and shipping that blind (unverifiable outside a real desktop
                    session) risked a worse bug than the one being fixed. -->
-              <div class="row hidden" id="export-save-dir-row">
+              <div class="row hidden settings-row-spaced" id="export-save-dir-row">
                 <label for="pref-export-dir" class="muted">Save exports to</label>
                 <input id="pref-export-dir" type="text" placeholder="Default: inside the app data folder">
                 <button id="pref-export-dir-reset" class="ghost small" type="button">Reset to default</button>
@@ -3673,7 +3767,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Import markdown</h3>
               <div class="row">
-                <input id="import-md-files" type="file" accept=".md,.markdown,.txt" multiple>
+                <input id="import-md-files" aria-label="Choose markdown files to import" title="Choose markdown files to import" type="file" accept=".md,.markdown,.txt" multiple>
                 <button id="import-md" class="small">Import</button>
               </div>
               <p id="import-md-status" class="status" role="status"></p>
@@ -3691,7 +3785,7 @@ Link to another note with [[its first few words]]."></textarea>
 
               <h3>Import a document</h3>
               <div class="row">
-                <input id="import-document-file" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm">
+                <input id="import-document-file" aria-label="Choose a document to import" title="Choose a document to import" type="file" accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.html,.htm">
                 <button id="import-document" class="small">Import</button>
               </div>
               <p id="import-document-status" class="status" role="status"></p>
@@ -4202,7 +4296,7 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
 
         <label class="sketch-size-wrapper" title="Brush Size">
-          <input id="sketch-size" type="range" min="2" max="24" value="4" class="sketch-slider">
+          <input id="sketch-size" aria-label="Brush size" title="Brush size" type="range" min="2" max="24" value="4" class="sketch-slider">
         </label>
         
         <div class="seg seg-compact">
@@ -4218,10 +4312,10 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="sketch-upload-image" title="Add Background Image" aria-label="Add Background Image">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
           </button>
-          <input type="color" id="sketch-bg-color-picker" value="#ffffff"
+          <input type="color" id="sketch-bg-color-picker" aria-label="Sketch background colour" title="Sketch background colour" value="#ffffff"
             title="Canvas background colour">
         </div>
-        <input id="sketch-image-input" type="file" accept="image/*" class="hidden">
+        <input id="sketch-image-input" aria-label="Choose an image to add to the sketch" title="Choose an image to add to the sketch" type="file" accept="image/*" class="hidden">
       </div>
       <div id="sketch-canvas-wrap" class="sketch-canvas-wrap">
         
@@ -4315,6 +4409,14 @@ Link to another note with [[its first few words]]."></textarea>
 
 
 
+  <!-- The "/" command menu and the document editor's [[ picker share one
+       popup: only ever one can be open, and a single element means one set of
+       styles and one listbox for a screen reader to track. Positioned at the
+       caret from script (see editor.js), which is why it sits here at the end
+       of <body> instead of inside either editor. -->
+  <ul id="editor-menu" class="editor-menu hidden" role="listbox"
+      aria-label="Insert a block, or link to a note"></ul>
+
   <!-- D3 v7 + p5.js, both vendored locally — the offline rule: no CDNs, ever -->
   <script src="/vendor/d3.v7.min.js"></script>
   <script src="/vendor/p5.min.js"></script>
@@ -4341,5 +4443,12 @@ Link to another note with [[its first few words]]."></textarea>
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
   <script src="/whiteboard.js"></script>
+  <!-- The editor layer: the "/" command menu, the block frames it inserts, and
+       the caret-anchored popup the document editor's [[ autocomplete uses.
+       Loaded after app.js for the same reason whiteboard.js is — every
+       cross-file call happens at runtime, never at parse time, and it reads
+       app.js globals (MD_ACTIONS, allEntries, markDocDirty) rather than the
+       other way round. -->
+  <script src="/editor.js"></script>
 </body>
 </html>

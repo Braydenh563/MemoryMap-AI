@@ -468,11 +468,18 @@ progress {
   overflow-wrap: anywhere;
 }
 
-/* Reported: sitting right after the mode chip read as squeezed into the
-   middle of the heading rather than a deliberately placed control. Same
-   flex row as above, just pushed to the row's own trailing edge. */
+/* It sits in the ask row now (see index.html on why it left the results
+   heading), where it is one control among several rather than the trailing
+   item of a heading — so no auto margin. */
 #ask-search-tune {
-  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+/* Two stacked `.row`s have no space between them: `.row`'s own gap applies
+   *within* a row, not between siblings. Reported for the two export settings,
+   which read as one run-on control. */
+.settings-row-spaced {
+  margin-top: var(--space-3);
 }
 
 #thinking-box {
@@ -1659,7 +1666,18 @@ li.link-source {
 html.modal-open,
 html.modal-open body {
   overflow: hidden;
-  /* Keeps the locked page from jumping when the scrollbar disappears. */
+}
+
+/* The gutter is reserved **always**, not only while an overlay is open.
+   Reported: "the top menu bar keeps slightly changing position when I open the
+   settings modal, then going back to normal when I close it." The lock above
+   sets `overflow: hidden`, which removes the scrollbar — and reserving the
+   gutter *at the same moment* meant opening a dialog added a strip of gutter
+   that had not been there a frame earlier, so the whole page shifted by the
+   scrollbar's width and shifted back on close. Reserving it unconditionally
+   costs the same handful of pixels at all times and makes opening a dialog
+   change nothing about the layout behind it. */
+html {
   scrollbar-gutter: stable;
 }
 

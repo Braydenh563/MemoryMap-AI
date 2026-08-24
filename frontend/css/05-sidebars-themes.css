@@ -770,13 +770,37 @@ button.ai-unavailable {
   top: 0;
 }
 
-/* Height of the viewport, scrolling its own contents — the second half of the
-   same report. Applied to the log sidebar specifically because the others
-   size themselves from their own layout grid. */
+/* This is the exact bug `.doc-sidebar` already hit and fixed in full
+   (04-chat-dock-appearance.css): `align-self: start` opts a sidebar out of
+   its grid's `align-items: stretch`, and `max-height` alone only ever CAPS
+   a box, never gives it a floor — so a short log list produced a
+   short card floating beside a tall `main`, not the "full height of the
+   screen" that was reported (twice now: first for the sidebar not
+   sticking at all, now for its height).
+
+   `height: 100%` first tried here matched `main`'s own content height
+   instead of the viewport — 1207px against a 900px screen, overflowing the
+   fold, which is a different wrong answer to the same question. What
+   actually reads as "the height of the screen" is `.doc-sidebar`'s
+   `max-height: var(--page-sticky-h)` — the real viewport-minus-chrome
+   figure (00-tokens-shell.css), not a guess and not `main`'s height —
+   paired with `align-self: stretch` (not `start`) so the sticky box is
+   exactly its row's height, and `overflow: hidden` with the log LIST
+   scrolling inside it rather than the card itself. Applying the same
+   complete pattern rather than a partial version of it a second time. */
 #skills-sidebar {
-  max-height: 100vh;
+  align-self: stretch;
+  height: 100%;
+  max-height: var(--page-sticky-h);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#skills-sidebar #skills-logs-list {
   overflow-y: auto;
-  align-self: start;
+  min-height: 0;
 }
 
 /* The collapse toggle is absolutely positioned at the sidebar's top-right

@@ -2388,6 +2388,18 @@ html {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: transparent;
+  /* The global `button` rule (01-forms-settings.css) sets color to
+     --on-accent, meant to sit on that same rule's solid --accent-surface
+     fill. This overrides the background to transparent but never touched
+     color, so the text kept --on-accent regardless — which in dark theme
+     is #0d1017, near-black, over the modal card's own near-black
+     background. Unreadable, and correctly reported as a contrast bug
+     rather than a "wrong colour" one: it isn't low contrast on light theme
+     (--on-accent is #fff there, fine over transparent), which is why it
+     read as theme-dependent. --ink is what every other button-on-a-card in
+     this app uses over a transparent/soft fill; button.ghost two rules
+     below sets it explicitly for the same reason. */
+  color: var(--ink);
   text-align: left;
   cursor: pointer;
 }

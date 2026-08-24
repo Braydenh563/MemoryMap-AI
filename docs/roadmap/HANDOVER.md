@@ -1,6 +1,123 @@
 # Session handover
 
-## Latest session (continued) — Phases C and D, and a long live-report tail
+## Latest session — the recentSkills null crash, and a live-report batch
+
+Started from ROADMAP.md §88.1's queue and the live-reported `null.replace`
+crash (item 2). Reproduced everything below in this sandbox's Chromium
+before fixing it, per CLAUDE.md's own rule — nothing here is theorised.
+
+### The headline fix: §88.1 item 2 was two reports, one bug, and it's closed
+
+"The dashboard widgets are completely broken" and "Unhandled promise
+rejection: TypeError: Cannot read properties of null (reading 'replace')"
+were reported together and are the same bug. Root cause, traced end to end:
+
+- §88.0 (a prior session) fixed `startSkill(skill.name)` where `skill` was a
+  *string*, so `.name` was `undefined`. That fix stopped new corruption but
+  never cleaned up what the bug had already written: `JSON.stringify`
+  silently turns `undefined` inside an array into **`null`**, so any profile
+  that ran a skill during that bug's window got a permanent `null` entry in
+  localStorage's `recentSkills`.
+- `withoutLeadingEmoji()` calls `.replace()` on every name in that list on
+  **every dashboard render**, unguarded. The throw escaped `renderQuickLinks`
+  before `renderDashboard`'s widget loop ever ran, so the grid stayed empty
+  and the toast read exactly as reported.
+- Reproduced live: `localStorage.setItem('recentSkills', JSON.stringify([undefined, 'x']))`
+  then reload → empty grid, exact toast, zero widgets. Fixed at all three
+  points (write guard in `noteSkillRun`, a self-healing filter+rewrite in
+  `recentSkillLinks` so an *already-affected* profile repairs itself on next
+  load rather than staying broken forever, and a defensive coercion in
+  `withoutLeadingEmoji` itself) — verified the same poisoned profile renders
+  18 widgets and zero errors after the fix, and stays fixed on a second reload.
+- Also hardened the global `error`/`unhandledrejection` handlers to log
+  `.stack`, not just `.message` — this is the actual reason the bug had "no
+  line number" for multiple sessions running. Next time something like this
+  fires, Settings → Logs will have the real location.
+
+### Also fixed, each verified live in this sandbox's Chromium
+
+- **Categories sidebar heading was smaller than Chats/Documents.** A stale
+  `#sidebar h2 { font-size: var(--text-lg) }` (0.92rem) ID-selector rule in
+  `03-dashboard-widgets.css` outranked `.card h2`'s unified 1rem (§35L) by
+  specificity, alone, for this one sidebar. Removed; computed size now 16px
+  matching its siblings.
+- **Graph toolbar redesign** (asked for directly, second pass after the one
+  in §87.7b): "+ New note" moved from beside the "Graph" title to sit paired
+  with the "?" help button top-right — both were lone bookending controls
+  before. Layout/Colour segmented controls split into two labelled groups
+  with their own separator (they shared one group with no "Colour" label,
+  which was the reported "grouping unclear"). Minimap position moved out of
+  the toolbar into the Options gear panel, where every other "tuned once"
+  setting already lives — it was the last of the two crowding contributors
+  the user named, freeing real width on row two.
+- **Skill Logs sidebar not full height** — same bug class `.doc-sidebar` hit
+  and fixed once already (`04-chat-dock-appearance.css`): `align-self: start`
+  plus `max-height` alone gives a box a ceiling but no floor, so it shrinks to
+  its own short content. Applied the complete proven pattern this time
+  (`align-self: stretch`, `height: 100%`, `max-height: var(--page-sticky-h)`,
+  flex column, the log *list* scrolls rather than the card) instead of the
+  partial version I wrote first, which just traded one wrong height (0vh) for
+  another (`main`'s full unclamped content height, 1207px against a 900px
+  screen — caught by measuring, not assumed).
+- **Link-kind dialog text unreadable in dark theme** ("How are these
+  connected?", the drag-to-link dialog). `.link-kind-option` is a bare
+  `<button>` overriding `background` to transparent but never touching
+  `color`, so it kept the global `button` rule's `color: var(--on-accent)` —
+  which is `#0d1017` (near-black) in dark theme, meant for text *on* the
+  bright accent fill that rule also sets, not for a transparent button over a
+  dark card. Added `color: var(--ink)`. Confirmed via computed style
+  (`rgb(231, 233, 238)` now, was effectively black).
+- **Back-to-top button mispositioned on Notes/Library, and Library's
+  AI-Skills case still avoids the new sidebar.** `positionScrollTopForNested`
+  unconditionally pulled the button in from the scrolling panel's own right
+  edge, always adding a margin *on top of* the page's own existing right
+  padding — Notes has no right-side element at all (its sidebar is on the
+  left), so this stacked two margins and put the button ~86px from the
+  viewport edge against every other tab's flat 24px. Now it only pulls in
+  when a real right-side panel is actually there to clear (checked directly
+  against `#skills-sidebar`), otherwise matches the flat margin every other
+  tab uses. Verified: Notes/Library/Timeline all measure `right: 24px`
+  post-fix; the AI-Skills sub-view still measures the button's right edge
+  clear of the sidebar's left edge (1014 vs 1053).
+
+### Investigated and NOT fixed — precise findings, not guesses, for next session
+
+- **"Back/forward navigation doesn't account for all types of navigation"**
+  (reported directly). Traced `recordTabVisit`'s two call sites: it captures
+  top-level tab switches and Notes' four sub-tabs only. **Not captured**:
+  Library's own sub-tabs (All/Documents/Whiteboards/Image Gallery/AI
+  Skills — this is also ROADMAP §88.1 item 7, already open), Document editor
+  open/close, Graph focus-mode enter/exit, and chat conversation switches.
+  Same `{tab, section}` shape `showNotesSection` already uses is the pattern
+  to extend — `whiteboard.js`'s Library sub-tab handler is the first and
+  cheapest, per item 7's own note.
+- **Graph pan/zoom is slow and glitchy** (reported directly, and already
+  ROADMAP §88.1 item 6 / §87.7c item 1). Still not diagnosed here either —
+  did not profile a pan vs. a drag separately, on explicit instruction from
+  this project's own history not to guess at this one. HISTORY §71 already
+  took the cheap wins; whatever's left needs a real frame-cost measurement
+  before touching code, which needs a large enough graph to actually see the
+  cost (this sandbox's synthetic notebook is 10 notes).
+- **Documents Library sub-tab redesign** ("SOOOO ugly and not consistent"),
+  and the rest of the pre-existing top-of-file work — not started this
+  session; added to ROADMAP.md's live list below rather than rushed. See
+  there for what's queued.
+
+### What could not be verified
+
+- Everything above marked "verified" was driven in this sandbox's own
+  Chromium against a synthetic notebook (10 notes, 1 reminder) — not the
+  user's real data, and not a real browser/OS. The scrollbar-width fix in
+  particular (`offsetWidth - clientWidth`) is architecturally correct for
+  any platform but was only measured on this sandbox's overlay-scrollbar
+  Chromium (returns 0 here); it has not been seen return a nonzero value.
+- No real model is reachable in this sandbox, so nothing about model
+  behaviour, `/models/status`, or the Ask-tab "AI unavailable" report
+  (§88.1 item 1) was touched or re-checked this session.
+
+---
+
+## Previous session (continued) — Phases C and D, and a long live-report tail
 
 The same session continued well past the editor layer. **Start at
 [ROADMAP.md §88](../ROADMAP.md)** — it is the ordered work queue, and §88.0

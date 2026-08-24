@@ -2213,17 +2213,32 @@ p.graph-help-panel {
   }
 }
 
-/* The graph's help button, pinned to the strip's top-right corner.
-   `margin-left: auto` only reaches the end of the line it is on, and with the
-   toolbar now wrapping into three deliberate lines it ended up alone on a
-   fourth. Absolute placement puts it where it belongs regardless of how many
-   rows the controls take, and takes it out of the wrap calculation entirely.
-   Scoped to the id so the other strips reusing .graph-help-toggle keep their
-   own single-row behaviour. */
-#graph-help-toggle {
+/* "+ New note" and the help button, pinned together to the strip's top-right
+   corner. `margin-left: auto` only reaches the end of the line it is on, and
+   with the toolbar wrapping into several rows below, either button ended up
+   alone on its own line if left in normal flow. Absolute placement puts the
+   pair where they belong regardless of how many rows the controls beneath
+   take, and removes both from the wrap calculation entirely.
+
+   These two used to bookend the strip separately — "+ New note" beside the
+   "Graph" title on the left, "?" alone on the right — which read as two
+   unrelated leftover controls rather than a group. Reported directly; now
+   one pinned pair. `#graph-help-toggle` cancels its own general
+   `.graph-help-toggle` rule (margin-left: auto, position: static) because
+   the wrapper positions both buttons now — that general rule is still what
+   the Skills/Whiteboards/Image Gallery copies of this button use, unscoped
+   by id, so they keep their own single-row behaviour untouched. */
+.graph-toolbar-end {
   position: absolute;
   top: 0;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+#graph-help-toggle {
+  position: static;
   margin-left: 0;
 }
 

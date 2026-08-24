@@ -119,6 +119,31 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
     nothing else. The data to sort by (model, token cost, timestamps) is
     already stored per turn, so this is a list-rendering job.
 
+12. **The Documents Library sub-tab needs a full visual redesign.** Reported
+    directly and bluntly: "SOOOO ugly and not consistent with the other
+    application design style ui and other pages." This is the same gap
+    §88.1 item 8 already named ("cards, metadata layout and empty state all
+    unstyled beyond the basics") but the report this time is stronger and
+    specifically contrasts it against the rest of the app's design language
+    — worth treating as its own pass rather than folded into item 8's
+    general "give it a look" note. Start by screenshotting it beside a
+    polished Library sub-view (All, or Whiteboards after its own pass) to
+    name concretely what differs, per this file's own rule about vague
+    visual reports.
+
+13. **Back/forward navigation still misses most navigation types.** Reported
+    directly, and traced to source rather than guessed at: `recordTabVisit`
+    (`app.js`) has exactly two call sites — one in `switchTab` (top-level
+    tabs) and one in `showNotesSection` (Notes' four sub-tabs). Everything
+    else that feels like navigating is invisible to it: Library's own
+    sub-tabs (All/Documents/Whiteboards/Image Gallery/AI Skills — this is
+    also item 12 below, "Back/forward across the Library's own sub-tabs"),
+    opening/closing a document in the editor, entering/exiting Graph focus
+    mode, and switching between saved chat conversations. The `{tab,
+    section}` shape `recordTabVisit`/`showNotesSection` already use is the
+    pattern to extend to each — Library's sub-tab handler (`whiteboard.js`)
+    is the cheapest first step since it is already scoped as item 12.
+
 ### Smaller, and genuinely cheap
 
 - **`ai/tools/__init__.py` is still ~3,360 lines** — the `TOOLS` registry plus
@@ -183,6 +208,12 @@ same session is in §88.0 so nobody re-fixes it.
 | "Back/forward should handle sub-tabs too" | History entries are now `{tab, section}`; `showNotesSection` records one. Verified: browse → back → capture → back → ask → forward → capture |
 | Whiteboard "janky and uncomfortable" | `renderWhiteboard()` (a full d3 join over every item) was called from **48 sites**; one action touches several. All now coalesce into one rAF via `wbScheduleRender()` |
 | "Make link creation on the graph offer a kind, a reason, and a cancel" | Built — see §87.5's typed links, now shipped as `EntryLink.link_type` plus the drag-to-link dialog |
+| "The dashboard widgets are completely broken" **and** `Unhandled promise rejection: TypeError: Cannot read properties of null (reading 'replace')` | One bug, reported as two. §88.0's own `startSkill` fix (row above) stopped new corruption but never cleaned up what it had already written: `JSON.stringify` turns `undefined` into `null` inside an array, so a profile that ran a skill during that bug's window carried a permanent `null` in `recentSkills`. `withoutLeadingEmoji()` called `.replace()` on it unguarded, on every dashboard render, before the widget grid populated. Fixed at all three points — write guard, a self-healing read-side filter that rewrites the cleaned list (so an already-affected profile repairs itself on next load), and a defensive coercion — reproduced and verified live in this sandbox's Chromium |
+| Categories sidebar heading smaller than Chats/Documents | A stale ID-selector `#sidebar h2 { font-size: var(--text-lg) }` outranked the unified `.card h2` (§35L) by specificity for this one sidebar. Removed |
+| "The docked ui at the top of the graph needs a cleanup" (second pass) | "+ New note" grouped with the "?" help button instead of bookending the strip alone; Layout/Colour segmented controls split into two labelled groups (they shared one with no "Colour" label); Minimap moved into the Options panel with the other "tuned once" settings |
+| Skill Logs sidebar still not full height after the first fix | Same bug `.doc-sidebar` already hit once: `align-self: start` + `max-height` alone is a ceiling with no floor. Applied `.doc-sidebar`'s complete pattern (`align-self: stretch`, `height: 100%`, `max-height: var(--page-sticky-h)`, flex column, list scrolls not the card) instead of the partial version tried first |
+| Link-kind dialog ("How are these connected?") text unreadable in dark theme | `.link-kind-option` overrode `background` to transparent but not `color`, so it kept the global `button` rule's `color: var(--on-accent)` — `#0d1017` in dark theme, meant for text on that same rule's bright accent fill, not a transparent button. Added `color: var(--ink)` |
+| Back-to-top button "too much to the left" on Notes, displaced on Library | `positionScrollTopForNested` always pulled the button in from the panel's own edge, stacking a second margin on top of the page's own — Notes has no right-side element to clear at all. Now only pulls in when a real right-side panel (the Skill Logs sidebar) is actually present; otherwise matches every other tab's flat offset |
 
 ### 88.1 Reported and still open — work this list top-down
 

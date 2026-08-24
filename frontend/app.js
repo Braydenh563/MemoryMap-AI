@@ -16181,8 +16181,34 @@ function positionScrollTopForNested(button, tab) {
   const rect = panel?.getBoundingClientRect();
   if (!rect) return;
   const margin = 24; // 1.5rem, matching every other tab's own offset
-  const scrollbarClearance = 10; // past a real (non-overlay) scrollbar
-  button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+
+  // **Right**: was unconditional — pull the button in to sit `margin` px
+  // inside the panel's own right edge, always. That is correct only when a
+  // real right-side element (like the AI Skills Skill Logs sidebar) is
+  // actually there to clear. Notes' sidebar is on the *left*, and most
+  // Library sub-views have no right column at all, so their `main`'s right
+  // edge is already close to the page's own natural right margin — pulling
+  // in *again* on top of that stacked two margins and left the button
+  // noticeably further from the corner than every other tab's flat
+  // `right: 1.5rem`. Reported directly: "too much to the left" on Notes.
+  // Only pull in when a right-side panel that would actually be covered is
+  // present; otherwise match every other tab's flat offset.
+  const rightPanel = document.querySelector("#library-view-skills:not(.hidden) #skills-sidebar");
+  if (rightPanel) {
+    const rightPanelRect = rightPanel.getBoundingClientRect();
+    // Real (non-overlay) scrollbars reserve layout width that
+    // getBoundingClientRect() doesn't subtract for; measuring it live
+    // (0 on this project's own sandbox and macOS, 15-17px on most
+    // Windows/Linux setups) replaces what used to be a flat guessed
+    // constant, wrong in both directions depending on platform.
+    const scrollbarClearance = panel.offsetWidth - panel.clientWidth;
+    button.style.right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
+  } else {
+    button.style.right = `${margin}px`;
+  }
+
+  // **Bottom**: unchanged in spirit — a panel shorter than the viewport
+  // must not leave the button floating below its own content.
   button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
 }
 

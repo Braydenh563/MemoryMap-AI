@@ -887,12 +887,24 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 }
 
 .graph-physics+.graph-temporal::before,
-.graph-temporal+.graph-toggle-group::before {
+.graph-temporal+.graph-toggle-group::before,
+.graph-toggle-group+.graph-minimap-option::before {
   content: "";
   align-self: stretch;
   width: 1px;
   margin-inline-end: var(--space-3);
   background: var(--border);
+}
+
+/* The minimap position picker, moved here from the main toolbar strip (see
+   index.html) as a "tuned once" setting — same shape as .graph-physics and
+   .graph-temporal above, so it gets the same inline-flex treatment and the
+   same divider convention marking where the toggle group ends and this
+   begins. */
+.graph-minimap-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* The Library page and its three sub-views. The page is a column so that a

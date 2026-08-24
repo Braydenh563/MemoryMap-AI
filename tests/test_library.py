@@ -232,6 +232,22 @@ def test_a_shelved_note_appears_once_not_twice(client, session):
     assert body["overview"]["shelved"] == 1
 
 
+def test_a_draft_note_does_not_appear_in_the_library(client, session):
+    """Reported directly ("draft notes appear as regular notes in the main
+    library section"). A draft is unfinished by definition — the Notes tab
+    already keeps it out of "All notes" and every category filter; the
+    Library's mixed "note" list didn't."""
+    kept = Entry(content="finished thought")
+    draft = Entry(content="half a thought", is_draft=True)
+    session.add_all([kept, draft])
+    session.commit()
+
+    body = client.get("/library").json()
+    note_ids = {item["entry_id"] for item in _of_kind(body, "note")}
+    assert kept.id in note_ids
+    assert draft.id not in note_ids
+
+
 def test_a_sketch_note_carries_a_thumbnail(client, session):
     """A sketch (saveSketch() in app.js) is a note whose real content is a
     PNG Attachment, not text — the note card had nothing to show but the

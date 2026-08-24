@@ -142,6 +142,38 @@ def count_entries(
     return session.scalar(query) or 0
 
 
+def entry_id_scope(
+    session: Session, *, deleted: bool = False, archived: bool = False
+) -> set[int]:
+    """Every entry id in one of the three views — live, bin, or archive.
+
+    Exists because the caller that needs this (semantic search's scope check in
+    `routes_entries.list_entries_route`) needs *only* ids, and its own comment
+    already said so — "ids only, no row bodies — cheap even at real notebook
+    scale". The code underneath it did not match: it called `list_entries()`
+    and threw every mapped `Entry` away after reading `.id`, which is the exact
+    cost `search_manager.semantic_search` was rewritten to stop paying
+    (its docstring measures it at ~85% of a search at 20k+ notes — materialising
+    entities to score and discard them). A comment describing an optimisation
+    the code does not perform is worse than no comment, because the next
+    profiler run has to rediscover it.
+
+    Deliberately unpaginated, for the reason the call site gives: this decides
+    which semantic hits are *in scope* at all, so a page boundary here would
+    silently drop legitimate matches.
+    """
+    query = select(Entry.id)
+    if deleted:
+        query = query.where(Entry.is_deleted == True)  # noqa: E712
+    elif archived:
+        query = query.where(
+            Entry.archived_at.is_not(None), Entry.is_deleted == False  # noqa: E712
+        )
+    else:
+        query = _list_entries_filter(query, False, False)
+    return set(session.scalars(query))
+
+
 def most_accessed_entries(session: Session, limit: int = 5) -> list[Entry]:
     """Most-used non-deleted, non-archived entries; untouched entries don't
     qualify."""
@@ -804,10 +836,18 @@ def all_tags(session: Session) -> dict[str, int]:
             return _tag_cache[1]
 
     counts: dict[str, int] = {}
-    for entry in session.scalars(
-        select(Entry).where(Entry.is_deleted == False)  # noqa: E712
+    # One column, not one mapped entity per row. `tags` is the only thing this
+    # loop reads, and a `select(Entry)` here made SQLAlchemy build — and
+    # identity-map — a full `Entry` for every note in the notebook just to
+    # reach `.tags`. That is the same cost `search_manager.semantic_search`
+    # was rewritten to stop paying (see its docstring: ~85% of a search at
+    # 20k+ notes went on materialising entities it then discarded). The
+    # fingerprint cache above keeps this off the hot path most of the time;
+    # this makes the miss itself cheap instead of merely rare.
+    for raw in session.scalars(
+        select(Entry.tags).where(Entry.is_deleted == False)  # noqa: E712
     ):
-        for tag in entry_tags(entry):
+        for tag in tags_from_json(raw):
             counts[tag] = counts.get(tag, 0) + 1
     result = dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
 

@@ -230,11 +230,39 @@ def safe_filename(name: str) -> str:
     from the browser, and the browser is not the trust boundary here even
     though the app is single-user: the AI writes some of these names.
     """
-    cleaned = Path(str(name)).name  # drops any directory part, "..", drive letters
+    cleaned = os.path.basename(str(name))  # drops any directory part, "..", drive letters
     cleaned = re.sub(r"[^A-Za-z0-9._ -]", "_", cleaned).strip(". ")
     if not cleaned:
         raise HTTPException(status_code=422, detail="That filename can't be used.")
     return cleaned[:120]
+
+
+def _within_exports(exports: Path, name: str) -> Path:
+    """`exports / name`, refusing anything whose resolved path lands outside
+    `exports`. `safe_filename` already whitelists to a flat, traversal-free
+    name, but CodeQL's `py/path-injection` still flagged the join as tainted
+    (alerts #289/#290) — the same shape HANDOVER.md already documents for
+    the update-apply SSRF fix: a query's sanitiser recognition is narrower
+    than "the code is provably safe," so the fix is a real containment
+    check at the point of use, not a stronger filter upstream of it.
+
+    **Written with `os.path`, not `pathlib`, and that is the actual fix.**
+    The first attempt at this guard used `Path.resolve()` +
+    `Path.relative_to()` and CodeQL kept flagging the join regardless — its
+    `py/path-injection` sanitiser model is built around the
+    `os.path.normpath(os.path.join(...))` + `str.startswith(base + sep)`
+    shape (the one GitHub's own CWE-022 remediation examples use), and does
+    not extend the same recognition to the equivalent pathlib calls. Same
+    containment check, same semantics — `os.path.realpath` resolves `..`
+    segments *and* symlinks exactly like `Path.resolve()` did, so a symlink
+    planted inside `exports` pointing outside it is still caught — just
+    spelled in the vocabulary the query actually models.
+    """
+    base = os.path.realpath(str(exports))
+    candidate = os.path.realpath(os.path.join(base, name))
+    if candidate != base and not candidate.startswith(base + os.sep):
+        raise HTTPException(status_code=422, detail="That filename can't be used.") from None
+    return Path(candidate)
 
 
 @router.post("/files/save")
@@ -250,13 +278,13 @@ def save_generated_file(body: SaveFileBody) -> dict:
     exports = _exports_dir()
     exports.mkdir(parents=True, exist_ok=True)
     name = safe_filename(body.filename)
-    target = exports / name
+    target = _within_exports(exports, name)
     # Never silently overwrite: two exports of the same chat on the same day
     # are two files someone may want to compare.
     if target.exists():
         stem, suffix = target.stem, target.suffix
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        target = exports / f"{stem}-{stamp}{suffix}"
+        target = _within_exports(exports, f"{stem}-{stamp}{suffix}")
     target.write_bytes(data)
     return {"path": str(target), "filename": target.name, "bytes": len(data)}
 

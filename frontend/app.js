@@ -1346,8 +1346,26 @@ function entryItem(entry, options = {}) {
         unlink.textContent = "×";
         unlink.title = "Remove this link";
         unlink.addEventListener("click", async () => {
-          await api(`/entries/${entry.id}/links/${link.link_id}`, { method: "DELETE" });
+          const otherId = link.entry_id;
+          const reason = link.reason;
+          let liveLinkId = link.link_id;
+          await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
           await loadEntries();
+          pushUndo(
+            "Removed a link between notes",
+            async () => {
+              const updated = await apiJson(`/entries/${entry.id}/links`, {
+                method: "POST",
+                body: JSON.stringify({ target_id: otherId, reason }),
+              });
+              liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
+              await loadEntries();
+            },
+            async () => {
+              await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+              await loadEntries();
+            }
+          );
         });
         makeUnlinkAccessible(unlink);
         linkChip.appendChild(unlink);
@@ -1541,6 +1559,50 @@ async function removeEntryTitle(entry) {
   }
 }
 
+// Arrow-key navigation, as the `role="menu"` contract implies. ↑/↓ move
+// between *top-level* items (wrapping) — `:scope >` so a hidden submenu's own
+// items (handled by their own keydown handler) never get mixed into this list,
+// which would desync Home/End and let arrow keys land on an item the user
+// can't currently see. Home/End jump to the ends, Esc closes and returns focus
+// to the opener.
+//
+// **Shared, because it used to belong to one menu.** This was written inline
+// inside `entryOverflowMenu`, so the note card's ⋯ had full keyboard
+// navigation and every menu built by `kebabMenu` — the conversation list, the
+// sidebar kebabs, and now the text-selection menu — had none: Tab still
+// stepped through the items (they are buttons), but ↑/↓ did nothing, which is
+// the one thing a person who has just opened a menu will try. Found by
+// driving the new selection menu from the keyboard and watching ArrowDown
+// leave focus where it was.
+function wireMenuKeyboard(menu, opener) {
+  menu.addEventListener("keydown", (event) => {
+    const menuItems = [
+      ...menu.querySelectorAll(
+        ':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"]'
+      ),
+    ];
+    if (!menuItems.length) return;
+    const current = menuItems.indexOf(document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      menuItems[(current + 1) % menuItems.length]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      menuItems[(current - 1 + menuItems.length) % menuItems.length]?.focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      menuItems[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      menuItems[menuItems.length - 1]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeActionMenus();
+      opener.focus();
+    }
+  });
+}
+
 // A single `role="menuitem"` button — shared by the top-level menu and every
 // submenu, so a click behaves identically (close everything, then run) no
 // matter how deep the item is nested.
@@ -1666,217 +1728,227 @@ function entryOverflowMenu(entry) {
 
   const opener = smallButton("⋯", "More actions", () => {
     const willOpen = menu.classList.contains("hidden");
-    if (willOpen) openActionMenu(menu, opener);
-    else closeActionMenus();
+    if (willOpen) {
+      fillMenu();
+      openActionMenu(menu, opener);
+    } else closeActionMenus();
   });
   opener.setAttribute("aria-haspopup", "menu");
   opener.setAttribute("aria-expanded", "false");
 
-  // Kept flat: the three actions used often enough, or serious enough (a
-  // delete), that burying them a level down would cost more than the
-  // grouping below saves. Everything else groups into three side flyouts —
-  // asked for directly, to cut what had grown into a 15-item flat list.
-  const topLevel = [
-    {
-      label: entry.is_private ? "ph:lock-open Make readable" : "ph:lock Make private",
-      title: entry.is_private
-        ? "Decrypt this note so search and the AI can use it again"
-        : "Encrypt this note at rest, and keep it out of search and the AI",
-      run: () => toggleEntryPrivacy(entry),
-    },
-    {
-      label: "ph:clock-counter-clockwise History",
-      title: "See earlier versions of this note, and put one back",
-      run: () => openEntryHistory(entry),
-    },
-  ];
-
-  const aiItems = [
-    {
-      label: "ph:arrows-clockwise Re-evaluate",
-      title: "Refresh this note's AI confidence and suggest tags & links",
-      run: () => reevaluateEntry(entry),
-    },
-    {
-      label: "ph:magic-wand Improve writing",
-      title: "Proofread or rewrite this note with AI",
-      run: () => {
-        editingId = entry.id;
-        renderEntries();
-        // The edit textarea now exists — improve it in place.
-        const box = document.querySelector(`#entry-list li[data-id="${entry.id}"] textarea`);
-        if (box) openImprove(box);
+  // **Built on first open, not on render, and that is a scale fix rather than
+  // a micro-optimisation.** This menu is 19 items across four groups — call it
+  // 45-60 DOM nodes once the submenu wrappers, icon `<i>`s and label `<span>`s
+  // are counted — and `entryItem()` builds one of these for *every* note card.
+  // The Notes list renders the whole notebook (there is no windowing), so a
+  // 2,500-note notebook built well over a hundred thousand permanently-hidden
+  // nodes, and rebuilt all of them on every `renderEntries()` — which runs on
+  // every search keystroke, every sort change, every filter and every save.
+  //
+  // Almost none of it is ever looked at: a person opens the ⋯ menu on one note
+  // at a time, if at all. Deferring the items costs one function call on the
+  // first open and nothing after.
+  //
+  // The opener itself still renders eagerly, deliberately — it carries the
+  // `aria-haspopup`/`aria-expanded` state and it occupies a place in the tab
+  // order, so making *it* lazy would change focus behaviour. Only the contents
+  // are deferred, and `openActionMenu` is called after `fillMenu()` so it still
+  // finds a first item to focus.
+  let filled = false;
+  function fillMenu() {
+    if (filled) return;
+    filled = true;
+    // Kept flat: the three actions used often enough, or serious enough (a
+    // delete), that burying them a level down would cost more than the
+    // grouping below saves. Everything else groups into three side flyouts —
+    // asked for directly, to cut what had grown into a 15-item flat list.
+    const topLevel = [
+      {
+        label: entry.is_private ? "ph:lock-open Make readable" : "ph:lock Make private",
+        title: entry.is_private
+          ? "Decrypt this note so search and the AI can use it again"
+          : "Encrypt this note at rest, and keep it out of search and the AI",
+        run: () => toggleEntryPrivacy(entry),
       },
-    },
-    {
-      // Recognising a title the note already wrote (a leading `# Heading`)
-      // is free; writing one costs a real model call, so it's this
-      // separate, on-request action rather than something automatic.
-      label: entry.title ? "ph:magic-wand Regenerate title" : "ph:magic-wand Generate title",
-      title: "Write a short title for this note with AI",
-      run: () => generateEntryTitle(entry),
-    },
-    ...(entry.title
-      ? [
-          {
-            label: "✕ Remove title",
-            title: "Take the title back out — the note's text is unchanged",
-            run: () => removeEntryTitle(entry),
-          },
-        ]
-      : []),
-  ];
-
-  const connectItems = [
-    {
-      label: "ph:file-text Add to a document",
-      title: "Attach this note to a document you have already started",
-      run: () => {
-        inlineAction = inlineActionIs(entry.id, "document")
-          ? null
-          : { id: entry.id, kind: "document" };
-        renderEntries();
+      {
+        label: "ph:clock-counter-clockwise History",
+        title: "See earlier versions of this note, and put one back",
+        run: () => openEntryHistory(entry),
       },
-    },
-    {
-      label: "ph:file-text Expand into a document",
-      title: "Start a document from this note — the note stays where it is",
-      run: () => expandNoteIntoDocument(entry),
-    },
-    { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
-    { label: "≈ Similar notes", run: () => toggleRelated(entry) },
-  ];
+    ];
 
-  const addItems = [
-    {
-      label: "ph:copy Duplicate",
-      title: "Make a copy of this note — opens ready to edit",
-      run: async () => {
-        closeActionMenus();
-        try {
-          const copy = await apiJson("/entries", {
-            method: "POST",
-            body: JSON.stringify({
-              content: entry.content,
-              title: entry.title ? `${entry.title} (Copy)` : undefined,
-              category: entry.category,
-              tags: entry.tags || [],
-            }),
-          });
-          await loadEntries();
-          // Open the new note in edit mode straight away.
-          if (copy && copy.id) {
-            editingId = copy.id;
-            renderEntries();
-            flashEntry(copy.id);
+    const aiItems = [
+      {
+        label: "ph:arrows-clockwise Re-evaluate",
+        title: "Refresh this note's AI confidence and suggest tags & links",
+        run: () => reevaluateEntry(entry),
+      },
+      {
+        label: "ph:magic-wand Improve writing",
+        title: "Proofread or rewrite this note with AI",
+        run: () => {
+          editingId = entry.id;
+          renderEntries();
+          // The edit textarea now exists — improve it in place.
+          const box = document.querySelector(`#entry-list li[data-id="${entry.id}"] textarea`);
+          if (box) openImprove(box);
+        },
+      },
+      {
+        // Recognising a title the note already wrote (a leading `# Heading`)
+        // is free; writing one costs a real model call, so it's this
+        // separate, on-request action rather than something automatic.
+        label: entry.title ? "ph:magic-wand Regenerate title" : "ph:magic-wand Generate title",
+        title: "Write a short title for this note with AI",
+        run: () => generateEntryTitle(entry),
+      },
+      ...(entry.title
+        ? [
+            {
+              label: "✕ Remove title",
+              title: "Take the title back out — the note's text is unchanged",
+              run: () => removeEntryTitle(entry),
+            },
+          ]
+        : []),
+    ];
+
+    const connectItems = [
+      {
+        label: "ph:file-text Add to a document",
+        title: "Attach this note to a document you have already started",
+        run: () => {
+          inlineAction = inlineActionIs(entry.id, "document")
+            ? null
+            : { id: entry.id, kind: "document" };
+          renderEntries();
+        },
+      },
+      {
+        label: "ph:file-text Expand into a document",
+        title: "Start a document from this note — the note stays where it is",
+        run: () => expandNoteIntoDocument(entry),
+      },
+      { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
+      { label: "≈ Similar notes", run: () => toggleRelated(entry) },
+    ];
+
+    const addItems = [
+      {
+        label: "ph:copy Duplicate",
+        title: "Make a copy of this note — opens ready to edit",
+        run: async () => {
+          closeActionMenus();
+          try {
+            const copy = await apiJson("/entries", {
+              method: "POST",
+              body: JSON.stringify({
+                content: entry.content,
+                title: entry.title ? `${entry.title} (Copy)` : undefined,
+                category: entry.category,
+                tags: entry.tags || [],
+              }),
+            });
+            await loadEntries();
+            // Open the new note in edit mode straight away.
+            if (copy && copy.id) {
+              editingId = copy.id;
+              renderEntries();
+              flashEntry(copy.id);
+            }
+            toast("Note duplicated.");
+          } catch (err) {
+            toast(err.message || "Couldn't duplicate note.", true);
           }
-          toast("Note duplicated.");
-        } catch (err) {
-          toast(err.message || "Couldn't duplicate note.", true);
+        },
+      },
+      {
+        label: "ph:plus Add context",
+        title: "Append detail — the AI may refile it",
+        run: () => {
+          inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
+          renderEntries();
+        },
+      },
+      {
+        label: "⤵ Continue thought",
+        title: "Start or extend a thread from this note",
+        run: () => {
+          inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
+          renderEntries();
+        },
+      },
+      {
+        label: "ph:alarm Remind me",
+        run: () => {
+          inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
+          renderEntries();
+        },
+      },
+      { label: "ph:paperclip Attach a file", run: () => attachFileTo(entry) },
+      { label: "ph:images-square Attach from Library", run: () => attachFromLibrary(entry) },
+    ];
+
+
+    // Not destructive, so not grouped with "danger" below — but visually
+    // adjacent to it (asked for directly: a way to keep a note but get it
+    // out of the way, distinct from binning it) so the two "get this off my
+    // list" actions sit together rather than one being buried in a group.
+    const archive = entry.archived_at
+      ? {
+          label: "ph:arrow-u-up-left Unarchive",
+          title: "Bring this note back into your notebook",
+          run: async () => {
+            await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
+            await loadEntries();
+            toast("Unarchived.");
+          },
         }
-      },
-    },
-    {
-      label: "ph:plus Add context",
-      title: "Append detail — the AI may refile it",
-      run: () => {
-        inlineAction = inlineActionIs(entry.id, "context") ? null : { id: entry.id, kind: "context" };
-        renderEntries();
-      },
-    },
-    {
-      label: "⤵ Continue thought",
-      title: "Start or extend a thread from this note",
-      run: () => {
-        inlineAction = inlineActionIs(entry.id, "continue") ? null : { id: entry.id, kind: "continue" };
-        renderEntries();
-      },
-    },
-    {
-      label: "ph:alarm Remind me",
-      run: () => {
-        inlineAction = inlineActionIs(entry.id, "remind") ? null : { id: entry.id, kind: "remind" };
-        renderEntries();
-      },
-    },
-    { label: "ph:paperclip Attach a file", run: () => attachFileTo(entry) },
-    { label: "ph:images-square Attach from Library", run: () => attachFromLibrary(entry) },
-  ];
+      : {
+          label: "ph:archive Archive",
+          title: "Keep it, but out of the way — not the bin",
+          run: async () => {
+            await apiJson(`/entries/${entry.id}/archive`, { method: "POST" });
+            await loadEntries();
+            toast("Archived.");
+          },
+        };
 
-
-  // Not destructive, so not grouped with "danger" below — but visually
-  // adjacent to it (asked for directly: a way to keep a note but get it
-  // out of the way, distinct from binning it) so the two "get this off my
-  // list" actions sit together rather than one being buried in a group.
-  const archive = entry.archived_at
-    ? {
-        label: "ph:arrow-u-up-left Unarchive",
-        title: "Bring this note back into your notebook",
-        run: async () => {
-          await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
-          await loadEntries();
-          toast("Unarchived.");
-        },
-      }
-    : {
-        label: "ph:archive Archive",
-        title: "Keep it, but out of the way — not the bin",
-        run: async () => {
-          await apiJson(`/entries/${entry.id}/archive`, { method: "POST" });
-          await loadEntries();
-          toast("Archived.");
-        },
-      };
-
-  const danger = {
-    label: "ph:trash Move to bin",
-    danger: true,
-    // Instant + one-click Undo, soft delete underneath (Wave J).
-    run: async () => {
-      await api(`/entries/${entry.id}`, { method: "DELETE" });
-      await loadEntries();
-      toastAction("Moved to the recycle bin.", "Undo", async () => {
-        await api(`/entries/${entry.id}/restore`, { method: "POST" });
+    const danger = {
+      label: "ph:trash Move to bin",
+      danger: true,
+      // Instant + one-click Undo, soft delete underneath (Wave J). Also on the
+      // global undo stack (status bar / Ctrl+Z), so it survives past the
+      // toast's own timeout.
+      run: async () => {
+        await api(`/entries/${entry.id}`, { method: "DELETE" });
         await loadEntries();
-        toast("Note restored.");
-      });
-    },
-  };
+        const restoreIt = async () => {
+          await api(`/entries/${entry.id}/restore`, { method: "POST" });
+          await loadEntries();
+        };
+        const binIt = async () => {
+          await api(`/entries/${entry.id}`, { method: "DELETE" });
+          await loadEntries();
+        };
+        const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
+        toastAction("Moved to the recycle bin.", "Undo", async () => {
+          settleUndoFromToast(action);
+          await restoreIt();
+          toast("Note restored.");
+        });
+      },
+    };
 
-  for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
-  menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
-  menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
-  menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
-  menu.appendChild(buildMenuItemButton(archive));
-  menu.appendChild(buildMenuItemButton(danger));
+    for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
+    menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
+    menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
+    menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
+    menu.appendChild(buildMenuItemButton(archive));
+    menu.appendChild(buildMenuItemButton(danger));
+  }
 
-  // Arrow-key navigation, as the role="menu" contract implies. ↑/↓ move
-  // between *top-level* items (wrapping) — `:scope >` so a hidden submenu's
-  // own items (handled by their own keydown handler above) never get mixed
-  // into this list, which would desync Home/End and let arrow keys land on
-  // an item the user can't currently see. Home/End jump to the ends, Esc
-  // closes and returns focus to the opener.
-  menu.addEventListener("keydown", (event) => {
-    const menuItems = [...menu.querySelectorAll(':scope > [role="menuitem"], :scope > .menu-group > [role="menuitem"]')];
-    const current = menuItems.indexOf(document.activeElement);
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      menuItems[(current + 1) % menuItems.length]?.focus();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      menuItems[(current - 1 + menuItems.length) % menuItems.length]?.focus();
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      menuItems[0]?.focus();
-    } else if (event.key === "End") {
-      event.preventDefault();
-      menuItems[menuItems.length - 1]?.focus();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      closeActionMenus();
-      opener.focus();
-    }
-  });
+  wireMenuKeyboard(menu, opener);
 
   wrap.append(opener, menu);
   return wrap;
@@ -1967,13 +2039,30 @@ function renderReevaluateResult(entry, wrap) {
       row.appendChild(
         smallButton("ph:link Link", "Link these two notes", async () => {
           try {
-            await api(`/entries/${entry.id}/links`, {
+            const updated = await apiJson(`/entries/${entry.id}/links`, {
               method: "POST",
               body: JSON.stringify({ target_id: link.id }),
             });
             row.remove();
             toast("Notes linked.");
             loadEntries();
+            let liveLinkId = updated.links.find((l) => l.entry_id === link.id)?.link_id;
+            pushUndo(
+              "Linked two notes",
+              async () => {
+                if (liveLinkId == null) return;
+                await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
+                await loadEntries();
+              },
+              async () => {
+                const redone = await apiJson(`/entries/${entry.id}/links`, {
+                  method: "POST",
+                  body: JSON.stringify({ target_id: link.id }),
+                });
+                liveLinkId = redone.links.find((l) => l.entry_id === link.id)?.link_id ?? liveLinkId;
+                await loadEntries();
+              }
+            );
           } catch (error) {
             toast(error.message, true);
           }
@@ -2222,6 +2311,12 @@ async function attachFromLibrary(entry) {
         toast(`Attached ${image.original_name}.`);
         done();
         await loadEntries();
+        pushEntryPutUndo(
+          entry.id,
+          `Attached ${image.original_name}`,
+          { content: entry.content },
+          { content: nextContent }
+        );
       } catch (error) {
         toast(error.message || "Couldn't attach that file.", true);
       }
@@ -2262,6 +2357,12 @@ function openLightbox(items, startIndex = 0) {
   let index = startIndex;
   const overlay = document.createElement("div");
   overlay.className = "lightbox";
+  // Not decoration: this is what puts the lightbox inside `activeOverlay()`'s
+  // reach (see its comment), and it is what a screen reader needs to announce
+  // the thing as a dialog rather than as a stray region.
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Image viewer");
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-label", "Image preview");
 
@@ -2371,11 +2472,30 @@ function openLightbox(items, startIndex = 0) {
   show(startIndex);
 }
 
-// A small toolbar near wherever the user just selected text, anywhere in
-// the app's actual content — a document, the graph, a web search result, a
-// chat message, a note. Asked for directly: "if the user highlights an
-// output or piece of text... the user can save it as a note, search the
-// notebook for similar phrases or meaning/topics, ask the ai about it".
+// A small kebab (⋯) near whatever the user just selected, anywhere in the
+// app's actual content — a document, the graph, a web search result, a chat
+// message, a note. Asked for directly: "if the user highlights an output or
+// piece of text... the user can save it as a note, search the notebook for
+// similar phrases or meaning/topics, ask the ai about it".
+//
+// **It used to be three flat buttons, and the shape was the problem.** Asked
+// for directly, second time round: "a kebab 3-dot button which when clicked on
+// shows the Popup buttons within the application window". Three things go
+// wrong with a bar that is always open, and all three are fixed by a kebab:
+//
+//   1. **It ran off the screen.** The old clamp was
+//      `Math.min(Math.max(margin, left), innerWidth - width - margin)`. When
+//      the bar is wider than the viewport the upper bound is *smaller* than
+//      the lower bound, so `Math.min` wins and `left` goes negative. The bar
+//      could not wrap (`white-space: nowrap`, no `flex-wrap`) and its three
+//      labels ran to ~50 characters — comfortably wider than a 360px phone.
+//      The clamp below is written the other way round, so a box too wide to
+//      fit pins to the margin instead of hanging off the left edge.
+//   2. **It covered the thing you had just selected.** A 28px dot does not.
+//   3. **Three actions was the ceiling.** The app's richest capture surface
+//      offered less than a note card's own ⋯ menu. A menu has room, so this
+//      is now where a selection can become a note, a draft, an addition to an
+//      existing note, several linked notes, a reminder, or a question.
 //
 // Denylist rather than an allowlist of containers: excluding form fields
 // (which already have their own selection/context-menu behaviour a popup
@@ -2385,112 +2505,414 @@ function openLightbox(items, startIndex = 0) {
 const SELECTION_POPUP_EXCLUDED = "input, textarea, [contenteditable], .selection-popup";
 
 let selectionPopupEl = null;
+let selectionPopupText = "";
+let selectionPopupSource = null;
+
+// Where the selected passage came from, when the app actually knows.
+//
+// Only the web reader can answer this today, and it can answer it exactly:
+// `webReaderPage` already holds the url and title of the page on screen. This
+// is the "capture surface" half of BACKLOG.md §65 (highlight/web-clip
+// capture) — the half that item calls small. Everywhere else in the app the
+// honest answer is "no external source", and `null` says so rather than
+// inventing one.
+function selectionSource(node) {
+  const el = node && (node.nodeType === 1 ? node : node.parentElement);
+  if (!el || !el.closest("#web-reader")) return null;
+  if (!webReaderPage?.url) return null;
+  return { url: webReaderPage.url, title: webReaderPage.title || webReaderPage.domain || "" };
+}
+
+// A passage, quoted, with its origin attributed underneath.
+//
+// Markdown blockquote rather than a bare paste, because a clipping is somebody
+// else's words and a notebook that cannot tell them from yours is worse than
+// one that refuses the clipping. The source line is a real markdown link, so
+// it stays clickable in the rendered note.
+function clippingMarkdown(text, source) {
+  const quoted = text
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+  if (!source) return quoted;
+  const label = source.title || source.url;
+  return `${quoted}\n\n— [${label}](${source.url})`;
+}
+
+async function saveSelectionAsNote(text, { draft = false, source = null } = {}) {
+  const content = source ? clippingMarkdown(text, source) : text;
+  try {
+    const created = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content, is_draft: draft }),
+    });
+    // Undoable, like every other create in this app (the global stack —
+    // see pushUndo). Saving a clipping by accident and having no way back
+    // would be a worse experience than the old three-button bar's.
+    pushUndo(
+      draft ? "Saved a selection as a draft" : "Saved a selection as a note",
+      async () => {
+        await api(`/entries/${created.id}`, { method: "DELETE" });
+        await loadEntries();
+      },
+      async () => {
+        await apiJson("/entries", {
+          method: "POST",
+          body: JSON.stringify({ content, is_draft: draft }),
+        });
+        await loadEntries();
+      }
+    );
+    toast(draft ? "Saved as a draft note." : "Saved as a note.");
+    if (localStorage.getItem("activeTab") === "notes") loadEntries();
+  } catch (error) {
+    toast(error.message || "Couldn't save that note.", true);
+  }
+}
+
+// Append the selection to a note the user picks.
+//
+// Uses `pickEntryDialog` below rather than the chat dock's `#note-picker-panel`
+// — that one is a multi-select bound to the chat composer, not a general
+// chooser, and reusing it would mean it had two owners.
+async function appendSelectionToNote(text) {
+  const entry = await pickEntryDialog("Add the selected text to which note?");
+  if (!entry) return;
+  const before = entry.content;
+  const after = `${before.trimEnd()}\n\n${text}`;
+  try {
+    await api(`/entries/${entry.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ content: after }),
+    });
+    pushEntryPutUndo(entry.id, "Added text to a note", { content: before }, { content: after });
+    toast("Added to the note.");
+    await loadEntries();
+    flashEntry(entry.id);
+  } catch (error) {
+    toast(error.message || "Couldn't add that to the note.", true);
+  }
+}
+
+// A one-off "choose a note" dialog: search box, live list, Escape to cancel.
+//
+// Built on the same shape as `promptDialog` (overlay + card + captured
+// keydown + returned focus) rather than beside it, so a dialog opened from a
+// selection behaves identically to every other dialog in the app —
+// `activeOverlay()` picks it up from its `role="dialog"` and traps Tab inside
+// it with no registration step.
+function pickEntryDialog(message) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", message);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card entry-pick-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    text.textContent = message;
+    const search = document.createElement("input");
+    search.type = "text";
+    search.placeholder = "Search your notes…";
+    search.setAttribute("aria-label", "Search your notes");
+    const list = document.createElement("div");
+    list.className = "entry-pick-list";
+
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (entry) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(entry);
+    };
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      close(null);
+    };
+
+    // Drafts excluded: adding to a half-finished draft is not what "an
+    // existing note" means, and the Notes tab already keeps them out of every
+    // other list for the same reason.
+    const paint = () => {
+      const term = search.value.trim().toLowerCase();
+      const matches = allEntries
+        .filter((e) => !e.is_draft && !e.is_deleted)
+        .filter((e) => !term || (e.content || "").toLowerCase().includes(term))
+        .slice(0, 40);
+      list.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = term ? "No notes match that." : "No notes yet.";
+        list.appendChild(empty);
+        return;
+      }
+      for (const entry of matches) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "entry-pick-row";
+        button.textContent = entry.title || notePreviewText(entry.content).slice(0, 90);
+        button.addEventListener("click", () => close(entry));
+        list.appendChild(button);
+      }
+    };
+    search.addEventListener("input", paint);
+    paint();
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(smallButton("Cancel", "Cancel", () => close(null)));
+    card.append(text, search, list, row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(null);
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    search.focus();
+  });
+}
+
+// Turn the selection into a reminder, through the same parser the Reminders
+// tab's "magic add" box uses — not a second one.
+async function remindFromSelection(text) {
+  try {
+    const reminder = await apiJson("/reminders/parse", {
+      method: "POST",
+      // Our clock, so "tomorrow evening" resolves against the time the user
+      // can see rather than the server's UTC — same as magicAddReminder.
+      body: JSON.stringify({ text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
+    });
+    toast(`Reminder set — ${relativeWhen(reminder.due_at)}.`);
+    askNotificationPermission();
+    if (localStorage.getItem("activeTab") === "reminders") loadReminders();
+  } catch (error) {
+    toast(error.message || "Couldn't read a reminder from that.", true);
+  }
+}
+
+// The actions the ⋯ offers. Rebuilt on every open rather than once, because
+// two of them depend on state that changes between selections: whether the
+// passage has a source to attribute, and whether the local model is running.
+function selectionMenuItems() {
+  const text = selectionPopupText;
+  const source = selectionPopupSource;
+  const aiOff = modelStatus ? modelStatus.ollama_running === false : false;
+
+  const items = [
+    makeMenuItem("ph:note-pencil Save as a note", "File this straight into your notebook", () =>
+      saveSelectionAsNote(text)
+    ),
+    makeMenuItem("ph:pencil-simple-line Save as a draft", "Keep it as an unfinished draft", () =>
+      saveSelectionAsNote(text, { draft: true })
+    ),
+    makeMenuItem("ph:plus-circle Add to a note…", "Append this to a note you already have", () =>
+      appendSelectionToNote(text)
+    ),
+  ];
+
+  if (source) {
+    items.push(
+      makeMenuItem(
+        "ph:quotes Save with its source",
+        `Save as a quote, credited to ${source.title || source.url}`,
+        () => saveSelectionAsNote(text, { source })
+      )
+    );
+  }
+
+  items.push(
+    // Through the shared helper, not `navigator.clipboard` directly: it falls
+    // back to a hidden textarea and then to showing the text pre-selected,
+    // which is what makes copy work in the hardened webview the desktop build
+    // runs in. (`tests/test_log_console.py` enforces this, and caught the
+    // direct call that was here first.)
+    makeMenuItem("ph:copy Copy", "Copy the selected text", async () => {
+      if (await copyToClipboard(text)) toast("Copied.");
+    }),
+    makeMenuItem("ph:magnifying-glass Search the notebook", "Find notes that match this", () => {
+      switchTab("notes");
+      showNotesSection("browse");
+      noteSearch = text;
+      $("note-search").value = text;
+      $("save-search").classList.remove("hidden");
+      renderEntries();
+      if ($("semantic-search-toggle")?.checked) loadEntries();
+    }),
+    makeMenuItem("ph:bell Set a reminder", "Read a reminder out of the selection", () =>
+      remindFromSelection(text)
+    )
+  );
+
+  // AI-only, and disabled rather than hidden when the model is off — the same
+  // convention AI_ONLY_CONTROLS applies to every other AI action, so the
+  // capability stays discoverable and the reason is on the item itself.
+  // (`AI_ONLY_CONTROLS` itself keys off element ids, and these items are built
+  // fresh on every open, so they carry the state directly instead.)
+  items.push(
+    makeMenuItem(
+      "ph:scissors Extract notes…",
+      aiOff
+        ? "Extracting notes needs the local AI — start Ollama to use this."
+        : "Split this into one or more linked notes, with a preview first",
+      () => {
+        if (aiOff) {
+          toast("Extracting notes needs the local AI.", true);
+          return;
+        }
+        openExtractPreview(text);
+      }
+    ),
+    makeMenuItem("ph:chat-circle Ask the AI about this", "Start a chat about the selection", () => {
+      switchTab("chat");
+      const input = $("chat-input");
+      input.value = `Tell me about this: "${text}"`;
+      input.focus();
+    })
+  );
+  return items;
+}
 
 function selectionPopup() {
   if (selectionPopupEl) return selectionPopupEl;
   const box = document.createElement("div");
   box.className = "selection-popup hidden";
-  box.setAttribute("role", "toolbar");
-  box.setAttribute("aria-label", "Actions for the selected text");
-  const draft = document.createElement("button");
-  draft.type = "button";
-  setLabel(draft, "ph:note-pencil Save as draft note");
-  const search = document.createElement("button");
-  search.type = "button";
-  setLabel(search, "ph:magnifying-glass Search notebook");
-  const ask = document.createElement("button");
-  ask.type = "button";
-  setLabel(ask, "ph:chat-circle Ask AI about this");
-  box.append(draft, search, ask);
   document.body.appendChild(box);
-
-  draft.addEventListener("mousedown", (e) => e.preventDefault()); // don't clear the selection
-  draft.addEventListener("click", async () => {
-    const text = selectionPopupText;
-    hideSelectionPopup();
-    if (!text) return;
-    try {
-      await apiJson("/entries", {
-        method: "POST",
-        body: JSON.stringify({ content: text, is_draft: true }),
-      });
-      toast("Saved as a draft note.");
-      if (localStorage.getItem("activeTab") === "notes") loadEntries();
-    } catch (error) {
-      toast(error.message || "Couldn't save that note.", true);
-    }
-  });
-
-  search.addEventListener("mousedown", (e) => e.preventDefault());
-  search.addEventListener("click", () => {
-    const text = selectionPopupText;
-    hideSelectionPopup();
-    if (!text) return;
-    switchTab("notes");
-    showNotesSection("browse");
-    noteSearch = text;
-    $("note-search").value = text;
-    $("save-search").classList.remove("hidden");
-    renderEntries();
-    if ($("semantic-search-toggle")?.checked) loadEntries();
-  });
-
-  ask.addEventListener("mousedown", (e) => e.preventDefault());
-  ask.addEventListener("click", () => {
-    const text = selectionPopupText;
-    hideSelectionPopup();
-    if (!text) return;
-    switchTab("chat");
-    const input = $("chat-input");
-    input.value = `Tell me about this: "${text}"`;
-    input.focus();
-  });
-
   selectionPopupEl = box;
   return box;
 }
 
-let selectionPopupText = "";
-
 function hideSelectionPopup() {
   selectionPopupEl?.classList.add("hidden");
   selectionPopupText = "";
+  selectionPopupSource = null;
 }
 
-function showSelectionPopupAt(rect, text) {
+// Keep the menu inside the window — the literal ask ("shows the Popup buttons
+// within the application window").
+//
+// `.action-menu` is `position: absolute; right: 0; top: calc(100% + 4px)`,
+// which is right for a kebab sitting in a card near the top of a page and
+// wrong for one that can appear anywhere, including two lines above the
+// footer. Measured after opening, the same way `buildMenuGroupButton` already
+// decides which side a submenu flies out to, and using the same
+// measure-then-classify shape rather than a second mechanism.
+function clampSelectionMenu(menu) {
+  menu.classList.remove("menu-flip-up", "menu-flip-left");
+  const margin = 8;
+  let rect = menu.getBoundingClientRect();
+  if (rect.bottom > window.innerHeight - margin) menu.classList.add("menu-flip-up");
+  rect = menu.getBoundingClientRect();
+  if (rect.left < margin) menu.classList.add("menu-flip-left");
+}
+
+function showSelectionPopupAt(rect, text, source) {
   const box = selectionPopup();
   selectionPopupText = text;
+  selectionPopupSource = source;
+
+  // Rebuilt per selection: the item list depends on whether this passage has
+  // a source and on whether the model is up.
+  box.replaceChildren();
+  const kebab = kebabMenu(selectionMenuItems(), "Actions for the selected text");
+  box.appendChild(kebab);
+  const opener = kebab.querySelector("[aria-haspopup]");
+  const menu = kebab.querySelector(".action-menu");
+  // Clicking the opener must not clear the selection underneath it. The old
+  // three-button bar did this per button for the same reason; the text itself
+  // is already captured above, but keeping the visible selection is what makes
+  // the menu feel attached to it rather than to nothing.
+  opener?.addEventListener("mousedown", (e) => e.preventDefault());
+  opener?.addEventListener("click", () => {
+    if (!menu.classList.contains("hidden")) clampSelectionMenu(menu);
+  });
+
+  // Position *before* revealing. Removing `hidden` first — which is what this
+  // used to do — paints one frame of a `position: fixed` element that has no
+  // left/top yet, i.e. at the bottom of `<body>`, as a visible flash.
+  box.style.visibility = "hidden";
   box.classList.remove("hidden");
-  // Above the selection, centred on it, clamped so it can't run off any
-  // edge of the viewport regardless of where the selection sits.
   const margin = 8;
   const boxRect = box.getBoundingClientRect();
-  let left = rect.left + rect.width / 2 - boxRect.width / 2;
-  left = Math.min(Math.max(margin, left), window.innerWidth - boxRect.width - margin);
-  let top = rect.top - boxRect.height - margin;
-  if (top < margin) top = rect.bottom + margin; // no room above — go below instead
-  top = Math.min(Math.max(margin, top), window.innerHeight - boxRect.height - margin);
+  // Note the bound order: `max(margin, min(wanted, limit))`. Written the other
+  // way round (`min(max(...), limit)`) a box wider than the viewport produces
+  // a limit below the floor, `min` wins, and the popup lands off-screen left.
+  const left = Math.max(
+    margin,
+    Math.min(rect.left + rect.width / 2 - boxRect.width / 2, window.innerWidth - boxRect.width - margin)
+  );
+  let wantedTop = rect.top - boxRect.height - margin;
+  if (wantedTop < margin) wantedTop = rect.bottom + margin; // no room above — go below
+  const top = Math.max(
+    margin,
+    Math.min(wantedTop, window.innerHeight - boxRect.height - margin)
+  );
   box.style.left = `${left}px`;
   box.style.top = `${top}px`;
+  box.style.visibility = "";
+}
+
+// Whether a selection is one this popup should offer to act on.
+//
+// Both ends are checked, not just `anchorNode`. A drag that starts in prose
+// and ends inside a textarea (or the reverse) is one selection with two
+// different homes, and testing only the anchor let the popup appear over a
+// form field half the time — which is exactly the case the denylist exists
+// to prevent.
+function selectionIsActionable(selection) {
+  const ends = [selection.anchorNode, selection.focusNode];
+  for (const node of ends) {
+    const el = node && (node.nodeType === 1 ? node : node.parentElement);
+    if (!el || el.closest(SELECTION_POPUP_EXCLUDED)) return false;
+  }
+  return true;
+}
+
+function syncSelectionPopup() {
+  const selection = window.getSelection();
+  const text = (selection?.toString() || "").trim();
+  if (!text || selection.isCollapsed || !selectionIsActionable(selection)) {
+    // Don't yank the popup away while its own menu is open — the selection is
+    // often cleared as a side effect of interacting with the menu.
+    if (!selectionPopupEl?.querySelector(".action-menu:not(.hidden)")) hideSelectionPopup();
+    return;
+  }
+  showSelectionPopupAt(
+    selection.getRangeAt(0).getBoundingClientRect(),
+    text,
+    selectionSource(selection.anchorNode)
+  );
 }
 
 function initSelectionPopup() {
+  // **Three ways in, because there used to be one.** `mouseup` alone meant the
+  // popup did not exist for anyone selecting by touch (a long-press drag on a
+  // phone dispatches `selectionchange`, not a useful `mouseup`) or by keyboard
+  // (Shift+Arrow dispatches neither) — so the app's richest capture surface
+  // was mouse-only, on an app that ships a PWA manifest and a mobile layout.
+  //
+  // `selectionchange` fires continuously *during* a drag, so it is debounced:
+  // repositioning the popup on every intermediate range is both wasteful and
+  // visually noisy. `mouseup` stays as the immediate path so a mouse selection
+  // still feels instant rather than delayed by the debounce.
   document.addEventListener("mouseup", (event) => {
     if (event.target.closest(".selection-popup")) return;
-    const selection = window.getSelection();
-    const text = (selection.toString() || "").trim();
-    if (!text || selection.isCollapsed) {
-      hideSelectionPopup();
-      return;
-    }
-    const anchor = selection.anchorNode;
-    const el = anchor && (anchor.nodeType === 1 ? anchor : anchor.parentElement);
-    if (!el || el.closest(SELECTION_POPUP_EXCLUDED)) {
-      hideSelectionPopup();
-      return;
-    }
-    showSelectionPopupAt(selection.getRangeAt(0).getBoundingClientRect(), text);
+    syncSelectionPopup();
   });
+
+  let selectionSettleTimer;
+  document.addEventListener("selectionchange", () => {
+    clearTimeout(selectionSettleTimer);
+    selectionSettleTimer = setTimeout(syncSelectionPopup, 200);
+  });
+
   document.addEventListener("mousedown", (event) => {
     if (!event.target.closest(".selection-popup")) hideSelectionPopup();
   });
@@ -2499,6 +2921,23 @@ function initSelectionPopup() {
   });
   window.addEventListener("scroll", hideSelectionPopup, true);
   window.addEventListener("resize", hideSelectionPopup);
+}
+
+// Open the selection menu from the keyboard, for a selection made with
+// Shift+Arrow. Without this the whole feature is unreachable without a mouse:
+// the popup can now *appear* from a keyboard selection (selectionchange fires
+// for those too), but its menu still needed a pointer to open.
+function openSelectionMenuFromKeyboard() {
+  syncSelectionPopup();
+  if (!selectionPopupText) {
+    toast("Select some text first, then press this again.");
+    return;
+  }
+  const opener = selectionPopupEl?.querySelector("[aria-haspopup]");
+  const menu = selectionPopupEl?.querySelector(".action-menu");
+  if (!opener || !menu) return;
+  openActionMenu(menu, opener);
+  clampSelectionMenu(menu);
 }
 
 async function downloadAttachment(attachment) {
@@ -2555,17 +2994,17 @@ function renderEditForm(li, entry) {
       async () => {
         const category = await resolveCategoryChoice(categorySelect);
         if (category === undefined) return; // user cancelled the prompt
-        await api(`/entries/${entry.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            content: textarea.value.trim() || entry.content,
-            category,
-            tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
-          }),
-        });
+        const before = { content: entry.content, category: entry.category, tags: entry.tags };
+        const after = {
+          content: textarea.value.trim() || entry.content,
+          category,
+          tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
+        };
+        await api(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify(after) });
         editingId = null;
         toast("Entry updated.");
         await loadEntries();
+        pushEntryPutUndo(entry.id, "Edited a note", before, after);
       },
       false
     )
@@ -2627,13 +3066,31 @@ function beginOrCompleteLink(entry) {
     return;
   }
   const source = linkSource;
+  const target = entry.id;
   linkSource = null;
-  api(`/entries/${source}/links`, {
+  apiJson(`/entries/${source}/links`, {
     method: "POST",
-    body: JSON.stringify({ target_id: entry.id }),
+    body: JSON.stringify({ target_id: target }),
   })
-    .then(() => {
+    .then((updated) => {
       toast("Linked!");
+      let liveLinkId = updated.links.find((l) => l.entry_id === target)?.link_id;
+      pushUndo(
+        "Linked two notes",
+        async () => {
+          if (liveLinkId == null) return;
+          await api(`/entries/${source}/links/${liveLinkId}`, { method: "DELETE" });
+          await loadEntries();
+        },
+        async () => {
+          const redone = await apiJson(`/entries/${source}/links`, {
+            method: "POST",
+            body: JSON.stringify({ target_id: target }),
+          });
+          liveLinkId = redone.links.find((l) => l.entry_id === target)?.link_id ?? liveLinkId;
+          await loadEntries();
+        }
+      );
       return loadEntries();
     })
     .catch((error) => {
@@ -3197,6 +3654,93 @@ function sortEntries(entries) {
   return [...entries].sort((a, b) => byPinned(a, b) || cmp(a, b));
 }
 
+// --- incremental list rendering (ROADMAP §85.4 items 3 and 4) ---------------
+//
+// **The problem this solves, measured rather than assumed.** Four of this
+// app's lists — the Notes list, the Library grid, the Timeline, the log
+// console — built one DOM node per record for the *entire* collection, with
+// no cap and no windowing. At 1,501 notes `renderEntries()` took ~533ms, and
+// it re-runs on every search keystroke, sort change, filter and save.
+//
+// **Why chunk-on-scroll rather than true virtualisation.** Real
+// virtualisation (absolute positioning against a scroll offset) needs to know
+// each row's height before it renders one. Every list here has variable
+// heights — a note card grows with its text, its tags, its attachments and
+// whether its inline actions are open — so a virtualiser would either need
+// measurement passes that cost what it saves, or fixed heights the design
+// does not have. Rendering in chunks as the end of the list approaches keeps
+// the DOM proportional to what has been *scrolled past* rather than to the
+// notebook, needs no height information at all, and leaves the list one
+// continuous scroll rather than turning it into pages — which is the
+// distinction BACKLOG §77 draws and deliberately asks for.
+//
+// **The honest trade:** the browser's own Ctrl+F cannot find text in a chunk
+// that has not rendered yet. That is a real loss, and it is why `initial` is
+// generous rather than minimal — a screenful and change is always present —
+// and why it is applied to lists that have their own search box sitting
+// directly above them. It is not applied anywhere that the browser's find is
+// the only way through.
+//
+// `root: null` (the viewport) rather than the scroll container: an element
+// inside the scrolled-away part of a *nested* scroller is not intersecting
+// the viewport either, so one observer is correct for both a page-level and a
+// container-level scroll, without having to find which one this list is in.
+const listWindows = new WeakMap();
+
+function renderIncrementally(container, items, buildItem, options = {}) {
+  const { initial = 60, chunk = 40, afterChunk } = options;
+
+  // Tear down the previous run first. Without this a re-render (a keystroke in
+  // the search box) leaves the old observer alive, still holding the old
+  // items, still appending them into a container that has moved on — the
+  // "listener added without removal" shape, and the reason this is a
+  // WeakMap rather than a local.
+  listWindows.get(container)?.disconnect();
+  listWindows.delete(container);
+
+  const paint = (from, to) => {
+    const fragment = document.createDocumentFragment();
+    for (let i = from; i < to; i++) fragment.appendChild(buildItem(items[i], i));
+    container.appendChild(fragment);
+  };
+
+  paint(0, Math.min(initial, items.length));
+  afterChunk?.();
+  if (items.length <= initial) return;
+
+  let rendered = initial;
+  // A zero-height marker after the last painted item. It is the *list's* own
+  // last child rather than a sibling of the container, so it moves down as
+  // chunks land and it inherits whatever scroller the list is in.
+  const sentinel = document.createElement("li");
+  sentinel.className = "list-window-sentinel";
+  sentinel.setAttribute("aria-hidden", "true");
+  container.appendChild(sentinel);
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      const next = Math.min(rendered + chunk, items.length);
+      // Insert *before* the sentinel so it stays last and keeps observing.
+      const fragment = document.createDocumentFragment();
+      for (let i = rendered; i < next; i++) fragment.appendChild(buildItem(items[i], i));
+      container.insertBefore(fragment, sentinel);
+      rendered = next;
+      afterChunk?.();
+      if (rendered >= items.length) {
+        observer.disconnect();
+        listWindows.delete(container);
+        sentinel.remove();
+      }
+    },
+    // Start the next chunk while the sentinel is still a screen away, so the
+    // list refills before the user reaches the bottom rather than after.
+    { root: null, rootMargin: "600px 0px" }
+  );
+  observer.observe(sentinel);
+  listWindows.set(container, observer);
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
@@ -3238,10 +3782,12 @@ function renderEntries() {
   // list — thread nesting only applies to the default newest view.
   const flat = Boolean(noteSearch) || noteSort !== "newest";
   if (flat) {
-    for (const entry of sortEntries(visible)) {
-      list.appendChild(entryItem(entry, { actions: true }));
-    }
-    applyEntryListTabOrder(list);
+    renderIncrementally(
+      list,
+      sortEntries(visible),
+      (entry) => entryItem(entry, { actions: true }),
+      { afterChunk: () => applyEntryListTabOrder(list) }
+    );
     return;
   }
 
@@ -3256,13 +3802,16 @@ function renderEntries() {
     }
   }
 
+  // Flattened to `[entry, depth]` pairs *before* rendering, rather than
+  // recursing straight into the DOM. A thread has to stay whole — a parent and
+  // its continuations are one unit and must never be split across a chunk
+  // boundary — so the recursion produces the order and the depth, and the
+  // renderer below decides how much of that order to paint. Threads are the
+  // reason this list cannot simply be sliced: position in `visible` is not
+  // position on screen.
+  const ordered = [];
   const addWithChildren = (entry, depth) => {
-    const li = entryItem(entry, { actions: true });
-    if (depth > 0) {
-      li.classList.add("thread-child");
-      li.style.marginLeft = `${Math.min(depth, 4) * 1.4}rem`;
-    }
-    list.appendChild(li);
+    ordered.push([entry, depth]);
     // Oldest continuation first — a thread reads top to bottom.
     const children = (childrenOf.get(entry.id) || []).slice().reverse();
     for (const child of children) addWithChildren(child, depth + 1);
@@ -3272,10 +3821,28 @@ function renderEntries() {
     const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
     if (!parentVisible) addWithChildren(entry, 0);
   }
-  applyEntryListTabOrder(list);
-  // After the list is in the DOM: drop the clamp from any note that turned
-  // out to fit. No-op while the sub-tab is hidden; showNotesSection re-runs it.
-  settleNoteClamps();
+
+  renderIncrementally(
+    list,
+    ordered,
+    ([entry, depth]) => {
+      const li = entryItem(entry, { actions: true });
+      if (depth > 0) {
+        li.classList.add("thread-child");
+        li.style.marginLeft = `${Math.min(depth, 4) * 1.4}rem`;
+      }
+      return li;
+    },
+    {
+      afterChunk: () => {
+        applyEntryListTabOrder(list);
+        // After the list is in the DOM: drop the clamp from any note that
+        // turned out to fit. No-op while the sub-tab is hidden;
+        // showNotesSection re-runs it.
+        settleNoteClamps();
+      },
+    }
+  );
 }
 
 // --- note-list keyboard navigation (ROADMAP Tier 3 §30a / BACKLOG §16) ------------
@@ -3284,8 +3851,15 @@ function renderEntries() {
 // A roving tabindex: only one <li> is ever a Tab stop, so the list is one
 // stop in the page's tab order rather than one per note, matching the
 // standard listbox/grid keyboard pattern.
+// `li[data-id]`, not `list.children`: the incremental renderer parks a
+// zero-height sentinel `<li>` at the end of the list to know when to paint the
+// next chunk, and it is not a note. Left in `children` it would join the
+// roving tabindex and the arrow-key walk below, so ArrowDown at the bottom of
+// the list would focus an invisible element and appear to do nothing.
+const entryListItems = (list) => Array.from(list.querySelectorAll(":scope > li[data-id]"));
+
 function applyEntryListTabOrder(list) {
-  const items = Array.from(list.children);
+  const items = entryListItems(list);
   const current = document.activeElement;
   // Re-renders happen constantly (search-as-you-type, sort, edits) — if the
   // previously-focused note is still present, keep it as the one Tab stop
@@ -3301,7 +3875,7 @@ function initEntryListKeyboardNav() {
   const list = $("entry-list");
   list.addEventListener("keydown", (event) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Enter") return;
-    const items = Array.from(list.children);
+    const items = entryListItems(list);
     const current = event.target.closest("li");
     const index = current ? items.indexOf(current) : -1;
     if (index === -1) return;
@@ -3823,6 +4397,17 @@ async function saveEntry() {
     resetCaptureForm(contentBox, titleBox);
     await loadEntries();
     loadSuggestions(); // new categories → fresher recommended questions
+    pushUndo(
+      "Created a note",
+      async () => {
+        await api(`/entries/${saved.id}`, { method: "DELETE" });
+        await loadEntries();
+      },
+      async () => {
+        await api(`/entries/${saved.id}/restore`, { method: "POST" });
+        await loadEntries();
+      }
+    );
     // Saving from Capture leaves you on Capture, with the note you just wrote
     // now somewhere in a list on another sub-tab. Offer to go to it rather
     // than making you switch tabs and hunt (user request). An offer, not a
@@ -7809,30 +8394,67 @@ function renderExtractPreview(body) {
     body.message ||
     `${body.notes.length} note${body.notes.length === 1 ? "" : "s"} proposed — review, then save.`;
 
+  // Built with createElement, not an `innerHTML` template per iteration.
+  // The old version escaped everything correctly, so this is not a security
+  // fix — it is this file's own rule (see the header comment: "All DOM nodes
+  // are built with createElement/textContent, never innerHTML"), and the rule
+  // exists because an `innerHTML` assignment inside a loop re-invokes the HTML
+  // parser once per proposed note, and because the next person to add a field
+  // here is one forgotten `escapeHtml` away from an injection.
+  const field = (type, className, { placeholder, label, value } = {}) => {
+    const input = document.createElement("input");
+    input.type = type;
+    input.className = className;
+    if (placeholder) input.placeholder = placeholder;
+    if (label) input.setAttribute("aria-label", label);
+    if (value !== undefined) input.value = value;
+    return input;
+  };
+
   const list = $("extract-notes-list");
-  list.innerHTML = "";
+  list.replaceChildren();
   for (const note of body.notes) {
     const card = document.createElement("div");
     card.className = "extract-note-card";
     card.dataset.ref = note.ref;
-    card.innerHTML = `
-      <label class="row align-center checkbox-label">
-        <input type="checkbox" class="extract-note-keep" checked> Keep this note
-      </label>
-      <input type="text" class="extract-note-title" placeholder="Title (optional)"
-        aria-label="Note title" value="${escapeHtml(note.title || "")}">
-      <textarea class="extract-note-content" rows="6" aria-label="Note content">${escapeHtml(note.content)}</textarea>
-      <div class="row extract-note-meta">
-        <span class="muted extract-note-category">Filed under: ${escapeHtml(note.category)}</span>
-        <input type="text" class="extract-note-tags" placeholder="Tags, comma separated"
-          aria-label="Tags for this note">
-      </div>
-    `;
+
+    const keepLabel = document.createElement("label");
+    keepLabel.className = "row align-center checkbox-label";
+    const keep = field("checkbox", "extract-note-keep");
+    keep.checked = true;
+    keepLabel.append(keep, document.createTextNode(" Keep this note"));
+
+    const title = field("text", "extract-note-title", {
+      placeholder: "Title (optional)",
+      label: "Note title",
+      value: note.title || "",
+    });
+
+    const content = document.createElement("textarea");
+    content.className = "extract-note-content";
+    content.rows = 6;
+    content.setAttribute("aria-label", "Note content");
+    content.value = note.content;
+
+    const meta = document.createElement("div");
+    meta.className = "row extract-note-meta";
+    const category = document.createElement("span");
+    category.className = "muted extract-note-category";
+    category.textContent = `Filed under: ${note.category}`;
+    meta.append(
+      category,
+      field("text", "extract-note-tags", {
+        placeholder: "Tags, comma separated",
+        label: "Tags for this note",
+      })
+    );
+
+    card.append(keepLabel, title, content, meta);
     list.appendChild(card);
   }
 
   const linksBox = $("extract-links-list");
-  linksBox.innerHTML = "";
+  linksBox.replaceChildren();
   if (body.links.length) {
     const heading = document.createElement("p");
     heading.className = "muted";
@@ -7845,14 +8467,25 @@ function renderExtractPreview(body) {
     row.dataset.sourceRef = link.source_ref;
     row.dataset.targetRef = link.target_ref;
     const kindLabel = EXTRACT_LINK_KIND_LABEL[link.kind] || "note";
-    const target = link.target_preview
-      ? escapeHtml(link.target_preview)
-      : escapeHtml(extractRefLabel(link.target_ref, body.notes));
-    row.innerHTML = `
-      <input type="checkbox" class="extract-link-keep" checked>
-      <span class="extract-link-desc">${escapeHtml(extractRefLabel(link.source_ref, body.notes))}
-        → ${target} <span class="muted">(${kindLabel}: ${escapeHtml(link.reason)})</span></span>
-    `;
+    // Raw, not escaped: this now goes into a text node, where escaping would
+    // render the entities literally ("A &amp; B" on screen).
+    const target = link.target_preview || extractRefLabel(link.target_ref, body.notes);
+    const keep = document.createElement("input");
+    keep.type = "checkbox";
+    keep.className = "extract-link-keep";
+    keep.checked = true;
+    const desc = document.createElement("span");
+    desc.className = "extract-link-desc";
+    const why = document.createElement("span");
+    why.className = "muted";
+    why.textContent = `(${kindLabel}: ${link.reason})`;
+    desc.append(
+      document.createTextNode(
+        `${extractRefLabel(link.source_ref, body.notes)} → ${target} `
+      ),
+      why
+    );
+    row.append(keep, desc);
     linksBox.appendChild(row);
   }
 
@@ -9047,6 +9680,7 @@ function kebabMenu(items, ariaLabel) {
     });
     menu.appendChild(button);
   }
+  wireMenuKeyboard(menu, opener);
   wrap.append(opener, menu);
   return wrap;
 }
@@ -10400,9 +11034,18 @@ async function batchDelete() {
   for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
   exitSelectMode();
   await loadEntries();
-  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+  const restoreAll = async () => {
     for (const id of ids) await api(`/entries/${id}/restore`, { method: "POST" });
     await loadEntries();
+  };
+  const binAll = async () => {
+    for (const id of ids) await api(`/entries/${id}`, { method: "DELETE" });
+    await loadEntries();
+  };
+  const action = pushUndo(`Moved ${ids.length} note${ids.length === 1 ? "" : "s"} to the bin`, restoreAll, binAll);
+  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await restoreAll();
     toast("Notes restored.");
   });
 }
@@ -13206,9 +13849,13 @@ function reminderItem(reminder, label) {
     smallButton("×", "Delete this reminder", async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
-      // Deleting a reminder is as undo-able as binning a note.
-      toastAction("Reminder deleted.", "Undo", async () => {
-        await apiJson("/reminders", {
+      // Deleting a reminder is as undo-able as binning a note. There's no
+      // restore endpoint here (unlike entries) — undo recreates it, which
+      // means a redo's own delete target has to track the *new* id, not the
+      // one this closure started with.
+      let liveId = reminder.id;
+      const recreate = async () => {
+        const created = await apiJson("/reminders", {
           method: "POST",
           body: JSON.stringify({
             text: reminder.text,
@@ -13217,8 +13864,18 @@ function reminderItem(reminder, label) {
             priority: reminder.priority || "normal",
             recurring: reminder.recurring || "none",
           }),
-        }).catch((e) => toast(e.message, true));
+        });
+        liveId = created.id;
         loadReminders();
+      };
+      const redelete = async () => {
+        await apiJson(`/reminders/${liveId}`, { method: "DELETE" });
+        loadReminders();
+      };
+      const action = pushUndo("Deleted a reminder", recreate, redelete);
+      toastAction("Reminder deleted.", "Undo", async () => {
+        settleUndoFromToast(action);
+        await recreate().catch((e) => toast(e.message, true));
         toast("Reminder restored.");
       });
     })
@@ -14020,6 +14677,13 @@ async function renderTimeline() {
     return;
   }
 
+  // **Not incrementally rendered, unlike the note and library lists.** This is
+  // a CSS grid, not a list: every cell's position comes from grid flow, so the
+  // order and completeness of `appendChild` calls *is* the layout, and a
+  // sentinel or a half-painted chunk would not be a shorter grid — it would be
+  // a wrong one. Its cost is also a different shape (bands x buckets, sized by
+  // the chosen scale) rather than one node per note, and the backend already
+  // bounds both.
   const buckets = body.buckets;
   const byId = new Map(body.notes.map((note) => [note.id, note]));
   // Columns: one label column for the band names, then one per bucket.
@@ -15930,6 +16594,16 @@ function renderLogList() {
   const visible = logRecords.filter(logMatchesFilters);
 
   list.replaceChildren();
+  // **Deliberately not `renderIncrementally`, unlike every other list here.**
+  // Two reasons, and the second is the disqualifying one. This list is already
+  // bounded — `MAX_LOG_ROWS` (1000) is a real cap, not an unbounded notebook —
+  // so the problem the incremental renderer solves is one the cap has already
+  // solved. And the log's "follow" mode scrolls to the *newest* row, which
+  // sits at the end: a renderer that paints the first chunk and fills in
+  // towards the end as you scroll would leave follow mode scrolling to the
+  // bottom of whatever happened to be painted, not to the newest line. Making
+  // this incremental would mean inverting the window, which is a different
+  // mechanism built to fix a cost that is already capped.
   for (const record of visible) list.appendChild(logRow(record));
 
   renderLogSharedUI(visible.length);
@@ -16201,6 +16875,7 @@ async function renderPrefs() {
   prefsCache = await apiJson("/preferences");
   $("pref-display-name").value = prefsCache.display_name || "";
   $("pref-bin-days").value = prefsCache.recycle_bin_days;
+  $("pref-chat-retention").value = prefsCache.conversation_retention_days ?? 0;
   $("pref-search-min-sim").value = prefsCache.search_min_similarity;
   $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
@@ -16615,6 +17290,7 @@ async function savePrefs() {
       body: JSON.stringify({
         display_name: $("pref-display-name").value.trim(),
         recycle_bin_days: recycleBinDays,
+        conversation_retention_days: Number($("pref-chat-retention").value) || 0,
         search_min_similarity: searchMinSim,
         search_relative_z_margin: searchZMargin,
         communication_style: $("pref-style").value,
@@ -18119,6 +18795,114 @@ function toastAction(message, actionLabel, onAction) {
   setTimeout(() => note.remove(), 8000);
 }
 
+// --- global undo/redo (status bar) ------------------------------------------------
+//
+// The app already had per-action undo scattered across it — a toast's Undo
+// button on note/reminder delete, the whiteboard's own local history, a
+// per-tool-call "put this back" in the agent panel. None of those help once
+// the toast has timed out, or for the actions that never got one (linking
+// two notes, editing a note's body, attaching an image). This is the one
+// mechanism that catches all of it: any mutation that can name its own
+// inverse calls `pushUndo(label, undo, redo)`, and the status bar's Undo/Redo
+// buttons (plus Ctrl+Z/Ctrl+Shift+Z) work the two stacks below. Session-only
+// by design — like the rest of this app's undo, it does not survive a reload,
+// which is the same lifetime a browser's own Ctrl+Z already has.
+const undoStack = [];
+const redoStack = [];
+const UNDO_STACK_LIMIT = 50;
+
+function pushUndo(label, undo, redo) {
+  const action = { label, undo, redo };
+  undoStack.push(action);
+  if (undoStack.length > UNDO_STACK_LIMIT) undoStack.shift();
+  // A fresh action invalidates whatever was available to redo — the same
+  // rule every text editor's undo stack already follows.
+  redoStack.length = 0;
+  renderUndoBar();
+  return action;
+}
+
+// A few call sites also offer an immediate toast "Undo" button alongside the
+// global stack (Wave J's pattern, from before this stack existed). If that
+// button is used, the action has to come off the undo stack — otherwise a
+// later Ctrl+Z would redo the exact same restore, since the closure runs
+// fine either way and nothing stops it firing twice.
+function settleUndoFromToast(action) {
+  const idx = undoStack.indexOf(action);
+  if (idx !== -1) undoStack.splice(idx, 1);
+  redoStack.push(action);
+  renderUndoBar();
+}
+
+// A `PUT /entries/{id}` before/after snapshot — the shared inverse for every
+// kind of note-content edit (a manual text correction, an image attached or
+// removed from the body, a tag/category change from the edit form), since
+// all of them are just this one request with a different body.
+function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
+  pushUndo(
+    label,
+    async () => {
+      await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(beforeBody) });
+      await loadEntries();
+    },
+    async () => {
+      await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(afterBody) });
+      await loadEntries();
+    }
+  );
+}
+
+async function performUndo() {
+  const action = undoStack.pop();
+  if (!action) return;
+  try {
+    await action.undo();
+    redoStack.push(action);
+    toast(`Undone: ${action.label}`);
+  } catch (error) {
+    // Nothing changed — put it back rather than silently dropping it off
+    // the stack, so a transient network error doesn't cost the undo itself.
+    undoStack.push(action);
+    toast(error.message || "Couldn't undo that.", true);
+  }
+  renderUndoBar();
+}
+
+async function performRedo() {
+  const action = redoStack.pop();
+  if (!action) return;
+  try {
+    await action.redo();
+    undoStack.push(action);
+    toast(`Redone: ${action.label}`);
+  } catch (error) {
+    redoStack.push(action);
+    toast(error.message || "Couldn't redo that.", true);
+  }
+  renderUndoBar();
+}
+
+function renderUndoBar() {
+  const undoBtn = $("status-undo");
+  const redoBtn = $("status-redo");
+  if (!undoBtn || !redoBtn) return;
+  const last = undoStack[undoStack.length - 1];
+  const next = redoStack[redoStack.length - 1];
+  undoBtn.disabled = !last;
+  redoBtn.disabled = !next;
+  paintStatusItem("status-undo", {
+    icon: "ph:arrow-u-up-left",
+    title: last ? `Undo: ${last.label} (${shortcuts.undo.keys})` : "Nothing to undo",
+  });
+  paintStatusItem("status-redo", {
+    icon: "ph:arrow-u-up-right",
+    title: next ? `Redo: ${next.label} (${shortcuts.redo.keys})` : "Nothing to redo",
+  });
+}
+
+$("status-undo").addEventListener("click", performUndo);
+$("status-redo").addEventListener("click", performRedo);
+
 // --- quick access: recent questions + most-used entries (Phase 5) -------------------
 
 async function loadRecentQuestions() {
@@ -18625,6 +19409,53 @@ function librarySorted(items) {
   return copy;
 }
 
+// Meaning-matched note ids for the Library's current query, or null when the
+// Semantic toggle is off (or the query is empty, or the search failed).
+//
+// **The design question this answers, which is why it was not built sooner.**
+// The Library mixes notes, documents, chats, images and skills, and only
+// *notes* have embeddings — nothing in this app has ever embedded a PDF, a
+// conversation or an image. So "semantic search over the Library" has no
+// single honest meaning, and the two tempting answers are both wrong: pretend
+// everything is searched by meaning (it is not, and the results would quietly
+// be keyword results for four of the five kinds), or refuse to offer it at all
+// (which is what happened, and left the Library the one search box in the app
+// with no meaning option).
+//
+// The answer taken: **meaning where there is meaning to search, words
+// everywhere else, and say so on the control.** A note matches if the semantic
+// search returned it *or* its words match; every other kind matches on words,
+// exactly as before. Turning the toggle on can therefore only ever *add*
+// results, never remove one — which is the property that makes it safe to
+// leave on, and the reason the two filters are OR-ed rather than swapped.
+//
+// Reuses `GET /entries?semantic=true`, the same endpoint and the same
+// server-side bound (`SEMANTIC_LIST_LIMIT`) the Notes tab's own toggle uses.
+let librarySemanticIds = null;
+let librarySemanticQuery = "";
+
+async function refreshLibrarySemantic() {
+  const query = ($("library-search")?.value || "").trim();
+  const on = $("library-semantic-toggle")?.checked;
+  if (!on || !query) {
+    librarySemanticIds = null;
+    librarySemanticQuery = "";
+    return;
+  }
+  if (query === librarySemanticQuery) return; // already have this one
+  try {
+    const results = await apiJson(`/entries?q=${encodeURIComponent(query)}&semantic=true`);
+    librarySemanticIds = new Set(results.map((entry) => entry.id));
+    librarySemanticQuery = query;
+  } catch {
+    // No embedding backend, or the search failed. Falling back to keyword-only
+    // is the same graceful degradation the rest of the app uses when the AI is
+    // unavailable — never a failed search, just a less clever one.
+    librarySemanticIds = null;
+    librarySemanticQuery = "";
+  }
+}
+
 function renderLibrary() {
   const grid = $("library-grid");
   if (!grid) return;
@@ -18657,19 +19488,27 @@ function renderLibrary() {
     // Title *and* preview, for the same reason the conversation search reads
     // message text: you remember what a thing was about far more often than
     // what it ended up being called.
-    items = items.filter(
-      (i) =>
-        (i.title || "").toLowerCase().includes(query) ||
-        (i.preview || "").toLowerCase().includes(query)
-    );
+    const wordMatch = (i) =>
+      (i.title || "").toLowerCase().includes(query) ||
+      (i.preview || "").toLowerCase().includes(query);
+    // With Semantic on, a note also matches if the meaning search returned it,
+    // even when it shares no words with the query. Everything else is
+    // unchanged — see `librarySemanticIds`.
+    items = librarySemanticIds
+      ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
+      : items.filter(wordMatch);
   }
   items = librarySorted(items);
 
   const updateDOM = () => {
     grid.replaceChildren();
     grid.classList.toggle("library-list", libraryView() === "list");
-    for (const item of items) grid.appendChild(libraryCard(item));
-    renderLibraryContextBars();
+    // Same incremental renderer the Notes list uses. The Library holds notes,
+    // documents, images, chats and skills together, so it is the one list that
+    // can be larger than any single collection in the app.
+    renderIncrementally(grid, items, (item) => libraryCard(item), {
+      afterChunk: renderLibraryContextBars,
+    });
 
     const empty = $("library-empty");
     empty.classList.toggle("hidden", items.length > 0);
@@ -19255,6 +20094,13 @@ function paintStatusItem(id, { icon, value, label, title, tone = "" }) {
     button.appendChild(text);
   }
   button.title = title || "";
+  // The title doubles as the accessible name, exactly as `smallButton` already
+  // does — without this the three icon-only status buttons (Undo, Redo,
+  // Commands) announce as a bare "button" to a screen reader. The ones that
+  // also paint a `value`/`label` have real text and do not need it, but
+  // setting it uniformly keeps the two from drifting apart.
+  if (title) button.setAttribute("aria-label", title);
+  else button.removeAttribute("aria-label");
   button.classList.toggle("status-due", tone === "due");
 }
 
@@ -23511,9 +24357,14 @@ $("status-command").addEventListener("click", () => openPalette());
 // afterthought, so they are wired like controls: every change re-renders from
 // the list already in memory, with no round trip.
 let librarySearchDebounceTimeout;
+async function runLibrarySearch() {
+  await refreshLibrarySemantic();
+  renderLibrary();
+}
+$("library-semantic-toggle").addEventListener("change", runLibrarySearch);
 $("library-search").addEventListener("input", () => {
   clearTimeout(librarySearchDebounceTimeout);
-  librarySearchDebounceTimeout = setTimeout(renderLibrary, 150);
+  librarySearchDebounceTimeout = setTimeout(runLibrarySearch, 150);
 });
 $("library-sort").addEventListener("change", renderLibrary);
 for (const button of document.querySelectorAll("#library-sort-seg button")) {
@@ -24658,6 +25509,14 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
 $("save-btn").addEventListener("click", saveEntry);
 $("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
+// Reported: "the semantic search settings button in the ask tab doesn't
+// work" — it does exist in the markup (`#ask-search-tune`, same icon/title
+// as Chat's own per-turn tune button) but nothing ever wired a listener to
+// it. Same destination as the other two quick-access links into this
+// preferences group (Chat's per-turn tune button, the Dashboard catalog).
+$("ask-search-tune").addEventListener("click", () => {
+  openSettingsModal("preferences", "search-relevance-group");
+});
 $("stop-btn").addEventListener("click", stopAnswer);
 $("retry-btn").addEventListener("click", retryAnswer);
 $("copy-btn").addEventListener("click", copyAnswer);
@@ -24699,10 +25558,19 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   // Chorded shortcuts (anything with a modifier) work even while typing —
-  // Ctrl+K from inside the note box should still open the palette.
+  // Ctrl+K from inside the note box should still open the palette. Undo/redo
+  // are the deliberate exception: Ctrl+Z/Ctrl+Shift+Z are already the
+  // browser's own undo for whatever text field has focus (correcting a typo
+  // you just made), and that has to win over this app's global stack —
+  // otherwise fixing a typo in the note box would silently restore a
+  // deleted note instead of undoing the keystroke.
   const chorded = e.ctrlKey || e.metaKey || e.altKey;
   if (chorded) {
+    const inTextField =
+      ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) ||
+      document.activeElement?.isContentEditable;
     for (const [id, def] of Object.entries(shortcuts)) {
+      if ((id === "undo" || id === "redo") && inTextField) continue;
       if (matchesShortcut(e, def.keys)) {
         e.preventDefault();
         runShortcut(id);
@@ -24832,20 +25700,48 @@ document.addEventListener("click", (e) => {
 
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
 // instead of wandering into the page behind — a WCAG dialog basic.
+//
+// **This was a hard-coded list of eight ids, and the list was the bug.** An
+// audit counted the dialogs it did not name: `confirmDialog`, `promptDialog`,
+// the image lightbox, the note-history overlay, the recycle-bin overlay, the
+// skill-run overlay, the agent command palette, and the graph's
+// connection dialog — eight trapped, eight not, and nothing anywhere to say
+// which half a new dialog would land in. Every one of those was added by
+// somebody who had no reason to know this list existed, which is the whole
+// failure: a registry you must remember to update is a registry that goes
+// stale, and it goes stale silently, because a dialog with no focus trap
+// looks completely normal until somebody presses Tab.
+//
+// So: ask the DOM instead, and ask it the question that actually matters —
+// **`aria-modal="true"`, not merely `role="dialog"`.** That distinction is the
+// whole correctness of this function. Of the 27 `role="dialog"` elements in
+// `index.html`, 13 are anchored *popovers* rather than modals: the
+// notifications panel, the note picker, the chat dock's disclosure, the graph
+// and timeline popups, and the six `*-intro` help panels. The page behind
+// those stays live and interactive by design, so trapping Tab inside one
+// would strand the user in a dropdown — and telling a screen reader they are
+// modal would be a straight lie about the page. `aria-modal` is exactly the
+// declaration of "everything else is inert", so a dialog that wants a focus
+// trap says so in the one attribute that already means it, and a new modal is
+// trapped from the moment it exists.
+//
+// Topmost wins, and "topmost" is document order: the static overlays sit in
+// `index.html` in a fixed sequence, and the dynamic ones (`confirmDialog` and
+// friends) are appended to `<body>`, so the last match is always the one
+// stacked on top. That matters for the real case of a confirm dialog opened
+// from inside Settings — Tab has to cycle within the confirm, not the modal
+// behind it.
+//
+// Visibility is `.hidden` plus `getClientRects()`, deliberately not
+// `offsetParent !== null`: `.modal-overlay` is `position: fixed`, and a fixed
+// element's `offsetParent` is null even when it is plainly on screen. The
+// filter below uses `offsetParent` on the *children*, which are not fixed, so
+// it is correct there and would have been wrong here.
 function activeOverlay() {
-  for (const id of [
-    "onboarding-overlay",
-    "features-overlay",
-    "palette-overlay",
-    "sketch-overlay",
-    "meeting-overlay",
-    "improve-overlay",
-    "shortcuts-overlay",
-    "settings-modal",
-  ]) {
-    if (!$(id).classList.contains("hidden")) return $(id);
-  }
-  return null;
+  const open = [
+    ...document.querySelectorAll('[role="dialog"][aria-modal="true"]'),
+  ].filter((el) => !el.classList.contains("hidden") && el.getClientRects().length > 0);
+  return open.length ? open[open.length - 1] : null;
 }
 
 // --- first-run onboarding tour (learnability) -------------------------------
@@ -25031,6 +25927,13 @@ const DEFAULT_SHORTCUTS = {
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
   toggleTheme: { keys: "Ctrl+Shift+L", label: "Switch light / dark" },
+  undo: { keys: "Ctrl+Z", label: "Undo the last change" },
+  redo: { keys: "Ctrl+Shift+Z", label: "Redo" },
+  // The selection menu's keyboard door. Without it the whole feature is
+  // mouse-only for the actual *opening* — the ⋯ now appears for a Shift+Arrow
+  // selection too (`selectionchange` fires for those), but a menu you can see
+  // and cannot open is not an improvement.
+  selectionActions: { keys: "Ctrl+Shift+E", label: "Actions for the selected text" },
 };
 
 const SHORTCUT_STORE = "keyboardShortcuts";
@@ -25050,6 +25953,10 @@ function loadShortcuts() {
 }
 
 let shortcuts = loadShortcuts();
+// Sets the status-bar Undo/Redo buttons' icons and "nothing to undo yet"
+// tooltips on load — both stacks are empty at this point, so this only
+// establishes the disabled state the HTML already carries, not a real render.
+renderUndoBar();
 
 // "g" then a letter jumps tabs — GitHub and Gmail's own "go to" chord, and
 // the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
@@ -25127,6 +26034,9 @@ function runShortcut(id) {
       createDocument();
     },
     toggleTheme,
+    undo: performUndo,
+    redo: performRedo,
+    selectionActions: openSelectionMenuFromKeyboard,
   };
   actions[id]?.();
 }
@@ -25274,8 +26184,19 @@ document.addEventListener("keydown", (e) => {
   if (e.key !== "Tab") return;
   const overlay = activeOverlay();
   if (!overlay) return;
+  // `[tabindex]` and `[contenteditable]` were missing, and both are real
+  // omissions rather than tidiness: an element made focusable with
+  // `tabIndex = 0` is focusable to the browser and invisible to this filter,
+  // so Tab would step onto it and the trap would not know where it was — the
+  // graph canvas (`graph.js` sets `tabIndex = 0` on `#graph-box`) is exactly
+  // that shape. `tabindex="-1"` is excluded on purpose: it means
+  // programmatically focusable but *not* in the tab order, so including it
+  // would invent stops the user never asked for.
   const focusables = [
-    ...overlay.querySelectorAll("button, [href], input, select, textarea"),
+    ...overlay.querySelectorAll(
+      'button, [href], input, select, textarea, [contenteditable=""], ' +
+        '[contenteditable="true"], [tabindex]:not([tabindex="-1"])'
+    ),
   ].filter((el) => !el.disabled && el.offsetParent !== null);
   if (!focusables.length) return;
   const first = focusables[0];
@@ -25705,17 +26626,30 @@ async function renderSkillLogs() {
     return;
   }
   
+  // createElement rather than an `innerHTML` template per row, per this file's
+  // own rule. Worth noting what the old template actually contained: a
+  // trailing `</div>` with nothing open to close, which the HTML parser
+  // silently discarded on every single row. That is the argument for the rule
+  // in one line — a structural mistake in a string is invisible, and the same
+  // mistake in `append()` calls does not compile.
   for (const log of skillLogs) {
     const div = document.createElement("div");
     div.className = "entry-item";
-    div.innerHTML = `
-      <div class="row space-between">
-        <strong>${escapeHtml(log.action)}</strong>
-        <span class="muted text-sm">${new Date(log.created_at).toLocaleString()}</span>
-      </div>
-      <div class="muted text-sm log-detail">${escapeHtml(log.detail || log.entity_id || "")}</div>
-    </div>
-    `;
+
+    const head = document.createElement("div");
+    head.className = "row space-between";
+    const action = document.createElement("strong");
+    action.textContent = log.action;
+    const when = document.createElement("span");
+    when.className = "muted text-sm";
+    when.textContent = new Date(log.created_at).toLocaleString();
+    head.append(action, when);
+
+    const detail = document.createElement("div");
+    detail.className = "muted text-sm log-detail";
+    detail.textContent = log.detail || log.entity_id || "";
+
+    div.append(head, detail);
     logList.appendChild(div);
   }
 }
@@ -26052,7 +26986,6 @@ function spaceIconPicker(container, hiddenInput) {
     button.setAttribute("role", "radio");
     button.setAttribute("aria-checked", String(hiddenInput.value === name));
     button.setAttribute("aria-label", name.replace("ph-", "").replace(/-/g, " "));
-    button.innerHTML = "";
     const icon = document.createElement("i");
     icon.className = `ph ${name}`;
     icon.setAttribute("aria-hidden", "true");

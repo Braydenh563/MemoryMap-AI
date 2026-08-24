@@ -1857,6 +1857,16 @@ header#top-bar.tabs-wrapped #tab-bar {
   color: var(--ink);
 }
 
+/* Undo/Redo (status-undo/status-redo): empty-stack is the default state on
+   every fresh load, so it has to read as "nothing to do here" rather than a
+   broken button — dimmed and inert, same shape as a disabled toolbar icon
+   anywhere else in the app. */
+.status-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
 .status-item b {
   color: var(--ink);
   font-weight: 650;
@@ -2133,4 +2143,16 @@ button.icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* The incremental renderer's chunk marker. Zero height, no list marker, no
+   part in layout — it exists only to be watched by an IntersectionObserver,
+   and `aria-hidden` plus no `data-id` keeps it out of the keyboard walk and
+   the accessibility tree. */
+.list-window-sentinel {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  list-style: none;
 }

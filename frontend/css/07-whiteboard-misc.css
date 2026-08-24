@@ -421,35 +421,8 @@
   position: relative;
 }
 
-/* ======================= FLOATING FORMAT MENU ======================= */
-.floating-format-menu {
-  position: absolute;
-  z-index: 1000;
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-md);
-  transform: translate(-50%, -100%);
-  margin-top: -8px;
-  align-items: center;
-  transition: opacity var(--motion-base) ease, transform var(--motion-base) ease;
-}
 
-.floating-format-menu.hidden {
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -80%);
-}
 
-.floating-format-menu button {
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
 /* ======================= MICRO-ANIMATIONS ======================= */
 /* Interactive cards get a slight upward lift and shadow pop on hover */
@@ -559,6 +532,23 @@ textarea.drag-over {
     border-bottom: none;
     border-left: none;
     border-right: none;
+  }
+
+  /* **The panel takes a third of a phone screen, and on the Graph tab that
+     is unrecoverable.** Measured at 320x568: the header and tab bar cost
+     ~110px, the graph's own toolbar ~80px, and this panel ~130px — leaving
+     192px of a 568px viewport for the canvas that is the entire point of the
+     tab. Every other tab was given breathing room by padding its scroll
+     container (see `has-agent-monitor` below), but the Graph is a pan/zoom
+     canvas with no document-flow scroller, so that fix cannot reach it and
+     the panel simply sits on top of the map.
+
+     So: on a narrow screen the log area collapses to roughly two lines
+     instead of eight. The panel keeps its header, its close button and its
+     most recent messages — which is what it is actually read for — and gives
+     back about 100px of canvas. It scrolls, so nothing is lost. */
+  .monitor-logs {
+    max-height: 3.5rem;
   }
 }
 
@@ -1599,11 +1589,6 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   background: var(--border);
 }
 
-.space-menu-empty {
-  padding: var(--space-3);
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
 
 /* --- space dialogs ----------------------------------------------------------- */
 /* Reported: "New space", "Rename space" and the Widgets picker read as

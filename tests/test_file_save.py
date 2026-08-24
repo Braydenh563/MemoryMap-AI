@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 from memorymap.api import routes_files
-from memorymap.api.routes_files import EXPORTS_DIRNAME, safe_filename
+from memorymap.api.routes_files import EXPORTS_DIRNAME, _within_exports, safe_filename
 
 
 def _save(client, filename: str, data: bytes):
@@ -110,6 +110,41 @@ def test_safe_filename_keeps_readable_names_readable():
     come out the other side unchanged, or every saved file is unrecognisable."""
     assert safe_filename("memorymap-export.json") == "memorymap-export.json"
     assert safe_filename("My Chat 2026.md") == "My Chat 2026.md"
+
+
+def test_within_exports_accepts_a_plain_name(tmp_path):
+    """The containment guard CodeQL's py/path-injection wanted (alerts
+    #289/#290 on `main`) — belt-and-braces on top of `safe_filename`'s own
+    whitelist, checked at the point the path is actually used."""
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    assert _within_exports(exports, "chat.md") == (exports / "chat.md").resolve()
+
+
+def test_within_exports_refuses_a_traversal_that_reaches_it_directly(tmp_path):
+    """`safe_filename` is the normal caller and never lets `..` through, but
+    `_within_exports` has to hold on its own — it's the actual sink-side
+    guard, not just a second opinion on an already-trusted string."""
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    with pytest.raises(routes_files.HTTPException):
+        _within_exports(exports, "../escaped.txt")
+
+
+def test_within_exports_refuses_a_symlink_that_points_outside_it(tmp_path):
+    """The reason `os.path.realpath` replaced `Path.resolve()` and not a
+    plain `os.path.normpath` — `os.path.realpath` follows symlinks; a
+    lexical-only normalise would not. A file that lives at a name inside
+    `exports` but is actually a symlink pointing elsewhere is exactly what
+    `Path.resolve()` used to catch, and the rewritten guard has to catch it
+    too or the CodeQL fix would have quietly narrowed what this refuses."""
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("not yours")
+    (exports / "escape.txt").symlink_to(outside)
+    with pytest.raises(routes_files.HTTPException):
+        _within_exports(exports, "escape.txt")
 
 
 def test_unreadable_base64_is_refused(client, app_state):

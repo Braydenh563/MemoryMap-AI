@@ -72,25 +72,32 @@ support bundle** (an allowlist zip of the log buffer, scrubbed
 
 Small, self-contained, each removing a visible annoyance.
 
-**Four of these were already done** — checked in the running app rather than
-assumed, since three sessions have now rebuilt something that already
-existed: the SearXNG install path, the Notes sidebar sticky rule, a copy
-button per code block in chat answers, and conversation search by content.
-See HISTORY.md.
+**Nothing here is open — all six are done**, and the section is kept rather
+than deleted for two reasons: a `§2` in a code comment still has to land
+somewhere, and the *shape* of what happened here is worth keeping. Four of the
+six turned out to be **already built when this list was written** — checked in
+the running app rather than assumed, because by then three sessions had
+independently rebuilt something that already existed. That ratio (four stale
+claims out of six) is the single best argument for the "check before you
+build" rule at the top of CLAUDE.md, and deleting the evidence would make the
+rule look like superstition rather than a measured result.
 
-**Still open:** nothing — the two items below are both done, checked against
-the running app rather than assumed.
+Already built when claimed as open: the SearXNG install path, the Notes
+sidebar sticky rule, a per-code-block copy button in chat answers, and
+conversation search by content.
 
-- ~~**Empty chats can't be deleted.**~~ **Done.** A `Delete` button in the
-  chat toolbar covers both cases: an empty/unsaved pane resets silently
-  (nothing to lose), a saved one gets the sidebar's own confirm dialog first,
-  then `DELETE /conversations/{id}`.
-- ~~**Document outline / table of contents**, word-count goal, reading
-  time~~ **Done — all three, not just the outline.** See §5: `renderDocOutline`
-  builds a TOC, `renderDocStats` shows reading time, and `promptDocWordGoal`
-  (`#doc-word-goal`) is a working word-count-goal control. §5 itself already
-  said the outline/reading-time half was done; this session found the
-  word-count-goal half — which §5 called "the one unbuilt part" — was too.
+Genuinely built afterwards:
+
+- **Empty chats could not be deleted.** A `Delete` button in the chat toolbar
+  now covers both cases — an empty or unsaved pane resets silently, a saved
+  one gets the sidebar's own confirm dialog and then
+  `DELETE /conversations/{id}`.
+- **Document outline / table of contents, word-count goal, reading time** —
+  all three, not just the outline. `renderDocOutline` builds the TOC,
+  `renderDocStats` shows reading time, and `promptDocWordGoal`
+  (`#doc-word-goal`) is a working word-count-goal control. §5 already recorded
+  the outline and reading-time halves as done and called the word-count goal
+  "the one unbuilt part" — it was built too.
 
 ---
 
@@ -1271,19 +1278,31 @@ history. What's still weak:
 
 ## 19. Accessibility audit
 
-Deserves one deliberate pass rather than more ad-hoc fixes:
+Deserves one deliberate pass rather than more ad-hoc fixes. **Two of the five
+are now done** (§85, §86):
 
-- Focus traps in overlays are inconsistent (some cycle, some don't)
-- Colour contrast unverified against WCAG AA for the *new* palettes and themes,
-  particularly the glass surfaces
-- Screen-reader pass; several dynamic regions announce nothing
-- Audit remaining meaningful animations for `prefers-reduced-motion` fallbacks
-- Settings screens on a narrow/mobile viewport specifically (§8's
-  ideas-parking-lot bug) — worth folding into this pass rather than fixing in
-  isolation, since it's likely the same class of breakpoint gap as the rest
-  of this list
-
----
+- ~~Focus traps in overlays are inconsistent~~ **done.** `activeOverlay()` no
+  longer works from a hard-coded list of eight ids — it finds any visible
+  `[role="dialog"][aria-modal="true"]` and takes the topmost, so a new modal is
+  trapped from the moment it exists. Gated on `aria-modal` specifically
+  because 13 of the app's dialogs are anchored *popovers* whose page stays
+  interactive, and trapping Tab in one of those would be a worse bug than the
+  one being fixed.
+- ~~Tap targets below the WCAG 2.5.8 24px minimum~~ **done**, and the original
+  finding was half wrong: it named the checkbox elements, but a wrapping
+  `<label>` makes the label the target. A live sweep of every tab and Settings
+  found five real failures (a 1px-short chip, two label-wrapped toggles at
+  20px, a bare 13×13 Library tick, and one Settings link) and fixed them.
+- **Colour contrast is still unverified against WCAG AA** for the newer
+  palettes and the glass surfaces in particular. Never actually measured — the
+  one item here that needs a tool rather than a reading.
+- **A screen-reader pass**: several dynamic regions still announce nothing.
+  `announce()`/`#live-region` exists and the graph uses it well; most of the
+  app does not.
+- **`prefers-reduced-motion` fallbacks** for the remaining meaningful
+  animations. 15 blocks exist; nobody has audited what is *not* covered.
+- **Settings on a narrow viewport** — folded in here rather than fixed in
+  isolation, since it is likely the same class of breakpoint gap.
 
 ## 20. Backend
 
@@ -2062,109 +2081,21 @@ changes the app's behaviour without showing the user what it did:
 
 ## 62. Extract notes — from the Writing Room, Documents, and Graph selections
 
-Asked for directly, alongside "Draft with AI": write freely, then split what
-was written into one refined note or several, auto-linked to each other and
-to existing related notes with reasons — not just filed as one lump.
+**Built, preview-first.** `ai/extractor.py` (`propose_split`,
+`merge_near_duplicates`), `POST /entries/extract/preview` and
+`/entries/extract/commit`, and one shared preview modal wired to the Writing
+Room, Documents and the whiteboard — plus, since §85, the **text-selection
+kebab**, which made it reachable from any prose in the app rather than only
+those three surfaces. 21 tests in `tests/test_extract_notes.py`. Full
+resolution note in [HISTORY.md](HISTORY.md).
 
-Not a new subsystem — an extension of what already exists. The Writing
-Room (`app.js:5905+`, `#draft-thoughts`→`#draft-text`) already turns raw
-thoughts into one AI-drafted note; this adds a second output mode. The
-auto-link-with-reasons half already has its machinery:
-`librarian.generate_link_reason` (used by the link-reason audit, `ai/links.py`)
-and the janitor's own centroid/kNN auto-filing (`ai/janitor.py`) already
-decide what a new note is related to on save — extract mode would call the
-same reason-generation path per new note, not invent a second one.
-
-Shape: an "Extract notes" action, offered wherever the app already has a
-block of free-standing user/AI text — the Writing Room's `#draft-text`,
-a Document's body, and (per the ask) a Graph selection's notes-in-context.
-The AI decides one-note-vs-several based on whether the text covers one
-topic or several distinct ones (same judgement call `_create_note`'s
-janitor pass already makes when filing, just applied to a splitting
-decision instead of a category), creates the resulting note(s), and links
-each to both its siblings from the same extraction and any pre-existing
-notes the janitor/link-reason pass would already surface — with a reason on
-every link, not `AUTO_REASON_TEXT`'s old "similar in meaning" placeholder.
-
-Needs a decision before scoping, not before logging: does the split
-preview to the user before committing (a confirm step, matching this app's
-"AI actions that create/change several things get a preview" convention —
-see `generate_diagram`'s own node-list input) or does it commit straight
-through like a normal `_create_note` call? Recommend preview, given it can
-silently multiply one piece of writing into several permanent notes.
-
-**Resolution: built, preview-first, as recommended above.**
-
-Backend: `ai/extractor.py` — `propose_split` asks the model to split free
-text into one or more notes (JSON reply), `merge_near_duplicates` folds any
-two proposed notes back together whenever their content embeddings clear
-`janitor.CONFIDENT_MATCH` (the one-vs-several judgement reuses that bar
-rather than inventing a second one, per the ask above), each resulting note
-is filed by `janitor.categorise` unchanged, and every link — sibling,
-"source" (an explicit Graph/whiteboard selection), and "related" (found via
-`search_manager.semantic_search`, keyword fallback when embeddings are off)
-— gets its reason from `librarian.generate_link_reason`, run through
-`ai.links`' own `_clean_reason`/`_is_vague_reason`. A link the model can't
-give a specific reason for (offline, or a reply that's still vague) is left
-out of the proposal entirely — never `manager.AUTO_REASON_TEXT`. No AI
-running degrades to one plain note, same as the rest of this app never
-failing a save over the AI being down. Two endpoints, `POST
-/entries/extract/preview` (read-only — proposes, writes nothing) and `POST
-/entries/extract/commit` (writes exactly what the client sends back,
-possibly edited or trimmed from the preview); `manager.create_link`'s
-`reason=` is passed explicitly so a committed link can never fall back to
-the generic guess. 21 new tests in `tests/test_extract_notes.py`, full
-suite green, `ruff check .` clean.
-
-Frontend: one shared preview-before-commit modal (`#extract-panel`,
-`openExtractPreview`/`renderExtractPreview`/`commitExtractPreview` in
-`app.js`) wired to all three surfaces — Writing Room's `#draft-extract`
-(splits `#draft-text`), Documents' `#doc-extract` (the selection, or the
-whole document if nothing's selected — same scope rule `AI edit` already
-uses), and the whiteboard's multi-selection (`#wb-extract-notes`, shown
-only once the selection includes a note card): the selected cards' own
-content becomes both the text to split *and* the explicit "source" notes
-every new note tries to link back to. Every note and link in the preview
-has a checkbox — a dropped note's own links are dropped with it. `draft-
-extract`/`doc-extract`/`wb-extract-notes` join `AI_ONLY_CONTROLS` (disabled
-with a reason when Ollama is off, same as Draft and AI edit), since without
-the AI this can only hand back one unlinked plain note — a materially
-weaker result than what the button promises.
-
-**Live-verified in this sandbox's Chromium** (no real Ollama available
-here, so this is UI/wiring verification, not a check of the AI's actual
-split/link judgement — see the caveat below): all three "Extract notes"
-buttons exist, are correctly disabled with the expected title when the
-model is off, and — invoked directly (bypassing the disabled button, the
-only way to drive this without a real model) — the preview modal opens,
-renders the graceful one-note offline fallback with the right message, and
-committing it from the Writing Room actually creates the note (`GET
-/entries` shows it) and closes the panel. The whiteboard path was checked
-by setting `wbMultiSelection` directly rather than a real drag-select
-gesture (the documented headless-Chromium multi-select trap) and confirmed
-it reads the selected cards' own content correctly (screenshotted: both
-notes' text, joined). Screenshots taken and visually reviewed for all three
-surfaces; layout matches the rest of the app's modal styling. Zero new
-console errors — the 21 `401` console errors seen during this session are
-pre-existing and reproduce identically with zero interaction beyond
-logging in (confirmed with a bare-login script), unrelated to this feature.
-
-**Not verified, said plainly:** the AI's actual splitting/categorising/
-link-reasoning judgement against a real model — this sandbox has no
-Ollama/LM Studio running, so only the fake-transport backend tests exercise
-that logic (the standing caveat at the top of this file applies here like
-everywhere else). The whiteboard's real pointer-driven multi-select gesture
-was not driven live either, for the reason above.
+**Still not verified:** the AI's actual splitting, categorising and
+link-reasoning judgement against a real model — this sandbox has no Ollama, so
+only the fake-transport tests exercise it.
 
 ## 63. Ship a starter skills library — DONE, this claim was stale
 
-Re-checked before starting a rebuild (per the standing rule at the top of
-CLAUDE.md): `ai/skills.py` already ships `BUILTIN_SKILLS`, 14 skills —
-the five-skill notebook-audit set, plus weekly review, tag/link clean-up,
-a daily-review-with-reminders skill, and more — served through `builtins()`
-/`catalog()` at `GET /skills`, the exact same `normalise()` validation path
-a user's own skill goes through. This section's "ships zero" claim predates
-that build. See HISTORY.md for when it landed.
+**Done.** The claim that this was outstanding was stale when it was written.
 
 ## 64. Documents editor — behind the rest of the app, needs its own pass
 
@@ -2182,19 +2113,31 @@ need" without first reading what Documents currently has.
 
 ## 65. Highlight/web-clip capture
 
-From the Kortex read (ANALYSIS.md §66): a way to save a highlighted
-passage from something read elsewhere (an article, a PDF, a book) straight
-into a searchable note, distinct from both the in-app reader (§13) and the
-already-brainstormed browser-clipper idea (§29's third bullet). Genuinely
-missing today — no `Readwise`/`highlight`/`web clip`-shaped code anywhere
-in the tree. Two separable pieces: (1) a capture surface (paste a
-highlighted passage + its source URL/title, or import from a service like
-Readwise/Kindle's own export format) and (2) filing it through the
-existing janitor/tagging pipeline like any other note, with the source
-kept as metadata rather than folded into searchable body text. Not scoped
-— (1) alone (manual paste-a-highlight) is small; (2) an actual Readwise
-importer is a real integration and should be sized separately before
-committing to it.
+From the Kortex read (ANALYSIS.md §66): a way to save a highlighted passage
+from something read elsewhere straight into a searchable note.
+
+**Half built (§85).** The capture surface exists and is the piece this item
+called small: highlight any prose in the app, open the selection kebab (⋯),
+and **"Save with its source"** appears whenever the passage came from the web
+reader — saving it as a markdown blockquote with a real link back to the page.
+`clippingMarkdown`/`selectionSource` in `app.js`. The passage is quoted rather
+than pasted flat on purpose: a clipping is somebody else's words, and a
+notebook that cannot tell them from yours is worse than one that refuses
+clippings.
+
+**Still open, and deliberately separate:**
+
+- **Sources outside the app.** Today the only surface that knows where a
+  passage came from is the built-in web reader. A passage pasted in from a
+  real browser, a PDF reader or a Kindle arrives with no origin at all, and
+  nothing asks for one. The smallest useful next step is a paste-a-highlight
+  box that takes the text *and* a URL/title by hand.
+- **Source as metadata rather than body text.** §65 originally asked for the
+  source "kept as metadata rather than folded into searchable body text". What
+  shipped folds it into the note body as a link, because `Entry` has no source
+  column. A real one is an additive schema change plus a place to show it.
+- **A Readwise/Kindle importer** is a genuine integration and should be sized
+  separately before anyone commits to it.
 
 ## 75. Voice memos: capture, storage, playback, and a dedicated library page
 
@@ -2238,62 +2181,39 @@ values, and a query added to the existing review pass rather than a new one.
 
 ## 77. Notes-tab pagination and page-aware note links
 
-Asked for directly, with a concrete reason: a large notebook's Notes tab is
-one continuously growing list (backed by the paginated `GET /entries` added
-this session, but presented to the user as an unbroken scroll — see §35/
-the pagination work above) rather than a paged view with a page-size choice
-and a page selector top and bottom. Two things this is NOT the same as: the
-"1000 rows per fetch" pagination `GET /entries` already does under the
-hood (invisible to the user, purely a payload-size guard), and the Library's
-own grid/list views (unrelated screen). Real scope, if built: (1) a page-
-size preference and page selector UI in the Notes tab, sized the way
-`ENTRIES_PAGE_SIZE`/`ENTRIES_PAGE_SIZE_MAX` already are in
-`routes_entries.py`; (2) the harder part — a wiki-link/note-reference
-click has to land on the right *page* of the list, which depends on
-whatever sort and filter the user currently has active (category, tag,
-pinned, search term, semantic vs. keyword), not just the note's id. That
-second part is real routing logic, not a UI tweak, and deserves its own
-design pass rather than being bolted onto the simpler page-size control.
+Asked for directly: a large notebook's Notes tab is one continuously growing
+list rather than a paged view with a page-size choice and a page selector.
+
+**The performance half is done and is NOT this item (§86).** `renderEntries`
+now renders in chunks as you scroll (`renderIncrementally`), so the DOM is
+proportional to what you have scrolled past rather than to the notebook —
+measured at 1,501 notes as 533 ms → 16 ms and 31,680 → 4,306 nodes. That
+deliberately keeps the list **one continuous scroll**, which is the thing this
+item distinguishes itself from.
+
+**Still open, unchanged, and still two separable pieces:**
+
+1. **A page-size preference and a page selector top and bottom** — the
+   user-facing control that was actually asked for. Small, once someone
+   decides it is wanted now that the scroll no longer struggles.
+2. **The hard half: a wiki-link click has to land on the right *page*.** Which
+   page a note is on depends on whatever sort and filter is currently active
+   (category, tag, pinned, search term, semantic vs keyword), not just the
+   note's id. That is real routing logic and deserves its own design pass
+   rather than being bolted onto the page-size control.
+
+Worth asking before building (1): with the scroll now cheap, does a page
+selector still improve anything, or was the original ask really about the
+lag? The answer changes whether this is a feature or a no-op.
 
 ## 78. Whether the backend needs more concurrency than it already has
 
-Asked for directly: should the app be asynchronous, able to run a chat
-response, an Ask-tab semantic-search query, and a background job (a weekly
-digest, the autonomous agent) all at once? Checked rather than assumed —
-this is less true and less false than it sounds.
-
-**What already happens today.** Routes are plain `def`, not `async def`
-(3 real exceptions out of ~300, both streaming endpoints) — but FastAPI
-still runs each sync request in its own worker thread by default, so two
-requests already don't block each other at the HTTP layer. More to the
-point, the genuinely slow work — model downloads, extras install, the
-autonomous agent's loop, embedding warm-up, Ollama/model-manager calls —
-already runs on its own daemon `threading.Thread` (`embedmodels.py`,
-`extras.py`, `ai/autonomous.py`, `ai/embeddings.py`, `ai/model_manager.py`),
-explicitly "off the request thread" per `deps.refuse_multiple_workers`'s
-own docstring. A chat reply streaming does not block the Ask tab today.
-
-**What actually limits it, and isn't a code change:** `deps.
-refuse_multiple_workers()` deliberately refuses more than one *process*
-(not thread) — the config, database handle, log buffer, unlock sessions
-and SearXNG subprocess are all one-per-process singletons, and that
-refusal is a considered decision (single-user local app, not a
-production API), not an oversight to "fix." The real ceilings are
-elsewhere: (1) SQLite serialises writers regardless of how many Python
-threads are asking — a digest job and a chat reply both writing at once
-queue at the database, not the app; (2) most local Ollama installs
-default to one in-flight generation — two simultaneous "AI, please
-answer this" calls (a chat message and a digest summary) may queue at
-Ollama itself even though the app dispatched both without blocking.
-
-**Scope, if pursued:** not a rewrite to `asyncio` — the thread-per-slow-
-task pattern already in place solves the stated problem for CPU/network-
-bound work. What would need real design: a visible queue/status for
-overlapping AI requests (so a digest running in the background doesn't
-silently starve a chat reply, or vice versa, and the user can see both are
-in flight), and confirming empirically how the target audience's actual
-Ollama setups behave under two concurrent requests before promising
-anything faster feels.
+**Answered by the code, in the §85 audit — nothing to build.** Route handlers
+are sync `def` on purpose: 238 sync against 1 async across `routes_*.py`, so
+FastAPI runs every one of them in a threadpool and blocking IO inside them is
+correct rather than a bug. SQLite is in WAL with `busy_timeout=5000`, so a
+background job overlapping a page load is routine. The async-httpx item in §20
+is a smaller and more optional change than this section assumed.
 
 ## 79. Linux release packaging — done; macOS still open
 
@@ -2320,3 +2240,48 @@ need its own answer, not an assumption it behaves like Linux. Worth
 deciding deliberately rather than discovering after building the rest.
 
 ---
+
+---
+
+## 79b. New items, raised by the §85/§86 audit — not yet triaged
+
+Logged rather than built. Each was found while doing something else, so none
+has been scoped; they are here so the finding is not lost with the session.
+
+- **Chat history has retention; nothing else does.** §86 added
+  `conversation_retention_days` (off by default, pinned chats exempt). The
+  same question is unasked for `AuditLog`, `entry_revisions` and the task
+  history — all three grow monotonically, and `entry_revisions` in particular
+  keeps a full copy of a note's text on every edit. Nobody has measured which
+  of them actually gets large in a year of real use, and that measurement
+  should come before any policy.
+- **A support-bundle size ceiling.** The bundle collects logs and diagnostics
+  with no cap. With the log buffer at 1,000 rows this is fine today; it is the
+  kind of thing that stops being fine quietly.
+- **`GET /entries?semantic=true` now has two callers** (the Notes tab and, as
+  of §86, the Library). The fetch-and-cache shape in `refreshLibrarySemantic`
+  is the one to extract if a third appears — the command palette is the
+  obvious candidate.
+- **Semantic search still has no meaning for four of the five Library kinds.**
+  §86 shipped the honest version — meaning-matching for notes, words for
+  documents, chats, images and skills, and the control says so. The real
+  question it defers: *should* documents be embedded? They are the one other
+  kind with substantial prose, and embedding them would make "find the
+  document about X" work the way notes already do. Not obviously worth the
+  index size; worth deciding rather than leaving implicit.
+- **Colour contrast has never been measured.** BACKLOG §19 has said so for a
+  long time and every pass since has fixed something else. It needs a
+  contrast-ratio tool run over the glass surfaces and the newer palettes, not
+  another reading of the CSS.
+- **The document-textarea resize fix has never been seen working.** Headless
+  Chromium will not drive a native resize handle — real mouse events and
+  CDP-level ones both left the rendered height unchanged, and an isolated
+  repro showed the same. Whether that is this Chromium build or evidence the
+  root-cause theory is wrong was never chased down. One look in a headed
+  browser settles it.
+- **A naive orphaned-CSS sweep produces 33 false positives.** Classes built by
+  template (`heat-${n}`, `library-${kind}`, `priority-${p}`,
+  `result-reason-${r}`, `plan-step-${s}`, `outline-h${n}`, `graph-edge-${k}`)
+  look dead to any grep for the literal string. Three genuinely dead rules
+  were removed in §86; anyone re-running that sweep should expect the same 33
+  and not delete them.

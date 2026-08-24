@@ -221,7 +221,8 @@
   </div>
 
   <!-- Global Command Palette -->
-  <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden">
+  <div id="command-palette-overlay" class="lock-overlay command-palette-overlay hidden"
+    role="dialog" aria-modal="true" aria-label="Agent command palette">
     <div class="card glass command-palette-card">
       <div class="command-palette-bar">
         <span class="command-palette-icon"><i class="ph ph-magic-wand" aria-hidden="true"></i></span>
@@ -1196,7 +1197,7 @@ Link to another note with [[its first few words]]."></textarea>
            remembers whether it was open. Nothing was removed. -->
       <div class="graph-toolbar">
         <h2>Graph</h2>
-        <button id="graph-mobile-more-toggle" class="ghost small icon-only mobile-only" aria-expanded="false" aria-controls="graph-toolbar-secondary" title="More options"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+        <button id="graph-mobile-more-toggle" class="ghost small icon-only mobile-only" aria-expanded="false" aria-controls="graph-toolbar-secondary" title="More options" aria-label="More options"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
         <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
 
         <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
@@ -1222,6 +1223,13 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
           <button id="graph-refresh" class="ghost small"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Refresh</button>
           <button id="graph-export-png" class="ghost small" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export</button>
+          <button id="graph-minimap-toggle" class="ghost small" type="button" aria-pressed="true"
+            title="Show or hide the minimap"><i class="ph ph-map-trifold ph-lead" aria-hidden="true"></i> Minimap</button>
+          <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
+          <button id="graph-view-save" class="ghost small" type="button"
+            title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save view</button>
+          <button id="graph-view-delete" class="ghost small" type="button"
+            title="Delete the selected saved view" aria-label="Delete the selected saved view"><i class="ph ph-trash" aria-hidden="true"></i></button>
           <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
 
@@ -1306,6 +1314,15 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="link-suggestions" class="hidden"></div>
       <div id="graph-legend" class="recent"></div>
       <div id="graph-box">
+          <!-- Floats over the canvas, bottom-right. Inside #graph-box rather
+               than beside it so it moves with the map in fullscreen too. -->
+          <div id="graph-minimap" class="graph-minimap" aria-hidden="true">
+            <svg id="graph-minimap-svg" viewBox="0 0 168 112" width="168" height="112">
+              <g id="graph-minimap-dots"></g>
+              <rect id="graph-minimap-frame" class="graph-minimap-frame"
+                x="0" y="0" width="0" height="0"></rect>
+            </svg>
+          </div>
         <svg id="graph-svg"></svg>
         <!-- Click a node: edit it in place without leaving the map -->
         <div id="graph-popup" class="graph-popup hidden" role="dialog"
@@ -1462,7 +1479,7 @@ Link to another note with [[its first few words]]."></textarea>
               title="Print or save as PDF">⬇ PDF</button>
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
             <button id="doc-delete" class="ghost small" type="button"
-              title="Delete this document"><i class="ph ph-trash" aria-hidden="true"></i></button>
+              title="Delete this document" aria-label="Delete this document"><i class="ph ph-trash" aria-hidden="true"></i></button>
           </span>
         </div>
         <!-- Formatting without remembering the syntax. Everything here is
@@ -1480,14 +1497,14 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" data-md="ul" title="Bulleted list">• List</button>
           <button type="button" data-md="ol" title="Numbered list">1. List</button>
           <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
-          <button type="button" data-md="quote" title="Quote"><i class="ph ph-quotes" aria-hidden="true"></i></button>
+          <button type="button" data-md="quote" title="Quote" aria-label="Quote"><i class="ph ph-quotes" aria-hidden="true"></i></button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" data-md="link" title="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+          <button type="button" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
           <button type="button" data-md="codeblock" title="Code block" aria-label="Code block"><i class="ph ph-code-block" aria-hidden="true"></i></button>
           <button type="button" data-md="table" title="Table" aria-label="Table"><i class="ph ph-table" aria-hidden="true"></i></button>
           <button type="button" data-md="hr" title="Divider">—</button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
-          <button type="button" id="doc-find-toggle" title="Find and replace (Ctrl+F)" aria-expanded="false" aria-controls="doc-find-bar"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-toggle" title="Find and replace (Ctrl+F)" aria-expanded="false" aria-controls="doc-find-bar" aria-label="Find and replace (Ctrl+F)"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>
         </div>
         <!-- A textarea's own content is never in the DOM as searchable text
              (that's why the browser's native Ctrl+F can't reach into one),
@@ -1496,8 +1513,8 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="doc-find-bar hidden" id="doc-find-bar" role="search">
           <input type="text" id="doc-find-input" placeholder="Find" aria-label="Find">
           <span id="doc-find-count" class="muted doc-find-count"></span>
-          <button type="button" id="doc-find-prev" class="ghost small" title="Previous match (Shift+Enter)"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
-          <button type="button" id="doc-find-next" class="ghost small" title="Next match (Enter)"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-prev" class="ghost small" title="Previous match (Shift+Enter)" aria-label="Previous match (Shift+Enter)"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+          <button type="button" id="doc-find-next" class="ghost small" title="Next match (Enter)" aria-label="Next match (Enter)"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
           <input type="text" id="doc-replace-input" placeholder="Replace with" aria-label="Replace with">
           <button type="button" id="doc-replace-one" class="ghost small">Replace</button>
           <button type="button" id="doc-replace-all" class="ghost small">Replace all</button>
@@ -1701,6 +1718,17 @@ Link to another note with [[its first few words]]."></textarea>
             <input id="library-search" type="search" class="library-search"
               placeholder="Search titles and previews…"
               aria-label="Search the library">
+            <!-- Meaning-matching for the Library. It applies to notes only,
+                 and the label says so rather than implying more than it does:
+                 notes are the only kind with embeddings, so documents, chats,
+                 images and skills keep matching on their words. See
+                 `librarySemanticIds` in app.js for why that is the honest
+                 shape rather than a limitation to hide. -->
+            <label class="row align-center checkbox-label semantic-toggle"
+              title="Also match notes by meaning, not just the words you typed. Documents, chats and images still match on their words.">
+              <input type="checkbox" id="library-semantic-toggle">
+              <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Semantic
+            </label>
             <!-- Binned things are out of "Everything" unless you ask for them:
                  the Library is where you find what you have, and what you threw
                  away is not that. The Bin chip still shows them whatever this
@@ -1727,7 +1755,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="seg seg-compact library-view" id="library-view" role="group"
               aria-label="How to show the library">
               <button data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
-              <button data-library-view="list" type="button" title="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
+              <button data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
           </div>
           <!-- Filled by renderLibraryFilters: one chip per kind, each with its
@@ -1904,20 +1932,20 @@ Link to another note with [[its first few words]]."></textarea>
         <input type="checkbox" id="wb-snap-toggle">
         <span>Snap</span>
       </label>
-      <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
+      <button id="wb-bg-image" class="ghost small icon-button" type="button" title="Set a background image" aria-label="Set a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
       <input type="file" id="wb-bg-image-input" accept="image/*" class="hidden" aria-hidden="true">
       <button id="wb-reset-panels" class="ghost small icon-button" type="button" title="Reset panel positions">⟲</button>
-      <button id="wb-clear-board" class="ghost small icon-button" type="button" title="Clear this board"><i class="ph ph-trash" aria-hidden="true"></i></button>
+      <button id="wb-clear-board" class="ghost small icon-button" type="button" title="Clear this board" aria-label="Clear this board"><i class="ph ph-trash" aria-hidden="true"></i></button>
       <button id="wb-export" class="ghost small icon-button" type="button" title="Export this board">⬇</button>
     </div>
 
     <div class="whiteboard-floating-panel bottom-center card glass" data-panel-id="tools" id="wb-tools-panel" data-dock="bottom">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button type="button" class="ghost icon-button" id="wb-dock-toggle" title="Dock as a sidebar">
+      <button type="button" class="ghost icon-button" id="wb-dock-toggle" title="Dock as a sidebar" aria-label="Dock as a sidebar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
       </button>
       <div class="wb-tool-group" id="wb-tool-group">
-        <button class="ghost icon-button active" data-tool="pan" title="Pan (V)">
+        <button class="ghost icon-button active" data-tool="pan" title="Pan (V)" aria-label="Pan (V)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
         </button>
         <!-- Selection tools grouped into their own dropdown — asked for
@@ -1928,25 +1956,25 @@ Link to another note with [[its first few words]]."></textarea>
              #wb-tool-group's existing delegated click listener picks up
              unchanged. -->
         <div class="wb-shape-picker" id="wb-select-picker">
-          <button type="button" class="ghost icon-button" id="wb-select-toggle" title="Selection tools (S/K)" aria-haspopup="true" aria-expanded="false">
+          <button type="button" class="ghost icon-button" id="wb-select-toggle" title="Selection tools (S/K)" aria-haspopup="true" aria-expanded="false" aria-label="Selection tools (S/K)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="wb-select-toggle-icon"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
             <svg class="wb-shape-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
           <div class="wb-shape-menu hidden" id="wb-select-menu" role="menu">
             <div class="wb-shape-menu-group">
-              <button class="ghost icon-button" data-tool="select" title="Select (S) — click a card or sketch, Delete to remove it">
+              <button class="ghost icon-button" data-tool="select" title="Select (S) — click a card or sketch, Delete to remove it" aria-label="Select (S)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7 17 2-7 7-2z"></path></svg>
               </button>
-              <button class="ghost icon-button" data-tool="lasso" title="Lasso select (K) — draw a freeform loop around anything whose centre falls inside it">
+              <button class="ghost icon-button" data-tool="lasso" title="Lasso select (K) — draw a freeform loop around anything whose centre falls inside it" aria-label="Lasso select (K)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3C4 3 2 6 2 9c0 4 4 5 4 8 0 1.5-1 2-1 2"></path><path d="M8 3c5 0 8 2 8 6 0 3-2 4-5 4"></path><circle cx="5" cy="19.5" r="1.5"></circle></svg>
               </button>
             </div>
           </div>
         </div>
-        <button class="ghost icon-button" data-tool="draw" title="Pen (P)">
+        <button class="ghost icon-button" data-tool="draw" title="Pen (P)" aria-label="Pen (P)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
         </button>
-        <button class="ghost icon-button" data-tool="highlighter" title="Highlighter (M)">
+        <button class="ghost icon-button" data-tool="highlighter" title="Highlighter (M)" aria-label="Highlighter (M)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l6-6 4 4-6 6H9v-4z"></path><path d="M4 20l3.5-3.5"></path><path d="M13 5l4-4"></path></svg>
         </button>
         <!-- Six shape tools (line/arrow/rect/circle/triangle/diamond) collapsed
@@ -1957,7 +1985,7 @@ Link to another note with [[its first few words]]."></textarea>
              JS change; only the open/close and "which icon is showing" logic
              is new (wbInitShapeMenu). -->
         <div class="wb-shape-picker" id="wb-shape-picker">
-          <button type="button" class="ghost icon-button" id="wb-shape-toggle" title="Shapes (L/A/R/O/G/D)" aria-haspopup="true" aria-expanded="false">
+          <button type="button" class="ghost icon-button" id="wb-shape-toggle" title="Shapes (L/A/R/O/G/D)" aria-haspopup="true" aria-expanded="false" aria-label="Shapes (L/A/R/O/G/D)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="wb-shape-toggle-icon"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
             <svg class="wb-shape-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
@@ -1969,25 +1997,25 @@ Link to another note with [[its first few words]]."></textarea>
                  (rather than alphabetically/by icon) is also functional,
                  not just visual. -->
             <div class="wb-shape-menu-group">
-              <button class="ghost icon-button" data-tool="line" title="Line (L)">
+              <button class="ghost icon-button" data-tool="line" title="Line (L)" aria-label="Line (L)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
               </button>
-              <button class="ghost icon-button" data-tool="arrow" title="Arrow (A)">
+              <button class="ghost icon-button" data-tool="arrow" title="Arrow (A)" aria-label="Arrow (A)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line><polyline points="9 5 19 5 19 15"></polyline></svg>
               </button>
             </div>
             <div class="wb-shape-menu-divider" role="separator"></div>
             <div class="wb-shape-menu-group">
-              <button class="ghost icon-button" data-tool="rect" title="Rectangle (R)">
+              <button class="ghost icon-button" data-tool="rect" title="Rectangle (R)" aria-label="Rectangle (R)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
               </button>
-              <button class="ghost icon-button" data-tool="circle" title="Circle (O)">
+              <button class="ghost icon-button" data-tool="circle" title="Circle (O)" aria-label="Circle (O)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
               </button>
-              <button class="ghost icon-button" data-tool="triangle" title="Triangle (G)">
+              <button class="ghost icon-button" data-tool="triangle" title="Triangle (G)" aria-label="Triangle (G)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 20 L3 20 Z"></path></svg>
               </button>
-              <button class="ghost icon-button" data-tool="diamond" title="Diamond (D)">
+              <button class="ghost icon-button" data-tool="diamond" title="Diamond (D)" aria-label="Diamond (D)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 12 L12 21 L3 12 Z"></path></svg>
               </button>
             </div>
@@ -2057,35 +2085,35 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
           </div>
         </div>
-        <button class="ghost icon-button" data-tool="text" title="Text box (T) — click the canvas to place one">
+        <button class="ghost icon-button" data-tool="text" title="Text box (T) — click the canvas to place one" aria-label="Text box (T)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="12" y1="4" x2="12" y2="20"></line><line x1="9" y1="20" x2="15" y2="20"></line></svg>
         </button>
-        <button id="wb-add-image" class="ghost icon-button" type="button" title="Upload an image onto the board">
+        <button id="wb-add-image" class="ghost icon-button" type="button" title="Upload an image onto the board" aria-label="Upload an image onto the board">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         </button>
         <input type="file" id="wb-image-file-input" accept="image/*" class="hidden" aria-hidden="true">
-        <button class="ghost icon-button" data-tool="eraser" title="Eraser (E) — drag over strokes and cards to remove them">
+        <button class="ghost icon-button" data-tool="eraser" title="Eraser (E) — drag over strokes and cards to remove them" aria-label="Eraser (E)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
         </button>
-        <button class="ghost icon-button" data-tool="bucket" title="Fill (B) — click a shape to fill it with the stroke colour">
+        <button class="ghost icon-button" data-tool="bucket" title="Fill (B) — click a shape to fill it with the stroke colour" aria-label="Fill (B)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11l-8-8-8.5 8.5a2 2 0 0 0 0 2.83l5.67 5.67a2 2 0 0 0 2.83 0L19 11z"></path><path d="M5 7l8 8"></path><path d="M22 17c0 1.66-1.34 3-3 3s-3-1.34-3-3c0-1.5 3-5 3-5s3 3.5 3 5z"></path></svg>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
-        <button class="ghost icon-button" data-tool="link-straight" title="Straight link — drag from one card to another">
+        <button class="ghost icon-button" data-tool="link-straight" title="Straight link — drag from one card to another" aria-label="Straight link">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="20" y2="4"></line><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
         </button>
-        <button class="ghost icon-button" data-tool="link-curved" title="Curved link — drag from one card to another">
+        <button class="ghost icon-button" data-tool="link-curved" title="Curved link — drag from one card to another" aria-label="Curved link">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 Q4 4 20 4"></path><circle cx="4" cy="20" r="2.2"></circle><circle cx="20" cy="4" r="2.2"></circle></svg>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
-        <button class="ghost icon-button" data-tool="delete" title="Delete (X) — click a stroke or card">
+        <button class="ghost icon-button" data-tool="delete" title="Delete (X) — click a stroke or card" aria-label="Delete (X)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
-        <button id="wb-undo" class="ghost icon-button" title="Undo (Ctrl+Z)" disabled>
+        <button id="wb-undo" class="ghost icon-button" title="Undo (Ctrl+Z)" disabled aria-label="Undo (Ctrl+Z)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
         </button>
-        <button id="wb-redo" class="ghost icon-button" title="Redo (Ctrl+Y)" disabled>
+        <button id="wb-redo" class="ghost icon-button" title="Redo (Ctrl+Y)" disabled aria-label="Redo (Ctrl+Y)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
         </button>
         <span class="header-divider" aria-hidden="true"></span>
@@ -2109,9 +2137,9 @@ Link to another note with [[its first few words]]."></textarea>
 
     <div class="whiteboard-floating-panel bottom-right card glass" data-panel-id="zoom">
       <span class="wb-panel-grip" title="Drag to move" aria-hidden="true">⠿</span>
-      <button id="wb-zoom-in" class="ghost small" title="Zoom In"><i class="ph ph-plus" aria-hidden="true"></i></button>
-      <button id="wb-zoom-out" class="ghost small" title="Zoom Out"><i class="ph ph-minus" aria-hidden="true"></i></button>
-      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
+      <button id="wb-zoom-in" class="ghost small" title="Zoom In" aria-label="Zoom In"><i class="ph ph-plus" aria-hidden="true"></i></button>
+      <button id="wb-zoom-out" class="ghost small" title="Zoom Out" aria-label="Zoom Out"><i class="ph ph-minus" aria-hidden="true"></i></button>
+      <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen" aria-label="Fit to Screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
       <button id="wb-help-btn" class="ghost small" title="Show the whiteboard help again">?</button>
     </div>
 
@@ -2254,7 +2282,7 @@ Link to another note with [[its first few words]]."></textarea>
            that would have dismissed it. -->
       <div class="row space-between wb-sidebar-head">
         <h3>Library</h3>
-        <button id="wb-library-close" class="ghost small" title="Close the library"><i class="ph ph-x" aria-hidden="true"></i></button>
+        <button id="wb-library-close" class="ghost small" title="Close the library" aria-label="Close the library"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
       <ul id="wb-library-list" class="wb-library-list"></ul>
     </aside>
@@ -2374,6 +2402,8 @@ Link to another note with [[its first few words]]."></textarea>
     <span id="offline-indicator" class="chip warning hidden" role="status"
       title="No internet connection — web search and any cloud model are unavailable. Your notes and local AI are unaffected."><i class="ph ph-wifi-slash ph-lead" aria-hidden="true"></i>Offline</span>
     <span class="status-spacer"></span>
+    <button id="status-undo" class="status-item" type="button" disabled></button>
+    <button id="status-redo" class="status-item" type="button" disabled></button>
     <button id="status-command" class="status-item" type="button"></button>
   </footer>
 
@@ -3268,6 +3298,13 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="pref-bin-days" type="number" min="1" max="365">
                 <span class="muted">days</span>
               </div>
+              <h3>Chat history</h3>
+              <div class="row">
+                <label for="pref-chat-retention" class="muted">Delete saved chats after</label>
+                <input id="pref-chat-retention" type="number" min="0" max="3650">
+                <span class="muted">days (0 = keep forever)</span>
+              </div>
+              <p class="muted text-sm">Pinned chats are never deleted, however old they are.</p>
               <h3>AI answer style</h3>
               <select id="pref-style">
                 <option value="friendly">Friendly (default)</option>
@@ -3979,7 +4016,7 @@ Link to another note with [[its first few words]]."></textarea>
        own — jumping to a note, for instance, is only a colour change. -->
   <div id="live-region" class="visually-hidden" role="status" aria-live="polite"></div>
   <!-- Command palette: Ctrl/Cmd-K anywhere -->
-  <div id="palette-overlay" class="hidden" role="dialog" aria-label="Command palette">
+  <div id="palette-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette">
     <div class="card" id="palette-card">
       <input id="palette-input" type="text" placeholder="Type a command or search your notes…"
         autocomplete="off" aria-label="Command or search">
@@ -4082,7 +4119,7 @@ Link to another note with [[its first few words]]."></textarea>
 
   <!-- Whiteboard-lite: sketch → PNG attached to a new note -->
   <!-- AI improve-writing: before/after, user approves -->
-  <div id="improve-overlay" class="hidden" role="dialog" aria-label="Improve writing">
+  <div id="improve-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Improve writing">
     <div class="card" id="improve-card">
       <div class="row space-between">
         <h2>Improve writing</h2>
@@ -4117,7 +4154,7 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
-  <div id="sketch-overlay" class="hidden" role="dialog" aria-label="Sketch pad">
+  <div id="sketch-overlay" class="hidden" role="dialog" aria-modal="true" aria-label="Sketch pad">
     <div class="card glass" id="sketch-card">
       <div class="row space-between">
         <h2>Quick sketch</h2>
@@ -4125,31 +4162,31 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div id="sketch-toolbar" class="sketch-docked-toolbar">
         <div class="seg seg-compact">
-          <button id="sketch-tool-pen" class="active" title="Pen">
+          <button id="sketch-tool-pen" class="active" title="Pen" aria-label="Pen">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
           </button>
-          <button id="sketch-tool-highlighter" title="Highlighter">
+          <button id="sketch-tool-highlighter" title="Highlighter" aria-label="Highlighter">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h9l3-3"></path><path d="M22 12l-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"></path></svg>
           </button>
-          <button id="sketch-tool-eraser" title="Eraser">
+          <button id="sketch-tool-eraser" title="Eraser" aria-label="Eraser">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16C2.5 15.5 2.5 14.5 3 14L13 4C13.5 3.5 14.5 3.5 15 4L20 9C20.5 9.5 20.5 10.5 20 11L11 20"></path><path d="M17 14L7 14"></path></svg>
           </button>
         </div>
         
         <div class="seg seg-compact">
-          <button id="sketch-tool-line" title="Line">
+          <button id="sketch-tool-line" title="Line" aria-label="Line">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"></line></svg>
           </button>
-          <button id="sketch-tool-arrow" title="Arrow">
+          <button id="sketch-tool-arrow" title="Arrow" aria-label="Arrow">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
           </button>
-          <button id="sketch-tool-rect" title="Rectangle">
+          <button id="sketch-tool-rect" title="Rectangle" aria-label="Rectangle">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
           </button>
-          <button id="sketch-tool-circ" title="Circle">
+          <button id="sketch-tool-circ" title="Circle" aria-label="Circle">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
           </button>
-          <button id="sketch-tool-text" title="Text">
+          <button id="sketch-tool-text" title="Text" aria-label="Text">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
           </button>
         </div>
@@ -4169,16 +4206,16 @@ Link to another note with [[its first few words]]."></textarea>
         </label>
         
         <div class="seg seg-compact">
-          <button id="sketch-undo" title="Undo (Ctrl+Z)">
+          <button id="sketch-undo" title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
           </button>
-          <button id="sketch-redo" title="Redo (Ctrl+Y)">
+          <button id="sketch-redo" title="Redo (Ctrl+Y)" aria-label="Redo (Ctrl+Y)">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
           </button>
-          <button id="sketch-clear" title="Clear Canvas">
+          <button id="sketch-clear" title="Clear Canvas" aria-label="Clear Canvas">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
-          <button id="sketch-upload-image" title="Add Background Image">
+          <button id="sketch-upload-image" title="Add Background Image" aria-label="Add Background Image">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
           </button>
           <input type="color" id="sketch-bg-color-picker" value="#ffffff"

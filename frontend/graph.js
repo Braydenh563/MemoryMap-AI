@@ -49,6 +49,7 @@ let graphSvg = null;
 let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
+let graphMinimapTick = 0; // throttles minimap repaints during a cooling layout
 let graphDims = { w: 0, h: 0 };
 // Set once the camera has auto-framed the map for the tab's current visit,
 // and cleared again by switchTab() on the next fresh entry — see the two
@@ -1185,6 +1186,7 @@ async function renderGraph() {
     })
     .on("zoom", (event) => {
       canvas.attr("transform", event.transform);
+      graphMinimapPaint(); // the viewport rectangle follows the real transform
       // Semantic Zoom logic
       const isZoomedOut = event.transform.k < 0.45;
       if (canvas.classed("semantic-zoom-out") !== isZoomedOut) {
@@ -1208,6 +1210,8 @@ async function renderGraph() {
   graphZoom = zoomBehavior;
   graphCanvas = canvas;
   graphDims = { w: width, h: height };
+  initGraphMinimap();
+  initGraphViews();
 
   // D3 mutates these (x/y/vx/vy), so work on copies.
   const layoutKind = graphLayout();
@@ -1785,6 +1789,11 @@ async function renderGraph() {
       graphAutoFitDone = true;
       fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height);
     }
+    // Repaint the minimap as the layout settles, but not on every one of the
+    // ~300 ticks a cooling simulation fires — the dots barely move between
+    // frames and a full rebuild each time would cost more than the map it is
+    // summarising.
+    if (graphMinimapTick++ % 8 === 0) graphMinimapPaint();
   });
 
   // Search-highlight (Wave M): remember the selections and re-apply any
@@ -2690,3 +2699,262 @@ async function exportGraphPng() {
   }
 }
 
+
+// --- minimap + saved views (ROADMAP §85.4 items 7) ---------------------------
+//
+// Both exist for the same reason, named in the roadmap's own words: once a
+// notebook is dense enough that the force layout stops being readable, there
+// is "nothing to re-find a specific arrangement" — no overview of where you
+// are in the map, and no way to come back to a combination of filters that
+// worked.
+
+const GRAPH_MINIMAP_W = 168;
+const GRAPH_MINIMAP_H = 112;
+
+// Where the nodes are, scaled into the minimap box. Recomputed on every paint
+// rather than cached: the force layout keeps moving until it cools, so a
+// cached extent would be wrong for the first few seconds — which is exactly
+// when someone is watching it settle.
+function graphMinimapPaint() {
+  const svg = document.getElementById("graph-minimap-svg");
+  if (!svg || !graphNodesRef?.length) return;
+  const nodes = graphNodesRef.filter((n) => Number.isFinite(n.x) && Number.isFinite(n.y));
+  if (!nodes.length) return;
+
+  const xs = nodes.map((n) => n.x);
+  const ys = nodes.map((n) => n.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  // A single node, or a perfectly straight line of them, gives a zero-width
+  // extent and a division by zero further down.
+  const spanX = Math.max(maxX - minX, 1);
+  const spanY = Math.max(maxY - minY, 1);
+  const pad = 6;
+  const scale = Math.min(
+    (GRAPH_MINIMAP_W - pad * 2) / spanX,
+    (GRAPH_MINIMAP_H - pad * 2) / spanY
+  );
+  const toMini = (x, y) => [
+    pad + (x - minX) * scale + (GRAPH_MINIMAP_W - pad * 2 - spanX * scale) / 2,
+    pad + (y - minY) * scale + (GRAPH_MINIMAP_H - pad * 2 - spanY * scale) / 2,
+  ];
+
+  const dots = document.getElementById("graph-minimap-dots");
+  const frame = document.getElementById("graph-minimap-frame");
+  if (!dots || !frame) return;
+
+  // One <circle> per node is the whole minimap. Deliberately not reusing the
+  // main render path: the minimap has no labels, no edges and no hit-testing,
+  // so an SVG of plain dots is both cheaper and clearer than a scaled clone
+  // of a canvas that is already too dense to read — which is the problem this
+  // is here to solve, not to reproduce in miniature.
+  const fragment = document.createDocumentFragment();
+  for (const node of nodes) {
+    const [mx, my] = toMini(node.x, node.y);
+    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    dot.setAttribute("cx", mx.toFixed(1));
+    dot.setAttribute("cy", my.toFixed(1));
+    dot.setAttribute("r", "1.6");
+    dot.setAttribute("fill", node.colour || "currentColor");
+    fragment.appendChild(dot);
+  }
+  dots.replaceChildren(fragment);
+
+  // The viewport rectangle: which part of the map is currently on screen.
+  // Invert the live zoom transform to get canvas coordinates for the box's
+  // own corners, then run those through the same projection as the dots.
+  const transform = graphSvg ? d3.zoomTransform(graphSvg.node()) : null;
+  if (!transform || !graphDims.w) return;
+  const [x0, y0] = transform.invert([0, 0]);
+  const [x1, y1] = transform.invert([graphDims.w, graphDims.h]);
+  const [fx0, fy0] = toMini(x0, y0);
+  const [fx1, fy1] = toMini(x1, y1);
+  // Clamped to the minimap's own box. Zoomed far enough out, the viewport is
+  // wider than every node in the map, so the raw rectangle runs past the edge
+  // — measured at 201x39 inside a 168x112 box. The SVG would clip it anyway,
+  // but a rectangle with two edges off-screen reads as "the frame is broken"
+  // rather than "you are looking at all of it"; clamped, it sits flush with
+  // the border and says the second thing.
+  const clampedX0 = Math.max(0, Math.min(fx0, fx1));
+  const clampedY0 = Math.max(0, Math.min(fy0, fy1));
+  const clampedX1 = Math.min(GRAPH_MINIMAP_W, Math.max(fx0, fx1));
+  const clampedY1 = Math.min(GRAPH_MINIMAP_H, Math.max(fy0, fy1));
+  frame.setAttribute("x", clampedX0.toFixed(1));
+  frame.setAttribute("y", clampedY0.toFixed(1));
+  frame.setAttribute("width", Math.max(0, clampedX1 - clampedX0).toFixed(1));
+  frame.setAttribute("height", Math.max(0, clampedY1 - clampedY0).toFixed(1));
+
+  // Clicking the minimap centres the map on that point. Stored on the element
+  // so the handler (wired once, below) can invert the projection without
+  // recomputing the extent it was painted with.
+  svg._toCanvas = (mx, my) => [
+    minX + (mx - pad - (GRAPH_MINIMAP_W - pad * 2 - spanX * scale) / 2) / scale,
+    minY + (my - pad - (GRAPH_MINIMAP_H - pad * 2 - spanY * scale) / 2) / scale,
+  ];
+}
+
+function initGraphMinimap() {
+  const svg = document.getElementById("graph-minimap-svg");
+  if (!svg || svg._wired) return;
+  svg._wired = true;
+  const jump = (event) => {
+    if (!svg._toCanvas || !graphSvg || !graphZoom) return;
+    const rect = svg.getBoundingClientRect();
+    const [cx, cy] = svg._toCanvas(
+      ((event.clientX - rect.left) / rect.width) * GRAPH_MINIMAP_W,
+      ((event.clientY - rect.top) / rect.height) * GRAPH_MINIMAP_H
+    );
+    const current = d3.zoomTransform(graphSvg.node());
+    // Keep the zoom level, change only where it is centred — a minimap is for
+    // navigating, not for zooming.
+    graphSvg
+      .transition()
+      .duration(250)
+      .call(
+        graphZoom.transform,
+        d3.zoomIdentity
+          .translate(graphDims.w / 2, graphDims.h / 2)
+          .scale(current.k)
+          .translate(-cx, -cy)
+      );
+  };
+  svg.addEventListener("click", jump);
+  document.getElementById("graph-minimap-toggle")?.addEventListener("click", () => {
+    const box = document.getElementById("graph-minimap");
+    const hidden = box.classList.toggle("hidden");
+    localStorage.setItem("graph-minimap-hidden", hidden ? "1" : "0");
+    document
+      .getElementById("graph-minimap-toggle")
+      .setAttribute("aria-pressed", String(!hidden));
+    if (!hidden) graphMinimapPaint();
+  });
+  if (localStorage.getItem("graph-minimap-hidden") === "1") {
+    document.getElementById("graph-minimap")?.classList.add("hidden");
+    document.getElementById("graph-minimap-toggle")?.setAttribute("aria-pressed", "false");
+  }
+}
+
+// --- saved views -------------------------------------------------------------
+//
+// A "view" is every control that changes *what the map shows and how*, plus
+// where you were looking. Stored in localStorage rather than the database on
+// purpose: these are per-device workspace state of the same kind as
+// `graph-layout` and the sidebar widths already kept there (see
+// MIRRORED_UI_EXTRAS in app.js), not notebook content that belongs in a
+// backup.
+const GRAPH_VIEWS_KEY = "graph-saved-views";
+
+function graphSavedViews() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(GRAPH_VIEWS_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return []; // corrupt or hand-edited — an empty list beats a broken tab
+  }
+}
+
+function graphCaptureView() {
+  const transform = graphSvg ? d3.zoomTransform(graphSvg.node()) : null;
+  return {
+    layout: localStorage.getItem("graph-layout") || "force",
+    colour: localStorage.getItem("graph-colour") || "",
+    hiddenCategories: [...graphHiddenCategories],
+    physics: document.getElementById("graph-physics")?.checked ?? true,
+    time: document.getElementById("graph-time-slider")?.value ?? null,
+    entities: document.getElementById("graph-show-entities")?.checked ?? false,
+    documents: document.getElementById("graph-show-documents")?.checked ?? false,
+    orphans: document.getElementById("graph-hide-orphans")?.checked ?? false,
+    transform: transform ? { x: transform.x, y: transform.y, k: transform.k } : null,
+  };
+}
+
+async function graphSaveCurrentView() {
+  const name = (await promptDialog("Name this view", "", { confirmLabel: "Save view" })).trim();
+  if (!name) return;
+  const views = graphSavedViews().filter((v) => v.name !== name); // same name replaces
+  views.push({ name, ...graphCaptureView() });
+  localStorage.setItem(GRAPH_VIEWS_KEY, JSON.stringify(views));
+  renderGraphViews();
+  toast(`Saved the view “${name}”.`);
+}
+
+function graphApplyView(view) {
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (!el || value === null || value === undefined) return;
+    if (el.type === "checkbox") el.checked = Boolean(value);
+    else el.value = value;
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  localStorage.setItem("graph-layout", view.layout);
+  if (view.colour) localStorage.setItem("graph-colour", view.colour);
+  set("graph-layout", view.layout);
+  set("graph-colour", view.colour);
+  set("graph-physics", view.physics);
+  set("graph-show-entities", view.entities);
+  set("graph-show-documents", view.documents);
+  set("graph-hide-orphans", view.orphans);
+  set("graph-time-slider", view.time);
+  graphHiddenCategories = new Set(view.hiddenCategories || []);
+
+  // The transform lands *after* the rebuild those change events kick off —
+  // restoring the pan/zoom first would only have it overwritten by the
+  // auto-fit that runs when a fresh layout settles.
+  setTimeout(() => {
+    if (!view.transform || !graphSvg || !graphZoom) return;
+    graphSvg.call(
+      graphZoom.transform,
+      d3.zoomIdentity.translate(view.transform.x, view.transform.y).scale(view.transform.k)
+    );
+    graphMinimapPaint();
+  }, 400);
+  toast(`Showing “${view.name}”.`);
+}
+
+function renderGraphViews() {
+  const select = document.getElementById("graph-view-picker");
+  if (!select) return;
+  const views = graphSavedViews();
+  select.replaceChildren();
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = views.length ? "Saved views…" : "No saved views";
+  select.appendChild(blank);
+  for (const view of views) {
+    const option = document.createElement("option");
+    option.value = view.name;
+    option.textContent = view.name;
+    select.appendChild(option);
+  }
+  select.disabled = !views.length;
+  const remove = document.getElementById("graph-view-delete");
+  if (remove) remove.disabled = !views.length;
+}
+
+function initGraphViews() {
+  const select = document.getElementById("graph-view-picker");
+  if (!select || select._wired) return;
+  select._wired = true;
+  select.addEventListener("change", () => {
+    const view = graphSavedViews().find((v) => v.name === select.value);
+    if (view) graphApplyView(view);
+  });
+  document.getElementById("graph-view-save")?.addEventListener("click", graphSaveCurrentView);
+  document.getElementById("graph-view-delete")?.addEventListener("click", async () => {
+    const name = select.value;
+    if (!name) {
+      toast("Pick a view to delete first.");
+      return;
+    }
+    if (!(await confirmDialog(`Delete the saved view “${name}”?`))) return;
+    localStorage.setItem(
+      GRAPH_VIEWS_KEY,
+      JSON.stringify(graphSavedViews().filter((v) => v.name !== name))
+    );
+    renderGraphViews();
+    toast("View deleted.");
+  });
+  renderGraphViews();
+}

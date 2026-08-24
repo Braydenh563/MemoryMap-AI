@@ -173,19 +173,7 @@
 }
 
 
-.chat-sidebar-header {
-  padding-bottom: 0.8rem;
-  margin-bottom: 0.8rem;
-  border-bottom: 1px solid var(--border);
-  align-items: center;
-}
 
-.chat-sidebar-header strong {
-  font-size: var(--text-h3);
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
 
 #conversation-list li {
   display: flex;
@@ -2273,3 +2261,63 @@ html {
   border-left: 3px solid var(--accent-soft);
 }
 
+
+/* An .action-menu that has to open somewhere other than down-and-right.
+   The default (`right: 0; top: calc(100% + 4px)`) suits a kebab sitting in a
+   card near the top of a page; the text-selection kebab can appear anywhere,
+   including two lines above the footer or hard against the left edge, so
+   `clampSelectionMenu()` measures after opening and adds one of these. Kept
+   here beside the rule they override rather than with the selection popup,
+   because the thing being adjusted is the menu, not the popup. */
+.action-menu.menu-flip-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+
+.action-menu.menu-flip-left {
+  right: auto;
+  left: 0;
+}
+
+/* --- graph minimap ---------------------------------------------------------
+   Bottom-right of the canvas, out of the way of the toolbar (top) and the
+   agent monitor (bottom-left). Non-interactive except for the click-to-centre
+   handled in graph.js, and `aria-hidden` because it is a redundant view of a
+   map that already has a full keyboard/screen-reader layer
+   (`initGraphKeyboard`) — announcing 1,500 unlabelled dots would be noise. */
+.graph-minimap {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 5;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  box-shadow: var(--shadow-sm);
+  cursor: crosshair;
+  color: var(--accent);
+}
+
+.graph-minimap.hidden {
+  display: none;
+}
+
+/* The current viewport, drawn over the dots. Stroke only — a fill would
+   dim the very nodes it is meant to point at. */
+.graph-minimap-frame {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+@media (max-width: 600px) {
+  /* A 168px box is a quarter of a phone screen's width and sits on top of the
+     canvas it is summarising — on the one tab that already has the least room
+     (see the agent-monitor note in 07-whiteboard-misc.css). Hidden by default
+     there; the toolbar toggle still brings it back. */
+  .graph-minimap {
+    display: none;
+  }
+}

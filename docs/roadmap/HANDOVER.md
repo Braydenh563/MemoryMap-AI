@@ -1,6 +1,404 @@
 # Session handover
 
-## Latest session — real-support-bundle fixes finished and released as v0.1.3, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
+## Latest session — the §85.4 list built, three stale claims retracted, and a full docs clear-out
+
+Two asks, done in that order deliberately: **build the rest of the hand-off
+list, then reorganise the docs** — so the docs describe the final state rather
+than being rewritten twice.
+
+### Read this first
+
+`ROADMAP.md` went from **1,875 lines to 680** and now opens with what is
+actually open. Six sessions of finished narrative (§80–§86), the mobile audit,
+the feature brainstorm, Priority 0 and the #0 quality review all moved to
+`HISTORY.md`. **The live list is the first thing in the file.** Item 1
+(vision-model image support) is the only large piece left.
+
+### The part worth reading: three claims that were wrong
+
+Each was on the list I wrote myself last session, and each was caught by
+checking before building — which is the entire point of this project's
+opening rule, and it caught *me* three times in one session.
+
+1. **The Reminders month/calendar view was already fully built.**
+   `renderReminderCalendar`, month navigation, view mode persisted in
+   localStorage, the toggle wired. It had been listed as a gap. I was one grep
+   away from rebuilding it. There is no better illustration of why the rule
+   exists than making the mistake while executing a list *about* not making it.
+
+2. **My own focus-trap fix from last session was too broad, and shipped.**
+   I replaced a hard-coded list of eight dialog ids with "any visible
+   `[role="dialog"]`" and called it strictly better. It was not: **13 of this
+   app's `role="dialog"` elements are anchored popovers** — the notifications
+   panel, the note picker, the chat dock disclosure, the graph and timeline
+   popups, six `*-intro` help panels — whose page stays live and interactive.
+   Trapping Tab inside a dropdown strands the user, and telling a screen
+   reader it is modal is a straight lie about the page. Now gated on
+   `aria-modal="true"`, the attribute that actually declares "everything else
+   is inert". Found by scanning for dialogs missing `aria-modal` and asking
+   why so many were missing it — the answer was that they *should* be.
+
+3. **The Graph mobile claim was stale.** Reported as `#graph-box` at
+   `top: 522px`, unreachable at 320×568 without scrolling. Measured: **340px,
+   fully visible.** Somebody improved it and the item was never updated. The
+   real squeeze was the agent-activity panel eating a third of the viewport —
+   fixed by collapsing its log area on narrow screens, which is also the one
+   thing the earlier scroll-container padding could never reach, because the
+   Graph has no document-flow scroller.
+
+A fourth, smaller one: the tap-target finding named "13×13 unstyled native
+checkboxes" and three `#skills-auto-*` controls. **A wrapping `<label>` makes
+the label the target**, so those pass. A live sweep of every tab found five
+real failures — none of them the ones named.
+
+### Built, with the numbers
+
+- **One shared incremental renderer** (`renderIncrementally`) for the Notes
+  list and Library grid. At 1,501 notes: **533 ms → 16 ms**, **31,680 → 4,306
+  DOM nodes**. Chunk-on-scroll, not true virtualisation, because every row
+  here has a variable height — a virtualiser would need measurement passes
+  costing what it saves. It stays one continuous scroll, so it is explicitly
+  **not** BACKLOG §77's page selector.
+- **Deliberately not applied to two lists**, both commented at the call site:
+  the **Timeline** is a CSS grid whose cell order *is* its layout, and the
+  **log console** is already capped at 1,000 rows and its follow mode needs
+  the *newest* rows, which a from-the-top renderer would never paint.
+- **Graph minimap and saved views.** 1,501 dots, a live viewport rectangle,
+  click to recentre keeping zoom. Views capture layout, colour, every filter
+  and the pan/zoom, in localStorage beside the other per-device graph state.
+- **Conversation retention** — the one collection that grew forever.
+- **49 buttons given `aria-label`**, plus `paintStatusItem` now mirroring
+  `title`→`aria-label` centrally so the status bar cannot drift again.
+- **Two `innerHTML`-in-a-loop sites converted.** One had a trailing `</div>`
+  with nothing open to close, silently discarded by the parser on every row —
+  which is the argument for the no-`innerHTML` rule in one line.
+
+### Not built, and why
+
+**Vision-model image support.** It is now item 1 of the live list. The
+detection half exists (`ollama_client.capabilities()`/`supports()`, and Ollama
+reports `vision` for a multimodal model); nothing downstream uses it, and no
+image input is wired into the chat send path at all. The real work is the
+provider layer passing images through in whatever shape each backend wants —
+that is a session of its own, not a tail-end item, and starting it here would
+have meant leaving it half-done.
+
+### What could not be verified
+
+- **Real touch hardware.** The touch path for the selection kebab was proved
+  by dispatching a selection with no `mouseup` at all, which is the mechanism
+  a long-press drag relies on — but no finger has touched this.
+- **A real model.** Extract-notes and the reminder parser were driven as far
+  as the network call only; this sandbox has no Ollama.
+- **The minimap on a real dense graph.** Verified at 1,501 uncategorised
+  notes, which produces one wide band rather than the clustered map a real
+  categorised notebook would. The projection maths is extent-based so it
+  should hold, but "should" is the word.
+
+### Where to start
+
+`ROADMAP.md`'s live list, top of the file. It is 11 items and item 1 is the
+only large one.
+
+---
+
+## Previous session — a deep whole-app audit, six findings built and measured, and a ranked hand-off list for the next session
+
+Asked for directly: *"the deepest audit and analysis of everything missing and
+wrong with the application"*, then *"if you feel some of the important things
+should be done by you, do those, then mark the rest to be done at the top of
+the roadmap"*. So this session is an audit first and a build second, and the
+audit itself is the deliverable — it lives in
+[ROADMAP.md §85](../ROADMAP.md), with the hand-off list at §85.4.
+
+**Read §85.4 first if you are picking this up.** It is eleven items, each
+already located in the source and scoped, ranked by value per unit of effort.
+None of them needs re-deriving.
+
+### The finding that shaped everything else
+
+**This app is feature-complete to an unusual degree, and the useful headroom
+is not new features.** The blind brainstorm two sessions ago already
+established that from the outside (~140 capabilities brainstormed, the large
+majority already built). This audit went at the *quality* of what exists, and
+four of its five real findings are invisible from a feature list: DOM weight,
+missing indexes, no compression, and a focus-trap registry that had gone
+stale. Only one — the selection popup — is a feature at all.
+
+### What was built, and what the numbers actually were
+
+Everything below has a measurement, because CLAUDE.md's standing rule is that
+reasoning about behaviour instead of reproducing it has cost real time here
+more than once.
+
+1. **The text-selection popup is now a kebab (⋯) with a nine-item menu**, and
+   for the first time it is reachable by touch and by keyboard. Six confirmed
+   problems with the old three-button bar, the full list in §85.1. The one
+   worth carrying forward: **the off-screen bug was a clamp nested the wrong
+   way round** — `Math.min(Math.max(margin, x), limit)` puts a box wider than
+   the viewport *off* the left edge, because the limit falls below the floor
+   and `min` wins. `Math.max(margin, Math.min(x, limit))` is correct, and
+   `tests/test_selection_menu.py` asserts on the nesting order specifically,
+   since a tidy-up could swap it back with nothing else noticing.
+2. **Note-card overflow menus build on first open instead of at render.**
+   Measured live at 1,501 notes by forcing every menu to build in the same
+   page and re-counting: **133,748 DOM nodes → 31,680. 102,068 saved, 76%, 68
+   per card.**
+3. **Four composite indexes on `entries`.** `EXPLAIN QUERY PLAN` said
+   `USE TEMP B-TREE FOR ORDER BY` before them — SQLite sorting every live note
+   per request. At 20,000 notes: **46 ms → 15 ms** per list call, write cost
+   **0.470 → 0.491 ms** per save.
+4. **Gzip.** `app.js` **1071.7 KB → 320.1 KB (70%)**, `index.html` 262 → 65 KB
+   (75%), largest CSS 77 → 25 KB (67%).
+5. **Focus traps now ask the DOM instead of a hard-coded list.** Eight dialogs
+   were untrapped.
+6. **Two queries stopped materialising every `Entry` to read one column.**
+
+### The three things that were only found by running it
+
+This is the part worth reading, because all three contradict what the source
+says at the line involved.
+
+- **A correctly-positioned button that could not be clicked.** At 360×640 the
+  new kebab rendered at exactly the right coordinates and was inert, because
+  `#agent-monitor` (`z-index: 1000`, fixed bottom-left) was sitting on top of
+  it. The popup's own `z-index: 90` also put it *below* `.modal-overlay`'s 55,
+  and it only ever painted above modals by accident of source order. Now 1010:
+  above the persistent panels, below the toast box's 1050. **`getBoundingClientRect`
+  said the button was in the right place and `getBoundingClientRect` was
+  right** — the shape to remember is the one CLAUDE.md already names: a value
+  that is wrong where it is *used*, not where it is set.
+- **Arrow keys did nothing in the new menu**, because arrow-key navigation had
+  been written inline inside `entryOverflowMenu`. So the note card's ⋯ had it,
+  and every menu built by `kebabMenu` — conversations, sidebars, and the new
+  selection menu — had none. Extracted to `wireMenuKeyboard(menu, opener)`,
+  which fixes it everywhere rather than only where it was noticed. This was
+  ROADMAP item E.5 on the hand-off list; it came off the list because my own
+  new feature depended on it.
+- **Gzip in the wrong middleware position silently disabled its own size
+  threshold.** Both existing middlewares are `BaseHTTPMiddleware`, which
+  re-wraps every response as *streaming*, and Starlette's gzip only consults
+  `minimum_size` on a response it can measure. Added outermost, `GET /health`
+  (70 bytes) and `GET /tags` (2 bytes) both came back gzipped — CPU spent
+  making small responses bigger, with the threshold doing nothing at all.
+  Measured, then moved innermost.
+
+### Two assumptions that were checked and turned out false
+
+Both were in my own plan before I tested them. Recorded because acting on
+either would have produced worse code:
+
+- **"Naive gzip buffers a stream into uselessness."** Not Starlette's:
+  `GZipResponder._compress_body` flushes with `Z_SYNC_FLUSH` on every chunk
+  carrying `more_body`, so chat streaming, the weekly digest and the live log
+  all still stream. The plan called for a hand-written middleware to avoid a
+  problem that does not exist.
+- **"A column-only `select(Entry.tags)` might drop the workspace filter",**
+  since that filter is a `with_loader_criteria` on the mapped class. A silent
+  yes would have leaked one space's notes into another's search scope — the
+  exact "guard removed while the shape around it was kept" failure the review
+  checklist names. Tested against a real two-space database: it does apply.
+  Pinned by two tests anyway, because the invariant is not obvious from
+  reading either side.
+
+### What could not be verified, said plainly
+
+- **Real touch hardware.** The touch path was verified by dispatching a
+  selection with *no* `mouseup` at all and confirming the kebab still appears —
+  which is the mechanism a long-press drag relies on — but no finger has
+  touched this. Whether the OS's own selection handles crowd the kebab on a
+  real phone is unknown.
+- **A real model.** `Extract notes…` and `Set a reminder` were verified as far
+  as the network call; this sandbox has no Ollama, so the AI's actual
+  splitting and reminder-parsing judgement is still only covered by the
+  fake-transport tests. The standing caveat at the top of CLAUDE.md applies.
+- **The 98% figure for `GET /entries` under gzip** is flattered by repetitive
+  seeded text. Real notes will compress less; the 70–75% figures for the
+  static frontend are honest, since those are the real files.
+- **`renderEntries()` still takes ~533 ms at 1,501 notes** after the lazy-menu
+  fix, because it still builds one card per note. That is hand-off item 4 and
+  it is the real remaining scalability ceiling.
+
+### Where to start
+
+§85.4. Items 1–3 are mechanical and have exact line numbers; item 4 is the
+one with real substance.
+
+---
+
+## Previous session — a global Undo/Redo system (status bar + Ctrl+Z), three live-reported bugs fixed, a CodeQL path-injection alert closed, and a security scan
+
+Driven by live user requests rather than a roadmap sweep. Everything below is
+`pytest tests/` (1,600+ tests) green, `ruff check .` clean, `node --check
+frontend/app.js` clean, and the UI claims were checked live in this sandbox's
+Chromium (screenshots taken, described below) — this file's own standing
+caveat about model-*behaviour* claims still applies (no real Ollama here).
+
+**Global Undo/Redo, asked for directly** ("an undo and redo feature, maybe in
+the bottom bar... so I can undo application mistakes like deleting, or
+linking smth or doing something else like adding or removing an image from a
+note"). Built as one small stack manager in `app.js` (`pushUndo`/
+`performUndo`/`performRedo`, session-only — same lifetime as a browser's own
+Ctrl+Z, does not survive a reload) plus two new buttons in the existing
+`#status-bar` footer (`#status-undo`/`#status-redo`, `paintStatusItem`,
+disabled/dimmed when their stack is empty) and two new entries in the
+existing rebindable-shortcuts system (`DEFAULT_SHORTCUTS.undo`/`.redo`,
+Ctrl+Z/Ctrl+Shift+Z by default, shows up in the "?" panel and Settings →
+Keyboard shortcuts for free since both already render from that registry).
+
+**The one real design decision**: Ctrl+Z/Ctrl+Shift+Z are *excluded* from
+this app's existing "chorded shortcuts fire even while typing" rule — they're
+already the browser's own undo/redo for whatever text field has focus, and
+that has to win over the global stack, or fixing a typo in the note box would
+silently restore a deleted note instead of undoing the keystroke. The keydown
+handler checks `document.activeElement` (INPUT/TEXTAREA/`isContentEditable`)
+specifically for the `undo`/`redo` ids before dispatching. **Verified live**:
+typing in the Capture textarea, then Ctrl+Z, shrinks the typed text (native
+undo) and leaves the note list untouched; Ctrl+Z from outside a text field
+bins the last-created note, and Ctrl+Shift+Z brings it back.
+
+Wired into the actions the user named directly, each pushing a real inverse
+(not a fake one — every undo/redo actually round-trips through the same API
+the original action used):
+- **Delete a note** (single card and multi-select bulk delete) — undo calls
+  the existing `/entries/{id}/restore`, redo re-deletes. The existing
+  toast-with-Undo (Wave J) still fires too; a new `settleUndoFromToast`
+  helper keeps the two in sync (clicking the toast's own Undo button pops the
+  same entry off the global stack and onto the redo stack, so a later Ctrl+Z
+  can't redo a restore that already happened a different way).
+- **Create a note** (Capture's Save) — undo bins it, redo restores it.
+- **Delete a reminder** — no restore endpoint exists for reminders (unlike
+  entries), so undo re-`POST`s a new one and tracks its *new* id in a mutable
+  closure variable, so a subsequent redo deletes the right row rather than
+  the id that no longer exists.
+- **Link two notes / remove a link** — both of this app's three link-creation
+  call sites (a note's own "Connect" submenu, the reevaluate-suggestions
+  panel, graph-adjacent click-to-link) and its one unlink control. `POST
+  .../links` only returns the *updated entry*, not the new link's own id, so
+  each site finds it by matching `updated.links` against the target id it
+  just sent — same shape as the reminder case, a live-tracked id for redo.
+- **Note content edits that add or remove an image** — `attachFromLibrary`
+  (Library → note "Attach from Library") and the note editor's "Save
+  changes" form both go through one new shared helper,
+  `pushEntryPutUndo(entryId, label, before, after)`, a before/after
+  `PUT /entries/{id}` snapshot. This is *why* "remove an image from a note"
+  is covered without new code of its own — an embedded image is just
+  markdown inside `content`, so any content edit's undo already covers it.
+
+**Deliberately not wired**, so a later session doesn't assume it is: tag
+batch-add, category rename/delete, document create/delete, and every
+Whiteboard/Skills/Settings mutation — the Whiteboard already has its own
+local undo/redo (HISTORY.md), and the rest either have no natural single
+inverse or weren't part of what was asked. `UNDO_STACK_LIMIT` is 50.
+
+**Verified live end-to-end with Playwright** (fresh data dir): create two
+notes → status bar's Undo button shows "Undo: Created a note (Ctrl+Z)" →
+delete one → Undo restores it → Redo re-deletes it → Ctrl+Z (outside a text
+field) restores it again → typing in the Capture box and pressing Ctrl+Z
+shrinks the typed text and leaves the note list alone → Ctrl+Shift+Z redoes a
+keyboard-driven delete. The "?" shortcuts panel and Settings → Keyboard
+shortcuts both list and can rebind the two new entries.
+
+**Three live-reported bugs, each confirmed by reading the actual code path
+before fixing, then confirmed fixed with Playwright:**
+
+1. **"The semantic search settings button in the ask tab doesn't work."**
+   True — `#ask-search-tune` (`index.html`) existed in the markup with the
+   right icon/title but `grep`ing `app.js` for its id turned up nothing: no
+   listener was ever attached. The two other quick-access links into the
+   same Settings group (Chat's own per-turn tune button, the Dashboard
+   catalog) both call `openSettingsModal("preferences",
+   "search-relevance-group")`; the static Ask-tab button just never got the
+   same one-line wiring. Fixed. **Also asked**: "aligned to the right, not
+   weirdly after the other elements and in the middle" — the heading is
+   already a flex row (`.chat-half h3`, for the answer side's own action
+   buttons); `#ask-search-tune { margin-left: auto }` pushes it to the row's
+   trailing edge. Verified live: the button's right edge is now pixel-exact
+   with the heading row's own right edge (measured via `boundingBox()`), and
+   clicking it opens Settings scrolled/flashed to the right group.
+2. **"Draft notes appear as regular notes in the main library section."**
+   True — `routes_library.py`'s `_notes()` query filtered `is_deleted`/
+   `archived_at` but never `is_draft`, unlike the Notes tab's own browse list
+   (`app.js` filters `!e.is_draft` in every list/count it builds). Added
+   `Entry.is_draft == False` to the query. Verified via the actual API
+   response, not just the query: a real draft created through `POST
+   /entries {"is_draft": true}` is absent from `/library`'s `"note"` items
+   while a normal note is present. New test,
+   `test_a_draft_note_does_not_appear_in_the_library`.
+3. **"I don't think drafts should be in the graph either??"** — checked
+   rather than assumed: also true, same root shape. `/graph`'s node query
+   (`routes_graph.py`) filtered only `is_deleted`. Added `Entry.is_draft ==
+   False`. **Scoped deliberately**: only the main `/graph` endpoint (what
+   actually renders the map) was changed — `graph_local`'s Focus Mode and
+   `paths.build()` (the shared BFS index also used by link-suggestion and
+   path-tracing) were left alone rather than risking a wider, unverified
+   change to code three other features depend on; since drafts no longer
+   appear as `/graph` nodes, there's no click-path into Focus Mode that would
+   reach one anyway in normal use. New test, `test_graph_excludes_drafts`.
+
+**A real CodeQL alert, not a false positive** (`py/path-injection`, High,
+alerts #289/#290 on `main` — the user pasted the GitHub alert screenshots
+directly): `routes_files.py`'s `save_generated_file` built `exports / name`
+from a whitelisted-but-still-CodeQL-tainted filename. `safe_filename` already
+existed as a real whitelist (strip to basename, then `[^A-Za-z0-9._ -]` →
+`_`), but used `Path(str(name)).name` rather than `os.path.basename` — a
+plausible reason CodeQL's sanitiser recognition didn't credit it, the same
+"a query's sanitiser recognition is narrower than 'the code is provably
+safe'" lesson this file already recorded once for the update-apply SSRF fix.
+Fixed two ways together: `safe_filename` now uses `os.path.basename`, and a
+new `_within_exports(exports, name)` helper does a real containment check
+(`target.resolve().relative_to(exports.resolve())`, raising 422 on escape) at
+both places `target` is constructed — the initial join and the
+overwrite-avoidance rename — so both alerted lines are downstream of an
+actual guard, not just a stronger filter upstream of it. 2 new tests
+(`test_within_exports_*`); all 24 existing `test_file_save.py` tests still
+pass unchanged, including the existing path-traversal parametrised test.
+
+**The other alert batch in the same screenshots — "Explicit export is not
+defined" ×12+ in `searxng_manager.py` — needed no new work.** Checked before
+touching anything: this branch already contains `1824a79`/`7afd4f7` (a prior
+session's `__all__`-based fix for exactly this facade-re-export shape,
+predating this session), and `git merge-base --is-ancestor origin/main HEAD`
+confirms those commits sit ahead of `main`. The alerts are real but stale —
+GitHub is scanning `main`, which doesn't have this branch's fix yet. Nothing
+to fix here now; they clear once this branch merges.
+
+**A security scan, asked for directly** ("check for security flaws and bugs
+along the way"), beyond the CodeQL alert above: grepped for `shell=True`
+(none), `eval`/`exec` (none), unescaped `.innerHTML =`/`insertAdjacentHTML`
+assignments (checked every hit in `app.js` by hand — all either static
+markup or run every interpolated value through the existing `escapeHtml()`),
+raw SQL string-formatting (none — the whole backend goes through the SQLAlchemy
+ORM), `pickle.load`/unsafe `yaml.load` (none), and hardcoded
+secret-shaped string literals (none). Not exhaustive — a full audit is its
+own session — but nothing beyond the path-injection alert turned up.
+
+**One stale ROADMAP.md item retracted, found while looking for a cheap add**:
+the mobile-audit "no scroll affordance" nav-bar gap (Tier-listed as cheap to
+fix) turned out already built — `#tab-bar.fade-end`/`.fade-start`
+(`00-tokens-shell.css`) plus `syncTabOverflowFade()` (`app.js`, wired to
+load/resize/scroll). Checked before starting a rebuild, per this file's own
+opening paragraph; confirmed live at 360px (`#tab-bar` carries `fade-end`,
+"Graph" visibly fades at the trailing edge, screenshotted). Retracted in
+place in ROADMAP.md rather than left to mislead the next session.
+
+**Not done, and worth saying plainly rather than leaving ambiguous**: the
+broader "semantic search enhancements throughout the app" ask was
+investigated, not built. `MATCH_REASON_LABEL`/`matchReasonBadge` (`app.js`)
+already surface a cosine-similarity percentage, matched keywords, hybrid
+scoring, and 1-hop/2-hop connection provenance on every Ask/Chat result —
+reading that code before proposing anything found it materially more
+complete than a generic "add relevance badges" idea would have improved on,
+so nothing was added there rather than duplicating it. The one real,
+concrete gap found and *not* closed: Library's own search box
+(`#library-search`) and the command palette's live note search are still
+plain substring, with no semantic option the way the Notes tab's own search
+has (`#semantic-search-toggle`). Left open rather than half-built — extending
+Library search would need deciding what a semantic toggle means for the
+other kinds it mixes in (documents, media, conversations have no embeddings
+today), which is a real design question, not a one-line wire-up.
+
+## Previous session — real-support-bundle fixes finished and released as v0.1.3, plus a full auto-update framework (packaged Windows installer + source checkouts) built end to end
 
 Continuation of the previous session's real-support-bundle work (four bugs
 found and fixed there — see below). This session first closed out a run of

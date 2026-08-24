@@ -18,6 +18,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddleware
 
 from memorymap import __version__
 from memorymap.ai import embeddings, autonomous
@@ -208,6 +209,57 @@ def create_app() -> FastAPI:
 
     # Middleware is added inside-out: the LAST one added is the outermost, so
     # the headers below are stamped on the origin check's own 403 too.
+    #
+    # **Compression goes on FIRST, which means innermost, and the ordering is
+    # load-bearing rather than stylistic.** Both middlewares below are
+    # `BaseHTTPMiddleware`, and that base class re-wraps every response it
+    # handles as a *streaming* response. Starlette's gzip only consults
+    # `minimum_size` on a response it can measure — a stream has no length to
+    # measure — so a gzip layer placed outside either of them compresses
+    # everything regardless of size. Measured while adding this: with gzip
+    # outermost, `GET /health` (70 bytes) and `GET /tags` (2 bytes) both came
+    # back `content-encoding: gzip`, i.e. spending CPU to make small responses
+    # larger, with `minimum_size` silently doing nothing. Innermost, gzip sits
+    # against the routers and the static mount and sees real `Content-Length`
+    # headers, so the threshold works.
+    #
+    # **Why compression matters here at all, given it is localhost.**
+    # `app.js` is over a megabyte of unminified source and there is no bundler
+    # and no minifier by design (CLAUDE.md: "no build step"), so this is the
+    # only remaining lever on transfer size. It is not really about the wire:
+    # the desktop shell is a WebView with its own cache, and `GET /entries`
+    # hands back up to a thousand full note bodies per page.
+    #
+    # **Streaming was checked, not assumed** — this app has three streaming
+    # endpoints (chat in `routes_chat`, the weekly digest in `routes_insights`,
+    # the live log in `routes_settings`), and "gzip buffers a stream into
+    # uselessness" is true of some implementations. Starlette's is not one:
+    # `GZipResponder._compress_body` flushes with `Z_SYNC_FLUSH` on every chunk
+    # carrying `more_body`, so each chunk still leaves the server as it is
+    # produced. `text/event-stream` is already in Starlette's own exclusion
+    # list; the two NDJSON streams are not, so they are named explicitly —
+    # which keeps those two responses byte-identical to what they were before
+    # this existed.
+    #
+    # `compresslevel=6`, not the library default of 9: 9 costs meaningfully
+    # more CPU for a few percent of size on text, and this is a single process
+    # serving one user who is usually running a local model on the same machine.
+    #
+    # On BREACH: the attack needs compression *plus* a secret in the response
+    # *plus* attacker-controlled reflection, and the last two legs are absent
+    # here — the auth token travels in a header rather than a cookie (see this
+    # module's docstring) and `OriginCheckMiddleware` already refuses
+    # cross-origin requests outright, so there is no third party in a position
+    # to make the guesses the attack is built from.
+    app.add_middleware(
+        GZipMiddleware,
+        minimum_size=500,
+        compresslevel=6,
+        exclude_content_types=(
+            *DEFAULT_EXCLUDED_CONTENT_TYPES,
+            "application/x-ndjson",
+        ),
+    )
     app.add_middleware(security.OriginCheckMiddleware)
     app.add_middleware(
         security.SecurityHeadersMiddleware,

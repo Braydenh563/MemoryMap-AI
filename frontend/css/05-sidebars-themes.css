@@ -490,6 +490,9 @@ button.ai-unavailable {
   max-width: calc(100vw - var(--space-9));
   max-height: 17rem;
   overflow-y: auto;
+  /* Scrolling the menu must not chain to the page behind it — a wheel event
+     that reaches the page moves the caret this menu is anchored to. */
+  overscroll-behavior: contain;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--modal-bg, var(--card));

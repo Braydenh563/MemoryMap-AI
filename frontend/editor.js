@@ -745,7 +745,23 @@ document.addEventListener("mousedown", (event) => {
   editorCloseMenu();
 });
 
-document.addEventListener("scroll", () => editorMenuState.open && editorCloseMenu(), true);
+// Scrolling the *page* moves the caret out from under a menu anchored to it,
+// so the menu closes. Scrolling *inside the menu itself* must not — reported
+// directly: "the popup options for commands aren't scrollable and disappear
+// when I try to scroll them". This listener is on the capture phase, so it saw
+// the menu's own wheel-scroll before it reached the menu and shut it every
+// time, which is exactly the shape of bug that makes a list look un-scrollable
+// rather than merely short.
+document.addEventListener(
+  "scroll",
+  (event) => {
+    if (!editorMenuState.open) return;
+    const menu = $("editor-menu");
+    if (menu && (event.target === menu || menu.contains(event.target))) return;
+    editorCloseMenu();
+  },
+  true
+);
 
 window.addEventListener("resize", () => editorMenuState.open && editorCloseMenu());
 

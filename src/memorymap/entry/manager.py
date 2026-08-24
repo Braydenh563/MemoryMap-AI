@@ -28,6 +28,7 @@ from memorymap.core.database import (
     EntryDate,
     EntryLink,
     EntryRevision,
+    LINK_TYPES,
     Reminder,
     WhiteboardNode,
     WhiteboardObject,
@@ -979,7 +980,11 @@ def _deduce_reason(
 
 
 def create_link(
-    session: Session, source: Entry, target: Entry, reason: str | None = None
+    session: Session,
+    source: Entry,
+    target: Entry,
+    reason: str | None = None,
+    link_type: str | None = None,
 ) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
@@ -1010,11 +1015,17 @@ def create_link(
     confidence = None
     if reason is None:
         reason, confidence = _deduce_reason(session, source.id, target.id)
+    # An unrecognised kind is stored as null rather than rejected: the column
+    # is advisory (it styles an edge and weights a traversal), and refusing an
+    # otherwise-valid link because a caller sent a typo would trade a working
+    # connection for a validation error nobody asked for.
+    kind = link_type if link_type in LINK_TYPES else None
     link = EntryLink(
         source_entry_id=source.id,
         target_entry_id=target.id,
         reason=reason,
         reason_confidence=confidence,
+        link_type=kind,
     )
     session.add(link)
     session.flush()

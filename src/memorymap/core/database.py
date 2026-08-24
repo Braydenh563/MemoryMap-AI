@@ -293,6 +293,35 @@ class EntryLink(Base, WorkspaceMixin):
     # "nothing could be deduced", which is deliberately indistinguishable
     # from "nobody tried" — both display as no reason at all.
     reason_confidence: Mapped[float | None] = mapped_column(Float, default=None)
+    # What *kind* of connection this is, from LINK_TYPES below — or null,
+    # which is what every link created before this column existed carries and
+    # means exactly what a link has always meant: "these are related".
+    #
+    # Nullable and additive on purpose: the auto-migrator can ADD COLUMN and
+    # nothing else (see this module's own header), so a default of null is the
+    # only shape that leaves an existing notebook's links valid and unchanged.
+    #
+    # A closed vocabulary rather than free text, because three things read it —
+    # the graph styles edges by it, the traversal weights them by it, and the
+    # model has to choose one — and none of those can do their job against an
+    # open set of synonyms. The free-text half of "why" already exists and is
+    # `reason` above; this is the part that has to be machine-readable.
+    link_type: Mapped[str | None] = mapped_column(String(24), default=None)
+
+
+#: The kinds of connection a link can carry, and what each one means.
+#:
+#: `contradicts` is the one worth having built this for: a notebook that can
+#: show you where you disagreed with yourself is not something an embedding
+#: similarity score can ever produce, however well tuned.
+LINK_TYPES: dict[str, str] = {
+    "related": "Related — these belong together",
+    "continues": "Continues — this carries on from that",
+    "context": "Extra context — this explains or supports that",
+    "supports": "Supports — this is evidence for that",
+    "contradicts": "Contradicts — these disagree",
+    "example_of": "Example of — this is an instance of that",
+}
 
 
 class EmbeddingRecord(Base):

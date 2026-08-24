@@ -2358,3 +2358,50 @@ html {
     display: none;
   }
 }
+
+/* --- "how are these connected?" ------------------------------------------------
+   The dialog a drag-to-link opens. Options are buttons rather than a <select>
+   because each one carries a sentence explaining it — direction matters for
+   half the vocabulary ("continues", "example of" read backwards if the arrow
+   is the other way round) and a dropdown has nowhere to say so. */
+.link-kind-card {
+  max-width: 26rem;
+}
+
+.link-kind-pair {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-md);
+}
+
+.link-kind-list {
+  display: grid;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.link-kind-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-kind-option.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.link-kind-name {
+  font-weight: 600;
+}
+
+.link-kind-hint {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}

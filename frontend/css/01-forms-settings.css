@@ -1659,7 +1659,18 @@ li.link-source {
 html.modal-open,
 html.modal-open body {
   overflow: hidden;
-  /* Keeps the locked page from jumping when the scrollbar disappears. */
+}
+
+/* The gutter is reserved **always**, not only while an overlay is open.
+   Reported: "the top menu bar keeps slightly changing position when I open the
+   settings modal, then going back to normal when I close it." The lock above
+   sets `overflow: hidden`, which removes the scrollbar — and reserving the
+   gutter *at the same moment* meant opening a dialog added a strip of gutter
+   that had not been there a frame earlier, so the whole page shifted by the
+   scrollbar's width and shifted back on close. Reserving it unconditionally
+   costs the same handful of pixels at all times and makes opening a dialog
+   change nothing about the layout behind it. */
+html {
   scrollbar-gutter: stable;
 }
 

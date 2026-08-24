@@ -50,7 +50,7 @@ let wbSelectedItem = null;
 // marquee drag.
 let wbMultiSelection = new Set();
 // `deleteSketch`/`deleteNode` are closures defined fresh inside every
-// `renderWhiteboard()` call; these hold whichever pair is current, so code
+// `wbScheduleRender()` call; these hold whichever pair is current, so code
 // outside that closure (the Delete-key handler) can still call them.
 let wbDeleteSketchRef = null;
 let wbDeleteNodeRef = null;
@@ -440,7 +440,7 @@ function wbCursorForTool(tool, strokeColor, strokeWidth) {
 }
 
 // The visible half of Select — asked for directly ("select... as a real
-// tool, not folded into pan"). Re-applied after every `renderWhiteboard()`
+// tool, not folded into pan"). Re-applied after every `wbScheduleRender()`
 // (elements are rebuilt on each render, so a class set on the old DOM node
 // would vanish silently) as well as right after a click.
 const WB_SELECTOR_BY_KIND = {
@@ -771,7 +771,7 @@ async function wbMoveItemBy(kind, id, item, dx, dy) {
 function wbPushMoveBatch(entries) {
   if (entries.length === 0) return;
   wbPushUndo(entries.length === 1 ? entries[0] : { action: "batch", entries });
-  renderWhiteboard();
+  wbScheduleRender();
 }
 
 // Alignment tools — asked for directly ("alignment tools... missing"), only
@@ -1153,7 +1153,7 @@ async function wbArrangeMindMap(rootId, kind) {
   // isn't unique when a card has more than one link back toward the root)
   // spanning tree.
   window.wbMindMap = { rootId, parentOf, childrenOf, kind };
-  renderWhiteboard();
+  wbScheduleRender();
   toast(`Arranged ${parentOf.size} cards as a ${kind === "radial" ? "radial" : "tree"} mind map.`);
 }
 
@@ -1203,7 +1203,7 @@ async function wbMindMapAddCard(parentId, x, y) {
   map.childrenOf.set(nodeRes.id, []);
 
   selectWbItem("node", nodeRes.id);
-  renderWhiteboard();
+  wbScheduleRender();
   return nodeRes;
 }
 
@@ -1477,7 +1477,7 @@ async function wbPasteClipboard() {
     const created = await apiJson(base, { method: "POST", body: JSON.stringify(body) });
     wbState[list].push(created);
     wbPushUndo({ action: "create", kind, id: created.id });
-    renderWhiteboard();
+    wbScheduleRender();
     wbSelectToolRef?.("select");
     selectWbItem(kind, created.id);
   } catch (err) {
@@ -1641,7 +1641,7 @@ async function wbUndo() {
   try {
     if (!(await wbApplyHistoryEntry(wbUndoStack, wbRedoStack))) return;
     wbUpdateUndoRedoButtons();
-    renderWhiteboard();
+    wbScheduleRender();
   } catch {
     toast("Couldn't undo that.", true);
   }
@@ -1655,7 +1655,7 @@ async function wbRedo() {
   try {
     if (!(await wbApplyHistoryEntry(wbRedoStack, wbUndoStack))) return;
     wbUpdateUndoRedoButtons();
-    renderWhiteboard();
+    wbScheduleRender();
   } catch {
     toast("Couldn't redo that.", true);
   }
@@ -1672,7 +1672,7 @@ async function wbCreateObject(kind, data, x, y, width, height) {
     wbState.objects = wbState.objects || [];
     wbState.objects.push(created);
     wbPushUndo({ action: "create", kind: "object", id: created.id });
-    renderWhiteboard();
+    wbScheduleRender();
     await refreshBoardList();
     return created;
   } catch (err) {
@@ -1691,7 +1691,7 @@ async function wbCreateTextBox(x, y) {
   wbSelectToolRef?.("select");
   // The point of click-to-place is typing immediately — a text box with
   // nothing in it and no visible focus is a box nobody knows they can type
-  // into. renderWhiteboard() just rebuilt the DOM, so the element has to be
+  // into. wbScheduleRender() just rebuilt the DOM, so the element has to be
   // looked up fresh rather than kept from before the render.
   requestAnimationFrame(() => {
     const el = document.querySelector(`.wb-object[data-id="${created.id}"] .wb-text-content`);
@@ -1726,13 +1726,13 @@ async function wbClearBoard() {
       wbState[list] = [];
     }
     wbSelectedItem = null;
-    renderWhiteboard();
+    wbScheduleRender();
     await refreshBoardList();
     toast("Board cleared.");
   } catch {
     toast("Couldn't clear the whole board — reloading to show what's left.", true);
     await fetchWhiteboardState();
-    renderWhiteboard();
+    wbScheduleRender();
   }
 }
 
@@ -2154,7 +2154,7 @@ async function initWhiteboard() {
     boardSelect.addEventListener("change", async (e) => {
       window.currentBoardId = e.target.value || null;
       await fetchWhiteboardState();
-      renderWhiteboard();
+      wbScheduleRender();
       // The background image is stored per board, so switching boards has
       // to re-read it — otherwise the previous board's image stays up.
       wbApplyBgImage();
@@ -2578,14 +2578,14 @@ async function initWhiteboard() {
     const sketch = wbSelectedSketchOrNull();
     if (sketch) {
       await wbSaveSketchProps(sketch, { color: e.target.value });
-      renderWhiteboard();
+      wbScheduleRender();
       return;
     }
     const obj = wbSelectedTextObjectOrNull();
     if (obj) {
       obj.data = { ...obj.data, color: e.target.value };
       await wbSaveObject(obj);
-      renderWhiteboard();
+      wbScheduleRender();
     }
   });
   document.getElementById("wb-prop-width")?.addEventListener("change", async (e) => {
@@ -2593,7 +2593,7 @@ async function initWhiteboard() {
     if (!sketch) return;
     const width = Math.max(1, Math.min(40, Number(e.target.value) || 3));
     await wbSaveSketchProps(sketch, { width });
-    renderWhiteboard();
+    wbScheduleRender();
   });
   // Start/end cap dropdowns — independently per end (asked for directly),
   // replacing the single shared "which end gets an arrowhead" control.
@@ -2618,7 +2618,7 @@ async function initWhiteboard() {
       await wbSaveSketchProps(sketch, {
         startCap: current.startCap, endCap: current.endCap, endStyle: undefined,
       });
-      renderWhiteboard();
+      wbScheduleRender();
       return;
     }
     const parsed = wbSketchParsedData(sketch);
@@ -2628,7 +2628,7 @@ async function initWhiteboard() {
     const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
     const newD = wbRegenerateShapeCaps(parsed.d, current.startCap, current.endCap, headLen);
     await wbSaveSketchProps(sketch, { d: newD, startCap: current.startCap, endCap: current.endCap });
-    renderWhiteboard();
+    wbScheduleRender();
   }
   document.getElementById("wb-prop-startcap")?.addEventListener("change", (e) => wbSetCap("startCap", e.target.value));
   document.getElementById("wb-prop-endcap")?.addEventListener("change", (e) => wbSetCap("endCap", e.target.value));
@@ -2638,7 +2638,7 @@ async function initWhiteboard() {
     obj.data = { ...obj.data, bg: e.target.value };
     document.getElementById("wb-prop-bg-none").checked = false;
     await wbSaveObject(obj);
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-bg-none")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
@@ -2649,7 +2649,7 @@ async function initWhiteboard() {
     // for. Asked for directly: "options for no border/stroke or background".
     obj.data = { ...obj.data, bg: e.target.checked ? "transparent" : document.getElementById("wb-prop-bg").value };
     await wbSaveObject(obj);
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-border")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
@@ -2657,26 +2657,26 @@ async function initWhiteboard() {
     obj.data = { ...obj.data, border_color: e.target.value };
     document.getElementById("wb-prop-border-none").checked = false;
     await wbSaveObject(obj);
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-border-none")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
     if (!obj) return;
     obj.data = { ...obj.data, border_color: e.target.checked ? "transparent" : document.getElementById("wb-prop-border").value };
     await wbSaveObject(obj);
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-dash")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
     await wbSaveSketchProps(sketch, { dash: e.target.value === "solid" ? undefined : e.target.value });
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-nostroke")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
     await wbSaveSketchProps(sketch, { noStroke: e.target.checked || undefined });
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-shapefill")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
@@ -2684,14 +2684,14 @@ async function initWhiteboard() {
     document.getElementById("wb-prop-shapefill-on").checked = true;
     document.getElementById("wb-prop-shapefill").disabled = false;
     await wbSaveSketchProps(sketch, { fill: e.target.value, fillOpacity: 1 });
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-shapefill-on")?.addEventListener("change", async (e) => {
     const sketch = wbSelectedSketchOrNull();
     if (!sketch) return;
     document.getElementById("wb-prop-shapefill").disabled = !e.target.checked;
     await wbSaveSketchProps(sketch, { fill: e.target.checked ? document.getElementById("wb-prop-shapefill").value : undefined });
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-prop-fontsize")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
@@ -2699,7 +2699,7 @@ async function initWhiteboard() {
     const fontSize = Math.max(8, Math.min(200, Number(e.target.value) || 16));
     obj.data = { ...obj.data, font_size: fontSize };
     await wbSaveObject(obj);
-    renderWhiteboard();
+    wbScheduleRender();
   });
   document.getElementById("wb-multi-group")?.addEventListener("click", wbGroupSelection);
   document.getElementById("wb-multi-ungroup")?.addEventListener("click", wbUngroupSelection);
@@ -3604,7 +3604,7 @@ async function initWhiteboard() {
       // or erased until a full reload re-fetched it from the server and
       // rendered it "properly" the first time.
       currentDrawPath.remove();
-      renderWhiteboard();
+      wbScheduleRender();
     } catch (err) {
       console.error("Failed to save sketch:", err);
       if (currentDrawPath) currentDrawPath.remove();
@@ -3656,7 +3656,7 @@ async function initWhiteboard() {
       const idx = wbState.nodes.findIndex(n => n.id === res.id);
       if (idx !== -1) wbState.nodes[idx] = res;
       else wbState.nodes.push(res);
-      renderWhiteboard();
+      wbScheduleRender();
     } catch (err) {
       console.error("Error creating node:", err);
     }
@@ -3665,7 +3665,7 @@ async function initWhiteboard() {
 
   
   await fetchWhiteboardState();
-  renderWhiteboard();
+  wbScheduleRender();
 }
 
 function renderWbLibrary() {
@@ -3776,7 +3776,7 @@ async function createNewBoard() {
     const url = `/whiteboard/?board_id=${board.id}`;
     wbState = await apiJson(url);
     await refreshBoardList(board);
-    renderWhiteboard();
+    wbScheduleRender();
     toast(`Board "${board.title}" created.`);
   } catch (err) {
     toast(err.message || "Couldn't create that board.", true);
@@ -4012,7 +4012,7 @@ async function wbSaveSketchProps(sketch, partial) {
   } catch {
     recordBrowserLog("WARN", [`[Whiteboard] sketch ${sketch.id} is stale — reloading the board`]);
     await fetchWhiteboardState();
-    renderWhiteboard();
+    wbScheduleRender();
   }
 }
 
@@ -4038,7 +4038,7 @@ async function wbBucketFillSketch(sketch) {
   } else {
     await wbSaveSketchProps(sketch, { color });
   }
-  renderWhiteboard();
+  wbScheduleRender();
 }
 
 //: True once a sketch's `d` has more than one `M` — every shape this app's
@@ -4123,6 +4123,26 @@ function wbSketchCaps(parsed) {
 //: does) or, released over empty canvas, `sourcePoint`/`targetPoint` — a
 //: fixed board-space point with no card at all. `wbResolveLinkEndpoints`
 //: already reads both shapes, so nothing else needs to change to render one.
+// Remove every sketch handle group, from **both** layers it can live in.
+//
+// Reported with a screenshot: "when I change where links are connected on
+// notes or objects on the whiteboard, these weird small circles are left
+// hanging." They are link endpoint handles, and the cause was a layer split
+// that the cleanup never caught up with — handles for a *link* are appended to
+// `#wb-overlay-zoom-group` (they sit on a card's own border, which the base
+// SVG paints underneath the card's HTML, so they had to move up a layer),
+// while both existing clears only ever swept `#wb-zoom-group`. Every
+// re-render appended a fresh group and none of the old ones was ever removed,
+// so the circles accumulated.
+//
+// One helper, used by all three call sites, so a third layer cannot
+// reintroduce the same gap quietly.
+function wbClearSketchHandles() {
+  for (const layer of ["#wb-zoom-group", "#wb-overlay-zoom-group"]) {
+    d3.select(layer).selectAll(".wb-sketch-handle-group").remove();
+  }
+}
+
 function wbRenderLinkEndpointHandles(sketch, parsed) {
   const endpoints = wbResolveLinkEndpoints(parsed);
   if (!endpoints) return;
@@ -4130,6 +4150,9 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
   // sits *on a card's own border* by definition, which the base SVG layer
   // paints underneath the card's HTML element. A handle there would be
   // both invisible and unclickable exactly where it's needed most.
+  // Clear before drawing: this appends rather than data-joining, so without
+  // it every call leaves its predecessor behind on the board.
+  wbClearSketchHandles();
   const group = d3.select("#wb-overlay-zoom-group").append("g").attr("class", "wb-sketch-handle-group");
 
   const hoveredNodeAt = (px, py) => {
@@ -4182,7 +4205,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             }
             await wbSaveSketchProps(sketch, partial);
             wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
-            renderWhiteboard();
+            wbScheduleRender();
           })
       );
   }
@@ -4191,9 +4214,9 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
 // The handles themselves — a fresh SVG group per selection, since (unlike a
 // card/object's own always-present handles) a sketch has no fixed element to
 // attach 8 children to; it's rebuilt on every selection change and after
-// every `renderWhiteboard()` re-applies the current selection.
+// every `wbScheduleRender()` re-applies the current selection.
 function wbRenderSketchHandles() {
-  d3.select("#wb-zoom-group").selectAll(".wb-sketch-handle-group").remove();
+  wbClearSketchHandles();
   if (!wbSelectedItem || wbSelectedItem.kind !== "sketch") return;
   const sketch = wbState.sketches.find((s) => s.id === wbSelectedItem.id);
   if (!sketch) return;
@@ -4259,7 +4282,7 @@ function wbRenderSketchHandles() {
               await wbSaveSketchD(sketch, finalD);
               if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
             }
-            renderWhiteboard();
+            wbScheduleRender();
           })
       );
   }
@@ -4310,9 +4333,46 @@ function wbRenderSketchHandles() {
             await wbSaveSketchD(sketch, finalD);
             if (before) wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
           }
-          renderWhiteboard();
+          wbScheduleRender();
         })
     );
+}
+
+// Coalesce a burst of state changes into one paint.
+//
+// **This is the cause of the whiteboard feeling "janky and uncomfortable".**
+// renderWhiteboard() below is a full d3 data-join over every sketch, node and
+// object on the board, and it was called directly from 48 places. A single
+// user action routinely touches several of them — move a card, update its
+// links, mark the board dirty, refresh the selection — so one drag or one
+// paste could repaint the entire board three or four times in the same frame,
+// each pass re-joining every item and re-binding every handler.
+//
+// Nothing here makes the render itself cheaper. It makes it happen once per
+// frame instead of once per state change, which is where the wasted work
+// actually was. requestAnimationFrame rather than a microtask because the
+// point is to land exactly one paint per displayed frame.
+//
+// **Safe to batch because no caller reads the DOM straight after rendering** —
+// checked across all 48 sites before converting them; a call followed by a
+// getBoundingClientRect or querySelector would have needed to stay synchronous
+// and none was. `renderWhiteboardNow()` is kept for anything that ever does.
+let wbRenderQueued = false;
+
+function wbScheduleRender() {
+  if (wbRenderQueued) return;
+  wbRenderQueued = true;
+  requestAnimationFrame(() => {
+    wbRenderQueued = false;
+    renderWhiteboard();
+  });
+}
+
+// The unbatched escape hatch. Prefer wbScheduleRender(); use this only when
+// the very next statement has to read the rendered DOM.
+function renderWhiteboardNow() {
+  wbRenderQueued = false;
+  renderWhiteboard();
 }
 
 function renderWhiteboard() {
@@ -4363,7 +4423,7 @@ function renderWhiteboard() {
     try {
       await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
       wbState.sketches = wbState.sketches.filter((s) => s.id !== d.id);
-      renderWhiteboard();
+      wbScheduleRender();
     } catch (e) {
       console.error(e);
       wbUndoStack.pop(); // the delete never happened, so neither did the undo entry
@@ -4434,7 +4494,7 @@ function renderWhiteboard() {
       if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, dx, dy);
       // Handles would otherwise trail the sketch by a whole render — cheap
       // to keep in step since there are at most 8 of them.
-      d3.select("#wb-zoom-group").selectAll(".wb-sketch-handle-group").remove();
+      wbClearSketchHandles();
     })
     .on("end", async (event, d) => {
       if (d._dragOriginalD == null) return;
@@ -4455,7 +4515,7 @@ function renderWhiteboard() {
         if (moveBefore) wbPushUndo({ action: "move", kind: "sketch", id: d.id, before: moveBefore });
       }
       if (bulkOrigin) await wbSaveBulkMove(bulkOrigin);
-      renderWhiteboard();
+      wbScheduleRender();
     });
 
   const sketchEnter = sketchSelection.enter()
@@ -4577,7 +4637,7 @@ function renderWhiteboard() {
       await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
       wbState.nodes = wbState.nodes.filter((n) => n.id !== d.id);
       // also delete links connected to it? For MVP just delete the node.
-      renderWhiteboard();
+      wbScheduleRender();
     } catch (e) {
       console.error(e);
       wbUndoStack.pop();
@@ -4645,7 +4705,7 @@ function renderWhiteboard() {
         const before = d._resizeUndoBefore;
         delete d._resizeUndoBefore;
         if (before) wbPushUndo({ action: "move", kind: "node", id: d.id, before });
-        renderWhiteboard();
+        wbScheduleRender();
       });
   }
 
@@ -4829,7 +4889,7 @@ async function wbSaveNode(node) {
   } catch {
     recordBrowserLog("WARN", [`[Whiteboard] card ${node.id} is stale — reloading the board`]);
     await fetchWhiteboardState();
-    renderWhiteboard();
+    wbScheduleRender();
   }
 }
 
@@ -4851,7 +4911,7 @@ async function wbSaveObject(d) {
     // already follows — a 404 means this object (or its board) is gone.
     recordBrowserLog("WARN", [`[Whiteboard] object ${d.id} is stale — reloading the board`]);
     await fetchWhiteboardState();
-    renderWhiteboard();
+    wbScheduleRender();
   }
 }
 
@@ -4869,7 +4929,7 @@ function renderWbObjects(canvas) {
     try {
       await apiJson(`/whiteboard/objects/${d.id}`, { method: "DELETE" });
       wbState.objects = wbState.objects.filter((o) => o.id !== d.id);
-      renderWhiteboard();
+      wbScheduleRender();
     } catch (e) {
       console.error(e);
       wbUndoStack.pop();
@@ -5205,7 +5265,7 @@ function wbLinkedSketchesFor(nodeId) {
 }
 
 //: Recomputes just the link-sketch paths touching `nodeId`, without a full
-//: `renderWhiteboard()` — reported directly as "resizing and drawing shapes
+//: `wbScheduleRender()` — reported directly as "resizing and drawing shapes
 //: is glitchy and slow to update". `dragging` below used to call the full
 //: render on every single mousemove frame of a card drag, purely to keep a
 //: link line's endpoint following the card — which re-binds *every* card,
@@ -5350,7 +5410,7 @@ function dragging(event, d) {
     }
     d3.select(this).style("transform", wbItemTransform(d));
     // Update this card's own link lines directly rather than a full
-    // renderWhiteboard() — see wbUpdateLinkedSketches's own comment for why
+    // wbScheduleRender() — see wbUpdateLinkedSketches's own comment for why
     // that was the "glitchy and slow to update" report.
     wbUpdateLinkedSketches(d.id, d._linkedSketches);
     if (d._bulkOrigin) wbApplyBulkMove(d._bulkOrigin, d.x - d._dragOriginX, d.y - d._dragOriginY);
@@ -5399,7 +5459,7 @@ async function dragEndNode(event, d) {
          const res = await apiJson("/whiteboard/sketches", { method: "POST", body: JSON.stringify(sketchData) });
          wbState.sketches.push(res);
          wbPushUndo({ action: "create", kind: "sketch", id: res.id });
-         renderWhiteboard();
+         wbScheduleRender();
        } catch (err) {
          console.error(err);
        }
@@ -5497,7 +5557,14 @@ async function renderLibraryDocuments() {
     const when = doc.updated_at ? relativeTime(doc.updated_at) : "";
     meta.textContent = [words, when].filter(Boolean).join(" · ");
     open.append(title, meta);
-    open.addEventListener("click", () => openDocument(doc.id));
+    open.addEventListener("click", () => {
+      // switchTab first, then open. Reported as "the documents subtab document
+      // cards don't even do anything": openDocument() loaded the document
+      // correctly, but the Documents *page* stayed hidden behind the Library
+      // tab, so from the outside the click did nothing at all.
+      switchTab("documents");
+      openDocument(doc.id);
+    });
     item.appendChild(open);
     list.appendChild(item);
   }
@@ -5840,6 +5907,6 @@ async function openWhiteboardBoard(boardId) {
   await new Promise((resolve) => setTimeout(resolve, 60));
   window.currentBoardId = boardId ?? null;
   await fetchWhiteboardState();
-  renderWhiteboard();
+  wbScheduleRender();
   wbApplyBgImage();
 }

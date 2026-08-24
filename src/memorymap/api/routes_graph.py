@@ -255,6 +255,15 @@ def graph(
                         # similarity rather than said in words — see
                         # EntryLink.reason_confidence.
                         "reason_confidence": link.reason_confidence,
+                        # What kind of connection, when one was chosen. Fed
+                        # through the same channel the render-time `kind`
+                        # above already uses rather than a second one: the
+                        # graph has always invented a kind per edge, and a
+                        # real stored type belongs beside it, not parallel
+                        # to it. Null on every link made before link types
+                        # existed, which reads as the flat "related" the
+                        # graph has always shown.
+                        "link_type": link.link_type,
                     }
                 )
 

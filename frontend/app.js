@@ -1170,8 +1170,15 @@ function entryItem(entry, options = {}) {
   // however much it was edited before saving) — asked for directly: both
   // should be findable as drafts, not just marked in passing. The note stays
   // in its normal place in the list either way; the sidebar/Library Drafts
-  // filter (renderSidebar, library-view-drafts) is what makes them findable
-  // as a group. Click the chip to clear the label once it's not needed.
+  // filter (renderSidebar, and the Library's Drafts chip — the old
+  // `library-view-drafts` sub-tab it used to name is gone) is what makes them
+  // findable as a group.
+  //
+  // **The chip is also how a draft becomes a real note**, and saying so is the
+  // fix: it was labelled "draft" with the tooltip "click to clear the label",
+  // which describes the mechanism and not the outcome — reported as "there is
+  // no way to edit and finalise drafts, or to publish one as a proper note",
+  // when publishing was one click away the whole time and simply unlabelled.
   if (entry.is_draft) {
     const draftChip = chip("ph:pencil-simple-line draft", "draft", async (event) => {
       event.stopPropagation();
@@ -1186,7 +1193,8 @@ function entryItem(entry, options = {}) {
         toast(error.message || "Couldn't update that note.", true);
       }
     });
-    draftChip.title = "Marked as a draft — click to clear the label";
+    draftChip.title =
+      "This is a draft — click to publish it as a proper note. It stays where it is either way; only the Drafts filter changes.";
     meta.insertBefore(draftChip, meta.firstChild);
   }
   li.appendChild(meta);
@@ -2813,7 +2821,7 @@ function clampSelectionMenu(menu) {
   if (rect.left < margin) menu.classList.add("menu-flip-left");
 }
 
-function showSelectionPopupAt(rect, text, source) {
+function showSelectionPopupAt(rect, text, source, point) {
   const box = selectionPopup();
   selectionPopupText = text;
   selectionPopupSource = source;
@@ -2854,12 +2862,17 @@ function showSelectionPopupAt(rect, text, source) {
   //
   // Both clamps keep the bound order `max(margin, min(wanted, limit))` — see
   // the note below on why the other way round puts it off-screen.
+  // The cursor when we have one, the selection's right-hand end when we do
+  // not (keyboard selections, and any caller without a pointer event).
+  const anchorX = point ? point.x : rect.right;
+  const anchorY = point ? point.y : rect.top;
   const left = Math.max(
     margin,
-    Math.min(rect.right + 4, window.innerWidth - boxRect.width - margin)
+    Math.min(anchorX + 4, window.innerWidth - boxRect.width - margin)
   );
-  let wantedTop = rect.top - boxRect.height - margin;
-  if (wantedTop < margin) wantedTop = rect.bottom + margin; // no room above — go below
+  let wantedTop = anchorY - boxRect.height - margin;
+  // No room above the anchor — drop below it instead.
+  if (wantedTop < margin) wantedTop = (point ? point.y : rect.bottom) + margin;
   const top = Math.max(
     margin,
     Math.min(wantedTop, window.innerHeight - boxRect.height - margin)
@@ -2885,6 +2898,19 @@ function selectionIsActionable(selection) {
   return true;
 }
 
+// Where the pointer was when the selection finished, or null.
+//
+// Asked for directly: the kebab should appear off the top-right of the
+// *cursor*, not of the highlighted text. Those differ a lot on a multi-line
+// selection — the range's corner can be half a screen from where the user
+// actually let go, which is the one place they are already looking.
+//
+// Only a pointer can answer this: a keyboard selection (Shift+Arrow) and a
+// touch long-press dispatch `selectionchange` with no coordinates at all, so
+// those keep the range-rectangle anchoring. Cleared on keydown so a mouse
+// selection followed by Shift+Arrow does not keep using a stale point.
+let selectionPointerPoint = null;
+
 function syncSelectionPopup() {
   const selection = window.getSelection();
   const text = (selection?.toString() || "").trim();
@@ -2897,7 +2923,8 @@ function syncSelectionPopup() {
   showSelectionPopupAt(
     selection.getRangeAt(0).getBoundingClientRect(),
     text,
-    selectionSource(selection.anchorNode)
+    selectionSource(selection.anchorNode),
+    selectionPointerPoint
   );
 }
 
@@ -2914,7 +2941,20 @@ function initSelectionPopup() {
   // still feels instant rather than delayed by the debounce.
   document.addEventListener("mouseup", (event) => {
     if (event.target.closest(".selection-popup")) return;
+    selectionPointerPoint = { x: event.clientX, y: event.clientY };
     syncSelectionPopup();
+  });
+  // Touch releases carry coordinates too, on the changedTouches list rather
+  // than the event itself — a long-press drag should anchor to the finger for
+  // the same reason a mouse selection anchors to the cursor.
+  document.addEventListener("touchend", (event) => {
+    const touch = event.changedTouches && event.changedTouches[0];
+    if (touch) selectionPointerPoint = { x: touch.clientX, y: touch.clientY };
+  });
+  // A keyboard selection has no pointer, so fall back to the range rectangle
+  // rather than anchoring to wherever the mouse happened to be last.
+  document.addEventListener("keydown", (event) => {
+    if (event.shiftKey || event.key === "Escape") selectionPointerPoint = null;
   });
 
   let selectionSettleTimer;
@@ -20331,7 +20371,12 @@ function openLibraryItem(item) {
     // The note, not the raw file: a download is one click further and the note
     // is the thing that says why the file was kept.
     flashEntry(item.entry_id);
-  } else if (item.kind === "note") {
+  } else if (item.kind === "note" || item.kind === "draft") {
+    // Drafts open exactly like notes. flashEntry already knows how — it turns
+    // the Drafts filter on when its target is one, because drafts are excluded
+    // from every other view. What was missing was this branch: the "draft"
+    // kind arrived with the Library's new Drafts chip and nothing routed it,
+    // so selecting a draft and pressing Open did nothing at all.
     flashEntry(item.id);
   } else if (item.kind === "tag") {
     // A tag's job is finding the notes that carry it, so opening one does
@@ -26981,9 +27026,22 @@ async function renderSkillsDashboard() {
     runBtn.className = "small";
     runBtn.textContent = "Run Skill";
     runBtn.onclick = () => {
-      // Switch to chat and run it
-      switchTab("chat");
-      startSkill(skill.name);
+      // runSkill, not startSkill. Reported as "the Run Skill buttons in the AI
+      // Skills library are broken", and it was two bugs in one line:
+      //
+      //   startSkill(skill.name)
+      //
+      // passed the *name string* where startSkill expects the skill object (so
+      // `skill.name` inside it was undefined), and omitted `values` entirely —
+      // which made `Object.values(values)` throw "Cannot convert undefined or
+      // null to object". That is the app.js:10495 console error reported
+      // alongside it: one line, two symptoms.
+      //
+      // runSkill() is the correct entry point: it prompts for the skill's
+      // inputs when it has any, then calls startSkill with a real values
+      // object. It also switches to chat itself, so doing it here as well
+      // would be a second, redundant tab change.
+      runSkill(skill);
     };
     
     const schedBtn = document.createElement("button");

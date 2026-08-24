@@ -214,6 +214,7 @@ same session is in §88.0 so nobody re-fixes it.
 | Skill Logs sidebar still not full height after the first fix | Same bug `.doc-sidebar` already hit once: `align-self: start` + `max-height` alone is a ceiling with no floor. Applied `.doc-sidebar`'s complete pattern (`align-self: stretch`, `height: 100%`, `max-height: var(--page-sticky-h)`, flex column, list scrolls not the card) instead of the partial version tried first |
 | Link-kind dialog ("How are these connected?") text unreadable in dark theme | `.link-kind-option` overrode `background` to transparent but not `color`, so it kept the global `button` rule's `color: var(--on-accent)` — `#0d1017` in dark theme, meant for text on that same rule's bright accent fill, not a transparent button. Added `color: var(--ink)` |
 | Back-to-top button "too much to the left" on Notes, displaced on Library | `positionScrollTopForNested` always pulled the button in from the panel's own edge, stacking a second margin on top of the page's own — Notes has no right-side element to clear at all. Now only pulls in when a real right-side panel (the Skill Logs sidebar) is actually present; otherwise matches every other tab's flat offset |
+| Graph node labels show raw callout syntax (`Review > [!tip] Remem…`) | `routes_graph.py`'s `_preview()` stripped a leading `#` heading marker but not a callout's `> [!kind]` opening line. Added `_CALLOUT_MD`, the callout equivalent of the existing `_HEADING_MD` strip |
 
 ### 88.1 Reported and still open — work this list top-down
 
@@ -264,9 +265,9 @@ same session is in §88.0 so nobody re-fixes it.
     than a fourth row.
 12. **The minimap needs a visual and usability upgrade** (its corner is now a
     user setting, but the map itself is unchanged).
-13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).
-    The label builder should strip block markers the way `extract_title`
-    already strips a leading `#`.
+~~13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).~~
+    **Fixed** — `routes_graph.py`'s `_preview()` now strips a callout's
+    opening line the same way it already strips a `#` heading.
 17. **Timeline line view redesign** — the concrete design is §87.6: threads as
     tributaries off a time trunk, using `Entry.parent_id`, which that view
     currently ignores entirely.
@@ -705,9 +706,8 @@ from the file that documents it.
    cost during a pan and during a drag, separately.
 2. **The saved-view select truncates to "No saved vi…"** in the redesigned
    toolbar. Cosmetic, one width rule.
-3. **Graph node labels show raw callout syntax** — a note starting with a
-   callout renders its label as `Review > [!tip] Remem…`. The label builder
-   should strip block markers the way `extract_title` strips a leading `#`.
+~~3. **Graph node labels show raw callout syntax**~~ **Fixed** — see the
+   live list's item 13 above.
 4. **Semantic search ignores time words.** Reported: typing "recents" did not
    bias results by recency, only by meaning. This is `IDEAS.md`'s own
    long-standing ask ("a slight ai nudge for the semantic notes search, so if

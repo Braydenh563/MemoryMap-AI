@@ -21,6 +21,13 @@ uvicorn[standard]>=0.52.3,<1.0
 # Database (SQLite via ORM)
 SQLAlchemy>=2.0.52,<3.0
 
+# Schema migrations for a real rename/drop — additive column changes still go
+# through DatabaseManager's own auto-migrator (core/database.py); this is the
+# escape hatch for the day that stops being enough. Never fatal if missing
+# (_ensure_alembic_baseline catches ImportError and logs), but the app then
+# silently stays on the additive-only path — keep it installed.
+alembic>=1.13,<2.0
+
 # Config
 python-dotenv>=1.2.2,<2.0
 

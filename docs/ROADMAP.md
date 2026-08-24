@@ -104,9 +104,27 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    spinner" regardless of the technical bound. Needs a real slow-loading
    model to observe, not more source reading.
 
-9. **Crash-safe recovery for an interrupted re-index or model download.**
-   Unknown whether it resumes cleanly or leaves half-written state; worth
-   checking directly rather than assuming either way.
+~~9. **Crash-safe recovery for an interrupted re-index or model download.**~~
+   **Checked directly — already safe by construction, nothing to build.**
+   `model_manager.py`'s `_run_reindex`: each entry's stale vector is deleted
+   and committed *before* re-embedding it, one entry at a time — a crash
+   mid-run leaves already-processed entries with fresh vectors and
+   not-yet-reached ones with their old (still-functional; semantic search
+   already falls back to keyword search on a backend mismatch) vectors.
+   Nothing corrupted, nothing half-written — just a partially-refreshed
+   index a later manual re-run completes. `_run_pull`: `job.status` is set
+   to `"error"` on any failure, and its own comment already states the
+   property directly — "never leave a half-download looking installed"
+   (§6.5). Both jobs (`Job`) are **in-memory only**, not persisted, so a
+   real process crash (not a graceful cancel) simply forgets the job
+   existed on restart — no ghost "still running" state is possible because
+   there is nowhere for one to survive to. The one gap, and it's cosmetic:
+   neither job leaves a `taskhistory` record for a hard crash specifically
+   (only for a clean cancel or a caught exception) — a crash mid-reindex
+   shows nothing in Settings → Tasks afterward, rather than a "did not
+   finish" entry. Not attempted: needs a startup-time reconciliation pass
+   (did the last recorded reindex actually reach `total`?) that's a small
+   but real addition, not a one-line fix.
 
 10. **macOS release packaging.** Linux is done; macOS is not.
 
@@ -308,8 +326,21 @@ same session is in §88.0 so nobody re-fixes it.
 17. **Timeline line view redesign** — the concrete design is §87.6: threads as
     tributaries off a time trunk, using `Entry.parent_id`, which that view
     currently ignores entirely.
-18. **Semantic search ignores time words** ("recents"). Belongs in
-    `ai/intent.py`, which already classifies `needs_retrieval`.
+~~18. **Semantic search ignores time words** ("recents").~~ **Already
+    built — checked before building, found done.** `search/query.py`'s
+    `understand()` parses "recently"/"recent" (and "yesterday", "last week",
+    "three days ago", "on tuesday", …) into a date range with a `soft` flag,
+    and `search_manager._retrieve` uses it: a soft range sorts matches
+    newest-first as a tiebreak rather than excluding anything outside a
+    fixed window (the code's own comments record "jokes I have saved
+    recently" — this exact phrase — as the motivating case that was fixed).
+    Verified live rather than trusting the comments: two notes containing
+    "jokes", one 3 days old and one 200 days old, given the query "jokes I
+    have saved recently" — the 3-day note ranked first. Whoever re-reported
+    this hit a real gap somewhere, but it isn't the mechanism itself; likely
+    either a phrasing the parser's patterns don't cover, or the chat path
+    specifically (`routes_chat.py`) not passing something query.py needs —
+    worth asking what exact phrase was typed, next time.
 
 **Tier C — the big editor feature, worth its own session.**
 
@@ -425,37 +456,49 @@ and **asserted** (`agent.PROSE_BUDGET_CHARS`) because every sentence is resent
 each round. Conversations can be compressed (§35I). Tools are a fixed registry
 in `ai/tools/`. There is a "what the AI remembers" surface (§39B).
 
-**The five real gaps, in order of value:**
+**Corrected — items 1 and 2 below were already built by a prior session
+(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`, dated before
+this analysis was last read as current) when this list was drafted, and
+this section was never updated to say so. Checked directly rather than
+trusted, per this file's own repeated rule, and confirmed via `git log`
+that the code predates the session that found it stale — not a
+same-session miss like a couple of others this file records elsewhere.**
 
-1. **Retrieval is single-shot and similarity-only.** Candidates come from
-   embedding cosine; there is no re-ranking, no query expansion, and no second
-   pass when the first returns nothing useful. The cheapest meaningful upgrade
-   is **hybrid retrieval** — combine the existing FTS keyword index with the
-   vector search and merge by reciprocal rank. Both indexes already exist.
-2. **The graph is not used for retrieval.** This app's differentiator is that
-   it *knows how notes connect*, and the chat context is assembled by
-   similarity alone. Once §87.5's `link_type` is populated, expand retrieval
-   along strong edges from the top hits — `entry/paths.py` already walks them.
-   This is the single highest-value item on this list.
-3. **Memory is a surface, not a system.** There is no tiered notion of
-   "always in context" (a small durable profile), "retrieved when relevant"
-   (the notebook), and "this conversation only". A short, user-editable
-   always-on memory block — explicitly capped and shown in Settings — is a
-   contained change with a large effect on how the assistant reads.
-4. **No token accounting per stage.** The prompt budget is asserted, but there
-   is no measurement of how much of a real context window goes to system
-   prompt vs. retrieved notes vs. history. Instrument it before tuning it; a
-   per-turn breakdown makes every later decision evidence-based. (BACKLOG's
-   per-chat token meter is the same idea.)
-5. **Tool retrieval is all-or-nothing.** Every tool definition is sent every
-   round. §33 already scoped semantic tool retrieval and rightly said it needs
-   measuring first — item 4 is the prerequisite.
+**What's actually still a gap, in order of value:**
 
-**One caution that applies to all five.** Every provider test in this repo runs
-against a fake transport, and this sandbox has no reachable model. Retrieval
-quality changes cannot be evaluated here at all. Build the measurement (item 4)
-and a small fixed question set *first*, or every one of these becomes a change
-nobody can prove helped.
+1. ~~Retrieval is single-shot and similarity-only.~~ **Already hybrid.**
+   `_rank()` calls `_fuse()` — reciprocal rank fusion over the semantic and
+   keyword result lists — labelling the result `"hybrid"`, wired into
+   `_retrieve()` (every chat/ask question's own retrieval path). Re-ranking
+   and query expansion beyond this are the only parts still genuinely open.
+2. ~~The graph is not used for retrieval.~~ **Already used.**
+   `graph_expansion()` walks linked neighbours of the top hits (and a
+   second, weaker hop — ROADMAP item 33, `GRAPH_EXPANSION_HOP2_LIMIT`) and
+   is called from `_retrieve()`. §87.5's `link_type`/strength weighting
+   (still open, see §87.5 above) would make this walk *smarter*, not bring
+   it into existence — it already exists.
+3. **Memory is a surface, not a system.** Still genuinely open — no tiered
+   notion of "always in context" (a small durable profile), "retrieved when
+   relevant" (the notebook), and "this conversation only" exists anywhere
+   in `ai/`. A short, user-editable always-on memory block, capped and shown
+   in Settings, is a contained change with a large effect on how the
+   assistant reads.
+4. **No token accounting per stage.** Still genuinely open — `ai/context.py`
+   manages a token *budget* (staying under the window), which is a
+   different thing from *measuring* how much of a real turn goes to system
+   prompt vs. retrieved notes vs. history. Instrument it before tuning
+   anything further; a per-turn breakdown makes every later decision
+   evidence-based. (BACKLOG's per-chat token meter is the same idea.)
+5. **Tool retrieval is all-or-nothing.** Still genuinely open. Every tool
+   definition is sent every round. §33 already scoped semantic tool
+   retrieval and rightly said it needs measuring first — item 4 above is
+   the prerequisite.
+
+**One caution that applies to the three real gaps above.** Every provider
+test in this repo runs against a fake transport, and this sandbox has no
+reachable model. Retrieval *quality* changes cannot be evaluated here at
+all. Build the measurement (item 4) and a small fixed question set *first*,
+or every one of these becomes a change nobody can prove helped.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 
@@ -748,15 +791,10 @@ from the file that documents it.
    width (200px), "No saved views" shows in full.
 ~~3. **Graph node labels show raw callout syntax**~~ **Fixed** — see the
    live list's item 13 above.
-4. **Semantic search ignores time words.** Reported: typing "recents" did not
-   bias results by recency, only by meaning. This is `IDEAS.md`'s own
-   long-standing ask ("a slight ai nudge for the semantic notes search, so if
-   I ask 'what notes did I save in the last two days'…"). The retrieval path
-   is `search_manager.retrieve_detailed` (`routes_chat.py:333-374`); a
-   temporal-intent pass that detects recency/date words and applies a
-   `created_at` filter or a recency weight alongside the vector score is the
-   shape. Note `ai/intent.py` already exists and already classifies
-   `needs_retrieval`, so this belongs there rather than in a new module.
+~~4. **Semantic search ignores time words.**~~ **Already built** — see the
+   live list's item 18 above for what exists (`search/query.py`'s
+   `understand()`, wired into `search_manager._retrieve`) and how it was
+   verified live this session.
 5. **The graph minimap "can no longer be hidden or shown."** The toggle button
    became a dropdown with **Off** as its first option, and that dropdown is
    verified working (`MINIMAP -> off hides it: true`). So either this is a

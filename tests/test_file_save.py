@@ -131,6 +131,22 @@ def test_within_exports_refuses_a_traversal_that_reaches_it_directly(tmp_path):
         _within_exports(exports, "../escaped.txt")
 
 
+def test_within_exports_refuses_a_symlink_that_points_outside_it(tmp_path):
+    """The reason `os.path.realpath` replaced `Path.resolve()` and not a
+    plain `os.path.normpath` — `os.path.realpath` follows symlinks; a
+    lexical-only normalise would not. A file that lives at a name inside
+    `exports` but is actually a symlink pointing elsewhere is exactly what
+    `Path.resolve()` used to catch, and the rewritten guard has to catch it
+    too or the CodeQL fix would have quietly narrowed what this refuses."""
+    exports = tmp_path / "exports"
+    exports.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("not yours")
+    (exports / "escape.txt").symlink_to(outside)
+    with pytest.raises(routes_files.HTTPException):
+        _within_exports(exports, "escape.txt")
+
+
 def test_unreadable_base64_is_refused(client, app_state):
     response = client.post(
         "/files/save", json={"filename": "x.md", "content_base64": "not base64!!"}

@@ -245,13 +245,24 @@ def _within_exports(exports: Path, name: str) -> Path:
     the update-apply SSRF fix: a query's sanitiser recognition is narrower
     than "the code is provably safe," so the fix is a real containment
     check at the point of use, not a stronger filter upstream of it.
+
+    **Written with `os.path`, not `pathlib`, and that is the actual fix.**
+    The first attempt at this guard used `Path.resolve()` +
+    `Path.relative_to()` and CodeQL kept flagging the join regardless — its
+    `py/path-injection` sanitiser model is built around the
+    `os.path.normpath(os.path.join(...))` + `str.startswith(base + sep)`
+    shape (the one GitHub's own CWE-022 remediation examples use), and does
+    not extend the same recognition to the equivalent pathlib calls. Same
+    containment check, same semantics — `os.path.realpath` resolves `..`
+    segments *and* symlinks exactly like `Path.resolve()` did, so a symlink
+    planted inside `exports` pointing outside it is still caught — just
+    spelled in the vocabulary the query actually models.
     """
-    target = (exports / name).resolve()
-    try:
-        target.relative_to(exports.resolve())
-    except ValueError:
+    base = os.path.realpath(str(exports))
+    candidate = os.path.realpath(os.path.join(base, name))
+    if candidate != base and not candidate.startswith(base + os.sep):
         raise HTTPException(status_code=422, detail="That filename can't be used.") from None
-    return target
+    return Path(candidate)
 
 
 @router.post("/files/save")

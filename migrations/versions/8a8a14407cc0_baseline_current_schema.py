@@ -13,6 +13,15 @@ import memorymap.core.database
 
 
 # revision identifiers, used by Alembic.
+#
+# CodeQL flags all four as "unused global variable" — true from a plain
+# read of this file, but wrong about what's happening: Alembic's own
+# ScriptDirectory reads them off the loaded module by attribute name
+# (script.py.mako generates exactly this shape for every migration in
+# every Alembic project), never through an import anywhere in this repo.
+# __all__ documents that without changing any behaviour — it only affects
+# `from module import *`, which nothing here does.
+__all__ = ["revision", "down_revision", "branch_labels", "depends_on"]
 revision: str = '8a8a14407cc0'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None

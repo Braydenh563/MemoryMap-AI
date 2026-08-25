@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.core.logbuffer import safe_value
 
 OFFLINE_MESSAGE = (
     "The AI answer isn't available right now (Ollama doesn't seem to be "
@@ -32,10 +33,22 @@ def model_error_message(model: str, error: Exception) -> str:
     malformed request). OFFLINE_MESSAGE stays exactly what it was for the
     one place that's actually true: the `ollama_running` check itself came
     back negative, before any model was ever named. This is for every other
-    failure, and says what actually happened instead of guessing."""
+    failure, and says what actually happened instead of guessing.
+
+    `error` is interpolated through `safe_value` (CodeQL: "information
+    exposure through an exception") rather than straight into the string.
+    `OllamaError`'s own message is already a controlled f-string, not a raw
+    traceback, but the object reaching this function is typed as the base
+    `Exception` — some standard-library exceptions embed things in their own
+    `str()` that don't belong in a message shown back to whoever is running
+    this session (a file path, a connection detail), and there is nothing
+    here that verifies which subclass actually arrived. Same sanitiser the
+    Settings -> Logs viewer already trusts for exactly this: strip control
+    characters that could forge a rendered line, cap the length so one huge
+    message can't dominate the reply."""
     return (
         f"The model ({model}) couldn't answer this — "
-        f"{error}"
+        f"{safe_value(error)}"
     )
 
 # The persona is WHO the assistant is; the grounding is non-negotiable

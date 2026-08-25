@@ -103,7 +103,13 @@ def test_the_same_note_can_be_referenced_from_two_boards_at_once(board_client, s
 
     # Removing the reference from one board must not touch the other's, or
     # the underlying note.
-    assert board_client.delete(f"/whiteboard/nodes/{node_a['id']}").status_code == 200
+    #
+    # The delete call is on its own line, not inlined into the assert: an
+    # assert's own expression is dropped entirely under Python's -O flag
+    # (CodeQL: "an assert statement has a side-effect"), which would have
+    # skipped the delete outright rather than just skipping the check.
+    delete_response = board_client.delete(f"/whiteboard/nodes/{node_a['id']}")
+    assert delete_response.status_code == 200
     assert board_client.get(f"/whiteboard/?board_id={board_a.id}").json()["nodes"] == []
     still_on_b = board_client.get(f"/whiteboard/?board_id={board_b.id}").json()["nodes"]
     assert [n["id"] for n in still_on_b] == [node_b["id"]]

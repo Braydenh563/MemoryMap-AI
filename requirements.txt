@@ -29,7 +29,7 @@ SQLAlchemy>=2.0.52,<3.0
 alembic>=1.13,<2.0
 
 # Config
-python-dotenv>=1.2.2,<2.0
+python-dotenv>=1.2.3,<2.0
 
 # zoneinfo (stdlib) has no bundled tz database of its own — on Linux/macOS it
 # reads the system's /usr/share/zoneinfo, which is usually present, but

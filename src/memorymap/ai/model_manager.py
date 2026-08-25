@@ -61,26 +61,36 @@ class Embedder(Protocol):
 # "model not found" and the Models screen shows it, rather than the app
 # pretending to know something it doesn't. Nothing else reads these names.
 SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
-    "chat": [
+    # Split by type (text / vision / embedding / moe), asked for directly —
+    # this dict drives the Settings -> Models suggested-downloads list
+    # generically (frontend/app.js's renderSuggested() does a plain
+    # `Object.entries()` over it and labels each model with its own top-
+    # level key), so a new key here needs no frontend change at all. "moe"
+    # split out of the old flat "chat" list rather than staying folded into
+    # it — a MoE model's RAM/speed trade-off (see its own comment below) is
+    # different enough from a dense model's that grouping them together
+    # under one label was misleading, not just imprecise.
+    "text": [
         # --- runs on almost anything, no GPU needed ---
         {"name": "qwen3.5:2b", "size": "~1.6 GB", "purpose": "The lightest one genuinely worth using"},
         {"name": "llama3.2", "size": "~2.2 GB", "purpose": "Fast all-rounder — the default, and a good first choice"},
         {"name": "granite4.1:3b", "size": "~2.2 GB", "purpose": "Strong instruction-following at a small size"},
         {"name": "qwen3.5:4b", "size": "~2.6 GB", "purpose": "Follows instructions closely — good for agent mode"},
-        {"name": "gemma4:e2b", "size": "~4.4 GB", "purpose": "MOE, fast like a 2B model but more capable. Try it if bigger models are too slow"},
-        {"name": "gemma4:e4b", "size": "~6.9 GB", "purpose": "Noticeably more capable + better writing than the 2B models"},
         # --- 8 GB of RAM, or any modern GPU ---
         {"name": "llama3.1:8b", "size": "~4.9 GB", "purpose": "Better reasoning and reliable tool calls"},
         {"name": "qwen3.5:8b", "size": "~5.2 GB", "purpose": "Best tool use at this size. Thinks, so slower per answer"},
         {"name": "mistral-nemo", "size": "~7.1 GB", "purpose": "Long-document work — a large context window"},
         {"name": "gemma4:12b", "size": "~7.6 GB", "purpose": "Long-form writing and summarising"},
-        # --- mixture-of-experts: big download, small working set ---
-        #
-        # These need the RAM of the model they are named after and run at
-        # roughly the speed of the *active* half — 26B-a4b holds 26B of weights
-        # and computes with 4B of them. That is the one thing worth explaining
-        # about them, because judged on download size alone nobody with 16 GB
-        # would try one, and they are the best answer for that machine.
+    ],
+    # Mixture-of-experts: big download, small working set. These need the
+    # RAM of the model they are named after and run at roughly the speed of
+    # the *active* half — 26B-a4b holds 26B of weights and computes with 4B
+    # of them. That is the one thing worth explaining about them, because
+    # judged on download size alone nobody with 16 GB would try one, and
+    # they are the best answer for that machine.
+    "moe": [
+        {"name": "gemma4:e2b", "size": "~4.4 GB", "purpose": "MoE: 2B-class speed with more capability. Try it if bigger models are too slow"},
+        {"name": "gemma4:e4b", "size": "~6.9 GB", "purpose": "MoE: noticeably more capable + better writing than the e2b"},
         {"name": "gemma4:26b-a4b", "size": "~17 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
         {"name": "qwen3.5:35b-a3b", "size": "~21 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
     ],

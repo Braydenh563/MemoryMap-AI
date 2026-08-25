@@ -60,6 +60,15 @@ class TurnBody(BaseModel):
     # only thing that saw all of it: the server reports per-round timings, and
     # an agent turn is several rounds plus the tool calls between them.
     elapsed_ms: int | None = None
+    # The "N matching notes" disclosure's own data — the same shape the
+    # `/chat/stream` "meta" event already carries. Reported: "semantic
+    # search results in chat messages keep disappearing and don't persist" -
+    # true on every reload, since none of this was ever saved here at all;
+    # it only ever existed for the duration of the live stream render.
+    raw_results: list[dict] | None = None
+    search_mode: str | None = None
+    match_info: dict | None = None
+    connected_ids: list[int] | None = None
 
 
 class RenameBody(BaseModel):
@@ -82,6 +91,11 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["stats"] = turn.stats
     if turn.elapsed_ms is not None:
         assistant["elapsed_ms"] = turn.elapsed_ms
+    if turn.raw_results:
+        assistant["raw_results"] = turn.raw_results
+        assistant["search_mode"] = turn.search_mode
+        assistant["match_info"] = turn.match_info or {}
+        assistant["connected_ids"] = turn.connected_ids or []
     return [
         {"role": "user", "content": turn.question},
         assistant,

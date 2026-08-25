@@ -8818,6 +8818,15 @@ async function sendChatMessage(preset, opts = {}) {
       // thing that saw the whole turn: the server reports per-round timings,
       // and an agent turn is several rounds plus the tool calls between them.
       elapsed_ms: elapsedMs,
+      // The "N matching notes" disclosure's own data. Reported: "semantic
+      // search results in chat messages keep disappearing" - true on every
+      // reload, since none of this was ever saved. Only meaningful for a
+      // grounded (non-conversational) turn that actually searched, so
+      // omitted rather than sent empty when there's nothing to show.
+      raw_results: meta?.raw_results?.length ? meta.raw_results : null,
+      search_mode: meta?.search_mode || null,
+      match_info: meta?.match_info && Object.keys(meta.match_info).length ? meta.match_info : null,
+      connected_ids: meta?.connected_ids?.length ? meta.connected_ids : null,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -9606,6 +9615,17 @@ async function openConversation(id) {
           })
         );
       }
+      // Same fix as the metadata line just above, for the "N matching
+      // notes" disclosure: reported as search results "disappearing" on
+      // every reload, since this reconstruction never rebuilt it at all.
+      if (message.raw_results) {
+        renderRecordsDetails(handles.recordsHolder, {
+          raw_results: message.raw_results,
+          search_mode: message.search_mode,
+          match_info: message.match_info || {},
+          connected_ids: message.connected_ids || [],
+        });
+      }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
@@ -9616,6 +9636,15 @@ async function openConversation(id) {
             title: "Edit this answer",
             onClick: () => editChatAnswer(handles, turnIndex, message.content),
           },
+          // Reported: "no chat message button to retry a response" - true
+          // for any reopened conversation specifically, since this
+          // reconstruction path built its own shorter action list that
+          // never included it, unlike the live-stream render just below
+          // (sendChatMessage's own chatMessageActions call). Same
+          // regenerateLastAnswer() either way - it always targets the
+          // last assistant bubble/lastChatQuestion regardless of which
+          // message's button was clicked, same as it already does live.
+          { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
           { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(message.content) },
           { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(lastQuestionText, message.content) },
           { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(message.content) },

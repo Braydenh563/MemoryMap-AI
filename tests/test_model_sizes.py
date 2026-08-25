@@ -36,7 +36,7 @@ def test_an_installed_model_reports_its_real_size(ai_client, fake_ollama):
 def test_an_uninstalled_model_keeps_the_shipped_figure_and_says_so(ai_client, fake_ollama):
     fake_ollama.installed = []
     entry = _flat(ai_client.get("/models/suggested").json())["llama3.2"]
-    shipped = next(m for m in SUGGESTED_MODELS["chat"] if m["name"] == "llama3.2")
+    shipped = next(m for m in SUGGESTED_MODELS["text"] if m["name"] == "llama3.2")
     assert entry["size"] == shipped["size"]
     assert entry["size_source"] == "approximate"
 

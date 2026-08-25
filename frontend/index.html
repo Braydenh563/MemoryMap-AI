@@ -613,6 +613,12 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="ask-history-clear" class="ghost small" type="button"
                 title="Delete your question history (pinned questions are kept)">
                 <i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
+              <!-- Asked for directly: closing this used to mean clicking the
+                   History toggle above again - not obvious once this panel
+                   is open and that button is out of the immediate view. -->
+              <button id="ask-history-close" class="ghost small icon-button" type="button"
+                title="Close question history" aria-label="Close question history">
+                <i class="ph ph-x" aria-hidden="true"></i></button>
             </div>
             <ul id="ask-history-list" class="ask-history-list"></ul>
             <p id="ask-history-empty" class="muted hidden">

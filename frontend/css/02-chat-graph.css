@@ -1605,6 +1605,22 @@ kbd {
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Asked for directly: a way to dismiss a toast faster than its own timer. */
+.toast-close {
+  flex: 0 0 auto;
+  margin-left: 0.6rem;
+  padding: 0.1rem;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
 .toast {
   display: flex;
   align-items: center;

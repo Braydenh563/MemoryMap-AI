@@ -15532,55 +15532,69 @@ function scrollTopTargetEl() {
   return NESTED_SCROLL_TABS[tab]?.() || scrollingPage();
 }
 
-// Library's content panel is narrower than the viewport and sits behind its
-// own real scrollbar, which a fixed CSS `right` offset doesn't know to clear
-// — and the panel's own box can run taller than the viewport, which a fixed
-// CSS `bottom` offset doesn't know to stay above. Reported: the button
-// overlapped the scrollbar and sat below the visible fold. Computed here
-// instead of in CSS, from the panel's own live `getBoundingClientRect()`,
-// clamped so the button can never end up outside the visible viewport no
-// matter how tall the panel's box actually is.
+// A content panel can be narrower than the viewport and sit behind its own
+// real scrollbar, which a fixed CSS `right` offset doesn't know to clear —
+// and the panel's own box can run taller than the viewport, which a fixed
+// CSS `bottom` offset doesn't know to stay above. Reported, more than once
+// and on more than one tab (first Library, then screenshotted on Notes'
+// "Your notes" and "Ask" sub-tabs): the button overlapping the scrollbar and
+// the content beside it, or sitting below the visible fold. Computed here
+// instead of in CSS, from the *actual scroll target*'s live
+// `getBoundingClientRect()` — the same one `scrollTopTargetEl()` already
+// resolves per tab — for every tab but Chat (reparented into `.chat-dock`
+// and positioned by its own CSS instead), clamped so the button can never
+// end up outside the visible viewport no matter how tall the panel's box
+// actually is.
 function positionScrollTopForNested(button, tab) {
-  if (tab !== "library" && tab !== "notes") {
+  if (tab === "chat") {
+    // Reparented into .chat-dock by the MutationObserver below and
+    // positioned by that container's own CSS instead — inline right/bottom
+    // here would fight it rather than help it.
     button.style.right = "";
     button.style.bottom = "";
     return;
   }
-  // Anchoring to the actual scrolling content panel ensures the button
-  // sits flush with the content panel's own corner (e.g. inside narrower
-  // layouts with sidebars like Library or Notes) rather than the viewport.
-  const panel = NESTED_SCROLL_TABS[tab]();
+  // Anchoring to the actual scrolling content panel, not the viewport,
+  // for every tab — not just Library and Notes. A flat `right`/`bottom`
+  // offset from the *window* edge is correct only when the panel happens to
+  // reach that edge; the moment a real (non-overlay) scrollbar reserves
+  // layout width the panel's own `getBoundingClientRect()` doesn't subtract
+  // for, that flat offset lands the button sitting on top of the scrollbar
+  // and the content beside it (reported, screenshotted: an up-arrow button
+  // overlapping the scrollbar's own down-arrow and a line of note text on
+  // Notes' "Your notes" and "Ask" sub-tabs) — and every tab shares the same
+  // scroll container shape (`scrollTopTargetEl()`), so the fix has to be
+  // general rather than three more special cases in `NESTED_SCROLL_TABS`.
+  const panel = scrollTopTargetEl();
   const rect = panel?.getBoundingClientRect();
-  if (!rect) return;
+  if (!panel || !rect) {
+    button.style.right = "";
+    button.style.bottom = "";
+    return;
+  }
   const margin = 24; // 1.5rem, matching every other tab's own offset
 
-  // **Right**: was unconditional — pull the button in to sit `margin` px
-  // inside the panel's own right edge, always. That is correct only when a
-  // real right-side element (like the AI Skills Skill Logs sidebar) is
-  // actually there to clear. Notes' sidebar is on the *left*, and most
-  // Library sub-views have no right column at all, so their `main`'s right
-  // edge is already close to the page's own natural right margin — pulling
-  // in *again* on top of that stacked two margins and left the button
-  // noticeably further from the corner than every other tab's flat
-  // `right: 1.5rem`. Reported directly: "too much to the left" on Notes.
-  // Only pull in when a right-side panel that would actually be covered is
-  // present; otherwise match every other tab's flat offset.
+  // Real (non-overlay) scrollbars reserve layout width that
+  // getBoundingClientRect() doesn't subtract for; measuring it live
+  // (0 on this project's own sandbox and macOS, 15-17px on most
+  // Windows/Linux setups) replaces what used to be a flat guessed
+  // constant, wrong in both directions depending on platform.
+  const scrollbarClearance = panel.offsetWidth - panel.clientWidth;
+
+  // A right-side element the panel's own edge doesn't already account for —
+  // today only the AI Skills sidebar, sitting *inside* Library's own panel
+  // rather than beside it. Notes' sidebar is on the *left*, so it never
+  // needs this branch; most panels don't have one at all.
   const rightPanel = document.querySelector("#library-view-skills:not(.hidden) #skills-sidebar");
   if (rightPanel) {
     const rightPanelRect = rightPanel.getBoundingClientRect();
-    // Real (non-overlay) scrollbars reserve layout width that
-    // getBoundingClientRect() doesn't subtract for; measuring it live
-    // (0 on this project's own sandbox and macOS, 15-17px on most
-    // Windows/Linux setups) replaces what used to be a flat guessed
-    // constant, wrong in both directions depending on platform.
-    const scrollbarClearance = panel.offsetWidth - panel.clientWidth;
     button.style.right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
   } else {
-    button.style.right = `${margin}px`;
+    button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
   }
 
-  // **Bottom**: unchanged in spirit — a panel shorter than the viewport
-  // must not leave the button floating below its own content.
+  // **Bottom**: a panel shorter than the viewport must not leave the button
+  // floating below its own content.
   button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
 }
 
@@ -18674,14 +18688,36 @@ function notificationsMuted() {
   return Boolean(prefsCache && prefsCache.notifications_muted_except_reminders);
 }
 
+// Asked for directly: "allow popup notifications to be manually closable
+// with an x button if the user wants them gone faster". A toast that has
+// already been read is just something left to wait out otherwise — the
+// timer clears when this fires, so a stray late setTimeout can't reach for
+// a note the click already removed.
+function toastCloseButton(note, timer) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "toast-close";
+  setLabel(button, "ph:x");
+  button.title = "Dismiss";
+  button.setAttribute("aria-label", "Dismiss this notification");
+  button.addEventListener("click", () => {
+    clearTimeout(timer);
+    note.remove();
+  });
+  return button;
+}
+
 function toast(message, isError = false, { exempt = false } = {}) {
   if (!exempt && !isError && notificationsMuted()) return;
   const box = $("toast-box");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
-  note.textContent = message;
+  const text = document.createElement("span");
+  text.textContent = message;
+  note.appendChild(text);
+  const timer = setTimeout(() => note.remove(), 5500);
+  note.appendChild(toastCloseButton(note, timer));
   box.appendChild(note);
-  setTimeout(() => note.remove(), 5500);
 }
 
 // A toast with one action button — used for Undo (Wave J). The button
@@ -18697,12 +18733,13 @@ function toastAction(message, actionLabel, onAction) {
   button.className = "small toast-action";
   button.textContent = actionLabel;
   button.addEventListener("click", async () => {
+    clearTimeout(timer);
     note.remove();
     await onAction();
   });
-  note.append(text, button);
+  const timer = setTimeout(() => note.remove(), 8000);
+  note.append(text, button, toastCloseButton(note, timer));
   box.appendChild(note);
-  setTimeout(() => note.remove(), 8000);
 }
 
 // --- global undo/redo (status bar) ------------------------------------------------
@@ -25414,6 +25451,11 @@ $("retry-btn").addEventListener("click", retryAnswer);
 $("copy-btn").addEventListener("click", copyAnswer);
 $("new-chat-btn").addEventListener("click", newChat);
 $("ask-history-toggle").addEventListener("click", toggleAskHistoryPanel);
+// Asked for directly: an X to close the history panel, not only the History
+// toggle button that opened it (easy to lose track of once scrolled past).
+$("ask-history-close")?.addEventListener("click", () => {
+  if (askHistoryOpen) toggleAskHistoryPanel();
+});
 $("ask-history-more").addEventListener("click", () => loadAskHistoryPage(false));
 $("ask-history-pinned-only").addEventListener("change", () => loadAskHistoryPage(true));
 $("ask-history-clear").addEventListener("click", clearAskHistory);

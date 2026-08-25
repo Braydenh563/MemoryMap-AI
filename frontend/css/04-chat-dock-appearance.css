@@ -1591,13 +1591,15 @@ button {
 
 .provider-option {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   align-items: start;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.6);
   padding: 0.6rem 0.8rem;
   cursor: pointer;
+  /* Contains the radio-hiding rule's own `position: absolute` below. */
+  position: relative;
 }
 
 .provider-option:hover {
@@ -1610,7 +1612,23 @@ button {
 }
 
 .provider-option input {
-  margin-top: 0.25rem;
+  /* Same toggle-button treatment as .check-row's own radios (asked for
+     directly, "change all radio buttons to toggle buttons"): the row's own
+     border/background above already says which one is picked, so the
+     circle is redundant. Clipped, not display:none - keeps it in the
+     accessibility tree and the group's native arrow-key navigation. The
+     grid's first column (previously sized to fit the circle) is dropped
+     to match, so the label text isn't left with a dead gap in front of it. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .provider-option .muted {

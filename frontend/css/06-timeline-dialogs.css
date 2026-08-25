@@ -1001,10 +1001,41 @@
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   transition: background var(--motion-base) ease, border-color var(--motion-base) ease;
+  /* Contains the radio-hiding rule's own `position: absolute` below, so
+     that 1px box stays inside this row instead of positioning against
+     whatever ancestor happens to be positioned. */
+  position: relative;
 }
 
 .check-row input {
   margin-top: 0.15rem;
+}
+
+/* Asked for directly, as the next step past the fix above: a radio group
+   (unlike a checkbox, still `.check-row` too) reads as one control with one
+   answer, not a set of independent switches - so its own circle is dropped
+   entirely and the row's existing hover/`:has(:checked)` background above
+   *is* the toggle, the same way `.segmented-control` already hides its own
+   radio circle for graph-layout/graph-colour. Scoped to `[type="radio"]`
+   only: a checkbox `.check-row` (autonomous tasks, battery mode) is a real
+   independent on/off switch and keeps its own visible control. The row
+   stays keyboard- and screen-reader-operable either way - this only ever
+   changes what's painted, `<label>` still toggles the (now invisible)
+   input on click same as before. */
+.check-row input[type="radio"] {
+  /* Same recipe as `.visually-hidden` (clipped, not display:none - that
+     would drop it from the accessibility tree and, worse, out of the
+     radio group's own native arrow-key navigation between options). */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .check-row:hover {

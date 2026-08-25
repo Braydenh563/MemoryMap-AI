@@ -36,7 +36,7 @@ def test_status_with_all_ai_down(client):
 
 def test_suggested_catalog(client):
     body = client.get("/models/suggested").json()
-    assert "llama3.2" in [m["name"] for m in body["chat"]]
+    assert "llama3.2" in [m["name"] for m in body["text"]]
     assert "nomic-embed-text" in [m["name"] for m in body["embedding"]]
 
 

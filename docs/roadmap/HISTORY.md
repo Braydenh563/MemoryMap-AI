@@ -4513,3 +4513,29 @@ All three verified with Playwright measurements and screenshots, not
 assumed from the CSS reading alone — `test_style_scale.py`,
 `test_frontend_ids.py`, `test_frontend_handlers.py` and `ruff check .`
 all still pass.
+
+## §89's "already built" callouts, moved from ROADMAP.md
+
+ROADMAP.md's §89 kept growing an inline "already built this session, check
+before rebuilding" callout every time something logged there got fixed in
+the same sitting. Moved here wholesale once it started crowding the file's
+2000-line ceiling — this is what that file exists for.
+
+A toast/notification close (X) button (`toastCloseButton`, app.js), and the
+Ask sub-tab's history panel close (X) button (`#ask-history-close`). Both
+shipped in the "Generalize back-to-top button positioning..." commit.
+
+The Library gallery's image caption Show more/less toggle no longer
+collapses the caption into an unreadably short box the moment you click to
+edit it (the clamp class survived into edit mode and squashed the
+`<textarea>`); and the Library Documents sub-tab's tick/⋯ menu were
+restyled to match `libraryCard()`'s own shape exactly — both living inside
+the row (an `<article role="button">`, not a `<button>`, since a button
+cannot contain another button) with the ⋯ only revealed on hover/focus,
+instead of two permanent flex siblings squeezed in beside the row.
+
+The graph's "similar notes" highlight got its own clear button
+(`#graph-highlight-clear`, same shape as Focus Mode's own), and the graph
+popup's "Link" button now actually completes a link on a plain node click
+(`linkSource` was never read anywhere in graph.js before) — both were
+logged as open items in §89 first, then fixed in the same session.

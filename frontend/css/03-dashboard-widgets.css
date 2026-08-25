@@ -1899,6 +1899,8 @@
 .segmented-control label {
   cursor: pointer;
   padding: 0.25rem 0.6rem;
+  /* Contains the radio-hiding rule's own `position: absolute` below. */
+  position: relative;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--muted);
@@ -1916,8 +1918,20 @@
 }
 
 .segmented-control input[type="radio"] {
-  display: none;
-  /* Hide the native radio circle */
+  /* Hide the native radio circle - clipped rather than display:none, which
+     would drop it from the accessibility tree and the group's own native
+     arrow-key navigation between options (same fix as .check-row's own
+     radio-hiding rule, 06-timeline-dialogs.css). */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .segmented-control input[type="radio"]:checked+span,

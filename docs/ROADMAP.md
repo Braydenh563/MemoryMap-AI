@@ -902,25 +902,9 @@ Landed live, in one long session, alongside the app.js split's first file
 `routes_chat._image_caption_context` — a chat model with no vision of its
 own now gets a caption from the resolved vision model folded into the
 question, instead of the whole turn silently swapping to a different model).
-**Already built this same session, despite being asked for in the same
-message as items below — check before rebuilding:** a toast/notification
-close (X) button (`toastCloseButton`, app.js), and the Ask sub-tab's history
-panel close (X) button (`#ask-history-close`). Both shipped in the
-"Generalize back-to-top button positioning..." commit. Also built later the
-same session: the Library gallery's image caption Show more/less toggle no
-longer collapses the caption into an unreadably short box the moment you
-click to edit it (the clamp class survived into edit mode and squashed the
-`<textarea>`); and the Library Documents sub-tab's tick/⋯ menu were
-restyled to match `libraryCard()`'s own shape exactly — both living inside
-the row (an `<article role="button">`, not a `<button>`, since a button
-cannot contain another button) with the ⋯ only revealed on hover/focus,
-instead of two permanent flex siblings squeezed in beside the row. Also
-built later the same session: the graph's "similar notes" highlight now has
-its own clear button (`#graph-highlight-clear`, same shape as Focus Mode's
-own), and the graph popup's "Link" button now actually completes a link on
-a plain node click (`linkSource` was never read anywhere in graph.js
-before) — both were logged as open items here first, then fixed in the
-same session; check before re-diagnosing either.
+**Several items below were asked for again after already being built the
+same session — check `roadmap/HISTORY.md`'s own "§89's already built
+callouts" entry before rebuilding anything that sounds finished.**
 
 **Still open:**
 
@@ -1110,6 +1094,15 @@ same session; check before re-diagnosing either.
     calls in this app are still synchronous/blocking-the-request today
     (chat streaming already isn't, by its nature) before deciding whether
     this becomes a standing pattern applied elsewhere or stays per-feature.
+
+12. **Whiteboard cut, and a right-click/long-press menu for a selection.**
+    Asked as a question. Copy/paste already exist (`wbCopySelection`/
+    `wbPasteClipboard`, Ctrl/Cmd+C/V) - cut does not (no Ctrl/Cmd+X handler
+    anywhere in whiteboard.js). No right-click menu for a selected item
+    either; `contextmenu` is only wired to one toolbar toggle button
+    (`wbOpenDockedMenu`, with its own touch long-press equivalent already
+    built) - that same pattern is the natural template for a selection's
+    own copy/cut/delete menu, not a new one.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

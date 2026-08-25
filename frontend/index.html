@@ -613,6 +613,12 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="ask-history-clear" class="ghost small" type="button"
                 title="Delete your question history (pinned questions are kept)">
                 <i class="ph ph-trash ph-lead" aria-hidden="true"></i> Clear</button>
+              <!-- Asked for directly: closing this used to mean clicking the
+                   History toggle above again - not obvious once this panel
+                   is open and that button is out of the immediate view. -->
+              <button id="ask-history-close" class="ghost small icon-button" type="button"
+                title="Close question history" aria-label="Close question history">
+                <i class="ph ph-x" aria-hidden="true"></i></button>
             </div>
             <ul id="ask-history-list" class="ask-history-list"></ul>
             <p id="ask-history-empty" class="muted hidden">
@@ -680,6 +686,16 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="az">A → Z</option>
               <option value="most-used">Most used</option>
             </select>
+            <!-- BACKLOG §77 item 1: a page-size preference and a page
+                 selector, distinct from §86's scroll-chunking (that stays
+                 one continuous scroll and is unaffected by this). "All"
+                 keeps today's behaviour and is the default. -->
+            <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
+              <option value="all">All notes</option>
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+              <option value="100">100 per page</option>
+            </select>
           </div>
           <!-- Batch actions bar: appears in select mode -->
           <div id="batch-bar" class="row hidden">
@@ -706,6 +722,11 @@ Link to another note with [[its first few words]]."></textarea>
             </ul>
           </div>
           <ul id="entry-list" class="entry-list"></ul>
+          <div id="notes-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Notes pages">
+            <button id="notes-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+            <span id="notes-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
+            <button id="notes-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
+          </div>
           <div id="empty-message" class="empty-state hidden">
             <span class="empty-icon" aria-hidden="true"><i class="ph ph-note-pencil" aria-hidden="true"></i></span>
             <p class="empty-title">Your notebook is empty</p>
@@ -857,6 +878,11 @@ Link to another note with [[its first few words]]."></textarea>
                  depend on how many notes you had clipped. -->
             <div id="chat-attachments" class="chat-attachments hidden"
               role="group" aria-label="Notes attached to your next message"></div>
+            <!-- Vision-capable models (ROADMAP.md's largest open item). Its
+                 own line for the same reason chat-attachments is: a variable
+                 number of thumbnails, not a fixed-height control. -->
+            <div id="chat-image-attachments" class="chat-attachments hidden"
+              role="group" aria-label="Images attached to your next message"></div>
             <!-- One strip, four groups, hairlines between them.
                  It was three stacked rows — skills, then controls, then the
                  composer — which is most of the height of a short
@@ -964,6 +990,14 @@ Link to another note with [[its first few words]]."></textarea>
                     <strong>What this persona tells the AI</strong>
                     <p id="persona-prompt-text"></p>
                   </div>
+                  <!-- Used to live as a repeated icon buried in every single
+                       answer's own "N matching notes" disclosure - reported
+                       directly ("needs to be...made an actual button in the
+                       chat tab" rather than metadata on each message). Same
+                       destination (openSettingsModal's search-relevance
+                       group) as one persistent control here instead. -->
+                  <button id="chat-tune-search" class="ghost small" type="button"
+                    title="Adjust how strict or loose note matching is"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i> Tune search sensitivity</button>
                   <!-- Manual (step-through) mode: a pause after every completed
                        step with a Continue button and a text box, rather than a
                        skill running straight through five steps unattended.
@@ -1000,6 +1034,16 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
             </div>
+            <!-- Vision-capable models: attach a photo for a model that
+                 declares the "vision" capability (Settings → Models shows
+                 which do). A hidden file input behind a button, same shape
+                 as the note picker beside it. -->
+            <button id="attach-image" class="ghost" type="button"
+              title="Attach an image for the AI to look at"
+              aria-label="Attach an image"><i class="ph ph-image" aria-hidden="true"></i></button>
+            <input id="chat-image-input" type="file" class="visually-hidden"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" multiple
+              aria-label="Choose an image to attach">
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->
@@ -1302,6 +1346,10 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Contextual: each appears only in the mode it exits, so they sit
                apart from the permanent controls rather than in a group. -->
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
+          <!-- The "≈ Similar" popup button (graph.js) sets graphHighlightIds
+               with no clear affordance of its own - reported directly. Same
+               shape as Exit Focus above: hidden until that state is active. -->
+          <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear Highlight</button>
           </div>
           <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
@@ -1920,7 +1968,7 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>Documents</h2>
           <div class="row">
             <input id="library-docs-search" type="search" placeholder="Search documents…"
-              aria-label="Search documents by title">
+              aria-label="Search documents by title or content">
             <button id="library-docs-new" class="small" type="button"
               title="Start a new document">＋ New document</button>
             <button id="library-docs-refresh" class="ghost small" type="button"
@@ -1931,6 +1979,21 @@ Link to another note with [[its first few words]]."></textarea>
           Everything you have written long-form. Open one to keep writing, or
           start a new one — the editor is the same either way.
         </p>
+        <!-- Reported: "can't rename, multi select, or delete documents in the
+             library subtab" - this list only ever had an Open button. The
+             "All" library view could already do all three for a document
+             (libraryActions/librarySelection); this bar and each row's own
+             ⋯ menu (built in whiteboard.js) are this view's own scoped copy
+             of the same three actions, not routed through the "All" view's
+             shared state (which this section never populates). -->
+        <div id="library-docs-selectbar" class="library-contextbar hidden" role="group"
+          aria-label="Actions for the selected documents">
+          <span id="library-docs-selected-count" class="library-selected-count"></span>
+          <span class="library-contextbar-end">
+            <button id="library-docs-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+            <button id="library-docs-clear-selection" class="ghost small" type="button">Done</button>
+          </span>
+        </div>
         <ul id="library-docs-list" class="doc-list"></ul>
         <p id="library-docs-empty" class="muted hidden">No documents yet — press ＋ New document to start one.</p>
       </section>
@@ -2736,6 +2799,22 @@ Link to another note with [[its first few words]]."></textarea>
                 model isn't tied up categorising every note. Point it at a
                 small fast model (e.g. llama3.2) and let a bigger one answer
                 your questions. Leave as “Same as chat model” to keep it simple.
+              </p>
+              <!-- Vision-capable models (ROADMAP.md's largest open item).
+                   Same "Same as X" shape the utility model above already
+                   uses, except the default resolves by capability rather
+                   than falling back to the chat model — a vision model is
+                   usually a different, heavier one kept just for photos. -->
+              <h3>Vision model (used when an image is attached in chat)</h3>
+              <div class="row">
+                <select id="vision-model-select" aria-label="Model used for images" title="Model used for images"></select>
+                <button id="vision-model-apply" class="small">Use this model</button>
+              </div>
+              <p id="vision-model-note" class="status"></p>
+              <p class="muted">
+                “Auto-detect” uses the first installed model that reports it
+                can see images. Pick one by hand if you have several, or if
+                auto-detect isn't finding the one you want.
               </p>
             </div>
 
@@ -4484,6 +4563,16 @@ Link to another note with [[its first few words]]."></textarea>
 
   <script src="/graph.js"></script>
   <script src="/app.js"></script>
+  <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
+       Loaded after app.js and shares its global scope; the two directions
+       differ. app.js calls INTO this file (loadDocuments, renderDocStorage,
+       createDocument) only from inside its own functions/closures, never at
+       parse time, so app.js loading first is not load-bearing for those.
+       The one call that WAS parse-time — a bare top-level
+       `initDocSidebarTabs();` sitting in app.js's own wiring block — moved
+       here with the function itself, so this file now calls it on its own
+       last line instead of app.js calling it mid-file. -->
+  <script src="/documents.js"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every
        cross-file call between the two happens at runtime (inside a
@@ -4494,9 +4583,10 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every
-       cross-file call happens at runtime, never at parse time, and it reads
-       app.js globals (MD_ACTIONS, allEntries, markDocDirty) rather than the
-       other way round. -->
+       cross-file call happens at runtime, never at parse time. It reads
+       allEntries from app.js, and MD_ACTIONS/markDocDirty from documents.js
+       (loaded above) — all runtime reads inside closures, so this ordering
+       relative to documents.js isn't load-bearing either. -->
   <script src="/editor.js"></script>
 </body>
 </html>

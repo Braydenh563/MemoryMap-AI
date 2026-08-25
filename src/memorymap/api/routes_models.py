@@ -41,6 +41,12 @@ class UtilityModelBody(BaseModel):
     name: str = ""
 
 
+class VisionModelBody(BaseModel):
+    # "" means "auto-detect" — the first installed model that declares the
+    # "vision" capability. See ModelManager.resolve_vision_model.
+    name: str = ""
+
+
 class ProviderBody(BaseModel):
     """Which backend serves the chat model, and where it lives (§6).
 
@@ -144,6 +150,13 @@ def status() -> dict:
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
         # "" means "same as chat model" (utility model).
         "utility_model": manager._config.get_preference("utility_model", ""),
+        # "" means "auto-detect" (vision model). The resolved field is what
+        # an image-carrying turn would actually use right now — None if
+        # nothing installed declares vision and no explicit choice is set —
+        # so Settings can show "auto — currently: llama3.2-vision" rather
+        # than making the user guess what auto-detect will do.
+        "vision_model": manager.vision_model(),
+        "vision_model_resolved": manager.resolve_vision_model(ollama, installed) if running else None,
         "embedding_backend": manager.embedding_backend(),
         # The Ollama model *setting* — only meaningful on that backend.
         "embedding_model": manager.embedding_model(),
@@ -264,6 +277,23 @@ def set_utility_model(body: UtilityModelBody, session: Session = Depends(get_ses
     log_action(session, "edited", "preferences", detail=f"utility_model={name or '(chat)'}")
     session.commit()
     return {"utility_model": name}
+
+
+@router.post("/vision-model")
+def set_vision_model(body: VisionModelBody, session: Session = Depends(get_session)) -> dict:
+    """Which model an image-carrying chat turn uses. Empty name = auto-detect
+    (the first installed model that declares the "vision" capability)."""
+    name = body.name.strip()
+    if name and deps.get_ollama().is_running():
+        if not _name_matches(name, _installed_models(True)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{name}' isn't available on {_backend_label()}",
+            )
+    deps.get_model_manager().set_vision_model(name)
+    log_action(session, "edited", "preferences", detail=f"vision_model={name or '(auto)'}")
+    session.commit()
+    return {"vision_model": name}
 
 
 @router.post("/provider")

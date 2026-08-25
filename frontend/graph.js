@@ -1322,11 +1322,25 @@ async function renderGraph() {
       graphIsPanning = true;
       graphHoveredId = null;
       applyGraphHighlight();
+      // Profiled directly (120 notes, Chromium CDP metrics): a pan drag cost
+      // noticeably more main-thread recalc-style time than an idle baseline,
+      // even though `graphIsPanning` above already mutes the *application's*
+      // hover logic. The gap is the browser's own `:hover` pseudo-class —
+      // every node the cursor physically sweeps under during the drag still
+      // matches `.graph-node:hover`, which re-triggers CSS transitions
+      // (`.graph-core`'s `stroke`/`stroke-width`, `.graph-halo`'s `opacity`)
+      // per node, invisible to any JS mute. `pointer-events: none` for the
+      // gesture's duration removes that hit-testing entirely; node drags
+      // never reach here (their own `mousedown` already calls
+      // `stopPropagation()` before the zoom behaviour's `start` fires), so
+      // this cannot affect them.
+      canvas.classed("graph-panning", true);
     })
     .on("end", () => {
       graphIsPanning = false;
       graphHoveredId = null;
       applyGraphHighlight();
+      canvas.classed("graph-panning", false);
     })
     .on("zoom", (event) => {
       canvas.attr("transform", event.transform);
@@ -1405,6 +1419,18 @@ async function renderGraph() {
     ? null
     : d3
     .forceSimulation(nodes)
+    // Profiled directly (120 notes, Chromium CDP metrics under 6x CPU
+    // throttling — the standard proxy for lower-end hardware): a pan/drag
+    // *while the simulation is still cooling* cost 80% main-thread busy
+    // time; the same gesture after it had settled cost 57%. The tick
+    // handler updates every node/edge/label position on every tick, so it
+    // directly competes with whatever the user is doing — and the default
+    // decay (0.0228) takes ~300 ticks, which under real throttling is many
+    // seconds, squarely covering "pan right after the graph opens", the
+    // single most likely first action. A faster decay does not change
+    // where the layout settles (the forces above decide that) — only how
+    // many ticks it takes to get there, which is the actual jank window.
+    .alphaDecay(0.05)
     .force(
       "link",
       d3
@@ -1633,6 +1659,17 @@ async function renderGraph() {
       if (traceModeActive) {
         event.stopPropagation();
         pickTraceEnd(d);
+        return;
+      }
+      // Same gap Trace had before the branch above: the popup's own "Link"
+      // button sets `linkSource` and its toast says "click another note on
+      // the map to link them", but nothing here ever read `linkSource` -
+      // so that click just opened the second note's popup instead of
+      // completing the link. Reported directly ("doesn't properly function
+      // when I try to click on another note to link it").
+      if (linkSource !== null) {
+        event.stopPropagation();
+        beginOrCompleteLink(d);
         return;
       }
       openGraphPopup(event, d);
@@ -2227,6 +2264,12 @@ function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
   if (query) graphHighlightIds = null; // typing takes over the spotlight
+  // Reported: no way to cancel the "≈ Similar" highlight - it only ever
+  // reset as a side effect of something else (typing over it, or a full
+  // refresh). Same shape as #graph-focus-clear: shown exactly while there's
+  // something to clear, synced here since this is the one function every
+  // path that sets or resets graphHighlightIds already runs through.
+  $("graph-highlight-clear")?.classList.toggle("hidden", !graphHighlightIds);
   // A traced path is the strongest spotlight there is: it is the answer to a
   // question that was just asked, so it outranks a search box someone typed in
   // earlier. Everything not on the chain dims, which is what makes a six-note

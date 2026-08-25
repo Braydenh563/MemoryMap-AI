@@ -1124,6 +1124,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-md);
 }
 
+/* The global `select { width: 100% }` base rule (01-forms-settings.css) is
+   right for a form field and wrong here: a <select> that shrinks correctly
+   while sharing a flex line with its toolbar siblings (note-sort measured
+   correctly at ~160px) stretches to the *entire row's width* the moment it
+   is alone on a wrapped line — nothing left to shrink it against. Caught
+   adding the Notes-tab page-size select (BACKLOG §77): at common widths it
+   wraps under Sort and, without this, fills the full toolbar. `.library-search`
+   is deliberately not included — that one *should* fill the remaining row. */
+.library-toolbar select {
+  width: auto;
+}
+
 .library-toolbar .seg {
   display: inline-flex;
   align-items: center;
@@ -1653,7 +1665,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile .library-image-edit,
-.library-image-tile .library-image-delete {
+.library-image-tile .library-image-delete,
+.library-image-tile .library-image-caption-btn {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -1747,6 +1760,74 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-tile figcaption:hover {
   color: var(--accent);
+}
+
+/* A vision model's own description of the image, below the filename —
+   deliberately not <figcaption> (that already names the filename above;
+   this is metadata about what's IN the picture, not what it's called).
+   Clamped to two lines by default so one long caption doesn't grow a single
+   tile taller than its grid siblings - unconditionally at first, with no way
+   to read the rest (reported: "the image caption can't be expanded or
+   collapsed"). Now matches the app's existing long-text pattern
+   (`.entry-clamped` on the Notes list, `.wb-card-content-clamped` on a
+   whiteboard's attached notes): the clamp only applies while
+   `.library-image-caption-clamped` is present, and whiteboard.js toggles it
+   off/on with a "Show more"/"Show less" button for a caption long enough to
+   need one. */
+.library-image-caption {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  cursor: text;
+}
+
+.library-image-caption.library-image-caption-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.library-image-caption-empty {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* `.entry-more`'s own negative margin-top assumes it directly follows
+   clamped text inside a padded <li> - here it's a sibling of the caption
+   <p>, not a child, so it needs the caption's own horizontal padding
+   repeated rather than inherited. Reported: sat with no visible gap above
+   the caption text. The caption's own bottom padding (space-3) already
+   separates its *last line* from whatever comes next when there's no
+   button there at all - this adds `space-2` of its own top padding on top
+   of that, so the two stack into a real gap specifically when the button
+   is shown, rather than the button sitting flush against the text above
+   it. */
+/* Compound selector, not just `.library-image-caption-more`: `.entry-more`
+   (06-timeline-dialogs.css, loaded after this file) sets its own
+   `padding: 0.1rem 0`, and same-specificity same-property rules resolve by
+   source order - so a single-class selector here lost every time, and the
+   button sat flush against the card's edge (reported) no matter what padding
+   was written above. Two classes outweighs `.entry-more`'s one regardless of
+   load order. */
+.entry-more.library-image-caption-more {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  display: block;
+}
+
+.library-image-caption-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  resize: none;
 }
 
 /* Library → Drafts (§80 this session): one row per draft, same .entry-list

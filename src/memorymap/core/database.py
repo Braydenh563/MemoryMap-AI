@@ -236,6 +236,18 @@ class Entry(Base, WorkspaceMixin):
     # before its author comes back to it. Scalar default so the additive
     # auto-migrator backfills every existing row as not-a-draft.
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Where a clipped web-reader highlight came from (BACKLOG §65's
+    # "reader-mode capture" — the Kortex/Eden read's item 6). Real metadata
+    # now, not just a link folded into `content`: `saveSelectionAsNote`
+    # (app.js) still writes the same markdown blockquote-plus-link into the
+    # body too — a note is fundamentally plain markdown and must stay
+    # readable/exportable with no app behind it — but a queryable column is
+    # what lets a note card show a real "from the web" badge, or a future
+    # "show me everything I clipped from this site" filter, without parsing
+    # markdown to find out. Null means "not a clipping", same convention as
+    # every other optional column here.
+    source_url: Mapped[str | None] = mapped_column(String(2000), default=None)
+    source_title: Mapped[str | None] = mapped_column(String(300), default=None)
 
 
 class Entity(Base):
@@ -625,6 +637,14 @@ class MediaUpload(Base):
     #: Populated for raster images only (`ocr.OCR_SUFFIXES`); a PDF upload
     #: stays NULL forever, honestly — no page-rasterisation step exists.
     ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    #: A vision model's own description of the image (`ai/captioning.py`),
+    #: filled in on a background thread after upload — same NULL convention
+    #: as `ocr_text` above: "not captioned yet or no vision model available",
+    #: never distinguished, since neither blocks the upload. Written once and
+    #: left alone after that (a caption an AI or a person already read and
+    #: trusted must not silently change under them) unless the user presses
+    #: Regenerate — see `routes_files.caption_media`.
+    caption: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class UserPreference(Base):
@@ -736,10 +756,39 @@ def _ensure_alembic_baseline(db_path: Path) -> None:
         finally:
             probe_engine.dispose()
 
-        if current is None:
-            command.stamp(cfg, "head")
-        else:
-            command.upgrade(cfg, "head")
+        # migrations/env.py calls logging.config.fileConfig() every time
+        # command.stamp/upgrade below runs it, and that call unconditionally
+        # REPLACES the handler list (and resets the level) of every logger
+        # alembic.ini explicitly configures — root among them — regardless
+        # of disable_existing_loggers, which only protects loggers *not*
+        # listed there from being disabled. alembic.ini's own
+        # [logger_root] sets handlers = console, so this silently tore
+        # logbuffer.install()'s own handler off the root logger and
+        # replaced it with Alembic's plain console handler for the rest of
+        # this process's life — reported directly: the Settings -> Logs
+        # viewer showed nothing but Alembic's own plugin-registration
+        # lines, forever, because nothing the app itself logs reaches a
+        # handler that no longer exists. Same mechanism undid the
+        # WARNING level just set above ([logger_alembic] says INFO),
+        # which is why those plugin lines were visible at all. Restored
+        # here rather than in env.py itself, because a human running
+        # `alembic upgrade head` directly from a terminal *wants*
+        # fileConfig()'s effect to stick for that short-lived process —
+        # this restore only matters for the in-process caller, which is
+        # this function.
+        root_logger = logging.getLogger()
+        saved_root_handlers = list(root_logger.handlers)
+        saved_root_level = root_logger.level
+        saved_alembic_level = logging.getLogger("alembic").level
+        try:
+            if current is None:
+                command.stamp(cfg, "head")
+            else:
+                command.upgrade(cfg, "head")
+        finally:
+            root_logger.handlers = saved_root_handlers
+            root_logger.setLevel(saved_root_level)
+            logging.getLogger("alembic").setLevel(saved_alembic_level)
     except Exception:  # noqa: BLE001 — see docstring: never fatal to startup
         _logger.warning("Alembic baseline/upgrade step failed", exc_info=True)
 

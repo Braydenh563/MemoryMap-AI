@@ -98,6 +98,8 @@ def _to_out(
         user_filed=entry.user_filed,
         is_private=bool(getattr(entry, "is_private", False)),
         is_draft=bool(getattr(entry, "is_draft", False)),
+        source_url=getattr(entry, "source_url", None),
+        source_title=getattr(entry, "source_title", None),
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         archived_at=entry.archived_at,
@@ -218,6 +220,9 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.user_filed = True
     if body.is_draft:
         entry.is_draft = True
+    if body.source_url:
+        entry.source_url = body.source_url
+        entry.source_title = body.source_title
     session.commit()
 
     # Best effort: a failed embedding only means this entry is invisible

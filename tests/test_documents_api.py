@@ -46,6 +46,41 @@ def test_documents_past_the_old_200_cap_are_still_reachable(client):
     assert len(client.get("/documents").json()) == 205
 
 
+def test_documents_search_matches_the_title(client):
+    client.post("/documents", json={"title": "Sourdough notes", "content": "starter"})
+    client.post("/documents", json={"title": "Trip planning", "content": "flights"})
+    titles = [d["title"] for d in client.get("/documents?q=sourdough").json()]
+    assert titles == ["Sourdough notes"]
+
+
+def test_documents_search_matches_content_not_only_title(client):
+    """The gap `GET /documents?q=` exists to close: `_summary()` never sends
+    a document's body to the browser, so client-side filtering alone could
+    only ever match a title — the AI's own `_list_documents` tool already
+    searched title *and* content; this mirrors it rather than a title-only
+    filter reachable from the API."""
+    client.post("/documents", json={"title": "Untitled", "content": "carbonara guanciale"})
+    client.post("/documents", json={"title": "Untitled", "content": "unrelated"})
+    hits = client.get("/documents?q=guanciale").json()
+    assert len(hits) == 1
+
+
+def test_documents_search_is_case_insensitive(client):
+    client.post("/documents", json={"title": "Sourdough", "content": ""})
+    assert len(client.get("/documents?q=SOURDOUGH").json()) == 1
+
+
+def test_documents_search_with_no_matches_is_an_empty_list_not_an_error(client):
+    client.post("/documents", json={"title": "Sourdough"})
+    assert client.get("/documents?q=nonexistentxyz").json() == []
+
+
+def test_documents_empty_q_behaves_like_no_q_at_all(client):
+    client.post("/documents", json={"title": "A"})
+    client.post("/documents", json={"title": "B"})
+    assert len(client.get("/documents?q=").json()) == 2
+
+
 def test_documents_never_show_up_as_notes(client):
     """A document is not a captured thought; it must stay out of note search."""
     client.post("/documents", json={"title": "Essay", "content": "carbonara guanciale"})

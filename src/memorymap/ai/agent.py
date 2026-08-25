@@ -602,6 +602,7 @@ def build_agent_messages(
     persona_prompt: str | None = None,
     budget: "context.ContextBudget | None" = None,
     mode: str | None = None,
+    images: list[str] | None = None,
 ) -> list[dict]:
     """Like librarian.build_messages, but the system prompt allows
     acting, and each note shows its id so tools can target it.
@@ -667,7 +668,10 @@ def build_agent_messages(
             f"{'' if dropped_notes == 1 else 's'} did not fit — use search_notes "
             f"or get_note if you need them.)\n\n"
         )
-    messages.append({"role": "user", "content": f"{body}My request: {question}"})
+    user_message = {"role": "user", "content": f"{body}My request: {question}"}
+    if images:
+        user_message["images"] = images
+    messages.append(user_message)
     return messages
 
 
@@ -811,6 +815,9 @@ def run_agent(
     exhausted_note: str | None = None,
     mode: str | None = None,
     use_utility_model: bool = False,
+    images: list[str] | None = None,
+    model_override: str | None = None,
+    image_context: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -832,7 +839,9 @@ def run_agent(
     # Overflow is dropped from the FRONT, so the failure is not an error — it
     # is the model quietly losing its system prompt and answering from nothing.
     report = getattr(ollama, "usable_context", None)
-    agent_model = model_manager.utility_model() if use_utility_model else model_manager.chat_model()
+    agent_model = model_override or (
+        model_manager.utility_model() if use_utility_model else model_manager.chat_model()
+    )
     window = report(agent_model) if callable(report) else None
     persona = _persona_with_memory(session, persona_prompt)
 
@@ -845,8 +854,13 @@ def run_agent(
     )
     logging.getLogger("memorymap.agent").info(budget.as_log_line())
 
+    # Same fallback as librarian.answer()/converse(): a vision model's own
+    # caption of an attached image, for when agent_model above can't see the
+    # image itself — folded into the question text here rather than mutating
+    # `question` in place, since later rounds of this same loop reuse it.
+    full_question = f"{question}\n\n{image_context}" if image_context else question
     messages = build_agent_messages(
-        question,
+        full_question,
         notes,
         style=style,
         profile=profile,
@@ -854,6 +868,7 @@ def run_agent(
         persona_prompt=persona,
         budget=budget,
         mode=mode,
+        images=images,
     )
     # A skill's declared tools are the only ones offered for its run: fewer
     # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.
@@ -961,18 +976,32 @@ def run_agent(
         except ToolsUnsupportedError:
             yield {"type": "unsupported"}
             return
-        except OllamaError:
+        except OllamaError as exc:
             # Mid-answer death: say so, but don't wipe what already streamed.
             # `offline: True` alongside the normal answer shape (Tier 1 §3) —
             # an ordinary chat turn renders this exactly like any other
-            # answer and needs no change, but skill_runner cannot tell an
-            # "Ollama is offline" boilerplate message apart from a real
-            # answer without it, and was ticking the step "done" and moving
-            # on to repeat the identical failure on every later step.
+            # answer and needs no change, but skill_runner cannot tell this
+            # boilerplate apart from a real answer without it, and was
+            # ticking the step "done" and moving on to repeat the identical
+            # failure on every later step. `skill_runner` only ever checks
+            # this flag's truthiness (never the message text), so swapping
+            # in the real error below changes nothing about that contract.
+            #
+            # This used to be librarian.OFFLINE_MESSAGE unconditionally —
+            # "Ollama doesn't seem to be running" — which is simply false
+            # whenever this except is reached at all (the loop had already
+            # gotten at least one successful round trip to be here) and the
+            # same misdiagnosis routes_chat.py's plain_events() had for the
+            # Ask mode (see librarian.model_error_message's own docstring).
+            # Logged too, for the same reason that fix added logging: this
+            # failure used to reach the chat bubble but never Settings → Logs.
+            logging.getLogger("memorymap.chat").warning(
+                "agent: model call failed for %r: %s", agent_model, exc
+            )
             prefix = "\n\n" if streamed_any else ""
             yield {
                 "type": "answer",
-                "delta": f"{prefix}{librarian.OFFLINE_MESSAGE}",
+                "delta": f"{prefix}{librarian.model_error_message(agent_model, exc)}",
                 "offline": True,
             }
             return

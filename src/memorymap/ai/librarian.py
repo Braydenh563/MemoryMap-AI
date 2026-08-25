@@ -9,12 +9,47 @@ from __future__ import annotations
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.core.logbuffer import safe_value
 
 OFFLINE_MESSAGE = (
     "The AI answer isn't available right now (Ollama doesn't seem to be "
     "running), but here are the notes that match your question."
 )
 NO_RESULTS_MESSAGE = "I couldn't find any saved notes matching that question."
+
+
+def model_error_message(model: str, error: Exception) -> str:
+    """What to show when the model call itself failed mid-turn — distinct
+    from OFFLINE_MESSAGE, and never a substitute for it.
+
+    Reported directly, and confirmed by tracing the exact code path: a turn
+    that failed *after* the liveness check already passed (`ollama.is_running()`
+    succeeded, so the model name and a real elapsed time show in the message
+    metadata line) was still shown OFFLINE_MESSAGE — "Ollama doesn't seem to
+    be running" — which is simply false in that case and reads as an
+    accusation against the model or Ollama itself when the real cause could
+    be anything a live backend can reject a request for (the model tag isn't
+    actually pulled, a template/architecture the backend can't run, a
+    malformed request). OFFLINE_MESSAGE stays exactly what it was for the
+    one place that's actually true: the `ollama_running` check itself came
+    back negative, before any model was ever named. This is for every other
+    failure, and says what actually happened instead of guessing.
+
+    `error` is interpolated through `safe_value` (CodeQL: "information
+    exposure through an exception") rather than straight into the string.
+    `OllamaError`'s own message is already a controlled f-string, not a raw
+    traceback, but the object reaching this function is typed as the base
+    `Exception` — some standard-library exceptions embed things in their own
+    `str()` that don't belong in a message shown back to whoever is running
+    this session (a file path, a connection detail), and there is nothing
+    here that verifies which subclass actually arrived. Same sanitiser the
+    Settings -> Logs viewer already trusts for exactly this: strip control
+    characters that could forge a rendered line, cap the length so one huge
+    message can't dominate the reply."""
+    return (
+        f"The model ({model}) couldn't answer this — "
+        f"{safe_value(error)}"
+    )
 
 # The persona is WHO the assistant is; the grounding is non-negotiable
 # and survives any persona swap — answers always come from the notes.
@@ -212,6 +247,7 @@ def build_conversational_messages(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     mode: str | None = None,
+    images: list[str] | None = None,
 ) -> list[dict]:
     """Prompt for a message that isn't about the notebook.
 
@@ -233,7 +269,10 @@ def build_conversational_messages(
         }
     ]
     messages.extend(history_messages(history))
-    messages.append({"role": "user", "content": question})
+    user_message = {"role": "user", "content": question}
+    if images:
+        user_message["images"] = images
+    messages.append(user_message)
     return messages
 
 
@@ -261,6 +300,7 @@ def build_messages(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     mode: str | None = None,
+    images: list[str] | None = None,
 ) -> list[dict]:
     """The librarian's prompt — shared by the blocking and streaming
     chat endpoints so they can never drift apart.
@@ -305,12 +345,13 @@ def build_messages(
         if any(note.get("attached") for note in notes)
         else ""
     )
-    messages.append(
-        {
-            "role": "user",
-            "content": f"My notes:\n{numbered}\n\nMy question: {question}{attached_hint}",
-        }
-    )
+    user_message = {
+        "role": "user",
+        "content": f"My notes:\n{numbered}\n\nMy question: {question}{attached_hint}",
+    }
+    if images:
+        user_message["images"] = images
+    messages.append(user_message)
     return messages
 
 
@@ -325,31 +366,49 @@ def answer(
     persona_prompt: str | None = None,
     use_utility_model: bool = False,
     mode: str | None = None,
+    images: list[str] | None = None,
+    model_override: str | None = None,
+    image_context: str | None = None,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
     retrieved `notes` (dicts with 'content' and 'category').
 
     `use_utility_model` routes background jobs (the weekly digest) to the
-    small fast model instead of the main chat model."""
-    if not notes:
+    small fast model instead of the main chat model. `model_override` and
+    `images`/`image_context` are routes_chat.py's own resolution of an
+    image-carrying turn, and are mutually exclusive: when the model this
+    turn would use can see an image directly, `images` carries the raw data
+    URIs and `model_override` is usually unset (the chat model handles it
+    itself); when it can't, `image_context` carries a vision model's own
+    caption of the image instead, folded into the question text, and
+    `images` stays empty — asked for directly, so a chat model with no
+    vision of its own still "sees" what was attached without silently
+    swapping the whole turn to a different model the user did not choose."""
+    # An attached image (raw, or captioned into image_context) and "no
+    # matching notes" are unrelated: "what's in this photo" has nothing to
+    # do with the notebook and should never hit NO_RESULTS_MESSAGE just
+    # because retrieval (which never sees the image) came back empty.
+    if not notes and not images and not image_context:
         return NO_RESULTS_MESSAGE, None
     if not ollama.is_running():
         return OFFLINE_MESSAGE, None
 
-    model = (
+    model = model_override or (
         model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     )
+    full_question = f"{question}\n\n{image_context}" if image_context else question
     try:
         reply = ollama.chat(
             model,
             build_messages(
-                question,
+                full_question,
                 notes,
                 style=style,
                 profile=profile,
                 history=history,
                 persona_prompt=persona_prompt,
                 mode=mode,
+                images=images,
             ),
             mode=mode,
         )
@@ -403,25 +462,35 @@ def converse(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     mode: str | None = None,
+    images: list[str] | None = None,
+    model_override: str | None = None,
+    image_context: str | None = None,
 ) -> tuple[str, str | None]:
     """Reply to a message that isn't a question about the notebook.
 
     Deliberately never touches retrieved notes: this is the path that stops
     "hey" being answered with a summary of the user's notebook.
-    """
+
+    `images`/`model_override`/`image_context` mirror `answer()`'s own
+    (routes_chat.py resolves them the same way for both — a casual "what's
+    this?" with a photo attached used to drop the photo entirely here, since
+    this path never accepted images at all before now)."""
     if not ollama.is_running():
         return (OFFLINE_ABOUT_APP if intent == "about_app" else OFFLINE_SMALLTALK), None
+    model = model_override or model_manager.chat_model()
+    full_question = f"{question}\n\n{image_context}" if image_context else question
     try:
         reply = ollama.chat(
-            model_manager.chat_model(),
+            model,
             build_conversational_messages(
-                question,
+                full_question,
                 intent,
                 style=style,
                 profile=profile,
                 history=history,
                 persona_prompt=persona_prompt,
                 mode=mode,
+                images=images,
             ),
             mode=mode,
         )

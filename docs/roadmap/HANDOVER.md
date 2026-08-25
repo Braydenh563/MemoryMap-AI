@@ -1,6 +1,171 @@
 # Session handover
 
-## Latest session (continued) — Alembic infrastructure, a new skill, and three more stale-doc corrections (two of them major)
+## Same session, continued — the Settings→Logs viewer bug, and two more live fixes
+
+Two more real bugs found and fixed after the entry below was written, plus
+one investigated and correctly **not** fixed (see why, below):
+
+- **Settings → Logs showed nothing but Alembic's own plugin-registration
+  lines, forever, after every startup.** Reported directly. The previous
+  session's Alembic logging fix (`disable_existing_loggers=False`,
+  `migrations/env.py`) was necessary but not sufficient: Python's
+  `fileConfig()` unconditionally *replaces* the handler list (and resets
+  the level) of every logger `alembic.ini` explicitly configures — root
+  among them — regardless of that flag, which only protects loggers *not*
+  listed there from being disabled. `alembic.ini`'s own `[logger_root]`
+  sets `handlers = console`, so every call to `_ensure_alembic_baseline()`
+  (`core/database.py`, every app startup) silently tore `logbuffer.install()`'s
+  own handler off the root logger and replaced it with Alembic's plain
+  console handler — and the same mechanism reset the `alembic` logger's
+  level back to `INFO` from the `WARNING` the function sets moments
+  earlier, which is why the plugin lines showed up at all. Fixed by saving
+  and restoring root's handlers/level and the alembic logger's level around
+  `command.stamp`/`command.upgrade` in `_ensure_alembic_baseline()` itself
+  — not in `env.py`, since a human running `alembic upgrade head` directly
+  from a terminal *wants* `fileConfig()`'s effect to stick for that
+  short-lived process. New regression test
+  (`test_ensure_alembic_baseline_does_not_evict_the_app_s_own_log_handler`)
+  confirmed failing against the unfixed code before the fix, passing after.
+  Live-verified: hit a fresh server's `/logs` endpoint after startup and
+  confirmed `uvicorn.access`, `uvicorn.error`, `memorymap.embeddings` and
+  `sentence_transformers` records all present alongside Alembic's, not just
+  Alembic's.
+- **The chat-dock web-search toggle stayed visibly "off" (dimmed) after
+  turning web search on from Settings**, only updating once clicked
+  directly or the page reloaded. `saveWebSearchSettings()` (Settings'
+  own save handler) updated `prefsCache` but never called
+  `renderWebSearchToggle()` — the chat-dock button's own click handler
+  already keeps the Settings checkbox in sync going the *other* direction,
+  but nothing synced it back. One added call fixes it; live-verified.
+- **"The AI failed to answer in the Ask chat mode"** — investigated at
+  length, not fixed, and should not be guessed at further without more
+  information. A user screenshot showed a real answer attempt (a specific
+  model name and a real timing, `367 ms`) alongside `librarian.OFFLINE_MESSAGE`
+  ("Ollama doesn't seem to be running") — that text only appears when
+  `ollama.chat_stream()` itself raises `OllamaError` mid-generation
+  (`routes_chat.py`'s `plain_events()`), which means the liveness check
+  passed but the actual model call failed fast. The model in the
+  screenshot was a custom `hf.co/mradermacher/...-GGUF` import — a shape
+  with real, independent compatibility failure modes (chat template,
+  quantisation, memory) that this app's own code has no way to diagnose
+  further from here. Reproduced the *same code path* successfully end to
+  end with `fake_ollama` (which simulates a running, tool-capable backend)
+  and got a clean full answer through the exact routing this session's
+  vision-chat redesign changed — that rules out a routing regression from
+  this session's own edits with real confidence, but does not rule out a
+  genuine issue with the user's specific model. Next session: ask what the
+  model actually is and whether `ollama run <that model>` works directly
+  from their own terminal, rather than re-guessing at app code.
+
+Two more items logged to ROADMAP.md §89 without being investigated further
+(a request for a per-message Ask/Request mode indicator, and a real,
+diagnosed-but-not-yet-fixed bug where pasting/dragging an image into the
+chat composer bypasses the vision-chat staging system entirely — the
+generic paste/drop handler at app.js:~26800 matches any `<textarea>` by tag
+name, `#chat-input` included, so it inserts markdown-image placeholder text
+into the message itself instead of routing through `attachImageFiles()`).
+
+## Previous session — documents.js split, four live-reported bugs fixed, vision chat redesigned around captions
+
+Read [ROADMAP.md's §89](../ROADMAP.md#89--reported-this-session-not-yet-built-start-here-next)
+first — it is the actual work queue this session leaves behind, ranked. This
+entry is the narrative behind it. Ended because the user's own usage ran low,
+not because the queue is empty.
+
+**Built and verified (full pytest suite green, ruff clean, live-checked in
+this sandbox's Chromium where noted):**
+
+- **`documents.js` split out of `app.js`** (§88.3's first file). Found and
+  fixed a real load-order hazard doing it: `initDocSidebarTabs()` was called
+  from a bare top-level line in `app.js`'s own wiring — moving only the
+  function's *definition* out would have thrown `ReferenceError` and aborted
+  the rest of `app.js`'s synchronous top-level code. Fixed by moving the
+  call site too. `library.js`/`dashboard.js`/`settings.js` are still to do,
+  in that order — see §88.3.
+- **A black vertical bar on the right edge of the desktop (WebView2) window**,
+  reported with a screenshot. Root cause: `scrollbar-gutter: stable` on
+  `<html>`, added years ago to stop a real scrollbar's layout shift, but
+  scrolling moved off the window entirely since then (§36A) — the gutter it
+  reserved could never be filled by an actual scrollbar again, so it was
+  just permanent unstyled space outside `<html>`'s own box. Confirmed the
+  underlying condition directly (measured `<html>`'s rendered width against
+  the viewport, with and without the rule) rather than guessing from the
+  screenshot alone.
+- **A pip crash on Windows** (`start.bat`), reported with a full traceback:
+  the batch variable `PIP_LOG` collided with pip's own `PIP_<OPTION>`
+  environment-variable convention (`PIP_LOG` → `--log`), so pip tried to
+  write its own verbose log to the same file `start.bat`'s `2>>` redirect
+  already had open, and Windows' exclusive locking turned pip's log
+  rotation into a `PermissionError`. Renamed to `MM_PIP_LOG`.
+- **Image captions in the Library gallery couldn't be expanded or
+  collapsed** — hard 2-line clamp, no toggle. Added the same Show more/less
+  pattern the Notes list and whiteboard note cards already use.
+- **The Library's Documents sub-tab had no rename, multi-select, or
+  delete** despite the "All" library view already having all three for a
+  document. Added a per-row ⋯ menu and a scoped multi-select + bulk-delete
+  bar (deliberately *not* routed through the "All" view's own
+  `librarySelection`/`libraryItems`, which this sub-tab never populates —
+  would have looked selected while silently deleting nothing).
+- **Back-to-top button positioning generalized to every tab.** Was special-
+  cased to Library and Notes only; screenshotted overlapping a scrollbar and
+  note text on Notes' "Your notes" and "Ask" sub-tabs, and effectively
+  unreachable on tabs like Reminders that share the exact same "the
+  tab-page itself doesn't scroll, a nested panel does" shape. Now anchors
+  to the actual scroll panel's own corner (clearing real scrollbar width)
+  on every tab but Chat (which is reparented and positioned by its own CSS).
+- **Toast notifications and the Ask sub-tab's history panel got explicit
+  close (X) buttons**, asked for directly.
+- **Vision chat redesigned around captions, not model-swapping.** The old
+  design swapped the *whole turn* to a different (vision-capable) model the
+  moment an image was attached, regardless of which chat model the user had
+  actually chosen. Asked for directly: a chat model with no vision of its
+  own should stay the one answering, and get a caption from the resolved
+  vision model folded into the question instead. Rebuilt
+  `routes_chat._chat_model_sees_images`/`_image_caption_context`, and
+  threaded `image_context` through `librarian.answer`/`converse` and
+  `agent.run_agent` (the last of these also closes a pre-existing gap: the
+  conversational branch never accepted images *at all* before this).
+  `tests/test_chat_vision.py` rewritten around the new behaviour, all green.
+- **A curated `"vision"` catalog added to `SUGGESTED_MODELS`**
+  (`ai/model_manager.py`), so Settings → Models' existing suggested-downloads
+  UI shows vision-capable models with zero frontend changes (the UI already
+  iterates the catalog's kinds generically). Sizes are estimated from known
+  parameter counts, same as this file's existing entries — **not verified
+  against a live registry; this sandbox has no internet access.** One entry
+  (`qwen3-vl:8b`) is a guessed tag at this file's own naming convention,
+  flagged in its own comment as the least certain.
+
+**Explicitly logged, not built — see ROADMAP.md §89 for the full scoping
+of each:**
+
+1. Pagination on Reminders and the Library sub-tabs (the user's own
+   "maybe" — needs its own per-tab scoping, not a copy of Notes' pattern).
+2. A large chat-file-upload redesign — any file type uploadable to chat and
+   viewable in the Library "no matter the format", staged (not uploaded)
+   until send, a per-message attachment cap, attaching an already-uploaded
+   Library file the way a note can already be attached, and the immediate
+   bug that triggered the report: a failed upload writes
+   `*(Failed to upload README.md)*` into the chat transcript as if it were
+   the AI's own message, instead of surfacing as a toast.
+3. Vision-model OCR as a Settings-level alternative to Tesseract (the user's
+   own design: default to it, fall back to Tesseract only if the user has
+   it installed and picks it) — genuinely not a quick win (a new extraction
+   function, a settings toggle, default-selection logic that has to check
+   whether Tesseract is actually present on the machine, and wiring into
+   the existing `core/ocr.py`/`routes_files.py` pipeline), so scoped rather
+   than built this session.
+
+**What could not be verified.** Everything above marked "live-checked" was
+driven in this sandbox's headless Chromium against a real (if fake-transport)
+server — real DOM measurements, real clicks, zero console errors. What
+was **not** checked: the actual WebView2 rendering the black-bar report came
+from (only the underlying CSS condition was confirmed, not the fix's visual
+effect in that specific shell), and every model-behaviour claim above
+(caption quality, whether `qwen3-vl:8b` is a real tag, exact download sizes)
+— this sandbox has no reachable Ollama and no internet, so those are
+reasoned from the code and from known conventions, not reproduced.
+
+## Previous session — Alembic infrastructure, a new skill, and three more stale-doc corrections (two of them major)
 
 Same session, working through the roadmap's remaining list top-down by
 value/cost. Real new infrastructure this round, not just fixes.

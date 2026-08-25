@@ -97,6 +97,14 @@ let busyEntryId = null; // entry the AI is currently working on (spinner shown)
 let flashConfidenceId = null; // entry whose confidence badge just changed (flash once)
 let noteSearch = ""; // Notes-tab text filter (Wave J)
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
+// BACKLOG §77 item 1. "all" (the default) keeps the existing continuous
+// scroll (§86's renderIncrementally) untouched; a numeric size switches
+// renderEntries to a single flat page of that many notes instead. Persisted
+// the same way graph-gravity/graph-spread are — a plain localStorage read at
+// declaration time, not the async preferences endpoint, since this is a
+// display choice with no reason to round-trip the server.
+let notesPageSize = localStorage.getItem("notes-page-size") || "all";
+let notesCurrentPage = 1;
 
 const $ = (id) => document.getElementById(id);
 const show = (...ids) => ids.forEach((id) => $(id).classList.remove("hidden"));
@@ -907,10 +915,26 @@ function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
     const onKey = (event) => {
       // Captured, so a shortcut elsewhere cannot fire underneath the dialog —
       // the same reason confirmDialog captures.
+      //
+      // **preventDefault, not just stopPropagation.** Reported: pressing
+      // Enter after typing a title looked like it "did nothing" - the title
+      // was in fact saved (a real POST fired), but the dialog immediately
+      // reopened empty, so the user only ever saw a blank prompt sitting
+      // there. `close()` below returns focus to whatever triggered the
+      // dialog - here, the "+ New document" button - synchronously, *while
+      // this Enter keypress is still in flight*. Stopping propagation keeps
+      // the keydown from reaching the input as a target, but the browser
+      // still owes this physical key its native activation behaviour, and
+      // now that behaviour lands on the button that just regained focus:
+      // its own "Enter activates the focused button" default action fires,
+      // clicking it again and opening a second, blank dialog. preventDefault
+      // is what tells the browser this key press is spoken for.
       if (event.key === "Escape") {
+        event.preventDefault();
         event.stopPropagation();
         close("");
       } else if (event.key === "Enter") {
+        event.preventDefault();
         event.stopPropagation();
         close(input.value.trim());
       }
@@ -1098,6 +1122,19 @@ function entryItem(entry, options = {}) {
     meta.appendChild(mark);
   }
 
+  // Where a web-reader clipping came from (BACKLOG §65's "source as
+  // metadata"). Opens the real page — the note's own body already has the
+  // same link inline, this is the at-a-glance version.
+  if (entry.source_url) {
+    const sourceChip = chip(
+      `ph:globe ${entry.source_title || entry.source_url}`,
+      "tag",
+      () => window.open(entry.source_url, "_blank", "noopener,noreferrer")
+    );
+    sourceChip.title = `Open the source: ${entry.source_url}`;
+    meta.appendChild(sourceChip);
+  }
+
   // What this note's own "tomorrow" meant on the day it was written (§10A).
   // A chip rather than a mark inside the text: `renderNoteText` already
   // layers wiki links, inline markdown and filter highlighting through each
@@ -1169,6 +1206,29 @@ function entryItem(entry, options = {}) {
         renderEntries();
       })
     );
+    // Publishing already worked via the "draft" chip below (click it to
+    // clear is_draft) — reported again anyway ("needs to be...a button for
+    // editing a draft and publishing"), so the chip alone wasn't read as an
+    // action. An explicit, always-visible button next to Edit for drafts
+    // only (a published note has nothing to publish) says the same thing
+    // the chip's tooltip already did, just as a button instead of a tag.
+    if (entry.is_draft) {
+      actions.appendChild(
+        smallButton("ph:check-circle", "Publish this draft as a proper note", async () => {
+          try {
+            await apiJson(`/entries/${entry.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ is_draft: false }),
+            });
+            entry.is_draft = false;
+            await loadEntries();
+            toast("Published.");
+          } catch (error) {
+            toast(error.message || "Couldn't publish that draft.", true);
+          }
+        })
+      );
+    }
     actions.appendChild(entryOverflowMenu(entry));
     metaEnd.appendChild(actions);
   }
@@ -1428,9 +1488,27 @@ function closeActionMenus() {
 // than something larger because the only thing it has to beat is the 1 on its
 // siblings; the page's own chrome is a different context and a big number here
 // would only be a number waiting to collide with one.
+// The nearest ancestor that actually clips overflow, walking up past plain
+// flow containers. `.action-menu` is `position: absolute` inside a `.menu-wrap`
+// that is itself absolutely positioned on the row — it never escapes an
+// `overflow: auto` ancestor the way a portal would, so a row near the bottom
+// of a scrolling list grows that ancestor's scrollHeight by however far the
+// menu spills past it, and the menu itself is clipped at the same edge.
+// Reported on the Documents subtab: the last row's ⋯ menu appeared cut off
+// *and* a scrollbar showed up in a panel that fit without one a moment
+// before opening it.
+function nearestScrollParent(el) {
+  let node = el.parentElement;
+  while (node && node !== document.body) {
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+    node = node.parentElement;
+  }
+  return document.documentElement;
+}
+
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
-  menu.classList.remove("hidden");
+  menu.classList.remove("hidden", "action-menu-flip");
   opener.setAttribute("aria-expanded", "true");
   // Whichever ancestor is the stacking context this menu is trapped in. On a
   // note card that is `.entry-actions` (positioned, z-index 1); on a Library
@@ -1438,6 +1516,13 @@ function openActionMenu(menu, opener) {
   // context too — which is why the same "menu behind the next card" bug turned
   // up again on a surface with no z-index in sight.
   menu.closest(".entry-actions, .library-card")?.classList.add("menu-open");
+  // Opens downward by default; flip upward only when that would spill past
+  // the nearest clipping ancestor, so a menu near the top of a short list
+  // still opens the normal way.
+  const bound = nearestScrollParent(opener).getBoundingClientRect();
+  if (menu.getBoundingClientRect().bottom > bound.bottom) {
+    menu.classList.add("action-menu-flip");
+  }
   menu.querySelector("button")?.focus();
 }
 
@@ -2558,10 +2643,19 @@ function clippingMarkdown(text, source) {
 
 async function saveSelectionAsNote(text, { draft = false, source = null } = {}) {
   const content = source ? clippingMarkdown(text, source) : text;
+  // Real metadata alongside the body's own blockquote+link (BACKLOG §65's
+  // "source as metadata, not just folded into body text") — the body copy
+  // stays so the note is still a plain, portable markdown file with no app
+  // behind it; the columns are what let a note card show a real badge or a
+  // future "everything clipped from this site" filter without parsing it
+  // back out.
+  const sourceFields = source
+    ? { source_url: source.url, source_title: source.title || "" }
+    : {};
   try {
     const created = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, is_draft: draft }),
+      body: JSON.stringify({ content, is_draft: draft, ...sourceFields }),
     });
     // Undoable, like every other create in this app (the global stack —
     // see pushUndo). Saving a clipping by accident and having no way back
@@ -2575,13 +2669,17 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       async () => {
         await apiJson("/entries", {
           method: "POST",
-          body: JSON.stringify({ content, is_draft: draft }),
+          body: JSON.stringify({ content, is_draft: draft, ...sourceFields }),
         });
         await loadEntries();
       }
     );
     toast(draft ? "Saved as a draft note." : "Saved as a note.");
-    if (localStorage.getItem("activeTab") === "notes") loadEntries();
+    // Same fix as saveChatAnswerAsNote(): unconditional. A selection saved
+    // from wherever the popup was invoked (not necessarily the Notes tab)
+    // must not leave the in-memory `entries` list stale until something
+    // else happens to refetch it.
+    loadEntries();
   } catch (error) {
     toast(error.message || "Couldn't save that note.", true);
   }
@@ -2709,7 +2807,10 @@ async function remindFromSelection(text) {
     });
     toast(`Reminder set — ${relativeWhen(reminder.due_at)}.`);
     askNotificationPermission();
-    if (localStorage.getItem("activeTab") === "reminders") loadReminders();
+    // Same fix as saveChatAnswerAsNote()/saveSelectionAsNote(): unconditional,
+    // so a reminder created from wherever this popup was invoked doesn't sit
+    // stale out of the Reminders tab's in-memory list.
+    loadReminders();
   } catch (error) {
     toast(error.message || "Couldn't read a reminder from that.", true);
   }
@@ -3884,6 +3985,33 @@ function renderIncrementally(container, items, buildItem, options = {}) {
   listWindows.set(container, observer);
 }
 
+// BACKLOG §77 item 1 — the user-facing page-size control, deliberately kept
+// separate from §86's scroll-chunking (renderIncrementally above): that stays
+// one continuous scroll under "All notes" (the default, and this function's
+// no-op path). A numeric size instead slices whatever list renderEntries was
+// about to paint down to one page and updates the Prev/Next bar.
+//
+// Threads are the one place this is a known, accepted simplification: a
+// thread and its children can, at a page boundary, split across two pages
+// (part 2 of §77 — routing a wiki-link click to the *right* page — depends
+// on sort/filter state and is scoped separately, not solved here).
+function paginateNotesForDisplay(items) {
+  const bar = $("notes-pagination");
+  if (notesPageSize === "all") {
+    bar.classList.add("hidden");
+    return items;
+  }
+  const pageSize = Number(notesPageSize);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  notesCurrentPage = Math.min(Math.max(1, notesCurrentPage), totalPages);
+  const start = (notesCurrentPage - 1) * pageSize;
+  bar.classList.toggle("hidden", items.length === 0);
+  $("notes-page-status").textContent = `Page ${notesCurrentPage} of ${totalPages}`;
+  $("notes-page-prev").disabled = notesCurrentPage <= 1;
+  $("notes-page-next").disabled = notesCurrentPage >= totalPages;
+  return items.slice(start, start + pageSize);
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
@@ -3927,7 +4055,7 @@ function renderEntries() {
   if (flat) {
     renderIncrementally(
       list,
-      sortEntries(visible),
+      paginateNotesForDisplay(sortEntries(visible)),
       (entry) => entryItem(entry, { actions: true }),
       { afterChunk: () => applyEntryListTabOrder(list) }
     );
@@ -3967,7 +4095,7 @@ function renderEntries() {
 
   renderIncrementally(
     list,
-    ordered,
+    paginateNotesForDisplay(ordered),
     ([entry, depth]) => {
       const li = entryItem(entry, { actions: true });
       if (depth > 0) {
@@ -4983,6 +5111,7 @@ async function streamChat({
   mode,
   useTools,
   noteIds,
+  imageMediaIds,
   skill,
   skillInputs,
   skillFromStep,
@@ -5028,6 +5157,11 @@ async function streamChat({
   // classifier guess from three letters.
   if (answeringAgent) body.answering_agent = true;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
+  // Vision-capable models (ROADMAP.md's largest open item): ids from
+  // /media/upload, the same endpoint the note/document editors already use
+  // for drag-and-drop images — see `_resolve_chat_images` (routes_chat.py)
+  // for how an id becomes a data URI the provider actually sends.
+  if (imageMediaIds && imageMediaIds.length) body.image_media_ids = imageMediaIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
   // definitions can't drift apart.
@@ -5660,7 +5794,14 @@ async function saveChatAnswerAsNote(question, answer) {
       body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
     });
     toast("Saved as a draft note.");
-    if (localStorage.getItem("activeTab") === "notes") loadEntries();
+    // Unconditional, not gated on the Notes tab being the one currently
+    // open. Reported: a note saved from Chat "didn't show up in the
+    // drafts" - it *was* saved, but `entries` (the in-memory list Notes
+    // renders from) was never refetched, since switchTab("notes") doesn't
+    // reload it either. The stale list only caught up whenever something
+    // else happened to call loadEntries() next. refreshAfterToolChanges()
+    // already calls this with no such guard, for the same reason.
+    loadEntries();
   } catch (error) {
     toast(error.message || "Couldn't save that note.", true);
   }
@@ -6126,6 +6267,7 @@ function regenerateLastAnswer() {
     skipUserBubble: true,
     replaceLast: true,
     noteIds: lastChatAttachments,
+    imageMediaIds: lastChatImageAttachments.map((img) => img.id),
   });
 }
 
@@ -6639,6 +6781,7 @@ async function renderModelSpec(modelName) {
     // `split_thinking` picks up and shows. Saying "declared" makes the two
     // facts distinguishable instead of contradictory.
     ["Thinking mode declared", canDo(spec.supports_thinking)],
+    ["Can see images", canDo(spec.supports_vision)],
   ].filter(([, value]) => value != null && value !== "");
 
   box.replaceChildren();
@@ -7486,16 +7629,10 @@ function renderRecordsDetails(holder, meta) {
   summary.textContent = `${meta.raw_results.length} matching note${
     meta.raw_results.length === 1 ? "" : "s"
   } (${label}) — click one to open it`;
-  // Same quick-access link as the Ask tab's "Matching records" heading and
-  // Settings → Preferences itself — a chat turn with weak-looking matches is
-  // exactly the moment someone wants the relevance sliders, not a hunt
-  // through Settings to find them.
-  const tune = smallButton("ph:sliders-horizontal", "Tune search sensitivity", (event) => {
-    event.stopPropagation(); // inside a <summary>: don't also toggle the <details>
-    openSettingsModal("preferences", "search-relevance-group");
-  });
-  tune.classList.add("icon-only", "records-tune-btn");
-  summary.appendChild(tune);
+  // The tune-sensitivity shortcut used to live here too, repeated on every
+  // single message's own disclosure. Reported directly: it belongs as one
+  // persistent control (`#chat-tune-search`, wired near the Chat dock's
+  // other "how it answers" settings) instead of message metadata.
   details.appendChild(summary);
   const list = document.createElement("ul");
   list.className = "entry-list";
@@ -7518,860 +7655,6 @@ function renderRecordsDetails(holder, meta) {
   }
   details.appendChild(list);
   holder.appendChild(details);
-}
-
-// --- documents: long-form writing -----------------------------------------------
-// Documents are separate from notes on purpose. A note is a captured thought;
-// a document is something you sit down and write. Sharing storage would put
-// every half-finished draft into note search and the graph.
-
-let docs = [];
-let currentDoc = null;   // {id, title, content, ...}
-let docDirty = false;
-let docSaveTimer = null;
-
-async function loadDocuments(selectId = null) {
-  docs = await apiJson("/documents").catch(() => []);
-  renderDocList();
-  if (selectId) return openDocument(selectId);
-  if (!currentDoc && docs.length) return openDocument(docs[0].id);
-  if (!docs.length) showNoDocument();
-}
-
-//: How many documents the switcher shows. Searching and sorting all of them
-//: is the Library's job (§36G); this list is here so the document you were in
-//: ten minutes ago is one click away without leaving the page you are writing
-//: on. The one you have *open* is always in it, however old, or the sidebar
-//: would stop showing you where you are.
-const RECENT_DOCS_SHOWN = 8;
-
-function renderDocList() {
-  const list = $("doc-list");
-  list.replaceChildren();
-  const shown = docs.slice(0, RECENT_DOCS_SHOWN);
-  if (currentDoc && !shown.some((d) => d.id === currentDoc.id)) {
-    const open = docs.find((d) => d.id === currentDoc.id);
-    if (open) shown[shown.length - 1] = open;
-  }
-  $("doc-empty").classList.toggle("hidden", docs.length > 0);
-
-  for (const doc of shown) {
-    const li = document.createElement("li");
-    li.className = "doc-item";
-    if (currentDoc && doc.id === currentDoc.id) li.classList.add("active");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "doc-item-button";
-    const title = document.createElement("span");
-    title.className = "doc-item-title";
-    title.textContent = doc.title;
-    const meta = document.createElement("span");
-    meta.className = "muted doc-item-meta";
-    meta.textContent = `${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`;
-    button.append(title, meta);
-    button.addEventListener("click", () => openDocument(doc.id));
-    li.appendChild(button);
-    list.appendChild(li);
-  }
-}
-
-function showNoDocument() {
-  currentDoc = null;
-  $("doc-title").value = "";
-  $("doc-content").value = "";
-  // Deliberately NOT disabled. Disabling them meant that on a notebook with no
-  // documents yet, clicking the editor did nothing and typing did nothing —
-  // a dead end whose only way out was noticing a small "+ New" button. Typing
-  // now creates the document, which is what every editor does.
-  $("doc-title").disabled = false;
-  $("doc-content").disabled = false;
-  $("doc-content").placeholder =
-    "Start typing and a new document is created for you.\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
-  $("doc-saved").textContent = "";
-  renderDocPreview();
-  renderDocStats();
-  renderDocOutline();
-}
-
-async function openDocument(id) {
-  // Never lose unsaved work by switching away from it.
-  if (docDirty) await saveDocument({ silent: true });
-  $("doc-content").placeholder =
-    "# Start writing\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
-  const doc = await apiJson(`/documents/${id}`).catch(() => null);
-  if (!doc) return;
-  currentDoc = doc;
-  $("doc-title").disabled = false;
-  $("doc-content").disabled = false;
-  $("doc-title").value = doc.title;
-  $("doc-content").value = doc.content;
-  docDirty = false;
-  $("doc-saved").textContent = "Saved";
-  renderDocPreview();
-  renderDocStats();
-  renderDocOutline();
-  renderDocNotes();
-  renderDocBacklinks();
-  renderDocList();
-}
-
-// The notes this document draws on. Shown beside the outline because both
-// answer the same question — what is this document made of.
-// Which notes point at the open document with a [[wiki link]].
-//
-// The reverse direction of resolveWikiTarget, and deliberately computed from
-// `allEntries` on the client rather than added as an endpoint: the notes are
-// already loaded, the match is the same title comparison the resolver does, and
-// a round trip to learn something the browser already knows is a round trip
-// that will be slow exactly when the notebook is large.
-//
-// Note this is a *different* relationship from renderDocNotes above, which
-// lists notes explicitly attached to the document. A note can mention a
-// document without being filed under it, and that is the interesting case.
-function renderDocBacklinks() {
-  const wrap = $("doc-backlinks-wrap");
-  const list = $("doc-backlinks");
-  if (!wrap || !list) return;
-  const title = (currentDoc?.title || "").trim().toLowerCase();
-  const attached = new Set(((currentDoc && currentDoc.notes) || []).map((n) => n.id));
-
-  const linking = !title
-    ? []
-    : (typeof allEntries !== "undefined" ? allEntries : []).filter((entry) => {
-        if (entry.is_private) return false;
-        // Already shown under "Notes it draws on" — listing it twice says
-        // there are two connections when there is one.
-        if (attached.has(entry.id)) return false;
-        const pattern = /\[\[([^[\]]{1,120})\]\]/g;
-        let match;
-        while ((match = pattern.exec(entry.content || "")) !== null) {
-          if (match[1].trim().toLowerCase() === title) return true;
-        }
-        return false;
-      });
-
-  wrap.classList.toggle("hidden", !linking.length);
-  list.replaceChildren();
-  for (const entry of linking) {
-    const item = document.createElement("li");
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "outline-link";
-    open.textContent = noteLabel(entry, 60);
-    open.title = "Show this note";
-    open.addEventListener("click", () => {
-      switchTab("notes");
-      showNotesSection("browse"); // focusing inside a hidden section does nothing
-      flashEntry(entry.id);
-    });
-    item.appendChild(open);
-    list.appendChild(item);
-  }
-}
-
-function renderDocNotes() {
-  const wrap = $("doc-notes-wrap");
-  const list = $("doc-notes");
-  const notes = (currentDoc && currentDoc.notes) || [];
-  wrap.classList.toggle("hidden", !notes.length);
-  list.replaceChildren();
-  for (const note of notes) {
-    const item = document.createElement("li");
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "outline-link";
-    if (note.is_private) {
-      setLabel(open, "ph:lock (private note)");
-    } else {
-      renderInlineMarkdown(open, note.preview, [], true);
-    }
-    open.title = "Show this note";
-    open.addEventListener("click", () => {
-      switchTab("notes");
-      showNotesSection("browse"); // focusing inside a hidden section does nothing
-      flashEntry(note.id);
-    });
-    const remove = smallButton("✕", "Detach this note from the document", async () => {
-      currentDoc = await apiJson(
-        `/documents/${currentDoc.id}/notes/${note.id}`,
-        { method: "DELETE" }
-      );
-      renderDocNotes();
-      // Detaching can move a note *into* the backlinks list: it may still
-      // mention this document by [[title]], and that connection only becomes
-      // visible once it is no longer filed under it.
-      renderDocBacklinks();
-      // The note keeps existing — only the connection went.
-      loadEntries();
-    });
-    item.append(open, remove);
-    list.appendChild(item);
-  }
-}
-
-async function createDocument() {
-  const doc = await apiJson("/documents", {
-    method: "POST",
-    body: JSON.stringify({ title: "Untitled", content: "" }),
-  });
-  loadCaptureDocuments(); // so Capture can attach to it straight away
-  await loadDocuments(doc.id);
-  $("doc-title").focus();
-  $("doc-title").select();
-}
-
-// Guards against creating several documents from one fast burst of typing.
-let creatingDocument = null;
-
-async function ensureDocumentExists() {
-  if (currentDoc) return currentDoc;
-  if (creatingDocument) return creatingDocument;
-  creatingDocument = (async () => {
-    const doc = await apiJson("/documents", {
-      method: "POST",
-      body: JSON.stringify({ title: "Untitled", content: "" }),
-    });
-    currentDoc = doc;
-    docs.unshift({ ...doc });
-    // The list gains an "Untitled" row the moment this returns, so show the
-    // same name in the title box — otherwise the document you're typing into
-    // appears to have no name while the sidebar says it has one.
-    if (!$("doc-title").value.trim()) $("doc-title").value = doc.title;
-    renderDocList();
-    $("doc-empty").classList.add("hidden");
-    return doc;
-  })();
-  try {
-    return await creatingDocument;
-  } finally {
-    creatingDocument = null;
-  }
-}
-
-function markDocDirty() {
-  // These are read off the textarea, so they're right even before the save
-  // lands — the point of them is live feedback while writing.
-  renderDocStats();
-  renderDocOutline();
-  // No document yet? Typing makes one, then this save proceeds normally.
-  if (!currentDoc) {
-    ensureDocumentExists().then(() => markDocDirty());
-    return;
-  }
-  docDirty = true;
-  $("doc-saved").textContent = "Unsaved…";
-  clearTimeout(docSaveTimer);
-  // Autosave, but not on every keystroke — a pause is the natural moment.
-  docSaveTimer = setTimeout(() => saveDocument({ silent: true }), 1200);
-}
-
-async function saveDocument({ silent = false } = {}) {
-  if (!currentDoc) return;
-  clearTimeout(docSaveTimer);
-  const title = $("doc-title").value.trim() || "Untitled";
-  const content = $("doc-content").value;
-  try {
-    const saved = await apiJson(`/documents/${currentDoc.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ title, content }),
-    });
-    currentDoc = saved;
-    docDirty = false;
-    $("doc-saved").textContent = "Saved";
-    if (!silent) toast("Document saved.");
-    docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
-    renderDocList();
-  } catch (error) {
-    $("doc-saved").textContent = "Not saved";
-    $("doc-status").classList.add("error");
-    $("doc-status").textContent = error.message;
-  }
-}
-
-// A note that outgrew itself becomes a document. Notes and documents were
-// two islands: the only way across was copy and paste, which loses the link
-// between them. The note is deliberately left alone — this is a promotion,
-// not a move, and quietly deleting someone's note to "convert" it is the
-// kind of helpfulness nobody asks for twice.
-async function expandNoteIntoDocument(entry) {
-  const text = entry.content || "";
-  // The first line makes a reasonable title; the rest is the body.
-  const [firstLine, ...rest] = text.split("\n");
-  const title = (firstLine || "Untitled").replace(/^#+\s*/, "").slice(0, 120).trim();
-  const body = rest.join("\n").trim() || text;
-  try {
-    const doc = await apiJson("/documents", {
-      method: "POST",
-      body: JSON.stringify({
-        title: title || "Untitled",
-        // A line back to where it came from, so the pair stay findable.
-        content: `${body}\n\n---\n\nExpanded from note #${entry.id}.\n`,
-      }),
-    });
-    switchTab("documents");
-    await loadDocuments(doc.id);
-    toast(`Started a document from this note — the note itself is untouched.`);
-  } catch (error) {
-    toast(error.message, true);
-  }
-}
-
-// Words and reading time. Both are cheap to compute and are the two numbers
-// anyone writing long-form actually wants on screen.
-const READING_WORDS_PER_MINUTE = 220;
-
-// A target word count, set per document and kept client-side — it's a
-// writing aid, not notebook data, so it doesn't need a column or to survive
-// a restore onto another machine the way the document's own content does.
-function docWordGoalKey(id) {
-  return `docWordGoal:${id}`;
-}
-
-function getDocWordGoal(id) {
-  if (!id) return 0;
-  return Number(localStorage.getItem(docWordGoalKey(id))) || 0;
-}
-
-function setDocWordGoal(id, goal) {
-  if (!id) return;
-  if (goal > 0) {
-    localStorage.setItem(docWordGoalKey(id), String(goal));
-  } else {
-    localStorage.removeItem(docWordGoalKey(id));
-  }
-}
-
-function renderDocStats() {
-  const el = $("doc-stats");
-  if (!el) return;
-  const text = $("doc-content").value || "";
-  const words = (text.match(/\S+/g) || []).length;
-  const goal = currentDoc ? getDocWordGoal(currentDoc.id) : 0;
-  const goalBtn = $("doc-word-goal");
-  if (goalBtn) {
-    goalBtn.title = goal
-      ? `Goal: ${goal.toLocaleString()} words — click to change`
-      : "Set a word-count goal";
-    goalBtn.setAttribute("aria-pressed", String(goal > 0));
-  }
-  if (!words) {
-    el.textContent = "";
-    return;
-  }
-  const minutes = words / READING_WORDS_PER_MINUTE;
-  // Under a minute, "1 min read" overstates it; over an hour, minutes stop
-  // meaning anything.
-  const readTime =
-    minutes < 1
-      ? "under a min"
-      : minutes < 60
-        ? `${Math.round(minutes)} min read`
-        : `${(minutes / 60).toFixed(1)}h read`;
-  const wordsPart = goal
-    ? `${words.toLocaleString()} / ${goal.toLocaleString()} words (${Math.min(100, Math.round((words / goal) * 100))}%)`
-    : `${words.toLocaleString()} word${words === 1 ? "" : "s"}`;
-  el.textContent = `${wordsPart} · ${readTime}`;
-}
-
-function promptDocWordGoal() {
-  if (!currentDoc) return;
-  const current = getDocWordGoal(currentDoc.id);
-  $("doc-word-goal-input").value = current || "";
-  $("doc-word-goal-dialog").showModal();
-  $("doc-word-goal-input").focus();
-}
-
-// --- find and replace (16b: "a bunch of missing features" — this is the
-// concrete first one; browser Ctrl+F never worked here because a
-// textarea's own text isn't part of the searchable page DOM at all, only
-// its *value* is) ---------------------------------------------------------
-let docFindIndex = -1; // which match the Prev/Next cursor is currently on
-
-function docFindMatches() {
-  const term = $("doc-find-input").value;
-  if (!term) return [];
-  const text = $("doc-content").value;
-  const needle = term.toLowerCase();
-  const haystack = text.toLowerCase();
-  const matches = [];
-  let from = 0;
-  while (true) {
-    const at = haystack.indexOf(needle, from);
-    if (at === -1) break;
-    matches.push(at);
-    from = at + needle.length;
-  }
-  return matches;
-}
-
-function docFindSelect(index, matches) {
-  const term = $("doc-find-input").value;
-  const box = $("doc-content");
-  if (!matches.length || index < 0 || index >= matches.length) {
-    $("doc-find-count").textContent = term ? "No matches" : "";
-    return;
-  }
-  docFindIndex = index;
-  const start = matches[index];
-  box.focus();
-  box.setSelectionRange(start, start + term.length);
-  $("doc-find-count").textContent = `${index + 1} of ${matches.length}`;
-}
-
-function docFindStep(delta) {
-  const matches = docFindMatches();
-  if (!matches.length) {
-    docFindIndex = -1;
-    $("doc-find-count").textContent = $("doc-find-input").value ? "No matches" : "";
-    return;
-  }
-  const next = ((docFindIndex + delta) % matches.length + matches.length) % matches.length;
-  docFindSelect(next, matches);
-}
-
-function docReplaceOne() {
-  const box = $("doc-content");
-  const term = $("doc-find-input").value;
-  if (!term) return;
-  const selected = box.value.slice(box.selectionStart, box.selectionEnd);
-  // Only replace what's actually selected and actually a match — Replace
-  // clicked with nothing found selected first should find, not guess.
-  if (selected.toLowerCase() !== term.toLowerCase()) {
-    docFindStep(1);
-    return;
-  }
-  const replacement = $("doc-replace-input").value;
-  const start = box.selectionStart;
-  box.setRangeText(replacement, start, box.selectionEnd, "end");
-  box.dispatchEvent(new Event("input", { bubbles: true }));
-  docFindIndex = -1;
-  docFindStep(1);
-}
-
-function docReplaceAll() {
-  const term = $("doc-find-input").value;
-  if (!term) return;
-  const replacement = $("doc-replace-input").value;
-  const box = $("doc-content");
-  const pattern = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
-  const before = box.value;
-  const count = (before.match(pattern) || []).length;
-  if (!count) {
-    $("doc-find-count").textContent = "No matches";
-    return;
-  }
-  box.value = before.replace(pattern, replacement);
-  box.dispatchEvent(new Event("input", { bubbles: true }));
-  $("doc-find-count").textContent = `Replaced ${count}`;
-  docFindIndex = -1;
-}
-
-function toggleDocFindBar(open) {
-  const bar = $("doc-find-bar");
-  const show = open ?? bar.classList.contains("hidden");
-  bar.classList.toggle("hidden", !show);
-  $("doc-find-toggle").setAttribute("aria-expanded", String(show));
-  if (show) {
-    $("doc-find-input").focus();
-    $("doc-find-input").select();
-  } else {
-    docFindIndex = -1;
-    $("doc-content").focus();
-  }
-}
-
-// A table of contents built from the document's own headings. Past a couple
-// of screens the scrollbar stops being a way to navigate a document.
-function renderDocOutline() {
-  const list = $("doc-outline");
-  const wrap = $("doc-outline-wrap");
-  if (!list || !wrap) return;
-  const text = $("doc-content").value || "";
-  const headings = [];
-  let inFence = false;
-  const lines = text.split("\n");
-  lines.forEach((line, index) => {
-    // A "# " inside a code fence is code, not a heading.
-    if (line.trim().startsWith("```")) inFence = !inFence;
-    if (inFence) return;
-    const match = /^(#{1,4})\s+(.*\S)\s*$/.exec(line);
-    if (match) headings.push({ level: match[1].length, text: match[2], line: index });
-  });
-
-  wrap.classList.toggle("hidden", headings.length < 2);
-  list.replaceChildren();
-  for (const heading of headings) {
-    const li = document.createElement("li");
-    li.className = `outline-h${heading.level}`;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "outline-link";
-    button.textContent = heading.text;
-    button.title = `Jump to “${heading.text}”`;
-    button.addEventListener("click", () => jumpToDocLine(heading.line));
-    li.appendChild(button);
-    list.appendChild(li);
-  }
-}
-
-// Put the caret at the start of a line and scroll it into view. A textarea
-// has no anchors, so this is done by character offset.
-function jumpToDocLine(lineIndex) {
-  const box = $("doc-content");
-  const lines = box.value.split("\n");
-  const offset = lines.slice(0, lineIndex).reduce((n, l) => n + l.length + 1, 0);
-  box.focus();
-  box.setSelectionRange(offset, offset + (lines[lineIndex] || "").length);
-  // Approximate: scroll proportionally to where the line sits in the text.
-  const ratio = lineIndex / Math.max(1, lines.length);
-  box.scrollTop = Math.max(0, ratio * box.scrollHeight - box.clientHeight / 3);
-}
-
-// Answers "where is this actually kept?" with the real path, once.
-let storageInfo = null;
-
-async function renderDocStorage() {
-  const el = $("doc-storage-path");
-  if (!el) return;
-  if (!storageInfo) {
-    storageInfo = await apiJson("/storage").catch(() => null);
-  }
-  el.textContent = storageInfo ? storageInfo.database : "(couldn't read the path)";
-}
-
-function renderDocPreview() {
-  const preview = $("doc-preview");
-  if (preview.classList.contains("hidden")) return;
-  preview.replaceChildren();
-  const title = ($("doc-title").value || "").trim();
-  renderMarkdown(preview, title ? `# ${title}\n\n${$("doc-content").value}` : $("doc-content").value);
-  layerDocWikiLinks(preview);
-}
-
-// [[Document title]] as clickable links in the preview, the same idea as a
-// note's [[wiki link]] (renderNoteText) but resolving against `docs` by
-// title instead of by content prefix — documents have real titles. A
-// post-process over renderMarkdown's already-built DOM rather than a change
-// to the parser itself: renderMarkdown is a hand-rolled block parser shared
-// with notes/chat/dashboard, and layering a second concern into its inline
-// pass is exactly the kind of touch that's cheap to get subtly wrong for
-// every other caller. Skips text inside <code>/<pre> so a literal "[[x]]" in
-// a fenced snippet isn't turned into a button.
-function layerDocWikiLinks(container) {
-  const targets = [];
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (node.parentElement && node.parentElement.closest("code, pre")) {
-        return NodeFilter.FILTER_REJECT;
-      }
-      return /\[\[[^[\]]{1,120}\]\]/.test(node.nodeValue)
-        ? NodeFilter.FILTER_ACCEPT
-        : NodeFilter.FILTER_SKIP;
-    },
-  });
-  let node;
-  while ((node = walker.nextNode())) targets.push(node);
-
-  for (const textNode of targets) {
-    const text = textNode.nodeValue;
-    const pattern = /\[\[([^[\]]{1,120})\]\]/g;
-    const frag = document.createDocumentFragment();
-    let cursor = 0;
-    let match;
-    while ((match = pattern.exec(text)) !== null) {
-      if (match.index > cursor) {
-        frag.appendChild(document.createTextNode(text.slice(cursor, match.index)));
-      }
-      const name = match[1].trim();
-      const target = docs.find((d) => d.title.toLowerCase() === name.toLowerCase());
-      const link = document.createElement("button");
-      link.type = "button";
-      link.className = "wiki-link";
-      link.textContent = name;
-      link.title = target ? `Open "${target.title}"` : `No document called "${name}" yet.`;
-      link.addEventListener("click", (event) => {
-        event.stopPropagation();
-        if (target) openDocument(target.id);
-        else toast(`No document called "${name}" yet.`, true);
-      });
-      frag.appendChild(link);
-      cursor = pattern.lastIndex;
-    }
-    if (cursor < text.length) {
-      frag.appendChild(document.createTextNode(text.slice(cursor)));
-    }
-    textNode.parentNode.replaceChild(frag, textNode);
-  }
-}
-
-function toggleDocPreview() {
-  const preview = $("doc-preview");
-  const showing = preview.classList.toggle("hidden");
-  $("doc-panes").classList.toggle("split", !showing);
-  $("doc-preview-toggle").setAttribute("aria-pressed", String(!showing));
-  renderDocPreview();
-}
-
-// Markdown formatting from a toolbar, so you don't have to remember the
-// syntax. Everything it inserts is plain markdown — the file stays portable
-// and the source stays readable, which is the point of using markdown at all.
-const MD_ACTIONS = {
-  h1: { line: "# " },
-  h2: { line: "## " },
-  h3: { line: "### " },
-  bold: { wrap: "**", placeholder: "bold text" },
-  italic: { wrap: "*", placeholder: "italic text" },
-  strike: { wrap: "~~", placeholder: "struck through" },
-  code: { wrap: "`", placeholder: "code" },
-  ul: { line: "- " },
-  ol: { line: "1. " },
-  task: { line: "- [ ] " },
-  quote: { line: "> " },
-  link: { custom: "link" },
-  codeblock: { block: "```\n", suffix: "\n```", placeholder: "your code" },
-  table: {
-    insert: "\n| Column | Column |\n| --- | --- |\n| | |\n",
-  },
-  hr: { insert: "\n---\n" },
-};
-
-function applyMarkdown(kind) {
-  const action = MD_ACTIONS[kind];
-  const box = $("doc-content");
-  if (!action) return;
-  const { selectionStart: start, selectionEnd: end, value } = box;
-  const selected = value.slice(start, end);
-
-  if (action.wrap) {
-    wrapDocSelection(action.wrap, action.placeholder);
-    return;
-  }
-  if (action.line) {
-    // Prefix every selected line, or the current one when nothing is selected.
-    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-    const lineEnd = end + (value.slice(end).indexOf("\n") === -1 ? 0 : value.slice(end).indexOf("\n"));
-    const target = value.slice(lineStart, Math.max(lineEnd, end)) || "";
-    const prefixed = target
-      .split("\n")
-      .map((line) => (line.startsWith(action.line) ? line : action.line + line))
-      .join("\n");
-    box.value = value.slice(0, lineStart) + prefixed + value.slice(Math.max(lineEnd, end));
-    box.setSelectionRange(lineStart, lineStart + prefixed.length);
-  } else if (action.custom === "link") {
-    const label = selected || "link text";
-    const inserted = `[${label}](https://)`;
-    box.value = value.slice(0, start) + inserted + value.slice(end);
-    // Land the caret in the URL, which is the part you still have to type.
-    const at = start + label.length + 3;
-    box.setSelectionRange(at, at + 8);
-  } else if (action.block) {
-    const body = selected || action.placeholder;
-    const inserted = action.block + body + action.suffix;
-    box.value = value.slice(0, start) + inserted + value.slice(end);
-    const at = start + action.block.length;
-    box.setSelectionRange(at, at + body.length);
-  } else if (action.insert) {
-    box.value = value.slice(0, start) + action.insert + value.slice(end);
-    const at = start + action.insert.length;
-    box.setSelectionRange(at, at);
-  }
-  box.focus();
-  markDocDirty();
-  renderDocPreview();
-}
-
-// Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
-function wrapDocSelection(marker, placeholder = "") {
-  const box = $("doc-content");
-  const { selectionStart: start, selectionEnd: end, value } = box;
-
-  // Toggle off, case 1: the selection sits *inside* an existing pair of
-  // markers ("**|bold text|**", caret positions marked). Reported directly:
-  // applying Bold to an already-bold selection didn't remove it the way
-  // every other rich-text editor's toggle does — this was a one-way
-  // "apply", never a toggle.
-  const before = value.slice(Math.max(0, start - marker.length), start);
-  const after = value.slice(end, end + marker.length);
-  if (marker && before === marker && after === marker) {
-    box.value =
-      value.slice(0, start - marker.length) + value.slice(start, end) + value.slice(end + marker.length);
-    box.selectionStart = start - marker.length;
-    box.selectionEnd = end - marker.length;
-    box.focus();
-    markDocDirty();
-    renderDocPreview();
-    return;
-  }
-  // Toggle off, case 2: the markers themselves are part of the selection
-  // ("|**bold text**|") — selecting the whole formatted span, not just its
-  // inner text, is just as natural a way to select it for un-formatting.
-  if (
-    marker &&
-    end - start >= marker.length * 2 &&
-    value.slice(start, start + marker.length) === marker &&
-    value.slice(end - marker.length, end) === marker
-  ) {
-    const inner = value.slice(start + marker.length, end - marker.length);
-    box.value = value.slice(0, start) + inner + value.slice(end);
-    box.selectionStart = start;
-    box.selectionEnd = start + inner.length;
-    box.focus();
-    markDocDirty();
-    renderDocPreview();
-    return;
-  }
-
-  // With nothing selected, insert the placeholder and select it, so the next
-  // keystroke replaces it — pressing Bold on an empty line should give you
-  // somewhere to type, not two markers and a caret between them.
-  const selected = value.slice(start, end) || placeholder;
-  box.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
-  // Keep the same text selected, so the shortcut can be toggled or stacked.
-  box.selectionStart = start + marker.length;
-  box.selectionEnd = start + marker.length + selected.length;
-  box.focus();
-  markDocDirty();
-  renderDocPreview();
-}
-
-async function exportDocumentMarkdown() {
-  if (!currentDoc) return;
-  // Fetched rather than navigated to. A plain link carries no X-Auth-Token, so
-  // the server answers 401 and the browser renders that error *in place of the
-  // app* — it navigates away instead of downloading.
-  try {
-    const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
-      headers: { "X-Auth-Token": authToken() },
-    });
-    if (!response.ok) throw new Error(`Export failed (${response.status})`);
-    // The filename is decided server-side, so read it back off the header.
-    const disposition = response.headers.get("content-disposition") || "";
-    const match = disposition.match(/filename="([^"]+)"/);
-    await saveFile(match ? match[1] : "document.md", await response.blob());
-  } catch (error) {
-    $("doc-status").classList.add("error");
-    $("doc-status").textContent = error.message;
-  }
-}
-
-// PDF via the browser's own print dialog: it renders the preview exactly as
-// shown and every platform already has "Save as PDF" there. Bundling a PDF
-// engine would add a heavy dependency to produce a worse-looking result.
-function exportDocumentPdf() {
-  if (!currentDoc) return;
-  const wasHidden = $("doc-preview").classList.contains("hidden");
-  if (wasHidden) toggleDocPreview(); // print the rendered version, not the source
-  renderDocPreview();
-  document.body.classList.add("printing-doc");
-  const cleanup = () => {
-    document.body.classList.remove("printing-doc");
-    if (wasHidden) toggleDocPreview();
-    window.removeEventListener("afterprint", cleanup);
-  };
-  window.addEventListener("afterprint", cleanup);
-  setTimeout(() => window.print(), 150);
-}
-
-async function deleteCurrentDocument() {
-  if (!currentDoc) return;
-  if (!(await confirmDialog(`Delete "${currentDoc.title}"? This can't be undone.`))) return;
-  await apiJson(`/documents/${currentDoc.id}`, { method: "DELETE" });
-  toast("Document deleted.");
-  currentDoc = null;
-  await loadDocuments();
-}
-
-// --- AI editing ---
-// Always a proposal. Writing straight into the document would be the most
-// destructive thing in the app.
-let docAiController = null;
-
-function openDocAiPanel() {
-  if (!currentDoc) return;
-  const box = $("doc-content");
-  const selection = box.value.slice(box.selectionStart, box.selectionEnd);
-  $("doc-ai-panel").dataset.selection = selection;
-  $("doc-ai-scope").textContent = selection.trim()
-    ? `Rewriting the ${selection.trim().split(/\s+/).length} selected word(s).`
-    : "Rewriting the whole document. Select some text first to work on just that.";
-  $("doc-ai-result").value = "";
-  $("doc-ai-status").textContent = "";
-  $("doc-ai-panel").classList.remove("hidden");
-  $("doc-ai-instruction").focus();
-}
-
-function closeDocAiPanel() {
-  $("doc-ai-panel").classList.add("hidden");
-}
-
-// Extract notes (BACKLOG.md §62): the same selection-or-whole-document scope
-// AI edit above already uses — select a passage first to extract from just
-// that, or leave nothing selected to extract from the whole document.
-function openDocExtractPreview() {
-  if (!currentDoc) return;
-  const box = $("doc-content");
-  const selection = box.value.slice(box.selectionStart, box.selectionEnd).trim();
-  openExtractPreview(selection || box.value, { sourceDocumentId: currentDoc.id });
-}
-
-async function runDocAiEdit() {
-  const instruction = $("doc-ai-instruction").value.trim();
-  const status = $("doc-ai-status");
-  if (!instruction) {
-    status.classList.add("error");
-    status.textContent = "Say what you'd like changed.";
-    return;
-  }
-  status.classList.remove("error");
-  setLabel(status, "ph:magic-wand Thinking…");
-  docAiController = new AbortController();
-  $("doc-ai-run").classList.add("hidden");
-  $("doc-ai-cancel-run").classList.remove("hidden");
-  try {
-    const body = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
-      method: "POST",
-      signal: docAiController.signal,
-      body: JSON.stringify({
-        instruction,
-        selection: $("doc-ai-panel").dataset.selection || "",
-      }),
-    });
-    $("doc-ai-result").value = body.revised;
-    status.textContent = body.message || "Read it over, then accept or cancel.";
-    if (body.message) status.classList.add("error");
-  } catch (error) {
-    if (error.name === "AbortError") {
-      status.textContent = "Stopped. The document is untouched.";
-    } else {
-      status.classList.add("error");
-      status.textContent = error.message;
-    }
-  } finally {
-    docAiController = null;
-    $("doc-ai-run").classList.remove("hidden");
-    $("doc-ai-cancel-run").classList.add("hidden");
-  }
-}
-
-function acceptDocAiEdit() {
-  const revised = $("doc-ai-result").value;
-  if (!revised.trim()) return;
-  const selection = $("doc-ai-panel").dataset.selection || "";
-  const box = $("doc-content");
-  if (selection) {
-    const at = box.value.indexOf(selection);
-    box.value =
-      at === -1
-        ? box.value
-        : box.value.slice(0, at) + revised + box.value.slice(at + selection.length);
-  } else {
-    box.value = revised;
-  }
-  closeDocAiPanel();
-  markDocDirty();
-  renderDocPreview();
-  saveDocument({ silent: true });
-  toast("Applied the AI's edit.");
 }
 
 // --- the writing room: thoughts in, a note out -----------------------------------
@@ -8821,6 +8104,72 @@ let attachedNoteIds = [];
 // The set sent with the most recent message, so regenerate can reuse it.
 let lastChatAttachments = [];
 
+// --- attaching images to a chat message (vision-capable models) ----------------
+// Same shape as note attachments just above, uploaded through the existing
+// /media/upload (the note/document editors' own drag-and-drop endpoint) so
+// there is one upload path in the app, not two. `attachedImages` holds
+// {id, url} — the id is what the server needs, the url is what renders the
+// thumbnail without a second round trip.
+let attachedImages = [];
+let lastChatImageAttachments = [];
+
+function renderImageAttachments() {
+  const box = $("chat-image-attachments");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", attachedImages.length === 0);
+  $("attach-image")?.classList.toggle("has-attachments", attachedImages.length > 0);
+  for (const image of attachedImages) {
+    const chipEl = document.createElement("span");
+    // Reuses the note-composer's own image-attachment look
+    // (04-chat-dock-appearance.css) rather than inventing a second one.
+    chipEl.className = "chip attachment-chip attachment-chip-image";
+    const thumb = document.createElement("img");
+    thumb.src = mediaSrc(image.url); // a plain <img> never attaches X-Auth-Token
+    thumb.alt = "";
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = "Remove this image";
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedImages = attachedImages.filter((img) => img.id !== image.id);
+      renderImageAttachments();
+      announce(`Removed image. ${attachedImages.length} image(s) attached.`);
+    });
+    chipEl.append(thumb, remove);
+    box.appendChild(chipEl);
+  }
+}
+
+async function attachImageFiles(files) {
+  // Small and silent per-file, deliberately: a picker with several photos
+  // selected shouldn't abort the whole batch because one was too big or the
+  // wrong type — the same "drop what's wrong, keep what's fine" the note
+  // picker already does with unresolved wiki-links.
+  const room = 4 - attachedImages.length;
+  for (const file of Array.from(files).slice(0, Math.max(0, room))) {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      // No explicit Content-Type: the browser sets its own multipart
+      // boundary for a FormData body, and `api()`'s default JSON header
+      // would be wrong here — the same reason the editor's own image-drop
+      // upload (app.js, ~line 27615) overrides headers rather than merging.
+      const uploaded = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      attachedImages.push({ id: uploaded.id, url: uploaded.url });
+    } catch (error) {
+      toast(error.message || `Couldn't attach "${file.name}".`, true);
+    }
+  }
+  renderImageAttachments();
+}
+
 function attachedNotes() {
   return attachedNoteIds
     .map((id) => allEntries.find((e) => e.id === id))
@@ -8982,12 +8331,16 @@ async function sendChatMessage(preset, opts = {}) {
   // ones; a fresh send clears them, so they don't silently ride along on
   // every later question.
   const sentAttachments = opts.noteIds || attachedNoteIds.slice();
+  const sentImages = opts.imageMediaIds || attachedImages.map((img) => img.id);
   if (!opts.replaceLast) {
     // Remembered so a regenerate re-runs with the same references — by then
     // the picker has been cleared.
     lastChatAttachments = sentAttachments;
+    lastChatImageAttachments = attachedImages.slice();
     attachedNoteIds = [];
+    attachedImages = [];
     renderAttachments();
+    renderImageAttachments();
     closeNotePicker();
   }
 
@@ -9107,6 +8460,7 @@ async function sendChatMessage(preset, opts = {}) {
       mode: $("response-mode-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
       noteIds: sentAttachments,
+      imageMediaIds: sentImages,
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
@@ -9464,6 +8818,15 @@ async function sendChatMessage(preset, opts = {}) {
       // thing that saw the whole turn: the server reports per-round timings,
       // and an agent turn is several rounds plus the tool calls between them.
       elapsed_ms: elapsedMs,
+      // The "N matching notes" disclosure's own data. Reported: "semantic
+      // search results in chat messages keep disappearing" - true on every
+      // reload, since none of this was ever saved. Only meaningful for a
+      // grounded (non-conversational) turn that actually searched, so
+      // omitted rather than sent empty when there's nothing to show.
+      raw_results: meta?.raw_results?.length ? meta.raw_results : null,
+      search_mode: meta?.search_mode || null,
+      match_info: meta?.match_info && Object.keys(meta.match_info).length ? meta.match_info : null,
+      connected_ids: meta?.connected_ids?.length ? meta.connected_ids : null,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -10252,6 +9615,17 @@ async function openConversation(id) {
           })
         );
       }
+      // Same fix as the metadata line just above, for the "N matching
+      // notes" disclosure: reported as search results "disappearing" on
+      // every reload, since this reconstruction never rebuilt it at all.
+      if (message.raw_results) {
+        renderRecordsDetails(handles.recordsHolder, {
+          raw_results: message.raw_results,
+          search_mode: message.search_mode,
+          match_info: message.match_info || {},
+          connected_ids: message.connected_ids || [],
+        });
+      }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
@@ -10262,6 +9636,15 @@ async function openConversation(id) {
             title: "Edit this answer",
             onClick: () => editChatAnswer(handles, turnIndex, message.content),
           },
+          // Reported: "no chat message button to retry a response" - true
+          // for any reopened conversation specifically, since this
+          // reconstruction path built its own shorter action list that
+          // never included it, unlike the live-stream render just below
+          // (sendChatMessage's own chatMessageActions call). Same
+          // regenerateLastAnswer() either way - it always targets the
+          // last assistant bubble/lastChatQuestion regardless of which
+          // message's button was clicked, same as it already does live.
+          { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
           { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(message.content) },
           { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(lastQuestionText, message.content) },
           { label: "ph:alarm", title: "Set a reminder from this answer", onClick: () => reminderFromChatAnswer(message.content) },
@@ -16160,48 +15543,6 @@ function showNotesSection(name, { focus = false } = {}) {
   }
 }
 
-const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
-const DOC_SIDEBAR_STORE = "docSidebarSection";
-
-function showDocSidebarSection(name) {
-  const wanted = DOC_SIDEBAR_SECTIONS.includes(name) ? name : "list";
-  for (const section of DOC_SIDEBAR_SECTIONS) {
-    $(`doc-sidebar-${section}`)?.classList.toggle("hidden", section !== wanted);
-  }
-  for (const button of document.querySelectorAll("#doc-sidebar-tabs button")) {
-    const active = button.dataset.section === wanted;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-    button.tabIndex = active ? 0 : -1;
-  }
-  localStorage.setItem(DOC_SIDEBAR_STORE, wanted);
-}
-
-function initDocSidebarTabs() {
-  const strip = $("doc-sidebar-tabs");
-  if (!strip || strip.dataset.ready) return;
-  strip.dataset.ready = "1";
-  strip.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-section]");
-    if (button) showDocSidebarSection(button.dataset.section);
-  });
-  strip.addEventListener("keydown", (event) => {
-    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const index = DOC_SIDEBAR_SECTIONS.indexOf(
-      localStorage.getItem(DOC_SIDEBAR_STORE) || "list"
-    );
-    const next =
-      DOC_SIDEBAR_SECTIONS[
-        (index + step + DOC_SIDEBAR_SECTIONS.length) % DOC_SIDEBAR_SECTIONS.length
-      ];
-    showDocSidebarSection(next);
-    strip.querySelector(`button[data-section="${next}"]`)?.focus();
-  });
-  showDocSidebarSection(localStorage.getItem(DOC_SIDEBAR_STORE) || "list");
-}
-
 function initNotesSubtabs() {
   const strip = document.getElementById("notes-subtabs");
   if (!strip || strip.dataset.ready) return;
@@ -16292,55 +15633,69 @@ function scrollTopTargetEl() {
   return NESTED_SCROLL_TABS[tab]?.() || scrollingPage();
 }
 
-// Library's content panel is narrower than the viewport and sits behind its
-// own real scrollbar, which a fixed CSS `right` offset doesn't know to clear
-// — and the panel's own box can run taller than the viewport, which a fixed
-// CSS `bottom` offset doesn't know to stay above. Reported: the button
-// overlapped the scrollbar and sat below the visible fold. Computed here
-// instead of in CSS, from the panel's own live `getBoundingClientRect()`,
-// clamped so the button can never end up outside the visible viewport no
-// matter how tall the panel's box actually is.
+// A content panel can be narrower than the viewport and sit behind its own
+// real scrollbar, which a fixed CSS `right` offset doesn't know to clear —
+// and the panel's own box can run taller than the viewport, which a fixed
+// CSS `bottom` offset doesn't know to stay above. Reported, more than once
+// and on more than one tab (first Library, then screenshotted on Notes'
+// "Your notes" and "Ask" sub-tabs): the button overlapping the scrollbar and
+// the content beside it, or sitting below the visible fold. Computed here
+// instead of in CSS, from the *actual scroll target*'s live
+// `getBoundingClientRect()` — the same one `scrollTopTargetEl()` already
+// resolves per tab — for every tab but Chat (reparented into `.chat-dock`
+// and positioned by its own CSS instead), clamped so the button can never
+// end up outside the visible viewport no matter how tall the panel's box
+// actually is.
 function positionScrollTopForNested(button, tab) {
-  if (tab !== "library" && tab !== "notes") {
+  if (tab === "chat") {
+    // Reparented into .chat-dock by the MutationObserver below and
+    // positioned by that container's own CSS instead — inline right/bottom
+    // here would fight it rather than help it.
     button.style.right = "";
     button.style.bottom = "";
     return;
   }
-  // Anchoring to the actual scrolling content panel ensures the button
-  // sits flush with the content panel's own corner (e.g. inside narrower
-  // layouts with sidebars like Library or Notes) rather than the viewport.
-  const panel = NESTED_SCROLL_TABS[tab]();
+  // Anchoring to the actual scrolling content panel, not the viewport,
+  // for every tab — not just Library and Notes. A flat `right`/`bottom`
+  // offset from the *window* edge is correct only when the panel happens to
+  // reach that edge; the moment a real (non-overlay) scrollbar reserves
+  // layout width the panel's own `getBoundingClientRect()` doesn't subtract
+  // for, that flat offset lands the button sitting on top of the scrollbar
+  // and the content beside it (reported, screenshotted: an up-arrow button
+  // overlapping the scrollbar's own down-arrow and a line of note text on
+  // Notes' "Your notes" and "Ask" sub-tabs) — and every tab shares the same
+  // scroll container shape (`scrollTopTargetEl()`), so the fix has to be
+  // general rather than three more special cases in `NESTED_SCROLL_TABS`.
+  const panel = scrollTopTargetEl();
   const rect = panel?.getBoundingClientRect();
-  if (!rect) return;
+  if (!panel || !rect) {
+    button.style.right = "";
+    button.style.bottom = "";
+    return;
+  }
   const margin = 24; // 1.5rem, matching every other tab's own offset
 
-  // **Right**: was unconditional — pull the button in to sit `margin` px
-  // inside the panel's own right edge, always. That is correct only when a
-  // real right-side element (like the AI Skills Skill Logs sidebar) is
-  // actually there to clear. Notes' sidebar is on the *left*, and most
-  // Library sub-views have no right column at all, so their `main`'s right
-  // edge is already close to the page's own natural right margin — pulling
-  // in *again* on top of that stacked two margins and left the button
-  // noticeably further from the corner than every other tab's flat
-  // `right: 1.5rem`. Reported directly: "too much to the left" on Notes.
-  // Only pull in when a right-side panel that would actually be covered is
-  // present; otherwise match every other tab's flat offset.
+  // Real (non-overlay) scrollbars reserve layout width that
+  // getBoundingClientRect() doesn't subtract for; measuring it live
+  // (0 on this project's own sandbox and macOS, 15-17px on most
+  // Windows/Linux setups) replaces what used to be a flat guessed
+  // constant, wrong in both directions depending on platform.
+  const scrollbarClearance = panel.offsetWidth - panel.clientWidth;
+
+  // A right-side element the panel's own edge doesn't already account for —
+  // today only the AI Skills sidebar, sitting *inside* Library's own panel
+  // rather than beside it. Notes' sidebar is on the *left*, so it never
+  // needs this branch; most panels don't have one at all.
   const rightPanel = document.querySelector("#library-view-skills:not(.hidden) #skills-sidebar");
   if (rightPanel) {
     const rightPanelRect = rightPanel.getBoundingClientRect();
-    // Real (non-overlay) scrollbars reserve layout width that
-    // getBoundingClientRect() doesn't subtract for; measuring it live
-    // (0 on this project's own sandbox and macOS, 15-17px on most
-    // Windows/Linux setups) replaces what used to be a flat guessed
-    // constant, wrong in both directions depending on platform.
-    const scrollbarClearance = panel.offsetWidth - panel.clientWidth;
     button.style.right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
   } else {
-    button.style.right = `${margin}px`;
+    button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
   }
 
-  // **Bottom**: unchanged in spirit — a panel shorter than the viewport
-  // must not leave the button floating below its own content.
+  // **Bottom**: a panel shorter than the viewport must not leave the button
+  // floating below its own content.
   button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
 }
 
@@ -16672,9 +16027,14 @@ function initComposerResize() {
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
     localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height));
-    // Re-run so overflow matches the new ceiling straight away rather than at
-    // the next keystroke.
-    autoGrow(box);
+    // Deferred a frame: autoGrow() sets this same box's own height, and
+    // doing that synchronously inside the observer callback watching that
+    // box is exactly what triggers the browser's "ResizeObserver loop
+    // completed with undelivered notifications" warning (reported showing
+    // up as a browser console error). Re-running one frame later still
+    // matches overflow to the new ceiling well before the next keystroke,
+    // and moves the mutation out of the observer's own callback tick.
+    requestAnimationFrame(() => autoGrow(box));
   });
   observer.observe(box);
 }
@@ -17658,6 +17018,13 @@ async function saveWebSearchSettings() {
         searxng_url: $("pref-searxng").value.trim(),
       }),
     });
+    // Reported: "the web search button is visibly disabled in the chat
+    // dock instead of inactive when I have web search enabled in the
+    // settings" — the chat dock's own click handler keeps this Settings
+    // checkbox in sync going the other way, but this save handler never
+    // synced the chat dock button back, so it stayed on whatever look it
+    // had at page load until clicked directly or the page reloaded.
+    renderWebSearchToggle();
     status.classList.remove("error");
     status.textContent = "Saved.";
   } catch (error) {
@@ -19434,14 +18801,36 @@ function notificationsMuted() {
   return Boolean(prefsCache && prefsCache.notifications_muted_except_reminders);
 }
 
+// Asked for directly: "allow popup notifications to be manually closable
+// with an x button if the user wants them gone faster". A toast that has
+// already been read is just something left to wait out otherwise — the
+// timer clears when this fires, so a stray late setTimeout can't reach for
+// a note the click already removed.
+function toastCloseButton(note, timer) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "toast-close";
+  setLabel(button, "ph:x");
+  button.title = "Dismiss";
+  button.setAttribute("aria-label", "Dismiss this notification");
+  button.addEventListener("click", () => {
+    clearTimeout(timer);
+    note.remove();
+  });
+  return button;
+}
+
 function toast(message, isError = false, { exempt = false } = {}) {
   if (!exempt && !isError && notificationsMuted()) return;
   const box = $("toast-box");
   const note = document.createElement("div");
   note.className = isError ? "toast error" : "toast";
-  note.textContent = message;
+  const text = document.createElement("span");
+  text.textContent = message;
+  note.appendChild(text);
+  const timer = setTimeout(() => note.remove(), 5500);
+  note.appendChild(toastCloseButton(note, timer));
   box.appendChild(note);
-  setTimeout(() => note.remove(), 5500);
 }
 
 // A toast with one action button — used for Undo (Wave J). The button
@@ -19457,12 +18846,13 @@ function toastAction(message, actionLabel, onAction) {
   button.className = "small toast-action";
   button.textContent = actionLabel;
   button.addEventListener("click", async () => {
+    clearTimeout(timer);
     note.remove();
     await onAction();
   });
-  note.append(text, button);
+  const timer = setTimeout(() => note.remove(), 8000);
+  note.append(text, button, toastCloseButton(note, timer));
   box.appendChild(note);
-  setTimeout(() => note.remove(), 8000);
 }
 
 // --- global undo/redo (status bar) ------------------------------------------------
@@ -21071,6 +20461,7 @@ function renderSettings() {
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
+    renderVisionModelPicker(status);
     renderAutonomousModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
@@ -21667,6 +21058,31 @@ function renderUtilityModelPicker(status) {
   );
 }
 
+function renderVisionModelPicker(status) {
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("vision-model-select"),
+    names,
+    // The one model preference in this app that does NOT default to "same
+    // as chat model" (model_manager.py's vision_model() explains why: a
+    // chat model silently can't see images more often than it can).
+    { value: "", label: "Auto-detect" },
+    status.vision_model || ""
+  );
+  // Auto-detect is a choice with no fixed answer — say what it resolved to
+  // right now, the same reason chat-model-note exists, rather than leaving
+  // "Auto-detect" to mean nothing concrete in the UI.
+  const note = $("vision-model-note");
+  if (status.vision_model) {
+    note.textContent = `Active: ${status.vision_model}`;
+  } else if (status.vision_model_resolved) {
+    note.textContent = `Auto-detect — currently: ${status.vision_model_resolved}`;
+  } else {
+    note.textContent =
+      "Auto-detect — no installed model reports it can see images yet.";
+  }
+}
+
 function renderAutonomousModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
   fillModelSelect(
@@ -21747,6 +21163,7 @@ function renderInstalledModels(status) {
   // Models the app is actively pointing at can't be removed (would break it).
   const inUse = new Set([status.chat_model]);
   if (status.utility_model) inUse.add(status.utility_model);
+  if (status.vision_model) inUse.add(status.vision_model);
   if (status.embedding_backend === "ollama") inUse.add(status.embedding_model);
   const usedBases = new Set([...inUse].map((n) => (n || "").split(":")[0]));
 
@@ -21960,6 +21377,25 @@ async function applyUtilityModel() {
       select.value
         ? `Background jobs now use ${select.value}.`
         : "Background jobs now use the chat model."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function applyVisionModel() {
+  const select = $("vision-model-select");
+  try {
+    await api("/models/vision-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Images now go to ${select.value}.`
+        : "Images now use auto-detect."
     );
     refreshModelStatus();
   } catch (error) {
@@ -24212,7 +23648,6 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
 });
 initNotesSubtabs();
-initDocSidebarTabs();
 initSelectionPopup();
 initEntryListKeyboardNav();
 scrollTopUpdate = initScrollTopButton();
@@ -24693,113 +24128,9 @@ $("entry-template").addEventListener("change", applyTemplate);
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());
 
-// --- documents wiring ---
-$("doc-new").addEventListener("click", createDocument);
-// Searching and sorting every document lives in the Library now (§36G), with
-// the notes, chats and files beside them. This is the way there, said out loud
-// — a list that silently stops at eight is a list that has lost your writing.
-$("doc-browse-all").addEventListener("click", () => {
-  switchTab("library");
-  libraryKind = "document";
-  renderLibraryOverview();
-  renderLibraryFilters();
-  renderLibrary();
-});
-// Used to be an open-by-default <details> in the sidebar; its body was tall
-// enough to push the document list down, so it is a dialog now. The Close
-// button and Escape both close it — Close via the generic [data-close-dialog]
-// delegation set up below, Escape for free from <dialog>.showModal().
-$("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
-$("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
-$("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
-// The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
-// native `resize: vertical` handle shorter pins the textarea's own height,
-// but #doc-panes — a flex item of .doc-main with `flex: 1 1 auto` — keeps
-// growing to fill the card exactly as before, because nothing about a CSS
-// resize tells a flex *parent* to stop growing to fit it. The freed space
-// used to be trapped inside #doc-panes, below the now-shorter textarea and
-// above .doc-hint — dead space in the middle of the card instead of at its
-// bottom, where a person would expect it. There's no CSS-only fix: nothing
-// short of a user dragging the handle can tell us the textarea's size is no
-// longer meant to track the flex layout, so this is the one place app.js
-// answers "did a person just resize this" with a real yes/no rather than a
-// CSS rule guessing at it. A mousedown that ends with a different height is
-// as close as the DOM gets to "yes" — ordinary typing or a value swap on
-// loading a different document never changes offsetHeight.
-{
-  const box = $("doc-content");
-  let heightBeforeDrag = null;
-  box.addEventListener("mousedown", () => { heightBeforeDrag = box.offsetHeight; });
-  document.addEventListener("mouseup", () => {
-    if (heightBeforeDrag === null) return;
-    if (box.offsetHeight !== heightBeforeDrag) {
-      $("doc-panes").classList.add("doc-panes-manual");
-    }
-    heightBeforeDrag = null;
-  });
-}
-for (const button of document.querySelectorAll("#doc-toolbar button")) {
-  button.addEventListener("click", () => applyMarkdown(button.dataset.md));
-}
 $("voice-model-select").addEventListener("change", (e) =>
   setPreference("voice_model", e.target.value)
 );
-$("doc-word-goal").addEventListener("click", promptDocWordGoal);
-$("doc-word-goal-submit").addEventListener("click", () => {
-  if (!currentDoc) return;
-  const goal = Math.max(0, Math.round(Number($("doc-word-goal-input").value)) || 0);
-  setDocWordGoal(currentDoc.id, goal);
-  renderDocStats();
-  $("doc-word-goal-dialog").close();
-});
-$("doc-preview-toggle").addEventListener("click", toggleDocPreview);
-$("doc-export-md").addEventListener("click", exportDocumentMarkdown);
-$("doc-export-pdf").addEventListener("click", exportDocumentPdf);
-$("doc-delete").addEventListener("click", deleteCurrentDocument);
-$("doc-ai").addEventListener("click", openDocAiPanel);
-$("doc-ai-close").addEventListener("click", closeDocAiPanel);
-$("doc-ai-cancel").addEventListener("click", closeDocAiPanel);
-$("doc-ai-run").addEventListener("click", runDocAiEdit);
-$("doc-ai-cancel-run").addEventListener("click", () => docAiController?.abort());
-$("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
-$("doc-ai-instruction").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
-});
-$("doc-extract").addEventListener("click", openDocExtractPreview);
-$("doc-content").addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !$("doc-find-bar").classList.contains("hidden")) {
-    toggleDocFindBar(false);
-    return;
-  }
-  if (!(event.ctrlKey || event.metaKey)) return;
-  const key = event.key.toLowerCase();
-  if (key === "s") { event.preventDefault(); saveDocument(); }
-  else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }
-  else if (key === "i") { event.preventDefault(); wrapDocSelection("*"); }
-  // The browser's own Ctrl+F can't search a textarea's content at all — it
-  // only sees page DOM text, and a textarea's text is its *value*, not DOM
-  // text — so this isn't overriding useful native behaviour here.
-  else if (key === "f") { event.preventDefault(); toggleDocFindBar(true); }
-});
-$("doc-find-toggle").addEventListener("click", () => toggleDocFindBar());
-$("doc-find-close").addEventListener("click", () => toggleDocFindBar(false));
-$("doc-find-input").addEventListener("input", () => {
-  docFindIndex = -1;
-  docFindStep(1);
-});
-$("doc-find-input").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    docFindStep(event.shiftKey ? -1 : 1);
-  } else if (event.key === "Escape") {
-    toggleDocFindBar(false);
-  }
-});
-$("doc-find-next").addEventListener("click", () => docFindStep(1));
-$("doc-find-prev").addEventListener("click", () => docFindStep(-1));
-$("doc-replace-one").addEventListener("click", docReplaceOne);
-$("doc-replace-all").addEventListener("click", docReplaceAll);
-// Leaving with unsaved edits would lose them; autosave hasn't fired yet.
 // --- offline badge -----------------------------------------------------------
 //
 // Being offline is not an error here — the app is built to run that way. What
@@ -24814,12 +24145,6 @@ function reflectOnlineState() {
 window.addEventListener("offline", reflectOnlineState);
 window.addEventListener("online", reflectOnlineState);
 reflectOnlineState();
-
-window.addEventListener("beforeunload", (event) => {
-  if (!docDirty) return;
-  event.preventDefault();
-  event.returnValue = "";
-});
 
 // --- writing room wiring ---
 $("draft-compose").addEventListener("click", composeDraft);
@@ -24897,6 +24222,13 @@ $("attach-note").addEventListener("click", () => {
   if (notePickerOpen()) closeNotePicker();
   else openNotePicker();
 });
+
+// --- image attachment wiring (vision-capable models) ---
+$("attach-image").addEventListener("click", () => $("chat-image-input").click());
+$("chat-image-input").addEventListener("change", async (e) => {
+  if (e.target.files.length) await attachImageFiles(e.target.files);
+  e.target.value = ""; // so choosing the same file twice still fires "change"
+});
 let notePickerSearchDebounceTimeout;
 $("note-picker-search").addEventListener("input", () => {
   clearTimeout(notePickerSearchDebounceTimeout);
@@ -24953,6 +24285,10 @@ $("chat-new").addEventListener("click", newChatConversation);
   });
 }
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
+$("chat-tune-search").addEventListener("click", () => {
+  closeChatDockMore();
+  openSettingsModal("preferences", "search-relevance-group");
+});
 // Searching your chats lives in the Library now (§36F) — with the documents,
 // the files and the bin, and with sort beside it. This is the way there, said
 // out loud, because a list that silently stops at eight is a list that has
@@ -25266,6 +24602,11 @@ $("graph-focus-clear").addEventListener("click", () => {
   $("graph-focus-clear").classList.add("hidden");
   renderGraph();
   toast("Exited Focus Mode.");
+});
+$("graph-highlight-clear").addEventListener("click", () => {
+  graphHighlightIds = null;
+  applyGraphHighlight();
+  toast("Highlight cleared.");
 });
 $("graph-trace-clear").addEventListener("click", () => clearTrace());
 // What the colours mean, remembered like the layout is — it is a property of
@@ -26154,10 +25495,15 @@ $("llm-provider-select").addEventListener("change", () => {
   $("llm-base-url").placeholder = defaults[$("llm-provider-select").value] || "Default address";
 });
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
+$("vision-model-apply").addEventListener("click", applyVisionModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 $("utility-model-select").addEventListener(
   "change",
   () => ($("utility-model-select").dataset.userChosen = "1")
+);
+$("vision-model-select").addEventListener(
+  "change",
+  () => ($("vision-model-select").dataset.userChosen = "1")
 );
 
 // Wave N: improve-writing, link suggestions.
@@ -26227,6 +25573,11 @@ $("retry-btn").addEventListener("click", retryAnswer);
 $("copy-btn").addEventListener("click", copyAnswer);
 $("new-chat-btn").addEventListener("click", newChat);
 $("ask-history-toggle").addEventListener("click", toggleAskHistoryPanel);
+// Asked for directly: an X to close the history panel, not only the History
+// toggle button that opened it (easy to lose track of once scrolled past).
+$("ask-history-close")?.addEventListener("click", () => {
+  if (askHistoryOpen) toggleAskHistoryPanel();
+});
 $("ask-history-more").addEventListener("click", () => loadAskHistoryPage(false));
 $("ask-history-pinned-only").addEventListener("change", () => loadAskHistoryPage(true));
 $("ask-history-clear").addEventListener("click", clearAskHistory);
@@ -27003,7 +26354,26 @@ $("note-search").addEventListener("input", (e) => {
 });
 $("note-sort").addEventListener("change", (e) => {
   noteSort = e.target.value;
+  notesCurrentPage = 1; // a re-sort can move a note off whatever page it was on
   renderEntries();
+});
+$("notes-page-size").value = notesPageSize;
+$("notes-page-size").addEventListener("change", (e) => {
+  notesPageSize = e.target.value;
+  localStorage.setItem("notes-page-size", notesPageSize);
+  notesCurrentPage = 1;
+  renderEntries();
+});
+$("notes-page-prev").addEventListener("click", () => {
+  if (notesCurrentPage <= 1) return;
+  notesCurrentPage -= 1;
+  renderEntries();
+  $("entries-heading").scrollIntoView({ block: "start", behavior: "smooth" });
+});
+$("notes-page-next").addEventListener("click", () => {
+  notesCurrentPage += 1; // clamped back down inside renderEntries if this overshoots
+  renderEntries();
+  $("entries-heading").scrollIntoView({ block: "start", behavior: "smooth" });
 });
 // Reported directly: an image just pasted/dropped/attached only shows as
 // raw `![name](/media/hash.ext)` text in the plain <textarea> — which reads
@@ -27012,6 +26382,17 @@ $("note-sort").addEventListener("change", (e) => {
 // box and renders a real thumbnail per one, each with its own ✕ that strips
 // just that reference back out of the text (the upload itself is untouched,
 // same as deleting any other line of text doesn't delete a file).
+// Shared by every attachment-chip action below that needs the real upload
+// row (id, caption) behind a markdown `/media/...` url — `GET /media`
+// isn't filterable by url, so this is one list-and-find rather than each
+// caller repeating it. Not cached: called only on a real user action
+// (caption, edit, remove), never on the per-keystroke render this chip
+// strip runs under.
+async function resolveMediaUploadByUrl(url) {
+  const uploads = await apiJson("/media");
+  return uploads.find((u) => u.url === url) || null;
+}
+
 function renderEntryAttachmentChips() {
   const box = $("entry-attachment-chips");
   const textarea = $("entry-content");
@@ -27034,6 +26415,79 @@ function renderEntryAttachmentChips() {
     const label = document.createElement("span");
     label.textContent = name || url;
     label.title = name || url;
+    // Vision-capable models: manual caption generation "on notes in the
+    // notes page", asked for directly, alongside the same control already
+    // built into the Library's Image Gallery. Resolved to an id lazily on
+    // click, the same way `remove` below already does — this render runs on
+    // every keystroke, so an eager /media fetch per chip is not worth
+    // paying for a caption most of these images will never need.
+    const captionBtn = document.createElement("button");
+    captionBtn.className = "ghost small icon-only entry-attachment-caption-btn";
+    captionBtn.type = "button";
+    setLabel(captionBtn, "ph:sparkle");
+    captionBtn.title = `Generate an AI caption for "${name || url}"`;
+    captionBtn.setAttribute("aria-label", captionBtn.title);
+    captionBtn.addEventListener("click", async () => {
+      captionBtn.disabled = true;
+      try {
+        const match = await resolveMediaUploadByUrl(url);
+        if (!match) {
+          toast("Couldn't find that upload.", true);
+          return;
+        }
+        const updated = await apiJson(`/media/${match.id}/caption`, {
+          method: "POST",
+          body: JSON.stringify({ force: true }),
+        });
+        toast(updated.caption ? `Caption: ${updated.caption}` : "No caption produced.");
+      } catch (error) {
+        toast(error.message || "Couldn't generate a caption.", true);
+      } finally {
+        captionBtn.disabled = false;
+      }
+    });
+    // Manual entry, asked for directly ("allow for manual input of image
+    // captions as well as" the AI-generate button above). `promptDialog` is
+    // the same custom text-entry modal the app already uses elsewhere (the
+    // "Title for the new document" dialog is the other example) — kept
+    // deliberately separate from the sparkle button rather than merged into
+    // one control, matching the Library gallery's own click-the-text-vs-
+    // click-the-button split for the same two actions.
+    const editCaptionBtn = document.createElement("button");
+    editCaptionBtn.className = "ghost small icon-only entry-attachment-caption-edit-btn";
+    editCaptionBtn.type = "button";
+    setLabel(editCaptionBtn, "ph:pencil-simple");
+    editCaptionBtn.title = `Type a caption for "${name || url}"`;
+    editCaptionBtn.setAttribute("aria-label", editCaptionBtn.title);
+    editCaptionBtn.addEventListener("click", async () => {
+      editCaptionBtn.disabled = true;
+      try {
+        const match = await resolveMediaUploadByUrl(url);
+        if (!match) {
+          toast("Couldn't find that upload.", true);
+          return;
+        }
+        const typed = await promptDialog(
+          `Caption for "${name || url}"`,
+          match.caption || "",
+          { confirmLabel: "Save" }
+        );
+        // promptDialog resolves "" for both "cancelled" and "cleared the
+        // field on purpose" — an already-blank caption makes that
+        // ambiguity harmless (there's nothing to lose either way), so no
+        // "did you mean to clear it?" check is needed here.
+        if (typed === "" && !match.caption) return;
+        const updated = await apiJson(`/media/${match.id}/caption`, {
+          method: "POST",
+          body: JSON.stringify({ text: typed }),
+        });
+        toast(updated.caption ? `Caption saved: ${updated.caption}` : "Caption cleared.");
+      } catch (error) {
+        toast(error.message || "Couldn't save that caption.", true);
+      } finally {
+        editCaptionBtn.disabled = false;
+      }
+    });
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
@@ -27051,14 +26505,19 @@ function renderEntryAttachmentChips() {
       // resolves the id by listing and matching — one request, only when a
       // chip is actually removed, not on every render.
       try {
-        const uploads = await apiJson("/media");
-        const match = uploads.find((u) => u.url === url);
+        const match = await resolveMediaUploadByUrl(url);
         if (match) await apiJson(`/media/${match.id}`, { method: "DELETE" });
       } catch (err) {
         console.error("Couldn't delete the underlying upload", err);
       }
     });
-    chip.append(img, label, remove);
+    // .attachment-chip-image lays its children out in a column (the image
+    // stacked over its caption), so two sibling buttons would stack full-
+    // height rather than sit side by side — a small row keeps them paired.
+    const chipActions = document.createElement("span");
+    chipActions.className = "row entry-attachment-chip-actions";
+    chipActions.append(captionBtn, editCaptionBtn, remove);
+    chip.append(img, label, chipActions);
     box.appendChild(chip);
   }
 }

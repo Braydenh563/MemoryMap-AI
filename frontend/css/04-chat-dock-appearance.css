@@ -1591,13 +1591,15 @@ button {
 
 .provider-option {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   align-items: start;
   border: 1px solid var(--border);
   border-radius: calc(var(--radius) * 0.6);
   padding: 0.6rem 0.8rem;
   cursor: pointer;
+  /* Contains the radio-hiding rule's own `position: absolute` below. */
+  position: relative;
 }
 
 .provider-option:hover {
@@ -1610,7 +1612,23 @@ button {
 }
 
 .provider-option input {
-  margin-top: 0.25rem;
+  /* Same toggle-button treatment as .check-row's own radios (asked for
+     directly, "change all radio buttons to toggle buttons"): the row's own
+     border/background above already says which one is picked, so the
+     circle is redundant. Clipped, not display:none - keeps it in the
+     accessibility tree and the group's native arrow-key navigation. The
+     grid's first column (previously sized to fit the circle) is dropped
+     to match, so the label text isn't left with a dead gap in front of it. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .provider-option .muted {
@@ -1802,7 +1820,8 @@ button {
   flex: 0 0 auto;
 }
 
-#attach-note.has-attachments {
+#attach-note.has-attachments,
+#attach-image.has-attachments {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -1926,6 +1945,10 @@ button {
 
 .attachment-chip-image>span:first-of-type {
   font-size: var(--text-xs);
+}
+
+.entry-attachment-chip-actions {
+  justify-content: center;
 }
 
 .attachment-chips {
@@ -2107,6 +2130,10 @@ button {
   overflow-y: auto;
 }
 
+.doc-item {
+  position: relative;
+}
+
 .doc-item-button {
   display: flex;
   flex-direction: column;
@@ -2114,7 +2141,10 @@ button {
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  padding: 0.4rem 0.6rem;
+  /* Right side wider than the rest: room for the kebab in the corner, same
+     reservation .doc-list-body uses below for the Library's own copy of
+     this row. */
+  padding: 0.4rem var(--space-9) 0.4rem 0.6rem;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
@@ -2140,6 +2170,29 @@ button {
   font-size: 0.75rem;
 }
 
+/* Same hover/focus reveal as `.menu-wrap.doc-list-menu` below - a kebab
+   beside every title in a tight sidebar list would compete with the titles
+   themselves. */
+.menu-wrap.doc-item-menu {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.doc-item:hover .doc-item-menu,
+.doc-item-button:focus-visible ~ .doc-item-menu,
+.doc-item:focus-within .doc-item-menu {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .doc-item-menu {
+    opacity: 1;
+  }
+}
+
 /* The Library's own Documents sub-tab (#library-docs-list) — a *different*
    list from the editor's sidebar above, sharing only the .doc-list layout
    class. It had no styling of its own at all beyond that, so every row fell
@@ -2149,7 +2202,19 @@ button {
    the other application design style"). This gives it the same card
    language — border, icon, hover state — the "All" library view's cards
    already use, rather than a third, once again different, look. */
+/* Reported: "can't rename, multi select, or delete documents in the library
+   subtab" - each row was only ever the Open button below. Reported again
+   after that first pass: the tick and ⋯ menu it gained were squeezed in as
+   extra flex siblings instead of living *inside* the row the way a
+   library-card's own tick and menu do. `.doc-list-item` is now the same
+   article-not-button shape `libraryCard()` uses (a button cannot contain
+   another button, which the tick and the kebab both are) — `position:
+   relative` so `.doc-list-menu` below can pin itself to a corner, the tick
+   an ordinary inline child in `.doc-list-top` instead of a permanent flex
+   sibling, and the kebab hover/focus-revealed like every other Library
+   view's card menu rather than always visible. */
 .doc-list-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-5);
@@ -2169,6 +2234,42 @@ button {
   background: var(--accent-soft);
 }
 
+.doc-list-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+}
+
+.doc-list-tick {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* Same hover/focus reveal as `.menu-wrap.library-card-menu`
+   (00-tokens-shell.css) - a permanent ⋯ on every row in a long list is a
+   column of dots competing with the titles beside them. `hover: none`
+   keeps it visible on touch, where there is nothing to hover with. */
+.menu-wrap.doc-list-menu {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.doc-list-item:hover .doc-list-menu,
+.doc-list-item:focus-visible .doc-list-menu,
+.doc-list-item:focus-within .doc-list-menu {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .doc-list-menu {
+    opacity: 1;
+  }
+}
+
 .doc-list-icon {
   flex: 0 0 auto;
   font-size: 1.3rem;
@@ -2180,6 +2281,9 @@ button {
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  /* Room for the kebab, reserved rather than taken - or a long title runs
+     underneath it instead of wrapping clear of it. */
+  padding-right: var(--space-9);
 }
 
 .doc-list-title {

@@ -79,6 +79,16 @@ let wbLinkDragActive = false;
 // for the session" shape as `expandedNotes` on the Notes list. A plain `let`
 // module-level Set, not persisted: reopening the board later re-clamps.
 const wbExpandedNodes = new Set();
+// Same shape again, for the Library image gallery's AI captions — keyed by
+// upload id. Reported: "the image caption can't be expanded or collapsed",
+// which the two-line clamp had no way to do at all until now.
+const libraryExpandedCaptions = new Set();
+// Which documents are ticked in the Library's Documents sub-tab — this
+// view's own selection, separate from `librarySelection` (the "All" view's),
+// because this section never populates `libraryItems` and mixing the two
+// would let a checkbox here report "selected" while the "All" view's own
+// bulk-delete silently found nothing to act on.
+const libraryDocsSelection = new Set();
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -3019,7 +3029,12 @@ async function initWhiteboard() {
     // Delete/Backspace with a selection — the other half of Select as a
     // real tool: previously the only way to delete anything was switching
     // to the Delete tool and clicking it.
-    if ((e.key === "Delete" || e.key === "Backspace") && wbSelectedItem) {
+    // wbMultiSelection alongside wbSelectedItem: deleteWbSelection() already
+    // handles a marquee multi-select correctly, but this guard only ever
+    // checked the single-item variable - the two are mutually exclusive by
+    // construction, so a multi-selection left this false and Delete/
+    // Backspace silently did nothing. Reported directly.
+    if ((e.key === "Delete" || e.key === "Backspace") && (wbSelectedItem || wbMultiSelection.size > 0)) {
       e.preventDefault();
       deleteWbSelection();
       return;
@@ -5524,13 +5539,21 @@ async function renderLibraryDocuments() {
 
   let docs = [];
   try {
-    docs = await apiJson("/documents");
+    // `q` searches title *and* content server-side (routes_documents.py) —
+    // client-side filtering alone could only ever match a title, since a
+    // document's body is never sent to the browser in the list view.
+    docs = await apiJson(needle ? `/documents?q=${encodeURIComponent(needle)}` : "/documents");
   } catch (error) {
     toast(error.message || "Could not load documents.", true);
     return;
   }
-  if (needle) {
-    docs = docs.filter((d) => (d.title || "").toLowerCase().includes(needle));
+
+  // A reload can drop a document that was ticked (deleted, or filtered out
+  // by a new search) - drop it from the selection too, or the bar's count
+  // would go on including a row that no longer exists.
+  const liveIds = new Set(docs.map((d) => d.id));
+  for (const id of [...libraryDocsSelection]) {
+    if (!liveIds.has(id)) libraryDocsSelection.delete(id);
   }
 
   list.replaceChildren();
@@ -5543,19 +5566,56 @@ async function renderLibraryDocuments() {
 
   for (const doc of docs) {
     const item = document.createElement("li");
-    const open = document.createElement("button");
-    open.type = "button";
+
+    // Reported: "can't rename, multi select, or delete documents in the
+    // library subtab" - this row used to be nothing but the Open button
+    // below. The tick and the ⋯ menu give it the same three actions a
+    // document's card already has in the "All" library view — and,
+    // reported again after the first pass, the same *placement*:
+    // `libraryCard()`'s article-not-button shape (a button cannot contain
+    // another button, which the tick and the kebab both are), the tick
+    // sitting inline in the header row, the kebab absolutely positioned
+    // and hover/focus-revealed rather than two more permanent controls
+    // squeezed in as flex siblings.
+    const open = document.createElement("article");
     open.className = "doc-list-item";
-    // ROADMAP.md's Documents Library redesign ask ("SOOOO ugly and not
-    // consistent with the other application design style"): this button had
-    // no scoped CSS at all, so it fell through to the app's default filled
-    // <button> style — a full-width solid-accent bar rather than a card.
-    // Icon + a title/meta column now matches the same visual shape the
-    // "All" library view's document cards already use.
+    open.tabIndex = 0;
+    open.setAttribute("role", "button");
+    const openDoc = () => {
+      // switchTab first, then open. Reported as "the documents subtab document
+      // cards don't even do anything": openDocument() loaded the document
+      // correctly, but the Documents *page* stayed hidden behind the Library
+      // tab, so from the outside the click did nothing at all.
+      switchTab("documents");
+      openDocument(doc.id);
+    };
+    open.addEventListener("click", openDoc);
+    open.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target !== open) return; // a key pressed inside the tick/menu is theirs
+      event.preventDefault();
+      openDoc();
+    });
+
+    const top = document.createElement("div");
+    top.className = "doc-list-top";
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "doc-list-tick";
+    tick.checked = libraryDocsSelection.has(doc.id);
+    tick.setAttribute("aria-label", `Select "${doc.title || "Untitled"}"`);
+    tick.addEventListener("click", (event) => event.stopPropagation());
+    tick.addEventListener("change", () => {
+      if (tick.checked) libraryDocsSelection.add(doc.id);
+      else libraryDocsSelection.delete(doc.id);
+      syncLibraryDocsSelectbar();
+    });
     const icon = document.createElement("span");
     icon.className = "doc-list-icon";
     setLabel(icon, "ph:file-text");
     icon.setAttribute("aria-hidden", "true");
+    top.append(tick, icon);
+
     const body = document.createElement("span");
     body.className = "doc-list-body";
     const title = document.createElement("span");
@@ -5569,19 +5629,81 @@ async function renderLibraryDocuments() {
     const when = doc.updated_at ? relativeTime(doc.updated_at) : "";
     meta.textContent = [words, when].filter(Boolean).join(" · ");
     body.append(title, meta);
-    open.append(icon, body);
-    open.addEventListener("click", () => {
-      // switchTab first, then open. Reported as "the documents subtab document
-      // cards don't even do anything": openDocument() loaded the document
-      // correctly, but the Documents *page* stayed hidden behind the Library
-      // tab, so from the outside the click did nothing at all.
-      switchTab("documents");
-      openDocument(doc.id);
-    });
+
+    // Same three actions `libraryActions()` gives a document's card in the
+    // "All" view — kept as its own copy rather than calling that function
+    // directly, because its `reload` is hard-coded to `loadLibrary()` (the
+    // "All" view's own data), which would leave this list showing a document
+    // that was just renamed or deleted until something else refreshed it.
+    const menu = kebabMenu(
+      [
+        makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
+          const next = await promptDialog("Rename this document:", doc.title || "");
+          if (!next) return;
+          await apiJson(`/documents/${doc.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ title: next }),
+          }).catch((e) => toast(e.message, true));
+          renderLibraryDocuments();
+        }),
+        makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+          window.open(`/documents/${doc.id}/export.md`, "_blank");
+        }),
+        makeMenuItem("ph:trash Delete", "Delete this document", async () => {
+          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
+          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+          libraryDocsSelection.delete(doc.id);
+          renderLibraryDocuments();
+        }),
+      ],
+      `Actions for "${doc.title || "Untitled"}"`
+    );
+    menu.classList.add("doc-list-menu");
+    menu.addEventListener("click", (event) => event.stopPropagation());
+
+    open.append(top, body, menu);
     item.appendChild(open);
     list.appendChild(item);
   }
+  syncLibraryDocsSelectbar();
 }
+
+function syncLibraryDocsSelectbar() {
+  const bar = document.getElementById("library-docs-selectbar");
+  const count = document.getElementById("library-docs-selected-count");
+  if (!bar || !count) return;
+  const n = libraryDocsSelection.size;
+  bar.classList.toggle("hidden", n === 0);
+  count.textContent = `${n} selected`;
+}
+
+$("library-docs-clear-selection")?.addEventListener("click", () => {
+  libraryDocsSelection.clear();
+  renderLibraryDocuments();
+});
+
+$("library-docs-bulk-delete")?.addEventListener("click", async () => {
+  const ids = [...libraryDocsSelection];
+  if (!ids.length) return;
+  const ok = await confirmDialog(
+    `Delete ${ids.length} document${ids.length === 1 ? "" : "s"}? This cannot be undone.`
+  );
+  if (!ok) return;
+  let deleted = 0;
+  for (const id of ids) {
+    try {
+      await apiJson(`/documents/${id}`, { method: "DELETE" });
+      deleted++;
+    } catch {
+      // counted below, same as the "All" view's own bulk delete
+    }
+  }
+  libraryDocsSelection.clear();
+  if (deleted) toast(`Deleted ${deleted} document${deleted === 1 ? "" : "s"}.`);
+  const failed = ids.length - deleted;
+  if (failed) toast(`${failed} document${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  renderLibraryDocuments();
+});
 
 // Hook into the library subtabs to switch views and initialize whiteboard
 document.addEventListener("DOMContentLoaded", () => {
@@ -5643,7 +5765,15 @@ document.addEventListener("DOMContentLoaded", () => {
   $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
   $("library-docs-new")?.addEventListener("click", async () => {
     const doc = await createDocumentNamed();
-    if (doc) openDocument(doc.id);
+    // switchTab first, then open — the same fix openDoc() above needed
+    // ("the documents subtab document cards don't even do anything"): the
+    // document was created and loaded into the editor correctly, but the
+    // Documents page stayed hidden behind the Library tab, so nothing
+    // seemed to happen.
+    if (doc) {
+      switchTab("documents");
+      openDocument(doc.id);
+    }
   });
   // Filter as you type. No debounce: the list is already in memory after the
   // first fetch and re-rendering it is cheap, unlike the semantic searches
@@ -5783,7 +5913,8 @@ function filterLibraryImagesGallery() {
     ? libraryImagesCache.filter(
         (i) =>
           (i.original_name || "").toLowerCase().includes(query) ||
-          (i.ocr_text || "").toLowerCase().includes(query)
+          (i.ocr_text || "").toLowerCase().includes(query) ||
+          (i.caption || "").toLowerCase().includes(query)
       )
     : libraryImagesCache;
   grid.replaceChildren();
@@ -5907,11 +6038,154 @@ function filterLibraryImagesGallery() {
       box.addEventListener("blur", save);
     });
 
+    // A vision model's own description of the image, distinct from `cap`
+    // above (that's the filename — HTML's own <figcaption> naming just
+    // collides with what this app calls a "caption"). Asked for directly:
+    // written automatically in the background when a vision model is
+    // available (routes_files.py's upload trigger), regenerated here only
+    // on an explicit click — never silently overwritten.
+    const captionBtn = document.createElement("button");
+    captionBtn.type = "button";
+    captionBtn.className = "ghost small icon-button library-image-caption-btn";
+    setLabel(captionBtn, "ph:sparkle");
+    // Always visible, even empty — asked for directly ("allow for manual
+    // input of image captions"): a click-to-edit field, the same pattern
+    // `cap`'s inline rename above already uses, rather than a caption only
+    // ever being reachable through the AI-generate button.
+    const captionText = document.createElement("p");
+    captionText.className = "library-image-caption muted text-sm";
+    captionText.tabIndex = 0;
+    captionText.setAttribute("role", "button");
+    // Roughly two lines' worth of this tile's narrow column at text-sm —
+    // approximate on purpose, the same way LONG_NOTE_CHARS is: the tile is
+    // still `display: none` inside a hidden sub-tab at render time for most
+    // gallery loads, so a measured height would read 0 (the trap the Notes
+    // list's own long-note comment already names).
+    const CAPTION_CLAMP_CHARS = 90;
+    const captionToggle = document.createElement("button");
+    captionToggle.type = "button";
+    captionToggle.className = "entry-more library-image-caption-more hidden";
+    const captionClamped = () =>
+      !libraryExpandedCaptions.has(image.id) &&
+      (image.caption || "").length > CAPTION_CLAMP_CHARS;
+    const syncCaptionClamp = () => {
+      captionText.classList.toggle("library-image-caption-clamped", captionClamped());
+      const needsToggle = (image.caption || "").length > CAPTION_CLAMP_CHARS;
+      captionToggle.classList.toggle("hidden", !needsToggle);
+      captionToggle.textContent = libraryExpandedCaptions.has(image.id)
+        ? "Show less"
+        : "Show more";
+    };
+    captionToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (libraryExpandedCaptions.has(image.id)) libraryExpandedCaptions.delete(image.id);
+      else libraryExpandedCaptions.add(image.id);
+      syncCaptionClamp();
+    });
+    const setCaptionState = (text) => {
+      image.caption = text || "";
+      captionText.textContent = text || "Add a caption…";
+      captionText.classList.toggle("library-image-caption-empty", !text);
+      captionText.title = text
+        ? "Click to edit this caption"
+        : "Click to add a caption";
+      captionBtn.title = text
+        ? `Regenerate the AI caption for “${image.original_name}”`
+        : `Generate an AI caption for “${image.original_name}”`;
+      captionBtn.setAttribute("aria-label", captionBtn.title);
+      syncCaptionClamp();
+    };
+    setCaptionState(image.caption);
+    const startEditingCaption = () => {
+      if (captionText.querySelector("textarea")) return; // already editing
+      // Reported: the caption visibly collapsed the moment you clicked to
+      // edit it. The clamp (-webkit-line-clamp, still on captionText from
+      // whatever it was displaying a moment ago) treats its child as flowed
+      // text truncated to two lines - a <textarea> squashed into that same
+      // ~2-line box is what "collapsed" looked like. Editing shows the
+      // whole thing either way, so the clamp has nothing left to do here.
+      captionText.classList.remove("library-image-caption-clamped");
+      const box = document.createElement("textarea");
+      box.className = "library-image-caption-input";
+      box.value = image.caption || "";
+      box.setAttribute("aria-label", `Caption for "${image.original_name}"`);
+      box.maxLength = 2000;
+      captionText.replaceChildren(box);
+      box.focus();
+      box.select();
+      // A plain textarea doesn't grow with its content — min-height:3rem
+      // is a floor, not the whole box, so anything past ~2 lines scrolled
+      // inside a tiny window instead of showing (reported: "collapses when
+      // I try to edit it"). autoGrow (app.js) is the app's existing fix for
+      // exactly this on every other textarea; it just was never wired here.
+      autoGrow(box);
+      box.addEventListener("input", () => autoGrow(box));
+
+      let settled = false;
+      const finish = (text) => {
+        if (settled) return;
+        settled = true;
+        setCaptionState(text);
+      };
+      const cancel = () => finish(image.caption);
+      const save = async () => {
+        const next = box.value.trim();
+        if (next === (image.caption || "")) return cancel();
+        finish(next); // optimistic, corrected below if the server refuses it
+        try {
+          const updated = await apiJson(`/media/${image.id}/caption`, {
+            method: "POST",
+            body: JSON.stringify({ text: next }),
+          });
+          setCaptionState(updated.caption);
+        } catch (error) {
+          setCaptionState(image.caption);
+          toast(error.message || "Couldn't save that caption.", true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      box.addEventListener("blur", save);
+    };
+    captionText.addEventListener("click", startEditingCaption);
+    captionText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        startEditingCaption();
+      }
+    });
+
+    captionBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      captionBtn.disabled = true;
+      try {
+        // force: true — a manual click is exactly "the user pressed the
+        // button to rewrite it", the one case the write-once default
+        // (caption_and_store) is meant to defer to.
+        const updated = await apiJson(`/media/${image.id}/caption`, {
+          method: "POST",
+          body: JSON.stringify({ force: true }),
+        });
+        setCaptionState(updated.caption);
+      } catch (error) {
+        toast(error.message || "Couldn't generate a caption.", true);
+      } finally {
+        captionBtn.disabled = false;
+      }
+    });
+
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-    actions.append(rename, del);
+    actions.append(rename, captionBtn, del);
 
-    fig.append(img, actions, cap);
+    fig.append(img, actions, cap, captionText, captionToggle);
     grid.appendChild(fig);
   }
 }

@@ -27,11 +27,16 @@ caught by one grep: the Reminders calendar view (listed as a gap, already
 built and wired) and the graph's own non-visual keyboard layer. A grep miss
 and a real gap look identical from the outside.
 
-**Start at [§88](#88--the-live-report-backlog-the-kortexeden-read-and-the-appjs-split).**
-It is the current work queue: §88.1 is everything reported and still open, in
-order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split, which is the
-priority once §88.1 and §88.2 are done; §88.4 is the context/memory analysis.
-**§88.0 lists what was already fixed — check it before fixing anything.**
+**Start at [§89](#89--reported-this-session-not-yet-built-start-here-next)** —
+what was reported in the session after §88 and is still open (pagination on
+Reminders/Library, and a large chat-file-upload redesign, both logged rather
+than built). Then **§88**: §88.1 is everything reported there and still open,
+in order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split (its
+first file, documents.js, is done — library.js/dashboard.js/settings.js are
+what's left), the priority once §88.1 and §88.2 are done; §88.4 is the
+context/memory analysis. **§88.0 lists what was already fixed — check it
+before fixing anything, and §89's own header lists two more fixed the same
+way this same session.**
 
 **A fifteen-ask report plus a second round of ideas landed together — all of
 it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
@@ -41,26 +46,159 @@ below. Five of those fifteen were already built; §87.1 says which, and where.**
 
 Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
 
-1. **Vision-capable models still cannot be shown an image.** `ai/ollama_client.py`
-   already has the generic `capabilities()`/`supports()` pair, and Ollama
-   reports `vision` in that list for a multimodal model — so the detection
-   half exists and nothing downstream ever uses it. Confirmed missing by grep
-   over `app.js`: no image-file input is wired into the chat send path at all
-   (`chat-attachments` in the chat dock is the note-picker's attached-*notes*
-   list, not a file upload). Needs: an image input on the composer, multipart
-   handling on the chat route, and the provider layer passing images through
-   in whatever shape each backend expects — that last part is the real work,
-   and it is why this is the largest item left. Pairs naturally with the OCR
-   path, which already exists (`core/ocr.py`): a photo of a page could go to
-   OCR *or* to a vision model, the user's choice.
+~~1. **Vision-capable models still cannot be shown an image.**~~ **Built** —
+   the largest item on this list, end to end:
+   - **Composer**: a new `#attach-image` button beside the existing note
+     picker, uploading through the *existing* `/media/upload` (the same
+     endpoint the note/document editors already use for drag-and-drop
+     images) rather than a second upload path. Thumbnails render via the
+     app's existing `attachment-chip-image` look and `mediaSrc()` helper —
+     missed on the first pass and caught live: a plain `<img src>` never
+     attaches `X-Auth-Token`, so the thumbnail 401'd silently until routed
+     through the same query-param fallback `require_unlock_media` already
+     exists for exactly this case.
+   - **Chat route**: `ChatRequest.image_media_ids` (cap 4) →
+     `_resolve_chat_images()` reads each upload off disk and returns a data
+     URI (`routes_chat.py`) — the app's own neutral shape, not raw base64.
+     A real, previously-latent bug found and fixed while wiring this in:
+     both `librarian.answer` and `chat_stream`'s plain path short-circuited
+     to "no matching notes" whenever retrieval came back empty, which a
+     vision-only question ("what's in this photo?") always does — fixed by
+     treating an attached image the same as a matched note for that guard.
+   - **Provider layer**: `images` flows through
+     `librarian.build_messages`/`agent.build_agent_messages` onto the last
+     user message. Each dialect adapts it right at its own wire boundary —
+     `ollama_client._to_ollama_messages` strips the data-URI prefix to bare
+     base64 (Ollama sniffs the format itself); `openai_client._to_openai_messages`
+     hands the URI straight to `image_url.url`, which accepts it unchanged.
+     `model_spec()`'s existing `supports_tools`/`supports_thinking` tri-state
+     gained a third sibling, `supports_vision`, surfaced in Settings → Models
+     as "Can see images" — Ollama answers it for real, an OpenAI-compatible
+     server stays `None` ("not reported"), same as the other two.
+   - **Pairs with OCR** exactly as scoped: `/media/upload` already runs OCR
+     on any image in the background regardless of whether it's also sent to
+     a vision model — the two paths were never exclusive, just previously
+     disconnected from chat entirely.
+   - Six new backend tests (`tests/test_chat_vision.py`) cover the id→data-URI
+     resolution, the plain and agent-mode streaming paths, a missing/expired
+     media id being dropped rather than erroring, and the empty-notes guard
+     fix specifically; five more (`tests/test_providers.py`) cover both
+     dialects' message translation directly. Verified live in this sandbox's
+     Chromium: attach → thumbnail renders → send → attachments clear, zero
+     console errors. **Not verified**: an actual vision model's *answer*
+     quality — this sandbox has no reachable Ollama (the project's standing
+     caveat), so only the plumbing that gets an image to the model round-trip
+     is confirmed, not what a real multimodal model does with it.
 
-2. **Notes-tab pagination with page-aware note links** — BACKLOG §77, and
-   **not** the same as the windowing built in §86. That made the list render
-   incrementally while staying one continuous scroll; this is the *user-facing*
-   page-size control and page selector that was asked for directly. Its hard
-   half is unchanged and still unscoped: a wiki-link click has to land on the
-   right *page*, which depends on the sort and filter currently active, not
-   just the note's id. Real routing logic; deserves its own design pass.
+~~1b. **A vision-model preference, separate from the chat model.**~~ **Built**,
+   asked for directly right after the item above shipped. Settings → Models
+   gained a third picker (`ModelManager.vision_model`/`resolve_vision_model`)
+   beside the existing chat/utility ones — **the one deliberate exception to
+   this app's own default rule**. Every other model preference here falls
+   back to "same as chat model" when unset (`utility_model()`); vision
+   defaults to **auto-detect** instead (scan installed models for the first
+   one that declares the `"vision"` capability), because falling back to the
+   chat model would silently turn "attach a photo" into "attach a photo the
+   model ignores" on any notebook that has never touched this setting — a
+   worse default than the one other preference here that needs to differ
+   from the rest. An explicit model name still overrides auto-detect, the
+   same shape utility model already has. `routes_chat.py`'s two chat paths
+   (blocking and streaming, both the plain and agent/tools branches) all
+   route an image-carrying turn through the resolved vision model instead of
+   the ordinary chat model; `answered_by` reports whichever one actually
+   ran. 9 new tests (`test_models_api.py`, `test_chat_vision.py`) cover
+   auto-detect, an explicit override, the route's own validation, and that a
+   turn with no image never picks up a vision override that happens to be
+   configured.
+
+1c. **Auto-captions on uploaded images, from whichever vision model is
+   available.** Asked for directly, right after 1b. `MediaUpload.caption`
+   (new column, additive — the existing auto-migrator handles it, no
+   Alembic migration needed) is the same shape `ocr_text` already has:
+   NULL until filled, written once, never silently overwritten. New module
+   `ai/captioning.py` mirrors `core/ocr.py` almost exactly — same
+   never-raises contract, same background-thread trigger from
+   `POST /media/upload` (unconditional for a raster image; whether a vision
+   model actually exists is decided *inside* the background call, not on
+   the upload request, so the request never pays for that round trip). A
+   caption is written **once**; the only way to get a new one is the
+   explicit regenerate button — `POST /media/{id}/caption` with
+   `force: true` — reachable from two places, both asked for by name: the
+   Library's Image Gallery (a ✦ button beside rename/delete on every tile,
+   showing the current caption under the filename, clamped to two lines)
+   and the Notes tab's Capture composer (the same ✦ button added to each
+   inline-image chip `renderEntryAttachmentChips` already draws, result
+   shown as a toast rather than inline — that chip strip is compact and
+   already carries a remove control per image). The Image Gallery's own
+   search box now matches caption text too, alongside the existing filename
+   and OCR-text matching. 27 new tests total: 9 in `test_captioning.py`
+   (`caption_text`/`caption_and_store` directly — write-once, `force`
+   overwrite, never raises on a missing file/upload/backend error) and 9 in
+   `test_media_api.py` (the upload trigger, the manual endpoint's
+   validation — 415 on a PDF, 409 with no vision model, 404 on an unknown
+   id — and force-vs-not). **Scope decision, not an oversight**: this
+   covers `MediaUpload` only (the Library's Image Gallery, and any inline
+   `![]()` image in a note or document — all three funnel through the same
+   `/media/upload`, per that model's own docstring). Note *file attachments*
+   (`Attachment`, `/entries/{id}/files` — a separate upload path with its
+   own allowlist) are not captioned; extending to them would mean a second,
+   parallel implementation for a smaller surface, not a natural extension of
+   this one. **Verified live in this sandbox's Chromium, after a real deploy
+   trap**: the first verification attempt used the wrong tab selector
+   (`library-view-images` — the real id is `library-view-media`) and hung;
+   fixed and re-run, but the *second* attempt got a `405 Method Not Allowed`
+   on the caption button — not a frontend bug, the running server was a
+   stale process (`kill`ed at restart time, but the replacement `uvicorn`
+   had silently failed to bind the port while the old one kept answering,
+   so every request that session hit code from before this feature
+   existed). `ps`/`lsof` caught it; killing the actual PID and starting a
+   genuinely fresh process fixed it. Worth recording plainly: this is
+   exactly CLAUDE.md's own "restart the server after any Python change"
+   trap, one layer deeper — a *restart command that looks like it ran* is
+   not the same as a restart that actually did. With a real fresh server:
+   the ✦ button renders on hover beside rename/delete, and clicking it
+   correctly reports `409 "The AI model isn't running"` — this sandbox has
+   no reachable Ollama (the project's standing caveat), so a clean, honest
+   refusal is the correct and fully-verified behaviour here, not a gap.
+
+1d. **Manual caption input, asked for directly right after 1c shipped** — "as
+   well as" the AI-generate button, not instead of it. `POST /media/{id}
+   /caption` gained a `text` field: when present it sets the caption to
+   exactly that string and skips the model (and the write-once guard, which
+   exists to stop a silent *automatic* rewrite, not a person who opened the
+   field on purpose) entirely; `""` clears it, matching the existing null =
+   "not captioned" convention. Two entry points, kept as separate controls
+   from the ✦ generate button rather than merged into one, each matching an
+   existing pattern already in the app: the Library gallery's caption text
+   is now itself click-to-edit (the same inline-textarea-on-click shape the
+   filename rename right above it already used), showing a real "Add a
+   caption…" placeholder when empty instead of hiding; the Notes composer
+   chip — too compact for an inline field — gained a second (pencil) button
+   that opens `promptDialog`, the same custom text-entry modal the "Title
+   for a new document" flow already uses. 5 new backend tests
+   (`test_media_api.py`: hand-typed text bypasses the model and the
+   write-once guard, an empty string clears, a PDF is still refused).
+   Verified live in Chromium at both sites: the gallery's inline edit saves
+   and displays correctly, and the composer's modal round-trips through
+   the real endpoint (`toast: "Caption saved: Manually typed note
+   caption"`) — the second check needed two attempts, both instructive: the
+   modal is one of eleven `.modal-overlay` elements already in the DOM
+   (most hidden), so a bare `.modal-overlay` selector grabbed the wrong
+   one, and "Save" matches 17 buttons across the app — both fixed by
+   scoping to the one `[role=dialog][aria-modal=true]:visible` element,
+   not by changing the app.
+
+2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
+   in two, as BACKLOG always said it should be. **The page-size control and
+   page selector are built** — `#notes-page-size` / `#notes-pagination` in
+   the Notes toolbar, "All" (today's §86 continuous scroll, untouched) as
+   the default. See BACKLOG §77 item 1 for the full build note and its one
+   accepted trade-off (a thread can split across a page boundary). **Still
+   open: the hard half.** A wiki-link click has to land on the right *page*,
+   which depends on the sort and filter currently active, not just the
+   note's id — real routing logic, now scoped (BACKLOG §77 item 2) but not
+   built; the open design question is what to do when the click's origin
+   view has different sort/filter/page-size state than whatever's active.
 
 3. **The Timeline's line view needs a real visual pass** — reported as needing
    to look "very professional and ready for public use", and never scoped
@@ -69,9 +207,32 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    reproduced in this sandbox's Chromium and needs the actual browser/OS it
    happens on.
 
-4. **The Documents editor is behind the rest of the app** (BACKLOG §64). Also
-   still open there: `GET /documents` has no search parameter, and the
-   whiteboard's `aria-label` coverage lags the Graph's.
+4. **The Documents editor is behind the rest of the app** (BACKLOG §64) —
+   the item's own text already said "not scoped in detail here," and §87.1's
+   audit found it **stronger than this claim**: autosave, outline, find/
+   replace, preview, AI edit, extract-to-notes, and md/PDF export all
+   already exist. Live-checked again this session (created a document,
+   opened the editor, zero console errors) rather than left as an
+   assumption — nothing concretely broken surfaced, and per this file's own
+   rule ("say what specifically, next time it's reported"), no speculative
+   redesign was invented to fill the gap. Leaving this line open only for a
+   real, specific complaint if one arrives.
+   ~~`GET /documents` has no search parameter~~ **Built**: `?q=` matches
+   title *and* content (`Document.title.ilike | Document.content.ilike`),
+   mirroring a filter `ai/tools/documents.py`'s `_list_documents` already
+   had for the AI — the gap was only ever that a person couldn't reach it.
+   The Library's Documents search box now sends it server-side instead of
+   filtering titles client-side (all it could do — `_summary()` never sent
+   a document's body to the browser at all). 5 new tests
+   (`test_documents_api.py`).
+   ~~The whiteboard's `aria-label` coverage lags the Graph's~~ **Already
+   fixed, reconfirmed live rather than trusted**: §87.7b's "40 form
+   controls… all now carry a name… zero remaining" claim was checked
+   directly this session with a fresh DOM sweep of both the whiteboard
+   landing view and an open canvas (85 interactive controls total) — one
+   false positive (`#wb-snap-toggle`, a checkbox whose accessible name comes
+   from its wrapping `<label>`'s visible text, invisible to a naive
+   textContent-on-the-input check) and nothing else. The claim holds.
 
 5. **Claim-specificity in the hallucination net.** `agent.unsupported_claims`
    catches a claim with *no* matching write ("I tagged it" when nothing was)
@@ -97,9 +258,13 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    afterward shows the Dashboard's note count, category chips and the graph
    constellation all populated from the seed, unprompted.
 
-7. **Alembic migrations.** The additive auto-migrator cannot rename or drop,
-   and will not survive a real schema change. Nothing has needed it yet, which
-   is exactly why it is still here.
+~~7. **Alembic migrations.**~~ **Built** — HANDOVER.md's own "Alembic
+   infrastructure" section documents it (`migrations/`, `alembic.ini`, a
+   baseline revision every database is stamped to on first sight,
+   `tests/test_alembic_baseline.py`), this entry was just never struck.
+   Reconfirmed directly this session: `_ensure_alembic_baseline` exists in
+   `core/database.py`, the migration scaffolding is on disk, and the test
+   passes.
 
 8. **What happens when Ollama hangs, rather than errors.** Checked this
    session, not fixed — closer to already-handled than the item implies.
@@ -277,6 +442,7 @@ same session is in §88.0 so nobody re-fixes it.
 | Graph Options panel minimap combobox taller than the buttons beside it | `.graph-options button` got `height: var(--control-h)`; the `<select>` in the same panel never did. Both now measure identically (30.4px) |
 | Chat "New" button clashes with the sidebar collapse toggle specifically while collapsed-but-hover-expanded | `.sidebar-collapsed .sidebar-head` zeroes the toggle's reserved padding lane, correct at the true 48px-collapsed width — but the element keeps that class throughout the hover-peek state too, where the toggle visually moves back to its normal `right: 1.25rem`. Reserve restored for that specific hover state |
 | Graph node labels show raw callout syntax (`Review > [!tip] Remem…`) | `routes_graph.py`'s `_preview()` stripped a leading `#` heading marker but not a callout's `> [!kind]` opening line. Added `_CALLOUT_MD`, the callout equivalent of the existing `_HEADING_MD` strip |
+| "There's a weird black line on the right side of the screen" (desktop/WebView2 build, screenshotted) | Supersedes this table's own earlier row above ("The top menu bar shifts when I open the settings modal") rather than being a new bug: that fix made `scrollbar-gutter: stable` permanent on `<html>` so a real scrollbar disappearing under `.modal-open` wouldn't shift the layout. §36A later moved all scrolling onto each `.tab-page` (body is now unconditionally `overflow: hidden`, and `window.scrollTo` no longer exists in app.js), so `<html>` can no longer show a real scrollbar at all — the gutter that rule reserves is now permanently empty, narrowing `<html>`'s own rendered box by a scrollbar's width and leaving unstyled space at the viewport's right edge that no CSS rule paints, because it sits outside `<html>`'s box entirely. Confirmed directly in this sandbox's Chromium: `document.documentElement`'s rendered width measured a clean scrollbar-width short of `window.innerWidth` with the rule in place, and exactly equal to it with the rule removed — and re-tested opening the real settings modal to confirm no shift returns without it, since body's own `overflow: hidden` is unconditional regardless. `scrollbar-gutter: stable` removed from `01-forms-settings.css`'s `<html>` rule. **Not confirmed in the actual WebView2 shell that reported it** — only that the underlying CSS condition it depends on (a permanently unfillable gutter) is real and now gone |
 
 ### 88.1 Reported and still open — work this list top-down
 
@@ -323,13 +489,74 @@ same session is in §88.0 so nobody re-fixes it.
    this sandbox cannot confirm without a reachable model. If re-reported
    *with* a working AI connection, that would rule this theory out.
 5. **The AI Skills sub-tab "is just very unfinished and nothing really
-   works."** Confirmed in passing: its **Schedule** button is a literal
-   placeholder (`toast("Scheduler functionality coming soon!")`). Needs its own
-   audit pass — treat "nothing works" as a scope, not a bug.
-6. **The graph is slow and janky to move around.** Still **not diagnosed** and
-   deliberately not guessed at. Profile a pan and a node drag *separately*
-   before changing anything — the whiteboard's equivalent had one specific
-   cause, and HISTORY §71 already took the cheap wins here.
+   works."** Audited directly, verified live in Chromium (`library-view-skills`,
+   19 skills loaded, zero console errors) rather than trusted from the report.
+   The vague complaint does **not** hold up as stated — most of the sub-tab is
+   real:
+   - **Run Skill** — works. Prompts for inputs when the skill has any, runs it
+     in chat.
+   - **+ New Skill** — works. Opens Settings → Skills with a blank, focused
+     form (deliberately reuses that editor rather than growing a second one).
+   - **Skill Logs sidebar** — works, filters the audit log for skill/agent
+     actions; correctly shows "No skill execution logs found" on a fresh
+     profile.
+   - **Autonomous Workers toggle, Auto-tag, Auto-link** — real, wired to
+     `setPreference`, not decorative.
+   - **Edit / Delete a custom skill** — real, but **only reachable from
+     Settings → Skills**, not from a card on this sub-tab. Deliberate (one
+     editor, not two) but easy to read as "missing" from this tab alone —
+     worth a card-level Edit/Delete shortcut if this gets revisited.
+   - **Schedule** — the one genuinely broken piece: a literal placeholder
+     (`toast("Scheduler functionality coming soon!")`). This is the same
+     surface as the Kortex/Eden "automation pipelines" item (§88.2 item 8) —
+     build there, not as a one-off button, so it doesn't get built twice.
+~~6. **The graph is slow and janky to move around.**~~ **Profiled, not
+   guessed at — two real causes found and fixed, one deeper cost left open.**
+   120 seeded notes/40 links, Chromium's CDP `Performance` metrics, pan and
+   node drag measured *separately*, and — because this sandbox's VM is fast
+   enough to hide real jank — re-measured under `Emulation.setCPUThrottlingRate`
+   6× as the standard proxy for lower-end hardware:
+   - **Native `:hover` churn during a pan.** `graphIsPanning` already muted
+     the *application's* hover logic, but the browser's own `:hover`
+     pseudo-class still matches every node the cursor physically sweeps under
+     mid-drag, re-triggering `.graph-core`/`.graph-halo`'s CSS transitions —
+     invisible to any JS mute because it's browser-level, not app-level.
+     Fixed: `canvas.classed("graph-panning", true)` in the same zoom
+     `start`/`end` handlers, `.graph-panning .graph-node { pointer-events:
+     none }` in CSS. Node drags are unaffected — their own `mousedown`
+     already calls `stopPropagation()` before the zoom behaviour's `start`
+     ever fires. recalc-style time during a pan dropped measurably
+     (unthrottled: 85.7ms → 72.8ms over a fixed gesture).
+   - **The much bigger cause: panning or dragging *while the force
+     simulation is still cooling*.** Measured directly, 6× throttle: the
+     same pan gesture cost **80% main-thread busy** while the simulation was
+     still hot (`alpha` ≈ 0.87) versus **57%** after it had settled
+     (`alpha` < 0.001) — confirmed by tracking `graphSimulation.alpha()`
+     directly over time, not assumed. The tick handler updates every
+     node/edge/label position on every tick (~60/sec while running), which
+     directly competes with whatever the user is doing — and default decay
+     (0.0228) takes ~300 ticks, which under real throttling stretched cooling
+     past 15 seconds. That squarely covers "pan right after the graph opens,"
+     the single most likely first action a user takes. Fixed:
+     `.alphaDecay(0.05)` on the simulation — cools in ~10s instead of ~15–18s
+     under the same throttle. This does **not** change where the layout
+     settles (the forces decide that, not the decay rate), only how many
+     ticks it takes to get there — verified with a screenshot: 120 notes,
+     same well-spread layout, nothing broken.
+   - **What's still open, and why it wasn't attempted here**: even fully
+     cooled, a pan still cost 51–57% main-thread busy under 6× throttle —
+     real SVG hit-testing/paint cost over 120+ nodes that neither fix above
+     touches. The deeper fix is the tick handler's own O(n) full-graph DOM
+     update, the same shape the whiteboard's `wbScheduleRender()` fixed for
+     its 49 call sites (HISTORY, this file's own precedent) — skipping
+     label/cluster updates on alternate ticks, or a dirty-flag partial
+     update, is the next step if this is reported again after these two
+     fixes ship. Not attempted this session: it's a structural change to a
+     hot path, not a profiling-guided small fix, and deserves the same
+     "don't guess, measure first" treatment on its own.
+   - All existing graph/frontend tests, `ruff check`, and `node --check
+     graph.js` stay green; verified live in Chromium (screenshot, zero
+     console errors) both before and after.
 
 **Tier B — UI/UX, each concrete.**
 
@@ -422,35 +649,144 @@ web reader with highlight capture.
 
 **Worth taking, ranked by value per unit of effort:**
 
-1. **Boards hold *references*, never copies.** Eden's single best structural
-   idea, and it is the honest answer to the still-open **note clusters** ask
-   (§87.3): a cluster is a *board of references* — nothing is duplicated, a
-   note can be on many boards, and removing it from one changes nothing else.
-   This app already has a whiteboard with `group_id`; the missing piece is that
-   a board can hold a *reference to a note* as a first-class citizen.
+~~1. **Boards hold *references*, never copies.**~~ **Already built —
+   checked directly, not assumed missing, and this section's own framing
+   was stale.** `WhiteboardNode.entry_id` is a plain foreign key, never a
+   content copy, and `POST /whiteboard/nodes`' own dedup check is scoped to
+   `(entry_id, board_id)` together — not `entry_id` alone — specifically so
+   the same note can sit on several boards at once. Verified end to end,
+   not just read: the same note added to two different boards produces two
+   independent rows; deleting the reference on one board leaves the other
+   board's reference and the note itself completely untouched. New
+   regression test, `test_the_same_note_can_be_referenced_from_two_boards_
+   at_once` (`test_whiteboard.py`) — the two existing whiteboard tests
+   nearby cover *moving* a card between boards and *deduping* two drops on
+   the *same* board, neither of which exercises two simultaneous
+   references, which is the actual claim this item made. This is still the
+   honest answer to the open **note clusters** ask (§87.3) — a cluster is a
+   board of these references — but there is nothing left to build for the
+   reference mechanism itself; what remains, if this is picked up again, is
+   UI for a person to *find* a note's other boards from one of them (the
+   data already supports the query, nothing surfaces it).
 2. **Drag from an item's connection dot onto empty canvas to spawn a chat
    already connected to it.** The whiteboard already has real anchor points and
    AI actions; this joins them into one gesture and is the single most
-   compelling interaction in either product.
+   compelling interaction in either product. **Scoped this session, not
+   built** — real design, not a placeholder: `graph.js`'s connection-dot drag
+   already exists for *linking two notes*; the new gesture is the same
+   pointer-down-on-a-dot-and-drag start, but releasing over *empty* canvas
+   (not another node) instead spawns a floating "start a chat about this"
+   affordance at the drop point, and accepting it calls `switchTab("chat")`
+   → `newChatConversation()` with that note pre-attached, exactly the
+   existing `attachedNoteIds`/`note_ids` mechanism the composer's own note
+   picker already populates — no new backend concept, only a new whiteboard
+   gesture and its drop-target UI. The real risk is disambiguating this drag
+   from the *existing* drag-to-link-another-node gesture and from an
+   ordinary pan, at the same anchor point — worth prototyping the hit-test
+   before writing the spawn UI, not the other way around. Not attempted
+   this session: a new pointer gesture on a canvas that already has pan,
+   node-drag, and link-drag sharing the same surface is exactly the kind of
+   change §87.7c's own rule ("profile before touching it") argues for
+   doing deliberately, and the graph performance work earlier this session
+   is a fresh reminder of how much is already happening on that surface.
 3. **The pane system** — open anything in a side pane while writing, and keep
    research/chat visible beside the draft. The document editor already has a
-   sidebar; this generalises it to "open *any* item in a pane".
+   sidebar; this generalises it to "open *any* item in a pane". **Scoped, not
+   built.** This is the largest of the four and touches the most surface:
+   every full-screen "open X" flow in the app (a note, a document, a chat
+   conversation, a whiteboard board) would need a second, pane-sized render
+   path alongside its existing full-tab one, and the document editor's
+   sidebar — the thing this item generalises — is itself deeply wired to
+   `#doc-*` ids specific to the document editor, not a reusable component.
+   The honest shape of this as a real project: (a) extract the document
+   sidebar into a generic `openInPane(kind, id)` container first, proven on
+   the one thing that already has a pane; (b) add exactly one more kind
+   (the best-value pairing is a note or a chat beside a document, since
+   "research/chat visible beside the draft" was the concrete ask); (c) only
+   then consider generalising further. Attempting all of it at once, in the
+   same session as five other features, is how a UI architecture change
+   ships half-migrated — this needs its own session, deliberately, the same
+   caution this file already applies to the hybrid live-rendering editor.
 4. **Custom AI = instructions + chosen knowledge sources**, with **"use when"
    rules** so the assistant knows when to reach for a source. This is a direct
    upgrade to the existing skills/personas: today a skill is a prompt, and the
    gap is attaching a *bounded* knowledge set to it. Local equivalent of
    sources: selected notes, documents, boards and tags — never creators.
+   **Scoped this session, and the good news found while scoping it: the hard
+   half already exists.** `ChatRequest.attached_notes_only` + `note_ids`
+   (`routes_chat.py`) is already the exact "a deliberately closed set of
+   notes — retrieval finding more is pollution, not help" mechanism this
+   item needs; it was built for Trace's "generate a story from this path"
+   and never reused. The real remaining work is entirely on the skill side,
+   not the retrieval side: add a `sources` field to a skill (`ai/skills.py`'s
+   `normalise`/`SkillItem` in `routes_settings.py`) — a list of `{kind:
+   "note"|"document"|"tag", id_or_name}` — and have `skill_runner.run_skill`
+   resolve it to a concrete `note_ids` list at run start (a tag resolves to
+   every note carrying it, at that moment, not a saved snapshot) and pass
+   `attached_notes_only=True` alongside it. Documents aren't retrievable
+   content today (`routes_documents.py`'s own docstring: documents "never
+   appear in note search… unless the user asks for them by name") — a
+   document *source* would need its content folded into the skill's prompt
+   directly rather than routed through note retrieval, a smaller, separate
+   piece. "Use when" rules are the one part with no existing mechanism at
+   all: today a skill is picked by name or by `tools.focus_for`'s keyword
+   cueing, never by matching a source's stated purpose — that half needs a
+   real design decision (a short natural-language rule matched how, by
+   whom) this session didn't make.
 ~~5. **The interview technique.**~~ **Built** — "Interview me about an idea"
    in `ai/skills.py`'s `BUILTIN_SKILLS`, using the existing `ask_user` tool
    for a real back-and-forth mid-run rather than a one-shot prompt.
 6. **Reader-mode capture with citations preserved.** Partly built (the web
    reader); the missing half is that a highlight becomes its own first-class
    item with its source link intact.
+~~6. **Reader-mode capture with citations preserved.**~~ **The missing half is
+   now built.** "Source as metadata, not just folded into body text" —
+   `Entry.source_url`/`source_title`, new additive columns, populated by
+   `saveSelectionAsNote`'s existing "Save with its source" flow
+   (`selectionSource`/`clippingMarkdown`, both unchanged) alongside the
+   markdown blockquote+link it already wrote into the body — the body copy
+   stays deliberately, so a note is still a plain, portable file with no app
+   behind it. A note card now shows a real "🌐 source title" chip that opens
+   the page, and the field is real API surface (`GET`/`POST /entries`), not
+   something only recoverable by parsing markdown. 3 new tests
+   (`test_api_entries.py`).
+
 7. **Audio overview of a notebook/document**, generated locally with the
-   existing read-aloud voices and saved as a file. The private-RSS half is
-   cloud and should be dropped; the "listen to my research" half is not.
+   existing read-aloud voices and saved as a file. **Scoped this session —
+   the framing undersold the gap, and it's worth recording why rather than
+   attempting a partial build.** "The existing read-aloud voices" are the
+   browser's native `speechSynthesis` (Web Speech API) — real, but it only
+   *plays live*; there is no standard browser API to capture that audio to
+   a file, and this codebase has no server-side TTS engine at all (no
+   pyttsx3, no Piper, nothing — confirmed by grep, not assumed). So this
+   isn't "wire an existing capability to a save button," it's "add a new
+   local TTS dependency," which is exactly the category of heavy install
+   this project has burned time on before (CLAUDE.md's own standing torch/
+   sentence-transformers warning). Two honest paths, neither attempted here:
+   (a) a lightweight local TTS package (Piper is the most-cited
+   CPU-friendly option, ONNX-based, no torch) generating a real audio file
+   server-side, replacing `speechSynthesis` for this one feature only,
+   evaluated for install cost the same way `core/ocr.py`'s Tesseract
+   dependency was; (b) narrow the ask to "record what speechSynthesis
+   already plays" via `MediaRecorder` capturing system/tab audio — fragile,
+   permission-heavy, and browser-dependent, so a worse fit for a desktop
+   app than (a). Recommend (a), sized and evaluated in its own session
+   rather than guessed at here.
 8. **Automation pipelines** — user-facing trigger→action rules. The autonomous
    agent already does four fixed jobs; this is the same machinery with a UI.
+   **Checked, not built — the premise needed correcting first.** `ai/
+   autonomous.py` is **one** scheduled pass on **one** fixed interval (default
+   6 hours), not four distinct jobs with their own triggers — "four fixed
+   jobs" describes what that single pass *does* each time it runs (filing,
+   linking, tidy suggestions, digest), not four independently triggerable
+   pipelines. A real trigger→action UI needs, at minimum: a rules table
+   (trigger type, trigger config, action type, action config, enabled), a
+   trigger *types* beyond "every N hours" (this app already has real event
+   moments worth hooking — a note saved, a category assigned, a reminder
+   fired), and a UI to build/list/toggle/delete rules — none of which exist
+   today in any form. This is a genuinely new subsystem, not a UI layered
+   on existing machinery as the item's own text implied; sizing it
+   honestly is why it wasn't started this session.
 
 **Explicitly not taken:** the social corpus and outlier detection, multi-platform
 scheduling, auto-DM, creator-as-voice-clone, pooled team credits, affiliate
@@ -464,15 +800,30 @@ demand. This session's graph-toolbar work is (d); the pane system is (c).
 
 ### 88.3 The app.js split — the priority after §88.1 and §88.2
 
-**Do this next, and deliberately.** `app.js` is ~27,400 lines.
-`graph.js` (3.0k), `whiteboard.js` (5.9k) and now `editor.js` (~0.9k) are
-already out, so the pattern is proven three times over.
+`app.js` was ~28,460 lines. `graph.js` (3.0k), `whiteboard.js` (5.9k) and
+`editor.js` (~0.9k) were already out; `documents.js` (~1,010 lines) is now
+out too, so the pattern is proven four times over.
 
 Order, easiest and most self-contained first:
 
-1. **`documents.js`** — the document editor (`app.js:7331-8127` before this
-   session's edits): autosave, outline, find/replace, preview, AI edit,
-   export. It has clear seams and one entry point (`openDocument`).
+1. **`documents.js` — done.** The document editor (five zones scattered
+   across `app.js`, not one contiguous block: the core module at
+   `app.js:7588-8440`, the sidebar-tabs pair at `16299-16339`, the wiring at
+   `24878-24925` and `24929-24983` with `voice-model-select` deliberately
+   left behind — it's a settings control, not a documents one, despite
+   sitting inside the same comment block — and the `beforeunload` handler at
+   `25000-25004`. One real hazard found doing this: `initDocSidebarTabs();`
+   was called from a *bare top-level* line in `app.js`'s own wiring
+   (`initNotesSubtabs(); initDocSidebarTabs(); initSelectionPopup(); ...`) —
+   not from inside a closure — so moving only the function's *definition*
+   would have left that call site throwing `ReferenceError` and aborting the
+   rest of `app.js`'s synchronous top-level code. Fixed by moving the call
+   site too: `documents.js` now invokes `initDocSidebarTabs()` itself, on its
+   own last line, after its own definition. Verified live in Chromium
+   (Playwright): new document → title/content edit → autosave → the
+   sidebar's list/outline tabs (the exact function that moved) → markdown
+   toolbar, zero console errors. Registered in
+   `tests/test_frontend_handlers.py` and `tests/test_frontend_ids.py`.
 2. **`library.js`** — the Library (`app.js:19209+`), which already has its own
    sub-tab switcher living in `whiteboard.js` (an accident worth fixing while
    splitting).
@@ -482,8 +833,12 @@ Order, easiest and most self-contained first:
 **The rules that make it safe**, all learned here: never split in the same diff
 as a behaviour change; load order is load-bearing only where a file is read at
 *parse* time (see index.html's own note on why `graph.js` must precede
-`app.js`); and add every new file to `tests/test_frontend_handlers.py`'s
-`_source()` — a lint that cannot see a file cannot catch anything in it.
+`app.js`, and the new note on why a *reversed* case — a bare top-level call
+site left behind in `app.js`, calling into code that moved out — is the same
+hazard from the other direction); and add every new file to
+`tests/test_frontend_handlers.py`'s `_source()` and
+`tests/test_frontend_ids.py`'s `_frontend_js()` — a lint that cannot see a
+file cannot catch anything in it.
 
 ### 88.4 Context, memory and harness engineering — an analysis
 
@@ -539,6 +894,215 @@ test in this repo runs against a fake transport, and this sandbox has no
 reachable model. Retrieval *quality* changes cannot be evaluated here at
 all. Build the measurement (item 4) and a small fixed question set *first*,
 or every one of these becomes a change nobody can prove helped.
+
+## §89 — reported this session, not yet built (start here next)
+
+Landed live, in one long session, alongside the app.js split's first file
+(documents.js — done, see §88.3) and a vision-chat redesign (also done: see
+`routes_chat._image_caption_context` — a chat model with no vision of its
+own now gets a caption from the resolved vision model folded into the
+question, instead of the whole turn silently swapping to a different model).
+**Several items below were asked for again after already being built the
+same session — check `roadmap/HISTORY.md`'s own "§89's already built
+callouts" entry before rebuilding anything that sounds finished.**
+
+**Still open:**
+
+1. **Pagination on other tabs.** Notes already has a page-size selector
+   (§88.0's row on it, BACKLOG §77). Asked for on Reminders and the Library
+   sub-tabs too — "maybe", the user's own hedge, so scope each independently
+   rather than assuming the Notes pattern transfers as-is: Reminders' list
+   is chronological with due/overdue framing that pagination could easily
+   break (an overdue reminder pushed onto page 2 is a reminder that stops
+   being seen), and the Library sub-tabs differ in shape from each other
+   (Documents is a flat list, the "All" grid mixes kinds with its own
+   filter chips) more than Notes' browse view did.
+
+2. **Uploading a document (not an image) to the chat composer fails
+   silently into the transcript.** Reported directly, reproduced in the
+   report itself: attaching `README.md` produced no upload and instead
+   wrote `*(Failed to upload README.md)*` as if it were the AI's own
+   message — an error rendered as chat content rather than surfaced as
+   what it is. The fix has several parts, asked for together:
+   - The upload failure itself needs surfacing as a toast/notification,
+     never as literal text injected into the transcript.
+   - **Any file type**, not just images, should be uploadable to chat and
+     "readable by the AI" — for a document this almost certainly means
+     text extraction (the same shape `core/ocr.py` and
+     `ai/captioning.py` already establish for images: extract once,
+     store, hand the extracted text to the model as context) rather than
+     sending arbitrary bytes.
+   - Every upload (any type) should land in the Library and be viewable
+     there "no matter the format" — needs a real per-type viewer story,
+     not just a download link, for at least the common cases (text/
+     markdown, PDF, common office formats — scope which ones directly
+     rather than guessing at "any format").
+   - **Files should stage, not upload immediately.** A file picked for a
+     chat message should show as a small card above the composer (name,
+     a file-type icon, an × remove button) and only actually reach
+     `/media/upload` (and the Library) when the message is actually
+     sent — not before. This is a different lifecycle from the current
+     image-attach flow, which uploads on pick.
+   - **A per-message attachment cap** — the user suggested 10 as a
+     common default but flagged uncertainty about whether that is too
+     heavy for this app; measure against `MAX_CHAT_IMAGE_BYTES`-style
+     per-file limits and real local-model context budgets before picking
+     a number.
+   - **Attach an already-uploaded Library file/image to a chat message**,
+     the same way a note can already be attached (`body.note_ids`) —
+     currently the composer can only attach something just picked from
+     disk, not something already in the Library.
+   This is a genuinely large feature, not a bug fix — reported with an
+   explicit "add this to the roadmap, I'm low on usage" rather than a
+   request to build it now. Scope it as its own session: it touches the
+   upload route, a new extraction step, the Library's viewer story, and a
+   staging-state redesign of the chat composer, none of which should be
+   mixed with a smaller fix in the same diff.
+
+3. **Vision-model OCR, as an alternative (or complement) to Tesseract, with
+   model-pull suggestions in Settings → Models.** Asked as a question, not
+   yet scoped or built. `core/ocr.py` (Tesseract) and `ai/captioning.py`
+   (vision-model description) already establish the two shapes this would
+   choose between: OCR is "what text is in this image", captioning is
+   "what does this image show" — a vision-model OCR mode would follow
+   `caption_and_store`'s own write-once/background-trigger pattern, most
+   naturally as a per-image *choice* of extractor (Tesseract vs. a vision
+   model) rather than a wholesale replacement — raised directly ("might be
+   able to negate the need for py tesseract"), and worth resisting: a
+   vision model needs a multi-GB download and real per-image inference
+   time, where Tesseract is instant, needs no model download at all, and
+   matches this project's own standing "no heavy installs" stance
+   (CLAUDE.md's torch/sentence-transformers avoidance is the same
+   reasoning). Keep both, let the user pick. Named as candidates worth
+   checking against the actual Ollama library before committing to any
+   (unverifiable from this sandbox — no live internet or Ollama registry
+   access): Qwen3-VL if available there (the user's own preference over
+   Qwen2.5-VL, and plausibly the stronger current default), else
+   Qwen2.5-VL (2B/7B/72B), MiniCPM-V (small, specifically strong at OCR),
+   GLM-4V, DeepSeek-VL2, and Moondream (tiny, weaker, for low-spec
+   hardware). The user also named "glm-ocr" and "deepseek-ocr" specifically
+   — unconfirmed whether those are real, distinctly-named Ollama tags
+   separate from the general-purpose VL models above, or shorthand for
+   using GLM-4V/DeepSeek-VL2 for OCR; check the actual registry before
+   scoping model-pull UI around either name.
+
+4. **A visual indicator on a chat message's own metadata line for which
+   mode answered it** (Ask vs. Request/Agent — the segmented control at
+   the bottom of the Chat tab, `renderChatModeSeg()`/`setChatMode()` in
+   app.js, which maps to `body.use_tools` on the wire). Asked for directly.
+   The metadata line already shows the model name and timing (the
+   `{"type": "stats", ...}` NDJSON event, rendered alongside `answered_by`)
+   — this would add which of the two modes produced that particular
+   answer, most naturally read off `use_tools` (or, for a plan/skill run,
+   its own distinct label) rather than the *current* toggle state, since a
+   conversation can span mode switches and each past message should say
+   what it was actually answered with, not what the toggle happens to show
+   now.
+
+5. **Images pasted, dragged, or dropped into the chat composer don't reach
+   the vision-chat staging system at all.** Reported as a suspicion; found
+   the exact cause while logging it, not yet fixed. `document.addEventListener("drop"/"paste", ...)`
+   (app.js, ~line 26800) matches **any** `<textarea>` by tag name alone —
+   there's no id check scoping it to the Notes/Document composer it was
+   clearly written for. `#chat-input` is a `<textarea>` too, so both
+   handlers fire there and route through `handleFileUpload()`, which
+   inserts literal `![Uploading photo.png…]()` markdown-image placeholder
+   text into the message box and uploads through its own path — nothing
+   like `attachImageFiles()`/`renderImageAttachments()` (the card-token
+   staging this session's vision-chat work actually built and verified,
+   reachable only from the composer's "＋" button). That fully explains
+   both symptoms at once: no attachment card because nothing was staged
+   through that system, and no inline rendering because a plain chat
+   `<textarea>` doesn't render markdown image syntax typed into it. Fix is
+   two-sided: either scope the existing global handler away from
+   `#chat-input` and give the chat composer its own paste/drop listener
+   that calls `attachImageFiles()` instead, or teach `handleFileUpload()`
+   to detect which composer it landed in and branch accordingly — the
+   former is more of this codebase's own separation-of-concerns pattern
+   (each composer owns its own attach flow) and the safer fix, since the
+   latter risks the same "one function serving two different shapes"
+   coupling this session's `documents.js` split was specifically avoiding
+   elsewhere.
+
+6. **Captioning an image with a vision model should show in the background
+   tasks list**, the way other long-running work does. Asked for directly,
+   not yet scoped: `ai/captioning.caption_and_store`/`caption_in_background`
+   run a real model call (seconds, not instant) with no visible progress
+   anywhere in the UI today - find the existing background-tasks mechanism
+   (whatever surfaces e.g. imports or backups as in-progress) and register
+   a task around the caption call the same way, rather than inventing a
+   second progress system.
+
+7. **The Documents editor's "AI edit" feature should become a more general
+   AI assistant**, not just an in-place editor of existing text. Asked for
+   directly: today it only edits/rewrites what's already on the page; the
+   ask is for it to also write new content and remove content on request -
+   closer to an agentic assistant for the document than a single "improve
+   this selection" action. Not yet scoped - likely touches whatever
+   `doc-ai-instruction`/the AI-edit route already is, but "write" and
+   "remove" as first-class actions (as opposed to "replace selection with
+   edited version") may need a different request/response shape than the
+   current edit flow, so scope that before building rather than bolting new
+   verbs onto the existing one.
+
+8. **Lightbox prev/next arrow icons read as off-centre.** Reported with a
+   screenshot; not yet fixed, and not confirmed live this session (no image
+   in this sandbox's test data to open a lightbox against). `.lightbox-nav`
+   already centres its child with `display: grid; place-items: center`,
+   which centres the icon's own box regardless of `.ph`'s own
+   `vertical-align: -0.12em` (that rule only affects inline layout, and has
+   no effect inside a grid item) - so if the arrows still look off-centre,
+   the cause is more likely the glyphs themselves (ph-caret-left/
+   ph-caret-right) not being visually centred within their own em-box in
+   the vendored Phosphor font, not a CSS positioning bug. Check by
+   measuring the glyph's actual ink bounds against its box in a live
+   browser before changing any CSS here.
+
+9. **Settings modal reads as poor contrast / hazy in light mode.** Reported
+   with a screenshot; not reproduced. Audited the pipeline this bug class
+   would live in (`APPEARANCE_DEFAULTS`/`applyAppearance()`, app.js — where
+   the project's worst UI bug to date came from, an unguarded custom
+   property computing to the literal string `"undefined"`/`"NaN"`): every
+   key has a default, and a fresh profile's Settings modal in forced light
+   mode plus glass on (user confirmed glass is on) renders correctly in
+   this sandbox. The user's screenshots consistently show a custom teal
+   accent, not the default indigo — likely specific to their own accent/
+   glass-blur/opacity/shadow values. Need those values, or a live session.
+
+10. **Images and sketches attached to a note don't render on the whiteboard
+    canvas.** Reported directly, not yet fixed; diagnosed from source, not
+    reproduced live (no image in this sandbox's test data). A note's card
+    on the whiteboard (`nodeEnter.each`, whiteboard.js) renders its body
+    with `renderMarkdown(contentEl, text)` only — a pasted/dropped image
+    living as inline `![...](...)` markdown in `entry.content` would render
+    through that. A sketch or a traditionally-attached image is different:
+    it lives in `entry.attachments` / `thumb_attachment_id`, a separate
+    field the Notes list's own card (`entryItem()`, its "Attachments (Wave
+    B...)" block) and the Library card (`libraryCard()`'s `thumb_attachment_id`/
+    `thumb_url` branch) both render explicitly — the whiteboard's card never
+    reads that field at all. Fix is probably teaching the whiteboard card to
+    render a thumbnail from `entry.attachments`/`thumb_attachment_id` the
+    same way those two already do, not a `renderMarkdown` change.
+
+11. **Whether AI-driven work (image captioning, and AI features generally)
+    should run asynchronously as a standing design principle**, not just
+    get a background-tasks *indicator* (item 6 above, already logged - this
+    is a broader question, not a duplicate of it). Raised as an open
+    question, not scoped. `ai/captioning.caption_in_background` already
+    demonstrates the shape for at least one feature (a background thread,
+    fire-and-forget from the route); worth an actual audit of which AI
+    calls in this app are still synchronous/blocking-the-request today
+    (chat streaming already isn't, by its nature) before deciding whether
+    this becomes a standing pattern applied elsewhere or stays per-feature.
+
+12. **Whiteboard cut, and a right-click/long-press menu for a selection.**
+    Asked as a question. Copy/paste already exist (`wbCopySelection`/
+    `wbPasteClipboard`, Ctrl/Cmd+C/V) - cut does not (no Ctrl/Cmd+X handler
+    anywhere in whiteboard.js). No right-click menu for a selected item
+    either; `contextmenu` is only wired to one toolbar toggle button
+    (`wbOpenDockedMenu`, with its own touch long-press equivalent already
+    built) - that same pattern is the natural template for a selection's
+    own copy/cut/delete menu, not a new one.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

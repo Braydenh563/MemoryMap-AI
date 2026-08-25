@@ -119,6 +119,19 @@ def test_librarian_offline_message(app_state):
     assert text == librarian.OFFLINE_MESSAGE
 
 
+def test_model_error_message_sanitises_the_exception_text():
+    """CodeQL: "information exposure through an exception" - the exception's
+    own str() is untrusted (some standard-library exceptions embed a file
+    path or connection detail), so it has to go through the same sanitiser
+    the Settings -> Logs viewer trusts, not straight into a message shown
+    back to whoever is running this session."""
+    forged = "line one\nline two\x07" + "x" * 500
+    message = librarian.model_error_message("llama3.2", RuntimeError(forged))
+    assert "\n" not in message
+    assert "\x07" not in message
+    assert len(message) < len(forged)
+
+
 def test_librarian_answers_with_notes_in_prompt(app_state):
     ollama = FakeOllama()
     notes = [{"content": "the cheese joke", "category": "Dad Jokes"}]

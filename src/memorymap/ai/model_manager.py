@@ -61,26 +61,36 @@ class Embedder(Protocol):
 # "model not found" and the Models screen shows it, rather than the app
 # pretending to know something it doesn't. Nothing else reads these names.
 SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
-    "chat": [
+    # Split by type (text / vision / embedding / moe), asked for directly —
+    # this dict drives the Settings -> Models suggested-downloads list
+    # generically (frontend/app.js's renderSuggested() does a plain
+    # `Object.entries()` over it and labels each model with its own top-
+    # level key), so a new key here needs no frontend change at all. "moe"
+    # split out of the old flat "chat" list rather than staying folded into
+    # it — a MoE model's RAM/speed trade-off (see its own comment below) is
+    # different enough from a dense model's that grouping them together
+    # under one label was misleading, not just imprecise.
+    "text": [
         # --- runs on almost anything, no GPU needed ---
         {"name": "qwen3.5:2b", "size": "~1.6 GB", "purpose": "The lightest one genuinely worth using"},
         {"name": "llama3.2", "size": "~2.2 GB", "purpose": "Fast all-rounder — the default, and a good first choice"},
         {"name": "granite4.1:3b", "size": "~2.2 GB", "purpose": "Strong instruction-following at a small size"},
         {"name": "qwen3.5:4b", "size": "~2.6 GB", "purpose": "Follows instructions closely — good for agent mode"},
-        {"name": "gemma4:e2b", "size": "~4.4 GB", "purpose": "MOE, fast like a 2B model but more capable. Try it if bigger models are too slow"},
-        {"name": "gemma4:e4b", "size": "~6.9 GB", "purpose": "Noticeably more capable + better writing than the 2B models"},
         # --- 8 GB of RAM, or any modern GPU ---
         {"name": "llama3.1:8b", "size": "~4.9 GB", "purpose": "Better reasoning and reliable tool calls"},
         {"name": "qwen3.5:8b", "size": "~5.2 GB", "purpose": "Best tool use at this size. Thinks, so slower per answer"},
         {"name": "mistral-nemo", "size": "~7.1 GB", "purpose": "Long-document work — a large context window"},
         {"name": "gemma4:12b", "size": "~7.6 GB", "purpose": "Long-form writing and summarising"},
-        # --- mixture-of-experts: big download, small working set ---
-        #
-        # These need the RAM of the model they are named after and run at
-        # roughly the speed of the *active* half — 26B-a4b holds 26B of weights
-        # and computes with 4B of them. That is the one thing worth explaining
-        # about them, because judged on download size alone nobody with 16 GB
-        # would try one, and they are the best answer for that machine.
+    ],
+    # Mixture-of-experts: big download, small working set. These need the
+    # RAM of the model they are named after and run at roughly the speed of
+    # the *active* half — 26B-a4b holds 26B of weights and computes with 4B
+    # of them. That is the one thing worth explaining about them, because
+    # judged on download size alone nobody with 16 GB would try one, and
+    # they are the best answer for that machine.
+    "moe": [
+        {"name": "gemma4:e2b", "size": "~4.4 GB", "purpose": "MoE: 2B-class speed with more capability. Try it if bigger models are too slow"},
+        {"name": "gemma4:e4b", "size": "~6.9 GB", "purpose": "MoE: noticeably more capable + better writing than the e2b"},
         {"name": "gemma4:26b-a4b", "size": "~17 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
         {"name": "qwen3.5:35b-a3b", "size": "~21 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
     ],
@@ -88,6 +98,33 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
         {"name": "nomic-embed-text", "size": "~274 MB", "purpose": "Solid general-purpose embeddings"},
         {"name": "mxbai-embed-large", "size": "~670 MB", "purpose": "Higher quality, a little slower"},
         {"name": "bge-m3", "size": "~1.2 GB", "purpose": "Better on long notes and mixed languages"},
+    ],
+    # Any of these can be picked as the explicit vision-model override in
+    # Settings → Models (ModelManager.vision_model()), for chat image
+    # captions (ai/captioning.py) and image-carrying chat turns
+    # (routes_chat._chat_model_sees_images). Asked for directly. Two are
+    # newer/less certain than the rest of this file's own entries and worth
+    # flagging: qwen3-vl's Ollama tag is a plausible guess at this file's own
+    # naming convention rather than one confirmed against a running Ollama
+    # (no live registry access from where this was written) — if it 404s on
+    # pull, qwen2.5vl below is the confirmed fallback. glm-4v and
+    # deepseek-vl2 were asked about by name but are not included here at
+    # all: unlike every other model in this file, it isn't confirmed either
+    # is actually published on Ollama's library under any tag, and this
+    # file's own "fails safely" rule (a stale *tag* just 404s cleanly) does
+    # not cover suggesting a model that was never offered in the first
+    # place.
+    "vision": [
+        {"name": "moondream", "size": "~1.7 GB", "purpose": "Tiny and fast — the one to try on modest hardware"},
+        {"name": "lfm2.5-vl", "size": "~1.6 GB", "purpose": "Liquid's small vision model — unconfirmed tag, see note above"},
+        {"name": "qwen3-vl:2b", "size": "~1.5 GB", "purpose": "Smallest of the Qwen-VL line — unconfirmed tag, see note above"},
+        {"name": "qwen2.5vl:3b", "size": "~2.2 GB", "purpose": "Confirmed tag, a fallback for the 2B/4B Qwen3-VL entries either side of it"},
+        {"name": "qwen3-vl:4b", "size": "~2.8 GB", "purpose": "A step up from the 2B — unconfirmed tag, see note above"},
+        {"name": "minicpm-v", "size": "~5.5 GB", "purpose": "Notably strong at reading text in images"},
+        {"name": "llava", "size": "~4.7 GB", "purpose": "General-purpose vision, the longest-established option"},
+        {"name": "qwen2.5vl:7b", "size": "~6.0 GB", "purpose": "Strong all-round vision and text reading"},
+        {"name": "qwen3-vl:8b", "size": "~6.5 GB", "purpose": "Unconfirmed tag, see note above"},
+        {"name": "qwen2.5vl:32b", "size": "~21 GB", "purpose": "The most capable here. Needs ~24 GB"},
     ],
 }
 
@@ -113,6 +150,54 @@ class ModelManager:
     def set_utility_model(self, name: str) -> None:
         # Empty string means "same as chat model".
         self._config.set_preference("utility_model", name or "")
+
+    def vision_model(self) -> str:
+        """The explicit vision-model override, or "" for auto-detect.
+
+        Deliberately the *opposite* default from `utility_model()` above:
+        every other model preference in this app falls back to "same as
+        chat model" when unset, because that is a safe default — the chat
+        model can always do the job the utility model does. A chat model
+        cannot always see images, so falling back to it here would silently
+        turn "attach a photo" into "attach a photo the model ignores" on
+        any notebook that hasn't touched this setting. Auto-detect is the
+        default specifically *because* it is the useful zero-config
+        behaviour for this one preference; a specific model name is an
+        explicit choice on top of it, not a second default."""
+        return self._config.get_preference("vision_model", "")
+
+    def set_vision_model(self, name: str) -> None:
+        # Empty string means "auto-detect" — see resolve_vision_model.
+        self._config.set_preference("vision_model", name or "")
+
+    def resolve_vision_model(self, ollama, installed: list[dict] | None = None) -> str | None:
+        """The model an image-carrying turn should actually use, or None if
+        nothing on this backend can.
+
+        An explicit choice always wins, even one `installed` doesn't confirm
+        is on disk right now — the same trust `chat_model()` already extends
+        (routes_models.py surfaces "not installed" as its own warning rather
+        than silently substituting something else). Auto-detect (the
+        default) asks each installed model's declared capabilities in turn
+        and stops at the first `True`; `OllamaClient.capabilities()` caches
+        per model per process, so this costs one real round trip per model
+        at most once, not once per chat turn."""
+        explicit = self.vision_model()
+        if explicit:
+            return explicit
+        if installed is None:
+            try:
+                installed = ollama.list_models()
+            except OllamaError:
+                installed = []
+        supports = getattr(ollama, "supports", None)
+        if not callable(supports):
+            return None
+        for entry in installed:
+            name = entry.get("name") if isinstance(entry, dict) else None
+            if name and supports(name, "vision"):
+                return name
+        return None
 
     def embedding_backend(self) -> str:
         """'sentence-transformers' (built-in default) or 'ollama'."""

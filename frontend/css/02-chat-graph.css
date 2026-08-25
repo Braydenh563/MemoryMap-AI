@@ -212,6 +212,18 @@
   background: var(--accent-soft);
 }
 
+/* The match-reason badge (matchReasonBadge()) is appended as the *last
+   child of the whole `<li>`* here, not into a wrapper `<div>` the way the
+   card's other chips are - `.entry-list li` has no `gap` of its own, so
+   without a margin of its own the badge sat flush against the row above
+   it. Reported: "no gap above with the other elements". Scoped to a direct
+   child of the result card specifically, since the same badge class inside
+   `renderAnswerGrounding`'s own dedicated row already has correct spacing
+   from that container and doesn't need this. */
+.entry-list li.clickable-result > .result-reason-chip {
+  margin-top: var(--space-2);
+}
+
 /* --- Wave B: threads, inline actions, templates ------------------------------ */
 .entry-list li.thread-child {
   border-left: 3px solid var(--accent-soft);
@@ -1012,6 +1024,15 @@ button.ghost.danger {
   cursor: pointer;
 }
 
+/* During an active pan, native `:hover` matching still fires per node the
+   cursor sweeps under even though the JS-level highlight is muted
+   (`graphIsPanning` in graph.js) — that hit-testing and the CSS transitions
+   it triggers were a measured, real cost. Node drags never set this class
+   (their own mousedown stops propagation before the pan gesture starts). */
+.graph-panning .graph-node {
+  pointer-events: none;
+}
+
 /* Soft coloured halo behind each node → depth, and hubs read brighter. */
 .graph-node .graph-halo {
   opacity: 0.18;
@@ -1596,6 +1617,22 @@ kbd {
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Asked for directly: a way to dismiss a toast faster than its own timer. */
+.toast-close {
+  flex: 0 0 auto;
+  margin-left: 0.6rem;
+  padding: 0.1rem;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
 .toast {
   display: flex;
   align-items: center;
@@ -1919,6 +1956,15 @@ kbd {
 
 .menu-submenu-arrow {
   opacity: 0.6;
+}
+
+/* app.js's openActionMenu() adds this when the menu would spill past the
+   nearest scrolling ancestor if opened downward (00-tokens-shell.css and
+   04-chat-dock-appearance.css's `.menu-wrap` variants are exactly that
+   case) - opens upward from the button instead. */
+.action-menu.action-menu-flip {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 .action-menu.submenu {

@@ -29,6 +29,7 @@ APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
 WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard.js"
 GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "graph.js"
 EDITOR = Path(__file__).resolve().parents[1] / "frontend" / "editor.js"
+DOCUMENTS = Path(__file__).resolve().parents[1] / "frontend" / "documents.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs — the settings overlay has a backdrop-click-to-close and a delegated
@@ -59,9 +60,11 @@ def _source() -> str:
     the node popup) moved out into a third — see index.html — so a
     duplicate-registration bug inside either, or a registration split across
     files, needs all of them scanned together to be caught. editor.js (the
-    "/" menu and block frames) is the fourth, and the reason this list has to
-    grow with the split rather than being left at the three it started with:
-    a lint that cannot see a file cannot catch anything in it.
+    "/" menu and block frames) is the fourth, and documents.js (the document
+    editor itself, split out of app.js — §10 of the app.js-split plan) is the
+    fifth — the reason this list has to grow with the split rather than being
+    left at however many files it started with: a lint that cannot see a file
+    cannot catch anything in it.
 
     Only comments are stripped: a `$("x").addEventListener` inside a comment is
     documentation of the pattern, not a second registration — this test's own
@@ -75,6 +78,8 @@ def _source() -> str:
         + GRAPH.read_text(encoding="utf-8")
         + "\n"
         + EDITOR.read_text(encoding="utf-8")
+        + "\n"
+        + DOCUMENTS.read_text(encoding="utf-8")
     )
     return re.sub(r"/\*.*?\*/", "", combined, flags=re.S)
 

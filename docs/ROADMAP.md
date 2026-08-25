@@ -180,17 +180,26 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
     visual reports.
 
 13. **Back/forward navigation still misses most navigation types.** Reported
-    directly, and traced to source rather than guessed at: `recordTabVisit`
-    (`app.js`) has exactly two call sites — one in `switchTab` (top-level
-    tabs) and one in `showNotesSection` (Notes' four sub-tabs). Everything
-    else that feels like navigating is invisible to it: Library's own
-    sub-tabs (All/Documents/Whiteboards/Image Gallery/AI Skills — this is
-    also item 12 below, "Back/forward across the Library's own sub-tabs"),
-    opening/closing a document in the editor, entering/exiting Graph focus
-    mode, and switching between saved chat conversations. The `{tab,
-    section}` shape `recordTabVisit`/`showNotesSection` already use is the
-    pattern to extend to each — Library's sub-tab handler (`whiteboard.js`)
-    is the cheapest first step since it is already scoped as item 12.
+    directly, and traced to source rather than guessed at. Library's own
+    sub-tabs were fixed earlier (§88.1 item 7). **Switching between saved
+    chat conversations is now fixed too**: `openConversation` and
+    `newChatConversation` each record a `{tab: "chat", section}` entry —
+    `"conv:<id>"` or `"new"` — and `stepTabHistory` restores it. This one
+    caught and fixed a genuine bug before it shipped, not just a gap: making
+    `stepTabHistory` `async` and `await`-ing `openConversation` on that
+    branch specifically was necessary — `openConversation` calls
+    `recordTabVisit` itself, but only *after* an `await apiJson(...)`, so an
+    un-awaited call would let `stepTabHistory`'s own `finally` clear
+    `tabHistory.navigating` before that later call ran, turning every single
+    Back/Forward through a saved chat into a spurious new history entry.
+    Verified live via Playwright: opening two conversations, then stepping
+    Back and Forward, restores the right conversation each time with the
+    stack length unchanged by the navigation itself.
+
+    Still open: opening/closing a document in the editor, and
+    entering/exiting Graph focus mode. Same `{tab, section}` shape to
+    extend — worth checking for the same async-ordering trap this one had
+    before assuming either is a small change.
 
 ### Smaller, and genuinely cheap
 

@@ -7,6 +7,17 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — back/forward now covers switching between saved chats
+
+Opening a different saved conversation, or starting a new one, is now a
+real history step — Back/Forward restores the right chat. Fixed a genuine
+async-ordering bug in the process: `stepTabHistory` now awaits
+`openConversation` on that branch, because `openConversation` calls
+`recordTabVisit` itself only after a network fetch — without the await,
+every Back/Forward through a saved chat would have recorded a spurious new
+entry rather than being a no-op. Caught live via Playwright before it
+shipped.
+
 ### Added — onboarding can pull a model and seed example notes
 
 The first-run tour's "Your setup" slide now makes two one-click offers,

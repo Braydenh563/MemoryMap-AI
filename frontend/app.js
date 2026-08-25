@@ -9540,6 +9540,7 @@ async function deleteChatTurn(assistantBubble) {
 }
 
 function newChatConversation() {
+  recordTabVisit("chat", "new");
   chatConv = { id: null, turns: [] };
   // A summary belongs to the conversation it summarised (§35I).
   chatSummary = null;
@@ -10193,6 +10194,10 @@ function editChatAnswer(handles, turnIndex, current) {
 async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
+  // ROADMAP.md item 13: switching between saved chats was invisible to
+  // back/forward. Recorded here rather than at each of this function's
+  // call sites (the sidebar, the Library) so neither has to remember to.
+  recordTabVisit("chat", `conv:${full.id}`);
   chatConv = { id: full.id, turns: [] };
   chatAwaitingAgentAnswer = false; // a saved thread's own pending ask, if any, isn't answerable live
   // Not carried across conversations, and not persisted: re-deriving it is one
@@ -15101,6 +15106,11 @@ function tabLabel(name) {
 function entryLabel(entry) {
   const tab = tabLabel(entry.tab);
   if (!entry.section) return tab;
+  // Chat's section is a conversation id ("conv:42") or "new" — neither is a
+  // button with real text the way Notes'/Library's sub-tabs are, so there is
+  // no good short label to build; naming the tab is honest instead of
+  // printing the raw id.
+  if (entry.tab === "chat") return tab;
   const button = document.querySelector(`[data-section="${entry.section}"]`);
   const section = button?.textContent?.trim() || entry.section;
   return `${tab} → ${section}`;
@@ -15124,7 +15134,7 @@ function recordTabVisit(name, section = null) {
   paintTabHistory();
 }
 
-function stepTabHistory(delta) {
+async function stepTabHistory(delta) {
   const next = tabHistory.index + delta;
   if (next < 0 || next >= tabHistory.stack.length) return;
   const entry = tabHistory.stack[next];
@@ -15152,6 +15162,17 @@ function stepTabHistory(delta) {
           `#library-subtabs button[data-target="${entry.section || "library-view-documents"}"]`
         )
         ?.click();
+    } else if (entry.tab === "chat" && entry.section) {
+      if (entry.section.startsWith("conv:")) {
+        // Awaited deliberately: openConversation does its own network fetch
+        // before calling recordTabVisit, so returning early here would clear
+        // tabHistory.navigating (in the finally below) before that call runs
+        // — turning every back/forward through a saved chat into a fresh,
+        // spurious history entry instead of a no-op.
+        await openConversation(Number(entry.section.slice("conv:".length)));
+      } else if (entry.section === "new") {
+        newChatConversation();
+      }
     }
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand

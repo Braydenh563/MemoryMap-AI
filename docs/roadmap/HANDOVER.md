@@ -1,5 +1,184 @@
 # Session handover
 
+## New session — `dashboard.js` split out of app.js (§88.3's third file)
+
+Pure split, no behaviour change, run concurrently in a separate worktree
+alongside the `library.js` split below (this branch's own git history shows
+the rebase: my one commit sits on top of that one, no `app.js` conflicts —
+the two sessions' zones never overlapped). `docs/ROADMAP.md`'s §88.3 item 3
+has the terse version (kept terse on purpose — this file is at its 2,000-line
+ceiling); this is the narrative.
+
+**What moved.** Widgets, masonry packing, and the "notebook constellation"
+generative-art widget — scattered across app.js in five zones, not one
+block: the widget registry/layout prefs (`app.js:10709-10781`), the welcome
+banner (`10804-11013`), masonry sizing (`11014-11067` — the file's own
+header explains why the window-resize *listener* right after it stayed in
+app.js: it does two jobs, `sizeDashWidgets()` and the chat composer's
+`refitComposer()`, genuinely mixed rather than dashboard's alone, the same
+shape documents.js left `voice-model-select` behind for), the at-a-glance
+strip/quick-links/quick-access/features-browser/widget-picker block
+(`11231-12409`), and the widget renderers plus the focus timer
+(`12482-13248` — minus `safeMdSlice`/`notePreviewText`/`firstNoteImage`'s
+shared half, see below). Two wiring blocks moved too: the
+`dash-edit`/widget-picker listeners and the features-browser listeners,
+both previously registered far from the code they drive, in app.js's own
+general wiring section. `dashboard.js` is ~2,400 lines including its header.
+
+**Boundaries deliberately not crossed**, each with its own comment at the
+relevant spot in either file:
+
+- `tickClocks()` (the `.live-clock` ticker) stayed in app.js — it drives the
+  Reminders tab's clock too, not just the dashboard's.
+- The tab-bar overflow-fade machinery (`syncTabOverflowFade`,
+  `tabRowSpace`, `tabContentWidth`, `revealActiveTab`) physically sat
+  inside app.js's "masonry packing for the dashboard" comment block with no
+  header of its own — a scattering trap exactly like the ones §88.3 warned
+  about — but has nothing to do with the dashboard; it sizes the top tab
+  strip for every tab. Left in app.js.
+- `safeMdSlice`/`notePreviewText`/`renderEmblem` stayed in app.js: all
+  three are called from well outside the dashboard (note-card previews,
+  the writing room, whiteboard.js's node labels for `notePreviewText`; the
+  chat avatar for `renderEmblem`) — grepped every call site before
+  deciding, the same check library.js's entry below describes doing for
+  its own functions.
+- "Wave J: accent themes + generative background" (curated/saved themes,
+  the *ambient, second* p5 background instance) is Settings → Appearance's
+  own territory, not a dashboard widget, despite `refreshArtForTheme()`
+  (this file) being called from inside it on every theme/accent/palette
+  change. Left for the settings.js split (§88.3 item 4).
+- "SKILLS DASHBOARD TAB" (`renderSkillsDashboard`,
+  `#skills-dashboard-list`) is the AI Skills library page — an unrelated
+  feature that happens to share the word "dashboard" in its own internal
+  naming, not this Dashboard tab. Left in app.js.
+- `renderDashboardPersonaSelect` and its Settings wiring
+  (`#dashboard-persona-select`, which persona voices the dashboard
+  greeting) live inside Settings → Personas' own render function — a
+  Settings concern, like documents.js leaving `voice-model-select` behind
+  despite sitting in the same comment block.
+
+**Two hazards found, both documents.js's `initDocSidebarTabs()` shape** — a
+bare top-level reference in app.js resolving before dashboard.js has
+loaded:
+
+1. `$("features-close").addEventListener("click", closeFeatures)` sat in
+   app.js's own top-level wiring, passing `closeFeatures` as a bare
+   function reference — resolved the moment that line runs, which is
+   app.js's own parse-time pass, before dashboard.js (loaded after) has
+   defined it. Caught by grepping every moved function/const name for a
+   bare reference anywhere left in app.js, the same check library.js's
+   entry describes. Fixed by moving the whole wiring group (all three
+   features-overlay listeners, plus the two dash-edit/widget-picker ones
+   sharing the same app.js comment block) into dashboard.js, after its own
+   function definitions, instead of splitting definition from call site.
+2. **Not caught by that grep — found live, in Chromium, not by reading the
+   code.** `applyPalette()` (app.js, stays there — it does real
+   app.js-only work, the whole-app palette) calls `refreshArtForTheme()`
+   (moved to dashboard.js), and `applyPalette` is itself reachable from a
+   *bare top-level* `applyAppearance();` call in app.js's own wiring, run
+   once to paint the saved theme before first render. That's a hazard two
+   calls deep — `applyAppearance` → `applyPalette` → `refreshArtForTheme`
+   — which a grep for direct bare references to `refreshArtForTheme` alone
+   does not find, because the actual bare top-level call is to
+   `applyAppearance`, an app.js function that isn't moving. Symptom: the
+   Dashboard tab wouldn't even switch — clicking it did nothing, because
+   `ReferenceError: refreshArtForTheme is not defined` had aborted the
+   rest of app.js's synchronous top-level code (including the tab-button
+   click-listener registration loop) long before any click could happen.
+   Playwright's `pageerror` event caught it immediately once the console
+   was actually watched; reading the moved code in isolation would not
+   have found it, since `refreshArtForTheme` itself was defined correctly
+   — the break was in a caller three files' worth of context away. Fixed
+   with a `typeof refreshArtForTheme === "function"` guard at that one
+   call site in `applyPalette`, the same idiom already used elsewhere in
+   app.js for `renderDashboardGreeting`, rather than moving `applyPalette`
+   itself. Safe: the art widget hasn't mounted a canvas at that point in
+   startup anyway (`artHolder` is still `null`), so the call was always a
+   no-op there before this split too — the widget paints itself correctly
+   in the current theme/accent/palette the first time it actually renders.
+   Every *other* call site of `refreshArtForTheme` (the theme toggle, the
+   accent/theme pickers, the OS dark-mode-change listener) fires only from
+   user interaction, well after dashboard.js has finished loading, so this
+   was the only one that needed a guard.
+
+**Take for the next split (settings.js) from hazard 2**: grepping for a
+bare top-level reference to a moved function's own name is not enough —
+check whether any *unmoved* app.js function that itself runs from a bare
+top-level call transitively reaches a moved function, however many calls
+deep. This split's own file, `refreshArtForTheme`, is called from inside
+`applyPalette`, `applyThemeChoice`, `toggleTheme`, `applyAccent` and a
+`matchMedia` change listener — five call sites, of which only one turned
+out to be reachable at parse time. All five had to be read, not just
+grepped for "addEventListener(...movedName)", to find that.
+
+**Registered** in `tests/test_frontend_handlers.py`'s `_source()` and
+`tests/test_frontend_ids.py`'s `_frontend_js()`, both now spanning seven
+files (rebased onto library.js's own addition to the same two functions —
+see "Coordinating the push" below). Two existing tests read
+`renderRandomNoteWidget`'s source directly out of `app.js` by function
+name (`test_rediscover_never_offers_the_note_it_is_already_showing`,
+`test_rediscover_disables_another_when_there_is_nothing_else_to_show`) —
+updated both to read `dashboard.js` instead now that the function moved;
+neither test's own assertions changed. `index.html` gained a
+`<script src="/dashboard.js">` tag after `editor.js` (and, post-rebase,
+after `library.js` too), with the same load-order reasoning
+documents.js's and library.js's own tag comments carry: every cross-file
+call happens inside a closure or event-listener body, never at parse
+time (that's exactly what hazard 2 above was about — the one place that
+wasn't true), so the exact tag position isn't load-bearing.
+
+**Verified live in Chromium (Playwright), this session's own sandbox
+server, both before and after the rebase onto library.js:** created three
+notes through the app's own `apiJson` helper (no lock password was set on
+the fresh scratch profile, so no unlock step was needed for that first
+pass — a later pass against the same profile *did* need one, since some
+earlier interaction had set a password; both paths are handled in
+CLAUDE.md's own recipe), reloaded, and confirmed on the Dashboard tab:
+all 18 widgets render inside the masonry grid (`#dash-grid` gains the
+`spans-ready` class), the notebook-constellation widget's `<canvas>`
+renders with visible star clusters and connecting lines, the greeting
+banner and at-a-glance strip show correct live counts, the "Jump to"/
+"Start something" quick-link groups render (14 buttons), the widget-picker
+modal opens and lists all 18 rows with working Add/Remove/Wide controls,
+Edit-layout mode adds per-widget drag/remove/wide controls to every card,
+and the "Tools & features" browser opens from its dashboard quick link
+listing 96 items. Zero console errors in every pass. Also smoke-tested
+the Library tab (library.js's own territory) immediately after, switching
+back to Dashboard again, to confirm the two newly-split files coexist
+without interference — zero console errors there either.
+
+**What was not checked**, stated plainly per this file's own standing
+rule: only this sandbox's headless Chromium was driven, never the real
+WebView2 desktop shell. The individual widget renderers' own content
+correctness (e.g. that "Most-linked notes" actually ranks by graph degree
+correctly) wasn't independently re-verified beyond what was already true
+before the split — the split moved this code verbatim, so nothing about
+its own logic should have changed, but that is reasoning about an
+unchanged diff, not fresh reproduction of each widget's behaviour.
+
+**Coordinating the push.** This split ran in an isolated worktree while a
+sibling session split `library.js` out of the same branch concurrently, in
+the main worktree. `git fetch` showed `library.js`'s two commits had
+already landed on `claude/app-split-library-mihepz` by the time this
+session was ready to push, so this session's one commit was rebased onto
+them. The rebase produced exactly the conflicts §88.3's own coordination
+plan predicted and no others: two-new-list-entries conflicts in
+`tests/test_frontend_handlers.py` and `tests/test_frontend_ids.py` (both
+sessions appended a path constant and a concatenation term for their own
+new file; kept both, in file-addition order — documents, library,
+dashboard), resolved by hand. `frontend/index.html` merged automatically
+with both new `<script>` tags present (`library.js` then `dashboard.js`,
+after `whiteboard.js`/`editor.js`). No conflict at all inside `app.js`
+itself, confirming the two sessions' zones never actually overlapped, as
+predicted. Full validation (pytest, ruff, node --check, and a fresh
+Playwright pass touching both Library and Dashboard) re-run against the
+rebased tree before pushing; all green. Full pytest suite green (no
+regressions from either split), ruff clean, node --check clean on
+app.js/dashboard.js/library.js/whiteboard.js/documents.js/editor.js/graph.js.
+**Next: `settings.js`** — the last file in §88.3, and the destination for
+every "Wave J: accent themes + generative background" boundary call noted
+above.
+
 ## New session — `library.js` split out of app.js *and* whiteboard.js (§88.3's second file)
 
 Pure split, no behaviour change, matching the rule the documents.js entry

@@ -32,7 +32,7 @@ what was reported in the session after §88 and is still open (pagination on
 Reminders/Library, and a large chat-file-upload redesign, both logged rather
 than built). Then **§88**: §88.1 is everything reported there and still open,
 in order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split
-(documents.js and library.js are done — dashboard.js/settings.js are what's
+(documents.js, library.js and dashboard.js are done — settings.js is what's
 left), the priority once §88.1 and §88.2 are done; §88.4 is the
 context/memory analysis. **§88.0 lists what was already fixed — check it
 before fixing anything, and §89's own header lists two more fixed the same
@@ -800,9 +800,8 @@ demand. This session's graph-toolbar work is (d); the pane system is (c).
 
 ### 88.3 The app.js split — the priority after §88.1 and §88.2
 
-`app.js` was ~28,460 lines. `graph.js` (3.0k), `whiteboard.js` (5.9k) and
-`editor.js` (~0.9k) were already out; `documents.js` (~1,010) and now
-`library.js` (~1,940) are out too, five files proven now.
+`app.js` was ~28,460 lines. `graph.js`, `whiteboard.js` and `editor.js` were
+already out; `documents.js`, `library.js` and now `dashboard.js` are out too.
 
 Order, easiest and most self-contained first:
 
@@ -837,7 +836,8 @@ Order, easiest and most self-contained first:
    folding into `switchTab`'s own `if (name === "library") loadLibrary();` —
    pre-existing. Verified live in Chromium: every sub-tab rendered content,
    zero console errors. Registered in `test_frontend_handlers.py`/`test_frontend_ids.py`.
-3. **`dashboard.js`** — widgets, masonry, the generative art.
+3. **`dashboard.js` — done.** Widgets, masonry, the generative art (scattered
+   zones; two hazards — see the file's header and HANDOVER.md). Verified live.
 4. **`settings.js`** — the settings modal, logs console, appearance.
 
 **The rules that make it safe**, all learned here: never split in the same diff

@@ -2306,9 +2306,15 @@ has been scoped; they are here so the finding is not lost with the session.
   keeps a full copy of a note's text on every edit. Nobody has measured which
   of them actually gets large in a year of real use, and that measurement
   should come before any policy.
-- **A support-bundle size ceiling.** The bundle collects logs and diagnostics
-  with no cap. With the log buffer at 1,000 rows this is fine today; it is the
-  kind of thing that stops being fine quietly.
+- ~~**A support-bundle size ceiling.**~~ **Checked, not needed.** This entry's
+  own premise ("no cap") was wrong: `core/logbuffer.py` already bounds every
+  input to the bundle — `MAX_RECORDS = 500`, each message truncated to
+  `MAX_MESSAGE_CHARS = 2000`, each trace sliced to 8000 chars in
+  `BufferHandler.emit` — so `logs.json` tops out around ~5MB uncompressed in
+  the worst case, and `preferences.json`/`status.json`/`counts.json`
+  (`routes_settings.support_bundle`) are all small, fixed-shape payloads with
+  no user-content field that could grow unbounded. No ceiling to add; grep
+  before building would have found this.
 - **`GET /entries?semantic=true` now has two callers** (the Notes tab and, as
   of §86, the Library). The fetch-and-cache shape in `refreshLibrarySemantic`
   is the one to extract if a third appears — the command palette is the

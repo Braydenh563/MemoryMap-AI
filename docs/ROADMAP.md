@@ -138,13 +138,23 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    (`Attachment`, `/entries/{id}/files` — a separate upload path with its
    own allowlist) are not captioned; extending to them would mean a second,
    parallel implementation for a smaller surface, not a natural extension of
-   this one. **Not verified live in this sandbox's Chromium** — the
-   verification script hung navigating to the Library tab and was not
-   re-run; the button reuses the exact DOM/CSS pattern the gallery's
-   already-verified rename/delete buttons use (same tile, same
-   `.library-image-actions` row, same hover-reveal), and the full backend
-   suite (27 new tests, all passing) confirms the endpoint and trigger
-   logic — but say plainly: the on-screen result was not looked at.
+   this one. **Verified live in this sandbox's Chromium, after a real deploy
+   trap**: the first verification attempt used the wrong tab selector
+   (`library-view-images` — the real id is `library-view-media`) and hung;
+   fixed and re-run, but the *second* attempt got a `405 Method Not Allowed`
+   on the caption button — not a frontend bug, the running server was a
+   stale process (`kill`ed at restart time, but the replacement `uvicorn`
+   had silently failed to bind the port while the old one kept answering,
+   so every request that session hit code from before this feature
+   existed). `ps`/`lsof` caught it; killing the actual PID and starting a
+   genuinely fresh process fixed it. Worth recording plainly: this is
+   exactly CLAUDE.md's own "restart the server after any Python change"
+   trap, one layer deeper — a *restart command that looks like it ran* is
+   not the same as a restart that actually did. With a real fresh server:
+   the ✦ button renders on hover beside rename/delete, and clicking it
+   correctly reports `409 "The AI model isn't running"` — this sandbox has
+   no reachable Ollama (the project's standing caveat), so a clean, honest
+   refusal is the correct and fully-verified behaviour here, not a gap.
 
 2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
    in two, as BACKLOG always said it should be. **The page-size control and

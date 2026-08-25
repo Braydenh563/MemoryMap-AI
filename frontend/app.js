@@ -27281,7 +27281,13 @@ function renderEntryAttachmentChips() {
         console.error("Couldn't delete the underlying upload", err);
       }
     });
-    chip.append(img, label, captionBtn, remove);
+    // .attachment-chip-image lays its children out in a column (the image
+    // stacked over its caption), so two sibling buttons would stack full-
+    // height rather than sit side by side — a small row keeps them paired.
+    const chipActions = document.createElement("span");
+    chipActions.className = "row entry-attachment-chip-actions";
+    chipActions.append(captionBtn, remove);
+    chip.append(img, label, chipActions);
     box.appendChild(chip);
   }
 }

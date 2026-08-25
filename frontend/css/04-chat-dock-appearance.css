@@ -1929,6 +1929,10 @@ button {
   font-size: var(--text-xs);
 }
 
+.entry-attachment-chip-actions {
+  justify-content: center;
+}
+
 .attachment-chips {
   display: flex;
   flex-wrap: wrap;

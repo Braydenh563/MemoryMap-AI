@@ -117,3 +117,104 @@ def test_a_dangerous_file_already_on_disk_is_still_not_served(ai_client, app_sta
     media.mkdir(parents=True, exist_ok=True)
     (media / "evil.html").write_text("<script>alert(1)</script>", encoding="utf-8")
     assert ai_client.get("/media/evil.html").status_code == 404
+
+
+# --- captioning (ai/captioning.py) -------------------------------------------
+
+
+def test_media_upload_triggers_background_captioning_for_an_image(ai_client, monkeypatch):
+    """Same shape as the OCR trigger test above — this only checks
+    captioning was *asked to start*, not that it produced anything (see
+    test_captioning.py for that). Whether a vision model exists is decided
+    inside the background call itself, not on the request path, so the
+    trigger fires unconditionally for a raster image."""
+    calls = []
+    monkeypatch.setattr(
+        routes_files.captioning,
+        "caption_in_background",
+        lambda upload_id, path: calls.append((upload_id, path)),
+    )
+    response = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    )
+    assert response.status_code == 200
+    assert len(calls) == 1
+    assert calls[0][0] == response.json()["id"]
+
+
+def test_media_upload_never_triggers_captioning_for_a_pdf(ai_client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        routes_files.captioning,
+        "caption_in_background",
+        lambda upload_id, path: calls.append((upload_id, path)),
+    )
+    ai_client.post(
+        "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
+    )
+    assert calls == []
+
+
+def test_media_list_and_upload_include_caption(ai_client):
+    response = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    )
+    listed = ai_client.get("/media").json()
+    row = next(r for r in listed if r["id"] == response.json()["id"])
+    assert row["caption"] == ""
+
+
+def test_caption_media_generates_a_caption(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/caption")
+    assert response.status_code == 200
+    assert response.json()["caption"] == fake_ollama.librarian_reply
+
+
+def test_caption_media_wont_rewrite_without_force(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    ai_client.post(f"/media/{upload_id}/caption")
+    calls_before = len(fake_ollama.chat_calls)
+    response = ai_client.post(f"/media/{upload_id}/caption")
+    assert response.status_code == 200
+    assert len(fake_ollama.chat_calls) == calls_before  # never asked the model again
+
+
+def test_caption_media_force_regenerates(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    ai_client.post(f"/media/{upload_id}/caption")
+    calls_before = len(fake_ollama.chat_calls)
+    response = ai_client.post(f"/media/{upload_id}/caption", json={"force": True})
+    assert response.status_code == 200
+    assert len(fake_ollama.chat_calls) == calls_before + 1
+
+
+def test_caption_media_refuses_a_pdf(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/caption")
+    assert response.status_code == 415
+
+
+def test_caption_media_reports_no_vision_model_available(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = []  # nothing declares vision
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/caption")
+    assert response.status_code == 409
+
+
+def test_caption_media_404s_for_an_unknown_id(ai_client, fake_ollama):
+    assert ai_client.post("/media/999999/caption").status_code == 404

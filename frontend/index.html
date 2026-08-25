@@ -2767,6 +2767,22 @@ Link to another note with [[its first few words]]."></textarea>
                 small fast model (e.g. llama3.2) and let a bigger one answer
                 your questions. Leave as “Same as chat model” to keep it simple.
               </p>
+              <!-- Vision-capable models (ROADMAP.md's largest open item).
+                   Same "Same as X" shape the utility model above already
+                   uses, except the default resolves by capability rather
+                   than falling back to the chat model — a vision model is
+                   usually a different, heavier one kept just for photos. -->
+              <h3>Vision model (used when an image is attached in chat)</h3>
+              <div class="row">
+                <select id="vision-model-select" aria-label="Model used for images" title="Model used for images"></select>
+                <button id="vision-model-apply" class="small">Use this model</button>
+              </div>
+              <p id="vision-model-note" class="status"></p>
+              <p class="muted">
+                “Auto-detect” uses the first installed model that reports it
+                can see images. Pick one by hand if you have several, or if
+                auto-detect isn't finding the one you want.
+              </p>
             </div>
 
             <!-- Deliberately OUTSIDE #models-config. It used to live inside,

@@ -85,6 +85,67 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
      caveat), so only the plumbing that gets an image to the model round-trip
      is confirmed, not what a real multimodal model does with it.
 
+~~1b. **A vision-model preference, separate from the chat model.**~~ **Built**,
+   asked for directly right after the item above shipped. Settings → Models
+   gained a third picker (`ModelManager.vision_model`/`resolve_vision_model`)
+   beside the existing chat/utility ones — **the one deliberate exception to
+   this app's own default rule**. Every other model preference here falls
+   back to "same as chat model" when unset (`utility_model()`); vision
+   defaults to **auto-detect** instead (scan installed models for the first
+   one that declares the `"vision"` capability), because falling back to the
+   chat model would silently turn "attach a photo" into "attach a photo the
+   model ignores" on any notebook that has never touched this setting — a
+   worse default than the one other preference here that needs to differ
+   from the rest. An explicit model name still overrides auto-detect, the
+   same shape utility model already has. `routes_chat.py`'s two chat paths
+   (blocking and streaming, both the plain and agent/tools branches) all
+   route an image-carrying turn through the resolved vision model instead of
+   the ordinary chat model; `answered_by` reports whichever one actually
+   ran. 9 new tests (`test_models_api.py`, `test_chat_vision.py`) cover
+   auto-detect, an explicit override, the route's own validation, and that a
+   turn with no image never picks up a vision override that happens to be
+   configured.
+
+1c. **Auto-captions on uploaded images, from whichever vision model is
+   available.** Asked for directly, right after 1b. `MediaUpload.caption`
+   (new column, additive — the existing auto-migrator handles it, no
+   Alembic migration needed) is the same shape `ocr_text` already has:
+   NULL until filled, written once, never silently overwritten. New module
+   `ai/captioning.py` mirrors `core/ocr.py` almost exactly — same
+   never-raises contract, same background-thread trigger from
+   `POST /media/upload` (unconditional for a raster image; whether a vision
+   model actually exists is decided *inside* the background call, not on
+   the upload request, so the request never pays for that round trip). A
+   caption is written **once**; the only way to get a new one is the
+   explicit regenerate button — `POST /media/{id}/caption` with
+   `force: true` — reachable from two places, both asked for by name: the
+   Library's Image Gallery (a ✦ button beside rename/delete on every tile,
+   showing the current caption under the filename, clamped to two lines)
+   and the Notes tab's Capture composer (the same ✦ button added to each
+   inline-image chip `renderEntryAttachmentChips` already draws, result
+   shown as a toast rather than inline — that chip strip is compact and
+   already carries a remove control per image). The Image Gallery's own
+   search box now matches caption text too, alongside the existing filename
+   and OCR-text matching. 27 new tests total: 9 in `test_captioning.py`
+   (`caption_text`/`caption_and_store` directly — write-once, `force`
+   overwrite, never raises on a missing file/upload/backend error) and 9 in
+   `test_media_api.py` (the upload trigger, the manual endpoint's
+   validation — 415 on a PDF, 409 with no vision model, 404 on an unknown
+   id — and force-vs-not). **Scope decision, not an oversight**: this
+   covers `MediaUpload` only (the Library's Image Gallery, and any inline
+   `![]()` image in a note or document — all three funnel through the same
+   `/media/upload`, per that model's own docstring). Note *file attachments*
+   (`Attachment`, `/entries/{id}/files` — a separate upload path with its
+   own allowlist) are not captioned; extending to them would mean a second,
+   parallel implementation for a smaller surface, not a natural extension of
+   this one. **Not verified live in this sandbox's Chromium** — the
+   verification script hung navigating to the Library tab and was not
+   re-run; the button reuses the exact DOM/CSS pattern the gallery's
+   already-verified rename/delete buttons use (same tile, same
+   `.library-image-actions` row, same hover-reveal), and the full backend
+   suite (27 new tests, all passing) confirms the endpoint and trigger
+   logic — but say plainly: the on-screen result was not looked at.
+
 2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
    in two, as BACKLOG always said it should be. **The page-size control and
    page selector are built** — `#notes-page-size` / `#notes-pagination` in

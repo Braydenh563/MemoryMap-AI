@@ -1665,7 +1665,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile .library-image-edit,
-.library-image-tile .library-image-delete {
+.library-image-tile .library-image-delete,
+.library-image-tile .library-image-caption-btn {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -1759,6 +1760,20 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-tile figcaption:hover {
   color: var(--accent);
+}
+
+/* A vision model's own description of the image, below the filename —
+   deliberately not <figcaption> (that already names the filename above;
+   this is metadata about what's IN the picture, not what it's called).
+   Clamped to two lines so one long caption doesn't grow a single tile
+   taller than its grid siblings. */
+.library-image-caption {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Library → Drafts (§80 this session): one row per draft, same .entry-list

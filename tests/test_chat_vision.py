@@ -106,3 +106,42 @@ def test_no_image_means_no_images_key_at_all(ai_client, fake_ollama):
     )
     sent = fake_ollama.chat_calls[-1][-1]
     assert "images" not in sent
+
+
+# --- routing an image-carrying turn to the vision model, not the chat model ---
+
+
+def test_an_image_routes_to_the_auto_detected_vision_model(ai_client, fake_ollama, monkeypatch):
+    """Auto-detect (the default) should pick a model that actually declares
+    vision rather than always using whatever the chat model happens to be."""
+    fake_ollama.capabilities_declared = ["vision"]
+    fake_ollama.installed = [{"name": "llava:latest", "size": 4_000_000_000}]
+    media_id = _upload_image(ai_client, monkeypatch)
+    ai_client.post(
+        "/chat", json={"question": "what's this?", "image_media_ids": [media_id]}
+    )
+    assert fake_ollama.chat_models[-1] == "llava:latest"
+
+
+def test_an_image_routes_to_the_explicit_vision_model_override(ai_client, fake_ollama, monkeypatch):
+    from memorymap.core import deps
+
+    deps.get_model_manager().set_vision_model("llama3.2-vision")
+    media_id = _upload_image(ai_client, monkeypatch)
+    ai_client.post(
+        "/chat", json={"question": "what's this?", "image_media_ids": [media_id]}
+    )
+    assert fake_ollama.chat_models[-1] == "llama3.2-vision"
+
+
+def test_a_question_with_no_image_still_uses_the_ordinary_chat_model(
+    ai_client, fake_ollama, monkeypatch
+):
+    """A vision override must never leak onto a turn that has no image,
+    even with one explicitly configured."""
+    from memorymap.core import deps
+
+    deps.get_model_manager().set_vision_model("llama3.2-vision")
+    note_id = ai_client.post("/entries", json={"content": "leftover pasta"}).json()["id"]
+    ai_client.post("/chat", json={"question": "what should I have?", "note_ids": [note_id]})
+    assert fake_ollama.chat_models[-1] != "llama3.2-vision"

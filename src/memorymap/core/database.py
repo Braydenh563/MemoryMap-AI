@@ -625,6 +625,14 @@ class MediaUpload(Base):
     #: Populated for raster images only (`ocr.OCR_SUFFIXES`); a PDF upload
     #: stays NULL forever, honestly — no page-rasterisation step exists.
     ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    #: A vision model's own description of the image (`ai/captioning.py`),
+    #: filled in on a background thread after upload — same NULL convention
+    #: as `ocr_text` above: "not captioned yet or no vision model available",
+    #: never distinguished, since neither blocks the upload. Written once and
+    #: left alone after that (a caption an AI or a person already read and
+    #: trusted must not silently change under them) unless the user presses
+    #: Regenerate — see `routes_files.caption_media`.
+    caption: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class UserPreference(Base):

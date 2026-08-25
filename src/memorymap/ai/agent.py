@@ -816,6 +816,7 @@ def run_agent(
     mode: str | None = None,
     use_utility_model: bool = False,
     images: list[str] | None = None,
+    model_override: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -837,7 +838,9 @@ def run_agent(
     # Overflow is dropped from the FRONT, so the failure is not an error — it
     # is the model quietly losing its system prompt and answering from nothing.
     report = getattr(ollama, "usable_context", None)
-    agent_model = model_manager.utility_model() if use_utility_model else model_manager.chat_model()
+    agent_model = model_override or (
+        model_manager.utility_model() if use_utility_model else model_manager.chat_model()
+    )
     window = report(agent_model) if callable(report) else None
     persona = _persona_with_memory(session, persona_prompt)
 

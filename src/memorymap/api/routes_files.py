@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from memorymap.ai import captioning
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, media_gc, ocr
@@ -385,6 +386,15 @@ def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> d
     # (see ocr.OCR_SUFFIXES); a PDF here just never gets ocr_text, honestly.
     if suffix in ocr.OCR_SUFFIXES:
         ocr.extract_in_background(upload.id, destination)
+    # Captioning, same background-thread contract as OCR just above. Whether
+    # a vision model is actually resolvable (auto-detected or explicit —
+    # ModelManager.resolve_vision_model) is checked *inside*
+    # `caption_and_store`, not here: that check itself is a real Ollama
+    # round trip, and this request must stay as fast as the OCR branch
+    # above, not pay for one on every upload just to decide whether to spawn
+    # a thread that would make the same decision a moment later anyway.
+    if suffix in captioning.CAPTION_SUFFIXES:
+        captioning.caption_in_background(upload.id, destination)
     # `id` lets a caller that changes its mind (the capture form's own
     # attachment chip, removable with a click) call DELETE /media/{id}
     # instead of just detaching the markdown reference and leaving the
@@ -400,6 +410,9 @@ class MediaUploadOut(BaseModel):
     #: — never null over the wire, so the frontend can filter on it with a
     #: plain substring match without a null check at every call site.
     ocr_text: str = ""
+    #: "" until captioning finishes (or never, no vision model available, or
+    #: a PDF) — same never-null convention as ocr_text, same reason.
+    caption: str = ""
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -415,6 +428,7 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             url=f"/media/{u.filename}",
             original_name=u.original_name,
             ocr_text=u.ocr_text or "",
+            caption=u.caption or "",
         )
         for u in uploads
     ]
@@ -515,6 +529,53 @@ def rename_media(
     session.commit()
     return MediaUploadOut(
         id=upload.id, url=f"/media/{upload.filename}", original_name=upload.original_name
+    )
+
+
+class CaptionBody(BaseModel):
+    #: The write-once rule (`captioning.caption_and_store`) otherwise leaves
+    #: an existing caption alone — this is the one way to overwrite one,
+    #: asked for directly: "if one is already there, another doesn't need
+    #: to be written unless the user presses the button to rewrite it."
+    force: bool = False
+
+
+@router.post("/media/{upload_id}/caption", response_model=MediaUploadOut)
+def caption_media(
+    upload_id: int, body: CaptionBody = CaptionBody(), session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """Generate (or, with `force`, regenerate) a caption for one image —
+    the manual trigger the Library and the Notes tab both call, for an
+    image that either arrived before a vision model was available or whose
+    caption a person wants rewritten.
+
+    Runs synchronously: captioning one image is a single model round trip,
+    no different in shape from the AI-edit or link-reason calls this app
+    already blocks on behind a spinner. `caption_and_store` opens its own
+    session (the same shape `ocr.extract_and_store` uses from a background
+    thread) — `session.refresh` below picks up what it committed.
+    """
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() not in captioning.CAPTION_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Only images can be captioned.")
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    media_dir = deps.get_config().data_dir / "media"
+    captioning.caption_and_store(upload.id, media_dir / upload.filename, force=body.force)
+    session.refresh(upload)
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
     )
 
 

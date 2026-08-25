@@ -157,3 +157,53 @@ def test_digest_uses_utility_model(ai_client, fake_ollama):
     ai_client.post("/insights/digest")
     # The last chat call went to the utility model, not the chat model.
     assert fake_ollama.chat_models[-1] == "phi3.5"
+
+
+# --- vision model (auto-detect or explicit) ---------------------------------
+
+
+def test_vision_model_defaults_to_auto(app_state):
+    manager = deps.get_model_manager()
+    assert manager.vision_model() == ""
+
+
+def test_resolve_vision_model_explicit_choice_wins(app_state, fake_ollama):
+    manager = deps.get_model_manager()
+    manager.set_vision_model("llama3.2-vision")
+    # Wins even though nothing installed declares "vision" — the same trust
+    # chat_model() already extends an unverified explicit choice.
+    assert manager.resolve_vision_model(fake_ollama) == "llama3.2-vision"
+
+
+def test_resolve_vision_model_auto_detects_from_capabilities(app_state, fake_ollama):
+    manager = deps.get_model_manager()
+    fake_ollama.capabilities_declared = ["vision", "tools"]
+    assert manager.resolve_vision_model(fake_ollama) == fake_ollama.installed[0]["name"]
+
+
+def test_resolve_vision_model_is_none_when_nothing_declares_it(app_state, fake_ollama):
+    manager = deps.get_model_manager()
+    fake_ollama.capabilities_declared = ["tools"]  # no vision
+    assert manager.resolve_vision_model(fake_ollama) is None
+
+
+def test_status_reports_vision_model(client):
+    body = client.get("/models/status").json()
+    assert body["vision_model"] == ""
+    assert body["vision_model_resolved"] is None  # Ollama not running (client fixture)
+
+
+def test_set_vision_model_offline_still_saves(client):
+    assert client.post("/models/vision-model", json={"name": ""}).status_code == 200
+
+
+def test_set_vision_model_rejects_a_name_not_installed(ai_client):
+    response = ai_client.post("/models/vision-model", json={"name": "not-a-real-model"})
+    assert response.status_code == 400
+
+
+def test_set_vision_model_persists(ai_client):
+    ai_client.post("/models/vision-model", json={"name": "llama3.2"})
+    assert deps.get_model_manager().vision_model() == "llama3.2"
+    body = ai_client.get("/models/status").json()
+    assert body["vision_model"] == "llama3.2"

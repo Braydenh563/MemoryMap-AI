@@ -328,12 +328,16 @@ def answer(
     use_utility_model: bool = False,
     mode: str | None = None,
     images: list[str] | None = None,
+    model_override: str | None = None,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
     retrieved `notes` (dicts with 'content' and 'category').
 
     `use_utility_model` routes background jobs (the weekly digest) to the
-    small fast model instead of the main chat model."""
+    small fast model instead of the main chat model. `model_override` is the
+    resolved vision model for an image-carrying turn (routes_chat.py) — it
+    wins over both, since attaching a photo is a stronger signal about which
+    model this turn needs than either default."""
     # An attached image and "no matching notes" are unrelated: "what's in
     # this photo" has nothing to do with the notebook and should never hit
     # NO_RESULTS_MESSAGE just because retrieval (which never sees the image)
@@ -343,7 +347,7 @@ def answer(
     if not ollama.is_running():
         return OFFLINE_MESSAGE, None
 
-    model = (
+    model = model_override or (
         model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     )
     try:

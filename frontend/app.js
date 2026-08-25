@@ -21185,6 +21185,7 @@ function renderSettings() {
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
+    renderVisionModelPicker(status);
     renderAutonomousModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
@@ -21781,6 +21782,31 @@ function renderUtilityModelPicker(status) {
   );
 }
 
+function renderVisionModelPicker(status) {
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("vision-model-select"),
+    names,
+    // The one model preference in this app that does NOT default to "same
+    // as chat model" (model_manager.py's vision_model() explains why: a
+    // chat model silently can't see images more often than it can).
+    { value: "", label: "Auto-detect" },
+    status.vision_model || ""
+  );
+  // Auto-detect is a choice with no fixed answer — say what it resolved to
+  // right now, the same reason chat-model-note exists, rather than leaving
+  // "Auto-detect" to mean nothing concrete in the UI.
+  const note = $("vision-model-note");
+  if (status.vision_model) {
+    note.textContent = `Active: ${status.vision_model}`;
+  } else if (status.vision_model_resolved) {
+    note.textContent = `Auto-detect — currently: ${status.vision_model_resolved}`;
+  } else {
+    note.textContent =
+      "Auto-detect — no installed model reports it can see images yet.";
+  }
+}
+
 function renderAutonomousModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
   fillModelSelect(
@@ -21861,6 +21887,7 @@ function renderInstalledModels(status) {
   // Models the app is actively pointing at can't be removed (would break it).
   const inUse = new Set([status.chat_model]);
   if (status.utility_model) inUse.add(status.utility_model);
+  if (status.vision_model) inUse.add(status.vision_model);
   if (status.embedding_backend === "ollama") inUse.add(status.embedding_model);
   const usedBases = new Set([...inUse].map((n) => (n || "").split(":")[0]));
 
@@ -22074,6 +22101,25 @@ async function applyUtilityModel() {
       select.value
         ? `Background jobs now use ${select.value}.`
         : "Background jobs now use the chat model."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function applyVisionModel() {
+  const select = $("vision-model-select");
+  try {
+    await api("/models/vision-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Images now go to ${select.value}.`
+        : "Images now use auto-detect."
     );
     refreshModelStatus();
   } catch (error) {
@@ -26275,10 +26321,15 @@ $("llm-provider-select").addEventListener("change", () => {
   $("llm-base-url").placeholder = defaults[$("llm-provider-select").value] || "Default address";
 });
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
+$("vision-model-apply").addEventListener("click", applyVisionModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 $("utility-model-select").addEventListener(
   "change",
   () => ($("utility-model-select").dataset.userChosen = "1")
+);
+$("vision-model-select").addEventListener(
+  "change",
+  () => ($("vision-model-select").dataset.userChosen = "1")
 );
 
 // Wave N: improve-writing, link suggestions.
@@ -27174,6 +27225,38 @@ function renderEntryAttachmentChips() {
     const label = document.createElement("span");
     label.textContent = name || url;
     label.title = name || url;
+    // Vision-capable models: manual caption generation "on notes in the
+    // notes page", asked for directly, alongside the same control already
+    // built into the Library's Image Gallery. Resolved to an id lazily on
+    // click, the same way `remove` below already does — this render runs on
+    // every keystroke, so an eager /media fetch per chip is not worth
+    // paying for a caption most of these images will never need.
+    const captionBtn = document.createElement("button");
+    captionBtn.className = "ghost small icon-only entry-attachment-caption-btn";
+    captionBtn.type = "button";
+    setLabel(captionBtn, "ph:sparkle");
+    captionBtn.title = `Generate an AI caption for "${name || url}"`;
+    captionBtn.setAttribute("aria-label", captionBtn.title);
+    captionBtn.addEventListener("click", async () => {
+      captionBtn.disabled = true;
+      try {
+        const uploads = await apiJson("/media");
+        const match = uploads.find((u) => u.url === url);
+        if (!match) {
+          toast("Couldn't find that upload.", true);
+          return;
+        }
+        const updated = await apiJson(`/media/${match.id}/caption`, {
+          method: "POST",
+          body: JSON.stringify({ force: true }),
+        });
+        toast(updated.caption ? `Caption: ${updated.caption}` : "No caption produced.");
+      } catch (error) {
+        toast(error.message || "Couldn't generate a caption.", true);
+      } finally {
+        captionBtn.disabled = false;
+      }
+    });
     const remove = document.createElement("button");
     remove.className = "attachment-remove";
     remove.type = "button";
@@ -27198,7 +27281,7 @@ function renderEntryAttachmentChips() {
         console.error("Couldn't delete the underlying upload", err);
       }
     });
-    chip.append(img, label, remove);
+    chip.append(img, label, captionBtn, remove);
     box.appendChild(chip);
   }
 }

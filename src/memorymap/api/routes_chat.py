@@ -265,6 +265,17 @@ def _resolve_chat_images(session: Session, media_ids: list[int]) -> list[str]:
     return images
 
 
+def _resolve_vision_model(images: list[str], model_manager, ollama) -> str | None:
+    """The model an image-carrying turn should use instead of the chat
+    model, or None for "no override" — a turn with no image never needs one,
+    and a turn with one but nothing on the backend that declares vision
+    still falls through to whatever the chat model is (best effort, same
+    fail-open philosophy `supports()` itself uses)."""
+    if not images:
+        return None
+    return model_manager.resolve_vision_model(ollama)
+
+
 def _resolve_skill(body: ChatRequest) -> dict | None:
     """Turn "run this skill" into the request the model actually receives.
 
@@ -509,10 +520,13 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     prepared = _prepare(
         session, body.question, body.note_ids, attached_notes_only=body.attached_notes_only
     )
-    ollama_running = deps.get_ollama().is_running()
+    model_manager = deps.get_model_manager()
+    ollama = deps.get_ollama()
+    ollama_running = ollama.is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
     mode = _resolve_mode(body.mode)
     images = _resolve_chat_images(session, body.image_media_ids)
+    vision_model = _resolve_vision_model(images, model_manager, ollama)
     answered = (conversational or bool(prepared["notes"]) or bool(images)) and ollama_running
     shared = {
         "style": prepared["style"],
@@ -528,8 +542,8 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         ai_response, ai_thinking = librarian.converse(
             body.question,
             prepared["intent"],
-            deps.get_model_manager(),
-            deps.get_ollama(),
+            model_manager,
+            ollama,
             mode=mode,
             **shared,
         )
@@ -537,10 +551,11 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         ai_response, ai_thinking = librarian.answer(
             body.question,
             prepared["notes"],
-            deps.get_model_manager(),
-            deps.get_ollama(),
+            model_manager,
+            ollama,
             mode=mode,
             images=images,
+            model_override=vision_model,
             **shared,
         )
     # Direct Q&A only — conversational replies aren't grounded in retrieved
@@ -559,7 +574,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         connected_ids=prepared["connected_ids"],
         match_info=prepared["match_info"],
         when_phrase=prepared["when_phrase"],
-        answered_by=deps.get_model_manager().chat_model() if answered else None,
+        answered_by=(vision_model or model_manager.chat_model()) if answered else None,
         ollama_running=ollama_running,
         sentence_grounding=sentence_grounding,
     )
@@ -604,6 +619,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     persona_prompt = _resolve_persona(body.persona)
     mode = _resolve_mode(body.mode)
     images = _resolve_chat_images(session, body.image_media_ids)
+    vision_model = _resolve_vision_model(images, model_manager, ollama)
     use_tools = (
         body.use_tools
         if body.use_tools is not None
@@ -689,7 +705,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 images=images,
             )
         try:
-            for piece in ollama.chat_stream(model_manager.chat_model(), messages, mode):
+            for piece in ollama.chat_stream(vision_model or model_manager.chat_model(), messages, mode):
                 if "thinking_delta" in piece:
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "stats" in piece:
@@ -739,7 +755,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "connected_ids": prepared["connected_ids"],
                 "match_info": prepared["match_info"],
                 "when_phrase": prepared["when_phrase"],
-                "answered_by": model_manager.chat_model() if will_answer else None,
+                "answered_by": (vision_model or model_manager.chat_model()) if will_answer else None,
                 "ollama_running": ollama_running,
             }
         )
@@ -781,6 +797,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     mode=mode,
                     allowed_tools=allowed_tools,
                     images=images,
+                    model_override=vision_model,
                     **shared,
                 )
             first = next(agent_events, None)

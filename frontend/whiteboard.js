@@ -5783,7 +5783,8 @@ function filterLibraryImagesGallery() {
     ? libraryImagesCache.filter(
         (i) =>
           (i.original_name || "").toLowerCase().includes(query) ||
-          (i.ocr_text || "").toLowerCase().includes(query)
+          (i.ocr_text || "").toLowerCase().includes(query) ||
+          (i.caption || "").toLowerCase().includes(query)
       )
     : libraryImagesCache;
   grid.replaceChildren();
@@ -5907,11 +5908,52 @@ function filterLibraryImagesGallery() {
       box.addEventListener("blur", save);
     });
 
+    // A vision model's own description of the image, distinct from `cap`
+    // above (that's the filename — HTML's own <figcaption> naming just
+    // collides with what this app calls a "caption"). Asked for directly:
+    // written automatically in the background when a vision model is
+    // available (routes_files.py's upload trigger), regenerated here only
+    // on an explicit click — never silently overwritten.
+    const captionBtn = document.createElement("button");
+    captionBtn.type = "button";
+    captionBtn.className = "ghost small icon-button library-image-caption-btn";
+    setLabel(captionBtn, "ph:sparkle");
+    const captionText = document.createElement("p");
+    captionText.className = "library-image-caption muted text-sm hidden";
+    const setCaptionState = (text) => {
+      image.caption = text || "";
+      captionText.textContent = text || "";
+      captionText.classList.toggle("hidden", !text);
+      captionText.title = text || "";
+      captionBtn.title = text ? `Regenerate the AI caption for “${image.original_name}”`
+        : `Generate an AI caption for “${image.original_name}”`;
+      captionBtn.setAttribute("aria-label", captionBtn.title);
+    };
+    setCaptionState(image.caption);
+    captionBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      captionBtn.disabled = true;
+      try {
+        // force: true — a manual click is exactly "the user pressed the
+        // button to rewrite it", the one case the write-once default
+        // (caption_and_store) is meant to defer to.
+        const updated = await apiJson(`/media/${image.id}/caption`, {
+          method: "POST",
+          body: JSON.stringify({ force: true }),
+        });
+        setCaptionState(updated.caption);
+      } catch (error) {
+        toast(error.message || "Couldn't generate a caption.", true);
+      } finally {
+        captionBtn.disabled = false;
+      }
+    });
+
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-    actions.append(rename, del);
+    actions.append(rename, captionBtn, del);
 
-    fig.append(img, actions, cap);
+    fig.append(img, actions, cap, captionText);
     grid.appendChild(fig);
   }
 }

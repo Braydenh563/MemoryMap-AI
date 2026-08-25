@@ -114,6 +114,54 @@ class ModelManager:
         # Empty string means "same as chat model".
         self._config.set_preference("utility_model", name or "")
 
+    def vision_model(self) -> str:
+        """The explicit vision-model override, or "" for auto-detect.
+
+        Deliberately the *opposite* default from `utility_model()` above:
+        every other model preference in this app falls back to "same as
+        chat model" when unset, because that is a safe default — the chat
+        model can always do the job the utility model does. A chat model
+        cannot always see images, so falling back to it here would silently
+        turn "attach a photo" into "attach a photo the model ignores" on
+        any notebook that hasn't touched this setting. Auto-detect is the
+        default specifically *because* it is the useful zero-config
+        behaviour for this one preference; a specific model name is an
+        explicit choice on top of it, not a second default."""
+        return self._config.get_preference("vision_model", "")
+
+    def set_vision_model(self, name: str) -> None:
+        # Empty string means "auto-detect" — see resolve_vision_model.
+        self._config.set_preference("vision_model", name or "")
+
+    def resolve_vision_model(self, ollama, installed: list[dict] | None = None) -> str | None:
+        """The model an image-carrying turn should actually use, or None if
+        nothing on this backend can.
+
+        An explicit choice always wins, even one `installed` doesn't confirm
+        is on disk right now — the same trust `chat_model()` already extends
+        (routes_models.py surfaces "not installed" as its own warning rather
+        than silently substituting something else). Auto-detect (the
+        default) asks each installed model's declared capabilities in turn
+        and stops at the first `True`; `OllamaClient.capabilities()` caches
+        per model per process, so this costs one real round trip per model
+        at most once, not once per chat turn."""
+        explicit = self.vision_model()
+        if explicit:
+            return explicit
+        if installed is None:
+            try:
+                installed = ollama.list_models()
+            except OllamaError:
+                installed = []
+        supports = getattr(ollama, "supports", None)
+        if not callable(supports):
+            return None
+        for entry in installed:
+            name = entry.get("name") if isinstance(entry, dict) else None
+            if name and supports(name, "vision"):
+                return name
+        return None
+
     def embedding_backend(self) -> str:
         """'sentence-transformers' (built-in default) or 'ollama'."""
         return self._config.get_preference("embedding_backend", "sentence-transformers")

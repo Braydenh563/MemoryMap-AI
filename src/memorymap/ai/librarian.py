@@ -261,6 +261,7 @@ def build_messages(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     mode: str | None = None,
+    images: list[str] | None = None,
 ) -> list[dict]:
     """The librarian's prompt — shared by the blocking and streaming
     chat endpoints so they can never drift apart.
@@ -305,12 +306,13 @@ def build_messages(
         if any(note.get("attached") for note in notes)
         else ""
     )
-    messages.append(
-        {
-            "role": "user",
-            "content": f"My notes:\n{numbered}\n\nMy question: {question}{attached_hint}",
-        }
-    )
+    user_message = {
+        "role": "user",
+        "content": f"My notes:\n{numbered}\n\nMy question: {question}{attached_hint}",
+    }
+    if images:
+        user_message["images"] = images
+    messages.append(user_message)
     return messages
 
 
@@ -325,13 +327,18 @@ def answer(
     persona_prompt: str | None = None,
     use_utility_model: bool = False,
     mode: str | None = None,
+    images: list[str] | None = None,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
     retrieved `notes` (dicts with 'content' and 'category').
 
     `use_utility_model` routes background jobs (the weekly digest) to the
     small fast model instead of the main chat model."""
-    if not notes:
+    # An attached image and "no matching notes" are unrelated: "what's in
+    # this photo" has nothing to do with the notebook and should never hit
+    # NO_RESULTS_MESSAGE just because retrieval (which never sees the image)
+    # came back empty.
+    if not notes and not images:
         return NO_RESULTS_MESSAGE, None
     if not ollama.is_running():
         return OFFLINE_MESSAGE, None
@@ -350,6 +357,7 @@ def answer(
                 history=history,
                 persona_prompt=persona_prompt,
                 mode=mode,
+                images=images,
             ),
             mode=mode,
         )

@@ -5018,6 +5018,7 @@ async function streamChat({
   mode,
   useTools,
   noteIds,
+  imageMediaIds,
   skill,
   skillInputs,
   skillFromStep,
@@ -5063,6 +5064,11 @@ async function streamChat({
   // classifier guess from three letters.
   if (answeringAgent) body.answering_agent = true;
   if (noteIds && noteIds.length) body.note_ids = noteIds;
+  // Vision-capable models (ROADMAP.md's largest open item): ids from
+  // /media/upload, the same endpoint the note/document editors already use
+  // for drag-and-drop images — see `_resolve_chat_images` (routes_chat.py)
+  // for how an id becomes a data URI the provider actually sends.
+  if (imageMediaIds && imageMediaIds.length) body.image_media_ids = imageMediaIds;
   // Running a skill sends its name, not its prompt: the server owns what a
   // skill is — the steps, the values, the tools it may use — so the two
   // definitions can't drift apart.
@@ -6161,6 +6167,7 @@ function regenerateLastAnswer() {
     skipUserBubble: true,
     replaceLast: true,
     noteIds: lastChatAttachments,
+    imageMediaIds: lastChatImageAttachments.map((img) => img.id),
   });
 }
 
@@ -6674,6 +6681,7 @@ async function renderModelSpec(modelName) {
     // `split_thinking` picks up and shows. Saying "declared" makes the two
     // facts distinguishable instead of contradictory.
     ["Thinking mode declared", canDo(spec.supports_thinking)],
+    ["Can see images", canDo(spec.supports_vision)],
   ].filter(([, value]) => value != null && value !== "");
 
   box.replaceChildren();
@@ -8856,6 +8864,72 @@ let attachedNoteIds = [];
 // The set sent with the most recent message, so regenerate can reuse it.
 let lastChatAttachments = [];
 
+// --- attaching images to a chat message (vision-capable models) ----------------
+// Same shape as note attachments just above, uploaded through the existing
+// /media/upload (the note/document editors' own drag-and-drop endpoint) so
+// there is one upload path in the app, not two. `attachedImages` holds
+// {id, url} — the id is what the server needs, the url is what renders the
+// thumbnail without a second round trip.
+let attachedImages = [];
+let lastChatImageAttachments = [];
+
+function renderImageAttachments() {
+  const box = $("chat-image-attachments");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", attachedImages.length === 0);
+  $("attach-image")?.classList.toggle("has-attachments", attachedImages.length > 0);
+  for (const image of attachedImages) {
+    const chipEl = document.createElement("span");
+    // Reuses the note-composer's own image-attachment look
+    // (04-chat-dock-appearance.css) rather than inventing a second one.
+    chipEl.className = "chip attachment-chip attachment-chip-image";
+    const thumb = document.createElement("img");
+    thumb.src = mediaSrc(image.url); // a plain <img> never attaches X-Auth-Token
+    thumb.alt = "";
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = "Remove this image";
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedImages = attachedImages.filter((img) => img.id !== image.id);
+      renderImageAttachments();
+      announce(`Removed image. ${attachedImages.length} image(s) attached.`);
+    });
+    chipEl.append(thumb, remove);
+    box.appendChild(chipEl);
+  }
+}
+
+async function attachImageFiles(files) {
+  // Small and silent per-file, deliberately: a picker with several photos
+  // selected shouldn't abort the whole batch because one was too big or the
+  // wrong type — the same "drop what's wrong, keep what's fine" the note
+  // picker already does with unresolved wiki-links.
+  const room = 4 - attachedImages.length;
+  for (const file of Array.from(files).slice(0, Math.max(0, room))) {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      // No explicit Content-Type: the browser sets its own multipart
+      // boundary for a FormData body, and `api()`'s default JSON header
+      // would be wrong here — the same reason the editor's own image-drop
+      // upload (app.js, ~line 27615) overrides headers rather than merging.
+      const uploaded = await apiJson("/media/upload", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      attachedImages.push({ id: uploaded.id, url: uploaded.url });
+    } catch (error) {
+      toast(error.message || `Couldn't attach "${file.name}".`, true);
+    }
+  }
+  renderImageAttachments();
+}
+
 function attachedNotes() {
   return attachedNoteIds
     .map((id) => allEntries.find((e) => e.id === id))
@@ -9017,12 +9091,16 @@ async function sendChatMessage(preset, opts = {}) {
   // ones; a fresh send clears them, so they don't silently ride along on
   // every later question.
   const sentAttachments = opts.noteIds || attachedNoteIds.slice();
+  const sentImages = opts.imageMediaIds || attachedImages.map((img) => img.id);
   if (!opts.replaceLast) {
     // Remembered so a regenerate re-runs with the same references — by then
     // the picker has been cleared.
     lastChatAttachments = sentAttachments;
+    lastChatImageAttachments = attachedImages.slice();
     attachedNoteIds = [];
+    attachedImages = [];
     renderAttachments();
+    renderImageAttachments();
     closeNotePicker();
   }
 
@@ -9142,6 +9220,7 @@ async function sendChatMessage(preset, opts = {}) {
       mode: $("response-mode-select").value || null,
       useTools: opts.useTools ?? $("tools-toggle").checked,
       noteIds: sentAttachments,
+      imageMediaIds: sentImages,
       skill: opts.skill,
       skillInputs: opts.skillInputs,
       skillFromStep: opts.skillFromStep,
@@ -24931,6 +25010,13 @@ restoreDraftLocally();
 $("attach-note").addEventListener("click", () => {
   if (notePickerOpen()) closeNotePicker();
   else openNotePicker();
+});
+
+// --- image attachment wiring (vision-capable models) ---
+$("attach-image").addEventListener("click", () => $("chat-image-input").click());
+$("chat-image-input").addEventListener("change", async (e) => {
+  if (e.target.files.length) await attachImageFiles(e.target.files);
+  e.target.value = ""; // so choosing the same file twice still fires "change"
 });
 let notePickerSearchDebounceTimeout;
 $("note-picker-search").addEventListener("input", () => {

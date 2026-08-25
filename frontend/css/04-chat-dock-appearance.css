@@ -1802,7 +1802,8 @@ button {
   flex: 0 0 auto;
 }
 
-#attach-note.has-attachments {
+#attach-note.has-attachments,
+#attach-image.has-attachments {
   background: var(--accent-soft);
   border-color: var(--accent);
 }

@@ -11,8 +11,10 @@ Plain `def` so the blocking LLM call runs in FastAPI's threadpool.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
+import mimetypes
 from collections.abc import Iterator
 from itertools import chain
 
@@ -27,7 +29,7 @@ from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
-from memorymap.core.database import AskTurn, AuditLog, Category, Entry
+from memorymap.core.database import AskTurn, AuditLog, Category, Entry, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -128,6 +130,12 @@ class ChatRequest(BaseModel):
     # ahead of anything retrieval finds — "this note, specifically" is a
     # stronger signal than any similarity score.
     note_ids: list[int] = Field(default_factory=list, max_length=20)
+    # Vision-capable models (ROADMAP.md's largest open item): ids from the
+    # existing `/media/upload` (the same endpoint the document/note editors
+    # already use for drag-and-drop images), not a second upload path. Small
+    # cap — a local model paying attention to four images at once is already
+    # optimistic, and each one inflates the request by ~33% once base64'd.
+    image_media_ids: list[int] = Field(default_factory=list, max_length=4)
     # Running a saved skill (§21). The name of one — built-in or the user's
     # own — plus values for whatever inputs it declares. The server builds the
     # instruction, so what a skill *is* lives in one place rather than being
@@ -212,6 +220,49 @@ def _resolve_mode(requested: str | None) -> str:
 def _resolve_persona(name: str | None) -> str | None:
     """Persona name → its system prompt (shared with greetings and titles)."""
     return librarian.resolve_persona_prompt(name, deps.get_config())
+
+
+# Base64 inflates size by ~33%; a generous per-image cap keeps one photo
+# straight off a phone (often 5-10MB) from making a single turn bigger than
+# what most local models' num_ctx could hold in the first place.
+MAX_CHAT_IMAGE_BYTES = 8 * 1024 * 1024
+
+
+def _resolve_chat_images(session: Session, media_ids: list[int]) -> list[str]:
+    """Attached-by-id media uploads → data URIs (ROADMAP.md's vision item).
+
+    `media_ids` come from the same `/media/upload` the note/document editors
+    already use for drag-and-drop images — this reuses that upload, rather
+    than adding a second upload path for the composer alone. A data URI
+    (not bare base64) is the app's neutral shape: `ollama_client` strips the
+    prefix for Ollama's wire format, `openai_client` hands the URI straight
+    to `image_url.url` unchanged (see both modules' `_to_*_messages`).
+
+    An id that doesn't resolve, isn't readable, is too large, or isn't
+    actually an image (the same upload endpoint also accepts PDFs) is
+    silently dropped rather than 500ing the whole turn — the UI already
+    confirmed each upload succeeded before sending its id here, so a miss
+    means the file moved or was deleted after that, not a bad request.
+    """
+    if not media_ids:
+        return []
+    media_dir = deps.get_config().data_dir / "media"
+    images = []
+    for media_id in media_ids:
+        upload = session.get(MediaUpload, media_id)
+        if upload is None:
+            continue
+        try:
+            data = (media_dir / upload.filename).read_bytes()
+        except OSError:
+            continue
+        if len(data) > MAX_CHAT_IMAGE_BYTES:
+            continue
+        mime = mimetypes.guess_type(upload.filename)[0] or ""
+        if not mime.startswith("image/"):
+            continue
+        images.append(f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}")
+    return images
 
 
 def _resolve_skill(body: ChatRequest) -> dict | None:
@@ -460,14 +511,15 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
     )
     ollama_running = deps.get_ollama().is_running()
     conversational = not intent.needs_retrieval(prepared["intent"])
-    answered = (conversational or bool(prepared["notes"])) and ollama_running
+    mode = _resolve_mode(body.mode)
+    images = _resolve_chat_images(session, body.image_media_ids)
+    answered = (conversational or bool(prepared["notes"]) or bool(images)) and ollama_running
     shared = {
         "style": prepared["style"],
         "profile": prepared["profile"],
         "history": [turn.model_dump() for turn in body.history],
         "persona_prompt": _resolve_persona(body.persona),
     }
-    mode = _resolve_mode(body.mode)
     if conversational and body.notes_only:
         # Same rule as the streaming route: this box interrogates the
         # notebook and does not chat (§35A).
@@ -488,6 +540,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
             deps.get_model_manager(),
             deps.get_ollama(),
             mode=mode,
+            images=images,
             **shared,
         )
     # Direct Q&A only — conversational replies aren't grounded in retrieved
@@ -550,6 +603,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     history = [turn.model_dump() for turn in body.history]
     persona_prompt = _resolve_persona(body.persona)
     mode = _resolve_mode(body.mode)
+    images = _resolve_chat_images(session, body.image_media_ids)
     use_tools = (
         body.use_tools
         if body.use_tools is not None
@@ -613,7 +667,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 persona_prompt=persona_prompt,
                 mode=mode,
             )
-        elif not prepared["notes"]:
+        elif not prepared["notes"] and not images:
+            # An attached image and "no matching notes" are unrelated —
+            # retrieval never sees the image, so an empty search result
+            # must not stand in for "there's nothing to look at" (same fix
+            # as `librarian.answer`'s own guard).
             yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
             return
         elif not ollama_running:
@@ -628,6 +686,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 history=history,
                 persona_prompt=persona_prompt,
                 mode=mode,
+                images=images,
             )
         try:
             for piece in ollama.chat_stream(model_manager.chat_model(), messages, mode):
@@ -667,6 +726,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # note about X" must work on an empty notebook.
         will_answer = ollama_running and (
             bool(prepared["notes"])
+            or bool(images)
             or use_tools
             or not intent.needs_retrieval(prepared["intent"])
         )
@@ -720,6 +780,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     ollama,
                     mode=mode,
                     allowed_tools=allowed_tools,
+                    images=images,
                     **shared,
                 )
             first = next(agent_events, None)

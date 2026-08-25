@@ -1124,6 +1124,18 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-md);
 }
 
+/* The global `select { width: 100% }` base rule (01-forms-settings.css) is
+   right for a form field and wrong here: a <select> that shrinks correctly
+   while sharing a flex line with its toolbar siblings (note-sort measured
+   correctly at ~160px) stretches to the *entire row's width* the moment it
+   is alone on a wrapped line — nothing left to shrink it against. Caught
+   adding the Notes-tab page-size select (BACKLOG §77): at common widths it
+   wraps under Sort and, without this, fills the full toolbar. `.library-search`
+   is deliberately not included — that one *should* fill the remaining row. */
+.library-toolbar select {
+  width: auto;
+}
+
 .library-toolbar .seg {
   display: inline-flex;
   align-items: center;

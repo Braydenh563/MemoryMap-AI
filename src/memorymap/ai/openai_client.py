@@ -280,6 +280,7 @@ class OpenAICompatClient(Provider):
             "capabilities": [],
             "supports_tools": None,
             "supports_thinking": None,
+            "supports_vision": None,
         }
 
     def runtime_options(
@@ -371,6 +372,21 @@ class OpenAICompatClient(Provider):
                         "content": message.get("content") or "",
                     }
                 )
+            elif message.get("images"):
+                # `images` carries data URIs (the app's neutral shape — see
+                # `ollama_client._to_ollama_messages`'s own docstring for why
+                # a data URI rather than bare base64). The OpenAI dialect's
+                # `image_url.url` accepts one directly, so unlike the Ollama
+                # side this needs no stripping — only reshaping `content`
+                # from a plain string into the multipart array vision
+                # requires.
+                parts = []
+                text = message.get("content") or ""
+                if text:
+                    parts.append({"type": "text", "text": text})
+                for uri in message["images"]:
+                    parts.append({"type": "image_url", "image_url": {"url": uri}})
+                out.append({"role": message.get("role"), "content": parts})
             else:
                 out.append(
                     {k: v for k, v in message.items() if k in ("role", "content", "name")}

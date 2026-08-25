@@ -41,18 +41,49 @@ below. Five of those fifteen were already built; §87.1 says which, and where.**
 
 Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
 
-1. **Vision-capable models still cannot be shown an image.** `ai/ollama_client.py`
-   already has the generic `capabilities()`/`supports()` pair, and Ollama
-   reports `vision` in that list for a multimodal model — so the detection
-   half exists and nothing downstream ever uses it. Confirmed missing by grep
-   over `app.js`: no image-file input is wired into the chat send path at all
-   (`chat-attachments` in the chat dock is the note-picker's attached-*notes*
-   list, not a file upload). Needs: an image input on the composer, multipart
-   handling on the chat route, and the provider layer passing images through
-   in whatever shape each backend expects — that last part is the real work,
-   and it is why this is the largest item left. Pairs naturally with the OCR
-   path, which already exists (`core/ocr.py`): a photo of a page could go to
-   OCR *or* to a vision model, the user's choice.
+~~1. **Vision-capable models still cannot be shown an image.**~~ **Built** —
+   the largest item on this list, end to end:
+   - **Composer**: a new `#attach-image` button beside the existing note
+     picker, uploading through the *existing* `/media/upload` (the same
+     endpoint the note/document editors already use for drag-and-drop
+     images) rather than a second upload path. Thumbnails render via the
+     app's existing `attachment-chip-image` look and `mediaSrc()` helper —
+     missed on the first pass and caught live: a plain `<img src>` never
+     attaches `X-Auth-Token`, so the thumbnail 401'd silently until routed
+     through the same query-param fallback `require_unlock_media` already
+     exists for exactly this case.
+   - **Chat route**: `ChatRequest.image_media_ids` (cap 4) →
+     `_resolve_chat_images()` reads each upload off disk and returns a data
+     URI (`routes_chat.py`) — the app's own neutral shape, not raw base64.
+     A real, previously-latent bug found and fixed while wiring this in:
+     both `librarian.answer` and `chat_stream`'s plain path short-circuited
+     to "no matching notes" whenever retrieval came back empty, which a
+     vision-only question ("what's in this photo?") always does — fixed by
+     treating an attached image the same as a matched note for that guard.
+   - **Provider layer**: `images` flows through
+     `librarian.build_messages`/`agent.build_agent_messages` onto the last
+     user message. Each dialect adapts it right at its own wire boundary —
+     `ollama_client._to_ollama_messages` strips the data-URI prefix to bare
+     base64 (Ollama sniffs the format itself); `openai_client._to_openai_messages`
+     hands the URI straight to `image_url.url`, which accepts it unchanged.
+     `model_spec()`'s existing `supports_tools`/`supports_thinking` tri-state
+     gained a third sibling, `supports_vision`, surfaced in Settings → Models
+     as "Can see images" — Ollama answers it for real, an OpenAI-compatible
+     server stays `None` ("not reported"), same as the other two.
+   - **Pairs with OCR** exactly as scoped: `/media/upload` already runs OCR
+     on any image in the background regardless of whether it's also sent to
+     a vision model — the two paths were never exclusive, just previously
+     disconnected from chat entirely.
+   - Six new backend tests (`tests/test_chat_vision.py`) cover the id→data-URI
+     resolution, the plain and agent-mode streaming paths, a missing/expired
+     media id being dropped rather than erroring, and the empty-notes guard
+     fix specifically; five more (`tests/test_providers.py`) cover both
+     dialects' message translation directly. Verified live in this sandbox's
+     Chromium: attach → thumbnail renders → send → attachments clear, zero
+     console errors. **Not verified**: an actual vision model's *answer*
+     quality — this sandbox has no reachable Ollama (the project's standing
+     caveat), so only the plumbing that gets an image to the model round-trip
+     is confirmed, not what a real multimodal model does with it.
 
 2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
    in two, as BACKLOG always said it should be. **The page-size control and

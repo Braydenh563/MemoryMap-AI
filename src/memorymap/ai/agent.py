@@ -602,6 +602,7 @@ def build_agent_messages(
     persona_prompt: str | None = None,
     budget: "context.ContextBudget | None" = None,
     mode: str | None = None,
+    images: list[str] | None = None,
 ) -> list[dict]:
     """Like librarian.build_messages, but the system prompt allows
     acting, and each note shows its id so tools can target it.
@@ -667,7 +668,10 @@ def build_agent_messages(
             f"{'' if dropped_notes == 1 else 's'} did not fit — use search_notes "
             f"or get_note if you need them.)\n\n"
         )
-    messages.append({"role": "user", "content": f"{body}My request: {question}"})
+    user_message = {"role": "user", "content": f"{body}My request: {question}"}
+    if images:
+        user_message["images"] = images
+    messages.append(user_message)
     return messages
 
 
@@ -811,6 +815,7 @@ def run_agent(
     exhausted_note: str | None = None,
     mode: str | None = None,
     use_utility_model: bool = False,
+    images: list[str] | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -854,6 +859,7 @@ def run_agent(
         persona_prompt=persona,
         budget=budget,
         mode=mode,
+        images=images,
     )
     # A skill's declared tools are the only ones offered for its run: fewer
     # schemas on the wire (roadmap §11a) and a narrower thing to go wrong.

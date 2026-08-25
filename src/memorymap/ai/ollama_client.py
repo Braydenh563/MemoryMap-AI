@@ -176,6 +176,7 @@ class OllamaClient(Provider):
             "capabilities": sorted(self.capabilities(model)),
             "supports_tools": self.supports(model, "tools"),
             "supports_thinking": self.supports(model, "thinking"),
+            "supports_vision": self.supports(model, "vision"),
         }
 
     def context_length(self, model: str) -> int | None:
@@ -306,6 +307,28 @@ class OllamaClient(Provider):
         except requests.RequestException as exc:
             raise OllamaError(f"Removing '{name}' failed: {exc}") from exc
 
+    @staticmethod
+    def _to_ollama_messages(messages: list[dict]) -> list[dict]:
+        """Strip the `data:image/…;base64,` prefix `images` carries internally.
+
+        A data URI is the app's own neutral representation (it round-trips
+        through `openai_client._to_openai_messages` unchanged — that dialect's
+        `image_url.url` accepts one directly). Ollama's `/api/chat` wants a
+        flat list of *bare* base64 strings instead and sniffs the format
+        itself, so this is the one place that has to know the difference.
+        Messages without an `images` key pass through untouched — most of
+        them, since only a turn with an attached image ever carries one.
+        """
+        out = []
+        for message in messages:
+            images = message.get("images")
+            if not images:
+                out.append(message)
+                continue
+            stripped = [img.split(",", 1)[-1] if img.startswith("data:") else img for img in images]
+            out.append({**message, "images": stripped})
+        return out
+
     def chat(self, model: str, messages: list[dict], mode: str | None = None) -> dict:
         """One non-streamed chat turn.
 
@@ -317,7 +340,7 @@ class OllamaClient(Provider):
                 f"{self.base_url}/api/chat",
                 json={
                     "model": model,
-                    "messages": messages,
+                    "messages": self._to_ollama_messages(messages),
                     "stream": False,
                     "keep_alive": self.keep_alive,
                     "options": self.runtime_options(model, mode=mode),
@@ -348,7 +371,7 @@ class OllamaClient(Provider):
                 f"{self.base_url}/api/chat",
                 json={
                     "model": model,
-                    "messages": messages,
+                    "messages": self._to_ollama_messages(messages),
                     "stream": True,
                     "keep_alive": self.keep_alive,
                     "options": self.runtime_options(model, mode=mode),
@@ -435,7 +458,7 @@ class OllamaClient(Provider):
                 f"{self.base_url}/api/chat",
                 json={
                     "model": model,
-                    "messages": messages,
+                    "messages": self._to_ollama_messages(messages),
                     "stream": True,
                     "tools": tools,
                     "keep_alive": self.keep_alive,
@@ -540,7 +563,7 @@ class OllamaClient(Provider):
                 f"{self.base_url}/api/chat",
                 json={
                     "model": model,
-                    "messages": messages,
+                    "messages": self._to_ollama_messages(messages),
                     "stream": False,
                     "tools": tools,
                     "keep_alive": self.keep_alive,

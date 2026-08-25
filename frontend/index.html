@@ -872,6 +872,11 @@ Link to another note with [[its first few words]]."></textarea>
                  depend on how many notes you had clipped. -->
             <div id="chat-attachments" class="chat-attachments hidden"
               role="group" aria-label="Notes attached to your next message"></div>
+            <!-- Vision-capable models (ROADMAP.md's largest open item). Its
+                 own line for the same reason chat-attachments is: a variable
+                 number of thumbnails, not a fixed-height control. -->
+            <div id="chat-image-attachments" class="chat-attachments hidden"
+              role="group" aria-label="Images attached to your next message"></div>
             <!-- One strip, four groups, hairlines between them.
                  It was three stacked rows — skills, then controls, then the
                  composer — which is most of the height of a short
@@ -1015,6 +1020,16 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
             </div>
+            <!-- Vision-capable models: attach a photo for a model that
+                 declares the "vision" capability (Settings → Models shows
+                 which do). A hidden file input behind a button, same shape
+                 as the note picker beside it. -->
+            <button id="attach-image" class="ghost" type="button"
+              title="Attach an image for the AI to look at"
+              aria-label="Attach an image"><i class="ph ph-image" aria-hidden="true"></i></button>
+            <input id="chat-image-input" type="file" class="visually-hidden"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" multiple
+              aria-label="Choose an image to attach">
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->

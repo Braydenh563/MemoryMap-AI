@@ -236,6 +236,51 @@ def test_ordinary_messages_are_stripped_to_the_fields_the_api_knows():
     assert out == [{"role": "user", "content": "hi"}]
 
 
+# --- vision (ROADMAP.md's largest open item) --------------------------------
+
+
+def test_openai_dialect_turns_images_into_a_content_array():
+    """`image_url.url` accepts the app's own data-URI shape unchanged."""
+    out = OpenAICompatClient._to_openai_messages(
+        [{"role": "user", "content": "what is this?", "images": ["data:image/png;base64,AAA"]}]
+    )
+    assert out == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "what is this?"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAA"}},
+            ],
+        }
+    ]
+
+
+def test_openai_dialect_omits_the_text_part_when_there_is_none():
+    out = OpenAICompatClient._to_openai_messages(
+        [{"role": "user", "content": "", "images": ["data:image/png;base64,AAA"]}]
+    )
+    assert out[0]["content"] == [{"type": "image_url", "image_url": {"url": "data:image/png;base64,AAA"}}]
+
+
+def test_ollama_dialect_strips_the_data_uri_prefix():
+    """Ollama's `/api/chat` wants bare base64 and sniffs the format itself."""
+    out = OllamaClient._to_ollama_messages(
+        [{"role": "user", "content": "what is this?", "images": ["data:image/png;base64,AAA"]}]
+    )
+    assert out == [{"role": "user", "content": "what is this?", "images": ["AAA"]}]
+
+
+def test_ollama_dialect_leaves_messages_without_images_untouched():
+    messages = [{"role": "user", "content": "hi"}]
+    assert OllamaClient._to_ollama_messages(messages) == messages
+
+
+def test_a_bare_base64_string_survives_the_ollama_dialect_too():
+    """Defensive: something that was never a data URI shouldn't be mangled."""
+    out = OllamaClient._to_ollama_messages([{"role": "user", "content": "x", "images": ["AAA"]}])
+    assert out[0]["images"] == ["AAA"]
+
+
 # --- streaming --------------------------------------------------------------
 
 

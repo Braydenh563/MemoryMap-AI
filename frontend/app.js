@@ -1206,6 +1206,29 @@ function entryItem(entry, options = {}) {
         renderEntries();
       })
     );
+    // Publishing already worked via the "draft" chip below (click it to
+    // clear is_draft) — reported again anyway ("needs to be...a button for
+    // editing a draft and publishing"), so the chip alone wasn't read as an
+    // action. An explicit, always-visible button next to Edit for drafts
+    // only (a published note has nothing to publish) says the same thing
+    // the chip's tooltip already did, just as a button instead of a tag.
+    if (entry.is_draft) {
+      actions.appendChild(
+        smallButton("ph:check-circle", "Publish this draft as a proper note", async () => {
+          try {
+            await apiJson(`/entries/${entry.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ is_draft: false }),
+            });
+            entry.is_draft = false;
+            await loadEntries();
+            toast("Published.");
+          } catch (error) {
+            toast(error.message || "Couldn't publish that draft.", true);
+          }
+        })
+      );
+    }
     actions.appendChild(entryOverflowMenu(entry));
     metaEnd.appendChild(actions);
   }
@@ -15975,9 +15998,14 @@ function initComposerResize() {
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
     localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height));
-    // Re-run so overflow matches the new ceiling straight away rather than at
-    // the next keystroke.
-    autoGrow(box);
+    // Deferred a frame: autoGrow() sets this same box's own height, and
+    // doing that synchronously inside the observer callback watching that
+    // box is exactly what triggers the browser's "ResizeObserver loop
+    // completed with undelivered notifications" warning (reported showing
+    // up as a browser console error). Re-running one frame later still
+    // matches overflow to the new ceiling well before the next keystroke,
+    // and moves the mutation out of the observer's own callback tick.
+    requestAnimationFrame(() => autoGrow(box));
   });
   observer.observe(box);
 }
@@ -24545,6 +24573,11 @@ $("graph-focus-clear").addEventListener("click", () => {
   $("graph-focus-clear").classList.add("hidden");
   renderGraph();
   toast("Exited Focus Mode.");
+});
+$("graph-highlight-clear").addEventListener("click", () => {
+  graphHighlightIds = null;
+  applyGraphHighlight();
+  toast("Highlight cleared.");
 });
 $("graph-trace-clear").addEventListener("click", () => clearTrace());
 // What the colours mean, remembered like the layout is — it is a property of

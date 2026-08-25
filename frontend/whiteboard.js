@@ -3029,7 +3029,12 @@ async function initWhiteboard() {
     // Delete/Backspace with a selection — the other half of Select as a
     // real tool: previously the only way to delete anything was switching
     // to the Delete tool and clicking it.
-    if ((e.key === "Delete" || e.key === "Backspace") && wbSelectedItem) {
+    // wbMultiSelection alongside wbSelectedItem: deleteWbSelection() already
+    // handles a marquee multi-select correctly, but this guard only ever
+    // checked the single-item variable - the two are mutually exclusive by
+    // construction, so a multi-selection left this false and Delete/
+    // Backspace silently did nothing. Reported directly.
+    if ((e.key === "Delete" || e.key === "Backspace") && (wbSelectedItem || wbMultiSelection.size > 0)) {
       e.preventDefault();
       deleteWbSelection();
       return;

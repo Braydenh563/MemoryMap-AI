@@ -1346,6 +1346,10 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Contextual: each appears only in the mode it exits, so they sit
                apart from the permanent controls rather than in a group. -->
           <button id="graph-focus-clear" class="ghost small hidden" title="Exit Focus Mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit Focus</button>
+          <!-- The "≈ Similar" popup button (graph.js) sets graphHighlightIds
+               with no clear affordance of its own - reported directly. Same
+               shape as Exit Focus above: hidden until that state is active. -->
+          <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear Highlight</button>
           </div>
           <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>

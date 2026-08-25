@@ -1661,6 +1661,17 @@ async function renderGraph() {
         pickTraceEnd(d);
         return;
       }
+      // Same gap Trace had before the branch above: the popup's own "Link"
+      // button sets `linkSource` and its toast says "click another note on
+      // the map to link them", but nothing here ever read `linkSource` -
+      // so that click just opened the second note's popup instead of
+      // completing the link. Reported directly ("doesn't properly function
+      // when I try to click on another note to link it").
+      if (linkSource !== null) {
+        event.stopPropagation();
+        beginOrCompleteLink(d);
+        return;
+      }
       openGraphPopup(event, d);
     })
     // Double-click pins a node where it is; again releases it (Wave M).
@@ -2253,6 +2264,12 @@ function applyGraphHighlight() {
   if (!graphNodeSelection) return;
   const query = $("graph-search").value.trim().toLowerCase();
   if (query) graphHighlightIds = null; // typing takes over the spotlight
+  // Reported: no way to cancel the "≈ Similar" highlight - it only ever
+  // reset as a side effect of something else (typing over it, or a full
+  // refresh). Same shape as #graph-focus-clear: shown exactly while there's
+  // something to clear, synced here since this is the one function every
+  // path that sets or resets graphHighlightIds already runs through.
+  $("graph-highlight-clear")?.classList.toggle("hidden", !graphHighlightIds);
   // A traced path is the strongest spotlight there is: it is the answer to a
   // question that was just asked, so it outranks a search box someone typed in
   // earlier. Everything not on the chain dims, which is what makes a six-note

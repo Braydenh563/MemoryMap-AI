@@ -212,6 +212,18 @@
   background: var(--accent-soft);
 }
 
+/* The match-reason badge (matchReasonBadge()) is appended as the *last
+   child of the whole `<li>`* here, not into a wrapper `<div>` the way the
+   card's other chips are - `.entry-list li` has no `gap` of its own, so
+   without a margin of its own the badge sat flush against the row above
+   it. Reported: "no gap above with the other elements". Scoped to a direct
+   child of the result card specifically, since the same badge class inside
+   `renderAnswerGrounding`'s own dedicated row already has correct spacing
+   from that container and doesn't need this. */
+.entry-list li.clickable-result > .result-reason-chip {
+  margin-top: var(--space-2);
+}
+
 /* --- Wave B: threads, inline actions, templates ------------------------------ */
 .entry-list li.thread-child {
   border-left: 3px solid var(--accent-soft);

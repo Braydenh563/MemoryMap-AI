@@ -914,7 +914,13 @@ click to edit it (the clamp class survived into edit mode and squashed the
 restyled to match `libraryCard()`'s own shape exactly — both living inside
 the row (an `<article role="button">`, not a `<button>`, since a button
 cannot contain another button) with the ⋯ only revealed on hover/focus,
-instead of two permanent flex siblings squeezed in beside the row.
+instead of two permanent flex siblings squeezed in beside the row. Also
+built later the same session: the graph's "similar notes" highlight now has
+its own clear button (`#graph-highlight-clear`, same shape as Focus Mode's
+own), and the graph popup's "Link" button now actually completes a link on
+a plain node click (`linkSource` was never read anywhere in graph.js
+before) — both were logged as open items here first, then fixed in the
+same session; check before re-diagnosing either.
 
 **Still open:**
 
@@ -1068,34 +1074,42 @@ instead of two permanent flex siblings squeezed in beside the row.
    measuring the glyph's actual ink bounds against its box in a live
    browser before changing any CSS here.
 
-9. **No way to cancel the graph's "similar notes" highlight.** Reported
-   directly, not yet fixed. The Focus Mode a graph popup can also start has
-   its own clear button (`#graph-focus-clear`) - the "similar notes"
-   highlight (the popup's "≈ Similar" button, `graphHighlightIds` in
-   graph.js) has no equivalent. It only ever gets reset as a side effect of
-   something else: typing in the graph search box (which *replaces* it with
-   a different highlight, not a true clear), or the graph's own refresh
-   action (app.js, `graphHighlightIds = null` at the "a refresh clears any
-   'similar notes' spotlight" comment). Fix is probably the same shape as
-   Focus Mode's own clear button, shown whenever `graphHighlightIds` is set.
+9. **Settings modal reads as poor contrast / hazy in light mode.** Reported
+   with a screenshot; not reproduced. Audited the pipeline this bug class
+   would live in (`APPEARANCE_DEFAULTS`/`applyAppearance()`, app.js — where
+   the project's worst UI bug to date came from, an unguarded custom
+   property computing to the literal string `"undefined"`/`"NaN"`): every
+   key has a default, and a fresh profile's Settings modal in forced light
+   mode plus glass on (user confirmed glass is on) renders correctly in
+   this sandbox. The user's screenshots consistently show a custom teal
+   accent, not the default indigo — likely specific to their own accent/
+   glass-blur/opacity/shadow values. Need those values, or a live session.
 
-10. **The graph popup's "Link" button doesn't complete a link.** Reported
-    directly ("doesn't properly function when I try to click on another
-    note to link it"), not yet fixed. `beginOrCompleteLink()` (app.js) is
-    the same function the Notes list's own per-card Link button uses, and
-    on the graph it is reachable *only* from a node's popup - clicking
-    Link there sets `linkSource` and shows a toast literally telling you to
-    "click Link on the entry you want to connect it to", i.e. open the
-    *second* node's popup and click its Link button too. Nothing in
-    graph.js reads `linkSource` at all, so a plain click on the second
-    node - which is what the report and the graph's whole point (clicking
-    nodes) both suggest a user would actually try - does nothing, and
-    reads as the button being broken. Needs a decision, not just a fix:
-    either make a direct node click complete a pending link (graph.js would
-    need to gain the same `linkSource` awareness app.js's Notes-list click
-    handler already has), or make the popup's own two-clicks-through
-    flow more discoverable (e.g. a visible "linking from X - click Link on
-    another note" banner instead of a toast that disappears).
+10. **Images and sketches attached to a note don't render on the whiteboard
+    canvas.** Reported directly, not yet fixed; diagnosed from source, not
+    reproduced live (no image in this sandbox's test data). A note's card
+    on the whiteboard (`nodeEnter.each`, whiteboard.js) renders its body
+    with `renderMarkdown(contentEl, text)` only — a pasted/dropped image
+    living as inline `![...](...)` markdown in `entry.content` would render
+    through that. A sketch or a traditionally-attached image is different:
+    it lives in `entry.attachments` / `thumb_attachment_id`, a separate
+    field the Notes list's own card (`entryItem()`, its "Attachments (Wave
+    B...)" block) and the Library card (`libraryCard()`'s `thumb_attachment_id`/
+    `thumb_url` branch) both render explicitly — the whiteboard's card never
+    reads that field at all. Fix is probably teaching the whiteboard card to
+    render a thumbnail from `entry.attachments`/`thumb_attachment_id` the
+    same way those two already do, not a `renderMarkdown` change.
+
+11. **Whether AI-driven work (image captioning, and AI features generally)
+    should run asynchronously as a standing design principle**, not just
+    get a background-tasks *indicator* (item 6 above, already logged - this
+    is a broader question, not a duplicate of it). Raised as an open
+    question, not scoped. `ai/captioning.caption_in_background` already
+    demonstrates the shape for at least one feature (a background thread,
+    fire-and-forget from the route); worth an actual audit of which AI
+    calls in this app are still synchronous/blocking-the-request today
+    (chat streaming already isn't, by its nature) before deciding whether
+    this becomes a standing pattern applied elsewhere or stays per-feature.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

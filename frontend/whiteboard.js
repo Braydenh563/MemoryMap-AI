@@ -79,6 +79,16 @@ let wbLinkDragActive = false;
 // for the session" shape as `expandedNotes` on the Notes list. A plain `let`
 // module-level Set, not persisted: reopening the board later re-clamps.
 const wbExpandedNodes = new Set();
+// Same shape again, for the Library image gallery's AI captions — keyed by
+// upload id. Reported: "the image caption can't be expanded or collapsed",
+// which the two-line clamp had no way to do at all until now.
+const libraryExpandedCaptions = new Set();
+// Which documents are ticked in the Library's Documents sub-tab — this
+// view's own selection, separate from `librarySelection` (the "All" view's),
+// because this section never populates `libraryItems` and mixing the two
+// would let a checkbox here report "selected" while the "All" view's own
+// bulk-delete silently found nothing to act on.
+const libraryDocsSelection = new Set();
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -5533,6 +5543,14 @@ async function renderLibraryDocuments() {
     return;
   }
 
+  // A reload can drop a document that was ticked (deleted, or filtered out
+  // by a new search) - drop it from the selection too, or the bar's count
+  // would go on including a row that no longer exists.
+  const liveIds = new Set(docs.map((d) => d.id));
+  for (const id of [...libraryDocsSelection]) {
+    if (!liveIds.has(id)) libraryDocsSelection.delete(id);
+  }
+
   list.replaceChildren();
   empty?.classList.toggle("hidden", docs.length > 0);
   if (empty && needle && !docs.length) {
@@ -5542,7 +5560,25 @@ async function renderLibraryDocuments() {
   }
 
   for (const doc of docs) {
-    const item = document.createElement("li");
+    const row = document.createElement("li");
+    row.className = "doc-list-row";
+
+    // Reported: "can't rename, multi select, or delete documents in the
+    // library subtab" - this row used to be nothing but the Open button
+    // below. The tick and the ⋯ menu give it the same three actions a
+    // document's card already has in the "All" library view.
+    const tick = document.createElement("input");
+    tick.type = "checkbox";
+    tick.className = "doc-list-tick";
+    tick.checked = libraryDocsSelection.has(doc.id);
+    tick.setAttribute("aria-label", `Select "${doc.title || "Untitled"}"`);
+    tick.addEventListener("click", (event) => event.stopPropagation());
+    tick.addEventListener("change", () => {
+      if (tick.checked) libraryDocsSelection.add(doc.id);
+      else libraryDocsSelection.delete(doc.id);
+      syncLibraryDocsSelectbar();
+    });
+
     const open = document.createElement("button");
     open.type = "button";
     open.className = "doc-list-item";
@@ -5578,10 +5614,79 @@ async function renderLibraryDocuments() {
       switchTab("documents");
       openDocument(doc.id);
     });
-    item.appendChild(open);
-    list.appendChild(item);
+    // Same three actions `libraryActions()` gives a document's card in the
+    // "All" view — kept as its own copy rather than calling that function
+    // directly, because its `reload` is hard-coded to `loadLibrary()` (the
+    // "All" view's own data), which would leave this list showing a document
+    // that was just renamed or deleted until something else refreshed it.
+    const menu = kebabMenu(
+      [
+        makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
+          const next = await promptDialog("Rename this document:", doc.title || "");
+          if (!next) return;
+          await apiJson(`/documents/${doc.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ title: next }),
+          }).catch((e) => toast(e.message, true));
+          renderLibraryDocuments();
+        }),
+        makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
+          window.open(`/documents/${doc.id}/export.md`, "_blank");
+        }),
+        makeMenuItem("ph:trash Delete", "Delete this document", async () => {
+          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
+          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+          libraryDocsSelection.delete(doc.id);
+          renderLibraryDocuments();
+        }),
+      ],
+      `Actions for "${doc.title || "Untitled"}"`
+    );
+    menu.classList.add("doc-list-menu");
+    menu.addEventListener("click", (event) => event.stopPropagation());
+
+    row.append(tick, open, menu);
+    list.appendChild(row);
   }
+  syncLibraryDocsSelectbar();
 }
+
+function syncLibraryDocsSelectbar() {
+  const bar = document.getElementById("library-docs-selectbar");
+  const count = document.getElementById("library-docs-selected-count");
+  if (!bar || !count) return;
+  const n = libraryDocsSelection.size;
+  bar.classList.toggle("hidden", n === 0);
+  count.textContent = `${n} selected`;
+}
+
+$("library-docs-clear-selection")?.addEventListener("click", () => {
+  libraryDocsSelection.clear();
+  renderLibraryDocuments();
+});
+
+$("library-docs-bulk-delete")?.addEventListener("click", async () => {
+  const ids = [...libraryDocsSelection];
+  if (!ids.length) return;
+  const ok = await confirmDialog(
+    `Delete ${ids.length} document${ids.length === 1 ? "" : "s"}? This cannot be undone.`
+  );
+  if (!ok) return;
+  let deleted = 0;
+  for (const id of ids) {
+    try {
+      await apiJson(`/documents/${id}`, { method: "DELETE" });
+      deleted++;
+    } catch {
+      // counted below, same as the "All" view's own bulk delete
+    }
+  }
+  libraryDocsSelection.clear();
+  if (deleted) toast(`Deleted ${deleted} document${deleted === 1 ? "" : "s"}.`);
+  const failed = ids.length - deleted;
+  if (failed) toast(`${failed} document${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
+  renderLibraryDocuments();
+});
 
 // Hook into the library subtabs to switch views and initialize whiteboard
 document.addEventListener("DOMContentLoaded", () => {
@@ -5926,6 +6031,32 @@ function filterLibraryImagesGallery() {
     captionText.className = "library-image-caption muted text-sm";
     captionText.tabIndex = 0;
     captionText.setAttribute("role", "button");
+    // Roughly two lines' worth of this tile's narrow column at text-sm —
+    // approximate on purpose, the same way LONG_NOTE_CHARS is: the tile is
+    // still `display: none` inside a hidden sub-tab at render time for most
+    // gallery loads, so a measured height would read 0 (the trap the Notes
+    // list's own long-note comment already names).
+    const CAPTION_CLAMP_CHARS = 90;
+    const captionToggle = document.createElement("button");
+    captionToggle.type = "button";
+    captionToggle.className = "entry-more library-image-caption-more hidden";
+    const captionClamped = () =>
+      !libraryExpandedCaptions.has(image.id) &&
+      (image.caption || "").length > CAPTION_CLAMP_CHARS;
+    const syncCaptionClamp = () => {
+      captionText.classList.toggle("library-image-caption-clamped", captionClamped());
+      const needsToggle = (image.caption || "").length > CAPTION_CLAMP_CHARS;
+      captionToggle.classList.toggle("hidden", !needsToggle);
+      captionToggle.textContent = libraryExpandedCaptions.has(image.id)
+        ? "Show less"
+        : "Show more";
+    };
+    captionToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (libraryExpandedCaptions.has(image.id)) libraryExpandedCaptions.delete(image.id);
+      else libraryExpandedCaptions.add(image.id);
+      syncCaptionClamp();
+    });
     const setCaptionState = (text) => {
       image.caption = text || "";
       captionText.textContent = text || "Add a caption…";
@@ -5937,6 +6068,7 @@ function filterLibraryImagesGallery() {
         ? `Regenerate the AI caption for “${image.original_name}”`
         : `Generate an AI caption for “${image.original_name}”`;
       captionBtn.setAttribute("aria-label", captionBtn.title);
+      syncCaptionClamp();
     };
     setCaptionState(image.caption);
     const startEditingCaption = () => {
@@ -6014,7 +6146,7 @@ function filterLibraryImagesGallery() {
     actions.className = "library-image-actions";
     actions.append(rename, captionBtn, del);
 
-    fig.append(img, actions, cap, captionText);
+    fig.append(img, actions, cap, captionText, captionToggle);
     grid.appendChild(fig);
   }
 }

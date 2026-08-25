@@ -2336,3 +2336,20 @@ has been scoped; they are here so the finding is not lost with the session.
   look dead to any grep for the literal string. Three genuinely dead rules
   were removed in §86; anyone re-running that sweep should expect the same 33
   and not delete them.
+- **A visual splash/loading window during startup, before the server exists
+  to serve one.** Asked for directly: on Windows, `start.bat`'s dependency
+  install (and the self-update `git pull` before it) can run for minutes with
+  only console text as feedback — invisible entirely if the user launched via
+  `start-desktop.bat` without watching the console, or if it's minimized. The
+  desktop mode already solved the *narrower* version of this (see
+  `_wait_for_server`'s docstring in `__main__.py` — the pywebview window
+  doesn't open at all until the server is confirmed accepting connections, so
+  there's no long black-screen window sitting open), but nothing shows
+  anything at all during the pip-install/git-pull phase that happens before
+  that. A real splash would need its own lightweight window (Tk ships with
+  every Python install and needs no extra dependency, unlike pywebview) shown
+  by the launcher itself, independent of the app server, then closed once
+  `_wait_for_server` succeeds — a different lifecycle than anything else in
+  this launcher, not a small addition to an existing one. Scoping this
+  properly (what shows, on both start.bat and start.sh, in both browser-tab
+  and desktop mode) is its own session, not a follow-on to the app.js split.

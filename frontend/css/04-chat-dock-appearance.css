@@ -2154,11 +2154,31 @@ button {
    the other application design style"). This gives it the same card
    language — border, icon, hover state — the "All" library view's cards
    already use, rather than a third, once again different, look. */
+/* Reported: "can't rename, multi select, or delete documents in the library
+   subtab" - each row was only ever the Open button below. `.doc-list-row`
+   is the new wrapper `<li>` that lets a selection checkbox and a ⋯ menu sit
+   beside it (whiteboard.js), the same three actions the "All" library view
+   already gives a document's own card. */
+.doc-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.doc-list-tick {
+  flex: 0 0 auto;
+}
+
+.doc-list-menu {
+  flex: 0 0 auto;
+}
+
 .doc-list-item {
   display: flex;
   align-items: center;
   gap: var(--space-5);
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   text-align: left;
   padding: var(--space-5);
   border: 1px solid var(--glass-border);

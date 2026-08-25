@@ -1765,21 +1765,41 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* A vision model's own description of the image, below the filename —
    deliberately not <figcaption> (that already names the filename above;
    this is metadata about what's IN the picture, not what it's called).
-   Clamped to two lines so one long caption doesn't grow a single tile
-   taller than its grid siblings. */
+   Clamped to two lines by default so one long caption doesn't grow a single
+   tile taller than its grid siblings - unconditionally at first, with no way
+   to read the rest (reported: "the image caption can't be expanded or
+   collapsed"). Now matches the app's existing long-text pattern
+   (`.entry-clamped` on the Notes list, `.wb-card-content-clamped` on a
+   whiteboard's attached notes): the clamp only applies while
+   `.library-image-caption-clamped` is present, and whiteboard.js toggles it
+   off/on with a "Show more"/"Show less" button for a caption long enough to
+   need one. */
 .library-image-caption {
   margin: 0;
   padding: 0 var(--space-3) var(--space-3);
+  cursor: text;
+}
+
+.library-image-caption.library-image-caption-clamped {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  cursor: text;
 }
 
 .library-image-caption-empty {
   font-style: italic;
   opacity: 0.7;
+}
+
+/* `.entry-more`'s own negative margin-top assumes it directly follows
+   clamped text inside a padded <li> - here it's a sibling of the caption
+   <p>, not a child, so it needs the caption's own horizontal padding
+   repeated rather than inherited. */
+.library-image-caption-more {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  display: block;
 }
 
 .library-image-caption-input {

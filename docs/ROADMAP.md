@@ -437,6 +437,7 @@ same session is in §88.0 so nobody re-fixes it.
 | Graph Options panel minimap combobox taller than the buttons beside it | `.graph-options button` got `height: var(--control-h)`; the `<select>` in the same panel never did. Both now measure identically (30.4px) |
 | Chat "New" button clashes with the sidebar collapse toggle specifically while collapsed-but-hover-expanded | `.sidebar-collapsed .sidebar-head` zeroes the toggle's reserved padding lane, correct at the true 48px-collapsed width — but the element keeps that class throughout the hover-peek state too, where the toggle visually moves back to its normal `right: 1.25rem`. Reserve restored for that specific hover state |
 | Graph node labels show raw callout syntax (`Review > [!tip] Remem…`) | `routes_graph.py`'s `_preview()` stripped a leading `#` heading marker but not a callout's `> [!kind]` opening line. Added `_CALLOUT_MD`, the callout equivalent of the existing `_HEADING_MD` strip |
+| "There's a weird black line on the right side of the screen" (desktop/WebView2 build, screenshotted) | Supersedes this table's own earlier row above ("The top menu bar shifts when I open the settings modal") rather than being a new bug: that fix made `scrollbar-gutter: stable` permanent on `<html>` so a real scrollbar disappearing under `.modal-open` wouldn't shift the layout. §36A later moved all scrolling onto each `.tab-page` (body is now unconditionally `overflow: hidden`, and `window.scrollTo` no longer exists in app.js), so `<html>` can no longer show a real scrollbar at all — the gutter that rule reserves is now permanently empty, narrowing `<html>`'s own rendered box by a scrollbar's width and leaving unstyled space at the viewport's right edge that no CSS rule paints, because it sits outside `<html>`'s box entirely. Confirmed directly in this sandbox's Chromium: `document.documentElement`'s rendered width measured a clean scrollbar-width short of `window.innerWidth` with the rule in place, and exactly equal to it with the rule removed — and re-tested opening the real settings modal to confirm no shift returns without it, since body's own `overflow: hidden` is unconditional regardless. `scrollbar-gutter: stable` removed from `01-forms-settings.css`'s `<html>` rule. **Not confirmed in the actual WebView2 shell that reported it** — only that the underlying CSS condition it depends on (a permanently unfillable gutter) is real and now gone |
 
 ### 88.1 Reported and still open — work this list top-down
 
@@ -794,15 +795,30 @@ demand. This session's graph-toolbar work is (d); the pane system is (c).
 
 ### 88.3 The app.js split — the priority after §88.1 and §88.2
 
-**Do this next, and deliberately.** `app.js` is ~27,400 lines.
-`graph.js` (3.0k), `whiteboard.js` (5.9k) and now `editor.js` (~0.9k) are
-already out, so the pattern is proven three times over.
+`app.js` was ~28,460 lines. `graph.js` (3.0k), `whiteboard.js` (5.9k) and
+`editor.js` (~0.9k) were already out; `documents.js` (~1,010 lines) is now
+out too, so the pattern is proven four times over.
 
 Order, easiest and most self-contained first:
 
-1. **`documents.js`** — the document editor (`app.js:7331-8127` before this
-   session's edits): autosave, outline, find/replace, preview, AI edit,
-   export. It has clear seams and one entry point (`openDocument`).
+1. **`documents.js` — done.** The document editor (five zones scattered
+   across `app.js`, not one contiguous block: the core module at
+   `app.js:7588-8440`, the sidebar-tabs pair at `16299-16339`, the wiring at
+   `24878-24925` and `24929-24983` with `voice-model-select` deliberately
+   left behind — it's a settings control, not a documents one, despite
+   sitting inside the same comment block — and the `beforeunload` handler at
+   `25000-25004`. One real hazard found doing this: `initDocSidebarTabs();`
+   was called from a *bare top-level* line in `app.js`'s own wiring
+   (`initNotesSubtabs(); initDocSidebarTabs(); initSelectionPopup(); ...`) —
+   not from inside a closure — so moving only the function's *definition*
+   would have left that call site throwing `ReferenceError` and aborting the
+   rest of `app.js`'s synchronous top-level code. Fixed by moving the call
+   site too: `documents.js` now invokes `initDocSidebarTabs()` itself, on its
+   own last line, after its own definition. Verified live in Chromium
+   (Playwright): new document → title/content edit → autosave → the
+   sidebar's list/outline tabs (the exact function that moved) → markdown
+   toolbar, zero console errors. Registered in
+   `tests/test_frontend_handlers.py` and `tests/test_frontend_ids.py`.
 2. **`library.js`** — the Library (`app.js:19209+`), which already has its own
    sub-tab switcher living in `whiteboard.js` (an accident worth fixing while
    splitting).
@@ -812,8 +828,12 @@ Order, easiest and most self-contained first:
 **The rules that make it safe**, all learned here: never split in the same diff
 as a behaviour change; load order is load-bearing only where a file is read at
 *parse* time (see index.html's own note on why `graph.js` must precede
-`app.js`); and add every new file to `tests/test_frontend_handlers.py`'s
-`_source()` — a lint that cannot see a file cannot catch anything in it.
+`app.js`, and the new note on why a *reversed* case — a bare top-level call
+site left behind in `app.js`, calling into code that moved out — is the same
+hazard from the other direction); and add every new file to
+`tests/test_frontend_handlers.py`'s `_source()` and
+`tests/test_frontend_ids.py`'s `_frontend_js()` — a lint that cannot see a
+file cannot catch anything in it.
 
 ### 88.4 Context, memory and harness engineering — an analysis
 

@@ -1668,25 +1668,42 @@ li.link-source {
 }
 
 /* Scroll lock: while any overlay is open the page behind must not move.
-   Applied to <html> as well as <body> because the app scrolls the window
-   (switchTab calls window.scrollTo), which body-only overflow doesn't catch. */
+   Applied to <html> as well as <body> - originally because the app scrolled
+   the window itself (switchTab called window.scrollTo), which body-only
+   overflow didn't catch. That call is gone from app.js now (see the note
+   below on §36A moving scrolling onto each `.tab-page` instead), so this is
+   likely redundant with body's own unconditional `overflow: hidden` below -
+   left in place as a harmless belt-and-braces rather than removed on a
+   guess, since nothing here was reported broken. */
 html.modal-open,
 html.modal-open body {
   overflow: hidden;
 }
 
-/* The gutter is reserved **always**, not only while an overlay is open.
-   Reported: "the top menu bar keeps slightly changing position when I open the
-   settings modal, then going back to normal when I close it." The lock above
-   sets `overflow: hidden`, which removes the scrollbar — and reserving the
-   gutter *at the same moment* meant opening a dialog added a strip of gutter
-   that had not been there a frame earlier, so the whole page shifted by the
-   scrollbar's width and shifted back on close. Reserving it unconditionally
-   costs the same handful of pixels at all times and makes opening a dialog
-   change nothing about the layout behind it. */
-html {
-  scrollbar-gutter: stable;
-}
+/* scrollbar-gutter: stable used to be reserved on <html> **always** here, to
+   stop the top bar shifting sideways when a settings modal's `overflow:
+   hidden` above removed the window's own scrollbar (reported: "the top menu
+   bar keeps slightly changing position when I open the settings modal").
+   That was true when this was written, but §36A (00-tokens-shell.css) later
+   moved scrolling off the window entirely — body is now unconditionally
+   `overflow: hidden` and exactly one viewport tall, with each visible
+   `.tab-page` scrolling itself instead — and `window.scrollTo` no longer
+   appears anywhere in app.js, so the comment above describing why
+   `html.modal-open` also locks the window is itself now describing dead
+   behaviour. <html> can no longer show a real scrollbar under this
+   architecture, in or out of a modal, so there was nothing left for the
+   gutter to stabilise: it just permanently narrowed <html>'s own box by a
+   scrollbar's width, leaving unstyled space at the right edge of the
+   viewport that no rule paints — because it sits outside <html>'s box
+   entirely. Invisible in this browser; reported as a black vertical bar
+   filling the full height of the window in the desktop (WebView2) build,
+   which apparently paints that reserved-but-unused gutter as its own
+   default chrome colour rather than transparent. Confirmed by measuring
+   `document.documentElement`'s own rendered width against
+   `window.innerWidth` with this rule in place — a clean scrollbar-width gap
+   — and confirming removing it changes nothing about the modal-open
+   scenario the rule was for (body is unconditionally non-scrolling either
+   way, so there is no shift left to prevent). */
 
 /* Logs is the one settings screen whose content is a *stream*, and a stream
    should be given the room it has. It was capped at `max-height: 46vh` — a

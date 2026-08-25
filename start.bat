@@ -216,24 +216,37 @@ if "!NEED_INSTALL!"=="1" (
   REM  console while errors still land in the log for the network-vs-real
   REM  check below - and because nothing here is piped, `errorlevel` still
   REM  reads directly off each pip command with no extra plumbing needed.
-  set "PIP_LOG=%TEMP%\mm_pip_install_%RANDOM%.log"
+  REM
+  REM  Named MM_PIP_LOG, not PIP_LOG - every `set` in cmd.exe becomes a real
+  REM  environment variable, inherited by the pip subprocess below, and pip
+  REM  reads any PIP_<OPTION> env var as if it were that CLI flag. `--log`
+  REM  becomes PIP_LOG, so a variable of that exact name made pip try to
+  REM  write its OWN verbose log to this same path - the one cmd.exe already
+  REM  has open for the `2>>` redirect below. Two writers on one handle, and
+  REM  when pip's RotatingFileHandler tried to rotate it mid-install, Windows'
+  REM  exclusive locking turned that into a PermissionError logged to stderr
+  REM  (reported: "Successfully installed Mako-1.4.1 alembic-1.19.1" followed
+  REM  by a `--- Logging error ---` traceback from `logging.handlers`). The
+  REM  install itself still succeeded - only pip's own incidental debug
+  REM  logging failed - but the traceback reads as a real crash.
+  set "MM_PIP_LOG=%TEMP%\mm_pip_install_%RANDOM%.log"
   set "PIP_FAILED=0"
-  "%VENV_PY%" -m pip install --upgrade pip --timeout 5 --retries 0 2>"!PIP_LOG!"
+  "%VENV_PY%" -m pip install --upgrade pip --timeout 5 --retries 0 2>"!MM_PIP_LOG!"
   if errorlevel 1 set "PIP_FAILED=1"
-  "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --timeout 5 --retries 0 2>>"!PIP_LOG!"
+  "%VENV_PY%" -m pip install -r requirements.txt --prefer-binary --timeout 5 --retries 0 2>>"!MM_PIP_LOG!"
   if errorlevel 1 set "PIP_FAILED=1"
 
-  "%VENV_PY%" -m pip install -e . --timeout 5 --retries 0 2>>"!PIP_LOG!"
+  "%VENV_PY%" -m pip install -e . --timeout 5 --retries 0 2>>"!MM_PIP_LOG!"
   if errorlevel 1 set "PIP_FAILED=1"
 
   if "!PIP_FAILED!"=="1" (
     set "MM_PIP_NET=0"
-    findstr /I /C:"could not resolve" /C:"unable to access" /C:"timed out" /C:"connection refused" /C:"connection reset" /C:"network is unreachable" /C:"could not connect" /C:"newconnectionerror" /C:"max retries exceeded" /C:"proxy" /C:"ssl" /C:"getaddrinfo" "!PIP_LOG!" >nul 2>nul
+    findstr /I /C:"could not resolve" /C:"unable to access" /C:"timed out" /C:"connection refused" /C:"connection reset" /C:"network is unreachable" /C:"could not connect" /C:"newconnectionerror" /C:"max retries exceeded" /C:"proxy" /C:"ssl" /C:"getaddrinfo" "!MM_PIP_LOG!" >nul 2>nul
     if not errorlevel 1 set "MM_PIP_NET=1"
     if "!MM_PIP_NET!"=="1" echo  !ESC![1;33m[!]!ESC![0m No internet - skipping dependency update.
     if "!MM_PIP_NET!"=="0" echo  !ESC![1;33m[!]!ESC![0m Could not update dependencies:
-    if "!MM_PIP_NET!"=="0" type "!PIP_LOG!" 2>nul
-    del /q "!PIP_LOG!" >nul 2>nul
+    if "!MM_PIP_NET!"=="0" type "!MM_PIP_LOG!" 2>nul
+    del /q "!MM_PIP_LOG!" >nul 2>nul
     "%VENV_PY%" -c "import memorymap" >nul 2>nul
     if errorlevel 1 (
       echo  !ESC![1;31m[X]!ESC![0m First-time setup requires an internet connection to install dependencies.
@@ -243,7 +256,7 @@ if "!NEED_INSTALL!"=="1" (
       echo         Launching with existing installation...
     )
   ) else (
-    del /q "!PIP_LOG!" >nul 2>nul
+    del /q "!MM_PIP_LOG!" >nul 2>nul
     for %%A in ("requirements.txt") do echo %%~tA>".venv\.mm_installed"
   )
 ) else (

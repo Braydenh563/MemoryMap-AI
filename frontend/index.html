@@ -1961,6 +1961,21 @@ Link to another note with [[its first few words]]."></textarea>
           Everything you have written long-form. Open one to keep writing, or
           start a new one — the editor is the same either way.
         </p>
+        <!-- Reported: "can't rename, multi select, or delete documents in the
+             library subtab" - this list only ever had an Open button. The
+             "All" library view could already do all three for a document
+             (libraryActions/librarySelection); this bar and each row's own
+             ⋯ menu (built in whiteboard.js) are this view's own scoped copy
+             of the same three actions, not routed through the "All" view's
+             shared state (which this section never populates). -->
+        <div id="library-docs-selectbar" class="library-contextbar hidden" role="group"
+          aria-label="Actions for the selected documents">
+          <span id="library-docs-selected-count" class="library-selected-count"></span>
+          <span class="library-contextbar-end">
+            <button id="library-docs-bulk-delete" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+            <button id="library-docs-clear-selection" class="ghost small" type="button">Done</button>
+          </span>
+        </div>
         <ul id="library-docs-list" class="doc-list"></ul>
         <p id="library-docs-empty" class="muted hidden">No documents yet — press ＋ New document to start one.</p>
       </section>
@@ -4530,6 +4545,16 @@ Link to another note with [[its first few words]]."></textarea>
 
   <script src="/graph.js"></script>
   <script src="/app.js"></script>
+  <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
+       Loaded after app.js and shares its global scope; the two directions
+       differ. app.js calls INTO this file (loadDocuments, renderDocStorage,
+       createDocument) only from inside its own functions/closures, never at
+       parse time, so app.js loading first is not load-bearing for those.
+       The one call that WAS parse-time — a bare top-level
+       `initDocSidebarTabs();` sitting in app.js's own wiring block — moved
+       here with the function itself, so this file now calls it on its own
+       last line instead of app.js calling it mid-file. -->
+  <script src="/documents.js"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every
        cross-file call between the two happens at runtime (inside a
@@ -4540,9 +4565,10 @@ Link to another note with [[its first few words]]."></textarea>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every
-       cross-file call happens at runtime, never at parse time, and it reads
-       app.js globals (MD_ACTIONS, allEntries, markDocDirty) rather than the
-       other way round. -->
+       cross-file call happens at runtime, never at parse time. It reads
+       allEntries from app.js, and MD_ACTIONS/markDocDirty from documents.js
+       (loaded above) — all runtime reads inside closures, so this ordering
+       relative to documents.js isn't load-bearing either. -->
   <script src="/editor.js"></script>
 </body>
 </html>

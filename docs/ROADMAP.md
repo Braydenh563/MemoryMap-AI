@@ -1068,6 +1068,35 @@ instead of two permanent flex siblings squeezed in beside the row.
    measuring the glyph's actual ink bounds against its box in a live
    browser before changing any CSS here.
 
+9. **No way to cancel the graph's "similar notes" highlight.** Reported
+   directly, not yet fixed. The Focus Mode a graph popup can also start has
+   its own clear button (`#graph-focus-clear`) - the "similar notes"
+   highlight (the popup's "≈ Similar" button, `graphHighlightIds` in
+   graph.js) has no equivalent. It only ever gets reset as a side effect of
+   something else: typing in the graph search box (which *replaces* it with
+   a different highlight, not a true clear), or the graph's own refresh
+   action (app.js, `graphHighlightIds = null` at the "a refresh clears any
+   'similar notes' spotlight" comment). Fix is probably the same shape as
+   Focus Mode's own clear button, shown whenever `graphHighlightIds` is set.
+
+10. **The graph popup's "Link" button doesn't complete a link.** Reported
+    directly ("doesn't properly function when I try to click on another
+    note to link it"), not yet fixed. `beginOrCompleteLink()` (app.js) is
+    the same function the Notes list's own per-card Link button uses, and
+    on the graph it is reachable *only* from a node's popup - clicking
+    Link there sets `linkSource` and shows a toast literally telling you to
+    "click Link on the entry you want to connect it to", i.e. open the
+    *second* node's popup and click its Link button too. Nothing in
+    graph.js reads `linkSource` at all, so a plain click on the second
+    node - which is what the report and the graph's whole point (clicking
+    nodes) both suggest a user would actually try - does nothing, and
+    reads as the button being broken. Needs a decision, not just a fix:
+    either make a direct node click complete a pending link (graph.js would
+    need to gain the same `linkSource` awareness app.js's Notes-list click
+    handler already has), or make the popup's own two-clicks-through
+    flow more discoverable (e.g. a visible "linking from X - click Link on
+    another note" banner instead of a toast that disappears).
+
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 
 Fifteen asks arrived in one message, then a second round of ideas on top. This

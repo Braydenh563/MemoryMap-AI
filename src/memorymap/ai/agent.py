@@ -976,18 +976,32 @@ def run_agent(
         except ToolsUnsupportedError:
             yield {"type": "unsupported"}
             return
-        except OllamaError:
+        except OllamaError as exc:
             # Mid-answer death: say so, but don't wipe what already streamed.
             # `offline: True` alongside the normal answer shape (Tier 1 §3) —
             # an ordinary chat turn renders this exactly like any other
-            # answer and needs no change, but skill_runner cannot tell an
-            # "Ollama is offline" boilerplate message apart from a real
-            # answer without it, and was ticking the step "done" and moving
-            # on to repeat the identical failure on every later step.
+            # answer and needs no change, but skill_runner cannot tell this
+            # boilerplate apart from a real answer without it, and was
+            # ticking the step "done" and moving on to repeat the identical
+            # failure on every later step. `skill_runner` only ever checks
+            # this flag's truthiness (never the message text), so swapping
+            # in the real error below changes nothing about that contract.
+            #
+            # This used to be librarian.OFFLINE_MESSAGE unconditionally —
+            # "Ollama doesn't seem to be running" — which is simply false
+            # whenever this except is reached at all (the loop had already
+            # gotten at least one successful round trip to be here) and the
+            # same misdiagnosis routes_chat.py's plain_events() had for the
+            # Ask mode (see librarian.model_error_message's own docstring).
+            # Logged too, for the same reason that fix added logging: this
+            # failure used to reach the chat bubble but never Settings → Logs.
+            logging.getLogger("memorymap.chat").warning(
+                "agent: model call failed for %r: %s", agent_model, exc
+            )
             prefix = "\n\n" if streamed_any else ""
             yield {
                 "type": "answer",
-                "delta": f"{prefix}{librarian.OFFLINE_MESSAGE}",
+                "delta": f"{prefix}{librarian.model_error_message(agent_model, exc)}",
                 "offline": True,
             }
             return

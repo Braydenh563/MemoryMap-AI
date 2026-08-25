@@ -779,6 +779,16 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             # ollama_running` branch above already passed, so this is never
             # "Ollama isn't running" (see librarian.model_error_message's
             # own docstring for why that distinction matters).
+            #
+            # Logged, not just shown in the answer: reported directly — this
+            # failure reached the chat bubble but never the Settings → Logs
+            # viewer, since nothing here ever routed it through `logging` at
+            # all. The exception is already fully described in the message
+            # this yields; logging it is what makes it show up in the one
+            # place the caveat at the top of CLAUDE.md says to check first.
+            logging.getLogger("memorymap.chat").warning(
+                "chat: model call failed for %r: %s", model_manager.chat_model(), exc
+            )
             prefix = "\n\n" if streamed_any else ""
             yield {
                 "type": "answer",

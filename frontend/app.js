@@ -2652,7 +2652,11 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       }
     );
     toast(draft ? "Saved as a draft note." : "Saved as a note.");
-    if (localStorage.getItem("activeTab") === "notes") loadEntries();
+    // Same fix as saveChatAnswerAsNote(): unconditional. A selection saved
+    // from wherever the popup was invoked (not necessarily the Notes tab)
+    // must not leave the in-memory `entries` list stale until something
+    // else happens to refetch it.
+    loadEntries();
   } catch (error) {
     toast(error.message || "Couldn't save that note.", true);
   }
@@ -2780,7 +2784,10 @@ async function remindFromSelection(text) {
     });
     toast(`Reminder set — ${relativeWhen(reminder.due_at)}.`);
     askNotificationPermission();
-    if (localStorage.getItem("activeTab") === "reminders") loadReminders();
+    // Same fix as saveChatAnswerAsNote()/saveSelectionAsNote(): unconditional,
+    // so a reminder created from wherever this popup was invoked doesn't sit
+    // stale out of the Reminders tab's in-memory list.
+    loadReminders();
   } catch (error) {
     toast(error.message || "Couldn't read a reminder from that.", true);
   }
@@ -5764,7 +5771,14 @@ async function saveChatAnswerAsNote(question, answer) {
       body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
     });
     toast("Saved as a draft note.");
-    if (localStorage.getItem("activeTab") === "notes") loadEntries();
+    // Unconditional, not gated on the Notes tab being the one currently
+    // open. Reported: a note saved from Chat "didn't show up in the
+    // drafts" - it *was* saved, but `entries` (the in-memory list Notes
+    // renders from) was never refetched, since switchTab("notes") doesn't
+    // reload it either. The stale list only caught up whenever something
+    // else happened to call loadEntries() next. refreshAfterToolChanges()
+    // already calls this with no such guard, for the same reason.
+    loadEntries();
   } catch (error) {
     toast(error.message || "Couldn't save that note.", true);
   }
@@ -7592,16 +7606,10 @@ function renderRecordsDetails(holder, meta) {
   summary.textContent = `${meta.raw_results.length} matching note${
     meta.raw_results.length === 1 ? "" : "s"
   } (${label}) — click one to open it`;
-  // Same quick-access link as the Ask tab's "Matching records" heading and
-  // Settings → Preferences itself — a chat turn with weak-looking matches is
-  // exactly the moment someone wants the relevance sliders, not a hunt
-  // through Settings to find them.
-  const tune = smallButton("ph:sliders-horizontal", "Tune search sensitivity", (event) => {
-    event.stopPropagation(); // inside a <summary>: don't also toggle the <details>
-    openSettingsModal("preferences", "search-relevance-group");
-  });
-  tune.classList.add("icon-only", "records-tune-btn");
-  summary.appendChild(tune);
+  // The tune-sensitivity shortcut used to live here too, repeated on every
+  // single message's own disclosure. Reported directly: it belongs as one
+  // persistent control (`#chat-tune-search`, wired near the Chat dock's
+  // other "how it answers" settings) instead of message metadata.
   details.appendChild(summary);
   const list = document.createElement("ul");
   list.className = "entry-list";
@@ -24220,6 +24228,10 @@ $("chat-new").addEventListener("click", newChatConversation);
   });
 }
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
+$("chat-tune-search").addEventListener("click", () => {
+  closeChatDockMore();
+  openSettingsModal("preferences", "search-relevance-group");
+});
 // Searching your chats lives in the Library now (§36F) — with the documents,
 // the files and the bin, and with sort beside it. This is the way there, said
 // out loud, because a list that silently stops at eight is a list that has

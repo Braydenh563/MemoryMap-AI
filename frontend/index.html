@@ -990,6 +990,14 @@ Link to another note with [[its first few words]]."></textarea>
                     <strong>What this persona tells the AI</strong>
                     <p id="persona-prompt-text"></p>
                   </div>
+                  <!-- Used to live as a repeated icon buried in every single
+                       answer's own "N matching notes" disclosure - reported
+                       directly ("needs to be...made an actual button in the
+                       chat tab" rather than metadata on each message). Same
+                       destination (openSettingsModal's search-relevance
+                       group) as one persistent control here instead. -->
+                  <button id="chat-tune-search" class="ghost small" type="button"
+                    title="Adjust how strict or loose note matching is"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i> Tune search sensitivity</button>
                   <!-- Manual (step-through) mode: a pause after every completed
                        step with a Continue button and a text box, rather than a
                        skill running straight through five steps unattended.

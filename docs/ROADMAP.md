@@ -259,15 +259,24 @@ same session is in §88.0 so nobody re-fixes it.
 
 **Tier A — broken behaviour.**
 
-1. **"The AI randomly fails in the Ask sub-tab saying it isn't available."**
-   The user notes they set the chat model to their *utility* model, and that is
-   very likely relevant: two model slots exist (`chat_model`,
-   `utility_model`) and a slot pointing at a model the backend has not loaded
-   reports unavailable. **Reproduce before theorising** — check
-   `/models/status` and which slot `routes_chat` actually reads. Related:
-   `GET /models/status — signal timed out` in the same log, which suggests the
-   status poll itself is timing out and the UI is reading that as "no AI".
-   These may be one bug.
+~~1. **"The AI randomly fails in the Ask sub-tab saying it isn't available."**~~
+   **A real, evidenced cause found and fixed — not the utility-model theory.**
+   `/models/status` used to probe Ollama *twice* per poll: `is_running()`
+   (2s timeout) and, inside `_installed_models()`, `list_models()` (5s
+   timeout) — both hitting Ollama's own `/api/tags`. Sequentially that is up
+   to 7s for one poll, and `refreshModelStatus()` (`app.js`) aborts that exact
+   call at a hard 5s. A backend that is genuinely up but momentarily slow
+   (mid-generation, a cold model load) could lose that race and read as
+   unavailable — which matches the "signal timed out" log line from the same
+   report exactly. `routes_models.py`'s `status()` now makes one round-trip
+   instead of two (`list_models()` alone tells you both whether Ollama is up
+   and what's installed), and the frontend's abort moved to 8s — real
+   headroom above the new, lower worst case instead of racing it at the wire.
+   **Not verified against a real slow-loading model** (no reachable Ollama in
+   this sandbox) — the mismatch itself was confirmed by reading both sides of
+   the timeout, not by reproducing the hang. The utility-model theory in the
+   original report may still be worth checking if this doesn't fully explain
+   a future recurrence.
 ~~2. **`Unhandled promise rejection: TypeError: Cannot read properties of null
    (reading 'replace')`.**~~ **Fixed** — see §88.0's row; it was
    `recentSkills` carrying a poisoned `null` entry from before §88.0's

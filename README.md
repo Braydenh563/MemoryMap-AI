@@ -130,7 +130,7 @@ Seven tabs, all offline:
 
 Plus a status bar, command palette (`Ctrl`/`Cmd`+`K`), a sketch pad, local
 Whisper dictation, read-aloud, opt-in web search, 12 themes over 8 colour
-palettes, 16 built-in skills, and daily local backups.
+palettes, 19 built-in skills, and daily local backups.
 
 Two things run on their own once you switch them on — both **off by
 default**, because both act without being asked:

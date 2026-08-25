@@ -4735,6 +4735,46 @@ function flashCategory(name) {
   renderEntries();
 }
 
+// BACKLOG §22's still-open half of "take me to the thing the agent just
+// changed": a destructive result (delete_note) used to reuse flashEntry,
+// which only ever looks in the ordinary browse list — a note the agent just
+// binned is never there, so the "View" button silently found nothing. This
+// looks in the Library's own Bin filter instead, the one place a binned note
+// actually lives (routes_library.py's _archive(), kind "archived").
+async function flashLibraryItem(kind, id) {
+  switchTab("library"); // already kicks off its own loadLibrary() in the background
+  libraryKind = kind;
+  const showBinned = $("library-show-binned");
+  if (kind === "archived" && showBinned) showBinned.checked = true;
+  renderLibraryFilters();
+  renderLibrary(); // in case libraryItems is already fresh (tab was already open)
+  // switchTab's own loadLibrary() fetch may still be in flight — starting a
+  // second one here to await would race it, and whichever finishes last wins
+  // the final render, silently dropping the flash the other one applied.
+  // Polling for the card sidesteps the race: it waits for whichever render
+  // actually lands instead of assuming which one that is.
+  const card = await (async () => {
+    for (let i = 0; i < 20; i++) {
+      const found = document.querySelector(`#library-grid [data-id="${id}"]`);
+      if (found) return found;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return null;
+  })();
+  if (!card) return;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  card.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  // "flash" alone only draws on a note-list <li> or something already
+  // carrying "flash-target" (01-forms-settings.css) — a library card is
+  // neither, so both classes are needed here for the highlight to render.
+  card.classList.remove("flash");
+  void card.offsetWidth;
+  card.classList.add("flash-target", "flash");
+  announce("Showing item in the Library.");
+  clearTimeout(flashLibraryItem.timer);
+  flashLibraryItem.timer = setTimeout(() => card.classList.remove("flash"), 2700);
+}
+
 // A raw search result the user can click to open the note (Wave C).
 function clickableResult(entry) {
   const li = entryItem(entry);
@@ -7240,7 +7280,16 @@ function changeRow(change, options = {}) {
   label.textContent = change.label || change.tool;
   row.appendChild(label);
 
-  if (change.note_id) {
+  if (change.note_id && change.tool === "delete_note") {
+    // A binned note is not in the browse list flashEntry looks in — it is
+    // reachable only through the Library's own Bin filter until it is
+    // cleared or restored. See flashLibraryItem's own comment.
+    row.appendChild(
+      smallButton("View in bin", "Show this note in the recycle bin", () =>
+        flashLibraryItem("archived", change.note_id)
+      )
+    );
+  } else if (change.note_id) {
     row.appendChild(
       smallButton("View", "Show this note", () => {
         switchTab("notes");
@@ -19601,10 +19650,13 @@ function jobsRunning() {
 async function refreshModelStatus() {
   try {
     // silent: a poll must never trigger the lock screen (Wave O fix).
-    // Fast-fail timeout: if the LLM hangs, the UI reflects offline in 5s.
-    modelStatus = await apiJson("/models/status", { 
+    // Fast-fail timeout: if the LLM hangs, the UI reflects offline in 8s.
+    // Backend's own worst case is ~5s (one list_models() call, its own
+    // 5s timeout) since /models/status stopped double-probing Ollama —
+    // this leaves real headroom instead of racing that budget at the wire.
+    modelStatus = await apiJson("/models/status", {
       silent: true,
-      signal: AbortSignal.timeout(5000) 
+      signal: AbortSignal.timeout(8000)
     });
     statusEverAnswered = true;
   } catch {
@@ -20374,6 +20426,9 @@ function libraryCard(item) {
     `library-card library-${item.kind}` + (item.private ? " library-private" : "");
   card.tabIndex = 0;
   card.setAttribute("role", "button");
+  // Lets a caller (flashLibraryItem) find one specific card to scroll to and
+  // highlight, the same way #entry-list li[data-id] already works for notes.
+  card.dataset.id = item.id;
   const meta = LIBRARY_KINDS.find((k) => k.key === item.kind);
 
   // A thumbnail where there is one to show. A grid of picture files that shows

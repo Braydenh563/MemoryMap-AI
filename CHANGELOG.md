@@ -7,6 +7,31 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — "Build a skill", a built-in skill that writes skills
+
+Interviews you about a job you do often — what it should do, whether it
+touches your notes, what should be fill-in-the-blank each run — then saves it
+as a real skill with `save_skill`: ordered steps and an actual tool
+allowlist, not a paraphrase saved as a sentence. Checks `list_skills` first
+so a near-duplicate ask reuses or refines what's already there instead of
+shipping a second copy.
+
+### Fixed — the "AI isn't available" pill could be wrong while Ollama was up
+
+`/models/status` used to probe Ollama twice on every poll — `is_running()`
+and `list_models()` both hit its own `/api/tags` — which could take up to 7s
+combined against the frontend's 5s abort on that exact call. One reachability
+check now does both jobs, and the frontend's timeout has real headroom above
+the new (lower) worst case instead of racing it at the wire.
+
+### Fixed — the agent's "View" button after deleting a note pointed nowhere
+
+A destructive result reused the same navigation as every other change, which
+only ever looks in the ordinary notes list — a note the agent just moved to
+the bin was never there, so the button silently found nothing. It now opens
+the Library's own Bin filter and highlights the note there, which is the one
+place a binned note actually lives.
+
 ### Added — a minimap and saved views for the Graph
 
 A minimap in the corner of the map shows every note at once with a rectangle marking what you're currently looking at; click anywhere on it to jump there, keeping your zoom level. Alongside it, **saved views**: name a combination of layout, colouring, filters and position, and come back to it later. Both were the missing half of "the graph is a tool" once a notebook gets dense enough that the force layout stops being readable.

@@ -712,6 +712,29 @@ BUILTIN_SKILLS: list[dict] = [
         "inputs": [{"name": "topic", "label": "What idea do you want to think through?"}],
         "tools": [*_READING_TOOLS, "ask_user", "create_note"],
     },
+    # BACKLOG §22: "the way skills are used... it doesn't recognise that it
+    # needs to use tools" was fixed at the mechanism level (this module's own
+    # header), but a user still has to know that shape exists to use it —
+    # `save_skill` already takes steps and a tool allowlist, so the missing
+    # piece was never capability, only that nobody had wired an interview
+    # around it. Reuses the same ask_user back-and-forth as the skill above,
+    # aimed at *building* a skill instead of *thinking through* an idea.
+    {
+        "name": "Build a skill",
+        "description": "Interviews you about a job you do often, then saves it as a real skill — with steps and an actual tool allowlist, not just a saved sentence.",
+        "when_to_use": "when something you keep asking the AI to do by hand should become a one-click skill instead",
+        "prompt": "Help me turn {{task}} into a saved skill.",
+        "steps": [
+            "Check list_skills first — {{task}} may already be close to an existing skill, and a near-duplicate is worse than reusing or refining the one that's there.",
+            "Ask what {{task}} should actually do, step by step, in the order they'd do it themselves — one question, wait for the answer, rather than a checklist dumped at once.",
+            "Ask whether it should ever change their notes (create, edit, tag, delete, set reminders) or only read and answer — this decides the tool allowlist, and a skill that changes notes needs saying so plainly.",
+            "Ask if any part of it should be a fill-in-the-blank each time it runs (a topic, a deadline, a tag) rather than fixed — that becomes the skill's inputs.",
+            "Draft the name, prompt, ordered steps, the specific tools each step needs (nothing broader than that), and when_to_use, then show the draft and ask before saving anything.",
+            "Save it with save_skill once they confirm, using exactly the steps and tools agreed — not a paraphrase.",
+        ],
+        "inputs": [{"name": "task", "label": "What do you want to turn into a skill?"}],
+        "tools": [*_READING_TOOLS, "ask_user", "list_skills", "save_skill"],
+    },
 ]
 
 

@@ -93,8 +93,21 @@ def status() -> dict:
     manager = deps.get_model_manager()
     embeddings = deps.get_embeddings()
 
-    running = ollama.is_running()
-    installed = _installed_models(running)
+    # is_running() and list_models() both hit Ollama's own /api/tags —
+    # calling both in sequence (as this used to) can take up to 7s (2s + 5s)
+    # for one poll, longer than the frontend's 5s AbortSignal.timeout on
+    # this exact call (app.js refreshModelStatus). That mismatch reads as
+    # "AI unavailable" on a backend that is genuinely up but momentarily
+    # slow to answer — one round-trip now serves both purposes.
+    try:
+        installed = [
+            {"name": m.get("name", ""), "size": m.get("size", 0)}
+            for m in ollama.list_models()
+        ]
+        running = True
+    except OllamaError:
+        installed = []
+        running = False
     chat_model = manager.chat_model()
 
     config = deps.get_config()

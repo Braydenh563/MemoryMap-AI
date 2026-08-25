@@ -915,10 +915,26 @@ function promptDialog(message, initial = "", { confirmLabel = "Save" } = {}) {
     const onKey = (event) => {
       // Captured, so a shortcut elsewhere cannot fire underneath the dialog —
       // the same reason confirmDialog captures.
+      //
+      // **preventDefault, not just stopPropagation.** Reported: pressing
+      // Enter after typing a title looked like it "did nothing" - the title
+      // was in fact saved (a real POST fired), but the dialog immediately
+      // reopened empty, so the user only ever saw a blank prompt sitting
+      // there. `close()` below returns focus to whatever triggered the
+      // dialog - here, the "+ New document" button - synchronously, *while
+      // this Enter keypress is still in flight*. Stopping propagation keeps
+      // the keydown from reaching the input as a target, but the browser
+      // still owes this physical key its native activation behaviour, and
+      // now that behaviour lands on the button that just regained focus:
+      // its own "Enter activates the focused button" default action fires,
+      // clicking it again and opening a second, blank dialog. preventDefault
+      // is what tells the browser this key press is spoken for.
       if (event.key === "Escape") {
+        event.preventDefault();
         event.stopPropagation();
         close("");
       } else if (event.key === "Enter") {
+        event.preventDefault();
         event.stopPropagation();
         close(input.value.trim());
       }
@@ -1449,9 +1465,27 @@ function closeActionMenus() {
 // than something larger because the only thing it has to beat is the 1 on its
 // siblings; the page's own chrome is a different context and a big number here
 // would only be a number waiting to collide with one.
+// The nearest ancestor that actually clips overflow, walking up past plain
+// flow containers. `.action-menu` is `position: absolute` inside a `.menu-wrap`
+// that is itself absolutely positioned on the row — it never escapes an
+// `overflow: auto` ancestor the way a portal would, so a row near the bottom
+// of a scrolling list grows that ancestor's scrollHeight by however far the
+// menu spills past it, and the menu itself is clipped at the same edge.
+// Reported on the Documents subtab: the last row's ⋯ menu appeared cut off
+// *and* a scrollbar showed up in a panel that fit without one a moment
+// before opening it.
+function nearestScrollParent(el) {
+  let node = el.parentElement;
+  while (node && node !== document.body) {
+    if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+    node = node.parentElement;
+  }
+  return document.documentElement;
+}
+
 function openActionMenu(menu, opener) {
   closeActionMenus(); // only one open at a time
-  menu.classList.remove("hidden");
+  menu.classList.remove("hidden", "action-menu-flip");
   opener.setAttribute("aria-expanded", "true");
   // Whichever ancestor is the stacking context this menu is trapped in. On a
   // note card that is `.entry-actions` (positioned, z-index 1); on a Library
@@ -1459,6 +1493,13 @@ function openActionMenu(menu, opener) {
   // context too — which is why the same "menu behind the next card" bug turned
   // up again on a surface with no z-index in sight.
   menu.closest(".entry-actions, .library-card")?.classList.add("menu-open");
+  // Opens downward by default; flip upward only when that would spill past
+  // the nearest clipping ancestor, so a menu near the top of a short list
+  // still opens the normal way.
+  const bound = nearestScrollParent(opener).getBoundingClientRect();
+  if (menu.getBoundingClientRect().bottom > bound.bottom) {
+    menu.classList.add("action-menu-flip");
+  }
   menu.querySelector("button")?.focus();
 }
 

@@ -56,9 +56,16 @@ function renderDocList() {
     const li = document.createElement("li");
     li.className = "doc-item";
     if (currentDoc && doc.id === currentDoc.id) li.classList.add("active");
-    const button = document.createElement("button");
-    button.type = "button";
+    // A `<button>` the way this row used to be a `<button>` cannot also host
+    // the kebab below — a button can't contain another button. Same
+    // article-not-button shape renderLibraryDocuments() already uses for
+    // exactly this reason, so the two Rename/Delete surfaces (this sidebar
+    // and the Library's Documents sub-tab) look and behave the same way.
+    // Reported: this list had never grown rename/delete at all, only Open.
+    const button = document.createElement("div");
     button.className = "doc-item-button";
+    button.setAttribute("role", "button");
+    button.tabIndex = 0;
     const title = document.createElement("span");
     title.className = "doc-item-title";
     title.textContent = doc.title;
@@ -67,7 +74,39 @@ function renderDocList() {
     meta.textContent = `${doc.words} word${doc.words === 1 ? "" : "s"} · ${relativeTime(doc.updated_at)}`;
     button.append(title, meta);
     button.addEventListener("click", () => openDocument(doc.id));
-    li.appendChild(button);
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDocument(doc.id);
+    });
+
+    const menu = kebabMenu(
+      [
+        makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
+          const next = await promptDialog("Rename this document:", doc.title || "");
+          if (!next) return;
+          await apiJson(`/documents/${doc.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ title: next }),
+          }).catch((e) => toast(e.message, true));
+          loadDocuments(currentDoc?.id);
+        }),
+        makeMenuItem("ph:trash Delete", "Delete this document", async () => {
+          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
+          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+          // Cleared, not just left stale: loadDocuments() only opens a
+          // replacement when `currentDoc` is falsy - leaving it pointing at
+          // the doc that was just deleted would keep the editor showing it.
+          if (currentDoc && currentDoc.id === doc.id) currentDoc = null;
+          loadDocuments(currentDoc?.id);
+        }),
+      ],
+      `Actions for "${doc.title || "Untitled"}"`
+    );
+    menu.classList.add("doc-item-menu");
+    menu.addEventListener("click", (event) => event.stopPropagation());
+
+    li.append(button, menu);
     list.appendChild(li);
   }
 }

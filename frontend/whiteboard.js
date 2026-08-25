@@ -5760,7 +5760,15 @@ document.addEventListener("DOMContentLoaded", () => {
   $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
   $("library-docs-new")?.addEventListener("click", async () => {
     const doc = await createDocumentNamed();
-    if (doc) openDocument(doc.id);
+    // switchTab first, then open — the same fix openDoc() above needed
+    // ("the documents subtab document cards don't even do anything"): the
+    // document was created and loaded into the editor correctly, but the
+    // Documents page stayed hidden behind the Library tab, so nothing
+    // seemed to happen.
+    if (doc) {
+      switchTab("documents");
+      openDocument(doc.id);
+    }
   });
   // Filter as you type. No debounce: the list is already in memory after the
   // first fetch and re-rendering it is cheap, unlike the semantic searches
@@ -6100,6 +6108,13 @@ function filterLibraryImagesGallery() {
       captionText.replaceChildren(box);
       box.focus();
       box.select();
+      // A plain textarea doesn't grow with its content — min-height:3rem
+      // is a floor, not the whole box, so anything past ~2 lines scrolled
+      // inside a tiny window instead of showing (reported: "collapses when
+      // I try to edit it"). autoGrow (app.js) is the app's existing fix for
+      // exactly this on every other textarea; it just was never wired here.
+      autoGrow(box);
+      box.addEventListener("input", () => autoGrow(box));
 
       let settled = false;
       const finish = (text) => {

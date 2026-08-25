@@ -2112,6 +2112,10 @@ button {
   overflow-y: auto;
 }
 
+.doc-item {
+  position: relative;
+}
+
 .doc-item-button {
   display: flex;
   flex-direction: column;
@@ -2119,7 +2123,10 @@ button {
   gap: 0.1rem;
   width: 100%;
   text-align: left;
-  padding: 0.4rem 0.6rem;
+  /* Right side wider than the rest: room for the kebab in the corner, same
+     reservation .doc-list-body uses below for the Library's own copy of
+     this row. */
+  padding: 0.4rem var(--space-9) 0.4rem 0.6rem;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: none;
@@ -2143,6 +2150,29 @@ button {
 
 .doc-item-meta {
   font-size: 0.75rem;
+}
+
+/* Same hover/focus reveal as `.menu-wrap.doc-list-menu` below - a kebab
+   beside every title in a tight sidebar list would compete with the titles
+   themselves. */
+.menu-wrap.doc-item-menu {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.doc-item:hover .doc-item-menu,
+.doc-item-button:focus-visible ~ .doc-item-menu,
+.doc-item:focus-within .doc-item-menu {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .doc-item-menu {
+    opacity: 1;
+  }
 }
 
 /* The Library's own Documents sub-tab (#library-docs-list) — a *different*

@@ -1034,6 +1034,40 @@ instead of two permanent flex siblings squeezed in beside the row.
    coupling this session's `documents.js` split was specifically avoiding
    elsewhere.
 
+6. **Captioning an image with a vision model should show in the background
+   tasks list**, the way other long-running work does. Asked for directly,
+   not yet scoped: `ai/captioning.caption_and_store`/`caption_in_background`
+   run a real model call (seconds, not instant) with no visible progress
+   anywhere in the UI today - find the existing background-tasks mechanism
+   (whatever surfaces e.g. imports or backups as in-progress) and register
+   a task around the caption call the same way, rather than inventing a
+   second progress system.
+
+7. **The Documents editor's "AI edit" feature should become a more general
+   AI assistant**, not just an in-place editor of existing text. Asked for
+   directly: today it only edits/rewrites what's already on the page; the
+   ask is for it to also write new content and remove content on request -
+   closer to an agentic assistant for the document than a single "improve
+   this selection" action. Not yet scoped - likely touches whatever
+   `doc-ai-instruction`/the AI-edit route already is, but "write" and
+   "remove" as first-class actions (as opposed to "replace selection with
+   edited version") may need a different request/response shape than the
+   current edit flow, so scope that before building rather than bolting new
+   verbs onto the existing one.
+
+8. **Lightbox prev/next arrow icons read as off-centre.** Reported with a
+   screenshot; not yet fixed, and not confirmed live this session (no image
+   in this sandbox's test data to open a lightbox against). `.lightbox-nav`
+   already centres its child with `display: grid; place-items: center`,
+   which centres the icon's own box regardless of `.ph`'s own
+   `vertical-align: -0.12em` (that rule only affects inline layout, and has
+   no effect inside a grid item) - so if the arrows still look off-centre,
+   the cause is more likely the glyphs themselves (ph-caret-left/
+   ph-caret-right) not being visually centred within their own em-box in
+   the vendored Phosphor font, not a CSS positioning bug. Check by
+   measuring the glyph's actual ink bounds against its box in a live
+   browser before changing any CSS here.
+
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 
 Fifteen asks arrived in one message, then a second round of ideas on top. This

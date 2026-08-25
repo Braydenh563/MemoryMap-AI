@@ -762,6 +762,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 mode=mode,
                 images=images,
             )
+        streamed_any = False
         try:
             for piece in ollama.chat_stream(model_manager.chat_model(), messages, mode):
                 if "thinking_delta" in piece:
@@ -770,10 +771,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     # Token counts + timings for the message metadata line.
                     yield {"type": "stats", **piece["stats"]}
                 else:
+                    streamed_any = True
                     yield {"type": "answer", "delta": piece["content_delta"]}
-        except OllamaError:
+        except OllamaError as exc:
             # The model died mid-answer — tell the user, keep the results.
-            yield {"type": "answer", "delta": f"\n\n{librarian.OFFLINE_MESSAGE}"}
+            # By construction this is reached only after the `elif not
+            # ollama_running` branch above already passed, so this is never
+            # "Ollama isn't running" (see librarian.model_error_message's
+            # own docstring for why that distinction matters).
+            prefix = "\n\n" if streamed_any else ""
+            yield {
+                "type": "answer",
+                "delta": f"{prefix}{librarian.model_error_message(model_manager.chat_model(), exc)}",
+            }
 
     def lines() -> Iterator[str]:
         def event(payload: dict) -> str:

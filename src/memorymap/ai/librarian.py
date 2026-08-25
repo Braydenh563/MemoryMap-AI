@@ -16,6 +16,28 @@ OFFLINE_MESSAGE = (
 )
 NO_RESULTS_MESSAGE = "I couldn't find any saved notes matching that question."
 
+
+def model_error_message(model: str, error: Exception) -> str:
+    """What to show when the model call itself failed mid-turn — distinct
+    from OFFLINE_MESSAGE, and never a substitute for it.
+
+    Reported directly, and confirmed by tracing the exact code path: a turn
+    that failed *after* the liveness check already passed (`ollama.is_running()`
+    succeeded, so the model name and a real elapsed time show in the message
+    metadata line) was still shown OFFLINE_MESSAGE — "Ollama doesn't seem to
+    be running" — which is simply false in that case and reads as an
+    accusation against the model or Ollama itself when the real cause could
+    be anything a live backend can reject a request for (the model tag isn't
+    actually pulled, a template/architecture the backend can't run, a
+    malformed request). OFFLINE_MESSAGE stays exactly what it was for the
+    one place that's actually true: the `ollama_running` check itself came
+    back negative, before any model was ever named. This is for every other
+    failure, and says what actually happened instead of guessing."""
+    return (
+        f"The model ({model}) couldn't answer this — "
+        f"{error}"
+    )
+
 # The persona is WHO the assistant is; the grounding is non-negotiable
 # and survives any persona swap — answers always come from the notes.
 DEFAULT_PERSONA = "You are the librarian of the user's personal notebook."

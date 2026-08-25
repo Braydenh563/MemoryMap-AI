@@ -1802,7 +1802,14 @@ header#top-bar.tabs-wrapped #tab-bar {
    of that, so the two stack into a real gap specifically when the button
    is shown, rather than the button sitting flush against the text above
    it. */
-.library-image-caption-more {
+/* Compound selector, not just `.library-image-caption-more`: `.entry-more`
+   (06-timeline-dialogs.css, loaded after this file) sets its own
+   `padding: 0.1rem 0`, and same-specificity same-property rules resolve by
+   source order - so a single-class selector here lost every time, and the
+   button sat flush against the card's edge (reported) no matter what padding
+   was written above. Two classes outweighs `.entry-more`'s one regardless of
+   load order. */
+.entry-more.library-image-caption-more {
   margin: 0;
   padding: var(--space-2) var(--space-3) var(--space-3);
   display: block;

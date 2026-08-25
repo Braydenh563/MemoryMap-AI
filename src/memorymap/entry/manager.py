@@ -1522,6 +1522,85 @@ def sync_wiki_links(session: Session, entry: Entry) -> list[str]:
     return unresolved
 
 
+# ROADMAP.md's onboarding item: "seeded example notes so the graph, timeline
+# and dashboard have something to show before the first note exists". Content
+# is deliberately about the app itself — a first-run tour that also
+# demonstrates linking and categories, rather than generic placeholder text.
+#: Each note's content deliberately opens with its own name verbatim —
+#: `find_by_wiki_name` resolves a [[link]] by matching the *start* of
+#: another note's content (there's no separate title field), so this is
+#: what makes the two real [[links]] below actually resolve.
+_EXAMPLE_NOTES = [
+    (
+        "About MemoryMap",
+        ["welcome"],
+        "Local-first, always: MemoryMap keeps everything on this machine — "
+        "notes, search, even the AI, if you point it at a local model. "
+        "Nothing is sent anywhere unless you explicitly turn on web search.",
+        9,
+    ),
+    (
+        "About MemoryMap",
+        ["welcome", "graph"],
+        "Linking notes together: type [[Local-first, always]] and it "
+        "becomes a real link — click it, or see it drawn on the Graph tab. "
+        "That's how a notebook here becomes a map instead of a pile.",
+        7,
+    ),
+    (
+        "About MemoryMap",
+        ["welcome", "ai"],
+        "Try asking a question: open the Ask tab and try something like "
+        "\"what's in my notebook about being local-first?\" The answer will "
+        "point back to [[Local-first, always]] and show its reasoning.",
+        5,
+    ),
+    (
+        "Personal",
+        ["example"],
+        "A running shopping list: not every note has to be deep — jot down "
+        "a shopping list, a name you don't want to forget, a link to read "
+        "later. This one just fills out a second category and a different "
+        "day on the Timeline.",
+        3,
+    ),
+    (
+        "About MemoryMap",
+        ["welcome"],
+        "Delete these whenever: these five notes are just here so the "
+        "Graph, Timeline and Dashboard have something to show on a "
+        "brand-new notebook. Filter the Library by the welcome tag and "
+        "delete them any time — nothing about them is special.",
+        1,
+    ),
+]
+
+
+def seed_example_notes(session: Session) -> int:
+    """Create the starter notes above, oldest first so each [[link]] resolves
+    against a target that already exists (`sync_wiki_links` only ever adds,
+    never fails a save on an unresolved name — but an unresolved name here
+    would just be a missed demonstration, not a bug).
+
+    Refuses silently (returns 0) on a notebook that already has any note —
+    seeding is an onboarding offer, never something that could land on top of
+    real work if this were ever called twice.
+    """
+    if session.scalar(select(func.count(Entry.id))) or 0:
+        return 0
+    now = utcnow()
+    for category_name, tags, content, days_ago in _EXAMPLE_NOTES:
+        entry = create_entry(
+            session, content=content, category_name=category_name, tags=tags
+        )
+        entry.created_at = now - timedelta(days=days_ago)
+        entry.updated_at = entry.created_at
+        session.commit()
+        sync_wiki_links(session, entry)
+        session.commit()
+    return len(_EXAMPLE_NOTES)
+
+
 # --- edit history ------------------------------------------------------------
 # The recycle bin covers deletion. Nothing covered editing, so rewriting a note
 # destroyed what it used to say with no way back — and the AI can rewrite notes

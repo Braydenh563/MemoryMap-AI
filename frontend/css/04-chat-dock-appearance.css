@@ -1513,6 +1513,20 @@ button {
   background: var(--accent);
 }
 
+/* The "pull a model" / "add example notes" offers on the setup slide —
+   centred and wrapping, to match the slide text above it rather than the
+   left-aligned .row default. */
+.onboarding-actions {
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: var(--space-5) auto 0;
+  max-width: 24rem;
+}
+
+.onboarding-actions.hidden {
+  display: none;
+}
+
 /* --- help guide accordion ------------------------------------------------------ */
 .help-accordion details {
   border: 1px solid var(--border);

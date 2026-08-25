@@ -79,11 +79,23 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide.
 
-6. **Guided first-run tour**, and the rest of onboarding: offering to pull a
-   model, a data-dir writability check, and seeded example notes so the graph,
-   timeline and dashboard have something to show before the first note exists
-   — named by the project's own outside review as the highest-leverage version
-   of onboarding. `#onboarding-overlay` already exists as a surface.
+~~6. **Guided first-run tour**, and the rest of onboarding: offering to pull a
+   model, a data-dir writability check, and seeded example notes~~ **Built.**
+   The tour and the data-dir/Ollama diagnostics already existed; the two
+   genuinely missing pieces are now offers on the same "Your setup" slide,
+   neither automatic — a "Download a starter model" button (`POST
+   /models/pull`, only shown when Ollama is running but the chat model isn't
+   installed) and an "Add example notes" button (`POST /entries/seed-examples`,
+   only shown on a genuinely empty notebook — `GET /entries/count`). The
+   seed is five short notes about the app itself, two real `[[wiki-links]]`
+   between them, two categories, spread across the last 9 days so the
+   Timeline isn't a single dot — refuses server-side on any notebook that
+   already has a note, seeded or real, so it can never double up or land on
+   top of someone's actual notes. Verified live: the button appears/hides
+   correctly, seeding produces exactly 5 notes with both links resolved
+   (`tests/test_seed_examples.py`), and a screenshot of the running app
+   afterward shows the Dashboard's note count, category chips and the graph
+   constellation all populated from the seed, unprompted.
 
 7. **Alembic migrations.** The additive auto-migrator cannot rename or drop,
    and will not survive a real schema change. Nothing has needed it yet, which

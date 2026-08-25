@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added — onboarding can pull a model and seed example notes
+
+The first-run tour's "Your setup" slide now makes two one-click offers,
+neither automatic: download a starter model when Ollama is running but none
+is installed, and add five short, linked example notes when the notebook is
+genuinely empty — so the Graph, Timeline and Dashboard have something to show
+before your first real note. Seeding refuses server-side on any notebook
+that already has a note, so it can never run twice or land on top of real
+work.
+
 ### Added — "Build a skill", a built-in skill that writes skills
 
 Interviews you about a job you do often — what it should do, whether it

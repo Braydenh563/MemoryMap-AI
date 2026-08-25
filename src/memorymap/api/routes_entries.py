@@ -13,7 +13,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import extractor, janitor, librarian, links
@@ -661,6 +661,24 @@ def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
     question — the quick-access dashboard."""
     entries = manager.most_accessed_entries(session, limit=5)
     return _to_out_bulk(session, entries)
+
+
+# Onboarding's own "is this notebook empty" check — deliberately just a
+# number (never the full /entries payload) so the first-run tour can decide
+# whether to offer example notes without pulling a real notebook's worth of
+# content over the wire just to find out it isn't empty.
+@router.get("/count")
+def count_entries(session: Session = Depends(get_session)) -> dict:
+    return {"count": session.scalar(select(func.count(Entry.id))) or 0}
+
+
+@router.post("/seed-examples")
+def seed_example_entries(session: Session = Depends(get_session)) -> dict:
+    """The onboarding tour's "add example notes" offer (ROADMAP.md's
+    onboarding item). Refuses on any notebook that already has a note —
+    see `manager.seed_example_notes`'s own guard."""
+    created = manager.seed_example_notes(session)
+    return {"created": created}
 
 
 @router.get("/{entry_id}", response_model=EntryOut)

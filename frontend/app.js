@@ -26500,9 +26500,10 @@ let onboardingDiagnosticsToken = 0;
 // silently into Uncategorised.
 async function loadOnboardingDiagnostics(forSlide) {
   const token = ++onboardingDiagnosticsToken;
-  const [models, storage] = await Promise.all([
+  const [models, storage, notebook] = await Promise.all([
     apiJson("/models/status").catch(() => null),
     apiJson("/storage").catch(() => null),
+    apiJson("/entries/count").catch(() => null),
   ]);
   if (token !== onboardingDiagnosticsToken) return; // superseded by a later slide
   if (onboardingIndex !== forSlide) return; // the user moved on already
@@ -26526,6 +26527,71 @@ async function loadOnboardingDiagnostics(forSlide) {
     lines.push("Couldn't check where your notebook lives just now.");
   }
   $("onboarding-text").textContent = lines.join(" ");
+  renderOnboardingActions(models, notebook);
+}
+
+// The two concrete gaps ROADMAP.md named for onboarding: offering to pull a
+// model, and seeding example notes so the Graph/Timeline/Dashboard aren't
+// empty on a first look. Both are one-click offers on the setup slide,
+// never automatic — a fresh install with no notes and no model is exactly
+// the state a real, deliberate first run looks like too, so this only ever
+// acts on an explicit click.
+function renderOnboardingActions(models, notebook) {
+  const box = $("onboarding-actions");
+  box.replaceChildren();
+  const offers = [];
+
+  if (models && models.ollama_running && !models.chat_model_installed) {
+    offers.push(
+      smallButton(
+        "Download a starter model",
+        "Pull llama3.2 (~2.2 GB) with Ollama, in the background",
+        async (event) => {
+          event.target.disabled = true;
+          event.target.textContent = "Downloading in the background…";
+          try {
+            await api("/models/pull", {
+              method: "POST",
+              body: JSON.stringify({ name: "llama3.2" }),
+            });
+            refreshModelStatus();
+          } catch (error) {
+            event.target.disabled = false;
+            event.target.textContent = "Download a starter model";
+            toast(error.message || "Couldn't start the download.", true);
+          }
+        },
+        false
+      )
+    );
+  }
+
+  if (notebook && notebook.count === 0) {
+    offers.push(
+      smallButton(
+        "Add example notes",
+        "Seed a few linked notes so the Graph, Timeline and Dashboard have something to show",
+        async (event) => {
+          event.target.disabled = true;
+          try {
+            const result = await apiJson("/entries/seed-examples", { method: "POST" });
+            event.target.textContent =
+              result && result.created
+                ? `Added ${result.created} — look for the "welcome" tag`
+                : "Added";
+            loadEntries();
+          } catch (error) {
+            event.target.disabled = false;
+            toast(error.message || "Couldn't add the example notes.", true);
+          }
+        },
+        false
+      )
+    );
+  }
+
+  box.classList.toggle("hidden", offers.length === 0);
+  for (const button of offers) box.appendChild(button);
 }
 
 function renderOnboardingSlide() {

@@ -416,6 +416,18 @@
   transition: opacity var(--motion-slow) ease var(--motion-fast);
 }
 
+/* The toggle moves back to `right: 1.25rem` on hover-peek (above) — the same
+   spot §88.0's `--sidebar-toggle-lane` reserve already exists to clear — but
+   `.sidebar-collapsed .sidebar-head` (05-sidebars-themes.css) still zeroes
+   that reserve, because the element carries the `.sidebar-collapsed` class
+   throughout the hover, not just while genuinely 48px wide. Reported
+   directly: "New chat" clashes with the collapse toggle specifically while
+   collapsed-but-hover-expanded, which a session that only tested the
+   always-expanded and always-collapsed states would not have caught. */
+.layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-head {
+  padding-right: var(--sidebar-toggle-lane);
+}
+
 /* Ensure the layout container creates a positioning context for the absolute peek */
 .layout-sidebar-collapsed {
   position: relative;
@@ -887,12 +899,24 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 }
 
 .graph-physics+.graph-temporal::before,
-.graph-temporal+.graph-toggle-group::before {
+.graph-temporal+.graph-toggle-group::before,
+.graph-toggle-group+.graph-minimap-option::before {
   content: "";
   align-self: stretch;
   width: 1px;
   margin-inline-end: var(--space-3);
   background: var(--border);
+}
+
+/* The minimap position picker, moved here from the main toolbar strip (see
+   index.html) as a "tuned once" setting — same shape as .graph-physics and
+   .graph-temporal above, so it gets the same inline-flex treatment and the
+   same divider convention marking where the toggle group ends and this
+   begins. */
+.graph-minimap-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* The Library page and its three sub-views. The page is a column so that a

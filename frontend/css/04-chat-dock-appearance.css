@@ -1513,6 +1513,20 @@ button {
   background: var(--accent);
 }
 
+/* The "pull a model" / "add example notes" offers on the setup slide —
+   centred and wrapping, to match the slide text above it rather than the
+   left-aligned .row default. */
+.onboarding-actions {
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: var(--space-5) auto 0;
+  max-width: 24rem;
+}
+
+.onboarding-actions.hidden {
+  display: none;
+}
+
 /* --- help guide accordion ------------------------------------------------------ */
 .help-accordion details {
   border: 1px solid var(--border);
@@ -2124,6 +2138,60 @@ button {
 
 .doc-item-meta {
   font-size: 0.75rem;
+}
+
+/* The Library's own Documents sub-tab (#library-docs-list) — a *different*
+   list from the editor's sidebar above, sharing only the .doc-list layout
+   class. It had no styling of its own at all beyond that, so every row fell
+   through to the app's default filled <button> look: a full-width solid
+   accent bar with the title and metadata crammed onto one line. Reported
+   directly, bluntly, and repeatedly ("SOOOO ugly and not consistent with
+   the other application design style"). This gives it the same card
+   language — border, icon, hover state — the "All" library view's cards
+   already use, rather than a third, once again different, look. */
+.doc-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-5);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: inherit;
+  cursor: pointer;
+}
+
+.doc-list-item:hover,
+.doc-list-item:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.doc-list-icon {
+  flex: 0 0 auto;
+  font-size: 1.3rem;
+  color: var(--muted);
+}
+
+.doc-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.doc-list-title {
+  font-weight: 650;
+  font-size: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-list-meta {
+  font-size: 0.8rem;
 }
 
 .doc-main {

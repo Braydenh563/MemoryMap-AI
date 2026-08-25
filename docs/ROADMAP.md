@@ -79,25 +79,64 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide.
 
-6. **Guided first-run tour**, and the rest of onboarding: offering to pull a
-   model, a data-dir writability check, and seeded example notes so the graph,
-   timeline and dashboard have something to show before the first note exists
-   — named by the project's own outside review as the highest-leverage version
-   of onboarding. `#onboarding-overlay` already exists as a surface.
+~~6. **Guided first-run tour**, and the rest of onboarding: offering to pull a
+   model, a data-dir writability check, and seeded example notes~~ **Built.**
+   The tour and the data-dir/Ollama diagnostics already existed; the two
+   genuinely missing pieces are now offers on the same "Your setup" slide,
+   neither automatic — a "Download a starter model" button (`POST
+   /models/pull`, only shown when Ollama is running but the chat model isn't
+   installed) and an "Add example notes" button (`POST /entries/seed-examples`,
+   only shown on a genuinely empty notebook — `GET /entries/count`). The
+   seed is five short notes about the app itself, two real `[[wiki-links]]`
+   between them, two categories, spread across the last 9 days so the
+   Timeline isn't a single dot — refuses server-side on any notebook that
+   already has a note, seeded or real, so it can never double up or land on
+   top of someone's actual notes. Verified live: the button appears/hides
+   correctly, seeding produces exactly 5 notes with both links resolved
+   (`tests/test_seed_examples.py`), and a screenshot of the running app
+   afterward shows the Dashboard's note count, category chips and the graph
+   constellation all populated from the seed, unprompted.
 
 7. **Alembic migrations.** The additive auto-migrator cannot rename or drop,
    and will not survive a real schema change. Nothing has needed it yet, which
    is exactly why it is still here.
 
-8. **What happens when Ollama hangs, rather than errors.** The app handles
-   Ollama being *off* gracefully; a request that never returns is a different
-   failure and a likelier one on this hardware — a model loading for the first
-   time can leave a request pending indefinitely. Wants a timeout with a real
-   message rather than an unbounded spinner.
+8. **What happens when Ollama hangs, rather than errors.** Checked this
+   session, not fixed — closer to already-handled than the item implies.
+   `OllamaClient.__init__` already sets a 600s request timeout with a
+   documented reason (a cold model load on CPU-only hardware can genuinely
+   take that long), and every chat/generate call wraps the underlying
+   `requests` exception into `OllamaError(f"Chat with '{model}' failed:
+   {exc}")`, which `routes_chat.py` already catches. So a hang is bounded and
+   does produce a real, if unpolished, message — not silence. What's
+   **unverified**, because this sandbox has no reachable Ollama to actually
+   hang: whether that message reaches the chat UI as something a user reads
+   as "it gave up and here's why" versus a raw exception string, and whether
+   ten minutes of a spinner before that message *feels* like "an unbounded
+   spinner" regardless of the technical bound. Needs a real slow-loading
+   model to observe, not more source reading.
 
-9. **Crash-safe recovery for an interrupted re-index or model download.**
-   Unknown whether it resumes cleanly or leaves half-written state; worth
-   checking directly rather than assuming either way.
+~~9. **Crash-safe recovery for an interrupted re-index or model download.**~~
+   **Checked directly — already safe by construction, nothing to build.**
+   `model_manager.py`'s `_run_reindex`: each entry's stale vector is deleted
+   and committed *before* re-embedding it, one entry at a time — a crash
+   mid-run leaves already-processed entries with fresh vectors and
+   not-yet-reached ones with their old (still-functional; semantic search
+   already falls back to keyword search on a backend mismatch) vectors.
+   Nothing corrupted, nothing half-written — just a partially-refreshed
+   index a later manual re-run completes. `_run_pull`: `job.status` is set
+   to `"error"` on any failure, and its own comment already states the
+   property directly — "never leave a half-download looking installed"
+   (§6.5). Both jobs (`Job`) are **in-memory only**, not persisted, so a
+   real process crash (not a graceful cancel) simply forgets the job
+   existed on restart — no ghost "still running" state is possible because
+   there is nowhere for one to survive to. The one gap, and it's cosmetic:
+   neither job leaves a `taskhistory` record for a hard crash specifically
+   (only for a clean cancel or a caught exception) — a crash mid-reindex
+   shows nothing in Settings → Tasks afterward, rather than a "did not
+   finish" entry. Not attempted: needs a startup-time reconciliation pass
+   (did the last recorded reindex actually reach `total`?) that's a small
+   but real addition, not a one-line fix.
 
 10. **macOS release packaging.** Linux is done; macOS is not.
 
@@ -115,9 +154,54 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
     pasting what it says. Everything before that is guessing, and two sessions
     have already guessed.
 
-11. **Sorting and grouping saved chats** — conversations sort by recency and
-    nothing else. The data to sort by (model, token cost, timestamps) is
-    already stored per turn, so this is a list-rendering job.
+~~11. **Sorting and grouping saved chats** — conversations sort by recency and
+    nothing else.~~ **Built**: a sort `<select>` in the Chats sidebar (Recent
+    / Most turns / Most tokens / A–Z), persisted in localStorage, pinned
+    conversations always staying first regardless of mode (the existing
+    divider still marks that boundary). One correction to this item's own
+    premise: **model is not actually stored per turn** —
+    `routes_conversations.py`'s `_summary()` returns `tokens`/`turns`/
+    `updated_at`/`title` only, no model field exists on a message at all — so
+    "sort by model" was never available to build cheaply as claimed. The
+    three sorts that *were* real data are shipped; a model-based sort would
+    need a schema change first. Verified live: A–Z sort correctly orders
+    three test conversations, the choice survives a reload.
+
+~~12. **The Documents Library sub-tab needs a full visual redesign.**~~
+    **Built — root cause found by screenshotting it beside the "All" view,
+    exactly as this item's own note said to.** `#library-docs-list`'s rows
+    (`renderLibraryDocuments`, `whiteboard.js`) shared only the layout class
+    `.doc-list` with the editor's own recent-docs sidebar — no scoped CSS of
+    their own at all, so every row fell through to the app's default filled
+    `<button>` style: a full-width solid-accent bar with the title and word
+    count crammed onto one line, nothing like a card. Given a document icon,
+    a proper title/meta column, a border and hover state matching
+    `.library-card`'s own look (`04-chat-dock-appearance.css`). Verified
+    live in both themes: real cards now, readable at a glance, clicking one
+    still opens the right document. Whiteboards' own pass (item 9 below) is
+    unrelated code and still open.
+
+13. **Back/forward navigation still misses most navigation types.** Reported
+    directly, and traced to source rather than guessed at. Library's own
+    sub-tabs were fixed earlier (§88.1 item 7). **Switching between saved
+    chat conversations is now fixed too**: `openConversation` and
+    `newChatConversation` each record a `{tab: "chat", section}` entry —
+    `"conv:<id>"` or `"new"` — and `stepTabHistory` restores it. This one
+    caught and fixed a genuine bug before it shipped, not just a gap: making
+    `stepTabHistory` `async` and `await`-ing `openConversation` on that
+    branch specifically was necessary — `openConversation` calls
+    `recordTabVisit` itself, but only *after* an `await apiJson(...)`, so an
+    un-awaited call would let `stepTabHistory`'s own `finally` clear
+    `tabHistory.navigating` before that later call ran, turning every single
+    Back/Forward through a saved chat into a spurious new history entry.
+    Verified live via Playwright: opening two conversations, then stepping
+    Back and Forward, restores the right conversation each time with the
+    stack length unchanged by the navigation itself.
+
+    Still open: opening/closing a document in the editor, and
+    entering/exiting Graph focus mode. Same `{tab, section}` shape to
+    extend — worth checking for the same async-ordering trap this one had
+    before assuming either is a small change.
 
 ### Smaller, and genuinely cheap
 
@@ -183,31 +267,61 @@ same session is in §88.0 so nobody re-fixes it.
 | "Back/forward should handle sub-tabs too" | History entries are now `{tab, section}`; `showNotesSection` records one. Verified: browse → back → capture → back → ask → forward → capture |
 | Whiteboard "janky and uncomfortable" | `renderWhiteboard()` (a full d3 join over every item) was called from **48 sites**; one action touches several. All now coalesce into one rAF via `wbScheduleRender()` |
 | "Make link creation on the graph offer a kind, a reason, and a cancel" | Built — see §87.5's typed links, now shipped as `EntryLink.link_type` plus the drag-to-link dialog |
+| "The dashboard widgets are completely broken" **and** `Unhandled promise rejection: TypeError: Cannot read properties of null (reading 'replace')` | One bug, reported as two. §88.0's own `startSkill` fix (row above) stopped new corruption but never cleaned up what it had already written: `JSON.stringify` turns `undefined` into `null` inside an array, so a profile that ran a skill during that bug's window carried a permanent `null` in `recentSkills`. `withoutLeadingEmoji()` called `.replace()` on it unguarded, on every dashboard render, before the widget grid populated. Fixed at all three points — write guard, a self-healing read-side filter that rewrites the cleaned list (so an already-affected profile repairs itself on next load), and a defensive coercion — reproduced and verified live in this sandbox's Chromium |
+| Categories sidebar heading smaller than Chats/Documents | A stale ID-selector `#sidebar h2 { font-size: var(--text-lg) }` outranked the unified `.card h2` (§35L) by specificity for this one sidebar. Removed |
+| "The docked ui at the top of the graph needs a cleanup" (second pass) | "+ New note" grouped with the "?" help button instead of bookending the strip alone; Layout/Colour segmented controls split into two labelled groups (they shared one with no "Colour" label); Minimap moved into the Options panel with the other "tuned once" settings |
+| Skill Logs sidebar still not full height after the first fix | Same bug `.doc-sidebar` already hit once: `align-self: start` + `max-height` alone is a ceiling with no floor. Applied `.doc-sidebar`'s complete pattern (`align-self: stretch`, `height: 100%`, `max-height: var(--page-sticky-h)`, flex column, list scrolls not the card) instead of the partial version tried first |
+| Link-kind dialog ("How are these connected?") text unreadable in dark theme | `.link-kind-option` overrode `background` to transparent but not `color`, so it kept the global `button` rule's `color: var(--on-accent)` — `#0d1017` in dark theme, meant for text on that same rule's bright accent fill, not a transparent button. Added `color: var(--ink)` |
+| Back-to-top button "too much to the left" on Notes, displaced on Library | `positionScrollTopForNested` always pulled the button in from the panel's own edge, stacking a second margin on top of the page's own — Notes has no right-side element to clear at all. Now only pulls in when a real right-side panel (the Skill Logs sidebar) is actually present; otherwise matches every other tab's flat offset |
+| Graph toolbar still 3 rows after the first redesign pass | The two hard-split `.graph-toolbar-row`s merged into one flexible row (Options now wraps up rather than living on a pinned second row), and the search/Trace group moved out of the `display: contents` `#graph-toolbar-secondary` wrapper onto the header's own line beside "Graph" — a flex item inside that wrapper would not size to its own content no matter what was tried in CSS, confirmed by direct measurement, not assumption. Down to 2 rows |
+| Graph Options panel minimap combobox taller than the buttons beside it | `.graph-options button` got `height: var(--control-h)`; the `<select>` in the same panel never did. Both now measure identically (30.4px) |
+| Chat "New" button clashes with the sidebar collapse toggle specifically while collapsed-but-hover-expanded | `.sidebar-collapsed .sidebar-head` zeroes the toggle's reserved padding lane, correct at the true 48px-collapsed width — but the element keeps that class throughout the hover-peek state too, where the toggle visually moves back to its normal `right: 1.25rem`. Reserve restored for that specific hover state |
+| Graph node labels show raw callout syntax (`Review > [!tip] Remem…`) | `routes_graph.py`'s `_preview()` stripped a leading `#` heading marker but not a callout's `> [!kind]` opening line. Added `_CALLOUT_MD`, the callout equivalent of the existing `_HEADING_MD` strip |
 
 ### 88.1 Reported and still open — work this list top-down
 
 **Tier A — broken behaviour.**
 
-1. **"The AI randomly fails in the Ask sub-tab saying it isn't available."**
-   The user notes they set the chat model to their *utility* model, and that is
-   very likely relevant: two model slots exist (`chat_model`,
-   `utility_model`) and a slot pointing at a model the backend has not loaded
-   reports unavailable. **Reproduce before theorising** — check
-   `/models/status` and which slot `routes_chat` actually reads. Related:
-   `GET /models/status — signal timed out` in the same log, which suggests the
-   status poll itself is timing out and the UI is reading that as "no AI".
-   These may be one bug.
-2. **`Unhandled promise rejection: TypeError: Cannot read properties of null
-   (reading 'replace')`.** Not yet located — no line number was captured. Next
-   session should reproduce with the console open and get one; grep for
-   `.replace(` on values that can be null (`prefsCache` fields and
-   `doc.title` are the likely shapes).
-3. **The notebook constellation canvas keeps disappearing.** ARCHITECTURE §10
-   already documents the general version of this bug (p5 measures a canvas as
-   zero inside a hidden tab and must redraw on theme change). The widget was
-   fixed once for theme changes; this is a *second* trigger. Check what else
-   hides/reshows the dashboard.
-4. **The new-chat button disappeared from the Ask tab.**
+~~1. **"The AI randomly fails in the Ask sub-tab saying it isn't available."**~~
+   **A real, evidenced cause found and fixed — not the utility-model theory.**
+   `/models/status` used to probe Ollama *twice* per poll: `is_running()`
+   (2s timeout) and, inside `_installed_models()`, `list_models()` (5s
+   timeout) — both hitting Ollama's own `/api/tags`. Sequentially that is up
+   to 7s for one poll, and `refreshModelStatus()` (`app.js`) aborts that exact
+   call at a hard 5s. A backend that is genuinely up but momentarily slow
+   (mid-generation, a cold model load) could lose that race and read as
+   unavailable — which matches the "signal timed out" log line from the same
+   report exactly. `routes_models.py`'s `status()` now makes one round-trip
+   instead of two (`list_models()` alone tells you both whether Ollama is up
+   and what's installed), and the frontend's abort moved to 8s — real
+   headroom above the new, lower worst case instead of racing it at the wire.
+   **Not verified against a real slow-loading model** (no reachable Ollama in
+   this sandbox) — the mismatch itself was confirmed by reading both sides of
+   the timeout, not by reproducing the hang. The utility-model theory in the
+   original report may still be worth checking if this doesn't fully explain
+   a future recurrence.
+~~2. **`Unhandled promise rejection: TypeError: Cannot read properties of null
+   (reading 'replace')`.**~~ **Fixed** — see §88.0's row; it was
+   `recentSkills` carrying a poisoned `null` entry from before §88.0's
+   `startSkill` fix, read unguarded on every dashboard render.
+~~3. **The notebook constellation canvas keeps disappearing.**~~ **Fixed a
+   second, real trigger.** ARCHITECTURE §10's canvas-measures-zero pattern
+   was already handled for theme changes (`refreshArtForTheme`); what wasn't
+   handled at all was the canvas's own **size** going stale — the sketch had
+   no resize handling whatsoever, so `holder.clientWidth` was measured once
+   at setup and never re-synced. Added a `ResizeObserver` on the holder
+   (not just `p.windowResized`, which alone would miss the Edit-layout
+   "Wide" toggle — a card-width change with no window resize event at all).
+   Verified live: a window resize, the Wide toggle, and a tab-away-and-back
+   cycle all keep the canvas correctly sized and visible, zero console
+   errors in any case.
+4. **The new-chat button disappeared from the Ask tab.** Traced, not fixed:
+   it only shows after a real (non-"hint") answer completes
+   (`show("retry-btn", ..., "new-chat-btn")` in `app.js`), and the show logic
+   itself is correct — no bug found in it. Most likely the same root cause as
+   item 1 above (a hint/unavailable response never reaches that line), which
+   this sandbox cannot confirm without a reachable model. If re-reported
+   *with* a working AI connection, that would rule this theory out.
 5. **The AI Skills sub-tab "is just very unfinished and nothing really
    works."** Confirmed in passing: its **Schedule** button is a literal
    placeholder (`toast("Scheduler functionality coming soon!")`). Needs its own
@@ -219,28 +333,54 @@ same session is in §88.0 so nobody re-fixes it.
 
 **Tier B — UI/UX, each concrete.**
 
-7. **Back/forward across the Library's own sub-tabs.** The Notes sub-tabs are
-   done (§88.0); the Library's `#library-subtabs` handler lives in
-   `whiteboard.js` and does not record history yet — same `{tab, section}`
-   shape.
-8. **The Documents Library sub-tab needs a visual redesign.** Its search-box
-   height is fixed (§88.0); the *look* of the list is still the plain one this
-   session shipped — cards, metadata layout and empty state all unstyled
-   beyond the basics.
+~~7. **Back/forward across the Library's own sub-tabs.**~~ **Built.** The
+   click handler (`whiteboard.js`) now calls the same `recordTabVisit("library",
+   targetId)` Notes' sub-tabs use; `stepTabHistory` (`app.js`) restores by
+   clicking the matching sub-tab button rather than duplicating its
+   section-show/whiteboard-landing/gallery-render logic. A bare `{tab:
+   "library"}` entry (recorded when the tab itself opens, before any sub-tab
+   click) falls back to "All" rather than leaving a stale sub-view on screen.
+   Verified live: Whiteboards → back → Documents → back → All → forward →
+   Documents, in order.
+~~8. **The Documents Library sub-tab needs a visual redesign.**~~ **Built** —
+   see the live-list's own item 12, which has the full root cause and fix.
 9. **The Whiteboards Library sub-tab is bland** — same pass.
 10. **The graph dock may get too tall and squish the graph.** Now three
     deliberate rows; if it grows again, the answer is an overflow menu rather
     than a fourth row.
-12. **The minimap needs a visual and usability upgrade** (its corner is now a
-    user setting, but the map itself is unchanged).
-13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).
-    The label builder should strip block markers the way `extract_title`
-    already strips a leading `#`.
+12. **The minimap needs a visual and usability upgrade.** Checked before
+    touching it — it already has more than the vague ask implies: dots are
+    coloured by category (`node.colour`, matching the main graph), clicking
+    it re-centres the main view there (`initGraphMinimap`'s `jump`
+    handler), and the viewport frame is clamped to the box with a comment
+    recording the specific "201×39 inside a 168×112 box" edge case that fix
+    covers. What looked plain in a screenshot this session was the test
+    data (every note "Uncategorised", so every dot is one colour), not a
+    gap in the mechanism. Left alone rather than making speculative
+    cosmetic changes with no concrete complaint to act on — "say what
+    specifically, next time it's reported" is this file's own rule for
+    exactly this shape of ask.
+~~13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).~~
+    **Fixed** — `routes_graph.py`'s `_preview()` now strips a callout's
+    opening line the same way it already strips a `#` heading.
 17. **Timeline line view redesign** — the concrete design is §87.6: threads as
     tributaries off a time trunk, using `Entry.parent_id`, which that view
     currently ignores entirely.
-18. **Semantic search ignores time words** ("recents"). Belongs in
-    `ai/intent.py`, which already classifies `needs_retrieval`.
+~~18. **Semantic search ignores time words** ("recents").~~ **Already
+    built — checked before building, found done.** `search/query.py`'s
+    `understand()` parses "recently"/"recent" (and "yesterday", "last week",
+    "three days ago", "on tuesday", …) into a date range with a `soft` flag,
+    and `search_manager._retrieve` uses it: a soft range sorts matches
+    newest-first as a tiebreak rather than excluding anything outside a
+    fixed window (the code's own comments record "jokes I have saved
+    recently" — this exact phrase — as the motivating case that was fixed).
+    Verified live rather than trusting the comments: two notes containing
+    "jokes", one 3 days old and one 200 days old, given the query "jokes I
+    have saved recently" — the 3-day note ranked first. Whoever re-reported
+    this hit a real gap somewhere, but it isn't the mechanism itself; likely
+    either a phrasing the parser's patterns don't cover, or the chat path
+    specifically (`routes_chat.py`) not passing something query.py needs —
+    worth asking what exact phrase was typed, next time.
 
 **Tier C — the big editor feature, worth its own session.**
 
@@ -300,9 +440,9 @@ web reader with highlight capture.
    upgrade to the existing skills/personas: today a skill is a prompt, and the
    gap is attaching a *bounded* knowledge set to it. Local equivalent of
    sources: selected notes, documents, boards and tags — never creators.
-5. **The interview technique.** Kortex's "interview me, then help me apply
-   this" prompt pattern extracts the *user's* ideas instead of generating
-   generic text. Cheap: it is a skill, not a feature.
+~~5. **The interview technique.**~~ **Built** — "Interview me about an idea"
+   in `ai/skills.py`'s `BUILTIN_SKILLS`, using the existing `ask_user` tool
+   for a real back-and-forth mid-run rather than a one-shot prompt.
 6. **Reader-mode capture with citations preserved.** Partly built (the web
    reader); the missing half is that a highlight becomes its own first-class
    item with its source link intact.
@@ -356,37 +496,49 @@ and **asserted** (`agent.PROSE_BUDGET_CHARS`) because every sentence is resent
 each round. Conversations can be compressed (§35I). Tools are a fixed registry
 in `ai/tools/`. There is a "what the AI remembers" surface (§39B).
 
-**The five real gaps, in order of value:**
+**Corrected — items 1 and 2 below were already built by a prior session
+(`search_manager.py`, commits `be53bd5`/`03b9a3e`/`a399926`, dated before
+this analysis was last read as current) when this list was drafted, and
+this section was never updated to say so. Checked directly rather than
+trusted, per this file's own repeated rule, and confirmed via `git log`
+that the code predates the session that found it stale — not a
+same-session miss like a couple of others this file records elsewhere.**
 
-1. **Retrieval is single-shot and similarity-only.** Candidates come from
-   embedding cosine; there is no re-ranking, no query expansion, and no second
-   pass when the first returns nothing useful. The cheapest meaningful upgrade
-   is **hybrid retrieval** — combine the existing FTS keyword index with the
-   vector search and merge by reciprocal rank. Both indexes already exist.
-2. **The graph is not used for retrieval.** This app's differentiator is that
-   it *knows how notes connect*, and the chat context is assembled by
-   similarity alone. Once §87.5's `link_type` is populated, expand retrieval
-   along strong edges from the top hits — `entry/paths.py` already walks them.
-   This is the single highest-value item on this list.
-3. **Memory is a surface, not a system.** There is no tiered notion of
-   "always in context" (a small durable profile), "retrieved when relevant"
-   (the notebook), and "this conversation only". A short, user-editable
-   always-on memory block — explicitly capped and shown in Settings — is a
-   contained change with a large effect on how the assistant reads.
-4. **No token accounting per stage.** The prompt budget is asserted, but there
-   is no measurement of how much of a real context window goes to system
-   prompt vs. retrieved notes vs. history. Instrument it before tuning it; a
-   per-turn breakdown makes every later decision evidence-based. (BACKLOG's
-   per-chat token meter is the same idea.)
-5. **Tool retrieval is all-or-nothing.** Every tool definition is sent every
-   round. §33 already scoped semantic tool retrieval and rightly said it needs
-   measuring first — item 4 is the prerequisite.
+**What's actually still a gap, in order of value:**
 
-**One caution that applies to all five.** Every provider test in this repo runs
-against a fake transport, and this sandbox has no reachable model. Retrieval
-quality changes cannot be evaluated here at all. Build the measurement (item 4)
-and a small fixed question set *first*, or every one of these becomes a change
-nobody can prove helped.
+1. ~~Retrieval is single-shot and similarity-only.~~ **Already hybrid.**
+   `_rank()` calls `_fuse()` — reciprocal rank fusion over the semantic and
+   keyword result lists — labelling the result `"hybrid"`, wired into
+   `_retrieve()` (every chat/ask question's own retrieval path). Re-ranking
+   and query expansion beyond this are the only parts still genuinely open.
+2. ~~The graph is not used for retrieval.~~ **Already used.**
+   `graph_expansion()` walks linked neighbours of the top hits (and a
+   second, weaker hop — ROADMAP item 33, `GRAPH_EXPANSION_HOP2_LIMIT`) and
+   is called from `_retrieve()`. §87.5's `link_type`/strength weighting
+   (still open, see §87.5 above) would make this walk *smarter*, not bring
+   it into existence — it already exists.
+3. **Memory is a surface, not a system.** Still genuinely open — no tiered
+   notion of "always in context" (a small durable profile), "retrieved when
+   relevant" (the notebook), and "this conversation only" exists anywhere
+   in `ai/`. A short, user-editable always-on memory block, capped and shown
+   in Settings, is a contained change with a large effect on how the
+   assistant reads.
+4. **No token accounting per stage.** Still genuinely open — `ai/context.py`
+   manages a token *budget* (staying under the window), which is a
+   different thing from *measuring* how much of a real turn goes to system
+   prompt vs. retrieved notes vs. history. Instrument it before tuning
+   anything further; a per-turn breakdown makes every later decision
+   evidence-based. (BACKLOG's per-chat token meter is the same idea.)
+5. **Tool retrieval is all-or-nothing.** Still genuinely open. Every tool
+   definition is sent every round. §33 already scoped semantic tool
+   retrieval and rightly said it needs measuring first — item 4 above is
+   the prerequisite.
+
+**One caution that applies to the three real gaps above.** Every provider
+test in this repo runs against a fake transport, and this sandbox has no
+reachable model. Retrieval *quality* changes cannot be evaluated here at
+all. Build the measurement (item 4) and a small fixed question set *first*,
+or every one of these becomes a change nobody can prove helped.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 
@@ -672,20 +824,17 @@ from the file that documents it.
    force/render tuning pass (HISTORY §71) that fixed two concrete re-render
    bugs, so the cheap wins may already be taken — start by measuring frame
    cost during a pan and during a drag, separately.
-2. **The saved-view select truncates to "No saved vi…"** in the redesigned
-   toolbar. Cosmetic, one width rule.
-3. **Graph node labels show raw callout syntax** — a note starting with a
-   callout renders its label as `Review > [!tip] Remem…`. The label builder
-   should strip block markers the way `extract_title` strips a leading `#`.
-4. **Semantic search ignores time words.** Reported: typing "recents" did not
-   bias results by recency, only by meaning. This is `IDEAS.md`'s own
-   long-standing ask ("a slight ai nudge for the semantic notes search, so if
-   I ask 'what notes did I save in the last two days'…"). The retrieval path
-   is `search_manager.retrieve_detailed` (`routes_chat.py:333-374`); a
-   temporal-intent pass that detects recency/date words and applies a
-   `created_at` filter or a recency weight alongside the vector score is the
-   shape. Note `ai/intent.py` already exists and already classifies
-   `needs_retrieval`, so this belongs there rather than in a new module.
+~~2. **The saved-view select truncates to "No saved vi…"** in the redesigned
+   toolbar.~~ **Already fixed** — `.graph-toolbar #graph-view-picker`
+   already carries `min-width: 12.5rem` with a comment recording this exact
+   symptom. Verified live: `scrollWidth` (198px) fits inside the rendered
+   width (200px), "No saved views" shows in full.
+~~3. **Graph node labels show raw callout syntax**~~ **Fixed** — see the
+   live list's item 13 above.
+~~4. **Semantic search ignores time words.**~~ **Already built** — see the
+   live list's item 18 above for what exists (`search/query.py`'s
+   `understand()`, wired into `search_manager._retrieve`) and how it was
+   verified live this session.
 5. **The graph minimap "can no longer be hidden or shown."** The toggle button
    became a dropdown with **Off** as its first option, and that dropdown is
    verified working (`MINIMAP -> off hides it: true`). So either this is a

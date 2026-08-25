@@ -115,7 +115,7 @@ what made "everything else here is new" a fact rather than a guess.
 
   ```bash
   python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" \
-      SQLAlchemy python-dotenv requests numpy "fsspec[http]" bcrypt \
+      SQLAlchemy alembic python-dotenv requests numpy "fsspec[http]" bcrypt \
       cryptography python-multipart pytest httpx ruff
   ```
 

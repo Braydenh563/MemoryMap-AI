@@ -53,10 +53,19 @@ for (const level of ["log", "info", "warn", "error"]) {
   };
 }
 window.addEventListener("error", (e) =>
-  recordBrowserLog("ERROR", [`${e.message} (${e.filename}:${e.lineno})`])
+  // e.error.stack, when present, is what actually locates the bug — the
+  // message/filename/lineno triple alone has sent more than one session
+  // hunting for a null-dereference with no line number to start from.
+  recordBrowserLog("ERROR", [
+    `${e.message} (${e.filename}:${e.lineno}:${e.colno})`,
+    e.error?.stack || "",
+  ])
 );
 window.addEventListener("unhandledrejection", (e) =>
-  recordBrowserLog("ERROR", ["Unhandled promise rejection:", String(e.reason)])
+  recordBrowserLog("ERROR", [
+    "Unhandled promise rejection:",
+    e.reason?.stack || String(e.reason),
+  ])
 );
 
 // Below this confidence an entry gets a "check this" flag (plan Phase 3).
@@ -4726,6 +4735,46 @@ function flashCategory(name) {
   renderEntries();
 }
 
+// BACKLOG §22's still-open half of "take me to the thing the agent just
+// changed": a destructive result (delete_note) used to reuse flashEntry,
+// which only ever looks in the ordinary browse list — a note the agent just
+// binned is never there, so the "View" button silently found nothing. This
+// looks in the Library's own Bin filter instead, the one place a binned note
+// actually lives (routes_library.py's _archive(), kind "archived").
+async function flashLibraryItem(kind, id) {
+  switchTab("library"); // already kicks off its own loadLibrary() in the background
+  libraryKind = kind;
+  const showBinned = $("library-show-binned");
+  if (kind === "archived" && showBinned) showBinned.checked = true;
+  renderLibraryFilters();
+  renderLibrary(); // in case libraryItems is already fresh (tab was already open)
+  // switchTab's own loadLibrary() fetch may still be in flight — starting a
+  // second one here to await would race it, and whichever finishes last wins
+  // the final render, silently dropping the flash the other one applied.
+  // Polling for the card sidesteps the race: it waits for whichever render
+  // actually lands instead of assuming which one that is.
+  const card = await (async () => {
+    for (let i = 0; i < 20; i++) {
+      const found = document.querySelector(`#library-grid [data-id="${id}"]`);
+      if (found) return found;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    return null;
+  })();
+  if (!card) return;
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  card.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  // "flash" alone only draws on a note-list <li> or something already
+  // carrying "flash-target" (01-forms-settings.css) — a library card is
+  // neither, so both classes are needed here for the highlight to render.
+  card.classList.remove("flash");
+  void card.offsetWidth;
+  card.classList.add("flash-target", "flash");
+  announce("Showing item in the Library.");
+  clearTimeout(flashLibraryItem.timer);
+  flashLibraryItem.timer = setTimeout(() => card.classList.remove("flash"), 2700);
+}
+
 // A raw search result the user can click to open the note (Wave C).
 function clickableResult(entry) {
   const li = entryItem(entry);
@@ -7231,7 +7280,16 @@ function changeRow(change, options = {}) {
   label.textContent = change.label || change.tool;
   row.appendChild(label);
 
-  if (change.note_id) {
+  if (change.note_id && change.tool === "delete_note") {
+    // A binned note is not in the browse list flashEntry looks in — it is
+    // reachable only through the Library's own Bin filter until it is
+    // cleared or restored. See flashLibraryItem's own comment.
+    row.appendChild(
+      smallButton("View in bin", "Show this note in the recycle bin", () =>
+        flashLibraryItem("archived", change.note_id)
+      )
+    );
+  } else if (change.note_id) {
     row.appendChild(
       smallButton("View", "Show this note", () => {
         switchTab("notes");
@@ -9482,6 +9540,7 @@ async function deleteChatTurn(assistantBubble) {
 }
 
 function newChatConversation() {
+  recordTabVisit("chat", "new");
   chatConv = { id: null, turns: [] };
   // A summary belongs to the conversation it summarised (§35I).
   chatSummary = null;
@@ -9928,11 +9987,30 @@ function relativeTime(iso) {
 //: fitting beside a conversation.
 const RECENT_CHATS_SHOWN = 8;
 
+const CHAT_SIDEBAR_SORT_KEY = "chatSidebarSort";
+
+// Pinned notes stay first regardless of sort — that promise (a divider marks
+// the boundary, just below) predates this control and a sort choice
+// shouldn't silently break it. Only the order *within* each of the two
+// groups changes.
+function sortConversations(conversations, mode) {
+  const pinned = conversations.filter((c) => c.pinned);
+  const rest = conversations.filter((c) => !c.pinned);
+  const byMode = {
+    recent: (a, b) => new Date(b.updated_at) - new Date(a.updated_at),
+    turns: (a, b) => (b.turns || 0) - (a.turns || 0),
+    tokens: (a, b) => (b.tokens || 0) - (a.tokens || 0),
+    alpha: (a, b) => a.title.localeCompare(b.title),
+  }[mode] || null;
+  if (!byMode) return conversations; // "recent" is already the server's own order
+  return [...pinned.sort(byMode), ...rest.sort(byMode)];
+}
+
 async function loadConversationList() {
-  const conversations = (await apiJson("/conversations").catch(() => [])).slice(
-    0,
-    RECENT_CHATS_SHOWN
-  );
+  const conversations = sortConversations(
+    await apiJson("/conversations").catch(() => []),
+    $("chat-sidebar-sort")?.value || "recent"
+  ).slice(0, RECENT_CHATS_SHOWN);
   const list = $("conversation-list");
   list.replaceChildren();
   const empty = $("conv-empty");
@@ -10116,6 +10194,10 @@ function editChatAnswer(handles, turnIndex, current) {
 async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
+  // ROADMAP.md item 13: switching between saved chats was invisible to
+  // back/forward. Recorded here rather than at each of this function's
+  // call sites (the sidebar, the Library) so neither has to remember to.
+  recordTabVisit("chat", `conv:${full.id}`);
   chatConv = { id: full.id, turns: [] };
   chatAwaitingAgentAnswer = false; // a saved thread's own pending ask, if any, isn't answerable live
   // Not carried across conversations, and not persisted: re-deriving it is one
@@ -11955,6 +12037,32 @@ function noteQuickLinkUse(label) {
 const RECENT_SKILLS_KEY = "recentSkills";
 
 function noteSkillRun(name) {
+  // **Refuse a nameless run rather than storing it.** This guard exists
+  // because the absence of it cost the whole dashboard, and the failure is
+  // worth recording in full because nothing about it is visible at this line.
+  //
+  // §88.0 fixed a call site that read `startSkill(skill.name)` where an object
+  // was expected. While that bug was live, `skill` was a *string*, so
+  // `skill.name` was `undefined`, and this function was called with it. That
+  // alone would have been harmless — but `JSON.stringify` converts `undefined`
+  // inside an array to **`null`**, so what landed in localStorage was a real
+  // `null` element, not a missing one. Fixing the call site stopped new poison
+  // and did nothing about the `null` already written, which persists across
+  // every reload, forever, in any profile that ran a skill during that window.
+  //
+  // The damage then surfaced nowhere near here: `recentSkillLinks` below
+  // reads that array on every dashboard render, and `withoutLeadingEmoji`
+  // calls `.replace()` on the `null`. That throw propagated out of
+  // `renderQuickLinks` -> `renderDashboard` -> `refreshActiveTab`, i.e. it
+  // escaped *before* `grid.replaceChildren()` and the widget loop had run, so
+  // the reported symptoms were "the dashboard widgets are completely broken"
+  // and a toast reading "Couldn't load this tab: Cannot read properties of
+  // null (reading 'replace')" — two reports, one cause, neither of them
+  // pointing at the skills feature that actually caused it.
+  //
+  // The shape CLAUDE.md names: a value that is invalid where it is *used*,
+  // not where it is *set*, does its damage nowhere near the code at fault.
+  if (typeof name !== "string" || !name) return;
   let recent = [];
   try {
     recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
@@ -11978,10 +12086,17 @@ function noteSkillRun(name) {
 const LEADING_EMOJI = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u;
 
 function withoutLeadingEmoji(name) {
-  const stripped = name.replace(LEADING_EMOJI, "");
+  // `String(...)` rather than a bare `.replace`: this is the line that threw
+  // for every profile carrying the poisoned `recentSkills` entry described in
+  // `noteSkillRun`, and it took the whole dashboard down with it. The write
+  // guard and the read filter below both prevent that now, so this coercion is
+  // the third of three — but it is the cheapest, and it is the one standing
+  // between any future bad value and another blank dashboard.
+  const text = String(name ?? "");
+  const stripped = text.replace(LEADING_EMOJI, "");
   // A skill named with nothing but an emoji would otherwise become a blank
   // chip; keeping the original is the lesser of the two.
-  return stripped.trim() || name;
+  return stripped.trim() || text;
 }
 
 function recentSkillLinks() {
@@ -11991,7 +12106,18 @@ function recentSkillLinks() {
   } catch {
     return [];
   }
-  return recent.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
+  if (!Array.isArray(recent)) return [];
+  // **This filter is the repair, not just a guard.** The write side is fixed,
+  // but a profile that ran a skill while the §88.0 bug was live already has a
+  // `null` on disk and would keep crashing its own dashboard on every load
+  // forever — a fix that only prevents new bad data would leave exactly the
+  // people who hit the bug still broken. Rewriting the cleaned list back means
+  // one load repairs the profile permanently.
+  const clean = recent.filter((n) => typeof n === "string" && n);
+  if (clean.length !== recent.length) {
+    localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(clean));
+  }
+  return clean.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
     icon: "ph:lightning",
     label: withoutLeadingEmoji(name),
     // The full name, unaltered, is what the button remembers itself by: the
@@ -12796,6 +12922,31 @@ async function startArt(holder) {
       }
     };
     p.draw = () => scene(p.frameCount * 0.005);
+    // Was missing entirely — width was measured once at setup and never
+    // re-synced, so this canvas was the one p5 sketch in the app with no
+    // resize handling at all (the sibling in the whiteboard has its own).
+    // Reported as the constellation "keeps disappearing": a second trigger
+    // on top of the theme-change one ARCHITECTURE §10 already documents and
+    // `refreshArtForTheme` already handles. A ResizeObserver on the holder
+    // catches both a real window resize *and* the Edit-layout "Wide" toggle
+    // (which changes the card's width with no window resize event at all) —
+    // `p.windowResized` alone would have missed the second one entirely.
+    const resync = () => {
+      if (!holder.isConnected) return;
+      const next = holder.clientWidth;
+      // Guarded the same reason `holder.clientWidth || 300` is in setup: a
+      // transient 0 mid-reflow must not shrink the canvas to nothing.
+      if (!next || next === width) return;
+      width = next;
+      p.resizeCanvas(width, height);
+      particles = buildArtParticles(p, categories, total, width, height);
+    };
+    const observer = new ResizeObserver(resync);
+    observer.observe(holder);
+    p.remove = ((original) => () => {
+      observer.disconnect();
+      original.call(p);
+    })(p.remove);
   };
 
   // Superseded while we waited, or the widget was re-rendered out from under
@@ -14955,6 +15106,11 @@ function tabLabel(name) {
 function entryLabel(entry) {
   const tab = tabLabel(entry.tab);
   if (!entry.section) return tab;
+  // Chat's section is a conversation id ("conv:42") or "new" — neither is a
+  // button with real text the way Notes'/Library's sub-tabs are, so there is
+  // no good short label to build; naming the tab is honest instead of
+  // printing the raw id.
+  if (entry.tab === "chat") return tab;
   const button = document.querySelector(`[data-section="${entry.section}"]`);
   const section = button?.textContent?.trim() || entry.section;
   return `${tab} → ${section}`;
@@ -14978,7 +15134,7 @@ function recordTabVisit(name, section = null) {
   paintTabHistory();
 }
 
-function stepTabHistory(delta) {
+async function stepTabHistory(delta) {
   const next = tabHistory.index + delta;
   if (next < 0 || next >= tabHistory.stack.length) return;
   const entry = tabHistory.stack[next];
@@ -14986,9 +15142,38 @@ function stepTabHistory(delta) {
   tabHistory.navigating = true;
   try {
     switchTab(entry.tab);
-    // The sub-tab is restored after the tab, because showNotesSection acts on
-    // elements the tab switch has just revealed.
-    if (entry.section) showNotesSection(entry.section);
+    // The sub-tab is restored after the tab, because both restore paths below
+    // act on elements the tab switch has just revealed.
+    if (entry.tab === "notes" && entry.section) {
+      showNotesSection(entry.section);
+    } else if (entry.tab === "library") {
+      // Reuses the real click handler (whiteboard.js) rather than
+      // duplicating its section-show/whiteboard-landing/gallery-render
+      // logic here — a second copy is exactly the shape this codebase keeps
+      // getting bitten by. `tabHistory.navigating` (set above) makes the
+      // handler's own `recordTabVisit` call a no-op, the same guard
+      // `showNotesSection`'s call already relies on above. A bare `{tab:
+      // "library"}` entry (recorded the moment the tab itself was opened,
+      // before any sub-tab click) has no `section` — falls back to "All"
+      // (`library-view-documents`, the sub-tab that kept its old id) rather
+      // than leaving whatever sub-view happened to be on screen already.
+      document
+        .querySelector(
+          `#library-subtabs button[data-target="${entry.section || "library-view-documents"}"]`
+        )
+        ?.click();
+    } else if (entry.tab === "chat" && entry.section) {
+      if (entry.section.startsWith("conv:")) {
+        // Awaited deliberately: openConversation does its own network fetch
+        // before calling recordTabVisit, so returning early here would clear
+        // tabHistory.navigating (in the finally below) before that call runs
+        // — turning every back/forward through a saved chat into a fresh,
+        // spurious history entry instead of a no-op.
+        await openConversation(Number(entry.section.slice("conv:".length)));
+      } else if (entry.section === "new") {
+        newChatConversation();
+      }
+    }
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
     // the flag on and silently stop recording every later visit.
@@ -16128,8 +16313,34 @@ function positionScrollTopForNested(button, tab) {
   const rect = panel?.getBoundingClientRect();
   if (!rect) return;
   const margin = 24; // 1.5rem, matching every other tab's own offset
-  const scrollbarClearance = 10; // past a real (non-overlay) scrollbar
-  button.style.right = `${Math.max(margin, window.innerWidth - rect.right + margin + scrollbarClearance)}px`;
+
+  // **Right**: was unconditional — pull the button in to sit `margin` px
+  // inside the panel's own right edge, always. That is correct only when a
+  // real right-side element (like the AI Skills Skill Logs sidebar) is
+  // actually there to clear. Notes' sidebar is on the *left*, and most
+  // Library sub-views have no right column at all, so their `main`'s right
+  // edge is already close to the page's own natural right margin — pulling
+  // in *again* on top of that stacked two margins and left the button
+  // noticeably further from the corner than every other tab's flat
+  // `right: 1.5rem`. Reported directly: "too much to the left" on Notes.
+  // Only pull in when a right-side panel that would actually be covered is
+  // present; otherwise match every other tab's flat offset.
+  const rightPanel = document.querySelector("#library-view-skills:not(.hidden) #skills-sidebar");
+  if (rightPanel) {
+    const rightPanelRect = rightPanel.getBoundingClientRect();
+    // Real (non-overlay) scrollbars reserve layout width that
+    // getBoundingClientRect() doesn't subtract for; measuring it live
+    // (0 on this project's own sandbox and macOS, 15-17px on most
+    // Windows/Linux setups) replaces what used to be a flat guessed
+    // constant, wrong in both directions depending on platform.
+    const scrollbarClearance = panel.offsetWidth - panel.clientWidth;
+    button.style.right = `${Math.max(margin, window.innerWidth - rightPanelRect.left + margin + scrollbarClearance)}px`;
+  } else {
+    button.style.right = `${margin}px`;
+  }
+
+  // **Bottom**: unchanged in spirit — a panel shorter than the viewport
+  // must not leave the button floating below its own content.
   button.style.bottom = `${Math.max(margin, window.innerHeight - Math.min(rect.bottom, window.innerHeight) + margin)}px`;
 }
 
@@ -19460,10 +19671,13 @@ function jobsRunning() {
 async function refreshModelStatus() {
   try {
     // silent: a poll must never trigger the lock screen (Wave O fix).
-    // Fast-fail timeout: if the LLM hangs, the UI reflects offline in 5s.
-    modelStatus = await apiJson("/models/status", { 
+    // Fast-fail timeout: if the LLM hangs, the UI reflects offline in 8s.
+    // Backend's own worst case is ~5s (one list_models() call, its own
+    // 5s timeout) since /models/status stopped double-probing Ollama —
+    // this leaves real headroom instead of racing that budget at the wire.
+    modelStatus = await apiJson("/models/status", {
       silent: true,
-      signal: AbortSignal.timeout(5000) 
+      signal: AbortSignal.timeout(8000)
     });
     statusEverAnswered = true;
   } catch {
@@ -20233,6 +20447,9 @@ function libraryCard(item) {
     `library-card library-${item.kind}` + (item.private ? " library-private" : "");
   card.tabIndex = 0;
   card.setAttribute("role", "button");
+  // Lets a caller (flashLibraryItem) find one specific card to scroll to and
+  // highlight, the same way #entry-list li[data-id] already works for notes.
+  card.dataset.id = item.id;
   const meta = LIBRARY_KINDS.find((k) => k.key === item.kind);
 
   // A thumbnail where there is one to show. A grid of picture files that shows
@@ -24727,6 +24944,14 @@ $("chat-dock-more-panel").addEventListener("keydown", (event) => {
 });
 $("chat-stop").addEventListener("click", () => chatController && chatController.abort());
 $("chat-new").addEventListener("click", newChatConversation);
+{
+  const sortSelect = $("chat-sidebar-sort");
+  sortSelect.value = localStorage.getItem(CHAT_SIDEBAR_SORT_KEY) || "recent";
+  sortSelect.addEventListener("change", () => {
+    localStorage.setItem(CHAT_SIDEBAR_SORT_KEY, sortSelect.value);
+    loadConversationList();
+  });
+}
 $("persona-peek").addEventListener("click", togglePersonaPrompt);
 // Searching your chats lives in the Library now (§36F) — with the documents,
 // the files and the bin, and with sort beside it. This is the way there, said
@@ -26296,9 +26521,10 @@ let onboardingDiagnosticsToken = 0;
 // silently into Uncategorised.
 async function loadOnboardingDiagnostics(forSlide) {
   const token = ++onboardingDiagnosticsToken;
-  const [models, storage] = await Promise.all([
+  const [models, storage, notebook] = await Promise.all([
     apiJson("/models/status").catch(() => null),
     apiJson("/storage").catch(() => null),
+    apiJson("/entries/count").catch(() => null),
   ]);
   if (token !== onboardingDiagnosticsToken) return; // superseded by a later slide
   if (onboardingIndex !== forSlide) return; // the user moved on already
@@ -26322,6 +26548,71 @@ async function loadOnboardingDiagnostics(forSlide) {
     lines.push("Couldn't check where your notebook lives just now.");
   }
   $("onboarding-text").textContent = lines.join(" ");
+  renderOnboardingActions(models, notebook);
+}
+
+// The two concrete gaps ROADMAP.md named for onboarding: offering to pull a
+// model, and seeding example notes so the Graph/Timeline/Dashboard aren't
+// empty on a first look. Both are one-click offers on the setup slide,
+// never automatic — a fresh install with no notes and no model is exactly
+// the state a real, deliberate first run looks like too, so this only ever
+// acts on an explicit click.
+function renderOnboardingActions(models, notebook) {
+  const box = $("onboarding-actions");
+  box.replaceChildren();
+  const offers = [];
+
+  if (models && models.ollama_running && !models.chat_model_installed) {
+    offers.push(
+      smallButton(
+        "Download a starter model",
+        "Pull llama3.2 (~2.2 GB) with Ollama, in the background",
+        async (event) => {
+          event.target.disabled = true;
+          event.target.textContent = "Downloading in the background…";
+          try {
+            await api("/models/pull", {
+              method: "POST",
+              body: JSON.stringify({ name: "llama3.2" }),
+            });
+            refreshModelStatus();
+          } catch (error) {
+            event.target.disabled = false;
+            event.target.textContent = "Download a starter model";
+            toast(error.message || "Couldn't start the download.", true);
+          }
+        },
+        false
+      )
+    );
+  }
+
+  if (notebook && notebook.count === 0) {
+    offers.push(
+      smallButton(
+        "Add example notes",
+        "Seed a few linked notes so the Graph, Timeline and Dashboard have something to show",
+        async (event) => {
+          event.target.disabled = true;
+          try {
+            const result = await apiJson("/entries/seed-examples", { method: "POST" });
+            event.target.textContent =
+              result && result.created
+                ? `Added ${result.created} — look for the "welcome" tag`
+                : "Added";
+            loadEntries();
+          } catch (error) {
+            event.target.disabled = false;
+            toast(error.message || "Couldn't add the example notes.", true);
+          }
+        },
+        false
+      )
+    );
+  }
+
+  box.classList.toggle("hidden", offers.length === 0);
+  for (const button of offers) box.appendChild(button);
 }
 
 function renderOnboardingSlide() {

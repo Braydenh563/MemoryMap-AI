@@ -22,6 +22,8 @@ block_cipher = None
 # packaging/windows/memorymap.spec -> repo root is two levels up.
 REPO_ROOT = Path(SPECPATH).resolve().parents[1]
 FRONTEND_DIR = REPO_ROOT / "frontend"
+MIGRATIONS_DIR = REPO_ROOT / "migrations"
+ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 ENTRY_SCRIPT = REPO_ROOT / "src" / "memorymap" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon.ico")
 
@@ -34,6 +36,14 @@ a = Analysis(
         # FRONTEND_DIR and __main__.py's icon lookup both expect exactly
         # that path once sys.frozen is true (see their own comments).
         (str(FRONTEND_DIR), "frontend"),
+        # Same reason, same extraction-root convention: core/database.py's
+        # _migrations_root() looks for these two right beside "frontend"
+        # once sys.frozen is true. Without them, a frozen build silently
+        # falls back to "Alembic config not found" (logged, never fatal —
+        # see _ensure_alembic_baseline's own docstring) and every install
+        # stays on the pre-Alembic additive-only path.
+        (str(MIGRATIONS_DIR), "migrations"),
+        (str(ALEMBIC_INI), "."),
     ],
     hiddenimports=[
         # uvicorn picks its event loop / protocol implementations at

@@ -1,0 +1,40 @@
+Alembic migrations for MemoryMap AI.
+
+**Read `core/database.py`'s `_ensure_alembic_baseline` docstring first.**
+This exists alongside `DatabaseManager`'s own additive auto-migrator
+(`_add_missing_columns`), not instead of it — a plain new column still goes
+through that, unchanged. This is the tool for a real *rename* or *drop*,
+which the additive migrator was never able to do.
+
+Every database this app opens, existing or brand new, gets stamped to the
+current head revision at startup — `_ensure_alembic_baseline` runs
+`command.stamp(cfg, "head")` (not `upgrade`) the first time it sees a
+database with no `alembic_version` table, because that database's schema
+already matches head by construction (`create_all()` + the auto-migrator
+built it). Only once a database is already stamped does a later startup
+take the `command.upgrade(cfg, "head")` path — a no-op until a real new
+migration exists.
+
+**To add a real migration** (a rename or drop):
+
+1. Change the model in `core/database.py` the normal way.
+2. `PYTHONPATH=src alembic revision --autogenerate -m "describe the change"`
+   — point `MEMORYMAP_DATA_DIR` at a *copy* of a database with the old
+   schema first, so autogenerate has something to diff against; against an
+   empty or already-current database it will generate nothing.
+3. **Read the generated migration.** Autogenerate does not reliably detect
+   a rename as a rename — it is very likely to see "drop column A, add
+   column B" instead, which loses every existing value in that column. Edit
+   it by hand to use `op.alter_column(..., new_column_name=...)` when that
+   is really what happened.
+4. Test the migration against a copy of a real (or realistic) pre-change
+   database, not just a fresh one — `alembic upgrade head` should leave
+   existing data intact and correctly transformed.
+5. Add a test alongside `tests/test_alembic_baseline.py`'s existing ones
+   that builds a pre-migration database by hand and asserts the migrated
+   result is correct.
+
+`render_as_batch=True` is already set in `env.py` — SQLite can't `ALTER`
+most column properties in place, so every migration that touches an
+existing column needs Alembic's batch mode (rebuild-and-swap) to do it at
+all. This is set once there rather than per-migration.

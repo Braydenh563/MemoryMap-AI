@@ -7,6 +7,62 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — the Documents Library sub-tab looked nothing like the rest of the app
+
+Reported bluntly and repeatedly: "SOOOO ugly and not consistent with the
+other application design style." Root cause, found by screenshotting it
+beside the "All" library view: its rows had no scoped CSS at all, so every
+one fell through to the app's default filled button style — a solid-accent
+bar with the title and word count crammed onto one line. Given a document
+icon and a proper card look (border, hover state, title/meta on separate
+lines) matching the rest of the Library. Verified in both themes.
+
+### Added — back/forward now covers switching between saved chats
+
+Opening a different saved conversation, or starting a new one, is now a
+real history step — Back/Forward restores the right chat. Fixed a genuine
+async-ordering bug in the process: `stepTabHistory` now awaits
+`openConversation` on that branch, because `openConversation` calls
+`recordTabVisit` itself only after a network fetch — without the await,
+every Back/Forward through a saved chat would have recorded a spurious new
+entry rather than being a no-op. Caught live via Playwright before it
+shipped.
+
+### Added — onboarding can pull a model and seed example notes
+
+The first-run tour's "Your setup" slide now makes two one-click offers,
+neither automatic: download a starter model when Ollama is running but none
+is installed, and add five short, linked example notes when the notebook is
+genuinely empty — so the Graph, Timeline and Dashboard have something to show
+before your first real note. Seeding refuses server-side on any notebook
+that already has a note, so it can never run twice or land on top of real
+work.
+
+### Added — "Build a skill", a built-in skill that writes skills
+
+Interviews you about a job you do often — what it should do, whether it
+touches your notes, what should be fill-in-the-blank each run — then saves it
+as a real skill with `save_skill`: ordered steps and an actual tool
+allowlist, not a paraphrase saved as a sentence. Checks `list_skills` first
+so a near-duplicate ask reuses or refines what's already there instead of
+shipping a second copy.
+
+### Fixed — the "AI isn't available" pill could be wrong while Ollama was up
+
+`/models/status` used to probe Ollama twice on every poll — `is_running()`
+and `list_models()` both hit its own `/api/tags` — which could take up to 7s
+combined against the frontend's 5s abort on that exact call. One reachability
+check now does both jobs, and the frontend's timeout has real headroom above
+the new (lower) worst case instead of racing it at the wire.
+
+### Fixed — the agent's "View" button after deleting a note pointed nowhere
+
+A destructive result reused the same navigation as every other change, which
+only ever looks in the ordinary notes list — a note the agent just moved to
+the bin was never there, so the button silently found nothing. It now opens
+the Library's own Bin filter and highlights the note there, which is the one
+place a binned note actually lives.
+
 ### Added — a minimap and saved views for the Graph
 
 A minimap in the corner of the map shows every note at once with a rectangle marking what you're currently looking at; click anywhere on it to jump there, keeping your zoom level. Alongside it, **saved views**: name a combination of layout, colouring, filters and position, and come back to it later. Both were the missing half of "the graph is a tool" once a notebook gets dense enough that the force layout stops being readable.

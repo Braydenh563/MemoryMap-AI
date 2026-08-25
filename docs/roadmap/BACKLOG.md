@@ -1506,9 +1506,22 @@ Small, concrete, each seen in the running app:
   destructive-result question below is still open, and it's a small,
   separate decision, not a rebuild.
 
-  Still open: whether a **destructive** result (a note/document/category
-  delete) should offer to navigate to the recycle bin rather than to a
-  thing that no longer exists at that id.
+  ~~Still open: whether a **destructive** result... should offer to
+  navigate to the recycle bin~~ **Done for notes, the only one of the three
+  that was actually wired.** `changeRow`'s "View" button on a `delete_note`
+  result reused `flashEntry`, which only ever looks in the ordinary browse
+  list — a note just moved to the bin is never there, so it silently found
+  nothing. `delete_note` now gets its own "View in bin" button
+  (`flashLibraryItem`, `frontend/app.js`), which opens the Library's Bin
+  filter and highlights the note there — the one place it actually lives.
+  Verified live (Playwright): create → delete via the API → call the new
+  function → lands on Library, Bin filter active, correct card found and
+  highlighted, across three repeated runs. Document and category deletes
+  never route through `changeRow`'s note-id branch at all (`delete_document`
+  is parked for a confirm rather than reaching this code path, per
+  `agent.py`'s own comment on `_DOCUMENT_ID_FIELD`; there's no
+  `delete_category` change event either) — so there was nothing else to fix
+  under this item, not a partial fix.
 
 - ~~**Magic Add schedules relative reminders a whole timezone offset late.**~~
   **fixed** — the route built the user's clock as `utcnow() + offset`
@@ -1531,9 +1544,12 @@ Small, concrete, each seen in the running app:
   logs its prompt composition as memorymap.agent "prompt composition").
   Next step per §11a: read those logs from a real 3-turn chat, see whether
   notes or history dominates, and only then trim the variable half.
-- **A skill that writes skills.** `save_skill` already takes steps and tool
-  allowlists (§21), so a built-in "skill author" skill that interviews the
-  user and calls save_skill is small and real. Not started.
+- ~~**A skill that writes skills.**~~ **Built** — "Build a skill" in
+  `ai/skills.py`'s `BUILTIN_SKILLS`, same `ask_user`-driven interview shape
+  as "Interview me about an idea": asks what the job should do, whether it
+  touches notes (decides the tool allowlist), what should be an input, drafts
+  the whole thing and confirms before calling `save_skill` — and checks
+  `list_skills` first so a near-duplicate ask reuses rather than doubling up.
 - **Appearance settings page (§15).** Asked whether it can be improved;
   nobody has audited it against §15 yet. The chat empty-state emblem now
   animates (same motion switch as the ai-mark), which was the one concrete

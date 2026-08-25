@@ -690,6 +690,51 @@ BUILTIN_SKILLS: list[dict] = [
         ],
         "tools": ["search_notes", "get_note", "get_current_time", "set_reminder"],
     },
+    # ROADMAP §88.2's Kortex/Eden read named this the cheapest of everything
+    # worth taking from there — "it is a skill, not a feature". The point,
+    # from that read: a generic "write about {{topic}}" prompt hands back
+    # the model's own generic take; asking the *person* questions about
+    # their own half-formed idea and writing up their answers is a genuinely
+    # different output, and this app already has the one tool (`ask_user`)
+    # that makes a real back-and-forth possible mid-skill.
+    {
+        "name": "Interview me about an idea",
+        "description": "Asks you questions to draw out your own thinking, then saves it as a note — not the AI's take on the topic, yours.",
+        "when_to_use": "when an idea is still half-formed and you want to think it through out loud, not be handed a generic explanation",
+        "prompt": "Interview me about {{topic}} — ask me questions rather than explaining it back to me.",
+        "steps": [
+            "Check whether I already have notes on {{topic}}, so you don't ask me to repeat what I've already written down.",
+            "Ask me one open question about {{topic}} — what's prompting it, or what I already think — and wait for my answer before asking anything else.",
+            "Ask 2-3 more questions, one at a time, each building on what I just said rather than a fixed list — the kind a good interviewer asks to get specifics instead of generalities.",
+            "Reflect back what you've understood, in my own words and phrasing where you can, and ask me to correct anything that's off before going further.",
+            "Write it up as a note: my thinking, in the order it came out, not a generic explanation of {{topic}} and not your own opinions on it. Ask before saving.",
+        ],
+        "inputs": [{"name": "topic", "label": "What idea do you want to think through?"}],
+        "tools": [*_READING_TOOLS, "ask_user", "create_note"],
+    },
+    # BACKLOG §22: "the way skills are used... it doesn't recognise that it
+    # needs to use tools" was fixed at the mechanism level (this module's own
+    # header), but a user still has to know that shape exists to use it —
+    # `save_skill` already takes steps and a tool allowlist, so the missing
+    # piece was never capability, only that nobody had wired an interview
+    # around it. Reuses the same ask_user back-and-forth as the skill above,
+    # aimed at *building* a skill instead of *thinking through* an idea.
+    {
+        "name": "Build a skill",
+        "description": "Interviews you about a job you do often, then saves it as a real skill — with steps and an actual tool allowlist, not just a saved sentence.",
+        "when_to_use": "when something you keep asking the AI to do by hand should become a one-click skill instead",
+        "prompt": "Help me turn {{task}} into a saved skill.",
+        "steps": [
+            "Check list_skills first — {{task}} may already be close to an existing skill, and a near-duplicate is worse than reusing or refining the one that's there.",
+            "Ask what {{task}} should actually do, step by step, in the order they'd do it themselves — one question, wait for the answer, rather than a checklist dumped at once.",
+            "Ask whether it should ever change their notes (create, edit, tag, delete, set reminders) or only read and answer — this decides the tool allowlist, and a skill that changes notes needs saying so plainly.",
+            "Ask if any part of it should be a fill-in-the-blank each time it runs (a topic, a deadline, a tag) rather than fixed — that becomes the skill's inputs.",
+            "Draft the name, prompt, ordered steps, the specific tools each step needs (nothing broader than that), and when_to_use, then show the draft and ask before saving anything.",
+            "Save it with save_skill once they confirm, using exactly the steps and tools agreed — not a paraphrase.",
+        ],
+        "inputs": [{"name": "task", "label": "What do you want to turn into a skill?"}],
+        "tools": [*_READING_TOOLS, "ask_user", "list_skills", "save_skill"],
+    },
 ]
 
 

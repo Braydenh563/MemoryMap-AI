@@ -745,6 +745,19 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="chat-new" class="small" type="button" title="Start a fresh conversation"
             aria-label="Start a fresh conversation"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
         </div>
+        <!-- Live list item 11: "conversations sort by recency and nothing
+             else... this is a list-rendering job" — the full sort/search
+             Library already has (title="Search and sort everything you
+             have ever asked", below) is one click further than this
+             sidebar, so a quick in-place choice here is worth its own small
+             control rather than sending every sort change through there. -->
+        <select id="chat-sidebar-sort" class="ghost small chat-sidebar-sort"
+          aria-label="Sort your saved chats" title="Sort your saved chats">
+          <option value="recent">Recent</option>
+          <option value="turns">Most turns</option>
+          <option value="tokens">Most tokens</option>
+          <option value="alpha">A–Z</option>
+        </select>
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet — ask something!</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
@@ -1206,16 +1219,33 @@ Link to another note with [[its first few words]]."></textarea>
            remembers whether it was open. Nothing was removed. -->
       <div class="graph-toolbar">
         <h2>Graph</h2>
+        <!-- Moved out of #graph-toolbar-secondary and onto the header's own
+             line, so the header row actually carries some of the toolbar
+             instead of just the title and the two end buttons — asked for
+             directly: "have some on the top row so the dock isn't taking up
+             three rows". `#graph-toolbar-secondary` uses `display: contents`
+             (for the mobile collapse below), and a flex item inside a
+             `display: contents` wrapper would not size to its own content no
+             matter what was tried in CSS — a real child of `.graph-toolbar`
+             does, with no such fight. -->
+        <div class="graph-toolbar-group graph-toolbar-group-header">
+          <input id="graph-search" type="search" placeholder="Highlight notes…"
+            aria-label="Highlight matching notes in the graph">
+          <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
+            aria-controls="graph-trace"
+            title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+        </div>
         <button id="graph-mobile-more-toggle" class="ghost small icon-only mobile-only" aria-expanded="false" aria-controls="graph-toolbar-secondary" title="More options" aria-label="More options"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
-        <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
 
         <div id="graph-toolbar-secondary" class="graph-toolbar-secondary">
-          <!-- Row one: the controls you reach for while reading the map —
-               finding something, and changing its shape. Row two (below) is
-               everything you do *to* the map: panels, saved views, output.
-               Two explicit rows, because the strip has more controls than fit
-               on one at any realistic width and an accidental wrap put an
-               arbitrary cut in the middle of a group. Reported twice. -->
+          <!-- One flexible row, not two forced ones. It used to be a hard
+               split (reading-the-map controls above, acting-on-it controls
+               below) regardless of whether that much actually fit on one
+               line. flex-wrap now decides the break from real available
+               width, so a wide window gets one continuous row and only a
+               narrow one wraps — and only where a group actually runs out of
+               room, never mid-group, because .graph-toolbar-group itself
+               never splits. -->
           <div class="graph-toolbar-row">
           <!-- The strip is grouped rather than being one flat run of a dozen
                controls. Reported directly ("the docked ui at the top of the
@@ -1223,16 +1253,9 @@ Link to another note with [[its first few words]]."></textarea>
                screenshot that came with it: everything carried the same
                weight, so nothing read as related to anything else and the
                second row was mostly empty space. The groups below are the
-               actual categories — find, shape, panels, saved views, export —
-               and .graph-toolbar-group draws one separator between each. -->
-          <div class="graph-toolbar-group">
-            <input id="graph-search" type="search" placeholder="Highlight notes…"
-              aria-label="Highlight matching notes in the graph">
-            <button id="graph-trace-toggle" class="ghost small" aria-expanded="false"
-              aria-controls="graph-trace"
-              title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-          </div>
-
+               actual categories — shape, panels, saved views, export — and
+               .graph-toolbar-group draws one separator between each. Find
+               (search/Trace) moved up to the header row, above. -->
           <div class="graph-toolbar-group">
             <label class="muted" for="graph-layout">Layout</label>
             <div id="graph-layout" class="segmented-control" aria-label="How the notes are arranged">
@@ -1241,32 +1264,26 @@ Link to another note with [[its first few words]]."></textarea>
               <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
               <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
             </div>
+          </div>
+
+          <!-- Split from the Layout group above, which it used to sit inside
+               with no label of its own — the two segmented controls read as
+               one continuous group ("Layout: Force Tree Radial Arc Category
+               Cluster"), so it was unclear the second pair set colour, not
+               shape. Reported as unclear grouping; a hairline now separates
+               them and "Colour" names what these radios actually do. -->
+          <div class="graph-toolbar-group">
+            <label class="muted" for="graph-colour">Colour</label>
             <div id="graph-colour" class="segmented-control" aria-label="What the note colours mean">
               <label><input type="radio" name="graph-colour" value="category" checked> Category</label>
               <label><input type="radio" name="graph-colour" value="cluster"> Cluster</label>
             </div>
           </div>
 
-          </div>
-
-          <div class="graph-toolbar-row">
           <div class="graph-toolbar-group">
             <button id="graph-options-toggle" class="ghost small" aria-expanded="false"
               aria-controls="graph-options"
-              title="Physics, labels, similarity lines and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
-            <!-- One control for the minimap, not two. It was a toggle button;
-                 adding a separate corner picker beside it would have made the
-                 crowding this redesign is fixing measurably worse, and "off"
-                 is just another position as far as the user is concerned. -->
-            <label class="muted" for="graph-minimap-corner">Minimap</label>
-            <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
-              title="Where the minimap sits, or off">
-              <option value="off">Off</option>
-              <option value="tl">Top left</option>
-              <option value="tr">Top right</option>
-              <option value="bl">Bottom left</option>
-              <option value="br">Bottom right</option>
-            </select>
+              title="Physics, labels, similarity lines, minimap and link suggestions"><i class="ph ph-gear ph-lead" aria-hidden="true"></i> Options</button>
           </div>
 
           <div class="graph-toolbar-group">
@@ -1289,12 +1306,22 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
         </div>
 
-        <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
-          aria-expanded="false" aria-controls="graph-help-panel"
-          title="Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, drag to arrange, scroll or use the buttons to zoom, click a note to edit it right here, double-click to pin it in place, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
-          aria-label="How to use this map">
-          <i class="ph ph-question" aria-hidden="true"></i>
-        </button>
+        <!-- Grouped rather than "+ New note" living beside the "Graph" title
+             and "?" living alone at the far end — two unrelated single
+             controls bookending the strip read as leftovers, not a group.
+             Reported directly: move it next to Help so the header row is
+             "title, then the two things that aren't part of any toolbar
+             group" instead of "title plus one loose action, then a gap,
+             then another loose action". -->
+        <div class="graph-toolbar-end">
+          <button id="graph-add-node" class="small" title="Add a new note straight onto the map">＋ New note</button>
+          <button type="button" id="graph-help-toggle" class="ghost small graph-help-toggle"
+            aria-expanded="false" aria-controls="graph-help-panel"
+            title="Solid lines are links you made, dashed lines are trains of thought, dotted lines are notes that mean similar things. Hover a note to spotlight its connections, drag to arrange, scroll or use the buttons to zoom, click a note to edit it right here, double-click to pin it in place, and click a legend colour to hide that category. Double-click empty space to add a note there. Drop one note onto another to link them, and use Trace to see how any two notes connect."
+            aria-label="How to use this map">
+            <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
       <div id="graph-help-panel" class="graph-help-panel hidden" role="dialog" aria-label="How to use this map">
         <p class="muted">
@@ -1345,6 +1372,22 @@ Link to another note with [[its first few words]]."></textarea>
           <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
             <input type="checkbox" id="graph-labels" checked> Labels
           </label>
+        </span>
+        <!-- Moved out of the main toolbar strip: a corner position you set
+             once and leave is exactly the "tuned once" shape this panel
+             exists for (see the comment on .graph-options above), not a
+             control you reach for while reading the map. Reported as
+             crowding the strip; one fewer label+select pair up top. -->
+        <span class="graph-minimap-option">
+          <label class="muted" for="graph-minimap-corner">Minimap</label>
+          <select id="graph-minimap-corner" class="ghost small" aria-label="Minimap position"
+            title="Where the minimap sits, or off">
+            <option value="off">Off</option>
+            <option value="tl">Top left</option>
+            <option value="tr">Top right</option>
+            <option value="bl">Bottom left</option>
+            <option value="br">Bottom right</option>
+          </select>
         </span>
         <button id="link-suggest-btn" class="ghost small"
           title="Let the AI suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
@@ -4394,6 +4437,11 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="onboarding-icon" id="onboarding-icon" aria-hidden="true"></div>
         <h2 id="onboarding-title"></h2>
         <p id="onboarding-text" class="muted"></p>
+        <!-- Populated by loadOnboardingDiagnostics on the "Your setup" slide
+             only — offering to pull a model and/or seed example notes, per
+             ROADMAP.md's onboarding item. Empty and unrendered on every
+             other slide. -->
+        <div id="onboarding-actions" class="row onboarding-actions hidden"></div>
       </div>
       <div class="onboarding-dots" id="onboarding-dots" aria-hidden="true"></div>
       <div class="row space-between">

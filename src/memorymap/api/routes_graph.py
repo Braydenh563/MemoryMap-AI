@@ -106,6 +106,12 @@ deps.register_cache_reset(reset_graph_cache)
 
 
 _HEADING_MD = re.compile(r"^\s{0,3}#{1,6}\s+", re.M)
+# A callout's own opening line — `> [!tip] Remember` — is a blockquote marker
+# plus the `[!kind]` tag (editor.js's mdCalloutElement parses the same shape).
+# Left unstripped, a note that opens with a callout showed as a graph node
+# label reading literally "Review > [!tip] Remem…" — reported directly, and
+# the fix is the callout equivalent of what _HEADING_MD already does for `#`.
+_CALLOUT_MD = re.compile(r"^\s{0,3}>\s*\[!\w+\]\s*", re.M)
 
 
 def _preview(text: str, length: int = 40) -> str:
@@ -118,6 +124,7 @@ def _preview(text: str, length: int = 40) -> str:
     since those are specific to what a graph label is for.
     """
     text = _HEADING_MD.sub("", text)
+    text = _CALLOUT_MD.sub("", text)
     text = re.sub(r"\[\[([^\[\]]{1,120})\]\]", r"\1", text)
     text = manager.strip_inline_markdown(text)
     text = " ".join(text.split())

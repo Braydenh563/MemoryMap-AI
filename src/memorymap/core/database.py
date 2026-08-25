@@ -13,6 +13,9 @@ need a real migration tool, so don't do those casually.
 
 from __future__ import annotations
 
+import logging
+import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -648,6 +651,99 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+_logger = logging.getLogger("memorymap.database")
+
+
+def _migrations_root() -> Path:
+    """Where `alembic.ini` and `migrations/` live, source or frozen.
+
+    Mirrors `api/app.py`'s own `FRONTEND_DIR` resolution exactly — same
+    directory depth from this file (`src/memorymap/core/database.py`) to
+    the repo root, same `sys.frozen`/`_MEIPASS` split for a PyInstaller
+    build. Kept here rather than imported from `app.py` because `core/` is
+    the bottom layer (`deps.register_cache_reset`'s own docstring, above,
+    already explains why that direction matters in this codebase).
+    """
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    return Path(__file__).resolve().parents[3]
+
+
+def _ensure_alembic_baseline(db_path: Path) -> None:
+    """Make Alembic aware of this exact database, without ever running DDL
+    against one that doesn't need it.
+
+    Every database this app opens already has the correct current schema by
+    the time this runs — `create_all()` and `_add_missing_columns()` above
+    guarantee that, unchanged, for both a brand-new database and an existing
+    one missing a column. What Alembic adds is only for the day a *rename*
+    or *drop* is actually needed, which those two never could do (`core/
+    database.py`'s own module docstring has said so from the start). So:
+
+    - No `alembic_version` table yet (every database before this function
+      existed, plus every fresh one `create_all()` just built) → **stamp**
+      to the baseline revision. Stamping records "this database is already
+      at revision X" without executing revision X's `upgrade()` — correct
+      here specifically because the schema already matches it by
+      construction, not because stamping is generally safe to reach for.
+    - `alembic_version` already exists → a previous startup already
+      stamped or migrated this database, so **upgrade** to head. A no-op
+      when nothing newer than what's stamped has been added; applies any
+      real migration that has, the actual point of wiring this in at all.
+
+    Never allowed to stop the app from starting: this is new, additive
+    infrastructure layered on a schema mechanism that already works on its
+    own, not a replacement for it. Any failure here — a packaging issue in
+    a frozen build that didn't bundle `migrations/` correctly, a locked
+    file, anything — is logged and swallowed rather than raised.
+
+    `DatabaseManager.__init__` skips calling this at all under pytest
+    (`PYTEST_CURRENT_TEST`, which pytest itself sets — no per-test opt-in
+    needed) — a throwaway `tmp_path` database that gets discarded the
+    moment its one test ends has nothing to gain from being stamped, and
+    this measured ~30ms per call against a suite where `DatabaseManager`
+    runs in a large fraction of the ~1,600 tests: real minutes, for a
+    database that will never see a second startup to make the "upgrade"
+    half of this function's job matter. The skip lives at the call site,
+    not in here, so `tests/test_alembic_baseline.py` can call this function
+    directly and actually exercise it.
+    """
+    try:
+        from alembic import command
+        from alembic.config import Config
+        from alembic.runtime.migration import MigrationContext
+        from sqlalchemy import create_engine as _create_engine
+
+        root = _migrations_root()
+        ini_path = root / "alembic.ini"
+        if not ini_path.is_file():
+            _logger.warning("Alembic config not found at %s — skipping", ini_path)
+            return
+
+        cfg = Config(str(ini_path))
+        cfg.set_main_option("script_location", str(root / "migrations"))
+        cfg.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+        # alembic.ini's own [loggers] section defaults to INFO, meant for a
+        # human watching a terminal run `alembic upgrade head` by hand — not
+        # for every one of this app's own startups. This runs silently
+        # unless something actually goes wrong (the except below still logs).
+        logging.getLogger("alembic").setLevel(logging.WARNING)
+
+        probe_engine = _create_engine(f"sqlite:///{db_path}")
+        try:
+            with probe_engine.connect() as connection:
+                current = MigrationContext.configure(connection).get_current_revision()
+        finally:
+            probe_engine.dispose()
+
+        if current is None:
+            command.stamp(cfg, "head")
+        else:
+            command.upgrade(cfg, "head")
+    except Exception:  # noqa: BLE001 — see docstring: never fatal to startup
+        _logger.warning("Alembic baseline/upgrade step failed", exc_info=True)
+
+
 class DatabaseManager:
     """Owns the one engine + session factory for the whole app."""
 
@@ -683,6 +779,12 @@ class DatabaseManager:
         self._add_missing_columns()
         self._ensure_fts5()
         self._ensure_indexes()
+        # See _ensure_alembic_baseline's own docstring for why this is
+        # skipped under pytest — a throwaway per-test database has nothing
+        # to gain from being stamped, and the constructor runs in most of
+        # this suite's ~1,600 tests.
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            _ensure_alembic_baseline(db_path)
         self._session_factory = sessionmaker(
             bind=self.engine, expire_on_commit=False
         )

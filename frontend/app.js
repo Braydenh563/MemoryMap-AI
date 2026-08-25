@@ -1106,6 +1106,19 @@ function entryItem(entry, options = {}) {
     meta.appendChild(mark);
   }
 
+  // Where a web-reader clipping came from (BACKLOG §65's "source as
+  // metadata"). Opens the real page — the note's own body already has the
+  // same link inline, this is the at-a-glance version.
+  if (entry.source_url) {
+    const sourceChip = chip(
+      `ph:globe ${entry.source_title || entry.source_url}`,
+      "tag",
+      () => window.open(entry.source_url, "_blank", "noopener,noreferrer")
+    );
+    sourceChip.title = `Open the source: ${entry.source_url}`;
+    meta.appendChild(sourceChip);
+  }
+
   // What this note's own "tomorrow" meant on the day it was written (§10A).
   // A chip rather than a mark inside the text: `renderNoteText` already
   // layers wiki links, inline markdown and filter highlighting through each
@@ -2566,10 +2579,19 @@ function clippingMarkdown(text, source) {
 
 async function saveSelectionAsNote(text, { draft = false, source = null } = {}) {
   const content = source ? clippingMarkdown(text, source) : text;
+  // Real metadata alongside the body's own blockquote+link (BACKLOG §65's
+  // "source as metadata, not just folded into body text") — the body copy
+  // stays so the note is still a plain, portable markdown file with no app
+  // behind it; the columns are what let a note card show a real badge or a
+  // future "everything clipped from this site" filter without parsing it
+  // back out.
+  const sourceFields = source
+    ? { source_url: source.url, source_title: source.title || "" }
+    : {};
   try {
     const created = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, is_draft: draft }),
+      body: JSON.stringify({ content, is_draft: draft, ...sourceFields }),
     });
     // Undoable, like every other create in this app (the global stack —
     // see pushUndo). Saving a clipping by accident and having no way back
@@ -2583,7 +2605,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       async () => {
         await apiJson("/entries", {
           method: "POST",
-          body: JSON.stringify({ content, is_draft: draft }),
+          body: JSON.stringify({ content, is_draft: draft, ...sourceFields }),
         });
         await loadEntries();
       }

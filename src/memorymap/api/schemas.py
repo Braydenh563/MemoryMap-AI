@@ -49,6 +49,14 @@ class EntryCreate(BaseModel):
     document_ids: list[int] = Field(default_factory=list, max_length=10)
     # A note captured from the text-selection popup, not yet reviewed.
     is_draft: bool = False
+    # Where a web-reader clipping came from (BACKLOG §65) — real metadata,
+    # not parsed back out of the markdown blockquote `saveSelectionAsNote`
+    # (app.js) still writes into `content` for portability. Both optional
+    # and independent: a source without a title still renders (falls back
+    # to the URL), the same as the frontend's own `clippingMarkdown` already
+    # falls back.
+    source_url: str | None = Field(default=None, max_length=2000)
+    source_title: str | None = Field(default=None, max_length=300)
 
 
 class EntryUpdate(BaseModel):
@@ -131,6 +139,9 @@ class EntryOut(BaseModel):
     is_private: bool = False
     # Captured from the text-selection popup, not yet reviewed.
     is_draft: bool = False
+    # Where a web-reader clipping came from, when it was one (BACKLOG §65).
+    source_url: str | None = None
+    source_title: str | None = None
     created_at: datetime
     deleted_at: datetime | None = None  # set only in the recycle-bin view
     archived_at: datetime | None = None  # set only when archived (BACKLOG §30b)

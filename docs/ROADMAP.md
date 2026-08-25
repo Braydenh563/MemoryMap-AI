@@ -175,9 +175,32 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    reproduced in this sandbox's Chromium and needs the actual browser/OS it
    happens on.
 
-4. **The Documents editor is behind the rest of the app** (BACKLOG §64). Also
-   still open there: `GET /documents` has no search parameter, and the
-   whiteboard's `aria-label` coverage lags the Graph's.
+4. **The Documents editor is behind the rest of the app** (BACKLOG §64) —
+   the item's own text already said "not scoped in detail here," and §87.1's
+   audit found it **stronger than this claim**: autosave, outline, find/
+   replace, preview, AI edit, extract-to-notes, and md/PDF export all
+   already exist. Live-checked again this session (created a document,
+   opened the editor, zero console errors) rather than left as an
+   assumption — nothing concretely broken surfaced, and per this file's own
+   rule ("say what specifically, next time it's reported"), no speculative
+   redesign was invented to fill the gap. Leaving this line open only for a
+   real, specific complaint if one arrives.
+   ~~`GET /documents` has no search parameter~~ **Built**: `?q=` matches
+   title *and* content (`Document.title.ilike | Document.content.ilike`),
+   mirroring a filter `ai/tools/documents.py`'s `_list_documents` already
+   had for the AI — the gap was only ever that a person couldn't reach it.
+   The Library's Documents search box now sends it server-side instead of
+   filtering titles client-side (all it could do — `_summary()` never sent
+   a document's body to the browser at all). 5 new tests
+   (`test_documents_api.py`).
+   ~~The whiteboard's `aria-label` coverage lags the Graph's~~ **Already
+   fixed, reconfirmed live rather than trusted**: §87.7b's "40 form
+   controls… all now carry a name… zero remaining" claim was checked
+   directly this session with a fresh DOM sweep of both the whiteboard
+   landing view and an open canvas (85 interactive controls total) — one
+   false positive (`#wb-snap-toggle`, a checkbox whose accessible name comes
+   from its wrapping `<label>`'s visible text, invisible to a naive
+   textContent-on-the-input check) and nothing else. The claim holds.
 
 5. **Claim-specificity in the hallucination net.** `agent.unsupported_claims`
    catches a claim with *no* matching write ("I tagged it" when nothing was)
@@ -593,35 +616,144 @@ web reader with highlight capture.
 
 **Worth taking, ranked by value per unit of effort:**
 
-1. **Boards hold *references*, never copies.** Eden's single best structural
-   idea, and it is the honest answer to the still-open **note clusters** ask
-   (§87.3): a cluster is a *board of references* — nothing is duplicated, a
-   note can be on many boards, and removing it from one changes nothing else.
-   This app already has a whiteboard with `group_id`; the missing piece is that
-   a board can hold a *reference to a note* as a first-class citizen.
+~~1. **Boards hold *references*, never copies.**~~ **Already built —
+   checked directly, not assumed missing, and this section's own framing
+   was stale.** `WhiteboardNode.entry_id` is a plain foreign key, never a
+   content copy, and `POST /whiteboard/nodes`' own dedup check is scoped to
+   `(entry_id, board_id)` together — not `entry_id` alone — specifically so
+   the same note can sit on several boards at once. Verified end to end,
+   not just read: the same note added to two different boards produces two
+   independent rows; deleting the reference on one board leaves the other
+   board's reference and the note itself completely untouched. New
+   regression test, `test_the_same_note_can_be_referenced_from_two_boards_
+   at_once` (`test_whiteboard.py`) — the two existing whiteboard tests
+   nearby cover *moving* a card between boards and *deduping* two drops on
+   the *same* board, neither of which exercises two simultaneous
+   references, which is the actual claim this item made. This is still the
+   honest answer to the open **note clusters** ask (§87.3) — a cluster is a
+   board of these references — but there is nothing left to build for the
+   reference mechanism itself; what remains, if this is picked up again, is
+   UI for a person to *find* a note's other boards from one of them (the
+   data already supports the query, nothing surfaces it).
 2. **Drag from an item's connection dot onto empty canvas to spawn a chat
    already connected to it.** The whiteboard already has real anchor points and
    AI actions; this joins them into one gesture and is the single most
-   compelling interaction in either product.
+   compelling interaction in either product. **Scoped this session, not
+   built** — real design, not a placeholder: `graph.js`'s connection-dot drag
+   already exists for *linking two notes*; the new gesture is the same
+   pointer-down-on-a-dot-and-drag start, but releasing over *empty* canvas
+   (not another node) instead spawns a floating "start a chat about this"
+   affordance at the drop point, and accepting it calls `switchTab("chat")`
+   → `newChatConversation()` with that note pre-attached, exactly the
+   existing `attachedNoteIds`/`note_ids` mechanism the composer's own note
+   picker already populates — no new backend concept, only a new whiteboard
+   gesture and its drop-target UI. The real risk is disambiguating this drag
+   from the *existing* drag-to-link-another-node gesture and from an
+   ordinary pan, at the same anchor point — worth prototyping the hit-test
+   before writing the spawn UI, not the other way around. Not attempted
+   this session: a new pointer gesture on a canvas that already has pan,
+   node-drag, and link-drag sharing the same surface is exactly the kind of
+   change §87.7c's own rule ("profile before touching it") argues for
+   doing deliberately, and the graph performance work earlier this session
+   is a fresh reminder of how much is already happening on that surface.
 3. **The pane system** — open anything in a side pane while writing, and keep
    research/chat visible beside the draft. The document editor already has a
-   sidebar; this generalises it to "open *any* item in a pane".
+   sidebar; this generalises it to "open *any* item in a pane". **Scoped, not
+   built.** This is the largest of the four and touches the most surface:
+   every full-screen "open X" flow in the app (a note, a document, a chat
+   conversation, a whiteboard board) would need a second, pane-sized render
+   path alongside its existing full-tab one, and the document editor's
+   sidebar — the thing this item generalises — is itself deeply wired to
+   `#doc-*` ids specific to the document editor, not a reusable component.
+   The honest shape of this as a real project: (a) extract the document
+   sidebar into a generic `openInPane(kind, id)` container first, proven on
+   the one thing that already has a pane; (b) add exactly one more kind
+   (the best-value pairing is a note or a chat beside a document, since
+   "research/chat visible beside the draft" was the concrete ask); (c) only
+   then consider generalising further. Attempting all of it at once, in the
+   same session as five other features, is how a UI architecture change
+   ships half-migrated — this needs its own session, deliberately, the same
+   caution this file already applies to the hybrid live-rendering editor.
 4. **Custom AI = instructions + chosen knowledge sources**, with **"use when"
    rules** so the assistant knows when to reach for a source. This is a direct
    upgrade to the existing skills/personas: today a skill is a prompt, and the
    gap is attaching a *bounded* knowledge set to it. Local equivalent of
    sources: selected notes, documents, boards and tags — never creators.
+   **Scoped this session, and the good news found while scoping it: the hard
+   half already exists.** `ChatRequest.attached_notes_only` + `note_ids`
+   (`routes_chat.py`) is already the exact "a deliberately closed set of
+   notes — retrieval finding more is pollution, not help" mechanism this
+   item needs; it was built for Trace's "generate a story from this path"
+   and never reused. The real remaining work is entirely on the skill side,
+   not the retrieval side: add a `sources` field to a skill (`ai/skills.py`'s
+   `normalise`/`SkillItem` in `routes_settings.py`) — a list of `{kind:
+   "note"|"document"|"tag", id_or_name}` — and have `skill_runner.run_skill`
+   resolve it to a concrete `note_ids` list at run start (a tag resolves to
+   every note carrying it, at that moment, not a saved snapshot) and pass
+   `attached_notes_only=True` alongside it. Documents aren't retrievable
+   content today (`routes_documents.py`'s own docstring: documents "never
+   appear in note search… unless the user asks for them by name") — a
+   document *source* would need its content folded into the skill's prompt
+   directly rather than routed through note retrieval, a smaller, separate
+   piece. "Use when" rules are the one part with no existing mechanism at
+   all: today a skill is picked by name or by `tools.focus_for`'s keyword
+   cueing, never by matching a source's stated purpose — that half needs a
+   real design decision (a short natural-language rule matched how, by
+   whom) this session didn't make.
 ~~5. **The interview technique.**~~ **Built** — "Interview me about an idea"
    in `ai/skills.py`'s `BUILTIN_SKILLS`, using the existing `ask_user` tool
    for a real back-and-forth mid-run rather than a one-shot prompt.
 6. **Reader-mode capture with citations preserved.** Partly built (the web
    reader); the missing half is that a highlight becomes its own first-class
    item with its source link intact.
+~~6. **Reader-mode capture with citations preserved.**~~ **The missing half is
+   now built.** "Source as metadata, not just folded into body text" —
+   `Entry.source_url`/`source_title`, new additive columns, populated by
+   `saveSelectionAsNote`'s existing "Save with its source" flow
+   (`selectionSource`/`clippingMarkdown`, both unchanged) alongside the
+   markdown blockquote+link it already wrote into the body — the body copy
+   stays deliberately, so a note is still a plain, portable file with no app
+   behind it. A note card now shows a real "🌐 source title" chip that opens
+   the page, and the field is real API surface (`GET`/`POST /entries`), not
+   something only recoverable by parsing markdown. 3 new tests
+   (`test_api_entries.py`).
+
 7. **Audio overview of a notebook/document**, generated locally with the
-   existing read-aloud voices and saved as a file. The private-RSS half is
-   cloud and should be dropped; the "listen to my research" half is not.
+   existing read-aloud voices and saved as a file. **Scoped this session —
+   the framing undersold the gap, and it's worth recording why rather than
+   attempting a partial build.** "The existing read-aloud voices" are the
+   browser's native `speechSynthesis` (Web Speech API) — real, but it only
+   *plays live*; there is no standard browser API to capture that audio to
+   a file, and this codebase has no server-side TTS engine at all (no
+   pyttsx3, no Piper, nothing — confirmed by grep, not assumed). So this
+   isn't "wire an existing capability to a save button," it's "add a new
+   local TTS dependency," which is exactly the category of heavy install
+   this project has burned time on before (CLAUDE.md's own standing torch/
+   sentence-transformers warning). Two honest paths, neither attempted here:
+   (a) a lightweight local TTS package (Piper is the most-cited
+   CPU-friendly option, ONNX-based, no torch) generating a real audio file
+   server-side, replacing `speechSynthesis` for this one feature only,
+   evaluated for install cost the same way `core/ocr.py`'s Tesseract
+   dependency was; (b) narrow the ask to "record what speechSynthesis
+   already plays" via `MediaRecorder` capturing system/tab audio — fragile,
+   permission-heavy, and browser-dependent, so a worse fit for a desktop
+   app than (a). Recommend (a), sized and evaluated in its own session
+   rather than guessed at here.
 8. **Automation pipelines** — user-facing trigger→action rules. The autonomous
    agent already does four fixed jobs; this is the same machinery with a UI.
+   **Checked, not built — the premise needed correcting first.** `ai/
+   autonomous.py` is **one** scheduled pass on **one** fixed interval (default
+   6 hours), not four distinct jobs with their own triggers — "four fixed
+   jobs" describes what that single pass *does* each time it runs (filing,
+   linking, tidy suggestions, digest), not four independently triggerable
+   pipelines. A real trigger→action UI needs, at minimum: a rules table
+   (trigger type, trigger config, action type, action config, enabled), a
+   trigger *types* beyond "every N hours" (this app already has real event
+   moments worth hooking — a note saved, a category assigned, a reminder
+   fired), and a UI to build/list/toggle/delete rules — none of which exist
+   today in any form. This is a genuinely new subsystem, not a UI layered
+   on existing machinery as the item's own text implied; sizing it
+   honestly is why it wasn't started this session.
 
 **Explicitly not taken:** the social corpus and outlier detection, multi-platform
 scheduling, auto-DM, creator-as-voice-clone, pooled team credits, affiliate

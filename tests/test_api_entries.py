@@ -32,6 +32,42 @@ def test_post_then_get_entry(client):
     assert single.json()["content"] == "Why did the scarecrow win an award?"
 
 
+def test_a_clippings_source_is_stored_as_real_metadata(client):
+    """BACKLOG §65 ("source as metadata, not just folded into body text").
+    The frontend's own `clippingMarkdown` still puts the same link in the
+    body for portability — this is the queryable half that adds."""
+    created = client.post(
+        "/entries",
+        json={
+            "content": "> a clipped passage\n\n— [Example](https://example.com/page)",
+            "source_url": "https://example.com/page",
+            "source_title": "Example",
+        },
+    ).json()
+    assert created["source_url"] == "https://example.com/page"
+    assert created["source_title"] == "Example"
+
+    fetched = client.get(f"/entries/{created['id']}").json()
+    assert fetched["source_url"] == "https://example.com/page"
+    assert fetched["source_title"] == "Example"
+
+
+def test_a_source_title_is_optional(client):
+    created = client.post(
+        "/entries", json={"content": "clipped", "source_url": "https://example.com"}
+    ).json()
+    assert created["source_url"] == "https://example.com"
+    assert created["source_title"] is None
+
+
+def test_an_ordinary_note_has_no_source(client):
+    """The overwhelming majority of notes are never a clipping — this
+    proves the new columns are a no-op for them, not just "doesn't crash"."""
+    created = client.post("/entries", json={"content": "an ordinary thought"}).json()
+    assert created["source_url"] is None
+    assert created["source_title"] is None
+
+
 def test_missing_entry_is_404(client):
     assert client.get("/entries/9999").status_code == 404
 

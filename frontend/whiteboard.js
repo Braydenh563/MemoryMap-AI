@@ -5524,13 +5524,13 @@ async function renderLibraryDocuments() {
 
   let docs = [];
   try {
-    docs = await apiJson("/documents");
+    // `q` searches title *and* content server-side (routes_documents.py) —
+    // client-side filtering alone could only ever match a title, since a
+    // document's body is never sent to the browser in the list view.
+    docs = await apiJson(needle ? `/documents?q=${encodeURIComponent(needle)}` : "/documents");
   } catch (error) {
     toast(error.message || "Could not load documents.", true);
     return;
-  }
-  if (needle) {
-    docs = docs.filter((d) => (d.title || "").toLowerCase().includes(needle));
   }
 
   list.replaceChildren();

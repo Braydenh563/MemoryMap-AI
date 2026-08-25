@@ -82,6 +82,34 @@ def test_dropping_the_same_note_twice_moves_its_card(board_client, session):
     assert (nodes[0]["x"], nodes[0]["y"]) == (50, 60)
 
 
+def test_the_same_note_can_be_referenced_from_two_boards_at_once(board_client, session):
+    """§88.2 item 1 ("boards hold references, never copies") checked
+    directly rather than assumed missing: `WhiteboardNode.entry_id` is
+    already a pure foreign key, and `create_node`'s own dedup is scoped to
+    `(entry_id, board_id)` — not `entry_id` alone — so the same note on two
+    different boards is two independent rows, not a duplicate-detection
+    false positive. Distinct from `test_a_card_can_be_moved_to_another_board`
+    above: that one *moves* a card between boards (one reference at a time);
+    this one confirms both references can exist *simultaneously*."""
+    entry, board_a, board_b = _note(session), _note(session, "board A"), _note(session, "board B")
+
+    node_a = board_client.post(
+        "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": board_a.id}
+    ).json()
+    node_b = board_client.post(
+        "/whiteboard/nodes", json={"entry_id": entry.id, "board_id": board_b.id}
+    ).json()
+    assert node_a["id"] != node_b["id"]
+
+    # Removing the reference from one board must not touch the other's, or
+    # the underlying note.
+    assert board_client.delete(f"/whiteboard/nodes/{node_a['id']}").status_code == 200
+    assert board_client.get(f"/whiteboard/?board_id={board_a.id}").json()["nodes"] == []
+    still_on_b = board_client.get(f"/whiteboard/?board_id={board_b.id}").json()["nodes"]
+    assert [n["id"] for n in still_on_b] == [node_b["id"]]
+    assert board_client.get(f"/entries/{entry.id}").status_code == 200
+
+
 def test_a_card_can_be_moved_to_another_board(board_client, session):
     """`PUT` read `board_id` from the body and never assigned it, so "move
     this card to that board" returned 200 and changed nothing."""

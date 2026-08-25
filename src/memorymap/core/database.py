@@ -236,6 +236,18 @@ class Entry(Base, WorkspaceMixin):
     # before its author comes back to it. Scalar default so the additive
     # auto-migrator backfills every existing row as not-a-draft.
     is_draft: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Where a clipped web-reader highlight came from (BACKLOG §65's
+    # "reader-mode capture" — the Kortex/Eden read's item 6). Real metadata
+    # now, not just a link folded into `content`: `saveSelectionAsNote`
+    # (app.js) still writes the same markdown blockquote-plus-link into the
+    # body too — a note is fundamentally plain markdown and must stay
+    # readable/exportable with no app behind it — but a queryable column is
+    # what lets a note card show a real "from the web" badge, or a future
+    # "show me everything I clipped from this site" filter, without parsing
+    # markdown to find out. Null means "not a clipping", same convention as
+    # every other optional column here.
+    source_url: Mapped[str | None] = mapped_column(String(2000), default=None)
+    source_title: Mapped[str | None] = mapped_column(String(300), default=None)
 
 
 class Entity(Base):

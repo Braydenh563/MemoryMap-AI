@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -91,17 +91,35 @@ def _existing(session: Session, document_id: int) -> Document:
 
 
 @router.get("")
-def list_documents(session: Session = Depends(get_session)) -> list[dict]:
-    """Every document, newest-first.
+def list_documents(
+    q: str = Query(default="", max_length=200),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Every document, newest-first, optionally narrowed by `q`.
 
-    No limit: the Documents tab loads this once and filters/searches
-    client-side, the same pattern `GET /entries` already uses for notes — a
-    silent cap with no offset made everything past it permanently
-    unreachable (there's no search param here to narrow by instead). At
-    this app's realistic scale (a single user's own notebook) an unbounded
-    read is the same cost `GET /entries` already pays on every load.
+    No limit even with `q` empty: the Documents tab loads the full list once
+    and filters *titles* client-side (`#library-docs-search`), the same
+    pattern `GET /entries` already uses for notes — a silent cap with no
+    offset made everything past it permanently unreachable. At this app's
+    realistic scale (a single user's own notebook) an unbounded read is the
+    same cost `GET /entries` already pays on every load.
+
+    `q`, when given, is the gap that client-side filtering can't close on
+    its own: `_summary()` never sends document *content* to the browser (a
+    document can run to thousands of words, unlike a note), so there was no
+    way to search what a document actually says, only its title — despite
+    the AI already being able to (`ai/tools/documents.py`'s `_list_documents`
+    has searched title *and* content this way since it was written; this
+    mirrors that filter rather than inventing a second one). Plain
+    case-insensitive substring matching, not semantic search — whether
+    documents get embeddings at all is a separate, larger decision.
     """
-    rows = session.scalars(select(Document).order_by(Document.updated_at.desc()))
+    query = select(Document).order_by(Document.updated_at.desc())
+    term = q.strip()
+    if term:
+        like = f"%{term}%"
+        query = query.where(Document.title.ilike(like) | Document.content.ilike(like))
+    rows = session.scalars(query)
     return [_summary(d) for d in rows]
 
 

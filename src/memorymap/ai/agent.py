@@ -817,6 +817,7 @@ def run_agent(
     use_utility_model: bool = False,
     images: list[str] | None = None,
     model_override: str | None = None,
+    image_context: str | None = None,
 ) -> Iterator[dict]:
     """Yields event dicts:
     {"type": "unsupported"}                    — model can't do tools; caller
@@ -853,8 +854,13 @@ def run_agent(
     )
     logging.getLogger("memorymap.agent").info(budget.as_log_line())
 
+    # Same fallback as librarian.answer()/converse(): a vision model's own
+    # caption of an attached image, for when agent_model above can't see the
+    # image itself — folded into the question text here rather than mutating
+    # `question` in place, since later rounds of this same loop reuse it.
+    full_question = f"{question}\n\n{image_context}" if image_context else question
     messages = build_agent_messages(
-        question,
+        full_question,
         notes,
         style=style,
         profile=profile,

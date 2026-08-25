@@ -5560,13 +5560,40 @@ async function renderLibraryDocuments() {
   }
 
   for (const doc of docs) {
-    const row = document.createElement("li");
-    row.className = "doc-list-row";
+    const item = document.createElement("li");
 
     // Reported: "can't rename, multi select, or delete documents in the
     // library subtab" - this row used to be nothing but the Open button
     // below. The tick and the ⋯ menu give it the same three actions a
-    // document's card already has in the "All" library view.
+    // document's card already has in the "All" library view — and,
+    // reported again after the first pass, the same *placement*:
+    // `libraryCard()`'s article-not-button shape (a button cannot contain
+    // another button, which the tick and the kebab both are), the tick
+    // sitting inline in the header row, the kebab absolutely positioned
+    // and hover/focus-revealed rather than two more permanent controls
+    // squeezed in as flex siblings.
+    const open = document.createElement("article");
+    open.className = "doc-list-item";
+    open.tabIndex = 0;
+    open.setAttribute("role", "button");
+    const openDoc = () => {
+      // switchTab first, then open. Reported as "the documents subtab document
+      // cards don't even do anything": openDocument() loaded the document
+      // correctly, but the Documents *page* stayed hidden behind the Library
+      // tab, so from the outside the click did nothing at all.
+      switchTab("documents");
+      openDocument(doc.id);
+    };
+    open.addEventListener("click", openDoc);
+    open.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target !== open) return; // a key pressed inside the tick/menu is theirs
+      event.preventDefault();
+      openDoc();
+    });
+
+    const top = document.createElement("div");
+    top.className = "doc-list-top";
     const tick = document.createElement("input");
     tick.type = "checkbox";
     tick.className = "doc-list-tick";
@@ -5578,20 +5605,12 @@ async function renderLibraryDocuments() {
       else libraryDocsSelection.delete(doc.id);
       syncLibraryDocsSelectbar();
     });
-
-    const open = document.createElement("button");
-    open.type = "button";
-    open.className = "doc-list-item";
-    // ROADMAP.md's Documents Library redesign ask ("SOOOO ugly and not
-    // consistent with the other application design style"): this button had
-    // no scoped CSS at all, so it fell through to the app's default filled
-    // <button> style — a full-width solid-accent bar rather than a card.
-    // Icon + a title/meta column now matches the same visual shape the
-    // "All" library view's document cards already use.
     const icon = document.createElement("span");
     icon.className = "doc-list-icon";
     setLabel(icon, "ph:file-text");
     icon.setAttribute("aria-hidden", "true");
+    top.append(tick, icon);
+
     const body = document.createElement("span");
     body.className = "doc-list-body";
     const title = document.createElement("span");
@@ -5605,15 +5624,7 @@ async function renderLibraryDocuments() {
     const when = doc.updated_at ? relativeTime(doc.updated_at) : "";
     meta.textContent = [words, when].filter(Boolean).join(" · ");
     body.append(title, meta);
-    open.append(icon, body);
-    open.addEventListener("click", () => {
-      // switchTab first, then open. Reported as "the documents subtab document
-      // cards don't even do anything": openDocument() loaded the document
-      // correctly, but the Documents *page* stayed hidden behind the Library
-      // tab, so from the outside the click did nothing at all.
-      switchTab("documents");
-      openDocument(doc.id);
-    });
+
     // Same three actions `libraryActions()` gives a document's card in the
     // "All" view — kept as its own copy rather than calling that function
     // directly, because its `reload` is hard-coded to `loadLibrary()` (the
@@ -5645,8 +5656,9 @@ async function renderLibraryDocuments() {
     menu.classList.add("doc-list-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
 
-    row.append(tick, open, menu);
-    list.appendChild(row);
+    open.append(top, body, menu);
+    item.appendChild(open);
+    list.appendChild(item);
   }
   syncLibraryDocsSelectbar();
 }
@@ -6073,10 +6085,17 @@ function filterLibraryImagesGallery() {
     setCaptionState(image.caption);
     const startEditingCaption = () => {
       if (captionText.querySelector("textarea")) return; // already editing
+      // Reported: the caption visibly collapsed the moment you clicked to
+      // edit it. The clamp (-webkit-line-clamp, still on captionText from
+      // whatever it was displaying a moment ago) treats its child as flowed
+      // text truncated to two lines - a <textarea> squashed into that same
+      // ~2-line box is what "collapsed" looked like. Editing shows the
+      // whole thing either way, so the clamp has nothing left to do here.
+      captionText.classList.remove("library-image-caption-clamped");
       const box = document.createElement("textarea");
       box.className = "library-image-caption-input";
       box.value = image.caption || "";
-      box.setAttribute("aria-label", `Caption for “${image.original_name}”`);
+      box.setAttribute("aria-label", `Caption for "${image.original_name}"`);
       box.maxLength = 2000;
       captionText.replaceChildren(box);
       box.focus();

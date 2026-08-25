@@ -27,11 +27,16 @@ caught by one grep: the Reminders calendar view (listed as a gap, already
 built and wired) and the graph's own non-visual keyboard layer. A grep miss
 and a real gap look identical from the outside.
 
-**Start at [§88](#88--the-live-report-backlog-the-kortexeden-read-and-the-appjs-split).**
-It is the current work queue: §88.1 is everything reported and still open, in
-order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split, which is the
-priority once §88.1 and §88.2 are done; §88.4 is the context/memory analysis.
-**§88.0 lists what was already fixed — check it before fixing anything.**
+**Start at [§89](#89--reported-this-session-not-yet-built-start-here-next)** —
+what was reported in the session after §88 and is still open (pagination on
+Reminders/Library, and a large chat-file-upload redesign, both logged rather
+than built). Then **§88**: §88.1 is everything reported there and still open,
+in order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split (its
+first file, documents.js, is done — library.js/dashboard.js/settings.js are
+what's left), the priority once §88.1 and §88.2 are done; §88.4 is the
+context/memory analysis. **§88.0 lists what was already fixed — check it
+before fixing anything, and §89's own header lists two more fixed the same
+way this same session.**
 
 **A fifteen-ask report plus a second round of ideas landed together — all of
 it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
@@ -889,6 +894,107 @@ test in this repo runs against a fake transport, and this sandbox has no
 reachable model. Retrieval *quality* changes cannot be evaluated here at
 all. Build the measurement (item 4) and a small fixed question set *first*,
 or every one of these becomes a change nobody can prove helped.
+
+## §89 — reported this session, not yet built (start here next)
+
+Landed live, in one long session, alongside the app.js split's first file
+(documents.js — done, see §88.3) and a vision-chat redesign (also done: see
+`routes_chat._image_caption_context` — a chat model with no vision of its
+own now gets a caption from the resolved vision model folded into the
+question, instead of the whole turn silently swapping to a different model).
+**Already built this same session, despite being asked for in the same
+message as items below — check before rebuilding:** a toast/notification
+close (X) button (`toastCloseButton`, app.js), and the Ask sub-tab's history
+panel close (X) button (`#ask-history-close`). Both shipped in the
+"Generalize back-to-top button positioning..." commit. Also built later the
+same session: the Library gallery's image caption Show more/less toggle no
+longer collapses the caption into an unreadably short box the moment you
+click to edit it (the clamp class survived into edit mode and squashed the
+`<textarea>`); and the Library Documents sub-tab's tick/⋯ menu were
+restyled to match `libraryCard()`'s own shape exactly — both living inside
+the row (an `<article role="button">`, not a `<button>`, since a button
+cannot contain another button) with the ⋯ only revealed on hover/focus,
+instead of two permanent flex siblings squeezed in beside the row.
+
+**Still open:**
+
+1. **Pagination on other tabs.** Notes already has a page-size selector
+   (§88.0's row on it, BACKLOG §77). Asked for on Reminders and the Library
+   sub-tabs too — "maybe", the user's own hedge, so scope each independently
+   rather than assuming the Notes pattern transfers as-is: Reminders' list
+   is chronological with due/overdue framing that pagination could easily
+   break (an overdue reminder pushed onto page 2 is a reminder that stops
+   being seen), and the Library sub-tabs differ in shape from each other
+   (Documents is a flat list, the "All" grid mixes kinds with its own
+   filter chips) more than Notes' browse view did.
+
+2. **Uploading a document (not an image) to the chat composer fails
+   silently into the transcript.** Reported directly, reproduced in the
+   report itself: attaching `README.md` produced no upload and instead
+   wrote `*(Failed to upload README.md)*` as if it were the AI's own
+   message — an error rendered as chat content rather than surfaced as
+   what it is. The fix has several parts, asked for together:
+   - The upload failure itself needs surfacing as a toast/notification,
+     never as literal text injected into the transcript.
+   - **Any file type**, not just images, should be uploadable to chat and
+     "readable by the AI" — for a document this almost certainly means
+     text extraction (the same shape `core/ocr.py` and
+     `ai/captioning.py` already establish for images: extract once,
+     store, hand the extracted text to the model as context) rather than
+     sending arbitrary bytes.
+   - Every upload (any type) should land in the Library and be viewable
+     there "no matter the format" — needs a real per-type viewer story,
+     not just a download link, for at least the common cases (text/
+     markdown, PDF, common office formats — scope which ones directly
+     rather than guessing at "any format").
+   - **Files should stage, not upload immediately.** A file picked for a
+     chat message should show as a small card above the composer (name,
+     a file-type icon, an × remove button) and only actually reach
+     `/media/upload` (and the Library) when the message is actually
+     sent — not before. This is a different lifecycle from the current
+     image-attach flow, which uploads on pick.
+   - **A per-message attachment cap** — the user suggested 10 as a
+     common default but flagged uncertainty about whether that is too
+     heavy for this app; measure against `MAX_CHAT_IMAGE_BYTES`-style
+     per-file limits and real local-model context budgets before picking
+     a number.
+   - **Attach an already-uploaded Library file/image to a chat message**,
+     the same way a note can already be attached (`body.note_ids`) —
+     currently the composer can only attach something just picked from
+     disk, not something already in the Library.
+   This is a genuinely large feature, not a bug fix — reported with an
+   explicit "add this to the roadmap, I'm low on usage" rather than a
+   request to build it now. Scope it as its own session: it touches the
+   upload route, a new extraction step, the Library's viewer story, and a
+   staging-state redesign of the chat composer, none of which should be
+   mixed with a smaller fix in the same diff.
+
+3. **Vision-model OCR, as an alternative (or complement) to Tesseract, with
+   model-pull suggestions in Settings → Models.** Asked as a question, not
+   yet scoped or built. `core/ocr.py` (Tesseract) and `ai/captioning.py`
+   (vision-model description) already establish the two shapes this would
+   choose between: OCR is "what text is in this image", captioning is
+   "what does this image show" — a vision-model OCR mode would follow
+   `caption_and_store`'s own write-once/background-trigger pattern, most
+   naturally as a per-image *choice* of extractor (Tesseract vs. a vision
+   model) rather than a wholesale replacement — raised directly ("might be
+   able to negate the need for py tesseract"), and worth resisting: a
+   vision model needs a multi-GB download and real per-image inference
+   time, where Tesseract is instant, needs no model download at all, and
+   matches this project's own standing "no heavy installs" stance
+   (CLAUDE.md's torch/sentence-transformers avoidance is the same
+   reasoning). Keep both, let the user pick. Named as candidates worth
+   checking against the actual Ollama library before committing to any
+   (unverifiable from this sandbox — no live internet or Ollama registry
+   access): Qwen3-VL if available there (the user's own preference over
+   Qwen2.5-VL, and plausibly the stronger current default), else
+   Qwen2.5-VL (2B/7B/72B), MiniCPM-V (small, specifically strong at OCR),
+   GLM-4V, DeepSeek-VL2, and Moondream (tiny, weaker, for low-spec
+   hardware). The user also named "glm-ocr" and "deepseek-ocr" specifically
+   — unconfirmed whether those are real, distinctly-named Ollama tags
+   separate from the general-purpose VL models above, or shorthand for
+   using GLM-4V/DeepSeek-VL2 for OCR; check the actual registry before
+   scoping model-pull UI around either name.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

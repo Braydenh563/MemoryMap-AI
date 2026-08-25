@@ -1795,10 +1795,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* `.entry-more`'s own negative margin-top assumes it directly follows
    clamped text inside a padded <li> - here it's a sibling of the caption
    <p>, not a child, so it needs the caption's own horizontal padding
-   repeated rather than inherited. */
+   repeated rather than inherited. Reported: sat with no visible gap above
+   the caption text. The caption's own bottom padding (space-3) already
+   separates its *last line* from whatever comes next when there's no
+   button there at all - this adds `space-2` of its own top padding on top
+   of that, so the two stack into a real gap specifically when the button
+   is shown, rather than the button sitting flush against the text above
+   it. */
 .library-image-caption-more {
   margin: 0;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
   display: block;
 }
 

@@ -89,6 +89,33 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
         {"name": "mxbai-embed-large", "size": "~670 MB", "purpose": "Higher quality, a little slower"},
         {"name": "bge-m3", "size": "~1.2 GB", "purpose": "Better on long notes and mixed languages"},
     ],
+    # Any of these can be picked as the explicit vision-model override in
+    # Settings → Models (ModelManager.vision_model()), for chat image
+    # captions (ai/captioning.py) and image-carrying chat turns
+    # (routes_chat._chat_model_sees_images). Asked for directly. Two are
+    # newer/less certain than the rest of this file's own entries and worth
+    # flagging: qwen3-vl's Ollama tag is a plausible guess at this file's own
+    # naming convention rather than one confirmed against a running Ollama
+    # (no live registry access from where this was written) — if it 404s on
+    # pull, qwen2.5vl below is the confirmed fallback. glm-4v and
+    # deepseek-vl2 were asked about by name but are not included here at
+    # all: unlike every other model in this file, it isn't confirmed either
+    # is actually published on Ollama's library under any tag, and this
+    # file's own "fails safely" rule (a stale *tag* just 404s cleanly) does
+    # not cover suggesting a model that was never offered in the first
+    # place.
+    "vision": [
+        {"name": "moondream", "size": "~1.7 GB", "purpose": "Tiny and fast — the one to try on modest hardware"},
+        {"name": "lfm2.5-vl", "size": "~1.6 GB", "purpose": "Liquid's small vision model — unconfirmed tag, see note above"},
+        {"name": "qwen3-vl:2b", "size": "~1.5 GB", "purpose": "Smallest of the Qwen-VL line — unconfirmed tag, see note above"},
+        {"name": "qwen2.5vl:3b", "size": "~2.2 GB", "purpose": "Confirmed tag, a fallback for the 2B/4B Qwen3-VL entries either side of it"},
+        {"name": "qwen3-vl:4b", "size": "~2.8 GB", "purpose": "A step up from the 2B — unconfirmed tag, see note above"},
+        {"name": "minicpm-v", "size": "~5.5 GB", "purpose": "Notably strong at reading text in images"},
+        {"name": "llava", "size": "~4.7 GB", "purpose": "General-purpose vision, the longest-established option"},
+        {"name": "qwen2.5vl:7b", "size": "~6.0 GB", "purpose": "Strong all-round vision and text reading"},
+        {"name": "qwen3-vl:8b", "size": "~6.5 GB", "purpose": "Unconfirmed tag, see note above"},
+        {"name": "qwen2.5vl:32b", "size": "~21 GB", "purpose": "The most capable here. Needs ~24 GB"},
+    ],
 }
 
 

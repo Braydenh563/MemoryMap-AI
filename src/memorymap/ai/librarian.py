@@ -212,6 +212,7 @@ def build_conversational_messages(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     mode: str | None = None,
+    images: list[str] | None = None,
 ) -> list[dict]:
     """Prompt for a message that isn't about the notebook.
 
@@ -233,7 +234,10 @@ def build_conversational_messages(
         }
     ]
     messages.extend(history_messages(history))
-    messages.append({"role": "user", "content": question})
+    user_message = {"role": "user", "content": question}
+    if images:
+        user_message["images"] = images
+    messages.append(user_message)
     return messages
 
 
@@ -329,20 +333,27 @@ def answer(
     mode: str | None = None,
     images: list[str] | None = None,
     model_override: str | None = None,
+    image_context: str | None = None,
 ) -> tuple[str, str | None]:
     """(answer text, model's thinking or None) for `question` given
     retrieved `notes` (dicts with 'content' and 'category').
 
     `use_utility_model` routes background jobs (the weekly digest) to the
-    small fast model instead of the main chat model. `model_override` is the
-    resolved vision model for an image-carrying turn (routes_chat.py) — it
-    wins over both, since attaching a photo is a stronger signal about which
-    model this turn needs than either default."""
-    # An attached image and "no matching notes" are unrelated: "what's in
-    # this photo" has nothing to do with the notebook and should never hit
-    # NO_RESULTS_MESSAGE just because retrieval (which never sees the image)
-    # came back empty.
-    if not notes and not images:
+    small fast model instead of the main chat model. `model_override` and
+    `images`/`image_context` are routes_chat.py's own resolution of an
+    image-carrying turn, and are mutually exclusive: when the model this
+    turn would use can see an image directly, `images` carries the raw data
+    URIs and `model_override` is usually unset (the chat model handles it
+    itself); when it can't, `image_context` carries a vision model's own
+    caption of the image instead, folded into the question text, and
+    `images` stays empty — asked for directly, so a chat model with no
+    vision of its own still "sees" what was attached without silently
+    swapping the whole turn to a different model the user did not choose."""
+    # An attached image (raw, or captioned into image_context) and "no
+    # matching notes" are unrelated: "what's in this photo" has nothing to
+    # do with the notebook and should never hit NO_RESULTS_MESSAGE just
+    # because retrieval (which never sees the image) came back empty.
+    if not notes and not images and not image_context:
         return NO_RESULTS_MESSAGE, None
     if not ollama.is_running():
         return OFFLINE_MESSAGE, None
@@ -350,11 +361,12 @@ def answer(
     model = model_override or (
         model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     )
+    full_question = f"{question}\n\n{image_context}" if image_context else question
     try:
         reply = ollama.chat(
             model,
             build_messages(
-                question,
+                full_question,
                 notes,
                 style=style,
                 profile=profile,
@@ -415,25 +427,35 @@ def converse(
     history: list[dict] | None = None,
     persona_prompt: str | None = None,
     mode: str | None = None,
+    images: list[str] | None = None,
+    model_override: str | None = None,
+    image_context: str | None = None,
 ) -> tuple[str, str | None]:
     """Reply to a message that isn't a question about the notebook.
 
     Deliberately never touches retrieved notes: this is the path that stops
     "hey" being answered with a summary of the user's notebook.
-    """
+
+    `images`/`model_override`/`image_context` mirror `answer()`'s own
+    (routes_chat.py resolves them the same way for both — a casual "what's
+    this?" with a photo attached used to drop the photo entirely here, since
+    this path never accepted images at all before now)."""
     if not ollama.is_running():
         return (OFFLINE_ABOUT_APP if intent == "about_app" else OFFLINE_SMALLTALK), None
+    model = model_override or model_manager.chat_model()
+    full_question = f"{question}\n\n{image_context}" if image_context else question
     try:
         reply = ollama.chat(
-            model_manager.chat_model(),
+            model,
             build_conversational_messages(
-                question,
+                full_question,
                 intent,
                 style=style,
                 profile=profile,
                 history=history,
                 persona_prompt=persona_prompt,
                 mode=mode,
+                images=images,
             ),
             mode=mode,
         )

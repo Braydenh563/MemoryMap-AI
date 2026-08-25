@@ -2155,30 +2155,22 @@ button {
    language — border, icon, hover state — the "All" library view's cards
    already use, rather than a third, once again different, look. */
 /* Reported: "can't rename, multi select, or delete documents in the library
-   subtab" - each row was only ever the Open button below. `.doc-list-row`
-   is the new wrapper `<li>` that lets a selection checkbox and a ⋯ menu sit
-   beside it (whiteboard.js), the same three actions the "All" library view
-   already gives a document's own card. */
-.doc-list-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.doc-list-tick {
-  flex: 0 0 auto;
-}
-
-.doc-list-menu {
-  flex: 0 0 auto;
-}
-
+   subtab" - each row was only ever the Open button below. Reported again
+   after that first pass: the tick and ⋯ menu it gained were squeezed in as
+   extra flex siblings instead of living *inside* the row the way a
+   library-card's own tick and menu do. `.doc-list-item` is now the same
+   article-not-button shape `libraryCard()` uses (a button cannot contain
+   another button, which the tick and the kebab both are) — `position:
+   relative` so `.doc-list-menu` below can pin itself to a corner, the tick
+   an ordinary inline child in `.doc-list-top` instead of a permanent flex
+   sibling, and the kebab hover/focus-revealed like every other Library
+   view's card menu rather than always visible. */
 .doc-list-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-5);
-  flex: 1 1 auto;
-  min-width: 0;
+  width: 100%;
   text-align: left;
   padding: var(--space-5);
   border: 1px solid var(--glass-border);
@@ -2194,6 +2186,42 @@ button {
   background: var(--accent-soft);
 }
 
+.doc-list-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 0 0 auto;
+}
+
+.doc-list-tick {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* Same hover/focus reveal as `.menu-wrap.library-card-menu`
+   (00-tokens-shell.css) - a permanent ⋯ on every row in a long list is a
+   column of dots competing with the titles beside them. `hover: none`
+   keeps it visible on touch, where there is nothing to hover with. */
+.menu-wrap.doc-list-menu {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease;
+}
+
+.doc-list-item:hover .doc-list-menu,
+.doc-list-item:focus-visible .doc-list-menu,
+.doc-list-item:focus-within .doc-list-menu {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .doc-list-menu {
+    opacity: 1;
+  }
+}
+
 .doc-list-icon {
   flex: 0 0 auto;
   font-size: 1.3rem;
@@ -2205,6 +2233,9 @@ button {
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+  /* Room for the kebab, reserved rather than taken - or a long title runs
+     underneath it instead of wrapping clear of it. */
+  padding-right: var(--space-9);
 }
 
 .doc-list-title {

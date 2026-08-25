@@ -31,9 +31,9 @@ and a real gap look identical from the outside.
 what was reported in the session after §88 and is still open (pagination on
 Reminders/Library, and a large chat-file-upload redesign, both logged rather
 than built). Then **§88**: §88.1 is everything reported there and still open,
-in order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split (its
-first file, documents.js, is done — library.js/dashboard.js/settings.js are
-what's left), the priority once §88.1 and §88.2 are done; §88.4 is the
+in order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split
+(documents.js and library.js are done — dashboard.js/settings.js are what's
+left), the priority once §88.1 and §88.2 are done; §88.4 is the
 context/memory analysis. **§88.0 lists what was already fixed — check it
 before fixing anything, and §89's own header lists two more fixed the same
 way this same session.**
@@ -801,8 +801,8 @@ demand. This session's graph-toolbar work is (d); the pane system is (c).
 ### 88.3 The app.js split — the priority after §88.1 and §88.2
 
 `app.js` was ~28,460 lines. `graph.js` (3.0k), `whiteboard.js` (5.9k) and
-`editor.js` (~0.9k) were already out; `documents.js` (~1,010 lines) is now
-out too, so the pattern is proven four times over.
+`editor.js` (~0.9k) were already out; `documents.js` (~1,010) and now
+`library.js` (~1,940) are out too, five files proven now.
 
 Order, easiest and most self-contained first:
 
@@ -824,9 +824,19 @@ Order, easiest and most self-contained first:
    sidebar's list/outline tabs (the exact function that moved) → markdown
    toolbar, zero console errors. Registered in
    `tests/test_frontend_handlers.py` and `tests/test_frontend_ids.py`.
-2. **`library.js`** — the Library (`app.js:19209+`), which already has its own
-   sub-tab switcher living in `whiteboard.js` (an accident worth fixing while
-   splitting).
+2. **`library.js` — done.** Scattered across *both* files (see the file's own
+   header for the full zone list and line ranges). **The predicted accident
+   was real**: whiteboard.js's `DOMContentLoaded` held the `#library-subtabs`
+   switcher and Documents/Media wiring alongside the Whiteboard sub-tab's own
+   two controls purely because they'd been written together — moved out;
+   only Whiteboard's own listeners/boards-gallery rendering stayed. **No
+   bare-top-level-call-site hazard** (documents.js's own, checked for
+   directly): every remaining app.js call site sits inside a
+   function/listener body. One thing found and *not* fixed, logged instead:
+   the `switchTab` override (moved verbatim) monkey-patches rather than
+   folding into `switchTab`'s own `if (name === "library") loadLibrary();` —
+   pre-existing. Verified live in Chromium: every sub-tab rendered content,
+   zero console errors. Registered in `test_frontend_handlers.py`/`test_frontend_ids.py`.
 3. **`dashboard.js`** — widgets, masonry, the generative art.
 4. **`settings.js`** — the settings modal, logs console, appearance.
 

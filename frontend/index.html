@@ -4580,6 +4580,21 @@ Link to another note with [[its first few words]]."></textarea>
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
   <script src="/whiteboard.js"></script>
+  <!-- The Library tab, split out of app.js and whiteboard.js both (§88.3 of
+       the app.js split plan — documents.js above was the first file, this
+       is the second). Loaded after both for the same reason documents.js is
+       loaded after app.js: every cross-file call in either direction
+       (this file's sub-tab switcher calls whiteboard.js's
+       wbShowBoardsLanding(); whiteboard.js's openWhiteboardBoard() clicks
+       this file's #library-subtabs whiteboard button) happens at runtime,
+       inside an event-listener body, never at parse time — so this order
+       isn't load-bearing either, it just keeps the two split-out files in
+       the order they were written. See frontend/library.js's own header
+       for exactly what moved from each file, and the one hazard
+       documents.js's split found that this one checked for and did not
+       find (a bare top-level call site left orphaned by a moved
+       definition). -->
+  <script src="/library.js"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every

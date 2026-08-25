@@ -1,5 +1,97 @@
 # Session handover
 
+## New session — `library.js` split out of app.js *and* whiteboard.js (§88.3's second file)
+
+Pure split, no behaviour change, matching the rule the documents.js entry
+below set. `docs/ROADMAP.md`'s §88.3 has the full zone-by-zone account (line
+ranges for every piece moved); this is the narrative.
+
+**What moved.** The Library was scattered across both files, not one: five
+zones in app.js (the core module + "reading a binned note in full",
+`flashLibraryItem()`'s "View in bin" deep link — sitting far from the rest
+because its *caller* is a Notes/agent feature even though its *body* is
+nothing but Library internals, the "+ New Skill" wiring, the main
+search/sort/bulk-action wiring, and an AI-Skills-sub-tab dashboard bundled
+with a `switchTab` override) and two in whiteboard.js (two `Set()`
+declarations, and the Documents/Image-Gallery sub-tabs). `library.js` is
+now ~1,940 lines.
+
+**The accident ROADMAP.md predicted was real, and got fixed as part of the
+same move.** whiteboard.js's own `DOMContentLoaded` listener held the
+`#library-subtabs` switcher (deciding which Documents/Skills/Whiteboard/
+Media section is visible) and the Documents/Media sub-tabs' own
+refresh/search/upload wiring — none of that is whiteboard's code, it just
+got written in the same block as the Whiteboard sub-tab's own two controls
+(`wb-boards-new`/`wb-back-to-boards`). Split the one listener into two: the
+Library-owned half moved to `library.js` in a `DOMContentLoaded` of its own,
+and whiteboard.js kept a much smaller one with just its own two listeners.
+`renderLibraryBoardsGallery`/`wbShowBoardsLanding`/`wbShowCanvasView` stayed
+in whiteboard.js deliberately — they render and switch between the
+Whiteboard sub-tab's *own* two views (a boards gallery and the canvas),
+which is whiteboard's own concern despite living inside the Library tab;
+`flashLibraryItem` was judged by the same test in the other direction (what
+the body touches, not where the caller sits) and moved.
+
+**Checked for documents.js's own hazard and did not find it this time.**
+That split found a function moved out from under a bare top-level call site
+left behind in app.js (`initDocSidebarTabs()`), which would have thrown
+`ReferenceError` and aborted the rest of app.js's synchronous top-level
+code. Grepped every Library-owned function/const name for a bare top-level
+call anywhere left in app.js before trusting this split was safe — none
+exists; every call site left behind sits inside a function or
+event-listener body, resolved at call time, long after every `<script>` has
+parsed. So unlike documents.js, there was no call site to move here.
+
+**Found and deliberately *not* fixed, logged to ROADMAP.md's §88.3 instead**
+(the split's own rule: never mix a split with a behaviour change): the
+`switchTab` override moved from app.js verbatim — `const originalSwitchTab =
+switchTab; window.switchTab = function(name) { ...; if (name === "library")
+{ renderSkillsDashboard(); renderSkillLogs(); } }` — monkey-patches
+`switchTab` from outside instead of being folded into that function's own
+pre-existing `if (name === "library") loadLibrary();` branch. Two code
+paths doing the same job, real, but pre-existing (not introduced by this
+session), and folding them together is a behaviour change this diff
+deliberately didn't make.
+
+**Registered** in `tests/test_frontend_handlers.py`'s `_source()` and
+`tests/test_frontend_ids.py`'s `_frontend_js()`, both now spanning six
+files. `index.html` gained a `<script src="/library.js">` tag (after
+whiteboard.js, before editor.js) with the same load-order reasoning
+documents.js's own tag comment carries: every cross-file call in either
+direction happens inside a closure or event-listener body, never at parse
+time, so the exact position isn't load-bearing.
+
+**Verified live in Chromium (Playwright), this session's own sandbox
+server:** logged in, opened the Library tab, clicked through all five
+sub-tabs (All/Documents/Whiteboards/Image Gallery/AI Skills) and confirmed
+each rendered real content with zero console errors; confirmed the AI
+Skills dashboard and its audit-log panel populated (`skills-dashboard-list`
+gained real HTML, `GET /audit` fired) — the exact `switchTab`-override path
+described above; exercised the Whiteboard sub-tab's own remaining two
+controls end to end (`+ New board` → canvas view shown → `Back to boards` →
+landing shown again); and exercised `library.js`'s own "+ New document"
+listener end to end (fills app.js's `promptDialog`, creates the document,
+switches to the Documents tab, opens it — the new title showed correctly in
+the editor). Server log showed only `200 OK`s throughout, no tracebacks.
+
+**What was *not* checked**, stated plainly per this file's own standing
+rule: the Library "All" view's own sort/view-toggle/bulk-select/bulk-delete
+controls, the image-gallery upload flow, the Documents sub-tab's own
+multi-select/bulk-delete bar, the "+ New Skill" button, and
+`flashLibraryItem`/`openBinnedNote` (the "View in bin" deep link and the
+binned-note reader) were all read carefully and moved verbatim but not
+clicked through live this session — nothing about the move should affect
+them (their call sites didn't change, only which `<script>` tag defines
+them), but that is reasoning, not reproduction. Also unchecked, as always:
+the real WebView2 desktop shell (only this sandbox's headless Chromium was
+driven).
+
+Full pytest suite green after the split (2,138 passed, 1 skipped —
+`test_docs_layout.py`'s 2,000-line ROADMAP.md ceiling caught this entry's
+first draft running long, trimmed to fit), `ruff check .` clean, `node
+--check` clean on `app.js`/`library.js`/`whiteboard.js`. **Next:
+`dashboard.js`, then `settings.js`** — the last two files in §88.3.
+
 ## Same session, continued — the Settings→Logs viewer bug, and two more live fixes
 
 Two more real bugs found and fixed after the entry below was written, plus

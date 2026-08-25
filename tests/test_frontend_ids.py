@@ -43,21 +43,24 @@ def _markup() -> str:
 
 
 def _frontend_js() -> str:
-    """app.js, whiteboard.js, graph.js and documents.js concatenated.
+    """app.js, whiteboard.js, graph.js, documents.js and library.js concatenated.
 
     The whiteboard subsystem (board/card CRUD, sketch drawing, export,
     move/resize) moved out of app.js into its own file, loaded by a second
     <script> tag, the graph view (force-directed map, layouts, tracing,
-    the node popup) moved out into a third, and the document editor moved
-    out into a fourth (§10 of the app.js-split plan) - see index.html. A
-    check that only read app.js would go on passing while silently covering
-    none of the moved files' own $("...") lookups.
+    the node popup) moved out into a third, the document editor moved out
+    into a fourth (§10 of the app.js-split plan), and the Library tab moved
+    out into a fifth — out of *both* app.js and whiteboard.js — as §88.3's
+    second file. See index.html. A check that only read app.js would go on
+    passing while silently covering none of the moved files' own $("...")
+    lookups.
     """
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
     whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
     graph = (INDEX.parent / "graph.js").read_text(encoding="utf-8")
     documents = (INDEX.parent / "documents.js").read_text(encoding="utf-8")
-    return app + "\n" + whiteboard + "\n" + graph + "\n" + documents
+    library = (INDEX.parent / "library.js").read_text(encoding="utf-8")
+    return app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
 
 
 def test_no_duplicate_element_ids():
@@ -75,7 +78,7 @@ def test_every_id_the_app_looks_up_actually_exists():
     looked_up = set(re.findall(r'\$\("([a-z0-9-]+)"\)', app))
     missing = sorted(looked_up - declared - RUNTIME_IDS)
     assert not missing, (
-        f"app.js/whiteboard.js/graph.js/documents.js look up ids that aren't "
+        f"app.js/whiteboard.js/graph.js/documents.js/library.js look up ids that aren't "
         f"in index.html: {missing}"
     )
 

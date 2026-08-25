@@ -362,6 +362,13 @@ button.small {
   align-items: center;
 }
 
+/* BACKLOG §77 item 1: the Notes-tab page selector, shown under the list only
+   when a numeric page size is chosen (not the default "All notes"). */
+.notes-pagination {
+  justify-content: center;
+  margin: var(--space-3) 0;
+}
+
 .row input,
 .row select {
   margin-bottom: 0;

@@ -1012,6 +1012,15 @@ button.ghost.danger {
   cursor: pointer;
 }
 
+/* During an active pan, native `:hover` matching still fires per node the
+   cursor sweeps under even though the JS-level highlight is muted
+   (`graphIsPanning` in graph.js) — that hit-testing and the CSS transitions
+   it triggers were a measured, real cost. Node drags never set this class
+   (their own mousedown stops propagation before the pan gesture starts). */
+.graph-panning .graph-node {
+  pointer-events: none;
+}
+
 /* Soft coloured halo behind each node → depth, and hubs read brighter. */
 .graph-node .graph-halo {
   opacity: 0.18;

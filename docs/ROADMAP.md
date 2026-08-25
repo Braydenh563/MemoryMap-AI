@@ -54,13 +54,17 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    path, which already exists (`core/ocr.py`): a photo of a page could go to
    OCR *or* to a vision model, the user's choice.
 
-2. **Notes-tab pagination with page-aware note links** — BACKLOG §77, and
-   **not** the same as the windowing built in §86. That made the list render
-   incrementally while staying one continuous scroll; this is the *user-facing*
-   page-size control and page selector that was asked for directly. Its hard
-   half is unchanged and still unscoped: a wiki-link click has to land on the
-   right *page*, which depends on the sort and filter currently active, not
-   just the note's id. Real routing logic; deserves its own design pass.
+2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
+   in two, as BACKLOG always said it should be. **The page-size control and
+   page selector are built** — `#notes-page-size` / `#notes-pagination` in
+   the Notes toolbar, "All" (today's §86 continuous scroll, untouched) as
+   the default. See BACKLOG §77 item 1 for the full build note and its one
+   accepted trade-off (a thread can split across a page boundary). **Still
+   open: the hard half.** A wiki-link click has to land on the right *page*,
+   which depends on the sort and filter currently active, not just the
+   note's id — real routing logic, now scoped (BACKLOG §77 item 2) but not
+   built; the open design question is what to do when the click's origin
+   view has different sort/filter/page-size state than whatever's active.
 
 3. **The Timeline's line view needs a real visual pass** — reported as needing
    to look "very professional and ready for public use", and never scoped
@@ -97,9 +101,13 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    afterward shows the Dashboard's note count, category chips and the graph
    constellation all populated from the seed, unprompted.
 
-7. **Alembic migrations.** The additive auto-migrator cannot rename or drop,
-   and will not survive a real schema change. Nothing has needed it yet, which
-   is exactly why it is still here.
+~~7. **Alembic migrations.**~~ **Built** — HANDOVER.md's own "Alembic
+   infrastructure" section documents it (`migrations/`, `alembic.ini`, a
+   baseline revision every database is stamped to on first sight,
+   `tests/test_alembic_baseline.py`), this entry was just never struck.
+   Reconfirmed directly this session: `_ensure_alembic_baseline` exists in
+   `core/database.py`, the migration scaffolding is on disk, and the test
+   passes.
 
 8. **What happens when Ollama hangs, rather than errors.** Checked this
    session, not fixed — closer to already-handled than the item implies.
@@ -323,13 +331,74 @@ same session is in §88.0 so nobody re-fixes it.
    this sandbox cannot confirm without a reachable model. If re-reported
    *with* a working AI connection, that would rule this theory out.
 5. **The AI Skills sub-tab "is just very unfinished and nothing really
-   works."** Confirmed in passing: its **Schedule** button is a literal
-   placeholder (`toast("Scheduler functionality coming soon!")`). Needs its own
-   audit pass — treat "nothing works" as a scope, not a bug.
-6. **The graph is slow and janky to move around.** Still **not diagnosed** and
-   deliberately not guessed at. Profile a pan and a node drag *separately*
-   before changing anything — the whiteboard's equivalent had one specific
-   cause, and HISTORY §71 already took the cheap wins here.
+   works."** Audited directly, verified live in Chromium (`library-view-skills`,
+   19 skills loaded, zero console errors) rather than trusted from the report.
+   The vague complaint does **not** hold up as stated — most of the sub-tab is
+   real:
+   - **Run Skill** — works. Prompts for inputs when the skill has any, runs it
+     in chat.
+   - **+ New Skill** — works. Opens Settings → Skills with a blank, focused
+     form (deliberately reuses that editor rather than growing a second one).
+   - **Skill Logs sidebar** — works, filters the audit log for skill/agent
+     actions; correctly shows "No skill execution logs found" on a fresh
+     profile.
+   - **Autonomous Workers toggle, Auto-tag, Auto-link** — real, wired to
+     `setPreference`, not decorative.
+   - **Edit / Delete a custom skill** — real, but **only reachable from
+     Settings → Skills**, not from a card on this sub-tab. Deliberate (one
+     editor, not two) but easy to read as "missing" from this tab alone —
+     worth a card-level Edit/Delete shortcut if this gets revisited.
+   - **Schedule** — the one genuinely broken piece: a literal placeholder
+     (`toast("Scheduler functionality coming soon!")`). This is the same
+     surface as the Kortex/Eden "automation pipelines" item (§88.2 item 8) —
+     build there, not as a one-off button, so it doesn't get built twice.
+~~6. **The graph is slow and janky to move around.**~~ **Profiled, not
+   guessed at — two real causes found and fixed, one deeper cost left open.**
+   120 seeded notes/40 links, Chromium's CDP `Performance` metrics, pan and
+   node drag measured *separately*, and — because this sandbox's VM is fast
+   enough to hide real jank — re-measured under `Emulation.setCPUThrottlingRate`
+   6× as the standard proxy for lower-end hardware:
+   - **Native `:hover` churn during a pan.** `graphIsPanning` already muted
+     the *application's* hover logic, but the browser's own `:hover`
+     pseudo-class still matches every node the cursor physically sweeps under
+     mid-drag, re-triggering `.graph-core`/`.graph-halo`'s CSS transitions —
+     invisible to any JS mute because it's browser-level, not app-level.
+     Fixed: `canvas.classed("graph-panning", true)` in the same zoom
+     `start`/`end` handlers, `.graph-panning .graph-node { pointer-events:
+     none }` in CSS. Node drags are unaffected — their own `mousedown`
+     already calls `stopPropagation()` before the zoom behaviour's `start`
+     ever fires. recalc-style time during a pan dropped measurably
+     (unthrottled: 85.7ms → 72.8ms over a fixed gesture).
+   - **The much bigger cause: panning or dragging *while the force
+     simulation is still cooling*.** Measured directly, 6× throttle: the
+     same pan gesture cost **80% main-thread busy** while the simulation was
+     still hot (`alpha` ≈ 0.87) versus **57%** after it had settled
+     (`alpha` < 0.001) — confirmed by tracking `graphSimulation.alpha()`
+     directly over time, not assumed. The tick handler updates every
+     node/edge/label position on every tick (~60/sec while running), which
+     directly competes with whatever the user is doing — and default decay
+     (0.0228) takes ~300 ticks, which under real throttling stretched cooling
+     past 15 seconds. That squarely covers "pan right after the graph opens,"
+     the single most likely first action a user takes. Fixed:
+     `.alphaDecay(0.05)` on the simulation — cools in ~10s instead of ~15–18s
+     under the same throttle. This does **not** change where the layout
+     settles (the forces decide that, not the decay rate), only how many
+     ticks it takes to get there — verified with a screenshot: 120 notes,
+     same well-spread layout, nothing broken.
+   - **What's still open, and why it wasn't attempted here**: even fully
+     cooled, a pan still cost 51–57% main-thread busy under 6× throttle —
+     real SVG hit-testing/paint cost over 120+ nodes that neither fix above
+     touches. The deeper fix is the tick handler's own O(n) full-graph DOM
+     update, the same shape the whiteboard's `wbScheduleRender()` fixed for
+     its 49 call sites (HISTORY, this file's own precedent) — skipping
+     label/cluster updates on alternate ticks, or a dirty-flag partial
+     update, is the next step if this is reported again after these two
+     fixes ship. Not attempted this session: it's a structural change to a
+     hot path, not a profiling-guided small fix, and deserves the same
+     "don't guess, measure first" treatment on its own.
+   - All existing graph/frontend tests, `ruff check`, and `node --check
+     graph.js` stay green; verified live in Chromium (screenshot, zero
+     console errors) both before and after.
 
 **Tier B — UI/UX, each concrete.**
 

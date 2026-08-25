@@ -2207,20 +2207,46 @@ measured at 1,501 notes as 533 ms → 16 ms and 31,680 → 4,306 nodes. That
 deliberately keeps the list **one continuous scroll**, which is the thing this
 item distinguishes itself from.
 
-**Still open, unchanged, and still two separable pieces:**
+**Item 1 is now built. Item 2 is still open and scoped below.**
 
-1. **A page-size preference and a page selector top and bottom** — the
-   user-facing control that was actually asked for. Small, once someone
-   decides it is wanted now that the scroll no longer struggles.
+1. ~~A page-size preference and a page selector top and bottom.~~ **Built.**
+   `#notes-page-size` (All / 25 / 50 / 100, default All — today's continuous
+   scroll, untouched) sits beside the existing Sort control; choosing a
+   number replaces the scroll with one flat page and a Prev/Next bar
+   (`#notes-pagination`) below the list. Persisted in `localStorage`, the
+   same pattern as the graph's gravity/spread sliders. Deliberately kept
+   separate from §86's `renderIncrementally` chunking — that stays the "All"
+   path's implementation, unmodified. `paginateNotesForDisplay()`
+   (`app.js`) is the one seam both the flat-sort list and the threaded list
+   pass through, so a page can never overrun its slice.
+   **One accepted trade-off, not a bug**: a thread can split across a page
+   boundary (a parent on page 2, a continuation on page 3) — pagination
+   slices the already-flattened `[entry, depth]` order rather than keeping
+   threads whole across page boundaries, matching the same "small, don't
+   over-build this" scope this item's own text asked for. Verified live in
+   Chromium: 120 seeded notes at 25/page → 5 pages, Prev disabled on page 1,
+   Next/Prev step correctly, switching back to "All" restores the original
+   60-item scroll window with zero console errors. `test_frontend_ids.py`,
+   `test_frontend_handlers.py`, `test_style_scale.py` all still pass.
+   **One honest cosmetic note**: the page-size `<select>` wraps onto its own
+   line under the rest of the toolbar at common widths rather than sitting
+   inline with Sort — functional and accessible, but not a redesign pass;
+   worth revisiting if the toolbar gets touched for another reason.
 2. **The hard half: a wiki-link click has to land on the right *page*.** Which
    page a note is on depends on whatever sort and filter is currently active
    (category, tag, pinned, search term, semantic vs keyword), not just the
    note's id. That is real routing logic and deserves its own design pass
-   rather than being bolted onto the page-size control.
-
-Worth asking before building (1): with the scroll now cheap, does a page
-selector still improve anything, or was the original ask really about the
-lag? The answer changes whether this is a feature or a no-op.
+   rather than being bolted onto the page-size control. Scoped, not built,
+   this session — the shape it needs: `paginateNotesForDisplay` already
+   computes the exact ordered/filtered array a page is sliced from, so
+   resolving "which page is note N on" is a matter of re-running the same
+   filter+sort+order the *target* view would use, finding N's index in that
+   array, and dividing by the active page size — not a new index or a
+   second source of truth. The real design question is what to do when the
+   click's *origin* view has different sort/filter/page-size than whatever
+   is currently active (e.g. a wiki-link inside a note clicked from Chat,
+   where no Notes-tab filter is active at all) — that decision, not the
+   arithmetic, is why this stayed a separate item.
 
 ## 78. Whether the backend needs more concurrency than it already has
 

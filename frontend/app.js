@@ -97,6 +97,14 @@ let busyEntryId = null; // entry the AI is currently working on (spinner shown)
 let flashConfidenceId = null; // entry whose confidence badge just changed (flash once)
 let noteSearch = ""; // Notes-tab text filter (Wave J)
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
+// BACKLOG §77 item 1. "all" (the default) keeps the existing continuous
+// scroll (§86's renderIncrementally) untouched; a numeric size switches
+// renderEntries to a single flat page of that many notes instead. Persisted
+// the same way graph-gravity/graph-spread are — a plain localStorage read at
+// declaration time, not the async preferences endpoint, since this is a
+// display choice with no reason to round-trip the server.
+let notesPageSize = localStorage.getItem("notes-page-size") || "all";
+let notesCurrentPage = 1;
 
 const $ = (id) => document.getElementById(id);
 const show = (...ids) => ids.forEach((id) => $(id).classList.remove("hidden"));
@@ -3884,6 +3892,33 @@ function renderIncrementally(container, items, buildItem, options = {}) {
   listWindows.set(container, observer);
 }
 
+// BACKLOG §77 item 1 — the user-facing page-size control, deliberately kept
+// separate from §86's scroll-chunking (renderIncrementally above): that stays
+// one continuous scroll under "All notes" (the default, and this function's
+// no-op path). A numeric size instead slices whatever list renderEntries was
+// about to paint down to one page and updates the Prev/Next bar.
+//
+// Threads are the one place this is a known, accepted simplification: a
+// thread and its children can, at a page boundary, split across two pages
+// (part 2 of §77 — routing a wiki-link click to the *right* page — depends
+// on sort/filter state and is scoped separately, not solved here).
+function paginateNotesForDisplay(items) {
+  const bar = $("notes-pagination");
+  if (notesPageSize === "all") {
+    bar.classList.add("hidden");
+    return items;
+  }
+  const pageSize = Number(notesPageSize);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  notesCurrentPage = Math.min(Math.max(1, notesCurrentPage), totalPages);
+  const start = (notesCurrentPage - 1) * pageSize;
+  bar.classList.toggle("hidden", items.length === 0);
+  $("notes-page-status").textContent = `Page ${notesCurrentPage} of ${totalPages}`;
+  $("notes-page-prev").disabled = notesCurrentPage <= 1;
+  $("notes-page-next").disabled = notesCurrentPage >= totalPages;
+  return items.slice(start, start + pageSize);
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
@@ -3927,7 +3962,7 @@ function renderEntries() {
   if (flat) {
     renderIncrementally(
       list,
-      sortEntries(visible),
+      paginateNotesForDisplay(sortEntries(visible)),
       (entry) => entryItem(entry, { actions: true }),
       { afterChunk: () => applyEntryListTabOrder(list) }
     );
@@ -3967,7 +4002,7 @@ function renderEntries() {
 
   renderIncrementally(
     list,
-    ordered,
+    paginateNotesForDisplay(ordered),
     ([entry, depth]) => {
       const li = entryItem(entry, { actions: true });
       if (depth > 0) {
@@ -27003,7 +27038,26 @@ $("note-search").addEventListener("input", (e) => {
 });
 $("note-sort").addEventListener("change", (e) => {
   noteSort = e.target.value;
+  notesCurrentPage = 1; // a re-sort can move a note off whatever page it was on
   renderEntries();
+});
+$("notes-page-size").value = notesPageSize;
+$("notes-page-size").addEventListener("change", (e) => {
+  notesPageSize = e.target.value;
+  localStorage.setItem("notes-page-size", notesPageSize);
+  notesCurrentPage = 1;
+  renderEntries();
+});
+$("notes-page-prev").addEventListener("click", () => {
+  if (notesCurrentPage <= 1) return;
+  notesCurrentPage -= 1;
+  renderEntries();
+  $("entries-heading").scrollIntoView({ block: "start", behavior: "smooth" });
+});
+$("notes-page-next").addEventListener("click", () => {
+  notesCurrentPage += 1; // clamped back down inside renderEntries if this overshoots
+  renderEntries();
+  $("entries-heading").scrollIntoView({ block: "start", behavior: "smooth" });
 });
 // Reported directly: an image just pasted/dropped/attached only shows as
 // raw `![name](/media/hash.ext)` text in the plain <textarea> — which reads

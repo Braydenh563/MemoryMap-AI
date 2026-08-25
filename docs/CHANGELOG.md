@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Fixed — the Documents Library sub-tab looked nothing like the rest of the app
+
+Reported bluntly and repeatedly: "SOOOO ugly and not consistent with the
+other application design style." Root cause, found by screenshotting it
+beside the "All" library view: its rows had no scoped CSS at all, so every
+one fell through to the app's default filled button style — a solid-accent
+bar with the title and word count crammed onto one line. Given a document
+icon and a proper card look (border, hover state, title/meta on separate
+lines) matching the rest of the Library. Verified in both themes.
+
 ### Added — back/forward now covers switching between saved chats
 
 Opening a different saved conversation, or starting a new one, is now a

@@ -167,17 +167,19 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
     need a schema change first. Verified live: A–Z sort correctly orders
     three test conversations, the choice survives a reload.
 
-12. **The Documents Library sub-tab needs a full visual redesign.** Reported
-    directly and bluntly: "SOOOO ugly and not consistent with the other
-    application design style ui and other pages." This is the same gap
-    §88.1 item 8 already named ("cards, metadata layout and empty state all
-    unstyled beyond the basics") but the report this time is stronger and
-    specifically contrasts it against the rest of the app's design language
-    — worth treating as its own pass rather than folded into item 8's
-    general "give it a look" note. Start by screenshotting it beside a
-    polished Library sub-view (All, or Whiteboards after its own pass) to
-    name concretely what differs, per this file's own rule about vague
-    visual reports.
+~~12. **The Documents Library sub-tab needs a full visual redesign.**~~
+    **Built — root cause found by screenshotting it beside the "All" view,
+    exactly as this item's own note said to.** `#library-docs-list`'s rows
+    (`renderLibraryDocuments`, `whiteboard.js`) shared only the layout class
+    `.doc-list` with the editor's own recent-docs sidebar — no scoped CSS of
+    their own at all, so every row fell through to the app's default filled
+    `<button>` style: a full-width solid-accent bar with the title and word
+    count crammed onto one line, nothing like a card. Given a document icon,
+    a proper title/meta column, a border and hover state matching
+    `.library-card`'s own look (`04-chat-dock-appearance.css`). Verified
+    live in both themes: real cards now, readable at a glance, clicking one
+    still opens the right document. Whiteboards' own pass (item 9 below) is
+    unrelated code and still open.
 
 13. **Back/forward navigation still misses most navigation types.** Reported
     directly, and traced to source rather than guessed at. Library's own
@@ -340,10 +342,8 @@ same session is in §88.0 so nobody re-fixes it.
    click) falls back to "All" rather than leaving a stale sub-view on screen.
    Verified live: Whiteboards → back → Documents → back → All → forward →
    Documents, in order.
-8. **The Documents Library sub-tab needs a visual redesign.** Its search-box
-   height is fixed (§88.0); the *look* of the list is still the plain one this
-   session shipped — cards, metadata layout and empty state all unstyled
-   beyond the basics.
+~~8. **The Documents Library sub-tab needs a visual redesign.**~~ **Built** —
+   see the live-list's own item 12, which has the full root cause and fix.
 9. **The Whiteboards Library sub-tab is bland** — same pass.
 10. **The graph dock may get too tall and squish the graph.** Now three
     deliberate rows; if it grows again, the answer is an overflow menu rather

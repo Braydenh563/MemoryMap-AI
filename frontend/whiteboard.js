@@ -5546,6 +5546,18 @@ async function renderLibraryDocuments() {
     const open = document.createElement("button");
     open.type = "button";
     open.className = "doc-list-item";
+    // ROADMAP.md's Documents Library redesign ask ("SOOOO ugly and not
+    // consistent with the other application design style"): this button had
+    // no scoped CSS at all, so it fell through to the app's default filled
+    // <button> style — a full-width solid-accent bar rather than a card.
+    // Icon + a title/meta column now matches the same visual shape the
+    // "All" library view's document cards already use.
+    const icon = document.createElement("span");
+    icon.className = "doc-list-icon";
+    setLabel(icon, "ph:file-text");
+    icon.setAttribute("aria-hidden", "true");
+    const body = document.createElement("span");
+    body.className = "doc-list-body";
     const title = document.createElement("span");
     title.className = "doc-list-title";
     title.textContent = doc.title || "Untitled";
@@ -5556,7 +5568,8 @@ async function renderLibraryDocuments() {
     const words = typeof doc.words === "number" ? `${doc.words} words` : "";
     const when = doc.updated_at ? relativeTime(doc.updated_at) : "";
     meta.textContent = [words, when].filter(Boolean).join(" · ");
-    open.append(title, meta);
+    body.append(title, meta);
+    open.append(icon, body);
     open.addEventListener("click", () => {
       // switchTab first, then open. Reported as "the documents subtab document
       // cards don't even do anything": openDocument() loaded the document

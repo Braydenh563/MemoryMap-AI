@@ -538,16 +538,24 @@ class CaptionBody(BaseModel):
     #: asked for directly: "if one is already there, another doesn't need
     #: to be written unless the user presses the button to rewrite it."
     force: bool = False
+    #: A caption typed by hand instead of generated — asked for directly
+    #: ("allow for manual input of image captions"). `None` (the default)
+    #: means "generate one"; any string, including "", sets the caption to
+    #: exactly that text and skips the model entirely — a person editing a
+    #: caption is not asking for a second opinion. `""` clears it back to
+    #: uncaptioned rather than storing an empty string as if it meant
+    #: something, matching the null/"not captioned yet" convention
+    #: `MediaUpload.caption` already uses.
+    text: str | None = Field(default=None, max_length=2000)
 
 
 @router.post("/media/{upload_id}/caption", response_model=MediaUploadOut)
 def caption_media(
     upload_id: int, body: CaptionBody = CaptionBody(), session: Session = Depends(get_session)
 ) -> MediaUploadOut:
-    """Generate (or, with `force`, regenerate) a caption for one image —
-    the manual trigger the Library and the Notes tab both call, for an
-    image that either arrived before a vision model was available or whose
-    caption a person wants rewritten.
+    """Generate (or, with `force`, regenerate) a caption for one image, or —
+    with `text` — set one by hand. The manual-generate trigger and the
+    manual-edit field are both reached from the Library and the Notes tab.
 
     Runs synchronously: captioning one image is a single model round trip,
     no different in shape from the AI-edit or link-reason calls this app
@@ -558,18 +566,24 @@ def caption_media(
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     if Path(upload.filename).suffix.lower() not in captioning.CAPTION_SUFFIXES:
         raise HTTPException(status_code=415, detail="Only images can be captioned.")
-    if not deps.get_ollama().is_running():
-        raise HTTPException(status_code=409, detail="The AI model isn't running.")
-    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
-    if not model:
-        raise HTTPException(
-            status_code=409,
-            detail="No installed model reports it can see images — install or "
-            "pick one in Settings → Models.",
-        )
-    media_dir = deps.get_config().data_dir / "media"
-    captioning.caption_and_store(upload.id, media_dir / upload.filename, force=body.force)
-    session.refresh(upload)
+    if body.text is not None:
+        # A hand-typed caption needs no model at all — set it and return,
+        # skipping every Ollama/vision-model check below.
+        upload.caption = body.text.strip() or None
+        session.commit()
+    else:
+        if not deps.get_ollama().is_running():
+            raise HTTPException(status_code=409, detail="The AI model isn't running.")
+        model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+        if not model:
+            raise HTTPException(
+                status_code=409,
+                detail="No installed model reports it can see images — install or "
+                "pick one in Settings → Models.",
+            )
+        media_dir = deps.get_config().data_dir / "media"
+        captioning.caption_and_store(upload.id, media_dir / upload.filename, force=body.force)
+        session.refresh(upload)
     return MediaUploadOut(
         id=upload.id,
         url=f"/media/{upload.filename}",

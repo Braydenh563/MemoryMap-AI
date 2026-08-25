@@ -27225,6 +27225,17 @@ $("notes-page-next").addEventListener("click", () => {
 // box and renders a real thumbnail per one, each with its own ✕ that strips
 // just that reference back out of the text (the upload itself is untouched,
 // same as deleting any other line of text doesn't delete a file).
+// Shared by every attachment-chip action below that needs the real upload
+// row (id, caption) behind a markdown `/media/...` url — `GET /media`
+// isn't filterable by url, so this is one list-and-find rather than each
+// caller repeating it. Not cached: called only on a real user action
+// (caption, edit, remove), never on the per-keystroke render this chip
+// strip runs under.
+async function resolveMediaUploadByUrl(url) {
+  const uploads = await apiJson("/media");
+  return uploads.find((u) => u.url === url) || null;
+}
+
 function renderEntryAttachmentChips() {
   const box = $("entry-attachment-chips");
   const textarea = $("entry-content");
@@ -27262,8 +27273,7 @@ function renderEntryAttachmentChips() {
     captionBtn.addEventListener("click", async () => {
       captionBtn.disabled = true;
       try {
-        const uploads = await apiJson("/media");
-        const match = uploads.find((u) => u.url === url);
+        const match = await resolveMediaUploadByUrl(url);
         if (!match) {
           toast("Couldn't find that upload.", true);
           return;
@@ -27277,6 +27287,48 @@ function renderEntryAttachmentChips() {
         toast(error.message || "Couldn't generate a caption.", true);
       } finally {
         captionBtn.disabled = false;
+      }
+    });
+    // Manual entry, asked for directly ("allow for manual input of image
+    // captions as well as" the AI-generate button above). `promptDialog` is
+    // the same custom text-entry modal the app already uses elsewhere (the
+    // "Title for the new document" dialog is the other example) — kept
+    // deliberately separate from the sparkle button rather than merged into
+    // one control, matching the Library gallery's own click-the-text-vs-
+    // click-the-button split for the same two actions.
+    const editCaptionBtn = document.createElement("button");
+    editCaptionBtn.className = "ghost small icon-only entry-attachment-caption-edit-btn";
+    editCaptionBtn.type = "button";
+    setLabel(editCaptionBtn, "ph:pencil-simple");
+    editCaptionBtn.title = `Type a caption for "${name || url}"`;
+    editCaptionBtn.setAttribute("aria-label", editCaptionBtn.title);
+    editCaptionBtn.addEventListener("click", async () => {
+      editCaptionBtn.disabled = true;
+      try {
+        const match = await resolveMediaUploadByUrl(url);
+        if (!match) {
+          toast("Couldn't find that upload.", true);
+          return;
+        }
+        const typed = await promptDialog(
+          `Caption for "${name || url}"`,
+          match.caption || "",
+          { confirmLabel: "Save" }
+        );
+        // promptDialog resolves "" for both "cancelled" and "cleared the
+        // field on purpose" — an already-blank caption makes that
+        // ambiguity harmless (there's nothing to lose either way), so no
+        // "did you mean to clear it?" check is needed here.
+        if (typed === "" && !match.caption) return;
+        const updated = await apiJson(`/media/${match.id}/caption`, {
+          method: "POST",
+          body: JSON.stringify({ text: typed }),
+        });
+        toast(updated.caption ? `Caption saved: ${updated.caption}` : "Caption cleared.");
+      } catch (error) {
+        toast(error.message || "Couldn't save that caption.", true);
+      } finally {
+        editCaptionBtn.disabled = false;
       }
     });
     const remove = document.createElement("button");
@@ -27296,8 +27348,7 @@ function renderEntryAttachmentChips() {
       // resolves the id by listing and matching — one request, only when a
       // chip is actually removed, not on every render.
       try {
-        const uploads = await apiJson("/media");
-        const match = uploads.find((u) => u.url === url);
+        const match = await resolveMediaUploadByUrl(url);
         if (match) await apiJson(`/media/${match.id}`, { method: "DELETE" });
       } catch (err) {
         console.error("Couldn't delete the underlying upload", err);
@@ -27308,7 +27359,7 @@ function renderEntryAttachmentChips() {
     // height rather than sit side by side — a small row keeps them paired.
     const chipActions = document.createElement("span");
     chipActions.className = "row entry-attachment-chip-actions";
-    chipActions.append(captionBtn, remove);
+    chipActions.append(captionBtn, editCaptionBtn, remove);
     chip.append(img, label, chipActions);
     box.appendChild(chip);
   }

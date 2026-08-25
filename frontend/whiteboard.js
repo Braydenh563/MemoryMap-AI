@@ -5918,18 +5918,79 @@ function filterLibraryImagesGallery() {
     captionBtn.type = "button";
     captionBtn.className = "ghost small icon-button library-image-caption-btn";
     setLabel(captionBtn, "ph:sparkle");
+    // Always visible, even empty — asked for directly ("allow for manual
+    // input of image captions"): a click-to-edit field, the same pattern
+    // `cap`'s inline rename above already uses, rather than a caption only
+    // ever being reachable through the AI-generate button.
     const captionText = document.createElement("p");
-    captionText.className = "library-image-caption muted text-sm hidden";
+    captionText.className = "library-image-caption muted text-sm";
+    captionText.tabIndex = 0;
+    captionText.setAttribute("role", "button");
     const setCaptionState = (text) => {
       image.caption = text || "";
-      captionText.textContent = text || "";
-      captionText.classList.toggle("hidden", !text);
-      captionText.title = text || "";
-      captionBtn.title = text ? `Regenerate the AI caption for “${image.original_name}”`
+      captionText.textContent = text || "Add a caption…";
+      captionText.classList.toggle("library-image-caption-empty", !text);
+      captionText.title = text
+        ? "Click to edit this caption"
+        : "Click to add a caption";
+      captionBtn.title = text
+        ? `Regenerate the AI caption for “${image.original_name}”`
         : `Generate an AI caption for “${image.original_name}”`;
       captionBtn.setAttribute("aria-label", captionBtn.title);
     };
     setCaptionState(image.caption);
+    const startEditingCaption = () => {
+      if (captionText.querySelector("textarea")) return; // already editing
+      const box = document.createElement("textarea");
+      box.className = "library-image-caption-input";
+      box.value = image.caption || "";
+      box.setAttribute("aria-label", `Caption for “${image.original_name}”`);
+      box.maxLength = 2000;
+      captionText.replaceChildren(box);
+      box.focus();
+      box.select();
+
+      let settled = false;
+      const finish = (text) => {
+        if (settled) return;
+        settled = true;
+        setCaptionState(text);
+      };
+      const cancel = () => finish(image.caption);
+      const save = async () => {
+        const next = box.value.trim();
+        if (next === (image.caption || "")) return cancel();
+        finish(next); // optimistic, corrected below if the server refuses it
+        try {
+          const updated = await apiJson(`/media/${image.id}/caption`, {
+            method: "POST",
+            body: JSON.stringify({ text: next }),
+          });
+          setCaptionState(updated.caption);
+        } catch (error) {
+          setCaptionState(image.caption);
+          toast(error.message || "Couldn't save that caption.", true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      box.addEventListener("blur", save);
+    };
+    captionText.addEventListener("click", startEditingCaption);
+    captionText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        startEditingCaption();
+      }
+    });
+
     captionBtn.addEventListener("click", async (event) => {
       event.stopPropagation();
       captionBtn.disabled = true;

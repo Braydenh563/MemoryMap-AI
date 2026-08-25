@@ -218,3 +218,53 @@ def test_caption_media_reports_no_vision_model_available(ai_client, fake_ollama)
 
 def test_caption_media_404s_for_an_unknown_id(ai_client, fake_ollama):
     assert ai_client.post("/media/999999/caption").status_code == 404
+
+
+# --- manual caption input, asked for directly --------------------------------
+
+
+def test_a_caption_can_be_typed_by_hand(ai_client, fake_ollama):
+    """`text` sets the caption directly and needs no model at all — a
+    person editing a caption is not asking for a second opinion."""
+    fake_ollama.capabilities_declared = []  # no vision model available
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "A hand-typed caption"})
+    assert response.status_code == 200
+    assert response.json()["caption"] == "A hand-typed caption"
+    assert len(fake_ollama.chat_calls) == 0  # never asked the model
+
+
+def test_a_hand_typed_caption_overwrites_an_existing_one_without_force(ai_client, fake_ollama):
+    """Manual edit bypasses the write-once guard entirely — that guard
+    exists to protect against silent *automatic* rewrites, not a person
+    who deliberately opened the field and typed something."""
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    ai_client.post(f"/media/{upload_id}/caption")  # AI-generated first
+    response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "corrected by hand"})
+    assert response.json()["caption"] == "corrected by hand"
+
+
+def test_an_empty_typed_caption_clears_it(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    ai_client.post(f"/media/{upload_id}/caption")
+    response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "   "})
+    assert response.json()["caption"] == ""
+
+
+def test_a_hand_typed_caption_works_on_a_pdf_upload_target_refused(ai_client, fake_ollama):
+    """Manual text still goes through the same suffix guard as generation —
+    typing a caption for a PDF is refused the same way, for the same
+    reason (this endpoint is images only)."""
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "a caption"})
+    assert response.status_code == 415

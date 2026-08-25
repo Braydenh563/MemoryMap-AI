@@ -156,6 +156,33 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    no reachable Ollama (the project's standing caveat), so a clean, honest
    refusal is the correct and fully-verified behaviour here, not a gap.
 
+1d. **Manual caption input, asked for directly right after 1c shipped** — "as
+   well as" the AI-generate button, not instead of it. `POST /media/{id}
+   /caption` gained a `text` field: when present it sets the caption to
+   exactly that string and skips the model (and the write-once guard, which
+   exists to stop a silent *automatic* rewrite, not a person who opened the
+   field on purpose) entirely; `""` clears it, matching the existing null =
+   "not captioned" convention. Two entry points, kept as separate controls
+   from the ✦ generate button rather than merged into one, each matching an
+   existing pattern already in the app: the Library gallery's caption text
+   is now itself click-to-edit (the same inline-textarea-on-click shape the
+   filename rename right above it already used), showing a real "Add a
+   caption…" placeholder when empty instead of hiding; the Notes composer
+   chip — too compact for an inline field — gained a second (pencil) button
+   that opens `promptDialog`, the same custom text-entry modal the "Title
+   for a new document" flow already uses. 5 new backend tests
+   (`test_media_api.py`: hand-typed text bypasses the model and the
+   write-once guard, an empty string clears, a PDF is still refused).
+   Verified live in Chromium at both sites: the gallery's inline edit saves
+   and displays correctly, and the composer's modal round-trips through
+   the real endpoint (`toast: "Caption saved: Manually typed note
+   caption"`) — the second check needed two attempts, both instructive: the
+   modal is one of eleven `.modal-overlay` elements already in the DOM
+   (most hidden), so a bare `.modal-overlay` selector grabbed the wrong
+   one, and "Save" matches 17 buttons across the app — both fixed by
+   scoping to the one `[role=dialog][aria-modal=true]:visible` element,
+   not by changing the app.
+
 2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
    in two, as BACKLOG always said it should be. **The page-size control and
    page selector are built** — `#notes-page-size` / `#notes-pagination` in

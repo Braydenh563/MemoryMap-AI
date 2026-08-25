@@ -43,24 +43,30 @@ def _markup() -> str:
 
 
 def _frontend_js() -> str:
-    """app.js, whiteboard.js, graph.js, documents.js and library.js concatenated.
+    """app.js, whiteboard.js, graph.js, documents.js, library.js and
+    dashboard.js concatenated.
 
     The whiteboard subsystem (board/card CRUD, sketch drawing, export,
     move/resize) moved out of app.js into its own file, loaded by a second
     <script> tag, the graph view (force-directed map, layouts, tracing,
     the node popup) moved out into a third, the document editor moved out
-    into a fourth (§10 of the app.js-split plan), and the Library tab moved
+    into a fourth (§10 of the app.js-split plan), the Library tab moved
     out into a fifth — out of *both* app.js and whiteboard.js — as §88.3's
-    second file. See index.html. A check that only read app.js would go on
-    passing while silently covering none of the moved files' own $("...")
-    lookups.
+    second file, and the dashboard (widgets, masonry, the generative art)
+    moved out into a sixth as §88.3's third file. See index.html. A check
+    that only read app.js would go on passing while silently covering none
+    of the moved files' own $("...") lookups.
     """
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
     whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
     graph = (INDEX.parent / "graph.js").read_text(encoding="utf-8")
     documents = (INDEX.parent / "documents.js").read_text(encoding="utf-8")
     library = (INDEX.parent / "library.js").read_text(encoding="utf-8")
-    return app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
+    dashboard = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
+    return (
+        app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
+        + "\n" + dashboard
+    )
 
 
 def test_no_duplicate_element_ids():
@@ -78,7 +84,7 @@ def test_every_id_the_app_looks_up_actually_exists():
     looked_up = set(re.findall(r'\$\("([a-z0-9-]+)"\)', app))
     missing = sorted(looked_up - declared - RUNTIME_IDS)
     assert not missing, (
-        f"app.js/whiteboard.js/graph.js/documents.js/library.js look up ids that aren't "
+        f"app.js/whiteboard.js/graph.js/documents.js/library.js/dashboard.js look up ids that aren't "
         f"in index.html: {missing}"
     )
 
@@ -135,7 +141,9 @@ def test_rediscover_never_offers_the_note_it_is_already_showing():
     rare: 1 in N, so a tenth of clicks on a ten-note notebook, half of them on
     two notes, and every single one when there is only one note to show.
     """
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    # renderRandomNoteWidget moved to dashboard.js with the rest of the
+    # dashboard widgets (§88.3's app.js split) — read from there now.
+    app = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
     start = app.index("async function renderRandomNoteWidget(")
     body = app[start : start + 2200]
     assert "entries.filter(" in body, "the current note is not excluded from the pool"
@@ -145,7 +153,8 @@ def test_rediscover_never_offers_the_note_it_is_already_showing():
 def test_rediscover_disables_another_when_there_is_nothing_else_to_show():
     """A live-looking button that cannot do anything is the exact shape of
     "this control is broken" — trap 12, arriving by a new route."""
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    # renderRandomNoteWidget moved to dashboard.js — see the note above.
+    app = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
     start = app.index("async function renderRandomNoteWidget(")
     # The end of the function, not a fixed character count. A 2600-char window
     # was doing this job and a comment added inside the function pushed the

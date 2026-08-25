@@ -4603,5 +4603,17 @@ Link to another note with [[its first few words]]."></textarea>
        (loaded above) — all runtime reads inside closures, so this ordering
        relative to documents.js isn't load-bearing either. -->
   <script src="/editor.js"></script>
+  <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
+       of the app.js-split plan). Loaded after app.js and shares its global
+       scope; every cross-file call happens at runtime (inside a function or
+       an event-listener closure), never at parse time, so this order is not
+       load-bearing for correctness — it just keeps app.js as the first,
+       larger script, matching the split's own diff. Two listener
+       registrations that used to be bare top-level lines in app.js's own
+       wiring (passing `closeFeatures` as a function reference, not inside a
+       closure) moved here along with the functions they call, the same fix
+       documents.js made for `initDocSidebarTabs()` — see dashboard.js's own
+       header for the full explanation. -->
+  <script src="/dashboard.js"></script>
 </body>
 </html>

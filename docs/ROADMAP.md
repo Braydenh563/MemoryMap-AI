@@ -996,6 +996,44 @@ instead of two permanent flex siblings squeezed in beside the row.
    using GLM-4V/DeepSeek-VL2 for OCR; check the actual registry before
    scoping model-pull UI around either name.
 
+4. **A visual indicator on a chat message's own metadata line for which
+   mode answered it** (Ask vs. Request/Agent — the segmented control at
+   the bottom of the Chat tab, `renderChatModeSeg()`/`setChatMode()` in
+   app.js, which maps to `body.use_tools` on the wire). Asked for directly.
+   The metadata line already shows the model name and timing (the
+   `{"type": "stats", ...}` NDJSON event, rendered alongside `answered_by`)
+   — this would add which of the two modes produced that particular
+   answer, most naturally read off `use_tools` (or, for a plan/skill run,
+   its own distinct label) rather than the *current* toggle state, since a
+   conversation can span mode switches and each past message should say
+   what it was actually answered with, not what the toggle happens to show
+   now.
+
+5. **Images pasted, dragged, or dropped into the chat composer don't reach
+   the vision-chat staging system at all.** Reported as a suspicion; found
+   the exact cause while logging it, not yet fixed. `document.addEventListener("drop"/"paste", ...)`
+   (app.js, ~line 26800) matches **any** `<textarea>` by tag name alone —
+   there's no id check scoping it to the Notes/Document composer it was
+   clearly written for. `#chat-input` is a `<textarea>` too, so both
+   handlers fire there and route through `handleFileUpload()`, which
+   inserts literal `![Uploading photo.png…]()` markdown-image placeholder
+   text into the message box and uploads through its own path — nothing
+   like `attachImageFiles()`/`renderImageAttachments()` (the card-token
+   staging this session's vision-chat work actually built and verified,
+   reachable only from the composer's "＋" button). That fully explains
+   both symptoms at once: no attachment card because nothing was staged
+   through that system, and no inline rendering because a plain chat
+   `<textarea>` doesn't render markdown image syntax typed into it. Fix is
+   two-sided: either scope the existing global handler away from
+   `#chat-input` and give the chat composer its own paste/drop listener
+   that calls `attachImageFiles()` instead, or teach `handleFileUpload()`
+   to detect which composer it landed in and branch accordingly — the
+   former is more of this codebase's own separation-of-concerns pattern
+   (each composer owns its own attach flow) and the safer fix, since the
+   latter risks the same "one function serving two different shapes"
+   coupling this session's `documents.js` split was specifically avoiding
+   elsewhere.
+
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 
 Fifteen asks arrived in one message, then a second round of ideas on top. This

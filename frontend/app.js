@@ -16912,6 +16912,13 @@ async function saveWebSearchSettings() {
         searxng_url: $("pref-searxng").value.trim(),
       }),
     });
+    // Reported: "the web search button is visibly disabled in the chat
+    // dock instead of inactive when I have web search enabled in the
+    // settings" — the chat dock's own click handler keeps this Settings
+    // checkbox in sync going the other way, but this save handler never
+    // synced the chat dock button back, so it stayed on whatever look it
+    // had at page load until clicked directly or the page reloaded.
+    renderWebSearchToggle();
     status.classList.remove("error");
     status.textContent = "Saved.";
   } catch (error) {

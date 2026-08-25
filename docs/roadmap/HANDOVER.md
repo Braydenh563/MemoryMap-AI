@@ -1,6 +1,71 @@
 # Session handover
 
-## Latest session — documents.js split, four live-reported bugs fixed, vision chat redesigned around captions
+## Same session, continued — the Settings→Logs viewer bug, and two more live fixes
+
+Two more real bugs found and fixed after the entry below was written, plus
+one investigated and correctly **not** fixed (see why, below):
+
+- **Settings → Logs showed nothing but Alembic's own plugin-registration
+  lines, forever, after every startup.** Reported directly. The previous
+  session's Alembic logging fix (`disable_existing_loggers=False`,
+  `migrations/env.py`) was necessary but not sufficient: Python's
+  `fileConfig()` unconditionally *replaces* the handler list (and resets
+  the level) of every logger `alembic.ini` explicitly configures — root
+  among them — regardless of that flag, which only protects loggers *not*
+  listed there from being disabled. `alembic.ini`'s own `[logger_root]`
+  sets `handlers = console`, so every call to `_ensure_alembic_baseline()`
+  (`core/database.py`, every app startup) silently tore `logbuffer.install()`'s
+  own handler off the root logger and replaced it with Alembic's plain
+  console handler — and the same mechanism reset the `alembic` logger's
+  level back to `INFO` from the `WARNING` the function sets moments
+  earlier, which is why the plugin lines showed up at all. Fixed by saving
+  and restoring root's handlers/level and the alembic logger's level around
+  `command.stamp`/`command.upgrade` in `_ensure_alembic_baseline()` itself
+  — not in `env.py`, since a human running `alembic upgrade head` directly
+  from a terminal *wants* `fileConfig()`'s effect to stick for that
+  short-lived process. New regression test
+  (`test_ensure_alembic_baseline_does_not_evict_the_app_s_own_log_handler`)
+  confirmed failing against the unfixed code before the fix, passing after.
+  Live-verified: hit a fresh server's `/logs` endpoint after startup and
+  confirmed `uvicorn.access`, `uvicorn.error`, `memorymap.embeddings` and
+  `sentence_transformers` records all present alongside Alembic's, not just
+  Alembic's.
+- **The chat-dock web-search toggle stayed visibly "off" (dimmed) after
+  turning web search on from Settings**, only updating once clicked
+  directly or the page reloaded. `saveWebSearchSettings()` (Settings'
+  own save handler) updated `prefsCache` but never called
+  `renderWebSearchToggle()` — the chat-dock button's own click handler
+  already keeps the Settings checkbox in sync going the *other* direction,
+  but nothing synced it back. One added call fixes it; live-verified.
+- **"The AI failed to answer in the Ask chat mode"** — investigated at
+  length, not fixed, and should not be guessed at further without more
+  information. A user screenshot showed a real answer attempt (a specific
+  model name and a real timing, `367 ms`) alongside `librarian.OFFLINE_MESSAGE`
+  ("Ollama doesn't seem to be running") — that text only appears when
+  `ollama.chat_stream()` itself raises `OllamaError` mid-generation
+  (`routes_chat.py`'s `plain_events()`), which means the liveness check
+  passed but the actual model call failed fast. The model in the
+  screenshot was a custom `hf.co/mradermacher/...-GGUF` import — a shape
+  with real, independent compatibility failure modes (chat template,
+  quantisation, memory) that this app's own code has no way to diagnose
+  further from here. Reproduced the *same code path* successfully end to
+  end with `fake_ollama` (which simulates a running, tool-capable backend)
+  and got a clean full answer through the exact routing this session's
+  vision-chat redesign changed — that rules out a routing regression from
+  this session's own edits with real confidence, but does not rule out a
+  genuine issue with the user's specific model. Next session: ask what the
+  model actually is and whether `ollama run <that model>` works directly
+  from their own terminal, rather than re-guessing at app code.
+
+Two more items logged to ROADMAP.md §89 without being investigated further
+(a request for a per-message Ask/Request mode indicator, and a real,
+diagnosed-but-not-yet-fixed bug where pasting/dragging an image into the
+chat composer bypasses the vision-chat staging system entirely — the
+generic paste/drop handler at app.js:~26800 matches any `<textarea>` by tag
+name, `#chat-input` included, so it inserts markdown-image placeholder text
+into the message itself instead of routing through `attachImageFiles()`).
+
+## Previous session — documents.js split, four live-reported bugs fixed, vision chat redesigned around captions
 
 Read [ROADMAP.md's §89](../ROADMAP.md#89--reported-this-session-not-yet-built-start-here-next)
 first — it is the actual work queue this session leaves behind, ranked. This

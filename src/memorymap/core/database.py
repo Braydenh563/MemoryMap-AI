@@ -756,10 +756,39 @@ def _ensure_alembic_baseline(db_path: Path) -> None:
         finally:
             probe_engine.dispose()
 
-        if current is None:
-            command.stamp(cfg, "head")
-        else:
-            command.upgrade(cfg, "head")
+        # migrations/env.py calls logging.config.fileConfig() every time
+        # command.stamp/upgrade below runs it, and that call unconditionally
+        # REPLACES the handler list (and resets the level) of every logger
+        # alembic.ini explicitly configures — root among them — regardless
+        # of disable_existing_loggers, which only protects loggers *not*
+        # listed there from being disabled. alembic.ini's own
+        # [logger_root] sets handlers = console, so this silently tore
+        # logbuffer.install()'s own handler off the root logger and
+        # replaced it with Alembic's plain console handler for the rest of
+        # this process's life — reported directly: the Settings -> Logs
+        # viewer showed nothing but Alembic's own plugin-registration
+        # lines, forever, because nothing the app itself logs reaches a
+        # handler that no longer exists. Same mechanism undid the
+        # WARNING level just set above ([logger_alembic] says INFO),
+        # which is why those plugin lines were visible at all. Restored
+        # here rather than in env.py itself, because a human running
+        # `alembic upgrade head` directly from a terminal *wants*
+        # fileConfig()'s effect to stick for that short-lived process —
+        # this restore only matters for the in-process caller, which is
+        # this function.
+        root_logger = logging.getLogger()
+        saved_root_handlers = list(root_logger.handlers)
+        saved_root_level = root_logger.level
+        saved_alembic_level = logging.getLogger("alembic").level
+        try:
+            if current is None:
+                command.stamp(cfg, "head")
+            else:
+                command.upgrade(cfg, "head")
+        finally:
+            root_logger.handlers = saved_root_handlers
+            root_logger.setLevel(saved_root_level)
+            logging.getLogger("alembic").setLevel(saved_alembic_level)
     except Exception:  # noqa: BLE001 — see docstring: never fatal to startup
         _logger.warning("Alembic baseline/upgrade step failed", exc_info=True)
 

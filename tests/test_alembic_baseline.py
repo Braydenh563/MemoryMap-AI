@@ -8,6 +8,7 @@ pytest (`PYTEST_CURRENT_TEST`) for suite speed, so exercising it here is the
 only coverage this mechanism gets.
 """
 
+import logging
 import sqlite3
 
 from memorymap.core.database import Base, DatabaseManager, _ensure_alembic_baseline
@@ -88,3 +89,37 @@ def test_ensure_alembic_baseline_never_raises_on_bad_path(tmp_path):
     as this could plausibly see; it must swallow the failure, not raise."""
     bad_path = tmp_path / "does" / "not" / "exist" / "db.sqlite"
     _ensure_alembic_baseline(bad_path)  # must not raise
+
+
+def test_ensure_alembic_baseline_does_not_evict_the_app_s_own_log_handler(tmp_path):
+    """Reported directly: the Settings -> Logs viewer showed nothing but
+    Alembic's own plugin-registration lines, forever, after startup.
+
+    migrations/env.py calls logging.config.fileConfig() every time this
+    runs command.stamp/upgrade, and that unconditionally replaces the
+    handler list of every logger alembic.ini explicitly configures (root
+    among them) with exactly what the ini says — alembic.ini's own
+    [logger_root] sets handlers = console, which silently tore
+    logbuffer.install()'s handler off the root logger and left Alembic's
+    plain console handler as the only one there for the rest of the
+    process's life. `disable_existing_loggers=False` (already set in
+    env.py) does not protect against this — it only stops loggers *not*
+    listed in alembic.ini from being disabled, not the handlers of ones
+    that are. Simulates logbuffer.install() with a marker handler on root,
+    the same shape a real BufferHandler is attached in, and confirms it
+    survives both the stamp path (fresh db) and the upgrade path (already
+    stamped)."""
+    db_path = tmp_path / "logging.db"
+    DatabaseManager(db_path)
+
+    marker = logging.Handler()
+    root = logging.getLogger()
+    root.addHandler(marker)
+    try:
+        _ensure_alembic_baseline(db_path)  # stamp path
+        assert marker in root.handlers
+
+        _ensure_alembic_baseline(db_path)  # upgrade path (already stamped)
+        assert marker in root.handlers
+    finally:
+        root.removeHandler(marker)

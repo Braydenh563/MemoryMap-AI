@@ -29,14 +29,11 @@ and a real gap look identical from the outside.
 
 **Start at item 0** in the live list below — the editor rewrite, just
 reprioritized to the top. Then [§89](#89--reported-this-session-not-yet-built-start-here-next)
-(pagination on Reminders/Library, a large chat-file-upload redesign, both
-logged not built) and [§90](#90--reported-this-session-the-appjs-splits-live-verification-pass-not-yet-built)
-(a Settings nav overlap bug, and a small-screen/tablet layout audit — asked
-for directly, not yet touched). §88.3, the `app.js` split, is **done** — all
-four files (documents.js, library.js, dashboard.js, settings.js) are split
-out and landed; §88.4 (context/memory) stays **skipped**, by direct
-instruction. §88.0 lists what was already fixed — check before fixing
-anything.
+(pagination, a large chat-file-upload redesign, both logged not built) and
+[§90](#90--reported-this-session-the-appjs-splits-live-verification-pass-not-yet-built)
+(a Settings overlap bug, now fixed; a small-screen/tablet audit, not yet
+touched). §88.3, the `app.js` split, is **done**; §88.4 stays **skipped**,
+by direct instruction. §88.0 lists what was already fixed — check first.
 
 **A fifteen-ask report plus a second round of ideas landed together — all of
 it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
@@ -1088,16 +1085,19 @@ callouts" entry before rebuilding anything that sounds finished.**
 
 ## §90 — reported this session (the app.js split's live-verification pass), not yet built
 
-1. **`#agent-monitor` overlaps two Settings nav buttons and eats their
-   clicks.** Found live, not reported by the user: Playwright clicking
-   through every Settings nav section (verifying the settings.js split) hit
-   a real 30s timeout on "Help" and "About" specifically —
-   `<aside id="agent-monitor" class="card glass agent-monitor">` (the
-   floating "what the AI is doing" panel) sits on top of them at this
-   viewport and intercepts the pointer event; every other of the 17 nav
-   buttons was reachable. A real overlap bug (same element, same two
-   buttons, twice), not a flake. Not yet scoped: likely `agent-monitor`'s
-   own `z-index`/positioning needs to stop overlapping the settings modal.
+~~1. **`#agent-monitor` overlaps two Settings nav buttons and eats their
+   clicks.**~~ **Built.** Found live (Playwright, verifying the settings.js
+   split): a real 30s click-timeout on "Help"/"About", intercepted by the
+   floating `#agent-monitor` panel. More general than Settings alone —
+   `.modal-overlay` sat at `z-index: 55`, far below the monitor's `1000`, so
+   **every dialog in the app** was partly unclickable under it. Fixed:
+   `.modal-overlay` → `z-index: 1010`, matching `.selection-popup`'s
+   already-established tier for this exact shape (above the monitor, below
+   the toast box's 1050). `#sketch-overlay`/`#improve-overlay` moved with
+   it — both are pinned to `.modal-overlay`'s tier so a confirm dialog
+   raised from inside either still stacks above it by DOM order, which
+   would have broken had only `.modal-overlay` moved. Verified live: both
+   buttons click cleanly now, zero console errors.
 
 2. **Small-screen (tablet/phone) layout needs a real audit, not spot fixes.**
    Asked for directly: "better handling and ui structure of smaller device

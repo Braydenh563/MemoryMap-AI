@@ -1095,19 +1095,24 @@ callouts" entry before rebuilding anything that sounds finished.**
    buttons click cleanly now, zero console errors.
 
 2. **Small-screen (tablet/phone) layout needs a real audit, not spot fixes.**
-   Asked for directly: "better handling and ui structure of smaller device
-   sizes like for tablets and iPhones, potentially even a whole
-   rearrangement and placement of ui for those smaller screen sizes." Not
-   scoped or touched this session — no viewport-resize testing has been done
-   against this app yet, in this session or any prior one on record; every
-   live Playwright check so far ran at a default desktop viewport. Audit
-   `docs/DESIGN.md`'s breakpoints against what actually renders at phone
-   (~390px) and tablet (~768-1024px) width, surface by surface: the tab bar
-   (has overflow-fade machinery already — check it degrades usably), the
-   Settings modal (17 nav sections in a sidebar), the document editor (see
-   live-list item 0 — already reported "squished" at *desktop* width, a bad
-   sign for anything narrower), the whiteboard canvas, and the dashboard's
-   masonry grid. Measure what breaks before rebuilding anything.
+   Asked for directly — "better handling and ui structure of smaller device
+   sizes... potentially even a whole rearrangement." Not touched this
+   session: no viewport-resize testing exists against this app yet, ever;
+   every live Playwright check so far ran at a default desktop viewport.
+   Audit `docs/DESIGN.md`'s breakpoints against phone (~390px) and tablet
+   (~768-1024px) width, surface by surface: the tab bar (overflow-fade
+   already exists — check it degrades usably), the 17-section Settings
+   modal, the document editor (live-list item 0 — already "squished" at
+   *desktop* width), the whiteboard, the dashboard's masonry grid. Measure
+   before rebuilding.
+
+3. **Upload any document type (not just images), with a real per-type
+   viewer and AI able to read it — even a small model.** Asked for
+   directly; logged, not built. Broader than §89.2 below: a real Library
+   viewer per type (text/markdown, PDF, office — scope which), plus
+   content handed to the model as extracted plain text (`core/ocr.py`/
+   `ai/captioning.py`'s own shape) — cheap regardless of model size. Own
+   session.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

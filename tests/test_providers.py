@@ -67,6 +67,22 @@ def test_an_unknown_model_says_so_rather_than_guessing():
     assert known_context("some-model-nobody-has-heard-of") is None
 
 
+def test_a_differently_punctuated_community_import_still_matches_its_family():
+    """Reported directly: a chat model failing when it's a community/fine-tuned
+    import — a hyphenated 'granite-4.1-3b-uncensored' rather than the Ollama
+    library's own 'granite4' naming, the exact shape an `ollama create`d GGUF
+    or a Hugging Face pull tends to take. A plain substring match never finds
+    `granite4` inside that name at all (there's a hyphen in the way), silently
+    falling through to the flat 8k default on a model that actually has a
+    131k window — this is the family match, unaffected by how its uploader
+    happened to punctuate the name."""
+    assert known_context("hf.co/someone/granite-4.1-3b-uncensored-GGUF:latest") == 131072
+    assert known_context("Granite 4.1 Uncensored") == 131072
+    # Unrelated names must not start matching just because punctuation is
+    # ignored — this is squashing separators, not fuzzy matching.
+    assert known_context("some-model-nobody-has-heard-of") is None
+
+
 @pytest.mark.parametrize(
     "field",
     ["context_length", "context_window", "max_context_length", "max_model_len", "max_seq_len"],

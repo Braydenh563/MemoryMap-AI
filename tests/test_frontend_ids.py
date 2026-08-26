@@ -43,8 +43,8 @@ def _markup() -> str:
 
 
 def _frontend_js() -> str:
-    """app.js, whiteboard.js, graph.js, documents.js, library.js and
-    dashboard.js concatenated.
+    """app.js, whiteboard.js, graph.js, documents.js, library.js,
+    dashboard.js and settings.js concatenated.
 
     The whiteboard subsystem (board/card CRUD, sketch drawing, export,
     move/resize) moved out of app.js into its own file, loaded by a second
@@ -52,10 +52,12 @@ def _frontend_js() -> str:
     the node popup) moved out into a third, the document editor moved out
     into a fourth (§10 of the app.js-split plan), the Library tab moved
     out into a fifth — out of *both* app.js and whiteboard.js — as §88.3's
-    second file, and the dashboard (widgets, masonry, the generative art)
-    moved out into a sixth as §88.3's third file. See index.html. A check
-    that only read app.js would go on passing while silently covering none
-    of the moved files' own $("...") lookups.
+    second file, the dashboard (widgets, masonry, the generative art) moved
+    out into a sixth as §88.3's third file, and the settings modal, logs
+    console and appearance system moved out into a seventh — settings.js —
+    as §88.3's fourth and last file. See index.html. A check that only read
+    app.js would go on passing while silently covering none of the moved
+    files' own $("...") lookups.
     """
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
     whiteboard = (INDEX.parent / "whiteboard.js").read_text(encoding="utf-8")
@@ -63,9 +65,10 @@ def _frontend_js() -> str:
     documents = (INDEX.parent / "documents.js").read_text(encoding="utf-8")
     library = (INDEX.parent / "library.js").read_text(encoding="utf-8")
     dashboard = (INDEX.parent / "dashboard.js").read_text(encoding="utf-8")
+    settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
     return (
         app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
-        + "\n" + dashboard
+        + "\n" + dashboard + "\n" + settings
     )
 
 
@@ -84,7 +87,7 @@ def test_every_id_the_app_looks_up_actually_exists():
     looked_up = set(re.findall(r'\$\("([a-z0-9-]+)"\)', app))
     missing = sorted(looked_up - declared - RUNTIME_IDS)
     assert not missing, (
-        f"app.js/whiteboard.js/graph.js/documents.js/library.js/dashboard.js look up ids that aren't "
+        f"app.js/whiteboard.js/graph.js/documents.js/library.js/dashboard.js/settings.js look up ids that aren't "
         f"in index.html: {missing}"
     )
 
@@ -92,11 +95,13 @@ def test_every_id_the_app_looks_up_actually_exists():
 def test_the_prepaint_theme_table_matches_app_js():
     """index.html carries its own copy of THEME_PRESETS. Keep them equal.
 
-    The inline script runs before app.js so the first paint already wears the
-    right theme — without it every reload flashes the default. The cost is two
-    copies of the same table, and a theme added to one and not the other looks
-    fine until you reload, when the app flashes the wrong colours or falls back
-    to the default entirely. Nothing else would notice.
+    The inline script runs before app.js (and long before settings.js, which
+    now owns THEME_PRESETS — §88.3 item 4) so the first paint already wears
+    the right theme — without it every reload flashes the default. The cost
+    is two copies of the same table, and a theme added to one and not the
+    other looks fine until you reload, when the app flashes the wrong
+    colours or falls back to the default entirely. Nothing else would
+    notice.
 
     The pattern matches on the entry's *shape*, not on its first key. It used
     to require `theme:` there, which quietly stopped matching anything the day
@@ -107,23 +112,25 @@ def test_the_prepaint_theme_table_matches_app_js():
     the two copies agreed perfectly.
     """
     html = _markup()
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
 
     inline = set(re.findall(r"^\s{8}(\w+): \{ ", html, re.M))
-    declared = set(re.findall(r"^  (\w+): \{\n\s+label:", app, re.M))
+    declared = set(re.findall(r"^  (\w+): \{\n\s+label:", settings, re.M))
 
     assert inline, "the pre-paint theme table wasn't found — has it moved?"
-    assert declared, "THEME_PRESETS wasn't found in app.js — has it moved?"
+    assert declared, "THEME_PRESETS wasn't found in settings.js — has it moved?"
     assert inline == declared, (
         "pre-paint themes and THEME_PRESETS disagree: "
         f"only in index.html={sorted(inline - declared)}, "
-        f"only in app.js={sorted(declared - inline)}"
+        f"only in settings.js={sorted(declared - inline)}"
     )
 
 
 def test_every_theme_names_a_palette_that_exists():
     """A theme selecting a palette with no CSS silently renders as default."""
-    app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
+    # THEME_PRESETS moved to settings.js with the rest of appearance (§88.3
+    # item 4) — read from there now.
+    app = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
     css = css_text()
 
     used = set(re.findall(r'palette: "(\w+)"', app))
@@ -191,9 +198,16 @@ def test_every_appearance_setting_has_a_default():
     rgba() inside `--glass-shadow`. The app rendered flat and borderless on
     every fresh profile and nothing anywhere reported an error.
     """
+    # APPEARANCE_DEFAULTS moved to settings.js with the rest of appearance
+    # (§88.3 item 4) — but appearancePref() itself is still called from a
+    # handful of places in app.js too (renderEmblem's motion check, the
+    # startup closure's theme/palette restore), so a key read only from
+    # app.js has to be checked against the same table or this test would
+    # miss exactly the class of bug it exists for.
     app = (INDEX.parent / "app.js").read_text(encoding="utf-8")
-    block = DEFAULTS_BLOCK.search(app)
-    assert block, "APPEARANCE_DEFAULTS wasn't found in app.js — has it moved?"
+    settings = (INDEX.parent / "settings.js").read_text(encoding="utf-8")
+    block = DEFAULTS_BLOCK.search(settings)
+    assert block, "APPEARANCE_DEFAULTS wasn't found in settings.js — has it moved?"
 
     #: Settings whose "unset" state is meaningful, so a default would be wrong.
     #: `page-bg` unset means "let the palette supply the page", and
@@ -201,7 +215,7 @@ def test_every_appearance_setting_has_a_default():
     OPTIONAL = {"page-bg"}
 
     declared = set(DEFAULT_KEY.findall(block.group(1)))
-    used = set(APPEARANCE_KEY.findall(app))
+    used = set(APPEARANCE_KEY.findall(app)) | set(APPEARANCE_KEY.findall(settings))
     missing = sorted(used - declared - OPTIONAL)
     assert not missing, (
         "These appearance settings are read but have no entry in "

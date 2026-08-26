@@ -1,6 +1,56 @@
 # Session handover
 
-## New session — `dashboard.js` split out of app.js (§88.3's third file)
+## New session — `settings.js` split out of app.js (§88.3's fourth and last file — the split is done)
+
+The settings modal, logs console, and appearance (theme, accent, curated
+palettes, saved looks, the generative-background preview) — the last piece
+of the `app.js` split. `app.js` is now ~21,720 lines, down from ~28,460 at
+the start of this effort.
+
+**The split itself was done by a background agent that hit a weekly API
+limit mid-task** ("You've hit your weekly limit · resets Aug 29, 7am (UTC)")
+right after finishing the code move, before it ran validation or wrote the
+usual detailed report. The extraction itself was already correct — this
+session picked up from `git status` showing the same uncommitted-but-
+complete shape every prior split landed in (`app.js`/`index.html`/the two
+lint-test files touched, plus `frontend/settings.js` new and untracked) and
+finished the remaining steps directly: `node --check` on both JS files
+(clean), `ruff check .` (clean), the full `pytest tests/` suite (green, 0
+failures — ran in the background because it exceeds the 120s foreground
+timeout), then live Chromium verification, which no prior step in this
+split had reached.
+
+**Two hazards found doing the split, both the `initDocSidebarTabs()` shape**
+— documented in the file's own header rather than repeated here:
+`applyAppearance(); if (bgArtOn()) startBgArt();` and `renderBrandLogo();`
+were both bare top-level calls in app.js into code that moved to
+settings.js; both fixed by moving the call site to run once at the end of
+settings.js itself, same fix as every prior split.
+
+**Verified live in Chromium (Playwright), for the first time this split**:
+unlocked a fresh profile, opened Settings, clicked through 15 of the 17 nav
+sections — zero `pageerror`, zero console errors — then walked every
+top-level tab (Dashboard, Notes, Chat, Graph, Library, Timeline, Reminders)
+the same way, also clean. The two sections that didn't get clicked (Help,
+About) failed for a reason that has nothing to do with this split: the
+floating `#agent-monitor` "what the AI is doing" panel physically overlaps
+those two buttons at this viewport and eats the click — a real, separate
+bug, logged as ROADMAP.md §90 item 1 rather than fixed here (out of scope
+for a pure split; fixing it would have meant touching CSS/layout in the
+same diff as a code move, which is exactly the rule this whole effort was
+built around not breaking).
+
+**Also this session, by direct instruction**: the hybrid live-rendering
+document editor (ROADMAP.md's former item 19, Tier C) was reprioritized to
+item 0 at the top of the live list — a second, independent complaint about
+the current editor's usability and cramped panes landed on top of the
+original live-preview ask, and BACKLOG item 4 had been left open
+specifically waiting for a concrete report like it. A new §90 also logs a
+small-screen/tablet/phone layout audit, asked for directly and not yet
+touched — no viewport-resize testing exists anywhere in this project's
+record yet.
+
+## Prior session — `dashboard.js` split out of app.js (§88.3's third file)
 
 Pure split, no behaviour change, run concurrently in a separate worktree
 alongside the `library.js` split below (this branch's own git history shows

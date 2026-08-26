@@ -32,6 +32,7 @@ EDITOR = Path(__file__).resolve().parents[1] / "frontend" / "editor.js"
 DOCUMENTS = Path(__file__).resolve().parents[1] / "frontend" / "documents.js"
 LIBRARY = Path(__file__).resolve().parents[1] / "frontend" / "library.js"
 DASHBOARD = Path(__file__).resolve().parents[1] / "frontend" / "dashboard.js"
+SETTINGS = Path(__file__).resolve().parents[1] / "frontend" / "settings.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs — the settings overlay has a backdrop-click-to-close and a delegated
@@ -65,10 +66,12 @@ def _source() -> str:
     "/" menu and block frames) is the fourth, documents.js (the document
     editor itself, split out of app.js — §10 of the app.js-split plan) is the
     fifth, library.js (the Library tab, split out of *both* app.js and
-    whiteboard.js — §88.3) is the sixth, and dashboard.js (widgets, masonry,
-    the generative art — §88.3) is the seventh — the reason this list has to
-    grow with the split rather than being left at however many files it
-    started with: a lint that cannot see a file cannot catch anything in it.
+    whiteboard.js — §88.3) is the sixth, dashboard.js (widgets, masonry,
+    the generative art — §88.3) is the seventh, and settings.js (the settings
+    modal, the logs console, and appearance — §88.3, the fourth and last file
+    in the split) is the eighth — the reason this list has to grow with the
+    split rather than being left at however many files it started with: a
+    lint that cannot see a file cannot catch anything in it.
 
     Only comments are stripped: a `$("x").addEventListener` inside a comment is
     documentation of the pattern, not a second registration — this test's own
@@ -88,6 +91,8 @@ def _source() -> str:
         + LIBRARY.read_text(encoding="utf-8")
         + "\n"
         + DASHBOARD.read_text(encoding="utf-8")
+        + "\n"
+        + SETTINGS.read_text(encoding="utf-8")
     )
     return re.sub(r"/\*.*?\*/", "", combined, flags=re.S)
 

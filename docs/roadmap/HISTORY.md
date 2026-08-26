@@ -4539,3 +4539,67 @@ The graph's "similar notes" highlight got its own clear button
 popup's "Link" button now actually completes a link on a plain node click
 (`linkSource` was never read anywhere in graph.js before) — both were
 logged as open items in §89 first, then fixed in the same session.
+
+## §88.3 — the app.js split, full narrative (moved from ROADMAP.md, now complete)
+
+`app.js` was ~28,460 lines. `graph.js`, `whiteboard.js` and `editor.js` were
+already out before this effort started; `documents.js`, `library.js`,
+`dashboard.js` and `settings.js` came out across this and the prior session,
+in that order (easiest/most self-contained first). `app.js` is down to
+~21,720 lines. All four new files are registered in
+`tests/test_frontend_handlers.py`'s `_source()` and
+`tests/test_frontend_ids.py`'s `_frontend_js()`.
+
+1. **`documents.js`.** The document editor (five zones scattered across
+   `app.js`, not one contiguous block: the core module at
+   `app.js:7588-8440`, the sidebar-tabs pair at `16299-16339`, the wiring at
+   `24878-24925` and `24929-24983` with `voice-model-select` deliberately
+   left behind — it's a settings control, not a documents one, despite
+   sitting inside the same comment block — and the `beforeunload` handler at
+   `25000-25004`. One real hazard found doing this: `initDocSidebarTabs();`
+   was called from a *bare top-level* line in `app.js`'s own wiring, not
+   from inside a closure — so moving only the function's *definition* would
+   have left that call site throwing `ReferenceError` and aborting the rest
+   of `app.js`'s synchronous top-level code. Fixed by moving the call site
+   too, invoked on `documents.js`'s own last line. Verified live in Chromium
+   (Playwright): new document → title/content edit → autosave → sidebar
+   list/outline tabs → markdown toolbar, zero console errors.
+2. **`library.js`.** Scattered across *both* app.js and whiteboard.js (see
+   the file's own header for the full zone list and line ranges). **The
+   predicted accident was real**: whiteboard.js's `DOMContentLoaded` held
+   the `#library-subtabs` switcher and Documents/Media wiring alongside the
+   Whiteboard sub-tab's own two controls purely because they'd been written
+   together — moved out; only Whiteboard's own listeners/boards-gallery
+   rendering stayed. No bare-top-level-call-site hazard here — every
+   remaining app.js call site sits inside a function/listener body. One
+   thing found and *not* fixed, logged instead: the `switchTab` override
+   (moved verbatim) monkey-patches rather than folding into `switchTab`'s
+   own `if (name === "library") loadLibrary();` — pre-existing. Verified
+   live in Chromium: every sub-tab rendered content, zero console errors.
+3. **`dashboard.js`.** Widgets, masonry, the generative art (scattered
+   zones — full account and two hazards in the file's own header and this
+   file's `dashboard.js` split entry above). Run concurrently with
+   `library.js` in an isolated git worktree, rebased cleanly onto it with
+   zero `app.js` conflicts. Verified live.
+4. **`settings.js`.** The settings modal, logs console, appearance (theme,
+   accent, curated palettes, saved looks, the generative-background
+   preview). Two hazards, both the `initDocSidebarTabs()` shape — full
+   account in the file's own header. Verified live in Chromium
+   (Playwright): unlocked a fresh profile, opened Settings, switched through
+   15 of 17 nav sections (Models, Personas, Skills, Tools, Memory, Web
+   search, Appearance, Templates, Shortcuts, Preferences, Import/export,
+   Account, Packages, Tasks, plus two more) with zero `pageerror`/console
+   errors, then walked every top-level tab (Dashboard, Notes, Chat, Graph,
+   Library, Timeline, Reminders) the same way — also clean. The two nav
+   sections that didn't get clicked (Help, About) failed for an unrelated
+   reason, not a settings.js bug: the floating `#agent-monitor` panel
+   physically overlaps those two buttons at this viewport and intercepts
+   the click — logged as a real overlap bug in ROADMAP.md's live list.
+
+**The rules that made it safe**, all learned across this effort: never split
+in the same diff as a behaviour change; load order is load-bearing only
+where a file is read at *parse* time; a bare top-level call site left behind
+in `app.js`, calling into code that moved out, is the same load-order hazard
+from the other direction — check for it explicitly on every split; and add
+every new file to both lint tests, since a lint that cannot see a file
+cannot catch anything in it.

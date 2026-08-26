@@ -244,7 +244,9 @@ def test_custom_css_does_not_inject_a_style_tag():
     """
     from memorymap.api.app import FRONTEND_DIR
 
-    source = (FRONTEND_DIR / "app.js").read_text(encoding="utf-8")
+    # applyCustomCss/applyCustomCssLegacy moved to settings.js with the rest
+    # of appearance (§88.3 item 4, the app.js split's fourth and last file).
+    source = (FRONTEND_DIR / "settings.js").read_text(encoding="utf-8")
     start = source.index("function applyCustomCss(")
     end = source.index("function applyCustomCssLegacy(")
     main_path = source[start:end]

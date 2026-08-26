@@ -27,16 +27,16 @@ caught by one grep: the Reminders calendar view (listed as a gap, already
 built and wired) and the graph's own non-visual keyboard layer. A grep miss
 and a real gap look identical from the outside.
 
-**Start at [§89](#89--reported-this-session-not-yet-built-start-here-next)** —
-what was reported in the session after §88 and is still open (pagination on
-Reminders/Library, and a large chat-file-upload redesign, both logged rather
-than built). Then **§88**: §88.1 is everything reported there and still open,
-in order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split
-(documents.js, library.js and dashboard.js are done — settings.js is what's
-left), the priority once §88.1 and §88.2 are done; §88.4 is the
-context/memory analysis. **§88.0 lists what was already fixed — check it
-before fixing anything, and §89's own header lists two more fixed the same
-way this same session.**
+**Start at item 0** in the live list below — the editor rewrite, just
+reprioritized to the top. Then [§89](#89--reported-this-session-not-yet-built-start-here-next)
+(pagination on Reminders/Library, a large chat-file-upload redesign, both
+logged not built) and [§90](#90--reported-this-session-the-appjs-splits-live-verification-pass-not-yet-built)
+(a Settings nav overlap bug, and a small-screen/tablet layout audit — asked
+for directly, not yet touched). §88.3, the `app.js` split, is **done** — all
+four files (documents.js, library.js, dashboard.js, settings.js) are split
+out and landed; §88.4 (context/memory) stays **skipped**, by direct
+instruction. §88.0 lists what was already fixed — check before fixing
+anything.
 
 **A fifteen-ask report plus a second round of ideas landed together — all of
 it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
@@ -44,7 +44,32 @@ below. Five of those fifteen were already built; §87.1 says which, and where.**
 
 ### The live list
 
-Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
+Everything genuinely open, ranked. **Reprioritized to the top, by direct
+instruction, ahead of the numbered items below.**
+
+0. **A hybrid live-rendering document editor (Obsidian Live Preview /
+   Typora model) — moved here from Tier C.** Full scoping (recommended
+   path: a per-block editor, not a whole-document `contenteditable`) is
+   below, unchanged, at what was item 19. **A second, independent report
+   landed on top of it this session**, and is the reason it moved: "it just
+   feels like a chucked together basic editor with poor usability and tool
+   usage... the windows and panes get squished together and it feels
+   annoying to use." That is a *different* complaint from the live-preview
+   ask — not "make it render like Obsidian" but "the editing surface itself
+   is cramped and the tools are hard to use" — and BACKLOG item 4 above
+   (line ~209) was explicitly left open for exactly this kind of concrete
+   follow-up report. Both belong in the same session's scoping pass since
+   they touch the same surface: before committing to the per-block rewrite,
+   audit the *current* three-pane layout (editor / outline-sidebar / preview
+   — whichever panes are simultaneously visible is what "squished" is
+   describing) for spacing, minimum widths, and what collapses first as the
+   window narrows — some of "squished" may be a layout/CSS fix independent
+   of the live-preview rewrite, and worth doing regardless of whether the
+   bigger rewrite happens this cycle. Not yet scoped further than that; no
+   line-level layout audit has been done this session (would need a live
+   browser at a document actually open, which this pass did not reach).
+
+Items 1–2, below, are the ones with real substance after that.
 
 ~~1. **Vision-capable models still cannot be shown an image.**~~ **Built** —
    the largest item on this list, end to end:
@@ -215,8 +240,10 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    opened the editor, zero console errors) rather than left as an
    assumption — nothing concretely broken surfaced, and per this file's own
    rule ("say what specifically, next time it's reported"), no speculative
-   redesign was invented to fill the gap. Leaving this line open only for a
-   real, specific complaint if one arrives.
+   redesign was invented to fill the gap. **That specific complaint has now
+   arrived** — "chucked together basic editor with poor usability and tool
+   usage... windows and panes get squished together" — see item 0 at the
+   top of the live list, which is where it is now scoped.
    ~~`GET /documents` has no search parameter~~ **Built**: `?q=` matches
    title *and* content (`Document.title.ilike | Document.content.ilike`),
    mirroring a filter `ai/tools/documents.py`'s `_list_documents` already
@@ -611,27 +638,15 @@ same session is in §88.0 so nobody re-fixes it.
 
 **Tier C — the big editor feature, worth its own session.**
 
-19. **A hybrid live-rendering document editor.** Asked for precisely: "a mix
-    between the straight md editor and the rendered version where it renders as
-    the user finishes typing… if you click on the line or the section it will
-    unrender until unselected, in which it will rerender." This is the
-    Obsidian Live Preview / Typora model.
-
-    **This is not a small change and must not be started casually.** The
-    current editor is a `<textarea>` plus a separate rendered preview pane, and
-    everything built on it assumes that: `applyMarkdown`, `wrapDocSelection`,
-    find/replace, the `/` menu's caret maths, the `[[` autocomplete, autosave.
-    A live-preview editor is a `contenteditable` or a block-based document
-    model, and every one of those has to be re-implemented against it.
-
-    **Recommended path: a per-block editor, not a whole-document
-    contenteditable.** Render each block (paragraph, heading, callout, list) as
-    rendered HTML; the block containing the caret swaps to a plain textarea
-    holding that block's markdown; blur re-renders it. That keeps the existing
-    textarea machinery working *inside one block at a time* rather than
-    replacing it, and it is exactly the "unrender the section you are on"
-    behaviour asked for. Do it behind a Settings toggle, with the current
-    editor as the default until it is proven.
+19. **A hybrid live-rendering document editor — moved to item 0 at the top of
+    this list.** Asked for precisely: "a mix between the straight md editor
+    and the rendered version where it renders as the user finishes typing…
+    if you click on the line or the section it will unrender until
+    unselected, in which it will rerender" (the Obsidian Live Preview /
+    Typora model), and joined this session by a second, separate complaint
+    about the current editor's usability and cramped panes. Full scoping —
+    why this is not a small change, and the recommended per-block-editor
+    path — is at item 0, not duplicated here.
 
 ### 88.2 Kortex / Eden — what is worth taking, and what is not
 
@@ -798,57 +813,14 @@ stated plainly — capture → discover → write, (c) panes instead of modal
 context-switching, and (d) restraint: few controls visible at rest, more on
 demand. This session's graph-toolbar work is (d); the pane system is (c).
 
-### 88.3 The app.js split — the priority after §88.1 and §88.2
+### 88.3 The app.js split — done
 
-`app.js` was ~28,460 lines. `graph.js`, `whiteboard.js` and `editor.js` were
-already out; `documents.js`, `library.js` and now `dashboard.js` are out too.
-
-Order, easiest and most self-contained first:
-
-1. **`documents.js` — done.** The document editor (five zones scattered
-   across `app.js`, not one contiguous block: the core module at
-   `app.js:7588-8440`, the sidebar-tabs pair at `16299-16339`, the wiring at
-   `24878-24925` and `24929-24983` with `voice-model-select` deliberately
-   left behind — it's a settings control, not a documents one, despite
-   sitting inside the same comment block — and the `beforeunload` handler at
-   `25000-25004`. One real hazard found doing this: `initDocSidebarTabs();`
-   was called from a *bare top-level* line in `app.js`'s own wiring
-   (`initNotesSubtabs(); initDocSidebarTabs(); initSelectionPopup(); ...`) —
-   not from inside a closure — so moving only the function's *definition*
-   would have left that call site throwing `ReferenceError` and aborting the
-   rest of `app.js`'s synchronous top-level code. Fixed by moving the call
-   site too: `documents.js` now invokes `initDocSidebarTabs()` itself, on its
-   own last line, after its own definition. Verified live in Chromium
-   (Playwright): new document → title/content edit → autosave → the
-   sidebar's list/outline tabs (the exact function that moved) → markdown
-   toolbar, zero console errors. Registered in
-   `tests/test_frontend_handlers.py` and `tests/test_frontend_ids.py`.
-2. **`library.js` — done.** Scattered across *both* files (see the file's own
-   header for the full zone list and line ranges). **The predicted accident
-   was real**: whiteboard.js's `DOMContentLoaded` held the `#library-subtabs`
-   switcher and Documents/Media wiring alongside the Whiteboard sub-tab's own
-   two controls purely because they'd been written together — moved out;
-   only Whiteboard's own listeners/boards-gallery rendering stayed. **No
-   bare-top-level-call-site hazard** (documents.js's own, checked for
-   directly): every remaining app.js call site sits inside a
-   function/listener body. One thing found and *not* fixed, logged instead:
-   the `switchTab` override (moved verbatim) monkey-patches rather than
-   folding into `switchTab`'s own `if (name === "library") loadLibrary();` —
-   pre-existing. Verified live in Chromium: every sub-tab rendered content,
-   zero console errors. Registered in `test_frontend_handlers.py`/`test_frontend_ids.py`.
-3. **`dashboard.js` — done.** Widgets, masonry, the generative art (scattered
-   zones; two hazards — see the file's header and HANDOVER.md). Verified live.
-4. **`settings.js`** — the settings modal, logs console, appearance.
-
-**The rules that make it safe**, all learned here: never split in the same diff
-as a behaviour change; load order is load-bearing only where a file is read at
-*parse* time (see index.html's own note on why `graph.js` must precede
-`app.js`, and the new note on why a *reversed* case — a bare top-level call
-site left behind in `app.js`, calling into code that moved out — is the same
-hazard from the other direction); and add every new file to
-`tests/test_frontend_handlers.py`'s `_source()` and
-`tests/test_frontend_ids.py`'s `_frontend_js()` — a lint that cannot see a
-file cannot catch anything in it.
+All four files (documents.js, library.js, dashboard.js, settings.js) are
+split out of app.js (~28,460 → ~21,720 lines) and verified live in Chromium
+with zero console errors. Full narrative — line ranges, the four hazards
+found and how each was fixed, the rules that made it safe — moved to
+[HISTORY.md's own §88.3 entry](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete)
+now that it's finished.
 
 ### 88.4 Context, memory and harness engineering — an analysis
 
@@ -1113,6 +1085,34 @@ callouts" entry before rebuilding anything that sounds finished.**
     (`wbOpenDockedMenu`, with its own touch long-press equivalent already
     built) - that same pattern is the natural template for a selection's
     own copy/cut/delete menu, not a new one.
+
+## §90 — reported this session (the app.js split's live-verification pass), not yet built
+
+1. **`#agent-monitor` overlaps two Settings nav buttons and eats their
+   clicks.** Found live, not reported by the user: Playwright clicking
+   through every Settings nav section (verifying the settings.js split) hit
+   a real 30s timeout on "Help" and "About" specifically —
+   `<aside id="agent-monitor" class="card glass agent-monitor">` (the
+   floating "what the AI is doing" panel) sits on top of them at this
+   viewport and intercepts the pointer event; every other of the 17 nav
+   buttons was reachable. A real overlap bug (same element, same two
+   buttons, twice), not a flake. Not yet scoped: likely `agent-monitor`'s
+   own `z-index`/positioning needs to stop overlapping the settings modal.
+
+2. **Small-screen (tablet/phone) layout needs a real audit, not spot fixes.**
+   Asked for directly: "better handling and ui structure of smaller device
+   sizes like for tablets and iPhones, potentially even a whole
+   rearrangement and placement of ui for those smaller screen sizes." Not
+   scoped or touched this session — no viewport-resize testing has been done
+   against this app yet, in this session or any prior one on record; every
+   live Playwright check so far ran at a default desktop viewport. Audit
+   `docs/DESIGN.md`'s breakpoints against what actually renders at phone
+   (~390px) and tablet (~768-1024px) width, surface by surface: the tab bar
+   (has overflow-fade machinery already — check it degrades usably), the
+   Settings modal (17 nav sections in a sidebar), the document editor (see
+   live-list item 0 — already reported "squished" at *desktop* width, a bad
+   sign for anything narrower), the whiteboard canvas, and the dashboard's
+   masonry grid. Measure what breaks before rebuilding anything.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

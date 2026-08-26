@@ -99,6 +99,27 @@
   </script>
 </head>
 <body>
+  <!-- The very first thing in <body>, on purpose: painted before any data
+       has loaded and before initAuth() (app.js) has decided whether to show
+       the lock screen or the app itself, so the alternative is a blank/
+       part-styled flash of chrome while that decision is pending — the same
+       shape of gap the pre-paint theme script above already closes for
+       colours. initAuth() calls hideBootSplash() (app.js) the moment
+       /auth/status resolves, whichever of its four branches that turns out
+       to be; nothing else needs to know this element exists. Styled in
+       00-tokens-shell.css specifically because that file is first in the
+       <link> order above and this has to be correct before first paint,
+       same reasoning as that file's own :root block. -->
+  <div id="boot-splash" class="boot-splash" aria-hidden="true">
+    <div class="boot-splash-mark">
+      <img src="/favicon.svg" alt="" width="40" height="40">
+      <span>MemoryMap&nbsp;AI</span>
+    </div>
+    <span class="typing-dots boot-splash-dots" role="status" aria-label="Loading">
+      <span></span><span></span><span></span>
+    </span>
+  </div>
+
   <!-- Keyboard users can jump straight past the chrome. -->
   <a href="#" id="skip-link" class="skip-link">Skip to content</a>
 

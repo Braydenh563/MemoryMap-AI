@@ -321,10 +321,28 @@ async function lockNow() {
   showLockScreen(false);
 }
 
+// Fades out and removes #boot-splash (index.html) — called once, from
+// initAuth() below, the moment its /auth/status round trip resolves,
+// whichever of that function's four branches it turns out to be. Removed
+// from the DOM after the fade rather than left `hidden`: nothing should
+// keep sitting fixed over the whole viewport, even invisibly, once the app
+// has decided what it's actually showing.
+function hideBootSplash() {
+  const splash = document.getElementById("boot-splash");
+  if (!splash) return;
+  splash.classList.add("hidden");
+  splash.addEventListener("transitionend", () => splash.remove(), { once: true });
+  // Reduced-motion strips the transition (00-tokens-shell.css), so
+  // transitionend never fires — remove immediately in that case instead of
+  // leaving a zero-opacity element sitting in the DOM forever.
+  if (reducedMotionWanted()) splash.remove();
+}
+
 async function initAuth() {
   // Bounded probe: if the server is unreachable or hangs, fail fast with a
   // clear message instead of an indefinite blank/"connecting" screen.
   const status = await apiJson("/auth/status", { timeoutMs: 8000 }).catch(() => null);
+  hideBootSplash();
   if (!status) {
     $("save-status").textContent =
       "Can't reach the MemoryMap server — check it's running, then refresh.";

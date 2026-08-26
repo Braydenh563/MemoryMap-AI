@@ -978,30 +978,27 @@ callouts" entry before rebuilding anything that sounds finished.**
    what it was actually answered with, not what the toggle happens to show
    now.
 
-5. **Images pasted, dragged, or dropped into the chat composer don't reach
-   the vision-chat staging system at all.** Reported as a suspicion; found
-   the exact cause while logging it, not yet fixed. `document.addEventListener("drop"/"paste", ...)`
-   (app.js, ~line 26800) matches **any** `<textarea>` by tag name alone —
-   there's no id check scoping it to the Notes/Document composer it was
-   clearly written for. `#chat-input` is a `<textarea>` too, so both
-   handlers fire there and route through `handleFileUpload()`, which
-   inserts literal `![Uploading photo.png…]()` markdown-image placeholder
-   text into the message box and uploads through its own path — nothing
-   like `attachImageFiles()`/`renderImageAttachments()` (the card-token
-   staging this session's vision-chat work actually built and verified,
-   reachable only from the composer's "＋" button). That fully explains
-   both symptoms at once: no attachment card because nothing was staged
-   through that system, and no inline rendering because a plain chat
-   `<textarea>` doesn't render markdown image syntax typed into it. Fix is
-   two-sided: either scope the existing global handler away from
-   `#chat-input` and give the chat composer its own paste/drop listener
-   that calls `attachImageFiles()` instead, or teach `handleFileUpload()`
-   to detect which composer it landed in and branch accordingly — the
-   former is more of this codebase's own separation-of-concerns pattern
-   (each composer owns its own attach flow) and the safer fix, since the
-   latter risks the same "one function serving two different shapes"
-   coupling this session's `documents.js` split was specifically avoiding
-   elsewhere.
+~~5. **Images pasted, dragged, or dropped into the chat composer don't reach
+   the vision-chat staging system at all.**~~ **Built** — the scoping fix,
+   the safer of the two options this item's own diagnosis named: the global
+   `drop`/`paste` listeners (app.js) matched **any** `<textarea>` by tag
+   name alone, `#chat-input` included, routing it through `handleFileUpload`
+   (built for the Notes/Document composer — inserts literal
+   `![Uploading…]()` markdown into the textarea) instead of
+   `attachImageFiles()`/`renderImageAttachments()`, the real card-token
+   staging the composer's "＋" button already used. `#chat-input` is now
+   excluded from both listeners and given its own branch: image files go
+   through `attachImageFiles()`; a non-image file dropped/pasted there gets
+   a toast ("only images... right now") instead of broken markdown, since
+   real non-image chat uploads are item 2 below, not this fix. **Live
+   Chromium verification**: dispatched a real `ClipboardEvent` with an image
+   file at `#chat-input` — `attachedImages` populated with a real
+   upload id/url, the input stayed empty (no markdown text landed in it),
+   zero console errors. Also fixed alongside it, same root cause class: a
+   failed upload in the Notes/Document composer (`handleFileUpload`'s own
+   catch) used to leave `*(Failed to upload X)*` sitting in the note/document
+   content — content is what gets saved, a toast is a notification, and the
+   two were conflated the same way the chat composer's placeholder was.
 
 6. **Captioning an image with a vision model should show in the background
    tasks list**, the way other long-running work does. Asked for directly,

@@ -21036,11 +21036,38 @@ document.addEventListener("dragleave", (e) => {
   }
 });
 
+// ROADMAP.md §89 item 5, fixed: this pair matches ANY `<textarea>` by tag
+// name alone, which `#chat-input` is too — so a dropped/pasted image there
+// used to route through `handleFileUpload` (written for the Notes/Document
+// composer: inserts `![Uploading…]()` markdown placeholders into the
+// textarea's own text) instead of the chat composer's real image-staging
+// system, `attachImageFiles()`/`renderImageAttachments()` — the same one
+// the composer's "+" button already uses, with its own attachment cards and
+// its own toast-on-failure error handling. The symptom matched exactly:
+// literal markdown-image syntax landing in the message box, and no
+// attachment card, because nothing was ever staged through that system.
+// `#chat-input` is excluded here and given its own branch instead of a
+// second global listener, so there is exactly one place either kind of
+// composer's drop/paste behaviour is decided.
+function _isChatComposer(target) {
+  return target && target.id === "chat-input";
+}
+
 document.addEventListener("drop", async (e) => {
   if (!e.target.tagName || e.target.tagName.toLowerCase() !== 'textarea') return;
   e.preventDefault();
   e.target.classList.remove("drag-over");
-  
+
+  if (_isChatComposer(e.target)) {
+    const files = Array.from(e.dataTransfer.files);
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (images.length) await attachImageFiles(images);
+    if (images.length < files.length) {
+      toast("Only images can be attached to a chat message right now.", true);
+    }
+    return;
+  }
+
   const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/") || f.type.startsWith("application/") || f.type.startsWith("text/") || f.type.startsWith("video/") || f.type.startsWith("audio/"));
   if (!files.length) return;
 
@@ -21059,6 +21086,16 @@ document.addEventListener("paste", async (e) => {
   if (!files.length) return;
   // Don't prevent default entirely unless we have files, otherwise normal paste breaks
   e.preventDefault();
+
+  if (_isChatComposer(e.target)) {
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    if (images.length) await attachImageFiles(images);
+    if (images.length < files.length) {
+      toast("Only images can be attached to a chat message right now.", true);
+    }
+    return;
+  }
+
   await handleFileUpload(e.target, files);
 });
 
@@ -21095,9 +21132,17 @@ async function handleFileUpload(textarea, files) {
       textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     } catch (err) {
+      // Reported directly (§89 item 2): an upload failure rendered as if it
+      // were the AI's own message — literal error text left sitting in the
+      // note/document content, indistinguishable from something the user
+      // actually typed. A toast is a notification; content is what gets
+      // saved. Removing the placeholder outright (not replacing it with
+      // more text) leaves the composer exactly as if the file were never
+      // dropped/pasted, which is the honest description of what happened.
       console.error("Upload failed", err);
-      textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, `*(Failed to upload ${file.name})*\n`);
+      textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, "");
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      toast(err.message || `Couldn't upload "${file.name}".`, true);
     }
   }
 }

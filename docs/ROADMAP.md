@@ -27,16 +27,13 @@ caught by one grep: the Reminders calendar view (listed as a gap, already
 built and wired) and the graph's own non-visual keyboard layer. A grep miss
 and a real gap look identical from the outside.
 
-**Start at [§89](#89--reported-this-session-not-yet-built-start-here-next)** —
-what was reported in the session after §88 and is still open (pagination on
-Reminders/Library, and a large chat-file-upload redesign, both logged rather
-than built). Then **§88**: §88.1 is everything reported there and still open,
-in order; §88.2 is the Kortex/Eden read; §88.3 is the `app.js` split (its
-first file, documents.js, is done — library.js/dashboard.js/settings.js are
-what's left), the priority once §88.1 and §88.2 are done; §88.4 is the
-context/memory analysis. **§88.0 lists what was already fixed — check it
-before fixing anything, and §89's own header lists two more fixed the same
-way this same session.**
+**Start at item 0** in the live list below — the editor rewrite, just
+reprioritized to the top. Then [§89](#89--reported-this-session-not-yet-built-start-here-next)
+(pagination, a large chat-file-upload redesign, both logged not built) and
+[§90](#90--reported-this-session-the-appjs-splits-live-verification-pass-not-yet-built)
+(a Settings overlap bug, now fixed; a small-screen/tablet audit, not yet
+touched). §88.3, the `app.js` split, is **done**; §88.4 stays **skipped**,
+by direct instruction. §88.0 lists what was already fixed — check first.
 
 **A fifteen-ask report plus a second round of ideas landed together — all of
 it, with its audit verdicts and a located handoff list, is [§87](#87--the-connected-notebook-pass-the-editor-layer-and-everything-reported-with-it)
@@ -44,7 +41,32 @@ below. Five of those fifteen were already built; §87.1 says which, and where.**
 
 ### The live list
 
-Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
+Everything genuinely open, ranked. **Reprioritized to the top, by direct
+instruction, ahead of the numbered items below.**
+
+0. **A hybrid live-rendering document editor (Obsidian Live Preview /
+   Typora model) — moved here from Tier C.** Full scoping (recommended
+   path: a per-block editor, not a whole-document `contenteditable`) is
+   below, unchanged, at what was item 19. **A second, independent report
+   landed on top of it this session**, and is the reason it moved: "it just
+   feels like a chucked together basic editor with poor usability and tool
+   usage... the windows and panes get squished together and it feels
+   annoying to use." That is a *different* complaint from the live-preview
+   ask — not "make it render like Obsidian" but "the editing surface itself
+   is cramped and the tools are hard to use" — and BACKLOG item 4 above
+   (line ~209) was explicitly left open for exactly this kind of concrete
+   follow-up report. Both belong in the same session's scoping pass since
+   they touch the same surface: before committing to the per-block rewrite,
+   audit the *current* three-pane layout (editor / outline-sidebar / preview
+   — whichever panes are simultaneously visible is what "squished" is
+   describing) for spacing, minimum widths, and what collapses first as the
+   window narrows — some of "squished" may be a layout/CSS fix independent
+   of the live-preview rewrite, and worth doing regardless of whether the
+   bigger rewrite happens this cycle. Not yet scoped further than that; no
+   line-level layout audit has been done this session (would need a live
+   browser at a document actually open, which this pass did not reach).
+
+Items 1–2, below, are the ones with real substance after that.
 
 ~~1. **Vision-capable models still cannot be shown an image.**~~ **Built** —
    the largest item on this list, end to end:
@@ -215,8 +237,10 @@ Everything genuinely open, ranked. Items 1–2 are the ones with real substance.
    opened the editor, zero console errors) rather than left as an
    assumption — nothing concretely broken surfaced, and per this file's own
    rule ("say what specifically, next time it's reported"), no speculative
-   redesign was invented to fill the gap. Leaving this line open only for a
-   real, specific complaint if one arrives.
+   redesign was invented to fill the gap. **That specific complaint has now
+   arrived** — "chucked together basic editor with poor usability and tool
+   usage... windows and panes get squished together" — see item 0 at the
+   top of the live list, which is where it is now scoped.
    ~~`GET /documents` has no search parameter~~ **Built**: `?q=` matches
    title *and* content (`Document.title.ilike | Document.content.ilike`),
    mirroring a filter `ai/tools/documents.py`'s `_list_documents` already
@@ -611,27 +635,15 @@ same session is in §88.0 so nobody re-fixes it.
 
 **Tier C — the big editor feature, worth its own session.**
 
-19. **A hybrid live-rendering document editor.** Asked for precisely: "a mix
-    between the straight md editor and the rendered version where it renders as
-    the user finishes typing… if you click on the line or the section it will
-    unrender until unselected, in which it will rerender." This is the
-    Obsidian Live Preview / Typora model.
-
-    **This is not a small change and must not be started casually.** The
-    current editor is a `<textarea>` plus a separate rendered preview pane, and
-    everything built on it assumes that: `applyMarkdown`, `wrapDocSelection`,
-    find/replace, the `/` menu's caret maths, the `[[` autocomplete, autosave.
-    A live-preview editor is a `contenteditable` or a block-based document
-    model, and every one of those has to be re-implemented against it.
-
-    **Recommended path: a per-block editor, not a whole-document
-    contenteditable.** Render each block (paragraph, heading, callout, list) as
-    rendered HTML; the block containing the caret swaps to a plain textarea
-    holding that block's markdown; blur re-renders it. That keeps the existing
-    textarea machinery working *inside one block at a time* rather than
-    replacing it, and it is exactly the "unrender the section you are on"
-    behaviour asked for. Do it behind a Settings toggle, with the current
-    editor as the default until it is proven.
+19. **A hybrid live-rendering document editor — moved to item 0 at the top of
+    this list.** Asked for precisely: "a mix between the straight md editor
+    and the rendered version where it renders as the user finishes typing…
+    if you click on the line or the section it will unrender until
+    unselected, in which it will rerender" (the Obsidian Live Preview /
+    Typora model), and joined this session by a second, separate complaint
+    about the current editor's usability and cramped panes. Full scoping —
+    why this is not a small change, and the recommended per-block-editor
+    path — is at item 0, not duplicated here.
 
 ### 88.2 Kortex / Eden — what is worth taking, and what is not
 
@@ -798,47 +810,14 @@ stated plainly — capture → discover → write, (c) panes instead of modal
 context-switching, and (d) restraint: few controls visible at rest, more on
 demand. This session's graph-toolbar work is (d); the pane system is (c).
 
-### 88.3 The app.js split — the priority after §88.1 and §88.2
+### 88.3 The app.js split — done
 
-`app.js` was ~28,460 lines. `graph.js` (3.0k), `whiteboard.js` (5.9k) and
-`editor.js` (~0.9k) were already out; `documents.js` (~1,010 lines) is now
-out too, so the pattern is proven four times over.
-
-Order, easiest and most self-contained first:
-
-1. **`documents.js` — done.** The document editor (five zones scattered
-   across `app.js`, not one contiguous block: the core module at
-   `app.js:7588-8440`, the sidebar-tabs pair at `16299-16339`, the wiring at
-   `24878-24925` and `24929-24983` with `voice-model-select` deliberately
-   left behind — it's a settings control, not a documents one, despite
-   sitting inside the same comment block — and the `beforeunload` handler at
-   `25000-25004`. One real hazard found doing this: `initDocSidebarTabs();`
-   was called from a *bare top-level* line in `app.js`'s own wiring
-   (`initNotesSubtabs(); initDocSidebarTabs(); initSelectionPopup(); ...`) —
-   not from inside a closure — so moving only the function's *definition*
-   would have left that call site throwing `ReferenceError` and aborting the
-   rest of `app.js`'s synchronous top-level code. Fixed by moving the call
-   site too: `documents.js` now invokes `initDocSidebarTabs()` itself, on its
-   own last line, after its own definition. Verified live in Chromium
-   (Playwright): new document → title/content edit → autosave → the
-   sidebar's list/outline tabs (the exact function that moved) → markdown
-   toolbar, zero console errors. Registered in
-   `tests/test_frontend_handlers.py` and `tests/test_frontend_ids.py`.
-2. **`library.js`** — the Library (`app.js:19209+`), which already has its own
-   sub-tab switcher living in `whiteboard.js` (an accident worth fixing while
-   splitting).
-3. **`dashboard.js`** — widgets, masonry, the generative art.
-4. **`settings.js`** — the settings modal, logs console, appearance.
-
-**The rules that make it safe**, all learned here: never split in the same diff
-as a behaviour change; load order is load-bearing only where a file is read at
-*parse* time (see index.html's own note on why `graph.js` must precede
-`app.js`, and the new note on why a *reversed* case — a bare top-level call
-site left behind in `app.js`, calling into code that moved out — is the same
-hazard from the other direction); and add every new file to
-`tests/test_frontend_handlers.py`'s `_source()` and
-`tests/test_frontend_ids.py`'s `_frontend_js()` — a lint that cannot see a
-file cannot catch anything in it.
+All four files (documents.js, library.js, dashboard.js, settings.js) are
+split out of app.js (~28,460 → ~21,720 lines) and verified live in Chromium
+with zero console errors. Full narrative — line ranges, the four hazards
+found and how each was fixed, the rules that made it safe — moved to
+[HISTORY.md's own §88.3 entry](roadmap/HISTORY.md#883--the-appjs-split-full-narrative-moved-from-roadmapmd-now-complete)
+now that it's finished.
 
 ### 88.4 Context, memory and harness engineering — an analysis
 
@@ -999,30 +978,27 @@ callouts" entry before rebuilding anything that sounds finished.**
    what it was actually answered with, not what the toggle happens to show
    now.
 
-5. **Images pasted, dragged, or dropped into the chat composer don't reach
-   the vision-chat staging system at all.** Reported as a suspicion; found
-   the exact cause while logging it, not yet fixed. `document.addEventListener("drop"/"paste", ...)`
-   (app.js, ~line 26800) matches **any** `<textarea>` by tag name alone —
-   there's no id check scoping it to the Notes/Document composer it was
-   clearly written for. `#chat-input` is a `<textarea>` too, so both
-   handlers fire there and route through `handleFileUpload()`, which
-   inserts literal `![Uploading photo.png…]()` markdown-image placeholder
-   text into the message box and uploads through its own path — nothing
-   like `attachImageFiles()`/`renderImageAttachments()` (the card-token
-   staging this session's vision-chat work actually built and verified,
-   reachable only from the composer's "＋" button). That fully explains
-   both symptoms at once: no attachment card because nothing was staged
-   through that system, and no inline rendering because a plain chat
-   `<textarea>` doesn't render markdown image syntax typed into it. Fix is
-   two-sided: either scope the existing global handler away from
-   `#chat-input` and give the chat composer its own paste/drop listener
-   that calls `attachImageFiles()` instead, or teach `handleFileUpload()`
-   to detect which composer it landed in and branch accordingly — the
-   former is more of this codebase's own separation-of-concerns pattern
-   (each composer owns its own attach flow) and the safer fix, since the
-   latter risks the same "one function serving two different shapes"
-   coupling this session's `documents.js` split was specifically avoiding
-   elsewhere.
+~~5. **Images pasted, dragged, or dropped into the chat composer don't reach
+   the vision-chat staging system at all.**~~ **Built** — the scoping fix,
+   the safer of the two options this item's own diagnosis named: the global
+   `drop`/`paste` listeners (app.js) matched **any** `<textarea>` by tag
+   name alone, `#chat-input` included, routing it through `handleFileUpload`
+   (built for the Notes/Document composer — inserts literal
+   `![Uploading…]()` markdown into the textarea) instead of
+   `attachImageFiles()`/`renderImageAttachments()`, the real card-token
+   staging the composer's "＋" button already used. `#chat-input` is now
+   excluded from both listeners and given its own branch: image files go
+   through `attachImageFiles()`; a non-image file dropped/pasted there gets
+   a toast ("only images... right now") instead of broken markdown, since
+   real non-image chat uploads are item 2 below, not this fix. **Live
+   Chromium verification**: dispatched a real `ClipboardEvent` with an image
+   file at `#chat-input` — `attachedImages` populated with a real
+   upload id/url, the input stayed empty (no markdown text landed in it),
+   zero console errors. Also fixed alongside it, same root cause class: a
+   failed upload in the Notes/Document composer (`handleFileUpload`'s own
+   catch) used to leave `*(Failed to upload X)*` sitting in the note/document
+   content — content is what gets saved, a toast is a notification, and the
+   two were conflated the same way the chat composer's placeholder was.
 
 6. **Captioning an image with a vision model should show in the background
    tasks list**, the way other long-running work does. Asked for directly,
@@ -1069,20 +1045,18 @@ callouts" entry before rebuilding anything that sounds finished.**
    accent, not the default indigo — likely specific to their own accent/
    glass-blur/opacity/shadow values. Need those values, or a live session.
 
-10. **Images and sketches attached to a note don't render on the whiteboard
-    canvas.** Reported directly, not yet fixed; diagnosed from source, not
-    reproduced live (no image in this sandbox's test data). A note's card
-    on the whiteboard (`nodeEnter.each`, whiteboard.js) renders its body
-    with `renderMarkdown(contentEl, text)` only — a pasted/dropped image
-    living as inline `![...](...)` markdown in `entry.content` would render
-    through that. A sketch or a traditionally-attached image is different:
-    it lives in `entry.attachments` / `thumb_attachment_id`, a separate
-    field the Notes list's own card (`entryItem()`, its "Attachments (Wave
-    B...)" block) and the Library card (`libraryCard()`'s `thumb_attachment_id`/
-    `thumb_url` branch) both render explicitly — the whiteboard's card never
-    reads that field at all. Fix is probably teaching the whiteboard card to
-    render a thumbnail from `entry.attachments`/`thumb_attachment_id` the
-    same way those two already do, not a `renderMarkdown` change.
+~~10. **Images and sketches attached to a note don't render on the whiteboard
+    canvas.**~~ **Built.** `nodeEnter.each` now renders a `.wb-card-thumb`
+    above the note text, same priority as `libraryCard()` (library.js):
+    `thumb_attachment_id`, then `thumb_url`, then the first image in
+    `entry.attachments`. Inline `![...](...)` markdown in `entry.content`
+    is deliberately untouched — already renders through `renderMarkdown`, and
+    would show twice if this added it too. **Live-verified, not just a
+    source-read**: real PNG attached via `POST /entries/{id}/files` — not
+    `/media/upload` alone, which is the generic drag-into-markdown upload
+    with no entry association and silently returned `attachments: []` —
+    added to a board, opened in the browser: `<img>` loaded with real
+    dimensions, auth via the query-param fallback, zero console errors.
 
 11. **Whether AI-driven work (image captioning, and AI features generally)
     should run asynchronously as a standing design principle**, not just
@@ -1103,6 +1077,42 @@ callouts" entry before rebuilding anything that sounds finished.**
     (`wbOpenDockedMenu`, with its own touch long-press equivalent already
     built) - that same pattern is the natural template for a selection's
     own copy/cut/delete menu, not a new one.
+
+## §90 — reported this session (the app.js split's live-verification pass), not yet built
+
+~~1. **`#agent-monitor` overlaps two Settings nav buttons and eats their
+   clicks.**~~ **Built.** Found live (Playwright, verifying the settings.js
+   split): a real 30s click-timeout on "Help"/"About", intercepted by the
+   floating `#agent-monitor` panel. More general than Settings alone —
+   `.modal-overlay` sat at `z-index: 55`, far below the monitor's `1000`, so
+   **every dialog in the app** was partly unclickable under it. Fixed:
+   `.modal-overlay` → `z-index: 1010`, matching `.selection-popup`'s
+   already-established tier for this exact shape (above the monitor, below
+   the toast box's 1050). `#sketch-overlay`/`#improve-overlay` moved with
+   it — both are pinned to `.modal-overlay`'s tier so a confirm dialog
+   raised from inside either still stacks above it by DOM order, which
+   would have broken had only `.modal-overlay` moved. Verified live: both
+   buttons click cleanly now, zero console errors.
+
+2. **Small-screen (tablet/phone) layout needs a real audit, not spot fixes.**
+   Asked for directly — "better handling and ui structure of smaller device
+   sizes... potentially even a whole rearrangement." Not touched this
+   session: no viewport-resize testing exists against this app yet, ever;
+   every live Playwright check so far ran at a default desktop viewport.
+   Audit `docs/DESIGN.md`'s breakpoints against phone (~390px) and tablet
+   (~768-1024px) width, surface by surface: the tab bar (overflow-fade
+   already exists — check it degrades usably), the 17-section Settings
+   modal, the document editor (live-list item 0 — already "squished" at
+   *desktop* width), the whiteboard, the dashboard's masonry grid. Measure
+   before rebuilding.
+
+3. **Upload any document type (not just images), with a real per-type
+   viewer and AI able to read it — even a small model.** Asked for
+   directly; logged, not built. Broader than §89.2 below: a real Library
+   viewer per type (text/markdown, PDF, office — scope which), plus
+   content handed to the model as extracted plain text (`core/ocr.py`/
+   `ai/captioning.py`'s own shape) — cheap regardless of model size. Own
+   session.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

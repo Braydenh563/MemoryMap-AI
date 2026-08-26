@@ -24,6 +24,7 @@ from pathlib import Path
 import pytest
 
 import memorymap.__main__ as launcher
+from memorymap.core import startup_status
 
 
 @pytest.fixture(autouse=True)
@@ -46,18 +47,73 @@ def _restore_desktop_env_var():
         os.environ["MEMORYMAP_DESKTOP"] = original
 
 
-def _fake_webview(monkeypatch, *, icon_kwarg_supported=True):
+class _FakeEvents:
+    """Just enough of pywebview's `window.events` for `_start_tray`'s
+    `window.events.closing += handler` to work without erroring — real
+    pywebview's `Event` supports `+=` via `__iadd__`; this is the same
+    protocol with nothing behind it."""
+
+    def __init__(self):
+        self.closing_handlers: list = []
+
+    def __iadd__(self, handler):
+        self.closing_handlers.append(handler)
+        return self
+
+
+class _FakeWindow:
+    """Stands in for the `pywebview.Window` `_run_desktop` gets back from
+    `create_window`. `_boot_and_swap` (§ the loading-window handoff) calls
+    `evaluate_js`/`load_url` on whatever `create_window` returned — recording
+    both here is what lets a test prove that handoff actually happened,
+    which recording only the top-level `start(**kwargs)` call could not."""
+
+    def __init__(self):
+        self.evaluate_js_calls: list[str] = []
+        self.load_url_calls: list[str] = []
+        self.show_calls = 0
+        self.events = _FakeEvents()
+
+    def evaluate_js(self, script):
+        self.evaluate_js_calls.append(script)
+
+    def load_url(self, url):
+        self.load_url_calls.append(url)
+
+    def show(self):
+        self.show_calls += 1
+
+    def hide(self):
+        pass
+
+    def destroy(self):
+        pass
+
+
+def _fake_webview(monkeypatch, *, icon_kwarg_supported=True, run_start_func=False):
     """A stand-in for the optional `pywebview` package, which isn't
-    installed here (CLAUDE.md's dependency list deliberately omits it)."""
-    calls = {"create_window": None, "start": None}
+    installed here (CLAUDE.md's dependency list deliberately omits it).
 
-    def create_window(title, url, **kwargs):
-        calls["create_window"] = {"title": title, "url": url, "kwargs": kwargs}
+    `run_start_func`: real `webview.start(func, args, ...)` calls `func`
+    on its own thread once the window is open — `_run_desktop` now hands it
+    `_boot_and_swap`, the loading-window-to-real-app handoff. Most tests
+    don't want that running (it starts a real server thread and polls a
+    real socket); pass True for the tests that specifically exercise it.
+    """
+    calls = {"create_window": None, "start": None, "window": None}
 
-    def start(**kwargs):
+    def create_window(title, url=None, html=None, **kwargs):
+        window = _FakeWindow()
+        calls["create_window"] = {"title": title, "url": url, "html": html, "kwargs": kwargs}
+        calls["window"] = window
+        return window
+
+    def start(func=None, args=None, **kwargs):
         if not icon_kwarg_supported and "icon" in kwargs:
             raise TypeError("start() got an unexpected keyword argument 'icon'")
         calls["start"] = kwargs
+        if run_start_func and func is not None:
+            func(*(args if isinstance(args, tuple) else (args,) if args is not None else ()))
 
     fake = types.ModuleType("webview")
     fake.create_window = create_window
@@ -143,6 +199,74 @@ def test_desktop_launcher_still_starts_the_window(monkeypatch, tmp_path):
     assert calls["create_window"] is not None
     assert calls["create_window"]["title"] == "MemoryMap AI"
     assert calls["start"] is not None
+    # The window opens on the loading placeholder, not the real server URL —
+    # see the loading-window tests below for the handoff itself.
+    assert calls["create_window"]["url"] is None
+    assert calls["create_window"]["html"] == launcher._LOADING_HTML
+
+
+def test_loading_window_swaps_to_the_real_url_once_the_server_answers(monkeypatch, tmp_path):
+    """The core of the loading-window feature: `_boot_and_swap` (handed to
+    `webview.start` as `func=`) starts the server and, once it's reachable,
+    points the *same* window at the real URL rather than opening a second
+    one. Proven by actually running `_boot_and_swap` (`run_start_func=True`)
+    against a fake server/progress poll, not just asserting it was wired up.
+    """
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(launcher, "_run_server", lambda: None)
+    monkeypatch.setattr(launcher, "_wait_for_server_with_progress", lambda window, timeout=45.0: True)
+    calls = _fake_webview(monkeypatch, run_start_func=True)
+
+    launcher._run_desktop()
+
+    window = calls["window"]
+    assert window is not None
+    assert window.load_url_calls == [f"http://{launcher.HOST}:{launcher.PORT}"]
+    # Asked for directly: the window must take focus once it swaps from the
+    # loading page to the real app, not just navigate silently in place.
+    assert window.show_calls >= 1
+    assert any("window.focus()" in call for call in window.evaluate_js_calls)
+
+
+def test_loading_window_shows_an_error_if_the_server_never_comes_up(monkeypatch, tmp_path):
+    """The other half: a server that never answers must not leave the window
+    stuck on an indefinite spinner with no explanation — `_boot_and_swap`
+    pushes `__mmSetError` into the page instead of calling `load_url`."""
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(launcher, "_run_server", lambda: None)
+    monkeypatch.setattr(launcher, "_wait_for_server_with_progress", lambda window, timeout=45.0: False)
+    calls = _fake_webview(monkeypatch, run_start_func=True)
+
+    launcher._run_desktop()
+
+    window = calls["window"]
+    assert window.load_url_calls == []
+    assert any("__mmSetError" in call for call in window.evaluate_js_calls)
+    # No focus-steal on the error path — there's no real app underneath to
+    # bring forward, just the same loading window now showing an error.
+    assert window.show_calls == 0
+    assert not any("window.focus()" in call for call in window.evaluate_js_calls)
+
+
+def test_progress_poll_narrates_startup_status_phase_changes(monkeypatch, tmp_path):
+    """`_wait_for_server_with_progress` is what actually reads
+    `startup_status.get_phase()` and pushes it to the window — proven here
+    directly, independent of the rest of `_run_desktop`, against a real
+    (if never-listening) socket so it also has to time out and return False
+    rather than hang the test."""
+    monkeypatch.setattr(launcher, "HOST", "127.0.0.1")
+    monkeypatch.setattr(launcher, "PORT", 1)  # nothing listens on port 1
+    original_phase = startup_status.get_phase()
+    try:
+        startup_status.set_phase("Warming up search…")
+        window = _FakeWindow()
+
+        result = launcher._wait_for_server_with_progress(window, timeout=0.3)
+
+        assert result is False
+        assert any("Warming up search" in call for call in window.evaluate_js_calls)
+    finally:
+        startup_status.set_phase(original_phase)
 
 
 def test_tray_is_not_attempted_on_this_non_windows_platform(monkeypatch, tmp_path):
@@ -461,7 +585,11 @@ def test_console_is_hidden_before_the_slow_server_wait_not_after(monkeypatch, tm
     fix reads preferences.json with a throwaway ConfigManager before the
     server thread even starts, so hiding no longer waits on it at all —
     proven here by recording whether the hide already happened by the time
-    _wait_for_server is reached, not just that it eventually happens."""
+    _wait_for_server_with_progress is reached, not just that it eventually
+    happens. (That wait, and the function that does it, both moved into
+    `_boot_and_swap` — run here via `run_start_func=True` — when the
+    loading-window feature stopped the window itself waiting on
+    `_wait_for_server`; the guarantee this test protects is unchanged.)"""
     from memorymap.core import deps
 
     deps.get_config().set_preference("show_console_on_startup", False)
@@ -474,10 +602,10 @@ def test_console_is_hidden_before_the_slow_server_wait_not_after(monkeypatch, tm
     hidden_before_wait = []
     monkeypatch.setattr(
         launcher,
-        "_wait_for_server",
-        lambda timeout=20.0: hidden_before_wait.append(list(show_window_calls)) or True,
+        "_wait_for_server_with_progress",
+        lambda window, timeout=45.0: hidden_before_wait.append(list(show_window_calls)) or True,
     )
-    _fake_webview(monkeypatch)
+    _fake_webview(monkeypatch, run_start_func=True)
 
     launcher._run_desktop()
 

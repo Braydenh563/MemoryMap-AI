@@ -2399,6 +2399,22 @@
   line-height: 1.4;
 }
 
+/* A sketch, or a note with an attached/pasted image, used to render as an
+   empty-looking card: the whiteboard card never read entry.thumb_attachment_id
+   /entry.thumb_url/entry.attachments at all — libraryCard() (library.js) and
+   entryItem() (app.js) both already show a thumbnail from the same fields,
+   this just closes the same gap here. Sits above .wb-card-content as a flex
+   sibling, inheriting .wb-card's own padding rather than bleeding to the
+   card's edge — simplest fix, and consistent with how the card's text
+   content is already inset the same way. */
+.wb-card-thumb {
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
 /* Reported: an attached note showed "a cut-off version" with no way to see
    the rest. The card now renders the whole note (see renderWhiteboard in
    app.js) and only clamps past a height cap, with a Show more/less toggle

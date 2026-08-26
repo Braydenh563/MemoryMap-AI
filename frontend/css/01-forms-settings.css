@@ -1488,7 +1488,20 @@ li.link-source {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 55;
+  /* Was 55, well below #agent-monitor's fixed z-index: 1000 — found live:
+     Playwright clicking through every Settings nav button hit a real 30s
+     timeout on two of them ("Help", "About"), both intercepted by the
+     agent-monitor panel sitting on top of the modal. Every dialog in the app
+     shared the bug, not just Settings — anything opened while the Agent
+     Activity monitor is up was partly unclickable underneath it. 1010
+     matches `.selection-popup`'s own fix for the identical shape (see its
+     comment in 04-chat-dock-appearance.css): above the monitor's 1000,
+     below the toast box's 1050, which has to stay on top of everything.
+     #sketch-overlay and #improve-overlay are deliberately kept at this same
+     tier below (see their own comments) so a confirm dialog raised from
+     inside one of them still stacks above it by DOM order, not z-index alone
+     — moved together, not independently, or that relationship breaks. */
+  z-index: 1010;
   padding: 1.5rem;
 }
 

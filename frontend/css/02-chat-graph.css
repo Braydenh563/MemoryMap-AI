@@ -1233,19 +1233,17 @@ button.ghost.danger {
   justify-content: center;
   align-items: center;
   padding: 1rem;
-  /* z-index 55, not 60 — matching `.modal-overlay`. This used to be 60, the
-     same tier as toasts and the AI-status popup, and that was the bug behind
-     *"the close button on quick sketch doesn't work, it just darkens the
-     background."* `closeSketch` asks a confirm dialog before discarding a
-     drawing, and that dialog is a `.modal-overlay` (z-index 55) appended to
-     `<body>` — so it painted *behind* this overlay's higher z-index. Its
-     backdrop darkened the screen further, its card was hidden underneath, and
-     the click had nothing visible to land on. Matching the tier is what lets
-     a confirm dialog raised from inside a modal stack correctly: equal
-     z-index, later in the DOM, paints on top. `#improve-overlay` had the
-     identical bug waiting for the day it grew a confirm of its own; fixed
-     alongside this one for the same reason. */
-  z-index: 55;
+  /* Matching `.modal-overlay`'s own tier, not a fixed number chosen here —
+     see that rule's comment (01-forms-settings.css) for why it moved from
+     55 to 1010 (clearing #agent-monitor's z-index: 1000), and why
+     #sketch-overlay/#improve-overlay have to move with it: `closeSketch`
+     asks a confirm dialog before discarding a drawing, and that dialog is a
+     `.modal-overlay` appended to `<body>` — if only `.modal-overlay` moved,
+     this overlay's now-lower 55 would sit *above* that confirm dialog again,
+     the exact "close button just darkens the background" bug this comment
+     used to describe fixing the first time. `#improve-overlay` shares the
+     same shape and moves for the same reason. */
+  z-index: 1010;
 }
 
 #sketch-card {

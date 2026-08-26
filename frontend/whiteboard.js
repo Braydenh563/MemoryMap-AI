@@ -28,6 +28,20 @@
 // whiteboard toolbar's "Add sketch" button opens it (`openSketch()`, called
 // at runtime from `initWhiteboard`). Moving it here would have been a scope
 // mistake, not a cleanup, so it was left where it was.
+//
+// ALSO NOT included here any more: the Library's Documents/Image-Gallery
+// sub-tabs, their own selection state, and the `#library-subtabs` switcher —
+// all genuinely Library-owned code (they switch and populate OTHER Library
+// sub-tabs, not this one) that had ended up in this file's own
+// DOMContentLoaded listener purely because it was written in the same block
+// as this tab's own two controls (`wb-boards-new`/`wb-back-to-boards`,
+// still below). Moved out to frontend/library.js in the app.js split's
+// second file (§88.3); see that file's own header for the full list and the
+// reasoning. `renderLibraryBoardsGallery`/`wbShowBoardsLanding`/
+// `wbShowCanvasView` stayed — they render and switch between *this* tab's
+// own two views (a boards gallery and the canvas), which is whiteboard's own
+// concern even though the gallery happens to live inside the Library's
+// Whiteboard sub-tab.
 
 // ======================= WHITEBOARD LOGIC =======================
 let wbZoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", handleWbZoom);
@@ -79,16 +93,6 @@ let wbLinkDragActive = false;
 // for the session" shape as `expandedNotes` on the Notes list. A plain `let`
 // module-level Set, not persisted: reopening the board later re-clamps.
 const wbExpandedNodes = new Set();
-// Same shape again, for the Library image gallery's AI captions — keyed by
-// upload id. Reported: "the image caption can't be expanded or collapsed",
-// which the two-line clamp had no way to do at all until now.
-const libraryExpandedCaptions = new Set();
-// Which documents are ticked in the Library's Documents sub-tab — this
-// view's own selection, separate from `librarySelection` (the "All" view's),
-// because this section never populates `libraryItems` and mixing the two
-// would let a checkbox here report "selected" while the "All" view's own
-// bulk-delete silently found nothing to act on.
-const libraryDocsSelection = new Set();
 // {action: "delete"|"create", kind: "sketch"|"node", payload, id}. Bounded
 // so an hour of erasing doesn't grow this forever; only the newest matters.
 let wbUndoStack = [];
@@ -4822,15 +4826,35 @@ function renderWhiteboard() {
   // (not the note's own id — the same note can sit on the board twice).
   nodeEnter.each(function (d) {
     const card = d3.select(this);
-    const contentEl = card.append("div").attr("class", "wb-card-content").node();
     const entry = entriesById.get(String(d.entry_id));
     if (!entry) {
-      contentEl.textContent = "Loading…";
+      card.append("div").attr("class", "wb-card-content").node().textContent = "Loading…";
       return;
     }
+    // A sketch's actual content is a file attachment, not text — never
+    // reflected here before (§89 item 10): thumb_attachment_id/thumb_url
+    // covers that, entry.attachments covers a note with a real attached
+    // image. Same priority libraryCard() (library.js) already uses. A
+    // pasted/dropped image living as inline markdown in entry.content is
+    // NOT handled here — that already renders through renderMarkdown below,
+    // and would be shown twice if it were.
+    const firstImageAttachment = (entry.attachments || []).find((a) => a.is_image);
+    const thumbSrc = entry.thumb_attachment_id
+      ? mediaSrc(`/files/${entry.thumb_attachment_id}`)
+      : entry.thumb_url
+      ? mediaSrc(entry.thumb_url)
+      : firstImageAttachment
+      ? mediaSrc(`/files/${firstImageAttachment.id}`)
+      : null;
+    if (thumbSrc) {
+      card.append("img").attr("class", "wb-card-thumb").attr("src", thumbSrc).attr("alt", "").attr("loading", "lazy");
+    }
+    const contentEl = card.append("div").attr("class", "wb-card-content").node();
     const text = entry.content || entry.preview || "";
     if (!text) {
-      contentEl.textContent = "Empty note";
+      // The thumbnail above IS the content for a sketch/image-only note —
+      // "Empty note" next to a picture would read as a bug, not a note.
+      if (!thumbSrc) contentEl.textContent = "Empty note";
       return;
     }
     renderMarkdown(contentEl, text);
@@ -5512,305 +5536,14 @@ async function dragEndNode(event, d) {
   }
 }
 
-// The Library sub-tab drafts were supposed to live in from the start — a
-// stray comment already claimed "the sidebar/Library Drafts filter... is
-// what makes them findable" and HISTORY.md said the same, but no
-// library-view-drafts section ever existed to check off. Reported live:
-// "there is no drafts section in the library." Fetches its own list rather
-// than trusting Notes-tab state (`allEntries`) to already be loaded — the
-// Library can be opened first, before Notes ever has been.
-// Documents, on their own Library sub-tab.
-//
-// Reuses GET /documents — the same call the editor's sidebar makes — rather
-// than adding an endpoint, and openDocument() to open one, so there is exactly
-// one code path from "a document in a list" to "the editor showing it".
-//
-// This replaces the Drafts list that used to live here. Drafts are now a chip
-// in the All view's filter row (LIBRARY_KINDS in app.js, _drafts() in
-// routes_library.py) because a draft is a state a note is in, not a separate
-// kind of object.
-async function renderLibraryDocuments() {
-  const list = document.getElementById("library-docs-list");
-  const empty = document.getElementById("library-docs-empty");
-  if (!list) return;
-  const needle = (document.getElementById("library-docs-search")?.value || "")
-    .trim()
-    .toLowerCase();
-
-  let docs = [];
-  try {
-    // `q` searches title *and* content server-side (routes_documents.py) —
-    // client-side filtering alone could only ever match a title, since a
-    // document's body is never sent to the browser in the list view.
-    docs = await apiJson(needle ? `/documents?q=${encodeURIComponent(needle)}` : "/documents");
-  } catch (error) {
-    toast(error.message || "Could not load documents.", true);
-    return;
-  }
-
-  // A reload can drop a document that was ticked (deleted, or filtered out
-  // by a new search) - drop it from the selection too, or the bar's count
-  // would go on including a row that no longer exists.
-  const liveIds = new Set(docs.map((d) => d.id));
-  for (const id of [...libraryDocsSelection]) {
-    if (!liveIds.has(id)) libraryDocsSelection.delete(id);
-  }
-
-  list.replaceChildren();
-  empty?.classList.toggle("hidden", docs.length > 0);
-  if (empty && needle && !docs.length) {
-    empty.textContent = `No documents match \u201C${needle}\u201D.`;
-  } else if (empty) {
-    empty.textContent = "No documents yet — press ＋ New document to start one.";
-  }
-
-  for (const doc of docs) {
-    const item = document.createElement("li");
-
-    // Reported: "can't rename, multi select, or delete documents in the
-    // library subtab" - this row used to be nothing but the Open button
-    // below. The tick and the ⋯ menu give it the same three actions a
-    // document's card already has in the "All" library view — and,
-    // reported again after the first pass, the same *placement*:
-    // `libraryCard()`'s article-not-button shape (a button cannot contain
-    // another button, which the tick and the kebab both are), the tick
-    // sitting inline in the header row, the kebab absolutely positioned
-    // and hover/focus-revealed rather than two more permanent controls
-    // squeezed in as flex siblings.
-    const open = document.createElement("article");
-    open.className = "doc-list-item";
-    open.tabIndex = 0;
-    open.setAttribute("role", "button");
-    const openDoc = () => {
-      // switchTab first, then open. Reported as "the documents subtab document
-      // cards don't even do anything": openDocument() loaded the document
-      // correctly, but the Documents *page* stayed hidden behind the Library
-      // tab, so from the outside the click did nothing at all.
-      switchTab("documents");
-      openDocument(doc.id);
-    };
-    open.addEventListener("click", openDoc);
-    open.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (event.target !== open) return; // a key pressed inside the tick/menu is theirs
-      event.preventDefault();
-      openDoc();
-    });
-
-    const top = document.createElement("div");
-    top.className = "doc-list-top";
-    const tick = document.createElement("input");
-    tick.type = "checkbox";
-    tick.className = "doc-list-tick";
-    tick.checked = libraryDocsSelection.has(doc.id);
-    tick.setAttribute("aria-label", `Select "${doc.title || "Untitled"}"`);
-    tick.addEventListener("click", (event) => event.stopPropagation());
-    tick.addEventListener("change", () => {
-      if (tick.checked) libraryDocsSelection.add(doc.id);
-      else libraryDocsSelection.delete(doc.id);
-      syncLibraryDocsSelectbar();
-    });
-    const icon = document.createElement("span");
-    icon.className = "doc-list-icon";
-    setLabel(icon, "ph:file-text");
-    icon.setAttribute("aria-hidden", "true");
-    top.append(tick, icon);
-
-    const body = document.createElement("span");
-    body.className = "doc-list-body";
-    const title = document.createElement("span");
-    title.className = "doc-list-title";
-    title.textContent = doc.title || "Untitled";
-    const meta = document.createElement("span");
-    meta.className = "muted doc-list-meta";
-    // Words and when it was last touched — the two facts that tell you which
-    // of five similarly-named drafts is the one you meant.
-    const words = typeof doc.words === "number" ? `${doc.words} words` : "";
-    const when = doc.updated_at ? relativeTime(doc.updated_at) : "";
-    meta.textContent = [words, when].filter(Boolean).join(" · ");
-    body.append(title, meta);
-
-    // Same three actions `libraryActions()` gives a document's card in the
-    // "All" view — kept as its own copy rather than calling that function
-    // directly, because its `reload` is hard-coded to `loadLibrary()` (the
-    // "All" view's own data), which would leave this list showing a document
-    // that was just renamed or deleted until something else refreshed it.
-    const menu = kebabMenu(
-      [
-        makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
-          const next = await promptDialog("Rename this document:", doc.title || "");
-          if (!next) return;
-          await apiJson(`/documents/${doc.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ title: next }),
-          }).catch((e) => toast(e.message, true));
-          renderLibraryDocuments();
-        }),
-        makeMenuItem("⬇ Download .md", "Save a copy as a markdown file", () => {
-          window.open(`/documents/${doc.id}/export.md`, "_blank");
-        }),
-        makeMenuItem("ph:trash Delete", "Delete this document", async () => {
-          if (!(await confirmDialog(`Delete "${doc.title || "Untitled"}"? This cannot be undone.`))) return;
-          await apiJson(`/documents/${doc.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
-          libraryDocsSelection.delete(doc.id);
-          renderLibraryDocuments();
-        }),
-      ],
-      `Actions for "${doc.title || "Untitled"}"`
-    );
-    menu.classList.add("doc-list-menu");
-    menu.addEventListener("click", (event) => event.stopPropagation());
-
-    open.append(top, body, menu);
-    item.appendChild(open);
-    list.appendChild(item);
-  }
-  syncLibraryDocsSelectbar();
-}
-
-function syncLibraryDocsSelectbar() {
-  const bar = document.getElementById("library-docs-selectbar");
-  const count = document.getElementById("library-docs-selected-count");
-  if (!bar || !count) return;
-  const n = libraryDocsSelection.size;
-  bar.classList.toggle("hidden", n === 0);
-  count.textContent = `${n} selected`;
-}
-
-$("library-docs-clear-selection")?.addEventListener("click", () => {
-  libraryDocsSelection.clear();
-  renderLibraryDocuments();
-});
-
-$("library-docs-bulk-delete")?.addEventListener("click", async () => {
-  const ids = [...libraryDocsSelection];
-  if (!ids.length) return;
-  const ok = await confirmDialog(
-    `Delete ${ids.length} document${ids.length === 1 ? "" : "s"}? This cannot be undone.`
-  );
-  if (!ok) return;
-  let deleted = 0;
-  for (const id of ids) {
-    try {
-      await apiJson(`/documents/${id}`, { method: "DELETE" });
-      deleted++;
-    } catch {
-      // counted below, same as the "All" view's own bulk delete
-    }
-  }
-  libraryDocsSelection.clear();
-  if (deleted) toast(`Deleted ${deleted} document${deleted === 1 ? "" : "s"}.`);
-  const failed = ids.length - deleted;
-  if (failed) toast(`${failed} document${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
-  renderLibraryDocuments();
-});
-
-// Hook into the library subtabs to switch views and initialize whiteboard
+// The Whiteboards sub-tab's own two controls. This DOMContentLoaded
+// listener used to also hold the #library-subtabs switcher and the
+// Documents/Media sub-tabs' refresh/search/upload wiring — none of that is
+// whiteboard's own code (it switches between and wires OTHER Library
+// sub-tabs), and it has moved to library.js, which is the Library's actual
+// home now (ROADMAP.md §88.3 flagged this as "an accident worth fixing
+// while splitting"). Only these two survive here, unchanged.
 document.addEventListener("DOMContentLoaded", () => {
-  const librarySubtabs = document.getElementById("library-subtabs");
-  if (librarySubtabs) {
-    const buttons = librarySubtabs.querySelectorAll("button");
-    // "library-view-documents" is the *All* view — it kept its id when it was
-    // renamed, because the id is referenced from several places and a rename
-    // buys nothing. "library-view-docs" is the new documents-only section.
-    // "library-view-drafts" is gone: drafts became a chip in the All view's
-    // filter row (see LIBRARY_KINDS in app.js and _drafts() in
-    // routes_library.py).
-    const sections = [
-      "library-view-documents", "library-view-docs", "library-view-skills",
-      "library-view-whiteboard", "library-view-media",
-    ];
-
-    buttons.forEach(btn => {
-      btn.addEventListener("click", () => {
-        buttons.forEach(b => {
-          b.classList.remove("active");
-          b.setAttribute("aria-selected", "false");
-        });
-        btn.classList.add("active");
-        btn.setAttribute("aria-selected", "true");
-
-        const targetId = btn.getAttribute("data-target");
-        // Same {tab, section} shape showNotesSection already records —
-        // ROADMAP.md §88.1 item 7 / live-list item 13: Library's own
-        // sub-tabs were the one gap in "back/forward handles sub-tabs too"
-        // that was already scoped and located, not newly discovered here.
-        if (typeof recordTabVisit === "function") recordTabVisit("library", targetId);
-        sections.forEach(id => {
-          const el = document.getElementById(id);
-          if (el) {
-            if (id === targetId) {
-              el.classList.remove("hidden");
-            } else {
-              el.classList.add("hidden");
-            }
-          }
-        });
-
-        if (targetId === "library-view-whiteboard") {
-          // Lands on the boards gallery, not straight onto a canvas — one
-          // door onto the whiteboard, asked for directly, replacing the
-          // old always-opens-the-last-board behaviour.
-          wbShowBoardsLanding();
-        } else if (targetId === "library-view-media") {
-          renderLibraryImagesGallery();
-        } else if (targetId === "library-view-docs") {
-          renderLibraryDocuments();
-        }
-      });
-    });
-  }
-  $("library-images-refresh")?.addEventListener("click", renderLibraryImagesGallery);
-  $("library-images-search")?.addEventListener("input", filterLibraryImagesGallery);
-  $("library-docs-refresh")?.addEventListener("click", renderLibraryDocuments);
-  $("library-docs-new")?.addEventListener("click", async () => {
-    const doc = await createDocumentNamed();
-    // switchTab first, then open — the same fix openDoc() above needed
-    // ("the documents subtab document cards don't even do anything"): the
-    // document was created and loaded into the editor correctly, but the
-    // Documents page stayed hidden behind the Library tab, so nothing
-    // seemed to happen.
-    if (doc) {
-      switchTab("documents");
-      openDocument(doc.id);
-    }
-  });
-  // Filter as you type. No debounce: the list is already in memory after the
-  // first fetch and re-rendering it is cheap, unlike the semantic searches
-  // elsewhere that a debounce exists to protect.
-  $("library-docs-search")?.addEventListener("input", renderLibraryDocuments);
-  $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
-  $("library-images-upload-input")?.addEventListener("change", async (event) => {
-    const input = event.target;
-    const files = [...input.files];
-    input.value = ""; // so picking the same file twice still fires "change"
-    if (!files.length) return;
-    let uploaded = 0;
-    for (const file of files) {
-      const form = new FormData();
-      form.append("file", file);
-      try {
-        // A bare headers override, not apiJson's default — a FormData body
-        // needs the browser to set its own multipart boundary in
-        // Content-Type; apiJson's own "application/json" default would
-        // fight it (the same fix handleFileUpload's upload already needed).
-        const response = await fetch("/media/upload", {
-          method: "POST",
-          headers: { "X-Auth-Token": authToken() },
-          body: form,
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.detail || `Upload failed (${response.status})`);
-        uploaded++;
-      } catch (error) {
-        toast(`${file.name}: ${error.message}`, true);
-      }
-    }
-    if (uploaded > 0) {
-      toast(uploaded === 1 ? "Uploaded." : `Uploaded ${uploaded} files.`);
-      renderLibraryImagesGallery();
-    }
-  });
   $("wb-boards-new")?.addEventListener("click", async () => {
     wbShowCanvasView();
     await createNewBoard();
@@ -5868,325 +5601,6 @@ async function renderLibraryBoardsGallery() {
     card.append(title, meta);
     card.addEventListener("click", () => openWhiteboardBoard(board.id));
     grid.appendChild(card);
-  }
-}
-
-// Every `/media/upload` has ever produced — note-inline images, document
-// images, and whiteboard image objects alike, since all three funnel
-// through the same upload endpoint and (asked for directly) "images can be
-// managed (delete, rename etc) in the gallery as well." A file whose bytes
-// are gone (deleted from here, or off-disk by hand) leaves a broken-image
-// glyph — same guard `libraryCard`'s own thumbnail already uses — but a
-// note or whiteboard still referencing a *deleted* url gets its own
-// placeholder instead of a broken glyph; see `renderInlineMarkdown`'s own
-// image `error` handler and `wbRenderObjects`'s image-object one.
-//: The last `GET /media` fetch, so the search box (below) can filter and
-//: re-render without a round-trip on every keystroke — the same reasoning
-//: the main Library search already uses against `libraryItems`.
-let libraryImagesCache = [];
-
-async function renderLibraryImagesGallery() {
-  const grid = $("library-images-grid");
-  const empty = $("library-images-empty");
-  if (!grid) return;
-  const images = await apiJson("/media", { silent: true }).catch(() => null);
-  libraryImagesCache = images || [];
-  if (!images) {
-    grid.replaceChildren();
-    empty?.classList.remove("hidden");
-    return;
-  }
-  filterLibraryImagesGallery();
-}
-
-// Filters `libraryImagesCache` against the search box's own value — the
-// filename *and* any OCR text found on the image (ROADMAP.md item 30d), so
-// "what was on that whiteboard photo from March" is answerable by typing
-// a word that was written on it, not just what it happened to be named.
-function filterLibraryImagesGallery() {
-  const grid = $("library-images-grid");
-  const empty = $("library-images-empty");
-  const noMatch = $("library-images-no-match");
-  if (!grid) return;
-  const query = ($("library-images-search")?.value || "").trim().toLowerCase();
-  const images = query
-    ? libraryImagesCache.filter(
-        (i) =>
-          (i.original_name || "").toLowerCase().includes(query) ||
-          (i.ocr_text || "").toLowerCase().includes(query) ||
-          (i.caption || "").toLowerCase().includes(query)
-      )
-    : libraryImagesCache;
-  grid.replaceChildren();
-  if (!libraryImagesCache.length) {
-    empty?.classList.remove("hidden");
-    noMatch?.classList.add("hidden");
-    return;
-  }
-  empty?.classList.add("hidden");
-  noMatch?.classList.toggle("hidden", images.length > 0);
-  for (const image of images) {
-    const fig = document.createElement("figure");
-    fig.className = "library-image-tile";
-    const img = document.createElement("img");
-    img.src = mediaSrc(image.url);
-    img.alt = image.original_name;
-    img.loading = "lazy";
-    img.addEventListener("error", () => {
-      fig.remove();
-      // Every tile's click handler closes over this same `images` array by
-      // reference and re-reads it at click time, not a snapshot taken here
-      // — so removing the broken entry from it is what every *other* tile's
-      // "N of M" and prev/next actually see. Without this, a gallery whose
-      // underlying file was deleted from disk (but not from the DB) would
-      // hide the broken tile yet still count it: reported live as "it says
-      // 1 of 2 when I only have one image" on a gallery with exactly one
-      // real tile and one 404ing one.
-      const idx = images.indexOf(image);
-      if (idx !== -1) images.splice(idx, 1);
-    });
-    img.addEventListener("click", () => {
-      openLightbox(
-        images.map((i) => ({ filename: i.original_name, getUrl: () => mediaSrc(i.url) })),
-        images.indexOf(image)
-      );
-    });
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "ghost small icon-button library-image-delete";
-    del.title = `Delete “${image.original_name}”`;
-    setLabel(del, "ph:trash");
-    del.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      if (!(await confirmDialog(`Delete "${image.original_name}"?\n\nAny note or board still showing it will show a "deleted" placeholder instead.`))) return;
-      await apiJson(`/media/${image.id}`, { method: "DELETE" }).catch((err) => toast(err.message, true));
-      const idx = libraryImagesCache.indexOf(image);
-      if (idx !== -1) libraryImagesCache.splice(idx, 1);
-      filterLibraryImagesGallery();
-    });
-    // Rename. Reported as simply missing: there was no way to rename an image
-    // in the Library at all. The stylesheet already had `.library-image-edit`
-    // from an earlier attempt — the CSS shipped and the button that would have
-    // used it never did, so the rule sat there styling nothing.
-    //
-    // Renamed in place rather than through a dialog: a gallery is a wall of
-    // captions and the one you are changing should stay where it is, next to
-    // the picture it names.
-    const rename = document.createElement("button");
-    rename.type = "button";
-    rename.className = "ghost small icon-button library-image-edit";
-    rename.title = `Rename “${image.original_name}”`;
-    rename.setAttribute("aria-label", `Rename ${image.original_name}`);
-    setLabel(rename, "ph:pencil-simple");
-
-    const cap = document.createElement("figcaption");
-    cap.textContent = image.original_name;
-    cap.title = image.original_name;
-
-    rename.addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (cap.querySelector("input")) return; // already editing
-      const box = document.createElement("input");
-      box.type = "text";
-      box.className = "library-image-rename-input";
-      box.value = image.original_name;
-      box.setAttribute("aria-label", "New name for this image");
-      box.maxLength = 255;
-      cap.replaceChildren(box);
-      box.focus();
-      box.select();
-
-      let settled = false;
-      const finish = (text) => {
-        if (settled) return;
-        settled = true;
-        cap.replaceChildren(document.createTextNode(text));
-      };
-      const cancel = () => finish(image.original_name);
-      const save = async () => {
-        const next = box.value.trim();
-        if (!next || next === image.original_name) return cancel();
-        // Optimistic, then corrected: the server is the authority on what a
-        // name may contain, and it rejects with a reason worth showing.
-        finish(next);
-        try {
-          const saved = await apiJson(`/media/${image.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ original_name: next }),
-          });
-          image.original_name = saved.original_name;
-          cap.replaceChildren(document.createTextNode(saved.original_name));
-          img.alt = saved.original_name;
-          rename.title = `Rename “${saved.original_name}”`;
-          del.title = `Delete “${saved.original_name}”`;
-        } catch (error) {
-          cap.replaceChildren(document.createTextNode(image.original_name));
-          toast(error.message, true);
-        }
-      };
-      box.addEventListener("keydown", (keyEvent) => {
-        if (keyEvent.key === "Enter") {
-          keyEvent.preventDefault();
-          save();
-        } else if (keyEvent.key === "Escape") {
-          keyEvent.preventDefault();
-          cancel();
-        }
-      });
-      // Clicking away commits, which is what every other inline rename in this
-      // app does; Escape is the way out.
-      box.addEventListener("blur", save);
-    });
-
-    // A vision model's own description of the image, distinct from `cap`
-    // above (that's the filename — HTML's own <figcaption> naming just
-    // collides with what this app calls a "caption"). Asked for directly:
-    // written automatically in the background when a vision model is
-    // available (routes_files.py's upload trigger), regenerated here only
-    // on an explicit click — never silently overwritten.
-    const captionBtn = document.createElement("button");
-    captionBtn.type = "button";
-    captionBtn.className = "ghost small icon-button library-image-caption-btn";
-    setLabel(captionBtn, "ph:sparkle");
-    // Always visible, even empty — asked for directly ("allow for manual
-    // input of image captions"): a click-to-edit field, the same pattern
-    // `cap`'s inline rename above already uses, rather than a caption only
-    // ever being reachable through the AI-generate button.
-    const captionText = document.createElement("p");
-    captionText.className = "library-image-caption muted text-sm";
-    captionText.tabIndex = 0;
-    captionText.setAttribute("role", "button");
-    // Roughly two lines' worth of this tile's narrow column at text-sm —
-    // approximate on purpose, the same way LONG_NOTE_CHARS is: the tile is
-    // still `display: none` inside a hidden sub-tab at render time for most
-    // gallery loads, so a measured height would read 0 (the trap the Notes
-    // list's own long-note comment already names).
-    const CAPTION_CLAMP_CHARS = 90;
-    const captionToggle = document.createElement("button");
-    captionToggle.type = "button";
-    captionToggle.className = "entry-more library-image-caption-more hidden";
-    const captionClamped = () =>
-      !libraryExpandedCaptions.has(image.id) &&
-      (image.caption || "").length > CAPTION_CLAMP_CHARS;
-    const syncCaptionClamp = () => {
-      captionText.classList.toggle("library-image-caption-clamped", captionClamped());
-      const needsToggle = (image.caption || "").length > CAPTION_CLAMP_CHARS;
-      captionToggle.classList.toggle("hidden", !needsToggle);
-      captionToggle.textContent = libraryExpandedCaptions.has(image.id)
-        ? "Show less"
-        : "Show more";
-    };
-    captionToggle.addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (libraryExpandedCaptions.has(image.id)) libraryExpandedCaptions.delete(image.id);
-      else libraryExpandedCaptions.add(image.id);
-      syncCaptionClamp();
-    });
-    const setCaptionState = (text) => {
-      image.caption = text || "";
-      captionText.textContent = text || "Add a caption…";
-      captionText.classList.toggle("library-image-caption-empty", !text);
-      captionText.title = text
-        ? "Click to edit this caption"
-        : "Click to add a caption";
-      captionBtn.title = text
-        ? `Regenerate the AI caption for “${image.original_name}”`
-        : `Generate an AI caption for “${image.original_name}”`;
-      captionBtn.setAttribute("aria-label", captionBtn.title);
-      syncCaptionClamp();
-    };
-    setCaptionState(image.caption);
-    const startEditingCaption = () => {
-      if (captionText.querySelector("textarea")) return; // already editing
-      // Reported: the caption visibly collapsed the moment you clicked to
-      // edit it. The clamp (-webkit-line-clamp, still on captionText from
-      // whatever it was displaying a moment ago) treats its child as flowed
-      // text truncated to two lines - a <textarea> squashed into that same
-      // ~2-line box is what "collapsed" looked like. Editing shows the
-      // whole thing either way, so the clamp has nothing left to do here.
-      captionText.classList.remove("library-image-caption-clamped");
-      const box = document.createElement("textarea");
-      box.className = "library-image-caption-input";
-      box.value = image.caption || "";
-      box.setAttribute("aria-label", `Caption for "${image.original_name}"`);
-      box.maxLength = 2000;
-      captionText.replaceChildren(box);
-      box.focus();
-      box.select();
-      // A plain textarea doesn't grow with its content — min-height:3rem
-      // is a floor, not the whole box, so anything past ~2 lines scrolled
-      // inside a tiny window instead of showing (reported: "collapses when
-      // I try to edit it"). autoGrow (app.js) is the app's existing fix for
-      // exactly this on every other textarea; it just was never wired here.
-      autoGrow(box);
-      box.addEventListener("input", () => autoGrow(box));
-
-      let settled = false;
-      const finish = (text) => {
-        if (settled) return;
-        settled = true;
-        setCaptionState(text);
-      };
-      const cancel = () => finish(image.caption);
-      const save = async () => {
-        const next = box.value.trim();
-        if (next === (image.caption || "")) return cancel();
-        finish(next); // optimistic, corrected below if the server refuses it
-        try {
-          const updated = await apiJson(`/media/${image.id}/caption`, {
-            method: "POST",
-            body: JSON.stringify({ text: next }),
-          });
-          setCaptionState(updated.caption);
-        } catch (error) {
-          setCaptionState(image.caption);
-          toast(error.message || "Couldn't save that caption.", true);
-        }
-      };
-      box.addEventListener("keydown", (keyEvent) => {
-        if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
-          keyEvent.preventDefault();
-          save();
-        } else if (keyEvent.key === "Escape") {
-          keyEvent.preventDefault();
-          cancel();
-        }
-      });
-      box.addEventListener("blur", save);
-    };
-    captionText.addEventListener("click", startEditingCaption);
-    captionText.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        startEditingCaption();
-      }
-    });
-
-    captionBtn.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      captionBtn.disabled = true;
-      try {
-        // force: true — a manual click is exactly "the user pressed the
-        // button to rewrite it", the one case the write-once default
-        // (caption_and_store) is meant to defer to.
-        const updated = await apiJson(`/media/${image.id}/caption`, {
-          method: "POST",
-          body: JSON.stringify({ force: true }),
-        });
-        setCaptionState(updated.caption);
-      } catch (error) {
-        toast(error.message || "Couldn't generate a caption.", true);
-      } finally {
-        captionBtn.disabled = false;
-      }
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "library-image-actions";
-    actions.append(rename, captionBtn, del);
-
-    fig.append(img, actions, cap, captionText, captionToggle);
-    grid.appendChild(fig);
   }
 }
 

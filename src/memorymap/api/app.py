@@ -51,7 +51,7 @@ from memorymap.api import (
     routes_whiteboard,
 )
 from memorymap.api.routes_auth import require_unlock
-from memorymap.core import backup, deps, logbuffer, security
+from memorymap.core import backup, deps, logbuffer, security, startup_status
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
@@ -196,14 +196,22 @@ def create_app() -> FastAPI:
     # rather than an import string, and uvicorn cannot fork that.
     deps.refuse_multiple_workers()
     logbuffer.install()  # start capturing logs for the Settings viewer
+    # Coarse phase markers for the desktop launcher's loading window
+    # (core/startup_status.py) — the only reader, and a no-op for every
+    # other way this app runs (the web build, tests, `python -m memorymap`
+    # without `--desktop`), since nothing else ever calls get_phase().
+    startup_status.set_phase("Setting up your notebook…")
     init_app_state()
     _purge_expired_bin_entries()
     _backup_if_due()
+    startup_status.set_phase("Starting local services…")
     _start_searxng_if_asked()
     _start_autonomous_loop()
+    startup_status.set_phase("Warming up search…")
     # The session factory is handed in so embeddings never has to import the
     # dependency container that imports it.
     embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
+    startup_status.set_phase("Starting the server…")
 
     app = FastAPI(title="MemoryMap AI", version=__version__)
 

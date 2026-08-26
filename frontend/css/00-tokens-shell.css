@@ -2260,3 +2260,72 @@ button.icon-button {
   opacity: 0.35;
   cursor: default;
 }
+
+/* --- boot splash ------------------------------------------------------------
+   The pre-paint theme script above stamps colour/palette before first paint
+   so the app never flashes the wrong theme; this closes the same gap for
+   the app's own decision of WHAT to show — the lock screen or the app
+   itself — which initAuth() (app.js) can only make after an awaited
+   /auth/status round trip. Belongs in this file specifically: it is the
+   first stylesheet in index.html's <link> order, so this is correct before
+   the browser's first paint, same as the file's own :root block has to be.
+   Highest z-index in the app on purpose — it only exists for the few
+   hundred ms before initAuth() resolves, well before any modal/toast/
+   agent-monitor panel could plausibly be open, so it does not need to sit
+   inside their established 1000/1010/1050 tier. */
+.boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  background:
+    radial-gradient(600px 400px at 15% 8%, var(--blob-a), transparent 70%),
+    radial-gradient(700px 500px at 85% 90%, var(--blob-b), transparent 70%),
+    var(--page);
+  /* Opacity, not display:none, so the fade in hideBootSplash() (app.js) has
+     something to transition — the element is removed from the DOM entirely
+     once that transition ends, so nothing sits behind it accepting clicks
+     after this. */
+  opacity: 1;
+  transition: opacity 220ms ease-out;
+}
+
+.boot-splash.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-splash-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.boot-splash-mark img {
+  width: 40px;
+  height: 40px;
+}
+
+/* Reuses .typing-dots (01-forms-settings.css) rather than a second spinner
+   component — same visual language the chat/dashboard "thinking" states
+   already use, so the very first thing a user sees matches the last. */
+.boot-splash-dots span {
+  background: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-splash-dots span {
+    animation: none;
+  }
+
+  .boot-splash {
+    transition: none;
+  }
+}

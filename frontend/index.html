@@ -99,6 +99,27 @@
   </script>
 </head>
 <body>
+  <!-- The very first thing in <body>, on purpose: painted before any data
+       has loaded and before initAuth() (app.js) has decided whether to show
+       the lock screen or the app itself, so the alternative is a blank/
+       part-styled flash of chrome while that decision is pending — the same
+       shape of gap the pre-paint theme script above already closes for
+       colours. initAuth() calls hideBootSplash() (app.js) the moment
+       /auth/status resolves, whichever of its four branches that turns out
+       to be; nothing else needs to know this element exists. Styled in
+       00-tokens-shell.css specifically because that file is first in the
+       <link> order above and this has to be correct before first paint,
+       same reasoning as that file's own :root block. -->
+  <div id="boot-splash" class="boot-splash" aria-hidden="true">
+    <div class="boot-splash-mark">
+      <img src="/favicon.svg" alt="" width="40" height="40">
+      <span>MemoryMap&nbsp;AI</span>
+    </div>
+    <span class="typing-dots boot-splash-dots" role="status" aria-label="Loading">
+      <span></span><span></span><span></span>
+    </span>
+  </div>
+
   <!-- Keyboard users can jump straight past the chrome. -->
   <a href="#" id="skip-link" class="skip-link">Skip to content</a>
 
@@ -4580,6 +4601,21 @@ Link to another note with [[its first few words]]."></textarea>
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
   <script src="/whiteboard.js"></script>
+  <!-- The Library tab, split out of app.js and whiteboard.js both (§88.3 of
+       the app.js split plan — documents.js above was the first file, this
+       is the second). Loaded after both for the same reason documents.js is
+       loaded after app.js: every cross-file call in either direction
+       (this file's sub-tab switcher calls whiteboard.js's
+       wbShowBoardsLanding(); whiteboard.js's openWhiteboardBoard() clicks
+       this file's #library-subtabs whiteboard button) happens at runtime,
+       inside an event-listener body, never at parse time — so this order
+       isn't load-bearing either, it just keeps the two split-out files in
+       the order they were written. See frontend/library.js's own header
+       for exactly what moved from each file, and the one hazard
+       documents.js's split found that this one checked for and did not
+       find (a bare top-level call site left orphaned by a moved
+       definition). -->
+  <script src="/library.js"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every
@@ -4588,5 +4624,36 @@ Link to another note with [[its first few words]]."></textarea>
        (loaded above) — all runtime reads inside closures, so this ordering
        relative to documents.js isn't load-bearing either. -->
   <script src="/editor.js"></script>
+  <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
+       of the app.js-split plan). Loaded after app.js and shares its global
+       scope; every cross-file call happens at runtime (inside a function or
+       an event-listener closure), never at parse time, so this order is not
+       load-bearing for correctness — it just keeps app.js as the first,
+       larger script, matching the split's own diff. Two listener
+       registrations that used to be bare top-level lines in app.js's own
+       wiring (passing `closeFeatures` as a function reference, not inside a
+       closure) moved here along with the functions they call, the same fix
+       documents.js made for `initDocSidebarTabs()` — see dashboard.js's own
+       header for the full explanation. -->
+  <script src="/dashboard.js"></script>
+  <!-- Settings: the modal shell, the logs console, and appearance (theme,
+       accent, curated palettes, saved looks, the generative background
+       preview) — §88.3 of the app.js-split plan, the fourth and LAST file.
+       Loaded after every other split file, and that position IS load-bearing
+       this time, unlike the five files above: this file's own tail runs
+       `applyAppearance(); if (bgArtOn()) startBgArt(); renderBrandLogo();` —
+       two calls relocated here from bare top-level lines in app.js's own
+       wiring, the same `initDocSidebarTabs()` shape documents.js's split
+       found — and that chain reaches into app.js's `applyPalette()`, which
+       itself calls dashboard.js's `refreshArtForTheme()` behind a `typeof`
+       guard. Loading dashboard.js first means that guard passes rather than
+       skips at this one call site, which is harmless either way (the
+       dashboard's art widget has no canvas mounted yet at this point in
+       startup) but only true because of this order. Every OTHER cross-file
+       call, in both directions, happens at runtime inside a function or
+       event-listener closure — see this file's own header for the full
+       account of what moved, what stayed in app.js and why, and the two
+       hazards this ordering fixes. -->
+  <script src="/settings.js"></script>
 </body>
 </html>

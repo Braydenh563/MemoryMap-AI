@@ -18,10 +18,81 @@ from pathlib import Path
 import uvicorn
 
 from memorymap.api.app import create_app
+from memorymap.core import startup_status
 
 logger = logging.getLogger("memorymap.launcher")
 
 HOST, PORT = "127.0.0.1", 8000  # local only — this is a private app
+
+# Shown in the desktop window the instant it opens, before the server is
+# reachable — replaces what used to be a black/blank window for however long
+# _wait_for_server() took, which on a cold start (embeddings warmup, a slow
+# machine) is not always instant. Someone running in "hidden console" mode
+# (show_console_on_startup=False, or the packaged installer's console-less
+# build) has *no* terminal to watch either, so this is the only feedback
+# they get that anything is happening at all — reported directly: "the
+# window doesn't [show] until all the checks and dependency updates are
+# done", which is exactly the gap between this window opening and
+# `_boot_and_swap` below finishing.
+#
+# Deliberately plain, inline HTML/CSS/JS rather than a page served from
+# `frontend/` — the whole point is that it must render with no server
+# listening on HOST:PORT yet, so it cannot be a request to that server. The
+# palette (#4f6df5) matches index.html's own `theme-color` meta tag rather
+# than pulling in the real app's CSS, so the swap to the real window doesn't
+# jar even though nothing is actually shared between them.
+_LOADING_HTML = """<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; height: 100%; background: #12141c; color: #e7e9ee;
+    font: 14px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  .mark { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #4f6df5; }
+  .bar-track { width: 240px; height: 6px; border-radius: 3px; background: #262b3a; overflow: hidden; }
+  .bar-fill { height: 100%; width: 4%; background: #4f6df5; border-radius: 3px;
+              transition: width 300ms ease-out; }
+  .bar-fill.error { background: #e5a13a; }
+  #status { color: #9aa1ad; min-height: 1.2em; }
+</style></head>
+<body>
+  <div class="mark"><span class="dot"></span><span>MemoryMap AI</span></div>
+  <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
+  <div id="status">Starting…</div>
+  <script>
+    // Called from the Python side (window.evaluate_js) as the launcher
+    // learns more, not polled from here — see startup_status.py's own
+    // docstring for why the loading window can't ask the server itself.
+    window.__mmSetStatus = function (text, pct) {
+      document.getElementById("status").textContent = text;
+      document.getElementById("bar").style.width = pct + "%";
+    };
+    window.__mmSetError = function (text) {
+      document.getElementById("status").textContent = text;
+      document.getElementById("bar").className = "bar-fill error";
+      document.getElementById("bar").style.width = "100%";
+    };
+  </script>
+</body></html>"""
+
+# Coarse phase name -> a fixed progress-bar percentage. Real percentages
+# aren't knowable — create_app() has no notion of "38% done" — but a handful
+# of ordered, named phases read as real progress rather than an indeterminate
+# spinner, which is what was asked for ("a progress bar with sub text
+# showing the action currently being done"). A phase this map doesn't know
+# about (core/startup_status.py's own default, or a future phase string
+# added there without updating this) still shows as text, just without
+# advancing the bar past whatever the last known phase left it at.
+_STARTUP_PHASE_PERCENT = {
+    "Starting…": 4,
+    "Setting up your notebook…": 30,
+    "Starting local services…": 55,
+    "Warming up search…": 75,
+    "Starting the server…": 92,
+}
 
 # start.bat's own console window (the one visible when start-desktop.bat is
 # double-clicked) blocks synchronously on this process, then falls through to
@@ -64,6 +135,111 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
         except OSError:
             time.sleep(0.05)
     return False
+
+
+def _push_status_to_window(window, text: str) -> None:
+    """Best-effort `window.__mmSetStatus(text, pct)` call — see
+    _LOADING_HTML. Must never raise: this runs from the same background
+    thread that still has to start the real server and swap the window's
+    URL, and a closed/destroyed window (someone quit during startup) or an
+    unexpected pywebview version is a reason to skip a cosmetic update, not
+    to crash the launcher before it gets to actually starting the app.
+    """
+    import json
+
+    pct = _STARTUP_PHASE_PERCENT.get(text, _STARTUP_PHASE_PERCENT["Starting the server…"])
+    try:
+        window.evaluate_js(f"window.__mmSetStatus && window.__mmSetStatus({json.dumps(text)}, {pct})")
+    except Exception as exc:
+        logger.debug("couldn't update the loading window: %s", exc)
+
+
+def _wait_for_server_with_progress(window, timeout: float = 45.0) -> bool:
+    """Same poll `_wait_for_server` does, plus pushing `startup_status`'s
+    current phase to the loading window whenever it changes — see that
+    module's own docstring for why this can read it directly rather than
+    over HTTP. A longer default timeout than `_wait_for_server`'s own: that
+    function times out fast because its caller has no better option than to
+    open a window pointed at a server that may never come up; this one's
+    caller has a loading window already open and a real "still working, here
+    is what on" status to show while it waits, so there is more reason to be
+    patient before calling it a failure.
+    """
+    import socket
+
+    last_shown = None
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        phase = startup_status.get_phase()
+        if phase != last_shown:
+            _push_status_to_window(window, phase)
+            last_shown = phase
+        try:
+            with socket.create_connection((HOST, PORT), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.1)
+    return False
+
+
+def _boot_and_swap(window) -> None:
+    """Runs on pywebview's own post-start background thread (`func=` below)
+    once the loading window is already on screen. Starts the real server,
+    narrates `startup_status`'s phases onto it while that happens, then
+    swaps the same window over to the real app — or, if the server never
+    comes up, leaves a plain-language error in place of an indefinite spinner.
+
+    A separate window was considered and rejected: pywebview's
+    `window.load_url()` retargets an *existing* window, so this is one
+    window's whole lifecycle rather than opening a second one and tearing
+    down the first — simpler, and no flicker from a close/reopen.
+    """
+    os.environ["MEMORYMAP_DESKTOP"] = "1"
+    server = threading.Thread(target=_run_server, daemon=True)
+    server.start()
+    if _wait_for_server_with_progress(window):
+        window.load_url(f"http://{HOST}:{PORT}")
+        _focus_window(window)
+    else:
+        try:
+            window.evaluate_js(
+                "window.__mmSetError && window.__mmSetError("
+                "'The server did not start. Check the logs and try restarting.')"
+            )
+        except Exception as exc:
+            logger.warning("server never came up, and couldn't show that in the window: %s", exc)
+
+
+def _focus_window(window) -> None:
+    """Best-effort: bring the window to the front and give it real input
+    focus the moment it swaps from the loading page to the real app. Asked
+    for directly, alongside the loading window itself — without this, the
+    window that was sitting in front narrating startup progress is not
+    guaranteed to still have focus once the swap happens, on every window
+    manager/backend.
+
+    Two independent attempts, neither load-bearing for the other: pywebview
+    has no single `focus()` method with consistent behaviour across its
+    GTK/Qt/WebView2/Cocoa backends — `show()` is the closest built-in, and
+    only some of those backends treat it as focus-stealing rather than just
+    un-hiding an already-visible window. So this also asks the *page itself*
+    to focus its own OS window via plain DOM `window.focus()`, which every
+    backend's underlying web engine already implements for exactly this —
+    and which works before the newly-loaded page has finished loading,
+    since it acts on the window object rather than anything in the DOM.
+    Wrapped the same way every other optional-pywebview-surface call in this
+    file is: a missing method, or a platform that refuses a focus-steal
+    request outright (some window managers do, by policy), is not worth
+    crashing the launcher over.
+    """
+    try:
+        window.show()
+    except Exception as exc:
+        logger.debug("window.show() during focus handoff didn't work: %s", exc)
+    try:
+        window.evaluate_js("window.focus()")
+    except Exception as exc:
+        logger.debug("couldn't ask the page to focus its own window: %s", exc)
 
 
 def _get_console_hwnd() -> int | None:
@@ -436,24 +612,29 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
             _apply_console_visibility(console_targets, hidden=True)
             console_hidden = True
 
-    # Tells /health — and through it the frontend — that this is the window
-    # rather than a browser tab, so exports get written by the server instead
-    # of clicking an `<a download>` that pywebview silently swallows (§35E).
-    # Set before the server thread starts, so the app never sees it unset.
-    os.environ["MEMORYMAP_DESKTOP"] = "1"
-    server = threading.Thread(target=_run_server, daemon=True)
-    server.start()
-    _wait_for_server()
-
+    # The window opens on the loading page immediately — before the server
+    # thread has even started, let alone finished create_app()'s
+    # migrations/embeddings-warmup/etc. — instead of waiting here for
+    # _wait_for_server() the way this used to. Reported directly: someone
+    # running with the console hidden (the `show_on_startup=False` branch
+    # just above, or the packaged installer's console-less build) has no
+    # terminal to watch either, so a window that doesn't open until the
+    # server answers is, for them, no feedback at all that anything is
+    # happening. The real server start, the phase narration, and the swap to
+    # the real URL all happen in `_boot_and_swap`, run by `webview.start()`
+    # below once this window is actually on screen (pywebview's own
+    # `func=`/`args=` — the standard way to do post-open work without
+    # blocking the window from appearing in the first place).
     window = webview.create_window(
         "MemoryMap AI",
-        f"http://{HOST}:{PORT}",
+        html=_LOADING_HTML,
         width=1200,
         height=800,
         min_size=(420, 500),
         # pywebview defaults this to False, which blocks selecting or
         # copying any text in the window — reported directly ("can't
-        # highlight or copy text in the desktop view").
+        # highlight or copy text in the desktop view"). Applies to the real
+        # app once loaded; the loading page has nothing worth selecting.
         text_select=True,
     )
     # `private_mode` defaults to True in pywebview, which throws away
@@ -543,19 +724,25 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     storage.mkdir(parents=True, exist_ok=True)
     try:
         webview.start(  # blocks until the window closes; daemon dies with us
+            _boot_and_swap,  # runs on its own thread once the window is open
+            window,
             private_mode=False,
             storage_path=str(storage),
             **(({"icon": _icon}) if _icon else {}),
         )
     except TypeError:
-        # An older pywebview without one of these arguments. Starting with a
-        # forgetful window is much better than not starting at all — the
-        # desktop app is the only way in for someone who installed it that way.
+        # An older pywebview without one of the keyword arguments above
+        # (icon/private_mode/storage_path) — `func`/`args` have been part of
+        # pywebview's `start()` since long before those, so this fallback
+        # only drops the newer ones, never the loading-window handoff.
+        # Starting with a forgetful window is much better than not starting
+        # at all — the desktop app is the only way in for someone who
+        # installed it that way.
         print(
             "This pywebview is too old to keep settings between launches "
             "(pip install -U pywebview). Starting anyway."
         )
-        webview.start()
+        webview.start(_boot_and_swap, window)
     finally:
         # Only reached once the window is really gone (Quit, not a hide) —
         # an icon left running with no window behind it is a stray process

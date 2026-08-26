@@ -127,6 +127,21 @@ KNOWN_CONTEXT_WINDOWS: dict[str, int] = {
 }
 
 
+def _squash_separators(text: str) -> str:
+    """Drop `-`/`_`/space so `granite4` still finds `granite-4.1-3b-uncensored`.
+
+    Community/fine-tuned imports (a manually `ollama create`d GGUF, an
+    uncensored fine-tune pulled from Hugging Face) routinely punctuate a
+    family name differently from Ollama's own library naming — `granite4`
+    in the library becomes `granite-4.1-3b-uncensored` or `Granite 4.1
+    Uncensored` in the wild, and a plain substring match against either of
+    those never finds `granite4` at all, even though it's clearly the same
+    family. Dots are kept: they carry real version information (`3` vs
+    `3.1`) that this app's own table already keys on.
+    """
+    return re.sub(r"[-_\s]", "", text)
+
+
 def known_context(model: str) -> int | None:
     """The window this app believes `model` has, or None if it has no idea.
 
@@ -138,13 +153,17 @@ def known_context(model: str) -> int | None:
 
     The tag (`:8b-q4_0`) and any registry prefix (`hf.co/user/`) are stripped
     first: they say how the model was quantised and where it came from, not how
-    much it can hold.
+    much it can hold. Matched with separators squashed out (see
+    `_squash_separators`) so a differently-punctuated import of the same
+    family — the common shape for a community fine-tune — still finds its
+    table entry instead of silently falling through to the flat default.
     """
-    name = (model or "").lower()
-    bare = name.split("/")[-1].split(":")[0]
+    name = _squash_separators((model or "").lower())
+    bare = _squash_separators(name.split("/")[-1].split(":")[0])
     best_key: str | None = None
     best_context: int | None = None
-    for key, window in KNOWN_CONTEXT_WINDOWS.items():
+    for raw_key, window in KNOWN_CONTEXT_WINDOWS.items():
+        key = _squash_separators(raw_key)
         if key in bare or key in name:
             if best_key is None or len(key) > len(best_key):
                 best_key, best_context = key, window

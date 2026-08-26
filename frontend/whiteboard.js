@@ -4826,15 +4826,35 @@ function renderWhiteboard() {
   // (not the note's own id — the same note can sit on the board twice).
   nodeEnter.each(function (d) {
     const card = d3.select(this);
-    const contentEl = card.append("div").attr("class", "wb-card-content").node();
     const entry = entriesById.get(String(d.entry_id));
     if (!entry) {
-      contentEl.textContent = "Loading…";
+      card.append("div").attr("class", "wb-card-content").node().textContent = "Loading…";
       return;
     }
+    // A sketch's actual content is a file attachment, not text — never
+    // reflected here before (§89 item 10): thumb_attachment_id/thumb_url
+    // covers that, entry.attachments covers a note with a real attached
+    // image. Same priority libraryCard() (library.js) already uses. A
+    // pasted/dropped image living as inline markdown in entry.content is
+    // NOT handled here — that already renders through renderMarkdown below,
+    // and would be shown twice if it were.
+    const firstImageAttachment = (entry.attachments || []).find((a) => a.is_image);
+    const thumbSrc = entry.thumb_attachment_id
+      ? mediaSrc(`/files/${entry.thumb_attachment_id}`)
+      : entry.thumb_url
+      ? mediaSrc(entry.thumb_url)
+      : firstImageAttachment
+      ? mediaSrc(`/files/${firstImageAttachment.id}`)
+      : null;
+    if (thumbSrc) {
+      card.append("img").attr("class", "wb-card-thumb").attr("src", thumbSrc).attr("alt", "").attr("loading", "lazy");
+    }
+    const contentEl = card.append("div").attr("class", "wb-card-content").node();
     const text = entry.content || entry.preview || "";
     if (!text) {
-      contentEl.textContent = "Empty note";
+      // The thumbnail above IS the content for a sketch/image-only note —
+      // "Empty note" next to a picture would read as a bug, not a note.
+      if (!thumbSrc) contentEl.textContent = "Empty note";
       return;
     }
     renderMarkdown(contentEl, text);

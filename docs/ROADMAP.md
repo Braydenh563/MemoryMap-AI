@@ -1048,20 +1048,18 @@ callouts" entry before rebuilding anything that sounds finished.**
    accent, not the default indigo — likely specific to their own accent/
    glass-blur/opacity/shadow values. Need those values, or a live session.
 
-10. **Images and sketches attached to a note don't render on the whiteboard
-    canvas.** Reported directly, not yet fixed; diagnosed from source, not
-    reproduced live (no image in this sandbox's test data). A note's card
-    on the whiteboard (`nodeEnter.each`, whiteboard.js) renders its body
-    with `renderMarkdown(contentEl, text)` only — a pasted/dropped image
-    living as inline `![...](...)` markdown in `entry.content` would render
-    through that. A sketch or a traditionally-attached image is different:
-    it lives in `entry.attachments` / `thumb_attachment_id`, a separate
-    field the Notes list's own card (`entryItem()`, its "Attachments (Wave
-    B...)" block) and the Library card (`libraryCard()`'s `thumb_attachment_id`/
-    `thumb_url` branch) both render explicitly — the whiteboard's card never
-    reads that field at all. Fix is probably teaching the whiteboard card to
-    render a thumbnail from `entry.attachments`/`thumb_attachment_id` the
-    same way those two already do, not a `renderMarkdown` change.
+~~10. **Images and sketches attached to a note don't render on the whiteboard
+    canvas.**~~ **Built.** `nodeEnter.each` now renders a `.wb-card-thumb`
+    above the note text, same priority as `libraryCard()` (library.js):
+    `thumb_attachment_id`, then `thumb_url`, then the first image in
+    `entry.attachments`. Inline `![...](...)` markdown in `entry.content`
+    is deliberately untouched — already renders through `renderMarkdown`, and
+    would show twice if this added it too. **Live-verified, not just a
+    source-read**: real PNG attached via `POST /entries/{id}/files` — not
+    `/media/upload` alone, which is the generic drag-into-markdown upload
+    with no entry association and silently returned `attachments: []` —
+    added to a board, opened in the browser: `<img>` loaded with real
+    dimensions, auth via the query-param fallback, zero console errors.
 
 11. **Whether AI-driven work (image captioning, and AI features generally)
     should run asynchronously as a standing design principle**, not just

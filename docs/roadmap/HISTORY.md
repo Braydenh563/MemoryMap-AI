@@ -7,6 +7,68 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## §93 — the hybrid document editor, six backlog items, and a prompt with no budget
+
+**Do not rebuild any of the following.** Branch
+`claude/post-v0.1.4-nav-fixes`.
+
+**The document editor (ROADMAP item 0) is built.** `#doc-view-seg` offers four
+views — Live (render-as-you-write; the block the caret is in shows its raw
+markdown), Source, Split, and Read (the rendered document alone, full width,
+capped at a 46rem measure). `setDocView` and `docPreviewShowing` in
+`documents.js` are the single place that decides which panes are on screen;
+`docLiveBlocks` splits the source into blocks fence-aware (a blank line inside
+a ``` block is code, not a paragraph break).
+
+**Documents have a file type.** `core/filetypes.py` holds one table of 26
+types — `GET /documents/file-types` serves it, `Document.file_type` stores it,
+default `md`. The table lives on the server because Ctrl+/ and Tab act on
+keystrokes and cannot wait for a round trip; a second copy in JS would be a
+second thing to keep in step, and the failure mode of the two disagreeing is
+the wrong comment marker in someone's file. A non-previewable (code) type
+turns on the line-number gutter, monospace, Tab/Shift+Tab indent and dedent,
+and Ctrl+/ using that language's marker; it hides the markdown toolbar and
+disables the three rendered views. Editing goes through
+`document.execCommand("insertText")` so the browser's native undo stack
+survives — assigning `.value` wipes it.
+
+**Six backlog items, all built:** agent-mode auto-detect and skill auto-detect
+nudges in the composer; sub-process start/finish notices; AI follow-up chips
+(`ai/followups.py` + `POST /chat/followups`, on the utility model, returning
+`[]` on every failure path); graph minimap drag/wheel/keyboard zoom; and the
+token-efficiency pass below.
+
+**The token-efficiency pass found a real bug, not an optimisation.** The
+untooled (streaming) chat prompt had **no budget at all** — `build_messages`
+applied `context.fit_notes`/`fit_history` on the tooled path only. One module
+wired into one call site and not its sibling. `librarian.plan_budget` is now
+the one entry point and the digest uses it too. Measured on a 4k window:
+6,240 → 744 tokens. Unchanged on 32k, which is the point — the budget only
+bites when the window is small.
+
+**`core/docview.py`** extracts text from docx/pdf/md/code/html/xlsx/csv/txt
+for the universal viewer, with `GET /files/{id}/text`. It returns extracted
+text, never bytes — nothing new is served inline. **Backend only; there is no
+frontend for it yet, and the scanned-PDF path cannot run in this environment
+because nothing here can rasterise a PDF page** (pypdfium2, fitz, pdf2image,
+PIL, markitdown all absent). The vision-model hook is written and takes a
+`vision_reader` callable. Tesseract stays out by explicit instruction.
+
+**Two bug shapes worth carrying forward.** `loadDocFileTypes()` ran once at
+file load — before unlock — so its fetch 401'd, the cache became `[]`, and
+nothing ever asked again: an empty `<select>` all session, nothing logged, no
+line reading wrong. Same shape as the `APPEARANCE_DEFAULTS` bug in CLAUDE.md.
+And the split view's layout rule was dead because `#doc-panes` (an id) beat
+`.doc-panes.split` (a class) in the cascade — the rule read as correct and had
+never once applied.
+
+Verified live in Chromium at 1440x900: picker 26 types defaulting to md; Live
+click-to-edit returns raw markdown, writes through and re-renders on blur; a
+fence with an internal blank line stays one block; Split 506px/540px side by
+side; Read centres 736px in a 1058px pane and persists; code mode gutter, Tab
+by four, Ctrl+/ exact round-trip; type survives a reload. **Not verified:**
+printing to PDF from Read mode, and touch/pinch.
+
 ## Done — sessions §80 to §86, the condensed index
 
 Moved out of `ROADMAP.md` when it hit the 2,000-line ceiling

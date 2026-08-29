@@ -1,6 +1,77 @@
 # Session handover
 
-## New session — vision-OCR, AI-edit verb set + changelog, staged-upload fix (§92)
+## New session — the document editor rebuilt, six backlog items, a prompt-budget bug (§93)
+
+**Full narrative in HISTORY.md §93.** Branch `claude/post-v0.1.4-nav-fixes`,
+five commits.
+
+**Start here if you are picking this up.** Two things are open and both are
+named below under *What is still open*: the universal document **viewer**
+(ROADMAP item, backend built this session, no frontend), and its scanned-PDF
+path, which cannot work until something in this environment can rasterise a
+PDF page.
+
+### What was built
+
+- **The hybrid document editor** (ROADMAP item 0). Four views in
+  `#doc-view-seg` — **Live** (render-as-you-write, the caret's block showing
+  its raw markdown), **Source**, **Split**, **Read** (the finished document
+  alone, full width, 46rem measure). `documents.js`: `setDocView`,
+  `docPreviewShowing`, `docLiveBlocks`/`renderDocLive`/`docLiveEditor`.
+- **File types on documents.** `core/filetypes.py` (26 types, one table),
+  `GET /documents/file-types`, `Document.file_type`. A code type turns on a
+  line-number gutter, monospace, Tab/Shift+Tab indent/dedent and Ctrl+/
+  commenting with that language's own marker; it hides the markdown toolbar
+  and disables the three rendered views.
+- **Six backlog items**: agent-mode and skill auto-detect nudges in the
+  composer, sub-process start/finish notices, AI follow-up chips
+  (`ai/followups.py`, `POST /chat/followups`), graph minimap drag/wheel/
+  keyboard zoom, and the token-efficiency pass below.
+- **`core/docview.py`** — text extraction for the universal viewer, plus
+  `GET /files/{id}/text`. Backend only.
+
+### The two bugs worth remembering
+
+1. **The untooled chat prompt had no token budget at all.** `build_messages`
+   never called `context.fit_notes`/`fit_history` on the streaming path,
+   only the tooled one — a module wired into one call site but not its
+   sibling. Measured: 6,240 → 744 tokens on a 4k window, unchanged on 32k.
+   `librarian.plan_budget` is now the single entry point; check its callers
+   before adding a third.
+2. **`loadDocFileTypes()` ran before unlock.** It was called once at the
+   bottom of `documents.js`, so its fetch 401'd, the cache was set to `[]`,
+   and nothing ever asked again — an empty `<select>` for the whole session
+   with nothing logged and no line reading wrong. It is now called from
+   `loadDocuments` (always post-unlock) and is a no-op once loaded. **This is
+   the same shape as the `APPEARANCE_DEFAULTS` bug in CLAUDE.md**: state that
+   is wrong where it is *used*, set somewhere that looks fine. A browser
+   found it; reading the source twice had not.
+
+### The trap that cost this session an hour
+
+The running uvicorn was older than `routes_documents.py`, so
+`/documents/file-types` was being swallowed by `/documents/{document_id}`
+and returning an int-parsing error. The frontend fix above was correct and
+still showed an empty picker, because the *server* was stale. CLAUDE.md says
+to restart after any Python change; this is what it costs when you don't.
+`kill <pid>` by PID — `pkill -f "port 87xx"` matches your own shell.
+
+### What is still open
+
+- **The universal document viewer's frontend.** `docview.extract()` and
+  `GET /files/{id}/text` work and are tested; nothing renders them yet.
+- **Scanned PDFs.** The vision-model OCR path is written and takes a
+  `vision_reader` callable, but **no PDF rasteriser exists in this
+  environment** — pypdfium2, fitz, pdf2image, PIL and markitdown are all
+  absent, so there is no way to turn a PDF page into an image to send it.
+  `docview.py`'s docstring says so plainly and the user-facing message does
+  too. Do not report this path as working. (Tesseract stays out by explicit
+  instruction — vision model only.)
+- **Not verified in a browser**: printing to PDF from Read mode, and any
+  touch/pinch interaction. Everything else in the editor was measured live
+  in Chromium at 1440x900.
+
+## Prior session — vision-OCR, AI-edit verb set + changelog, staged-upload fix (§92)
 
 **Full narrative in HISTORY.md §92.** Four pieces: the vision-OCR extractor
 mode (a manual/automatic-on-commit reader distinct from Tesseract and

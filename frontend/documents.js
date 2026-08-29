@@ -136,6 +136,12 @@ async function openDocument(id) {
     "# Start writing\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   const doc = await apiJson(`/documents/${id}`).catch(() => null);
   if (!doc) return;
+  // ROADMAP.md item 13: "opening/closing a document" was the one remaining
+  // gap in back/forward nav after chat's own conv:<id> fix. Same shape,
+  // recorded here (not at each of openDocument's several call sites) so
+  // none of them has to remember to — same reasoning openConversation's own
+  // comment gives for doing it there instead of at ITS call sites.
+  recordTabVisit("documents", `doc:${doc.id}`);
   currentDoc = doc;
   $("doc-title").disabled = false;
   $("doc-content").disabled = false;

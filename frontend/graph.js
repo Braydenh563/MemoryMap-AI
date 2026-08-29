@@ -2592,6 +2592,7 @@ function renderGraphPopupActions(entry) {
     box.appendChild(
       smallButton("ph:target Focus", "Isolate this note's neighborhood", () => {
         graphFocusModeId = entry.id;
+        recordTabVisit("graph", `focus:${entry.id}`);
         $("graph-focus-clear")?.classList.remove("hidden");
         closeGraphPopup();
         renderGraph();

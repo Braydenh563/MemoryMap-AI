@@ -12263,6 +12263,22 @@ async function stepTabHistory(delta) {
       } else if (entry.section === "new") {
         newChatConversation();
       }
+    } else if (entry.tab === "documents" && entry.section?.startsWith("doc:")) {
+      // Same awaited-before-finally shape as chat's conv: branch above, for
+      // the same reason: openDocument does its own network fetch before
+      // calling recordTabVisit, so an un-awaited call here would clear
+      // tabHistory.navigating too early and turn this into a fresh entry.
+      await openDocument(Number(entry.section.slice("doc:".length)));
+    } else if (entry.tab === "graph") {
+      // switchTab's own "graph" branch above already rendered once with
+      // whatever graphFocusModeId happened to hold; set it to match this
+      // history entry and render again so Focus Mode itself is part of what
+      // back/forward restores, not just the tab underneath it.
+      graphFocusModeId = entry.section?.startsWith("focus:")
+        ? Number(entry.section.slice("focus:".length))
+        : null;
+      $("graph-focus-clear")?.classList.toggle("hidden", !graphFocusModeId);
+      await renderGraph();
     }
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
@@ -18923,6 +18939,7 @@ document.addEventListener("keydown", (event) => {
 });
 $("graph-focus-clear").addEventListener("click", () => {
   graphFocusModeId = null;
+  recordTabVisit("graph", null);
   $("graph-focus-clear").classList.add("hidden");
   renderGraph();
   toast("Exited Focus Mode.");

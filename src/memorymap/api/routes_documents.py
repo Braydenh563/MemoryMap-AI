@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter
-from memorymap.core import deps
+from memorymap.core import deps, filetypes
 from memorymap.core.database import Document, DocumentAiEdit, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import (
@@ -47,11 +47,22 @@ SELECTION_EXCERPT_CHARS = 160
 class DocumentBody(BaseModel):
     title: str = Field(default="Untitled", min_length=1, max_length=200)
     content: str = Field(default="", max_length=MAX_CONTENT)
+    #: A bare extension ("md", "py"). Not validated as an enum here on
+    #: purpose — `filetypes.normalise` accepts a filename, a dotted
+    #: extension or a bare one and falls back to markdown for anything it
+    #: does not know, which is the right answer for a field that only
+    #: describes how to *display* the content. A 422 over it would refuse
+    #: to save someone's writing because of its label.
+    file_type: str = Field(default=filetypes.DEFAULT_FILE_TYPE, max_length=40)
 
 
 class DocumentPatch(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     content: str | None = Field(default=None, max_length=MAX_CONTENT)
+    #: None means "leave it alone" — the same convention as the two fields
+    #: above, so an autosave sending only `content` cannot reset a
+    #: document's type back to markdown.
+    file_type: str | None = Field(default=None, max_length=40)
 
 
 class AiEditBody(BaseModel):
@@ -82,6 +93,10 @@ def _summary(document: Document) -> dict:
         "title": document.title,
         "updated_at": document.updated_at.isoformat(),
         "words": len(document.content.split()),
+        # Normalised on the way out as well as in: a row written before this
+        # column existed, or by a restore from an older backup, can hold
+        # anything at all, and the editor picks its whole mode from this.
+        "file_type": filetypes.normalise(document.file_type),
     }
 
 
@@ -126,6 +141,26 @@ def _process_committed_media(session: Session, content: str) -> None:
     )
 
 
+@router.get("/file-types")
+def list_file_types() -> dict:
+    """Every selectable document type, with what the editor needs to behave
+    like one.
+
+    Served rather than duplicated into `app.js` because indenting and
+    comment-toggling happen on keystrokes and cannot wait for a round trip —
+    so the frontend needs the table itself, not a lookup endpoint. One copy,
+    fetched once; two copies would be two things to update, and the failure
+    mode of them disagreeing is Ctrl+/ writing the wrong comment marker into
+    someone's file.
+
+    Declared **above** `/{document_id}` deliberately: FastAPI matches routes in
+    definition order, and "file-types" is a perfectly good string for a path
+    parameter typed `int` — registered the other way round this would 422 on
+    every call instead of answering.
+    """
+    return {"default": filetypes.DEFAULT_FILE_TYPE, "types": filetypes.as_dicts()}
+
+
 @router.get("")
 def list_documents(
     q: str = Query(default="", max_length=200),
@@ -163,7 +198,11 @@ def list_documents(
 def create_document(
     body: DocumentBody, session: Session = Depends(get_session)
 ) -> dict:
-    document = Document(title=body.title.strip() or "Untitled", content=body.content)
+    document = Document(
+        title=body.title.strip() or "Untitled",
+        content=body.content,
+        file_type=filetypes.normalise(body.file_type),
+    )
     session.add(document)
     session.flush()
     log_action(session, "created", "document", document.id, document.title[:80])
@@ -187,6 +226,8 @@ def update_document(
     content_changed = body.content is not None and body.content != document.content
     if body.content is not None:
         document.content = body.content
+    if body.file_type is not None:
+        document.file_type = filetypes.normalise(body.file_type)
     document.updated_at = utcnow()
     session.commit()
     if content_changed:
@@ -246,16 +287,36 @@ def detach_note(
 def export_markdown(
     document_id: int, session: Session = Depends(get_session)
 ) -> Response:
-    """The raw markdown, as a download."""
+    """The document's own text, as a download.
+
+    Still routed at `export.md` — the path is what the frontend and any saved
+    bookmark already point at, and renaming it would break both to describe
+    something the URL never guaranteed. What *does* follow the document's type
+    is the file the browser saves: a Python document downloads as `.py`, not
+    as a `.md` containing Python.
+
+    The title-as-H1 preamble is markdown-only for the same reason. `# Title`
+    at the top of a .py file is a comment by luck; at the top of a .json file
+    it is a syntax error, and a download that will not parse is worse than one
+    without a heading.
+    """
     document = _existing(session, document_id)
-    # The title becomes an H1 so the exported file stands on its own.
-    body = f"# {document.title}\n\n{document.content}"
+    kind = filetypes.get(document.file_type)
+    if kind.ext == "md":
+        body = f"# {document.title}\n\n{document.content}"
+        media_type = "text/markdown; charset=utf-8"
+    else:
+        body = document.content
+        # text/plain for everything else: the browser is being asked to save
+        # the file, not to run or render it, and a specific type here buys
+        # nothing while inviting a helpful handler to open it.
+        media_type = "text/plain; charset=utf-8"
     return Response(
         content=body,
-        media_type="text/markdown; charset=utf-8",
+        media_type=media_type,
         headers={
             "Content-Disposition": (
-                f'attachment; filename="{_safe_filename(document.title, "md")}"'
+                f'attachment; filename="{_safe_filename(document.title, kind.ext)}"'
             )
         },
     )

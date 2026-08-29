@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, media_gc, media_process, ocr
+from memorymap.core import deps, docview, media_gc, media_process, ocr
 from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -131,6 +131,56 @@ def download_file(attachment_id: int, session: Session = Depends(get_session)) -
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
     return FileResponse(path, filename=attachment.filename, media_type=attachment.mime)
+
+
+class AttachedFileTextOut(BaseModel):
+    """One attached file, read as text for the in-app viewer."""
+
+    filename: str
+    #: "markdown" | "code" | "plain" — how to render `text`, not what the file
+    #: is. A converted .docx comes back as markdown, so it renders like one.
+    kind: str
+    #: "file" | "converted" | "vision-ocr". Shown to the reader, not merely
+    #: logged: a vision model's transcription of a scan is a *reading* of the
+    #: file, and presenting it identically to text read out of a .txt would be
+    #: the app stating a guess as a fact.
+    source: str
+    text: str = ""
+    truncated: bool = False
+    #: Why there is no text, when there is none. Never an error status: "this
+    #: file has no viewer yet" and "install markitdown" are both answers, and
+    #: a 4xx would make the viewer show a failure for a file that is fine.
+    message: str = ""
+
+
+@router.get("/files/{attachment_id}/text", response_model=AttachedFileTextOut)
+def attached_file_text(
+    attachment_id: int, session: Session = Depends(get_session)
+) -> AttachedFileTextOut:
+    """An attached file's text, for reading it without leaving the app.
+
+    Deliberately returns *text*, never the file. `download_file` above hands
+    the browser the bytes with `Content-Disposition: attachment`, and
+    `media_file` at the bottom of this module explains at length why serving
+    anything new inline is the thing to avoid. A viewer built by widening
+    either of those would inherit that problem once per file type; this one
+    cannot, because what it sends has already stopped being a .docx.
+
+    Read-only, and that is a property of the extraction rather than a missing
+    feature — see `core/docview.py`'s module docstring. Editing an attached
+    file's text would mean writing text back into a format it was never in.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    path = deps.get_config().uploads_dir / attachment.stored_name
+    viewed = docview.extract(path)
+    return AttachedFileTextOut(
+        filename=attachment.filename,
+        kind=viewed.kind,
+        source=viewed.source,
+        text=viewed.text,
+        truncated=viewed.truncated,
+        message=viewed.message,
+    )
 
 
 @router.delete("/files/{attachment_id}", response_model=EntryOut)

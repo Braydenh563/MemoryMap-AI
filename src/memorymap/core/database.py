@@ -503,6 +503,13 @@ class Document(Base, WorkspaceMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200), default="Untitled")
     content: Mapped[str] = mapped_column(Text, default="")
+    # What kind of file this is — a bare extension, no dot ("md", "py",
+    # "sql"). See core/filetypes.py for the table and why it is shared with
+    # the frontend rather than duplicated there. A scalar default (not a
+    # server_default or a callable) so the additive auto-migrator backfills
+    # every document that existed before file types did as markdown, which is
+    # what all of them are.
+    file_type: Mapped[str] = mapped_column(String(20), default="md")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

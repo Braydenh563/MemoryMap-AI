@@ -437,3 +437,98 @@ def test_storage_says_where_the_notebook_actually_is(client, tmp_path):
     assert body["database_bytes"] > 0
     # The backups folder is part of the answer to "how do I keep a copy?".
     assert "backups" in body["backups_dir"].lower()
+
+
+# --- file types (a document is no longer always markdown) ---------------------
+
+
+def test_a_new_document_defaults_to_markdown(client):
+    """By direct instruction: any file type, "though it should default to md"."""
+    assert client.post("/documents", json={"title": "Notes"}).json()["file_type"] == "md"
+
+
+def test_a_document_can_be_created_as_code(client):
+    created = client.post(
+        "/documents", json={"title": "Script", "content": "x = 1", "file_type": "py"}
+    ).json()
+    assert created["file_type"] == "py"
+
+
+def test_the_type_can_be_changed_after_the_fact(client):
+    created = client.post("/documents", json={"title": "Thing"}).json()
+    updated = client.put(f"/documents/{created['id']}", json={"file_type": "sql"}).json()
+    assert updated["file_type"] == "sql"
+
+
+def test_an_autosave_of_content_alone_does_not_reset_the_type(client):
+    """The failure this guards is silent and total: the editor autosaves
+    content constantly, and a `file_type` that defaulted rather than staying
+    None would turn every code document back into markdown mid-edit."""
+    created = client.post(
+        "/documents", json={"title": "Script", "file_type": "py"}
+    ).json()
+    updated = client.put(
+        f"/documents/{created['id']}", json={"content": "print(1)"}
+    ).json()
+    assert updated["file_type"] == "py"
+
+
+def test_an_unknown_type_falls_back_rather_than_refusing_the_save(client):
+    """A 422 here would refuse to save someone's writing because of a field
+    that only describes how to display it."""
+    created = client.post(
+        "/documents", json={"title": "Odd", "content": "hi", "file_type": "wat"}
+    ).json()
+    assert created["file_type"] == "md"
+    assert created["content"] == "hi"
+
+
+def test_a_dotted_extension_and_a_filename_both_work(client):
+    """All three spellings turn up: the picker sends "py", an import sends
+    ".py", and a drag-and-drop has a filename."""
+    for sent in (".py", "script.py", "PY"):
+        made = client.post("/documents", json={"title": "T", "file_type": sent}).json()
+        assert made["file_type"] == "py", sent
+
+
+def test_exporting_a_code_document_uses_its_own_extension(client):
+    """A Python document must not download as a .md containing Python."""
+    created = client.post(
+        "/documents", json={"title": "My Script", "content": "x = 1", "file_type": "py"}
+    ).json()
+    response = client.get(f"/documents/{created['id']}/export.md")
+    assert response.headers["content-disposition"].endswith('.py"')
+    # No `# My Script` preamble: a markdown H1 at the top of a .py is a
+    # comment by luck, and at the top of a .json it is a syntax error.
+    assert response.text == "x = 1"
+
+
+def test_exporting_a_markdown_document_still_carries_its_title(client):
+    created = client.post(
+        "/documents", json={"title": "My Essay", "content": "Body."}
+    ).json()
+    response = client.get(f"/documents/{created['id']}/export.md")
+    assert response.headers["content-disposition"].endswith('.md"')
+    assert response.text.startswith("# My Essay")
+
+
+def test_the_file_type_table_is_served_for_the_editor(client):
+    """The editor needs the table itself, not a lookup: indenting and
+    comment-toggling happen on keystrokes."""
+    body = client.get("/documents/file-types").json()
+    assert body["default"] == "md"
+    by_ext = {t["ext"]: t for t in body["types"]}
+    assert by_ext["py"]["line_comment"] == "#"
+    assert by_ext["py"]["indent"] == "    "
+    assert by_ext["md"]["previewable"] is True
+    assert by_ext["py"]["previewable"] is False
+    # HTML has no line-comment form; toggling one has to wrap it instead.
+    assert by_ext["html"]["line_comment"] == ""
+    assert by_ext["html"]["block_comment"] == ["<!-- ", " -->"]
+
+
+def test_the_file_types_route_is_not_swallowed_by_the_id_route(client):
+    """FastAPI matches in definition order and "file-types" is a fine string
+    for a path parameter typed int — registered the other way round this
+    would 422 on every call."""
+    assert client.get("/documents/file-types").status_code == 200

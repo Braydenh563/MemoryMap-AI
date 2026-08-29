@@ -1871,13 +1871,111 @@ function filterLibraryImagesGallery() {
       }
     });
 
+    // Tesseract's own reading of any text in the image (core/ocr.py) —
+    // local, exact, and (unlike the caption above) not AI-generated, so no
+    // model badge. Asked for directly: "allow for manual OCR extraction or
+    // retries. allow the user to access, view, and edit OCR extracted
+    // text." Same always-visible, click-to-edit shape as captionText above
+    // — `POST /media/{id}/ocr` has no write-once guard, so the retry
+    // button always re-reads rather than needing a force flag.
+    const ocrBtn = document.createElement("button");
+    ocrBtn.type = "button";
+    ocrBtn.className = "ghost small icon-button library-image-ocr-btn";
+    setLabel(ocrBtn, "ph:scan");
+
+    const ocrText = document.createElement("p");
+    ocrText.className = "library-image-ocr muted text-sm";
+    ocrText.tabIndex = 0;
+    ocrText.setAttribute("role", "button");
+
+    const setOcrState = (text) => {
+      image.ocr_text = text || "";
+      ocrText.textContent = text || "No text found — click to add";
+      ocrText.classList.toggle("library-image-ocr-empty", !text);
+      ocrText.title = text ? "Click to edit this text" : "Click to add text";
+      ocrBtn.title = `Re-read the text in “${image.original_name}”`;
+      ocrBtn.setAttribute("aria-label", ocrBtn.title);
+    };
+    setOcrState(image.ocr_text);
+
+    const startEditingOcr = () => {
+      if (ocrText.querySelector("textarea")) return; // already editing
+      const box = document.createElement("textarea");
+      box.className = "library-image-ocr-input";
+      box.value = image.ocr_text || "";
+      box.setAttribute("aria-label", `Extracted text for "${image.original_name}"`);
+      box.maxLength = 10000;
+      ocrText.replaceChildren(box);
+      box.focus();
+      box.select();
+      autoGrow(box);
+      box.addEventListener("input", () => autoGrow(box));
+
+      let settled = false;
+      const finish = (text) => {
+        if (settled) return;
+        settled = true;
+        setOcrState(text);
+      };
+      const cancel = () => finish(image.ocr_text);
+      const save = async () => {
+        const next = box.value.trim();
+        if (next === (image.ocr_text || "")) return cancel();
+        finish(next); // optimistic, corrected below if the server refuses it
+        try {
+          const updated = await apiJson(`/media/${image.id}/ocr`, {
+            method: "POST",
+            body: JSON.stringify({ text: next }),
+          });
+          setOcrState(updated.ocr_text);
+        } catch (error) {
+          setOcrState(image.ocr_text);
+          toast(error.message || "Couldn't save that text.", true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      box.addEventListener("blur", save);
+    };
+    ocrText.addEventListener("click", startEditingOcr);
+    ocrText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        startEditingOcr();
+      }
+    });
+
+    ocrBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      ocrBtn.disabled = true;
+      const previousOcrText = ocrText.textContent;
+      ocrText.replaceChildren(typingDots("Reading text…"));
+      try {
+        const updated = await apiJson(`/media/${image.id}/ocr`, { method: "POST" });
+        setOcrState(updated.ocr_text);
+      } catch (error) {
+        ocrText.textContent = previousOcrText;
+        toast(error.message || "Couldn't read the text in that image.", true);
+      } finally {
+        ocrBtn.disabled = false;
+      }
+    });
+
     // A vision model's verbatim transcription of any text in the image —
     // the "extractor mode" asked for directly, distinct from `ocr_text`
-    // (Tesseract, automatic on upload, not itself shown here) and from
-    // `captionText` above (a description, not a transcription). Manual
-    // only: nothing runs this on upload, so unlike the caption there is
-    // nothing to prompt someone to type by hand — it stays hidden until a
-    // first read has actually happened.
+    // (Tesseract, automatic on upload, shown just above) and from
+    // `captionText` above (a description, not a transcription). Runs
+    // automatically on upload too (ai/vision_ocr.py, same as captioning) —
+    // this button is the manual re-read. Unlike the caption there is
+    // nothing to prompt someone to type by hand here, so it stays hidden
+    // until a read has actually happened (automatic or manual).
     const visionOcrBtn = document.createElement("button");
     visionOcrBtn.type = "button";
     visionOcrBtn.className = "ghost small icon-button library-image-vision-ocr-btn";
@@ -1931,7 +2029,7 @@ function filterLibraryImagesGallery() {
 
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-    actions.append(rename, captionBtn, visionOcrBtn, del);
+    actions.append(rename, captionBtn, ocrBtn, visionOcrBtn, del);
 
     fig.append(
       img,
@@ -1940,6 +2038,7 @@ function filterLibraryImagesGallery() {
       captionText,
       captionToggle,
       captionBadge,
+      ocrText,
       visionOcrText,
       visionOcrBadge
     );
@@ -2041,6 +2140,13 @@ document.addEventListener("DOMContentLoaded", () => {
     for (const file of files) {
       const form = new FormData();
       form.append("file", file);
+      // Asked for directly: OCR/captioning/vision-OCR must not run on a
+      // staged upload that never gets saved into a note, document or sent
+      // chat message — but the Library's own "Upload images" button has no
+      // separate staging step at all, so this upload IS the commit
+      // (routes_files.py's upload_media, and core/media_process.py's own
+      // docstring, name this exact case).
+      form.append("direct", "true");
       try {
         // A bare headers override, not apiJson's default — a FormData body
         // needs the browser to set its own multipart boundary in

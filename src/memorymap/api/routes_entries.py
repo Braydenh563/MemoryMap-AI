@@ -179,6 +179,19 @@ def _existing_entry(session: Session, entry_id: int):  # noqa: ANN202
     return deps.get_or_404(session, Entry, entry_id, "Entry not found")
 
 
+def _process_committed_media(session: Session, plaintext_content: str) -> None:
+    """Trigger OCR/captioning/vision-OCR for every `/media/…` upload this
+    (plaintext, pre-encryption) note content references — see
+    core/media_process.py's own docstring for why this fires here rather
+    than on upload. Best-effort: an image reference to an upload that's
+    already gone, or one already processed, is a fast no-op either way."""
+    from memorymap.core import media_process
+
+    media_process.process_referenced_uploads(
+        session, deps.get_config().data_dir / "media", plaintext_content
+    )
+
+
 @router.post("", response_model=EntryOut, status_code=201)
 def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> EntryOut:
     parent = None
@@ -246,6 +259,14 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     for document_id in dict.fromkeys(body.document_ids):
         if session.get(Document, document_id) is not None:
             manager.link_document(session, document_id, entry.id)
+
+    # A note is one of the three "committed" moments core/media_process.py
+    # waits for (asked for directly: OCR/captioning/vision-OCR must not run
+    # on a staged upload that never made it into a saved note). `body.content`
+    # here — never `entry.content` — is deliberate: a private note's stored
+    # content may already be encrypted at rest, and this is the plaintext
+    # that was actually just submitted, before that happens.
+    _process_committed_media(session, body.content)
 
     return _to_out(
         session, entry, filed_by=filed_by, similar=_find_near_duplicate(session, entry)
@@ -764,6 +785,11 @@ def update_entry(
         except Exception:
             session.rollback()
             logger.warning("couldn't sync wiki links for entry %s", entry.id, exc_info=True)
+        # Same "committed" trigger point as create_entry — an edit can be
+        # the first time an image the note already referenced actually
+        # gets saved (a staged upload attached, then the note edited to
+        # include it, rather than created with it already there).
+        _process_committed_media(session, body.content)
     return _to_out(session, entry)
 
 

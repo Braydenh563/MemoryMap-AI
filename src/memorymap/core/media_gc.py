@@ -2,10 +2,10 @@
 
 ROADMAP.md item 20a: `MediaUpload` (added for the Library gallery) tracks
 every file `/media/upload` has ever produced, but nothing before this
-checked a row against whether any live note, document or whiteboard image
-object still points at it — pasting over an image in a note, or deleting
-the note entirely, leaves the file on disk with only a manual, one-at-a-time
-`DELETE /media/{id}` to ever find it again.
+checked a row against whether any live note, document, whiteboard image
+object or saved chat turn still points at it — pasting over an image in a
+note, or deleting the note entirely, leaves the file on disk with only a
+manual, one-at-a-time `DELETE /media/{id}` to ever find it again.
 
 The one thing this has to get right, and would rather be slow about than
 wrong about: a private note's content is encrypted at rest, so an image
@@ -19,12 +19,13 @@ that one note.
 
 from __future__ import annotations
 
+import json
 import re
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Document, Entry, MediaUpload, WhiteboardObject
+from memorymap.core.database import Conversation, Document, Entry, MediaUpload, WhiteboardObject
 from memorymap.entry import manager
 
 # Same shape routes_whiteboard.py's own MEDIA_URL_RE validates on the way in —
@@ -33,7 +34,12 @@ from memorymap.entry import manager
 _MEDIA_NAME_RE = re.compile(r"/media/([A-Za-z0-9][A-Za-z0-9._-]{0,119})")
 
 
-def _referenced_names(text: str) -> set[str]:
+def referenced_names(text: str) -> set[str]:
+    """Every `/media/<filename>` this text mentions. Public (not
+    module-private): `core/media_process.py` reuses it to answer the same
+    underlying question — "which uploads does this text reference" — when
+    deciding what to run OCR/captioning/vision-OCR on at save time, not
+    just when deciding what counts as orphaned."""
     return set(_MEDIA_NAME_RE.findall(text or ""))
 
 
@@ -47,22 +53,49 @@ def _referenced_filenames(session: Session) -> tuple[set[str], bool]:
     skipped_private = False
 
     for obj in session.scalars(select(WhiteboardObject).where(WhiteboardObject.kind == "image")):
-        referenced.update(_referenced_names(obj.data))
+        referenced.update(referenced_names(obj.data))
 
     for doc in session.scalars(select(Document)):
-        referenced.update(_referenced_names(doc.content))
+        referenced.update(referenced_names(doc.content))
 
     for entry in session.scalars(select(Entry).where(Entry.is_deleted == False)):  # noqa: E712
         if entry.is_private and crypto.is_encrypted(entry.content) and vault.key() is None:
             skipped_private = True
             continue
-        referenced.update(_referenced_names(manager.readable_content(entry)))
+        referenced.update(referenced_names(manager.readable_content(entry)))
 
     return referenced, skipped_private
 
 
+def _conversation_referenced_ids(session: Session) -> set[int]:
+    """Every MediaUpload id a saved chat turn still attaches.
+
+    A conversation stores its images as ids
+    (`routes_conversations.TurnBody.image_media_ids`, on the user message),
+    not as inline `/media/…` markdown text — so `_referenced_filenames`
+    above, which only ever looks for that text, can never see a chat's own
+    images no matter how thoroughly it scans notes, documents and
+    whiteboard content. Without this, `find_orphaned_media` would call
+    every image ever attached to a chat message "orphaned", sent or not,
+    and `delete_orphaned_media` would delete its file out from under a
+    conversation someone can still open and read.
+    """
+    ids: set[int] = set()
+    for conversation in session.scalars(select(Conversation)):
+        try:
+            messages = json.loads(conversation.messages)
+        except ValueError:
+            continue
+        for message in messages:
+            for media_id in message.get("image_media_ids") or []:
+                if isinstance(media_id, int):
+                    ids.add(media_id)
+    return ids
+
+
 def find_orphaned_media(session: Session) -> tuple[list[MediaUpload], bool]:
-    """Uploads no live note, document or whiteboard object still points at.
+    """Uploads no live note, document, whiteboard object or saved chat turn
+    still points at.
 
     Returns `(orphans, skipped_private)`. When `skipped_private` is True,
     at least one private note's content could not be checked (vault
@@ -70,8 +103,11 @@ def find_orphaned_media(session: Session) -> tuple[list[MediaUpload], bool]:
     refuses to act on it.
     """
     referenced, skipped_private = _referenced_filenames(session)
+    referenced_ids = _conversation_referenced_ids(session)
     uploads = session.scalars(select(MediaUpload)).all()
-    orphans = [u for u in uploads if u.filename not in referenced]
+    orphans = [
+        u for u in uploads if u.filename not in referenced and u.id not in referenced_ids
+    ]
     return orphans, skipped_private
 
 

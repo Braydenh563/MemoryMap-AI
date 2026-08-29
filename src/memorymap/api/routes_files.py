@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, media_gc, ocr
+from memorymap.core import deps, media_gc, media_process, ocr
 from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -348,8 +348,24 @@ MEDIA_SUFFIXES = frozenset(
 
 
 @router.post("/media/upload")
-def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> dict:
-    """General file/image upload for drag-and-drop in markdown (documents & notes)."""
+def upload_media(
+    file: UploadFile,
+    direct: bool = Form(False),
+    session: Session = Depends(get_session),
+) -> dict:
+    """General file/image upload for drag-and-drop in markdown (documents &
+    notes), and for the Library's own direct "Upload images" button.
+
+    `direct` distinguishes the two: a note, document or chat composer
+    upload is *staged* — it may be discarded before ever being saved or
+    sent, so nothing runs on it here (see `direct` below) and OCR/
+    captioning/vision-OCR instead fire when whatever referenced it is
+    actually committed (`core/media_process.py`, called from the note,
+    document and conversation save routes). The Library's own upload
+    button sends `direct=True`: there is no separate "save" step for it —
+    the upload itself *is* the commit, the third case named directly
+    ("uploaded directly to the library").
+    """
     media_dir = deps.get_config().data_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
 
@@ -380,21 +396,14 @@ def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> d
     session.add(upload)
     session.commit()
     session.refresh(upload)
-    # OCR (ROADMAP.md item 30d) runs on a background thread, never on this
-    # request — Tesseract can take a second or two per image, and nothing
-    # about "was the upload accepted" should wait on it. Raster images only
-    # (see ocr.OCR_SUFFIXES); a PDF here just never gets ocr_text, honestly.
-    if suffix in ocr.OCR_SUFFIXES:
-        ocr.extract_in_background(upload.id, destination)
-    # Captioning, same background-thread contract as OCR just above. Whether
-    # a vision model is actually resolvable (auto-detected or explicit —
-    # ModelManager.resolve_vision_model) is checked *inside*
-    # `caption_and_store`, not here: that check itself is a real Ollama
-    # round trip, and this request must stay as fast as the OCR branch
-    # above, not pay for one on every upload just to decide whether to spawn
-    # a thread that would make the same decision a moment later anyway.
-    if suffix in captioning.CAPTION_SUFFIXES:
-        captioning.caption_in_background(upload.id, destination)
+    # OCR, captioning and vision OCR (core/media_process.py) all run on a
+    # background thread, never on this request — Tesseract alone can take a
+    # second or two per image, and a vision-model round trip far longer.
+    # Only fired here for `direct=True` (the Library's own upload button);
+    # every staged upload gets processed later, at the moment it's actually
+    # committed — see this function's own docstring and media_process.py's.
+    if direct:
+        media_process.process_committed_upload(upload, media_dir)
     # `id` lets a caller that changes its mind (the capture form's own
     # attachment chip, removable with a click) call DELETE /media/{id}
     # instead of just detaching the markdown reference and leaving the
@@ -613,6 +622,56 @@ def caption_media(
             )
         media_dir = deps.get_config().data_dir / "media"
         captioning.caption_and_store(upload.id, media_dir / upload.filename, force=body.force)
+        session.refresh(upload)
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
+    )
+
+
+class OcrBody(BaseModel):
+    #: A correction typed by hand instead of re-run — asked for directly
+    #: ("allow the user to access, view, and edit OCR extracted text"),
+    #: same "None means generate, any string sets it exactly" convention as
+    #: `CaptionBody.text`. `""` clears it back to "nothing extracted",
+    #: matching `ocr_text`'s own null/"not run or found nothing" meaning.
+    text: str | None = Field(default=None, max_length=10_000)
+
+
+@router.post("/media/{upload_id}/ocr", response_model=MediaUploadOut)
+def ocr_media(
+    upload_id: int, body: OcrBody = OcrBody(), session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """Re-read one image with Tesseract, or — with `text` — set the
+    extracted text by hand. The manual retry asked for directly: `ocr_text`
+    otherwise only ever gets written once, automatically, at the moment the
+    image is actually saved into a note/document/chat (`core/media_process.
+    py`) — this is the only way to try again (a first Tesseract pass that
+    misread something, or ran before Tesseract was installed) or to correct
+    what it found.
+
+    `extract_text`/`extract_and_store` (core/ocr.py) have no write-once
+    guard of their own — every call re-reads the image, which is exactly
+    what "retry" needs, no `force` field required. Runs synchronously:
+    local OCR is fast, and the frontend already blocks caption/vision-OCR
+    regenerate behind a spinner the same way.
+    """
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() not in ocr.OCR_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    if body.text is not None:
+        upload.ocr_text = body.text.strip() or None
+        session.commit()
+    else:
+        media_dir = deps.get_config().data_dir / "media"
+        ocr.extract_and_store(upload.id, media_dir / upload.filename)
         session.refresh(upload)
     return MediaUploadOut(
         id=upload.id,

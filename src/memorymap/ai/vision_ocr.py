@@ -9,10 +9,13 @@ to transcribe rather than describe, which is a different prompt and a
 different stored field (`MediaUpload.vision_ocr_text`) from
 `ai/captioning.py`'s natural-language `caption`, not a replacement for it.
 
-Manual-trigger only (`POST /media/{id}/vision-ocr`), unlike captioning's
-automatic run on every upload: a full model round trip is worth paying for
-when Tesseract found nothing or got it wrong, not on every image by
-default. Same never-raise, best-effort contract as its two siblings.
+Runs automatically on every raster upload, same as `ai/captioning.py`
+(asked for directly: images and documents-with-images alike, since a
+document attaches its images through this same `POST /media/upload`
+pipeline — one trigger point covers notes, chat and documents together).
+`POST /media/{id}/vision-ocr` still exists for a manual re-read (the
+regenerate button next to it in the Library). Same never-raise,
+best-effort contract as its two siblings.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from __future__ import annotations
 import base64
 import logging
 import mimetypes
+import threading
 from pathlib import Path
 
 logger = logging.getLogger("memorymap.vision_ocr")
@@ -124,3 +128,16 @@ def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) 
             detail="no legible text found" if not text else "",
         )
         return text
+
+
+def vision_ocr_in_background(upload_id: int, image_path: Path) -> None:
+    """Fire-and-forget: never blocks the `POST /media/upload` response.
+    Same shape as `captioning.caption_in_background` — a real model round
+    trip is far slower than the request itself, and nothing about "was the
+    upload accepted" should wait on it."""
+    threading.Thread(
+        target=vision_ocr_and_store,
+        args=(upload_id, image_path),
+        daemon=True,
+        name="vision-ocr-extract",
+    ).start()

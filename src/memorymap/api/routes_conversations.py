@@ -74,6 +74,14 @@ class TurnBody(BaseModel):
     # above, reported separately: reopening a chat, or just leaving the
     # tab, dropped the sources line because nothing here ever stored it.
     sentence_grounding: list[dict] | None = None
+    # Which MediaUpload ids this turn actually attached — asked for
+    # directly, and load-bearing beyond just redisplaying them on reopen:
+    # media_gc.py's orphan scan can only see `/media/…` references inside
+    # note, document and whiteboard content, so a sent chat image had no
+    # record anywhere that anything still used it. Persisted here so
+    # media_gc._referenced_filenames can look conversations up too, instead
+    # of "Clean orphaned media" silently deleting a real, sent attachment.
+    image_media_ids: list[int] | None = None
 
 
 class RenameBody(BaseModel):
@@ -103,10 +111,10 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["connected_ids"] = turn.connected_ids or []
     if turn.sentence_grounding:
         assistant["sentence_grounding"] = turn.sentence_grounding
-    return [
-        {"role": "user", "content": turn.question},
-        assistant,
-    ]
+    user: dict = {"role": "user", "content": turn.question}
+    if turn.image_media_ids:
+        user["image_media_ids"] = turn.image_media_ids
+    return [user, assistant]
 
 
 def _summary(conversation: Conversation) -> dict:
@@ -129,6 +137,20 @@ def _summary(conversation: Conversation) -> dict:
 
 def _existing(session: Session, conversation_id: int) -> Conversation:
     return deps.get_or_404(session, Conversation, conversation_id, "Conversation not found")
+
+
+def _process_committed_media(session: Session, turn: TurnBody) -> None:
+    """A sent chat message is one of the three "committed" moments
+    core/media_process.py waits for (asked for directly) — an image
+    attached to the composer and never sent must not trigger OCR/
+    captioning/vision-OCR just for having been uploaded. Keyed off
+    `image_media_ids` directly (a conversation's own content is a question
+    string, not markdown with an inline `/media/…` reference)."""
+    from memorymap.core import media_process
+
+    media_process.process_committed_upload_ids(
+        session, deps.get_config().data_dir / "media", turn.image_media_ids or []
+    )
 
 
 def conversation_matches(conversation: Conversation, term: str) -> bool:
@@ -215,6 +237,7 @@ def create_conversation(body: TurnBody, session: Session = Depends(get_session))
     session.flush()
     log_action(session, "created", "conversation", conversation.id)
     session.commit()
+    _process_committed_media(session, body)
     return _summary(conversation)
 
 
@@ -236,6 +259,7 @@ def append_turn(
     conversation.messages = json.dumps(messages)
     conversation.updated_at = utcnow()
     session.commit()
+    _process_committed_media(session, body)
     return _summary(conversation)
 
 
@@ -316,6 +340,7 @@ def replace_last_turn(
     conversation.messages = json.dumps(messages)
     conversation.updated_at = utcnow()
     session.commit()
+    _process_committed_media(session, body)
     return _summary(conversation)
 
 

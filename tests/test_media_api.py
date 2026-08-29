@@ -9,34 +9,56 @@ from __future__ import annotations
 from memorymap.api import routes_files
 
 
-def test_media_upload_triggers_background_ocr_for_an_image(ai_client, monkeypatch):
-    """ROADMAP.md item 30d — OCR runs in the background, never on the
-    request itself, so this only checks it was *asked to start*, not that
-    it finished (see test_ocr.py for the extraction logic itself)."""
+def test_media_upload_does_not_process_a_staged_upload_by_default(ai_client, monkeypatch):
+    """Asked for directly, correcting this session's own earlier choice:
+    "the OCR shouldn't happen to staged files, only when they are actually
+    saved as a note, actually sent in a chat message, or uploaded directly
+    to the library." A plain upload (no `direct`) is the staged case —
+    OCR/captioning/vision-OCR must not run until something actually
+    commits it (see test_media_process.py for those trigger points)."""
     calls = []
     monkeypatch.setattr(
-        routes_files.ocr, "extract_in_background", lambda upload_id, path: calls.append((upload_id, path))
+        routes_files.media_process,
+        "process_committed_upload",
+        lambda upload, media_dir: calls.append(upload.id),
     )
     response = ai_client.post(
         "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     )
     assert response.status_code == 200
-    assert len(calls) == 1
-    assert calls[0][0] == response.json()["id"]
+    assert calls == []
 
 
-def test_media_upload_never_triggers_ocr_for_a_pdf(ai_client, monkeypatch):
-    """Tesseract can't OCR a PDF directly (no page-rasterisation step here
-    — see ocr.py's own docstring) — a PDF upload must never even try."""
+def test_media_upload_with_direct_processes_immediately(ai_client, monkeypatch):
+    """The Library's own "Upload images" button has no separate staging
+    step — the upload itself is the commit, so `direct=true` (the form
+    field it sends) processes right away, same as every upload used to."""
     calls = []
     monkeypatch.setattr(
-        routes_files.ocr, "extract_in_background", lambda upload_id, path: calls.append((upload_id, path))
+        routes_files.media_process,
+        "process_committed_upload",
+        lambda upload, media_dir: calls.append(upload.id),
     )
     response = ai_client.post(
-        "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
+        "/media/upload",
+        files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")},
+        data={"direct": "true"},
     )
     assert response.status_code == 200
-    assert calls == []
+    assert calls == [response.json()["id"]]
+
+
+def test_media_upload_never_processes_a_pdf_even_with_direct(ai_client, monkeypatch):
+    """process_committed_upload itself guards by suffix (OCR_SUFFIXES etc.)
+    — a PDF upload reaching it is a no-op, not an error; covered directly
+    in test_media_process.py. This just confirms `direct=true` doesn't
+    bypass the 415 that already refuses non-image/PDF types elsewhere."""
+    response = ai_client.post(
+        "/media/upload",
+        files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"direct": "true"},
+    )
+    assert response.status_code == 200
 
 
 def test_media_list_and_upload_include_ocr_text(ai_client):
@@ -48,6 +70,65 @@ def test_media_list_and_upload_include_ocr_text(ai_client):
     listed = ai_client.get("/media").json()
     row = next(r for r in listed if r["id"] == response.json()["id"])
     assert row["ocr_text"] == ""
+
+
+# --- manual OCR retry + edit (core/ocr.py) -----------------------------------
+
+
+def test_ocr_media_retries_extraction(ai_client, monkeypatch):
+    """Asked for directly: "allow for manual OCR extraction or retries."
+    ocr.extract_and_store has no write-once guard, so a plain POST always
+    re-reads the image — this only checks the retry actually ran and its
+    result made it back onto the row (see test_ocr.py for extract_text
+    itself)."""
+    import memorymap.core.ocr as ocr_module
+
+    monkeypatch.setattr(ocr_module, "extract_text", lambda path: "retried text")
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+
+    response = ai_client.post(f"/media/{upload_id}/ocr")
+    assert response.status_code == 200
+    assert response.json()["ocr_text"] == "retried text"
+
+
+def test_ocr_media_can_be_edited_by_hand(ai_client):
+    """"allow the user to access, view, and edit OCR extracted text" — same
+    manual-text-override shape as CaptionBody.text."""
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+
+    response = ai_client.post(f"/media/{upload_id}/ocr", json={"text": "corrected by hand"})
+    assert response.status_code == 200
+    assert response.json()["ocr_text"] == "corrected by hand"
+
+    listed = ai_client.get("/media").json()
+    row = next(r for r in listed if r["id"] == upload_id)
+    assert row["ocr_text"] == "corrected by hand"
+
+
+def test_ocr_media_clears_with_empty_text(ai_client):
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    ai_client.post(f"/media/{upload_id}/ocr", json={"text": "something"})
+
+    response = ai_client.post(f"/media/{upload_id}/ocr", json={"text": "   "})
+    assert response.json()["ocr_text"] == ""
+
+
+def test_ocr_media_refuses_a_pdf(ai_client):
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/ocr")
+    assert response.status_code == 415
+
+
+def test_ocr_media_404s_for_an_unknown_id(ai_client):
+    assert ai_client.post("/media/999999/ocr").status_code == 404
 
 
 def test_media_upload_refuses_anything_that_is_not_an_image(ai_client):
@@ -122,37 +203,15 @@ def test_a_dangerous_file_already_on_disk_is_still_not_served(ai_client, app_sta
 # --- captioning (ai/captioning.py) -------------------------------------------
 
 
-def test_media_upload_triggers_background_captioning_for_an_image(ai_client, monkeypatch):
-    """Same shape as the OCR trigger test above — this only checks
-    captioning was *asked to start*, not that it produced anything (see
-    test_captioning.py for that). Whether a vision model exists is decided
-    inside the background call itself, not on the request path, so the
-    trigger fires unconditionally for a raster image."""
-    calls = []
-    monkeypatch.setattr(
-        routes_files.captioning,
-        "caption_in_background",
-        lambda upload_id, path: calls.append((upload_id, path)),
-    )
+def test_media_upload_still_accepts_a_pdf_without_direct(ai_client):
+    """A staged PDF upload — nothing here processes it either way (PDFs
+    aren't in any of the three SUFFIXES sets yet), but the 415 gate for
+    "is this an accepted type at all" must still pass it regardless of
+    `direct`."""
     response = ai_client.post(
-        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
-    )
-    assert response.status_code == 200
-    assert len(calls) == 1
-    assert calls[0][0] == response.json()["id"]
-
-
-def test_media_upload_never_triggers_captioning_for_a_pdf(ai_client, monkeypatch):
-    calls = []
-    monkeypatch.setattr(
-        routes_files.captioning,
-        "caption_in_background",
-        lambda upload_id, path: calls.append((upload_id, path)),
-    )
-    ai_client.post(
         "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
     )
-    assert calls == []
+    assert response.status_code == 200
 
 
 def test_media_list_and_upload_include_caption(ai_client):

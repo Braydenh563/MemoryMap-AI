@@ -220,6 +220,77 @@ def test_caption_media_404s_for_an_unknown_id(ai_client, fake_ollama):
     assert ai_client.post("/media/999999/caption").status_code == 404
 
 
+# --- vision OCR (ai/vision_ocr.py) -------------------------------------------
+
+
+def test_media_list_and_upload_include_vision_ocr_fields(ai_client):
+    response = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    )
+    listed = ai_client.get("/media").json()
+    row = next(r for r in listed if r["id"] == response.json()["id"])
+    assert row["vision_ocr_text"] == ""
+    assert row["vision_ocr_model"] == ""
+
+
+def test_vision_ocr_media_reads_text(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    fake_ollama.librarian_reply = "Room 204"
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/vision-ocr")
+    assert response.status_code == 200
+    assert response.json()["vision_ocr_text"] == "Room 204"
+    assert response.json()["vision_ocr_model"]
+
+
+def test_vision_ocr_media_wont_reread_without_force(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    ai_client.post(f"/media/{upload_id}/vision-ocr")
+    calls_before = len(fake_ollama.chat_calls)
+    response = ai_client.post(f"/media/{upload_id}/vision-ocr")
+    assert response.status_code == 200
+    assert len(fake_ollama.chat_calls) == calls_before
+
+
+def test_vision_ocr_media_force_rereads(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    ai_client.post(f"/media/{upload_id}/vision-ocr")
+    calls_before = len(fake_ollama.chat_calls)
+    response = ai_client.post(f"/media/{upload_id}/vision-ocr", json={"force": True})
+    assert response.status_code == 200
+    assert len(fake_ollama.chat_calls) == calls_before + 1
+
+
+def test_vision_ocr_media_refuses_a_pdf(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = ["vision"]
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("scan.pdf", b"%PDF-1.4", "application/pdf")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/vision-ocr")
+    assert response.status_code == 415
+
+
+def test_vision_ocr_media_reports_no_vision_model_available(ai_client, fake_ollama):
+    fake_ollama.capabilities_declared = []
+    upload_id = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()["id"]
+    response = ai_client.post(f"/media/{upload_id}/vision-ocr")
+    assert response.status_code == 409
+
+
+def test_vision_ocr_media_404s_for_an_unknown_id(ai_client, fake_ollama):
+    assert ai_client.post("/media/999999/vision-ocr").status_code == 404
+
+
 # --- manual caption input, asked for directly --------------------------------
 
 

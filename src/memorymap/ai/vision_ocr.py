@@ -1,0 +1,126 @@
+"""Verbatim text transcription from an image, via a vision-capable model.
+
+A third reader of the same uploaded images `core/ocr.py` and
+`ai/captioning.py` already cover, asked for directly as its own "extractor
+mode": Tesseract (`core/ocr.py`) is local and exact but fails outright on
+handwriting, low-contrast whiteboard photos, skewed scans and most
+non-Latin scripts. A vision model often still reads those — this asks one
+to transcribe rather than describe, which is a different prompt and a
+different stored field (`MediaUpload.vision_ocr_text`) from
+`ai/captioning.py`'s natural-language `caption`, not a replacement for it.
+
+Manual-trigger only (`POST /media/{id}/vision-ocr`), unlike captioning's
+automatic run on every upload: a full model round trip is worth paying for
+when Tesseract found nothing or got it wrong, not on every image by
+default. Same never-raise, best-effort contract as its two siblings.
+"""
+
+from __future__ import annotations
+
+import base64
+import logging
+import mimetypes
+from pathlib import Path
+
+logger = logging.getLogger("memorymap.vision_ocr")
+
+#: Plain transcription, nothing else — a caption model is prone to
+#: describing the image instead of reading it unless told explicitly not
+#: to. Asked to say so plainly when there is no text, rather than inventing
+#: a description, so a caller can tell "genuinely no text" apart from a
+#: model that ignored the instruction.
+VISION_OCR_PROMPT = (
+    "Transcribe every piece of text visible in this image, exactly as "
+    "written, in reading order. Do not describe the image. Do not add "
+    "commentary, translation or correction. If there is no legible text "
+    "at all, reply with exactly: NO_TEXT_FOUND"
+)
+
+#: Same raster-only restriction as ocr.OCR_SUFFIXES and
+#: captioning.CAPTION_SUFFIXES — a vision model is handed the same file
+#: either would open, and a PDF needs the same page-rasterisation step none
+#: of the three pulls in.
+VISION_OCR_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"})
+
+#: The model's own way of saying "nothing to transcribe" (see the prompt
+#: above) — stored as "" rather than literally, matching the null/"not run
+#: yet" convention every field like this in this app already uses.
+_NO_TEXT_SENTINEL = "NO_TEXT_FOUND"
+
+
+def vision_ocr_text(image_path: Path, model: str, ollama) -> str | None:
+    """Best-effort transcription for one image file. Never raises.
+
+    Returns `""` when the model was actually asked and genuinely found no
+    text — an ordinary, common result for a plain photo, not a failure.
+    Returns `None` when the attempt itself didn't produce a usable result
+    (missing file, unreachable backend, request error) — the one case
+    worth a "failed" entry in Settings → Background tasks. Callers that
+    only care about "is there text" can still treat both as falsy; the
+    distinction exists for `vision_ocr_and_store`'s taskhistory recording.
+    """
+    try:
+        data = image_path.read_bytes()
+    except OSError:
+        return None
+    mime = mimetypes.guess_type(image_path.name)[0] or "image/png"
+    uri = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+    try:
+        reply = ollama.chat(
+            model,
+            [{"role": "user", "content": VISION_OCR_PROMPT, "images": [uri]}],
+        )
+        text = (reply.get("content") or "").strip()
+        if not text or text.upper() == _NO_TEXT_SENTINEL:
+            return ""
+        return text
+    except Exception:
+        # Same reasoning as ocr.extract_text's and captioning.caption_text's
+        # own bare except: one bad image must never take down the request
+        # or background thread it runs on.
+        logger.warning("Vision OCR failed for %s", image_path.name, exc_info=True)
+        return None
+
+
+def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) -> str | None:
+    """Runs synchronously and writes the result onto the `MediaUpload` row.
+
+    Returns the new transcription, the existing one (when `force` is False
+    and one is already stored), or None if nothing could be produced (no
+    vision model, upload gone, no legible text found). Mirrors
+    `captioning.caption_and_store`'s shape and its taskhistory recording
+    exactly, sharing the same "quiet when no vision model exists, recorded
+    when a real attempt found nothing" split.
+    """
+    from memorymap.core import deps, taskhistory
+    from memorymap.core.database import MediaUpload
+
+    with deps.get_db().session() as session:
+        upload = session.get(MediaUpload, upload_id)
+        if upload is None:
+            return None  # deleted (or its upload never committed) before this ran
+        if upload.vision_ocr_text and not force:
+            return upload.vision_ocr_text
+        model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+        if not model:
+            return None
+        text = vision_ocr_text(image_path, model, deps.get_ollama())
+        if text is None:
+            # The attempt itself failed (unreachable backend, request
+            # error) — the genuine failure case, distinct from "asked the
+            # model and it found no text" just below.
+            taskhistory.record(
+                "vision_ocr", f"Reading text from {upload.original_name}", "failed", name=model
+            )
+            return None
+        upload.vision_ocr_text = text
+        upload.vision_ocr_model = model
+        session.commit()
+        taskhistory.record(
+            "vision_ocr",
+            f"Reading text from {upload.original_name}",
+            "completed",
+            name=model,
+            detail="no legible text found" if not text else "",
+        )
+        return text

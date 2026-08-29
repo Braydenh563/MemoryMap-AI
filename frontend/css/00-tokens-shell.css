@@ -1680,7 +1680,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-tile .library-image-edit,
 .library-image-tile .library-image-delete,
-.library-image-tile .library-image-caption-btn {
+.library-image-tile .library-image-caption-btn,
+.library-image-tile .library-image-vision-ocr-btn {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -1855,6 +1856,32 @@ header#top-bar.tabs-wrapped #tab-bar {
   font: inherit;
   color: var(--ink);
   resize: none;
+}
+
+/* A vision model's verbatim transcription of text found in the image
+   ("extractor mode") — same box shape as .library-image-caption, but never
+   click-to-edit (there is nothing to type by hand here) and hidden
+   entirely until a read has actually happened, unlike the caption's
+   always-visible "Add a caption…" placeholder. */
+.library-image-vision-ocr {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  white-space: pre-wrap;
+}
+
+.library-image-vision-ocr.hidden {
+  display: none;
+}
+
+.library-image-vision-ocr-badge {
+  display: block;
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.library-image-vision-ocr-badge.hidden {
+  display: none;
 }
 
 /* Library → Drafts (§80 this session): one row per draft, same .entry-list

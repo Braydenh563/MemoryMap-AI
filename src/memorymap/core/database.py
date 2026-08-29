@@ -658,6 +658,19 @@ class MediaUpload(Base):
     #: badge can still say "started as granite3-vision, edited by you"
     #: instead of losing that history the moment someone fixes a typo.
     caption_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Verbatim text a vision model transcribed from the image
+    #: (`ai/vision_ocr.py`) — distinct from `ocr_text` above (Tesseract,
+    #: local and exact) and from `caption` (a natural-language description,
+    #: not a transcription). Asked for directly as a separate "extractor
+    #: mode": Tesseract fails on handwriting, low-contrast photos and most
+    #: non-Latin scripts, all of which a vision model can often still read.
+    #: NULL until run — manual-trigger only (`POST /media/{id}/vision-ocr`),
+    #: never automatic on upload, since it is a full model round trip a
+    #: person opts into rather than something every upload should pay for.
+    vision_ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Which model produced `vision_ocr_text`, or NULL when there is none —
+    #: same "credit the model, not the app" reasoning as `caption_model`.
+    vision_ocr_model: Mapped[str | None] = mapped_column(String(200), default=None)
 
 
 class UserPreference(Base):

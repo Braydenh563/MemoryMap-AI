@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.ai import captioning
+from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps, media_gc, ocr
@@ -420,6 +420,13 @@ class MediaUploadOut(BaseModel):
     #: True once a person has typed over an AI caption, or typed one from
     #: scratch — see `MediaUpload.caption_edited`'s docstring.
     caption_edited: bool = False
+    #: A vision model's verbatim transcription of text in the image
+    #: (`ai/vision_ocr.py`) — distinct from `ocr_text` (Tesseract) and from
+    #: `caption` (a description). "" until run, or when a run found no
+    #: legible text — same never-null convention as the other two.
+    vision_ocr_text: str = ""
+    #: Which model wrote `vision_ocr_text`, or "" when there is none.
+    vision_ocr_model: str = ""
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -438,6 +445,8 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             caption=u.caption or "",
             caption_model=u.caption_model or "",
             caption_edited=u.caption_edited,
+            vision_ocr_text=u.vision_ocr_text or "",
+            vision_ocr_model=u.vision_ocr_model or "",
         )
         for u in uploads
     ]
@@ -613,6 +622,57 @@ def caption_media(
         caption=upload.caption or "",
         caption_model=upload.caption_model or "",
         caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
+    )
+
+
+class VisionOcrBody(BaseModel):
+    #: Same "already there and not forced, leave it alone" rule as
+    #: `CaptionBody.force` — a manual re-read the user pressed the button
+    #: for, not a background pass overwriting a reading they already saw.
+    force: bool = False
+
+
+@router.post("/media/{upload_id}/vision-ocr", response_model=MediaUploadOut)
+def vision_ocr_media(
+    upload_id: int, body: VisionOcrBody = VisionOcrBody(), session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """Read the text in one image with a vision model — the "extractor
+    mode" asked for directly, distinct from the local Tesseract pass
+    (`ocr_text`, automatic on upload) and from the AI caption (`caption`, a
+    description rather than a transcription). Manual only: never triggered
+    by `POST /media/upload` itself, unlike captioning.
+
+    Same synchronous, single-round-trip shape as `caption_media` above —
+    one model call, no different from the AI-edit or link-reason calls this
+    app already blocks on behind a spinner.
+    """
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() not in vision_ocr.VISION_OCR_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    media_dir = deps.get_config().data_dir / "media"
+    vision_ocr.vision_ocr_and_store(upload.id, media_dir / upload.filename, force=body.force)
+    session.refresh(upload)
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
     )
 
 

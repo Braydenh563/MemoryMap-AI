@@ -1871,11 +1871,78 @@ function filterLibraryImagesGallery() {
       }
     });
 
+    // A vision model's verbatim transcription of any text in the image —
+    // the "extractor mode" asked for directly, distinct from `ocr_text`
+    // (Tesseract, automatic on upload, not itself shown here) and from
+    // `captionText` above (a description, not a transcription). Manual
+    // only: nothing runs this on upload, so unlike the caption there is
+    // nothing to prompt someone to type by hand — it stays hidden until a
+    // first read has actually happened.
+    const visionOcrBtn = document.createElement("button");
+    visionOcrBtn.type = "button";
+    visionOcrBtn.className = "ghost small icon-button library-image-vision-ocr-btn";
+    setLabel(visionOcrBtn, "ph:text-aa");
+
+    const visionOcrText = document.createElement("p");
+    visionOcrText.className = "library-image-vision-ocr muted text-sm hidden";
+
+    const visionOcrBadge = document.createElement("span");
+    visionOcrBadge.className = "library-image-vision-ocr-badge muted text-xs hidden";
+
+    const setVisionOcrState = (text, model) => {
+      image.vision_ocr_text = text || "";
+      image.vision_ocr_model = model || "";
+      const hasRun = Boolean(model);
+      visionOcrText.textContent = text || (hasRun ? "No legible text found." : "");
+      visionOcrText.classList.toggle("hidden", !hasRun);
+      visionOcrBadge.textContent = hasRun ? `Read by ${model}` : "";
+      visionOcrBadge.classList.toggle("hidden", !hasRun);
+      visionOcrBtn.title = hasRun
+        ? `Read the text in “${image.original_name}” again`
+        : `Read any text in “${image.original_name}” with AI`;
+      visionOcrBtn.setAttribute("aria-label", visionOcrBtn.title);
+    };
+    setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
+
+    visionOcrBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      visionOcrBtn.disabled = true;
+      visionOcrText.classList.remove("hidden");
+      visionOcrText.replaceChildren(typingDots("Reading text…"));
+      visionOcrBadge.classList.add("hidden");
+      try {
+        // force: true — a manual click always re-reads, the same "the user
+        // pressed the button" reasoning captionBtn's own force:true uses.
+        const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
+          method: "POST",
+          body: JSON.stringify({ force: true }),
+        });
+        setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
+      } catch (error) {
+        // Restores whatever was there before this click — including
+        // re-hiding the box if this was the first-ever attempt and it
+        // failed, rather than leaving an empty line visible forever.
+        setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
+        toast(error.message || "Couldn't read the text in that image.", true);
+      } finally {
+        visionOcrBtn.disabled = false;
+      }
+    });
+
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-    actions.append(rename, captionBtn, del);
+    actions.append(rename, captionBtn, visionOcrBtn, del);
 
-    fig.append(img, actions, cap, captionText, captionToggle, captionBadge);
+    fig.append(
+      img,
+      actions,
+      cap,
+      captionText,
+      captionToggle,
+      captionBadge,
+      visionOcrText,
+      visionOcrBadge
+    );
     grid.appendChild(fig);
   }
 }

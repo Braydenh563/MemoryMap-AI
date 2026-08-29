@@ -3618,11 +3618,24 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         dismissBtn.className = "unlink";
         dismissBtn.title = "Remove image from note";
         dismissBtn.textContent = "×";
+        // `match` is one `let` binding reused by every pass of the while
+        // loop above (a `while` reassigns it, unlike a `for (let x of …)`'s
+        // fresh-per-iteration binding) — every dismiss button's closure
+        // shared the same variable, and by the time anyone actually clicked
+        // one, the loop had long since finished with `match` sitting at
+        // `null` (the value that ends the `while` condition). Every click
+        // threw `Cannot read properties of null (reading '0')` before the
+        // confirm dialog could even open — reported as "the remove button
+        // doesn't work". Capturing the text this match actually matched
+        // into its own const, right here in the loop body, gives each
+        // button's closure the value for *its own* image instead of
+        // whatever `match` happened to hold after parsing ended.
+        const originalText = match[0];
         dismissBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           wrapper.dispatchEvent(new CustomEvent("remove-inline-image", {
             bubbles: true,
-            detail: { originalText: match[0] }
+            detail: { originalText }
           }));
         });
         makeUnlinkAccessible(dismissBtn);

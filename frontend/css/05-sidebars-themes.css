@@ -127,8 +127,15 @@
     align-self: stretch;
   }
 
-  .doc-panes.split {
-    grid-template-columns: 1fr;
+  /* The side-by-side preview collapses back to a stack on a narrow screen.
+     This used to say `grid-template-columns: 1fr` on `.doc-panes.split`,
+     which was dead twice over — #doc-panes is a flex column, not a grid, and
+     an id selector beats this class either way. The live rule is
+     `#doc-panes.split` in 04-chat-dock-appearance.css, whose own max-width
+     query does this collapse; the id here is only so it can win the same
+     cascade. */
+  #doc-panes.split {
+    flex-direction: column;
   }
 }
 

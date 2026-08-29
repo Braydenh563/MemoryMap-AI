@@ -2384,6 +2384,20 @@ html {
   top: auto;
 }
 
+/* Press-and-hold scrubs the map around (graph.js, `initGraphMinimap`). The
+   grab cursor is the only thing that says so before you try it — the box
+   otherwise looks like a click target, which is all it used to be.
+   `touch-action: none` is load-bearing, not cosmetic: without it a finger
+   drag on a tablet is claimed by the browser's own panning and the
+   pointermove events stop arriving mid-gesture. */
+.graph-minimap svg {
+  touch-action: none;
+}
+
+.graph-minimap-dragging {
+  cursor: grabbing;
+}
+
 /* The current viewport, drawn over the dots. Stroke only — a fill would
    dim the very nodes it is meant to point at. */
 .graph-minimap-frame {

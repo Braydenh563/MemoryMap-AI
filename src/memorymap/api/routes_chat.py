@@ -24,7 +24,17 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, captioning, intent, librarian, presets, skill_runner, skills, tools
+from memorymap.ai import (
+    agent,
+    captioning,
+    followups,
+    intent,
+    librarian,
+    presets,
+    skill_runner,
+    skills,
+    tools,
+)
 from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
@@ -91,6 +101,36 @@ def suggestions(session: Session = Depends(get_session)) -> list[str]:
     # De-dupe while preserving order, cap at 5.
     seen: set[str] = set()
     return [p for p in picks if not (p in seen or seen.add(p))][:5]
+
+
+class FollowupBody(BaseModel):
+    """One answered turn, sent back to ask what to offer next.
+
+    Bounded here rather than only inside `followups` because this arrives over
+    HTTP: the client is echoing back a turn the server just produced, but
+    nothing makes that true of a hand-made request, and both fields end up in a
+    model prompt.
+    """
+
+    question: str = Field(default="", max_length=2000)
+    answer: str = Field(default="", max_length=20000)
+
+
+@router.post("/followups", response_model=list[str])
+def chat_followups(body: FollowupBody) -> list[str]:
+    """Two or three questions to offer under an answer, or [].
+
+    Its own request rather than part of the turn on purpose: this is a second
+    model call, and the answer must not wait on it. The UI fires this after the
+    turn is on screen and simply renders nothing if it comes back empty — which
+    it does on every failure path, including the AI not running at all.
+    """
+    return followups.suggest_followups(
+        body.question,
+        body.answer,
+        deps.get_model_manager(),
+        deps.get_ollama(),
+    )
 
 
 class ChatTurn(BaseModel):

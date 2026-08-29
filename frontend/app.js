@@ -8360,6 +8360,10 @@ async function sendChatMessage(preset, opts = {}) {
   $("chat-suggest").classList.add("hidden");
   input.value = "";
   autoGrow(input); // a cleared box must not keep the height of what was in it
+  // The draft is gone, so the suggestions about it are too — including the
+  // ones that were dismissed, which belonged to that draft and not to the
+  // next one.
+  resetChatNudge();
   input.disabled = true;
   hide("chat-send");
   show("chat-stop");
@@ -8901,6 +8905,62 @@ async function sendChatMessage(preset, opts = {}) {
   }
   loadRecentQuestions();
   loadMostUsed();
+  // Last, and deliberately not awaited: the answer is already on screen and
+  // saved, and this is a second model call. See offerFollowups.
+  offerFollowups(bubble, question, answerRaw);
+}
+
+// --- "what to ask next" chips under a finished answer -------------------------
+//
+// The empty-state chips (loadChatSuggestions) taught the feature for the first
+// question and then went away, which left every turn after it ending on a blank
+// box. These are the same idea for the turn you just read.
+//
+// Three things this must not do, all of which are why it lives out here rather
+// than inside the streaming loop:
+//
+// - **Delay the answer.** It fires after the turn is rendered and saved, and
+//   nothing awaits it.
+// - **Show an error.** `/chat/followups` returns [] on every failure path
+//   including the AI being off, and [] renders nothing at all. A row that says
+//   "couldn't suggest anything" is worse than no row.
+// - **Attach to the wrong bubble.** The reply can land after the reader has
+//   sent another message or opened a different conversation, so the bubble it
+//   was asked for has to still be on screen when it does.
+async function offerFollowups(bubble, question, answer) {
+  if (!bubble || !question || !answer) return;
+  let picks = [];
+  try {
+    picks = await apiJson("/chat/followups", {
+      method: "POST",
+      silent: true,
+      body: JSON.stringify({ question, answer }),
+    });
+  } catch {
+    return; // no honest error state for a suggestion — see the module note
+  }
+  if (!Array.isArray(picks) || !picks.length) return;
+  // `isConnected` is the check that matters: a deleted turn, a cleared chat or
+  // a switched conversation all detach the bubble, and appending to a detached
+  // node is an invisible leak rather than a visible bug.
+  if (!bubble.isConnected) return;
+  // A regenerate can finish a second answer into the same bubble; only ever
+  // one strip.
+  bubble.querySelector(".chat-followups")?.remove();
+
+  const strip = document.createElement("div");
+  strip.className = "chat-followups";
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Next:";
+  strip.appendChild(label);
+  for (const pick of picks) {
+    // chip()'s second argument is a class, not a tooltip — passing prose there
+    // would put a sentence into `className`.
+    strip.appendChild(chip(pick, "", () => sendChatMessage(pick)));
+  }
+  bubble.appendChild(strip);
+  chatScrollToEnd();
 }
 
 // Delete one Q&A exchange: its assistant bubble AND the user bubble just
@@ -10332,6 +10392,171 @@ function skillPacePill() {
   toggle?.addEventListener("change", paint);
   paint();
   return seg;
+}
+
+// --- the composer's two nudges (BACKLOG: agent-mode + skill auto-detect) -----
+//
+// Both capabilities were reachable only by people who already knew where the
+// controls were. Typing "delete the notes I tagged scratch" in Ask mode gets a
+// careful description of how one might do that, because Ask genuinely cannot
+// act; and a skill someone wrote last month for exactly that job sits behind a
+// dropdown behind a popup. Neither is a bug — they are both "a capability with
+// no control is a capability most people never meet", the same observation
+// that put the Plan button in the dock.
+//
+// The rules this follows, because a nudge that gets any of them wrong is worse
+// than no nudge at all:
+//
+// - **It never acts.** It offers a button. Switching modes and running a skill
+//   are both things that change what happens to your notes.
+// - **Dismiss means dismissed.** Per draft, per kind — clearing the box or
+//   sending resets it, so it does not become a thing you dismiss every time.
+// - **It stays quiet when it has nothing to add**: already in Request mode, or
+//   the text is too short to be a request at all.
+//
+// Matching is a heuristic here rather than a model call for the same reason
+// ai/intent.py's is: it runs on every keystroke (debounced), so it has to be
+// instant, and a local model call per keystroke is neither.
+
+// Verbs that only mean something if the assistant can act. Deliberately
+// narrow: "write" and "find" are absent because "write me a poem" and "find
+// out what X means" are ordinary Ask questions, and a nudge that fires on
+// those is noise on most messages.
+const AGENT_INTENT_RE = new RegExp(
+  "\\b(?:" +
+    "delete|remove|archive|rename|merge|de-?duplicate|dedupe|" +
+    "tag|untag|re-?tag|link|unlink|organi[sz]e|tidy|clean ?up|sort|categori[sz]e|" +
+    "create|make|add|save|append|update|edit|change|move|" +
+    "schedule|remind me|set a reminder|" +
+    "summari[sz]e (?:my|all|the|every)|go through (?:my|all|the)" +
+    ")\\b",
+  "i"
+);
+
+// A second, independent trigger: things that need the web tool specifically.
+const AGENT_WEB_RE = /\b(?:search the web|look (?:this |it )?up online|google|browse to|open (?:this |the )?(?:page|link|url)|https?:\/\/)/i;
+
+// A draft is "a request" only if it also names something in the notebook, or
+// is plainly imperative. Without this, "I should probably tag things better"
+// — a musing, not an instruction — fires the nudge.
+const AGENT_OBJECT_RE = /\b(?:not(?:e|es)|entr(?:y|ies)|tag(?:s|ged)?|document|documents|space|spaces|reminder|reminders|task|tasks|link(?:s|ed)?|my notebook|everything)\b/i;
+
+// Which nudges this draft has been told to stop offering. Reset when the box
+// empties or a message is sent — see the input handler at the bottom of this
+// file.
+const chatNudgeDismissed = new Set();
+
+function looksLikeAnAgentRequest(text) {
+  if (text.trim().length < 8) return false;
+  if (AGENT_WEB_RE.test(text)) return true;
+  return AGENT_INTENT_RE.test(text) && AGENT_OBJECT_RE.test(text);
+}
+
+// The skill whose name (or description) the draft is most plainly asking for,
+// or null. Scored rather than first-match: with a dozen skills installed, the
+// one that shares three words with what you typed is a better guess than
+// whichever happens to sort first.
+function skillMatchingDraft(text) {
+  const haystack = text.toLowerCase();
+  if (haystack.trim().length < 8) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const skill of allSkills()) {
+    const name = String(skill.name || "");
+    if (!name) continue;
+    // A name typed out in full is as explicit as it gets — nothing scored
+    // word-by-word should be able to beat it.
+    let score = haystack.includes(name.toLowerCase()) ? 10 : 0;
+    // Words short enough to be incidental ("a", "the", "my", "and") match
+    // everything and would make every skill look relevant.
+    const words = `${name} ${skill.description || ""}`
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 4);
+    const seen = new Set();
+    for (const word of words) {
+      if (seen.has(word)) continue;
+      seen.add(word);
+      if (haystack.includes(word)) score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = skill;
+    }
+  }
+  // Two independent words, or the name in full. One shared word is a
+  // coincidence on any notebook with more than a few skills.
+  return bestScore >= 2 ? best : null;
+}
+
+function renderChatNudge() {
+  const box = $("chat-nudge");
+  if (!box) return;
+  const text = $("chat-input")?.value || "";
+  box.replaceChildren();
+
+  const offers = [];
+  // Mode first: it changes what the message can do at all, so it outranks
+  // "there is a saved job for this".
+  if (
+    !chatNudgeDismissed.has("agent") &&
+    !$("tools-toggle")?.checked &&
+    looksLikeAnAgentRequest(text)
+  ) {
+    offers.push({
+      kind: "agent",
+      icon: "ph:robot",
+      text: "That reads like something to do, not something to answer. Ask mode can't touch your notes.",
+      action: "Switch to Request",
+      run: () => setChatMode("agent"),
+    });
+  }
+  if (!chatNudgeDismissed.has("skill")) {
+    const skill = skillMatchingDraft(text);
+    if (skill) {
+      offers.push({
+        kind: "skill",
+        icon: "ph:lightning",
+        text: `You have a skill for this: “${skill.name}”.`,
+        action: "Run it",
+        title: skillSummary(skill),
+        run: () => runSkill(skill),
+      });
+    }
+  }
+
+  // One at a time. Two stacked nudges above a one-line composer is the dock
+  // arguing with you rather than helping.
+  const offer = offers[0];
+  box.classList.toggle("hidden", !offer);
+  if (!offer) return;
+
+  const mark = document.createElement("span");
+  mark.className = "chat-nudge-mark";
+  setLabel(mark, offer.icon);
+  const line = document.createElement("span");
+  line.className = "chat-nudge-text";
+  line.textContent = offer.text;
+  const act = smallButton(offer.action, offer.title || offer.action, () => {
+    // Whatever the offer was, taking it ends it — re-offering the switch you
+    // just made would be the dock talking to itself.
+    chatNudgeDismissed.add(offer.kind);
+    renderChatNudge();
+    offer.run();
+  }, false);
+  const dismiss = smallButton("ph:x", "Dismiss this suggestion", () => {
+    chatNudgeDismissed.add(offer.kind);
+    renderChatNudge();
+  });
+  dismiss.classList.add("chat-nudge-dismiss");
+  box.append(mark, line, act, dismiss);
+}
+
+// Cleared when the draft is — a new message is a new question, and the
+// suggestion you turned down for the last one should not follow it.
+function resetChatNudge() {
+  chatNudgeDismissed.clear();
+  renderChatNudge();
 }
 
 function skillSummary(skill) {
@@ -18885,6 +19110,19 @@ $("chat-uncompress").addEventListener("click", () => {
   chatSummary = null;
   renderCompressionState();
   toast("Back to sending the real messages.");
+});
+// Debounced, because the matcher walks every installed skill and this fires on
+// every keystroke. 250ms is under the pause between words, so the suggestion is
+// there by the time you stop typing to read it, and never mid-word.
+let chatNudgeTimer = null;
+$("chat-input").addEventListener("input", () => {
+  clearTimeout(chatNudgeTimer);
+  chatNudgeTimer = setTimeout(() => {
+    // Emptying the box by hand is the same event as sending, as far as the
+    // suggestions are concerned: the draft they were about is gone.
+    if (!$("chat-input").value.trim()) resetChatNudge();
+    else renderChatNudge();
+  }, 250);
 });
 $("chat-input").addEventListener("keydown", (e) => {
   // Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) writes a newline. The box is

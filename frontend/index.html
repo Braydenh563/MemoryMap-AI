@@ -904,6 +904,17 @@ Link to another note with [[its first few words]]."></textarea>
                  number of thumbnails, not a fixed-height control. -->
             <div id="chat-image-attachments" class="chat-attachments hidden"
               role="group" aria-label="Images attached to your next message"></div>
+            <!-- Two capabilities that only ever helped the people who already
+                 knew they were there. "Request the Librarian" is the mode that
+                 can actually *do* the thing you just typed, and a saved skill
+                 is a job someone already wrote down — but both live behind
+                 controls you have to think to reach, so asking the notebook to
+                 "tag my untagged notes" in Ask mode got a polite description of
+                 how one might do that instead of it being done. This offers the
+                 switch at the moment the typed text implies it, and never acts
+                 on its own: every nudge is a button you press, plus a dismiss
+                 that stays dismissed for the rest of the draft. -->
+            <div id="chat-nudge" class="chat-nudge hidden" role="status" aria-live="polite"></div>
             <!-- One strip, four groups, hairlines between them.
                  It was three stacked rows — skills, then controls, then the
                  composer — which is most of the height of a short

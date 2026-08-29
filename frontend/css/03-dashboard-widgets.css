@@ -1364,6 +1364,19 @@
   display: none;
 }
 
+/* "Next:" plus two or three question chips, under a finished answer (app.js,
+   `offerFollowups`). Same shape as the grounding strip directly above — they
+   are both a labelled row of chips appended to the same bubble, and giving
+   them two different looks would make one turn's footer read as two unrelated
+   widgets. */
+.chat-followups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
 .answer-grounding-label {
   font-size: var(--text-xs);
 }

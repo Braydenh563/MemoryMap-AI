@@ -1910,6 +1910,45 @@ button {
   display: none;
 }
 
+/* The composer's suggestion line (app.js, `renderChatNudge`). Styled as a
+   quiet aside rather than a banner on purpose: it appears while you are
+   mid-sentence, and anything with a coloured background there reads as an
+   error about what you have typed. The accent is on the left border only —
+   enough to say "this is the app talking", not enough to pull your eye off
+   the box. */
+.chat-nudge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-size: 0.85rem;
+}
+
+.chat-nudge.hidden {
+  display: none;
+}
+
+.chat-nudge-mark {
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+/* The sentence gives up the width, not the buttons — a nudge whose action is
+   clipped off the right edge is a nudge you cannot take. */
+.chat-nudge-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.chat-nudge-dismiss {
+  flex: 0 0 auto;
+}
+
 .attachment-chip {
   display: inline-flex;
   align-items: center;
@@ -2343,6 +2382,44 @@ button {
   flex-direction: column;
 }
 
+/* The preview goes BESIDE the editor, which is what #doc-preview-toggle's own
+   tooltip has always promised ("Show a rendered preview beside the editor")
+   what `.doc-panes`'s own grid rules were written for. None of them ever
+   applied: `#doc-panes` above is an id selector and wins the cascade over
+   every `.doc-panes` rule, so `display: flex; flex-direction: column` stayed
+   in force and the preview stacked *underneath* instead — leaving the narrow-
+   screen override in 05-sidebars-themes.css collapsing a grid that was never
+   a grid.
+   Measured live at 1440x900 with the preview on: the textarea went 556px ->
+   206px tall and the preview took the 337px below it — two half-height panes
+   in a column, which is precisely the reported "the windows and panes get
+   squished together". The fix has to be on the id selector to actually land.
+
+   `min-width: 0` on the children is not optional: a flex item's default
+   `min-width: auto` refuses to shrink below its content, and a long unbroken
+   line in either pane would push the pair wider than the card. */
+#doc-panes.split {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+#doc-panes.split>#doc-content,
+#doc-panes.split>.doc-preview {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Side by side stops being an improvement once each pane is a narrow column of
+   broken words. Below this the two go back to stacking, which is the layout
+   the id rule accidentally gave everyone — but now deliberately, and only
+   where it is the better of the two. */
+@media (max-width: 60rem) {
+
+  #doc-panes.split {
+    flex-direction: column;
+  }
+}
+
 /* Set by app.js the moment a person drags #doc-content's native resize
    handle. Without it #doc-panes keeps flex-growing to fill .doc-main at its
    pre-resize height regardless of the textarea now being shorter, and the
@@ -2406,10 +2483,12 @@ button {
   color: #fff;
 }
 
-/* One pane by default; two side by side when the preview is on. `#doc-panes`
-   (same element, higher specificity, below) sets the layout that actually
-   applies — flex column, not grid — so this rule's own `display`/`min-height`
-   were dead and never noticed; only `gap` was live. */
+/* Only `gap` is live here. Everything about the layout itself is on
+   `#doc-panes` above, because an id selector beats this class and a rule that
+   loses the cascade is a rule that looks correct while doing nothing — which
+   is exactly how the preview spent this long stacking below the editor
+   instead of sitting beside it. Anything layout-shaped added later belongs on
+   the id, not here. */
 .doc-panes {
   gap: 0.8rem;
 }

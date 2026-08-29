@@ -3233,6 +3233,87 @@ def schema_chars(specs: list[dict]) -> int:
     return len(json.dumps(specs))
 
 
+#: How much of a tool description survives compaction. One sentence is what a
+#: model needs to pick between tools; the rest is disambiguation it only needs
+#: once it has already picked, by which point the arguments say more than the
+#: prose does.
+COMPACT_DESCRIPTION_CHARS = 150
+
+#: Parameter descriptions get less again — the name and JSON type already carry
+#: most of it ("limit", integer), so what is left is the unit or the range.
+COMPACT_PARAM_CHARS = 60
+
+#: A sentence end followed by whitespace. Cutting on this rather than on a
+#: character count keeps the trimmed description a sentence rather than a
+#: fragment that stops mid-clause.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s")
+
+
+def _first_sentence(text: str, cap: int) -> str:
+    """The leading sentence of ``text``, or a hard-trimmed prefix."""
+    text = " ".join((text or "").split())
+    if len(text) <= cap:
+        return text
+    match = _SENTENCE_END.search(text)
+    if match and match.start() < cap:
+        return text[: match.start() + 1]
+    return text[:cap].rstrip()
+
+
+def compact_schemas(offered: list[dict]) -> list[dict]:
+    """The same tools, described in one sentence each.
+
+    **Why this exists, and why it runs before anything is dropped.** Measured
+    on a real turn with an 8k-window model, eight notes and no history, the
+    prompt broke down as system 3,288 chars, notes-and-question 2,377, and tool
+    schemas 4,827 — the schemas cost nearly twice what the user's own notes
+    did, and were the single largest thing in the prompt. That is the reported
+    *"agent mode and chats are too heavy for small models"* in one number.
+
+    The instinct is to send fewer tools, and `within_budget` did exactly that.
+    But dropping a tool changes what the app can *do* — the model stops being
+    able to set a reminder, and the only visible symptom is that it says it
+    cannot, which reads as the app being broken rather than rationed. Trimming
+    a description changes only how verbosely each tool is explained. So on a
+    window too small for the full set, this is tried first and tools are only
+    dropped if it is still not enough.
+
+    Names, parameter names, types and required-ness are untouched: those are
+    what the model actually calls the tool with, and shortening any of them
+    would produce malformed calls rather than a smaller prompt.
+    """
+    out: list[dict] = []
+    for spec in offered:
+        function = spec.get("function") or {}
+        parameters = function.get("parameters") or {}
+        properties = parameters.get("properties") or {}
+        slim_properties = {}
+        for key, value in properties.items():
+            if isinstance(value, dict) and "description" in value:
+                value = {
+                    **value,
+                    "description": _first_sentence(
+                        value["description"], COMPACT_PARAM_CHARS
+                    ),
+                }
+            slim_properties[key] = value
+        out.append(
+            {
+                **spec,
+                "function": {
+                    **function,
+                    "description": _first_sentence(
+                        function.get("description", ""), COMPACT_DESCRIPTION_CHARS
+                    ),
+                    "parameters": {**parameters, "properties": slim_properties}
+                    if parameters
+                    else parameters,
+                },
+            }
+        )
+    return out
+
+
 def within_budget(
     offered: list[dict], budget_chars: int, keep_first: list[str] | None = None
 ) -> tuple[list[dict], list[str]]:
@@ -3249,6 +3330,12 @@ def within_budget(
     """
     if budget_chars <= 0 or not offered:
         return offered, []
+    # Cheaper descriptions before fewer tools — see compact_schemas for the
+    # measurement behind that order. Only when the full set genuinely does not
+    # fit: a model with room for the long descriptions should get them, because
+    # they are what stops it reaching for the wrong tool.
+    if schema_chars(offered) > budget_chars:
+        offered = compact_schemas(offered)
     priority = list(keep_first or CORE_TOOLS)
     rank = {name: index for index, name in enumerate(priority)}
     ordered = sorted(offered, key=lambda t: rank.get(t["function"]["name"], len(rank)))

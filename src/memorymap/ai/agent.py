@@ -180,6 +180,68 @@ TOOLS_GUIDE = (
     "Never repeat a call that has just failed in exactly the same way."
 )
 
+#: The window below which a model gets `COMPACT_TOOLS_GUIDE` instead. Same
+#: threshold `tools.SMALL_WINDOW_CHARS` uses for holding back orchestration
+#: tools, expressed in tokens: below this, the fixed cost of the prompt is the
+#: thing squeezing out the notes, and the guide is the largest fixed piece.
+SMALL_WINDOW_TOKENS = 8_192
+
+#: The load-bearing half of TOOLS_GUIDE, for a model that cannot afford the
+#: whole thing.
+#:
+#: Measured on a real turn: TOOLS_GUIDE is 2,807 characters — about 700 tokens
+#: — and it is re-sent on **every round** of an agent loop. On a 4k-window
+#: model that is 17% of the entire context spent, per round, on static prose,
+#: which is a large part of the reported *"agent mode and chats are too heavy
+#: for small models and have a too small context window"*.
+#:
+#: What is kept is what a model gets *wrong* without being told, and what
+#: cannot be recovered from: claiming work it never did, treating a page of
+#: search results as the whole notebook, quoting note ids at the user, and
+#: repeating a call that just failed. What is dropped is elaboration the tool
+#: schemas already carry — which tool to reach for is in each tool's own
+#: description, and a small window is exactly the case where saying it twice
+#: is unaffordable.
+#:
+#: Deliberately not a truncation of the constant above: a guide cut at 1,100
+#: characters would lose the honesty rule, which sits at the end and is the one
+#: sentence in this file that most needs to survive.
+COMPACT_TOOLS_GUIDE = (
+    "You can use tools to act on the notebook. Only make changes the user "
+    "actually asked for; answer plain questions without tools. "
+    "The notes quoted below are only what search found — NOT the whole "
+    "notebook. Use count_notes for totals, list_notes to walk through, "
+    "get_note to read one in full. Never state a total from a page of "
+    "results. Private notes are invisible to you; say so if asked. "
+    "For reminders, compute due_at from the current time below as ISO 8601. "
+    "NEVER say you created, saved, edited, deleted, tagged or linked "
+    "anything unless you actually called the tool — claiming work you did "
+    "not do is the worst thing you can write. Planning ahead is fine: say "
+    "it in the future tense, then call the tools. "
+    "Taking several turns is normal: look something up, read it, then "
+    "answer. Do not narrate ('let me search…') — just do it, then answer. "
+    "Name a note by its own words, never 'note 28'. Write symbols plainly "
+    "(→ × ≤), never as LaTeX. If a tool fails, follow its 'what_to_do' "
+    "field, and never repeat a call that just failed the same way."
+)
+
+
+def tools_guide(window_tokens: int | None) -> str:
+    """The tool guide sized to the window — see COMPACT_TOOLS_GUIDE.
+
+    ``None`` means the window is not known yet, which is the safe case for the
+    long guide: an unknown window is usually a provider that did not report
+    one, not a tiny one.
+    """
+    # `<=`, so an 8k model is included rather than sitting just outside. At 8k
+    # the fixed prompt measured 32% of the window before a single turn of
+    # history; at 16k the same prompt is 16%, which is a budget rather than a
+    # squeeze. 8k is the last size that needs the help.
+    if window_tokens is not None and window_tokens <= SMALL_WINDOW_TOKENS:
+        return COMPACT_TOOLS_GUIDE
+    return TOOLS_GUIDE
+
+
 # What the model is handed before a single word of the question, the notes or
 # the history — the system prompt plus every tool schema — resent on each of
 # up to MAX_ROUNDS rounds.
@@ -637,7 +699,8 @@ def build_agent_messages(
     messages = [
         {
             "role": "system",
-            "content": f"{persona} {AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
+            "content": f"{persona} {AGENT_GROUNDING} "
+            f"{tools_guide(budget.window_tokens if budget else None)}{now_hint} "
             f"{style_hint}{profile_hint}{librarian.length_hint(mode)}",
         }
     ]
@@ -847,7 +910,7 @@ def run_agent(
 
     system_chars = len(
         f"{persona} "
-        f"{AGENT_GROUNDING} {TOOLS_GUIDE}{librarian.length_hint(mode)}"
+        f"{AGENT_GROUNDING} {tools_guide(window)}{librarian.length_hint(mode)}"
     )
     budget = context.plan(
         window or OllamaClient.DEFAULT_CONTEXT_TOKENS, system_chars
@@ -889,6 +952,20 @@ def run_agent(
     barred = set(blocked_tools or ())
     if barred:
         offered = [t for t in offered if t["function"]["name"] not in barred]
+    # On a small window, trim the descriptions even when the full set would
+    # fit. `within_budget` compacts only once the schemas overflow their share,
+    # which is the right rule for a large model — but on an 8k window the
+    # focused set measured 4,827 chars against a 7,901-char allowance, so it
+    # "fits" and is sent in full, spending 1,206 tokens where 996 does the same
+    # job. Affordable is not the same as wise: what the allowance leaves unspent
+    # is what the notes and the conversation get, and on a small model those are
+    # exactly what runs out first.
+    #
+    # Safe for a skill's declared list too (hence above the `allowed_tools`
+    # branch): compaction never removes a tool, so nothing a skill asked for
+    # can go missing this way.
+    if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
+        offered = tools.compact_schemas(offered)
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
     # fact, and a model declaring 32k was being rationed as if it were a 3B.

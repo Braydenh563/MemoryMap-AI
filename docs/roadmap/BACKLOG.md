@@ -2415,3 +2415,60 @@ has been scoped; they are here so the finding is not lost with the session.
   rendering and the main canvas's own zoom/pan handlers — this extends
   both rather than adding a new subsystem, but the minimap's own hit-testing
   and coordinate-mapping (screen rect → graph viewport) isn't scoped yet.
+- **Compression/archival for rarely-used notes, documents, files and
+  chats.** Asked for directly: let the user compress content they don't
+  touch much and restore it on demand, at three possible granularities —
+  one item, a whole space, or a group matched by some rule — with chat
+  conversations floated as a candidate too. Worth doing, but genuinely
+  underspecified before it's buildable, and the open questions matter more
+  than the mechanism:
+  - **What "compressed" means here.** Gzipping a markdown row saves little
+    (SQLite text compresses well already at the filesystem/backup level,
+    and notes/documents are what semantic search, the graph and the AI's
+    retrieved context all read directly — compressing the row means every
+    one of those needs a decompress-on-read path, or has to skip
+    compressed items, which is a correctness change dressed as a storage
+    optimisation). What plausibly does help: `MediaUpload` files
+    (whiteboard photos, attachments) are actual binary weight, so
+    archiving *those* — moving cold files to a separate on-disk location,
+    or genuinely compressing image bytes — is the more defensible half of
+    this idea.
+  - **What "rarely used" means.** `Entry.access_count` already exists and
+    is the obvious signal, but nothing currently reads it for this
+    purpose; a real design needs a threshold (count, or count-since-last-N-
+    days) and a way to preview what would be archived before it happens.
+  - **Automatic-by-criteria is the riskier half.** A background job that
+    silently archives content on its own schedule needs to be very sure it
+    never removes something the user is about to look for — at minimum a
+    dry-run/preview step and an easy bulk-restore, closer in spirit to
+    `media_gc.py`'s existing "dry run first, refuse rather than guess"
+    posture than to a fire-and-forget cron job.
+  - Chat conversations specifically are already the cheapest form of this:
+    they are pure JSON text with no embeddings or graph edges pointing at
+    them, so "compress" there could mean something as simple as excluding
+    older, unpinned conversations from the default list view rather than
+    an actual archive format — worth deciding before building either.
+- **Can the AI read chat conversation history?** Partly already built and
+  worth knowing about rather than reopening blind: an agent-mode tool
+  (`ai/tools/__init__.py`, searches `Conversation.title`/`.messages` by
+  keyword) already lets the AI look up *other* saved chats by name/topic —
+  built specifically because "each turn only ever saw its own thread, so
+  the assistant had no memory of anything said in a different chat." Two
+  real gaps remain: it's an agent-mode tool, so it isn't reachable from a
+  plain conversational chat unless tools are enabled; and it searches by
+  keyword rather than being handed relevant history proactively the way
+  notes are via retrieval. Extending keyword search to embedding-based
+  recall, or surfacing it outside agent mode, is the open half of this.
+- **A note against ROADMAP.md §90 item 3** (upload any document type with a
+  real per-type viewer, not built yet — see there for the full ask):
+  asked for directly, when this gets built, a scanned/non-selectable PDF
+  page's text extraction should go through the vision model
+  (`ai/vision_ocr.py`'s existing shape — rasterise the page, transcribe it
+  the same way an image is today), **not** Tesseract+`pdf2image`/poppler.
+  "I primarily want this AI OCR to be separate from Tesseract... only want
+  to use an AI vision model for OCR for images and scanned documents" —
+  Tesseract (`core/ocr.py`) stays as the separate, already-built,
+  install-optional local path for raster images (it already degrades to
+  "extracts nothing" if not installed, so a notebook that never installs
+  it already gets exactly this today for images); the new PDF-page path
+  should not add a second dependency on it.

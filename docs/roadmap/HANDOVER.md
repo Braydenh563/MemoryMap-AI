@@ -1,6 +1,63 @@
 # Session handover
 
-## New session — a bug-fix batch (§91), then a branch restart
+## New session — vision-OCR, AI-edit verb set + changelog, staged-upload fix (§92)
+
+**Full narrative in HISTORY.md §92.** Four pieces: the vision-OCR extractor
+mode (a manual/automatic-on-commit reader distinct from Tesseract and
+captioning); the inline-image remove button from §91's "could not
+reproduce" — it recurred with a specific location and turned out to be a
+real closure bug (`match` reused across a parsing loop, every dismiss
+button's click threw `null[0]` before the confirm dialog could open);
+`POST /documents/{id}/ai-edit` reskinned with a `write`/`remove` verb set
+alongside the original `edit`, plus a durable per-document AI-edit
+changelog (`DocumentAiEdit`) with its own Revert, on top of the existing
+global undo stack; and a correction to this same session's own earlier
+choice — OCR/captioning/vision-OCR moved from firing on `/media/upload`
+itself to firing when something is actually committed (a saved note, a
+sent chat turn, a saved document, or a whiteboard image placed — plus a
+`direct` flag for the Library's own upload button), via new
+`core/media_process.py`. Found and fixed along the way: a sent chat
+image had no record anywhere that anything still used it, so
+`media_gc.py`'s orphan-cleanup tool couldn't see conversations and would
+have deleted real, sent attachments — `TurnBody.image_media_ids` now
+persists it and `media_gc` checks it.
+
+**Also**: the Settings → Models suggested-downloads list now groups by
+kind (Text/MoE/Embeddings/Vision) with a heading per group instead of only
+naming the kind inline on every row. Not screenshot-verified this session
+— Ollama isn't reachable in this sandbox, so `#suggested-box` stays
+hidden and the render path had to be forced open by hand; lint-clean and
+code-reviewed only.
+
+**A reported UI bug not fully closed**: "a weird gap and a stray cut-off
+element to the left of the Semantic toggle" in the Library's toolbar (and,
+by the shared `.library-search` class, potentially the Notes tab's own
+toolbar too), asked about three times with rising specificity. Tested live
+across ~20 viewport widths (600px–1920px) and could not reproduce the
+exact symptom. Applied one real, defensible fix regardless —
+`.library-search` had `min-width: 0`, which really can let a flex item
+collapse to an unreadable sliver at some width; given a floor
+(`min-width: 8rem`) instead. If it's still visible after this, the next
+session needs the user's actual window width (or an un-cropped
+screenshot) rather than more blind width-testing — every width tried here
+either kept the search box a normal size or wrapped the later controls to
+a second line first, never collapsed it.
+
+**Still not started, in the order asked for**: ROADMAP.md item 0 (the
+Notion/Obsidian hybrid live-rendering editor); the universal VS-Code-like
+document viewer/editor (docx/pdf/md/code/html-rendered/excel/csv/txt,
+with OCR for scanned, non-selectable PDF pages — a real, separate feature
+from the image vision-OCR built this session, not yet started); the six
+BACKLOG.md items from §91 (agent-mode auto-detect popup, skill
+auto-detect popup, sub-process start/completion notifications, a deeper
+chat token-efficiency pass, AI follow-up suggestions, graph minimap
+drag-to-zoom); and two newly-logged BACKLOG.md ideas (compression/archival
+for rarely-used content, and extending the existing agent-mode
+chat-history-search tool to plain conversational chat). A final
+complexity/security self-review of this session's own diff has not been
+done yet either — do that before considering this batch closed.
+
+## Prior session — a bug-fix batch (§91), then a branch restart
 
 **PR #132 (the `library.js` split, and everything else this branch had at
 the time) merged mid-session.** Per this repo's own merged-PR protocol, the

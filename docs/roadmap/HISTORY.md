@@ -4702,6 +4702,12 @@ more specific location (which screen, which button) than "the notes tab" to
 find — two different remove-image controls exist there, both currently
 working.
 
+**Retraction (§92 below found it):** the report recurred with a screenshot
+naming the actual location — the round × overlaid directly on an inline
+image inside a rendered note card — which is a *third* control neither of
+the two checked above. It was genuinely broken, and not by a shallow bug:
+see §92.
+
 **Not attempted this session** (scoped and logged instead, `BACKLOG.md`):
 agent-mode auto-detection with a confirmation popup, skill auto-detection
 with a confirmation popup, start/completion notifications for named
@@ -4711,3 +4717,132 @@ follow-up question suggestions in chat and the Ask sub-tab, and graph
 minimap drag-to-zoom plus pinch/keyboard zoom. Each is independently
 substantial and none was scoped enough to start safely in the time this
 pass had left.
+
+## §92 — vision-OCR, the AI-edit verb set + changelog, and a staged-upload
+correction
+
+Four pieces of real, separately-motivated work, landed as they were asked
+for across one long session.
+
+**Vision-OCR extractor mode.** A third reader for uploaded images
+alongside Tesseract (`ocr_text`) and the AI caption (`caption`):
+`ai/vision_ocr.py` asks a vision model to transcribe text verbatim —
+distinct from a caption's natural-language description, and able to read
+handwriting, low-contrast photos and non-Latin scripts that Tesseract
+fails on outright. Stored on `MediaUpload.vision_ocr_text`/
+`vision_ocr_model`; surfaced in the Library's image gallery next to the
+caption control. The model-pull UI half of the ask needed nothing new —
+`GET /models/suggested` (Settings → Models) already lists a "vision"
+category with pull buttons, confirmed by reading `SUGGESTED_MODELS`
+before building anything, per CLAUDE.md's own standing rule. Distinguishes
+a genuine "no text in this image" result (recorded `completed`) from an
+actual call failure (`failed`) in the background-tasks list, so an
+ordinary photo with no text doesn't read as an error.
+
+**The inline-image remove button, actually fixed.** §91 above reported
+this could not be reproduced. It recurred with a screenshot naming the
+real location: a round × overlaid on an image *inside a rendered note
+card* — `renderInlineMarkdown`'s `dismissible` branch, a third control
+distinct from the two already checked. Root cause, found by reproducing
+live with Playwright rather than reading the source: `match` was a single
+`let` binding reused by every pass of the image-parsing `while` loop, so
+every dismiss button's click closure shared the *same* variable — by the
+time anyone actually clicked one, the loop had long finished with `match`
+sitting at `null` (the value that ends a `while` condition). Every click
+threw `Cannot read properties of null (reading '0')` before the confirm
+dialog could even open, with nothing visible to the user but a button that
+did nothing. Fixed by capturing the matched text into its own `const`
+inside the loop body, so each button's closure gets the value for *its
+own* image.
+
+**The AI-edit route reskinned into a small general assistant.**
+`POST /documents/{id}/ai-edit` did one thing (rewrite the target); asked
+for directly, it now takes a `verb`: `edit` (unchanged), `write` (inserts
+a new passage — a sibling prompt in `drafter.compose_document_edit`,
+returning `""` rather than the existing content on failure, since falling
+back to `content` would insert the whole document into itself), and
+`remove` (deletes on request; a selection alone needs no instruction at
+all — asked for directly). The document editor's AI panel grew a
+three-way `.segmented-control` for the verb, with the scope hint,
+instruction placeholder and accept-button label all switching together.
+
+**The changelog, and undo, that came with it** ("allow edits made by the
+AI to be undone or altered before and after they are set"). Before
+acceptance, the result textarea already covers "altered" — edit the AI's
+suggestion, then accept whatever's left. After acceptance, two
+independent mechanisms: every accept pushes onto the app's existing
+session-only global undo stack (`app.js`'s `pushUndo` — an immediate
+Ctrl+Z), and also writes a durable per-document row (`DocumentAiEdit`,
+`routes_documents.py`) recording the verb, instruction, a selection
+excerpt, and full before/after snapshots. A new "History" dialog off the
+AI panel lists every entry with its own Revert, which writes *another*
+changelog entry rather than deleting anything — the record stays truthful
+about what happened, including the revert itself, and a revert can be
+reverted. Bounded at `MAX_AI_EDIT_LOG_PER_DOCUMENT` (20) per document,
+oldest pruned first, the same "a log, not an unbounded table" reasoning
+`taskhistory.py` uses for its own ring buffer, except this one has to
+survive a restart so it's a real table.
+
+**Staged uploads no longer get processed — a correction of this same
+session's own earlier choice.** Vision-OCR and captioning were first
+wired to run automatically on every `/media/upload`, matching what
+captioning already did. Corrected mid-session, asked for directly: "the
+OCR shouldn't happen to staged files, only when they are actually saved
+as a note, actually sent in a chat message, or uploaded directly to the
+library." `/media/upload` is one endpoint shared by the note composer,
+the chat composer, the document editor *and* the Library's own upload
+button — a staged image picked in a composer and then abandoned has no
+business paying for a Tesseract pass and a vision-model round trip.
+`core/media_process.py` moves the trigger from upload-time to
+commit-time: `process_committed_upload` (the three readers for one
+upload), `process_referenced_uploads` (scans a note/document's own
+content — plaintext, pre-encryption for a private note — for `/media/…`
+references, reusing `media_gc.referenced_names`, promoted from
+module-private for this), and `process_committed_upload_ids` (a chat
+turn's `image_media_ids` directly, since a conversation stores images as
+ids rather than inline markdown). Wired into `create_entry`/`update_entry`,
+`create_document`/`update_document`, all three conversation-turn-save
+routes, and whiteboard image-object creation (which has no separate
+staging step, so it fires immediately like the Library's own upload
+button does via a new `direct` form field on `/media/upload` itself).
+
+A second, related gap found and fixed along the way while answering "are
+uploaded files properly not saved until committed": a sent chat image had
+*no record anywhere* that anything still used it — `TurnBody` never
+persisted which images a turn attached, so `media_gc.py`'s orphan scan
+(built to protect exactly this: a note, document or whiteboard image
+still in use) could not see conversations at all. Running "Clean orphaned
+media" would have deleted a real, sent chat attachment's file. Fixed by
+persisting `image_media_ids` on the saved turn's user message and
+teaching `media_gc.find_orphaned_media` to check it.
+
+**A fifth piece, added once the staged-upload correction made the gap
+obvious**: Tesseract's own `ocr_text` had no manual endpoint at all — only
+ever written automatically, once, with no retry and no way to fix a
+misread. Asked for directly ("allow for manual OCR extraction or retries.
+allow the user to access, view, and edit OCR extracted text."),
+`POST /media/{id}/ocr` mirrors the caption endpoint's shape exactly:
+`extract_and_store` already has no write-once guard (every call re-reads,
+which is exactly what "retry" needs, no `force` field required), and a
+`text` field sets it by hand. The Library gallery gained the same
+always-visible, click-to-edit control the caption already has, between
+the caption and the vision-OCR reading.
+
+**Verification**: vision-OCR's UI (button, badge, error/hidden states),
+the inline-image-remove fix, and the OCR manual-edit control were all
+checked live via Playwright against a running instance — the closure bug
+specifically reproduced first (confirm dialog never opened, a console
+error) and then confirmed fixed the same way; the OCR edit was confirmed
+round-tripping to the server, not just updating the DOM. The AI-edit verb
+picker, scope hints, client-side validation and the (empty, then
+populated) history dialog were checked live too, with `#doc-ai`'s
+Ollama-required gate forced open since no real Ollama exists in this
+sandbox — the model call itself is untested beyond the backend's own
+fake-Ollama suite. The suggested-models grouping and the `.library-search`
+min-width change are lint-clean and code-reviewed but not confirmed with a
+screenshot this session — see BACKLOG.md if this recurs.
+
+**Not attempted this session**: the Notion/Obsidian document-editor
+redesign (ROADMAP.md item 0), the universal VS-Code-like document
+viewer/editor with OCR for scanned PDFs, and the six items already logged
+in BACKLOG.md from §91's own list. All still open.

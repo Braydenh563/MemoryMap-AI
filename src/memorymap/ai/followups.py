@@ -70,6 +70,26 @@ _PREAMBLE = re.compile(
     r"^(?:here|sure|of course|certainly|these|below|some|follow[- ]?up)\b", re.I
 )
 
+#: A model that was told "one per line" often puts the whole list on one line
+#: anyway: ``What did I note? 2) When is it due?``. Splitting only on newlines
+#: turned that into a single chip with "? 2)" sitting in the middle of it —
+#: visible debris, and the reason a turn could come back with one nonsense
+#: suggestion instead of three good ones. Split after a question mark when real
+#: text follows, and at an inline list marker.
+_INLINE_SPLIT = re.compile(r"(?<=\?)\s+(?=\S)|\s+(?:\d+[.)]|[-*•])\s+")
+
+#: Small models answer this prompt with imperatives about as often as with
+#: questions — "Show my notes on the deadline", "Summarise the budget thread".
+#: Those are perfectly good chips, and requiring a question mark dropped every
+#: one of them, which is most of why a turn sometimes offered nothing at all.
+#: The verb list is the guard that a bare question mark used to provide: a
+#: heading or a sign-off does not open with one of these.
+_IMPERATIVE = re.compile(
+    r"^(?:show|list|find|search|summari[sz]e|compare|tell me|remind me|"
+    r"pull up|open|draft|explain|describe)\b",
+    re.I,
+)
+
 
 def _clean(line: str) -> str:
     """One raw line into a usable chip, or "" if it is not one.
@@ -84,10 +104,10 @@ def _clean(line: str) -> str:
     text = text.strip("\"'`*_ ").strip()
     if not text or _PREAMBLE.match(text):
         return ""
-    # The one hard requirement. Without it, headings ("Follow-up questions"),
-    # sign-offs and stray sentences all pass — and a chip that is not a
-    # question does not belong under an answer.
-    if not text.endswith("?"):
+    # Question-shaped or request-shaped. Without one of these, headings
+    # ("Follow-up questions"), sign-offs and stray commentary all pass, and a
+    # chip that is neither does not belong under an answer.
+    if not (text.endswith("?") or _IMPERATIVE.match(text)):
         return ""
     if not (MIN_LENGTH <= len(text) <= MAX_LENGTH):
         return ""
@@ -106,16 +126,17 @@ def parse_followups(reply: str, asked: str = "") -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for line in (reply or "").splitlines():
-        cleaned = _clean(line)
-        if not cleaned:
-            continue
-        key = cleaned.casefold().rstrip("?")
-        if key == already or key in seen:
-            continue
-        seen.add(key)
-        out.append(cleaned)
-        if len(out) == MAX_FOLLOWUPS:
-            break
+        for candidate in _INLINE_SPLIT.split(line):
+            cleaned = _clean(candidate)
+            if not cleaned:
+                continue
+            key = cleaned.casefold().rstrip("?")
+            if key == already or key in seen:
+                continue
+            seen.add(key)
+            out.append(cleaned)
+            if len(out) == MAX_FOLLOWUPS:
+                return out
     return out
 
 

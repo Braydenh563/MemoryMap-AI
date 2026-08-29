@@ -2247,10 +2247,28 @@
    rows rather than the label+control layout `.wb-properties-row` normally
    holds, so it overrides that rule's flex-direction/justify rather than
    fighting it. */
-.wb-prop-multi {
+.wb-prop-multi,
+/* The mind-map row is the same shape and had the same problem, reported with
+   a screenshot: "Arrange as mind map" broken across three lines beside the
+   Tree/Radial pair. `.wb-properties-row` is a `space-between` row built for a
+   short label and one small control — a five-word label next to *two* labelled
+   buttons does not fit the panel's width, so flex shrinks the only flexible
+   thing, the text.
+
+   The row below already solved this by stacking, and the two sit next to each
+   other in the same panel; leaving one stacked and one squeezed was the
+   inconsistency as much as the wrap was. */
+.wb-prop-mindmap {
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-2);
+}
+
+/* Reads as the heading for the two buttons under it rather than a value label
+   that happens to have wrapped. */
+.wb-prop-mindmap>span {
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
 
 .wb-multi-actions {

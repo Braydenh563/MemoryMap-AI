@@ -41,6 +41,16 @@ HOST, PORT = "127.0.0.1", 8000  # local only — this is a private app
 # palette (#4f6df5) matches index.html's own `theme-color` meta tag rather
 # than pulling in the real app's CSS, so the swap to the real window doesn't
 # jar even though nothing is actually shared between them.
+#
+# The logo is the same reason, and is why it is **copied** here as inline SVG
+# rather than referenced. Asked for directly ("add the logo to the loading
+# screen"); this window used to show a 10px blue dot beside the wordmark,
+# which is the first thing anyone sees of the app on a cold start. It cannot
+# be `<img src="/favicon.svg">` — there is no server to serve it — and a
+# `file://` path breaks in the packaged build, so the artwork is duplicated.
+# It is 30 lines of static geometry that has changed once; keeping the two in
+# sync by hand is cheaper than the alternatives, and a drift shows up
+# immediately on the next launch.
 _LOADING_HTML = """<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
@@ -50,8 +60,8 @@ _LOADING_HTML = """<!doctype html>
     gap: 18px; height: 100%; background: #12141c; color: #e7e9ee;
     font: 14px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
   }
-  .mark { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #4f6df5; }
+  .mark { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; }
+  .mark svg { width: 46px; height: 46px; display: block; }
   .bar-track { width: 240px; height: 6px; border-radius: 3px; background: #262b3a; overflow: hidden; }
   .bar-fill { height: 100%; width: 4%; background: #4f6df5; border-radius: 3px;
               transition: width 300ms ease-out; }
@@ -59,7 +69,31 @@ _LOADING_HTML = """<!doctype html>
   #status { color: #9aa1ad; min-height: 1.2em; }
 </style></head>
 <body>
-  <div class="mark"><span class="dot"></span><span>MemoryMap AI</span></div>
+  <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="MemoryMap AI">
+    <defs>
+      <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4f6df5"/>
+        <stop offset="100%" stop-color="#a927d8"/>
+      </linearGradient>
+      <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+        <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="100" height="100" rx="23" fill="url(#tile)"/>
+    <rect width="100" height="100" rx="23" fill="url(#sheen)"/>
+    <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
+      <path d="M50 50 50 20"/><path d="M50 50 78.5 40.7"/><path d="M50 50 67.6 74.3"/>
+      <path d="M50 50 32.4 74.3"/><path d="M50 50 21.5 40.7"/>
+    </g>
+    <g fill="#ffffff">
+      <circle cx="50" cy="20" r="7.5"/><circle cx="78.5" cy="40.7" r="7.5"/>
+      <circle cx="67.6" cy="74.3" r="7.5"/><circle cx="32.4" cy="74.3" r="7.5"/>
+      <circle cx="21.5" cy="40.7" r="7.5"/>
+    </g>
+    <circle cx="50" cy="50" r="13" fill="#4f6df5"/>
+    <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
+  </svg><span>MemoryMap AI</span></div>
   <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
   <div id="status">Starting…</div>
   <script>

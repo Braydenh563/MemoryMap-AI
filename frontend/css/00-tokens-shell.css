@@ -1680,7 +1680,27 @@ header#top-bar.tabs-wrapped #tab-bar {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
+  /* `left` as well as `right`, and wrapping — reported live as *"the popup
+     buttons for uploaded images sometimes get cut off in different window
+     resolutions and sizes"*, with a screenshot showing the row running off the
+     tile's left edge.
+
+     The row holds up to FIVE buttons (edit, delete, caption, OCR, vision-OCR)
+     and the grid above it is `minmax(11rem, 1fr)` — so a tile is 11rem wide at
+     the narrow end while the row needs roughly 14. Anchored only by `right`, a
+     flex row that cannot fit grows leftwards past the tile's own edge, and
+     `.library-image-tile` sets `overflow: hidden`, so the overflow is not
+     merely ugly: the leftmost button is clipped away and cannot be clicked at
+     all. Which button that is depends on how many the image has, which is why
+     it looked intermittent.
+
+     Setting both edges gives the row the tile's real width to work in, and
+     `flex-wrap` spends it downwards — a second row of buttons over the image,
+     which is always reachable — instead of sideways into the clip. */
+  left: var(--space-2);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
   opacity: 0;
   transition: opacity var(--motion-base) ease;

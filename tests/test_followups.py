@@ -146,3 +146,72 @@ def test_an_oversized_answer_is_refused_rather_than_sent_to_the_model(ai_client)
         json={"question": "What did I save?", "answer": "x" * 20_001},
     )
     assert response.status_code == 422
+
+
+# --- shapes a small model actually returns -------------------------------------
+#
+# Added after a live report that the chips "only showed up after the first
+# message". Both failures below were reproducible in the parser without a model:
+# a 3B model varies its output shape turn to turn, so the same prompt yields
+# clean lines once and one of these the next time.
+
+
+def test_an_imperative_suggestion_is_kept():
+    """"Show my notes on X" is a good chip; requiring "?" dropped every one."""
+    picks = followups.parse_followups(
+        "Tell me more about the budget\n"
+        "Show my notes on the deadline\n"
+        "Summarise the project"
+    )
+    assert picks == [
+        "Tell me more about the budget",
+        "Show my notes on the deadline",
+        "Summarise the project",
+    ]
+
+
+def test_a_whole_list_on_one_line_is_split():
+    """Told "one per line", a small model often ignores it.
+
+    This used to produce a single chip reading
+    "What did I note about the budget? 2) When is the deadline?" — the list
+    marker left sitting in the middle of the text.
+    """
+    picks = followups.parse_followups(
+        "1) What did I note about the budget? 2) When is the deadline?"
+    )
+    assert picks == ["What did I note about the budget?", "When is the deadline?"]
+
+
+def test_run_on_questions_without_markers_are_split():
+    picks = followups.parse_followups(
+        "What did I note about the budget? When is the deadline? Who owns this?"
+    )
+    assert picks == [
+        "What did I note about the budget?",
+        "When is the deadline?",
+        "Who owns this?",
+    ]
+
+
+def test_headings_and_signoffs_are_still_rejected():
+    """The loosened rule must not let commentary through."""
+    assert followups.parse_followups(
+        "Follow-up questions\nSuggestions:\nThanks for asking!"
+    ) == []
+    assert followups.parse_followups(
+        "What did I note about the budget?\nLet me know if you want more!"
+    ) == ["What did I note about the budget?"]
+
+
+def test_a_mixed_reply_still_yields_three():
+    picks = followups.parse_followups(
+        "Sure! Here you go:\n"
+        "1. Show my notes on the budget\n"
+        "2. When is the deadline? 3. Who owns this?"
+    )
+    assert picks == [
+        "Show my notes on the budget",
+        "When is the deadline?",
+        "Who owns this?",
+    ]

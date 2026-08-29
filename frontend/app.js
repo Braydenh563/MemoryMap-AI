@@ -5913,7 +5913,13 @@ function metaItem(text, { title = "", kind = "", icon = "" } = {}) {
   if (icon) {
     const mark = document.createElement("span");
     mark.className = "msg-meta-icon";
-    mark.textContent = icon;
+    // setLabel, not textContent. This was the last function in the app still
+    // assigning an icon string straight to textContent, so the one caller that
+    // passes a marker rendered the literal text "ph:wrench 1" in the metadata
+    // line under every answer that used a tool. Exactly the miss the setLabel
+    // comment warns about: the icon is a string literal at the call site, not
+    // markup in index.html, so no template search finds it.
+    setLabel(mark, icon);
     mark.setAttribute("aria-hidden", "true");
     item.appendChild(mark);
   }
@@ -8412,6 +8418,35 @@ async function sendChatMessage(preset, opts = {}) {
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
+  const controller = chatController;
+
+  // --- the turn owns its conversation ----------------------------------------
+  //
+  // Reported live: *"I clicked a suggested next response, then instantly
+  // switched to a different chat and switched back. The latest input message
+  // and the generating bubble disappeared, it still said the model is writing,
+  // but nothing showed."*
+  //
+  // The visible half is the smaller half. `chatConv` is module-level and
+  // **reassigned** (not mutated) by openConversation and newChatConversation,
+  // and every save below used to read it *live* — at each checkpoint and again
+  // when the turn finished, seconds or minutes after the send. So switching
+  // conversations mid-stream did not just wipe the bubbles off the screen
+  // (`replaceChildren`), it silently wrote the finished answer into **whichever
+  // conversation happened to be open when it landed** — appending A's turn to
+  // thread B, or, if the user had pressed "+ New", creating a fresh
+  // conversation out of it. Nothing errored, and the turn really did appear
+  // "later, after switching away and back", because by then it had been saved
+  // somewhere.
+  //
+  // Pinning the object reference fixes both: `convRef` keeps pointing at the
+  // conversation that asked the question no matter what the pane switches to,
+  // and `viewing()` is then the honest test for "is this turn's own
+  // conversation still the one on screen?" — the only condition under which
+  // this turn may touch the header, the usage meter, the composer, or the
+  // transcript.
+  const convRef = chatConv;
+  const viewing = () => chatConv === convRef;
 
   // --- checkpointing a long turn --------------------------------------------
   // A row for this turn already exists, so the save at the end has to update
@@ -8439,23 +8474,23 @@ async function sendChatMessage(preset, opts = {}) {
         // numbers reported as final would be wrong rather than incomplete.
         image_media_ids: sentImages.length ? sentImages : null,
       };
-      if (chatConv.id === null) {
+      if (convRef.id === null) {
         const created = await apiJson("/conversations", {
           method: "POST",
           body: JSON.stringify(partial),
           silent: true,
         });
-        chatConv.id = created.id;
-        $("chat-title").textContent = created.title;
+        convRef.id = created.id;
+        if (viewing()) $("chat-title").textContent = created.title;
         loadConversationList();
       } else if (checkpointed || opts.replaceLast) {
-        await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+        await apiJson(`/conversations/${convRef.id}/turns/last`, {
           method: "PUT",
           body: JSON.stringify(partial),
           silent: true,
         });
       } else {
-        await apiJson(`/conversations/${chatConv.id}/turns`, {
+        await apiJson(`/conversations/${convRef.id}/turns`, {
           method: "POST",
           body: JSON.stringify(partial),
           silent: true,
@@ -8497,7 +8532,7 @@ async function sendChatMessage(preset, opts = {}) {
       plan: opts.plan,
       attachedNotesOnly: opts.attachedNotesOnly,
       answeringAgent,
-      signal: chatController.signal,
+      signal: controller.signal,
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
@@ -8648,23 +8683,36 @@ async function sendChatMessage(preset, opts = {}) {
         if (event.usage_source === "estimated") stats.usage_source = "estimated";
       },
     });
-    status.textContent = "";
+    if (viewing()) status.textContent = "";
   } catch (error) {
     if (error.name === "AbortError") {
       stopped = true;
-      status.textContent = "Stopped.";
+      if (viewing()) status.textContent = "Stopped.";
     } else {
-      status.textContent = error.message;
-      status.classList.add("error");
+      // The timeline is this turn's own, detached or not, so it is always
+      // marked failed; only the shared status line is conditional.
       timeline.failRunningStep("Failed due to error");
+      if (viewing()) {
+        status.textContent = error.message;
+        status.classList.add("error");
+      }
     }
   } finally {
     clearTimeout(slowLoadTimeout);
-    chatController = null;
-    input.disabled = false;
-    show("chat-send");
-    hide("chat-stop");
-    input.focus();
+    // Only if it is still ours. Switching away and sending a second message
+    // installs a new controller, and this line firing late would null it —
+    // leaving Stop wired to nothing while a stream was genuinely running.
+    if (chatController === controller) chatController = null;
+    // The composer belongs to whatever conversation is on screen. A turn that
+    // finishes after the reader has moved on must not re-enable, refocus or
+    // re-label the box they are now typing into — releaseChatComposer already
+    // put it back when they switched.
+    if (viewing()) {
+      input.disabled = false;
+      show("chat-send");
+      hide("chat-stop");
+      input.focus();
+    }
   }
 
   clearPending();
@@ -8815,10 +8863,10 @@ async function sendChatMessage(preset, opts = {}) {
   );
 
   // Regenerate replaces the last turn; a normal send appends a new one.
-  if (opts.replaceLast && chatConv.turns.length) {
-    chatConv.turns[chatConv.turns.length - 1] = { question, answer: answerRaw };
+  if (opts.replaceLast && convRef.turns.length) {
+    convRef.turns[convRef.turns.length - 1] = { question, answer: answerRaw };
   } else {
-    chatConv.turns.push({ question, answer: answerRaw });
+    convRef.turns.push({ question, answer: answerRaw });
   }
   // Persist the finished turn so the chat survives restarts.
   try {
@@ -8866,14 +8914,16 @@ async function sendChatMessage(preset, opts = {}) {
       // recognise them as still in use.
       image_media_ids: sentImages.length ? sentImages : null,
     };
-    if (chatConv.id === null) {
+    if (convRef.id === null) {
       const created = await apiJson("/conversations", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      chatConv.id = created.id;
-      $("chat-title").textContent = created.title;
-      renderChatUsage(created.tokens);
+      convRef.id = created.id;
+      if (viewing()) {
+        $("chat-title").textContent = created.title;
+        renderChatUsage(created.tokens);
+      }
       // Let the AI name the thread once there's something to name. Silent
       // best-effort: the question-derived title stays if the model can't.
       apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
@@ -8887,17 +8937,17 @@ async function sendChatMessage(preset, opts = {}) {
       // turn has already written a row for this exchange (see checkpointTurn),
       // so appending would leave the conversation holding the same question
       // twice — once half-finished and once complete.
-      const saved = await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+      const saved = await apiJson(`/conversations/${convRef.id}/turns/last`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
-      renderChatUsage(saved.tokens);
+      if (viewing()) renderChatUsage(saved.tokens);
     } else {
-      const saved = await apiJson(`/conversations/${chatConv.id}/turns`, {
+      const saved = await apiJson(`/conversations/${convRef.id}/turns`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      renderChatUsage(saved.tokens);
+      if (viewing()) renderChatUsage(saved.tokens);
     }
     loadConversationList();
   } catch {
@@ -8996,7 +9046,52 @@ async function deleteChatTurn(assistantBubble) {
   loadConversationList();
 }
 
+// --- leaving a conversation while it is still answering ------------------------
+//
+// The stream is pinned to the conversation that started it (see `convRef` in
+// sendChatMessage), so switching away no longer misfiles the answer. What is
+// left is the composer, which is shared: it was disabled with Stop showing for
+// a turn that is no longer on screen, and the conversation being switched *to*
+// inherited that state — the reported *"it still said the model is writing, but
+// nothing showed"*.
+//
+// So the composer is handed back to whatever is on screen now, while the stream
+// keeps running underneath. Deliberately NOT an abort: the reader asked a
+// question and is owed the answer, and it will be saved to the thread that
+// asked it and appear there. Saying so once is the difference between a
+// background job and a lost message.
+//
+// `chatStreamingConv` is what the returning reader is told about — the pane can
+// be switched back long before the turn finishes, and a conversation that is
+// mid-answer with an empty transcript needs to say why rather than look empty.
+let chatStreamingConv = null;
+
+function releaseChatComposer({ announce = true } = {}) {
+  if (!chatController) return;
+  const title = $("chat-title").textContent || "that chat";
+  chatStreamingConv = chatConv;
+  const input = $("chat-input");
+  input.disabled = false;
+  show("chat-send");
+  hide("chat-stop");
+  const status = $("chat-status");
+  status.textContent = "";
+  status.classList.remove("error");
+  if (announce) {
+    toast(`Still answering in “${title}” — the reply will be saved there.`);
+  }
+}
+
+//: True when the conversation being opened is the one still being written to.
+//: Its turn has not been saved yet (that happens when the stream ends), so a
+//: plain reload of it shows an empty thread; this is what lets the pane say
+//: "still writing" instead of looking like the message was lost.
+function isStreamingConversation(id) {
+  return Boolean(chatController && chatStreamingConv && chatStreamingConv.id === id);
+}
+
 function newChatConversation() {
+  releaseChatComposer();
   recordTabVisit("chat", "new");
   chatConv = { id: null, turns: [] };
   // A summary belongs to the conversation it summarised (§35I).
@@ -9651,6 +9746,9 @@ function editChatAnswer(handles, turnIndex, current) {
 async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
+  // Before the pane is rebuilt, not after: this reads the composer state that
+  // belongs to the conversation being left.
+  releaseChatComposer();
   // ROADMAP.md item 13: switching between saved chats was invisible to
   // back/forward. Recorded here rather than at each of this function's
   // call sites (the sidebar, the Library) so neither has to remember to.
@@ -9757,7 +9855,23 @@ async function openConversation(id) {
       }
     }
   }
-  if (!full.messages.length) renderChatEmptyState();
+  // A conversation that is still being answered has not saved that turn yet —
+  // the save happens when the stream ends — so what came back from the server
+  // above is the thread *without* the message in flight. Left alone, coming
+  // back to it shows either an empty pane or a thread missing its newest
+  // question: exactly the "my message disappeared" this whole change is about.
+  // Saying so is the honest render, and the note is replaced by the real turn
+  // the moment the stream finishes and the list refreshes.
+  if (isStreamingConversation(full.id)) {
+    const pending = document.createElement("p");
+    pending.className = "muted chat-pending-note";
+    pending.textContent =
+      "Still writing an answer here. It'll appear in this thread when it's done — " +
+      "you can keep working elsewhere.";
+    $("chat-messages").appendChild(pending);
+  } else if (!full.messages.length) {
+    renderChatEmptyState();
+  }
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
   chatScrollToEnd();

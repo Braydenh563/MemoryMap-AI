@@ -8433,6 +8433,7 @@ async function sendChatMessage(preset, opts = {}) {
         steps: timeline.serialise(),
         // No stats or elapsed yet — the turn is not over, and a half-turn's
         // numbers reported as final would be wrong rather than incomplete.
+        image_media_ids: sentImages.length ? sentImages : null,
       };
       if (chatConv.id === null) {
         const created = await apiJson("/conversations", {
@@ -8852,6 +8853,14 @@ async function sendChatMessage(preset, opts = {}) {
       // just above. Only meaningful alongside raw_results (renderAnswerGrounding
       // looks note content up in it), so there's nothing to persist without it.
       sentence_grounding: groundingSentences?.length ? groundingSentences : null,
+      // Which uploads this turn actually used — asked for directly: without
+      // this, a sent chat image had no record anywhere that anything still
+      // used it, so the Library's "Clean orphaned media" tool (which can
+      // only check notes, documents and whiteboard content for `/media/…`
+      // references) would delete a real, sent attachment's file the moment
+      // someone ran it. Persisting the ids here is what lets media_gc.py
+      // recognise them as still in use.
+      image_media_ids: sentImages.length ? sentImages : null,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -17409,6 +17418,21 @@ function renderInstalledModels(status) {
   }
 }
 
+//: Human-readable section headings for SUGGESTED_MODELS' own dict keys
+//: (model_manager.py) — asked for directly: the list read as one long,
+//: undifferentiated column with the type buried inside each row's own
+//: "kind · size · purpose" text, so nothing set "the small, fast ones"
+//: apart from "the one that reads images" at a glance. Order matches the
+//: backend dict's own insertion order (Object.entries preserves it),
+//: which is already curated small-to-large within each group — grouping
+//: here doesn't re-sort that, only labels the breaks between groups.
+const SUGGESTED_KIND_LABELS = {
+  text: "Text",
+  moe: "Mixture-of-experts (MoE) — big download, small working set",
+  embedding: "Embeddings — for semantic search",
+  vision: "Vision — can see images",
+};
+
 function renderSuggested(status) {
   const list = $("suggested-list");
   if (!suggestedCatalog) return;
@@ -17418,6 +17442,11 @@ function renderSuggested(status) {
   );
 
   for (const [kind, models] of Object.entries(suggestedCatalog)) {
+    if (!models.length) continue;
+    const heading = document.createElement("li");
+    heading.className = "suggested-group-label";
+    heading.textContent = SUGGESTED_KIND_LABELS[kind] || kind;
+    list.appendChild(heading);
     for (const model of models) {
       const li = document.createElement("li");
       const name = document.createElement("span");
@@ -17432,7 +17461,9 @@ function renderSuggested(status) {
       // guess as fact is the part that was wrong, not the guess itself.
       const approximate = model.size_source !== "measured";
       const size = approximate ? `~${String(model.size).replace(/^~/, "")}` : model.size;
-      info.textContent = `${kind} · ${size} · ${model.purpose}`;
+      // No longer repeats `kind` here — the group heading above says it once
+      // for the whole section instead of on every single row under it.
+      info.textContent = `${size} · ${model.purpose}`;
       info.title = approximate
         ? "Approximate download size — the exact figure shows once it's installed."
         : "Measured on your machine.";

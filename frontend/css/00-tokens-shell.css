@@ -1143,7 +1143,15 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-search {
   flex: 1 1 16rem;
-  min-width: 0;
+  /* `min-width: 0` let this shrink to a sliver with no visible placeholder
+     text — a bare, unreadable outline — at exactly the width where the row
+     is too tight for its 16rem basis but not yet tight enough to wrap the
+     controls after it to a second line (reported as "a weird gap and a
+     stray cut-off element" to the left of Semantic: the collapsed search
+     box's own border, mistaken for an unrelated fragment). A real floor
+     keeps the placeholder legible; the row wraps below it the same way it
+     already does once the *other* controls run out of room. */
+  min-width: 8rem;
   /* Height declared, vertical padding given up, margin zeroed — an input's
      base rule carries a bottom margin, and on a centred flex row those become
      an offset rather than a gap. */
@@ -1681,6 +1689,7 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-tile .library-image-edit,
 .library-image-tile .library-image-delete,
 .library-image-tile .library-image-caption-btn,
+.library-image-tile .library-image-ocr-btn,
 .library-image-tile .library-image-vision-ocr-btn {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
@@ -1844,6 +1853,37 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-caption-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  resize: none;
+}
+
+/* Tesseract's own reading of text in the image (core/ocr.py) — same
+   always-visible, click-to-edit shape as .library-image-caption, asked for
+   directly ("allow the user to access, view, and edit OCR extracted
+   text"). */
+.library-image-ocr {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.library-image-ocr-empty {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.library-image-ocr-input {
   width: 100%;
   min-width: 0;
   min-height: 3rem;

@@ -1017,6 +1017,27 @@ progress {
   flex: 1;
 }
 
+/* Section headings between model kinds ("Text", "Vision", …) — asked for
+   directly, so "the small fast ones" and "the one that reads images" are
+   visible groupings rather than only named inline on every row underneath
+   them. Overrides the generic `#suggested-list li` row rule above: a
+   heading is not a model row, so it gets none of that row's flex layout,
+   border or padding. */
+#suggested-list .suggested-group-label {
+  display: block;
+  border-bottom: none;
+  padding: var(--space-4) 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#suggested-list .suggested-group-label:first-child {
+  padding-top: 0;
+}
+
 /* The models you already have. Reported as a formatting problem and it was
    simply *unstyled* — a bare <ul>, so it rendered with browser bullets, no row
    layout, and the name, the size and the Remove button stacked or ran into

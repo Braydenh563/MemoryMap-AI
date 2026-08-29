@@ -801,6 +801,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 persona_prompt=persona_prompt,
                 mode=mode,
                 images=images,
+                # The streaming path is the one people actually use, and it was
+                # the one with no cap on how much of the notebook it sent. Same
+                # budget the blocking `librarian.answer` now builds — measured
+                # against the model this turn will really stream from, which is
+                # the same `chat_model()` passed to `chat_stream` below.
+                budget=librarian.plan_budget(
+                    model_manager.chat_model(),
+                    ollama,
+                    prepared["style"],
+                    prepared["profile"],
+                    persona_prompt,
+                    mode,
+                ),
             )
         streamed_any = False
         try:

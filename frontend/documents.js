@@ -652,6 +652,58 @@ function toggleDocPreview() {
   $("doc-panes").classList.toggle("split", !showing);
   $("doc-preview-toggle").setAttribute("aria-pressed", String(!showing));
   renderDocPreview();
+  // Opening the preview on a document you have already scrolled into should
+  // show you the part you are looking at, not the top of the file.
+  if (!showing) syncDocScroll($("doc-content"));
+}
+
+// --- keeping the two panes looking at the same place --------------------------
+//
+// Side by side is only half of a split view. Without this, scrolling the
+// editor leaves the preview showing paragraph one, so the rendered half is
+// useful for the first screen of a document and decorative after that — which
+// is most of what "the panes get squished together and it feels annoying to
+// use" is about once they are actually side by side.
+//
+// Proportional rather than line-mapped, deliberately. Mapping source lines to
+// rendered blocks needs the markdown renderer to emit source positions, which
+// this one does not, and the approximations that get used instead (count the
+// headings, guess) drift worse the longer the document. Scroll fraction is
+// exact at both ends, close everywhere in between for prose, and — the part
+// that matters — never wrong in a way that looks like a bug.
+
+//: Which pane the user is actually scrolling. Without this the two feed each
+//: other: A scrolls B, B's scroll event scrolls A, and the pair juddate to a
+//: stop somewhere neither of them was asked to go.
+let docScrollDriver = null;
+
+function syncDocScroll(from) {
+  const editor = $("doc-content");
+  const preview = $("doc-preview");
+  if (!editor || !preview || preview.classList.contains("hidden")) return;
+  const to = from === editor ? preview : editor;
+  // A pane with nothing to scroll has a zero range; dividing by it gives NaN,
+  // and assigning NaN to scrollTop silently jumps the other pane to 0.
+  const fromRange = from.scrollHeight - from.clientHeight;
+  const toRange = to.scrollHeight - to.clientHeight;
+  if (fromRange <= 0 || toRange <= 0) return;
+  docScrollDriver = from;
+  to.scrollTop = (from.scrollTop / fromRange) * toRange;
+  // Cleared on a timer rather than immediately: the assignment above fires the
+  // other pane's own scroll event asynchronously, so clearing on this tick
+  // lets that event through and starts the feedback loop this exists to stop.
+  clearTimeout(syncDocScroll._release);
+  syncDocScroll._release = setTimeout(() => { docScrollDriver = null; }, 120);
+}
+
+function wireDocScrollSync() {
+  for (const el of [$("doc-content"), $("doc-preview")]) {
+    if (!el) continue;
+    el.addEventListener("scroll", () => {
+      if (docScrollDriver && docScrollDriver !== el) return;
+      syncDocScroll(el);
+    });
+  }
 }
 
 // Markdown formatting from a toolbar, so you don't have to remember the
@@ -1255,6 +1307,7 @@ $("doc-word-goal-submit").addEventListener("click", () => {
   $("doc-word-goal-dialog").close();
 });
 $("doc-preview-toggle").addEventListener("click", toggleDocPreview);
+wireDocScrollSync();
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);

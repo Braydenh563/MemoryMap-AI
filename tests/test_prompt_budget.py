@@ -384,3 +384,111 @@ def test_a_small_model_can_still_ask_the_user_a_question():
     kept, dropped = tools.within_budget(offered, tools.SMALL_WINDOW_CHARS - 1)
     assert "ask_user" in [t["function"]["name"] for t in kept]
     assert "make_plan" in dropped
+
+
+# --- the untooled path's own budget -------------------------------------------
+#
+# `ai/context.py` was written to keep one turn inside one model's window, and
+# for a long time it was wired into `agent.build_agent_messages` and nowhere
+# else. `librarian.build_messages` — what "Ask the Librarian" and the Notes Ask
+# box use — had no total cap at all: `UNTOOLED_NOTE_CHARS` bounds ONE note at
+# 2,400 characters and `history_messages` bounds ONE past answer, and nothing
+# bounded their sum.
+#
+# These are the tests that stop it drifting back. They assert the property that
+# matters (the assembled prompt fits) rather than any particular number, so
+# retuning the shares in context.py does not break them.
+
+
+def _fat_notes(count: int) -> list[dict]:
+    """Notes long enough that every one of them is clipped individually — so
+    what is being measured is the total, not the per-note clip."""
+    return [
+        {
+            "id": i,
+            "category": "Ideas",
+            "content": f"Note {i}. " + ("padding words here " * 400),
+        }
+        for i in range(1, count + 1)
+    ]
+
+
+class _SmallWindow:
+    """Just enough of the provider interface for `plan_budget`."""
+
+    DEFAULT_CONTEXT_TOKENS = 4096
+
+    def __init__(self, tokens: int) -> None:
+        self.tokens = tokens
+
+    def usable_context(self, model: str) -> int:
+        return self.tokens
+
+
+def test_the_untooled_prompt_fits_a_small_models_window():
+    """Ten long notes at UNTOOLED_NOTE_CHARS is ~24,000 characters of notes
+    alone — about 6,000 tokens, past a 4,096-token window in its entirety
+    before the persona, the history or the question are counted. What a model
+    does with an overrun is drop from the front, which is the system prompt.
+    """
+    budget = librarian.plan_budget("small:3b", _SmallWindow(4096))
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), budget=budget
+    )
+    total = sum(len(m.get("content", "")) for m in messages)
+    assert total <= 4096 * CHARS_PER_TOKEN
+
+
+def test_without_a_budget_the_same_prompt_overruns():
+    """The other half of the pair: this is what the path did before, and it is
+    why the parameter exists. A test that only asserted the fixed version
+    would pass just as happily if `fit_notes` were quietly removed again."""
+    messages = librarian.build_messages("What did I save?", _fat_notes(10))
+    total = sum(len(m.get("content", "")) for m in messages)
+    assert total > 4096 * CHARS_PER_TOKEN
+
+
+def test_dropped_notes_are_declared_not_silently_cut():
+    """A model that knows its notes were cut will hedge; one that does not
+    will answer as though it saw the whole notebook, which is the
+    confident-and-wrong failure this app exists to avoid."""
+    budget = librarian.plan_budget("small:3b", _SmallWindow(4096))
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), budget=budget
+    )
+    assert "did not fit" in messages[-1]["content"]
+
+
+def test_a_big_window_keeps_every_note():
+    """The budget must not cost anything to someone running a large model —
+    it is a ceiling, not a target."""
+    budget = librarian.plan_budget("big:70b", _SmallWindow(128_000))
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), budget=budget
+    )
+    assert "did not fit" not in messages[-1]["content"]
+    assert "10. [Ideas]" in messages[-1]["content"]
+
+
+def test_a_long_custom_persona_leaves_less_room_not_an_overrun():
+    """The persona is user-editable, which is why `context.plan` measures it
+    rather than assuming a length. A 3,000-character persona has to come out
+    of the notes' share, not out of the window."""
+    persona = "You are a librarian. " * 150
+    budget = librarian.plan_budget("small:3b", _SmallWindow(4096), persona_prompt=persona)
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), persona_prompt=persona, budget=budget
+    )
+    total = sum(len(m.get("content", "")) for m in messages)
+    assert total <= 4096 * CHARS_PER_TOKEN
+
+
+def test_plan_budget_survives_a_provider_with_no_usable_context():
+    """`usable_context` is part of the provider interface, but a fake or a
+    future backend may not carry it — and a working turn beats a 500."""
+
+    class Bare:
+        DEFAULT_CONTEXT_TOKENS = 4096
+
+    budget = librarian.plan_budget("mystery", Bare())
+    assert budget.notes_chars > 0

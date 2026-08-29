@@ -69,6 +69,11 @@ class TurnBody(BaseModel):
     search_mode: str | None = None
     match_info: dict | None = None
     connected_ids: list[int] | None = None
+    # The "Grounded in" chips' own data (ai/grounding.py's per-sentence
+    # note_id/sentence pairs). Same unfixed-until-now gap as raw_results
+    # above, reported separately: reopening a chat, or just leaving the
+    # tab, dropped the sources line because nothing here ever stored it.
+    sentence_grounding: list[dict] | None = None
 
 
 class RenameBody(BaseModel):
@@ -96,6 +101,8 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["search_mode"] = turn.search_mode
         assistant["match_info"] = turn.match_info or {}
         assistant["connected_ids"] = turn.connected_ids or []
+    if turn.sentence_grounding:
+        assistant["sentence_grounding"] = turn.sentence_grounding
     return [
         {"role": "user", "content": turn.question},
         assistant,

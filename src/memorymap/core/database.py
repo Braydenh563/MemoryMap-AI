@@ -645,6 +645,19 @@ class MediaUpload(Base):
     #: trusted must not silently change under them) unless the user presses
     #: Regenerate — see `routes_files.caption_media`.
     caption: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Which model wrote the caption currently stored, or NULL when there is
+    #: no caption or it was only ever typed by hand. Asked for directly: a
+    #: caption with no visible author reads as this app's own opinion rather
+    #: than one specific (possibly wrong) model's guess. Reset to NULL when
+    #: the caption is cleared back to empty, same as `caption` itself.
+    caption_model: Mapped[str | None] = mapped_column(String(200), default=None)
+    #: True once a person has typed over an AI caption (or typed one from
+    #: scratch) — `caption_media`'s `text` path is the only way this is set.
+    #: `caption_model` is left as whichever model wrote the caption *before*
+    #: the edit (or NULL if there never was one) rather than cleared, so the
+    #: badge can still say "started as granite3-vision, edited by you"
+    #: instead of losing that history the moment someone fixes a typo.
+    caption_edited: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class UserPreference(Base):

@@ -1577,6 +1577,20 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: 0;
 }
 
+/* An audit-log entry's own preview can run to the full 400-char budget
+   (routes_library.py's ACTIVITY_DETAIL_CHARS) and, unlike every other kind
+   here, has nowhere else to read the rest — the grid view already shows it
+   in full (.library-activity .library-card-preview above); list view's
+   generic one-line clamp just above was clipping every activity row down
+   to a fragment with no way to see more, reported directly. A few lines,
+   not unclamped: list view's row-alignment is still worth keeping for
+   every *other* kind sharing this list, so this stays a real (generous)
+   cap rather than "as tall as the text wants to be". */
+.library-list .library-activity .library-card-preview {
+  line-clamp: 4;
+  -webkit-line-clamp: 4;
+}
+
 .library-list .library-card-meta {
   flex: 0 0 auto;
   margin-top: 0;
@@ -1790,6 +1804,19 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-caption-empty {
   font-style: italic;
   opacity: 0.7;
+}
+
+/* Which model wrote the caption, and whether it's since been edited — a
+   quiet byline under the caption text, not a chip competing with it. */
+.library-image-caption-badge {
+  display: block;
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.library-image-caption-badge.hidden {
+  display: none;
 }
 
 /* `.entry-more`'s own negative margin-top assumes it directly follows

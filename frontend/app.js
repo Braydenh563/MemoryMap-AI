@@ -6071,9 +6071,13 @@ function copyViaTextarea(text) {
 
 function flashCopied(button) {
   if (!button) return;
-  const original = button.textContent;
+  // innerHTML, not textContent: an icon-only button (setLabel(el, "ph:...")
+  // with no trailing text) renders as a bare <i> with empty textContent, so
+  // saving/restoring textContent silently wiped the icon back to blank once
+  // the checkmark's timeout fired instead of putting it back.
+  const original = button.innerHTML;
   button.textContent = "✓";
-  setTimeout(() => (button.textContent = original), 1200);
+  setTimeout(() => (button.innerHTML = original), 1200);
 }
 
 async function copyToClipboard(text, button) {
@@ -8117,10 +8121,22 @@ function renderImageAttachments() {
     remove.textContent = "✕";
     remove.title = "Remove this image";
     remove.setAttribute("aria-label", remove.title);
-    remove.addEventListener("click", () => {
+    remove.addEventListener("click", async () => {
       attachedImages = attachedImages.filter((img) => img.id !== image.id);
       renderImageAttachments();
       announce(`Removed image. ${attachedImages.length} image(s) attached.`);
+      // Reported directly: an image attached then removed before the message
+      // was ever sent stayed uploaded and showed up in the Library gallery —
+      // this only detached it from the composer, same as it did before, and
+      // never told the server the upload was abandoned. Same delete-on-remove
+      // fix already applied to the note composer's own image chips
+      // (renderEntryAttachmentChips): nothing else could reference this
+      // upload yet, since the message carrying it was never sent.
+      try {
+        await apiJson(`/media/${image.id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Couldn't delete the abandoned upload", err);
+      }
     });
     chipEl.append(thumb, remove);
     box.appendChild(chipEl);
@@ -8355,6 +8371,13 @@ async function sendChatMessage(preset, opts = {}) {
   let meta = null;
   let toolsActed = false;
   let stats = null;
+  // Captured so the final save below can persist it. Reported directly: the
+  // "Grounded in" chips under a direct Q&A answer only ever existed for the
+  // live stream — reopening the chat, or leaving the tab and coming back,
+  // showed an answer with no sources at all. Same unfixed-until-now shape as
+  // raw_results/search_mode/match_info a few lines below, which got exactly
+  // this treatment already for the same reported-missing-on-reload reason.
+  let groundingSentences = null;
   // Whether the user pressed Stop. An empty answer they asked for needs no
   // explanation; one they didn't ask for does.
   let stopped = false;
@@ -8462,6 +8485,7 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "The model is writing…";
       },
       onGrounding: (event) => {
+        groundingSentences = event.sentences;
         renderAnswerGrounding(groundingHolder, event.sentences, meta?.raw_results || []);
       },
       onPlan: (event) => {
@@ -8811,6 +8835,10 @@ async function sendChatMessage(preset, opts = {}) {
       search_mode: meta?.search_mode || null,
       match_info: meta?.match_info && Object.keys(meta.match_info).length ? meta.match_info : null,
       connected_ids: meta?.connected_ids?.length ? meta.connected_ids : null,
+      // The "Grounded in" chips' own data — same reasoning as raw_results
+      // just above. Only meaningful alongside raw_results (renderAnswerGrounding
+      // looks note content up in it), so there's nothing to persist without it.
+      sentence_grounding: groundingSentences?.length ? groundingSentences : null,
     };
     if (chatConv.id === null) {
       const created = await apiJson("/conversations", {
@@ -9609,6 +9637,13 @@ async function openConversation(id) {
           match_info: message.match_info || {},
           connected_ids: message.connected_ids || [],
         });
+      }
+      // Same reload-reconstruction fix as raw_results just above, for the
+      // "Grounded in" chips: reported directly as disappearing once the chat
+      // tab was left or the session ended, since nothing rebuilt this on
+      // reopen either.
+      if (message.sentence_grounding) {
+        renderAnswerGrounding(handles.groundingHolder, message.sentence_grounding, message.raw_results || []);
       }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());

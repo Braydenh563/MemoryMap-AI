@@ -233,6 +233,7 @@ def test_a_caption_can_be_typed_by_hand(ai_client, fake_ollama):
     response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "A hand-typed caption"})
     assert response.status_code == 200
     assert response.json()["caption"] == "A hand-typed caption"
+    assert response.json()["caption_edited"] is True
     assert len(fake_ollama.chat_calls) == 0  # never asked the model
 
 
@@ -247,6 +248,11 @@ def test_a_hand_typed_caption_overwrites_an_existing_one_without_force(ai_client
     ai_client.post(f"/media/{upload_id}/caption")  # AI-generated first
     response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "corrected by hand"})
     assert response.json()["caption"] == "corrected by hand"
+    assert response.json()["caption_edited"] is True
+    # Which model wrote the pre-edit caption is kept, not cleared — the
+    # badge can still credit it alongside "edited" (see
+    # MediaUpload.caption_edited's docstring for why).
+    assert response.json()["caption_model"]
 
 
 def test_an_empty_typed_caption_clears_it(ai_client, fake_ollama):
@@ -257,6 +263,9 @@ def test_an_empty_typed_caption_clears_it(ai_client, fake_ollama):
     ai_client.post(f"/media/{upload_id}/caption")
     response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "   "})
     assert response.json()["caption"] == ""
+    # A full reset, not a caption with nothing to show for who last wrote one.
+    assert response.json()["caption_edited"] is False
+    assert response.json()["caption_model"] == ""
 
 
 def test_a_hand_typed_caption_works_on_a_pdf_upload_target_refused(ai_client, fake_ollama):

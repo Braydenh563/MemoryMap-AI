@@ -413,6 +413,13 @@ class MediaUploadOut(BaseModel):
     #: "" until captioning finishes (or never, no vision model available, or
     #: a PDF) — same never-null convention as ocr_text, same reason.
     caption: str = ""
+    #: Which model wrote `caption`, or "" when there is none or it was only
+    #: ever typed by hand. Surfaced so a caption reads as one model's guess,
+    #: not the app's own opinion (asked for directly).
+    caption_model: str = ""
+    #: True once a person has typed over an AI caption, or typed one from
+    #: scratch — see `MediaUpload.caption_edited`'s docstring.
+    caption_edited: bool = False
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -429,6 +436,8 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             original_name=u.original_name,
             ocr_text=u.ocr_text or "",
             caption=u.caption or "",
+            caption_model=u.caption_model or "",
+            caption_edited=u.caption_edited,
         )
         for u in uploads
     ]
@@ -569,7 +578,19 @@ def caption_media(
     if body.text is not None:
         # A hand-typed caption needs no model at all — set it and return,
         # skipping every Ollama/vision-model check below.
-        upload.caption = body.text.strip() or None
+        stripped = body.text.strip() or None
+        upload.caption = stripped
+        if stripped:
+            # `caption_model` is left as-is: if this text started as one
+            # model's caption, the badge can still credit it alongside
+            # "edited" instead of losing that history the moment someone
+            # fixes a typo (see MediaUpload.caption_edited's docstring).
+            upload.caption_edited = True
+        else:
+            # Cleared back to "no caption" — a full reset, not a caption
+            # with nothing to show for whichever model or person last wrote one.
+            upload.caption_model = None
+            upload.caption_edited = False
         session.commit()
     else:
         if not deps.get_ollama().is_running():
@@ -590,6 +611,8 @@ def caption_media(
         original_name=upload.original_name,
         ocr_text=upload.ocr_text or "",
         caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
     )
 
 

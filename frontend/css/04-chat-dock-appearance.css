@@ -1943,8 +1943,19 @@ button {
   cursor: zoom-in;
 }
 
+/* The generic `.attachment-chip > span:first-child` ellipsis rule below
+   never matches here: this chip's actual first child is the <img>, not a
+   span, so the filename span (`:first-child` requires it be both) fell
+   through with no width limit and ran past the 8rem card — reported
+   directly, with a screenshot, as a staged image's filename overflowing
+   its card. Flex's own blockify+stretch (the column layout above) gives
+   this span a definite width already; it only needed the same three
+   overflow properties the sibling rule uses. */
 .attachment-chip-image>span:first-of-type {
   font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .entry-attachment-chip-actions {

@@ -50,6 +50,22 @@ class ToolsUnsupportedError(ProviderError):
     back to plain Q&A, never fail the whole chat."""
 
 
+def is_transient_server_error(exc: Exception) -> bool:
+    """A 5xx from the backend itself, not a 4xx: the request was well-formed
+    but the server briefly couldn't handle it (a model still swapping in,
+    momentary memory pressure) — reported live, a chat call failing with a
+    plain 500 and then succeeding on the exact same resend. Worth one silent
+    retry, unlike a 4xx (bad request, model not found) where trying again
+    changes nothing.
+
+    Duck-typed against `.response.status_code` rather than importing
+    `requests` here, so both HTTP-backed providers (ollama_client.py,
+    openai_client.py) can share this without this module taking on a
+    transport dependency it otherwise doesn't have."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return isinstance(status, int) and status >= 500
+
+
 # --- what the app knows about models, not about backends --------------------
 
 # Ollama's default when a model declares nothing. Everything that budgets

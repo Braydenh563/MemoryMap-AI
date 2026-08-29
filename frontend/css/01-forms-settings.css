@@ -1768,7 +1768,12 @@ html.modal-open body {
 .log-list li {
   display: flex;
   gap: 0.5rem;
-  padding: 0.15rem 0;
+  /* Left padding, not just top/bottom: log-error/log-warn's 3px border-left
+     (06-timeline-dialogs.css) sat flush against the row with nothing between
+     it and a traceback <summary>'s disclosure arrow, reading as the two
+     visually colliding. The gap is kept for every row, not only bordered
+     ones, so a row doesn't jump sideways the moment it turns into a warning. */
+  padding: 0.15rem 0 0.15rem 0.5rem;
   border-bottom: 1px dotted var(--border);
 }
 

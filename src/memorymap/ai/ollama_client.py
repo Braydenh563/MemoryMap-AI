@@ -27,6 +27,7 @@ from memorymap.ai.provider import (
     _ToolTextGate,
     _ns_to_ms,
     extract_text_tool_calls,
+    is_transient_server_error,
     known_context,
     normalise_tool_calls,
     offered_tool_names,
@@ -334,29 +335,38 @@ class OllamaClient(Provider):
 
         Returns {"content": str, "thinking": str | None} — thinking is
         filled from Ollama's native field (newer thinking models) or by
-        splitting inline <think> tags out of the content."""
-        try:
-            response = requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": self._to_ollama_messages(messages),
-                    "stream": False,
-                    "keep_alive": self.keep_alive,
-                    "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode, model),
-                },
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            message = response.json()["message"]
-            content, inline_thinking = split_thinking(message["content"])
-            return {
-                "content": content,
-                "thinking": message.get("thinking") or inline_thinking,
-            }
-        except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
-            raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+        splitting inline <think> tags out of the content.
+
+        Retries once on a transient 5xx (reported live: a chat call and a
+        captioning call both failing on a plain 500 and succeeding on the
+        exact same resend) — see `is_transient_server_error`'s docstring."""
+        for attempt in range(2):
+            try:
+                response = requests.post(
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "model": model,
+                        "messages": self._to_ollama_messages(messages),
+                        "stream": False,
+                        "keep_alive": self.keep_alive,
+                        "options": self.runtime_options(model, mode=mode),
+                        **self.request_extras(mode, model),
+                    },
+                    timeout=self.timeout,
+                )
+                response.raise_for_status()
+                message = response.json()["message"]
+                content, inline_thinking = split_thinking(message["content"])
+                return {
+                    "content": content,
+                    "thinking": message.get("thinking") or inline_thinking,
+                }
+            except requests.HTTPError as exc:
+                if attempt == 0 and is_transient_server_error(exc):
+                    continue
+                raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+            except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+                raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 
     def chat_stream(
         self, model: str, messages: list[dict], mode: str | None = None
@@ -364,40 +374,52 @@ class OllamaClient(Provider):
         """Streamed chat turn: yields {"thinking_delta": str} and
         {"content_delta": str} pieces as the model produces them.
         Inline <think> tags are routed to thinking_delta too, even when
-        a tag is split across two chunks."""
+        a tag is split across two chunks.
+
+        Retries once on a transient 5xx, same as `chat` above — safe here
+        specifically because `raise_for_status()` is the only line in this
+        attempt able to raise `HTTPError`, and it always runs before this
+        attempt's first `yield`, so a retry can never duplicate output
+        already handed to the caller."""
         splitter = _ThinkTagSplitter()
-        try:
-            with requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": self._to_ollama_messages(messages),
-                    "stream": True,
-                    "keep_alive": self.keep_alive,
-                    "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode, model),
-                },
-                stream=True,
-                timeout=self.timeout,
-            ) as response:
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    if not line:
-                        continue
-                    data = json.loads(line)
-                    message = data.get("message", {})
-                    if message.get("thinking"):  # native thinking models
-                        yield {"thinking_delta": message["thinking"]}
-                    if message.get("content"):
-                        yield from splitter.feed(message["content"])
-                    if data.get("done"):
-                        yield from splitter.flush()
-                        # Ollama's final chunk carries token counts and
-                        # timings — worth surfacing, so the UI can show
-                        # what the answer actually cost.
-                        yield {"stats": self._stats_from(data, model)}
-        except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
-            raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+        for attempt in range(2):
+            try:
+                with requests.post(
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "model": model,
+                        "messages": self._to_ollama_messages(messages),
+                        "stream": True,
+                        "keep_alive": self.keep_alive,
+                        "options": self.runtime_options(model, mode=mode),
+                        **self.request_extras(mode, model),
+                    },
+                    stream=True,
+                    timeout=self.timeout,
+                ) as response:
+                    response.raise_for_status()
+                    for line in response.iter_lines():
+                        if not line:
+                            continue
+                        data = json.loads(line)
+                        message = data.get("message", {})
+                        if message.get("thinking"):  # native thinking models
+                            yield {"thinking_delta": message["thinking"]}
+                        if message.get("content"):
+                            yield from splitter.feed(message["content"])
+                        if data.get("done"):
+                            yield from splitter.flush()
+                            # Ollama's final chunk carries token counts and
+                            # timings — worth surfacing, so the UI can show
+                            # what the answer actually cost.
+                            yield {"stats": self._stats_from(data, model)}
+                return
+            except requests.HTTPError as exc:
+                if attempt == 0 and is_transient_server_error(exc):
+                    continue
+                raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+            except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+                raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
 
     # Both dialects normalise the same way — see `provider.normalise_tool_calls`.
     _normalise_tool_calls = staticmethod(normalise_tool_calls)

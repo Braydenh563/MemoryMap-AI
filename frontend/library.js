@@ -1520,6 +1520,29 @@ $("library-docs-bulk-delete")?.addEventListener("click", async () => {
 //: the main Library search already uses against `libraryItems`.
 let libraryImagesCache = [];
 
+// Captioning runs on a background thread after upload (routes_files.py) —
+// the gallery only ever showed the caption once something re-fetched
+// `/media`, and nothing did that on its own. Reported directly: a caption
+// "doesn't work" at the time, then is there after reopening the app later —
+// it worked all along, the UI just never looked again. Runs only while the
+// Image Gallery is the visible sub-tab (started/stopped by the sub-tab
+// click handler below); skips a poll while a caption or rename field is
+// mid-edit so a silent re-render can't wipe out unsaved typing.
+let libraryImagesPollTimer = null;
+function startLibraryImagesPoll() {
+  stopLibraryImagesPoll();
+  libraryImagesPollTimer = setInterval(() => {
+    if (document.querySelector(".library-image-caption-input, .library-image-rename-input")) {
+      return;
+    }
+    renderLibraryImagesGallery();
+  }, 6000);
+}
+function stopLibraryImagesPoll() {
+  if (libraryImagesPollTimer) clearInterval(libraryImagesPollTimer);
+  libraryImagesPollTimer = null;
+}
+
 async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
@@ -1717,8 +1740,24 @@ function filterLibraryImagesGallery() {
       else libraryExpandedCaptions.add(image.id);
       syncCaptionClamp();
     });
-    const setCaptionState = (text) => {
+    // Which model wrote the caption, and whether a person has since edited
+    // it — asked for directly ("AI generated image captions should be
+    // tagged on the ui and list what model generated it and if it has been
+    // manually modified"). Quiet by design: a byline under a sentence of
+    // metadata, not another chip competing with the caption for attention.
+    const captionBadge = document.createElement("span");
+    captionBadge.className = "library-image-caption-badge muted text-sm hidden";
+    const syncCaptionBadge = () => {
+      const parts = [];
+      if (image.caption_model) parts.push(image.caption_model);
+      if (image.caption_edited) parts.push(image.caption_model ? "edited" : "typed by hand");
+      captionBadge.textContent = parts.join(" · ");
+      captionBadge.classList.toggle("hidden", !image.caption || parts.length === 0);
+    };
+    const setCaptionState = (text, meta = {}) => {
       image.caption = text || "";
+      if ("caption_model" in meta) image.caption_model = meta.caption_model || "";
+      if ("caption_edited" in meta) image.caption_edited = Boolean(meta.caption_edited);
       captionText.textContent = text || "Add a caption…";
       captionText.classList.toggle("library-image-caption-empty", !text);
       captionText.title = text
@@ -1729,6 +1768,7 @@ function filterLibraryImagesGallery() {
         : `Generate an AI caption for “${image.original_name}”`;
       captionBtn.setAttribute("aria-label", captionBtn.title);
       syncCaptionClamp();
+      syncCaptionBadge();
     };
     setCaptionState(image.caption);
     const startEditingCaption = () => {
@@ -1772,7 +1812,10 @@ function filterLibraryImagesGallery() {
             method: "POST",
             body: JSON.stringify({ text: next }),
           });
-          setCaptionState(updated.caption);
+          setCaptionState(updated.caption, {
+            caption_model: updated.caption_model,
+            caption_edited: updated.caption_edited,
+          });
         } catch (error) {
           setCaptionState(image.caption);
           toast(error.message || "Couldn't save that caption.", true);
@@ -1800,6 +1843,13 @@ function filterLibraryImagesGallery() {
     captionBtn.addEventListener("click", async (event) => {
       event.stopPropagation();
       captionBtn.disabled = true;
+      // A synchronous route (caption_media runs the model call inline, not
+      // in the background), so with nothing shown here the caption text
+      // just sat unchanged for however long the model took — asked for
+      // directly, a visible "generating" state while one is in flight.
+      const previousCaptionText = captionText.textContent;
+      captionText.replaceChildren(typingDots("Generating caption…"));
+      captionBadge.classList.add("hidden");
       try {
         // force: true — a manual click is exactly "the user pressed the
         // button to rewrite it", the one case the write-once default
@@ -1808,8 +1858,13 @@ function filterLibraryImagesGallery() {
           method: "POST",
           body: JSON.stringify({ force: true }),
         });
-        setCaptionState(updated.caption);
+        setCaptionState(updated.caption, {
+          caption_model: updated.caption_model,
+          caption_edited: updated.caption_edited,
+        });
       } catch (error) {
+        captionText.textContent = previousCaptionText;
+        syncCaptionBadge();
         toast(error.message || "Couldn't generate a caption.", true);
       } finally {
         captionBtn.disabled = false;
@@ -1820,7 +1875,7 @@ function filterLibraryImagesGallery() {
     actions.className = "library-image-actions";
     actions.append(rename, captionBtn, del);
 
-    fig.append(img, actions, cap, captionText, captionToggle);
+    fig.append(img, actions, cap, captionText, captionToggle, captionBadge);
     grid.appendChild(fig);
   }
 }
@@ -1873,15 +1928,19 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
 
-        if (targetId === "library-view-whiteboard") {
-          // Lands on the boards gallery, not straight onto a canvas — one
-          // door onto the whiteboard, asked for directly, replacing the
-          // old always-opens-the-last-board behaviour.
-          wbShowBoardsLanding();
-        } else if (targetId === "library-view-media") {
+        if (targetId === "library-view-media") {
           renderLibraryImagesGallery();
-        } else if (targetId === "library-view-docs") {
-          renderLibraryDocuments();
+          startLibraryImagesPoll();
+        } else {
+          stopLibraryImagesPoll();
+          if (targetId === "library-view-whiteboard") {
+            // Lands on the boards gallery, not straight onto a canvas — one
+            // door onto the whiteboard, asked for directly, replacing the
+            // old always-opens-the-last-board behaviour.
+            wbShowBoardsLanding();
+          } else if (targetId === "library-view-docs") {
+            renderLibraryDocuments();
+          }
         }
       });
     });

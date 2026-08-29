@@ -2039,6 +2039,12 @@
 .whiteboard-floating-panel select,
 .whiteboard-floating-panel .wb-snap-label {
   height: 2.25rem;
+  /* The base `select` rule (01-forms-settings.css) carries a stacked-form
+     margin-bottom meant for a column of fields, not a toolbar row — left in
+     place here it pulled #wb-board-select a few pixels above its own
+     row-mates under align-items:center, reported as the board picker not
+     lining up with the buttons beside it despite sharing their height. */
+  margin: 0;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -2466,7 +2472,14 @@ aside[data-resizable="1"] {
   position: relative;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
-  transition: background var(--motion-base) ease, color var(--motion-base) ease;
+  /* A resting border, not just a hover background: with the native checkbox
+     visually hidden below, an unchecked toggle (Semantic search, "Pinned
+     only") had no boundary at all at rest — it read as plain icon+text next
+     to bordered buttons like Select, not as a control you could click.
+     Reported directly against the Semantic toggle specifically. */
+  border: 1px solid var(--border);
+  transition: background var(--motion-base) ease, color var(--motion-base) ease,
+    border-color var(--motion-base) ease;
 }
 
 .checkbox-label:hover {
@@ -2475,6 +2488,7 @@ aside[data-resizable="1"] {
 
 .checkbox-label:has(input:checked) {
   background: var(--accent-soft);
+  border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
 }

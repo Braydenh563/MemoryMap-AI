@@ -1658,8 +1658,42 @@ Link to another note with [[its first few words]]."></textarea>
                  state) read as one thing and the actions on the document as
                  another, instead of eight items in a row with no seam. -->
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button id="doc-preview-toggle" class="ghost small" type="button"
-              aria-pressed="false" title="Show a rendered preview beside the editor"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview</button>
+            <!-- What kind of file this document is. Asked for directly: the
+                 editor should handle code as well as prose, the type should
+                 be changeable, and a new document should be creatable "of any
+                 filetype though it should default to md". The options are
+                 filled from GET /documents/file-types — one table, on the
+                 server, because Ctrl+/ and Tab act on keystrokes and cannot
+                 wait for a round trip, and a second copy here would be a
+                 second thing to update. -->
+            <select id="doc-file-type" class="small-select doc-file-type"
+              aria-label="File type" title="What kind of file this document is"></select>
+            <!-- Four ways to look at the same document, as four named options
+                 rather than one Preview tickbox. The tickbox stated one mode
+                 and left the other implied — and there are four now, so it
+                 could not have said which you were in at all.
+                 · Live is the Obsidian/Typora model: the document renders as
+                   you write, and the block the caret is in shows its raw
+                   markdown so you can edit the syntax you are looking at.
+                 · Source is the plain textarea, and the only mode for a code
+                   file (a "rendered" .py is a wall of escaped source).
+                 · Split is source and a rendered pane side by side, scrolling
+                   together.
+                 · Read is the rendered document alone, full width, no editor.
+                   Asked for as the other half of a "full toggle switch between
+                   editor mode and rendered mode" — Split gives you both at
+                   half width each, which is not the same thing as reading the
+                   finished page. -->
+            <div class="seg seg-compact" id="doc-view-seg" role="group" aria-label="How to view this document">
+              <button type="button" data-doc-view="live"
+                title="Render as you write; the paragraph you're in shows its markdown"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Live</button>
+              <button type="button" data-doc-view="source" class="active" aria-pressed="true"
+                title="The markdown itself, unrendered"><i class="ph ph-code ph-lead" aria-hidden="true"></i> Source</button>
+              <button type="button" data-doc-view="split"
+                title="Show a rendered preview beside the editor"><i class="ph ph-columns ph-lead" aria-hidden="true"></i> Split</button>
+              <button type="button" data-doc-view="rendered"
+                title="The finished document on its own, full width, with no editor"><i class="ph ph-book-open ph-lead" aria-hidden="true"></i> Read</button>
+            </div>
             <button id="doc-ai" class="ghost small" type="button"
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
             <button id="doc-extract" class="ghost small" type="button"
@@ -1712,9 +1746,27 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" id="doc-find-close" class="ghost small" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div class="doc-panes" id="doc-panes">
-          <textarea id="doc-content" spellcheck="true"
-            placeholder="# Start writing&#10;&#10;Markdown works here — headings, **bold**, lists, tables, links."
-            aria-label="Document content"></textarea>
+          <!-- The textarea stays the source of truth in every mode, including
+               Live. Live writes back into it on every edit, so autosave, the
+               word count, find-and-replace, Extract notes and the AI panel
+               all keep working against one value and none of them had to
+               learn about a second editor. -->
+          <div class="doc-source-wrap" id="doc-source-wrap">
+            <!-- Line numbers for a code file. Its own element rather than a
+                 CSS trick because a textarea cannot render per-line content;
+                 it is painted from the text and scroll-locked to the
+                 textarea beside it. -->
+            <div id="doc-gutter" class="doc-gutter hidden" aria-hidden="true"></div>
+            <textarea id="doc-content" spellcheck="true"
+              placeholder="# Start writing&#10;&#10;Markdown works here — headings, **bold**, lists, tables, links."
+              aria-label="Document content"></textarea>
+          </div>
+          <!-- Live Preview. One block per paragraph: every block renders,
+               except the one the caret is in, which shows its raw markdown in
+               a textarea so the syntax you are editing is the syntax you can
+               see. -->
+          <div id="doc-live" class="doc-live markdown-body hidden"
+            aria-label="Document, rendered as you write"></div>
           <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
         </div>
         <p id="doc-status" class="status doc-status" role="status"></p>

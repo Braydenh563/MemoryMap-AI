@@ -2403,7 +2403,7 @@ button {
   align-items: stretch;
 }
 
-#doc-panes.split>#doc-content,
+#doc-panes.split>.doc-source-wrap,
 #doc-panes.split>.doc-preview {
   flex: 1 1 0;
   min-width: 0;
@@ -2418,6 +2418,22 @@ button {
   #doc-panes.split {
     flex-direction: column;
   }
+}
+
+/* "Read" mode: the rendered document on its own, no editor. #doc-panes is
+   already a column flexbox and .doc-preview already grows into it, so the
+   layout needs nothing — but a measure does. In Split each pane is about half
+   of ~1200px and lines land near the 70-90 characters prose wants; alone at
+   full width the same paragraph runs the whole card and reading it means
+   tracking back across the page. The cap restores the measure Split gets for
+   free, and `margin: 0 auto` keeps the column centred rather than pinned left
+   with a wide empty gutter beside it. The padding is roomier than Split's for
+   the same reason: nothing is competing for the width any more. */
+#doc-panes.reading>.doc-preview {
+  max-width: 46rem;
+  margin: 0 auto;
+  width: 100%;
+  padding: 1.5rem;
 }
 
 /* Set by app.js the moment a person drags #doc-content's native resize
@@ -2481,6 +2497,126 @@ button {
   background-color: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+/* --- the code editor: gutter + monospace ------------------------------------ */
+
+/* The textarea and its line-number gutter, as one unit. #doc-panes lays out
+   *this* beside the preview now, not the bare textarea. */
+.doc-source-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  gap: 0;
+}
+
+.doc-source-wrap.hidden {
+  display: none;
+}
+
+/* A textarea cannot render per-line content, so the numbers are a sibling
+   painted from the same text and scroll-locked to it (documents.js,
+   `renderDocGutter`). Everything that affects where a line sits vertically —
+   font, size, line-height, vertical padding — MUST match #doc-content
+   exactly, or the numbers drift out of step with the code by one row per
+   screenful and the whole thing reads as broken. That is why they are
+   declared together here rather than each near its own rule. */
+.doc-gutter,
+#doc-content.doc-content-code {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.doc-gutter {
+  flex: 0 0 auto;
+  overflow: hidden;
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
+  border: 1px solid var(--glass-border);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--card);
+  color: var(--muted);
+  text-align: right;
+  white-space: pre;
+  /* Selecting the code should not drag the line numbers along with it. */
+  user-select: none;
+}
+
+.doc-gutter.hidden {
+  display: none;
+}
+
+/* Square off the shared edge so the pair reads as one control rather than
+   two boxes that happen to touch. */
+#doc-content.doc-content-code {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.doc-file-type {
+  max-width: 11rem;
+}
+
+/* --- Live Preview ------------------------------------------------------------ */
+
+/* The rendered document you write into (documents.js, `renderDocLive`).
+   Scrolls as one piece — the blocks inside are flow content, not panes. */
+.doc-live {
+  flex: 1 1 auto;
+  min-height: 12rem;
+  overflow-y: auto;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.doc-live.hidden {
+  display: none;
+}
+
+/* A rendered block. The hover tint is the only thing telling you these are
+   editable at all — without it the pane looks like the read-only preview it
+   sits next to in the mode switcher. */
+.lp-block {
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+
+.lp-block:hover {
+  background: var(--card-bg-hover);
+}
+
+/* An empty paragraph still has to be clickable, or a new document has
+   nowhere to put the caret and the mode looks broken. */
+.lp-block-empty {
+  min-height: 1.5rem;
+}
+
+/* The block being edited: raw markdown, monospaced so the syntax reads as
+   syntax, and marked with the accent so it is obvious which one is live.
+   Height is set from content by JS — a fixed height would clip a long
+   paragraph or leave a hole after a short one. */
+.lp-src {
+  display: block;
+  width: 100%;
+  margin: 0.05rem 0;
+  padding: 0.25rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: inherit;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  /* JS owns the height; the browser's own grip would fight it. */
+  resize: none;
+  overflow: hidden;
 }
 
 /* Only `gap` is live here. Everything about the layout itself is on

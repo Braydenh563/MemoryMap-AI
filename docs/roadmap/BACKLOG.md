@@ -2359,3 +2359,59 @@ has been scoped; they are here so the finding is not lost with the session.
   this launcher, not a small addition to an existing one. Scoping this
   properly (what shows, on both start.bat and start.sh, in both browser-tab
   and desktop mode) is its own session, not a follow-on to the app.js split.
+- **Agent-mode auto-detection with a confirmation popup.** Asked for
+  directly: when the AI notices a chat message looks like it needs agent
+  mode (tools/multi-step work) but the user isn't in it, offer to switch
+  with a confirmation popup in the chat — and if the user isn't on the Chat
+  tab when this comes up, a notification instead, same as for other things
+  needing the user's input mid-run. Needs real scoping before building: what
+  actually triggers the detection (a cheap heuristic vs. a model call before
+  every message — the latter costs a round trip per message, which cuts
+  against the token-efficiency ask two items below), and how it interacts
+  with `skillManual`/step-by-step mode already in the agent loop.
+- **Skill auto-detection with a confirmation popup.** Same shape as the
+  item above, for the app's saved Skills instead of agent mode: detect when
+  a user's chat message matches an existing skill and ask before running
+  it, rather than requiring the user to invoke it by name. Same open
+  question about what the detection costs per message.
+- **Start/completion notifications for named sub-processes.** Asked for
+  directly, naming "renaming with AI," "generating title," and "other
+  things" as examples — a toast or notification when one of these begins,
+  and a second one confirming success (or failure) once it ends, rather
+  than the current silent-until-done (or silently-failed) behaviour.
+  `core/taskhistory.py` already gives failed/completed background jobs a
+  home (this session wired captioning into it, §91) and
+  `recordNotification` (app.js) already exists for the notification centre
+  half — the gap is the *in-progress* half: nothing currently fires when
+  one of these starts, only when it ends. Scoping needed: which calls count
+  as "sub-processes" worth this treatment (every `apiJson` call would be
+  far too noisy) — likely the same handful already named plus whatever else
+  already blocks the UI behind a spinner (caption generate/regenerate,
+  link-reason generation, the AI edit route).
+- **A deeper token-efficiency and small-model-suitability pass on chat and
+  agent prompts.** Asked for directly: "see if the token usage and
+  consumption in chats can be reduced and made more efficient... make all
+  processes in the chat tab and backend suitable and well designed for
+  smaller models as well as larger models." `agent.PROSE_BUDGET_CHARS` is
+  already asserted (CLAUDE.md), and this session's provider-level retry
+  fix (§91) reduces one concrete waste — a failed call needing a manual
+  resend that re-sends the whole prompt again. Nothing beyond that has been
+  measured this session: a real pass would need to profile actual prompt
+  sizes across the librarian/agent/skill paths against a range of context
+  windows (the app already tracks `usable_context` per model) and look for
+  prompt content that scales with notebook size rather than staying flat.
+- **AI follow-up question suggestions in chat and the Ask sub-tab.** Asked
+  for directly: after an answer, offer 2-3 suggested follow-up questions,
+  in both the Chat tab's conversations and the Notes tab's Ask sub-tab.
+  `loadChatSuggestions()` (app.js) already exists for a *different* kind of
+  suggestion (conversation starters, empty-state only) — this would be a
+  new per-answer suggestion, generated from the answer just given, most
+  likely reusing the existing chat model rather than a new route.
+- **Graph minimap drag-to-zoom, plus pinch/keyboard zoom.** Asked for
+  directly: click-and-drag a rectangle over the graph's minimap to redefine
+  the main view's window/position/zoom to match, and two-finger
+  pinch-zoom (touch) plus a keyboard zoom in/out, matching what the main
+  graph canvas already supports. `graph.js` already owns the minimap
+  rendering and the main canvas's own zoom/pan handlers — this extends
+  both rather than adding a new subsystem, but the minimap's own hit-testing
+  and coordinate-mapping (screen rect → graph viewport) isn't scoped yet.

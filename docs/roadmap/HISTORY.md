@@ -4603,3 +4603,111 @@ in `app.js`, calling into code that moved out, is the same load-order hazard
 from the other direction — check for it explicitly on every split; and add
 every new file to both lint tests, since a lint that cannot see a file
 cannot catch anything in it.
+
+## §91 — a batch of reported UI/backend bugs, fixed and verified live
+
+A round of live-reported bugs, most root-caused by actually reproducing them
+(Playwright against a real running instance) rather than reasoning from
+source — the CLAUDE.md caveat about model-behaviour claims doesn't apply to
+UI claims, and this pass leaned on that.
+
+- **Chat: an image attached then removed before sending stayed uploaded**,
+  orphaned in the Library gallery. `renderImageAttachments`'s remove
+  handler only ever detached it from the local `attachedImages` array; the
+  note composer's own equivalent (`renderEntryAttachmentChips`) already
+  deleted the underlying upload on remove — the chat path just never got
+  the same fix. Now does. Verified live: attach → remove → `GET /media`
+  no longer lists it.
+- **Chat: "Grounded in" source chips never persisted.** `renderAnswerGrounding`
+  only ever ran off the live SSE `grounding` event; nothing carried
+  `event.sentences` into the turn's save payload, unlike `raw_results`
+  (which got this exact fix once already, for the same "disappears on
+  reload" complaint). `TurnBody.sentence_grounding` (new field,
+  `routes_conversations.py`) now round-trips it; `openConversation`
+  reconstructs the chips the same way it already reconstructs
+  `raw_results`. Verified via the real `/conversations` API plus a scoped
+  Playwright check of the reconstructed DOM.
+- **AI providers: a transient 5xx now retries once, silently**, instead of
+  needing a manual resend — reported live as a chat call and a captioning
+  call each failing on a plain 500 and succeeding on the exact same resend.
+  `provider.is_transient_server_error` (duck-typed on `.response.status_code`,
+  shared by both dialects) gates one retry in `chat`/`chat_stream` for both
+  `OllamaClient` and `OpenAICompatClient` — safe in the streaming case
+  specifically because `raise_for_status()` is the only line able to raise
+  `HTTPError` and it always runs before that attempt's first `yield`, so a
+  retry can never duplicate output already handed to a caller. 5 new tests
+  (`test_providers.py`) cover both dialects, both call shapes, a 4xx *not*
+  retrying, and giving up after a second 5xx.
+- **Captioning: which model wrote a caption, and whether it's since been
+  hand-edited, is now tracked** (`MediaUpload.caption_model`/`caption_edited`
+  — additive columns, the existing auto-migrator handles them) and shown as
+  a quiet byline under the caption in the Library's Image Gallery. A
+  captioning call that fails after a model was actually resolved (the
+  reported 500 case, not "no vision model installed" — that stays silent
+  on purpose, or every upload on a notebook with nothing installed would
+  fill the ring with the same non-actionable line) now records into
+  `core/taskhistory.py`, which previously had zero captioning entries —
+  the reported "doesn't show as a background process" gap. A synchronous
+  regenerate click now shows "Generating caption…" (`typingDots`) instead
+  of the caption text sitting unchanged for however long the model takes.
+  The Image Gallery also polls `/media` every 6s while open (skipped
+  mid-edit, so a silent re-render can't wipe out unsaved typing) — the
+  automatic background caption from upload has no push signal, so nothing
+  previously showed it landing short of navigating away and back, which
+  read as "doesn't work, but comes back after reopening the app" (verified
+  live with a slowed/mocked response).
+- **Settings: the per-log-record copy button went blank** after its ✓
+  reverted. `flashCopied` saved/restored `button.textContent`, but the
+  button is icon-only (`setLabel(el, "ph:clipboard")`, no trailing text) —
+  its `textContent` was always `""`, so the "restore" wiped the icon.
+  Fixed by saving/restoring `innerHTML` instead. Also: the traceback
+  `<summary>` disclosure arrow sat flush against the log row's own
+  colour-coded left border with zero gap between them (`.log-list li` had
+  no left padding) — given one.
+- **Whiteboard: the board-picker `<select>` sat a few px higher than its
+  neighbouring buttons** despite sharing their height — the base
+  `select`/`textarea`/`input` rule's stacked-form `margin-bottom` was never
+  reset for this toolbar row (buttons aren't targeted by that rule at all,
+  so they had no margin to begin with). Verified with `getBoundingClientRect`
+  before/after: all three controls now share the same `top`/`centerY`.
+- **Notes tab: the Semantic search toggle had no visible boundary at rest**
+  — the native checkbox is intentionally visually-hidden (the toggle-button
+  treatment `.checkbox-label` already uses) and nothing filled the gap, so
+  it read as plain icon+text next to the bordered Select button beside it.
+  Given a resting border, matching-colour on the checked state.
+- **Note capture: a staged image's filename overflowed its card.** The
+  ellipsis rule (`.attachment-chip > span:first-child`) never matched this
+  chip's label span — its actual first child is the `<img>`, not a span,
+  so `:first-child` never applies to the label a sibling rule further down
+  already targets by `:first-of-type` for font-size alone. Given the same
+  three overflow properties.
+- **Library: an activity-log entry's preview clamped to one line in list
+  view** with no way to read the rest, despite the full 400-char budget
+  (`ACTIVITY_DETAIL_CHARS`) already being sent — grid view already
+  unclamps activity previews; list view's generic one-line clamp (kept for
+  every other kind's row alignment) was winning the cascade tie by source
+  order. Given its own more-specific override, clamped to 4 lines rather
+  than fully unclamped (list-view alignment still matters for everything
+  else sharing the list).
+- **Back/forward navigation**: opening/closing a document in the editor and
+  entering/exiting Graph Focus Mode now push/replay history entries, the
+  same `{tab, section}` shape chat conversations and library sub-tabs
+  already used — the two gaps ROADMAP.md item 13 named as still open.
+
+**Investigated, could not reproduce**: the notes-tab remove-image "×"
+button — both the note composer's own attachment chip and the note-list
+thumbnail's unlink control deleted the underlying upload correctly under
+live Playwright testing, in both cases. If this recurs, the report needs a
+more specific location (which screen, which button) than "the notes tab" to
+find — two different remove-image controls exist there, both currently
+working.
+
+**Not attempted this session** (scoped and logged instead, `BACKLOG.md`):
+agent-mode auto-detection with a confirmation popup, skill auto-detection
+with a confirmation popup, start/completion notifications for named
+sub-processes ("renaming with AI", "generating title"), a deeper
+token-efficiency/small-model-suitability pass on chat and agent prompts, AI
+follow-up question suggestions in chat and the Ask sub-tab, and graph
+minimap drag-to-zoom plus pinch/keyboard zoom. Each is independently
+substantial and none was scoped enough to start safely in the time this
+pass had left.

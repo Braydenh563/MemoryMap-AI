@@ -1,6 +1,40 @@
 # Session handover
 
-## New session — `settings.js` split out of app.js (§88.3's fourth and last file — the split is done)
+## New session — a bug-fix batch (§91), then a branch restart
+
+**PR #132 (the `library.js` split, and everything else this branch had at
+the time) merged mid-session.** Per this repo's own merged-PR protocol, the
+branch was restarted from `origin/main` under a new name,
+`claude/post-v0.1.4-nav-fixes` — `claude/app-split-library-mihepz` is done
+and should not be pushed to again. The in-flight document/Graph-focus-mode
+nav fix (ROADMAP.md item 13, already committed locally) carried across
+cleanly onto the new branch before the restart.
+
+**Then: a live-reported bug-list pass, all in §91 (HISTORY.md has the full
+narrative; BACKLOG.md logs six items scoped-but-not-started).** Root-caused
+by reproducing each one live (Playwright against a real running instance)
+rather than reasoning from source — orphaned chat-image uploads on remove,
+"Grounded in" chips not persisting, a provider-level retry for transient
+5xx failures (Ollama *and* OpenAI-compatible), captioning's model/edited
+badge plus its missing background-task visibility plus a "generating"
+state plus a poll so a background-finished caption actually shows up, and
+five smaller CSS/UI fixes. Full test suite green (0 failures), `ruff`
+clean, pushed as commit `7bbbf81`.
+
+**Not started, by direct instruction, next in priority order**: vision OCR
+as its own extractor mode (a new model-pull UI, distinct from the
+already-built vision-chat/captioning features — verify what's actually
+missing before building, the same "check before rebuilding" rule that
+caught four false starts already this project); the AI editor's reskin
+into a general document assistant (a new write/remove verb set on the AI
+edit route); ROADMAP.md's item 0, the Notion/Obsidian-style hybrid
+live-rendering editor (already scoped there in detail, already the top
+priority — this *is* what "notion/obsidian redesign" was asked for);
+finally a full scan for complexity/bugs/security issues missed elsewhere.
+Each is independently substantial (new backend routes, new UI, or both);
+none was safe to start half-scoped in whatever was left of this session.
+
+## Prior session — `settings.js` split out of app.js (§88.3's fourth and last file — the split is done)
 
 The settings modal, logs console, and appearance (theme, accent, curated
 palettes, saved looks, the generative-background preview) — the last piece

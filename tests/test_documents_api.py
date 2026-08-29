@@ -170,6 +170,249 @@ def test_ai_edit_of_an_empty_document_is_a_clean_400(ai_client):
     assert response.status_code == 400
 
 
+# --- the write/remove verb set (reskinned from a single rewrite action) -----
+
+
+def test_ai_write_inserts_new_content_without_needing_existing_text(ai_client, fake_ollama):
+    """The one verb an empty document must NOT 400 on — there is nothing to
+    edit yet, but there is plenty to write."""
+    created = ai_client.post("/documents", json={"title": "Empty"}).json()
+    fake_ollama.librarian_reply = "A brand new opening paragraph."
+
+    response = ai_client.post(
+        f"/documents/{created['id']}/ai-edit",
+        json={"instruction": "write an opening paragraph", "verb": "write"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verb"] == "write"
+    assert body["revised"] == "A brand new opening paragraph."
+    assert body["replaced_selection"] is False
+
+
+def test_ai_write_requires_an_instruction(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/documents", json={"title": "Essay", "content": "Some text."}
+    ).json()
+    response = ai_client.post(
+        f"/documents/{created['id']}/ai-edit", json={"verb": "write"}
+    )
+    assert response.status_code == 400
+
+
+def test_ai_write_uses_the_selection_as_the_insertion_point_not_the_target(
+    ai_client, fake_ollama
+):
+    created = ai_client.post(
+        "/documents",
+        json={"title": "Essay", "content": "Paragraph one.\n\nParagraph two."},
+    ).json()
+    fake_ollama.librarian_reply = "A new sentence."
+
+    ai_client.post(
+        f"/documents/{created['id']}/ai-edit",
+        json={
+            "instruction": "add a supporting sentence",
+            "selection": "Paragraph one.",
+            "verb": "write",
+        },
+    )
+    prompt = fake_ollama.chat_calls[-1][-1]["content"]
+    assert "Paragraph one." in prompt
+    assert "INSERT DIRECTLY AFTER" in prompt
+
+
+def test_ai_remove_deletes_a_selection_with_no_instruction_needed(ai_client, fake_ollama):
+    """Asked for directly: a selection alone already says what to remove."""
+    created = ai_client.post(
+        "/documents",
+        json={"title": "Essay", "content": "Paragraph one.\n\nParagraph two."},
+    ).json()
+    fake_ollama.librarian_reply = "Paragraph one."
+
+    response = ai_client.post(
+        f"/documents/{created['id']}/ai-edit",
+        json={"selection": "Paragraph two.", "verb": "remove"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verb"] == "remove"
+    assert body["replaced_selection"] is True
+    assert body["revised"] == "Paragraph one."
+
+
+def test_ai_remove_with_no_selection_needs_an_instruction(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/documents", json={"title": "Essay", "content": "Some text about cats."}
+    ).json()
+    response = ai_client.post(
+        f"/documents/{created['id']}/ai-edit", json={"verb": "remove"}
+    )
+    assert response.status_code == 400
+
+
+def test_ai_remove_leaves_the_document_untouched_until_accepted(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/documents", json={"title": "Essay", "content": "Keep this. Remove that."}
+    ).json()
+    fake_ollama.librarian_reply = "Keep this."
+
+    ai_client.post(
+        f"/documents/{created['id']}/ai-edit",
+        json={"instruction": "remove the second sentence", "verb": "remove"},
+    )
+    stored = ai_client.get(f"/documents/{created['id']}").json()
+    assert stored["content"] == "Keep this. Remove that."
+
+
+# --- the AI-edit changelog ("allow edits made by the AI to be undone or
+# altered before and after they are set") --------------------------------
+
+
+def test_ai_edit_log_records_and_lists_an_entry(client):
+    created = client.post(
+        "/documents", json={"title": "Essay", "content": "Before text."}
+    ).json()
+    logged = client.post(
+        f"/documents/{created['id']}/ai-edit-log",
+        json={
+            "verb": "edit",
+            "instruction": "make it formal",
+            "before_content": "Before text.",
+            "after_content": "After text.",
+        },
+    )
+    assert logged.status_code == 201
+    assert logged.json()["verb"] == "edit"
+    assert logged.json()["instruction"] == "make it formal"
+
+    listed = client.get(f"/documents/{created['id']}/ai-edit-log").json()
+    assert len(listed) == 1
+    assert listed[0]["id"] == logged.json()["id"]
+
+
+def test_ai_edit_log_stores_a_selection_excerpt_not_the_full_selection(client):
+    created = client.post("/documents", json={"title": "Essay", "content": "x"}).json()
+    long_selection = "word " * 100
+    logged = client.post(
+        f"/documents/{created['id']}/ai-edit-log",
+        json={
+            "instruction": "",
+            "selection": long_selection,
+            "before_content": "x",
+            "after_content": "y",
+        },
+    ).json()
+    assert len(logged["selection_excerpt"]) <= 161  # 160 chars + the ellipsis
+    assert logged["selection_excerpt"].endswith("…")
+
+
+def test_ai_edit_log_prunes_beyond_the_cap(client):
+    from memorymap.api import routes_documents
+
+    created = client.post("/documents", json={"title": "Essay", "content": "x"}).json()
+    total = routes_documents.MAX_AI_EDIT_LOG_PER_DOCUMENT + 5
+    for i in range(total):
+        client.post(
+            f"/documents/{created['id']}/ai-edit-log",
+            json={
+                "instruction": f"edit {i}",
+                "before_content": "x",
+                "after_content": "y",
+            },
+        )
+    listed = client.get(f"/documents/{created['id']}/ai-edit-log").json()
+    assert len(listed) == routes_documents.MAX_AI_EDIT_LOG_PER_DOCUMENT
+    # Newest first, and the oldest ones are the ones that got pruned.
+    assert listed[0]["instruction"] == f"edit {total - 1}"
+
+
+def test_revert_ai_edit_restores_the_documents_content(client):
+    created = client.post(
+        "/documents", json={"title": "Essay", "content": "After the AI's edit."}
+    ).json()
+    logged = client.post(
+        f"/documents/{created['id']}/ai-edit-log",
+        json={
+            "instruction": "tighten it",
+            "before_content": "Before the AI's edit.",
+            "after_content": "After the AI's edit.",
+        },
+    ).json()
+
+    response = client.post(f"/documents/{created['id']}/ai-edit-log/{logged['id']}/revert")
+    assert response.status_code == 200
+    assert response.json()["content"] == "Before the AI's edit."
+
+    stored = client.get(f"/documents/{created['id']}").json()
+    assert stored["content"] == "Before the AI's edit."
+
+
+def test_revert_ai_edit_records_its_own_changelog_entry(client):
+    """The changelog stays a truthful record of everything that happened,
+    including the revert itself — never a silent rewind."""
+    created = client.post(
+        "/documents", json={"title": "Essay", "content": "After."}
+    ).json()
+    logged = client.post(
+        f"/documents/{created['id']}/ai-edit-log",
+        json={"instruction": "do the thing", "before_content": "Before.", "after_content": "After."},
+    ).json()
+
+    client.post(f"/documents/{created['id']}/ai-edit-log/{logged['id']}/revert")
+
+    listed = client.get(f"/documents/{created['id']}/ai-edit-log").json()
+    assert len(listed) == 2
+    assert listed[0]["verb"] == "revert"
+    assert "do the thing" in listed[0]["instruction"]
+
+
+def test_revert_ai_edit_can_itself_be_reverted(client):
+    created = client.post("/documents", json={"title": "Essay", "content": "v2"}).json()
+    logged = client.post(
+        f"/documents/{created['id']}/ai-edit-log",
+        json={"before_content": "v1", "after_content": "v2"},
+    ).json()
+    client.post(f"/documents/{created['id']}/ai-edit-log/{logged['id']}/revert")
+    stored_after_revert = client.get(f"/documents/{created['id']}").json()
+    assert stored_after_revert["content"] == "v1"
+
+    # Revert the revert (the newest changelog entry) — should bring v2 back.
+    listed = client.get(f"/documents/{created['id']}/ai-edit-log").json()
+    revert_entry_id = listed[0]["id"]
+    client.post(f"/documents/{created['id']}/ai-edit-log/{revert_entry_id}/revert")
+    stored_after_second_revert = client.get(f"/documents/{created['id']}").json()
+    assert stored_after_second_revert["content"] == "v2"
+
+
+def test_revert_ai_edit_404s_for_an_entry_from_a_different_document(client):
+    doc_a = client.post("/documents", json={"title": "A", "content": "a"}).json()
+    doc_b = client.post("/documents", json={"title": "B", "content": "b"}).json()
+    logged = client.post(
+        f"/documents/{doc_a['id']}/ai-edit-log",
+        json={"before_content": "old", "after_content": "a"},
+    ).json()
+    response = client.post(f"/documents/{doc_b['id']}/ai-edit-log/{logged['id']}/revert")
+    assert response.status_code == 404
+
+
+def test_ai_write_without_the_model_returns_nothing_to_insert(ai_client, fake_ollama):
+    created = ai_client.post(
+        "/documents", json={"title": "Essay", "content": "Some text."}
+    ).json()
+    fake_ollama.running = False
+
+    body = ai_client.post(
+        f"/documents/{created['id']}/ai-edit",
+        json={"instruction": "add a sentence", "verb": "write"},
+    ).json()
+    # Falling back to the existing content (compose()'s own contract) would
+    # insert the whole document into itself — "write" must fall back to ""
+    # instead, since there is nothing sensible to insert.
+    assert body["revised"] == ""
+    assert body["ollama_running"] is False
+
+
 def test_missing_documents_are_404(client):
     fetched = client.get("/documents/9999")
     assert fetched.status_code == 404

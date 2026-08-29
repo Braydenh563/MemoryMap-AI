@@ -1921,3 +1921,52 @@ dialog::backdrop {
 .dash-widget-row-controls {
   flex: 0 0 auto;
 }
+
+/* The AI-edit changelog (documents.js's openDocAiHistory) — same
+   wider-dialog-with-a-scrolling-list shape as .dash-widgets-dialog above,
+   reused rather than duplicated since both hold a list of rows with a
+   control on the right and nothing else distinguishes them layout-wise. */
+.doc-ai-history-dialog {
+  width: min(30rem, calc(100vw - var(--space-8)));
+}
+
+.doc-ai-history-list {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.doc-ai-history-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-ai-history-entry:last-child {
+  border-bottom: none;
+}
+
+.doc-ai-history-entry > .ph {
+  flex: 0 0 auto;
+  margin-top: 0.2em;
+  color: var(--muted);
+}
+
+.doc-ai-history-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.doc-ai-history-text p {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+.doc-ai-history-entry button {
+  flex: 0 0 auto;
+}

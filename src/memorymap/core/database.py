@@ -530,6 +530,46 @@ class DocumentLink(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class DocumentAiEdit(Base):
+    """One accepted AI edit on a document — a changelog, asked for
+    directly: "allow edits made by the AI to be undone or altered before
+    and after they are set." Before acceptance, the AI panel's own result
+    textarea already covers "altered before" (edit the suggestion, then
+    accept whatever you kept). This table covers "undone... after": a
+    durable, per-document history of what the AI actually applied, each
+    entry revertible on its own — distinct from the app's session-only
+    global undo stack (app.js's pushUndo), which still also fires on
+    accept for an immediate Ctrl+Z, but forgets everything on reload. This
+    is the record that survives one.
+
+    Stores full before/after snapshots rather than a diff: documents are
+    markdown text, not the kind of structured data a real diff format
+    would represent as anything smaller than the text itself, and a revert
+    needs to restore an exact prior state, not replay a patch against
+    whatever the content happens to be *now* (which may have been edited
+    by hand since). Bounded per document (`MAX_ENTRIES_PER_DOCUMENT` below,
+    enforced in routes_documents.py) rather than kept forever, the same
+    "a log, not an unbounded table" reasoning `taskhistory.py` uses for its
+    own ring buffer — except this one has to survive a restart (a revert
+    button pointing at nothing after closing the app would be worse than
+    not offering one), so it is a real table, not an in-memory deque.
+    """
+
+    __tablename__ = "document_ai_edits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    verb: Mapped[str] = mapped_column(String(10), default="edit")
+    instruction: Mapped[str] = mapped_column(String(500), default="")
+    #: Whichever passage was targeted, trimmed to a display-sized excerpt —
+    #: never the full document (that's what before_content is for), just
+    #: enough for the changelog entry to say what it touched.
+    selection_excerpt: Mapped[str] = mapped_column(String(200), default="")
+    before_content: Mapped[str] = mapped_column(Text, default="")
+    after_content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 class WhiteboardNode(Base):
     """A note card placed on the whiteboard canvas."""
 

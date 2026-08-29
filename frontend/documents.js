@@ -825,19 +825,69 @@ async function deleteCurrentDocument() {
 
 // --- AI editing ---
 // Always a proposal. Writing straight into the document would be the most
-// destructive thing in the app.
+// destructive thing in the app. Three verbs (reskinned from a single
+// rewrite action into a small general assistant, asked for directly):
+// "edit" rewrites the target, "write" inserts a new passage without
+// touching what's there, "remove" deletes on request. All three go through
+// the same /ai-edit endpoint (routes_documents.py) with a `verb` field.
 let docAiController = null;
+
+function docAiVerb() {
+  return $("doc-ai-panel").querySelector('input[name="doc-ai-verb"]:checked')?.value || "edit";
+}
+
+// The run button, the instruction placeholder, and the scope hint all read
+// differently per verb — kept in one place so switching verbs updates all
+// three together rather than three separate change listeners drifting.
+function syncDocAiPanel() {
+  const verb = docAiVerb();
+  const selection = ($("doc-ai-panel").dataset.selection || "").trim();
+  const wordCount = selection ? selection.split(/\s+/).length : 0;
+
+  const runLabel = { edit: "Suggest an edit", write: "Write it", remove: "Remove it" }[verb];
+  $("doc-ai-run").innerHTML = `<i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> ${runLabel}`;
+
+  $("doc-ai-instruction").placeholder =
+    verb === "write"
+      ? "e.g. “add a conclusion”, “write an intro paragraph”"
+      : verb === "remove"
+        ? selection
+          ? "Optional — leave blank to remove the selection as-is"
+          : "e.g. “remove the paragraph about pricing”"
+        : "e.g. “tighten this”, “make it more formal”, “add a conclusion”";
+
+  if (verb === "write") {
+    $("doc-ai-scope").textContent = selection
+      ? `Inserting new text directly after the ${wordCount} selected word(s).`
+      : "Inserting new text at the end of the document.";
+  } else if (verb === "remove") {
+    $("doc-ai-scope").textContent = selection
+      ? `Removing the ${wordCount} selected word(s) — or say what to remove from within them.`
+      : "Say what to remove from the whole document.";
+  } else {
+    $("doc-ai-scope").textContent = selection
+      ? `Rewriting the ${wordCount} selected word(s).`
+      : "Rewriting the whole document. Select some text first to work on just that.";
+  }
+
+  const acceptLabel = { edit: "Replace with this", write: "Insert this", remove: "Remove it" }[verb];
+  $("doc-ai-accept").textContent = acceptLabel;
+}
 
 function openDocAiPanel() {
   if (!currentDoc) return;
   const box = $("doc-content");
   const selection = box.value.slice(box.selectionStart, box.selectionEnd);
   $("doc-ai-panel").dataset.selection = selection;
-  $("doc-ai-scope").textContent = selection.trim()
-    ? `Rewriting the ${selection.trim().split(/\s+/).length} selected word(s).`
-    : "Rewriting the whole document. Select some text first to work on just that.";
+  // Always opens back on "Edit" — the panel's original, still-default
+  // behaviour — rather than remembering whatever verb was last used, so a
+  // stray "Remove it" click a moment after opening isn't primed by the
+  // previous document's choice.
+  const editRadio = $("doc-ai-panel").querySelector('input[name="doc-ai-verb"][value="edit"]');
+  if (editRadio) editRadio.checked = true;
   $("doc-ai-result").value = "";
   $("doc-ai-status").textContent = "";
+  syncDocAiPanel();
   $("doc-ai-panel").classList.remove("hidden");
   $("doc-ai-instruction").focus();
 }
@@ -857,9 +907,25 @@ function openDocExtractPreview() {
 }
 
 async function runDocAiEdit() {
+  const verb = docAiVerb();
   const instruction = $("doc-ai-instruction").value.trim();
+  const selection = $("doc-ai-panel").dataset.selection || "";
   const status = $("doc-ai-status");
-  if (!instruction) {
+  // Mirrors routes_documents.ai_edit's own validation exactly, so a bad
+  // request never reaches the network at all: "write" always needs words,
+  // "remove" can skip them only when a selection already says what to
+  // remove, "edit" is the original required-instruction behaviour.
+  if (verb === "write" && !instruction) {
+    status.classList.add("error");
+    status.textContent = "Say what to write.";
+    return;
+  }
+  if (verb === "remove" && !instruction && !selection.trim()) {
+    status.classList.add("error");
+    status.textContent = "Say what to remove, or select it first.";
+    return;
+  }
+  if (verb === "edit" && !instruction) {
     status.classList.add("error");
     status.textContent = "Say what you'd like changed.";
     return;
@@ -873,10 +939,7 @@ async function runDocAiEdit() {
     const body = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
       method: "POST",
       signal: docAiController.signal,
-      body: JSON.stringify({
-        instruction,
-        selection: $("doc-ai-panel").dataset.selection || "",
-      }),
+      body: JSON.stringify({ instruction, selection, verb }),
     });
     $("doc-ai-result").value = body.revised;
     status.textContent = body.message || "Read it over, then accept or cancel.";
@@ -895,12 +958,87 @@ async function runDocAiEdit() {
   }
 }
 
+// The undo/redo half of "allow edits made by the AI to be undone or
+// altered before and after they are set" (asked for directly) — before
+// acceptance, the result textarea above already covers "altered" (edit
+// the AI's suggestion, then accept whatever's left). This is "undone...
+// after": pushed onto the app's existing global undo stack (an immediate
+// Ctrl+Z / status-bar Undo, session-only) alongside a durable per-document
+// changelog entry (ai-edit-log, survives reload, lists every edit with its
+// own Revert) — see the dialog's own comment in index.html for why both.
+function pushDocAiUndo(docId, label, beforeContent, afterContent) {
+  const applyContent = async (content) => {
+    const title = currentDoc && currentDoc.id === docId ? currentDoc.title : undefined;
+    const saved = await apiJson(`/documents/${docId}`, {
+      method: "PUT",
+      body: JSON.stringify({ content, ...(title !== undefined ? { title } : {}) }),
+    });
+    if (currentDoc && currentDoc.id === docId) {
+      currentDoc = saved;
+      $("doc-content").value = content;
+      renderDocPreview();
+      docDirty = false;
+      $("doc-saved").textContent = "Saved";
+    }
+    docs = docs.map((d) => (d.id === docId ? { ...d, ...saved } : d));
+    renderDocList();
+  };
+  pushUndo(
+    label,
+    () => applyContent(beforeContent),
+    () => applyContent(afterContent)
+  );
+}
+
+async function recordDocAiEditLog(docId, verb, instruction, selection, beforeContent, afterContent) {
+  try {
+    await apiJson(`/documents/${docId}/ai-edit-log`, {
+      method: "POST",
+      body: JSON.stringify({
+        verb,
+        instruction,
+        selection,
+        before_content: beforeContent,
+        after_content: afterContent,
+      }),
+      silent: true,
+    });
+  } catch {
+    // Best-effort: the changelog is a record of an edit that has already
+    // happened (and is already undoable via the global stack above) — a
+    // network hiccup writing the log entry must not read as the edit
+    // itself having failed.
+  }
+}
+
 function acceptDocAiEdit() {
   const revised = $("doc-ai-result").value;
-  if (!revised.trim()) return;
+  if (!revised.trim() && docAiVerb() !== "remove") return;
+  const verb = docAiVerb();
+  const instruction = $("doc-ai-instruction").value.trim();
   const selection = $("doc-ai-panel").dataset.selection || "";
   const box = $("doc-content");
-  if (selection) {
+  const beforeContent = box.value;
+  const docId = currentDoc.id;
+
+  if (verb === "write") {
+    // Inserts rather than replaces — the selection (if any) is only the
+    // anchor point, and stays exactly as it was.
+    if (selection) {
+      const at = box.value.indexOf(selection);
+      const insertAt = at === -1 ? box.value.length : at + selection.length;
+      const before = box.value.slice(0, insertAt);
+      const after = box.value.slice(insertAt);
+      const glue = before && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+      box.value = before + glue + revised + after;
+    } else {
+      const glue = box.value && !box.value.endsWith("\n\n") ? (box.value.endsWith("\n") ? "\n" : "\n\n") : "";
+      box.value = box.value + glue + revised;
+    }
+  } else if (selection) {
+    // "edit" and "remove" both replace the target with what the model
+    // returned — for "remove" that's the same text with the requested
+    // part gone, so no separate apply logic is needed.
     const at = box.value.indexOf(selection);
     box.value =
       at === -1
@@ -909,11 +1047,112 @@ function acceptDocAiEdit() {
   } else {
     box.value = revised;
   }
+
+  const afterContent = box.value;
   closeDocAiPanel();
   markDocDirty();
   renderDocPreview();
   saveDocument({ silent: true });
-  toast("Applied the AI's edit.");
+
+  const label = { edit: "AI edit", write: "AI write", remove: "AI remove" }[verb];
+  pushDocAiUndo(
+    docId,
+    instruction ? `${label}: “${instruction.length > 40 ? instruction.slice(0, 39) + "…" : instruction}”` : label,
+    beforeContent,
+    afterContent
+  );
+  recordDocAiEditLog(docId, verb, instruction, selection, beforeContent, afterContent);
+
+  toast(
+    verb === "write"
+      ? "Inserted the AI's text."
+      : verb === "remove"
+        ? "Removed."
+        : "Applied the AI's edit."
+  );
+}
+
+// --- AI edit history (the changelog) ---------------------------------------
+
+function docAiVerbIcon(verb) {
+  return { edit: "ph-pencil-simple", write: "ph-plus-circle", remove: "ph-x-circle", revert: "ph-arrow-counter-clockwise" }[verb] || "ph-pencil-simple";
+}
+
+async function openDocAiHistory() {
+  if (!currentDoc) return;
+  const dialog = $("doc-ai-history-dialog");
+  const list = $("doc-ai-history-list");
+  const empty = $("doc-ai-history-empty");
+  list.replaceChildren();
+  empty.classList.add("hidden");
+  dialog.showModal();
+  const li = document.createElement("li");
+  li.className = "muted";
+  li.textContent = "Loading…";
+  list.appendChild(li);
+  try {
+    const entries = await apiJson(`/documents/${currentDoc.id}/ai-edit-log`);
+    list.replaceChildren();
+    if (!entries.length) {
+      empty.classList.remove("hidden");
+      return;
+    }
+    for (const entry of entries) {
+      const row = document.createElement("li");
+      row.className = "doc-ai-history-entry";
+      const icon = document.createElement("i");
+      icon.className = `ph ${docAiVerbIcon(entry.verb)}`;
+      icon.setAttribute("aria-hidden", "true");
+      const text = document.createElement("div");
+      text.className = "doc-ai-history-text";
+      const line = document.createElement("p");
+      line.textContent = entry.instruction || (entry.verb === "remove" ? "Removed a selection" : "AI edit");
+      const meta = document.createElement("p");
+      meta.className = "muted text-sm";
+      const when = new Date(entry.created_at).toLocaleString();
+      meta.textContent = entry.selection_excerpt
+        ? `${when} · “${entry.selection_excerpt}”`
+        : when;
+      text.append(line, meta);
+      const revertBtn = document.createElement("button");
+      revertBtn.type = "button";
+      revertBtn.className = "ghost small";
+      revertBtn.textContent = "Revert";
+      revertBtn.addEventListener("click", async () => {
+        revertBtn.disabled = true;
+        try {
+          const saved = await apiJson(
+            `/documents/${currentDoc.id}/ai-edit-log/${entry.id}/revert`,
+            { method: "POST" }
+          );
+          if (currentDoc && currentDoc.id === saved.id) {
+            currentDoc = saved;
+            $("doc-content").value = saved.content;
+            $("doc-title").value = saved.title;
+            renderDocPreview();
+            docDirty = false;
+            $("doc-saved").textContent = "Saved";
+          }
+          docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+          renderDocList();
+          toast("Reverted.");
+          dialog.close();
+        } catch (error) {
+          toast(error.message || "Couldn't revert that.", true);
+        } finally {
+          revertBtn.disabled = false;
+        }
+      });
+      row.append(icon, text, revertBtn);
+      list.appendChild(row);
+    }
+  } catch (error) {
+    list.replaceChildren();
+    const errLi = document.createElement("li");
+    errLi.className = "muted";
+    errLi.textContent = error.message || "Couldn't load the history.";
+    list.appendChild(errLi);
+  }
 }
 
 const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
@@ -1028,6 +1267,10 @@ $("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
 $("doc-ai-instruction").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
 });
+for (const radio of document.querySelectorAll('input[name="doc-ai-verb"]')) {
+  radio.addEventListener("change", syncDocAiPanel);
+}
+$("doc-ai-history").addEventListener("click", openDocAiHistory);
 $("doc-extract").addEventListener("click", openDocExtractPreview);
 $("doc-content").addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !$("doc-find-bar").classList.contains("hidden")) {

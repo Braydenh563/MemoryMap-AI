@@ -1714,13 +1714,28 @@ Link to another note with [[its first few words]]."></textarea>
       </section>
     </div>
 
-    <!-- AI edit: shown as a proposal, never written straight into the file. -->
+    <!-- AI assistant: shown as a proposal, never written straight into the
+         file. Three verbs, asked for directly — the panel used to do only
+         one thing (rewrite), which is still "Edit" below and unchanged;
+         "Write" inserts a new passage instead of replacing anything, and
+         "Remove" deletes on request, both routed through the same
+         /ai-edit endpoint via the `verb` each radio sets. -->
     <div id="doc-ai-panel" class="modal-overlay hidden" role="dialog"
-      aria-modal="true" aria-label="AI edit">
+      aria-modal="true" aria-label="AI assistant">
       <div class="card modal-card doc-ai-card">
         <div class="row space-between">
-          <h2>AI edit</h2>
-          <button id="doc-ai-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+          <h2>AI assistant</h2>
+          <div class="row">
+            <button id="doc-ai-history" class="ghost small" type="button" title="See and undo past AI edits to this document">
+              <i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i> History
+            </button>
+            <button id="doc-ai-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <div id="doc-ai-verb" class="segmented-control" aria-label="What should the AI do">
+          <label><input type="radio" name="doc-ai-verb" value="edit" checked> Edit</label>
+          <label><input type="radio" name="doc-ai-verb" value="write"> Write</label>
+          <label><input type="radio" name="doc-ai-verb" value="remove"> Remove</label>
         </div>
         <p class="muted" id="doc-ai-scope"></p>
         <input id="doc-ai-instruction" type="text" maxlength="500"
@@ -1740,6 +1755,24 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
     </div>
+
+    <!-- The changelog asked for directly: "allow edits made by the AI to
+         be undone or altered before and after they are set." Before
+         accepting, the AI panel's own result textarea already covers
+         altering; this dialog is the "undone... after" half — a durable
+         per-document record (routes_documents.py's DocumentAiEdit table)
+         distinct from the app's own session-only global undo stack, which
+         also fires on every accept for an immediate Ctrl+Z but forgets
+         everything on reload. -->
+    <dialog id="doc-ai-history-dialog" class="card space-dialog doc-ai-history-dialog">
+      <h3>AI edit history</h3>
+      <p class="muted">Every AI edit accepted into this document. Revert any of them — it's recorded too, so nothing here is ever lost.</p>
+      <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
+      <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
+      <div class="row right space-dialog-actions">
+        <button type="button" class="ghost" data-close-dialog="doc-ai-history-dialog">Close</button>
+      </div>
+    </dialog>
   </div>
 
   <!-- ======================= REMINDERS TAB ================================= -->

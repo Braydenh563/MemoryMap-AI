@@ -7232,6 +7232,25 @@ function chatAttachmentStrip(attachments) {
       continue;
     }
 
+    if (item.kind === "note") {
+      // A note: the chip carries its first line and opens it in Notes. Same
+      // shape as the document chip below and for the same reason — the note's
+      // full text is already one click away and repeating it in the bubble
+      // would bury the question that was asked about it.
+      const noteChip = document.createElement("button");
+      noteChip.type = "button";
+      noteChip.className = "chip msg-attachment msg-attachment-note";
+      setLabel(noteChip, `ph:paperclip ${item.name}`);
+      noteChip.title = `Open this note (#${item.id})`;
+      // `flashEntry` is the app's one "take me to this note" path — it also
+      // switches sub-tab, clears the filters that would hide the card, and
+      // announces the jump. Re-implementing three of those here is how they
+      // drift apart.
+      noteChip.addEventListener("click", () => flashEntry(item.id));
+      strip.appendChild(noteChip);
+      continue;
+    }
+
     // A document: there is nothing to preview inline (its text may be a
     // hundred pages), so the chip is the navigation.
     const chip = document.createElement("button");
@@ -8728,6 +8747,14 @@ async function sendChatMessage(preset, opts = {}) {
       text: "",
     })),
     ...attachedDocuments.map((d) => ({ kind: "document", id: d.id, name: d.name })),
+    // The paperclip's own attachments. Same card list as the other two kinds
+    // so the bubble shows every reference this question was given, not two of
+    // the three.
+    ...attachedNotes().map((entry) => ({
+      kind: "note",
+      id: entry.id,
+      name: noteLabel(entry, 60),
+    })),
   ];
   if (!opts.replaceLast) {
     // Remembered so a regenerate re-runs with the same references — by then
@@ -8889,6 +8916,7 @@ async function sendChatMessage(preset, opts = {}) {
         // numbers reported as final would be wrong rather than incomplete.
         image_media_ids: sentImages.length ? sentImages : null,
         document_ids: sentDocuments.length ? sentDocuments : null,
+        note_ids: sentAttachments.length ? sentAttachments : null,
       };
       if (convRef.id === null) {
         const created = await apiJson("/conversations", {
@@ -9345,6 +9373,10 @@ async function sendChatMessage(preset, opts = {}) {
       // Same reason as the ids above, one kind over: a document attached to a
       // message is what lets the bubble draw its chip again on reopen.
       document_ids: sentDocuments.length ? sentDocuments : null,
+      // And the notes clipped with the paperclip, which until now were used to
+      // build one prompt and then forgotten — the bubble showed no sign the
+      // answer had been given a note to read.
+      note_ids: sentAttachments.length ? sentAttachments : null,
     };
     if (convRef.id === null) {
       const created = await apiJson("/conversations", {
@@ -22041,6 +22073,21 @@ const DEFAULT_SHORTCUTS = {
   // selection too (`selectionchange` fires for those), but a menu you can see
   // and cannot open is not an improvement.
   selectionActions: { keys: "Ctrl+Shift+E", label: "Actions for the selected text" },
+  // --- added when the section was expanded (reported: "expand the keyboard
+  // shortcuts section in settings") ---------------------------------------
+  //
+  // Every one of these was already a thing the app does and a thing people do
+  // repeatedly; none of them had a key. The bar for adding one is that it
+  // saves a *navigation*, not a click — a shortcut that only replaces a button
+  // already on the screen you are looking at earns nothing and spends a combo.
+  save: { keys: "Ctrl+S", label: "Save the note or document you're editing" },
+  newChat: { keys: "Ctrl+Shift+O", label: "Start a new chat" },
+  stopAI: { keys: "Ctrl+.", label: "Stop the answer being written" },
+  agentMode: { keys: "Ctrl+Shift+G", label: "Turn agent mode on or off" },
+  quickSketch: { keys: "Ctrl+Shift+K", label: "Open the quick sketch pad" },
+  whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
+  settings: { keys: "Ctrl+,", label: "Open settings" },
+  attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
 };
 
 const SHORTCUT_STORE = "keyboardShortcuts";
@@ -22145,6 +22192,36 @@ function runShortcut(id) {
     undo: performUndo,
     redo: performRedo,
     selectionActions: openSelectionMenuFromKeyboard,
+    // Ctrl+S means "save what I am editing", and which editor that is depends
+    // on the tab. Documents already autosave, so there it is an explicit
+    // checkpoint rather than the only way the text survives.
+    save: () => {
+      if (localStorage.getItem("activeTab") === "documents") saveDocument();
+      else saveEntry();
+    },
+    newChat: () => {
+      switchTab("chat");
+      newChatConversation();
+      $("chat-input")?.focus();
+    },
+    // The one shortcut whose whole value is being reachable in a hurry: a
+    // local model three minutes into the wrong answer is the moment nobody
+    // wants to go looking for a button.
+    stopAI: () => chatController?.abort(),
+    agentMode: () => {
+      switchTab("chat");
+      const toggle = $("tools-toggle");
+      if (!toggle) return;
+      toggle.checked = !toggle.checked;
+      toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    quickSketch: openSketch,
+    whiteboard: () => switchTab("whiteboard"),
+    settings: () => openSettingsModal(),
+    attachNote: () => {
+      switchTab("chat");
+      openNotePicker();
+    },
   };
   actions[id]?.();
 }

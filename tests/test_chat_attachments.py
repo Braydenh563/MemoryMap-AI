@@ -179,3 +179,91 @@ def test_the_ids_are_persisted_by_the_send_path():
     assert source.count("document_ids: sentDocuments") == 2, (
         "both save paths — the partial written mid-stream and the final one"
     )
+
+
+# --- notes clipped to a question (reported after images and documents) -----------
+#
+# "if the user attaches a note to a chat message how does it show that that
+# note is atatched to that message??" — it did not, anywhere. The ids went to
+# /chat/stream, built one prompt and were thrown away, so both the live bubble
+# and the reopened conversation showed plain text with no sign of what the
+# answer had been given to read.
+
+
+def test_a_turn_remembers_which_notes_were_clipped_to_it(ai_client, session):
+    from memorymap.core.database import Entry
+
+    note = Entry(content="The wifi password is on the router")
+    session.add(note)
+    session.commit()
+
+    made = ai_client.post(
+        "/conversations",
+        json={"question": "what is it?", "answer": "It's on the router.",
+              "note_ids": [note.id]},
+    )
+    assert made.status_code == 201, made.text
+
+    body = ai_client.get(f"/conversations/{made.json()['id']}").json()
+    user_message = body["messages"][0]
+    assert user_message["note_ids"] == [note.id]
+    assert user_message["attachments"] == [
+        {"id": note.id, "kind": "note", "name": "The wifi password is on the router"}
+    ]
+
+
+def test_a_private_or_binned_note_loses_its_chip(ai_client, session):
+    """Same treatment as a deleted upload — the chip disappears. Listing a
+    private note's first line in a conversation would put it back on screen in
+    the one place the private-notebook rule cannot reach."""
+    from memorymap.core.database import Entry
+
+    private = Entry(content="Therapy notes", is_private=True)
+    binned = Entry(content="Old shopping list", is_deleted=True)
+    session.add_all([private, binned])
+    session.commit()
+
+    made = ai_client.post(
+        "/conversations",
+        json={"question": "q", "answer": "a", "note_ids": [private.id, binned.id]},
+    )
+    body = ai_client.get(f"/conversations/{made.json()['id']}").json()
+    assert "attachments" not in body["messages"][0]
+
+
+def test_the_model_is_told_what_the_pictures_in_an_attached_note_say(session):
+    """"if there is an image/sketch/file in that note, can the ai read the
+    captions or ocr in those attachments if they already exist??" — it could
+    not. A note's content carries `/media/<filename>` and nothing else, so a
+    note whose whole point was a photographed whiteboard reached the model as a
+    sentence and a link."""
+    from memorymap.api.routes_chat import _media_readings
+    from memorymap.core.database import MediaUpload
+
+    session.add(
+        MediaUpload(
+            filename="abc123.png",
+            original_name="whiteboard.png",
+            caption="a sprint board with three columns",
+            vision_ocr_text="TODO / DOING / DONE",
+        )
+    )
+    session.commit()
+
+    reading = _media_readings(session, "Standup photo:\n![](/media/abc123.png)")
+    assert "whiteboard.png" in reading
+    assert "a sprint board with three columns" in reading
+    assert "TODO / DOING / DONE" in reading
+
+
+def test_a_picture_with_no_reading_yet_contributes_nothing(session):
+    """"If they already exist" is the operative half: nothing here generates a
+    caption or runs vision OCR. Captioning may not have run, may be off, or may
+    have no model — and a chat turn is the worst place to start one."""
+    from memorymap.api.routes_chat import _media_readings
+    from memorymap.core.database import MediaUpload
+
+    session.add(MediaUpload(filename="blank.png", original_name="blank.png"))
+    session.commit()
+    assert _media_readings(session, "![](/media/blank.png)") == ""
+    assert _media_readings(session, "no pictures here") == ""

@@ -15,6 +15,7 @@ import base64
 import json
 import logging
 import mimetypes
+import re
 from collections.abc import Iterator
 from itertools import chain
 
@@ -47,6 +48,10 @@ from memorymap.entry import manager
 from memorymap.entry.manager import UNCATEGORISED
 from memorymap.search import search_manager
 from sqlalchemy import func
+
+#: `/media/<filename>` as it appears inside note and document content —
+#: the only record a note keeps of a picture it holds.
+_MEDIA_REF = re.compile(r"/media/([A-Za-z0-9._-]{1,200})")
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -483,6 +488,68 @@ def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
     return found
 
 
+#: At most this many pictures from one note are described to the model, and at
+#: most this much of each reading. A note can hold a dozen scans; the readings
+#: are a *hint* about what is in the note, not a second copy of the notebook,
+#: and every character here is resent on every round of the turn.
+MEDIA_READINGS_PER_NOTE = 4
+MEDIA_READING_CHARS = 240
+
+
+def _media_readings(session: Session, content: str) -> str:
+    """What the app already knows about the pictures inside a note.
+
+    Asked directly: *"if there is an image/sketch/file in that note, can the ai
+    read the captions or ocr in those attachments if they already exist??"* It
+    could not. A note's content carries `/media/<filename>` references and
+    nothing else — so a note whose entire point was a photographed whiteboard
+    reached the model as a sentence and a link, and the caption and OCR text
+    the app had already generated for that exact image sat unread in the
+    database two tables away.
+
+    "If they already exist" is the operative half, and it is why this is a
+    lookup and not a pipeline: nothing here generates a caption or runs vision
+    OCR. Captioning is a background job that may not have run yet, may be off,
+    or may have no model to run against, and a chat turn is the worst possible
+    place to start one — it would block the answer on a second model load. A
+    picture with no reading yet simply contributes nothing.
+    """
+    filenames = _MEDIA_REF.findall(content or "")
+    if not filenames:
+        return ""
+    # De-duplicated, in the order they appear in the note — the same order the
+    # reader sees them in, so "the second diagram" means the same thing to both.
+    ordered = list(dict.fromkeys(filenames))[:MEDIA_READINGS_PER_NOTE]
+    rows = {
+        upload.filename: upload
+        for upload in session.query(MediaUpload)
+        .filter(MediaUpload.filename.in_(ordered))
+        .all()
+    }
+    lines = []
+    for filename in ordered:
+        upload = rows.get(filename)
+        if upload is None:
+            continue
+        caption = (upload.caption or "").strip()
+        text = (upload.vision_ocr_text or upload.ocr_text or "").strip()
+        if not caption and not text:
+            continue
+        parts = []
+        if caption:
+            parts.append(f"shows {caption[:MEDIA_READING_CHARS]}")
+        if text:
+            parts.append(f'text in it: "{text[:MEDIA_READING_CHARS]}"')
+        name = (upload.original_name or filename).strip()
+        lines.append(f"- {name}: {'; '.join(parts)}")
+    if not lines:
+        return ""
+    # Bracketed and labelled so the model can tell the app's reading of a
+    # picture from the user's own words. It is evidence about the note, not
+    # part of it.
+    return "\n\n[Pictures in this note, as this app read them:\n" + "\n".join(lines) + "]"
+
+
 def _prepare(
     session: Session,
     question: str,
@@ -547,11 +614,19 @@ def _prepare(
         mode = "attached" if mode == "none" else f"attached + {mode}"
 
     def as_note(entry) -> dict:
+        content = entry.content
+        if entry.id in attached_ids:
+            # Only for notes the user picked by hand. A retrieved note is a
+            # candidate; an attached one is the subject of the question, and
+            # that is worth the extra characters — doing this for all ten
+            # search hits would spend the notes budget on pictures nobody
+            # asked about.
+            content = f"{content}{_media_readings(session, content)}"
         return {
             # id lets agent-mode tool calls target these notes;
             # the plain librarian prompt simply ignores it.
             "id": entry.id,
-            "content": entry.content,
+            "content": content,
             "category": manager.category_name_for(session, entry),
             # Marked so the prompt can say which notes the user chose.
             "attached": entry.id in attached_ids,

@@ -14,6 +14,7 @@ until opened and 20 after.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 APP_JS = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
@@ -128,3 +129,19 @@ def test_the_clipping_helper_quotes_and_attributes():
     body = source[start : source.index("async function saveSelectionAsNote(")]
     assert "`> ${line}`" in body, "the passage is no longer quoted"
     assert "](${source.url})" in body, "the source is no longer linked"
+
+
+def test_every_shortcut_has_something_to_run():
+    """A binding with no entry in `runShortcut` is CLAUDE.md's shape 2 exactly:
+    not buggy, never executed — `actions[id]?.()` swallows it in silence, so
+    the key appears in the Settings list, rebinds happily, and does nothing.
+    Checked here because the section was expanded from ten bindings to
+    seventeen in one sitting."""
+    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    defaults = source.split("const DEFAULT_SHORTCUTS = {")[1].split("\n};")[0]
+    ids = re.findall(r"^\s{2}(\w+):\s*\{ keys:", defaults, flags=re.M)
+    assert len(ids) >= 17, ids
+
+    actions = source.split("function runShortcut(id) {")[1].split("\n  actions[id]")[0]
+    for name in ids:
+        assert re.search(rf"\b{name}[,:]", actions), f"{name} has no action"

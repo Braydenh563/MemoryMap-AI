@@ -3787,7 +3787,33 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
                 <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
                 <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
+                <li><kbd>Shift</kbd> + <kbd>Enter</kbd><span>New line in the chat box without sending</span></li>
+                <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd><span>Save the note you're writing</span></li>
                 <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+                <li><kbd>↑</kbd> <kbd>↓</kbd><span>Move through the command palette, the note picker and
+                  wiki-link suggestions</span></li>
+              </ul>
+            </div>
+
+            <!-- The "g" chord. Not in the rebindable list above and the reason
+                 is in app.js beside TAB_JUMP_KEYS: a two-key chord needs
+                 somewhere to hold the first press while it waits for the
+                 second, which is state the keydown handler owns regardless.
+                 It was also, until now, documented nowhere a user would look. -->
+            <div class="settings-group">
+              <h3>Jump to a tab</h3>
+              <p class="muted">
+                Press <kbd>g</kbd> and then a letter, the same way GitHub and
+                Gmail do it. Only when you aren't typing in a box.
+              </p>
+              <ul class="shortcut-list">
+                <li><kbd>g</kbd> <kbd>d</kbd><span>Dashboard</span></li>
+                <li><kbd>g</kbd> <kbd>n</kbd><span>Notes</span></li>
+                <li><kbd>g</kbd> <kbd>c</kbd><span>Chat</span></li>
+                <li><kbd>g</kbd> <kbd>g</kbd><span>Graph</span></li>
+                <li><kbd>g</kbd> <kbd>l</kbd><span>Library</span></li>
+                <li><kbd>g</kbd> <kbd>t</kbd><span>Timeline</span></li>
+                <li><kbd>g</kbd> <kbd>r</kbd><span>Reminders</span></li>
               </ul>
             </div>
           </section>

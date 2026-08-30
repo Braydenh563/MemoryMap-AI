@@ -90,6 +90,14 @@ class TurnBody(BaseModel):
     #: their stored location in the library or documents": with nothing
     #: stored, there was nothing to render and nowhere to navigate to.
     document_ids: list[int] | None = None
+    #: Notes clipped to this question with the paperclip. Reported: *"if the
+    #: user attaches a note to a chat message how does it show that that note
+    #: is attached to that message??"* — it did not, anywhere. The ids were
+    #: sent to `/chat/stream`, used to build that one prompt, and thrown away:
+    #: the bubble showed plain text, and reopening the conversation showed the
+    #: same plain text, so the answer's whole basis was invisible after the
+    #: fact. Same fix as images and documents above, one release later.
+    note_ids: list[int] | None = None
 
 
 class RenameBody(BaseModel):
@@ -124,6 +132,8 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         user["image_media_ids"] = turn.image_media_ids
     if turn.document_ids:
         user["document_ids"] = turn.document_ids
+    if turn.note_ids:
+        user["note_ids"] = turn.note_ids
     return [user, assistant]
 
 
@@ -265,11 +275,12 @@ def _hydrate_attachments(session: Session, messages: list[dict]) -> None:
     resolves to nothing and the bubble simply shows one fewer thumbnail,
     which is what happened before this existed. Nothing here 404s.
     """
-    from memorymap.core.database import Document, MediaUpload
+    from memorymap.core.database import Document, Entry, MediaUpload
 
     media_ids = {i for m in messages for i in (m.get("image_media_ids") or [])}
     doc_ids = {i for m in messages for i in (m.get("document_ids") or [])}
-    if not media_ids and not doc_ids:
+    note_ids = {i for m in messages for i in (m.get("note_ids") or [])}
+    if not media_ids and not doc_ids and not note_ids:
         return
 
     media = {}
@@ -294,11 +305,32 @@ def _hydrate_attachments(session: Session, messages: list[dict]) -> None:
                 "name": document.title,
             }
 
+    notes = {}
+    if note_ids:
+        for entry in session.query(Entry).filter(Entry.id.in_(note_ids)).all():
+            # A binned or private note is treated exactly like a deleted
+            # upload: the chip disappears. Listing a private note's first line
+            # in a conversation would put it back on screen in the one place
+            # the private-notebook rule cannot reach.
+            if entry.is_deleted or entry.is_private:
+                continue
+            first_line = (entry.content or "").strip().splitlines()
+            notes[entry.id] = {
+                "id": entry.id,
+                "kind": "note",
+                # Notes have no title of their own, so the chip says what the
+                # note says — the same first-line preview the picker uses, for
+                # the same reason: it is how the user recognises it.
+                "name": (first_line[0][:60] if first_line else f"Note #{entry.id}"),
+            }
+
     for message in messages:
         attachments = [
             media[i] for i in (message.get("image_media_ids") or []) if i in media
         ] + [
             documents[i] for i in (message.get("document_ids") or []) if i in documents
+        ] + [
+            notes[i] for i in (message.get("note_ids") or []) if i in notes
         ]
         if attachments:
             message["attachments"] = attachments

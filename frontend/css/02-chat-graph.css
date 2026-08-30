@@ -2462,6 +2462,10 @@ html {
   border-style: dashed;
 }
 
+/* A note clipped to the question, and a document: the same card, because
+   they are the same statement — "the answer was given this to read, click to
+   open it". */
+.msg-attachment-note,
 .msg-attachment-doc {
   cursor: pointer;
   max-width: 16rem;
@@ -2487,6 +2491,7 @@ html {
    translucent-white treatment the lightbox uses over a photograph, which
    works against any accent the user has picked rather than against one. */
 .msg.user .msg-attachment-image,
+.msg.user .msg-attachment-note,
 .msg.user .msg-attachment-doc {
   background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.3);

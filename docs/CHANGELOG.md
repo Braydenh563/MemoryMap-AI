@@ -152,6 +152,21 @@ tagged, ahead of the PR merging.
   new segment exactly once. Verified by sampling canvas pixels before/after
   a multi-point stroke — the repeatedly-touched start and the once-touched
   end now composite identically.
+- CodeQL alerts on `main` (user-pasted screenshots): #289/#290
+  (`py/path-injection`, High) — a second fix attempt for this same alert
+  still didn't close it; researched CodeQL's actual sanitiser model
+  (`Path::SafeAccessCheck`'s only recognised Python shape is a bare
+  `x.startswith(base)` as a guard's sole condition) and simplified
+  `_within_exports` to match it exactly, dropping the compound condition
+  and computed `+ os.sep` argument that likely broke pattern recognition
+  the second time. #296 (information exposure through an exception,
+  Medium) — `routes_chat.py`'s error-fallback path sent a raw exception's
+  `str()` straight to the client; now goes through `safe_value`, the same
+  sanitiser `librarian.model_error_message` already uses for the identical
+  shape. #319 (duplicate `import re` in a test function), #320/#321
+  (mixed implicit/explicit returns in `ollama_client.py`/`openai_client.py`'s
+  retry-loop `chat()` methods — added an unreachable trailing raise so the
+  function reads as exhaustive).
 - Three more Preferences toggles ("Mute notifications except reminders",
   "Let the AI use this profile...", "Allow web search when I ask for it")
   had the same bare-`<label>`-missing-`.check-row` bug as Settings → About's

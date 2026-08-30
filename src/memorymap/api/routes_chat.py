@@ -1070,7 +1070,11 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 "skill run" if skill else "agent turn",
                 exc,
             )
-            yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {exc}"})
+            # CodeQL: "information exposure through an exception" (#296) —
+            # `exc`'s own str() is untrusted and can embed a file path or
+            # connection detail; same sanitiser librarian.model_error_message
+            # already trusts for this exact shape.
+            yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {safe_value(exc)}"})
         conversational = not intent.needs_retrieval(prepared["intent"])
         if not conversational and prepared["notes"] and answer_text:
             grounding = ground_answer_sentences(answer_text, prepared["notes"])

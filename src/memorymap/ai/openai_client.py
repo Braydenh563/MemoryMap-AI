@@ -675,6 +675,10 @@ class OpenAICompatClient(Provider):
                 raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
             except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
                 raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
+        # Unreachable: every branch above either returns or raises. Only here
+        # so the function reads as exhaustive rather than implicitly
+        # returning None (CodeQL: "mixed implicit/explicit returns", #321).
+        raise ProviderError(f"Chat with '{model}' failed: retries exhausted")
 
     def chat_stream(
         self, model: str, messages: list[dict], mode: str | None = None

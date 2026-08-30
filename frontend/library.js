@@ -2407,6 +2407,14 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
 
+        if (targetId === "library-view-documents") {
+          // "All" itself carries no data-tag-filter, so this also clears a
+          // filter left behind by Meeting Notes when switching back to it.
+          const filterTag = btn.dataset.tagFilter || "";
+          $("library-search").value = filterTag ? `tag:${filterTag}` : "";
+          runLibrarySearch();
+        }
+
         if (targetId === "library-view-media") {
           renderLibraryImagesGallery();
           startLibraryImagesPoll();

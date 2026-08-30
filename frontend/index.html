@@ -2047,6 +2047,15 @@ Link to another note with [[its first few words]]."></textarea>
            thing, and it sat here as a tab only because the filter row did not
            exist yet when it was added. -->
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">All</button>
+      <!-- Reuses the All view's own grid and its existing `tag:` search
+           syntax (clicking a tag chip already fills the search box the same
+           way — see library.js) rather than a new backend view: a meeting
+           note is reliably tagged "meeting" at the point it's saved
+           (saveMeetingNote in app.js), so filtering on that tag is exact,
+           not a guess. Reported directly: "the transcribed notes and
+           meeting notes and audio features should have their own sub tabs." -->
+      <button role="tab" aria-selected="false" data-target="library-view-documents"
+        data-tag-filter="meeting">Meeting Notes</button>
       <button role="tab" aria-selected="false" data-target="library-view-docs">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
       <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>

@@ -102,10 +102,12 @@ def status() -> dict:
 
     # is_running() and list_models() both hit Ollama's own /api/tags —
     # calling both in sequence (as this used to) can take up to 7s (2s + 5s)
-    # for one poll, longer than the frontend's 5s AbortSignal.timeout on
-    # this exact call (app.js refreshModelStatus). That mismatch reads as
-    # "AI unavailable" on a backend that is genuinely up but momentarily
-    # slow to answer — one round-trip now serves both purposes.
+    # for one poll, which used to be longer than the frontend's
+    # AbortSignal.timeout on this exact call (app.js refreshModelStatus) —
+    # since raised from 5s to 8s, but still worth beating rather than
+    # trusting that margin. That mismatch read as "AI unavailable" on a
+    # backend that is genuinely up but momentarily slow to answer — one
+    # round-trip now serves both purposes.
     try:
         installed = [
             {"name": m.get("name", ""), "size": m.get("size", 0)}

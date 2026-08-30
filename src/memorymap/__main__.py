@@ -1137,6 +1137,10 @@ def _start_tray(
                 " else if (typeof switchTab === 'function') switchTab('library');"),
         ),
         pystray.MenuItem(
+            "Record a meeting",
+            _go("if (typeof openMeetingRecorder === 'function') openMeetingRecorder();"),
+        ),
+        pystray.MenuItem(
             "Reminders",
             _go("if (typeof switchTab === 'function') switchTab('reminders');"),
         ),

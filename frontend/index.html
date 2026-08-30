@@ -4779,10 +4779,32 @@ Link to another note with [[its first few words]]."></textarea>
         transcribed locally with Whisper, the same engine behind the mic
         button. Nothing leaves this machine.
       </p>
+      <label class="meeting-title-label" for="meeting-title">What is this recording?</label>
+      <input type="text" id="meeting-title" maxlength="120" class="meeting-title"
+        placeholder="e.g. Tuesday standup, Lecture 4 — thermodynamics"
+        aria-label="A name for this recording">
       <div class="row" id="meeting-controls">
         <button id="meeting-record" type="button"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record</button>
+        <button id="meeting-pause" type="button" class="ghost hidden"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
         <span id="meeting-timer" class="meeting-timer muted" aria-live="polite">0:00</span>
       </div>
+      <!-- The line that moves while you talk. Reported twice: "there is still
+           no line animation that visually picks up the user's voice when
+           recording in the meeting notes section." There *was* a meter — six
+           small bars appended to the Record button by `startMicLevelMeter` —
+           and at that size, on a button, next to a word, it does not read as
+           anything. A recording with no visible response to your voice is
+           indistinguishable from a broken microphone, which is the actual
+           thing being reported: not "I would like a nicer meter" but "I
+           cannot tell whether this is listening."
+
+           A canvas, not DOM bars: this draws ~120 points at 60fps, and 120
+           elements each taking a style write per frame is a layout cost for
+           no benefit. Hidden until recording starts — an empty flat line
+           sitting there when nothing is happening is the "frozen" reading the
+           bar meter's own comment already warns about. -->
+      <canvas id="meeting-wave" class="meeting-wave hidden" width="960" height="120"
+        aria-hidden="true"></canvas>
       <p id="meeting-status" class="status" role="status"></p>
       <!-- Editable, not saved straight away: a raw transcript carries every
            "um" and false start, and the app's whole capture pattern is
@@ -4793,6 +4815,13 @@ Link to another note with [[its first few words]]."></textarea>
         aria-label="Transcript — edit before saving"></textarea>
       <div class="row hidden" id="meeting-save-row">
         <button id="meeting-save">Save as a note</button>
+        <!-- A lecture or a long meeting is not a note. Asked for as part of
+             "expanded as a proper feature with more capabilities": an hour of
+             transcript in the Notes list is one enormous card nobody can
+             scroll past, where the same text as a document is something you
+             can open, edit, extract notes from and export. -->
+        <button id="meeting-save-doc" class="ghost">Save as a document</button>
+        <button id="meeting-copy" class="ghost" title="Copy the transcript">Copy</button>
         <button id="meeting-discard" class="ghost">Discard</button>
       </div>
     </div>

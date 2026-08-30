@@ -565,6 +565,7 @@ def test_tray_has_no_hide_console_item_without_a_real_console(monkeypatch, tmp_p
         "New note",
         "Ask a question",
         "Search everything",
+        "Record a meeting",
         "Reminders",
         "Whiteboard",
         "Background tasks",

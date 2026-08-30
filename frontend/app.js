@@ -15544,6 +15544,16 @@ function paletteCommands() {
     { label: "ph:sparkle New chat", run: () => { switchTab("chat"); newChatConversation(); } },
     { label: "ph:palette New sketch", run: openSketch },
     {
+      // Reachable from anywhere, which is the point. Asked for directly: "I
+      // would also like the meeting notes popup to be expanded as a proper
+      // feature with more capabilities and expansion which is also accessible
+      // throughout the app, not just from the dashboard." A recording is
+      // started the moment a meeting starts, and "go to the Dashboard first"
+      // is exactly the friction that means it does not get started at all.
+      label: "ph:microphone Record a meeting or lecture",
+      run: openMeetingRecorder,
+    },
+    {
       // Asked for directly: "add creating a new board to the command
       // palette and tools and features as well" — the only way in before
       // this was the Add button inside the whiteboard's own board-picker
@@ -16273,6 +16283,121 @@ function meetingElapsedText() {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+//: How many amplitude samples the waveform holds. About four seconds at the
+//: sample rate below, which is enough to see the shape of a sentence without
+//: the line becoming a texture.
+const MEETING_WAVE_POINTS = 140;
+//: Frames between samples. Every frame would fill the window in two seconds
+//: and spend a redraw on a difference nobody can see.
+const MEETING_WAVE_EVERY = 3;
+
+//: Kept at module level so `closeMeetingRecorder` can stop a draw loop that
+//: `toggleMeetingRecording` started — the two are different user actions and
+//: neither can reach the other's locals.
+let stopMeetingWave = () => {};
+
+// The line that moves while you talk. See the note in index.html for why the
+// six-bar meter on the Record button was not enough: a recording with no
+// visible response to your voice is indistinguishable from a broken
+// microphone, and that is what was actually being reported.
+function startMeetingWave(stream) {
+  const canvas = document.getElementById("meeting-wave");
+  if (!canvas) return () => {};
+  let ctx;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    return () => {}; // no Web Audio — the recording itself is unaffected
+  }
+  const analyser = ctx.createAnalyser();
+  // 2048 in the *time* domain: this draws a level line, and a bigger window
+  // gives a steadier RMS than the 256-bin frequency analyser the button meter
+  // uses. Both can run at once — they are separate nodes on the same stream.
+  analyser.fftSize = 2048;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Uint8Array(analyser.fftSize);
+  const levels = new Array(MEETING_WAVE_POINTS).fill(0);
+
+  const paint = canvas.getContext("2d");
+  canvas.classList.remove("hidden");
+  // Size the backing store to the box it is actually drawn in, at the
+  // device's own pixel density. The markup's 960×120 is a fallback for the
+  // frame before layout; leaving it there stretches the line horizontally and
+  // makes it soft on any HiDPI screen. Measured after `remove("hidden")` —
+  // a hidden element has no width to read.
+  const box = canvas.getBoundingClientRect();
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  if (box.width) {
+    canvas.width = Math.round(box.width * ratio);
+    canvas.height = Math.round(box.height * ratio);
+  }
+  let frame = null;
+  let ticks = 0;
+  let stopped = false;
+
+  function draw() {
+    const { width, height } = canvas;
+    const middle = height / 2;
+    paint.clearRect(0, 0, width, height);
+    // The accent, read from the live stylesheet rather than hard-coded, so
+    // the line follows whatever theme is set — including a custom one.
+    const accent =
+      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
+      "#4f6df5";
+    paint.strokeStyle = accent;
+    paint.lineWidth = 2;
+    paint.lineJoin = "round";
+    paint.lineCap = "round";
+    const step = width / (levels.length - 1);
+    // Two mirrored strokes rather than one: a level line drawn only upward
+    // reads as a graph, and the symmetrical pair reads as sound.
+    for (const direction of [-1, 1]) {
+      paint.beginPath();
+      levels.forEach((level, i) => {
+        const y = middle + direction * level * (middle - 4);
+        if (i === 0) paint.moveTo(0, y);
+        else paint.lineTo(i * step, y);
+      });
+      paint.stroke();
+    }
+  }
+
+  function tick() {
+    if (stopped) return;
+    if (ticks % MEETING_WAVE_EVERY === 0) {
+      analyser.getByteTimeDomainData(samples);
+      // RMS around the 128 midpoint — the honest measure of loudness, and
+      // steadier than a peak, which flickers on consonants.
+      let sum = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const value = (samples[i] - 128) / 128;
+        sum += value * value;
+      }
+      const rms = Math.sqrt(sum / samples.length);
+      // sqrt again for the same reason the bar meter gives: ordinary speech
+      // sits low in the range and a linear map leaves it near the floor.
+      levels.push(Math.min(1, Math.sqrt(rms) * 1.6));
+      levels.shift();
+      draw();
+    }
+    ticks++;
+    frame = requestAnimationFrame(tick);
+  }
+
+  // Chrome creates an AudioContext suspended even inside a click handler, and
+  // the analyser reads all-zero until it is running — the same trap the bar
+  // meter documents. Start the loop after resume resolves.
+  ctx.resume().then(tick, tick);
+
+  return () => {
+    stopped = true;
+    if (frame) cancelAnimationFrame(frame);
+    ctx.close().catch(() => {});
+    canvas.classList.add("hidden");
+    paint.clearRect(0, 0, canvas.width, canvas.height);
+  };
+}
+
 function stopMeetingTimer() {
   if (meetingTimerHandle) clearInterval(meetingTimerHandle);
   meetingTimerHandle = null;
@@ -16290,6 +16415,9 @@ function resetMeetingUI() {
   $("meeting-record").disabled = false;
   $("meeting-record").classList.remove("recording");
   setLabel($("meeting-record"), "ph:record Record");
+  $("meeting-pause")?.classList.add("hidden");
+  setLabel($("meeting-pause"), "ph:pause Pause");
+  $("meeting-wave")?.classList.add("hidden");
 }
 
 async function openMeetingRecorder() {
@@ -16308,6 +16436,8 @@ function closeMeetingRecorder() {
     meetingRecorder.stop();
   }
   meetingStream?.getTracks().forEach((t) => t.stop());
+  stopMeetingWave();
+  stopMeetingWave = () => {};
   meetingRecorder = null;
   meetingStream = null;
   stopMeetingTimer();
@@ -16345,6 +16475,9 @@ async function toggleMeetingRecording() {
   meetingRecorder.addEventListener("stop", async () => {
     meetingStream?.getTracks().forEach((t) => t.stop());
     stopMeetingLevelMeter();
+    stopMeetingWave();
+    stopMeetingWave = () => {};
+    $("meeting-pause").classList.add("hidden");
     meetingStream = null;
     meetingRecorder = null;
     stopMeetingTimer();
@@ -16387,8 +16520,75 @@ async function toggleMeetingRecording() {
   // every child on the button, and the bar meter startMicLevelMeter() builds
   // is one — appending it earlier just got it discarded a line later.
   stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
+  stopMeetingWave = startMeetingWave(meetingStream);
+  $("meeting-pause").classList.remove("hidden");
   $("meeting-status").textContent = "";
   $("meeting-status").classList.remove("error");
+}
+
+// Pause and resume, which a MediaRecorder supports directly — the chunks
+// simply stop arriving and the recording continues where it left off. Asked
+// for as part of "expanded as a proper feature with more capabilities", and
+// it is the one a real meeting needs: someone leaves the room, a side
+// conversation starts, and the alternative today is stopping and starting a
+// second recording that transcribes as a separate transcript.
+//
+// The elapsed timer is corrected on resume rather than left running: it is
+// showing how long the *recording* is, and a paused stretch is not in it.
+let meetingPausedAt = 0;
+
+function toggleMeetingPause() {
+  if (!meetingRecorder) return;
+  const button = $("meeting-pause");
+  if (meetingRecorder.state === "recording") {
+    meetingRecorder.pause();
+    meetingPausedAt = Date.now();
+    stopMeetingTimer();
+    setLabel(button, "ph:play Resume");
+    $("meeting-status").textContent = "Paused.";
+  } else if (meetingRecorder.state === "paused") {
+    meetingRecorder.resume();
+    // Push the start forward by however long the pause lasted, so the timer
+    // keeps reading as the length of the audio rather than of the sitting.
+    meetingStartedAt += Date.now() - meetingPausedAt;
+    meetingTimerHandle = setInterval(() => {
+      $("meeting-timer").textContent = meetingElapsedText();
+    }, 1000);
+    setLabel(button, "ph:pause Pause");
+    $("meeting-status").textContent = "";
+  }
+}
+
+// An hour of transcript is not a note. In the Notes list it is one enormous
+// card nobody can scroll past; as a document it is something you can open,
+// edit, extract notes from and export — which is what the rest of this app
+// already does well with long text.
+async function saveMeetingDocument() {
+  const content = $("meeting-transcript").value.trim();
+  if (!content) return;
+  const status = $("meeting-status");
+  const button = $("meeting-save-doc");
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  try {
+    const title =
+      ($("meeting-title")?.value || "").trim() ||
+      `Recording — ${new Date().toLocaleString()}`;
+    const document_ = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, content }),
+    });
+    closeMeetingRecorder();
+    switchTab("documents");
+    openDocument(document_.id);
+    toast(`Saved “${title}” to your documents.`);
+  } catch (error) {
+    status.textContent = error.message || "Couldn't save that.";
+    status.classList.add("error");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function saveMeetingNote() {
@@ -16405,9 +16605,16 @@ async function saveMeetingNote() {
     // meeting about a specific project lands there rather than in a generic
     // "Meetings" bucket regardless of what it was actually about. The tag is
     // what makes every meeting findable as a class either way.
+    // The title, when one was typed, becomes the note's first line — which is
+    // what every list in this app shows as its name. Without it a saved
+    // recording is titled by whatever word the transcript happens to open on.
+    const title = ($("meeting-title")?.value || "").trim();
     const saved = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags: ["meeting"] }),
+      body: JSON.stringify({
+        content: title ? `${title}\n\n${content}` : content,
+        tags: ["meeting"],
+      }),
     });
     toast(filedByText(saved));
     await loadEntries();
@@ -21632,6 +21839,10 @@ const DEFAULT_SHORTCUTS = {
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
+  // A recording is started the moment a meeting starts, and anything that
+  // makes you navigate first is what makes it not get started at all — the
+  // reason this is a shortcut as well as a palette entry and a tray item.
+  recordMeeting: { keys: "Ctrl+Shift+R", label: "Record a meeting or lecture" },
   toggleTheme: { keys: "Ctrl+Shift+L", label: "Switch light / dark" },
   undo: { keys: "Ctrl+Z", label: "Undo the last change" },
   redo: { keys: "Ctrl+Shift+Z", label: "Redo" },
@@ -21739,6 +21950,7 @@ function runShortcut(id) {
       switchTab("documents");
       createDocument();
     },
+    recordMeeting: openMeetingRecorder,
     toggleTheme,
     undo: performUndo,
     redo: performRedo,
@@ -22257,6 +22469,11 @@ $("meeting-overlay").addEventListener("click", (e) => {
 });
 $("meeting-record").addEventListener("click", toggleMeetingRecording);
 $("meeting-save").addEventListener("click", saveMeetingNote);
+$("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
+$("meeting-pause")?.addEventListener("click", toggleMeetingPause);
+$("meeting-copy")?.addEventListener("click", (event) =>
+  copyToClipboard($("meeting-transcript").value, event.currentTarget)
+);
 $("meeting-discard").addEventListener("click", resetMeetingUI);
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).

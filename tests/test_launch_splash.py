@@ -149,3 +149,21 @@ def test_a_machine_without_zenity_just_gets_no_splash():
     text = _start_sh()
     body = text[text.index("mm_splash() {") : text.index("mm_splash_done() {")]
     assert '[ -n "$MM_SPLASH_PID" ] || return 0' in body
+
+
+def test_the_progress_bar_is_not_colour_overridden():
+    """Reported: the bar "just stays empty".
+
+    Setting ForeColor or BackColor on a WinForms ProgressBar switches it off
+    the themed renderer and onto the plain one — and the plain renderer does
+    not draw a Marquee at all. The control is still there and still animating
+    in principle; nothing paints. So the colours have to stay off it, and the
+    animation speed has to be non-zero, which is the other way to get an empty
+    bar.
+    """
+    ps1 = (REPO / "scripts" / "splash.ps1").read_text(encoding="utf-8")
+    bar = [line for line in ps1.splitlines() if line.strip().startswith("$bar.")]
+    assert not any("ForeColor" in line or "BackColor" in line for line in bar), bar
+    speed = next(line for line in bar if "MarqueeAnimationSpeed" in line)
+    assert int(speed.split("=")[1].strip()) > 0
+    assert any('Style' in line and 'Marquee' in line for line in bar)

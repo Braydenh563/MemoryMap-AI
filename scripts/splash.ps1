@@ -132,11 +132,23 @@ try {
   # would be a worse lie than one that only says "still working".
   $bar          = New-Object System.Windows.Forms.ProgressBar
   $bar.Style    = "Marquee"
+  # Milliseconds per step. 30 is brisk; 0 would stop it dead, which is the
+  # other way to get the reported "empty bar".
   $bar.MarqueeAnimationSpeed = 30
   $bar.Location = New-Object System.Drawing.Point(30, 138)
-  $bar.Size     = New-Object System.Drawing.Size(400, 6)
-  $bar.ForeColor = $accent
-  $bar.BackColor = $track
+  $bar.Size     = New-Object System.Drawing.Size(400, 10)
+  # **No ForeColor/BackColor.** Reported: the bar "just stays empty".
+  #
+  # Setting either on a WinForms ProgressBar switches the control off the
+  # themed (visual-styles) renderer and onto the plain one — and the plain
+  # renderer does not draw a Marquee at all. So the two colour lines that were
+  # here made the animation invisible while leaving the control present, which
+  # is exactly "an empty bar". The theme's own accent is close enough to this
+  # app's that losing the custom colour costs nothing next to losing the
+  # animation.
+  #
+  # 10px rather than 6: the themed marquee chunk is drawn inset, and at 6px
+  # there is barely anything left to see even when it is animating.
 
   $status           = New-Object System.Windows.Forms.Label
   $status.Text      = "Starting…"

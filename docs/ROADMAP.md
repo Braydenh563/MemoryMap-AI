@@ -57,6 +57,46 @@ instruction, ahead of the numbered items below.**
 instruction.** See BACKLOG.md's "§95 — the forward list" for the full
 brainstorm this was drawn from.
 
+**What §94 left undone, in priority order.** Written at the end of that
+session so nothing depends on remembering the conversation. Each says *why* it
+was not done, because "not done" and "decided against" are different facts.
+
+B. **Backup retention is not a setting.** Backups accumulate with no visible
+   cap. Asked about directly; not built. Small: a preference plus a prune on
+   write, and the count belongs beside the existing Backups list.
+
+C. **Restart after installing a package, and from Settings → About.** Several
+   extras only take effect on restart and the app says so without offering
+   one. `routes_settings.py` already restarts the desktop shell for the
+   console-mode switch, so the mechanism exists; this is a second caller and a
+   button. Asked for directly; not built.
+
+D. **Notes do not render markdown, and nothing renders mermaid or highlights
+   code.** Chat, documents and the digest all go through `renderMarkdown`;
+   notes deliberately do not (`app.js:3791`). Settle all three as one pass —
+   it is the prerequisite for BACKLOG §96's diagram work.
+
+E. **`app.js` is 22,000 lines.** The clean first extraction is `chat.js`
+   (~3,300 contiguous lines: ask, the chat tab, image attachment, the agent
+   timeline, the dock disclosure), following the §88.3 pattern that already
+   produced documents.js, library.js, dashboard.js and settings.js. Deferred
+   because it is a refactor with real regression risk and no user-visible
+   gain, and there were functional requests outstanding.
+
+F. **Three things this environment cannot verify**, all needing a real
+   Windows/desktop run:
+   - `scripts/splash.ps1` renders (Linux sandbox, no PowerShell). Its
+     progress bar was reported empty and fixed blind — a WinForms
+     ProgressBar drops the themed renderer, and with it the Marquee
+     animation, the moment ForeColor or BackColor is set.
+   - The four `ocr` suggested models as actual `ollama pull` targets. The
+     repos and file sizes were checked against the live Hugging Face Hub;
+     nobody has run the pull.
+   - Printing to PDF from the document editor's Read mode.
+
+G. **The whiteboard's own refinement pass**, beyond the panel-collision fix.
+   Its backend efficiency and feature gaps were never audited.
+
 A. **First-class llama.cpp support.** Prioritised by direct instruction.
    The honest starting point, which changes the shape of the work: the app
    *already* talks to llama.cpp, because `llama-server` speaks the OpenAI

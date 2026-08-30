@@ -1628,9 +1628,39 @@
      `--muted` is the same colour the knob already uses, so the track now
      matches the thing sliding in it and the control reads as one object. */
   border: 1px solid var(--muted);
-  background: var(--chip-bg);
+  /* An opaque track, not `--chip-bg`.
+     `--chip-bg` is `rgba(31, 36, 48, 0.07)` — 7% of a dark colour. On the pale
+     pill these toggles sit in it is indistinguishable from the pill, so an
+     *off* switch read as blank space with a dot in it, reported twice as "the
+     button is missing its toggle switcher" with a screenshot showing exactly
+     that gap. `color-mix` against the page gives a real, theme-aware fill
+     instead of a wash: 12% of the ink colour is visible on both themes without
+     becoming a second accent. */
+  background: color-mix(in srgb, var(--ink) 12%, var(--page));
   box-shadow: none;
   cursor: pointer;
+  /* **Undo the screen-reader-only clip, or none of the above paints.**
+     This is the whole reason the Semantic and smart-routing toggles showed a
+     gap instead of a switch, reported three times and wrong in a way that
+     reads as impossible: the element measured a correct 32x18 with a 1px
+     solid border, and rendered *nothing* — even with an inline
+     `background: red !important`.
+
+     `.checkbox-label input[type="checkbox"]` (further down this file) applies
+     the sr-only pattern — `clip: rect(0 0 0 0); clip-path: inset(50%);
+     overflow: hidden` — for labels whose visible control is drawn by a
+     sibling. A label carrying both that class and a switch class gets the
+     switch's size and border from here and the clip from there, because those
+     are different properties and this rule never contested them. A clip of
+     `inset(50%)` removes 100% of the paint while leaving the box exactly
+     where it was, which is precisely a gap the size of a switch.
+
+     Found with CDP's own `CSS.getMatchedStylesForNode` after computed styles,
+     screenshots and an inline `!important` all failed to explain it. */
+  clip: auto;
+  clip-path: none;
+  overflow: visible;
+  white-space: normal;
   transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
   /* Optical: centres a 1.15rem control on a line of body text rather than
      sitting it on the baseline. */

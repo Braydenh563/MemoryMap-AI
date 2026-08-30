@@ -38,7 +38,26 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from urllib.parse import urlparse
+
+
+#: Returns the user's stored sampling overrides — installed by the app's own
+#: wiring so this module never has to import it.
+#:
+#: `ai/provider.py` is the bottom of the AI stack and `core.deps` is the wiring
+#: that builds on it, so importing one from the other is a cycle (CodeQL
+#: flagged it) as well as the wrong direction. None means "nothing registered",
+#: which is the correct answer for a bare unit test as well as for a process
+#: that has not finished wiring: no overrides, so every knob falls through to
+#: the model's own recommendation.
+_sampling_overrides_getter: Callable[[], object] | None = None
+
+
+def set_sampling_overrides_getter(getter: Callable[[], object] | None) -> None:
+    """Install the accessor `Provider.sampling_overrides` reads through."""
+    global _sampling_overrides_getter
+    _sampling_overrides_getter = getter
 
 
 class ProviderError(RuntimeError):
@@ -419,10 +438,22 @@ class Provider:
         person can edit by hand, and a typo in it should cost that one setting,
         not every generation the app makes.
         """
-        from memorymap.core import deps
-
+        # Read through a registered getter, not by importing `core.deps`.
+        #
+        # CodeQL flagged the direct import as a cycle and it is right about the
+        # layering as well as the graph: `ai/provider.py` is the lowest layer
+        # of the AI stack — every client builds on it — while `core.deps` is
+        # the app's wiring, which reaches back down into this module to build
+        # the very object being configured. Deferring the import inside the
+        # function hid the cycle from the interpreter without removing it.
+        #
+        # The getter is installed by whoever does the wiring (see
+        # `core/deps.py`), so this module keeps knowing nothing about where
+        # settings live, and a test can hand it a plain dict.
+        if _sampling_overrides_getter is None:
+            return {}
         try:
-            stored = deps.get_config().get_preference("sampling_overrides", {})
+            stored = _sampling_overrides_getter()
         except Exception:  # noqa: BLE001 — settings must never break a request
             return {}
         return stored if isinstance(stored, dict) else {}

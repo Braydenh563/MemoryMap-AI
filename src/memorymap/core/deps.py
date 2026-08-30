@@ -18,6 +18,7 @@ from typing import TypeVar
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
+from memorymap.ai import provider
 from memorymap.ai.embeddings import EmbeddingService
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
@@ -167,6 +168,14 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
         _db = DatabaseManager(_config.db_path)
     if _ollama is None:
         _ollama = build_llm_client(_config)
+    # `ai/provider.py` reads the user's sampling overrides through a getter
+    # rather than importing this module: it is the bottom of the AI stack and
+    # this is the wiring that builds on it, so the import would be a cycle
+    # (CodeQL flagged it) as well as the wrong direction. Registered here,
+    # where the config it reads is known to exist.
+    provider.set_sampling_overrides_getter(
+        lambda: _config.get_preference("sampling_overrides", {})
+    )
     if _model_manager is None:
         _model_manager = ModelManager(_config)
     if _embeddings is None:

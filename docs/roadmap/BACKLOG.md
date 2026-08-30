@@ -1324,14 +1324,25 @@ are now done** (§85, §86):
 - ~~**Is SQLite in WAL mode?**~~ **yes, and it already was** —
   `core/database.py` sets it on every connect, `busy_timeout=5000` and
   `synchronous=NORMAL` beside it. Pinned by a test now.
-- **What blocks the request thread.** A re-index on switching embedding
-  models, a SearXNG install, a daily backup — if any of these run
-  synchronously on the same thread that serves requests, the whole
-  single-user app freezes for their duration rather than just slowing
-  down. Worth an inventory of which long-running operations already run in
-  a background thread (§25's health-check screen would be a natural place
-  to surface "an indexing job is running" if one is) versus which quietly
-  block.
+- ~~**What blocks the request thread.**~~ **Checked directly, not assumed —
+  none of the three named cases actually do.** A re-index
+  (`model_manager.start_reindex`) and a model pull
+  (`model_manager.start_pull`) each spawn a daemon `threading.Thread`
+  before returning, same as `searxng_manager.start()`'s own install/start
+  path — none of the three ties up the thread serving the request that
+  triggered them. **The daily backup is different, and safer than the
+  worry implied**: `_backup_if_due()` (api/app.py) runs once during
+  `create_app()`, *before* uvicorn starts accepting connections at all — a
+  due backup makes the app take longer to finish starting, not something
+  a live request ever waits on mid-session. A manually-triggered backup
+  (`POST /backups` → `backup.backup_now`, a plain sync route function) is
+  the one real nuance: FastAPI runs a sync `def` route in its own bounded
+  threadpool, not on the asyncio event-loop thread, so it doesn't freeze
+  concurrent requests the way a truly blocking call on the event loop
+  would — it just holds one worker-thread slot for the copy's duration,
+  which is a non-issue for a single-user local app with nobody else
+  concurrently hitting the API. Nothing here needed fixing; this item can
+  be struck rather than built.
 - ~~**Singletons and worker count are coupled, and that coupling isn't written
   down anywhere.**~~ **done — checked in the running code, not assumed.**
   `deps.refuse_multiple_workers()` already exists and already runs first

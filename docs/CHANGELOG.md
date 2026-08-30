@@ -64,6 +64,13 @@ tagged, ahead of the PR merging.
   narrow (single/two-column) gallery — the existing flip logic only ever
   corrected right-edge overflow. Now clamped back into bounds after the
   flip decision, regardless of which edge or how narrow.
+- `renderLibraryDocuments()` and `renderLibraryBoardsGallery()` overwrote
+  the Library's empty-state element's `textContent` on every render (to
+  show a "no search match" message) — harmless while that element was a
+  plain line of text, but it silently erased any richer markup put there
+  instead. Found while giving those two subtabs the same icon+title empty
+  state "All" and Image Gallery already had (below); the "no match" case
+  now has its own sibling element instead of overwriting the real one.
 
 ### Added
 - `notebook_overview`, an AI tool combining `list_categories` + `list_tags`
@@ -81,6 +88,9 @@ tagged, ahead of the PR merging.
   `{date}` resolves to today's date — the substitution already worked for
   any template (`applyTemplate()` does a plain string replace), including
   user-made ones; it just wasn't discoverable without reading the source.
+- The Library's Documents, Whiteboards, and Image Gallery subtabs now get
+  the same icon+title empty state their "All" sibling already had, instead
+  of a bare line of muted text (BACKLOG.md §95 item 16).
 - A search box and a rename/delete kebab menu on the Whiteboards subtab's
   board cards, matching the Documents subtab beside it.
 - An opt-in clock in the bottom status bar (Settings → Appearance).

@@ -180,6 +180,39 @@ shipped (see below). 2,355 tests pass; ruff clean.
   Templates) that it renders where intended. No backend change, no new
   mechanism — a documentation-in-the-UI fix, not a feature build.
 
+- **BACKLOG.md §95 item 16 ("a real empty state for every tab") and a real
+  bug it uncovered.** The Library's "All" and Image Gallery subtabs already
+  had the icon+title `.empty-state` component; Documents and Whiteboards
+  sat right beside them with a bare `<p class="muted">` one-liner instead.
+  Converted both to the same markup — then discovered live that the fix
+  did nothing: `renderLibraryDocuments()` (library.js) and
+  `renderLibraryBoardsGallery()` (whiteboard.js) both called
+  `empty.textContent = "..."` on every render, for the "your search matched
+  nothing" case, which silently wipes any child markup — including the new
+  icon and title, replacing them with a plain string the instant the
+  function ran. A source-only review would have seen the new HTML and
+  called it done; only a live re-render (not just the initial forced
+  screenshot) showed it reverting to plain text — exactly the trap
+  CLAUDE.md's UI caveat exists to catch.
+  Fixed by giving each subtab its own `*-no-match` sibling element for
+  that message (the pattern `library-images-empty`/`library-images-no-match`
+  already used correctly), so the real empty-state element is never
+  textContent'd over again. Verified live in all three states — genuinely
+  empty (icon shows), search-with-no-matches (plain text, no icon),
+  search-with-results (grid shows, both hidden) — via `page.route()`
+  stubbing `/documents`, `/whiteboard/boards` and `/media` to return `[]`
+  so the *real* render path ran rather than a manual `classList` poke.
+  `#conv-empty` (chat sidebar) and `#doc-empty` (Documents tab's own
+  sidebar list) were deliberately left as plain text: narrow sidebar
+  columns, not the wide grid panes the icon treatment is sized for, and
+  no report named them.
+- **BACKLOG.md §95 item 20 ("backup retention should be a setting")
+  found already built** while re-reading the list for the next item —
+  `#backup-retention` in Settings → Data is a real preference already,
+  not the hard cap the backlog entry described. Marked done; the CHANGELOG
+  already recorded the work in an earlier batch this session, the backlog
+  entry itself just hadn't been struck through.
+
 ### Tried, and reverted — read before attempting again
 
 **Skill steps marked "done" despite not meeting their own criteria.** The

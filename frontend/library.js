@@ -1535,6 +1535,7 @@ const libraryDocsSelection = new Set();
 async function renderLibraryDocuments() {
   const list = document.getElementById("library-docs-list");
   const empty = document.getElementById("library-docs-empty");
+  const noMatch = document.getElementById("library-docs-no-match");
   if (!list) return;
   const needle = (document.getElementById("library-docs-search")?.value || "")
     .trim()
@@ -1560,11 +1561,11 @@ async function renderLibraryDocuments() {
   }
 
   list.replaceChildren();
-  empty?.classList.toggle("hidden", docs.length > 0);
-  if (empty && needle && !docs.length) {
-    empty.textContent = `No documents match \u201C${needle}\u201D.`;
-  } else if (empty) {
-    empty.textContent = "No documents yet — press ＋ New document to start one.";
+  const isFilteredEmpty = Boolean(needle) && !docs.length;
+  empty?.classList.toggle("hidden", docs.length > 0 || isFilteredEmpty);
+  noMatch?.classList.toggle("hidden", !isFilteredEmpty);
+  if (noMatch && isFilteredEmpty) {
+    noMatch.textContent = `No documents match \u201C${needle}\u201D.`;
   }
 
   for (const doc of docs) {

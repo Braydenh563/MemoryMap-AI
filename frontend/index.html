@@ -2207,7 +2207,12 @@ Link to another note with [[its first few words]]."></textarea>
           </span>
         </div>
         <ul id="library-docs-list" class="doc-list"></ul>
-        <p id="library-docs-empty" class="muted hidden">No documents yet — press ＋ New document to start one.</p>
+        <div id="library-docs-empty" class="empty-state hidden">
+          <span class="empty-icon" aria-hidden="true"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i></span>
+          <p class="empty-title">No documents yet</p>
+          <p>Press ＋ New document to start one.</p>
+        </div>
+        <p id="library-docs-no-match" class="muted hidden"></p>
       </section>
     </div>
 
@@ -2276,7 +2281,12 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
         <p class="muted graph-help-panel hidden" id="wb-boards-intro" role="dialog" aria-label="What is this?">Every board something has been placed on. Pick one to open it.</p>
         <div id="library-boards-grid" class="library-grid"></div>
-        <p id="library-boards-empty" class="muted hidden">No boards yet — create one, or draw on the default board below.</p>
+        <div id="library-boards-empty" class="empty-state hidden">
+          <span class="empty-icon" aria-hidden="true"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i></span>
+          <p class="empty-title">No boards yet</p>
+          <p>Create one, or draw on the default board below.</p>
+        </div>
+        <p id="library-boards-no-match" class="muted hidden"></p>
       </section>
     </div>
     <div id="wb-canvas-view" class="hidden">
@@ -2749,7 +2759,11 @@ Link to another note with [[its first few words]]."></textarea>
         placeholder="Search filenames and text found in images…"
         aria-label="Search the image gallery">
       <div id="library-images-grid" class="library-image-grid"></div>
-      <p id="library-images-empty" class="muted hidden">No images yet.</p>
+      <div id="library-images-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">No images yet</p>
+        <p>Paste, drop, or attach one to a note and it shows up here.</p>
+      </div>
       <p id="library-images-no-match" class="muted hidden">No images match your search.</p>
     </section>
   </div>

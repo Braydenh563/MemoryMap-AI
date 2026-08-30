@@ -2565,7 +2565,24 @@ writing for exactly that reason, which is the standing lesson of this file.
 
 ### E. Polish worth doing as one pass
 
-16. **A real empty state for every tab.** Several are a bare "nothing here".
+~~16. **A real empty state for every tab.**~~ **Partially done (§97).** The
+    Library's three subtabs that sit beside "All" (Documents, Whiteboards,
+    Image Gallery) had a bare one-line `<p class="muted">` where "All"
+    itself already had the icon+title `.empty-state` component — fixed to
+    match. Along the way, found and fixed a real bug the source read alone
+    would have missed: `renderLibraryDocuments()`/
+    `renderLibraryBoardsGallery()` overwrote the empty-state element's
+    `textContent` on every render (to show the "no search match" message),
+    which silently wiped out the new icon+title markup the instant the
+    function ran — the rich version would have shown for one frame, then
+    been replaced by plain text. Fixed by giving the "no results for this
+    search" case its own sibling element (`*-no-match`), matching the
+    pattern the Image Gallery subtab already used correctly. Verified live:
+    genuine-empty (icon+title), no-search-match (plain text), and had-results
+    all screenshotted. Chat sidebar's `#conv-empty` and the Documents tab's
+    own `#doc-empty` were deliberately left as plain text — narrow sidebar
+    lists, not grid panes, so the same treatment would look oversized;
+    unlike the three fixed, no user report named them.
 17. **Keyboard-first navigation.** Shortcuts exist and are rebindable; there
     is no way to *move* between notes without the mouse.
 18. **Undo for destructive skill runs.** Individual tools record undo; a run
@@ -2576,8 +2593,10 @@ writing for exactly that reason, which is the standing lesson of this file.
     timeline, the dock disclosure), following the §88.3 pattern that already
     produced documents.js, library.js, dashboard.js and settings.js. No
     user-visible gain, so it waits behind anything on this list that has one.
-20. **Backup retention should be a setting.** Backups accumulate with no cap
-    the user can see or change; asked about directly.
+~~20. **Backup retention should be a setting.**~~ **Built.** Settings → Data
+    → "Keep this many backups" (`#backup-retention`), a real preference that
+    prunes immediately on change — was a hard-coded, always-enforced cap
+    before.
 
 ### Deliberately not on this list
 

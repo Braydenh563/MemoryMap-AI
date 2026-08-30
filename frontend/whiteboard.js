@@ -5581,9 +5581,10 @@ function wbShowBoardsLanding() {
 async function renderLibraryBoardsGallery() {
   const grid = $("library-boards-grid");
   const empty = $("library-boards-empty");
+  const noMatch = $("library-boards-no-match");
   if (!grid) return;
   const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
-  if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); return; }
+  if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); noMatch?.classList.add("hidden"); return; }
   // See `createNewBoard`'s own comment: a board with nothing on it yet
   // doesn't come back from the server at all.
   const created = window.wbLastCreatedBoard;
@@ -5594,13 +5595,16 @@ async function renderLibraryBoardsGallery() {
   const shown = needle ? boards.filter((b) => b.title.toLowerCase().includes(needle)) : boards;
   grid.replaceChildren();
   if (!shown.length) {
-    empty?.classList.remove("hidden");
-    empty.textContent = needle
-      ? `No boards match “${needle}”.`
-      : "No boards yet — create one, or draw on the default board below.";
+    const isFilteredEmpty = Boolean(needle) && boards.length > 0;
+    empty?.classList.toggle("hidden", isFilteredEmpty);
+    noMatch?.classList.toggle("hidden", !isFilteredEmpty);
+    if (noMatch && isFilteredEmpty) {
+      noMatch.textContent = `No boards match “${needle}”.`;
+    }
     return;
   }
   empty?.classList.add("hidden");
+  noMatch?.classList.add("hidden");
   for (const board of shown) {
     // An `<article>` with role="button", the same shape libraryCard() and
     // the Documents subtab's doc-list-item use — a plain <button> can't

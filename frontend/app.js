@@ -19460,6 +19460,12 @@ $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class — no need to rebuild the whole map.
 $("graph-labels").addEventListener("change", (e) => {
   $("graph-box").classList.toggle("graph-labels-hidden", !e.target.checked);
+  // The layer's positions are skipped while it is hidden (see graph.js's tick
+  // handler — it is one <g> per note, transformed ~300 times a settle, and
+  // moving something invisible is work nobody can see). A settled simulation
+  // has no further ticks, so turning them back on has to reposition them here
+  // or the names sit detached from their notes until something redraws.
+  graphCatchUpLabels();
 });
 let graphSearchDebounceTimeout;
 $("graph-search").addEventListener("input", () => {
@@ -20856,10 +20862,16 @@ function maybeShowOnboarding() {
 $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
 $("onboarding-skip").addEventListener("click", closeOnboarding);
-$("show-guide-btn").addEventListener("click", () => {
-  closeSettingsModal();
-  openOnboarding();
-});
+// Two buttons, one behaviour. Settings → Help has "Replay welcome tour" and
+// Settings → About has "Take tour again"; only the first was ever wired, so
+// the About one was a button that did nothing at all. Found by listing every
+// id in index.html that no JS file and no stylesheet mentions.
+for (const id of ["show-guide-btn", "about-take-tour"]) {
+  $(id)?.addEventListener("click", () => {
+    closeSettingsModal();
+    openOnboarding();
+  });
+}
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
 // --- rebindable keyboard shortcuts -----------------------------------------------

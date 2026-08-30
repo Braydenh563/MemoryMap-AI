@@ -5549,6 +5549,14 @@ document.addEventListener("DOMContentLoaded", () => {
     await createNewBoard();
   });
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
+  // The Reload button beside "+ New board". Its id says `library-media-refresh`
+  // — a copy-paste leftover from the Media sub-tab's own refresh button, and
+  // the reason it was missed: library.js wires the Media one by that name, so
+  // a search for the id finds a listener, just not one attached to *this*
+  // button. It sits in the Whiteboards header and had none of its own, so it
+  // did nothing. Renaming the id would be the tidier fix and is not worth
+  // breaking a selector over; wiring it is what makes it work.
+  $("library-media-refresh")?.addEventListener("click", renderLibraryBoardsGallery);
 });
 
 // The Whiteboards tab has two views sharing one subtab: a boards gallery

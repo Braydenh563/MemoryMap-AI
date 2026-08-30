@@ -50,6 +50,10 @@ let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
 let graphMinimapTick = 0; // throttles minimap repaints during a cooling layout
+//: Set by the renderer each time the map is built. Repositions the label
+//: layer after it has been skipped while invisible — see the tick handler.
+//: A no-op before the first render, so every caller can call it blind.
+let graphCatchUpLabels = () => {};
 let graphDims = { w: 0, h: 0 };
 // Set once the camera has auto-framed the map for the tab's current visit,
 // and cleared again by switchTab() on the next fresh entry — see the two
@@ -1354,7 +1358,13 @@ async function renderGraph() {
         // Use try/catch or typeof since these are initialized after zoom setup
         if (typeof nodeGroups !== "undefined") {
           nodeGroups.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1).style("pointer-events", isZoomedOut ? "none" : "all");
-          if (typeof labelLayer !== "undefined") labelLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof labelLayer !== "undefined") {
+            labelLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+            // Zooming back in is the other way the layer becomes visible.
+            // The transition sets opacity asynchronously, so the catch-up
+            // has to run after it or `labelsOnScreen()` still reads "0".
+            if (!isZoomedOut) setTimeout(graphCatchUpLabels, duration + 20);
+          }
           if (typeof edgeLayer !== "undefined") edgeLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
           if (typeof graphTraceLayer !== "undefined" && graphTraceLayer) graphTraceLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
           if (typeof clusterLayer !== "undefined" && clusterLayer) clusterLayer.transition().duration(duration).style("opacity", isZoomedOut ? 1 : 0).style("pointer-events", isZoomedOut ? "all" : "none");
@@ -1840,6 +1850,7 @@ async function renderGraph() {
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
   $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
+  graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
   // mystery: how many notes and what kinds of connections link them.
@@ -1901,6 +1912,26 @@ async function renderGraph() {
   }
 
   let fitted = false;
+  // Hoisted out of the tick: `$()` is a getElementById call, and looking the
+  // same element up 300 times to read one class is measurable next to the work
+  // the tick is actually for.
+  const graphBox = $("graph-box");
+
+  // Labels are the expensive half of the per-tick DOM work and are often not
+  // visible — the layer fades to opacity 0 when zoomed out and the Labels
+  // tickbox hides it outright. `catchUpLabels` is the other half of skipping
+  // them: whatever makes them visible again calls it, so they are never left
+  // stale on a settled simulation that has no further ticks to come.
+  const labelsOnScreen = () =>
+    labelLayer.style("opacity") !== "0"
+    && !graphBox.classList.contains("graph-labels-hidden");
+  let labelsStale = false;
+  graphCatchUpLabels = () => {
+    if (!labelsStale || !labelsOnScreen()) return;
+    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    labelsStale = false;
+  };
+
   graphSimulation?.on("tick", () => {
     // Keep the layout inside its own frame. Reported as "the graph ui is out
     // of bounds", and the mechanism is that the view is framed exactly *once*
@@ -1950,11 +1981,40 @@ async function renderGraph() {
     // is a handful of lines beside every edge in the notebook.
     positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
-    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    // Labels are the other half of the per-tick DOM cost — one <g> per note,
+    // same as the nodes — and they are frequently not on screen: the layer
+    // fades to opacity 0 when zoomed out (see the zoom handler) and the
+    // Labels tickbox hides it outright. Moving something invisible is work
+    // nobody can see, ~300 times per settle, on every note in the notebook.
+    //
+    // Their positions are restored on the next visible tick, and the
+    // simulation is still running whenever the layer is turned back on
+    // (a drag or a filter reheats it), so nothing can be left stale in a
+    // way the user sees.
+    if (labelsOnScreen()) {
+      labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      labelsStale = false;
+    } else {
+      // Remember that they are now behind the nodes, so turning them back on
+      // repositions them immediately rather than waiting for the next tick.
+      // Without this the labels can be left permanently where they were when
+      // the layer was hidden: the simulation stops when it settles, so if
+      // nothing reheats it there is no next tick to fix them, and the names
+      // sit detached from their notes until something else redraws the map.
+      labelsStale = true;
+    }
     clusterGroups.attr("transform", (d) => {
-      const cx = d3.mean(d.nodes, n => n.x) || 0;
-      const cy = d3.mean(d.nodes, n => n.y) || 0;
-      return `translate(${cx},${cy})`;
+      // One pass, not two. `d3.mean` walks the whole member list, and calling
+      // it twice per cluster per tick walks every clustered note twice on
+      // every one of the ~300 ticks a settle takes.
+      let sx = 0;
+      let sy = 0;
+      for (const n of d.nodes) {
+        sx += n.x;
+        sy += n.y;
+      }
+      const count = d.nodes.length || 1;
+      return `translate(${sx / count},${sy / count})`;
     });
     // Once the layout settles, frame all the notes so nothing sits off
     // the edge (Wave N — the old view often had nodes half-cropped). Only

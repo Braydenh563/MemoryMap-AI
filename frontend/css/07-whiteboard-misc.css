@@ -519,6 +519,29 @@
   font-size: var(--text-xs);
 }
 
+/* `<details>` rather than a hand-rolled popup — same choice and same reasons
+   as .library-image-menu (00-tokens-shell.css): opens on click and on
+   Enter/Space, closes on Escape, exposed to a screen reader as a
+   disclosure, none of it hand-wired. */
+.skill-fact-expand > summary {
+  list-style: none; /* Firefox draws a marker triangle otherwise */
+  cursor: pointer;
+}
+
+.skill-fact-expand > summary::-webkit-details-marker {
+  display: none;
+}
+
+.skill-fact-list {
+  margin: var(--space-2) 0 0 var(--space-4);
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .skill-card-when {
   margin: 0;
 }
@@ -530,11 +553,27 @@
   margin-bottom: var(--space-6);
 }
 
+/* The master switch sits on its own line, above the jobs it gates — reported
+   directly: "make the 'run in the background' pill separate from the other
+   two as they are like what the agent is running in the background." A
+   heavier top border marks it as the thing the row below depends on, rather
+   than a fourth pill the same size as the two it controls. */
+.skills-worker-master {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--glass-border);
+}
+
+.skills-worker-jobs-hint {
+  margin: var(--space-3) 0 0;
+}
+
 .skills-worker-toggles {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
+  padding-left: var(--space-4);
 }
 
 .skills-search {

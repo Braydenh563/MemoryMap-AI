@@ -1200,15 +1200,38 @@ function skillCard(skill, lastRun) {
   const steps = (skill.steps || []).length;
   const tools = (skill.tools || []).length;
   const inputs = (skill.inputs || []).length;
-  for (const [icon, text, title_] of [
-    steps ? ["ph:list-numbers", `${steps} step${steps === 1 ? "" : "s"}`, "Runs as a numbered plan"] : null,
-    tools ? ["ph:wrench", `${tools} tool${tools === 1 ? "" : "s"}`, `Can use: ${(skill.tools || []).join(", ")}`] : null,
-    inputs ? ["ph:textbox", `${inputs} input${inputs === 1 ? "" : "s"}`, "Asks you for these before it runs"] : null,
-  ].filter(Boolean)) {
+  // Steps and tools expand in place — reported directly: "allow dropdown
+  // expansions for the steps and tools in each." A hover title said the same
+  // thing before, which is both unreachable on touch and one line, hidden
+  // until you happened to rest a cursor on a chip that never looked
+  // hoverable. `<details>` opens on click and on Enter/Space and needs no
+  // JS to track its own state, the same choice the gallery kebab menu
+  // already made for the same reason.
+  const expandableFact = (icon, count, noun, items, ordered) => {
+    const wrap = document.createElement("details");
+    wrap.className = "skill-fact-expand";
+    const summary = document.createElement("summary");
+    summary.className = "chip skill-fact";
+    setLabel(summary, `${icon} ${count} ${noun}${count === 1 ? "" : "s"}`);
+    // Steps run in order, so they're numbered; tools are just a set the
+    // model may reach for, in no particular order.
+    const list = document.createElement(ordered ? "ol" : "ul");
+    list.className = "skill-fact-list";
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.textContent = item;
+      list.appendChild(li);
+    }
+    wrap.append(summary, list);
+    return wrap;
+  };
+  if (steps) facts.appendChild(expandableFact("ph:list-numbers", steps, "step", skill.steps, true));
+  if (tools) facts.appendChild(expandableFact("ph:wrench", tools, "tool", skill.tools, false));
+  if (inputs) {
     const chip_ = document.createElement("span");
     chip_.className = "chip skill-fact";
-    chip_.title = title_;
-    setLabel(chip_, `${icon} ${text}`);
+    chip_.title = "Asks you for these before it runs";
+    setLabel(chip_, `ph:textbox ${inputs} input${inputs === 1 ? "" : "s"}`);
     facts.appendChild(chip_);
   }
 
@@ -1305,13 +1328,7 @@ async function renderSkillsDashboard() {
   workersHint.className = "muted text-sm";
   workersHint.textContent =
     "Lets the AI work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
-  const workersRow = document.createElement("div");
-  workersRow.className = "skills-worker-toggles";
-  for (const [id, key, label, on] of [
-    ["skills-auto-toggle", "autonomous_tasks_enabled", "Run in the background", Boolean(prefs.autonomous_tasks_enabled)],
-    ["skills-auto-tag", "auto_tag_enabled", "Tag notes", prefs.auto_tag_enabled !== false],
-    ["skills-auto-link", "auto_link_enabled", "Link related notes", prefs.auto_link_enabled !== false],
-  ]) {
+  const workerToggle = (id, key, label, on) => {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used
     // to be here and exists nowhere else in this codebase.
@@ -1324,9 +1341,38 @@ async function renderSkillsDashboard() {
     const text = document.createElement("span");
     text.textContent = label;
     wrap.append(box, text);
-    workersRow.appendChild(wrap);
-  }
-  workers.append(workersHead, workersHint, workersRow);
+    return wrap;
+  };
+  // The master switch, on its own — reported directly: it "should be
+  // separate from the other two as they are like what the agent is running
+  // in the background." Tag notes / Link related notes are jobs the agent
+  // does *while* it's running, not independent switches of their own kind;
+  // grouping all three as identical pills said otherwise.
+  const masterRow = document.createElement("div");
+  masterRow.className = "skills-worker-master";
+  masterRow.appendChild(
+    workerToggle(
+      "skills-auto-toggle",
+      "autonomous_tasks_enabled",
+      "Run in the background",
+      Boolean(prefs.autonomous_tasks_enabled)
+    )
+  );
+  const jobsHint = document.createElement("p");
+  jobsHint.className = "muted text-xs skills-worker-jobs-hint";
+  jobsHint.textContent = "What it does while running:";
+  const workersRow = document.createElement("div");
+  workersRow.className = "skills-worker-toggles";
+  workersRow.append(
+    workerToggle("skills-auto-tag", "auto_tag_enabled", "Tag notes", prefs.auto_tag_enabled !== false),
+    workerToggle(
+      "skills-auto-link",
+      "auto_link_enabled",
+      "Link related notes",
+      prefs.auto_link_enabled !== false
+    )
+  );
+  workers.append(workersHead, workersHint, masterRow, jobsHint, workersRow);
   container.appendChild(workers);
 
   // --- the skills themselves --------------------------------------------------

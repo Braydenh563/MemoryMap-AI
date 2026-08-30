@@ -51,7 +51,10 @@ def test_the_kinds_match_the_ones_tasks_reports():
     press; a job kind with no canceller is the bug this replaced."""
     from memorymap.api import routes_tasks
 
-    source = (routes_tasks.__file__ and open(routes_tasks.__file__, encoding="utf-8").read()) or ""
+    source = ""
+    if routes_tasks.__file__:
+        with open(routes_tasks.__file__, encoding="utf-8") as f:
+            source = f.read()
     for kind in bgtasks.CANCELLERS:
         assert f'"kind": "{kind}"' in source, f"nothing in /tasks reports kind={kind}"
 

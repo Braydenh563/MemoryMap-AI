@@ -29,7 +29,7 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps
+from memorymap.core import deps, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     Document,
     EmbeddingRecord,
@@ -739,7 +739,13 @@ def get_entry(
         # other note already has plenty of activity logged elsewhere (see
         # the Library's own "activity is 93%+ of a real notebook" note) and
         # doesn't need a second entry for the same open.
-        if bool(getattr(entry, "is_private", False)):
+        # Only when the vault is actually open — readable_content() returns
+        # a placeholder ("Private note — unlock to read it.") rather than
+        # the real text when it's locked, and logging "decrypted" for a
+        # request that decrypted nothing is worse than not logging at all:
+        # a trail meant to build confidence that lies about what happened
+        # is the one bug this feature cannot afford.
+        if bool(getattr(entry, "is_private", False)) and vault.key() is not None:
             manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
     return _to_out(session, entry)

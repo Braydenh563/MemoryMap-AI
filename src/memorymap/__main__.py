@@ -884,7 +884,12 @@ def _start_tray(
         image = Image.new("RGBA", (64, 64), (74, 108, 247, 255))
 
     def _open(icon, item) -> None:
+        # `show()` un-minimises but does not raise or focus, so clicking Open
+        # while the window was merely *behind* something did nothing visible —
+        # which reads as the menu item being broken. `_focus_window` is the
+        # same helper the loading-window handoff already uses for this.
         window.show()
+        _focus_window(window)
 
     # Running from start.bat/start-desktop.bat rather than the packaged
     # installer (whose PyInstaller build sets console=False, so there is no
@@ -946,6 +951,7 @@ def _start_tray(
         # when that overlay isn't showing, otherwise just bring the window
         # (still locked) forward.
         window.show()
+        _focus_window(window)
         window.evaluate_js(
             "if (document.getElementById('lock-overlay')?.classList.contains('hidden')"
             " && typeof openSettingsModal === 'function') {"
@@ -956,9 +962,20 @@ def _start_tray(
         # Re-execs this same process rather than spawning a second one — no
         # window during the gap, and never two copies of the app arguing
         # over the same SQLite file if something goes wrong mid-relaunch.
+        #
+        # The argv has to be built differently for the two install types, and
+        # getting it wrong broke Restart in exactly the build where it is
+        # hardest to notice. `[sys.executable, *sys.argv]` is right from
+        # source, where `sys.executable` is python.exe and `sys.argv[0]` is the
+        # script — but in a PyInstaller build **both are the .exe**, so that
+        # form passes the executable's own path as a positional argument.
+        # `parse_args` has no positionals, so it exits(2) on "unrecognized
+        # arguments", and the packaged app has no console to print that to:
+        # the user clicks Restart, the window closes, and nothing comes back.
+        argv = list(sys.argv) if getattr(sys, "frozen", False) else [sys.executable, *sys.argv]
         icon.stop()
         window.destroy()
-        os.execv(sys.executable, [sys.executable, *sys.argv])
+        os.execv(sys.executable, argv)
 
     def _quit(icon, item) -> None:
         icon.stop()
@@ -973,8 +990,31 @@ def _start_tray(
         # terminal it's running in — actually ends.
         os._exit(0)
 
+    def _new_note(icon, item) -> None:
+        """Straight to an empty note, focused and ready to type.
+
+        The reason a tray icon earns its place in a notebook app: the whole
+        point of "capture it before you lose it" is not having to find the
+        window, pick a tab and click into a box first. Everything else on this
+        menu is app management; this is the only item that does the app's
+        actual job.
+
+        Guarded by the lock overlay exactly as View Logs is — a tray item must
+        never reach past the lock screen — and by `typeof`, because the menu
+        can be clicked while the page is still loading.
+        """
+        window.show()
+        _focus_window(window)
+        window.evaluate_js(
+            "if (!document.getElementById('lock-overlay')?.classList.contains('hidden')) {}"
+            " else if (typeof switchTab === 'function') {"
+            " switchTab('notes');"
+            " document.getElementById('entry-content')?.focus(); }"
+        )
+
     menu_items = [
         pystray.MenuItem("Open MemoryMap AI", _open, default=True),
+        pystray.MenuItem("New note", _new_note),
         pystray.MenuItem("View Logs", _view_logs),
     ]
     if console_hwnd is not None:

@@ -95,6 +95,44 @@ def vision_ocr_text(image_path: Path, model: str, ollama) -> str | None:
 PAGE_MARKER = "\n\n--- page {n} ---\n\n"
 
 
+def pdf_reader_or_none():
+    """A ready-to-use `vision_reader` for `docview.extract`, or None.
+
+    The one place that decides whether a scanned PDF can be read at all, so
+    every caller agrees. Three things have to be true, and each has its own
+    reason to be false:
+
+    - the backend is reachable (no model, no reading);
+    - a model is resolved for the job — `resolve_ocr_model`, so an explicit OCR
+      model wins, then the vision model, then auto-detect;
+    - `core/pdfpages` is installed, since without it there is no image to read.
+
+    Returning None rather than a reader that always fails is what lets
+    `docview` fall through to its "probably a scan" message, which names the
+    missing piece.
+
+    This exists because the alternative was each caller resolving the model
+    itself, and the first one to do so got it wrong: it passed
+    `ModelManager.vision_model()`, the raw preference, which is the empty
+    string until somebody sets it — so on a default install the scanned-PDF
+    path asked the backend to run a model named "".
+    """
+    from memorymap.core import deps
+
+    if not pdfpages.available():
+        return None
+    ollama = deps.get_ollama()
+    try:
+        if not ollama.is_running():
+            return None
+    except Exception:  # noqa: BLE001 — an unreachable backend is not an error
+        return None
+    model = deps.get_model_manager().resolve_ocr_model(ollama)
+    if not model:
+        return None
+    return pdf_vision_reader(model, ollama)
+
+
 def pdf_vision_reader(model: str, ollama):
     """A `docview.extract(vision_reader=…)` callable for scanned PDFs.
 

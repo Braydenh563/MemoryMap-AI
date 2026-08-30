@@ -47,6 +47,7 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 
+from memorymap.ai import sampling
 from memorymap.ai.provider import (
     Provider,
     ProviderError,
@@ -86,6 +87,16 @@ def _looks_like_tools_rejection(status: int, body: str) -> bool:
             '"tools"',
         )
     )
+
+
+#: The sampling knobs the OpenAI chat-completions schema actually defines.
+#:
+#: llama.cpp's own server, LM Studio and vLLM all accept more than this, but
+#: they disagree about which — and a server that validates strictly rejects the
+#: entire request for one unknown field, which would break every turn rather
+#: than ignore one setting. The intersection is the only safe set to send
+#: blind; anything outside it stays an Ollama-dialect feature.
+_OPENAI_SAMPLING = frozenset({"temperature", "top_p"})
 
 
 class OpenAICompatClient(Provider):
@@ -301,8 +312,24 @@ class OpenAICompatClient(Provider):
         """
         budget = self.generation_budget(model, max_output_tokens, mode)
         options = {"max_tokens": budget["max_output_tokens"]}
+        preset_options = {}
         if "temperature" in budget:
-            options["temperature"] = budget["temperature"]
+            preset_options["temperature"] = budget["temperature"]
+        # Sampling, same three layers as the Ollama dialect — but with only two
+        # of them available. There is no `/api/show` here: the OpenAI shape has
+        # no endpoint that reports a model's own recommended parameters, so
+        # this dialect can offer the user's overrides and the task preset and
+        # nothing in between. That is a real difference, not an oversight, and
+        # it is why the settings panel says where each value came from.
+        resolved = sampling.resolve(None, preset_options, self.sampling_overrides())
+        # Only what this dialect actually accepts. `top_k`, `min_p`,
+        # `repeat_penalty` and `repeat_last_n` are llama.cpp/Ollama names with
+        # no place in the OpenAI schema — a strict server rejects the whole
+        # request for an unknown field, so sending them would break every turn
+        # against exactly the backends this dialect exists to support.
+        for key, value in resolved.items():
+            if key in _OPENAI_SAMPLING:
+                options[key] = value
         return options
 
     # --- message translation ------------------------------------------------

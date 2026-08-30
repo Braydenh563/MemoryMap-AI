@@ -9,10 +9,11 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import embeddings as embeddings_module
+from memorymap.ai import sampling
 from memorymap.ai import model_manager as jobs
 from memorymap.ai.model_manager import SUGGESTED_MODELS
 from memorymap.ai.ollama_client import OllamaError
@@ -157,6 +158,8 @@ def status() -> dict:
         # than making the user guess what auto-detect will do.
         "vision_model": manager.vision_model(),
         "vision_model_resolved": manager.resolve_vision_model(ollama, installed) if running else None,
+        "ocr_model": manager.ocr_model(),
+        "ocr_model_resolved": manager.resolve_ocr_model(ollama, installed) if running else None,
         "embedding_backend": manager.embedding_backend(),
         # The Ollama model *setting* — only meaningful on that backend.
         "embedding_model": manager.embedding_model(),
@@ -196,6 +199,80 @@ def model_spec(name: str = "") -> dict:
         return client.model_spec(model)
     except OllamaError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+class SamplingBody(BaseModel):
+    """Only the fields the user actually changed.
+
+    Sparse on purpose — see `ai/sampling.py`. Storing a full set the moment the
+    panel opens would pin one model's recommendations onto every other model
+    the user ever runs, which is the exact failure the auto-detection exists to
+    avoid.
+    """
+
+    overrides: dict[str, float] = Field(default_factory=dict)
+
+
+@router.get("/sampling")
+def sampling_settings(name: str = "") -> dict:
+    """The advanced response settings, and where each value comes from.
+
+    Asked for directly: expose top-k, top-p, repeat penalty and the rest,
+    "because different models require different parameters to get the same
+    result", and detect the right ones per model if that is possible.
+
+    It is, and without guessing. A GGUF carries its author's recommended
+    sampling parameters, Ollama reports them in `/api/show`, and this app was
+    already fetching and caching that payload for the context window and the
+    capability list while dropping that one field. So `model` below is what the
+    model itself asks for, not a table someone maintained by hand.
+
+    `sources` is why this returns more than numbers: "0.6 because this model
+    recommends it" and "0.6 because you set it" need different controls beside
+    them, and only the second has anything to revert to.
+    """
+    client = deps.get_ollama()
+    model = name.strip() or deps.get_model_manager().chat_model()
+    try:
+        shown = client.show(model) if hasattr(client, "show") else {}
+    except Exception:  # noqa: BLE001 — an unreachable backend is not an error here
+        shown = {}
+    model_defaults = sampling.parse_model_parameters(shown)
+    # Read from settings here rather than through the provider. The provider
+    # has its own accessor because every generation path goes through
+    # `runtime_options` and threading a settings dict through all of them would
+    # mean each one could forget — but this route is *about* the setting, and
+    # asking the backend for it would couple a settings screen to whichever
+    # client happens to be configured.
+    overrides = deps.get_config().get_preference("sampling_overrides", {})
+    if not isinstance(overrides, dict):
+        overrides = {}
+    return {
+        "model": model,
+        "knobs": sampling.as_dicts(),
+        "model_defaults": model_defaults,
+        "overrides": overrides,
+        "effective": sampling.resolve(model_defaults, None, overrides),
+        "sources": sampling.explain(model_defaults, None, overrides),
+        # The OpenAI dialect has no endpoint reporting a model's own
+        # parameters, and accepts only two of these knobs. Said plainly rather
+        # than leaving the panel to imply otherwise.
+        "reports_model_defaults": bool(shown),
+    }
+
+
+@router.put("/sampling")
+def save_sampling_settings(body: SamplingBody) -> dict:
+    """Replace the overrides. An empty dict is how "use the model's own
+    recommendations again" is expressed — there is no separate reset route,
+    because reset *is* having no override."""
+    clean = {
+        key: value
+        for key, value in body.overrides.items()
+        if key in sampling.KNOBS_BY_NAME
+    }
+    deps.get_config().set_preference("sampling_overrides", clean)
+    return {"overrides": clean}
 
 
 @router.get("/suggested")
@@ -294,6 +371,27 @@ def set_vision_model(body: VisionModelBody, session: Session = Depends(get_sessi
     log_action(session, "edited", "preferences", detail=f"vision_model={name or '(auto)'}")
     session.commit()
     return {"vision_model": name}
+
+
+@router.post("/ocr-model")
+def set_ocr_model(body: VisionModelBody, session: Session = Depends(get_session)) -> dict:
+    """Which model reads text off an image or a rasterised PDF page.
+
+    Empty name falls back to the vision model, and then to auto-detect — see
+    `ModelManager.ocr_model` for why reading a page and describing a picture
+    deserve separate settings even though both take an image.
+    """
+    name = body.name.strip()
+    if name and deps.get_ollama().is_running():
+        if not _name_matches(name, _installed_models(True)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{name}' isn't available on {_backend_label()}",
+            )
+    deps.get_model_manager().set_ocr_model(name)
+    log_action(session, "edited", "preferences", detail=f"ocr_model={name or '(vision)'}")
+    session.commit()
+    return {"ocr_model": name}
 
 
 @router.post("/provider")

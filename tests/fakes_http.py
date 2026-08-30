@@ -24,6 +24,16 @@ class FakeResponse:
         self.status_code = status
         self.text = text
 
+    @property
+    def ok(self):
+        """`requests.Response.ok` — real responses have it, so this must too.
+
+        Added when a provider path started using it and this double did not
+        model it, which surfaced as an AttributeError in a test rather than as
+        the behaviour under test.
+        """
+        return self.status_code < 400
+
     def raise_for_status(self):
         if self.status_code >= 400:
             import requests

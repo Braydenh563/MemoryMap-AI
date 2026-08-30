@@ -179,13 +179,7 @@ def attached_file_text(
     # any work for a PDF with no text layer, and only when the pdfpages extra
     # and a vision model are both present; every other file returns before it
     # is consulted.
-    ollama = deps.get_ollama()
-    reader = None
-    if ollama.is_running():
-        reader = vision_ocr.pdf_vision_reader(
-            deps.get_model_manager().vision_model(), ollama
-        )
-    viewed = docview.extract(path, vision_reader=reader)
+    viewed = docview.extract(path, vision_reader=vision_ocr.pdf_reader_or_none())
     return AttachedFileTextOut(
         filename=attachment.filename,
         kind=viewed.kind,

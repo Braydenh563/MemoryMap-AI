@@ -406,6 +406,27 @@ class Provider:
         """The dialect-specific options block sent with every generation."""
         raise NotImplementedError
 
+    def sampling_overrides(self) -> dict:
+        """The user's own sampling settings, or {} — see `ai/sampling.py`.
+
+        Read here rather than passed in, because every generation path in the
+        app goes through `runtime_options` and threading a settings dict
+        through all of them would mean each one could forget. Stored sparsely:
+        only the fields actually changed, so a model the user has never touched
+        still gets its own recommendations for everything else.
+
+        Deliberately tolerant of a bad value. This is a preference file a
+        person can edit by hand, and a typo in it should cost that one setting,
+        not every generation the app makes.
+        """
+        from memorymap.core import deps
+
+        try:
+            stored = deps.get_config().get_preference("sampling_overrides", {})
+        except Exception:  # noqa: BLE001 — settings must never break a request
+            return {}
+        return stored if isinstance(stored, dict) else {}
+
     def request_extras(self, mode: str | None = None, model: str = "") -> dict:
         """Top-level payload fields a preset needs that aren't options.
 

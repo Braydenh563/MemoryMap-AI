@@ -2316,17 +2316,46 @@ header#top-bar.tabs-wrapped #tab-bar {
    never past it, so the fixed 0.16/0.25 here are the strength slider's own
    100% ceiling, not a baseline it adds to. */
 :root[data-glass-sheen="on"]:not([data-glass="off"]) .card {
-  background:
+  /* **`background-image`, not the `background` shorthand — and that is a
+     correctness fix, not a tidy-up.**
+
+     Reported: the sheen "screws with contrast and makes popup windows like
+     the settings modal really hard to read on light mode".
+
+     The shorthand set both layers *and* the colour, re-declaring the fill as
+     `var(--card)`. This selector is (0,4,0); `.modal-card` — which sets
+     `background: var(--modal-bg)` and says in its own comment "nearly opaque:
+     unlike page cards, a settings dialog floats over busy content, full glass
+     here makes it unreadable" — is (0,1,0). So turning the sheen on silently
+     reverted every dialog in the app to full page-card glass, and the page's
+     own gradient blobs came through the text. Worst in light mode, where the
+     ink is dark and the thing bleeding through is bright.
+
+     `background-image` layers the sheen over whatever fill the element
+     already chose, so a card keeps `--card`, a modal keeps `--modal-bg`, and
+     the whiteboard panels keep theirs. */
+  background-image:
     linear-gradient(135deg,
       color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%),
-    var(--card);
+      rgba(255, 255, 255, 0) 45%);
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
      `--card`'s alpha. */
   box-shadow:
     var(--glass-shadow),
     inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent);
+}
+
+/* A white sheen on a dark surface reads as light catching glass. On a light
+   surface it is white on near-white: it adds nothing to the glass read and
+   only flattens the fill it is sitting on. Halved rather than removed, so the
+   strength slider still does something in both themes and the two do not look
+   like different components. */
+:root:not([data-theme="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
+  background-image:
+    linear-gradient(135deg,
+      color-mix(in srgb, rgba(255, 255, 255, 0.08) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
+      rgba(255, 255, 255, 0) 45%);
 }
 
 

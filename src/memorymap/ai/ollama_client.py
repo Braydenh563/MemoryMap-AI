@@ -19,6 +19,7 @@ from collections.abc import Iterator
 
 import requests
 
+from memorymap.ai import sampling
 from memorymap.ai.provider import (
     Provider,
     ProviderError,
@@ -229,8 +230,26 @@ class OllamaClient(Provider):
             "num_ctx": budget["context_tokens"],
             "num_predict": budget["max_output_tokens"],
         }
+        # Sampling, from three layers — see ai/sampling.py for the order and
+        # why omission means "the backend's own default".
+        #
+        # The model's own recommendations come from the `/api/show` payload
+        # this client already fetches and caches for the context window and the
+        # capability list; the `parameters` field was being dropped. A GGUF
+        # ships its author's recommended temperature/top_p/repeat_penalty, so
+        # "the right settings for this model" is something to read rather than
+        # to guess at — and a table maintained by hand would be right the day
+        # it was written and quietly wrong later.
+        preset_options = {}
         if "temperature" in budget:
-            options["temperature"] = budget["temperature"]
+            preset_options["temperature"] = budget["temperature"]
+        options.update(
+            sampling.resolve(
+                sampling.parse_model_parameters(self.show(model)),
+                preset_options,
+                self.sampling_overrides(),
+            )
+        )
         return options
 
     def request_extras(self, mode: str | None = None, model: str = "") -> dict:
@@ -448,6 +467,51 @@ class OllamaClient(Provider):
 
     _offered_names = staticmethod(offered_tool_names)
 
+    def _tools_path_is_broken(self, model: str, messages: list[dict], mode) -> bool:
+        """Did the *tools* half of that request fail, or the server itself?
+
+        Reported live: a skill run died with `500 Server Error … /api/chat` on
+        a 3B abliterated GGUF, twice in a row, while ordinary chat with the
+        same model worked fine. Ollama answers 400 with "does not support
+        tools" for a model that declares no tool support — but a model whose
+        *chat template* breaks on the tools path answers 500, and for the user
+        those are the same situation: the request cannot be made this way.
+        Community finetunes and re-quants hit this often, because the template
+        is exactly the part that gets rewritten.
+
+        Guessing from the status code alone would be wrong in the other
+        direction, though. A genuine outage, a model still swapping in, or
+        memory pressure also produce 500s, and permanently treating a working
+        model as tool-incapable because the server hiccuped is worse than the
+        error itself.
+
+        So this asks rather than guesses: the same messages, the same model, no
+        `tools` key. If that succeeds the tools path is what is broken and the
+        caller should fall back to a plain answer; if it fails too the backend
+        is genuinely unwell and the original error is the honest one. One short
+        extra request, on a path that has already failed twice.
+        """
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/chat",
+                json={
+                    "model": model,
+                    "messages": self._to_ollama_messages(messages),
+                    "stream": False,
+                    "keep_alive": self.keep_alive,
+                    # A probe, not an answer: one token is enough to learn
+                    # whether the request is accepted at all.
+                    "options": {
+                        **self.runtime_options(model, mode=mode),
+                        "num_predict": 1,
+                    },
+                },
+                timeout=min(self.timeout, 60),
+            )
+            return bool(response.ok)
+        except requests.RequestException:
+            return False
+
     def chat_tools_stream(
         self,
         model: str,
@@ -530,6 +594,17 @@ class OllamaClient(Provider):
         except ToolsUnsupportedError:
             raise
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+            # A 5xx here may be an outage, or a model whose chat template
+            # breaks on the tools path — see _tools_path_is_broken, which
+            # settles it by asking rather than by reading the status code.
+            if (
+                tools
+                and is_transient_server_error(exc)
+                and self._tools_path_is_broken(model, messages, mode)
+            ):
+                raise ToolsUnsupportedError(
+                    f"'{model}' answers without tools but fails with them"
+                ) from exc
             raise OllamaError(f"Tool chat with '{model}' failed: {exc}") from exc
 
         calls = self._normalise_tool_calls(raw_calls)
@@ -645,6 +720,17 @@ class OllamaClient(Provider):
         except ToolsUnsupportedError:
             raise
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
+            # A 5xx here may be an outage, or a model whose chat template
+            # breaks on the tools path — see _tools_path_is_broken, which
+            # settles it by asking rather than by reading the status code.
+            if (
+                tools
+                and is_transient_server_error(exc)
+                and self._tools_path_is_broken(model, messages, mode)
+            ):
+                raise ToolsUnsupportedError(
+                    f"'{model}' answers without tools but fails with them"
+                ) from exc
             raise OllamaError(f"Tool chat with '{model}' failed: {exc}") from exc
 
     def embed(self, model: str, text: str) -> list[float]:

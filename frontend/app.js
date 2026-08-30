@@ -8452,7 +8452,9 @@ async function sendChatMessage(preset, opts = {}) {
   // sentence back to them would read as the app putting words in their mouth,
   // and hiding the request entirely would leave the plan looking as though it
   // came from nowhere; the button they pressed is the explanation.
-  if (!opts.skipUserBubble) addBubble("user", opts.displayText || question);
+  const userBubble = opts.skipUserBubble
+    ? null
+    : addBubble("user", opts.displayText || question);
   const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
@@ -8516,6 +8518,32 @@ async function sendChatMessage(preset, opts = {}) {
   // transcript.
   const convRef = chatConv;
   const viewing = () => chatConv === convRef;
+
+  // The live nodes, kept rather than abandoned.
+  //
+  // Reported after the first fix: switching away and back left the bubble
+  // gone, the answer appearing only once it had finished, and an empty bubble
+  // in its place. All three are the same cause — `openConversation` rebuilds
+  // the transcript with `replaceChildren()`, so the nodes this turn is
+  // streaming into are detached, and what the reader comes back to is the
+  // thread as the *server* has it: without the unsaved turn, or with the
+  // half-written checkpoint row, which is the empty bubble.
+  //
+  // Holding the elements means coming back can re-attach the very same ones,
+  // still being written into — so the answer continues in front of the reader
+  // instead of arriving all at once at the end.
+  //
+  // Set here, once, and never reassigned by a switch: the earlier version
+  // recorded it inside `releaseChatComposer`, which runs on *every* switch, so
+  // returning to the original chat relabelled the stream as belonging to
+  // whichever thread had just been left. That is why the notice named the
+  // wrong conversation.
+  chatStreaming = {
+    conv: convRef,
+    title: $("chat-title").textContent || "that chat",
+    nodes: [userBubble, bubble].filter(Boolean),
+    announced: false,
+  };
 
   // --- checkpointing a long turn --------------------------------------------
   // A row for this turn already exists, so the save at the end has to update
@@ -8771,7 +8799,13 @@ async function sendChatMessage(preset, opts = {}) {
     // Only if it is still ours. Switching away and sending a second message
     // installs a new controller, and this line firing late would null it —
     // leaving Stop wired to nothing while a stream was genuinely running.
-    if (chatController === controller) chatController = null;
+    if (chatController === controller) {
+      chatController = null;
+      // The turn is over: it is saved (or about to be) and a reload of this
+      // thread will render it like any other. Re-attaching these nodes after
+      // that point would show it twice.
+      if (chatStreaming && chatStreaming.conv === convRef) chatStreaming = null;
+    }
     // The composer belongs to whatever conversation is on screen. A turn that
     // finishes after the reader has moved on must not re-enable, refocus or
     // re-label the box they are now typing into — releaseChatComposer already
@@ -9130,15 +9164,19 @@ async function deleteChatTurn(assistantBubble) {
 // asked it and appear there. Saying so once is the difference between a
 // background job and a lost message.
 //
-// `chatStreamingConv` is what the returning reader is told about — the pane can
-// be switched back long before the turn finishes, and a conversation that is
-// mid-answer with an empty transcript needs to say why rather than look empty.
-let chatStreamingConv = null;
+// `chatStreaming` below holds the live nodes as well as the identity, because
+// the pane can be switched back long before the turn finishes — and the useful
+// thing to do then is put the same still-streaming elements back, not describe
+// them.
+//: The turn currently being streamed, if any: which conversation it belongs
+//: to, that conversation's title *at the time it was sent*, and the live DOM
+//: nodes it is being written into. Set once in sendChatMessage and cleared
+//: when the stream ends — never reassigned by a switch, which is what made an
+//: earlier version name the wrong conversation.
+let chatStreaming = null;
 
 function releaseChatComposer({ announce = true } = {}) {
-  if (!chatController) return;
-  const title = $("chat-title").textContent || "that chat";
-  chatStreamingConv = chatConv;
+  if (!chatController || !chatStreaming) return;
   const input = $("chat-input");
   input.disabled = false;
   show("chat-send");
@@ -9146,17 +9184,37 @@ function releaseChatComposer({ announce = true } = {}) {
   const status = $("chat-status");
   status.textContent = "";
   status.classList.remove("error");
-  if (announce) {
-    toast(`Still answering in “${title}” — the reply will be saved there.`);
+  // Once per stream, not once per switch. Reported: leaving and returning
+  // repeatedly repeated the notice, and named whichever chat had just been
+  // left rather than the one actually being answered. The title is the one
+  // captured when the message was sent, for the same reason.
+  if (announce && !chatStreaming.announced) {
+    chatStreaming.announced = true;
+    toast(
+      `Still answering in “${chatStreaming.title}” — the reply will appear there.`
+    );
   }
 }
 
 //: True when the conversation being opened is the one still being written to.
-//: Its turn has not been saved yet (that happens when the stream ends), so a
-//: plain reload of it shows an empty thread; this is what lets the pane say
-//: "still writing" instead of looking like the message was lost.
 function isStreamingConversation(id) {
-  return Boolean(chatController && chatStreamingConv && chatStreamingConv.id === id);
+  return Boolean(chatController && chatStreaming && chatStreaming.conv.id === id);
+}
+
+//: Put the in-flight turn back on screen, still streaming.
+//:
+//: The nodes were never destroyed — `openConversation` detached them with
+//: `replaceChildren()` and this re-appends the same elements, so whatever the
+//: stream has written since is already in them and whatever it writes next
+//: lands in front of the reader. That is the difference between the reported
+//: "the response only shows after it is completed" and watching it arrive.
+function reattachStreamingTurn() {
+  if (!chatStreaming) return false;
+  const host = $("chat-messages");
+  clearChatEmptyState();
+  for (const node of chatStreaming.nodes) host.appendChild(node);
+  chatScrollToEnd();
+  return true;
 }
 
 function newChatConversation() {
@@ -9932,12 +9990,19 @@ async function openConversation(id) {
   // Saying so is the honest render, and the note is replaced by the real turn
   // the moment the stream finishes and the list refreshes.
   if (isStreamingConversation(full.id)) {
-    const pending = document.createElement("p");
-    pending.className = "muted chat-pending-note";
-    pending.textContent =
-      "Still writing an answer here. It'll appear in this thread when it's done — " +
-      "you can keep working elsewhere.";
-    $("chat-messages").appendChild(pending);
+    // Coming back to the thread that is still being answered. The saved
+    // messages above are the thread *without* this turn — it has not been
+    // written yet, or exists only as a half-finished checkpoint row, which is
+    // the reported "empty message bubble". Drop that partial and put the live
+    // nodes back instead.
+    const bubbles = $("chat-messages").querySelectorAll(".msg");
+    const lastAssistant = [...bubbles].reverse().find((b) => b.classList.contains("assistant"));
+    if (lastAssistant && !lastAssistant.textContent.trim()) {
+      lastAssistant.previousElementSibling?.classList.contains("msg")
+        && lastAssistant.previousElementSibling.remove();
+      lastAssistant.remove();
+    }
+    reattachStreamingTurn();
   } else if (!full.messages.length) {
     renderChatEmptyState();
   }
@@ -14984,9 +15049,70 @@ async function importDocument() {
 let paletteIndex = 0;
 
 // Static commands; note search results are appended live as you type.
+//: Interface zoom, in one place so the slider, the +/- buttons, the keyboard
+//: shortcut and the command palette cannot drift apart. Asked for directly:
+//: "a nicer way to adjust zoom… + and - buttons next to the slider, hotkeys
+//: like ctrl + +/-, and in the commands list".
+//:
+//: Same range and step as the slider in Settings -> Appearance, and it writes
+//: the same key, so all four routes are literally the same control.
+const ZOOM_MIN = 70;
+const ZOOM_MAX = 130;
+const ZOOM_STEP = 5;
+
+function currentZoom() {
+  const stored = Number(localStorage.getItem("zoom"));
+  return Number.isFinite(stored) && stored ? stored : 100;
+}
+
+function setZoom(percent) {
+  const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(percent / ZOOM_STEP) * ZOOM_STEP));
+  localStorage.setItem("zoom", String(next));
+  const slider = $("zoom-slider");
+  if (slider) slider.value = next;
+  const readout = $("zoom-value");
+  if (readout) readout.textContent = `${next}%`;
+  applyAppearance();
+  return next;
+}
+
+function nudgeZoom(direction) {
+  const next = setZoom(currentZoom() + direction * ZOOM_STEP);
+  toast(`Zoom ${next}%`);
+}
+
+// Ctrl/Cmd with + or - . On `capture` so a focused textarea cannot swallow it,
+// and `preventDefault` so the browser's own zoom does not fire as well —
+// otherwise the two stack and one press moves both.
+//
+// `event.key` for "-" and "=" rather than a keyCode: "+" needs Shift on most
+// layouts, so the unshifted "=" is what people actually press, and both are
+// accepted for the same reason every other app accepts both.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      nudgeZoom(1);
+    } else if (event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      nudgeZoom(-1);
+    } else if (event.key === "0") {
+      event.preventDefault();
+      setZoom(100);
+      toast("Zoom 100%");
+    }
+  },
+  true
+);
+
 function paletteCommands() {
   return [
     { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
+    { label: "ph:magnifying-glass-plus Zoom in", run: () => nudgeZoom(1) },
+    { label: "ph:magnifying-glass-minus Zoom out", run: () => nudgeZoom(-1) },
+    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", run: () => { setZoom(100); toast("Zoom 100%"); } },
     { label: "ph:note-pencil Go to Notes", run: () => switchTab("notes") },
     { label: "ph:chat-circle Go to Chat", run: () => switchTab("chat") },
     { label: "ph:graph Go to Graph", run: () => switchTab("graph") },
@@ -17079,6 +17205,7 @@ function renderSettings() {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
     renderVisionModelPicker(status);
+  renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
@@ -17769,6 +17896,30 @@ function renderVisionModelPicker(status) {
   }
 }
 
+// Separate from the vision picker above because the jobs are separate — see
+// ModelManager.ocr_model. "Automatic" here means something more specific than
+// the vision picker's "Auto-detect": it prefers an installed document reader
+// over a general vision model, because both report the same `vision`
+// capability and only one of them is built to transcribe a page.
+function renderOcrModelPicker(status) {
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("ocr-model-select"),
+    names,
+    { value: "", label: "Automatic" },
+    status.ocr_model || ""
+  );
+  const note = $("ocr-model-note");
+  if (status.ocr_model) {
+    note.textContent = `Active: ${status.ocr_model}`;
+  } else if (status.ocr_model_resolved) {
+    note.textContent = `Automatic — currently: ${status.ocr_model_resolved}`;
+  } else {
+    note.textContent =
+      "Automatic — nothing installed can read text off a page yet.";
+  }
+}
+
 function renderAutonomousModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
   fillModelSelect(
@@ -18089,6 +18240,25 @@ async function applyUtilityModel() {
     refreshModelStatus();
   } catch (error) {
     toast(error.message, true);
+  }
+}
+
+async function applyOcrModel() {
+  const select = $("ocr-model-select");
+  try {
+    await api("/models/ocr-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Text will be read with ${select.value}.`
+        : "Reading text is automatic again."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't set that model.", true);
   }
 }
 
@@ -20401,6 +20571,7 @@ $("llm-provider-select").addEventListener("change", () => {
 });
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("vision-model-apply").addEventListener("click", applyVisionModel);
+$("ocr-model-apply")?.addEventListener("click", applyOcrModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 $("utility-model-select").addEventListener(
   "change",

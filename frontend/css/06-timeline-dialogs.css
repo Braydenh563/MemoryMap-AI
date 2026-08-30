@@ -1602,6 +1602,8 @@
 .setting-check input[type="checkbox"],
 .tools-toggle input[type="checkbox"],
 .library-toolbar label>input[type="checkbox"],
+.semantic-toggle input[type="checkbox"],
+.library-sort-check input[type="checkbox"],
 .wb-snap-label input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -1614,7 +1616,18 @@
   padding: 0;
   position: relative;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
+  /* **An off switch has to look like a switch.**
+     Reported twice, and diagnosed by the reporter: "the gap at the start of
+     the semantic button and smart model routing button… is because it is
+     missing a toggle switcher". It was not missing — it computed to the right
+     32x18 — it was invisible. The track was `--chip-bg` (7-8% alpha) inside a
+     `--border` outline (10%), which on a card is nothing at all, so an *off*
+     toggle read as blank space with a small dot floating in it. An *on* one
+     was obvious, because it fills with the accent — which is exactly why only
+     the off ones were ever reported.
+     `--muted` is the same colour the knob already uses, so the track now
+     matches the thing sliding in it and the control reads as one object. */
+  border: 1px solid var(--muted);
   background: var(--chip-bg);
   box-shadow: none;
   cursor: pointer;
@@ -1628,6 +1641,8 @@
 .setting-check input[type="checkbox"]::after,
 .tools-toggle input[type="checkbox"]::after,
 .library-toolbar label>input[type="checkbox"]::after,
+.semantic-toggle input[type="checkbox"]::after,
+.library-sort-check input[type="checkbox"]::after,
 .wb-snap-label input[type="checkbox"]::after {
   content: "";
   position: absolute;
@@ -1641,10 +1656,24 @@
   transition: transform var(--motion-base) ease, background-color var(--motion-base) ease;
 }
 
+/* Hover says it is interactive before it is clicked — the other half of
+   "this is a control, not a gap". */
+.settings-section label>input[type="checkbox"]:hover,
+.setting-check input[type="checkbox"]:hover,
+.tools-toggle input[type="checkbox"]:hover,
+.library-toolbar label>input[type="checkbox"]:hover,
+.semantic-toggle input[type="checkbox"]:hover,
+.library-sort-check input[type="checkbox"]:hover,
+.wb-snap-label input[type="checkbox"]:hover {
+  border-color: var(--ink);
+}
+
 .settings-section label>input[type="checkbox"]:checked,
 .setting-check input[type="checkbox"]:checked,
 .tools-toggle input[type="checkbox"]:checked,
 .library-toolbar label>input[type="checkbox"]:checked,
+.semantic-toggle input[type="checkbox"]:checked,
+.library-sort-check input[type="checkbox"]:checked,
 .wb-snap-label input[type="checkbox"]:checked {
   background: var(--accent);
   border-color: var(--accent);
@@ -1654,6 +1683,8 @@
 .setting-check input[type="checkbox"]:checked::after,
 .tools-toggle input[type="checkbox"]:checked::after,
 .library-toolbar label>input[type="checkbox"]:checked::after,
+.semantic-toggle input[type="checkbox"]:checked::after,
+.library-sort-check input[type="checkbox"]:checked::after,
 .wb-snap-label input[type="checkbox"]:checked::after {
   transform: translateY(-50%) translateX(0.85rem);
   background: #fff;

@@ -1051,7 +1051,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="attach-note" class="ghost" type="button"
                 aria-haspopup="dialog" aria-expanded="false"
                 title="Attach notes as references for this question"
-                aria-label="Attach notes"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
+                aria-label="Attach notes"><i class="ph ph-note" aria-hidden="true"></i></button>
               <div id="note-picker-panel" class="note-picker-panel hidden"
                 role="dialog" aria-label="Choose notes to reference">
                 <input id="note-picker-search" type="search"
@@ -2944,6 +2944,27 @@ Link to another note with [[its first few words]]."></textarea>
                 can see images. Pick one by hand if you have several, or if
                 auto-detect isn't finding the one you want.
               </p>
+
+              <!-- Separate from the vision model above, and the reason is not
+                   obvious: rasterising a PDF does not read anything, it turns
+                   a page into a picture, and a model still has to read the
+                   picture. So both jobs take an image — but a general vision
+                   model is trained to say what is *in* one, while a document
+                   reader is trained to return the text, tables and layout. Ask
+                   moondream for a scanned invoice and it describes the
+                   invoice. -->
+              <h3>Reading text (OCR: scanned PDFs, and text in images)</h3>
+              <div class="row">
+                <select id="ocr-model-select" aria-label="Model used to read text off a page" title="Model used to read text off a page"></select>
+                <button id="ocr-model-apply" class="small">Use this model</button>
+              </div>
+              <p id="ocr-model-note" class="status"></p>
+              <p class="muted">
+                Left on “Automatic”, this prefers a document reader
+                (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) when you have one
+                installed, then falls back to your vision model. Scanned PDFs
+                also need the “Read scanned PDFs” extra, below in Packages.
+              </p>
             </div>
 
             <!-- Deliberately OUTSIDE #models-config. It used to live inside,
@@ -2994,6 +3015,36 @@ Link to another note with [[its first few words]]."></textarea>
               <h3>Suggested downloads</h3>
               <ul id="suggested-list"></ul>
             </div>
+            <!-- Advanced response settings. Asked for directly: expose top-k,
+                 top-p, repeat penalty and the rest, because different models
+                 need different values for the same result — and detect them
+                 per model if that is possible.
+
+                 It is. A GGUF carries its author's recommended parameters and
+                 Ollama reports them in /api/show, so every row starts at what
+                 the model itself asks for and says so. Changing one stores
+                 only that one, which is why switching model still picks up the
+                 new model's own recommendations for everything untouched.
+
+                 Collapsed by default: this is genuinely advanced, and the
+                 honest default for all of it is "whatever the model says". -->
+            <details id="sampling-box" class="settings-group">
+              <summary><h3 class="inline-h3">Advanced response settings</h3></summary>
+              <p class="muted">
+                How the model picks its words. Each row starts at what this
+                model recommends for itself — change one only if you have a
+                reason, and Reset puts it back.
+              </p>
+              <p id="sampling-model" class="muted text-sm"></p>
+              <div id="sampling-rows"></div>
+              <div class="row gap">
+                <button id="sampling-reset" class="ghost small" type="button">
+                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i>
+                  Reset all to the model's own
+                </button>
+              </div>
+              <p id="sampling-note" class="muted text-sm"></p>
+            </details>
           </section>
 
           <!-- Personas: who the AI is when it answers -->
@@ -3349,9 +3400,19 @@ Link to another note with [[its first few words]]."></textarea>
                   <small class="muted">Scales the whole interface, like a browser zoom that stays set. Combines with Text size above.</small>
                 </div>
                 <div class="row setting-control">
+                  <!-- A slider alone is hard to land on an exact step, and
+                       there was no discoverable keyboard route either. These
+                       three, the slider, and the command palette all call the
+                       same setZoom, so none of them can drift. -->
+                  <button id="zoom-out" class="ghost small icon-button" type="button"
+                    title="Zoom out (Ctrl+-)" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
                   <input id="zoom-slider" type="range" min="70" max="130" step="5" value="100"
                     aria-label="Interface zoom">
+                  <button id="zoom-in" class="ghost small icon-button" type="button"
+                    title="Zoom in (Ctrl++)" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
                   <span class="slider-value" id="zoom-value">100%</span>
+                  <button id="zoom-reset" class="ghost small" type="button"
+                    title="Back to 100% (Ctrl+0)">Reset</button>
                 </div>
               </div>
               <div class="setting-row">

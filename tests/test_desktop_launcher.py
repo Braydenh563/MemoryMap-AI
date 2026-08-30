@@ -534,7 +534,10 @@ def test_tray_has_no_hide_console_item_without_a_real_console(monkeypatch, tmp_p
 
     texts = [item.text for item in created["menu"].items]
     assert "Hide console window" not in texts
-    assert texts == ["Open MemoryMap AI", "View Logs", "Restart", "Quit"]
+    # "New note" sits second on purpose: it is the only item on this menu that
+    # does the app's actual job rather than manage the app, and it is the
+    # reason a notebook earns a tray icon at all.
+    assert texts == ["Open MemoryMap AI", "New note", "View Logs", "Restart", "Quit"]
 
 
 def test_get_console_hwnd_returns_none_on_this_non_windows_platform():

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import drafter
+from memorymap.ai import drafter, vision_ocr
 from memorymap.core import deps, docview, filetypes
 from memorymap.core.database import Document, DocumentAiEdit, utcnow
 from memorymap.core.deps import get_session
@@ -266,7 +266,13 @@ def import_document(
                         status_code=413, detail="File is larger than 50 MB"
                     )
                 out.write(chunk)
-        viewed = docview.extract(staged)
+        # The scanned-PDF fallback, same as the file viewer's. Importing a
+        # scan and importing a text PDF must not need different actions from
+        # the user — this is the "hands off" half, and the models and the
+        # rasteriser it needs are the "optionally customisable" half. Costs
+        # nothing for every other file type: `docview` only consults a reader
+        # once a PDF has turned out to have no text layer.
+        viewed = docview.extract(staged, vision_reader=vision_ocr.pdf_reader_or_none())
 
     if not viewed.text.strip():
         # The extractor's own message says *why* — a scan with no text layer

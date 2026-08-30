@@ -2362,3 +2362,60 @@ html.modal-open body {
   white-space: nowrap;
 }
 
+
+/* Advanced response settings (Settings → Models). One row per sampling knob:
+   a label with a badge saying where the value came from, the plain-language
+   help, then the slider, its readout and a per-row reset. */
+.sampling-row {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.sampling-row:last-child {
+  border-bottom: 0;
+}
+
+.sampling-label {
+  font-weight: 600;
+}
+
+/* Where the number came from. Quiet by default — "from the model" is the
+   normal case and should not shout — and only picks up the accent once the
+   user has actually overridden it, which is the state worth spotting when
+   scanning the panel for "what did I change?". */
+.sampling-source {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.sampling-source-user {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.sampling-controls {
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.sampling-controls input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Tabular figures so the number does not jitter the reset button sideways as
+   the slider moves. */
+.sampling-value {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  min-width: 7ch;
+  text-align: right;
+}
+
+/* A <summary> carries its own disclosure marker, so the heading inside it must
+   not also start a new block or the arrow and the text sit on separate lines. */
+.inline-h3 {
+  display: inline;
+  font-size: var(--text-base);
+}

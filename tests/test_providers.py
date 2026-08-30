@@ -669,3 +669,77 @@ def test_openai_chat_retries_once_on_a_transient_500(capture_post, openai_client
     result = openai_client.chat("m", [{"role": "user", "content": "hi"}])
     assert result["content"] == "hi"
     assert len(capture_post.sent) == 2
+
+
+# --- a 500 on the tools path -----------------------------------------------------
+#
+# Reported live: a skill run died with `500 Server Error … /api/chat` on a 3B
+# abliterated GGUF, twice in a row, while ordinary chat with the same model
+# worked. Ollama answers 400 "does not support tools" for a model that declares
+# none — but a model whose *chat template* breaks on the tools path answers
+# 500, and for the user those are the same situation. Community finetunes and
+# re-quants hit this often, because the template is what gets rewritten.
+
+
+@pytest.fixture()
+def ollama():
+    client = OllamaClient(base_url="http://127.0.0.1:1")
+    client._context_lengths = {"m": 8192}
+    return client
+
+
+def _server_error():
+    import requests as rq
+
+    response = FakeResponse(status=500)
+    return rq.exceptions.HTTPError("500 Server Error", response=response)
+
+
+def test_a_model_whose_tools_path_500s_falls_back_instead_of_failing(ollama, monkeypatch):
+    """The probe: the same messages without `tools` succeed, so the tools half
+    is what is broken and the caller can still answer."""
+    monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: True)
+    monkeypatch.setattr(
+        "memorymap.ai.ollama_client.requests.post",
+        lambda *a, **k: (_ for _ in ()).throw(_server_error()),
+    )
+    with pytest.raises(ToolsUnsupportedError):
+        ollama.chat_tools("m", [{"role": "user", "content": "hi"}], [{"type": "function"}])
+
+
+def test_a_real_outage_is_still_reported_as_one(ollama, monkeypatch):
+    """A genuine 500 — the backend is down, a model is still swapping in — must
+    not be recorded as "this model can't use tools". Permanently disabling a
+    working model because the server hiccuped is worse than the error."""
+    monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: False)
+    monkeypatch.setattr(
+        "memorymap.ai.ollama_client.requests.post",
+        lambda *a, **k: (_ for _ in ()).throw(_server_error()),
+    )
+    with pytest.raises(OllamaError) as caught:
+        ollama.chat_tools("m", [{"role": "user", "content": "hi"}], [{"type": "function"}])
+    assert not isinstance(caught.value, ToolsUnsupportedError)
+
+
+def test_a_turn_that_offered_no_tools_never_probes(ollama, monkeypatch):
+    """Nothing to fall back from, so the extra request would be pure cost on a
+    path that has already failed."""
+    probed = []
+    monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: probed.append(1) or True)
+    monkeypatch.setattr(
+        "memorymap.ai.ollama_client.requests.post",
+        lambda *a, **k: (_ for _ in ()).throw(_server_error()),
+    )
+    with pytest.raises(OllamaError):
+        ollama.chat_tools("m", [{"role": "user", "content": "hi"}], [])
+    assert probed == []
+
+
+def test_the_probe_asks_without_tools_and_caps_the_reply(ollama, capture_post):
+    """It is a probe, not an answer: one token is enough to know whether the
+    request is accepted at all."""
+    capture_post.queue.append(FakeResponse(payload={"message": {"content": "ok"}}))
+    assert ollama._tools_path_is_broken("m", [{"role": "user", "content": "hi"}], None)
+    sent = capture_post.sent[-1]["json"]
+    assert "tools" not in sent
+    assert sent["options"]["num_predict"] == 1

@@ -356,13 +356,60 @@ details.tool-chip {
 details.tool-chip > summary {
   cursor: pointer;
   list-style: none;
+  /* One line, always. A long tool label was wrapping the chip to three lines
+     before the body was even opened. */
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Its own affordance, since the native marker is removed above — without one
+   there is nothing to say the chip can be opened at all. */
+details.tool-chip > summary::after {
+  content: "▸";
+  margin-left: auto;
+  flex: 0 0 auto;
+  opacity: 0.7;
+  transition: transform var(--motion-base) ease;
+}
+
+details.tool-chip[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  details.tool-chip > summary::after {
+    transition: none;
+  }
 }
 
 details.tool-chip > summary::-webkit-details-marker {
   display: none;
 }
 
-.tool-chip-body {
+/* **Scoped to `[open]`, and that is the whole bug.**
+   Reported: a tool chip rendered as its label immediately followed by the
+   entire raw result — `Listed your tags{'tags': [{'name': ...}], ...}` — with
+   no way to collapse it.
+
+   The disclosure was built correctly and the server was sending the right
+   fields; this rule was overriding the collapse. A closed <details> hides its
+   non-summary children through the *user-agent* stylesheet, and an author
+   rule beats a UA rule at any specificity — so a bare `display: flex` here
+   forced the body visible whether the chip was open or not. The chip was
+   never actually closed; it only looked like a label with a payload stuck to
+   it, because that is what a permanently-open disclosure reads as.
+
+   `display: none` when closed is belt-and-braces for the same reason: it puts
+   an author rule on the other side of the argument rather than trusting the
+   UA one to win. */
+details.tool-chip:not([open]) > .tool-chip-body {
+  display: none;
+}
+
+details.tool-chip[open] > .tool-chip-body {
   margin-top: var(--space-2);
   display: flex;
   flex-direction: column;

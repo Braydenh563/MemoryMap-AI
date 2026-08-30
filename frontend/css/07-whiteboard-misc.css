@@ -796,10 +796,23 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   margin: 0 var(--space-1) 0 0;
 }
 
-.semantic-toggle {
+/* Asked for directly: "Include bin" sits beside Semantic in the Library
+   toolbar and was a bare checkbox with muted text next to a pill. Two controls
+   doing the same kind of job should not look like different components, so
+   they share one rule. */
+.semantic-toggle,
+.library-sort-check {
+  display: flex;
+  align-items: center;
   gap: var(--space-1);
   font-size: var(--text-md);
   cursor: pointer;
+}
+
+.library-sort-check>span {
+  /* The label is the control's name, not a caption for it — muted made it read
+     as secondary to a switch that is the same size as the words. */
+  color: inherit;
 }
 
 /* A flexible gap that pushes what follows it to the far end of a row. */

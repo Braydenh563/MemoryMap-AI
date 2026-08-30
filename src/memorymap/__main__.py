@@ -171,6 +171,34 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
     return False
 
 
+def _close_launch_splash() -> None:
+    """Take down start.bat's pre-Python splash, if there is one.
+
+    The launcher shows a window (scripts/splash.ps1) for the phase before this
+    process exists at all — the git pull, building .venv, and a pip install
+    that can run to minutes. That window watches the file named in
+    MM_SPLASH_FILE and closes when it disappears, so this is the whole
+    protocol: delete the file.
+
+    Called the instant *this* process's own loading window is on screen, not
+    earlier and not later. Earlier leaves a gap with nothing on screen at the
+    slowest possible moment, which is the problem the splash exists to solve;
+    later leaves two windows stacked, with an always-on-top one covering the
+    real progress bar.
+
+    Never raises. A missing variable, a file already gone, a permission error
+    on TEMP — none of those are reasons to fail a launch that has otherwise
+    got this far.
+    """
+    path = os.environ.get("MM_SPLASH_FILE")
+    if not path:
+        return
+    try:
+        os.remove(path)
+    except OSError as exc:
+        logger.debug("couldn't close the launch splash: %s", exc)
+
+
 def _push_status_to_window(window, text: str) -> None:
     """Best-effort `window.__mmSetStatus(text, pct)` call — see
     _LOADING_HTML. Must never raise: this runs from the same background
@@ -671,6 +699,10 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # app once loaded; the loading page has nothing worth selecting.
         text_select=True,
     )
+    # The handoff from start.bat's splash to this window. create_window has
+    # returned, so this window is the one the user is about to be looking at;
+    # the splash's job is over the moment it is.
+    _close_launch_splash()
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps
     # a great deal in localStorage — the theme and every appearance key, the

@@ -365,21 +365,29 @@ class EmbeddingService:
         return self._embed_with_sentence_transformers(text)
 
     def _load_st_model(self):  # noqa: ANN202
-        """Load the sentence-transformers model, working offline when the
-        HuggingFace hub is unreachable (user-reported failure: 'not a
-        valid model identifier' with no internet — the local cache still
-        has the model, so ask for it explicitly)."""
+        """Load the sentence-transformers model, preferring what's already
+        on disk over a live hub round-trip.
+
+        This used to try online first, always — but `SentenceTransformer()`
+        with no `local_files_only` still asks the hub whether a cached
+        model is current before using it, and that's a real HTTP call this
+        offline-first app has no business making on every note save. On a
+        network that's merely slow or rate-limited (not simply down), that
+        call doesn't fail fast — `huggingface_hub` retries with backoff for
+        the better part of a minute before this code ever got a chance to
+        fall back to the cache. Trying the cache first sidesteps the
+        problem entirely for the common case (already downloaded once);
+        the online attempt below is now purely for the genuine first-ever
+        download."""
         from sentence_transformers import SentenceTransformer
 
         try:
-            return SentenceTransformer(DEFAULT_ST_MODEL)
-        except Exception as online_exc:
-            try:
-                model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
-                logger.info("embedding model loaded from local cache (hub unreachable)")
-                return model
-            except Exception:
-                raise online_exc  # the original error names the real problem
+            model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
+            logger.info("embedding model loaded from local cache")
+            return model
+        except Exception:
+            pass  # not cached yet (or the cache is stale/corrupt) — fetch it for real
+        return SentenceTransformer(DEFAULT_ST_MODEL)
 
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:
         if self._st_model is None and self._load_failed_at is not None:

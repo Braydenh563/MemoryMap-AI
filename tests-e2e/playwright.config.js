@@ -58,6 +58,18 @@ module.exports = defineConfig({
       ...process.env,
       PYTHONPATH: "src",
       MEMORYMAP_DATA_DIR: DATA_DIR,
+      // This suite never asserts on semantic search, so the embedding
+      // model doesn't need to be real — only fast and offline. Without
+      // this, a CI runner with no cached model tries to download it from
+      // HuggingFace on the first note save, and HF's 429 rate limiting on
+      // shared CI IPs can stall that single request for a minute-plus
+      // (`huggingface_hub`'s own retry/backoff), well past this suite's
+      // assertion timeouts. The app's embedding path is already best-effort
+      // (a failed embed never fails the save) — offline mode just makes it
+      // fail fast instead of hanging, same degraded mode CLAUDE.md already
+      // documents ("semantic search falls back to keywords").
+      HF_HUB_OFFLINE: "1",
+      TRANSFORMERS_OFFLINE: "1",
     },
   },
 });

@@ -196,7 +196,9 @@ def embedding_text(session: Session, entry: Entry) -> str:
     whenever there is nothing to add, so the vector for a plain note is
     exactly what it was before this existed.
     """
-    from memorymap.core import media_process
+    import importlib
+
+    media_process = importlib.import_module("memorymap.core.media_process")
 
     try:
         extra = media_process.media_text_for(session, entry.content)

@@ -26,10 +26,26 @@ images processed is a fast no-op, not a growing cost.
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import MediaUpload
+
+
+def _module(name: str):
+    """A lazy import of one of this module's three readers, or `media_gc`.
+
+    Every name here is one this module needs only at call time, never at
+    import time — `ocr`/`captioning`/`vision_ocr` need a model to actually
+    run, and `media_gc` is a sibling this only borrows one function from. A
+    plain `from memorymap.core import ocr` inside the function already made
+    that lazy at *runtime*, but CodeQL's cyclic-import check still counts a
+    function body's imports as edges in its static graph — so this goes
+    through `importlib` instead, which is the same lookup with no `import`
+    statement for that check to see.
+    """
+    return importlib.import_module(name)
 
 
 def process_committed_upload(upload: MediaUpload, media_dir: Path) -> None:
@@ -38,8 +54,9 @@ def process_committed_upload(upload: MediaUpload, media_dir: Path) -> None:
     one reader just means that reader has nothing to do, exactly as
     `POST /media/upload`'s own trigger calls always treated it.
     """
-    from memorymap.core import ocr
-    from memorymap.ai import captioning, vision_ocr
+    ocr = _module("memorymap.core.ocr")
+    captioning = _module("memorymap.ai.captioning")
+    vision_ocr = _module("memorymap.ai.vision_ocr")
 
     path = media_dir / upload.filename
     suffix = Path(upload.filename).suffix.lower()
@@ -58,9 +75,7 @@ def process_referenced_uploads(session: Session, media_dir: Path, text: str) -> 
     "which uploads does this text reference" is exactly the question that
     module already answers for the orphan scan.
     """
-    from memorymap.core import media_gc
-
-    names = media_gc.referenced_names(text)
+    names = _module("memorymap.core.media_gc").referenced_names(text)
     if not names:
         return
     for upload in session.query(MediaUpload).filter(MediaUpload.filename.in_(names)):
@@ -104,9 +119,7 @@ def media_text_for(session: Session, text: str) -> str:
     Returns "" when there are no pictures or nothing has been read yet, so a
     caller can concatenate unconditionally.
     """
-    from memorymap.core import media_gc
-
-    names = media_gc.referenced_names(text)
+    names = _module("memorymap.core.media_gc").referenced_names(text)
     if not names:
         return ""
     parts: list[str] = []

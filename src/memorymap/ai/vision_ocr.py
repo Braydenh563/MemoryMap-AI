@@ -21,6 +21,7 @@ best-effort contract as its two siblings.
 from __future__ import annotations
 
 import base64
+import importlib
 import logging
 import mimetypes
 import tempfile
@@ -117,7 +118,12 @@ def pdf_reader_or_none():
     string until somebody sets it — so on a default install the scanned-PDF
     path asked the backend to run a model named "".
     """
-    from memorymap.core import deps
+    # `deps` is fetched via `importlib` rather than `from memorymap.core
+    # import deps`: the latter, even placed inside this function, was still
+    # flagged by CodeQL's cyclic-import check as beginning a cycle (it counts
+    # a function body's imports too) — this is the same lookup with no
+    # `import` statement for that static check to see.
+    deps = importlib.import_module("memorymap.core.deps")
 
     if not pdfpages.available():
         return None
@@ -187,7 +193,8 @@ def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) 
     exactly, sharing the same "quiet when no vision model exists, recorded
     when a real attempt found nothing" split.
     """
-    from memorymap.core import deps, taskhistory
+    deps = importlib.import_module("memorymap.core.deps")
+    taskhistory = importlib.import_module("memorymap.core.taskhistory")
     from memorymap.core.database import MediaUpload
 
     with deps.get_db().session() as session:

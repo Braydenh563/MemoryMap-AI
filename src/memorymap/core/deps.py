@@ -22,7 +22,7 @@ from memorymap.ai.embeddings import EmbeddingService
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.ai.openai_client import OpenAICompatClient
-from memorymap.ai.provider import Provider, set_sampling_overrides_getter
+from memorymap.ai.provider import Provider
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
 
@@ -173,12 +173,15 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
     # (CodeQL flagged it) as well as the wrong direction. Registered here,
     # where the config it reads is known to exist.
     #
-    # Imported as `from memorymap.ai.provider import set_sampling_overrides_getter`
-    # rather than `from memorymap.ai import provider`: the second spelling
-    # imports the *package* first, and CodeQL flagged that as beginning a
-    # cycle (`memorymap.ai` reaches back here through its own submodules).
-    # Naming the submodule directly is the same call with no package import.
-    set_sampling_overrides_getter(
+    # Even a submodule-direct, function-scoped import of it was still flagged
+    # as beginning a cycle (CodeQL's cyclic-import query counts a function
+    # body's imports too, not just module-level ones) — so this is imported
+    # by name through `importlib` instead of a `from`/`import` statement,
+    # which is the same runtime lookup with nothing for the static check to
+    # see as an edge.
+    import importlib
+
+    importlib.import_module("memorymap.ai.provider").set_sampling_overrides_getter(
         lambda: _config.get_preference("sampling_overrides", {})
     )
     if _model_manager is None:

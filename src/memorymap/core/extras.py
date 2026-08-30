@@ -200,6 +200,18 @@ class Extra:
 #: installable, which is the point.
 EXTRAS: tuple[Extra, ...] = (
     Extra(
+        id="pdfpages",
+        label="Read scanned PDFs (pypdfium2)",
+        enables="Turns the pages of a scanned PDF into images so your vision "
+        "model can read them. Without it a PDF with no text layer can only be "
+        "reported as a scan, not opened.",
+        packages=("pypdfium2", "Pillow"),
+        module="pypdfium2",
+        size="~16 MB",
+        caveat="Reading the pages still needs a vision or OCR model — see "
+        "Settings → Models. This only supplies the images.",
+    ),
+    Extra(
         id="voice",
         label="Voice notes (faster-whisper)",
         enables="The dictation buttons: speak a note or a question and have it typed "
@@ -270,10 +282,22 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("llama-cpp-python",),
         module="llama_cpp",
         size="~30 MB, and it compiles on some platforms",
-        unavailable="Not wired into the chat backend yet — Ollama and any "
-        "OpenAI-compatible server are the supported paths today, so this "
-        "would install a library nothing asks for. It compiles on some "
-        "platforms, which makes it an expensive thing to install for nothing.",
+        # Was "Not wired into the chat backend yet" — false, and misleading
+        # in the specific way that costs the most: it reads as "llama.cpp
+        # is unsupported," when the supported route (`llama-server`, which
+        # speaks the same API `ai/openai_client.py` already does) needs no
+        # extra here at all. What actually isn't built is *this* extra
+        # specifically — running a GGUF in-process, inside this app, rather
+        # than as a separate server you point the app at. See the Models
+        # screen's provider picker for the llama-server recipe.
+        unavailable="llama.cpp itself is already supported — run "
+        "llama-server and point Settings → Models at it as an "
+        "OpenAI-compatible backend, no install here needed. This extra is "
+        "specifically for running a GGUF in-process instead of as a "
+        "separate server, which isn't built: it means shipping a compiled "
+        "wheel per platform and accelerator (CUDA/ROCm/Metal/CPU) and "
+        "owning model load/unload, for a capability llama-server already "
+        "gives you today.",
     ),
 )
 
@@ -290,6 +314,16 @@ class InstallState:
     log: list[str] = field(default_factory=list)
     started: float = 0.0
     outcome: str = ""  # "" while running, then completed | failed
+    #: The live pip process, so `cancel()` below can actually stop it. Asked
+    #: for directly: "allow the quitting/killing of background tasks as well".
+    #: pip has no cooperative stop — it is a subprocess spending minutes
+    #: building a wheel — so the only honest way to quit one is to terminate
+    #: it, which is what a user pressing Quit is asking for. Kept off the wire:
+    #: `status()` and `/tasks` build their own dicts and never touch this.
+    process: object | None = None
+    #: True once someone asked for it to stop, so the failure that follows is
+    #: reported as a cancellation rather than as pip having gone wrong.
+    cancelled: bool = False
 
 
 #: One at a time, process-wide. Two pips against one environment is a way to
@@ -340,6 +374,33 @@ def current() -> InstallState:
     return _state
 
 
+def cancel() -> tuple[bool, str]:
+    """Stop the running pip, if there is one. Returns (stopped, message).
+
+    **Terminate, not a flag.** Everything else in this app that can be quit
+    checks a cooperative `cancel_requested` between steps, because everything
+    else is a loop this app wrote. pip is not: it is a child process that may
+    be five minutes into compiling a wheel and will not look at anything we
+    set. `terminate()` is the only stop that stops it, and it is what someone
+    who pressed Quit meant.
+
+    Safe to leave half-installed: pip installs into a staging directory and
+    moves the result into place, so a terminated install leaves the
+    environment as it was rather than half-written. The extras panel re-reads
+    `is_installed` on its next poll and will simply still say "not installed".
+    """
+    process = _state.process
+    if not _state.running or process is None:
+        return False, "Nothing is installing."
+    _state.cancelled = True
+    _state.step = "Stopping…"
+    try:
+        process.terminate()
+    except Exception as exc:  # noqa: BLE001 — an already-dead child is a win
+        _logger.debug("couldn't terminate pip: %s", exc)
+    return True, "Stopping the install."
+
+
 def _run_uninstall(extra: Extra) -> None:
     """pip uninstall, with the same bookkeeping the install has.
 
@@ -369,6 +430,7 @@ def _run_uninstall(extra: Extra) -> None:
             text=True,
             bufsize=1,
         )
+        _state.process = process
         for line in process.stdout or []:
             line = line.rstrip()
             if not line:
@@ -394,6 +456,15 @@ def _run_uninstall(extra: Extra) -> None:
         _state.step = "Couldn't run pip — see Settings → Logs for why."
     finally:
         _state.running = False
+        _state.process = None
+        if _state.cancelled:
+            # Terminating pip mid-download makes it exit non-zero, which the
+            # branches above have already written up as a failure. It wasn't
+            # one — someone pressed Quit — and a task history full of
+            # "Installing X failed" for things nobody wanted is how a history
+            # stops being read.
+            _state.outcome = "cancelled"
+            _state.step = "Stopped before it finished."
         if _state.outcome == "failed":
             _logger.error(
                 "Removing %s failed: %s\n%s",
@@ -474,6 +545,7 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             text=True,
             bufsize=1,
         )
+        _state.process = process
         for line in process.stdout or []:
             line = line.rstrip()
             if not line:
@@ -508,6 +580,15 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         _state.step = "Couldn't run pip — see Settings → Logs for why."
     finally:
         _state.running = False
+        _state.process = None
+        if _state.cancelled:
+            # Terminating pip mid-download makes it exit non-zero, which the
+            # branches above have already written up as a failure. It wasn't
+            # one — someone pressed Quit — and a task history full of
+            # "Installing X failed" for things nobody wanted is how a history
+            # stops being read.
+            _state.outcome = "cancelled"
+            _state.step = "Stopped before it finished."
         # See the module docstring's numbered note above `_logger`: this call
         # was missing entirely until now, which is the actual reason a failed
         # *install* never reached Settings → Logs — `_run_uninstall` had it,
@@ -564,6 +645,7 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
         _state.step = "starting pip…"
         _state.log = []
         _state.started = time.time()
+        _state.cancelled = False
     threading.Thread(target=_run_install, args=(extra, reinstall), daemon=True).start()
     return True, f"{'Reinstalling' if reinstall else 'Installing'} {extra.label}."
 
@@ -590,6 +672,7 @@ def remove(extra_id: str) -> tuple[bool, str]:
         _state.step = "starting pip…"
         _state.log = []
         _state.started = time.time()
+        _state.cancelled = False
     threading.Thread(target=_run_uninstall, args=(extra,), daemon=True).start()
     return True, f"Removing {extra.label}."
 

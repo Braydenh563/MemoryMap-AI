@@ -126,7 +126,66 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
         {"name": "qwen3-vl:8b", "size": "~6.5 GB", "purpose": "Unconfirmed tag, see note above"},
         {"name": "qwen2.5vl:32b", "size": "~21 GB", "purpose": "The most capable here. Needs ~24 GB"},
     ],
+    # Document readers, as opposed to the general vision models above. Asked
+    # for by name (deepseek-ocr, glm-ocr, qwen3-vl).
+    #
+    # **These entries were checked against the live Hugging Face Hub**, unlike
+    # the "unconfirmed tag" notes on the vision list above — that session had
+    # no registry access and said so. Downloads and file sizes below are read
+    # from the repos themselves, so a 404 here would be a repo being deleted
+    # rather than a name this file guessed at.
+    #
+    # `hf.co/…` rather than a bare Ollama tag: Ollama pulls a GGUF straight
+    # from the Hub with `ollama pull hf.co/{repo}:{quant}`, and none of these
+    # are in Ollama's own curated library. Sizes are the weights plus the
+    # mmproj projector that a vision GGUF needs alongside them — Ollama fetches
+    # both from the same repo, and quoting only the weights would understate
+    # every one of these by several hundred megabytes.
+    #
+    # Why a separate category rather than more "vision" entries: a general VLM
+    # is asked "what is in this picture", and a document reader is asked "give
+    # me the text, the tables and the layout". The second is what
+    # core/docview.py's scanned-page path wants, and picking moondream for it
+    # gets a description of a page instead of the page.
+    "ocr": [
+        {"name": "hf.co/ggml-org/GLM-OCR-GGUF:Q8_0", "size": "~1.4 GB",
+         "purpose": "Best size-to-accuracy here. Tables and layout, 8 languages — start with this one"},
+        {"name": "hf.co/PaddlePaddle/PaddleOCR-VL-1.6-GGUF:Q8_0", "size": "~1.8 GB",
+         "purpose": "Layout, tables, formulas, charts. Strong on structured pages"},
+        {"name": "hf.co/unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M", "size": "~2.5 GB",
+         "purpose": "Reads documents and answers about them — a VLM as well as a reader"},
+        {"name": "hf.co/ggml-org/DeepSeek-OCR-GGUF:Q8_0", "size": "~3.6 GB",
+         "purpose": "The most accurate on dense and handwritten pages. Needs ~8 GB"},
+    ],
 }
+
+
+#: Families whose whole purpose is reading a page, rather than describing a
+#: picture. Derived from the `ocr` group above and kept beside it, so adding an
+#: entry there is enough to make auto-detect prefer it.
+#:
+#: Matched as substrings of a lowercased model name because the same weights
+#: arrive under many spellings — `glm-ocr`, `hf.co/ggml-org/GLM-OCR-GGUF:Q8_0`,
+#: `GLM-OCR:latest` — and the family is the part that never changes.
+OCR_MODEL_MARKERS: tuple[str, ...] = (
+    "glm-ocr", "glm_ocr",
+    "deepseek-ocr", "deepseek_ocr",
+    "paddleocr", "paddle-ocr",
+    "olmocr", "olm-ocr",
+    "got-ocr", "nanonets-ocr", "dots.ocr", "minicpm-o",
+)
+
+
+def is_ocr_model(name: str) -> bool:
+    """Is this model a document reader rather than a general vision model?
+
+    Deliberately not "does the name contain 'ocr'": `qwen2.5vl` reads text
+    perfectly well and contains no such string, while a chat model called
+    `ocr-helper` is not one. A named-family list is wrong in a way that is
+    visible and fixable; a substring rule is wrong in a way that is not.
+    """
+    lowered = (name or "").lower()
+    return any(marker in lowered for marker in OCR_MODEL_MARKERS)
 
 
 class ModelManager:
@@ -198,6 +257,87 @@ class ModelManager:
             if name and supports(name, "vision"):
                 return name
         return None
+
+    def ocr_model(self) -> str:
+        """The explicit model for *reading text off a page*, or "" for auto.
+
+        Separate from `vision_model` because the two jobs are separate, which
+        is not obvious and was asked about directly. Rasterising a PDF does not
+        read anything — it turns a page into a picture, and a model still has
+        to read the picture. So the same *kind* of model handles a photo and a
+        scanned page; what differs is which one is good at it:
+
+        - A general VLM (moondream, llava, qwen2.5vl) is trained to answer
+          "what is in this image". Ask it for a scanned invoice and it will
+          often describe the invoice instead of transcribing it.
+        - A document reader (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL — the `ocr`
+          group in SUGGESTED_MODELS) is trained to return the text, the tables
+          and the layout, and is usually far smaller for that job.
+
+        Hence three tiers rather than two, and the order matters: an explicit
+        OCR model, else the vision model the user already chose, else
+        auto-detect. Falling straight through to auto-detect when a vision
+        model *is* set would ignore a deliberate choice; requiring an OCR model
+        before any OCR works would make this a setting people must find before
+        the feature does anything.
+        """
+        return self._config.get_preference("ocr_model", "")
+
+    def set_ocr_model(self, name: str) -> None:
+        self._config.set_preference("ocr_model", name or "")
+
+    def resolve_ocr_model(
+        self,
+        ollama,
+        installed: list[dict] | None = None,
+        vision_fallback: str | None = None,
+    ) -> str | None:
+        """The model that should read text off an image or a rasterised page.
+
+        See `ocr_model` for why this is not simply `resolve_vision_model`.
+        """
+        explicit = self.ocr_model()
+        if explicit:
+            return explicit
+        # An explicit *vision* model is still a deliberate choice and outranks
+        # anything guessed here.
+        if self.vision_model():
+            return self.vision_model()
+
+        # Nothing chosen. Asked directly: "what if I have qwen3-vl and glm-ocr
+        # available?" — and plain vision auto-detect answers that badly, by
+        # taking whichever the backend happens to list first. Both can see an
+        # image; only one of them is built to transcribe a page.
+        #
+        # So a document reader wins when one is installed. Matched on the
+        # family names in SUGGESTED_MODELS["ocr"] rather than on capabilities,
+        # because no backend reports "good at OCR" — `capabilities` says
+        # `vision` for both, which is exactly why the tie needed breaking here.
+        if installed is None:
+            try:
+                installed = ollama.list_models()
+            except OllamaError:
+                installed = []
+        names = [
+            entry.get("name")
+            for entry in (installed or [])
+            if isinstance(entry, dict) and entry.get("name")
+        ]
+        for name in names:
+            if is_ocr_model(name):
+                return name
+        # No reader installed: any model that can see is better than refusing.
+        #
+        # `vision_fallback` is for the caller that has already resolved it.
+        # Resolving it here walks every installed model asking `/api/show`
+        # whether it can see — one HTTP round trip each, cached per process but
+        # cold on the first poll. `/models/status` needs both answers, and
+        # deriving them independently made that poll slow enough to trip the
+        # frontend's own 5s abort: reported as
+        # `GET /models/status — signal timed out`.
+        if vision_fallback is not None:
+            return vision_fallback or None
+        return self.resolve_vision_model(ollama, installed)
 
     def embedding_backend(self) -> str:
         """'sentence-transformers' (built-in default) or 'ollama'."""

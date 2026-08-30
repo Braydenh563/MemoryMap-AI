@@ -120,6 +120,13 @@ const LIBRARY_KINDS = [
   // is also where someone looking for "notes I have not finished" would
   // reasonably expect to find it.
   { key: "draft", icon: "ph:pencil-simple-line", label: "Drafts" },
+  // Not a real kind — item.kind is still "note" for these, same as every
+  // other tagged note. A meeting note is finished, unlike a draft, so it
+  // stays reachable from "Everything" too; this chip is a client-side tag
+  // filter (renderLibrary()'s own special case for libraryKind === "meeting"),
+  // and its count below is computed the same way rather than read from the
+  // server's per-kind counts, which only exist for real kinds.
+  { key: "meeting", icon: "ph:video-camera", label: "Meetings" },
   // "archived" is the bin's own internal kind (see routes_library.py's
   // _archive()) — this app's real archive uses "shelved" specifically so
   // the two are never confused at the code level, even though the words
@@ -242,7 +249,9 @@ function renderLibraryFilters() {
     const count =
       kind.key === "all"
         ? libraryItems.length - (libraryCounts.activity || 0) - (libraryCounts.draft || 0)
-        : libraryCounts[kind.key] || 0;
+        : kind.key === "meeting"
+          ? libraryItems.filter((i) => i.kind === "note" && (i.tags || []).includes("meeting")).length
+          : libraryCounts[kind.key] || 0;
     const button = document.createElement("button");
     button.type = "button";
     button.className =
@@ -341,7 +350,14 @@ function renderLibrary() {
   if (!grid) return;
   const query = ($("library-search")?.value || "").trim().toLowerCase();
   let items = libraryItems;
-  if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
+  // "meeting" isn't a real kind (item.kind is still "note") — a meeting note
+  // is a real, finished note, unlike a draft, so it stays reachable from
+  // "Everything" too and doesn't get its own excluded bucket there. The chip
+  // is a client-side tag filter over the same notes the Notes chip shows,
+  // not a second list the server computes.
+  if (libraryKind === "meeting") {
+    items = items.filter((i) => i.kind === "note" && (i.tags || []).includes("meeting"));
+  } else if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
   else {
     // Two kinds stay out of the mixed list. Deleted things are not part of
     // "everything you have made" — they are things you decided you had not —
@@ -1121,156 +1137,308 @@ $("library-new-doc").addEventListener("click", () => {
 
 // ======================= SKILLS DASHBOARD TAB =======================
 
-async function renderSkillsDashboard() {
-  const container = document.getElementById("skills-dashboard-list");
-  if (!container) return;
-  
-  const skills = await loadSkills();
-  const prefs = await apiJson("/preferences").catch(() => ({}));
-  container.innerHTML = "";
-  
-  // Render Autonomous Workers section at the top
-  const autoDiv = document.createElement("div");
-  autoDiv.className = "card";
-  autoDiv.style.marginBottom = "var(--space-6)";
-  autoDiv.innerHTML = `
-    <div class="row space-between">
-      <h3>Autonomous Background Workers</h3>
-      <label class="switch">
-        <input type="checkbox" id="skills-auto-toggle" ${prefs.autonomous_tasks_enabled ? "checked" : ""}>
-        <span class="slider"></span>
-      </label>
-    </div>
-    <p class="muted text-sm">Allow the AI to run tasks in the background automatically.</p>
-    <div class="row row-top-gap">
-      <label><input type="checkbox" id="skills-auto-tag" ${prefs.auto_tag_enabled !== false ? "checked" : ""}> Auto-tag notes</label>
-      <label><input type="checkbox" id="skills-auto-link" ${prefs.auto_link_enabled !== false ? "checked" : ""}> Auto-link ideas</label>
-    </div>
-  `;
-  container.appendChild(autoDiv);
+// --- the AI Skills page ---------------------------------------------------------
+//
+// Asked for: "can you redesign the AI Skills tab in the library??" — and an
+// audit of what was here first found five separate faults, four of which the
+// redesign removes rather than restyles:
+//
+// 1. **The grid was never used.** A `div.skills-grid` was created, appended,
+//    and then every card was appended to `container` instead — so the grid
+//    layout applied to an empty box and the cards stacked full-width below
+//    it. The "No skills found" message went *into* that empty box, which is
+//    why an empty library looked like nothing at all.
+// 2. **A dead control.** "Schedule" toasted "Scheduler functionality coming
+//    soon!". A button that does nothing is worse than a missing feature: it
+//    teaches people the app is unreliable. Gone; it is on the roadmap.
+// 3. **`innerHTML` templates**, against this file's own rule, including a
+//    `.switch`/`.slider` toggle that exists nowhere else in this app — so the
+//    one toggle on this page looked unlike every other toggle in it.
+// 4. **Nothing said what a skill would do.** A name and a description, with
+//    no indication of how many steps it runs, which tools it may use, or
+//    whether it has ever been run — which is exactly what you want to know
+//    before letting something edit your notebook.
+// 5. `window.switchTab` was monkey-patched to notice the Library opening.
+//
+// The shape now: one settings card for the background workers, then a search
+// box, then a real grid of cards that each say what the skill is, what it
+// costs to run, and when it last ran.
 
-  // The autonomous toggles that live on this panel as well as in Settings →
-  // Background tasks. Reported as **"the automated tasks option keeps
-  // automatically disabling itself even when turned on"**, and it did:
-  //
-  // These wrote straight to the server and updated nothing locally. `savePrefs`
-  // — which seven other controls call on every change — then rebuilt the whole
-  // preferences object from the DOM, reading `#pref-autonomous-tasks`, the
-  // *other* checkbox, which nobody had ticked. So enabling it here and then
-  // touching any unrelated setting silently switched it back off.
-  //
-  // `setPreference` is the fix in one place: it saves, updates `prefsCache` so
-  // the next `savePrefs` sends the right value, and reconciles the mirrored
-  // control so the two screens cannot disagree.
-  for (const [id, key] of [
-    ["skills-auto-toggle", "autonomous_tasks_enabled"],
-    ["skills-auto-tag", "auto_tag_enabled"],
-    ["skills-auto-link", "auto_link_enabled"],
-  ]) {
-    const box = $(id);
-    if (box) box.addEventListener("change", (e) => setPreference(key, e.target.checked));
+//: The skill cards currently on screen, so the search box can filter without
+//: another round trip. Rebuilt by `renderSkillsDashboard`.
+let skillCardsCache = [];
+
+function skillLastRunIndex(rows) {
+  //: name → the most recent audit row for it. The rows arrive newest-first,
+  //: so the first one wins and later ones are skipped.
+  const index = new Map();
+  for (const row of rows || []) {
+    const name = (row.detail || "").split(" — ")[0];
+    if (name && !index.has(name)) index.set(name, row);
   }
-  
-  const grid = document.createElement("div");
-  grid.className = "skills-grid";
-  container.appendChild(grid);
-  
-  if (!skills.length) {
-    grid.innerHTML = `<p class="muted">No skills found.</p>`;
-    return;
+  return index;
+}
+
+function skillCard(skill, lastRun) {
+  const card = document.createElement("article");
+  card.className = "skill-card";
+
+  const header = document.createElement("div");
+  header.className = "skill-card-header";
+  const title = document.createElement("h3");
+  title.className = "skill-card-title";
+  title.textContent = skill.name;
+  const badge = document.createElement("span");
+  badge.className = `chip skill-badge ${skill.builtin ? "" : "skill-badge-custom"}`.trim();
+  badge.textContent = skill.builtin ? "Built-in" : "Yours";
+  header.append(title, badge);
+
+  const desc = document.createElement("p");
+  desc.className = "skill-card-desc muted";
+  desc.textContent = skill.description || "No description.";
+
+  // **What running this will actually do.** The missing half of the old card:
+  // a skill is a thing you are about to let edit your notebook, and "how many
+  // steps" and "which tools" are the two facts that decide whether you want
+  // to. Only shown when there is something to say — a one-shot prompt skill
+  // has neither, and a row of zeroes is noise.
+  const facts = document.createElement("div");
+  facts.className = "skill-card-facts";
+  const steps = (skill.steps || []).length;
+  const tools = (skill.tools || []).length;
+  const inputs = (skill.inputs || []).length;
+  // Steps and tools expand in place — reported directly: "allow dropdown
+  // expansions for the steps and tools in each." A hover title said the same
+  // thing before, which is both unreachable on touch and one line, hidden
+  // until you happened to rest a cursor on a chip that never looked
+  // hoverable. `<details>` opens on click and on Enter/Space and needs no
+  // JS to track its own state, the same choice the gallery kebab menu
+  // already made for the same reason.
+  const expandableFact = (icon, count, noun, items, ordered) => {
+    const wrap = document.createElement("details");
+    wrap.className = "skill-fact-expand";
+    const summary = document.createElement("summary");
+    summary.className = "chip skill-fact";
+    setLabel(summary, `${icon} ${count} ${noun}${count === 1 ? "" : "s"}`);
+    // Steps run in order, so they're numbered; tools are just a set the
+    // model may reach for, in no particular order.
+    const list = document.createElement(ordered ? "ol" : "ul");
+    list.className = "skill-fact-list";
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.textContent = item;
+      list.appendChild(li);
+    }
+    wrap.append(summary, list);
+    return wrap;
+  };
+  if (steps) facts.appendChild(expandableFact("ph:list-numbers", steps, "step", skill.steps, true));
+  if (tools) facts.appendChild(expandableFact("ph:wrench", tools, "tool", skill.tools, false));
+  if (inputs) {
+    const chip_ = document.createElement("span");
+    chip_.className = "chip skill-fact";
+    chip_.title = "Asks you for these before it runs";
+    setLabel(chip_, `ph:textbox ${inputs} input${inputs === 1 ? "" : "s"}`);
+    facts.appendChild(chip_);
   }
-  
-  for (const skill of skills) {
-    const card = document.createElement("div");
-    card.className = "skill-card";
-    
-    // Header: Title and Type badge
-    const header = document.createElement("div");
-    header.className = "skill-card-header";
-    const title = document.createElement("div");
-    title.className = "skill-card-title";
-    title.textContent = skill.name;
-    const badge = document.createElement("span");
-    badge.className = "status badge";
-    badge.textContent = skill.builtin ? "Built-in" : "Custom";
-    header.appendChild(title);
-    header.appendChild(badge);
-    
-    // Description
-    const desc = document.createElement("div");
-    desc.className = "skill-card-desc";
-    desc.textContent = skill.description || "No description provided.";
-    
-    // Footer: Run button
-    const footer = document.createElement("div");
-    footer.className = "skill-card-footer";
-    const runBtn = document.createElement("button");
-    runBtn.className = "small";
-    runBtn.textContent = "Run Skill";
-    runBtn.onclick = () => {
-      // runSkill, not startSkill. Reported as "the Run Skill buttons in the AI
-      // Skills library are broken", and it was two bugs in one line:
-      //
-      //   startSkill(skill.name)
-      //
-      // passed the *name string* where startSkill expects the skill object (so
-      // `skill.name` inside it was undefined), and omitted `values` entirely —
-      // which made `Object.values(values)` throw "Cannot convert undefined or
-      // null to object". That is the app.js:10495 console error reported
-      // alongside it: one line, two symptoms.
-      //
-      // runSkill() is the correct entry point: it prompts for the skill's
-      // inputs when it has any, then calls startSkill with a real values
-      // object. It also switches to chat itself, so doing it here as well
-      // would be a second, redundant tab change.
-      runSkill(skill);
-    };
-    
-    const schedBtn = document.createElement("button");
-    schedBtn.className = "small ghost";
-    schedBtn.textContent = "Schedule";
-    schedBtn.onclick = () => {
-      toast("Scheduler functionality coming soon!"); // Placeholder for Phase 5 implementation
-    };
-    
-    footer.appendChild(schedBtn);
-    footer.appendChild(runBtn);
-    
-    card.appendChild(header);
-    card.appendChild(desc);
-    card.appendChild(footer);
-    container.appendChild(card);
+
+  const when = document.createElement("p");
+  when.className = "skill-card-when muted text-xs";
+  if (lastRun) {
+    const outcome = (lastRun.detail || "").split(" — ")[1] || "";
+    when.textContent = `Last run ${new Date(lastRun.created_at).toLocaleString()} — ${outcome}`;
+  } else {
+    when.textContent = "Never run.";
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "skill-card-footer";
+  const run = document.createElement("button");
+  run.className = "small";
+  setLabel(run, "ph:play Run");
+  run.title = `Run “${skill.name}” in the chat`;
+  // runSkill, not startSkill: it prompts for the skill's inputs when it has
+  // any, then calls startSkill with a real values object, and switches to the
+  // chat itself. (startSkill(skill.name) was the earlier bug here — a name
+  // string where a skill object was expected, and no `values` at all.)
+  run.addEventListener("click", () => runSkill(skill));
+  footer.appendChild(run);
+
+  // A built-in has nothing to edit — it is defined in the app, not in your
+  // preferences — so offering Edit on one would open a form that cannot save.
+  if (!skill.builtin) {
+    const edit = document.createElement("button");
+    edit.className = "ghost small";
+    setLabel(edit, "ph:pencil-simple Edit");
+    edit.addEventListener("click", async () => {
+      await openSettingsModal("skills");
+      startEditingSkill(skill);
+    });
+    footer.appendChild(edit);
+  }
+
+  card.append(header, desc);
+  if (facts.children.length) card.appendChild(facts);
+  card.append(when, footer);
+  return card;
+}
+
+function renderSkillCards(query = "") {
+  const grid = document.getElementById("skills-grid");
+  const empty = document.getElementById("skills-empty");
+  if (!grid) return;
+  const term = query.trim().toLowerCase();
+  const matches = term
+    ? skillCardsCache.filter(
+        ({ skill }) =>
+          skill.name.toLowerCase().includes(term) ||
+          (skill.description || "").toLowerCase().includes(term)
+      )
+    : skillCardsCache;
+  grid.replaceChildren(...matches.map(({ skill, lastRun }) => skillCard(skill, lastRun)));
+  if (empty) {
+    empty.classList.toggle("hidden", matches.length > 0);
+    empty.textContent = skillCardsCache.length
+      ? "No skills match that."
+      : "No skills yet. “New skill” writes one — a name, what it should do, and the steps to take.";
   }
 }
 
-// Hook into switchTab by overriding it to catch the library tab
-const originalSwitchTab = switchTab;
-window.switchTab = function(name) {
-  originalSwitchTab(name);
-  if (name === "library") {
-    renderSkillsDashboard();
-    renderSkillLogs();
-  }
-};
+async function renderSkillsDashboard() {
+  const container = document.getElementById("skills-dashboard-list");
+  if (!container) return;
+
+  const [skills, prefs, runs] = await Promise.all([
+    loadSkills(),
+    apiJson("/preferences").catch(() => ({})),
+    apiJson("/audit?limit=100&entity_type=skill", { silent: true }).catch(() => []),
+  ]);
+  const lastRuns = skillLastRunIndex(runs);
+  container.replaceChildren();
+
+  // --- background workers, in this app's own controls ------------------------
+  //
+  // The same three preferences as Settings → Background tasks, and written
+  // through `setPreference` for the reason that fix already documents: these
+  // used to write straight to the server and update nothing locally, so
+  // `savePrefs` — which rebuilds the whole object from the *other* screen's
+  // DOM — silently switched them back off again. Reported as "the automated
+  // tasks option keeps automatically disabling itself even when turned on".
+  const workers = document.createElement("section");
+  workers.className = "card skills-workers";
+  const workersHead = document.createElement("div");
+  workersHead.className = "row space-between";
+  const workersTitle = document.createElement("h3");
+  workersTitle.textContent = "Background workers";
+  workersHead.append(workersTitle);
+  const workersHint = document.createElement("p");
+  workersHint.className = "muted text-sm";
+  workersHint.textContent =
+    "Lets the AI work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
+  const workerToggle = (id, key, label, on) => {
+    const wrap = document.createElement("label");
+    // The app's own pill toggle, not the `.switch`/`.slider` markup that used
+    // to be here and exists nowhere else in this codebase.
+    wrap.className = "checkbox-label";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.id = id;
+    box.checked = on;
+    box.addEventListener("change", (event) => setPreference(key, event.target.checked));
+    const text = document.createElement("span");
+    text.textContent = label;
+    wrap.append(box, text);
+    return wrap;
+  };
+  // The master switch, on its own — reported directly: it "should be
+  // separate from the other two as they are like what the agent is running
+  // in the background." Tag notes / Link related notes are jobs the agent
+  // does *while* it's running, not independent switches of their own kind;
+  // grouping all three as identical pills said otherwise.
+  const masterRow = document.createElement("div");
+  masterRow.className = "skills-worker-master";
+  masterRow.appendChild(
+    workerToggle(
+      "skills-auto-toggle",
+      "autonomous_tasks_enabled",
+      "Run in the background",
+      Boolean(prefs.autonomous_tasks_enabled)
+    )
+  );
+  const jobsHint = document.createElement("p");
+  jobsHint.className = "muted text-xs skills-worker-jobs-hint";
+  jobsHint.textContent = "What it does while running:";
+  const workersRow = document.createElement("div");
+  workersRow.className = "skills-worker-toggles";
+  workersRow.append(
+    workerToggle("skills-auto-tag", "auto_tag_enabled", "Tag notes", prefs.auto_tag_enabled !== false),
+    workerToggle(
+      "skills-auto-link",
+      "auto_link_enabled",
+      "Link related notes",
+      prefs.auto_link_enabled !== false
+    )
+  );
+  workers.append(workersHead, workersHint, masterRow, jobsHint, workersRow);
+  container.appendChild(workers);
+
+  // --- the skills themselves --------------------------------------------------
+  const search = document.createElement("input");
+  search.type = "search";
+  search.id = "skills-search";
+  search.className = "skills-search";
+  search.placeholder = "Search skills…";
+  search.setAttribute("aria-label", "Search your skills");
+  search.addEventListener("input", () => renderSkillCards(search.value));
+  container.appendChild(search);
+
+  const grid = document.createElement("div");
+  grid.id = "skills-grid";
+  grid.className = "skills-grid";
+  const empty = document.createElement("p");
+  empty.id = "skills-empty";
+  empty.className = "muted hidden";
+  // Appended *outside* the grid: the previous version put its empty state
+  // inside a grid whose cards went somewhere else entirely, so an empty
+  // library rendered as a blank page.
+  container.append(grid, empty);
+
+  skillCardsCache = skills.map((skill) => ({ skill, lastRun: lastRuns.get(skill.name) }));
+  renderSkillCards(search.value);
+}
+
+// The AI Skills page is rendered when its sub-tab is opened, by the sub-tab
+// handler below — not by monkey-patching `switchTab`, which is what this used
+// to do (`window.switchTab = function(name) { originalSwitchTab(name); … }`).
+// That wrapper ran two network-backed renders every time *any* Library
+// sub-tab was opened, and it depended on load order: whichever script
+// happened to run last owned the global. See `librarySubtabs` below.
 
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
   if (!logList) return;
   logList.innerHTML = "<p class='muted'>Loading logs…</p>";
   
-  const logs = await apiJson("/audit?limit=20").catch(() => null);
+  // **Filtered in SQL, not here, and asking for 20 of *everything* was half
+  // the reason this panel looked broken.** Reported as "I dont think the
+  // skill logs work in the ai skills section in the library??" — and it had
+  // two independent causes, either of which alone was enough:
+  //
+  // 1. Nothing in the app ever wrote a `skill` audit row. The filter below
+  //    looked for `entity_type === "skill"`; a grep for a `log_action` call
+  //    with that entity type found none. `skill_runner._record_run` writes
+  //    one now.
+  // 2. Even once they exist, `/audit?limit=20` returns the last twenty
+  //    things that happened *of any kind*, and this then filtered those in
+  //    the browser — so on any notebook where the last twenty events were
+  //    note edits, a real history of skill runs rendered as "none found".
+  const skillLogs =
+    (await apiJson("/audit?limit=50&entity_type=skill").catch(() => null)) || [];
   logList.innerHTML = "";
-  
-  if (!logs || !logs.length) {
-    logList.innerHTML = "<p class='muted'>No logs found.</p>";
-    return;
-  }
-  
-  // Filter for skill executions if possible, or just show agent actions
-  const skillLogs = logs.filter(log => log.entity_type === "skill" || log.action === "skill_run" || log.action.includes("agent"));
-  
+
   if (!skillLogs.length) {
-    logList.innerHTML = "<p class='muted'>No skill execution logs found.</p>";
+    logList.innerHTML =
+      "<p class='muted'>No skill runs yet. Run a skill from the chat and it will be listed here.</p>";
     return;
   }
   
@@ -1287,7 +1455,10 @@ async function renderSkillLogs() {
     const head = document.createElement("div");
     head.className = "row space-between";
     const action = document.createElement("strong");
-    action.textContent = log.action;
+    // The detail carries the skill's name and outcome; `log.action` is just
+    // "ran", which as a heading told the reader nothing they did not already
+    // know from the panel they were looking at.
+    action.textContent = (log.detail || "").split(" — ")[0] || log.action;
     const when = document.createElement("span");
     when.className = "muted text-sm";
     when.textContent = new Date(log.created_at).toLocaleString();
@@ -1295,7 +1466,8 @@ async function renderSkillLogs() {
 
     const detail = document.createElement("div");
     detail.className = "muted text-sm log-detail";
-    detail.textContent = log.detail || log.entity_id || "";
+    detail.textContent = (log.detail || "").split(" — ").slice(1).join(" — ")
+      || log.detail || "";
 
     div.append(head, detail);
     logList.appendChild(div);
@@ -1520,6 +1692,29 @@ $("library-docs-bulk-delete")?.addEventListener("click", async () => {
 //: the main Library search already uses against `libraryItems`.
 let libraryImagesCache = [];
 
+// Captioning runs on a background thread after upload (routes_files.py) —
+// the gallery only ever showed the caption once something re-fetched
+// `/media`, and nothing did that on its own. Reported directly: a caption
+// "doesn't work" at the time, then is there after reopening the app later —
+// it worked all along, the UI just never looked again. Runs only while the
+// Image Gallery is the visible sub-tab (started/stopped by the sub-tab
+// click handler below); skips a poll while a caption or rename field is
+// mid-edit so a silent re-render can't wipe out unsaved typing.
+let libraryImagesPollTimer = null;
+function startLibraryImagesPoll() {
+  stopLibraryImagesPoll();
+  libraryImagesPollTimer = setInterval(() => {
+    if (document.querySelector(".library-image-caption-input, .library-image-rename-input")) {
+      return;
+    }
+    renderLibraryImagesGallery();
+  }, 6000);
+}
+function stopLibraryImagesPoll() {
+  if (libraryImagesPollTimer) clearInterval(libraryImagesPollTimer);
+  libraryImagesPollTimer = null;
+}
+
 async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
@@ -1582,7 +1777,21 @@ function filterLibraryImagesGallery() {
     });
     img.addEventListener("click", () => {
       openLightbox(
-        images.map((i) => ({ filename: i.original_name, getUrl: () => mediaSrc(i.url) })),
+        images.map((i) => ({
+          filename: i.original_name,
+          getUrl: () => mediaSrc(i.url),
+          // Asked for directly: "if clicking on an image to view expand it in
+          // the lightbox…can the captions and ocr accompany it somehow??"
+          // The tile is the one place these are too small to read.
+          caption: i.caption || "",
+          text: (i.vision_ocr_text || i.ocr_text || "").trim(),
+          byline: i.vision_ocr_text
+            ? `Text read by ${i.vision_ocr_model || "a model"}`
+            : i.ocr_text
+              ? "Text read offline (OCR)"
+              : "",
+          addedAt: i.created_at || "",
+        })),
         images.indexOf(image)
       );
     });
@@ -1717,8 +1926,24 @@ function filterLibraryImagesGallery() {
       else libraryExpandedCaptions.add(image.id);
       syncCaptionClamp();
     });
-    const setCaptionState = (text) => {
+    // Which model wrote the caption, and whether a person has since edited
+    // it — asked for directly ("AI generated image captions should be
+    // tagged on the ui and list what model generated it and if it has been
+    // manually modified"). Quiet by design: a byline under a sentence of
+    // metadata, not another chip competing with the caption for attention.
+    const captionBadge = document.createElement("span");
+    captionBadge.className = "library-image-caption-badge muted text-sm hidden";
+    const syncCaptionBadge = () => {
+      const parts = [];
+      if (image.caption_model) parts.push(image.caption_model);
+      if (image.caption_edited) parts.push(image.caption_model ? "edited" : "typed by hand");
+      captionBadge.textContent = parts.join(" · ");
+      captionBadge.classList.toggle("hidden", !image.caption || parts.length === 0);
+    };
+    const setCaptionState = (text, meta = {}) => {
       image.caption = text || "";
+      if ("caption_model" in meta) image.caption_model = meta.caption_model || "";
+      if ("caption_edited" in meta) image.caption_edited = Boolean(meta.caption_edited);
       captionText.textContent = text || "Add a caption…";
       captionText.classList.toggle("library-image-caption-empty", !text);
       captionText.title = text
@@ -1729,6 +1954,7 @@ function filterLibraryImagesGallery() {
         : `Generate an AI caption for “${image.original_name}”`;
       captionBtn.setAttribute("aria-label", captionBtn.title);
       syncCaptionClamp();
+      syncCaptionBadge();
     };
     setCaptionState(image.caption);
     const startEditingCaption = () => {
@@ -1772,7 +1998,10 @@ function filterLibraryImagesGallery() {
             method: "POST",
             body: JSON.stringify({ text: next }),
           });
-          setCaptionState(updated.caption);
+          setCaptionState(updated.caption, {
+            caption_model: updated.caption_model,
+            caption_edited: updated.caption_edited,
+          });
         } catch (error) {
           setCaptionState(image.caption);
           toast(error.message || "Couldn't save that caption.", true);
@@ -1800,6 +2029,13 @@ function filterLibraryImagesGallery() {
     captionBtn.addEventListener("click", async (event) => {
       event.stopPropagation();
       captionBtn.disabled = true;
+      // A synchronous route (caption_media runs the model call inline, not
+      // in the background), so with nothing shown here the caption text
+      // just sat unchanged for however long the model took — asked for
+      // directly, a visible "generating" state while one is in flight.
+      const previousCaptionText = captionText.textContent;
+      captionText.replaceChildren(typingDots("Generating caption…"));
+      captionBadge.classList.add("hidden");
       try {
         // force: true — a manual click is exactly "the user pressed the
         // button to rewrite it", the one case the write-once default
@@ -1808,19 +2044,379 @@ function filterLibraryImagesGallery() {
           method: "POST",
           body: JSON.stringify({ force: true }),
         });
-        setCaptionState(updated.caption);
+        setCaptionState(updated.caption, {
+          caption_model: updated.caption_model,
+          caption_edited: updated.caption_edited,
+        });
       } catch (error) {
+        captionText.textContent = previousCaptionText;
+        syncCaptionBadge();
         toast(error.message || "Couldn't generate a caption.", true);
       } finally {
         captionBtn.disabled = false;
       }
     });
 
+    // Tesseract's own reading of any text in the image (core/ocr.py) —
+    // local, exact, and (unlike the caption above) not AI-generated, so no
+    // model badge. Asked for directly: "allow for manual OCR extraction or
+    // retries. allow the user to access, view, and edit OCR extracted
+    // text." Same always-visible, click-to-edit shape as captionText above
+    // — `POST /media/{id}/ocr` has no write-once guard, so the retry
+    // button always re-reads rather than needing a force flag.
+    const ocrBtn = document.createElement("button");
+    ocrBtn.type = "button";
+    ocrBtn.className = "ghost small icon-button library-image-ocr-btn";
+    setLabel(ocrBtn, "ph:scan");
+
+    const ocrText = document.createElement("p");
+    ocrText.className = "library-image-ocr muted text-sm";
+    ocrText.tabIndex = 0;
+    ocrText.setAttribute("role", "button");
+
+    const setOcrState = (text) => {
+      image.ocr_text = text || "";
+      ocrText.textContent = text || "No text found — click to add";
+      ocrText.classList.toggle("library-image-ocr-empty", !text);
+      ocrText.title = text ? "Click to edit this text" : "Click to add text";
+      ocrBtn.title = `Re-read the text in “${image.original_name}” without AI`;
+      ocrBtn.setAttribute("aria-label", ocrBtn.title);
+      // The section around this paragraph decides whether to show itself from
+      // the same value. Announced rather than called directly because the
+      // wrapper is built further down, after every handler here is closed
+      // over — a plain call would be a forward reference to a `const`.
+      ocrText.dispatchEvent(new CustomEvent("mm:changed"));
+    };
+    setOcrState(image.ocr_text);
+
+    const startEditingOcr = () => {
+      if (ocrText.querySelector("textarea")) return; // already editing
+      const box = document.createElement("textarea");
+      box.className = "library-image-ocr-input";
+      box.value = image.ocr_text || "";
+      box.setAttribute("aria-label", `Extracted text for "${image.original_name}"`);
+      box.maxLength = 10000;
+      ocrText.replaceChildren(box);
+      box.focus();
+      box.select();
+      autoGrow(box);
+      box.addEventListener("input", () => autoGrow(box));
+
+      let settled = false;
+      const finish = (text) => {
+        if (settled) return;
+        settled = true;
+        setOcrState(text);
+      };
+      const cancel = () => finish(image.ocr_text);
+      const save = async () => {
+        const next = box.value.trim();
+        if (next === (image.ocr_text || "")) return cancel();
+        finish(next); // optimistic, corrected below if the server refuses it
+        try {
+          const updated = await apiJson(`/media/${image.id}/ocr`, {
+            method: "POST",
+            body: JSON.stringify({ text: next }),
+          });
+          setOcrState(updated.ocr_text);
+        } catch (error) {
+          setOcrState(image.ocr_text);
+          toast(error.message || "Couldn't save that text.", true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      box.addEventListener("blur", save);
+    };
+    ocrText.addEventListener("click", startEditingOcr);
+    ocrText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        startEditingOcr();
+      }
+    });
+
+    ocrBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      ocrBtn.disabled = true;
+      const previousOcrText = ocrText.textContent;
+      ocrText.replaceChildren(typingDots("Reading text…"));
+      try {
+        const updated = await apiJson(`/media/${image.id}/ocr`, { method: "POST" });
+        setOcrState(updated.ocr_text);
+      } catch (error) {
+        ocrText.textContent = previousOcrText;
+        toast(error.message || "Couldn't read the text in that image.", true);
+      } finally {
+        ocrBtn.disabled = false;
+      }
+    });
+
+    // A vision model's verbatim transcription of any text in the image —
+    // the "extractor mode" asked for directly, distinct from `ocr_text`
+    // (Tesseract, automatic on upload, shown just above) and from
+    // `captionText` above (a description, not a transcription). Runs
+    // automatically on upload too (ai/vision_ocr.py, same as captioning) —
+    // this button is the manual re-read. Unlike the caption there is
+    // nothing to prompt someone to type by hand here, so it stays hidden
+    // until a read has actually happened (automatic or manual).
+    const visionOcrBtn = document.createElement("button");
+    visionOcrBtn.type = "button";
+    visionOcrBtn.className = "ghost small icon-button library-image-vision-ocr-btn";
+    setLabel(visionOcrBtn, "ph:text-aa");
+
+    const visionOcrText = document.createElement("p");
+    // Not `hidden` any more, and it is the class that had to go rather than
+    // the toggle: `setVisionOcrState` stopped hiding this paragraph when the
+    // field became always-editable, but the element was still *born* hidden,
+    // so a tile for an image nothing had read rendered the label with nothing
+    // under it. Measured, not reasoned about — the field came back 17px tall.
+    visionOcrText.className = "library-image-vision-ocr muted text-sm";
+    // Editable for the same reason `ocrText` is, and it took a user report to
+    // notice this one was not: a vision model transcribing a picture with no
+    // text in it does not return nothing, it returns its best guess — the
+    // report was four hallucinated Pokémon names under a picture of one, with
+    // "no text in it and I cant remove or edit the text??". A *reading* the
+    // app cannot correct is worse than no reading, because it is then filed
+    // and searched as if it were what the page said.
+    visionOcrText.tabIndex = 0;
+    visionOcrText.setAttribute("role", "button");
+
+    const visionOcrBadge = document.createElement("span");
+    visionOcrBadge.className = "library-image-vision-ocr-badge muted text-xs hidden";
+
+    const setVisionOcrState = (text, model) => {
+      image.vision_ocr_text = text || "";
+      image.vision_ocr_model = model || "";
+      const hasRun = Boolean(model);
+      // Always visible, never hidden-until-run: it is the one field on this
+      // tile that can be typed into for an image no model has read, and a
+      // field you cannot see is a field you cannot use. (It used to hide
+      // itself until a read had happened, which left the *offline* OCR
+      // empty-state as the only visible "text" box — the mix-up above.)
+      visionOcrText.textContent =
+        text || (hasRun ? "No legible text found — click to edit" : "No text yet — click to add");
+      visionOcrText.classList.toggle("library-image-ocr-empty", !text);
+      visionOcrText.title = text ? "Click to edit or clear this reading" : "Click to add text";
+      visionOcrBadge.textContent = hasRun ? `Read by ${model}` : "";
+      visionOcrBadge.classList.toggle("hidden", !hasRun);
+      visionOcrBtn.title = hasRun
+        ? `Read the text in “${image.original_name}” again`
+        : `Read any text in “${image.original_name}” with AI`;
+      visionOcrBtn.setAttribute("aria-label", visionOcrBtn.title);
+    };
+    setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
+
+    // Click-to-edit, mirroring `startEditingOcr` above. Clearing the box is
+    // the case that matters most and is why the empty string is sent rather
+    // than skipped: an empty save clears the model badge too, server-side, so
+    // a wrong reading can be deleted outright instead of only overwritten.
+    const startEditingVisionOcr = () => {
+      if (visionOcrText.querySelector("textarea")) return; // already editing
+      const box = document.createElement("textarea");
+      box.className = "library-image-ocr-input";
+      box.value = image.vision_ocr_text || "";
+      box.setAttribute("aria-label", `Text read from “${image.original_name}”`);
+      box.maxLength = 10000;
+      visionOcrText.replaceChildren(box);
+      box.focus();
+      box.select();
+      autoGrow(box);
+      box.addEventListener("input", () => autoGrow(box));
+
+      let settled = false;
+      const finish = (text, model) => {
+        if (settled) return;
+        settled = true;
+        setVisionOcrState(text, model);
+      };
+      const cancel = () => finish(image.vision_ocr_text, image.vision_ocr_model);
+      const save = async () => {
+        const next = box.value.trim();
+        if (next === (image.vision_ocr_text || "")) return cancel();
+        const previousText = image.vision_ocr_text;
+        const previousModel = image.vision_ocr_model;
+        // Emptying it drops the badge with it: "read by <model>" is a claim
+        // about text that no longer exists.
+        finish(next, next ? previousModel : "");
+        try {
+          const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
+            method: "POST",
+            body: JSON.stringify({ text: next }),
+          });
+          setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
+        } catch (error) {
+          setVisionOcrState(previousText, previousModel);
+          toast(error.message || "Couldn't save that text.", true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      box.addEventListener("blur", save);
+    };
+    visionOcrText.addEventListener("click", startEditingVisionOcr);
+    visionOcrText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        startEditingVisionOcr();
+      }
+    });
+
+    visionOcrBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      visionOcrBtn.disabled = true;
+      visionOcrText.replaceChildren(typingDots("Reading text…"));
+      visionOcrBadge.classList.add("hidden");
+      try {
+        // force: true — a manual click always re-reads, the same "the user
+        // pressed the button" reasoning captionBtn's own force:true uses.
+        const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
+          method: "POST",
+          body: JSON.stringify({ force: true }),
+        });
+        setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
+      } catch (error) {
+        // Restores whatever was there before this click — including
+        // re-hiding the box if this was the first-ever attempt and it
+        // failed, rather than leaving an empty line visible forever.
+        setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
+        toast(error.message || "Couldn't read the text in that image.", true);
+      } finally {
+        visionOcrBtn.disabled = false;
+      }
+    });
+
+    // **One kebab, not five icons.** Reported directly: "it also seems like
+    // there are two popup buttons on the images in the image library which do
+    // the same thing??" — and they nearly did. `ocrBtn` (ph:scan) and
+    // `visionOcrBtn` (ph:text-aa) are both "read the text in this image",
+    // differing only in *which* reader, which an icon cannot say and a
+    // tooltip only says once you have hovered both. The same report proposed
+    // the fix: "maybe have the button as a 3-dot kebab button with the other
+    // options as a popup menu". A menu row has room for words, so the two
+    // readers are now told apart by name rather than by glyph.
+    //
+    // The buttons themselves are untouched — same elements, same handlers,
+    // relabelled and re-parented. A rewrite would have been a rewrite of five
+    // working things to change where they sit.
+    setLabel(rename, "ph:pencil-simple Rename");
+    setLabel(captionBtn, "ph:sparkle Describe with AI");
+    setLabel(ocrBtn, "ph:scan Read text offline (OCR)");
+    setLabel(visionOcrBtn, "ph:text-aa Read text with AI");
+    setLabel(del, "ph:trash Delete");
+    for (const button of [rename, captionBtn, ocrBtn, visionOcrBtn, del]) {
+      button.classList.remove("icon-button");
+      button.classList.add("library-image-menu-item");
+    }
+    del.classList.add("danger");
+
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-    actions.append(rename, captionBtn, del);
 
-    fig.append(img, actions, cap, captionText, captionToggle);
+    // `<details>` rather than a hand-rolled popup: it opens on click and on
+    // Enter/Space, closes on Escape, and is exposed to a screen reader as a
+    // disclosure — all of it from the browser, none of it from us. The one
+    // thing it does not do is close when you click elsewhere, which is the
+    // single listener below.
+    const menu = document.createElement("details");
+    menu.className = "library-image-menu";
+    const menuButton = document.createElement("summary");
+    menuButton.className = "ghost small icon-button library-image-menu-btn";
+    menuButton.title = `More actions for “${image.original_name}”`;
+    menuButton.setAttribute("aria-label", menuButton.title);
+    setLabel(menuButton, "ph:dots-three");
+    const menuList = document.createElement("div");
+    menuList.className = "library-image-menu-list";
+    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
+    menu.append(menuButton, menuList);
+    // Picking anything closes the menu. Not `capture`, so each button's own
+    // handler still runs first and can stop propagation if it needs to.
+    menuList.addEventListener("click", () => {
+      menu.open = false;
+    });
+    document.addEventListener("click", (event) => {
+      if (menu.open && !menu.contains(event.target)) menu.open = false;
+    });
+    // Which edges to flip toward used to be a CSS-only guess (nth-child(3n)
+    // for "last column"), which only held while the grid actually rendered
+    // exactly 3 columns — it's `auto-fill`, so a narrower window silently put
+    // the wrong tiles on the flip side and every other tile's five-row menu
+    // ran off the bottom of the screen with nothing to catch it at all.
+    // Reported directly: "make sure the popup options dont get cut off."
+    // Measured against the real box now, the same way openActionMenu()
+    // (app.js) already does it for every other kebab in the app.
+    menu.addEventListener("toggle", () => {
+      if (!menu.open) return;
+      menuList.classList.remove("menu-flip-left", "menu-flip-up");
+      const bound = nearestScrollParent(menu).getBoundingClientRect();
+      const box = menuList.getBoundingClientRect();
+      if (box.right > bound.right) menuList.classList.add("menu-flip-left");
+      if (box.bottom > bound.bottom) menuList.classList.add("menu-flip-up");
+    });
+    actions.append(menu);
+
+    // **Labelled, and separated.** Reported directly: "I feel the image
+    // captions and ocr extractions should be separated and labeled, for the
+    // ocr, it says 'No text found - click to add' but the extracted text is
+    // below that selectable box and not editable??" — which is exactly what
+    // an unlabelled stack of three paragraphs produces. What the reader saw
+    // was one field's empty-state sitting directly above another field's
+    // filled value, with nothing to say they were different fields at all.
+    //
+    // A description and a transcription are different claims about a picture
+    // and are now named as such. `library-image-field` is one block per
+    // claim: a small label, the (editable) value, and the byline saying who
+    // produced it.
+    const field = (labelText, ...children) => {
+      const section = document.createElement("section");
+      section.className = "library-image-field";
+      const label = document.createElement("h4");
+      label.className = "library-image-field-label";
+      label.textContent = labelText;
+      section.append(label, ...children);
+      return section;
+    };
+
+    const captionField = field(
+      "Description",
+      captionText,
+      captionToggle,
+      captionBadge
+    );
+    const visionField = field("Text in this image", visionOcrText, visionOcrBadge);
+    // Offline OCR is shown only when it actually found something. It needs
+    // Tesseract, which this app never installs on its own (by instruction),
+    // so on most machines it is permanently empty — and an empty second
+    // "no text found" box under a filled one is the confusion this whole
+    // block exists to remove. Reachable regardless from the kebab menu.
+    const ocrField = field("Also read offline (OCR)", ocrText);
+    const syncOcrFieldVisibility = () =>
+      ocrField.classList.toggle("hidden", !(image.ocr_text || "").trim());
+    syncOcrFieldVisibility();
+    ocrText.addEventListener("mm:changed", syncOcrFieldVisibility);
+    // Running it from the menu reveals the field, so the result has somewhere
+    // to appear even when the run finds nothing and says so.
+    ocrBtn.addEventListener("click", () => ocrField.classList.remove("hidden"));
+
+    const fields = document.createElement("div");
+    fields.className = "library-image-fields";
+    fields.append(captionField, visionField, ocrField);
+
+    fig.append(img, actions, cap, fields);
     grid.appendChild(fig);
   }
 }
@@ -1873,15 +2469,25 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
 
-        if (targetId === "library-view-whiteboard") {
-          // Lands on the boards gallery, not straight onto a canvas — one
-          // door onto the whiteboard, asked for directly, replacing the
-          // old always-opens-the-last-board behaviour.
-          wbShowBoardsLanding();
-        } else if (targetId === "library-view-media") {
+        if (targetId === "library-view-media") {
           renderLibraryImagesGallery();
-        } else if (targetId === "library-view-docs") {
-          renderLibraryDocuments();
+          startLibraryImagesPoll();
+        } else {
+          stopLibraryImagesPoll();
+          if (targetId === "library-view-whiteboard") {
+            // Lands on the boards gallery, not straight onto a canvas — one
+            // door onto the whiteboard, asked for directly, replacing the
+            // old always-opens-the-last-board behaviour.
+            wbShowBoardsLanding();
+          } else if (targetId === "library-view-docs") {
+            renderLibraryDocuments();
+          } else if (targetId === "library-view-skills") {
+            // Here rather than in a `switchTab` wrapper: these are two
+            // network-backed renders and they belong to *this* sub-tab, not
+            // to every visit to the Library.
+            renderSkillsDashboard();
+            renderSkillLogs();
+          }
         }
       });
     });
@@ -1915,6 +2521,13 @@ document.addEventListener("DOMContentLoaded", () => {
     for (const file of files) {
       const form = new FormData();
       form.append("file", file);
+      // Asked for directly: OCR/captioning/vision-OCR must not run on a
+      // staged upload that never gets saved into a note, document or sent
+      // chat message — but the Library's own "Upload images" button has no
+      // separate staging step at all, so this upload IS the commit
+      // (routes_files.py's upload_media, and core/media_process.py's own
+      // docstring, name this exact case).
+      form.append("direct", "true");
       try {
         // A bare headers override, not apiJson's default — a FormData body
         // needs the browser to set its own multipart boundary in

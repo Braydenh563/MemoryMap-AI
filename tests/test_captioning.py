@@ -117,3 +117,104 @@ def test_caption_and_store_force_overwrites_an_existing_caption(app_state, sessi
 def test_caption_and_store_does_not_blow_up_if_the_upload_was_deleted_first(app_state, fake_ollama, tmp_path):
     deps.override_ai(ollama=fake_ollama)
     assert captioning.caption_and_store(999999, tmp_path / "gone.png") is None
+
+
+def test_caption_and_store_records_which_model_wrote_it(app_state, session, fake_ollama, tmp_path):
+    """Asked for directly: a caption should say which model wrote it, so it
+    reads as one model's guess rather than the app's own opinion."""
+    upload_id = _upload(session)
+    image_path = tmp_path / "a.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_ollama.capabilities_declared = ["vision"]
+    deps.override_ai(ollama=fake_ollama)
+
+    captioning.caption_and_store(upload_id, image_path)
+    with deps.get_db().session() as check:
+        row = check.get(MediaUpload, upload_id)
+        assert row.caption_model
+        assert row.caption_edited is False
+
+
+def test_caption_and_store_records_a_completed_task(app_state, session, fake_ollama, tmp_path):
+    """Reported directly: captioning never showed up in Settings →
+    Background tasks, success or failure, as if it had never run."""
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    upload_id = _upload(session)
+    image_path = tmp_path / "a.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_ollama.capabilities_declared = ["vision"]
+    deps.override_ai(ollama=fake_ollama)
+
+    captioning.caption_and_store(upload_id, image_path)
+    history = taskhistory.recent()
+    assert history[0]["kind"] == "caption"
+    assert history[0]["outcome"] == "completed"
+
+
+def test_caption_and_store_records_a_failed_task_when_the_model_produces_nothing(
+    app_state, session, fake_ollama, tmp_path
+):
+    """The reported bug: a captioning call failing outright (a 500 from the
+    backend) left no trace anywhere but the log console."""
+    from memorymap.core import taskhistory
+
+    def _broken_chat(model, messages):
+        raise RuntimeError("500 Server Error")
+
+    taskhistory.clear()
+    upload_id = _upload(session)
+    image_path = tmp_path / "a.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_ollama.capabilities_declared = ["vision"]
+    fake_ollama.chat = _broken_chat
+    deps.override_ai(ollama=fake_ollama)
+
+    result = captioning.caption_and_store(upload_id, image_path)
+    assert result is None
+    history = taskhistory.recent()
+    assert history[0]["kind"] == "caption"
+    assert history[0]["outcome"] == "failed"
+
+
+def test_caption_and_store_does_not_record_a_task_with_no_vision_model(
+    app_state, session, fake_ollama, tmp_path
+):
+    """Not a failure worth a history entry — every upload on a notebook
+    with no vision model installed would otherwise fill the ring with the
+    same expected, non-actionable line."""
+    from memorymap.core import taskhistory
+
+    taskhistory.clear()
+    upload_id = _upload(session)
+    image_path = tmp_path / "a.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_ollama.capabilities_declared = []  # nothing declares vision
+    deps.override_ai(ollama=fake_ollama)
+
+    captioning.caption_and_store(upload_id, image_path)
+    assert taskhistory.recent() == []
+
+
+def test_caption_and_store_force_clears_the_edited_flag(app_state, session, fake_ollama, tmp_path):
+    """A fresh AI write always supersedes a manual edit — the badge should
+    say the model wrote the current text, not that a person's old edit is
+    still what's showing."""
+    upload_id = _upload(session)
+    image_path = tmp_path / "a.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_ollama.capabilities_declared = ["vision"]
+    deps.override_ai(ollama=fake_ollama)
+
+    with deps.get_db().session() as write:
+        row = write.get(MediaUpload, upload_id)
+        row.caption = "a hand-typed caption"
+        row.caption_edited = True
+        write.commit()
+
+    captioning.caption_and_store(upload_id, image_path, force=True)
+    with deps.get_db().session() as check:
+        row = check.get(MediaUpload, upload_id)
+        assert row.caption_edited is False
+        assert row.caption_model

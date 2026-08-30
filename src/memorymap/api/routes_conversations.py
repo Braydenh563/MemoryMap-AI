@@ -69,6 +69,35 @@ class TurnBody(BaseModel):
     search_mode: str | None = None
     match_info: dict | None = None
     connected_ids: list[int] | None = None
+    # The "Grounded in" chips' own data (ai/grounding.py's per-sentence
+    # note_id/sentence pairs). Same unfixed-until-now gap as raw_results
+    # above, reported separately: reopening a chat, or just leaving the
+    # tab, dropped the sources line because nothing here ever stored it.
+    sentence_grounding: list[dict] | None = None
+    # Which MediaUpload ids this turn actually attached — asked for
+    # directly, and load-bearing beyond just redisplaying them on reopen:
+    # media_gc.py's orphan scan can only see `/media/…` references inside
+    # note, document and whiteboard content, so a sent chat image had no
+    # record anywhere that anything still used it. Persisted here so
+    # media_gc._referenced_filenames can look conversations up too, instead
+    # of "Clean orphaned media" silently deleting a real, sent attachment.
+    image_media_ids: list[int] | None = None
+    #: Documents this turn attached — a file dropped on the chat that was not
+    #: an image is imported into Documents (`POST /documents/import`) rather
+    #: than sent as pixels, and until now the message kept no record that it
+    #: had happened. Reported as attachments that "arent rendered with the
+    #: chat messages… and they arent previewable or quick navigatable to
+    #: their stored location in the library or documents": with nothing
+    #: stored, there was nothing to render and nowhere to navigate to.
+    document_ids: list[int] | None = None
+    #: Notes clipped to this question with the paperclip. Reported: *"if the
+    #: user attaches a note to a chat message how does it show that that note
+    #: is attached to that message??"* — it did not, anywhere. The ids were
+    #: sent to `/chat/stream`, used to build that one prompt, and thrown away:
+    #: the bubble showed plain text, and reopening the conversation showed the
+    #: same plain text, so the answer's whole basis was invisible after the
+    #: fact. Same fix as images and documents above, one release later.
+    note_ids: list[int] | None = None
 
 
 class RenameBody(BaseModel):
@@ -96,10 +125,16 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["search_mode"] = turn.search_mode
         assistant["match_info"] = turn.match_info or {}
         assistant["connected_ids"] = turn.connected_ids or []
-    return [
-        {"role": "user", "content": turn.question},
-        assistant,
-    ]
+    if turn.sentence_grounding:
+        assistant["sentence_grounding"] = turn.sentence_grounding
+    user: dict = {"role": "user", "content": turn.question}
+    if turn.image_media_ids:
+        user["image_media_ids"] = turn.image_media_ids
+    if turn.document_ids:
+        user["document_ids"] = turn.document_ids
+    if turn.note_ids:
+        user["note_ids"] = turn.note_ids
+    return [user, assistant]
 
 
 def _summary(conversation: Conversation) -> dict:
@@ -122,6 +157,20 @@ def _summary(conversation: Conversation) -> dict:
 
 def _existing(session: Session, conversation_id: int) -> Conversation:
     return deps.get_or_404(session, Conversation, conversation_id, "Conversation not found")
+
+
+def _process_committed_media(session: Session, turn: TurnBody) -> None:
+    """A sent chat message is one of the three "committed" moments
+    core/media_process.py waits for (asked for directly) — an image
+    attached to the composer and never sent must not trigger OCR/
+    captioning/vision-OCR just for having been uploaded. Keyed off
+    `image_media_ids` directly (a conversation's own content is a question
+    string, not markdown with an inline `/media/…` reference)."""
+    from memorymap.core import media_process
+
+    media_process.process_committed_upload_ids(
+        session, deps.get_config().data_dir / "media", turn.image_media_ids or []
+    )
 
 
 def conversation_matches(conversation: Conversation, term: str) -> bool:
@@ -208,7 +257,83 @@ def create_conversation(body: TurnBody, session: Session = Depends(get_session))
     session.flush()
     log_action(session, "created", "conversation", conversation.id)
     session.commit()
+    _process_committed_media(session, body)
     return _summary(conversation)
+
+
+def _hydrate_attachments(session: Session, messages: list[dict]) -> None:
+    """Turn the stored id lists into something renderable, in place.
+
+    A message stores ids because ids are what survives a rename and what
+    `media_gc` needs. A *bubble* needs a thumbnail, a name, and the caption
+    and transcription the app already holds for that picture — so the read
+    path resolves them here, once for the whole conversation, rather than
+    leaving the browser to fire one request per attachment per reopen.
+
+    **Missing is normal and is not an error.** An attachment can be deleted
+    from the Library long after the message that carried it; the id then
+    resolves to nothing and the bubble simply shows one fewer thumbnail,
+    which is what happened before this existed. Nothing here 404s.
+    """
+    from memorymap.core.database import Document, Entry, MediaUpload
+
+    media_ids = {i for m in messages for i in (m.get("image_media_ids") or [])}
+    doc_ids = {i for m in messages for i in (m.get("document_ids") or [])}
+    note_ids = {i for m in messages for i in (m.get("note_ids") or [])}
+    if not media_ids and not doc_ids and not note_ids:
+        return
+
+    media = {}
+    if media_ids:
+        for upload in session.query(MediaUpload).filter(MediaUpload.id.in_(media_ids)).all():
+            media[upload.id] = {
+                "id": upload.id,
+                "kind": "image",
+                "url": f"/media/{upload.filename}",
+                "name": upload.original_name,
+                # The two readings the Library tile shows, so the same
+                # picture reads the same way wherever it appears.
+                "caption": upload.caption or "",
+                "text": (upload.vision_ocr_text or upload.ocr_text or "").strip(),
+            }
+    documents = {}
+    if doc_ids:
+        for document in session.query(Document).filter(Document.id.in_(doc_ids)).all():
+            documents[document.id] = {
+                "id": document.id,
+                "kind": "document",
+                "name": document.title,
+            }
+
+    notes = {}
+    if note_ids:
+        for entry in session.query(Entry).filter(Entry.id.in_(note_ids)).all():
+            # A binned or private note is treated exactly like a deleted
+            # upload: the chip disappears. Listing a private note's first line
+            # in a conversation would put it back on screen in the one place
+            # the private-notebook rule cannot reach.
+            if entry.is_deleted or entry.is_private:
+                continue
+            first_line = (entry.content or "").strip().splitlines()
+            notes[entry.id] = {
+                "id": entry.id,
+                "kind": "note",
+                # Notes have no title of their own, so the chip says what the
+                # note says — the same first-line preview the picker uses, for
+                # the same reason: it is how the user recognises it.
+                "name": (first_line[0][:60] if first_line else f"Note #{entry.id}"),
+            }
+
+    for message in messages:
+        attachments = [
+            media[i] for i in (message.get("image_media_ids") or []) if i in media
+        ] + [
+            documents[i] for i in (message.get("document_ids") or []) if i in documents
+        ] + [
+            notes[i] for i in (message.get("note_ids") or []) if i in notes
+        ]
+        if attachments:
+            message["attachments"] = attachments
 
 
 @router.get("/{conversation_id}")
@@ -216,7 +341,9 @@ def get_conversation(
     conversation_id: int, session: Session = Depends(get_session)
 ) -> dict:
     conversation = _existing(session, conversation_id)
-    return {**_summary(conversation), "messages": json.loads(conversation.messages)}
+    messages = json.loads(conversation.messages)
+    _hydrate_attachments(session, messages)
+    return {**_summary(conversation), "messages": messages}
 
 
 @router.post("/{conversation_id}/turns")
@@ -229,6 +356,7 @@ def append_turn(
     conversation.messages = json.dumps(messages)
     conversation.updated_at = utcnow()
     session.commit()
+    _process_committed_media(session, body)
     return _summary(conversation)
 
 
@@ -309,6 +437,7 @@ def replace_last_turn(
     conversation.messages = json.dumps(messages)
     conversation.updated_at = utcnow()
     session.commit()
+    _process_committed_media(session, body)
     return _summary(conversation)
 
 
@@ -372,6 +501,67 @@ def truncate_conversation(
     conversation.updated_at = utcnow()
     session.commit()
     return {**_summary(conversation), "removed": removed, "conversation_deleted": False}
+
+
+class FollowupsBody(BaseModel):
+    """The "what to ask next" chips a finished turn produced."""
+
+    #: Bounded on both axes: these are one row of buttons under an answer, and
+    #: a body that arrives with two hundred of them is a bug or an attack, not
+    #: a longer list of good questions.
+    followups: list[str] = Field(default_factory=list, max_length=6)
+
+
+@router.put("/{conversation_id}/turns/{index}/followups")
+def set_turn_followups(
+    conversation_id: int,
+    index: int,
+    body: FollowupsBody,
+    session: Session = Depends(get_session),
+) -> dict:
+    """Remember the follow-up chips for one turn.
+
+    Reported directly: "suggested repsponse continuation prompts in chat doesnt
+    persist and disappears once I switch chat sessions or quit the app." They
+    did not persist because nothing ever stored them — they were generated by
+    a second model call after the turn was already saved, appended to a live
+    DOM node, and that was the whole of their existence.
+
+    Its own endpoint rather than a field on the turn body, because of *when*
+    it happens: the turn is written the moment the answer finishes, and the
+    suggestions arrive after that, deliberately (they are a second model call
+    and must never delay the answer). A turn that has since been deleted is a
+    204-shaped no-op, not an error — the reader moved on, which is fine.
+    """
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    position = index * 2 + 1  # the assistant half of the pair
+    if position >= len(messages) or messages[position].get("role") != "assistant":
+        return {"saved": False}
+
+    cleaned = [text.strip()[:200] for text in body.followups if text.strip()]
+    if cleaned:
+        messages[position]["followups"] = cleaned
+    else:
+        messages[position].pop("followups", None)
+    # `updated_at` is deliberately held where it was — and holding it takes an
+    # explicit assignment, because the column carries `onupdate=utcnow` and
+    # would otherwise move on any UPDATE at all. A suggestion the user has not
+    # read is not activity: bumping it would reshuffle the chat list under
+    # them seconds after they stopped reading, which is exactly the kind of
+    # thing that makes a sidebar feel unstable for no reason anyone can see.
+    # A Core UPDATE naming both columns, not `conversation.messages = …`.
+    # Assigning the same `updated_at` back through the ORM does nothing: it is
+    # not a change, so the column is left out of the SET clause and `onupdate`
+    # fills it in — which is the behaviour being avoided. `values()` puts it in
+    # the statement explicitly, and an explicit value beats `onupdate`.
+    session.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation.id)
+        .values(messages=json.dumps(messages), updated_at=conversation.updated_at)
+    )
+    session.commit()
+    return {"saved": True, "followups": cleaned}
 
 
 class AnswerBody(BaseModel):

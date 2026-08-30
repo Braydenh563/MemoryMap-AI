@@ -1143,7 +1143,15 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-search {
   flex: 1 1 16rem;
-  min-width: 0;
+  /* `min-width: 0` let this shrink to a sliver with no visible placeholder
+     text — a bare, unreadable outline — at exactly the width where the row
+     is too tight for its 16rem basis but not yet tight enough to wrap the
+     controls after it to a second line (reported as "a weird gap and a
+     stray cut-off element" to the left of Semantic: the collapsed search
+     box's own border, mistaken for an unrelated fragment). A real floor
+     keeps the placeholder legible; the row wraps below it the same way it
+     already does once the *other* controls run out of room. */
+  min-width: 8rem;
   /* Height declared, vertical padding given up, margin zeroed — an input's
      base rule carries a bottom margin, and on a centred flex row those become
      an offset rather than a gap. */
@@ -1577,6 +1585,20 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: 0;
 }
 
+/* An audit-log entry's own preview can run to the full 400-char budget
+   (routes_library.py's ACTIVITY_DETAIL_CHARS) and, unlike every other kind
+   here, has nowhere else to read the rest — the grid view already shows it
+   in full (.library-activity .library-card-preview above); list view's
+   generic one-line clamp just above was clipping every activity row down
+   to a fragment with no way to see more, reported directly. A few lines,
+   not unclamped: list view's row-alignment is still worth keeping for
+   every *other* kind sharing this list, so this stays a real (generous)
+   cap rather than "as tall as the text wants to be". */
+.library-list .library-activity .library-card-preview {
+  line-clamp: 4;
+  -webkit-line-clamp: 4;
+}
+
 .library-list .library-card-meta {
   flex: 0 0 auto;
   margin-top: 0;
@@ -1624,7 +1646,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  /* `visible`, not `hidden`, since the kebab menu opens over the tile's own
+     edge and a clipped menu is an unusable one. The rounded top corners the
+     clip used to provide are set on the image itself below — the only child
+     that ever reached the tile's edge. */
+  overflow: visible;
   background: var(--card);
   /* `--card` is a translucent glass fill, meant to always be paired with the
      blur that makes it read as frosted glass rather than a smudge — every
@@ -1658,15 +1684,95 @@ header#top-bar.tabs-wrapped #tab-bar {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
+  /* `left` as well as `right`, and wrapping — reported live as *"the popup
+     buttons for uploaded images sometimes get cut off in different window
+     resolutions and sizes"*, with a screenshot showing the row running off the
+     tile's left edge.
+
+     The row holds up to FIVE buttons (edit, delete, caption, OCR, vision-OCR)
+     and the grid above it is `minmax(11rem, 1fr)` — so a tile is 11rem wide at
+     the narrow end while the row needs roughly 14. Anchored only by `right`, a
+     flex row that cannot fit grows leftwards past the tile's own edge, and
+     `.library-image-tile` sets `overflow: hidden`, so the overflow is not
+     merely ugly: the leftmost button is clipped away and cannot be clicked at
+     all. Which button that is depends on how many the image has, which is why
+     it looked intermittent.
+
+     Setting both edges gives the row the tile's real width to work in, and
+     `flex-wrap` spends it downwards — a second row of buttons over the image,
+     which is always reachable — instead of sideways into the clip. */
+  left: var(--space-2);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
   opacity: 0;
   transition: opacity var(--motion-base) ease;
 }
 
-.library-image-tile .library-image-edit,
-.library-image-tile .library-image-delete,
-.library-image-tile .library-image-caption-btn {
+/* **The row above now holds exactly one control, and that is the point.**
+   Five icon buttons over an 11rem tile is what the wrapping rule above was
+   written to survive; a kebab is what stops it from being five. It also
+   settles a separate report — two of those five were both "read the text in
+   this image" and looked like different features — because a menu row can
+   carry the words an icon cannot. */
+.library-image-menu {
+  position: relative;
+}
+
+.library-image-menu > summary {
+  list-style: none; /* Firefox draws a marker triangle otherwise */
+  cursor: pointer;
+}
+
+.library-image-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.library-image-menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 5;
+  min-width: 13rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: var(--space-2);
+  gap: 1px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+/* A tile near the right or bottom edge would otherwise push its menu off
+   screen. `.menu-flip-left`/`.menu-flip-up` are set by library.js's own
+   `toggle` handler, measured against the real box each time the menu opens
+   — the grid is `auto-fill`, so which tiles are actually on an edge changes
+   with the window width and no CSS-only rule (an earlier `nth-child(3n)`
+   guess here, wrong the moment the grid wasn't exactly 3 columns wide) can
+   track that on its own. */
+.library-image-menu-list.menu-flip-left {
+  right: auto;
+  left: 0;
+}
+
+.library-image-menu-list.menu-flip-up {
+  top: auto;
+  bottom: calc(100% + var(--space-2));
+}
+
+.library-image-menu-item {
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.library-image-tile .library-image-menu-btn {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -1676,7 +1782,11 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-tile:hover .library-image-actions,
 .library-image-tile:focus-within .library-image-actions,
-.library-image-actions:focus-within {
+.library-image-actions:focus-within,
+/* An open menu outlives the hover that opened it: moving the pointer down
+   the menu leaves the *tile*, and without this the whole thing faded out
+   from under the cursor. */
+.library-image-actions:has(.library-image-menu[open]) {
   opacity: 1;
 }
 
@@ -1698,6 +1808,8 @@ header#top-bar.tabs-wrapped #tab-bar {
   height: 9rem;
   object-fit: cover;
   cursor: zoom-in;
+  /* Was the tile's `overflow: hidden` doing this; see the note there. */
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
 }
 
 /* The "Attach from Library" picker (app.js's attachFromLibrary) reuses this
@@ -1774,6 +1886,33 @@ header#top-bar.tabs-wrapped #tab-bar {
    `.library-image-caption-clamped` is present, and whiteboard.js toggles it
    off/on with a "Show more"/"Show less" button for a caption long enough to
    need one. */
+/* One block per claim about the picture: a label, the value, the byline.
+   Before this the tile stacked three unlabelled paragraphs — a description,
+   an offline transcription and an AI transcription — and a reader could not
+   tell which empty-state belonged to which value. Reported as text that
+   "is below that selectable box and not editable". */
+.library-image-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.library-image-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.library-image-field-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .library-image-caption {
   margin: 0;
   padding: 0 var(--space-3) var(--space-3);
@@ -1790,6 +1929,19 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-caption-empty {
   font-style: italic;
   opacity: 0.7;
+}
+
+/* Which model wrote the caption, and whether it's since been edited — a
+   quiet byline under the caption text, not a chip competing with it. */
+.library-image-caption-badge {
+  display: block;
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.library-image-caption-badge.hidden {
+  display: none;
 }
 
 /* `.entry-more`'s own negative margin-top assumes it directly follows
@@ -1828,6 +1980,63 @@ header#top-bar.tabs-wrapped #tab-bar {
   font: inherit;
   color: var(--ink);
   resize: none;
+}
+
+/* Tesseract's own reading of text in the image (core/ocr.py) — same
+   always-visible, click-to-edit shape as .library-image-caption, asked for
+   directly ("allow the user to access, view, and edit OCR extracted
+   text"). */
+.library-image-ocr {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.library-image-ocr-empty {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.library-image-ocr-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  resize: none;
+}
+
+/* A vision model's verbatim transcription of text found in the image
+   ("extractor mode") — same box shape as .library-image-caption, but never
+   click-to-edit (there is nothing to type by hand here) and hidden
+   entirely until a read has actually happened, unlike the caption's
+   always-visible "Add a caption…" placeholder. */
+.library-image-vision-ocr {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  white-space: pre-wrap;
+}
+
+.library-image-vision-ocr.hidden {
+  display: none;
+}
+
+.library-image-vision-ocr-badge {
+  display: block;
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.library-image-vision-ocr-badge.hidden {
+  display: none;
 }
 
 /* Library → Drafts (§80 this session): one row per draft, same .entry-list
@@ -1870,6 +2079,42 @@ header#top-bar.tabs-wrapped #tab-bar {
    child: nothing overlaps the page, no tab needs padding reserved for it, and
    a change to the bar's height cannot desynchronise from a padding constant
    somewhere else. A fixed bar would need all three. */
+/* A status-bar slot the user has switched off (Settings → Appearance →
+   Status bar). Its own class rather than `.hidden`, because one of these
+   slots (`#status-task`) is already shown and hidden by `.hidden` from a
+   different code path — sharing the class would mean a running job could
+   un-hide a slot somebody had turned off. */
+.status-slot-off {
+  display: none !important;
+}
+
+/* The checkboxes that drive it: the same pill toggle as everywhere else,
+   wrapped so a narrow settings panel wraps between them. */
+.status-bar-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* **Two utility classes that were used twenty times and never existed.**
+   Found while measuring the AI Skills cards: `class="muted text-sm"` appears
+   throughout app.js, library.js and index.html, and there was no `.text-sm`
+   rule anywhere in this stylesheet — only the `--text-sm` *token*, which a
+   class name does not reach. So every one of those elements has been
+   rendering at the default body size since the day it was written, and the
+   author of each one had no way to notice: the markup reads as correct and
+   the intent is obvious.
+
+   Declared here, next to the tokens they name. Two rules, and they make
+   twenty existing elements finally do what they say. */
+.text-sm {
+  font-size: var(--text-sm);
+}
+
+.text-xs {
+  font-size: var(--text-xs);
+}
+
 #status-bar {
   /* One height for the strip and everything in it — DESIGN.md's control-height
      rule, the same reason `--header-control-h` exists. Not a spacing token: a
@@ -2202,11 +2447,28 @@ header#top-bar.tabs-wrapped #tab-bar {
    never past it, so the fixed 0.16/0.25 here are the strength slider's own
    100% ceiling, not a baseline it adds to. */
 :root[data-glass-sheen="on"]:not([data-glass="off"]) .card {
-  background:
+  /* **`background-image`, not the `background` shorthand — and that is a
+     correctness fix, not a tidy-up.**
+
+     Reported: the sheen "screws with contrast and makes popup windows like
+     the settings modal really hard to read on light mode".
+
+     The shorthand set both layers *and* the colour, re-declaring the fill as
+     `var(--card)`. This selector is (0,4,0); `.modal-card` — which sets
+     `background: var(--modal-bg)` and says in its own comment "nearly opaque:
+     unlike page cards, a settings dialog floats over busy content, full glass
+     here makes it unreadable" — is (0,1,0). So turning the sheen on silently
+     reverted every dialog in the app to full page-card glass, and the page's
+     own gradient blobs came through the text. Worst in light mode, where the
+     ink is dark and the thing bleeding through is bright.
+
+     `background-image` layers the sheen over whatever fill the element
+     already chose, so a card keeps `--card`, a modal keeps `--modal-bg`, and
+     the whiteboard panels keep theirs. */
+  background-image:
     linear-gradient(135deg,
       color-mix(in srgb, rgba(255, 255, 255, 0.16) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
-      rgba(255, 255, 255, 0) 45%),
-    var(--card);
+      rgba(255, 255, 255, 0) 45%);
   /* A 1px inner top-edge highlight — the other half of the same "this
      catches light, it doesn't just sit there tinted" read, independent of
      `--card`'s alpha. */
@@ -2215,10 +2477,32 @@ header#top-bar.tabs-wrapped #tab-bar {
     inset 0 1px 0 color-mix(in srgb, rgba(255, 255, 255, 0.25) calc(var(--glass-sheen-strength) * 100%), transparent);
 }
 
+/* A white sheen on a dark surface reads as light catching glass. On a light
+   surface it is white on near-white: it adds nothing to the glass read and
+   only flattens the fill it is sitting on. Halved rather than removed, so the
+   strength slider still does something in both themes and the two do not look
+   like different components. */
+:root:not([data-theme="dark"])[data-glass-sheen="on"]:not([data-glass="off"]) .card {
+  background-image:
+    linear-gradient(135deg,
+      color-mix(in srgb, rgba(255, 255, 255, 0.08) calc(var(--glass-sheen-strength) * 100%), transparent) 0%,
+      rgba(255, 255, 255, 0) 45%);
+}
 
-/* Center icon-only buttons by squaring their padding */
+
+/* Center icon-only buttons by squaring their padding.
+   `summary` alongside `button`: the Documents dock's "⋯" menu and the Image
+   Gallery's kebab (library.js) both carry `icon-button` on a `<summary>`
+   (the `<details>` disclosure pattern this app uses for a menu-that-opens-
+   on-click, not a real `<button>`) — reported directly, with a screenshot,
+   as the Documents dock one sitting off-centre. `button.icon-button` simply
+   never matched either of them, so neither ever got this rule at all;
+   whatever position the icon glyph landed at was the browser's own default
+   `<summary>` layout, not a measurement worth chasing. */
 button.icon-only,
-button.icon-button {
+button.icon-button,
+summary.icon-only,
+summary.icon-button {
   padding-inline: 0.5em;
   aspect-ratio: 1;
   display: inline-flex;

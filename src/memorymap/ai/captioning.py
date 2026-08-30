@@ -82,6 +82,8 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
     from memorymap.core import deps
     from memorymap.core.database import MediaUpload
 
+    from memorymap.core import taskhistory
+
     with deps.get_db().session() as session:
         upload = session.get(MediaUpload, upload_id)
         if upload is None:
@@ -90,12 +92,31 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
             return upload.caption
         model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
         if not model:
+            # Not a failure worth a history entry — every upload on a
+            # notebook with no vision model installed would otherwise fill
+            # the ring with the same expected, non-actionable line.
             return None
         text = caption_text(image_path, model, deps.get_ollama())
         if not text:
+            # A real attempt was made (a model was resolved) and produced
+            # nothing — the actual failure the report was about: a caption
+            # call failing outright with no visible record of it anywhere
+            # but the log console, and Settings → Background tasks showing
+            # captioning as if it had never run at all.
+            taskhistory.record(
+                "caption", f"Captioning {upload.original_name}", "failed", name=model
+            )
             return None
         upload.caption = text
+        # Which model wrote this, surfaced in the UI so a caption reads as
+        # one model's guess rather than the app's own opinion (asked for
+        # directly). A fresh AI write always supersedes a manual edit.
+        upload.caption_model = model
+        upload.caption_edited = False
         session.commit()
+        taskhistory.record(
+            "caption", f"Captioning {upload.original_name}", "completed", name=model
+        )
         return text
 
 

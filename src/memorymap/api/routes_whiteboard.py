@@ -559,6 +559,16 @@ def create_object(
     db.add(obj)
     db.commit()
     db.refresh(obj)
+    if obj.kind == "image":
+        # Placing an image object on the board is itself the commit — a
+        # whiteboard has no separate staging/save step the way a note or
+        # chat draft does, so this fires immediately (core/media_process.py's
+        # own docstring covers the other three commit points).
+        from memorymap.core import media_process
+
+        media_process.process_referenced_uploads(
+            db, deps.get_config().data_dir / "media", obj.data
+        )
     return _object_to_out(obj)
 
 

@@ -1602,6 +1602,8 @@
 .setting-check input[type="checkbox"],
 .tools-toggle input[type="checkbox"],
 .library-toolbar label>input[type="checkbox"],
+.semantic-toggle input[type="checkbox"],
+.library-sort-check input[type="checkbox"],
 .wb-snap-label input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -1614,10 +1616,51 @@
   padding: 0;
   position: relative;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--chip-bg);
+  /* **An off switch has to look like a switch.**
+     Reported twice, and diagnosed by the reporter: "the gap at the start of
+     the semantic button and smart model routing button… is because it is
+     missing a toggle switcher". It was not missing — it computed to the right
+     32x18 — it was invisible. The track was `--chip-bg` (7-8% alpha) inside a
+     `--border` outline (10%), which on a card is nothing at all, so an *off*
+     toggle read as blank space with a small dot floating in it. An *on* one
+     was obvious, because it fills with the accent — which is exactly why only
+     the off ones were ever reported.
+     `--muted` is the same colour the knob already uses, so the track now
+     matches the thing sliding in it and the control reads as one object. */
+  border: 1px solid var(--muted);
+  /* An opaque track, not `--chip-bg`.
+     `--chip-bg` is `rgba(31, 36, 48, 0.07)` — 7% of a dark colour. On the pale
+     pill these toggles sit in it is indistinguishable from the pill, so an
+     *off* switch read as blank space with a dot in it, reported twice as "the
+     button is missing its toggle switcher" with a screenshot showing exactly
+     that gap. `color-mix` against the page gives a real, theme-aware fill
+     instead of a wash: 12% of the ink colour is visible on both themes without
+     becoming a second accent. */
+  background: color-mix(in srgb, var(--ink) 12%, var(--page));
   box-shadow: none;
   cursor: pointer;
+  /* **Undo the screen-reader-only clip, or none of the above paints.**
+     This is the whole reason the Semantic and smart-routing toggles showed a
+     gap instead of a switch, reported three times and wrong in a way that
+     reads as impossible: the element measured a correct 32x18 with a 1px
+     solid border, and rendered *nothing* — even with an inline
+     `background: red !important`.
+
+     `.checkbox-label input[type="checkbox"]` (further down this file) applies
+     the sr-only pattern — `clip: rect(0 0 0 0); clip-path: inset(50%);
+     overflow: hidden` — for labels whose visible control is drawn by a
+     sibling. A label carrying both that class and a switch class gets the
+     switch's size and border from here and the clip from there, because those
+     are different properties and this rule never contested them. A clip of
+     `inset(50%)` removes 100% of the paint while leaving the box exactly
+     where it was, which is precisely a gap the size of a switch.
+
+     Found with CDP's own `CSS.getMatchedStylesForNode` after computed styles,
+     screenshots and an inline `!important` all failed to explain it. */
+  clip: auto;
+  clip-path: none;
+  overflow: visible;
+  white-space: normal;
   transition: background-color var(--motion-base) ease, border-color var(--motion-base) ease;
   /* Optical: centres a 1.15rem control on a line of body text rather than
      sitting it on the baseline. */
@@ -1628,6 +1671,8 @@
 .setting-check input[type="checkbox"]::after,
 .tools-toggle input[type="checkbox"]::after,
 .library-toolbar label>input[type="checkbox"]::after,
+.semantic-toggle input[type="checkbox"]::after,
+.library-sort-check input[type="checkbox"]::after,
 .wb-snap-label input[type="checkbox"]::after {
   content: "";
   position: absolute;
@@ -1641,10 +1686,24 @@
   transition: transform var(--motion-base) ease, background-color var(--motion-base) ease;
 }
 
+/* Hover says it is interactive before it is clicked — the other half of
+   "this is a control, not a gap". */
+.settings-section label>input[type="checkbox"]:hover,
+.setting-check input[type="checkbox"]:hover,
+.tools-toggle input[type="checkbox"]:hover,
+.library-toolbar label>input[type="checkbox"]:hover,
+.semantic-toggle input[type="checkbox"]:hover,
+.library-sort-check input[type="checkbox"]:hover,
+.wb-snap-label input[type="checkbox"]:hover {
+  border-color: var(--ink);
+}
+
 .settings-section label>input[type="checkbox"]:checked,
 .setting-check input[type="checkbox"]:checked,
 .tools-toggle input[type="checkbox"]:checked,
 .library-toolbar label>input[type="checkbox"]:checked,
+.semantic-toggle input[type="checkbox"]:checked,
+.library-sort-check input[type="checkbox"]:checked,
 .wb-snap-label input[type="checkbox"]:checked {
   background: var(--accent);
   border-color: var(--accent);
@@ -1654,6 +1713,8 @@
 .setting-check input[type="checkbox"]:checked::after,
 .tools-toggle input[type="checkbox"]:checked::after,
 .library-toolbar label>input[type="checkbox"]:checked::after,
+.semantic-toggle input[type="checkbox"]:checked::after,
+.library-sort-check input[type="checkbox"]:checked::after,
 .wb-snap-label input[type="checkbox"]:checked::after {
   transform: translateY(-50%) translateX(0.85rem);
   background: #fff;
@@ -1968,6 +2029,57 @@
   bottom: 1rem;
   left: 1rem;
   border-radius: var(--radius-pill);
+  /* Measured across eight viewports: this row is ~900px of tools and the zoom
+     cluster is bottom-right on the same edge, so from about 1180px down they
+     overlap, and by 900px the tools row runs off the screen entirely — the
+     controls at its right-hand end simply unreachable. That is the reported
+     "cut off in different window resolutions and sizes", on the whiteboard.
+
+     `flex-wrap` is the fix; the max-width is what makes it fire. Without a
+     width to push against, a nowrap flex row just grows, and with
+     `calc(100vw - 2rem)` it would grow straight under the zoom cluster
+     instead. 18rem is that cluster (~15rem) plus its 1rem margin and a gap,
+     so the two share the bottom edge instead of fighting for it.
+
+     `100%`, not `100vw`: these panels are absolutely positioned inside
+     `#wb-canvas-view`, which is narrower than the window by whatever rail sits
+     beside it — 960px inside a 1024px viewport when this was measured. Sizing
+     against the viewport left the row 56px too wide and it still reached under
+     the zoom cluster, which is what a first attempt did.
+
+     Nothing changes on a wide screen: 100% - 18rem is far more than the row
+     needs, so it stays one line and stays a pill. */
+  flex-wrap: wrap;
+  max-width: calc(100% - 18rem);
+}
+
+/* A pill is a single row of controls. Once it has wrapped it is a block of
+   them, and the fully-rounded ends read as a mistake rather than a shape. */
+.whiteboard-floating-panel.bottom-center:has(> :last-child:not(:first-child)) {
+  border-radius: var(--radius);
+}
+
+/* Below this there is not enough width left to share the edge at all — the
+   tools row would be squeezed to a few icons per line. The zoom cluster moves
+   up out of the way instead and the tools take the full width. */
+@media (max-width: 40rem) {
+
+  .whiteboard-floating-panel.bottom-center {
+    max-width: calc(100% - 2rem);
+    /* Bounded, because the zoom cluster above has to clear it and CSS cannot
+       measure a sibling. Wrapped at this width the row is two or three lines
+       deep and how many depends on the exact viewport — so instead of guessing
+       the clearance, the height is capped and the clearance is derived from
+       the same number. A cap this generous only bites on a very narrow window,
+       where scrolling a toolbar is a better outcome than a control hidden
+       under another panel. */
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+
+  .whiteboard-floating-panel.bottom-right {
+    bottom: calc(30vh + 2rem);
+  }
 }
 
 /* Below the "library"/top-right panel, so a shown properties panel never
@@ -2039,6 +2151,12 @@
 .whiteboard-floating-panel select,
 .whiteboard-floating-panel .wb-snap-label {
   height: 2.25rem;
+  /* The base `select` rule (01-forms-settings.css) carries a stacked-form
+     margin-bottom meant for a column of fields, not a toolbar row — left in
+     place here it pulled #wb-board-select a few pixels above its own
+     row-mates under align-items:center, reported as the board picker not
+     lining up with the buttons beside it despite sharing their height. */
+  margin: 0;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -2241,10 +2359,28 @@
    rows rather than the label+control layout `.wb-properties-row` normally
    holds, so it overrides that rule's flex-direction/justify rather than
    fighting it. */
-.wb-prop-multi {
+.wb-prop-multi,
+/* The mind-map row is the same shape and had the same problem, reported with
+   a screenshot: "Arrange as mind map" broken across three lines beside the
+   Tree/Radial pair. `.wb-properties-row` is a `space-between` row built for a
+   short label and one small control — a five-word label next to *two* labelled
+   buttons does not fit the panel's width, so flex shrinks the only flexible
+   thing, the text.
+
+   The row below already solved this by stacking, and the two sit next to each
+   other in the same panel; leaving one stacked and one squeezed was the
+   inconsistency as much as the wrap was. */
+.wb-prop-mindmap {
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-2);
+}
+
+/* Reads as the heading for the two buttons under it rather than a value label
+   that happens to have wrapped. */
+.wb-prop-mindmap>span {
+  color: var(--muted);
+  font-size: var(--text-sm);
 }
 
 .wb-multi-actions {
@@ -2466,7 +2602,14 @@ aside[data-resizable="1"] {
   position: relative;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
-  transition: background var(--motion-base) ease, color var(--motion-base) ease;
+  /* A resting border, not just a hover background: with the native checkbox
+     visually hidden below, an unchecked toggle (Semantic search, "Pinned
+     only") had no boundary at all at rest — it read as plain icon+text next
+     to bordered buttons like Select, not as a control you could click.
+     Reported directly against the Semantic toggle specifically. */
+  border: 1px solid var(--border);
+  transition: background var(--motion-base) ease, color var(--motion-base) ease,
+    border-color var(--motion-base) ease;
 }
 
 .checkbox-label:hover {
@@ -2475,6 +2618,7 @@ aside[data-resizable="1"] {
 
 .checkbox-label:has(input:checked) {
   background: var(--accent-soft);
+  border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
 }
@@ -2501,4 +2645,128 @@ aside[data-resizable="1"] {
 .library-card-tick {
   width: 1.5rem;
   height: 1.5rem;
+}
+
+/* A saved look, shown as the look. It was a text pill and a ✕, which told you
+   a look called "Sea of Prosperity" existed and nothing about what it was — so
+   choosing between five of them meant applying each and undoing it. The
+   preview is built from the values the look actually stores, so it is the real
+   thing rather than an illustration. */
+/* `.saved-look`, not `.theme-card` — that name is already taken by the 18
+   built-in preset cards above, and reusing it would have restyled every one of
+   them. Caught by counting `.theme-card` in the live page and finding 18 where
+   there should have been 2. */
+/* One card, reported twice with a screenshot: *"you didnt make the custom
+   theme with the title, graphic and delete button one whole card."* Correct —
+   the border was on the *preview* alone, so the graphic read as a card and the
+   name sat loose underneath it with a delete button hanging off the side.
+   Three parts, one of them boxed, is three things; the chrome belongs on the
+   wrapper and the preview becomes what it always was, the picture inside. */
+.saved-look {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--inner);
+  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease,
+    border-color var(--motion-base) ease;
+}
+
+.saved-look:hover,
+/* The lift follows the *card*, whichever of its two buttons has focus — a
+   card that rises for the preview and sits still for the delete button
+   would read as two controls again. */
+.saved-look:focus-within {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
+}
+
+.saved-look-preview {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  height: 3.25rem;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.saved-look-preview:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A miniature of how the app is actually composed: a card on the page colour,
+   a line of ink on it, and the accent as the one saturated element. */
+.saved-look-mini {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.saved-look-line {
+  flex: 1 1 auto;
+  height: 0.25rem;
+  border-radius: var(--radius-pill);
+  opacity: 0.55;
+}
+
+.saved-look-dot {
+  flex: 0 0 auto;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: var(--radius-pill);
+}
+
+.saved-look-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.saved-look-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+/* Revealed on hover/focus, like the Library's own image-tile actions: a grid
+   of saved looks should not be a grid of delete buttons. Sized down to sit
+   inside the card's footer rather than beside it — at the default icon-button
+   size it was taller than the name row it shares and pushed out of the card,
+   which is what the screenshot showed. */
+.saved-look-delete {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  min-width: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--motion-base) ease;
+}
+
+.saved-look:hover .saved-look-delete,
+.saved-look-delete:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+
+  .saved-look-delete {
+    opacity: 1;
+  }
 }

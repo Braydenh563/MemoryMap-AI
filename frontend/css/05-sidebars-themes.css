@@ -127,8 +127,26 @@
     align-self: stretch;
   }
 
-  .doc-panes.split {
-    grid-template-columns: 1fr;
+  /* Same reason as #chat-sidebar/#doc-sidebar just above: stacked under a
+     collapsed .skills-split (07-whiteboard-misc.css), a sidebar still
+     `position: sticky` with `max-height: var(--page-sticky-h)` pins itself
+     to viewport height in the middle of the page instead of just being the
+     next block — undo both, the same shape #doc-sidebar's own reset used. */
+  #skills-sidebar {
+    position: relative;
+    height: auto;
+    max-height: none;
+  }
+
+  /* The side-by-side preview collapses back to a stack on a narrow screen.
+     This used to say `grid-template-columns: 1fr` on `.doc-panes.split`,
+     which was dead twice over — #doc-panes is a flex column, not a grid, and
+     an id selector beats this class either way. The live rule is
+     `#doc-panes.split` in 04-chat-dock-appearance.css, whose own max-width
+     query does this collapse; the id here is only so it can win the same
+     cascade. */
+  #doc-panes.split {
+    flex-direction: column;
   }
 }
 
@@ -140,6 +158,7 @@
   body.printing-doc #tab-bar,
   body.printing-doc .doc-sidebar,
   body.printing-doc .doc-toolbar,
+  body.printing-doc .doc-dock,
   body.printing-doc .doc-hint,
   body.printing-doc #doc-content,
   body.printing-doc #doc-status,
@@ -913,6 +932,15 @@ body.resizing-sidebar {
 }
 
 /* --- document formatting toolbar ---------------------------------------------- */
+/* **Only the formatting bar, and that split is the fix.** The dock above the
+   editor used to carry `.doc-toolbar` too, so `.doc-toolbar button` below —
+   written for a row of 2rem glyph buttons (H1, B, I, link) — restyled every
+   `.ghost.small` in the dock as well: `min-width: 2rem`, 0.8rem type,
+   transparent border, no background. Next to a full-height `<select>` and a
+   segmented control, which that rule does not touch, the result was the four
+   different control heights in the screenshot that came with "fix/redesign
+   the ui, layout, alignment, sizing". The dock is `.doc-dock` now and shares
+   only the separator. */
 .doc-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1002,6 +1030,16 @@ body.resizing-sidebar {
   width: 100%;
   margin-top: var(--space-4);
   text-align: left;
+}
+
+/* Same button in the Documents sidebar, reported separately: centred there
+   rather than left — the chat sidebar's list items it echoes are left-aligned
+   rows of text, but the Documents sidebar has no such column for it to line
+   up with, so a left-aligned button just read as pushed to one side under a
+   list that isn't. */
+#doc-browse-all {
+  text-align: center;
+  justify-content: center;
 }
 
 #conversation-list li {

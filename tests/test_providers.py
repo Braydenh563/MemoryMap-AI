@@ -561,3 +561,185 @@ def test_the_moved_helpers_were_moved_and_not_copied():
     source = Path("src/memorymap/ai/ollama_client.py").read_text(encoding="utf-8")
     assert "class _ToolTextGate" not in source
     assert "def extract_text_tool_calls" not in source
+
+
+# --- retrying a transient 5xx (reported live: a chat call and a captioning
+# call both failing on a plain 500 and succeeding on the exact resend) ------
+
+
+def _queued_post(monkeypatch, target, responses):
+    """Monkeypatch `target.requests.post` to hand back `responses` in order,
+    one per call — the shape both retry tests below need: a first call that
+    fails, a second that doesn't."""
+    calls = {"n": 0}
+    queue = list(responses)
+
+    def fake_post(*args, **kwargs):
+        calls["n"] += 1
+        return queue.pop(0)
+
+    monkeypatch.setattr(f"{target}.requests.post", fake_post)
+    return calls
+
+
+def _skip_show_probe(client, model="m"):
+    """`chat`'s options block calls `context_length`, which calls `show` —
+    a separate `/api/show` POST, cached per model. Pre-filling the cache
+    keeps these retry tests' fake_post queues counting only the `/api/chat`
+    calls they actually mean to test."""
+    client._context_lengths[model] = None
+    client._shown[model] = {}
+
+
+def test_ollama_chat_retries_once_on_a_transient_500(monkeypatch):
+    calls = _queued_post(
+        monkeypatch,
+        "memorymap.ai.ollama_client",
+        [
+            FakeResponse(status=500, text="Internal Server Error"),
+            FakeResponse(payload={"message": {"content": "hi"}}),
+        ],
+    )
+    client = OllamaClient(base_url="http://127.0.0.1:1")
+    _skip_show_probe(client)
+    result = client.chat("m", [{"role": "user", "content": "hi"}])
+    assert result["content"] == "hi"
+    assert calls["n"] == 2
+
+
+def test_ollama_chat_does_not_retry_a_non_transient_4xx(monkeypatch):
+    """A 400 (bad request, model not found) means retrying changes nothing —
+    only a 5xx from the backend itself is worth a silent resend."""
+    calls = _queued_post(
+        monkeypatch,
+        "memorymap.ai.ollama_client",
+        [FakeResponse(status=400, text="model not found")],
+    )
+    client = OllamaClient(base_url="http://127.0.0.1:1")
+    _skip_show_probe(client)
+    with pytest.raises(OllamaError):
+        client.chat("m", [{"role": "user", "content": "hi"}])
+    assert calls["n"] == 1
+
+
+def test_ollama_chat_gives_up_after_a_second_500(monkeypatch):
+    """One retry, not an infinite loop — a backend still down on the resend
+    should fail exactly like it always has."""
+    calls = _queued_post(
+        monkeypatch,
+        "memorymap.ai.ollama_client",
+        [
+            FakeResponse(status=500, text="Internal Server Error"),
+            FakeResponse(status=500, text="Internal Server Error"),
+        ],
+    )
+    client = OllamaClient(base_url="http://127.0.0.1:1")
+    _skip_show_probe(client)
+    with pytest.raises(OllamaError):
+        client.chat("m", [{"role": "user", "content": "hi"}])
+    assert calls["n"] == 2
+
+
+def test_ollama_chat_stream_retries_once_on_a_transient_500(monkeypatch):
+    # Ollama's own dialect: one raw JSON object per line, no `data:` prefix
+    # (that's the OpenAI/`sse()` shape, which chat_stream never parses).
+    line = json.dumps({"message": {"content": "hi"}, "done": True})
+    calls = _queued_post(
+        monkeypatch,
+        "memorymap.ai.ollama_client",
+        [
+            FakeResponse(status=500, text="Internal Server Error"),
+            FakeResponse(lines=[line]),
+        ],
+    )
+    client = OllamaClient(base_url="http://127.0.0.1:1")
+    _skip_show_probe(client)
+    pieces = list(client.chat_stream("m", [{"role": "user", "content": "hi"}]))
+    assert any(p.get("content_delta") == "hi" for p in pieces)
+    assert calls["n"] == 2
+
+
+def test_openai_chat_retries_once_on_a_transient_500(capture_post, openai_client):
+    capture_post.queue.extend(
+        [
+            FakeResponse(status=500, text="Internal Server Error"),
+            FakeResponse(payload={"choices": [{"message": {"content": "hi"}}]}),
+        ]
+    )
+    result = openai_client.chat("m", [{"role": "user", "content": "hi"}])
+    assert result["content"] == "hi"
+    assert len(capture_post.sent) == 2
+
+
+# --- a 500 on the tools path -----------------------------------------------------
+#
+# Reported live: a skill run died with `500 Server Error … /api/chat` on a 3B
+# abliterated GGUF, twice in a row, while ordinary chat with the same model
+# worked. Ollama answers 400 "does not support tools" for a model that declares
+# none — but a model whose *chat template* breaks on the tools path answers
+# 500, and for the user those are the same situation. Community finetunes and
+# re-quants hit this often, because the template is what gets rewritten.
+
+
+@pytest.fixture()
+def ollama():
+    client = OllamaClient(base_url="http://127.0.0.1:1")
+    client._context_lengths = {"m": 8192}
+    return client
+
+
+def _server_error():
+    import requests as rq
+
+    response = FakeResponse(status=500)
+    return rq.exceptions.HTTPError("500 Server Error", response=response)
+
+
+def test_a_model_whose_tools_path_500s_falls_back_instead_of_failing(ollama, monkeypatch):
+    """The probe: the same messages without `tools` succeed, so the tools half
+    is what is broken and the caller can still answer."""
+    monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: True)
+    monkeypatch.setattr(
+        "memorymap.ai.ollama_client.requests.post",
+        lambda *a, **k: (_ for _ in ()).throw(_server_error()),
+    )
+    with pytest.raises(ToolsUnsupportedError):
+        ollama.chat_tools("m", [{"role": "user", "content": "hi"}], [{"type": "function"}])
+
+
+def test_a_real_outage_is_still_reported_as_one(ollama, monkeypatch):
+    """A genuine 500 — the backend is down, a model is still swapping in — must
+    not be recorded as "this model can't use tools". Permanently disabling a
+    working model because the server hiccuped is worse than the error."""
+    monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: False)
+    monkeypatch.setattr(
+        "memorymap.ai.ollama_client.requests.post",
+        lambda *a, **k: (_ for _ in ()).throw(_server_error()),
+    )
+    with pytest.raises(OllamaError) as caught:
+        ollama.chat_tools("m", [{"role": "user", "content": "hi"}], [{"type": "function"}])
+    assert not isinstance(caught.value, ToolsUnsupportedError)
+
+
+def test_a_turn_that_offered_no_tools_never_probes(ollama, monkeypatch):
+    """Nothing to fall back from, so the extra request would be pure cost on a
+    path that has already failed."""
+    probed = []
+    monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: probed.append(1) or True)
+    monkeypatch.setattr(
+        "memorymap.ai.ollama_client.requests.post",
+        lambda *a, **k: (_ for _ in ()).throw(_server_error()),
+    )
+    with pytest.raises(OllamaError):
+        ollama.chat_tools("m", [{"role": "user", "content": "hi"}], [])
+    assert probed == []
+
+
+def test_the_probe_asks_without_tools_and_caps_the_reply(ollama, capture_post):
+    """It is a probe, not an answer: one token is enough to know whether the
+    request is accepted at all."""
+    capture_post.queue.append(FakeResponse(payload={"message": {"content": "ok"}}))
+    assert ollama._tools_path_is_broken("m", [{"role": "user", "content": "hi"}], None)
+    sent = capture_post.sent[-1]["json"]
+    assert "tools" not in sent
+    assert sent["options"]["num_predict"] == 1

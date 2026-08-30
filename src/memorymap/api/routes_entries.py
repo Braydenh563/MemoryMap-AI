@@ -29,7 +29,7 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps
+from memorymap.core import deps, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     Document,
     EmbeddingRecord,
@@ -179,6 +179,19 @@ def _existing_entry(session: Session, entry_id: int):  # noqa: ANN202
     return deps.get_or_404(session, Entry, entry_id, "Entry not found")
 
 
+def _process_committed_media(session: Session, plaintext_content: str) -> None:
+    """Trigger OCR/captioning/vision-OCR for every `/media/…` upload this
+    (plaintext, pre-encryption) note content references — see
+    core/media_process.py's own docstring for why this fires here rather
+    than on upload. Best-effort: an image reference to an upload that's
+    already gone, or one already processed, is a fast no-op either way."""
+    from memorymap.core import media_process
+
+    media_process.process_referenced_uploads(
+        session, deps.get_config().data_dir / "media", plaintext_content
+    )
+
+
 @router.post("", response_model=EntryOut, status_code=201)
 def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> EntryOut:
     parent = None
@@ -246,6 +259,14 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     for document_id in dict.fromkeys(body.document_ids):
         if session.get(Document, document_id) is not None:
             manager.link_document(session, document_id, entry.id)
+
+    # A note is one of the three "committed" moments core/media_process.py
+    # waits for (asked for directly: OCR/captioning/vision-OCR must not run
+    # on a staged upload that never made it into a saved note). `body.content`
+    # here — never `entry.content` — is deliberate: a private note's stored
+    # content may already be encrypted at rest, and this is the plaintext
+    # that was actually just submitted, before that happens.
+    _process_committed_media(session, body.content)
 
     return _to_out(
         session, entry, filed_by=filed_by, similar=_find_near_duplicate(session, entry)
@@ -710,6 +731,22 @@ def get_entry(
         raise HTTPException(status_code=404, detail="Entry not found")
     if not entry.is_deleted:
         entry.access_count += 1  # opening an entry counts as using it
+        # A private note has no audit trail at all otherwise — encrypted at
+        # rest and invisible to the AI is the whole promise, but nothing
+        # recorded *when* one was actually opened and decrypted for
+        # reading, which is the one thing that would tell you if that
+        # promise had ever been tested. Scoped to private notes only: every
+        # other note already has plenty of activity logged elsewhere (see
+        # the Library's own "activity is 93%+ of a real notebook" note) and
+        # doesn't need a second entry for the same open.
+        # Only when the vault is actually open — readable_content() returns
+        # a placeholder ("Private note — unlock to read it.") rather than
+        # the real text when it's locked, and logging "decrypted" for a
+        # request that decrypted nothing is worse than not logging at all:
+        # a trail meant to build confidence that lies about what happened
+        # is the one bug this feature cannot afford.
+        if bool(getattr(entry, "is_private", False)) and vault.key() is not None:
+            manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
     return _to_out(session, entry)
 
@@ -764,6 +801,11 @@ def update_entry(
         except Exception:
             session.rollback()
             logger.warning("couldn't sync wiki links for entry %s", entry.id, exc_info=True)
+        # Same "committed" trigger point as create_entry — an edit can be
+        # the first time an image the note already referenced actually
+        # gets saved (a staged upload attached, then the note edited to
+        # include it, rather than created with it already there).
+        _process_committed_media(session, body.content)
     return _to_out(session, entry)
 
 

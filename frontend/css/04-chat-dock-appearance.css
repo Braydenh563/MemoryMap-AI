@@ -1910,6 +1910,45 @@ button {
   display: none;
 }
 
+/* The composer's suggestion line (app.js, `renderChatNudge`). Styled as a
+   quiet aside rather than a banner on purpose: it appears while you are
+   mid-sentence, and anything with a coloured background there reads as an
+   error about what you have typed. The accent is on the left border only —
+   enough to say "this is the app talking", not enough to pull your eye off
+   the box. */
+.chat-nudge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-size: 0.85rem;
+}
+
+.chat-nudge.hidden {
+  display: none;
+}
+
+.chat-nudge-mark {
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+/* The sentence gives up the width, not the buttons — a nudge whose action is
+   clipped off the right edge is a nudge you cannot take. */
+.chat-nudge-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.chat-nudge-dismiss {
+  flex: 0 0 auto;
+}
+
 .attachment-chip {
   display: inline-flex;
   align-items: center;
@@ -1943,8 +1982,19 @@ button {
   cursor: zoom-in;
 }
 
+/* The generic `.attachment-chip > span:first-child` ellipsis rule below
+   never matches here: this chip's actual first child is the <img>, not a
+   span, so the filename span (`:first-child` requires it be both) fell
+   through with no width limit and ran past the 8rem card — reported
+   directly, with a screenshot, as a staged image's filename overflowing
+   its card. Flex's own blockify+stretch (the column layout above) gives
+   this span a definite width already; it only needed the same three
+   overflow properties the sibling rule uses. */
 .attachment-chip-image>span:first-of-type {
   font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .entry-attachment-chip-actions {
@@ -2332,6 +2382,60 @@ button {
   flex-direction: column;
 }
 
+/* The preview goes BESIDE the editor, which is what #doc-preview-toggle's own
+   tooltip has always promised ("Show a rendered preview beside the editor")
+   what `.doc-panes`'s own grid rules were written for. None of them ever
+   applied: `#doc-panes` above is an id selector and wins the cascade over
+   every `.doc-panes` rule, so `display: flex; flex-direction: column` stayed
+   in force and the preview stacked *underneath* instead — leaving the narrow-
+   screen override in 05-sidebars-themes.css collapsing a grid that was never
+   a grid.
+   Measured live at 1440x900 with the preview on: the textarea went 556px ->
+   206px tall and the preview took the 337px below it — two half-height panes
+   in a column, which is precisely the reported "the windows and panes get
+   squished together". The fix has to be on the id selector to actually land.
+
+   `min-width: 0` on the children is not optional: a flex item's default
+   `min-width: auto` refuses to shrink below its content, and a long unbroken
+   line in either pane would push the pair wider than the card. */
+#doc-panes.split {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+#doc-panes.split>.doc-source-wrap,
+#doc-panes.split>.doc-preview {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Side by side stops being an improvement once each pane is a narrow column of
+   broken words. Below this the two go back to stacking, which is the layout
+   the id rule accidentally gave everyone — but now deliberately, and only
+   where it is the better of the two. */
+@media (max-width: 60rem) {
+
+  #doc-panes.split {
+    flex-direction: column;
+  }
+}
+
+/* "Read" mode: the rendered document on its own, no editor. #doc-panes is
+   already a column flexbox and .doc-preview already grows into it, so the
+   layout needs nothing — but a measure does. In Split each pane is about half
+   of ~1200px and lines land near the 70-90 characters prose wants; alone at
+   full width the same paragraph runs the whole card and reading it means
+   tracking back across the page. The cap restores the measure Split gets for
+   free, and `margin: 0 auto` keeps the column centred rather than pinned left
+   with a wide empty gutter beside it. The padding is roomier than Split's for
+   the same reason: nothing is competing for the width any more. */
+#doc-panes.reading>.doc-preview {
+  max-width: 46rem;
+  margin: 0 auto;
+  width: 100%;
+  padding: 1.5rem;
+}
+
 /* Set by app.js the moment a person drags #doc-content's native resize
    handle. Without it #doc-panes keeps flex-growing to fill .doc-main at its
    pre-resize height regardless of the textarea now being shorter, and the
@@ -2348,10 +2452,172 @@ button {
   margin: 0;
 }
 
-.doc-toolbar {
-  gap: 0.5rem;
+/* --- the dock above the editor ------------------------------------------------
+   Title on the left, everything else on the right, wrapping between the two
+   rather than through the middle of a control group. See the note on
+   `.doc-toolbar` in 05-sidebars-themes.css for why these are no longer the
+   same class. */
+.doc-dock {
+  /* **Declared here, not inherited.** `--control-h` is scoped to
+     `.library-toolbar` and `.library-controls` — it is not a global token —
+     so the height rules below resolved to an invalid value and did nothing
+     at all, silently, which is why the first attempt at this measured four
+     different heights again (45 / 43 / 27 / 22 / 18px). The same shape as
+     the appearance-defaults bug in CLAUDE.md: a value that is invalid where
+     it is *used*, not where it is set, does its damage nowhere near the code
+     that caused it. Same 2.3rem the Library toolbar picks, so a control is
+     the same size in both places. */
+  --control-h: 2.3rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
+}
+
+/* **One height for everything in the row**, declared once — the same rule the
+   Library toolbar keeps, and the reason that row aligns. A `<select>`, a
+   segmented control and a `.ghost.small` each arrive from a different base
+   rule and each size themselves; measured against each other they were three
+   different heights on one line. */
+.doc-dock .ghost.small,
+.doc-dock .doc-file-type,
+.doc-dock .seg {
+  height: var(--control-h);
+}
+
+.doc-dock .ghost.small {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 0;
+}
+
+/* **The select needs its block padding zeroed too, or the height clips the
+   text.** Reported with a dark-mode screenshot: "the elements in the top
+   documents dock are misaligned, have the text cut off, not the same height".
+   The base `select` rule sets `padding: var(--space-4) var(--space-5)` and
+   `line-height: 1.5`; with `box-sizing: border-box` and a fixed 2.3rem
+   height, the padding eats the line box from both ends and the glyphs are
+   sliced top and bottom. Every other control here is a button, which is why
+   this was the only one that showed it. */
+.doc-dock .doc-file-type {
+  padding-block: 0;
+  line-height: var(--control-h);
+}
+
+/* The title row's two controls share a height of their own — taller than the
+   action row's, because the title is set at 1.15rem and a 2.3rem box around
+   it reads as cramped. Declared on the row so the pair can never disagree. */
+.doc-dock-identity {
+  --identity-h: 2.75rem;
+}
+
+.doc-dock-identity > .doc-title-input,
+.doc-dock-identity > .doc-file-type {
+  height: var(--identity-h);
+  line-height: var(--identity-h);
+  margin-bottom: 0;
+}
+
+/* **The kebab has to be visible.** Reported: "the kebab button is hard to
+   see." It was a bare `.ghost.small.icon-button`, which in dark mode is a
+   glyph on the page background with no edge at all — next to a segmented
+   control and two bordered buttons, it read as a stray character rather than
+   a control. Same resting border every other button in this row carries. */
+.doc-dock .doc-dock-menu-btn {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-h);
+}
+
+.doc-dock .doc-dock-menu-btn:hover,
+.doc-dock-menu[open] > .doc-dock-menu-btn {
+  background: var(--chip-bg);
+  border-color: var(--accent);
+}
+
+.doc-dock .seg button {
+  padding-block: 0;
+}
+
+/* **The title gets its own line, and the controls get the whole width.**
+   Measured at 1400px with the document sidebar open: the dock is about
+   1018px wide, and a title sharing that row on `flex: 1 1 12rem` took half
+   of it — leaving ~500px for a status group, a select, a four-way segment
+   and three buttons, which wrapped onto two more rows. Giving the title the
+   full row costs one line of height and buys the actions the space to sit on
+   one, which is what the screenshot behind this was asking for. */
+.doc-dock > .doc-dock-identity {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.doc-dock > .doc-actions {
+  flex: 1 1 100%;
+}
+
+/* Status facts as one group, so a narrow window breaks the bar between the
+   status and the actions instead of between two buttons that belong
+   together. `margin-right: auto` is what puts the group on the left of that
+   row and everything else on the right — the dock's own `space-between` only
+   ever separated the title from all of this. */
+.doc-dock-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: auto;
+}
+
+.doc-saved {
+  /* Reserved so "Saving…" → "Saved" does not shift the controls to its right
+     by a few pixels twice a minute while someone types. Left-aligned and
+     sitting directly against the stats: right-aligning it inside its own
+     reserved box is what produced the empty channel that got reported. */
+  min-width: 4rem;
+  text-align: left;
+}
+
+/* The kebab: export and delete, which were a third of the bar and are the
+   three least-used controls on it. */
+.doc-dock-menu {
+  position: relative;
+}
+
+.doc-dock-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.doc-dock-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.doc-dock-menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 5;
+  min-width: 15rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  padding: var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+.doc-dock-menu-item {
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
+  white-space: nowrap;
 }
 
 .doc-title-input {
@@ -2376,15 +2642,21 @@ button {
 }
 
 .doc-actions {
-  gap: 0.25rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
 }
 
+/* **One reserved width, not two, and not right-aligned.** Reported as the
+   "saved text…oddly in a weird visual gap": this rule reserved 4.5rem and
+   right-aligned *every* muted span in the row, and `.doc-saved` reserved
+   another 4.5rem of its own — so "Saved" sat right-aligned inside a 4.5rem
+   box that was itself padded away from the word count beside it, leaving a
+   channel of empty space with nothing in it. The stats line sizes to its
+   text; only the save state reserves room, because only it changes width as
+   you type. */
 .doc-actions .muted {
   font-size: 0.8rem;
-  min-width: 4.5rem;
-  text-align: right;
 }
 
 /* A goal that's set says so with the accent, the same way the chat dock's
@@ -2395,10 +2667,136 @@ button {
   color: #fff;
 }
 
-/* One pane by default; two side by side when the preview is on. `#doc-panes`
-   (same element, higher specificity, below) sets the layout that actually
-   applies — flex column, not grid — so this rule's own `display`/`min-height`
-   were dead and never noticed; only `gap` was live. */
+/* --- the code editor: gutter + monospace ------------------------------------ */
+
+/* The textarea and its line-number gutter, as one unit. #doc-panes lays out
+   *this* beside the preview now, not the bare textarea. */
+.doc-source-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  gap: 0;
+}
+
+.doc-source-wrap.hidden {
+  display: none;
+}
+
+/* A textarea cannot render per-line content, so the numbers are a sibling
+   painted from the same text and scroll-locked to it (documents.js,
+   `renderDocGutter`). Everything that affects where a line sits vertically —
+   font, size, line-height, vertical padding — MUST match #doc-content
+   exactly, or the numbers drift out of step with the code by one row per
+   screenful and the whole thing reads as broken. That is why they are
+   declared together here rather than each near its own rule. */
+.doc-gutter,
+#doc-content.doc-content-code {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.doc-gutter {
+  flex: 0 0 auto;
+  overflow: hidden;
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
+  border: 1px solid var(--glass-border);
+  border-right: 0;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--card);
+  color: var(--muted);
+  text-align: right;
+  white-space: pre;
+  /* Selecting the code should not drag the line numbers along with it. */
+  user-select: none;
+}
+
+.doc-gutter.hidden {
+  display: none;
+}
+
+/* Square off the shared edge so the pair reads as one control rather than
+   two boxes that happen to touch. */
+#doc-content.doc-content-code {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.doc-file-type {
+  /* On the title row now, where there is room for the whole label — it was
+     truncated to "Markdow…" at 9rem on the action row, which is the width
+     that row could spare. */
+  max-width: 13rem;
+  flex: 0 0 auto;
+}
+
+/* --- Live Preview ------------------------------------------------------------ */
+
+/* The rendered document you write into (documents.js, `renderDocLive`).
+   Scrolls as one piece — the blocks inside are flow content, not panes. */
+.doc-live {
+  flex: 1 1 auto;
+  min-height: 12rem;
+  overflow-y: auto;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.doc-live.hidden {
+  display: none;
+}
+
+/* A rendered block. The hover tint is the only thing telling you these are
+   editable at all — without it the pane looks like the read-only preview it
+   sits next to in the mode switcher. */
+.lp-block {
+  padding: 0.05rem 0.25rem;
+  border-radius: var(--radius-sm);
+  cursor: text;
+}
+
+.lp-block:hover {
+  background: var(--card-bg-hover);
+}
+
+/* An empty paragraph still has to be clickable, or a new document has
+   nowhere to put the caret and the mode looks broken. */
+.lp-block-empty {
+  min-height: 1.5rem;
+}
+
+/* The block being edited: raw markdown, monospaced so the syntax reads as
+   syntax, and marked with the accent so it is obvious which one is live.
+   Height is set from content by JS — a fixed height would clip a long
+   paragraph or leave a hole after a short one. */
+.lp-src {
+  display: block;
+  width: 100%;
+  margin: 0.05rem 0;
+  padding: 0.25rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: inherit;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  /* JS owns the height; the browser's own grip would fight it. */
+  resize: none;
+  overflow: hidden;
+}
+
+/* Only `gap` is live here. Everything about the layout itself is on
+   `#doc-panes` above, because an id selector beats this class and a rule that
+   loses the cascade is a rule that looks correct while doing nothing — which
+   is exactly how the preview spent this long stacking below the editor
+   instead of sitting beside it. Anything layout-shaped added later belongs on
+   the id, not here. */
 .doc-panes {
   gap: 0.8rem;
 }
@@ -2524,6 +2922,51 @@ button {
    capped so a long notebook cannot push the dialog past the viewport. */
 .entry-pick-card {
   width: min(32rem, calc(100vw - var(--space-8)));
+}
+
+/* pickMediaDialog's own grid — thumbnails, not the text-row list
+   .entry-pick-list uses for notes, since a picture is the one kind of
+   result that's worth recognising by sight rather than reading a title. */
+.media-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: var(--space-2);
+  max-height: 40vh;
+  margin-top: var(--space-3);
+  overflow-y: auto;
+}
+
+.media-pick-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.media-pick-tile:hover,
+.media-pick-tile:focus-visible {
+  border-color: var(--border);
+  background: var(--card-bg-hover);
+}
+
+.media-pick-tile img {
+  width: 100%;
+  height: 4.5rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.media-pick-tile span {
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .entry-pick-list {

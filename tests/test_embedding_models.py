@@ -106,7 +106,10 @@ def test_a_running_download_appears_in_the_shared_task_list(client, monkeypatch)
     assert job is not None, "the download is running but /tasks doesn't know"
     assert "bge-small" in job["name"] or job["name"] == "bge-small"
     assert "Downloading" in job["label"]
-    assert job["cancellable"] is False
+    # Quittable, with an honest promise: `snapshot_download` cannot be
+    # interrupted mid-file, so the stop takes effect between attempts and the
+    # message says the downloaded bytes are kept rather than thrown away.
+    assert job["cancellable"] is True
 
 
 def test_a_failed_download_is_recorded_in_task_history(monkeypatch):

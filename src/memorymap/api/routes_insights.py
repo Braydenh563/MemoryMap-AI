@@ -401,12 +401,22 @@ def weekly_digest_stream(session: Session = Depends(get_session)) -> StreamingRe
             yield event({"type": "done", "cacheable": False})
             return
 
+        digest_style = config.get_preference("communication_style", "friendly")
+        digest_persona = librarian.resolve_persona_prompt(None, config)
         messages = librarian.build_messages(
             DIGEST_QUESTION + digest_structure_note(session),
             notes,
-            style=config.get_preference("communication_style", "friendly"),
+            style=digest_style,
             profile="",
-            persona_prompt=librarian.resolve_persona_prompt(None, config),
+            persona_prompt=digest_persona,
+            # The digest is the worst case for an unbudgeted prompt: it hands
+            # over a week of notes at once, so "however many turned up" was
+            # never a number anyone checked. Budgeted against the utility
+            # model, which is what streams it below — and which is often the
+            # *small* model, with the smallest window in the app.
+            budget=librarian.plan_budget(
+                model_manager.utility_model(), ollama, digest_style, "", digest_persona
+            ),
         )
         try:
             for piece in ollama.chat_stream(model_manager.utility_model(), messages):

@@ -101,8 +101,12 @@ def test_the_embedding_warm_up_is_a_visible_job(client, monkeypatch):
     monkeypatch.setattr(embeddings_module, "warmup_running", lambda: True)
     task = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "embeddings")
     assert "90 MB" in task["detail"]
-    # Nothing useful happens if you kill it half-way through a download.
+    # **The one job with no Quit button, and the only one.** It is a single
+    # blocking model load with nothing to check a flag between, so a button
+    # would be a lie. The detail text has to say so, or a missing button reads
+    # as a missing feature.
     assert task["cancellable"] is False
+    assert "stopped part-way" in task["detail"]
 
 
 def test_the_searxng_install_is_a_visible_job(client, monkeypatch):
@@ -113,7 +117,9 @@ def test_the_searxng_install_is_a_visible_job(client, monkeypatch):
     monkeypatch.setitem(searxng_manager._install_state, "step", "Unpacking SearXNG…")
     task = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "searxng")
     assert task["detail"] == "Unpacking SearXNG…"
-    assert task["cancellable"] is False
+    # Quittable since `core/bgtasks.py` — it is the longest silence in the app
+    # (pip building lxml for minutes) and was the job most worth stopping.
+    assert task["cancellable"] is True
 
 
 def test_a_long_job_carries_its_progress_and_its_output(client, monkeypatch):
@@ -195,7 +201,9 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
     assert elapsed, start[0]["detail"]
     assert 12 <= int(elapsed.group(1)) <= 20, start[0]["detail"]
     assert 0 < start[0]["progress"] < 1
-    assert start[0]["cancellable"] is False
+    # Quitting a start means stopping the thing being waited for, which is
+    # what someone pressing Quit on "Starting SearXNG" means.
+    assert start[0]["cancellable"] is True
 
 
 def test_nothing_is_listed_once_the_start_finishes(client):

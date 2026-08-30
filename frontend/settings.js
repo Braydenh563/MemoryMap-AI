@@ -147,7 +147,10 @@ function showSettingsSection(name) {
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
-  if (name === "data") renderBackups();
+  if (name === "data") {
+    renderBackups();
+    renderBackupRetention();
+  }
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
 }
@@ -203,13 +206,38 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   const isDesktop = await desktopShell();
   $("desktop-console-row").classList.toggle("hidden", !isDesktop);
   $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
+  // Desktop-only for the same reason the console row is: there is no tray in
+  // a browser tab, and a setting whose effect is unreachable reads as broken.
+  $("desktop-tray-row")?.classList.toggle("hidden", !isDesktop);
+  $("desktop-tray-hint")?.classList.toggle("hidden", !isDesktop);
+  // Same reasoning as the tray/console rows above: /system/restart can only
+  // ever do something in the packaged desktop app on Windows specifically
+  // (the one platform _spawn_desktop knows how to relaunch), not desktop in
+  // general — but this app's own convention (the console row just above)
+  // is to gate on desktop-ness alone and let the backend's own platform
+  // check be the final word, so a browser tab never even offers the button
+  // while a desktop build on macOS/Linux still can — and finds out only
+  // when it actually tries, rather than a client-side guess going stale
+  // the moment this app ships a real relaunch for those platforms too.
+  $("about-restart-row").classList.toggle("hidden", !isDesktop);
   $("open-exports-row").classList.toggle("hidden", !isDesktop);
   $("export-save-dir-row").classList.toggle("hidden", !isDesktop);
   if (isDesktop) $("pref-export-dir").value = prefsCache?.export_save_dir || "";
   if (isDesktop) {
     $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
+    // Defaults to on, and `?? true` rather than `Boolean(...)` matters: an
+    // install that has never touched this has no stored value, and Boolean()
+    // of undefined would render the default as off.
+    $("pref-close-to-tray").checked = prefsCache?.close_to_tray ?? true;
   }
+  // Rebuilt each open rather than once at startup: the list reflects saved
+  // preferences, and those can change from another window or a restore.
+  renderStatusBarSettings();
   showSettingsSection(section);
+  // Re-read every open, not cached: the panel shows what the *currently
+  // selected* model recommends, and changing the chat model is the most likely
+  // reason to come back here.
+  loadSamplingSettings();
   if (!suggestedCatalog) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
   }
@@ -1448,16 +1476,80 @@ function renderCustomThemes() {
     return;
   }
   for (const theme of themes) {
-    const chip = document.createElement("div");
-    chip.className = "theme-chip";
-    const apply = smallButton(theme.name, `Apply “${theme.name}”`, () => applySavedTheme(theme), false);
-    const remove = smallButton("✕", `Delete “${theme.name}”`, () => {
-      deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
-    });
-    remove.classList.add("ghost");
-    chip.append(apply, remove);
-    box.appendChild(chip);
+    box.appendChild(savedThemeCard(theme));
   }
+}
+
+//: One saved look, shown as the look rather than as its name.
+//:
+//: It was a text pill and a ✕ — which told you a look called "Sea of
+//: Prosperity" existed but nothing about what it was, so picking between five
+//: of them meant applying each in turn and undoing it. A saved *look* is a set
+//: of colours; showing the colours is the whole job of this control.
+//:
+//: The values are already stored (`currentLookValues`), so the preview is the
+//: real thing, not an illustration: the same accent, page and card colours the
+//: look will apply. A theme saved before a given key existed simply falls back
+//: to the current value for that swatch, which is also what applying it does.
+function savedThemeCard(theme) {
+  const values = theme.values || {};
+  // Built from the keys a look actually stores (OVERRIDABLE_KEYS in app.js),
+  // not from invented ones: the accent is either a custom hex or the name of a
+  // preset whose swatch ACCENTS already holds, and light/dark is what decides
+  // every neutral around it. Anything the saved look does not carry falls back
+  // to the live theme, which is also what applying it would do.
+  const named = (ACCENTS || []).find((a) => a.name === values.accent);
+  const accent = values["accent-custom"] || named?.swatch || cssVarNow("--accent");
+  const dark = (values.theme || document.documentElement.dataset.theme || "dark") !== "light";
+  const page = dark ? "#12141c" : "#f5f6f9";
+  const surface = dark ? "#1b1f2b" : "#ffffff";
+  const ink = dark ? "#e7e9ee" : "#1f2430";
+
+  const card = document.createElement("div");
+  card.className = "saved-look";
+
+  const preview = document.createElement("button");
+  preview.type = "button";
+  preview.className = "saved-look-preview";
+  preview.title = `Apply “${theme.name}”`;
+  preview.setAttribute("aria-label", `Apply the saved look “${theme.name}”`);
+  preview.style.background = page;
+  // A miniature of the thing itself: a card on the page colour, a line of ink
+  // on it, and the accent as the one saturated element — which is how the real
+  // interface is composed.
+  const mini = document.createElement("span");
+  mini.className = "saved-look-mini";
+  mini.style.background = surface;
+  const line = document.createElement("span");
+  line.className = "saved-look-line";
+  line.style.background = ink;
+  const dot = document.createElement("span");
+  dot.className = "saved-look-dot";
+  dot.style.background = accent;
+  mini.append(line, dot);
+  preview.appendChild(mini);
+  preview.addEventListener("click", () => applySavedTheme(theme));
+
+  const foot = document.createElement("div");
+  foot.className = "saved-look-foot";
+  const name = document.createElement("span");
+  name.className = "saved-look-name";
+  name.textContent = theme.name;
+  name.title = theme.name;
+  const remove = smallButton("ph:x", `Delete “${theme.name}”`, () => {
+    deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
+  });
+  remove.classList.add("ghost", "icon-button", "saved-look-delete");
+  foot.append(name, remove);
+
+  card.append(preview, foot);
+  return card;
+}
+
+//: One resolved custom property, for building a preview out of the live theme
+//: when a saved look predates a given key.
+function cssVarNow(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "";
 }
 
 // "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.
@@ -2375,11 +2467,13 @@ $("glass-opacity").addEventListener("input", (e) => {
   $("glass-opacity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
-$("zoom-slider").addEventListener("input", (e) => {
-  localStorage.setItem("zoom", e.target.value);
-  $("zoom-value").textContent = `${e.target.value}%`;
-  applyAppearance();
-});
+// All four routes go through app.js's setZoom, so the slider, the buttons, the
+// Ctrl+/- shortcut and the command palette cannot disagree about the range,
+// the step, or where the value is stored.
+$("zoom-slider").addEventListener("input", (e) => setZoom(Number(e.target.value)));
+$("zoom-in")?.addEventListener("click", () => nudgeZoom(1));
+$("zoom-out")?.addEventListener("click", () => nudgeZoom(-1));
+$("zoom-reset")?.addEventListener("click", () => setZoom(100));
 for (const btn of document.querySelectorAll("#border-style-seg button")) {
   btn.addEventListener("click", () => {
     localStorage.setItem("border-style", btn.dataset.borderChoice);
@@ -2547,3 +2641,162 @@ if (bgArtOn()) startBgArt();
 // before any of these split files (a vendor `<script>` tag, ahead of
 // app.js's own) — draw once everything this file owns is defined too.
 renderBrandLogo();
+
+// --- advanced response settings (sampling) -------------------------------------
+//
+// Asked for directly: expose top-k, top-p, repeat penalty and the rest,
+// "because different models require different parameters to get the same
+// result", and detect them per model if that is possible.
+//
+// It is, and the detection is not a guess: a GGUF ships its author's
+// recommended parameters, Ollama reports them in /api/show, and the server
+// reads them (see ai/sampling.py). Every row therefore starts at what the
+// model itself asks for, and says so — "0.6 because this model recommends it"
+// and "0.6 because you set it" are different facts and only the second has
+// anything to revert to.
+//
+// The knob table comes from the server rather than being repeated here, for
+// the same reason the file-type table does: a slider whose range disagrees
+// with what the backend accepts is a bug nobody can see until a request is
+// rejected.
+let samplingState = null;
+let samplingSaveTimer;
+
+async function loadSamplingSettings() {
+  const box = $("sampling-box");
+  if (!box) return;
+  samplingState = await apiJson("/models/sampling", { silent: true }).catch(() => null);
+  renderSamplingRows();
+}
+
+function renderSamplingRows() {
+  const host = $("sampling-rows");
+  if (!host || !samplingState) return;
+  host.replaceChildren();
+
+  $("sampling-model").textContent = samplingState.model
+    ? `Showing what ${samplingState.model} recommends for itself.`
+    : "";
+  // The OpenAI-compatible dialect has no endpoint that reports a model's own
+  // parameters, and accepts only temperature and top-p. Saying so beats a
+  // panel that silently does less than it appears to.
+  $("sampling-note").textContent = samplingState.reports_model_defaults
+    ? ""
+    : "This backend doesn't report what a model recommends, so these start at "
+      + "the server's defaults. Only temperature and top-p are sent to an "
+      + "OpenAI-compatible server.";
+
+  for (const knob of samplingState.knobs) {
+    const row = document.createElement("div");
+    row.className = "sampling-row";
+
+    const head = document.createElement("div");
+    head.className = "row space-between";
+    const label = document.createElement("label");
+    label.className = "sampling-label";
+    label.textContent = knob.label;
+    label.htmlFor = `sampling-${knob.name}`;
+    const source = document.createElement("span");
+    source.className = "chip sampling-source";
+    head.append(label, source);
+
+    const help = document.createElement("p");
+    help.className = "muted text-sm";
+    help.textContent = knob.help;
+
+    const controls = document.createElement("div");
+    controls.className = "row gap sampling-controls";
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.id = `sampling-${knob.name}`;
+    slider.min = knob.min;
+    slider.max = knob.max;
+    slider.step = knob.step;
+    const readout = document.createElement("output");
+    readout.className = "sampling-value";
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "ghost small icon-button";
+    setLabel(reset, "ph:arrow-counter-clockwise");
+    reset.title = `Use what ${samplingState.model || "the model"} recommends`;
+    reset.setAttribute("aria-label", reset.title);
+
+    const paint = () => {
+      const overridden = knob.name in samplingState.overrides;
+      const value = samplingState.effective[knob.name];
+      // No value from any layer means the backend's own default, which is a
+      // real state and not zero — the slider has to show *something*, so it
+      // sits at the midpoint and the label says the number is not ours.
+      const shown = value === undefined
+        ? (Number(knob.min) + Number(knob.max)) / 2
+        : value;
+      slider.value = shown;
+      readout.textContent = value === undefined ? "backend default" : String(value);
+      const from = samplingState.sources[knob.name];
+      source.textContent =
+        from === "you" ? "you set this" : from === "model" ? "from the model" : "default";
+      source.classList.toggle("sampling-source-user", overridden);
+      reset.disabled = !overridden;
+    };
+    paint();
+
+    // Dragging a slider fires `input` on every pixel. Saved on a trailing
+    // timer rather than per event — the same shape every other debounced
+    // control in this app uses, since there is no shared helper.
+    const save = () => {
+      clearTimeout(samplingSaveTimer);
+      samplingSaveTimer = setTimeout(async () => {
+        try {
+          await apiJson("/models/sampling", {
+            method: "PUT",
+            body: JSON.stringify({ overrides: samplingState.overrides }),
+          });
+        } catch {
+          toast("Couldn't save that setting.", true);
+        }
+        await loadSamplingSettings();
+      }, 400);
+    };
+
+    slider.addEventListener("input", () => {
+      const raw = Number(slider.value);
+      const value = knob.integer ? Math.round(raw) : Number(raw.toFixed(4));
+      samplingState.overrides[knob.name] = value;
+      samplingState.effective[knob.name] = value;
+      samplingState.sources[knob.name] = "you";
+      paint();
+      save();
+    });
+    reset.addEventListener("click", async () => {
+      // Deleting the override *is* the reset — there is no separate stored
+      // "default", which is what lets a different model bring its own.
+      delete samplingState.overrides[knob.name];
+      try {
+        await apiJson("/models/sampling", {
+          method: "PUT",
+          body: JSON.stringify({ overrides: samplingState.overrides }),
+        });
+      } catch {
+        toast("Couldn't reset that setting.", true);
+      }
+      await loadSamplingSettings();
+    });
+
+    controls.append(slider, readout, reset);
+    row.append(head, help, controls);
+    host.appendChild(row);
+  }
+}
+
+$("sampling-reset")?.addEventListener("click", async () => {
+  try {
+    await apiJson("/models/sampling", {
+      method: "PUT",
+      body: JSON.stringify({ overrides: {} }),
+    });
+    toast("Back to what each model recommends.");
+  } catch {
+    toast("Couldn't reset those settings.", true);
+  }
+  await loadSamplingSettings();
+});

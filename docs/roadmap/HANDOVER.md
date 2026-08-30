@@ -1,6 +1,218 @@
 # Session handover
 
-## New session — `settings.js` split out of app.js (§88.3's fourth and last file — the split is done)
+## New session — a cross-conversation data bug, prompt cost, tool focus (§94)
+
+**Full narrative in HISTORY.md §94.** Branch `claude/post-v0.1.4-nav-fixes`.
+2,351 tests pass; ruff clean.
+
+### Read these three first
+
+1. **`ai/toolwords.py` is new and it is the tool focus now.** `tools.focus_for`
+   delegates to it. Scores **rank, never gate** — that is written down twice
+   because getting it backwards silently removes a capability. `focus_detail`
+   carries the cues for the log.
+2. **A turn owns its conversation.** `sendChatMessage` pins `convRef` and
+   guards every UI write with `viewing()`. If you add a save or a header write
+   to that function, it must use `convRef`, not `chatConv` — reading the live
+   global is exactly the bug that was fixed.
+3. **`context.plan` + `agent.tools_guide(window)` + `tools.compact_schemas`**
+   are one system now. `tests/test_prompt_budget.py` pins the result; if it
+   fails, the prompt grew, and the number in the assertion is the measurement,
+   not a preference.
+
+### Traps this session paid for
+
+- **`pkill -f "port 87xx"` kills your own shell.** It is in CLAUDE.md, it cost
+  an hour last session, and it still caught me twice this session because my
+  own command line contains the pattern. Get the PID from `ps` and `kill` that.
+- **A stale uvicorn is indistinguishable from a broken fix.** `/documents/file-types`
+  returned an int-parsing error for a route that was correctly ordered in the
+  source, because the running server predated it.
+- **CSS `100vw` is not the whiteboard's width.** Its panels are positioned
+  inside `#wb-canvas-view` — 960px in a 1024px window. Measure both rectangles.
+- **Word-boundary matching breaks plurals.** `\bdocument\b` does not match
+  "documents". Substring matching had that right by accident.
+
+### What is still open
+
+- **`app.js` is 22,317 lines** and should be split further. The data: 87
+  section headers, the largest 15 sections are 50% of the file. The clean
+  first extraction is **`chat.js`** — "ask", the chat tab, image attachment,
+  the agent run timeline and the chat-dock disclosure are ~3,300 contiguous
+  lines of one domain, and it follows the §88.3 pattern that already produced
+  documents.js, library.js, dashboard.js and settings.js. Not started: it is a
+  refactor with real regression risk and no user-visible gain, and there were
+  functional requests outstanding.
+- **The `ocr` model entries are unverified *as Ollama pulls*.** The repos and
+  file sizes were checked against the live Hub, but nobody has run
+  `ollama pull hf.co/ggml-org/GLM-OCR-GGUF:Q8_0` from this app.
+- **Not verified in a browser**: `scripts/splash.ps1` (this sandbox is Linux
+  with no PowerShell — its tests cover the contract between launcher, splash
+  and app, not the rendering), and printing to PDF from the editor's Read mode.
+
+## Prior session — the document editor rebuilt, six backlog items, a prompt-budget bug (§93)
+
+**Full narrative in HISTORY.md §93.** Branch `claude/post-v0.1.4-nav-fixes`,
+five commits.
+
+**Start here if you are picking this up.** Two things are open and both are
+named below under *What is still open*: the universal document **viewer**
+(ROADMAP item, backend built this session, no frontend), and its scanned-PDF
+path, which cannot work until something in this environment can rasterise a
+PDF page.
+
+### What was built
+
+- **The hybrid document editor** (ROADMAP item 0). Four views in
+  `#doc-view-seg` — **Live** (render-as-you-write, the caret's block showing
+  its raw markdown), **Source**, **Split**, **Read** (the finished document
+  alone, full width, 46rem measure). `documents.js`: `setDocView`,
+  `docPreviewShowing`, `docLiveBlocks`/`renderDocLive`/`docLiveEditor`.
+- **File types on documents.** `core/filetypes.py` (26 types, one table),
+  `GET /documents/file-types`, `Document.file_type`. A code type turns on a
+  line-number gutter, monospace, Tab/Shift+Tab indent/dedent and Ctrl+/
+  commenting with that language's own marker; it hides the markdown toolbar
+  and disables the three rendered views.
+- **Six backlog items**: agent-mode and skill auto-detect nudges in the
+  composer, sub-process start/finish notices, AI follow-up chips
+  (`ai/followups.py`, `POST /chat/followups`), graph minimap drag/wheel/
+  keyboard zoom, and the token-efficiency pass below.
+- **`core/docview.py`** — text extraction for the universal viewer, plus
+  `GET /files/{id}/text`. Backend only.
+
+### The two bugs worth remembering
+
+1. **The untooled chat prompt had no token budget at all.** `build_messages`
+   never called `context.fit_notes`/`fit_history` on the streaming path,
+   only the tooled one — a module wired into one call site but not its
+   sibling. Measured: 6,240 → 744 tokens on a 4k window, unchanged on 32k.
+   `librarian.plan_budget` is now the single entry point; check its callers
+   before adding a third.
+2. **`loadDocFileTypes()` ran before unlock.** It was called once at the
+   bottom of `documents.js`, so its fetch 401'd, the cache was set to `[]`,
+   and nothing ever asked again — an empty `<select>` for the whole session
+   with nothing logged and no line reading wrong. It is now called from
+   `loadDocuments` (always post-unlock) and is a no-op once loaded. **This is
+   the same shape as the `APPEARANCE_DEFAULTS` bug in CLAUDE.md**: state that
+   is wrong where it is *used*, set somewhere that looks fine. A browser
+   found it; reading the source twice had not.
+
+### The trap that cost this session an hour
+
+The running uvicorn was older than `routes_documents.py`, so
+`/documents/file-types` was being swallowed by `/documents/{document_id}`
+and returning an int-parsing error. The frontend fix above was correct and
+still showed an empty picker, because the *server* was stale. CLAUDE.md says
+to restart after any Python change; this is what it costs when you don't.
+`kill <pid>` by PID — `pkill -f "port 87xx"` matches your own shell.
+
+### What is still open
+
+- **The universal document viewer's frontend.** `docview.extract()` and
+  `GET /files/{id}/text` work and are tested; nothing renders them yet.
+- **Scanned PDFs.** The vision-model OCR path is written and takes a
+  `vision_reader` callable, but **no PDF rasteriser exists in this
+  environment** — pypdfium2, fitz, pdf2image, PIL and markitdown are all
+  absent, so there is no way to turn a PDF page into an image to send it.
+  `docview.py`'s docstring says so plainly and the user-facing message does
+  too. Do not report this path as working. (Tesseract stays out by explicit
+  instruction — vision model only.)
+- **Not verified in a browser**: printing to PDF from Read mode, and any
+  touch/pinch interaction. Everything else in the editor was measured live
+  in Chromium at 1440x900.
+
+## Prior session — vision-OCR, AI-edit verb set + changelog, staged-upload fix (§92)
+
+**Full narrative in HISTORY.md §92.** Four pieces: the vision-OCR extractor
+mode (a manual/automatic-on-commit reader distinct from Tesseract and
+captioning); the inline-image remove button from §91's "could not
+reproduce" — it recurred with a specific location and turned out to be a
+real closure bug (`match` reused across a parsing loop, every dismiss
+button's click threw `null[0]` before the confirm dialog could open);
+`POST /documents/{id}/ai-edit` reskinned with a `write`/`remove` verb set
+alongside the original `edit`, plus a durable per-document AI-edit
+changelog (`DocumentAiEdit`) with its own Revert, on top of the existing
+global undo stack; and a correction to this same session's own earlier
+choice — OCR/captioning/vision-OCR moved from firing on `/media/upload`
+itself to firing when something is actually committed (a saved note, a
+sent chat turn, a saved document, or a whiteboard image placed — plus a
+`direct` flag for the Library's own upload button), via new
+`core/media_process.py`. Found and fixed along the way: a sent chat
+image had no record anywhere that anything still used it, so
+`media_gc.py`'s orphan-cleanup tool couldn't see conversations and would
+have deleted real, sent attachments — `TurnBody.image_media_ids` now
+persists it and `media_gc` checks it.
+
+**Also**: the Settings → Models suggested-downloads list now groups by
+kind (Text/MoE/Embeddings/Vision) with a heading per group instead of only
+naming the kind inline on every row. Not screenshot-verified this session
+— Ollama isn't reachable in this sandbox, so `#suggested-box` stays
+hidden and the render path had to be forced open by hand; lint-clean and
+code-reviewed only.
+
+**A reported UI bug not fully closed**: "a weird gap and a stray cut-off
+element to the left of the Semantic toggle" in the Library's toolbar (and,
+by the shared `.library-search` class, potentially the Notes tab's own
+toolbar too), asked about three times with rising specificity. Tested live
+across ~20 viewport widths (600px–1920px) and could not reproduce the
+exact symptom. Applied one real, defensible fix regardless —
+`.library-search` had `min-width: 0`, which really can let a flex item
+collapse to an unreadable sliver at some width; given a floor
+(`min-width: 8rem`) instead. If it's still visible after this, the next
+session needs the user's actual window width (or an un-cropped
+screenshot) rather than more blind width-testing — every width tried here
+either kept the search box a normal size or wrapped the later controls to
+a second line first, never collapsed it.
+
+**Still not started, in the order asked for**: ROADMAP.md item 0 (the
+Notion/Obsidian hybrid live-rendering editor); the universal VS-Code-like
+document viewer/editor (docx/pdf/md/code/html-rendered/excel/csv/txt,
+with OCR for scanned, non-selectable PDF pages — a real, separate feature
+from the image vision-OCR built this session, not yet started); the six
+BACKLOG.md items from §91 (agent-mode auto-detect popup, skill
+auto-detect popup, sub-process start/completion notifications, a deeper
+chat token-efficiency pass, AI follow-up suggestions, graph minimap
+drag-to-zoom); and two newly-logged BACKLOG.md ideas (compression/archival
+for rarely-used content, and extending the existing agent-mode
+chat-history-search tool to plain conversational chat). A final
+complexity/security self-review of this session's own diff has not been
+done yet either — do that before considering this batch closed.
+
+## Prior session — a bug-fix batch (§91), then a branch restart
+
+**PR #132 (the `library.js` split, and everything else this branch had at
+the time) merged mid-session.** Per this repo's own merged-PR protocol, the
+branch was restarted from `origin/main` under a new name,
+`claude/post-v0.1.4-nav-fixes` — `claude/app-split-library-mihepz` is done
+and should not be pushed to again. The in-flight document/Graph-focus-mode
+nav fix (ROADMAP.md item 13, already committed locally) carried across
+cleanly onto the new branch before the restart.
+
+**Then: a live-reported bug-list pass, all in §91 (HISTORY.md has the full
+narrative; BACKLOG.md logs six items scoped-but-not-started).** Root-caused
+by reproducing each one live (Playwright against a real running instance)
+rather than reasoning from source — orphaned chat-image uploads on remove,
+"Grounded in" chips not persisting, a provider-level retry for transient
+5xx failures (Ollama *and* OpenAI-compatible), captioning's model/edited
+badge plus its missing background-task visibility plus a "generating"
+state plus a poll so a background-finished caption actually shows up, and
+five smaller CSS/UI fixes. Full test suite green (0 failures), `ruff`
+clean, pushed as commit `7bbbf81`.
+
+**Not started, by direct instruction, next in priority order**: vision OCR
+as its own extractor mode (a new model-pull UI, distinct from the
+already-built vision-chat/captioning features — verify what's actually
+missing before building, the same "check before rebuilding" rule that
+caught four false starts already this project); the AI editor's reskin
+into a general document assistant (a new write/remove verb set on the AI
+edit route); ROADMAP.md's item 0, the Notion/Obsidian-style hybrid
+live-rendering editor (already scoped there in detail, already the top
+priority — this *is* what "notion/obsidian redesign" was asked for);
+finally a full scan for complexity/bugs/security issues missed elsewhere.
+Each is independently substantial (new backend routes, new UI, or both);
+none was safe to start half-scoped in whatever was left of this session.
+
+## Prior session — `settings.js` split out of app.js (§88.3's fourth and last file — the split is done)
 
 The settings modal, logs console, and appearance (theme, accent, curated
 palettes, saved looks, the generative-background preview) — the last piece

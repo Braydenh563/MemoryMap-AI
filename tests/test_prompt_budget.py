@@ -384,3 +384,258 @@ def test_a_small_model_can_still_ask_the_user_a_question():
     kept, dropped = tools.within_budget(offered, tools.SMALL_WINDOW_CHARS - 1)
     assert "ask_user" in [t["function"]["name"] for t in kept]
     assert "make_plan" in dropped
+
+
+# --- the untooled path's own budget -------------------------------------------
+#
+# `ai/context.py` was written to keep one turn inside one model's window, and
+# for a long time it was wired into `agent.build_agent_messages` and nowhere
+# else. `librarian.build_messages` — what "Ask the Librarian" and the Notes Ask
+# box use — had no total cap at all: `UNTOOLED_NOTE_CHARS` bounds ONE note at
+# 2,400 characters and `history_messages` bounds ONE past answer, and nothing
+# bounded their sum.
+#
+# These are the tests that stop it drifting back. They assert the property that
+# matters (the assembled prompt fits) rather than any particular number, so
+# retuning the shares in context.py does not break them.
+
+
+def _fat_notes(count: int) -> list[dict]:
+    """Notes long enough that every one of them is clipped individually — so
+    what is being measured is the total, not the per-note clip."""
+    return [
+        {
+            "id": i,
+            "category": "Ideas",
+            "content": f"Note {i}. " + ("padding words here " * 400),
+        }
+        for i in range(1, count + 1)
+    ]
+
+
+class _SmallWindow:
+    """Just enough of the provider interface for `plan_budget`."""
+
+    DEFAULT_CONTEXT_TOKENS = 4096
+
+    def __init__(self, tokens: int) -> None:
+        self.tokens = tokens
+
+    def usable_context(self, model: str) -> int:
+        return self.tokens
+
+
+def test_the_untooled_prompt_fits_a_small_models_window():
+    """Ten long notes at UNTOOLED_NOTE_CHARS is ~24,000 characters of notes
+    alone — about 6,000 tokens, past a 4,096-token window in its entirety
+    before the persona, the history or the question are counted. What a model
+    does with an overrun is drop from the front, which is the system prompt.
+    """
+    budget = librarian.plan_budget("small:3b", _SmallWindow(4096))
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), budget=budget
+    )
+    total = sum(len(m.get("content", "")) for m in messages)
+    assert total <= 4096 * CHARS_PER_TOKEN
+
+
+def test_without_a_budget_the_same_prompt_overruns():
+    """The other half of the pair: this is what the path did before, and it is
+    why the parameter exists. A test that only asserted the fixed version
+    would pass just as happily if `fit_notes` were quietly removed again."""
+    messages = librarian.build_messages("What did I save?", _fat_notes(10))
+    total = sum(len(m.get("content", "")) for m in messages)
+    assert total > 4096 * CHARS_PER_TOKEN
+
+
+def test_dropped_notes_are_declared_not_silently_cut():
+    """A model that knows its notes were cut will hedge; one that does not
+    will answer as though it saw the whole notebook, which is the
+    confident-and-wrong failure this app exists to avoid."""
+    budget = librarian.plan_budget("small:3b", _SmallWindow(4096))
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), budget=budget
+    )
+    assert "did not fit" in messages[-1]["content"]
+
+
+def test_a_big_window_keeps_every_note():
+    """The budget must not cost anything to someone running a large model —
+    it is a ceiling, not a target."""
+    budget = librarian.plan_budget("big:70b", _SmallWindow(128_000))
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), budget=budget
+    )
+    assert "did not fit" not in messages[-1]["content"]
+    assert "10. [Ideas]" in messages[-1]["content"]
+
+
+def test_a_long_custom_persona_leaves_less_room_not_an_overrun():
+    """The persona is user-editable, which is why `context.plan` measures it
+    rather than assuming a length. A 3,000-character persona has to come out
+    of the notes' share, not out of the window."""
+    persona = "You are a librarian. " * 150
+    budget = librarian.plan_budget("small:3b", _SmallWindow(4096), persona_prompt=persona)
+    messages = librarian.build_messages(
+        "What did I save?", _fat_notes(10), persona_prompt=persona, budget=budget
+    )
+    total = sum(len(m.get("content", "")) for m in messages)
+    assert total <= 4096 * CHARS_PER_TOKEN
+
+
+def test_plan_budget_survives_a_provider_with_no_usable_context():
+    """`usable_context` is part of the provider interface, but a fake or a
+    future backend may not carry it — and a working turn beats a 500."""
+
+    class Bare:
+        DEFAULT_CONTEXT_TOKENS = 4096
+
+    budget = librarian.plan_budget("mystery", Bare())
+    assert budget.notes_chars > 0
+
+
+# --- fitting a prompt to a small model ------------------------------------------
+#
+# Added from a live report: *"agent mode and chats are too heavy for small
+# models and have a too small context window"*. Measured on a real turn with an
+# 8k-window model, eight notes and no history at all, the prompt broke down as
+# system 3,288 chars, notes-and-question 2,377, tool schemas 4,827 — the
+# schemas cost nearly twice what the user's own notes did, and the whole thing
+# came to 32% of the window before the conversation had started.
+
+
+def test_compacting_schemas_keeps_every_tool_and_its_arguments():
+    """The trim must only touch prose. Names and parameters are what the model
+    actually calls the tool with — shortening any of them produces malformed
+    calls, not a smaller prompt."""
+    full = tools.ollama_tools()
+    compact = tools.compact_schemas(full)
+
+    assert [t["function"]["name"] for t in compact] == [
+        t["function"]["name"] for t in full
+    ]
+    for before, after in zip(full, compact):
+        bp = (before["function"].get("parameters") or {}).get("properties") or {}
+        ap = (after["function"].get("parameters") or {}).get("properties") or {}
+        assert set(bp) == set(ap)
+        for key in bp:
+            assert bp[key].get("type") == ap[key].get("type")
+    assert tools.schema_chars(compact) < tools.schema_chars(full)
+
+
+def test_a_tight_window_loses_description_before_it_loses_a_tool():
+    """Dropping a tool changes what the app can do; trimming a description
+    only changes how verbosely it is explained. So the trim goes first."""
+    every = tools.ollama_tools()
+    budget = tools.budget_for_window(8192)
+
+    kept, _dropped = tools.within_budget(every, budget)
+    # More tools survive than the same budget would fit at full verbosity.
+    fits_uncompacted = 0
+    running: list[dict] = []
+    for spec in every:
+        if tools.schema_chars(running + [spec]) > budget:
+            break
+        running.append(spec)
+        fits_uncompacted += 1
+    assert len(kept) > fits_uncompacted
+
+
+def test_a_roomy_window_still_gets_the_long_descriptions():
+    """Compaction is a response to pressure, not the new default: the long
+    descriptions are what stop a model reaching for the wrong tool."""
+    every = tools.ollama_tools()
+    kept, dropped = tools.within_budget(every, tools.budget_for_window(32_768))
+    assert not dropped
+    # Same tools (the order is by priority, not input order) with their
+    # descriptions untouched — nothing was trimmed to make them fit.
+    by_name = {t["function"]["name"]: t for t in kept}
+    assert set(by_name) == {t["function"]["name"] for t in every}
+    for original in every:
+        name = original["function"]["name"]
+        assert by_name[name]["function"]["description"] == (
+            original["function"]["description"]
+        )
+
+
+def test_a_small_window_gets_the_short_tools_guide():
+    assert agent.tools_guide(4096) is agent.COMPACT_TOOLS_GUIDE
+    assert agent.tools_guide(8192) is agent.COMPACT_TOOLS_GUIDE
+    assert agent.tools_guide(32_768) is agent.TOOLS_GUIDE
+    # An unreported window is not a small one — that is a provider that did not
+    # say, and guessing "tiny" would quietly degrade a large model.
+    assert agent.tools_guide(None) is agent.TOOLS_GUIDE
+
+
+def test_the_short_guide_keeps_the_rules_a_model_gets_wrong_without_them():
+    """A truncation of the long guide would lose the honesty rule, which sits
+    at its end. This is a rewrite, and these are the parts that must survive."""
+    guide = agent.COMPACT_TOOLS_GUIDE.lower()
+    assert "never say you created" in guide          # claiming work never done
+    assert "not the whole" in guide.replace("—", "") # a page is not the notebook
+    assert "count_notes" in guide                    # how to get a real total
+    assert "private notes are invisible" in guide
+    assert "what_to_do" in guide                     # recovering from a failure
+    assert len(agent.COMPACT_TOOLS_GUIDE) < len(agent.TOOLS_GUIDE) // 2
+
+
+def test_a_small_model_spends_under_a_quarter_of_its_window_on_fixed_cost(session):
+    """A regression guard on the whole prompt, not one part of it.
+
+    The reported symptom was never "the schemas are big" — it was *"chat
+    conversation token usage seems abnormally high"* and *"agent mode and chats
+    are too heavy for small models"*. Both are about the total, so that is what
+    this pins.
+
+    Fixed cost means what every round pays before the conversation exists: the
+    system prompt, the tool schemas, and one page of notes. On an 8k window that
+    was 2,623 tokens — 32% of everything the model had, with zero history. It is
+    now under a quarter, and the difference is room for the notes and the
+    conversation, which are what actually run out.
+
+    The threshold is deliberately loose. This exists to catch a prompt growing
+    back by a third, not to argue about fifty tokens.
+    """
+    from memorymap.core.database import Entry
+
+    for i in range(20):
+        session.add(
+            Entry(content=f"Note {i}: the quarterly budget review. " * 12, tags="budget")
+        )
+    session.commit()
+    notes = [
+        {"id": e.id, "content": e.content, "category": "Work",
+         "tags": e.tags, "created_at": "2026-08-01"}
+        for e in session.query(Entry).limit(8).all()
+    ]
+
+    question = "what did I write about the budget?"
+    window = 8192
+    guide = agent.tools_guide(window)
+    budget = context.plan(window, len(guide) + 480)
+    messages = agent.build_agent_messages(
+        question, notes, style="normal", profile="", history=[],
+        persona_prompt="", budget=budget, mode="agent",
+    )
+    offered = tools.ollama_tools(tools.focus_for(question, ""))
+    if window <= agent.SMALL_WINDOW_TOKENS:
+        offered = tools.compact_schemas(offered)
+    kept, _ = tools.within_budget(offered, budget.tool_schema_chars)
+
+    # System prompt + tool schemas: the part that is identical on every round
+    # and carries none of the user's own content. The notes are excluded on
+    # purpose — those are what the room is *for*, and a turn that spends its
+    # budget on notes is working correctly, not bloated.
+    fixed = len(messages[0]["content"]) + tools.schema_chars(kept)
+    share = (fixed / context.CHARS_PER_TOKEN) / window
+    assert share < 0.20, (
+        f"fixed prompt is {share:.0%} of an 8k window ({fixed:,} chars). "
+        "It was 27% (6,795 chars: a 3,288-char guide and 4,827 of schemas) "
+        "before this was fixed."
+    )
+    # And the model still has real tools — the saving must not have come from
+    # quietly handing it an empty toolbox.
+    assert len(kept) >= 8
+    # The notes still got a real share of what was freed, rather than the
+    # saving being banked and left unspent.
+    assert len(messages[-1]["content"]) > 1500

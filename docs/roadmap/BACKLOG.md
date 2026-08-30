@@ -2359,3 +2359,301 @@ has been scoped; they are here so the finding is not lost with the session.
   this launcher, not a small addition to an existing one. Scoping this
   properly (what shows, on both start.bat and start.sh, in both browser-tab
   and desktop mode) is its own session, not a follow-on to the app.js split.
+- **Agent-mode auto-detection with a confirmation popup.** Asked for
+  directly: when the AI notices a chat message looks like it needs agent
+  mode (tools/multi-step work) but the user isn't in it, offer to switch
+  with a confirmation popup in the chat — and if the user isn't on the Chat
+  tab when this comes up, a notification instead, same as for other things
+  needing the user's input mid-run. Needs real scoping before building: what
+  actually triggers the detection (a cheap heuristic vs. a model call before
+  every message — the latter costs a round trip per message, which cuts
+  against the token-efficiency ask two items below), and how it interacts
+  with `skillManual`/step-by-step mode already in the agent loop.
+- **Skill auto-detection with a confirmation popup.** Same shape as the
+  item above, for the app's saved Skills instead of agent mode: detect when
+  a user's chat message matches an existing skill and ask before running
+  it, rather than requiring the user to invoke it by name. Same open
+  question about what the detection costs per message.
+- **Start/completion notifications for named sub-processes.** Asked for
+  directly, naming "renaming with AI," "generating title," and "other
+  things" as examples — a toast or notification when one of these begins,
+  and a second one confirming success (or failure) once it ends, rather
+  than the current silent-until-done (or silently-failed) behaviour.
+  `core/taskhistory.py` already gives failed/completed background jobs a
+  home (this session wired captioning into it, §91) and
+  `recordNotification` (app.js) already exists for the notification centre
+  half — the gap is the *in-progress* half: nothing currently fires when
+  one of these starts, only when it ends. Scoping needed: which calls count
+  as "sub-processes" worth this treatment (every `apiJson` call would be
+  far too noisy) — likely the same handful already named plus whatever else
+  already blocks the UI behind a spinner (caption generate/regenerate,
+  link-reason generation, the AI edit route).
+- **A deeper token-efficiency and small-model-suitability pass on chat and
+  agent prompts.** Asked for directly: "see if the token usage and
+  consumption in chats can be reduced and made more efficient... make all
+  processes in the chat tab and backend suitable and well designed for
+  smaller models as well as larger models." `agent.PROSE_BUDGET_CHARS` is
+  already asserted (CLAUDE.md), and this session's provider-level retry
+  fix (§91) reduces one concrete waste — a failed call needing a manual
+  resend that re-sends the whole prompt again. Nothing beyond that has been
+  measured this session: a real pass would need to profile actual prompt
+  sizes across the librarian/agent/skill paths against a range of context
+  windows (the app already tracks `usable_context` per model) and look for
+  prompt content that scales with notebook size rather than staying flat.
+- **AI follow-up question suggestions in chat and the Ask sub-tab.** Asked
+  for directly: after an answer, offer 2-3 suggested follow-up questions,
+  in both the Chat tab's conversations and the Notes tab's Ask sub-tab.
+  `loadChatSuggestions()` (app.js) already exists for a *different* kind of
+  suggestion (conversation starters, empty-state only) — this would be a
+  new per-answer suggestion, generated from the answer just given, most
+  likely reusing the existing chat model rather than a new route.
+- **Graph minimap drag-to-zoom, plus pinch/keyboard zoom.** Asked for
+  directly: click-and-drag a rectangle over the graph's minimap to redefine
+  the main view's window/position/zoom to match, and two-finger
+  pinch-zoom (touch) plus a keyboard zoom in/out, matching what the main
+  graph canvas already supports. `graph.js` already owns the minimap
+  rendering and the main canvas's own zoom/pan handlers — this extends
+  both rather than adding a new subsystem, but the minimap's own hit-testing
+  and coordinate-mapping (screen rect → graph viewport) isn't scoped yet.
+- **Compression/archival for rarely-used notes, documents, files and
+  chats.** Asked for directly: let the user compress content they don't
+  touch much and restore it on demand, at three possible granularities —
+  one item, a whole space, or a group matched by some rule — with chat
+  conversations floated as a candidate too. Worth doing, but genuinely
+  underspecified before it's buildable, and the open questions matter more
+  than the mechanism:
+  - **What "compressed" means here.** Gzipping a markdown row saves little
+    (SQLite text compresses well already at the filesystem/backup level,
+    and notes/documents are what semantic search, the graph and the AI's
+    retrieved context all read directly — compressing the row means every
+    one of those needs a decompress-on-read path, or has to skip
+    compressed items, which is a correctness change dressed as a storage
+    optimisation). What plausibly does help: `MediaUpload` files
+    (whiteboard photos, attachments) are actual binary weight, so
+    archiving *those* — moving cold files to a separate on-disk location,
+    or genuinely compressing image bytes — is the more defensible half of
+    this idea.
+  - **What "rarely used" means.** `Entry.access_count` already exists and
+    is the obvious signal, but nothing currently reads it for this
+    purpose; a real design needs a threshold (count, or count-since-last-N-
+    days) and a way to preview what would be archived before it happens.
+  - **Automatic-by-criteria is the riskier half.** A background job that
+    silently archives content on its own schedule needs to be very sure it
+    never removes something the user is about to look for — at minimum a
+    dry-run/preview step and an easy bulk-restore, closer in spirit to
+    `media_gc.py`'s existing "dry run first, refuse rather than guess"
+    posture than to a fire-and-forget cron job.
+  - Chat conversations specifically are already the cheapest form of this:
+    they are pure JSON text with no embeddings or graph edges pointing at
+    them, so "compress" there could mean something as simple as excluding
+    older, unpinned conversations from the default list view rather than
+    an actual archive format — worth deciding before building either.
+- **Can the AI read chat conversation history?** Partly already built and
+  worth knowing about rather than reopening blind: an agent-mode tool
+  (`ai/tools/__init__.py`, searches `Conversation.title`/`.messages` by
+  keyword) already lets the AI look up *other* saved chats by name/topic —
+  built specifically because "each turn only ever saw its own thread, so
+  the assistant had no memory of anything said in a different chat." Two
+  real gaps remain: it's an agent-mode tool, so it isn't reachable from a
+  plain conversational chat unless tools are enabled; and it searches by
+  keyword rather than being handed relevant history proactively the way
+  notes are via retrieval. Extending keyword search to embedding-based
+  recall, or surfacing it outside agent mode, is the open half of this.
+- **A note against ROADMAP.md §90 item 3** (upload any document type with a
+  real per-type viewer, not built yet — see there for the full ask):
+  asked for directly, when this gets built, a scanned/non-selectable PDF
+  page's text extraction should go through the vision model
+  (`ai/vision_ocr.py`'s existing shape — rasterise the page, transcribe it
+  the same way an image is today), **not** Tesseract+`pdf2image`/poppler.
+  "I primarily want this AI OCR to be separate from Tesseract... only want
+  to use an AI vision model for OCR for images and scanned documents" —
+  Tesseract (`core/ocr.py`) stays as the separate, already-built,
+  install-optional local path for raster images (it already degrades to
+  "extracts nothing" if not installed, so a notebook that never installs
+  it already gets exactly this today for images); the new PDF-page path
+  should not add a second dependency on it.
+
+---
+
+## §95 — the forward list
+
+Asked for directly: *"brainstorm new features and improvements… what features
+are missing, what should be added, what new capabilities?"* Written after a
+session that read most of the codebase, so these are shaped by what is
+actually there rather than by what a notes app generally has.
+
+**Ranked by (what it unlocks) ÷ (what it costs), not by size.** Anything
+already built is excluded — five items were dropped from this list during
+writing for exactly that reason, which is the standing lesson of this file.
+
+### A. Model and backend
+
+1. **llama.cpp, properly framed.** Now item A in ROADMAP.md. The app already
+   speaks to `llama-server`; what is missing is saying so, detecting it via
+   `/props` (which reports the real `n_ctx`), and *then* deciding whether
+   in-process `llama-cpp-python` is worth a per-accelerator wheel matrix.
+2. **Model health card.** The app knows a model's window, quantisation,
+   capabilities and — since §94 — its own recommended sampling parameters. It
+   has never shown them in one place with "what this means for you": *this
+   model has an 8k window, so a long chat will start dropping history around
+   turn twelve*. Every input already exists.
+3. **Per-task model routing, made explicit.** `utility_model` exists and the
+   smart-routing toggle exists, but a user cannot see *which* model answered
+   *which* background job. A one-line "filed by X, captioned by Y" in
+   Settings → Background tasks would make the setting legible.
+4. **A "this model is struggling" signal.** §94 added a probe that tells a
+   broken tools path from an outage. The same signal could be surfaced:
+   after two tool-path failures on one model, offer the tool-free mode
+   rather than silently degrading each turn.
+
+### B. Retrieval and context — where the real quality ceiling is
+
+5. **Show the context budget in the UI.** `context.plan` already rations
+   every part of the prompt and logs it. The chat has a percentage meter but
+   no breakdown, so "why didn't it see my note?" is unanswerable without the
+   log. A hover on the meter showing *system / notes / history / reply* is
+   nearly free and answers the single most common AI complaint.
+6. **Recency and pinning as retrieval signals.** Search ranks by relevance;
+   it does not know that a note pinned last week matters more than a
+   relevant one from 2023. Both columns exist.
+7. **Re-rank the top N with the utility model.** Hybrid search picks eight
+   notes; a 1B model scoring those eight for actual relevance to the question
+   costs one short call and is the standard fix for "it quoted the wrong
+   note".
+8. **Conversation summaries as retrieval targets.** `compress_chat` writes
+   summaries; nothing searches them. A question about something discussed a
+   month ago cannot reach it unless a note was made.
+
+### C. Capture — the half the app is named for
+
+9. **Web clipper.** `read_url` exists server-side; there is no bookmarklet or
+   share target, so saving a page means copy-paste.
+10. **Email-in.** A local IMAP poller filing into a category is a well-worn
+    pattern and turns the app into a capture destination rather than a place
+    you go.
+11. **Recurring notes / templates with dates.** Templates exist; they are
+    static. A daily-note template with today's date resolved is the single
+    most-requested feature in every notebook app.
+12. **Voice capture beyond dictation.** faster-whisper is already an extra.
+    A "record a thought" button that transcribes *and* files is a different
+    feature from dictating into a box.
+
+### D. Trust and safety
+
+13. **Private notes need an audit trail.** They are encrypted and invisible
+    to the AI, which is right — but nothing records *when* one was decrypted
+    for viewing. For the one feature whose whole value is confidence, that is
+    the missing half.
+14. **Export a single note/document.** Full export exists. There is no way to
+    hand one note to someone.
+15. **A dry-run mode for the agent.** `make_plan` shows intent, but a user
+    who wants "tell me what you would change without changing it" has to
+    trust the plan. A mode that collects the writes and shows a diff before
+    committing would make destructive skills usable by people who currently
+    avoid agent mode.
+
+### E. Polish worth doing as one pass
+
+16. **A real empty state for every tab.** Several are a bare "nothing here".
+17. **Keyboard-first navigation.** Shortcuts exist and are rebindable; there
+    is no way to *move* between notes without the mouse.
+18. **Undo for destructive skill runs.** Individual tools record undo; a run
+    that made twelve changes has twelve separate undos and no "undo that
+    run".
+19. **`app.js` is 22,000 lines.** The clean first extraction is `chat.js`
+    (~3,300 contiguous lines: ask, the chat tab, image attachment, the agent
+    timeline, the dock disclosure), following the §88.3 pattern that already
+    produced documents.js, library.js, dashboard.js and settings.js. No
+    user-visible gain, so it waits behind anything on this list that has one.
+20. **Backup retention should be a setting.** Backups accumulate with no cap
+    the user can see or change; asked about directly.
+
+### Deliberately not on this list
+
+- **Sync / multi-device.** It is the most-asked-for thing in every notebook
+  app and it is the one that would break this one: the app's premise is that
+  the data never leaves the machine, and every sync design either weakens
+  that or adds a server. If it is ever done it needs its own decision, not a
+  backlog line.
+- **A plugin system.** Skills already cover the "make the app do a new thing"
+  case without a new extension surface to secure.
+
+---
+
+## §96 — Guides, and diagrams the whiteboard can take
+
+Asked for directly, and the two halves belong together: both are about the AI
+producing *structured* output the user then owns.
+
+### Guides — curated instructions the AI writes to
+
+A **Guide** is a named, editable instruction set the AI pulls in when it is
+writing: how to scaffold an academic assignment, how this user wants LaTeX
+written, when a mermaid diagram is the right answer, a house style for
+meeting notes. Ships with curated ones; the user can edit any of them and add
+their own.
+
+**Why it is not a persona and not a skill**, which is the design question:
+
+- A **persona** changes *voice* and applies to everything.
+- A **skill** is a *procedure* the agent runs, start to finish.
+- A **Guide** is a *format contract* for one piece of output — it does not run,
+  it constrains. Several can apply at once (an assignment guide + a LaTeX
+  guide), which neither of the others allows.
+
+Shape:
+
+- Stored like skills (a table, editable in Settings), with a name, a trigger
+  hint, and the instruction body.
+- **Selected, not always-on.** Attached explicitly in the composer or the
+  document editor, and *offered* by the same deterministic matcher the tool
+  focus uses (`ai/toolwords.py`) — which already tells "write my assignment"
+  from "what is an assignment". Prompt budget is the reason: guides are prose,
+  prose is the fixed cost `§94` just spent a release cutting, and a guide that
+  silently attaches itself would undo that.
+- Budgeted the same way everything else is (`ai/context.py`), with its own
+  share, so a long guide crowds out notes visibly rather than silently.
+- Applies to all three surfaces the user named: chat replies, note drafting,
+  and `POST /documents/{id}/ai-edit`.
+
+**Open question worth answering before building:** whether a guide should be
+able to carry *examples* (few-shot) as well as instructions. Examples work far
+better on small models and cost far more tokens — probably a per-guide flag
+rather than a global decision.
+
+### Diagrams: mermaid as the interchange format
+
+The user's framing is the right one and worth keeping exactly: the AI writes
+**mermaid**, the user previews and edits the mermaid, and only when they are
+happy is it *exported* to the whiteboard as real cards, boxes and connectors —
+**with the mermaid kept**, so it can be re-edited or reused later.
+
+That ordering matters. `generate_diagram` already exists and writes straight
+to the whiteboard, which means a wrong diagram is a mess to undo. Mermaid as
+an intermediate makes the AI's output a *text artefact the user owns*: cheap to
+regenerate, diffable, editable by hand, and portable out of this app entirely.
+
+Work, in order:
+
+1. **Render mermaid where markdown already renders.** Fenced ```mermaid blocks
+   in chat, notes and documents. Nothing renders them today (`grep mermaid
+   frontend/` is empty), so today they show as code.
+2. **A preview + edit step** — the mermaid on one side, the rendered diagram on
+   the other. The document editor's Split view is the same shape and can be
+   reused rather than rebuilt.
+3. **Export to whiteboard**: mermaid AST -> whiteboard cards, shapes and links.
+   The whiteboard already has all three primitives and `wbArrangeMindMap`
+   already does tree/radial layout, so this is a translation, not a new engine.
+4. **Keep the source.** The generated mermaid is stored on the board it
+   produced, so "edit the diagram" can mean either "move this card" or "change
+   the text and re-export".
+
+### Related, and cheap: finish the rendering story
+
+Checked this session: chat, documents and the dashboard digest all go through
+`renderMarkdown`, but **notes deliberately do not** (see the comment at
+`app.js:3791`), and **no surface renders mermaid or highlights code**. Before
+any of the above, worth settling as one pass: which surfaces render markdown,
+whether code blocks get syntax highlighting, and whether notes should join —
+because "the AI wrote a diagram and I can't see it" and "my code block is
+grey" are the same gap.

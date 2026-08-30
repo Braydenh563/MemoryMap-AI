@@ -16,15 +16,15 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.ai import captioning
+from memorymap.ai import captioning, vision_ocr
 from memorymap.api.routes_entries import _existing_entry, _to_out
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, media_gc, ocr
+from memorymap.core import deps, docview, media_gc, media_process, ocr
 from memorymap.core.database import Attachment, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -131,6 +131,63 @@ def download_file(attachment_id: int, session: Session = Depends(get_session)) -
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
     return FileResponse(path, filename=attachment.filename, media_type=attachment.mime)
+
+
+class AttachedFileTextOut(BaseModel):
+    """One attached file, read as text for the in-app viewer."""
+
+    filename: str
+    #: "markdown" | "code" | "plain" — how to render `text`, not what the file
+    #: is. A converted .docx comes back as markdown, so it renders like one.
+    kind: str
+    #: "file" | "converted" | "vision-ocr". Shown to the reader, not merely
+    #: logged: a vision model's transcription of a scan is a *reading* of the
+    #: file, and presenting it identically to text read out of a .txt would be
+    #: the app stating a guess as a fact.
+    source: str
+    text: str = ""
+    truncated: bool = False
+    #: Why there is no text, when there is none. Never an error status: "this
+    #: file has no viewer yet" and "install markitdown" are both answers, and
+    #: a 4xx would make the viewer show a failure for a file that is fine.
+    message: str = ""
+
+
+@router.get("/files/{attachment_id}/text", response_model=AttachedFileTextOut)
+def attached_file_text(
+    attachment_id: int, session: Session = Depends(get_session)
+) -> AttachedFileTextOut:
+    """An attached file's text, for reading it without leaving the app.
+
+    Deliberately returns *text*, never the file. `download_file` above hands
+    the browser the bytes with `Content-Disposition: attachment`, and
+    `media_file` at the bottom of this module explains at length why serving
+    anything new inline is the thing to avoid. A viewer built by widening
+    either of those would inherit that problem once per file type; this one
+    cannot, because what it sends has already stopped being a .docx.
+
+    Read-only, and that is a property of the extraction rather than a missing
+    feature — see `core/docview.py`'s module docstring. Editing an attached
+    file's text would mean writing text back into a format it was never in.
+    """
+    attachment = _existing_attachment(session, attachment_id)
+    path = deps.get_config().uploads_dir / attachment.stored_name
+    # The scanned-PDF fallback, passed rather than omitted. `docview` has
+    # always taken a `vision_reader` and this — its only caller — passed
+    # nothing, so the whole path was wired and never once ran: exactly the
+    # "features that never executed" shape CLAUDE.md warns about. It only does
+    # any work for a PDF with no text layer, and only when the pdfpages extra
+    # and a vision model are both present; every other file returns before it
+    # is consulted.
+    viewed = docview.extract(path, vision_reader=vision_ocr.pdf_reader_or_none())
+    return AttachedFileTextOut(
+        filename=attachment.filename,
+        kind=viewed.kind,
+        source=viewed.source,
+        text=viewed.text,
+        truncated=viewed.truncated,
+        message=viewed.message,
+    )
 
 
 @router.delete("/files/{attachment_id}", response_model=EntryOut)
@@ -348,8 +405,24 @@ MEDIA_SUFFIXES = frozenset(
 
 
 @router.post("/media/upload")
-def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> dict:
-    """General file/image upload for drag-and-drop in markdown (documents & notes)."""
+def upload_media(
+    file: UploadFile,
+    direct: bool = Form(False),
+    session: Session = Depends(get_session),
+) -> dict:
+    """General file/image upload for drag-and-drop in markdown (documents &
+    notes), and for the Library's own direct "Upload images" button.
+
+    `direct` distinguishes the two: a note, document or chat composer
+    upload is *staged* — it may be discarded before ever being saved or
+    sent, so nothing runs on it here (see `direct` below) and OCR/
+    captioning/vision-OCR instead fire when whatever referenced it is
+    actually committed (`core/media_process.py`, called from the note,
+    document and conversation save routes). The Library's own upload
+    button sends `direct=True`: there is no separate "save" step for it —
+    the upload itself *is* the commit, the third case named directly
+    ("uploaded directly to the library").
+    """
     media_dir = deps.get_config().data_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
 
@@ -380,21 +453,14 @@ def upload_media(file: UploadFile, session: Session = Depends(get_session)) -> d
     session.add(upload)
     session.commit()
     session.refresh(upload)
-    # OCR (ROADMAP.md item 30d) runs on a background thread, never on this
-    # request — Tesseract can take a second or two per image, and nothing
-    # about "was the upload accepted" should wait on it. Raster images only
-    # (see ocr.OCR_SUFFIXES); a PDF here just never gets ocr_text, honestly.
-    if suffix in ocr.OCR_SUFFIXES:
-        ocr.extract_in_background(upload.id, destination)
-    # Captioning, same background-thread contract as OCR just above. Whether
-    # a vision model is actually resolvable (auto-detected or explicit —
-    # ModelManager.resolve_vision_model) is checked *inside*
-    # `caption_and_store`, not here: that check itself is a real Ollama
-    # round trip, and this request must stay as fast as the OCR branch
-    # above, not pay for one on every upload just to decide whether to spawn
-    # a thread that would make the same decision a moment later anyway.
-    if suffix in captioning.CAPTION_SUFFIXES:
-        captioning.caption_in_background(upload.id, destination)
+    # OCR, captioning and vision OCR (core/media_process.py) all run on a
+    # background thread, never on this request — Tesseract alone can take a
+    # second or two per image, and a vision-model round trip far longer.
+    # Only fired here for `direct=True` (the Library's own upload button);
+    # every staged upload gets processed later, at the moment it's actually
+    # committed — see this function's own docstring and media_process.py's.
+    if direct:
+        media_process.process_committed_upload(upload, media_dir)
     # `id` lets a caller that changes its mind (the capture form's own
     # attachment chip, removable with a click) call DELETE /media/{id}
     # instead of just detaching the markdown reference and leaving the
@@ -413,6 +479,27 @@ class MediaUploadOut(BaseModel):
     #: "" until captioning finishes (or never, no vision model available, or
     #: a PDF) — same never-null convention as ocr_text, same reason.
     caption: str = ""
+    #: Which model wrote `caption`, or "" when there is none or it was only
+    #: ever typed by hand. Surfaced so a caption reads as one model's guess,
+    #: not the app's own opinion (asked for directly).
+    caption_model: str = ""
+    #: True once a person has typed over an AI caption, or typed one from
+    #: scratch — see `MediaUpload.caption_edited`'s docstring.
+    caption_edited: bool = False
+    #: A vision model's verbatim transcription of text in the image
+    #: (`ai/vision_ocr.py`) — distinct from `ocr_text` (Tesseract) and from
+    #: `caption` (a description). "" until run, or when a run found no
+    #: legible text — same never-null convention as the other two.
+    vision_ocr_text: str = ""
+    #: Which model wrote `vision_ocr_text`, or "" when there is none.
+    vision_ocr_model: str = ""
+    #: When it was uploaded, ISO-8601. Asked for with the lightbox rework —
+    #: "maybe it can have the image information and other info about it below
+    #: the image" — and it is the one fact of that kind the browser cannot
+    #: work out for itself: dimensions come from the decoded image, the name
+    #: is already here, and a byte count would cost one `stat` per row on
+    #: every gallery load for a number nobody asked for.
+    created_at: str = ""
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -429,6 +516,11 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             original_name=u.original_name,
             ocr_text=u.ocr_text or "",
             caption=u.caption or "",
+            caption_model=u.caption_model or "",
+            caption_edited=u.caption_edited,
+            vision_ocr_text=u.vision_ocr_text or "",
+            vision_ocr_model=u.vision_ocr_model or "",
+            created_at=u.created_at.isoformat() if u.created_at else "",
         )
         for u in uploads
     ]
@@ -569,7 +661,19 @@ def caption_media(
     if body.text is not None:
         # A hand-typed caption needs no model at all — set it and return,
         # skipping every Ollama/vision-model check below.
-        upload.caption = body.text.strip() or None
+        stripped = body.text.strip() or None
+        upload.caption = stripped
+        if stripped:
+            # `caption_model` is left as-is: if this text started as one
+            # model's caption, the badge can still credit it alongside
+            # "edited" instead of losing that history the moment someone
+            # fixes a typo (see MediaUpload.caption_edited's docstring).
+            upload.caption_edited = True
+        else:
+            # Cleared back to "no caption" — a full reset, not a caption
+            # with nothing to show for whichever model or person last wrote one.
+            upload.caption_model = None
+            upload.caption_edited = False
         session.commit()
     else:
         if not deps.get_ollama().is_running():
@@ -590,6 +694,143 @@ def caption_media(
         original_name=upload.original_name,
         ocr_text=upload.ocr_text or "",
         caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
+    )
+
+
+class OcrBody(BaseModel):
+    #: A correction typed by hand instead of re-run — asked for directly
+    #: ("allow the user to access, view, and edit OCR extracted text"),
+    #: same "None means generate, any string sets it exactly" convention as
+    #: `CaptionBody.text`. `""` clears it back to "nothing extracted",
+    #: matching `ocr_text`'s own null/"not run or found nothing" meaning.
+    text: str | None = Field(default=None, max_length=10_000)
+
+
+@router.post("/media/{upload_id}/ocr", response_model=MediaUploadOut)
+def ocr_media(
+    upload_id: int, body: OcrBody = OcrBody(), session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """Re-read one image with Tesseract, or — with `text` — set the
+    extracted text by hand. The manual retry asked for directly: `ocr_text`
+    otherwise only ever gets written once, automatically, at the moment the
+    image is actually saved into a note/document/chat (`core/media_process.
+    py`) — this is the only way to try again (a first Tesseract pass that
+    misread something, or ran before Tesseract was installed) or to correct
+    what it found.
+
+    `extract_text`/`extract_and_store` (core/ocr.py) have no write-once
+    guard of their own — every call re-reads the image, which is exactly
+    what "retry" needs, no `force` field required. Runs synchronously:
+    local OCR is fast, and the frontend already blocks caption/vision-OCR
+    regenerate behind a spinner the same way.
+    """
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() not in ocr.OCR_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    if body.text is not None:
+        upload.ocr_text = body.text.strip() or None
+        session.commit()
+    else:
+        media_dir = deps.get_config().data_dir / "media"
+        ocr.extract_and_store(upload.id, media_dir / upload.filename)
+        session.refresh(upload)
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
+    )
+
+
+class VisionOcrBody(BaseModel):
+    #: Same "already there and not forced, leave it alone" rule as
+    #: `CaptionBody.force` — a manual re-read the user pressed the button
+    #: for, not a background pass overwriting a reading they already saw.
+    force: bool = False
+    #: A correction typed by hand, exactly as `OcrBody.text` already allows for
+    #: the Tesseract reading — `None` means "read it", any string sets it, and
+    #: `""` clears it.
+    #:
+    #: Reported: a vision model asked to transcribe a picture with no text in
+    #: it returned four Pokémon names, and there was no way to remove or edit
+    #: them. That failure is inherent to asking a small VLM to read an image
+    #: with nothing to read — the prompt already asks it to say so and it
+    #: ignored the instruction — so the fix is not a better prompt, it is that
+    #: a wrong reading must be correctable like every other AI output in this
+    #: app. The Tesseract line has been editable since it shipped; this one
+    #: was the odd one out.
+    text: str | None = Field(default=None, max_length=10_000)
+
+
+@router.post("/media/{upload_id}/vision-ocr", response_model=MediaUploadOut)
+def vision_ocr_media(
+    upload_id: int, body: VisionOcrBody = VisionOcrBody(), session: Session = Depends(get_session)
+) -> MediaUploadOut:
+    """Read the text in one image with a vision model — the "extractor
+    mode" asked for directly, distinct from the local Tesseract pass
+    (`ocr_text`, automatic on upload) and from the AI caption (`caption`, a
+    description rather than a transcription). Manual only: never triggered
+    by `POST /media/upload` itself, unlike captioning.
+
+    Same synchronous, single-round-trip shape as `caption_media` above —
+    one model call, no different from the AI-edit or link-reason calls this
+    app already blocks on behind a spinner.
+    """
+    upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
+    if Path(upload.filename).suffix.lower() not in vision_ocr.VISION_OCR_SUFFIXES:
+        raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    if body.text is not None:
+        # A hand-typed correction, or "" to clear a wrong reading. Checked
+        # before the backend is: fixing a bad transcription must not require
+        # the model that produced it to still be running.
+        upload.vision_ocr_text = body.text.strip() or None
+        if not upload.vision_ocr_text:
+            # Clearing the text clears the attribution with it — "Read by X"
+            # under nothing is a claim about a reading that no longer exists.
+            upload.vision_ocr_model = None
+        session.commit()
+        return MediaUploadOut(
+            id=upload.id,
+            url=f"/media/{upload.filename}",
+            original_name=upload.original_name,
+            ocr_text=upload.ocr_text or "",
+            caption=upload.caption or "",
+            caption_model=upload.caption_model or "",
+            caption_edited=upload.caption_edited,
+            vision_ocr_text=upload.vision_ocr_text or "",
+            vision_ocr_model=upload.vision_ocr_model or "",
+        )
+    if not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+    model = deps.get_model_manager().resolve_ocr_model(deps.get_ollama())
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model reports it can see images — install or "
+            "pick one in Settings → Models.",
+        )
+    media_dir = deps.get_config().data_dir / "media"
+    vision_ocr.vision_ocr_and_store(upload.id, media_dir / upload.filename, force=body.force)
+    session.refresh(upload)
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
     )
 
 

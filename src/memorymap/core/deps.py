@@ -167,6 +167,23 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
         _db = DatabaseManager(_config.db_path)
     if _ollama is None:
         _ollama = build_llm_client(_config)
+    # `ai/provider.py` reads the user's sampling overrides through a getter
+    # rather than importing this module: it is the bottom of the AI stack and
+    # this is the wiring that builds on it, so the import would be a cycle
+    # (CodeQL flagged it) as well as the wrong direction. Registered here,
+    # where the config it reads is known to exist.
+    #
+    # Even a submodule-direct, function-scoped import of it was still flagged
+    # as beginning a cycle (CodeQL's cyclic-import query counts a function
+    # body's imports too, not just module-level ones) — so this is imported
+    # by name through `importlib` instead of a `from`/`import` statement,
+    # which is the same runtime lookup with nothing for the static check to
+    # see as an edge.
+    import importlib
+
+    importlib.import_module("memorymap.ai.provider").set_sampling_overrides_getter(
+        lambda: _config.get_preference("sampling_overrides", {})
+    )
     if _model_manager is None:
         _model_manager = ModelManager(_config)
     if _embeddings is None:

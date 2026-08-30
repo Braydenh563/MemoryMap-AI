@@ -246,8 +246,16 @@ def test_the_hint_is_counted_in_the_budget():
 
     source = Path("src/memorymap/ai/agent.py").read_text(encoding="utf-8")
     measurement = source.split("system_chars = len(")[1].split("budget = context.plan")[0]
-    for piece in ("AGENT_GROUNDING", "TOOLS_GUIDE", "length_hint(mode)"):
+    for piece in ("AGENT_GROUNDING", "tools_guide(", "length_hint(mode)"):
         assert piece in measurement, f"{piece} is in the prompt but not the budget"
+
+    # The guide is now window-dependent (agent.tools_guide picks a short one
+    # below 8k), which makes this stricter rather than looser: measuring the
+    # long guide while sending the short one — or the reverse — would be a
+    # budget wrong by 1,800 characters, in the mode that can least afford it.
+    # So both call sites must ask the same function, not just name a constant.
+    prompt = source.split('"content": f"{persona} {AGENT_GROUNDING} "')[1][:300]
+    assert "tools_guide(" in prompt, "the prompt must use the same guide the budget measured"
 
 
 # --- through the API ---------------------------------------------------------

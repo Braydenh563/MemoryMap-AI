@@ -27,7 +27,212 @@ let currentDoc = null;   // {id, title, content, ...}
 let docDirty = false;
 let docSaveTimer = null;
 
+// --- what kind of file this document is ----------------------------------------
+//
+// A document used to be markdown and only markdown. Asked for directly: the
+// editor should handle code too — line numbers, language detection, Ctrl+/
+// commenting, indent and dedent — the type should be changeable, and a new
+// document should be creatable "of any filetype though it should default to
+// md".
+//
+// The table comes from `GET /documents/file-types` rather than being written
+// out here, and that is not tidiness. Indenting and comment-toggling happen
+// inside a keydown handler and cannot wait for a round trip, so the frontend
+// genuinely needs the whole table — which means either fetching it or keeping
+// a second copy. A second copy is a second thing to update, and the failure
+// mode of the two disagreeing is Ctrl+/ inserting the wrong comment marker
+// into someone's file. So: fetched once, cached here.
+
+//: [{ext, label, line_comment, block_comment, indent, previewable}], server
+//: order preserved — the picker's order is a decision (see filetypes.py) and
+//: sorting it here would quietly undo it.
+let docFileTypes = [];
+
+//: Markdown's own entry, used before the fetch lands. Everything that reads a
+//: file type has to work on the very first paint, and a null here would mean
+//: a guard at every call site instead of one honest default in one place.
+const DEFAULT_FILE_TYPE = {
+  ext: "md",
+  label: "Markdown",
+  line_comment: "",
+  block_comment: ["<!-- ", " -->"],
+  indent: "  ",
+  previewable: true,
+};
+
+// Called from loadDocuments (i.e. whenever the Documents tab is opened) rather
+// than once at load, and a no-op once the table is in hand.
+//
+// It *was* called once at the bottom of this file, and a browser found what
+// reading it could not: at that point the app has not been unlocked, so the
+// fetch 401s, `docFileTypes` is set to [], and nothing ever asks again. The
+// picker stayed an empty <select> for the whole session — every option gone,
+// no error anywhere, and the code reads as correct at every line. Same shape as
+// the app.js comment about a stale token firing "a dozen requests before the
+// user has unlocked anything"; this was the same mistake in a new file.
+// Hanging it off the tab load means the first request is always authenticated,
+// and a failed one is retried the next time you open the tab instead of
+// poisoning the cache for good.
+async function loadDocFileTypes() {
+  if (docFileTypes.length) return;
+  const body = await apiJson("/documents/file-types", { silent: true }).catch(() => null);
+  docFileTypes = (body && body.types) || [];
+  const picker = $("doc-file-type");
+  if (!picker || !docFileTypes.length) return;
+  picker.replaceChildren();
+  for (const type of docFileTypes) {
+    const option = document.createElement("option");
+    option.value = type.ext;
+    // The extension as well as the name: "Markdown" says what it is, ".md"
+    // says what it will download as, and the download is the half people
+    // check before sending a file to someone.
+    option.textContent = `${type.label} (.${type.ext})`;
+    picker.appendChild(option);
+  }
+  syncDocFileType();
+}
+
+//: The open document's type, never null. Falls back to markdown for a
+//: document saved before file types existed, for an unknown extension, and
+//: for the window between load and the fetch above landing.
+function docFileType() {
+  const ext = currentDoc?.file_type || "md";
+  return docFileTypes.find((t) => t.ext === ext) || DEFAULT_FILE_TYPE;
+}
+
+// Everything about the editor that depends on the type, applied in one place
+// so a type change and opening a document of that type cannot diverge.
+function syncDocFileType() {
+  const type = docFileType();
+  const picker = $("doc-file-type");
+  if (picker) picker.value = type.ext;
+
+  // A code file has no rendered form. Offering Live and Split for one is
+  // offering to show a wall of escaped source — so those two options are
+  // disabled rather than hidden (hidden controls that come and go make a
+  // toolbar feel unstable), and a document already in one of them is moved
+  // back to Source rather than left looking at nothing.
+  for (const button of document.querySelectorAll("#doc-view-seg button")) {
+    const rendered = button.dataset.docView !== "source";
+    button.disabled = rendered && !type.previewable;
+    button.title = button.disabled
+      ? `A .${type.ext} file has no rendered form — this is for markdown.`
+      : button.dataset.docTitle || button.title;
+  }
+  if (!type.previewable && docView !== "source") setDocView("source");
+
+  // The formatting toolbar is markdown syntax. In a .py file every button on
+  // it inserts something wrong.
+  $("doc-toolbar")?.classList.toggle("hidden", !type.previewable);
+
+  // Line numbers, and the monospace/tab behaviour that goes with them.
+  const code = !type.previewable;
+  $("doc-content")?.classList.toggle("doc-content-code", code);
+  $("doc-gutter")?.classList.toggle("hidden", !code);
+  renderDocGutter();
+
+  // A menu row, so it can say the whole thing rather than "⬇ .py".
+  // `setLabel` because `textContent` here would wipe the icon element the
+  // markup puts in front of the words.
+  setLabel($("doc-export-md"), `ph:download-simple Download as .${type.ext}`);
+  $("doc-export-md").title = `Download as a .${type.ext} file`;
+}
+
+// The dock's kebab closes when you pick something from it, and when you click
+// away — `<details>` gives everything else (open on click and on Enter/Space,
+// close on Escape, the ARIA) and neither of those two.
+document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
+  if (event.target.closest(".doc-dock-menu-item")) {
+    document.getElementById("doc-dock-menu").open = false;
+  }
+});
+document.addEventListener("click", (event) => {
+  const menu = document.getElementById("doc-dock-menu");
+  if (menu?.open && !menu.contains(event.target)) menu.open = false;
+});
+
+// --- which of the four views is showing ----------------------------------------
+//
+// "source" (the plain textarea), "live" (render-as-you-write), "split" (source
+// beside a rendered pane) or "rendered" (the finished document alone, no
+// editor). Per-device workspace state rather than a preference on the document:
+// which way you like to look at your writing does not belong in a backup, and
+// is the same kind of thing as `graph-layout`.
+//
+// "rendered" is deliberately a peer of "split" rather than a sub-state of it.
+// Asked for as a "full toggle switch between editor mode and rendered mode *or*
+// the split view" — i.e. reading the finished page at full width is its own
+// thing, not split-with-one-pane-collapsed.
+const DOC_VIEW_KEY = "doc-view-mode";
+const DOC_VIEWS = ["source", "live", "split", "rendered"];
+let docView = "source";
+
+// The two modes that put #doc-preview on screen. Kept as one predicate because
+// every "is the rendered pane showing?" decision below has to agree with every
+// other one — the split/rendered pair is exactly the shape that goes wrong when
+// each site spells the check out for itself.
+function docPreviewShowing(mode = docView) {
+  return mode === "split" || mode === "rendered";
+}
+
+function setDocView(mode) {
+  const type = docFileType();
+  // A code file is always Source. Asked for on any other mode, that is the
+  // honest answer rather than an empty pane.
+  if (!type.previewable && mode !== "source") mode = "source";
+  docView = DOC_VIEWS.includes(mode) ? mode : "source";
+  try {
+    localStorage.setItem(DOC_VIEW_KEY, docView);
+  } catch {
+    // A private window with storage blocked is not a reason to refuse to
+    // change view — the choice just does not survive the reload.
+  }
+
+  // Where the editor was scrolled to, as a fraction, taken *before* anything is
+  // hidden. syncDocScroll can't do this for the "rendered" hand-off: a hidden
+  // textarea reports scrollHeight === clientHeight === 0, so its own zero-range
+  // guard makes it a no-op and you land back at the top of a long document you
+  // were halfway down.
+  const editor = $("doc-content");
+  const editorRange = editor ? editor.scrollHeight - editor.clientHeight : 0;
+  const editorRatio = editorRange > 0 ? editor.scrollTop / editorRange : null;
+
+  // Source is hidden in the two modes that replace it outright; the preview is
+  // shown in the two that include it. Only "split" gets the side-by-side class
+  // — in "rendered" the preview is the sole child of a column flexbox and
+  // fills it without any help.
+  $("doc-source-wrap").classList.toggle("hidden", docView === "live" || docView === "rendered");
+  $("doc-live").classList.toggle("hidden", docView !== "live");
+  $("doc-preview").classList.toggle("hidden", !docPreviewShowing());
+  $("doc-panes").classList.toggle("split", docView === "split");
+  $("doc-panes").classList.toggle("reading", docView === "rendered");
+
+  for (const button of document.querySelectorAll("#doc-view-seg button")) {
+    const on = button.dataset.docView === docView;
+    button.classList.toggle("active", on);
+    button.setAttribute("aria-pressed", String(on));
+  }
+
+  if (docPreviewShowing()) {
+    renderDocPreview();
+    // Opening the preview on a document you have already scrolled into
+    // should show the part you are looking at, not the top of the file.
+    if (docView === "rendered") {
+      const preview = $("doc-preview");
+      const range = preview.scrollHeight - preview.clientHeight;
+      if (editorRatio !== null && range > 0) preview.scrollTop = editorRatio * range;
+    } else {
+      syncDocScroll(editor);
+    }
+  }
+  if (docView === "live") renderDocLive();
+}
+
 async function loadDocuments(selectId = null) {
+  // Before the list, not after: the file-type table decides how the editor
+  // behaves, and openDocument below reads it. Awaited rather than fired off,
+  // so the picker is never briefly empty on the first visit to this tab.
+  await loadDocFileTypes();
   docs = await apiJson("/documents").catch(() => []);
   renderDocList();
   if (selectId) return openDocument(selectId);
@@ -136,6 +341,12 @@ async function openDocument(id) {
     "# Start writing\n\nMarkdown works here — headings, **bold**, lists, tables, links.";
   const doc = await apiJson(`/documents/${id}`).catch(() => null);
   if (!doc) return;
+  // ROADMAP.md item 13: "opening/closing a document" was the one remaining
+  // gap in back/forward nav after chat's own conv:<id> fix. Same shape,
+  // recorded here (not at each of openDocument's several call sites) so
+  // none of them has to remember to — same reasoning openConversation's own
+  // comment gives for doing it there instead of at ITS call sites.
+  recordTabVisit("documents", `doc:${doc.id}`);
   currentDoc = doc;
   $("doc-title").disabled = false;
   $("doc-content").disabled = false;
@@ -143,7 +354,12 @@ async function openDocument(id) {
   $("doc-content").value = doc.content;
   docDirty = false;
   $("doc-saved").textContent = "Saved";
+  // Before the renders below: it decides which of them are even reachable
+  // (a code document has no Live or Split) and puts the editor into the
+  // right mode first, so nothing paints twice.
+  syncDocFileType();
   renderDocPreview();
+  if (docView === "live") renderDocLive();
   renderDocStats();
   renderDocOutline();
   renderDocNotes();
@@ -309,7 +525,11 @@ async function saveDocument({ silent = false } = {}) {
   try {
     const saved = await apiJson(`/documents/${currentDoc.id}`, {
       method: "PUT",
-      body: JSON.stringify({ title, content }),
+      // `file_type` every time, not only when it changed: the server treats
+      // null as "leave it alone", so sending the current value is harmless,
+      // and omitting it would make a type change depend on which save
+      // happened to run next.
+      body: JSON.stringify({ title, content, file_type: currentDoc.file_type || "md" }),
     });
     currentDoc = saved;
     docDirty = false;
@@ -640,12 +860,443 @@ function layerDocWikiLinks(container) {
   }
 }
 
-function toggleDocPreview() {
-  const preview = $("doc-preview");
-  const showing = preview.classList.toggle("hidden");
-  $("doc-panes").classList.toggle("split", !showing);
-  $("doc-preview-toggle").setAttribute("aria-pressed", String(!showing));
+// The PDF export needs the rendered pane on screen for the duration of the
+// print, whatever view the user was in, and puts them back afterwards. It is
+// the only remaining caller of anything toggle-shaped — the Preview tickbox
+// itself became the four-way #doc-view-seg (see setDocView), because with four
+// modes a tickbox could not say which one you were in.
+//
+// It borrows "rendered" rather than "split": what gets printed is the preview
+// pane, and at full width it lays out the way the PDF will. If the user is
+// already in a mode showing the preview, leave them there — reflowing a pane
+// mid-print is how a page break lands in the wrong place.
+function withDocPreviewShown(fn) {
+  const previous = docView;
+  const restoring = !docPreviewShowing(previous);
+  if (restoring) setDocView("rendered");
   renderDocPreview();
+  fn(() => {
+    if (restoring) setDocView(previous);
+  });
+}
+
+// --- the code editor: line numbers, indent, comment toggle ---------------------
+//
+// Asked for directly: a code file should have "code lines as well as language
+// detection and ctrl + / commenting or equivalent as well as indenting and
+// dedenting". All three are keystroke-level, which is why the file-type table
+// is fetched and cached rather than queried — see `loadDocFileTypes`.
+//
+// Built on the existing textarea rather than on a third-party code editor.
+// This app has no build step (`frontend/app.js` is served as-is), so a real
+// editor component would mean either a vendored bundle or a CDN, and the
+// three behaviours that were actually asked for are a few dozen lines each
+// against a textarea. What is genuinely lost by not using one is syntax
+// *colouring*, which needs a tokeniser per language; that is a separate
+// decision with a real dependency behind it, and pretending otherwise by
+// half-highlighting a few keywords would look worse than plain monospace.
+
+function renderDocGutter() {
+  const gutter = $("doc-gutter");
+  const box = $("doc-content");
+  if (!gutter || !box || gutter.classList.contains("hidden")) return;
+  const lines = box.value.split("\n").length;
+  // One text node of numbers, not one element per line: a 5,000-line file is
+  // 5,000 elements to build and lay out on every keystroke otherwise, and the
+  // gutter is doing nothing that needs per-line nodes.
+  gutter.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+  gutter.scrollTop = box.scrollTop;
+}
+
+//: The lines a selection touches, as [firstLine, lastLine] and the character
+//: offsets that bracket them. Indent, dedent and comment-toggle all work on
+//: whole lines, and all three need exactly this.
+function docSelectedLines(box) {
+  const value = box.value;
+  const start = value.lastIndexOf("\n", box.selectionStart - 1) + 1;
+  let end = value.indexOf("\n", box.selectionEnd);
+  if (end === -1) end = value.length;
+  // A selection ending exactly at a line start has not touched that line —
+  // without this, selecting one whole line by dragging comments out two.
+  if (box.selectionEnd > box.selectionStart && box.selectionEnd === start) {
+    end = box.selectionEnd;
+  }
+  return { start, end, text: value.slice(start, end) };
+}
+
+//: Replace a run of the textarea through the browser's own edit pipeline, so
+//: the native undo stack keeps working. Assigning `.value` wipes it, which
+//: would make Ctrl+Z stop working in exactly the editor where people press it
+//: most — the single most important detail in this whole section.
+function docReplaceRange(box, start, end, text) {
+  box.focus();
+  box.setSelectionRange(start, end);
+  if (!document.execCommand || !document.execCommand("insertText", false, text)) {
+    // execCommand is deprecated and may be gone. Falling back to a direct
+    // write loses native undo for that one edit, which beats the edit not
+    // happening — and `markDocDirty` still runs, so nothing is lost.
+    const value = box.value;
+    box.value = value.slice(0, start) + text + value.slice(end);
+  }
+}
+
+function indentDocSelection(box, outdent) {
+  const type = docFileType();
+  const unit = type.indent || "  ";
+  const { start, end, text } = docSelectedLines(box);
+  const multiline = text.includes("\n") || box.selectionEnd > box.selectionStart;
+
+  // A plain Tab with no selection inserts one indent at the caret, which is
+  // what Tab does in every editor. Only a selection (or Shift+Tab) means
+  // "re-indent these lines".
+  if (!multiline && !outdent) {
+    const at = box.selectionStart;
+    docReplaceRange(box, at, box.selectionEnd, unit);
+    markDocDirty();
+    renderDocGutter();
+    return;
+  }
+
+  const lines = text.split("\n");
+  const changed = lines.map((line) => {
+    if (!outdent) return line ? unit + line : line;
+    // Dedent removes one indent unit, or — for a line indented with the
+    // wrong-width whitespace, which happens constantly in a pasted file —
+    // up to that many leading spaces. Removing nothing when the line is
+    // flush left is correct, not a failure.
+    if (line.startsWith(unit)) return line.slice(unit.length);
+    const leading = line.match(/^[ \t]+/);
+    if (!leading) return line;
+    return line.slice(Math.min(leading[0].length, unit.length));
+  });
+  docReplaceRange(box, start, end, changed.join("\n"));
+  box.setSelectionRange(start, start + changed.join("\n").length);
+  markDocDirty();
+  renderDocGutter();
+}
+
+function toggleDocComment(box) {
+  const type = docFileType();
+  const { start, end, text } = docSelectedLines(box);
+  const lines = text.split("\n");
+
+  if (type.line_comment) {
+    const marker = type.line_comment;
+    const real = lines.filter((line) => line.trim());
+    // Uncomment only when *every* non-blank line is already commented. The
+    // other way round (any line commented -> uncomment all) silently strips
+    // a real comment that happened to be inside the selection.
+    const allCommented =
+      real.length > 0 && real.every((line) => line.trimStart().startsWith(marker));
+    const changed = lines.map((line) => {
+      if (!line.trim()) return line;
+      if (allCommented) {
+        const at = line.indexOf(marker);
+        // Drop one following space if this put one there — so a round trip
+        // of comment-then-uncomment gives back exactly the original line.
+        const after = line.slice(at + marker.length);
+        return line.slice(0, at) + (after.startsWith(" ") ? after.slice(1) : after);
+      }
+      // Inserted after the existing indentation, not at column zero: a
+      // comment marker flush left inside an indented block is legal and ugly,
+      // and is not what any editor does.
+      const indent = line.match(/^[ \t]*/)[0];
+      return `${indent}${marker} ${line.slice(indent.length)}`;
+    });
+    docReplaceRange(box, start, end, changed.join("\n"));
+    box.setSelectionRange(start, start + changed.join("\n").length);
+  } else if (type.block_comment) {
+    // No line-comment form at all (HTML, XML, CSS). Toggling a line means
+    // wrapping it — a prefix would produce a file that no longer parses.
+    const [open, close] = type.block_comment;
+    const trimmed = text.trim();
+    const wrapped = trimmed.startsWith(open.trim()) && trimmed.endsWith(close.trim());
+    const changed = wrapped
+      ? trimmed.slice(open.trim().length, trimmed.length - close.trim().length).trim()
+      : `${open}${text}${close}`;
+    docReplaceRange(box, start, end, changed);
+    box.setSelectionRange(start, start + changed.length);
+  } else {
+    // Plain text genuinely has no comment syntax. Doing nothing quietly is
+    // right — there is no sensible thing to insert.
+    return;
+  }
+  markDocDirty();
+  renderDocGutter();
+}
+
+// --- Live Preview: render as you write ----------------------------------------
+//
+// ROADMAP item 0, asked for again directly: "the notion/obsidian live md
+// rendering after typing hybrid kind of md". The model both of those use, and
+// the one implemented here: **the document renders, except the block your
+// caret is in, which shows its raw markdown.** So `**bold**` is bold while you
+// read it and `**bold**` while you edit it, and you never lose sight of the
+// syntax you are actually typing.
+//
+// The design decision that makes this affordable, and the reason it is a view
+// rather than a rewrite: **`#doc-content` stays the source of truth.** Every
+// edit here writes straight back into the textarea and calls the same
+// `markDocDirty` everything else does. Autosave, the word count, the outline,
+// find-and-replace, Extract notes and the whole AI panel therefore keep
+// working against one value, unchanged, and none of them had to learn that a
+// second editor exists. The roadmap's own scoping note recommends a per-block
+// editor over a whole-document `contenteditable` for exactly this reason —
+// a contenteditable holding the entire document makes the DOM the truth, and
+// then every one of those features has to be rewritten to read from it.
+//
+// One block is one paragraph: markdown's own unit, separated by a blank line.
+// Blocks are re-derived from the text on every structural change rather than
+// maintained incrementally, because an incremental block list is a second
+// model of the document that can drift out of step with the textarea — and
+// the whole point of the arrangement above is that there is only one.
+
+//: Which block is being edited, by index, or -1 when none is. Only ever one:
+//: two open source blocks would be two places the same document is being
+//: written in.
+let docLiveActive = -1;
+
+//: A fence opener/closer. Split has to skip over these — a blank line inside
+//: a ```code block``` is part of the code, not a paragraph break, and
+//: splitting there turns one code block into two broken ones.
+const DOC_FENCE = /^\s*(?:```|~~~)/;
+
+function docLiveBlocks(text) {
+  const lines = String(text ?? "").replace(/\r\n/g, "\n").split("\n");
+  const blocks = [];
+  let current = [];
+  let inFence = false;
+  const flush = () => {
+    // Trailing blank lines belong to the separator, not to the block — they
+    // are re-added by `docLiveText` below, so a round trip is lossless.
+    while (current.length && !current[current.length - 1].trim()) current.pop();
+    if (current.length) blocks.push(current.join("\n"));
+    current = [];
+  };
+  for (const line of lines) {
+    if (DOC_FENCE.test(line)) {
+      inFence = !inFence;
+      current.push(line);
+      // A closing fence ends the block: what follows is a new paragraph even
+      // without a blank line between them.
+      if (!inFence) flush();
+      continue;
+    }
+    if (!inFence && !line.trim()) {
+      flush();
+      continue;
+    }
+    current.push(line);
+  }
+  flush();
+  return blocks;
+}
+
+//: Blocks back into one document. Two newlines between them, which is what
+//: split consumed — so text -> blocks -> text is the identity for anything
+//: that was already normalised, and normalises anything that was not.
+function docLiveText(blocks) {
+  return blocks.filter((b) => b.trim() !== "" || blocks.length === 1).join("\n\n");
+}
+
+function renderDocLive(keepActive = false) {
+  const host = $("doc-live");
+  if (!host || docView !== "live") return;
+  const blocks = docLiveBlocks($("doc-content").value);
+  if (!keepActive) docLiveActive = -1;
+  host.replaceChildren();
+
+  // An empty document still needs somewhere to click. Without this the pane
+  // is a blank div with no blocks, and there is nothing to put a caret in —
+  // which reads as the mode being broken rather than the document being new.
+  if (!blocks.length) blocks.push("");
+
+  blocks.forEach((source, index) => {
+    if (index === docLiveActive) {
+      host.appendChild(docLiveEditor(source, index));
+      return;
+    }
+    const block = document.createElement("div");
+    block.className = "lp-block";
+    block.dataset.index = String(index);
+    if (source.trim()) {
+      renderMarkdown(block, source);
+      layerDocWikiLinks(block);
+    } else {
+      // A genuinely empty block still needs height, or it cannot be clicked
+      // into and the document appears to have lost a paragraph.
+      block.classList.add("lp-block-empty");
+      block.textContent = "";
+    }
+    host.appendChild(block);
+  });
+}
+
+function docLiveEditor(source, index) {
+  const box = document.createElement("textarea");
+  box.className = "lp-src";
+  box.value = source;
+  box.dataset.index = String(index);
+  box.spellcheck = true;
+  box.setAttribute("aria-label", "Editing this paragraph's markdown");
+
+  const autosize = () => {
+    // Height from content, because a fixed-height box in a flowing document
+    // either clips a long paragraph or leaves a hole after a short one.
+    box.style.height = "auto";
+    box.style.height = `${box.scrollHeight}px`;
+  };
+
+  box.addEventListener("input", () => {
+    autosize();
+    const blocks = docLiveBlocks($("doc-content").value);
+    if (!blocks.length) blocks.push("");
+    // A blank line typed inside the block is the user starting a new
+    // paragraph. Splicing the *split* of what they typed keeps that working
+    // without a special case for "did they press Enter twice".
+    const replacement = docLiveBlocks(box.value);
+    blocks.splice(index, 1, ...(replacement.length ? replacement : [""]));
+    $("doc-content").value = docLiveText(blocks);
+    markDocDirty();
+    // Deliberately NOT re-rendering here. Re-rendering on every keystroke
+    // would replace the textarea the caret is in, and the caret would go
+    // with it — the block re-renders when you leave it, which is what makes
+    // this feel like an editor rather than a form that fights you.
+    if (replacement.length > 1) {
+      // Except when the block genuinely became several: the extra paragraphs
+      // have to appear, and the caret belongs in the last of them.
+      docLiveActive = index + replacement.length - 1;
+      renderDocLive(true);
+      const next = $("doc-live").querySelector(".lp-src");
+      if (next) {
+        next.focus();
+        next.setSelectionRange(next.value.length, next.value.length);
+      }
+    }
+  });
+
+  box.addEventListener("blur", () => {
+    // Leaving the block renders it. Guarded on still being the active one:
+    // a blur caused by clicking straight into another block already moved
+    // `docLiveActive` on, and re-rendering for the old one would undo that.
+    if (docLiveActive !== index) return;
+    docLiveActive = -1;
+    renderDocLive();
+  });
+
+  box.addEventListener("keydown", (event) => {
+    // Escape leaves the block without moving the caret anywhere surprising —
+    // the same "a mode you can only leave by finding the button is a trap"
+    // rule the graph's trace mode follows.
+    if (event.key === "Escape") {
+      event.preventDefault();
+      box.blur();
+      return;
+    }
+    const atStart = box.selectionStart === 0 && box.selectionEnd === 0;
+    const atEnd =
+      box.selectionStart === box.value.length && box.selectionEnd === box.value.length;
+    if ((event.key === "ArrowUp" && atStart) || (event.key === "ArrowDown" && atEnd)) {
+      // Walking out of the top or bottom of a block moves to the next one,
+      // the way it would in one continuous document. Only from the very edge,
+      // so arrowing *within* a multi-line block still works normally.
+      const step = event.key === "ArrowUp" ? -1 : 1;
+      const total = docLiveBlocks($("doc-content").value).length;
+      const target = index + step;
+      if (target >= 0 && target < total) {
+        event.preventDefault();
+        focusDocLiveBlock(target, step > 0 ? "start" : "end");
+      }
+    }
+  });
+
+  // Attached, then sized: scrollHeight is 0 on a detached element, so
+  // autosizing before the append leaves every block one row tall.
+  queueMicrotask(() => {
+    autosize();
+    box.focus();
+  });
+  return box;
+}
+
+function focusDocLiveBlock(index, caret = "end") {
+  docLiveActive = index;
+  renderDocLive(true);
+  const box = $("doc-live").querySelector(".lp-src");
+  if (!box) return;
+  const position = caret === "start" ? 0 : box.value.length;
+  box.focus();
+  box.setSelectionRange(position, position);
+}
+
+function wireDocLive() {
+  const host = $("doc-live");
+  if (!host) return;
+  // Delegated, because the blocks are replaced on every render and per-block
+  // listeners would have to be re-bound each time — which is the shape that
+  // silently accumulates duplicates (see tests/test_frontend_handlers.py).
+  host.addEventListener("mousedown", (event) => {
+    // A link in a rendered block is a link. Clicking `[[Another doc]]` should
+    // open it, not put a caret next to it — that is the whole reason to
+    // render at all.
+    if (event.target.closest("a, button, input")) return;
+    const block = event.target.closest(".lp-block");
+    if (!block) return;
+    // preventDefault stops the browser placing a selection in the block we
+    // are about to replace, which otherwise steals focus back from the
+    // textarea a moment later.
+    event.preventDefault();
+    focusDocLiveBlock(Number(block.dataset.index));
+  });
+}
+
+// --- keeping the two panes looking at the same place --------------------------
+//
+// Side by side is only half of a split view. Without this, scrolling the
+// editor leaves the preview showing paragraph one, so the rendered half is
+// useful for the first screen of a document and decorative after that — which
+// is most of what "the panes get squished together and it feels annoying to
+// use" is about once they are actually side by side.
+//
+// Proportional rather than line-mapped, deliberately. Mapping source lines to
+// rendered blocks needs the markdown renderer to emit source positions, which
+// this one does not, and the approximations that get used instead (count the
+// headings, guess) drift worse the longer the document. Scroll fraction is
+// exact at both ends, close everywhere in between for prose, and — the part
+// that matters — never wrong in a way that looks like a bug.
+
+//: Which pane the user is actually scrolling. Without this the two feed each
+//: other: A scrolls B, B's scroll event scrolls A, and the pair juddate to a
+//: stop somewhere neither of them was asked to go.
+let docScrollDriver = null;
+
+function syncDocScroll(from) {
+  const editor = $("doc-content");
+  const preview = $("doc-preview");
+  if (!editor || !preview || preview.classList.contains("hidden")) return;
+  const to = from === editor ? preview : editor;
+  // A pane with nothing to scroll has a zero range; dividing by it gives NaN,
+  // and assigning NaN to scrollTop silently jumps the other pane to 0.
+  const fromRange = from.scrollHeight - from.clientHeight;
+  const toRange = to.scrollHeight - to.clientHeight;
+  if (fromRange <= 0 || toRange <= 0) return;
+  docScrollDriver = from;
+  to.scrollTop = (from.scrollTop / fromRange) * toRange;
+  // Cleared on a timer rather than immediately: the assignment above fires the
+  // other pane's own scroll event asynchronously, so clearing on this tick
+  // lets that event through and starts the feedback loop this exists to stop.
+  clearTimeout(syncDocScroll._release);
+  syncDocScroll._release = setTimeout(() => { docScrollDriver = null; }, 120);
+}
+
+function wireDocScrollSync() {
+  for (const el of [$("doc-content"), $("doc-preview")]) {
+    if (!el) continue;
+    el.addEventListener("scroll", () => {
+      if (docScrollDriver && docScrollDriver !== el) return;
+      syncDocScroll(el);
+    });
+  }
 }
 
 // Markdown formatting from a toolbar, so you don't have to remember the
@@ -795,17 +1446,16 @@ async function exportDocumentMarkdown() {
 // engine would add a heavy dependency to produce a worse-looking result.
 function exportDocumentPdf() {
   if (!currentDoc) return;
-  const wasHidden = $("doc-preview").classList.contains("hidden");
-  if (wasHidden) toggleDocPreview(); // print the rendered version, not the source
-  renderDocPreview();
-  document.body.classList.add("printing-doc");
-  const cleanup = () => {
-    document.body.classList.remove("printing-doc");
-    if (wasHidden) toggleDocPreview();
-    window.removeEventListener("afterprint", cleanup);
-  };
-  window.addEventListener("afterprint", cleanup);
-  setTimeout(() => window.print(), 150);
+  withDocPreviewShown((restore) => {
+    document.body.classList.add("printing-doc");
+    const cleanup = () => {
+      document.body.classList.remove("printing-doc");
+      restore();
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    setTimeout(() => window.print(), 150);
+  });
 }
 
 async function deleteCurrentDocument() {
@@ -819,19 +1469,69 @@ async function deleteCurrentDocument() {
 
 // --- AI editing ---
 // Always a proposal. Writing straight into the document would be the most
-// destructive thing in the app.
+// destructive thing in the app. Three verbs (reskinned from a single
+// rewrite action into a small general assistant, asked for directly):
+// "edit" rewrites the target, "write" inserts a new passage without
+// touching what's there, "remove" deletes on request. All three go through
+// the same /ai-edit endpoint (routes_documents.py) with a `verb` field.
 let docAiController = null;
+
+function docAiVerb() {
+  return $("doc-ai-panel").querySelector('input[name="doc-ai-verb"]:checked')?.value || "edit";
+}
+
+// The run button, the instruction placeholder, and the scope hint all read
+// differently per verb — kept in one place so switching verbs updates all
+// three together rather than three separate change listeners drifting.
+function syncDocAiPanel() {
+  const verb = docAiVerb();
+  const selection = ($("doc-ai-panel").dataset.selection || "").trim();
+  const wordCount = selection ? selection.split(/\s+/).length : 0;
+
+  const runLabel = { edit: "Suggest an edit", write: "Write it", remove: "Remove it" }[verb];
+  $("doc-ai-run").innerHTML = `<i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> ${runLabel}`;
+
+  $("doc-ai-instruction").placeholder =
+    verb === "write"
+      ? "e.g. “add a conclusion”, “write an intro paragraph”"
+      : verb === "remove"
+        ? selection
+          ? "Optional — leave blank to remove the selection as-is"
+          : "e.g. “remove the paragraph about pricing”"
+        : "e.g. “tighten this”, “make it more formal”, “add a conclusion”";
+
+  if (verb === "write") {
+    $("doc-ai-scope").textContent = selection
+      ? `Inserting new text directly after the ${wordCount} selected word(s).`
+      : "Inserting new text at the end of the document.";
+  } else if (verb === "remove") {
+    $("doc-ai-scope").textContent = selection
+      ? `Removing the ${wordCount} selected word(s) — or say what to remove from within them.`
+      : "Say what to remove from the whole document.";
+  } else {
+    $("doc-ai-scope").textContent = selection
+      ? `Rewriting the ${wordCount} selected word(s).`
+      : "Rewriting the whole document. Select some text first to work on just that.";
+  }
+
+  const acceptLabel = { edit: "Replace with this", write: "Insert this", remove: "Remove it" }[verb];
+  $("doc-ai-accept").textContent = acceptLabel;
+}
 
 function openDocAiPanel() {
   if (!currentDoc) return;
   const box = $("doc-content");
   const selection = box.value.slice(box.selectionStart, box.selectionEnd);
   $("doc-ai-panel").dataset.selection = selection;
-  $("doc-ai-scope").textContent = selection.trim()
-    ? `Rewriting the ${selection.trim().split(/\s+/).length} selected word(s).`
-    : "Rewriting the whole document. Select some text first to work on just that.";
+  // Always opens back on "Edit" — the panel's original, still-default
+  // behaviour — rather than remembering whatever verb was last used, so a
+  // stray "Remove it" click a moment after opening isn't primed by the
+  // previous document's choice.
+  const editRadio = $("doc-ai-panel").querySelector('input[name="doc-ai-verb"][value="edit"]');
+  if (editRadio) editRadio.checked = true;
   $("doc-ai-result").value = "";
   $("doc-ai-status").textContent = "";
+  syncDocAiPanel();
   $("doc-ai-panel").classList.remove("hidden");
   $("doc-ai-instruction").focus();
 }
@@ -851,9 +1551,25 @@ function openDocExtractPreview() {
 }
 
 async function runDocAiEdit() {
+  const verb = docAiVerb();
   const instruction = $("doc-ai-instruction").value.trim();
+  const selection = $("doc-ai-panel").dataset.selection || "";
   const status = $("doc-ai-status");
-  if (!instruction) {
+  // Mirrors routes_documents.ai_edit's own validation exactly, so a bad
+  // request never reaches the network at all: "write" always needs words,
+  // "remove" can skip them only when a selection already says what to
+  // remove, "edit" is the original required-instruction behaviour.
+  if (verb === "write" && !instruction) {
+    status.classList.add("error");
+    status.textContent = "Say what to write.";
+    return;
+  }
+  if (verb === "remove" && !instruction && !selection.trim()) {
+    status.classList.add("error");
+    status.textContent = "Say what to remove, or select it first.";
+    return;
+  }
+  if (verb === "edit" && !instruction) {
     status.classList.add("error");
     status.textContent = "Say what you'd like changed.";
     return;
@@ -867,10 +1583,7 @@ async function runDocAiEdit() {
     const body = await apiJson(`/documents/${currentDoc.id}/ai-edit`, {
       method: "POST",
       signal: docAiController.signal,
-      body: JSON.stringify({
-        instruction,
-        selection: $("doc-ai-panel").dataset.selection || "",
-      }),
+      body: JSON.stringify({ instruction, selection, verb }),
     });
     $("doc-ai-result").value = body.revised;
     status.textContent = body.message || "Read it over, then accept or cancel.";
@@ -889,12 +1602,87 @@ async function runDocAiEdit() {
   }
 }
 
+// The undo/redo half of "allow edits made by the AI to be undone or
+// altered before and after they are set" (asked for directly) — before
+// acceptance, the result textarea above already covers "altered" (edit
+// the AI's suggestion, then accept whatever's left). This is "undone...
+// after": pushed onto the app's existing global undo stack (an immediate
+// Ctrl+Z / status-bar Undo, session-only) alongside a durable per-document
+// changelog entry (ai-edit-log, survives reload, lists every edit with its
+// own Revert) — see the dialog's own comment in index.html for why both.
+function pushDocAiUndo(docId, label, beforeContent, afterContent) {
+  const applyContent = async (content) => {
+    const title = currentDoc && currentDoc.id === docId ? currentDoc.title : undefined;
+    const saved = await apiJson(`/documents/${docId}`, {
+      method: "PUT",
+      body: JSON.stringify({ content, ...(title !== undefined ? { title } : {}) }),
+    });
+    if (currentDoc && currentDoc.id === docId) {
+      currentDoc = saved;
+      $("doc-content").value = content;
+      renderDocPreview();
+      docDirty = false;
+      $("doc-saved").textContent = "Saved";
+    }
+    docs = docs.map((d) => (d.id === docId ? { ...d, ...saved } : d));
+    renderDocList();
+  };
+  pushUndo(
+    label,
+    () => applyContent(beforeContent),
+    () => applyContent(afterContent)
+  );
+}
+
+async function recordDocAiEditLog(docId, verb, instruction, selection, beforeContent, afterContent) {
+  try {
+    await apiJson(`/documents/${docId}/ai-edit-log`, {
+      method: "POST",
+      body: JSON.stringify({
+        verb,
+        instruction,
+        selection,
+        before_content: beforeContent,
+        after_content: afterContent,
+      }),
+      silent: true,
+    });
+  } catch {
+    // Best-effort: the changelog is a record of an edit that has already
+    // happened (and is already undoable via the global stack above) — a
+    // network hiccup writing the log entry must not read as the edit
+    // itself having failed.
+  }
+}
+
 function acceptDocAiEdit() {
   const revised = $("doc-ai-result").value;
-  if (!revised.trim()) return;
+  if (!revised.trim() && docAiVerb() !== "remove") return;
+  const verb = docAiVerb();
+  const instruction = $("doc-ai-instruction").value.trim();
   const selection = $("doc-ai-panel").dataset.selection || "";
   const box = $("doc-content");
-  if (selection) {
+  const beforeContent = box.value;
+  const docId = currentDoc.id;
+
+  if (verb === "write") {
+    // Inserts rather than replaces — the selection (if any) is only the
+    // anchor point, and stays exactly as it was.
+    if (selection) {
+      const at = box.value.indexOf(selection);
+      const insertAt = at === -1 ? box.value.length : at + selection.length;
+      const before = box.value.slice(0, insertAt);
+      const after = box.value.slice(insertAt);
+      const glue = before && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+      box.value = before + glue + revised + after;
+    } else {
+      const glue = box.value && !box.value.endsWith("\n\n") ? (box.value.endsWith("\n") ? "\n" : "\n\n") : "";
+      box.value = box.value + glue + revised;
+    }
+  } else if (selection) {
+    // "edit" and "remove" both replace the target with what the model
+    // returned — for "remove" that's the same text with the requested
+    // part gone, so no separate apply logic is needed.
     const at = box.value.indexOf(selection);
     box.value =
       at === -1
@@ -903,11 +1691,112 @@ function acceptDocAiEdit() {
   } else {
     box.value = revised;
   }
+
+  const afterContent = box.value;
   closeDocAiPanel();
   markDocDirty();
   renderDocPreview();
   saveDocument({ silent: true });
-  toast("Applied the AI's edit.");
+
+  const label = { edit: "AI edit", write: "AI write", remove: "AI remove" }[verb];
+  pushDocAiUndo(
+    docId,
+    instruction ? `${label}: “${instruction.length > 40 ? instruction.slice(0, 39) + "…" : instruction}”` : label,
+    beforeContent,
+    afterContent
+  );
+  recordDocAiEditLog(docId, verb, instruction, selection, beforeContent, afterContent);
+
+  toast(
+    verb === "write"
+      ? "Inserted the AI's text."
+      : verb === "remove"
+        ? "Removed."
+        : "Applied the AI's edit."
+  );
+}
+
+// --- AI edit history (the changelog) ---------------------------------------
+
+function docAiVerbIcon(verb) {
+  return { edit: "ph-pencil-simple", write: "ph-plus-circle", remove: "ph-x-circle", revert: "ph-arrow-counter-clockwise" }[verb] || "ph-pencil-simple";
+}
+
+async function openDocAiHistory() {
+  if (!currentDoc) return;
+  const dialog = $("doc-ai-history-dialog");
+  const list = $("doc-ai-history-list");
+  const empty = $("doc-ai-history-empty");
+  list.replaceChildren();
+  empty.classList.add("hidden");
+  dialog.showModal();
+  const li = document.createElement("li");
+  li.className = "muted";
+  li.textContent = "Loading…";
+  list.appendChild(li);
+  try {
+    const entries = await apiJson(`/documents/${currentDoc.id}/ai-edit-log`);
+    list.replaceChildren();
+    if (!entries.length) {
+      empty.classList.remove("hidden");
+      return;
+    }
+    for (const entry of entries) {
+      const row = document.createElement("li");
+      row.className = "doc-ai-history-entry";
+      const icon = document.createElement("i");
+      icon.className = `ph ${docAiVerbIcon(entry.verb)}`;
+      icon.setAttribute("aria-hidden", "true");
+      const text = document.createElement("div");
+      text.className = "doc-ai-history-text";
+      const line = document.createElement("p");
+      line.textContent = entry.instruction || (entry.verb === "remove" ? "Removed a selection" : "AI edit");
+      const meta = document.createElement("p");
+      meta.className = "muted text-sm";
+      const when = new Date(entry.created_at).toLocaleString();
+      meta.textContent = entry.selection_excerpt
+        ? `${when} · “${entry.selection_excerpt}”`
+        : when;
+      text.append(line, meta);
+      const revertBtn = document.createElement("button");
+      revertBtn.type = "button";
+      revertBtn.className = "ghost small";
+      revertBtn.textContent = "Revert";
+      revertBtn.addEventListener("click", async () => {
+        revertBtn.disabled = true;
+        try {
+          const saved = await apiJson(
+            `/documents/${currentDoc.id}/ai-edit-log/${entry.id}/revert`,
+            { method: "POST" }
+          );
+          if (currentDoc && currentDoc.id === saved.id) {
+            currentDoc = saved;
+            $("doc-content").value = saved.content;
+            $("doc-title").value = saved.title;
+            renderDocPreview();
+            docDirty = false;
+            $("doc-saved").textContent = "Saved";
+          }
+          docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+          renderDocList();
+          toast("Reverted.");
+          dialog.close();
+        } catch (error) {
+          toast(error.message || "Couldn't revert that.", true);
+        } finally {
+          revertBtn.disabled = false;
+        }
+      });
+      row.append(icon, text, revertBtn);
+      list.appendChild(row);
+    }
+  } catch (error) {
+    list.replaceChildren();
+    const errLi = document.createElement("li");
+    errLi.className = "muted";
+    errLi.textContent = error.message || "Couldn't load the history.";
+    list.appendChild(errLi);
+  }
 }
 
 const DOC_SIDEBAR_SECTIONS = ["list", "outline"];
@@ -970,7 +1859,17 @@ $("doc-browse-all").addEventListener("click", () => {
 // delegation set up below, Escape for free from <dialog>.showModal().
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
-$("doc-content").addEventListener("input", () => { markDocDirty(); renderDocPreview(); });
+$("doc-content").addEventListener("input", () => {
+  markDocDirty();
+  renderDocPreview();
+  renderDocGutter();
+});
+// The gutter is a separate element beside the textarea, so it has to be told
+// to follow it — a textarea's own scroll does not move its siblings.
+$("doc-content").addEventListener("scroll", () => {
+  const gutter = $("doc-gutter");
+  if (gutter && !gutter.classList.contains("hidden")) gutter.scrollTop = $("doc-content").scrollTop;
+});
 // The document-textarea resize gap (Priority 0 #1): dragging #doc-content's
 // native `resize: vertical` handle shorter pins the textarea's own height,
 // but #doc-panes — a flex item of .doc-main with `flex: 1 1 auto` — keeps
@@ -1009,7 +1908,29 @@ $("doc-word-goal-submit").addEventListener("click", () => {
   renderDocStats();
   $("doc-word-goal-dialog").close();
 });
-$("doc-preview-toggle").addEventListener("click", toggleDocPreview);
+for (const button of document.querySelectorAll("#doc-view-seg button")) {
+  // The unmodified title is stashed before syncDocFileType ever overwrites it
+  // with the "no rendered form" explanation, so switching back to a markdown
+  // document restores the real one rather than leaving the disabled text.
+  button.dataset.docTitle = button.title;
+  button.addEventListener("click", () => setDocView(button.dataset.docView));
+}
+$("doc-file-type").addEventListener("change", async (event) => {
+  if (!currentDoc) return;
+  currentDoc = { ...currentDoc, file_type: event.target.value };
+  syncDocFileType();
+  // Saved immediately rather than left to the autosave: changing the type
+  // changes how the editor behaves *now*, and a mode that has visibly
+  // switched but not persisted is one reload away from silently reverting.
+  await saveDocument({ silent: true });
+});
+wireDocScrollSync();
+wireDocLive();
+try {
+  setDocView(localStorage.getItem(DOC_VIEW_KEY) || "source");
+} catch {
+  setDocView("source");
+}
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
@@ -1022,13 +1943,44 @@ $("doc-ai-accept").addEventListener("click", acceptDocAiEdit);
 $("doc-ai-instruction").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); runDocAiEdit(); }
 });
+for (const radio of document.querySelectorAll('input[name="doc-ai-verb"]')) {
+  radio.addEventListener("change", syncDocAiPanel);
+}
+$("doc-ai-history").addEventListener("click", openDocAiHistory);
 $("doc-extract").addEventListener("click", openDocExtractPreview);
 $("doc-content").addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !$("doc-find-bar").classList.contains("hidden")) {
     toggleDocFindBar(false);
     return;
   }
+  // Tab indents rather than leaving the field. Only in a code document: in a
+  // markdown one Tab is how a keyboard user gets *out* of the editor, and
+  // trapping it there would make the toolbar unreachable without a mouse.
+  // Shift+Tab still escapes even in code, so there is always a way out.
+  if (event.key === "Tab" && !docFileType().previewable && !event.shiftKey) {
+    event.preventDefault();
+    indentDocSelection($("doc-content"), false);
+    return;
+  }
+  if (event.key === "Tab" && event.shiftKey && !docFileType().previewable) {
+    const box = $("doc-content");
+    // Shift+Tab dedents when there is something to dedent, and otherwise
+    // falls through to the browser's own focus-backwards — so a flush-left
+    // caret is not a keyboard trap.
+    const { text } = docSelectedLines(box);
+    if (/^[ \t]/.test(text) || box.selectionEnd > box.selectionStart) {
+      event.preventDefault();
+      indentDocSelection(box, true);
+      return;
+    }
+  }
   if (!(event.ctrlKey || event.metaKey)) return;
+  // Ctrl+/ (and Ctrl+' on the layouts where / needs a modifier of its own).
+  if (event.key === "/" || event.key === "?") {
+    event.preventDefault();
+    toggleDocComment($("doc-content"));
+    return;
+  }
   const key = event.key.toLowerCase();
   if (key === "s") { event.preventDefault(); saveDocument(); }
   else if (key === "b") { event.preventDefault(); wrapDocSelection("**"); }

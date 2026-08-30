@@ -23,7 +23,7 @@ from datetime import timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian, skills
+from memorymap.ai import librarian, skills, toolwords
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, Entry, Reminder
@@ -1954,26 +1954,48 @@ def _save_user_preference(session: Session, args: dict) -> dict:
             "characters. Save the rule, not the explanation."
         )
 
-    active = list(
-        session.scalars(
-            select(UserPreference).where(UserPreference.active == True)  # noqa: E712
-        )
-    )
-    if any((row.content or "").strip().lower() == pref.lower() for row in active):
+    # Everything already on file, proposals included: re-proposing something
+    # the user declined an hour ago is worse than not proposing at all.
+    existing = list(session.scalars(select(UserPreference)))
+    if any((row.content or "").strip().lower() == pref.lower() for row in existing):
         return {
             "already_known": True,
             "label": "ph:brain Already remembered",
             "message": f"That preference was already saved: {pref}",
         }
+    active = [row for row in existing if row.active]
     if len(active) >= MAX_ACTIVE_PREFERENCES:
         raise ToolError(
             f"There are already {len(active)} saved preferences, which is the "
             "limit. Ask the user which one to drop before saving another."
         )
 
-    session.add(UserPreference(content=pref))
+    # **Proposed, not saved.** Asked for directly: "can the ai pick up things
+    # and suggest the user adds it as a preference in that section with an
+    # accept or deny or similar popup??" — and the old behaviour is the reason
+    # that is the right shape. This tool used to write a standing instruction
+    # into every future system prompt with no confirmation of any kind (its own
+    # description said "quietly append"), so a model that misread one sentence
+    # gave itself a permanent rule the user never agreed to and would only find
+    # by opening a settings page they had no reason to visit.
+    #
+    # `active=False, proposed=True` is a third state, not "off": it is out of
+    # the prompt, and the chat and Settings both show it as waiting for an
+    # answer. The model is told plainly that it is not in force yet, so it does
+    # not go on to behave as though it were.
+    row = UserPreference(content=pref, active=False, proposed=True)
+    session.add(row)
     session.commit()
-    return {"label": "ph:brain Remembered", "message": f"Saved preference: {pref}"}
+    session.refresh(row)
+    return {
+        "label": "ph:brain Suggested",
+        "message": (
+            f"Suggested remembering: {pref} — it is NOT in force until the user "
+            "accepts it. Do not assume it applies yet."
+        ),
+        # The chat renders an Accept/Not this time card from these.
+        "proposal": {"id": row.id, "content": pref},
+    }
 
 
 # --- the registry ---------------------------------------------------------------
@@ -2026,8 +2048,13 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "save_user_preference",
-            "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
-            "Use this when the user tells you about their preferences, work style, or rules they want you to remember.",
+            # "Suggest", not "save": the tool proposes and the user accepts.
+            # Saying so in the description matters as much as the code — a
+            # model told it has *saved* something will act as though the rule
+            # is already in force.
+            "Suggest a standing preference for the user to accept. Use it when they "
+            "tell you a rule or work style they want remembered. It does NOT take "
+            "effect until they accept it.",
             {
                 "type": "object",
                 "properties": {
@@ -3114,36 +3141,70 @@ def focus_for(question: str, recent: str = "") -> list[str] | None:
     turn would be worse than reading none: a question about beans, asked after
     a conversation about deleting things, would be offered delete_note.
     """
-    text = f" {(question or '').lower()} "
-    if any(cue in text for cue in BROAD_REQUESTS):
-        return None
+    return focus_detail(question, recent).tools
+
+
+def focus_detail(question: str, recent: str = "") -> toolwords.Focus:
+    """`focus_for`, with the reasoning attached — see `toolwords.Focus`.
+
+    Split out so the agent can log *why* a tool was offered. "The AI didn't use
+    the tool I expected" and "the AI tagged something I only asked about" are
+    both otherwise indistinguishable from the model making its own choice.
+    """
+    asked = question or ""
+    text = f" {asked} "
+    broad = toolwords.score_groups(text, [((), BROAD_REQUESTS)])[0]
+    if broad:
+        return toolwords.Focus(tools=None, broad=True)
+
     # A follow-through's subject is in the turn before it. Matched over both,
     # so "implement those suggestions" after a conversation about categories
     # gets the category tools — and so an instruction that names its own
     # subject ("apply that and also tag them") keeps its own cues too.
-    following = is_follow_through(question)
+    following = is_follow_through(asked)
     if following and recent:
-        text = f"{text} {recent.lower()} "
-        if any(cue in text for cue in BROAD_REQUESTS):
-            return None
-    wanted = list(CORE_TOOLS)
-    matched = False
-    for group, cues in TOOL_GROUPS:
-        if any(cue in text for cue in cues):
-            wanted.extend(group)
-            matched = True
-    if following and not matched:
+        text = f"{text} {recent} "
+        if toolwords.score_groups(text, [((), BROAD_REQUESTS)])[0]:
+            return toolwords.Focus(tools=None, broad=True, followed_through=True)
+
+    ranked, cues = toolwords.score_groups(text, TOOL_GROUPS)
+    if following and not ranked:
         # "Do it" and nothing in the conversation says what "it" is. The safe
         # answer is the whole toolbox: this is precisely the turn where the
         # user is expecting an action, so being unable to act is the one
         # outcome that is certainly wrong.
-        return None
+        return toolwords.Focus(tools=None, followed_through=True)
+
+    # A question *about* a capability keeps that capability's reading tools and
+    # loses its writing ones. "How do I tag a note?" should be able to look at
+    # the tags to answer well; it should not be holding delete_tag while it
+    # does. Note this narrows within a group that already fired — it never
+    # drops the group, because the question is still about that subject.
+    asking = toolwords.looks_like_a_question_about(asked)
+
+    wanted = list(CORE_TOOLS)
+    for index, _score in ranked:
+        for name in TOOL_GROUPS[index][0]:
+            if asking and name in WRITE_TOOLS:
+                continue
+            wanted.append(name)
+
     # The web tools are the user's own opt-in, made per-notebook rather than
     # per-question; `tool_enabled` already hides them otherwise, and second-
     # guessing that switch here would mean "web search is on but I didn't
     # think you meant it".
     wanted.extend(["web_search", "read_url"])
-    return wanted
+    # De-duplicated but order-preserving: a group can name a tool that is
+    # already core, and a repeated schema is a wasted schema.
+    seen: set[str] = set()
+    unique = [n for n in wanted if not (n in seen or seen.add(n))]
+    return toolwords.Focus(
+        tools=unique,
+        ranked=ranked,
+        cues=cues,
+        asking_about=asking,
+        followed_through=following,
+    )
 
 
 def tool_enabled(name: str) -> bool:
@@ -3233,6 +3294,87 @@ def schema_chars(specs: list[dict]) -> int:
     return len(json.dumps(specs))
 
 
+#: How much of a tool description survives compaction. One sentence is what a
+#: model needs to pick between tools; the rest is disambiguation it only needs
+#: once it has already picked, by which point the arguments say more than the
+#: prose does.
+COMPACT_DESCRIPTION_CHARS = 150
+
+#: Parameter descriptions get less again — the name and JSON type already carry
+#: most of it ("limit", integer), so what is left is the unit or the range.
+COMPACT_PARAM_CHARS = 60
+
+#: A sentence end followed by whitespace. Cutting on this rather than on a
+#: character count keeps the trimmed description a sentence rather than a
+#: fragment that stops mid-clause.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s")
+
+
+def _first_sentence(text: str, cap: int) -> str:
+    """The leading sentence of ``text``, or a hard-trimmed prefix."""
+    text = " ".join((text or "").split())
+    if len(text) <= cap:
+        return text
+    match = _SENTENCE_END.search(text)
+    if match and match.start() < cap:
+        return text[: match.start() + 1]
+    return text[:cap].rstrip()
+
+
+def compact_schemas(offered: list[dict]) -> list[dict]:
+    """The same tools, described in one sentence each.
+
+    **Why this exists, and why it runs before anything is dropped.** Measured
+    on a real turn with an 8k-window model, eight notes and no history, the
+    prompt broke down as system 3,288 chars, notes-and-question 2,377, and tool
+    schemas 4,827 — the schemas cost nearly twice what the user's own notes
+    did, and were the single largest thing in the prompt. That is the reported
+    *"agent mode and chats are too heavy for small models"* in one number.
+
+    The instinct is to send fewer tools, and `within_budget` did exactly that.
+    But dropping a tool changes what the app can *do* — the model stops being
+    able to set a reminder, and the only visible symptom is that it says it
+    cannot, which reads as the app being broken rather than rationed. Trimming
+    a description changes only how verbosely each tool is explained. So on a
+    window too small for the full set, this is tried first and tools are only
+    dropped if it is still not enough.
+
+    Names, parameter names, types and required-ness are untouched: those are
+    what the model actually calls the tool with, and shortening any of them
+    would produce malformed calls rather than a smaller prompt.
+    """
+    out: list[dict] = []
+    for spec in offered:
+        function = spec.get("function") or {}
+        parameters = function.get("parameters") or {}
+        properties = parameters.get("properties") or {}
+        slim_properties = {}
+        for key, value in properties.items():
+            if isinstance(value, dict) and "description" in value:
+                value = {
+                    **value,
+                    "description": _first_sentence(
+                        value["description"], COMPACT_PARAM_CHARS
+                    ),
+                }
+            slim_properties[key] = value
+        out.append(
+            {
+                **spec,
+                "function": {
+                    **function,
+                    "description": _first_sentence(
+                        function.get("description", ""), COMPACT_DESCRIPTION_CHARS
+                    ),
+                    "parameters": {**parameters, "properties": slim_properties}
+                    if parameters
+                    else parameters,
+                },
+            }
+        )
+    return out
+
+
 def within_budget(
     offered: list[dict], budget_chars: int, keep_first: list[str] | None = None
 ) -> tuple[list[dict], list[str]]:
@@ -3249,6 +3391,12 @@ def within_budget(
     """
     if budget_chars <= 0 or not offered:
         return offered, []
+    # Cheaper descriptions before fewer tools — see compact_schemas for the
+    # measurement behind that order. Only when the full set genuinely does not
+    # fit: a model with room for the long descriptions should get them, because
+    # they are what stops it reaching for the wrong tool.
+    if schema_chars(offered) > budget_chars:
+        offered = compact_schemas(offered)
     priority = list(keep_first or CORE_TOOLS)
     rank = {name: index for index, name in enumerate(priority)}
     ordered = sorted(offered, key=lambda t: rank.get(t["function"]["name"], len(rank)))

@@ -47,6 +47,7 @@ from urllib.parse import urlparse, urlunparse
 
 import requests
 
+from memorymap.ai import sampling
 from memorymap.ai.provider import (
     Provider,
     ProviderError,
@@ -55,6 +56,7 @@ from memorymap.ai.provider import (
     _ToolTextGate,
     context_from_catalog_entry,
     extract_text_tool_calls,
+    is_transient_server_error,
     known_context,
     normalise_tool_calls,
     offered_tool_names,
@@ -85,6 +87,16 @@ def _looks_like_tools_rejection(status: int, body: str) -> bool:
             '"tools"',
         )
     )
+
+
+#: The sampling knobs the OpenAI chat-completions schema actually defines.
+#:
+#: llama.cpp's own server, LM Studio and vLLM all accept more than this, but
+#: they disagree about which — and a server that validates strictly rejects the
+#: entire request for one unknown field, which would break every turn rather
+#: than ignore one setting. The intersection is the only safe set to send
+#: blind; anything outside it stays an Ollama-dialect feature.
+_OPENAI_SAMPLING = frozenset({"temperature", "top_p"})
 
 
 class OpenAICompatClient(Provider):
@@ -300,8 +312,24 @@ class OpenAICompatClient(Provider):
         """
         budget = self.generation_budget(model, max_output_tokens, mode)
         options = {"max_tokens": budget["max_output_tokens"]}
+        preset_options = {}
         if "temperature" in budget:
-            options["temperature"] = budget["temperature"]
+            preset_options["temperature"] = budget["temperature"]
+        # Sampling, same three layers as the Ollama dialect — but with only two
+        # of them available. There is no `/api/show` here: the OpenAI shape has
+        # no endpoint that reports a model's own recommended parameters, so
+        # this dialect can offer the user's overrides and the task preset and
+        # nothing in between. That is a real difference, not an oversight, and
+        # it is why the settings panel says where each value came from.
+        resolved = sampling.resolve(None, preset_options, self.sampling_overrides())
+        # Only what this dialect actually accepts. `top_k`, `min_p`,
+        # `repeat_penalty` and `repeat_last_n` are llama.cpp/Ollama names with
+        # no place in the OpenAI schema — a strict server rejects the whole
+        # request for an unknown field, so sending them would break every turn
+        # against exactly the backends this dialect exists to support.
+        for key, value in resolved.items():
+            if key in _OPENAI_SAMPLING:
+                options[key] = value
         return options
 
     # --- message translation ------------------------------------------------
@@ -566,76 +594,95 @@ class OpenAICompatClient(Provider):
         Returns {"content": str, "thinking": str | None} — the same shape the
         Ollama path returns, so nothing above this has to know which backend
         answered.
+
+        Retries once on a transient 5xx — same reasoning and shape as
+        `OllamaClient.chat`'s own retry (see `is_transient_server_error`).
         """
         started = time.monotonic()
-        try:
-            response = self._post(
-                self._payload(model, messages, mode, stream=False), stream=False
-            )
-            response.raise_for_status()
-            payload = response.json()
-            message = (payload["choices"][0] or {}).get("message") or {}
-            content, inline_thinking = split_thinking(message.get("content") or "")
-            return {
-                "content": content,
-                "thinking": message.get("reasoning_content") or inline_thinking,
-                "stats": self._stats_from(
-                    payload,
-                    model,
-                    started,
-                    prompt_chars=self._chars_in(messages),
-                    output_chars=len(message.get("content") or ""),
-                ),
-            }
-        except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
-            raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
+        for attempt in range(2):
+            try:
+                response = self._post(
+                    self._payload(model, messages, mode, stream=False), stream=False
+                )
+                response.raise_for_status()
+                payload = response.json()
+                message = (payload["choices"][0] or {}).get("message") or {}
+                content, inline_thinking = split_thinking(message.get("content") or "")
+                return {
+                    "content": content,
+                    "thinking": message.get("reasoning_content") or inline_thinking,
+                    "stats": self._stats_from(
+                        payload,
+                        model,
+                        started,
+                        prompt_chars=self._chars_in(messages),
+                        output_chars=len(message.get("content") or ""),
+                    ),
+                }
+            except requests.HTTPError as exc:
+                if attempt == 0 and is_transient_server_error(exc):
+                    continue
+                raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
+            except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
+                raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
     def chat_stream(
         self, model: str, messages: list[dict], mode: str | None = None
     ) -> Iterator[dict]:
         """Streamed chat turn: yields {"thinking_delta"} and {"content_delta"}
-        pieces as the model produces them, then one {"stats"}."""
+        pieces as the model produces them, then one {"stats"}.
+
+        Retries once on a transient 5xx, safe for the same structural reason
+        as `OllamaClient.chat_stream`'s own retry: `raise_for_status()` is
+        the only line here able to raise `HTTPError`, and it always runs
+        before this attempt's first `yield`."""
         splitter = _ThinkTagSplitter()
         started = time.monotonic()
-        last: dict = {}
-        streamed_chars = 0  # for the estimate, when the server reports no usage
-        try:
-            with self._post(
-                self._payload(
-                    model,
-                    messages,
-                    mode,
-                    stream=True,
-                    # Without this, a streamed OpenAI response carries no usage
-                    # block at all and the metadata line loses its token counts.
-                    # Servers that don't know the field ignore it.
-                    stream_options={"include_usage": True},
-                ),
-                stream=True,
-            ) as response:
-                response.raise_for_status()
-                for payload in self._sse_payloads(response):
-                    last = payload
-                    choices = payload.get("choices") or []
-                    delta = (choices[0] or {}).get("delta") if choices else None
-                    content, thinking = self._delta_text(delta or {})
-                    streamed_chars += len(content) + len(thinking)
-                    if thinking:
-                        yield {"thinking_delta": thinking}
-                    if content:
-                        yield from splitter.feed(content)
-                yield from splitter.flush()
-                yield {
-                    "stats": self._stats_from(
-                        last,
+        for attempt in range(2):
+            last: dict = {}
+            streamed_chars = 0  # for the estimate, when the server reports no usage
+            try:
+                with self._post(
+                    self._payload(
                         model,
-                        started,
-                        prompt_chars=self._chars_in(messages),
-                        output_chars=streamed_chars,
-                    )
-                }
-        except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
-            raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
+                        messages,
+                        mode,
+                        stream=True,
+                        # Without this, a streamed OpenAI response carries no usage
+                        # block at all and the metadata line loses its token counts.
+                        # Servers that don't know the field ignore it.
+                        stream_options={"include_usage": True},
+                    ),
+                    stream=True,
+                ) as response:
+                    response.raise_for_status()
+                    for payload in self._sse_payloads(response):
+                        last = payload
+                        choices = payload.get("choices") or []
+                        delta = (choices[0] or {}).get("delta") if choices else None
+                        content, thinking = self._delta_text(delta or {})
+                        streamed_chars += len(content) + len(thinking)
+                        if thinking:
+                            yield {"thinking_delta": thinking}
+                        if content:
+                            yield from splitter.feed(content)
+                    yield from splitter.flush()
+                    yield {
+                        "stats": self._stats_from(
+                            last,
+                            model,
+                            started,
+                            prompt_chars=self._chars_in(messages),
+                            output_chars=streamed_chars,
+                        )
+                    }
+                return
+            except requests.HTTPError as exc:
+                if attempt == 0 and is_transient_server_error(exc):
+                    continue
+                raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
+            except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
+                raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
 
     def chat_tools_stream(
         self,

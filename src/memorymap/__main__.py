@@ -41,6 +41,16 @@ HOST, PORT = "127.0.0.1", 8000  # local only — this is a private app
 # palette (#4f6df5) matches index.html's own `theme-color` meta tag rather
 # than pulling in the real app's CSS, so the swap to the real window doesn't
 # jar even though nothing is actually shared between them.
+#
+# The logo is the same reason, and is why it is **copied** here as inline SVG
+# rather than referenced. Asked for directly ("add the logo to the loading
+# screen"); this window used to show a 10px blue dot beside the wordmark,
+# which is the first thing anyone sees of the app on a cold start. It cannot
+# be `<img src="/favicon.svg">` — there is no server to serve it — and a
+# `file://` path breaks in the packaged build, so the artwork is duplicated.
+# It is 30 lines of static geometry that has changed once; keeping the two in
+# sync by hand is cheaper than the alternatives, and a drift shows up
+# immediately on the next launch.
 _LOADING_HTML = """<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
@@ -50,8 +60,8 @@ _LOADING_HTML = """<!doctype html>
     gap: 18px; height: 100%; background: #12141c; color: #e7e9ee;
     font: 14px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
   }
-  .mark { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #4f6df5; }
+  .mark { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; }
+  .mark svg { width: 46px; height: 46px; display: block; }
   .bar-track { width: 240px; height: 6px; border-radius: 3px; background: #262b3a; overflow: hidden; }
   .bar-fill { height: 100%; width: 4%; background: #4f6df5; border-radius: 3px;
               transition: width 300ms ease-out; }
@@ -59,7 +69,31 @@ _LOADING_HTML = """<!doctype html>
   #status { color: #9aa1ad; min-height: 1.2em; }
 </style></head>
 <body>
-  <div class="mark"><span class="dot"></span><span>MemoryMap AI</span></div>
+  <div class="mark"><svg viewBox="0 0 100 100" role="img" aria-label="MemoryMap AI">
+    <defs>
+      <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#5b7cff"/><stop offset="55%" stop-color="#4f6df5"/>
+        <stop offset="100%" stop-color="#a927d8"/>
+      </linearGradient>
+      <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+        <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="100" height="100" rx="23" fill="url(#tile)"/>
+    <rect width="100" height="100" rx="23" fill="url(#sheen)"/>
+    <g stroke="#ffffff" stroke-width="5.5" stroke-linecap="round" opacity="0.92">
+      <path d="M50 50 50 20"/><path d="M50 50 78.5 40.7"/><path d="M50 50 67.6 74.3"/>
+      <path d="M50 50 32.4 74.3"/><path d="M50 50 21.5 40.7"/>
+    </g>
+    <g fill="#ffffff">
+      <circle cx="50" cy="20" r="7.5"/><circle cx="78.5" cy="40.7" r="7.5"/>
+      <circle cx="67.6" cy="74.3" r="7.5"/><circle cx="32.4" cy="74.3" r="7.5"/>
+      <circle cx="21.5" cy="40.7" r="7.5"/>
+    </g>
+    <circle cx="50" cy="50" r="13" fill="#4f6df5"/>
+    <circle cx="50" cy="50" r="9.5" fill="#ffffff"/>
+  </svg><span>MemoryMap AI</span></div>
   <div class="bar-track"><div class="bar-fill" id="bar"></div></div>
   <div id="status">Starting…</div>
   <script>
@@ -135,6 +169,34 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
         except OSError:
             time.sleep(0.05)
     return False
+
+
+def _close_launch_splash() -> None:
+    """Take down start.bat's pre-Python splash, if there is one.
+
+    The launcher shows a window (scripts/splash.ps1) for the phase before this
+    process exists at all — the git pull, building .venv, and a pip install
+    that can run to minutes. That window watches the file named in
+    MM_SPLASH_FILE and closes when it disappears, so this is the whole
+    protocol: delete the file.
+
+    Called the instant *this* process's own loading window is on screen, not
+    earlier and not later. Earlier leaves a gap with nothing on screen at the
+    slowest possible moment, which is the problem the splash exists to solve;
+    later leaves two windows stacked, with an always-on-top one covering the
+    real progress bar.
+
+    Never raises. A missing variable, a file already gone, a permission error
+    on TEMP — none of those are reasons to fail a launch that has otherwise
+    got this far.
+    """
+    path = os.environ.get("MM_SPLASH_FILE")
+    if not path:
+        return
+    try:
+        os.remove(path)
+    except OSError as exc:
+        logger.debug("couldn't close the launch splash: %s", exc)
 
 
 def _push_status_to_window(window, text: str) -> None:
@@ -548,6 +610,26 @@ def _apply_console_visibility(targets: dict[int, str], hidden: bool) -> None:
             )
 
 
+def _stop_background_work() -> None:
+    """Stop every background job before an exit that skips the normal one.
+
+    `os._exit` and `os.execv` both replace or end this process immediately:
+    no `finally`, no atexit, no uvicorn shutdown, and so no lifespan handler.
+    The server's own lifespan calls `bgtasks.stop_all()` for the graceful
+    paths (`/shutdown`, Ctrl+C); this is the same call for the two paths that
+    are deliberately abrupt.
+
+    Never raises and never blocks for long: the process is going away, and a
+    Quit button that hangs is worse than a stray subprocess.
+    """
+    try:
+        from memorymap.core import bgtasks
+
+        bgtasks.stop_all()
+    except Exception as exc:  # noqa: BLE001 — best effort on the way out
+        logger.warning("couldn't stop background work before exiting: %s", exc)
+
+
 def _run_desktop(hidden_relaunch: bool = False) -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process.
@@ -637,6 +719,10 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # app once loaded; the loading page has nothing worth selecting.
         text_select=True,
     )
+    # The handoff from start.bat's splash to this window. create_window has
+    # returned, so this window is the one the user is about to be looking at;
+    # the splash's job is over the moment it is.
+    _close_launch_splash()
     # `private_mode` defaults to True in pywebview, which throws away
     # localStorage and cookies when the window closes. The browser build keeps
     # a great deal in localStorage — the theme and every appearance key, the
@@ -713,8 +799,57 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         else None
     )
     if tray_icon is not None:
+        # **Closing the window is not quitting the app, and it now says so.**
+        # The hide itself has been here since the tray was added; what was
+        # missing is everything around it. Reported as a thing to build —
+        # "maybe make it so the app window can be closed but the app will
+        # still be open in the system tray, and then the window can be
+        # reopened again. so there is a difference between minimising the app
+        # and quitting the app" — which is a fair description of what a
+        # silent hide looks like from outside: the window vanishes, nothing
+        # explains where it went, and the only way back is noticing an icon
+        # you were never told to look for.
+        #
+        # Two things fix that and neither changes the hide:
+        #
+        # 1. **A preference.** `close_to_tray` defaults to on (a background
+        #    notebook is the point of the tray) and can be turned off, in
+        #    which case the X button quits properly — which is what someone
+        #    who does not want a resident app expects it to do, and what the
+        #    Linux/macOS builds already do for want of a tray.
+        # 2. **One notice, the first time.** A balloon from the tray icon
+        #    itself, so the explanation appears next to the thing being
+        #    explained. Once per install, keyed on a preference: an app that
+        #    tells you the same thing every time you close it is worse than
+        #    one that never tells you.
+        _told_about_tray = {"done": False}
 
         def _on_closing() -> bool:
+            try:
+                from memorymap.core import deps
+
+                config = deps.get_config()
+                if not config.get_preference("close_to_tray", True):
+                    # A real quit, so the same teardown the tray's own Quit
+                    # does — this path skips the lifespan handler too.
+                    _stop_background_work()
+                    return True
+                if not _told_about_tray["done"] and not config.get_preference(
+                    "tray_hide_explained", False
+                ):
+                    _told_about_tray["done"] = True
+                    config.set_preference("tray_hide_explained", True)
+                    try:
+                        tray_icon.notify(
+                            "Still running here. Click the icon to bring the "
+                            "window back, or right-click → Quit to close it "
+                            "properly.",
+                            "MemoryMap AI",
+                        )
+                    except Exception as exc:  # noqa: BLE001 — balloons are optional
+                        logger.debug("couldn't show the tray balloon: %s", exc)
+            except Exception as exc:  # noqa: BLE001 — never block a close
+                logger.warning("close-to-tray check failed: %s", exc)
             window.hide()
             return False  # cancels the real close — pywebview just hides it
 
@@ -818,7 +953,12 @@ def _start_tray(
         image = Image.new("RGBA", (64, 64), (74, 108, 247, 255))
 
     def _open(icon, item) -> None:
+        # `show()` un-minimises but does not raise or focus, so clicking Open
+        # while the window was merely *behind* something did nothing visible —
+        # which reads as the menu item being broken. `_focus_window` is the
+        # same helper the loading-window handoff already uses for this.
         window.show()
+        _focus_window(window)
 
     # Running from start.bat/start-desktop.bat rather than the packaged
     # installer (whose PyInstaller build sets console=False, so there is no
@@ -871,6 +1011,36 @@ def _start_tray(
         window.destroy()
         os._exit(0)
 
+    def _go(js: str):
+        """A tray item that brings the window forward and *lands somewhere*.
+
+        Reported directly: "the options and buttons in the system tray dont
+        fully navigate to the propper features, just the tabs or settings
+        modal." Two items existed and each hand-rolled the same three steps —
+        show, focus, evaluate a string of JS — so adding a third meant copying
+        them again, which is why there was never a third.
+
+        Every generated item carries the same lock guard, and that is the
+        reason this is a factory rather than a list of one-liners: a tray menu
+        must never reach past the lock screen, and a guard that has to be
+        remembered per item is a guard that will be forgotten. Locked, the
+        window still comes forward — the person asked for the app, and the
+        honest answer is the lock screen, not nothing happening.
+        """
+
+        def run(icon, item) -> None:
+            window.show()
+            _focus_window(window)
+            try:
+                window.evaluate_js(
+                    "if (document.getElementById('lock-overlay')"
+                    "?.classList.contains('hidden')) {" + js + "}"
+                )
+            except Exception as exc:  # noqa: BLE001 — a menu item is not worth a crash
+                logger.warning("tray navigation failed: %s", exc)
+
+        return run
+
     def _view_logs(icon, item) -> None:
         # Reported directly: this used to open Settings -> Logs unconditionally,
         # which reaches straight past the lock screen if the app is locked —
@@ -880,6 +1050,7 @@ def _start_tray(
         # when that overlay isn't showing, otherwise just bring the window
         # (still locked) forward.
         window.show()
+        _focus_window(window)
         window.evaluate_js(
             "if (document.getElementById('lock-overlay')?.classList.contains('hidden')"
             " && typeof openSettingsModal === 'function') {"
@@ -890,11 +1061,31 @@ def _start_tray(
         # Re-execs this same process rather than spawning a second one — no
         # window during the gap, and never two copies of the app arguing
         # over the same SQLite file if something goes wrong mid-relaunch.
+        #
+        # The argv has to be built differently for the two install types, and
+        # getting it wrong broke Restart in exactly the build where it is
+        # hardest to notice. `[sys.executable, *sys.argv]` is right from
+        # source, where `sys.executable` is python.exe and `sys.argv[0]` is the
+        # script — but in a PyInstaller build **both are the .exe**, so that
+        # form passes the executable's own path as a positional argument.
+        # `parse_args` has no positionals, so it exits(2) on "unrecognized
+        # arguments", and the packaged app has no console to print that to:
+        # the user clicks Restart, the window closes, and nothing comes back.
+        argv = list(sys.argv) if getattr(sys, "frozen", False) else [sys.executable, *sys.argv]
+        _stop_background_work()
         icon.stop()
         window.destroy()
-        os.execv(sys.executable, [sys.executable, *sys.argv])
+        os.execv(sys.executable, argv)
 
     def _quit(icon, item) -> None:
+        # **Before the hard exit below, not after it — there is no after.**
+        # Reported directly: "make sure that if the app is quit, all ai tasks
+        # and bg tasks stop as well." `os._exit(0)` skips every shutdown hook
+        # this process has, including the lifespan handler that calls exactly
+        # this function, so quitting from the tray was the one exit path that
+        # left a pip install and a SearXNG server running with nothing left to
+        # own them.
+        _stop_background_work()
         icon.stop()
         window.destroy()
         # window.destroy() runs on this thread (pystray's own), not the main
@@ -907,9 +1098,71 @@ def _start_tray(
         # terminal it's running in — actually ends.
         os._exit(0)
 
+    def _new_note(icon, item) -> None:
+        """Straight to an empty note, focused and ready to type.
+
+        The reason a tray icon earns its place in a notebook app: the whole
+        point of "capture it before you lose it" is not having to find the
+        window, pick a tab and click into a box first. Everything else on this
+        menu is app management; this is the only item that does the app's
+        actual job.
+
+        Guarded by the lock overlay exactly as View Logs is — a tray item must
+        never reach past the lock screen — and by `typeof`, because the menu
+        can be clicked while the page is still loading.
+        """
+        window.show()
+        _focus_window(window)
+        window.evaluate_js(
+            "if (!document.getElementById('lock-overlay')?.classList.contains('hidden')) {}"
+            " else if (typeof switchTab === 'function') {"
+            " switchTab('notes');"
+            " document.getElementById('entry-content')?.focus(); }"
+        )
+
+    # Everything a tray icon is for: capture something, ask something, check
+    # on the app, get to the settings that matter. Each item lands on the
+    # feature rather than on the tab that contains it — see `_go`.
     menu_items = [
         pystray.MenuItem("Open MemoryMap AI", _open, default=True),
+        pystray.MenuItem("New note", _new_note),
+        pystray.MenuItem(
+            "Ask a question",
+            _go("if (typeof switchTab === 'function') { switchTab('chat');"
+                " document.getElementById('chat-input')?.focus(); }"),
+        ),
+        pystray.MenuItem(
+            "Search everything",
+            _go("if (typeof openPalette === 'function') openPalette();"
+                " else if (typeof switchTab === 'function') switchTab('library');"),
+        ),
+        pystray.MenuItem(
+            "Record a meeting",
+            _go("if (typeof openMeetingRecorder === 'function') openMeetingRecorder();"),
+        ),
+        pystray.MenuItem(
+            "Reminders",
+            _go("if (typeof switchTab === 'function') switchTab('reminders');"),
+        ),
+        pystray.MenuItem(
+            "Whiteboard",
+            _go("if (typeof switchTab === 'function') switchTab('whiteboard');"),
+        ),
+        pystray.MenuItem(
+            "Background tasks",
+            _go("if (typeof openSettingsModal === 'function') openSettingsModal('tasks');"),
+        ),
+        pystray.MenuItem(
+            "Settings",
+            _go("if (typeof openSettingsModal === 'function') openSettingsModal('models');"),
+        ),
         pystray.MenuItem("View Logs", _view_logs),
+        pystray.Menu.SEPARATOR,
+        # The other half of "there is a difference between minimising the app
+        # and quitting the app" — the same hide the window's own close button
+        # now does, reachable from here so the behaviour is discoverable
+        # rather than only ever happening to you.
+        pystray.MenuItem("Hide to tray", lambda icon, item: window.hide()),
     ]
     if console_hwnd is not None:
         menu_items.append(

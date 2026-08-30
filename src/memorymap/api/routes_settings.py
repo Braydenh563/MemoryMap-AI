@@ -186,6 +186,20 @@ class PreferencesBody(BaseModel):
     # same round of testing that found show_console_on_startup missing from
     # GET /preferences.
     console_view_intro_seen: bool | None = None
+    #: Whether the desktop window's X button hides to the tray (default) or
+    #: quits. Declared here for the reason the comment above gives: a field
+    #: Pydantic does not know about is silently dropped, so a setting that is
+    #: never declared is a switch that never saves.
+    close_to_tray: bool | None = None
+    #: Which status-bar slots the user has switched off. **The list of what is
+    #: hidden, not what is shown** — see `STATUS_SLOTS` in app.js: a slot added
+    #: in a later version then appears by default for everyone, instead of
+    #: being invisible to every user who ever opened that settings screen.
+    status_bar_hidden: list[str] | None = None
+    #: One-shot: the tray balloon explaining where the window went has been
+    #: shown. Written by the launcher, not the browser, but declared so the
+    #: value round-trips rather than being dropped by a later PUT.
+    tray_hide_explained: bool | None = None
 
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
@@ -425,6 +439,10 @@ def get_preferences() -> dict:
         # on this same response) would have shown on every single launch.
         "show_console_on_startup": config.get_preference("show_console_on_startup", True),
         "console_view_intro_seen": config.get_preference("console_view_intro_seen", False),
+        # Default True, matching `_on_closing` in __main__.py — the two must
+        # agree or the checkbox shows the opposite of what the window does.
+        "close_to_tray": config.get_preference("close_to_tray", True),
+        "status_bar_hidden": config.get_preference("status_bar_hidden", []),
     }
 
 
@@ -519,6 +537,31 @@ def set_console_mode(
         restarting = True
         background_tasks.add_task(restart_in_console_mode, not show_console)
     return {"show_console_on_startup": show_console, "restarting": restarting}
+
+
+@router.post("/system/restart")
+def restart_app(background_tasks: BackgroundTasks) -> dict:
+    """A plain restart, on request rather than tied to any one preference
+    changing — ROADMAP item C, asked for directly. Several extras only take
+    effect after a restart and the app said so without ever offering one;
+    `restart_in_console_mode` already IS a generic "spawn a replacement
+    process and exit this one," console-mode switching is just its first
+    caller. This is the second: same mechanism, current console visibility
+    preserved rather than flipped.
+
+    Same platform gate as /system/console-mode, for the same reason — this
+    can only ever work in the packaged desktop app on Windows (the one
+    platform `_spawn_desktop` knows how to relaunch). Everywhere else,
+    "restart" means the user's own means of doing that (Ctrl+C and rerun,
+    close and reopen the browser tab), which this app cannot do for them.
+    """
+    if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
+        return {"restarting": False}
+    from memorymap.__main__ import restart_in_console_mode
+
+    show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
+    background_tasks.add_task(restart_in_console_mode, not show_console)
+    return {"restarting": True}
 
 
 def _validated_skills(raw: list[dict]) -> list[dict]:
@@ -652,11 +695,21 @@ class PreferenceBody(BaseModel):
     active: bool | None = None
 
 
+class ProposalAnswer(BaseModel):
+    """Yes or no to a preference the model suggested."""
+
+    accept: bool
+
+
 def _preference_out(row) -> dict:  # noqa: ANN001 — a UserPreference
     return {
         "id": row.id,
         "content": row.content,
         "active": bool(row.active),
+        # Waiting for an answer — the model wrote it, the user has not said
+        # yes. A third state, not "off": it is out of the prompt *and* the UI
+        # shows it as a question rather than as a switch someone flipped.
+        "proposed": bool(getattr(row, "proposed", False)),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
@@ -664,7 +717,7 @@ def _preference_out(row) -> dict:  # noqa: ANN001 — a UserPreference
 @router.get("/memory")
 def list_memory(session: Session = Depends(get_session)) -> dict:
     """Everything the AI has been told to remember, newest first."""
-    from memorymap.ai import agent
+    from memorymap.ai import memory
     from memorymap.core.database import UserPreference
 
     rows = list(
@@ -676,8 +729,8 @@ def list_memory(session: Session = Depends(get_session)) -> dict:
         # ones do, and only until the character budget runs out — newest first,
         # so a long-standing list quietly stops including its oldest entries.
         # Showing the budget beats letting someone wonder why rule 41 is ignored.
-        "budget_chars": agent.MEMORY_STREAM_BUDGET_CHARS,
-        "in_prompt": len(agent._persona_with_memory(session, "").strip()),
+        "budget_chars": memory.MEMORY_STREAM_BUDGET_CHARS,
+        "in_prompt": len(memory.persona_with_memory(session, "").strip()),
     }
 
 
@@ -724,6 +777,40 @@ def add_memory(body: PreferenceBody, session: Session = Depends(get_session)) ->
     return _preference_out(row)
 
 
+@router.post("/memory/{preference_id}/answer")
+def answer_memory_proposal(
+    preference_id: int, body: ProposalAnswer, session: Session = Depends(get_session)
+) -> dict:
+    """Accept or decline a preference the model suggested.
+
+    Asked for directly: "can the ai pick up things and suggest the user adds it
+    as a preference in that section with an accept or deny or similar popup??"
+    — and the shape of the old behaviour is why that is the right question.
+    `save_user_preference` used to write a standing instruction into every
+    future system prompt with no confirmation at all, so a model that misread
+    one sentence gave itself a permanent rule its user never agreed to.
+
+    **Declining does not delete the row**, and that is deliberate: the
+    duplicate check in `_save_user_preference` looks at *every* preference, so
+    a kept row is what stops the model proposing the same thing again an hour
+    later. It reads as an ordinary switched-off preference afterwards, which
+    it is — and can be switched on if the user changes their mind.
+
+    Answering something that is not a proposal is a no-op rather than an
+    error: two windows, two clicks, one of them second.
+    """
+    from memorymap.core.database import UserPreference
+
+    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    if not getattr(row, "proposed", False):
+        return _preference_out(row)
+    row.proposed = False
+    row.active = bool(body.accept)
+    session.commit()
+    session.refresh(row)
+    return _preference_out(row)
+
+
 @router.patch("/memory/{preference_id}")
 def update_memory(
     preference_id: int, body: PreferenceBody, session: Session = Depends(get_session)
@@ -756,12 +843,23 @@ def forget_memory(preference_id: int, session: Session = Depends(get_session)) -
 @router.get("/audit")
 def audit_log(
     limit: int = Query(default=100, ge=1, le=500),
+    entity_type: str = Query(default="", max_length=40),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """The activity log, newest first (viewer in the UI)."""
-    rows = session.scalars(
-        select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
-    )
+    """The activity log, newest first (viewer in the UI).
+
+    `entity_type` filters *before* the limit, and that ordering is the whole
+    reason it exists. The Library's AI Skills tab asked for 20 rows and then
+    filtered them in the browser for skill runs — so on any notebook where the
+    last twenty things that happened were note edits, a real history of skill
+    runs rendered as "No skill execution logs found". Reported as the skill
+    logs not working. Filtering in SQL means the limit counts the rows you
+    asked for rather than the rows you are about to throw away.
+    """
+    query = select(AuditLog)
+    if entity_type:
+        query = query.where(AuditLog.entity_type == entity_type)
+    rows = session.scalars(query.order_by(AuditLog.id.desc()).limit(limit))
     return [
         {
             "id": row.id,

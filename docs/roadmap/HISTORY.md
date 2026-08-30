@@ -7,6 +7,143 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## §94 — a chat turn saved to the wrong conversation, the prompt on a diet, and the plug for scanned PDFs
+
+**Do not rebuild any of the following.**
+
+**The worst bug of the session was silent.** `chatConv` is module-level and
+*reassigned* by `openConversation`/`newChatConversation`, and every save in
+`sendChatMessage` read it live — at each checkpoint and again when the turn
+finished, seconds or minutes after the send. Switching chats mid-stream
+therefore wrote the finished answer into **whichever conversation was open when
+it landed**, or created a new one from it if the reader had pressed "+ New".
+Reported only as the message and the generating bubble vanishing. The turn now
+pins its conversation (`convRef`) and only touches the header, usage meter and
+composer while that conversation is still on screen.
+
+**Prompt cost, measured then cut.** On an 8k window with eight notes and *no
+history*, the prompt was system 3,288 chars, notes 2,377, tool schemas 4,827 —
+32% of the window before the conversation existed, with the schemas costing
+nearly twice what the user's own notes did. Now 23%:
+- `tools.compact_schemas` trims descriptions, never names or parameters, and
+  `within_budget` tries it **before dropping tools** — dropping a tool changes
+  what the app can do, trimming prose only changes how verbosely it is
+  explained. 8k fits 22 tools where 17 fit before.
+- `agent.COMPACT_TOOLS_GUIDE` replaces the 2,807-char guide below 8k. It is
+  re-sent every round, so on a 4k model it was 17% of the context per round.
+- `tests/test_prompt_budget.py` pins the fixed half under 20% and checks at
+  least eight tools survive, so the saving cannot come from an empty toolbox.
+
+**`ai/toolwords.py` — a new module, the deterministic tool focus.** The old
+rule was `cue in text`; against ten ordinary questions, seven picked up
+unrelated tools ("tag" inside *vintage* and *advantages*, "link" inside
+*blinking*, "draft" inside *drafting*). Word-boundary matching kills that class.
+Scores **rank, never gate** — a first attempt used a threshold one word could
+not clear and lost the tag tools for "tag all my gym notes", which is the worse
+trade. Anchoring both ends broke every plural, so there is an explicit
+inflection list. It also tells a question about a capability from a request to
+use it, so "how do I tag a note?" keeps the group and loses its write tools.
+**The focus advises and never decides**: `FOCUS_NOTE` tells the model the list
+is a suggestion, and a call for an unoffered tool widens to the full set for
+the rest of the turn.
+
+**Scanned PDFs read now.** `docview.py` used to carry a docstring saying they
+could not: it takes a `vision_reader`, `vision_ocr.py` reads images, and nothing
+turned a PDF page into one. pypdfium2 was actually installed and measured —
+~16 MB, no system packages, **no torch**, ~20 ms a page — so `core/pdfpages.py`
+is the plug, behind a `pdfpages` extra. The real bug alongside it:
+`routes_files` called `docview.extract(path)` with no reader, so the whole path
+had **never once executed**.
+
+**Suggested models gained an `ocr` category**, checked against the live
+Hugging Face Hub (GLM-OCR, PaddleOCR-VL, Qwen3-VL, DeepSeek-OCR, as `hf.co/`
+GGUF paths). A previous session declined to add these because it had no registry
+access; this one had it.
+
+**Chat attach takes any file.** Images to the gallery as before; everything else
+through `POST /documents/import`, which extracts text with `docview` and stores
+a Document. Text, not the file — the same rule as the viewer.
+
+**A launch splash** (`scripts/splash.ps1`, plus a zenity path in `start.sh`)
+covers the minutes of git-pull and pip-install that happen *before* Python
+exists, which no window could previously cover.
+
+**Dead controls and graph cost.** Listing every id in `index.html` that no JS
+and no stylesheet mentions found two buttons wired to nothing (Settings → About
+"Take tour again", and the Whiteboards Reload button, whose id is a copy-paste
+leftover from the Media tab). After discounting template-literal ids there are
+now **zero** interactive elements without a handler. The graph tick loop stopped
+transforming the label layer while it is invisible — with an explicit catch-up,
+because a settled simulation has no next tick to fix them.
+
+**Whiteboard panels, measured at eight viewports.** The tools row and the zoom
+cluster shared the bottom edge and overlapped from ~1180px down, running off the
+canvas by 900px. Fixed with wrap plus a reserved gutter — and the first attempt
+used `100vw` when these panels live inside a 960px `#wb-canvas-view`, which is
+the kind of thing only measuring both rectangles catches.
+
+## §93 — the hybrid document editor, six backlog items, and a prompt with no budget
+
+**Do not rebuild any of the following.** Branch
+`claude/post-v0.1.4-nav-fixes`.
+
+**The document editor (ROADMAP item 0) is built.** `#doc-view-seg` offers four
+views — Live (render-as-you-write; the block the caret is in shows its raw
+markdown), Source, Split, and Read (the rendered document alone, full width,
+capped at a 46rem measure). `setDocView` and `docPreviewShowing` in
+`documents.js` are the single place that decides which panes are on screen;
+`docLiveBlocks` splits the source into blocks fence-aware (a blank line inside
+a ``` block is code, not a paragraph break).
+
+**Documents have a file type.** `core/filetypes.py` holds one table of 26
+types — `GET /documents/file-types` serves it, `Document.file_type` stores it,
+default `md`. The table lives on the server because Ctrl+/ and Tab act on
+keystrokes and cannot wait for a round trip; a second copy in JS would be a
+second thing to keep in step, and the failure mode of the two disagreeing is
+the wrong comment marker in someone's file. A non-previewable (code) type
+turns on the line-number gutter, monospace, Tab/Shift+Tab indent and dedent,
+and Ctrl+/ using that language's marker; it hides the markdown toolbar and
+disables the three rendered views. Editing goes through
+`document.execCommand("insertText")` so the browser's native undo stack
+survives — assigning `.value` wipes it.
+
+**Six backlog items, all built:** agent-mode auto-detect and skill auto-detect
+nudges in the composer; sub-process start/finish notices; AI follow-up chips
+(`ai/followups.py` + `POST /chat/followups`, on the utility model, returning
+`[]` on every failure path); graph minimap drag/wheel/keyboard zoom; and the
+token-efficiency pass below.
+
+**The token-efficiency pass found a real bug, not an optimisation.** The
+untooled (streaming) chat prompt had **no budget at all** — `build_messages`
+applied `context.fit_notes`/`fit_history` on the tooled path only. One module
+wired into one call site and not its sibling. `librarian.plan_budget` is now
+the one entry point and the digest uses it too. Measured on a 4k window:
+6,240 → 744 tokens. Unchanged on 32k, which is the point — the budget only
+bites when the window is small.
+
+**`core/docview.py`** extracts text from docx/pdf/md/code/html/xlsx/csv/txt
+for the universal viewer, with `GET /files/{id}/text`. It returns extracted
+text, never bytes — nothing new is served inline. **Backend only; there is no
+frontend for it yet, and the scanned-PDF path cannot run in this environment
+because nothing here can rasterise a PDF page** (pypdfium2, fitz, pdf2image,
+PIL, markitdown all absent). The vision-model hook is written and takes a
+`vision_reader` callable. Tesseract stays out by explicit instruction.
+
+**Two bug shapes worth carrying forward.** `loadDocFileTypes()` ran once at
+file load — before unlock — so its fetch 401'd, the cache became `[]`, and
+nothing ever asked again: an empty `<select>` all session, nothing logged, no
+line reading wrong. Same shape as the `APPEARANCE_DEFAULTS` bug in CLAUDE.md.
+And the split view's layout rule was dead because `#doc-panes` (an id) beat
+`.doc-panes.split` (a class) in the cascade — the rule read as correct and had
+never once applied.
+
+Verified live in Chromium at 1440x900: picker 26 types defaulting to md; Live
+click-to-edit returns raw markdown, writes through and re-renders on blur; a
+fence with an internal blank line stays one block; Split 506px/540px side by
+side; Read centres 736px in a 1058px pane and persists; code mode gutter, Tab
+by four, Ctrl+/ exact round-trip; type survives a reload. **Not verified:**
+printing to PDF from Read mode, and touch/pinch.
+
 ## Done — sessions §80 to §86, the condensed index
 
 Moved out of `ROADMAP.md` when it hit the 2,000-line ceiling
@@ -4603,3 +4740,335 @@ in `app.js`, calling into code that moved out, is the same load-order hazard
 from the other direction — check for it explicitly on every split; and add
 every new file to both lint tests, since a lint that cannot see a file
 cannot catch anything in it.
+
+## §91 — a batch of reported UI/backend bugs, fixed and verified live
+
+A round of live-reported bugs, most root-caused by actually reproducing them
+(Playwright against a real running instance) rather than reasoning from
+source — the CLAUDE.md caveat about model-behaviour claims doesn't apply to
+UI claims, and this pass leaned on that.
+
+- **Chat: an image attached then removed before sending stayed uploaded**,
+  orphaned in the Library gallery. `renderImageAttachments`'s remove
+  handler only ever detached it from the local `attachedImages` array; the
+  note composer's own equivalent (`renderEntryAttachmentChips`) already
+  deleted the underlying upload on remove — the chat path just never got
+  the same fix. Now does. Verified live: attach → remove → `GET /media`
+  no longer lists it.
+- **Chat: "Grounded in" source chips never persisted.** `renderAnswerGrounding`
+  only ever ran off the live SSE `grounding` event; nothing carried
+  `event.sentences` into the turn's save payload, unlike `raw_results`
+  (which got this exact fix once already, for the same "disappears on
+  reload" complaint). `TurnBody.sentence_grounding` (new field,
+  `routes_conversations.py`) now round-trips it; `openConversation`
+  reconstructs the chips the same way it already reconstructs
+  `raw_results`. Verified via the real `/conversations` API plus a scoped
+  Playwright check of the reconstructed DOM.
+- **AI providers: a transient 5xx now retries once, silently**, instead of
+  needing a manual resend — reported live as a chat call and a captioning
+  call each failing on a plain 500 and succeeding on the exact same resend.
+  `provider.is_transient_server_error` (duck-typed on `.response.status_code`,
+  shared by both dialects) gates one retry in `chat`/`chat_stream` for both
+  `OllamaClient` and `OpenAICompatClient` — safe in the streaming case
+  specifically because `raise_for_status()` is the only line able to raise
+  `HTTPError` and it always runs before that attempt's first `yield`, so a
+  retry can never duplicate output already handed to a caller. 5 new tests
+  (`test_providers.py`) cover both dialects, both call shapes, a 4xx *not*
+  retrying, and giving up after a second 5xx.
+- **Captioning: which model wrote a caption, and whether it's since been
+  hand-edited, is now tracked** (`MediaUpload.caption_model`/`caption_edited`
+  — additive columns, the existing auto-migrator handles them) and shown as
+  a quiet byline under the caption in the Library's Image Gallery. A
+  captioning call that fails after a model was actually resolved (the
+  reported 500 case, not "no vision model installed" — that stays silent
+  on purpose, or every upload on a notebook with nothing installed would
+  fill the ring with the same non-actionable line) now records into
+  `core/taskhistory.py`, which previously had zero captioning entries —
+  the reported "doesn't show as a background process" gap. A synchronous
+  regenerate click now shows "Generating caption…" (`typingDots`) instead
+  of the caption text sitting unchanged for however long the model takes.
+  The Image Gallery also polls `/media` every 6s while open (skipped
+  mid-edit, so a silent re-render can't wipe out unsaved typing) — the
+  automatic background caption from upload has no push signal, so nothing
+  previously showed it landing short of navigating away and back, which
+  read as "doesn't work, but comes back after reopening the app" (verified
+  live with a slowed/mocked response).
+- **Settings: the per-log-record copy button went blank** after its ✓
+  reverted. `flashCopied` saved/restored `button.textContent`, but the
+  button is icon-only (`setLabel(el, "ph:clipboard")`, no trailing text) —
+  its `textContent` was always `""`, so the "restore" wiped the icon.
+  Fixed by saving/restoring `innerHTML` instead. Also: the traceback
+  `<summary>` disclosure arrow sat flush against the log row's own
+  colour-coded left border with zero gap between them (`.log-list li` had
+  no left padding) — given one.
+- **Whiteboard: the board-picker `<select>` sat a few px higher than its
+  neighbouring buttons** despite sharing their height — the base
+  `select`/`textarea`/`input` rule's stacked-form `margin-bottom` was never
+  reset for this toolbar row (buttons aren't targeted by that rule at all,
+  so they had no margin to begin with). Verified with `getBoundingClientRect`
+  before/after: all three controls now share the same `top`/`centerY`.
+- **Notes tab: the Semantic search toggle had no visible boundary at rest**
+  — the native checkbox is intentionally visually-hidden (the toggle-button
+  treatment `.checkbox-label` already uses) and nothing filled the gap, so
+  it read as plain icon+text next to the bordered Select button beside it.
+  Given a resting border, matching-colour on the checked state.
+- **Note capture: a staged image's filename overflowed its card.** The
+  ellipsis rule (`.attachment-chip > span:first-child`) never matched this
+  chip's label span — its actual first child is the `<img>`, not a span,
+  so `:first-child` never applies to the label a sibling rule further down
+  already targets by `:first-of-type` for font-size alone. Given the same
+  three overflow properties.
+- **Library: an activity-log entry's preview clamped to one line in list
+  view** with no way to read the rest, despite the full 400-char budget
+  (`ACTIVITY_DETAIL_CHARS`) already being sent — grid view already
+  unclamps activity previews; list view's generic one-line clamp (kept for
+  every other kind's row alignment) was winning the cascade tie by source
+  order. Given its own more-specific override, clamped to 4 lines rather
+  than fully unclamped (list-view alignment still matters for everything
+  else sharing the list).
+- **Back/forward navigation**: opening/closing a document in the editor and
+  entering/exiting Graph Focus Mode now push/replay history entries, the
+  same `{tab, section}` shape chat conversations and library sub-tabs
+  already used — the two gaps ROADMAP.md item 13 named as still open.
+
+**Investigated, could not reproduce**: the notes-tab remove-image "×"
+button — both the note composer's own attachment chip and the note-list
+thumbnail's unlink control deleted the underlying upload correctly under
+live Playwright testing, in both cases. If this recurs, the report needs a
+more specific location (which screen, which button) than "the notes tab" to
+find — two different remove-image controls exist there, both currently
+working.
+
+**Retraction (§92 below found it):** the report recurred with a screenshot
+naming the actual location — the round × overlaid directly on an inline
+image inside a rendered note card — which is a *third* control neither of
+the two checked above. It was genuinely broken, and not by a shallow bug:
+see §92.
+
+**Not attempted this session** (scoped and logged instead, `BACKLOG.md`):
+agent-mode auto-detection with a confirmation popup, skill auto-detection
+with a confirmation popup, start/completion notifications for named
+sub-processes ("renaming with AI", "generating title"), a deeper
+token-efficiency/small-model-suitability pass on chat and agent prompts, AI
+follow-up question suggestions in chat and the Ask sub-tab, and graph
+minimap drag-to-zoom plus pinch/keyboard zoom. Each is independently
+substantial and none was scoped enough to start safely in the time this
+pass had left.
+
+## §92 — vision-OCR, the AI-edit verb set + changelog, and a staged-upload
+correction
+
+Four pieces of real, separately-motivated work, landed as they were asked
+for across one long session.
+
+**Vision-OCR extractor mode.** A third reader for uploaded images
+alongside Tesseract (`ocr_text`) and the AI caption (`caption`):
+`ai/vision_ocr.py` asks a vision model to transcribe text verbatim —
+distinct from a caption's natural-language description, and able to read
+handwriting, low-contrast photos and non-Latin scripts that Tesseract
+fails on outright. Stored on `MediaUpload.vision_ocr_text`/
+`vision_ocr_model`; surfaced in the Library's image gallery next to the
+caption control. The model-pull UI half of the ask needed nothing new —
+`GET /models/suggested` (Settings → Models) already lists a "vision"
+category with pull buttons, confirmed by reading `SUGGESTED_MODELS`
+before building anything, per CLAUDE.md's own standing rule. Distinguishes
+a genuine "no text in this image" result (recorded `completed`) from an
+actual call failure (`failed`) in the background-tasks list, so an
+ordinary photo with no text doesn't read as an error.
+
+**The inline-image remove button, actually fixed.** §91 above reported
+this could not be reproduced. It recurred with a screenshot naming the
+real location: a round × overlaid on an image *inside a rendered note
+card* — `renderInlineMarkdown`'s `dismissible` branch, a third control
+distinct from the two already checked. Root cause, found by reproducing
+live with Playwright rather than reading the source: `match` was a single
+`let` binding reused by every pass of the image-parsing `while` loop, so
+every dismiss button's click closure shared the *same* variable — by the
+time anyone actually clicked one, the loop had long finished with `match`
+sitting at `null` (the value that ends a `while` condition). Every click
+threw `Cannot read properties of null (reading '0')` before the confirm
+dialog could even open, with nothing visible to the user but a button that
+did nothing. Fixed by capturing the matched text into its own `const`
+inside the loop body, so each button's closure gets the value for *its
+own* image.
+
+**The AI-edit route reskinned into a small general assistant.**
+`POST /documents/{id}/ai-edit` did one thing (rewrite the target); asked
+for directly, it now takes a `verb`: `edit` (unchanged), `write` (inserts
+a new passage — a sibling prompt in `drafter.compose_document_edit`,
+returning `""` rather than the existing content on failure, since falling
+back to `content` would insert the whole document into itself), and
+`remove` (deletes on request; a selection alone needs no instruction at
+all — asked for directly). The document editor's AI panel grew a
+three-way `.segmented-control` for the verb, with the scope hint,
+instruction placeholder and accept-button label all switching together.
+
+**The changelog, and undo, that came with it** ("allow edits made by the
+AI to be undone or altered before and after they are set"). Before
+acceptance, the result textarea already covers "altered" — edit the AI's
+suggestion, then accept whatever's left. After acceptance, two
+independent mechanisms: every accept pushes onto the app's existing
+session-only global undo stack (`app.js`'s `pushUndo` — an immediate
+Ctrl+Z), and also writes a durable per-document row (`DocumentAiEdit`,
+`routes_documents.py`) recording the verb, instruction, a selection
+excerpt, and full before/after snapshots. A new "History" dialog off the
+AI panel lists every entry with its own Revert, which writes *another*
+changelog entry rather than deleting anything — the record stays truthful
+about what happened, including the revert itself, and a revert can be
+reverted. Bounded at `MAX_AI_EDIT_LOG_PER_DOCUMENT` (20) per document,
+oldest pruned first, the same "a log, not an unbounded table" reasoning
+`taskhistory.py` uses for its own ring buffer, except this one has to
+survive a restart so it's a real table.
+
+**Staged uploads no longer get processed — a correction of this same
+session's own earlier choice.** Vision-OCR and captioning were first
+wired to run automatically on every `/media/upload`, matching what
+captioning already did. Corrected mid-session, asked for directly: "the
+OCR shouldn't happen to staged files, only when they are actually saved
+as a note, actually sent in a chat message, or uploaded directly to the
+library." `/media/upload` is one endpoint shared by the note composer,
+the chat composer, the document editor *and* the Library's own upload
+button — a staged image picked in a composer and then abandoned has no
+business paying for a Tesseract pass and a vision-model round trip.
+`core/media_process.py` moves the trigger from upload-time to
+commit-time: `process_committed_upload` (the three readers for one
+upload), `process_referenced_uploads` (scans a note/document's own
+content — plaintext, pre-encryption for a private note — for `/media/…`
+references, reusing `media_gc.referenced_names`, promoted from
+module-private for this), and `process_committed_upload_ids` (a chat
+turn's `image_media_ids` directly, since a conversation stores images as
+ids rather than inline markdown). Wired into `create_entry`/`update_entry`,
+`create_document`/`update_document`, all three conversation-turn-save
+routes, and whiteboard image-object creation (which has no separate
+staging step, so it fires immediately like the Library's own upload
+button does via a new `direct` form field on `/media/upload` itself).
+
+A second, related gap found and fixed along the way while answering "are
+uploaded files properly not saved until committed": a sent chat image had
+*no record anywhere* that anything still used it — `TurnBody` never
+persisted which images a turn attached, so `media_gc.py`'s orphan scan
+(built to protect exactly this: a note, document or whiteboard image
+still in use) could not see conversations at all. Running "Clean orphaned
+media" would have deleted a real, sent chat attachment's file. Fixed by
+persisting `image_media_ids` on the saved turn's user message and
+teaching `media_gc.find_orphaned_media` to check it.
+
+**A fifth piece, added once the staged-upload correction made the gap
+obvious**: Tesseract's own `ocr_text` had no manual endpoint at all — only
+ever written automatically, once, with no retry and no way to fix a
+misread. Asked for directly ("allow for manual OCR extraction or retries.
+allow the user to access, view, and edit OCR extracted text."),
+`POST /media/{id}/ocr` mirrors the caption endpoint's shape exactly:
+`extract_and_store` already has no write-once guard (every call re-reads,
+which is exactly what "retry" needs, no `force` field required), and a
+`text` field sets it by hand. The Library gallery gained the same
+always-visible, click-to-edit control the caption already has, between
+the caption and the vision-OCR reading.
+
+**Verification**: vision-OCR's UI (button, badge, error/hidden states),
+the inline-image-remove fix, and the OCR manual-edit control were all
+checked live via Playwright against a running instance — the closure bug
+specifically reproduced first (confirm dialog never opened, a console
+error) and then confirmed fixed the same way; the OCR edit was confirmed
+round-tripping to the server, not just updating the DOM. The AI-edit verb
+picker, scope hints, client-side validation and the (empty, then
+populated) history dialog were checked live too, with `#doc-ai`'s
+Ollama-required gate forced open since no real Ollama exists in this
+sandbox — the model call itself is untested beyond the backend's own
+fake-Ollama suite. The suggested-models grouping and the `.library-search`
+min-width change are lint-clean and code-reviewed but not confirmed with a
+screenshot this session — see BACKLOG.md if this recurs.
+
+**Not attempted this session**: the Notion/Obsidian document-editor
+redesign (ROADMAP.md item 0), the universal VS-Code-like document
+viewer/editor with OCR for scanned PDFs, and the six items already logged
+in BACKLOG.md from §91's own list. All still open.
+
+## 97. A live-report queue, worked cheapest-first: a real graph bug, a regression caught and reverted, and a silent-failure fix
+
+Nine reports arrived across one sitting, worked cheapest-to-most-expensive
+by direct instruction. In order:
+
+**The graph's own keyboard shortcuts were swallowing keystrokes typed into
+the note popup and the "Grow the map" form.** `initGraphKeyboard()`
+(graph.js) binds arrows/Enter/Space/N/+/-/0 on `#graph-box`, which the
+popup and the new-note form are both DOM descendants of — every keystroke
+typed into either bubbled up and was read as map navigation. Space or
+Enter specifically reopened the *currently keyboard-selected* node's
+popup, which is exactly the reported "grow a note, try to type in it,
+keeps refocusing on the original note behind it." Fixed with one guard:
+bail out immediately when the event target is a text field.
+
+**A "Minimise" button was added to the Quit dialog, then fully reverted
+after a real regression.** `__main__.py` gained a small `js_api` bridge on
+`webview.create_window()` so the page could call `window.pywebview.api
+.minimize()`. Shipped, then the user reported the desktop app hanging on
+its loading screen (Windows "Not Responding") with the logs full of
+`[pywebview] Error while processing window.native.AccessibilityObject
+.Bounds.Empty.Empty...` / `window.native.ModifierKeys.A.A.A...`
+recursion spam — thousands of chained property accesses per line, almost
+certainly running synchronously on the WebView2 UI thread and blocking
+its own message pump. `window.native` (pywebview's own COM reflection
+surface) and `window.pywebview.api` (this feature's bridge) are supposed
+to be unrelated, and nothing in this repo sets `debug=True` — but
+`create_window()`'s call signature was the one thing that changed between
+"worked" and "hung," and the user confirmed directly that reverting it
+fixed the hang. **`js_api` on `create_window()` should not be re-added to
+this codebase without reproducing this on a real Windows/WebView2 box
+first** — the exact mechanism is still not understood, only that it
+causes this. `__main__.py` and `app.js` are now byte-identical to the
+commit before the feature existed for this code (verified with `git diff`)
+— confirmed by re-diffing, not assumed.
+
+**A skill or agent turn that failed before its first event died
+silently.** `agent.run_agent`/`skill_runner.run_skill` already catch what
+*they* expect to go wrong (`OllamaError`, `ToolsUnsupportedError`) and
+turn it into a real event — but `routes_chat.py`'s own `next(agent_events,
+None)` and the loop draining the rest of the stream had nothing catching
+anything else. Any other exception, from anywhere under either of them,
+propagated straight out of the generator and FastAPI just closed the
+connection: no answer, no error, no tool call — reported directly as "I
+tried running a skill and it failed before even completing the first
+step... the model didn't respond." Both call sites now catch the outer
+case, log it, and yield a real answer event describing the failure before
+`done`. Two regression tests simulate exactly this shape (before the
+first event, and mid-run).
+
+**Smaller fixes in the same pass**: the Image Gallery's kebab menu used a
+CSS-only `nth-child(3n)` guess for "last column" to decide which edge to
+flip toward — correct only while the `auto-fill` grid happened to render
+exactly 3 columns, and with no vertical flip at all, so a tile in the
+grid's last row opened its menu straight off the bottom of the screen.
+Replaced with a `toggle` listener that measures the real box against the
+nearest scroll parent, the same approach `openActionMenu()` already uses
+for every other kebab menu in the app. The AI Skills page's `.skills-split`
+grid had no narrow-viewport handling at all, unlike every other sidebar
+split in the app — collapses to one column at the same 900px breakpoint
+`.doc-layout` uses. A Meeting Notes sub-tab was added to the Library,
+reusing the All view's existing `tag:` search syntax against the
+"meeting" tag `saveMeetingNote()` already applies — Sketches and generic
+audio notes were investigated and found to have no equivalent marker on
+the `Entry` model at all (a sketch is documented in `routes_library.py`
+as indistinguishable from any image-only note), so building an accurate
+sub-tab for either needs a real schema decision first, not a heuristic;
+logged, not built.
+
+**Investigated and found already done, not rebuilt**: "make all the
+Settings toggles the same pill as Semantic" turned out to already be
+true — `.settings-section label>input[type="checkbox"]`
+(06-timeline-dialogs.css) already styles every direct `label>input`
+checkbox inside any Settings section this way regardless of wrapper class
+or id, checked against all 22 Settings checkboxes. The `/models/status`
+timeout report traced to a stale code comment (the frontend's own
+`AbortSignal.timeout` was already raised from 5s to 8s in an earlier
+session; the backend comment citing the old figure was never updated) —
+fixed the comment; could not reproduce a genuine hang beyond that without
+the reporter's own environment.
+
+**Verification**: all of it is `ruff`-clean and the full ~1,900-test suite
+passes. **Nothing here was checked in a real browser** — no Playwright
+session ran this sitting; every UI claim (the graph fix, the kebab-menu
+flip, the mobile Skills layout, the Meeting Notes tab) rests on source-level
+reasoning only. The Minimise revert's premise — that `js_api` on
+`create_window()` causes the hang — rests on the user's own before/after
+test on their machine, not on anything reproduced here.

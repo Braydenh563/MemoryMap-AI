@@ -29,6 +29,7 @@ line which does not.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from itertools import chain
 
@@ -37,6 +38,8 @@ from sqlalchemy.orm import Session
 from memorymap.ai import agent, skills, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
+
+logger = logging.getLogger("memorymap.skills")
 
 # Rounds a single step may take before it has to earn more. Lower than a free
 # chat turn on purpose: a step is one instruction, and a model still looping
@@ -111,6 +114,50 @@ def _step_answer(answer: str, step_changes: list[dict]) -> str:
     # to lose.
     base = answer[: max(0, STEP_ANSWER_CHARS - len(summary))] if answer else ""
     return (base or "(nothing said)") + summary
+
+
+def _record_run(
+    session: Session,
+    skill: dict,
+    changes: list[dict],
+    stopped_at: int | None,
+    steps: int,
+    paused: bool,
+) -> None:
+    """Write one audit row for a finished skill run.
+
+    **Nothing in this app ever wrote one, and the Library's AI Skills tab has
+    a log panel that reads them.** Reported as "I dont think the skill logs
+    work in the ai skills section in the library??" — correct, and not because
+    the panel was broken: `renderSkillLogs` filters `/audit` for
+    `entity_type === "skill"`, and a grep for a `log_action` call with that
+    entity type returns nothing at all. The panel could only ever say "No
+    skill execution logs found". The "features that never ran once" shape from
+    CLAUDE.md, one layer down: the reader ran, and the writer did not exist.
+
+    Best-effort and never raises: a run that did real work must not fail at
+    the last line over its own bookkeeping. Committed here rather than left to
+    the caller, because the caller is a streaming route whose session may be
+    closed by the time the generator is exhausted.
+    """
+    from memorymap.entry.manager import log_action
+
+    outcome = (
+        "paused"
+        if paused
+        else "completed"
+        if stopped_at is None
+        else f"stopped at step {stopped_at + 1}"
+    )
+    detail = f"{outcome} · {len(changes)} change(s)"
+    if steps:
+        detail = f"{outcome} · {steps} step(s) · {len(changes)} change(s)"
+    try:
+        log_action(session, "ran", "skill", None, f"{skill.get('name') or 'skill'} — {detail}")
+        session.commit()
+    except Exception:  # noqa: BLE001 — bookkeeping must not fail a finished run
+        logger.warning("couldn't record the skill run", exc_info=True)
+        session.rollback()
 
 
 def run_skill(
@@ -215,6 +262,7 @@ def run_skill(
         # turn, and re-running it is the only way to continue it. The turn's
         # own `limit` event is still there, and the chat's Continue button
         # reads that.
+        _record_run(session, skill, changes, None, 0, False)
         yield {"type": "result", "changes": changes, "stopped_at": None, "steps": 0, "paused": False}
         return
 
@@ -379,6 +427,7 @@ def run_skill(
 
     if not started:  # every step failed before producing anything
         yield plan
+    _record_run(session, skill, changes, stopped_at, len(steps), paused)
     # `stopped_at` is the index the run did not get past — None when it
     # finished. The client turns it into "Resume from step N", which is the
     # difference between carrying on and doing the first half again. `paused`

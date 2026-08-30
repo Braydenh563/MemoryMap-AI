@@ -157,6 +157,19 @@ def _pid_file(data_dir: Path) -> Path:
     return Path(data_dir) / "searxng" / "run.json"
 
 
+#: Set to stop whatever `_run_streaming` is currently running. One event for
+#: all of them because only one SearXNG setup ever runs at a time (the install
+#: takes a lock). Asked for directly — "allow the quitting/killing of
+#: background tasks as well" — and this is the task with the longest silence
+#: of any of them: a source install compiles wheels for minutes.
+_stop_streaming = threading.Event()
+
+
+def stop_streaming() -> None:
+    """Ask the running setup command to stop. Idempotent."""
+    _stop_streaming.set()
+
+
 def _run_streaming(
     args: list[str], timeout: int, on_line
 ) -> subprocess.CompletedProcess:
@@ -199,9 +212,16 @@ def _run_streaming(
     reader = threading.Thread(target=_pump, daemon=True)
     reader.start()
 
+    _stop_streaming.clear()
     deadline = time.time() + timeout
     try:
         while True:
+            if _stop_streaming.is_set():
+                # Killed rather than asked: pip and git have no cooperative
+                # stop, and the loop already polls at 1s so this is felt
+                # within a second of the button being pressed.
+                process.kill()
+                raise SearxngError(f"{args[0]} was stopped.")
             remaining = deadline - time.time()
             if remaining <= 0:
                 process.kill()
@@ -435,6 +455,17 @@ _self = sys.modules[__name__]
 # Every name the four modules above exposed before the split, so ruff doesn't
 # flag this facade's whole reason for existing as "unused imports" — and so
 # the list doubles as a manifest of what moved out of this file.
+#
+# **Built from `_FACADE_NAMES` rather than typed out again, and that is a fix
+# rather than a tidy-up.** The lazily-resolved half used to be repeated here
+# as a second literal list, which CodeQL read as ~50 separate
+# `py/undefined-export` alerts ("Explicit export is not defined"): the query
+# looks for a module-level binding with that name and PEP 562's `__getattr__`
+# is invisible to it, so every facade name was flagged. Deriving the list from
+# the same dict the resolver uses removes the duplication *and* the alerts —
+# there is no longer a list of string literals naming things this module does
+# not define, and a name added to a concern above can no longer be forgotten
+# here.
 __all__ = [
     "SearxngError",
     "DEFAULT_PORT",
@@ -446,6 +477,7 @@ __all__ = [
     "COMMAND_TIMEOUT",
     "host_port",
     "base_url",
+    "stop_streaming",
     "choose_port",
     "preferred_backend",
     "port_report",
@@ -453,18 +485,6 @@ __all__ = [
     "starting",
     "start",
     "stop",
-    # searxng_settings
-    "REMOVED_ENGINES",
-    "SETTINGS_TEMPLATE",
-    "_engines_sharing_removed_networks",
-    "_existing_secret_key",
-    "_extra_removes",
-    "_PWD_SHIM",
-    "_restrict",
-    "_searxng_env",
-    "_write_pwd_shim",
-    "ensure_settings",
-    "settings_path",
     # Not called directly in this file any more (docker_installed's
     # `shutil.which` and _remove_tree's `shutil.rmtree` moved to
     # searxng_docker/searxng_install) but the test suite still patches
@@ -475,57 +495,13 @@ __all__ = [
     # CodeQL both treat `__all__` membership as usage), not a suppression,
     # so it resolves the alert rather than asking a tool to ignore it.
     "shutil",
-    # searxng_docker
-    "CONTAINER_NAME",
-    "DAEMON_PROBE_TIMEOUT",
-    "IMAGE",
-    "_docker_publishes_beyond_localhost",
-    "_docker_state",
-    "_publish_spec",
-    "_remove_container",
-    "_start_docker",
-    "docker_available",
-    "docker_installed",
-    # searxng_install
-    "DOWNLOAD_TIMEOUT",
-    "INSTALL_STAGES",
-    "INSTALL_TIMEOUT",
-    "SOURCE_TARBALL",
-    "_download",
-    "_drop_readonly",
-    "_fetch_source",
-    "_import_ok",
-    "_install_lock",
-    "_install_log",
-    "_install_progress",
-    "_install_stage",
-    "_install_state",
-    "_install_steps",
-    "_LOG_LINES",
-    "_remove_tree",
-    "_UNSAFE_CHARS",
-    "_unpack",
-    "_unsafe_member",
-    "install_source",
-    "is_checkout",
-    "reinstall_source",
-    "source_available",
-    "source_installed",
-    "uninstall_source",
-    # searxng_process
-    "_PROCESS_QUERY_LIMITED_INFORMATION",
-    "_STILL_ACTIVE",
-    "_alive",
-    "_alive_windows",
-    "_read_pid",
-    "_source_state",
-    "_start_from_source",
-    "_start_source",
-    "_stop_source",
-    "_terminate",
-    "log_path",
-    "recent_output",
 ]
+
+# `+=` rather than one expression: ruff only recognises a *literal*
+# `__all__` list when deciding whether an import is used, and `shutil` above
+# is imported solely so the tests can patch it through this module. Written
+# as a computed list, the literal disappears and F401 fails the build.
+__all__ += [name for names in _FACADE_NAMES.values() for name in names]
 
 
 def preferred_backend() -> str | None:

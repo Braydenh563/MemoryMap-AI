@@ -25,18 +25,14 @@ retrieving zero notes must not be mistaken for "nothing to answer with".
 
 from __future__ import annotations
 
-from memorymap.api import routes_files
-
 
 def _upload_image(ai_client, monkeypatch) -> int:
-    # OCR and captioning both run in a background thread on any real image
-    # upload; harmless in production but a real race here once a test cares
-    # about exactly which models were asked for and in what order — the
-    # background thread and this test's own explicit /chat call could both
-    # try to caption the same upload (test_media_api.py disables the same
-    # two triggers for the same reason).
-    monkeypatch.setattr(routes_files.ocr, "extract_in_background", lambda *a: None)
-    monkeypatch.setattr(routes_files.captioning, "caption_in_background", lambda *a: None)
+    # A plain upload (no `direct`) is the staged case (core/media_process.py)
+    # — OCR, captioning and vision OCR no longer run automatically here at
+    # all, so there is no longer a background-thread race with this test's
+    # own explicit /chat call to guard against (there was, before that
+    # change: see test_media_process.py for the commit-time triggers this
+    # replaced it with).
     response = ai_client.post(
         "/media/upload", files={"file": ("photo.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     )

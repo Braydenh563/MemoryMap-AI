@@ -7,6 +7,7 @@ sentence, never an exception, because the raw results are shown anyway.
 
 from __future__ import annotations
 
+from memorymap.ai import context
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.logbuffer import safe_value
@@ -292,6 +293,55 @@ def _match_info_hint(match_info: dict | None) -> str:
     return ""
 
 
+def system_content(
+    style: str = "friendly",
+    profile: str = "",
+    persona_prompt: str | None = None,
+    mode: str | None = None,
+) -> str:
+    """The system message, on its own.
+
+    Pulled out of `build_messages` so `plan_budget` below can *measure* it
+    rather than estimate it. `context.plan` takes `system_chars` precisely
+    because the persona is user-editable — a long custom persona genuinely
+    does leave less room for notes and history, and a budget built against an
+    assumed persona length is a budget that drifts over on exactly the
+    notebooks that have one.
+    """
+    style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
+    # The profile is context about the user, never an instruction source.
+    profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
+    persona = (persona_prompt or DEFAULT_PERSONA).strip()
+    return f"{persona} {GROUNDING} {style_hint}{profile_hint}{length_hint(mode)}"
+
+
+def plan_budget(
+    model: str,
+    ollama: OllamaClient,
+    style: str = "friendly",
+    profile: str = "",
+    persona_prompt: str | None = None,
+    mode: str | None = None,
+) -> "context.ContextBudget":
+    """This turn's share-out of `model`'s window, for the untooled path.
+
+    A mirror of the block at the top of `agent.answer_with_tools`, kept as a
+    function here because two callers need it — `answer` below and
+    routes_chat's streaming path — and the version that was inlined in the
+    agent is precisely the one that never made it to this side.
+
+    `usable_context` is asked for defensively: it is part of the provider
+    interface, but a fake or a future backend may not carry it, and the
+    fallback window is a working turn where an AttributeError is a 500.
+    """
+    report = getattr(ollama, "usable_context", None)
+    window = report(model) if callable(report) else None
+    return context.plan(
+        window or OllamaClient.DEFAULT_CONTEXT_TOKENS,
+        len(system_content(style, profile, persona_prompt, mode)),
+    )
+
+
 def build_messages(
     question: str,
     notes: list[dict],
@@ -301,6 +351,7 @@ def build_messages(
     persona_prompt: str | None = None,
     mode: str | None = None,
     images: list[str] | None = None,
+    budget: "context.ContextBudget | None" = None,
 ) -> list[dict]:
     """The librarian's prompt — shared by the blocking and streaming
     chat endpoints so they can never drift apart.
@@ -308,20 +359,46 @@ def build_messages(
     `history` is prior [{"question", "answer"}] turns, replayed as
     user/assistant messages so follow-ups ("and what about…") keep
     context. The freshly retrieved `notes` still ground the current
-    answer, so a follow-up searches the notebook anew."""
-    style_hint = STYLE_HINTS.get(style, STYLE_HINTS["friendly"])
-    # The profile is context about the user, never an instruction source.
-    profile_hint = f" About the user: {profile.strip()}" if profile.strip() else ""
-    persona = (persona_prompt or DEFAULT_PERSONA).strip()
+    answer, so a follow-up searches the notebook anew.
+
+    `budget` is what stops this prompt overrunning the model's window.
+    ``ai/context.py`` was written for exactly this and then only ever wired
+    into ``agent.build_agent_messages`` — this path, which is what "Ask the
+    Librarian" and the Notes Ask box use, had *no total cap of any kind*. The
+    per-part clips below are all local: ``UNTOOLED_NOTE_CHARS`` caps one note
+    at 2,400 characters and ``history_messages`` caps one past answer, but
+    nothing capped their sum. Ten retrieved notes at that allowance is 24,000
+    characters of notes alone — around 6,000 tokens, comfortably past a
+    4,096-token model's entire window before the persona, the history or the
+    question are counted, and what a model does when its window overruns is
+    silently drop from the front, which is the system prompt. That is
+    ``context.py``'s own opening example, unfixed on this path.
+
+    None keeps the old unbudgeted behaviour, for the callers that genuinely
+    have no model to measure against (tests building a prompt to inspect it).
+    Every real caller passes one."""
     messages = [
         {
             "role": "system",
-            "content": (
-                f"{persona} {GROUNDING} {style_hint}{profile_hint}{length_hint(mode)}"
-            ),
+            "content": system_content(style, profile, persona_prompt, mode),
         }
     ]
-    messages.extend(history_messages(history))
+    past = history_messages(history)
+    if budget is not None:
+        past = context.fit_history(past, budget.history_chars)
+    messages.extend(past)
+
+    dropped_notes = 0
+    if budget is not None:
+        # Same render function the loop below uses, so what `fit_notes`
+        # measures is what actually goes on the wire — measuring one shape and
+        # sending another is how a budget passes its own check and overruns
+        # anyway.
+        notes, dropped_notes = context.fit_notes(
+            notes,
+            budget.notes_chars,
+            lambda note: note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False),
+        )
 
     numbered = "\n".join(
         # A note the user attached by hand is flagged, so the model treats it
@@ -345,9 +422,23 @@ def build_messages(
         if any(note.get("attached") for note in notes)
         else ""
     )
+    # Said rather than silently done, for the same reason the agent path says
+    # it: a model that knows its notes were cut will hedge, where one that does
+    # not will answer as though it saw the whole notebook. It has no tools on
+    # this path, so unlike the agent's version this cannot point at a way to
+    # get the rest — it says what happened and stops there.
+    dropped_hint = (
+        f"\n({dropped_notes} more matching note"
+        f"{'' if dropped_notes == 1 else 's'} did not fit in this answer's "
+        "context — say so if it matters.)"
+        if dropped_notes
+        else ""
+    )
     user_message = {
         "role": "user",
-        "content": f"My notes:\n{numbered}\n\nMy question: {question}{attached_hint}",
+        "content": (
+            f"My notes:\n{numbered}{dropped_hint}\n\nMy question: {question}{attached_hint}"
+        ),
     }
     if images:
         user_message["images"] = images
@@ -409,6 +500,7 @@ def answer(
                 persona_prompt=persona_prompt,
                 mode=mode,
                 images=images,
+                budget=plan_budget(model, ollama, style, profile, persona_prompt, mode),
             ),
             mode=mode,
         )

@@ -503,6 +503,13 @@ class Document(Base, WorkspaceMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(200), default="Untitled")
     content: Mapped[str] = mapped_column(Text, default="")
+    # What kind of file this is — a bare extension, no dot ("md", "py",
+    # "sql"). See core/filetypes.py for the table and why it is shared with
+    # the frontend rather than duplicated there. A scalar default (not a
+    # server_default or a callable) so the additive auto-migrator backfills
+    # every document that existed before file types did as markdown, which is
+    # what all of them are.
+    file_type: Mapped[str] = mapped_column(String(20), default="md")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -527,6 +534,46 @@ class DocumentLink(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DocumentAiEdit(Base):
+    """One accepted AI edit on a document — a changelog, asked for
+    directly: "allow edits made by the AI to be undone or altered before
+    and after they are set." Before acceptance, the AI panel's own result
+    textarea already covers "altered before" (edit the suggestion, then
+    accept whatever you kept). This table covers "undone... after": a
+    durable, per-document history of what the AI actually applied, each
+    entry revertible on its own — distinct from the app's session-only
+    global undo stack (app.js's pushUndo), which still also fires on
+    accept for an immediate Ctrl+Z, but forgets everything on reload. This
+    is the record that survives one.
+
+    Stores full before/after snapshots rather than a diff: documents are
+    markdown text, not the kind of structured data a real diff format
+    would represent as anything smaller than the text itself, and a revert
+    needs to restore an exact prior state, not replay a patch against
+    whatever the content happens to be *now* (which may have been edited
+    by hand since). Bounded per document (`MAX_ENTRIES_PER_DOCUMENT` below,
+    enforced in routes_documents.py) rather than kept forever, the same
+    "a log, not an unbounded table" reasoning `taskhistory.py` uses for its
+    own ring buffer — except this one has to survive a restart (a revert
+    button pointing at nothing after closing the app would be worse than
+    not offering one), so it is a real table, not an in-memory deque.
+    """
+
+    __tablename__ = "document_ai_edits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
+    verb: Mapped[str] = mapped_column(String(10), default="edit")
+    instruction: Mapped[str] = mapped_column(String(500), default="")
+    #: Whichever passage was targeted, trimmed to a display-sized excerpt —
+    #: never the full document (that's what before_content is for), just
+    #: enough for the changelog entry to say what it touched.
+    selection_excerpt: Mapped[str] = mapped_column(String(200), default="")
+    before_content: Mapped[str] = mapped_column(Text, default="")
+    after_content: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -645,6 +692,32 @@ class MediaUpload(Base):
     #: trusted must not silently change under them) unless the user presses
     #: Regenerate — see `routes_files.caption_media`.
     caption: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Which model wrote the caption currently stored, or NULL when there is
+    #: no caption or it was only ever typed by hand. Asked for directly: a
+    #: caption with no visible author reads as this app's own opinion rather
+    #: than one specific (possibly wrong) model's guess. Reset to NULL when
+    #: the caption is cleared back to empty, same as `caption` itself.
+    caption_model: Mapped[str | None] = mapped_column(String(200), default=None)
+    #: True once a person has typed over an AI caption (or typed one from
+    #: scratch) — `caption_media`'s `text` path is the only way this is set.
+    #: `caption_model` is left as whichever model wrote the caption *before*
+    #: the edit (or NULL if there never was one) rather than cleared, so the
+    #: badge can still say "started as granite3-vision, edited by you"
+    #: instead of losing that history the moment someone fixes a typo.
+    caption_edited: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Verbatim text a vision model transcribed from the image
+    #: (`ai/vision_ocr.py`) — distinct from `ocr_text` above (Tesseract,
+    #: local and exact) and from `caption` (a natural-language description,
+    #: not a transcription). Asked for directly as a separate "extractor
+    #: mode": Tesseract fails on handwriting, low-contrast photos and most
+    #: non-Latin scripts, all of which a vision model can often still read.
+    #: NULL until run — manual-trigger only (`POST /media/{id}/vision-ocr`),
+    #: never automatic on upload, since it is a full model round trip a
+    #: person opts into rather than something every upload should pay for.
+    vision_ocr_text: Mapped[str | None] = mapped_column(Text, default=None)
+    #: Which model produced `vision_ocr_text`, or NULL when there is none —
+    #: same "credit the model, not the app" reasoning as `caption_model`.
+    vision_ocr_model: Mapped[str | None] = mapped_column(String(200), default=None)
 
 
 class UserPreference(Base):
@@ -656,6 +729,23 @@ class UserPreference(Base):
     content: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: True while the *model* has proposed this and the user has not answered.
+    #: A proposal is not in the prompt and is not "off" — those are different
+    #: states and the UI shows them differently. Asked for directly: "can the
+    #: ai pick up things and suggest the user adds it as a preference in that
+    #: section with an accept or deny or similar popup??"
+    #:
+    #: The distinction matters beyond tidiness. `save_user_preference` used to
+    #: write a standing instruction into every future prompt with no
+    #: confirmation of any kind — the tool's own description said "quietly
+    #: append" — so a model that misread one sentence could give itself a
+    #: permanent rule the user never agreed to and would only find by opening
+    #: a settings page they had no reason to visit.
+    #:
+    #: Scalar default (not a server_default or a callable) so the additive
+    #: auto-migrator backfills every preference that existed before proposals
+    #: did as already-accepted, which is what they are.
+    proposed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class AuditLog(Base):

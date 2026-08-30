@@ -7,6 +7,173 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+Follow-on fixes and features added to the 0.1.5 branch after that release was
+tagged, ahead of the PR merging.
+
+### Fixed
+- A `keydown` handler on the graph map hijacked keystrokes typed into a note's
+  popup or the "Grow the map" form — Space/Enter reopened the wrong note
+  instead of typing a space or submitting. Now ignored while the event target
+  is an input, textarea, select, or contenteditable element.
+- An unhandled exception anywhere inside `run_agent`/`run_skill`, outside the
+  cases those functions already caught themselves, killed the chat stream
+  with zero rendered output. Both the first-event fetch and the per-payload
+  drain loop are now wrapped, so a real failure still reaches the user as an
+  answer instead of a silently dead connection.
+- The Image Gallery's kebab menu could render off the right edge of the grid;
+  replaced a `nth-child(3n)` heuristic with a measure-and-flip listener.
+- The AI Skills page was unusable below ~900px (fixed two-column grid, a
+  sticky sidebar with nowhere to go).
+- A private note's new "decrypted" audit-log entry could fire while the vault
+  was locked — `readable_content()` returns a placeholder, not the real text,
+  when the vault has no key, so a locked-vault read logged a decrypt that
+  never happened.
+- `<summary>`-based icon buttons (the kebab/ellipsis menus) were off-centre —
+  the centring CSS selector only ever matched `<button>`.
+- The "Your themes" section in Settings → Appearance had a `-stack` class
+  that only overrode `align-items`, not `flex-direction`, so a row with more
+  than two children never actually stacked.
+- The llama.cpp extra's "unavailable" message implied the app doesn't talk to
+  llama.cpp at all; it already does, via `llama-server`'s OpenAI-compatible
+  API — only in-process `llama-cpp-python` embedding is unbuilt.
+
+### Added
+- Meeting Notes as a real Library filter chip (tag-based, alongside the
+  existing kind filters), after two non-functional attempts at a sub-tab.
+- AI Skills cards: expandable step/tool lists via `<details>`, and the
+  "Run in the background" master toggle separated from the two worker
+  toggles it gates.
+- A way to attach an image already in the library to a note, without
+  re-uploading it.
+- Backup retention count as a real Settings → Data control (was already a
+  hard-coded, always-enforced cap; now a preference, prunes immediately on
+  change).
+- A Restart button in Settings → About on the desktop build.
+- Four missing topics in Settings → Help, and an explicit answer to whether
+  the chat has `/` commands (it doesn't).
+
+### Reverted
+- Minimise-on-Quit (`js_api=bridge` on `webview.create_window()`): caused a
+  real hang on Windows — a recursion storm in `window.native` COM property
+  access on the WebView2 UI thread. Fully reverted; root cause confirmed,
+  not re-attempted this release.
+
+## [0.1.5] — 2026-08-30
+
+A correctness and cost release. The headline items are a chat bug that could
+file an answer under the wrong conversation, a prompt that spent more on tool
+schemas than on the user's own notes, and a Restart button that killed the
+packaged app.
+
+### Fixed — a chat turn could be saved into the wrong conversation
+
+`chatConv` is reassigned when you switch chats, and every save read it *live* —
+at each checkpoint and again when the turn finished, minutes after the send. So
+switching mid-stream wrote the finished answer into whichever conversation was
+open when it landed, or made a new one out of it. Visible only as the message
+and the generating bubble vanishing.
+
+A turn now pins its conversation and only touches the header, usage meter and
+composer while that conversation is on screen. Leaving one mid-answer keeps the
+live nodes and re-attaches them on return, so the reply continues in front of
+you rather than appearing all at once at the end, and the notice names the
+thread that is actually being answered instead of the one you just left.
+
+### Fixed — the tool-call disclosure was permanently open
+
+A chip rendered as its label with the entire raw result stuck to it. The
+disclosure was built correctly; `.tool-chip-body` set `display: flex`
+unconditionally, and an author rule beats the user-agent rule that hides a
+closed `<details>`. It collapses now — one line, click to see the arguments and
+the result.
+
+### Fixed — the glass sheen made dialogs unreadable in light mode
+
+The sheen used the `background` shorthand, which re-declared the fill as
+`--card` at a specificity that beat `.modal-card`'s deliberately near-opaque
+`--modal-bg`. Turning the sheen on quietly reverted every dialog to full page
+glass. It layers as `background-image` now, and is halved in light mode where a
+white sheen on a near-white surface only flattens it.
+
+### Fixed — an off toggle switch looked like a blank gap
+
+The track was 7% alpha inside a 10% border: invisible on a card, so an unchecked
+switch read as empty space. Reported twice, on the semantic-search and
+smart-model-routing controls.
+
+### Fixed — Restart from the tray killed the packaged app
+
+`os.execv(sys.executable, [sys.executable, *sys.argv])` is right from source,
+but in a PyInstaller build both are the .exe, so the executable's own path
+arrived as a positional argument and argparse exited — with no console to print
+to. Open and View Logs also failed to raise the window when it was merely
+behind something.
+
+### Added — advanced response settings, detected per model
+
+Top-k, top-p, min-p, repeat penalty and the repeat window, in Settings →
+Models. Values start at what the model itself recommends: a GGUF ships its
+author's parameters and Ollama reports them in `/api/show`, which the app was
+already fetching and discarding. Each row says whether a number came from the
+model, the task, or you, and only what you change is stored — so switching
+model still picks up the new one's recommendations.
+
+### Added — a separate OCR model, and scanned PDFs that actually read
+
+Rasterising a PDF does not read it; it makes a picture a model still has to
+read. A general vision model describes an invoice, a document reader
+transcribes it — so OCR has its own setting, and automatic mode prefers an
+installed reader (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) over a general VLM.
+
+`core/pdfpages.py` supplies the pages, behind an optional ~16 MB extra. The
+path had never once executed before: `docview.extract` has always taken a
+vision reader and its only caller passed nothing.
+
+### Added — the chat attach button takes any file
+
+Images to the gallery as before; anything else is imported as a document with
+its text extracted. Four verified OCR models were added to the suggested list.
+
+### Added — a splash during the pre-launch work
+
+The git pull, venv build and pip install all happen before Python exists, so no
+window could cover them. Now one does, on Windows and on Linux under zenity.
+
+### Changed — the prompt costs a quarter less on a small model
+
+Measured on an 8k window with eight notes and no history: 32% of the context
+before the conversation started, with tool schemas costing nearly twice the
+user's own notes. Now 23%. Schemas are trimmed before any tool is dropped —
+dropping one changes what the app can do — and the tool guide has a short form
+below 8k.
+
+### Changed — tool selection reads words, not substrings
+
+`ai/toolwords.py` replaces substring matching, which offered the tag tools for
+"my vintage camera" and the link tools for "blinking lights". It ranks rather
+than gates, tells a question about a capability from a request to use it, and
+stays a suggestion the model may overrule — reaching for an unoffered tool now
+widens the set for the rest of the turn.
+
+### Changed — a 500 on the tools path falls back instead of failing
+
+Ollama answers 400 for a model that declares no tool support, but a model whose
+chat template breaks answers 500 — common on community re-quants. The app now
+retries the same request without tools to tell that apart from a real outage,
+and falls back to a plain answer rather than failing the turn.
+
+### Fixed — two buttons wired to nothing
+
+Settings → About's "Take tour again", and the Whiteboards Reload button. After
+accounting for ids built at runtime there are now zero interactive elements in
+the page without a handler.
+
+### Fixed — whiteboard panels collided below 1180px
+
+The tools row and the zoom cluster shared the bottom edge; by 900px the tools
+row ran off the canvas. Verified clean at eight viewports from 1920 to 600.
+
+
 ### Fixed — the Documents Library sub-tab looked nothing like the rest of the app
 
 Reported bluntly and repeatedly: "SOOOO ugly and not consistent with the

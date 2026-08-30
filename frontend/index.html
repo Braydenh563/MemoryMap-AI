@@ -505,6 +505,15 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="entry-attach-file" class="ghost" type="button"
               title="Attach an image or file" aria-label="Attach an image or file"><i class="ph ph-paperclip ph-lead" aria-hidden="true"></i> Attach</button>
             <input id="entry-attach-file-input" aria-label="Attach a file to this note" title="Attach a file to this note" type="file" multiple class="hidden">
+            <!-- The other half of "attach": something already in the
+                 library, not a new upload. Reported directly: "I also want
+                 to be able to attach images that are already in the image
+                 library... to new notes in the capture subtab." Existing
+                 documents already have their own control (the "Add to
+                 document" select above) — this is the image/file half of
+                 the same ask. -->
+            <button id="entry-attach-existing" class="ghost" type="button"
+              title="Attach an image already in your library" aria-label="Attach an image already in your library"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i> From library</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -904,6 +913,23 @@ Link to another note with [[its first few words]]."></textarea>
                  number of thumbnails, not a fixed-height control. -->
             <div id="chat-image-attachments" class="chat-attachments hidden"
               role="group" aria-label="Images attached to your next message"></div>
+            <!-- Its own row rather than sharing the image one: a document has
+                 no thumbnail, so a chip with a filename in a row of pictures
+                 sizes badly next to them. Same lifecycle either way — staged
+                 here, sent with the message, then drawn under it. -->
+            <div id="chat-doc-attachments" class="chat-attachments hidden"
+              role="group" aria-label="Documents attached to your next message"></div>
+            <!-- Two capabilities that only ever helped the people who already
+                 knew they were there. "Request the Librarian" is the mode that
+                 can actually *do* the thing you just typed, and a saved skill
+                 is a job someone already wrote down — but both live behind
+                 controls you have to think to reach, so asking the notebook to
+                 "tag my untagged notes" in Ask mode got a polite description of
+                 how one might do that instead of it being done. This offers the
+                 switch at the moment the typed text implies it, and never acts
+                 on its own: every nudge is a button you press, plus a dismiss
+                 that stays dismissed for the rest of the draft. -->
+            <div id="chat-nudge" class="chat-nudge hidden" role="status" aria-live="polite"></div>
             <!-- One strip, four groups, hairlines between them.
                  It was three stacked rows — skills, then controls, then the
                  composer — which is most of the height of a short
@@ -1040,7 +1066,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button id="attach-note" class="ghost" type="button"
                 aria-haspopup="dialog" aria-expanded="false"
                 title="Attach notes as references for this question"
-                aria-label="Attach notes"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
+                aria-label="Attach notes"><i class="ph ph-note" aria-hidden="true"></i></button>
               <div id="note-picker-panel" class="note-picker-panel hidden"
                 role="dialog" aria-label="Choose notes to reference">
                 <input id="note-picker-search" type="search"
@@ -1059,11 +1085,22 @@ Link to another note with [[its first few words]]."></textarea>
                  declares the "vision" capability (Settings → Models shows
                  which do). A hidden file input behind a button, same shape
                  as the note picker beside it. -->
+            <!-- Any file, not just an image. Asked for directly: images land
+                 in the image gallery, anything else becomes a document in the
+                 Documents sub-tab. The id keeps its original name so the CSS
+                 and the layout tests that reference it still resolve — what it
+                 does is what changed, not where it sits. -->
             <button id="attach-image" class="ghost" type="button"
-              title="Attach an image for the AI to look at"
-              aria-label="Attach an image"><i class="ph ph-image" aria-hidden="true"></i></button>
+              title="Attach a file — an image for the AI to look at, or a document to read"
+              aria-label="Attach a file"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
+            <!-- Images: every format the gallery stores, `image/*` rather
+                 than a list, so "any image format" really is any. Documents:
+                 the set core/docview.py can extract text from — a file this
+                 does not name is refused by the picker instead of by an error
+                 after the upload. -->
             <input id="chat-image-input" type="file" class="visually-hidden"
-              accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" multiple
+              accept="image/*,.pdf,.docx,.doc,.pptx,.xlsx,.xls,.odt,.rtf,.epub,.txt,.text,.log,.csv,.tsv,.md,.markdown,.html,.htm,.json,.xml,.yaml,.yml,.py,.js,.ts,.tsx,.jsx,.css,.java,.c,.h,.cpp,.cs,.go,.rs,.rb,.php,.sh,.sql,.toml,.ini"
+              multiple
               aria-label="Choose an image to attach">
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
@@ -1079,6 +1116,18 @@ Link to another note with [[its first few words]]."></textarea>
                  asked for it, not at the bottom of a card you have scrolled
                  away from. -->
             <p id="chat-status" class="status" role="status"></p>
+            <!-- How long this answer has been coming. Asked for directly:
+                 "can there be an active timer on responses in chatg messages
+                 as well??" A local model on a long question can be quiet for
+                 a minute, and "The model is writing…" says nothing about
+                 whether that minute is normal. Its own element, not part of
+                 #chat-status: the status text is rewritten a dozen times per
+                 turn by the stream, and a timer folded into it would have to
+                 be re-appended at every one of those call sites.
+                 aria-hidden because a counter that changes every second is
+                 noise to a screen reader, and #chat-status beside it is
+                 already role="status". -->
+            <span id="chat-elapsed" class="status chat-elapsed hidden" aria-hidden="true"></span>
           </div>
         </section>
 
@@ -1633,33 +1682,111 @@ Link to another note with [[its first few words]]."></textarea>
       </aside>
 
       <section class="card doc-main">
-        <div class="row space-between doc-toolbar">
-          <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
-            aria-label="Document title" class="doc-title-input">
+        <!-- **The dock, rebuilt as three groups instead of one long row.**
+             Reported with a screenshot: "fix/redesign the ui, layout,
+             alignment, sizing, and look of the documents top dock". What the
+             screenshot showed was a single `row space-between` holding the
+             title plus twelve controls of four different heights — a tall
+             `<select>`, a segmented control, six `.ghost.small` buttons and
+             two bare text spans — wrapping wherever it ran out of room, so
+             "⬇ PDF" and the delete bin ended up alone on a third line with
+             no relationship to anything above them.
+
+             Three things fix it and none of them is "make it smaller":
+
+             · **Groups wrap, not controls.** Status (words, goal, saved) and
+               actions are each their own flex box, so a narrow window breaks
+               the bar between them rather than between "⬇ .md" and "⬇ PDF".
+             · **One height.** `--control-h` across the select, the segment
+               and every button — the same rule the Library toolbar already
+               keeps, and the reason that row aligns and this one did not.
+             · **Fewer things.** The two exports and the delete moved into one
+               kebab. They are the three least-used controls here and they
+               were taking a third of the bar. -->
+        <div class="row space-between doc-dock">
+          <!-- Name and type together, because they are the same statement
+               about the document: what it is called and what it is. Moved
+               off the action row, which is about what you can *do* — and
+               which was 20px too wide to fit on one line with the select
+               still in it, measured rather than guessed at. -->
+          <span class="doc-dock-identity">
+            <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
+              aria-label="Document title" class="doc-title-input">
+            <!-- What kind of file this document is. Asked for directly: the
+                 editor should handle code as well as prose, the type should
+                 be changeable, and a new document should be creatable "of any
+                 filetype though it should default to md". The options are
+                 filled from GET /documents/file-types — one table, on the
+                 server, because Ctrl+/ and Tab act on keystrokes and cannot
+                 wait for a round trip, and a second copy here would be a
+                 second thing to update. -->
+            <select id="doc-file-type" class="small-select doc-file-type"
+              aria-label="File type" title="What kind of file this document is"></select>
+          </span>
           <span class="row doc-actions">
-            <span id="doc-stats" class="muted doc-stats"
-              title="Words, and roughly how long this takes to read"></span>
-            <button id="doc-word-goal" class="ghost small" type="button" aria-pressed="false"
-              title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
-            <span id="doc-saved" class="muted" role="status"></span>
+            <span class="doc-dock-status">
+              <span id="doc-stats" class="muted doc-stats"
+                title="Words, and roughly how long this takes to read"></span>
+              <button id="doc-word-goal" class="ghost small icon-button" type="button" aria-pressed="false"
+                title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
+              <span id="doc-saved" class="muted doc-saved" role="status"></span>
+            </span>
             <!-- Same divider the formatting toolbar below uses to separate
                  its own button groups — status facts (word count, save
                  state) read as one thing and the actions on the document as
                  another, instead of eight items in a row with no seam. -->
             <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button id="doc-preview-toggle" class="ghost small" type="button"
-              aria-pressed="false" title="Show a rendered preview beside the editor"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview</button>
+
+            <!-- Four ways to look at the same document, as four named options
+                 rather than one Preview tickbox. The tickbox stated one mode
+                 and left the other implied — and there are four now, so it
+                 could not have said which you were in at all.
+                 · Live is the Obsidian/Typora model: the document renders as
+                   you write, and the block the caret is in shows its raw
+                   markdown so you can edit the syntax you are looking at.
+                 · Source is the plain textarea, and the only mode for a code
+                   file (a "rendered" .py is a wall of escaped source).
+                 · Split is source and a rendered pane side by side, scrolling
+                   together.
+                 · Read is the rendered document alone, full width, no editor.
+                   Asked for as the other half of a "full toggle switch between
+                   editor mode and rendered mode" — Split gives you both at
+                   half width each, which is not the same thing as reading the
+                   finished page. -->
+            <div class="seg seg-compact" id="doc-view-seg" role="group" aria-label="How to view this document">
+              <button type="button" data-doc-view="live"
+                title="Render as you write; the paragraph you're in shows its markdown"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Live</button>
+              <button type="button" data-doc-view="source" class="active" aria-pressed="true"
+                title="The markdown itself, unrendered"><i class="ph ph-code ph-lead" aria-hidden="true"></i> Source</button>
+              <button type="button" data-doc-view="split"
+                title="Show a rendered preview beside the editor"><i class="ph ph-columns ph-lead" aria-hidden="true"></i> Split</button>
+              <button type="button" data-doc-view="rendered"
+                title="The finished document on its own, full width, with no editor"><i class="ph ph-book-open ph-lead" aria-hidden="true"></i> Read</button>
+            </div>
             <button id="doc-ai" class="ghost small" type="button"
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
             <button id="doc-extract" class="ghost small" type="button"
               title="Turn this document (or the text you've selected) into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
-            <button id="doc-export-md" class="ghost small" type="button"
-              title="Download as a .md file">⬇ .md</button>
-            <button id="doc-export-pdf" class="ghost small" type="button"
-              title="Print or save as PDF">⬇ PDF</button>
-            <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button id="doc-delete" class="ghost small" type="button"
-              title="Delete this document" aria-label="Delete this document"><i class="ph ph-trash" aria-hidden="true"></i></button>
+            <!-- Export and delete, folded away. Same `<details>` disclosure
+                 the Library's image tiles use, for the same reason: the
+                 browser gives the open/close, the keyboard handling and the
+                 ARIA for free, and the rows have room for words where two
+                 "⬇" buttons had to make do with a glyph. The ids are
+                 unchanged, so every handler in documents.js still finds
+                 exactly the button it bound. -->
+            <details class="doc-dock-menu" id="doc-dock-menu">
+              <summary class="ghost small icon-button doc-dock-menu-btn"
+                title="More actions for this document"
+                aria-label="More actions for this document"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list">
+                <button id="doc-export-md" class="ghost small doc-dock-menu-item" type="button"
+                  title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
+                <button id="doc-export-pdf" class="ghost small doc-dock-menu-item" type="button"
+                  title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
+                <button id="doc-delete" class="ghost small doc-dock-menu-item danger" type="button"
+                  title="Delete this document"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete document</button>
+              </div>
+            </details>
           </span>
         </div>
         <!-- Formatting without remembering the syntax. Everything here is
@@ -1701,9 +1828,27 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" id="doc-find-close" class="ghost small" title="Close (Esc)" aria-label="Close find and replace"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div class="doc-panes" id="doc-panes">
-          <textarea id="doc-content" spellcheck="true"
-            placeholder="# Start writing&#10;&#10;Markdown works here — headings, **bold**, lists, tables, links."
-            aria-label="Document content"></textarea>
+          <!-- The textarea stays the source of truth in every mode, including
+               Live. Live writes back into it on every edit, so autosave, the
+               word count, find-and-replace, Extract notes and the AI panel
+               all keep working against one value and none of them had to
+               learn about a second editor. -->
+          <div class="doc-source-wrap" id="doc-source-wrap">
+            <!-- Line numbers for a code file. Its own element rather than a
+                 CSS trick because a textarea cannot render per-line content;
+                 it is painted from the text and scroll-locked to the
+                 textarea beside it. -->
+            <div id="doc-gutter" class="doc-gutter hidden" aria-hidden="true"></div>
+            <textarea id="doc-content" spellcheck="true"
+              placeholder="# Start writing&#10;&#10;Markdown works here — headings, **bold**, lists, tables, links."
+              aria-label="Document content"></textarea>
+          </div>
+          <!-- Live Preview. One block per paragraph: every block renders,
+               except the one the caret is in, which shows its raw markdown in
+               a textarea so the syntax you are editing is the syntax you can
+               see. -->
+          <div id="doc-live" class="doc-live markdown-body hidden"
+            aria-label="Document, rendered as you write"></div>
           <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
         </div>
         <p id="doc-status" class="status doc-status" role="status"></p>
@@ -1714,13 +1859,28 @@ Link to another note with [[its first few words]]."></textarea>
       </section>
     </div>
 
-    <!-- AI edit: shown as a proposal, never written straight into the file. -->
+    <!-- AI assistant: shown as a proposal, never written straight into the
+         file. Three verbs, asked for directly — the panel used to do only
+         one thing (rewrite), which is still "Edit" below and unchanged;
+         "Write" inserts a new passage instead of replacing anything, and
+         "Remove" deletes on request, both routed through the same
+         /ai-edit endpoint via the `verb` each radio sets. -->
     <div id="doc-ai-panel" class="modal-overlay hidden" role="dialog"
-      aria-modal="true" aria-label="AI edit">
+      aria-modal="true" aria-label="AI assistant">
       <div class="card modal-card doc-ai-card">
         <div class="row space-between">
-          <h2>AI edit</h2>
-          <button id="doc-ai-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+          <h2>AI assistant</h2>
+          <div class="row">
+            <button id="doc-ai-history" class="ghost small" type="button" title="See and undo past AI edits to this document">
+              <i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i> History
+            </button>
+            <button id="doc-ai-close" class="ghost small" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <div id="doc-ai-verb" class="segmented-control" aria-label="What should the AI do">
+          <label><input type="radio" name="doc-ai-verb" value="edit" checked> Edit</label>
+          <label><input type="radio" name="doc-ai-verb" value="write"> Write</label>
+          <label><input type="radio" name="doc-ai-verb" value="remove"> Remove</label>
         </div>
         <p class="muted" id="doc-ai-scope"></p>
         <input id="doc-ai-instruction" type="text" maxlength="500"
@@ -1740,6 +1900,24 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
     </div>
+
+    <!-- The changelog asked for directly: "allow edits made by the AI to
+         be undone or altered before and after they are set." Before
+         accepting, the AI panel's own result textarea already covers
+         altering; this dialog is the "undone... after" half — a durable
+         per-document record (routes_documents.py's DocumentAiEdit table)
+         distinct from the app's own session-only global undo stack, which
+         also fires on every accept for an immediate Ctrl+Z but forgets
+         everything on reload. -->
+    <dialog id="doc-ai-history-dialog" class="card space-dialog doc-ai-history-dialog">
+      <h3>AI edit history</h3>
+      <p class="muted">Every AI edit accepted into this document. Revert any of them — it's recorded too, so nothing here is ever lost.</p>
+      <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
+      <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
+      <div class="row right space-dialog-actions">
+        <button type="button" class="ghost" data-close-dialog="doc-ai-history-dialog">Close</button>
+      </div>
+    </dialog>
   </div>
 
   <!-- ======================= REMINDERS TAB ================================= -->
@@ -1919,9 +2097,16 @@ Link to another note with [[its first few words]]."></textarea>
                  the Library is where you find what you have, and what you threw
                  away is not that. The Bin chip still shows them whatever this
                  says, because pressing a filter called Bin is asking. -->
-            <label class="library-sort library-sort-check">
+            <!-- `checkbox-label` as well, so this is literally the same pill
+                 as Semantic beside it rather than a lookalike: reported as
+                 "add the button pill feature look to the 'Include Bin' toggle
+                 and text in the library as well to be same as the semantic
+                 search". The two sit side by side and do the same kind of job
+                 — one border, one padding, one checked state, one rule. -->
+            <label class="library-sort library-sort-check checkbox-label"
+              title="Also show things you have thrown away.">
               <input type="checkbox" id="library-show-binned" class="accent-check">
-              <span class="muted">Include bin</span>
+              <span>Include bin</span>
             </label>
             <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
               <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
@@ -2037,7 +2222,12 @@ Link to another note with [[its first few words]]."></textarea>
             </span>
           </div>
           <p class="muted graph-help-panel hidden" id="skills-intro" role="dialog" aria-label="What is this?">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
-          <div id="skills-dashboard-list" class="skills-grid"></div>
+          <!-- Not `skills-grid`: this holds the background-workers card, the
+               search box and the grid *itself*, and having the outer box be a
+               grid too made those three into three columns — a narrow card, an
+               empty lane and the real grid squeezed beside them. The grid is
+               built inside, by renderSkillsDashboard. -->
+          <div id="skills-dashboard-list"></div>
         </section>
 
       
@@ -2581,8 +2771,8 @@ Link to another note with [[its first few words]]."></textarea>
     <!-- The generated emblem, which followed the status dot down: it is an AI
          presence marker and it belongs beside the thing that says what the AI
          is doing, which is the reason it was next to it in the header. -->
-    <span id="ai-mark" class="emblem emblem-mark" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
-    <span class="ai-status-wrap">
+    <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
+    <span class="ai-status-wrap" data-status-slot="ai">
       <button id="ai-status" class="ai-status" type="button"
         aria-expanded="false" aria-describedby="ai-status-popup">
         <span class="ai-status-dot" aria-hidden="true"></span>
@@ -2593,8 +2783,8 @@ Link to another note with [[its first few words]]."></textarea>
         <span id="ai-status-detail" class="ai-status-detail"></span>
       </span>
     </span>
-    <button id="status-notes" class="status-item" type="button"></button>
-    <button id="status-reminders" class="status-item" type="button"></button>
+    <button id="status-notes" class="status-item" type="button" data-status-slot="notes"></button>
+    <button id="status-reminders" class="status-item" type="button" data-status-slot="reminders"></button>
     <!-- Hidden until something is actually running. A slot that says "nothing
          is happening" for hours is the decoration the caveat above warns
          about; a slot that appears is a thing you notice. -->
@@ -2619,13 +2809,13 @@ Link to another note with [[its first few words]]."></textarea>
          u-turn arrows (a different shape, not just a different direction), and
          the .status-nav rule's own divider marking them off as a separate
          pair. They move you between pages; undo/redo change your notes. -->
-    <span class="status-nav" role="group" aria-label="Move between pages">
+    <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
       <button id="status-back" class="status-item" type="button" disabled></button>
       <button id="status-forward" class="status-item" type="button" disabled></button>
     </span>
-    <button id="status-undo" class="status-item" type="button" disabled></button>
-    <button id="status-redo" class="status-item" type="button" disabled></button>
-    <button id="status-command" class="status-item" type="button"></button>
+    <button id="status-undo" class="status-item" type="button" disabled data-status-slot="undo"></button>
+    <button id="status-redo" class="status-item" type="button" disabled data-status-slot="undo"></button>
+    <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
   </footer>
 
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
@@ -2837,6 +3027,27 @@ Link to another note with [[its first few words]]."></textarea>
                 can see images. Pick one by hand if you have several, or if
                 auto-detect isn't finding the one you want.
               </p>
+
+              <!-- Separate from the vision model above, and the reason is not
+                   obvious: rasterising a PDF does not read anything, it turns
+                   a page into a picture, and a model still has to read the
+                   picture. So both jobs take an image — but a general vision
+                   model is trained to say what is *in* one, while a document
+                   reader is trained to return the text, tables and layout. Ask
+                   moondream for a scanned invoice and it describes the
+                   invoice. -->
+              <h3>Reading text (OCR: scanned PDFs, and text in images)</h3>
+              <div class="row">
+                <select id="ocr-model-select" aria-label="Model used to read text off a page" title="Model used to read text off a page"></select>
+                <button id="ocr-model-apply" class="small">Use this model</button>
+              </div>
+              <p id="ocr-model-note" class="status"></p>
+              <p class="muted">
+                Left on “Automatic”, this prefers a document reader
+                (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) when you have one
+                installed, then falls back to your vision model. Scanned PDFs
+                also need the “Read scanned PDFs” extra, below in Packages.
+              </p>
             </div>
 
             <!-- Deliberately OUTSIDE #models-config. It used to live inside,
@@ -2887,6 +3098,36 @@ Link to another note with [[its first few words]]."></textarea>
               <h3>Suggested downloads</h3>
               <ul id="suggested-list"></ul>
             </div>
+            <!-- Advanced response settings. Asked for directly: expose top-k,
+                 top-p, repeat penalty and the rest, because different models
+                 need different values for the same result — and detect them
+                 per model if that is possible.
+
+                 It is. A GGUF carries its author's recommended parameters and
+                 Ollama reports them in /api/show, so every row starts at what
+                 the model itself asks for and says so. Changing one stores
+                 only that one, which is why switching model still picks up the
+                 new model's own recommendations for everything untouched.
+
+                 Collapsed by default: this is genuinely advanced, and the
+                 honest default for all of it is "whatever the model says". -->
+            <details id="sampling-box" class="settings-group">
+              <summary><h3 class="inline-h3">Advanced response settings</h3></summary>
+              <p class="muted">
+                How the model picks its words. Each row starts at what this
+                model recommends for itself — change one only if you have a
+                reason, and Reset puts it back.
+              </p>
+              <p id="sampling-model" class="muted text-sm"></p>
+              <div id="sampling-rows"></div>
+              <div class="row gap">
+                <button id="sampling-reset" class="ghost small" type="button">
+                  <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i>
+                  Reset all to the model's own
+                </button>
+              </div>
+              <p id="sampling-note" class="muted text-sm"></p>
+            </details>
           </section>
 
           <!-- Personas: who the AI is when it answers -->
@@ -2990,10 +3231,17 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- AI Tools: toggle what the chat AI is allowed to do -->
           <section class="settings-section hidden" id="settings-memory">
             <p class="muted">
-              The AI can save itself standing instructions — say
+              The AI can keep standing instructions — say
               <em>"always answer in British English"</em> and it will keep
               doing that in every conversation from then on. This is the whole
               list, and you can switch any of them off or delete them.
+            </p>
+            <p class="muted">
+              When the AI spots one of these in conversation it
+              <strong>suggests</strong> it rather than saving it: the
+              suggestion appears in the chat with a yes/no, and again at the
+              top of this list until you answer. Nothing reaches the AI's
+              instructions until you say yes.
             </p>
             <p class="muted" id="memory-budget"></p>
             <!-- Adding one by hand. The tool covers "tell it in conversation";
@@ -3071,13 +3319,27 @@ Link to another note with [[its first few words]]."></textarea>
                     background — as one look you can come back to.
                   </small>
                 </div>
-                <div id="custom-themes" class="theme-presets"></div>
-                <div class="row custom-theme-save-row">
-                  <input id="custom-theme-name" type="text" maxlength="30"
-                    placeholder="Name this look…"
-                    title="e.g. Late night"
-                    aria-label="Name for the saved theme">
-                  <button id="custom-theme-save" class="small">Save current look</button>
+                <!-- One wrapper, not two siblings: `.setting-row-stack` is a
+                     flex ROW (only align-items changes, never
+                     flex-direction — see its own rule), which is right for
+                     every other stack row here since each of those has just
+                     one control block beside the label. This row has two
+                     (the grid, then the name+save controls), and as two
+                     separate flex children they spread across the row like
+                     the label does — the grid pinned near the label, the
+                     name box and button pushed out to the far right with a
+                     gap between, reported directly with a screenshot. One
+                     wrapper puts both back under the label as a single
+                     control block, stacking normally as block children. -->
+                <div class="custom-themes-block">
+                  <div id="custom-themes" class="theme-presets"></div>
+                  <div class="row custom-theme-save-row">
+                    <input id="custom-theme-name" type="text" maxlength="30"
+                      placeholder="Name this look…"
+                      title="e.g. Late night"
+                      aria-label="Name for the saved theme">
+                    <button id="custom-theme-save" class="small">Save current look</button>
+                  </div>
                 </div>
               </div>
               <div class="row">
@@ -3242,9 +3504,19 @@ Link to another note with [[its first few words]]."></textarea>
                   <small class="muted">Scales the whole interface, like a browser zoom that stays set. Combines with Text size above.</small>
                 </div>
                 <div class="row setting-control">
+                  <!-- A slider alone is hard to land on an exact step, and
+                       there was no discoverable keyboard route either. These
+                       three, the slider, and the command palette all call the
+                       same setZoom, so none of them can drift. -->
+                  <button id="zoom-out" class="ghost small icon-button" type="button"
+                    title="Zoom out (Ctrl+-)" aria-label="Zoom out"><i class="ph ph-minus" aria-hidden="true"></i></button>
                   <input id="zoom-slider" type="range" min="70" max="130" step="5" value="100"
                     aria-label="Interface zoom">
+                  <button id="zoom-in" class="ghost small icon-button" type="button"
+                    title="Zoom in (Ctrl++)" aria-label="Zoom in"><i class="ph ph-plus" aria-hidden="true"></i></button>
                   <span class="slider-value" id="zoom-value">100%</span>
+                  <button id="zoom-reset" class="ghost small" type="button"
+                    title="Back to 100% (Ctrl+0)">Reset</button>
                 </div>
               </div>
               <div class="setting-row">
@@ -3402,6 +3674,29 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted">It automatically stays still if your system prefers reduced motion.</p>
             </div>
 
+            <!-- ---------- Status bar ---------- -->
+            <!-- Asked for: "allow more stuff to be added and removed to the
+                 bottom status bar?? maybe??" The bar is a permanent strip
+                 across the bottom of every screen, so what belongs on it is a
+                 matter of taste rather than of correctness — someone who never
+                 uses undo from there wants those two slots back, and someone
+                 who lives in the command palette wants the reminder of its
+                 shortcut.
+
+                 Stored as the list of things *hidden*, not the list shown, so
+                 a slot added in a later version appears by default instead of
+                 being invisible to everyone who ever touched this screen. -->
+            <div class="settings-group">
+              <h3>Status bar</h3>
+              <p class="muted">
+                What shows in the strip along the bottom. The offline and
+                power-saver badges and the running-job slot aren't listed:
+                they appear only when there's something to say, and hiding a
+                warning you asked for is a different kind of setting.
+              </p>
+              <div id="status-bar-items" class="status-bar-items"></div>
+            </div>
+
             <!-- ---------- Advanced ---------- -->
             <div class="settings-group">
               <h3>Advanced</h3>
@@ -3515,7 +3810,33 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><kbd>Esc</kbd><span>Close any dialog, menu, or overlay</span></li>
                 <li><kbd>←</kbd> <kbd>→</kbd><span>Move between tabs (when a tab is focused)</span></li>
                 <li><kbd>Enter</kbd><span>Send a chat message, or run the selected command</span></li>
+                <li><kbd>Shift</kbd> + <kbd>Enter</kbd><span>New line in the chat box without sending</span></li>
+                <li><kbd>Ctrl</kbd> + <kbd>Enter</kbd><span>Save the note you're writing</span></li>
                 <li><kbd>Tab</kbd><span>Move focus; cycles inside an open dialog</span></li>
+                <li><kbd>↑</kbd> <kbd>↓</kbd><span>Move through the command palette, the note picker and
+                  wiki-link suggestions</span></li>
+              </ul>
+            </div>
+
+            <!-- The "g" chord. Not in the rebindable list above and the reason
+                 is in app.js beside TAB_JUMP_KEYS: a two-key chord needs
+                 somewhere to hold the first press while it waits for the
+                 second, which is state the keydown handler owns regardless.
+                 It was also, until now, documented nowhere a user would look. -->
+            <div class="settings-group">
+              <h3>Jump to a tab</h3>
+              <p class="muted">
+                Press <kbd>g</kbd> and then a letter, the same way GitHub and
+                Gmail do it. Only when you aren't typing in a box.
+              </p>
+              <ul class="shortcut-list">
+                <li><kbd>g</kbd> <kbd>d</kbd><span>Dashboard</span></li>
+                <li><kbd>g</kbd> <kbd>n</kbd><span>Notes</span></li>
+                <li><kbd>g</kbd> <kbd>c</kbd><span>Chat</span></li>
+                <li><kbd>g</kbd> <kbd>g</kbd><span>Graph</span></li>
+                <li><kbd>g</kbd> <kbd>l</kbd><span>Library</span></li>
+                <li><kbd>g</kbd> <kbd>t</kbd><span>Timeline</span></li>
+                <li><kbd>g</kbd> <kbd>r</kbd><span>Reminders</span></li>
               </ul>
             </div>
           </section>
@@ -3946,6 +4267,16 @@ Link to another note with [[its first few words]]."></textarea>
                 <span id="backup-status" class="status" role="status"></span>
               </div>
               <ul id="backup-list" class="entry-list"></ul>
+              <!-- Asked about directly: "backup retention should be a
+                   setting — backups accumulate with no cap the user can see
+                   or change." The prune itself already existed (backup.py
+                   has always kept only the newest N); what was missing was
+                   this control and a number to show it working. -->
+              <div class="row" id="backup-retention-row">
+                <label for="backup-retention" class="muted">Keep this many backups</label>
+                <input id="backup-retention" type="number" class="small-select backup-retention-input">
+                <span id="backup-retention-status" class="status" role="status"></span>
+              </div>
               <p class="muted">
                 A backup is also taken automatically once a day when the app
                 starts. Restoring first snapshots the current state, so even a
@@ -4119,13 +4450,35 @@ Link to another note with [[its first few words]]."></textarea>
                 <summary><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i> Dashboard</summary>
                 <p>The <strong>Dashboard</strong> is your at-a-glance home: streaks, stats, pinned notes, reminders, a weekly digest, and more. Click “Edit layout” to show/hide and rearrange widgets — your layout is remembered.</p>
               </details>
+              <!-- The gap this closes: eight topics covered Notes, Chat,
+                   Skills, Graph, Reminders, Dashboard, Appearance and
+                   Shortcuts — every other top-level tab and two whole
+                   features (Memory, Spaces) had nothing here at all. Asked
+                   for directly: "does the guide and help mention all the
+                   features??" It didn't. -->
+              <details>
+                <summary><i class="ph ph-books ph-lead" aria-hidden="true"></i> Library</summary>
+                <p>The <strong>Library</strong> is where you find what you already made — notes, documents, chats, files and tags together, with sort, search and filter chips (including <strong>Meetings</strong> for anything tagged “meeting”) across the top. Its own sub-tabs hold <strong>Documents</strong> (long-form writing, separate from a quick note), <strong>Whiteboards</strong> (freehand sketches and diagrams), the <strong>Image Gallery</strong> (every picture you’ve uploaded or pasted, with AI captions and OCR text), and <strong>AI Skills</strong> (see below).</p>
+              </details>
+              <details>
+                <summary><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> Timeline</summary>
+                <p>The <strong>Timeline</strong> tab lays your notes out chronologically — day, week or month buckets, grid or line view, with an optional band (category, tag, or space) to see how things cluster over time.</p>
+              </details>
+              <details>
+                <summary><i class="ph ph-brain ph-lead" aria-hidden="true"></i> What it remembers</summary>
+                <p>MemoryMap can pick up small facts and preferences about you as you write and chat — asking first each time, never assuming. Accept or decline each suggestion right in the chat, and review or forget anything it’s learned in <em>Settings → Memory</em>.</p>
+              </details>
+              <details>
+                <summary><i class="ph ph-circles-four ph-lead" aria-hidden="true"></i> Spaces</summary>
+                <p>A <strong>space</strong> is a separate notebook inside the same app — notes, documents, chats and tags kept apart from your other spaces. Switch or create one from the picker at the top of the sidebar; “All spaces” shows everything together.</p>
+              </details>
               <details>
                 <summary><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Appearance</summary>
                 <p><em>Settings → Appearance</em> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
               </details>
               <details>
                 <summary><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Keyboard shortcuts</summary>
-                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes.</p>
+                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes. Press <kbd>g</kbd> then a letter to jump straight to a tab (<em>Settings → Shortcuts</em> lists which letter goes where) — MemoryMap has no “/” chat commands to learn; everything happens through the tools the AI already has in Agent mode and Skills.</p>
               </details>
             </div>
           </section>
@@ -4139,6 +4492,16 @@ Link to another note with [[its first few words]]."></textarea>
               this computer.
             </p>
             <p class="muted" id="about-version"></p>
+            <!-- ROADMAP item C: several extras only take effect on restart
+                 and the app said so without ever offering one. Hidden by
+                 default (not-restart-capable builds — the browser tab, or
+                 desktop on a non-Windows box — have no way to act on this
+                 at all) and shown once app.js's own /system/console-mode-
+                 style probe confirms it can actually do something. -->
+            <div class="row hidden" id="about-restart-row">
+              <button id="about-restart" class="ghost small" type="button">Restart MemoryMap</button>
+              <span class="muted">Some changes — an installed extra, a switched model backend — only take effect after a restart.</span>
+            </div>
             <!-- Off by default (core/config.py's update_check_enabled) —
                  "100% offline" two lines up has to stay true until this is
                  switched on by hand, the same reasoning Settings -> Web
@@ -4217,6 +4580,26 @@ Link to another note with [[its first few words]]."></textarea>
               tray icon. You can also switch live from the tray icon's own
               menu, which remembers your choice for next time too, and the
               app briefly restarts itself when you switch this way.
+            </p>
+            <!-- Closing the window and quitting the app are two different
+                 things on a desktop build with a tray icon, and until now the
+                 app made that choice for you silently. Asked for directly:
+                 "make it so the app window can be closed but the app will
+                 still be open in the system tray… so there is a difference
+                 between minimising the app and quitting the app". On by
+                 default — a notebook you can capture into from the tray is
+                 the reason the tray icon exists — and off for anyone who
+                 wants the X button to mean what it says. -->
+            <label class="row space-between hidden" id="desktop-tray-row" for="pref-close-to-tray">
+              Closing the window keeps MemoryMap in the tray
+              <input type="checkbox" id="pref-close-to-tray">
+            </label>
+            <p class="muted hidden" id="desktop-tray-hint">
+              With this on, the X button hides the window and the app keeps
+              running behind the tray icon — click it to bring the window
+              back, or right-click → Quit to close it properly (which also
+              stops any background work). With it off, closing the window
+              quits.
             </p>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded
@@ -4494,10 +4877,32 @@ Link to another note with [[its first few words]]."></textarea>
         transcribed locally with Whisper, the same engine behind the mic
         button. Nothing leaves this machine.
       </p>
+      <label class="meeting-title-label" for="meeting-title">What is this recording?</label>
+      <input type="text" id="meeting-title" maxlength="120" class="meeting-title"
+        placeholder="e.g. Tuesday standup, Lecture 4 — thermodynamics"
+        aria-label="A name for this recording">
       <div class="row" id="meeting-controls">
         <button id="meeting-record" type="button"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record</button>
+        <button id="meeting-pause" type="button" class="ghost hidden"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
         <span id="meeting-timer" class="meeting-timer muted" aria-live="polite">0:00</span>
       </div>
+      <!-- The line that moves while you talk. Reported twice: "there is still
+           no line animation that visually picks up the user's voice when
+           recording in the meeting notes section." There *was* a meter — six
+           small bars appended to the Record button by `startMicLevelMeter` —
+           and at that size, on a button, next to a word, it does not read as
+           anything. A recording with no visible response to your voice is
+           indistinguishable from a broken microphone, which is the actual
+           thing being reported: not "I would like a nicer meter" but "I
+           cannot tell whether this is listening."
+
+           A canvas, not DOM bars: this draws ~120 points at 60fps, and 120
+           elements each taking a style write per frame is a layout cost for
+           no benefit. Hidden until recording starts — an empty flat line
+           sitting there when nothing is happening is the "frozen" reading the
+           bar meter's own comment already warns about. -->
+      <canvas id="meeting-wave" class="meeting-wave hidden" width="960" height="120"
+        aria-hidden="true"></canvas>
       <p id="meeting-status" class="status" role="status"></p>
       <!-- Editable, not saved straight away: a raw transcript carries every
            "um" and false start, and the app's whole capture pattern is
@@ -4508,6 +4913,13 @@ Link to another note with [[its first few words]]."></textarea>
         aria-label="Transcript — edit before saving"></textarea>
       <div class="row hidden" id="meeting-save-row">
         <button id="meeting-save">Save as a note</button>
+        <!-- A lecture or a long meeting is not a note. Asked for as part of
+             "expanded as a proper feature with more capabilities": an hour of
+             transcript in the Notes list is one enormous card nobody can
+             scroll past, where the same text as a document is something you
+             can open, edit, extract notes from and export. -->
+        <button id="meeting-save-doc" class="ghost">Save as a document</button>
+        <button id="meeting-copy" class="ghost" title="Copy the transcript">Copy</button>
         <button id="meeting-discard" class="ghost">Discard</button>
       </div>
     </div>

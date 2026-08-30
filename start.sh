@@ -21,6 +21,56 @@ set -e
 set -o pipefail
 cd "$(dirname "$0")"
 
+# --- Launch splash ---------------------------------------------------
+# The same gap start.bat's splash covers: the git pull, building .venv and a
+# pip install all happen before Python exists, so before __main__.py can show
+# its own loading window. Reported as the app appearing not to start at all.
+#
+# Gated on `[ ! -t 1 ]` — stdout not being a terminal — which is exactly the
+# case the report is about: launched from a file manager or a .desktop entry,
+# with no console to read. Run from a terminal this script already narrates
+# every phase, and a second window over the top would be noise.
+#
+# zenity only. kdialog's progress dialog needs DBus plumbing to update, and
+# macOS ships no equivalent that is not a modal stealing focus — a splash is
+# not worth either. Where it is missing nothing happens, exactly as before.
+MM_SPLASH_PID=""
+MM_SPLASH_FIFO=""
+if [ ! -t 1 ] && command -v zenity >/dev/null 2>&1; then
+  MM_SPLASH_FIFO="$(mktemp -u "${TMPDIR:-/tmp}/mm_splash_XXXXXX")"
+  if mkfifo "$MM_SPLASH_FIFO" 2>/dev/null; then
+    zenity --progress --pulsate --no-cancel --auto-close \
+           --title="MemoryMap AI" --text="Starting…" \
+           < "$MM_SPLASH_FIFO" >/dev/null 2>&1 &
+    MM_SPLASH_PID=$!
+    # Held open on fd 9 for the life of the script: closing it is what tells
+    # zenity the job is over, so it must not close between phases.
+    exec 9>"$MM_SPLASH_FIFO"
+  else
+    MM_SPLASH_FIFO=""
+  fi
+fi
+
+# One line of text into the dialog. zenity reads "#text" as a label update.
+mm_splash() {
+  [ -n "$MM_SPLASH_PID" ] || return 0
+  printf '#%s\n' "$1" >&9 2>/dev/null || true
+}
+
+# Must run on every exit — a pulsating dialog left with no owner is worse than
+# no dialog. Note this does NOT cover the `exec`s at the end of this script:
+# exec replaces the shell without firing EXIT, and fd 9 is inherited by the
+# new process, which would hold the fifo open and leave zenity on screen for
+# the entire life of the app. Both of those call mm_splash_done by hand.
+mm_splash_done() {
+  [ -n "$MM_SPLASH_PID" ] || return 0
+  exec 9>&- 2>/dev/null || true
+  kill "$MM_SPLASH_PID" 2>/dev/null || true
+  [ -n "$MM_SPLASH_FIFO" ] && rm -f "$MM_SPLASH_FIFO" 2>/dev/null
+  MM_SPLASH_PID=""
+}
+trap mm_splash_done EXIT INT TERM
+
 # --- Help ------------------------------------------------------------
 # Checked before anything else touches the network or the venv, so
 # `--help` is always instant regardless of connection state.
@@ -108,6 +158,7 @@ is_network_error() {
 # (possibly updated) script so a changed file can't corrupt this run.
 # The MM_CHILD guard prevents an endless loop.
 if [ -z "${MM_CHILD:-}" ] && command -v git >/dev/null 2>&1 && [ -d .git ]; then
+  mm_splash "Checking for updates on GitHub..."
   echo " Checking for updates..."
   GIT_LOG="$(mktemp 2>/dev/null || echo "/tmp/mm_git_$$.log")"
   # Read before the pull so a real version change can be reported to the
@@ -225,6 +276,7 @@ if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>
 fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
+  mm_splash "Installing dependencies - this can take a few minutes..."
   echo " ${TEAL}[2/4]${RESET} Installing dependencies - this can take a few minutes the first time."
   echo "        pip's own progress prints below as it happens:"
   # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
@@ -320,6 +372,8 @@ if [ -n "${MM_DESKTOP:-}" ]; then
   echo " ${TEAL}Installed at:${RESET} $(pwd)"
   echo " ${TEAL}Next time:${RESET}    open a terminal there and run ./start.sh --desktop again"
   echo
+  mm_splash "Starting the app..."
+  mm_splash_done
   exec "$VENV_PY" -m memorymap --desktop
 fi
 
@@ -342,5 +396,8 @@ echo
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:8000
   fi
 ) >/dev/null 2>&1 &
+
+mm_splash "Starting the app..."
+mm_splash_done
 
 exec "$VENV_PY" -m memorymap

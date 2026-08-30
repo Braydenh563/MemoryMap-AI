@@ -490,8 +490,95 @@
 }
 
 .skill-card-title {
+  margin: 0;
   font-weight: 600;
   font-size: var(--text-md);
+}
+
+/* Which kind of skill this is. "Yours" rather than "Custom": the distinction
+   that matters to a reader is whether they can edit it. */
+.skill-badge {
+  flex: 0 0 auto;
+}
+
+.skill-badge-custom {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* **What running this will actually do** — steps, tools, inputs. The card
+   used to carry a name and a description and nothing else, which is not
+   enough to decide whether to let something edit your notebook. */
+.skill-card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.skill-fact {
+  font-size: var(--text-xs);
+}
+
+/* `<details>` rather than a hand-rolled popup — same choice and same reasons
+   as .library-image-menu (00-tokens-shell.css): opens on click and on
+   Enter/Space, closes on Escape, exposed to a screen reader as a
+   disclosure, none of it hand-wired. */
+.skill-fact-expand > summary {
+  list-style: none; /* Firefox draws a marker triangle otherwise */
+  cursor: pointer;
+}
+
+.skill-fact-expand > summary::-webkit-details-marker {
+  display: none;
+}
+
+.skill-fact-list {
+  margin: var(--space-2) 0 0 var(--space-4);
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.skill-card-when {
+  margin: 0;
+}
+
+/* Background workers: this page's own copy of three Settings preferences,
+   using this app's pill toggles rather than the one-off `.switch`/`.slider`
+   markup that used to be here and appears nowhere else. */
+.skills-workers {
+  margin-bottom: var(--space-6);
+}
+
+/* The master switch sits on its own line, above the jobs it gates — reported
+   directly: "make the 'run in the background' pill separate from the other
+   two as they are like what the agent is running in the background." A
+   heavier top border marks it as the thing the row below depends on, rather
+   than a fourth pill the same size as the two it controls. */
+.skills-worker-master {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--glass-border);
+}
+
+.skills-worker-jobs-hint {
+  margin: var(--space-3) 0 0;
+}
+
+.skills-worker-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding-left: var(--space-4);
+}
+
+.skills-search {
+  margin-top: var(--space-6);
+  margin-bottom: 0;
 }
 
 .skill-card-desc {
@@ -502,7 +589,10 @@
 
 .skill-card-footer {
   display: flex;
-  justify-content: flex-end;
+  /* Run first and on the left. It is the reason the card exists, and a
+     primary action hiding in the bottom-right corner behind a secondary one
+     is the layout that made "Schedule" look like the main button. */
+  justify-content: flex-start;
   gap: var(--space-3);
   margin-top: var(--space-3);
   padding-top: var(--space-3);
@@ -796,10 +886,23 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   margin: 0 var(--space-1) 0 0;
 }
 
-.semantic-toggle {
+/* Asked for directly: "Include bin" sits beside Semantic in the Library
+   toolbar and was a bare checkbox with muted text next to a pill. Two controls
+   doing the same kind of job should not look like different components, so
+   they share one rule. */
+.semantic-toggle,
+.library-sort-check {
+  display: flex;
+  align-items: center;
   gap: var(--space-1);
   font-size: var(--text-md);
   cursor: pointer;
+}
+
+.library-sort-check>span {
+  /* The label is the control's name, not a caption for it — muted made it read
+     as secondary to a switch that is the same size as the words. */
+  color: inherit;
 }
 
 /* A flexible gap that pushes what follows it to the far end of a row. */
@@ -974,6 +1077,20 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   min-height: 0;
 }
 
+/* Reported: the AI Skills page "isnt suitable for smaller resolutions like
+   mobile phones" — the fixed 18.75rem sidebar column never gave way, so a
+   phone-width viewport either squeezed the skill list into a sliver or
+   overflowed horizontally. Same collapse-to-a-stack fix as .doc-layout
+   (04-chat-dock-appearance.css) at the same breakpoint; #skills-sidebar's
+   own sticky/fixed-height rules are undone alongside it in
+   05-sidebars-themes.css, the same way #chat-sidebar/#doc-sidebar already
+   are in that file's matching query. */
+@media (max-width: 900px) {
+  .skills-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The whiteboard's drawing layer and its card layer occupy the same box: the
    SVG takes the strokes, the div takes the note cards on top of them. Without
    this they stacked vertically and every card sat below the canvas. */
@@ -1082,6 +1199,33 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 .memory-row.is-off .memory-text {
   text-decoration: line-through;
   color: var(--muted);
+}
+
+/* A suggestion the model made and nobody has answered yet. Marked rather than
+   dimmed: it is the one row on this screen that wants something from the
+   reader, and an unanswered proposal styled like a switched-off preference is
+   an unanswered proposal that stays unanswered. */
+.memory-row.is-proposed {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.memory-proposed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* The same question inside a chat turn, next to the tool chip that raised it. */
+.memory-proposal-text {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--accent);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
 }
 
 .memory-text {
@@ -1919,5 +2063,54 @@ dialog::backdrop {
 }
 
 .dash-widget-row-controls {
+  flex: 0 0 auto;
+}
+
+/* The AI-edit changelog (documents.js's openDocAiHistory) — same
+   wider-dialog-with-a-scrolling-list shape as .dash-widgets-dialog above,
+   reused rather than duplicated since both hold a list of rows with a
+   control on the right and nothing else distinguishes them layout-wise. */
+.doc-ai-history-dialog {
+  width: min(30rem, calc(100vw - var(--space-8)));
+}
+
+.doc-ai-history-list {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  max-height: min(24rem, 60vh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.doc-ai-history-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-ai-history-entry:last-child {
+  border-bottom: none;
+}
+
+.doc-ai-history-entry > .ph {
+  flex: 0 0 auto;
+  margin-top: 0.2em;
+  color: var(--muted);
+}
+
+.doc-ai-history-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.doc-ai-history-text p {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+.doc-ai-history-entry button {
   flex: 0 0 auto;
 }

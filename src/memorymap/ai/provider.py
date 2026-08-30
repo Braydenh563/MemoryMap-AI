@@ -38,7 +38,26 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from urllib.parse import urlparse
+
+
+#: Returns the user's stored sampling overrides — installed by the app's own
+#: wiring so this module never has to import it.
+#:
+#: `ai/provider.py` is the bottom of the AI stack and `core.deps` is the wiring
+#: that builds on it, so importing one from the other is a cycle (CodeQL
+#: flagged it) as well as the wrong direction. None means "nothing registered",
+#: which is the correct answer for a bare unit test as well as for a process
+#: that has not finished wiring: no overrides, so every knob falls through to
+#: the model's own recommendation.
+_sampling_overrides_getter: Callable[[], object] | None = None
+
+
+def set_sampling_overrides_getter(getter: Callable[[], object] | None) -> None:
+    """Install the accessor `Provider.sampling_overrides` reads through."""
+    global _sampling_overrides_getter
+    _sampling_overrides_getter = getter
 
 
 class ProviderError(RuntimeError):
@@ -48,6 +67,22 @@ class ProviderError(RuntimeError):
 class ToolsUnsupportedError(ProviderError):
     """The active model can't do tool calls — the caller should fall
     back to plain Q&A, never fail the whole chat."""
+
+
+def is_transient_server_error(exc: Exception) -> bool:
+    """A 5xx from the backend itself, not a 4xx: the request was well-formed
+    but the server briefly couldn't handle it (a model still swapping in,
+    momentary memory pressure) — reported live, a chat call failing with a
+    plain 500 and then succeeding on the exact same resend. Worth one silent
+    retry, unlike a 4xx (bad request, model not found) where trying again
+    changes nothing.
+
+    Duck-typed against `.response.status_code` rather than importing
+    `requests` here, so both HTTP-backed providers (ollama_client.py,
+    openai_client.py) can share this without this module taking on a
+    transport dependency it otherwise doesn't have."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return isinstance(status, int) and status >= 500
 
 
 # --- what the app knows about models, not about backends --------------------
@@ -389,6 +424,39 @@ class Provider:
     ) -> dict:
         """The dialect-specific options block sent with every generation."""
         raise NotImplementedError
+
+    def sampling_overrides(self) -> dict:
+        """The user's own sampling settings, or {} — see `ai/sampling.py`.
+
+        Read here rather than passed in, because every generation path in the
+        app goes through `runtime_options` and threading a settings dict
+        through all of them would mean each one could forget. Stored sparsely:
+        only the fields actually changed, so a model the user has never touched
+        still gets its own recommendations for everything else.
+
+        Deliberately tolerant of a bad value. This is a preference file a
+        person can edit by hand, and a typo in it should cost that one setting,
+        not every generation the app makes.
+        """
+        # Read through a registered getter, not by importing `core.deps`.
+        #
+        # CodeQL flagged the direct import as a cycle and it is right about the
+        # layering as well as the graph: `ai/provider.py` is the lowest layer
+        # of the AI stack — every client builds on it — while `core.deps` is
+        # the app's wiring, which reaches back down into this module to build
+        # the very object being configured. Deferring the import inside the
+        # function hid the cycle from the interpreter without removing it.
+        #
+        # The getter is installed by whoever does the wiring (see
+        # `core/deps.py`), so this module keeps knowing nothing about where
+        # settings live, and a test can hand it a plain dict.
+        if _sampling_overrides_getter is None:
+            return {}
+        try:
+            stored = _sampling_overrides_getter()
+        except Exception:  # noqa: BLE001 — settings must never break a request
+            return {}
+        return stored if isinstance(stored, dict) else {}
 
     def request_extras(self, mode: str | None = None, model: str = "") -> dict:
         """Top-level payload fields a preset needs that aren't options.

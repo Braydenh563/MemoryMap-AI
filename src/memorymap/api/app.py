@@ -14,6 +14,7 @@ import logging
 import os
 import sys
 import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI
@@ -51,7 +52,7 @@ from memorymap.api import (
     routes_whiteboard,
 )
 from memorymap.api.routes_auth import require_unlock
-from memorymap.core import backup, deps, logbuffer, security, startup_status
+from memorymap.core import backup, bgtasks, deps, logbuffer, security, startup_status
 from memorymap.core.deps import init_app_state
 from memorymap.entry import manager
 
@@ -128,7 +129,8 @@ def _backup_if_due() -> None:
     taken at startup. Failure must never stop the app."""
     try:
         config = deps.get_config()
-        backup.backup_if_due(config.db_path, config.data_dir)
+        keep = int(config.get_preference("backup_retention_count", backup.KEEP_BACKUPS))
+        backup.backup_if_due(config.db_path, config.data_dir, keep)
     except Exception:  # noqa: BLE001 — a failed backup must never block startup
         # This one matters more than it looks: the user believes they have
         # daily local backups, and without this line a backup that has been
@@ -213,7 +215,29 @@ def create_app() -> FastAPI:
     embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
     startup_status.set_phase("Starting the server…")
 
-    app = FastAPI(title="MemoryMap AI", version=__version__)
+    # **Nothing stopped background work when the app quit, and that was the
+    # whole of the bug.** Reported directly: "make sure that if the app is
+    # quit, all ai tasks and bg tasks stop as well." `/shutdown`'s own
+    # docstring already promised that "lifespan handlers run, and the SearXNG
+    # subprocess this app may own is torn down by the code that already knows
+    # how" — accurately describing a handler that did not exist. Daemon
+    # threads do die with the process; a pip subprocess and a SearXNG server
+    # do not, and an autonomous pass part-way through writing to the notebook
+    # was cut off wherever it happened to be.
+    #
+    # An async lifespan rather than the deprecated `@app.on_event`, and it
+    # yields immediately: everything above already ran at import time, and
+    # moving it in here would change when the singletons exist for every
+    # caller of `create_app()`, tests included.
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        # Never raises — `stop_all` swallows per-job failures itself, and a
+        # shutdown that fails to shut down is worse than one that leaves a
+        # line in the log.
+        bgtasks.stop_all()
+
+    app = FastAPI(title="MemoryMap AI", version=__version__, lifespan=lifespan)
 
     # Middleware is added inside-out: the LAST one added is the outermost, so
     # the headers below are stamped on the origin check's own 403 too.

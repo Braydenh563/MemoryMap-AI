@@ -24,6 +24,38 @@ for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 
 cd /d "%~dp0"
 
+REM --- Launch splash ---------------------------------------------------
+REM  Everything below this line - the git pull, building .venv, and a pip
+REM  install that can run to several hundred megabytes - happens before
+REM  Python exists, so before __main__.py can show its own loading window.
+REM  Reported directly: those pre-processes "take a while to actually open
+REM  the window so the user doesn't think the application didn't start
+REM  properly because they didn't have access to the terminal logs".
+REM
+REM  So a splash goes up first, within a second of the double-click, and
+REM  the phases below write what they are doing into MM_SPLASH_FILE for it
+REM  to display. See scripts\splash.ps1 for the protocol - one line of
+REM  text, polled; deleting the file closes the window.
+REM
+REM  Entirely best-effort: launched detached, errorlevel never checked, and
+REM  every path out of this script deletes the file. A machine with no
+REM  PowerShell, a locked-down execution policy or no desktop session just
+REM  does not get a splash, exactly as before.
+REM
+REM  MM_CHILD guards it the same way it guards the self-update: the child
+REM  process inherits MM_SPLASH_FILE and keeps writing to the splash the
+REM  parent already opened, instead of opening a second one on top of it.
+if not defined MM_CHILD (
+  set "MM_SPLASH_FILE=%TEMP%\mm_splash_%RANDOM%.txt"
+  echo Starting...> "!MM_SPLASH_FILE!"
+  REM  -IconPath so the splash window and its taskbar button carry the app's
+  REM  icon rather than PowerShell's. splash.ps1 works this out for itself
+  REM  from its own location too; passing it explicitly means the packaged
+  REM  layout (where scripts\ and frontend\ may not be siblings) does not
+  REM  have to match the checkout's.
+  if exist "scripts\splash.ps1" start "" /b powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "scripts\splash.ps1" -StatusFile "!MM_SPLASH_FILE!" -IconPath "%~dp0frontend\icon.ico" >nul 2>nul
+)
+
 REM --- Desktop mode ----------------------------------------------------
 REM  "start.bat desktop" runs the app in its own window instead of a
 REM  browser tab. start-desktop.bat is a double-clickable shortcut to it.
@@ -77,6 +109,7 @@ if not defined MM_CHILD (
   where git >nul 2>nul && if exist ".git" (
     set "MM_CHILD=1"
     echo  Checking for updates...
+    if defined MM_SPLASH_FILE echo Checking for updates on GitHub...> "!MM_SPLASH_FILE!"
     REM Read before the pull so a real version change can be reported to
     REM the app after relaunch, the same way start.sh's own self-update
     REM block does - this script's update runs and finishes before the
@@ -200,6 +233,7 @@ if "!NEED_INSTALL!"=="0" (
 )
 
 if "!NEED_INSTALL!"=="1" (
+  if defined MM_SPLASH_FILE echo Installing dependencies - this can take a few minutes...> "!MM_SPLASH_FILE!"
   echo  !ESC![1;38;5;73m[2/4]!ESC![0m Installing dependencies - this can take a few minutes for heavy AI models.
   echo         pip's own progress prints below as it happens:
 
@@ -270,6 +304,7 @@ REM  `--timeout`/`--retries` as step 2, since this runs even when
 REM  NEED_INSTALL was 0 - it's the one bit of network work that isn't
 REM  skipped just because everything else is already installed.
 if defined MM_DESKTOP (
+  if defined MM_SPLASH_FILE echo Checking desktop window support...> "!MM_SPLASH_FILE!"
   echo        Checking desktop window support...
   "%VENV_PY%" -m pip install --quiet --timeout 5 --retries 0 pywebview
   if errorlevel 1 (
@@ -287,6 +322,14 @@ if not exist ".env" (
 ) else (
   echo  !ESC![1;38;5;73m[3/4]!ESC![0m Configuration found.
 )
+
+REM --- 4. Launch -------------------------------------------------------
+REM  The splash's handoff. In desktop mode __main__.py opens its own loading
+REM  window with a real progress bar, and passes MM_SPLASH_FILE straight
+REM  through to it - see _close_launch_splash there - so the two never overlap
+REM  and never leave a gap. In browser mode nothing else appears, so the file
+REM  is deleted below once the tab is opening.
+if defined MM_SPLASH_FILE echo Starting the app...> "!MM_SPLASH_FILE!"
 
 REM --- 4. Launch -------------------------------------------------------
 if defined MM_DESKTOP (
@@ -338,10 +381,19 @@ if defined MM_DESKTOP (
   REM  checked, so it needs nothing on PATH at all, and `webbrowser` picks the
   REM  default browser the same way `start` does.
   start "" /b "%VENV_PY%" -c "import time, webbrowser; time.sleep(3); webbrowser.open('http://localhost:8000')"
+  REM  No second window is coming in browser mode - the tab is the app - so
+  REM  the splash closes here rather than being handed on.
+  if defined MM_SPLASH_FILE del /q "!MM_SPLASH_FILE!" >nul 2>nul
   "%VENV_PY%" -m memorymap
 )
 
 echo.
+REM  The backstop. Every ordinary path already deleted this, but an error
+REM  path that exits through here must not leave a borderless always-on-top
+REM  window with no owner sitting on the user's desktop. splash.ps1 also
+REM  gives up on its own after MaxMinutes for the case where this script is
+REM  killed outright and never runs this line at all.
+if defined MM_SPLASH_FILE del /q "!MM_SPLASH_FILE!" >nul 2>nul
 echo  MemoryMap AI has stopped.
 pause
 endlocal

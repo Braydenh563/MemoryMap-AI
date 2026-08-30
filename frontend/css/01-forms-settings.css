@@ -431,6 +431,15 @@ kbd {
   color: var(--error);
 }
 
+/* The live "how long has this been going" counter beside the chat status.
+   Tabular figures so the row does not jitter a pixel every second as the
+   digits change width — a counter that makes the text next to it move is
+   more distracting than the wait it is reporting. */
+.chat-elapsed {
+  margin-left: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
 .status.ok {
   color: var(--ok);
 }
@@ -1015,6 +1024,27 @@ progress {
 #suggested-list .model-info {
   color: var(--muted);
   flex: 1;
+}
+
+/* Section headings between model kinds ("Text", "Vision", …) — asked for
+   directly, so "the small fast ones" and "the one that reads images" are
+   visible groupings rather than only named inline on every row underneath
+   them. Overrides the generic `#suggested-list li` row rule above: a
+   heading is not a model row, so it gets none of that row's flex layout,
+   border or padding. */
+#suggested-list .suggested-group-label {
+  display: block;
+  border-bottom: none;
+  padding: var(--space-4) 0 var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+#suggested-list .suggested-group-label:first-child {
+  padding-top: 0;
 }
 
 /* The models you already have. Reported as a formatting problem and it was
@@ -1652,6 +1682,21 @@ li.link-source {
   margin: 0.5rem 0;
 }
 
+/* The saved-themes grid and the "name it, save it" row beside `.setting-label`
+   — one flex child, not two. `.setting-row-stack` only changes align-items,
+   never flex-direction (every other stack row here has exactly one control
+   block next to the label), so two separate children spread across the row
+   the same way the label does: the grid pinned near the label, the name box
+   and Save button pushed out to the far right with a gap between, reported
+   directly with a screenshot. `flex: 1 1 auto` (not this app's usual
+   `.setting-control` flex:0, sized for a color input or a select) because the
+   grid genuinely needs the row's full remaining width to lay out more than
+   one column. */
+.custom-themes-block {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* An empty grid is not a grid. See renderCustomThemes(): its empty message is
    a paragraph, and as a grid item in a 104px track it wrapped to about one
    word per line. */
@@ -1768,7 +1813,12 @@ html.modal-open body {
 .log-list li {
   display: flex;
   gap: 0.5rem;
-  padding: 0.15rem 0;
+  /* Left padding, not just top/bottom: log-error/log-warn's 3px border-left
+     (06-timeline-dialogs.css) sat flush against the row with nothing between
+     it and a traceback <summary>'s disclosure arrow, reading as the two
+     visually colliding. The gap is kept for every row, not only bordered
+     ones, so a row doesn't jump sideways the moment it turns into a warning. */
+  padding: 0.15rem 0 0.15rem 0.5rem;
   border-bottom: 1px dotted var(--border);
 }
 
@@ -2336,3 +2386,60 @@ html.modal-open body {
   white-space: nowrap;
 }
 
+
+/* Advanced response settings (Settings → Models). One row per sampling knob:
+   a label with a badge saying where the value came from, the plain-language
+   help, then the slider, its readout and a per-row reset. */
+.sampling-row {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.sampling-row:last-child {
+  border-bottom: 0;
+}
+
+.sampling-label {
+  font-weight: 600;
+}
+
+/* Where the number came from. Quiet by default — "from the model" is the
+   normal case and should not shout — and only picks up the accent once the
+   user has actually overridden it, which is the state worth spotting when
+   scanning the panel for "what did I change?". */
+.sampling-source {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.sampling-source-user {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.sampling-controls {
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.sampling-controls input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Tabular figures so the number does not jitter the reset button sideways as
+   the slider moves. */
+.sampling-value {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  min-width: 7ch;
+  text-align: right;
+}
+
+/* A <summary> carries its own disclosure marker, so the heading inside it must
+   not also start a new block or the arrow and the text sit on separate lines. */
+.inline-h3 {
+  display: inline;
+  font-size: var(--text-base);
+}

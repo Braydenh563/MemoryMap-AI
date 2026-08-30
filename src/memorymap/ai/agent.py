@@ -18,7 +18,7 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import context, librarian, tools
+from memorymap.ai import context, librarian, memory, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -180,6 +180,90 @@ TOOLS_GUIDE = (
     "Never repeat a call that has just failed in exactly the same way."
 )
 
+#: The window below which a model gets `COMPACT_TOOLS_GUIDE` instead. Same
+#: threshold `tools.SMALL_WINDOW_CHARS` uses for holding back orchestration
+#: tools, expressed in tokens: below this, the fixed cost of the prompt is the
+#: thing squeezing out the notes, and the guide is the largest fixed piece.
+SMALL_WINDOW_TOKENS = 8_192
+
+#: The load-bearing half of TOOLS_GUIDE, for a model that cannot afford the
+#: whole thing.
+#:
+#: Measured on a real turn: TOOLS_GUIDE is 2,807 characters — about 700 tokens
+#: — and it is re-sent on **every round** of an agent loop. On a 4k-window
+#: model that is 17% of the entire context spent, per round, on static prose,
+#: which is a large part of the reported *"agent mode and chats are too heavy
+#: for small models and have a too small context window"*.
+#:
+#: What is kept is what a model gets *wrong* without being told, and what
+#: cannot be recovered from: claiming work it never did, treating a page of
+#: search results as the whole notebook, quoting note ids at the user, and
+#: repeating a call that just failed. What is dropped is elaboration the tool
+#: schemas already carry — which tool to reach for is in each tool's own
+#: description, and a small window is exactly the case where saying it twice
+#: is unaffordable.
+#:
+#: Deliberately not a truncation of the constant above: a guide cut at 1,100
+#: characters would lose the honesty rule, which sits at the end and is the one
+#: sentence in this file that most needs to survive.
+COMPACT_TOOLS_GUIDE = (
+    "You can use tools to act on the notebook. Only make changes the user "
+    "actually asked for; answer plain questions without tools. "
+    "The notes quoted below are only what search found — NOT the whole "
+    "notebook. Use count_notes for totals, list_notes to walk through, "
+    "get_note to read one in full. Never state a total from a page of "
+    "results. Private notes are invisible to you; say so if asked. "
+    "For reminders, compute due_at from the current time below as ISO 8601. "
+    "NEVER say you created, saved, edited, deleted, tagged or linked "
+    "anything unless you actually called the tool — claiming work you did "
+    "not do is the worst thing you can write. Planning ahead is fine: say "
+    "it in the future tense, then call the tools. "
+    "Taking several turns is normal: look something up, read it, then "
+    "answer. Do not narrate ('let me search…') — just do it, then answer. "
+    "Name a note by its own words, never 'note 28'. Write symbols plainly "
+    "(→ × ≤), never as LaTeX. If a tool fails, follow its 'what_to_do' "
+    "field, and never repeat a call that just failed the same way."
+)
+
+
+#: Appended when the tool list was narrowed by reading the question's words.
+#:
+#: The narrowing is a guess made from wording, and a guess the model is
+#: entitled to disagree with — asked for directly: *"if the program detects
+#: words and suggests that specific tools or skills might need to be used, and
+#: the AI thinks that's wrong then it doesn't have to use them"*.
+#:
+#: It already may. `permitted` is None on an ordinary turn, so a tool the model
+#: names runs whether or not it was in the list, and reaching past the list
+#: widens it for the rest of the turn (see the focus-correction block in the
+#: round loop). What was missing was the model being *told* that — without it,
+#: a well-behaved model treats the list as exhaustive, which is exactly the
+#: behaviour that makes a narrow guess expensive.
+#:
+#: One sentence, because it is on every round of every focused turn.
+FOCUS_NOTE = (
+    " The tools listed were picked from the wording of the request and are a "
+    "suggestion, not a limit: if the right one is not there, call it by name "
+    "anyway, and ignore any that do not fit."
+)
+
+
+def tools_guide(window_tokens: int | None) -> str:
+    """The tool guide sized to the window — see COMPACT_TOOLS_GUIDE.
+
+    ``None`` means the window is not known yet, which is the safe case for the
+    long guide: an unknown window is usually a provider that did not report
+    one, not a tiny one.
+    """
+    # `<=`, so an 8k model is included rather than sitting just outside. At 8k
+    # the fixed prompt measured 32% of the window before a single turn of
+    # history; at 16k the same prompt is 16%, which is a budget rather than a
+    # squeeze. 8k is the last size that needs the help.
+    if window_tokens is not None and window_tokens <= SMALL_WINDOW_TOKENS:
+        return COMPACT_TOOLS_GUIDE
+    return TOOLS_GUIDE
+
+
 # What the model is handed before a single word of the question, the notes or
 # the history — the system prompt plus every tool schema — resent on each of
 # up to MAX_ROUNDS rounds.
@@ -262,19 +346,10 @@ TOOLS_GUIDE = (
 # TOOLS_GUIDE or the persona; look there rather than at the number.
 PROSE_BUDGET_CHARS = 3_000
 
-#: How much of the memory stream may ride along with the persona.
-#:
-#: `save_user_preference` lets the model write rules it will then be given back
-#: on every later turn, which is a genuinely useful feature and also the one
-#: shape of prompt text `PROSE_BUDGET_CHARS` cannot see: the constant is
-#: asserted against the *static* persona and TOOLS_GUIDE, so anything appended
-#: at runtime slips past the very guard that exists to stop the system prompt
-#: growing. A notebook that has been used for a year could otherwise hold
-#: hundreds of these and quietly push the real question out of a 4k window.
-#:
-#: Newest wins when the budget is spent — a preference stated last month is
-#: likelier to be current than one stated at setup.
-MEMORY_STREAM_BUDGET_CHARS = 600
+#: Re-exported so the constant keeps resolving from `agent` for anything that
+#: already reads it there. It lives in `ai/memory.py` now, next to the code
+#: that enforces it.
+MEMORY_STREAM_BUDGET_CHARS = memory.MEMORY_STREAM_BUDGET_CHARS
 
 # What to do about a failed tool call.
 #
@@ -637,7 +712,8 @@ def build_agent_messages(
     messages = [
         {
             "role": "system",
-            "content": f"{persona} {AGENT_GROUNDING} {TOOLS_GUIDE}{now_hint} "
+            "content": f"{persona} {AGENT_GROUNDING} "
+            f"{tools_guide(budget.window_tokens if budget else None)}{now_hint} "
             f"{style_hint}{profile_hint}{librarian.length_hint(mode)}",
         }
     ]
@@ -752,52 +828,6 @@ def _focus(question: str, history: list[dict] | None = None) -> list[str] | None
     return tools.focus_for(question, _recent_text(history))
 
 
-def _persona_with_memory(session: Session, persona_prompt: str | None) -> str:
-    """The persona, plus the standing preferences the user has taught the AI.
-
-    Bounded on purpose (`MEMORY_STREAM_BUDGET_CHARS`) and newest-first: this
-    text is resent on every round of every turn, and nothing downstream trims
-    it, so an unbounded version is a slow leak that ends with a small model
-    losing the actual question off the front of its window.
-
-    Defensive about the query for a reason beyond tidiness — `run_agent` is
-    also driven with lightweight stand-in sessions (the skill runner's, the
-    test fakes'), and a notebook that predates the `user_preferences` table
-    won't have one until migrations run. Losing the memory stream should cost
-    the user their preferences on that turn, never the turn itself.
-    """
-    base = (persona_prompt or librarian.DEFAULT_PERSONA).strip()
-    try:
-        from sqlalchemy import select
-
-        from memorymap.core.database import UserPreference
-
-        rows = session.scalars(
-            select(UserPreference)
-            .where(UserPreference.active == True)  # noqa: E712
-            .order_by(UserPreference.created_at.desc())
-        ).all()
-    except Exception:  # noqa: BLE001 — see the docstring: never fail the turn
-        logging.getLogger("memorymap.agent").debug(
-            "memory stream unavailable for this turn", exc_info=True
-        )
-        return base
-
-    kept: list[str] = []
-    spent = 0
-    for row in rows:
-        line = f"USER PREFERENCE: {(row.content or '').strip()}"
-        if len(line) <= len("USER PREFERENCE: "):
-            continue
-        if spent + len(line) > MEMORY_STREAM_BUDGET_CHARS:
-            break
-        kept.append(line)
-        spent += len(line) + 1
-    # Oldest-first in the prompt even though newest-first won the budget, so
-    # the model reads them in the order they were taught.
-    return " ".join([base, *reversed(kept)]).strip()
-
-
 def run_agent(
     session: Session,
     question: str,
@@ -843,11 +873,11 @@ def run_agent(
         model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     )
     window = report(agent_model) if callable(report) else None
-    persona = _persona_with_memory(session, persona_prompt)
+    persona = memory.persona_with_memory(session, persona_prompt)
 
     system_chars = len(
         f"{persona} "
-        f"{AGENT_GROUNDING} {TOOLS_GUIDE}{librarian.length_hint(mode)}"
+        f"{AGENT_GROUNDING} {tools_guide(window)}{librarian.length_hint(mode)}"
     )
     budget = context.plan(
         window or OllamaClient.DEFAULT_CONTEXT_TOKENS, system_chars
@@ -877,9 +907,10 @@ def run_agent(
     # list is also *enforced* below, while the focus is only an economy. A
     # tool left out because a cue didn't fire must still run if the model
     # somehow calls it.
-    offered = tools.ollama_tools(
+    focus_names = (
         allowed_tools if allowed_tools is not None else _focus(question, history)
     )
+    offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
     # its own fresh rounds, so nesting them means the bound on a turn stops
@@ -889,12 +920,57 @@ def run_agent(
     barred = set(blocked_tools or ())
     if barred:
         offered = [t for t in offered if t["function"]["name"] not in barred]
+    # On a small window, trim the descriptions even when the full set would
+    # fit. `within_budget` compacts only once the schemas overflow their share,
+    # which is the right rule for a large model — but on an 8k window the
+    # focused set measured 4,827 chars against a 7,901-char allowance, so it
+    # "fits" and is sent in full, spending 1,206 tokens where 996 does the same
+    # job. Affordable is not the same as wise: what the allowance leaves unspent
+    # is what the notes and the conversation get, and on a small model those are
+    # exactly what runs out first.
+    #
+    # Safe for a skill's declared list too (hence above the `allowed_tools`
+    # branch): compaction never removes a tool, so nothing a skill asked for
+    # can go missing this way.
+    if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
+        offered = tools.compact_schemas(offered)
     # Then fit what is left to the window the model actually has, rather than
     # to a constant. See tools.within_budget: 4096 is Ollama's fallback, not a
     # fact, and a model declaring 32k was being rationed as if it were a 3B.
     # A skill's declared list is exempt — it asked for exactly those tools, and
     # silently dropping one would break the run rather than trim it.
+    # --- the focus is a guess, and the model gets to overrule it ---------------
+    #
+    # `focus_for` reads the words of the question to decide which tools are
+    # worth the room. It is deterministic and testable, and it is still a guess:
+    # a request can want a tool whose name shares no word with it. So the guess
+    # is never allowed to be final.
+    #
+    # Two mechanisms, and they are different things. The escape hatch already
+    # existed: `permitted` is None on an ordinary turn, so a tool the model
+    # calls anyway still runs even if it was never offered. What is added here
+    # is the correction — a call for something unoffered is *evidence the focus
+    # was wrong*, so the next round of this same turn gets the full toolbox
+    # rather than the same narrow guess that already failed the model once.
+    #
+    # This is why the focus can afford to be narrow. A wrong guess costs one
+    # round, not the request.
+    focused_only = allowed_tools is None
+    every_tool = offered
+    # Say so, once, in the system prompt — but only when the list really was
+    # narrowed. On a broad request the model already has everything, and a note
+    # explaining that the list is partial would simply be false.
+    if focused_only and focus_names is not None and messages:
+        messages[0]["content"] += FOCUS_NOTE
     if allowed_tools is None:
+        every_tool = tools.ollama_tools()
+        if barred:
+            every_tool = [
+                t for t in every_tool if t["function"]["name"] not in barred
+            ]
+        if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
+            every_tool = tools.compact_schemas(every_tool)
+        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars)
         offered, dropped = tools.within_budget(offered, budget.tool_schema_chars)
         if dropped:
             # Visible in Settings → Logs, because "the AI didn't use the tool I
@@ -1083,6 +1159,22 @@ def run_agent(
                 "tool_calls": reply.get("raw_tool_calls") or [],
             }
         )
+        # Did the model reach for something it was not shown? Then the focus
+        # misread the request, and the rounds after this one should not be
+        # working from the same misreading. Widening is deliberately one-way
+        # and lasts the rest of the turn: a request whose subject the words did
+        # not carry does not become readable later in the same turn.
+        if focused_only and offered is not every_tool:
+            shown = {t["function"]["name"] for t in offered}
+            reached_past = [c["name"] for c in calls if c["name"] not in shown]
+            if reached_past:
+                logging.getLogger("memorymap.agent").info(
+                    "focus corrected: model called %s, which the question's "
+                    "words did not suggest — offering the full set from here",
+                    ", ".join(sorted(set(reached_past))[:5]),
+                )
+                offered = every_tool
+
         for call in calls:
             name, arguments = call["name"], call.get("arguments") or {}
             spec = tools.TOOLS.get(name)
@@ -1338,6 +1430,15 @@ def run_agent(
                 }
                 if change:
                     event["change"] = change
+                if result.get("proposal"):
+                    # `save_user_preference` no longer saves anything: it asks.
+                    # The row exists but is inactive and flagged `proposed`, and
+                    # it stays out of every system prompt until somebody says
+                    # yes. Carrying the id and the text on the event is what
+                    # lets the chat draw the accept/decline card next to the
+                    # tool chip, so the answer is given where the suggestion was
+                    # made rather than three clicks away in Settings.
+                    event["proposal"] = result["proposal"]
                 yield event
             payload = json.dumps(result)
             # The window's share, but never more than the absolute ceiling —

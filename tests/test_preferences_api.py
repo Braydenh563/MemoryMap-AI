@@ -194,6 +194,35 @@ def test_console_mode_route_does_not_restart_when_nothing_actually_changed(
     assert restarted == [True]  # hidden=True, since show_console_on_startup is now False
 
 
+def test_restart_route_is_a_no_op_off_the_desktop_app(client):
+    """ROADMAP item C's "second caller" — not tied to any preference
+    changing. Same platform gate as /system/console-mode: nothing to
+    restart into off the desktop app, so it says so rather than pretending."""
+    body = client.post("/system/restart").json()
+    assert body == {"restarting": False}
+
+
+def test_restart_route_restarts_on_the_desktop_app(client, monkeypatch):
+    """The mechanism is the same one console-mode switching already uses —
+    this call just doesn't change what it's restarting into."""
+    import memorymap.__main__  # noqa: F401 — see the console-mode test above
+
+    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setattr(sys, "platform", "win32")
+    restarted = []
+    monkeypatch.setattr(
+        "memorymap.__main__.restart_in_console_mode",
+        lambda hidden: restarted.append(hidden),
+    )
+
+    body = client.post("/system/restart").json()
+    assert body == {"restarting": True}
+    # hidden=False because show_console_on_startup defaults to True and this
+    # restart doesn't touch it — restart_in_console_mode's own `hidden`
+    # param is "hide the console," the inverse of "show it."
+    assert restarted == [False]
+
+
 def test_autonomous_and_battery_preferences_round_trip_through_get(client):
     """`get_preferences()` is a hand-built dict, and eight keys — every
     Autonomous Background Workers toggle, the battery mode switch, and smart

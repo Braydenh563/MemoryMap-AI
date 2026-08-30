@@ -305,6 +305,13 @@ async function submitLockForm() {
     $("lock-password").value = "";
     $("lock-overlay").classList.add("hidden");
     $("lock-btn").classList.remove("hidden");
+    // Signing in starts a session, and a session starts at the front of every
+    // tab — see `resetNavigationForNewSession`. Here as well as at load
+    // because the lock screen is an *overlay*, not a page: unlocking after an
+    // idle lock never reloads anything, so the load-time reset alone would
+    // leave every sub-tab exactly where it was hours ago. Called before
+    // `startApp()`, which is what reads the stored section back.
+    resetNavigationToDefaults();
     startApp();
   } catch (error) {
     errorLine.textContent = error.message;
@@ -429,6 +436,10 @@ function startApp() {
     // prefsCache actually has it, rather than leaving the pre-load default
     // (unmuted) on screen until the notifications panel happens to be opened.
     renderNotificationBadge();
+    // Same reason, for the status bar: the slots the user has turned off are
+    // in `prefsCache`, and hiding them here rather than on first paint would
+    // mean a visible flash of a bar they chose not to have.
+    applyStatusBarSlots();
   });
 
   const entriesReady = step("load entries", loadEntries);
@@ -2511,6 +2522,31 @@ function openLightbox(items, startIndex = 0) {
   const meta = document.createElement("div");
   meta.className = "lightbox-meta";
 
+  // What the app knows *about* the picture, shown with the picture. Asked for
+  // directly: "if clicking on an image to view expand it in the lightbox…can
+  // the captions and ocr accompany it somehow??" — before this, the caption a
+  // vision model wrote and the text it read off the page existed only on the
+  // Library tile, which is the one view too small to read them in. Optional
+  // per item (`caption`, `text`, and their bylines): every other caller
+  // passes only `{filename, getUrl}` and gets exactly what it got before.
+  const info = document.createElement("div");
+  info.className = "lightbox-info hidden";
+  const infoCaption = document.createElement("p");
+  infoCaption.className = "lightbox-caption";
+  const infoText = document.createElement("p");
+  infoText.className = "lightbox-text";
+  const infoByline = document.createElement("p");
+  infoByline.className = "lightbox-byline";
+  // Dimensions, when it was added, the filename — the "other info about it"
+  // half of the request. First, because it is the line that says *which*
+  // picture this is; the readings below it are about what is in it.
+  const infoFacts = document.createElement("p");
+  infoFacts.className = "lightbox-facts";
+  info.append(infoFacts, infoCaption, infoText, infoByline);
+  // Clicking the panel must not dismiss the dialog — someone selecting a line
+  // of transcribed text to copy is the whole reason it is here.
+  info.addEventListener("click", (e) => e.stopPropagation());
+
   const prevBtn = document.createElement("button");
   prevBtn.type = "button";
   prevBtn.className = "lightbox-nav lightbox-prev";
@@ -2523,20 +2559,21 @@ function openLightbox(items, startIndex = 0) {
   nextBtn.setAttribute("aria-label", "Next image");
   setLabel(nextBtn, "ph:caret-right");
 
-  // The nav arrows used to be centred on the viewport (`top: 50%`), which
-  // only matches the image's own centre when nothing else in `.lightbox`'s
-  // centred stack has height — but the close button above and the filename
-  // caption below both do, so the whole group's midpoint sits above the
-  // image's true centre and the arrows read as floating too low. Reported
-  // live; measured a ~14px gap on a 400×300 test image. Positioned against
-  // the image's actual rendered box instead of assumed from viewport math.
-  function positionNav() {
-    const rect = (broken.classList.contains("hidden") ? img : broken).getBoundingClientRect();
-    if (!rect.height) return;
-    const center = `${rect.top + rect.height / 2}px`;
-    prevBtn.style.top = center;
-    nextBtn.style.top = center;
-  }
+  // **The arrows are centred by the layout now, not by a measurement.**
+  //
+  // They used to be `position: fixed` at `top: 50%`, which is the viewport's
+  // centre and not the image's; a previous fix measured the image's rendered
+  // box on every `show()` and wrote a `top` back. That worked while the
+  // lightbox was one centred stack, and stopped working the moment it grew a
+  // scrollable info panel — reported with a screenshot of both arrows sitting
+  // level with the top edge of the picture.
+  //
+  // The fix is structural: the image and the two arrows share a positioned
+  // wrapper, so `top: 50%; translateY(-50%)` is the middle of the *image*, at
+  // every size, at every scroll offset, with no JS and nothing to keep in
+  // sync. `positionNav`, its `resize` listener and its two callers are gone.
+  const stage = document.createElement("div");
+  stage.className = "lightbox-stage";
 
   async function show(i) {
     index = (i + items.length) % items.length;
@@ -2560,17 +2597,34 @@ function openLightbox(items, startIndex = 0) {
       items.length > 1
         ? `${item.filename || ""} — ${index + 1} of ${items.length}`
         : item.filename || "";
-    // After the caption text is set, not before — an empty vs. filled
-    // caption changes the height of the centred stack `img` sits in, which
-    // moves the image's own centre by exactly that much.
-    positionNav();
+    const caption = (item.caption || "").trim();
+    const text = (item.text || "").trim();
+    infoCaption.textContent = caption;
+    infoCaption.classList.toggle("hidden", !caption);
+    infoText.textContent = text;
+    infoText.classList.toggle("hidden", !text);
+    infoByline.textContent = item.byline || "";
+    infoByline.classList.toggle("hidden", !item.byline);
+    info.classList.toggle("hidden", !caption && !text && !item.filename);
+    // The picture's own facts, which the app knew and never showed. Asked
+    // for: "maybe it can have the image information and other info about it
+    // below the image with the caption and ocr text??" Dimensions come from
+    // the decoded image rather than from the server — it is the one fact the
+    // browser already has and the API does not carry.
+    const facts = [];
+    if (ok && img.naturalWidth) facts.push(`${img.naturalWidth} × ${img.naturalHeight}`);
+    if (item.addedAt) {
+      const when = new Date(item.addedAt);
+      if (!Number.isNaN(when.valueOf())) facts.push(`Added ${when.toLocaleDateString()}`);
+    }
+    if (item.filename) facts.push(item.filename);
+    infoFacts.textContent = facts.join("  ·  ");
+    infoFacts.classList.toggle("hidden", !facts.length);
   }
 
-  window.addEventListener("resize", positionNav);
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
-    window.removeEventListener("resize", positionNav);
   };
   const onKey = (e) => {
     if (e.key === "Escape") close();
@@ -2591,8 +2645,12 @@ function openLightbox(items, startIndex = 0) {
   });
   document.addEventListener("keydown", onKey);
 
-  overlay.append(closeBtn, img, broken, meta);
-  if (items.length > 1) overlay.append(prevBtn, nextBtn);
+  stage.append(img, broken);
+  if (items.length > 1) stage.append(prevBtn, nextBtn);
+  const column = document.createElement("div");
+  column.className = "lightbox-column";
+  column.append(stage, meta, info);
+  overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
   closeBtn.focus();
   show(startIndex);
@@ -2816,6 +2874,114 @@ function pickEntryDialog(message) {
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     search.focus();
+  });
+}
+
+// Pick something already uploaded rather than uploading it again — asked for
+// directly: "I also want to be able to attach images that are already in the
+// image library... to new notes in the capture subtab." `/media` (the same
+// list the Image Gallery renders from) has no mime field, only a filename
+// and an original name — reusing the gallery's own approach of just trying
+// each as an <img> and dropping the tile on error, rather than guessing from
+// a file extension.
+function pickMediaDialog() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Choose from your library");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card entry-pick-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    text.textContent = "Choose an image already in your library";
+    const search = document.createElement("input");
+    search.type = "text";
+    search.placeholder = "Search by filename…";
+    search.setAttribute("aria-label", "Search your uploaded images");
+    const grid = document.createElement("div");
+    grid.className = "media-pick-grid";
+
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (upload) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(upload);
+    };
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      close(null);
+    };
+
+    let uploads = [];
+    const paint = () => {
+      const term = search.value.trim().toLowerCase();
+      const matches = uploads
+        .filter((u) => !term || u.original_name.toLowerCase().includes(term))
+        .slice(0, 60);
+      grid.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = uploads.length
+          ? "No uploads match that."
+          : "Nothing uploaded yet — attach a new file to start your library.";
+        grid.appendChild(empty);
+        return;
+      }
+      for (const upload of matches) {
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className = "media-pick-tile";
+        tile.title = upload.original_name;
+        const img = document.createElement("img");
+        img.src = mediaSrc(upload.url);
+        img.alt = "";
+        img.loading = "lazy";
+        // Not every upload is an image (there's no mime field to check
+        // first) — a file that can't decode as one drops its own tile
+        // rather than showing a broken-image glyph, same as the gallery.
+        img.addEventListener("error", () => tile.remove());
+        const name = document.createElement("span");
+        name.textContent = upload.original_name;
+        tile.append(img, name);
+        tile.addEventListener("click", () => close(upload));
+        grid.appendChild(tile);
+      }
+    };
+    search.addEventListener("input", paint);
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(smallButton("Cancel", "Cancel", () => close(null)));
+    card.append(text, search, grid, row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(null);
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    search.focus();
+
+    apiJson("/media", { silent: true })
+      .then((list) => {
+        uploads = list || [];
+        paint();
+      })
+      .catch(() => {
+        grid.replaceChildren();
+        const err = document.createElement("p");
+        err.className = "muted";
+        err.textContent = "Couldn't load your library.";
+        grid.appendChild(err);
+      });
   });
 }
 
@@ -3618,11 +3784,24 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         dismissBtn.className = "unlink";
         dismissBtn.title = "Remove image from note";
         dismissBtn.textContent = "×";
+        // `match` is one `let` binding reused by every pass of the while
+        // loop above (a `while` reassigns it, unlike a `for (let x of …)`'s
+        // fresh-per-iteration binding) — every dismiss button's closure
+        // shared the same variable, and by the time anyone actually clicked
+        // one, the loop had long since finished with `match` sitting at
+        // `null` (the value that ends the `while` condition). Every click
+        // threw `Cannot read properties of null (reading '0')` before the
+        // confirm dialog could even open — reported as "the remove button
+        // doesn't work". Capturing the text this match actually matched
+        // into its own const, right here in the loop body, gives each
+        // button's closure the value for *its own* image instead of
+        // whatever `match` happened to hold after parsing ended.
+        const originalText = match[0];
         dismissBtn.addEventListener("click", (e) => {
           e.stopPropagation();
           wrapper.dispatchEvent(new CustomEvent("remove-inline-image", {
             bubbles: true,
-            detail: { originalText: match[0] }
+            detail: { originalText }
           }));
         });
         makeUnlinkAccessible(dismissBtn);
@@ -5900,7 +6079,13 @@ function metaItem(text, { title = "", kind = "", icon = "" } = {}) {
   if (icon) {
     const mark = document.createElement("span");
     mark.className = "msg-meta-icon";
-    mark.textContent = icon;
+    // setLabel, not textContent. This was the last function in the app still
+    // assigning an icon string straight to textContent, so the one caller that
+    // passes a marker rendered the literal text "ph:wrench 1" in the metadata
+    // line under every answer that used a tool. Exactly the miss the setLabel
+    // comment warns about: the icon is a string literal at the call site, not
+    // markup in index.html, so no template search finds it.
+    setLabel(mark, icon);
     mark.setAttribute("aria-hidden", "true");
     item.appendChild(mark);
   }
@@ -6071,9 +6256,13 @@ function copyViaTextarea(text) {
 
 function flashCopied(button) {
   if (!button) return;
-  const original = button.textContent;
+  // innerHTML, not textContent: an icon-only button (setLabel(el, "ph:...")
+  // with no trailing text) renders as a bare <i> with empty textContent, so
+  // saving/restoring textContent silently wiped the icon back to blank once
+  // the checkmark's timeout fired instead of putting it back.
+  const original = button.innerHTML;
   button.textContent = "✓";
-  setTimeout(() => (button.textContent = original), 1200);
+  setTimeout(() => (button.innerHTML = original), 1200);
 }
 
 async function copyToClipboard(text, button) {
@@ -6252,6 +6441,7 @@ function regenerateLastAnswer() {
     replaceLast: true,
     noteIds: lastChatAttachments,
     imageMediaIds: lastChatImageAttachments.map((img) => img.id),
+    documentIds: lastChatDocumentAttachments.map((d) => d.id),
   });
 }
 
@@ -7063,7 +7253,129 @@ function chatScrollToEnd() {
   });
 }
 
-function addBubble(role, text) {
+// The files a message carried, under the message that carried them.
+//
+// Reported directly: "images and files uploaded into a chat conversation
+// arent rendered with the chat messages, the captions arent viewable…and they
+// arent previewable or quick navigatable to their stored location in the
+// library or documents etc or viewable in a better environment". All of that
+// was true: the composer showed a thumbnail chip until you pressed send, and
+// then the picture vanished from the conversation entirely — the ids were
+// stored (for the model and for media_gc) and nothing ever drew them again.
+//
+// `attachments` comes hydrated from `GET /conversations/{id}` on reload and is
+// built locally on a live send, so both paths render the same thing.
+function chatAttachmentStrip(attachments) {
+  if (!attachments || !attachments.length) return null;
+  const strip = document.createElement("div");
+  strip.className = "msg-attachments";
+  const images = attachments.filter((a) => a.kind === "image");
+
+  for (const item of attachments) {
+    if (item.kind === "image") {
+      const figure = document.createElement("figure");
+      figure.className = "msg-attachment msg-attachment-image";
+      const img = document.createElement("img");
+      img.src = mediaSrc(item.url);
+      img.alt = item.caption || item.name || "";
+      img.loading = "lazy";
+      img.title = "Click to view it full size";
+      // An upload deleted from the Library long after this message was sent
+      // resolves to a row that no longer has a file. Hiding the broken tile
+      // is what the gallery does; saying so is better than a grey box.
+      img.addEventListener("error", () => {
+        figure.classList.add("msg-attachment-missing");
+        img.remove();
+        const gone = document.createElement("p");
+        gone.className = "muted text-sm";
+        gone.textContent = `“${item.name}” isn't in your library any more.`;
+        figure.prepend(gone);
+      });
+      img.addEventListener("click", () =>
+        openLightbox(
+          images.map((i) => ({
+            filename: i.name,
+            getUrl: () => mediaSrc(i.url),
+            caption: i.caption || "",
+            text: i.text || "",
+          })),
+          images.indexOf(item)
+        )
+      );
+      figure.appendChild(img);
+
+      // The caption, which is the half the report names twice. Shown under
+      // the thumbnail rather than only in the lightbox: a picture in a
+      // conversation is often referred to by what it shows.
+      if (item.caption) {
+        const caption = document.createElement("figcaption");
+        caption.className = "muted text-sm";
+        caption.textContent = item.caption;
+        figure.appendChild(caption);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "msg-attachment-actions";
+      actions.appendChild(
+        smallButton("ph:image Library", `Find “${item.name}” in your library`, () => {
+          switchTab("library");
+          // Clicking the real sub-tab button rather than calling a switcher:
+          // `#library-subtabs`'s own click handler is what sets the active
+          // class, the aria-selected state and the lazy load for that view,
+          // and re-implementing three of those here is how they drift.
+          document
+            .querySelector('#library-subtabs button[data-target="library-view-media"]')
+            ?.click();
+          // The gallery filters on filename, so typing the name into its own
+          // search is what "take me to it" means here.
+          const search = $("library-images-search");
+          if (search) {
+            search.value = item.name;
+            filterLibraryImagesGallery();
+          }
+        })
+      );
+      figure.appendChild(actions);
+      strip.appendChild(figure);
+      continue;
+    }
+
+    if (item.kind === "note") {
+      // A note: the chip carries its first line and opens it in Notes. Same
+      // shape as the document chip below and for the same reason — the note's
+      // full text is already one click away and repeating it in the bubble
+      // would bury the question that was asked about it.
+      const noteChip = document.createElement("button");
+      noteChip.type = "button";
+      noteChip.className = "chip msg-attachment msg-attachment-note";
+      setLabel(noteChip, `ph:paperclip ${item.name}`);
+      noteChip.title = `Open this note (#${item.id})`;
+      // `flashEntry` is the app's one "take me to this note" path — it also
+      // switches sub-tab, clears the filters that would hide the card, and
+      // announces the jump. Re-implementing three of those here is how they
+      // drift apart.
+      noteChip.addEventListener("click", () => flashEntry(item.id));
+      strip.appendChild(noteChip);
+      continue;
+    }
+
+    // A document: there is nothing to preview inline (its text may be a
+    // hundred pages), so the chip is the navigation.
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip msg-attachment msg-attachment-doc";
+    setLabel(chip, `ph:file-text ${item.name}`);
+    chip.title = `Open “${item.name}” in Documents`;
+    chip.addEventListener("click", () => {
+      switchTab("documents");
+      openDocument(item.id);
+    });
+    strip.appendChild(chip);
+  }
+  return strip;
+}
+
+function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
@@ -7075,6 +7387,8 @@ function addBubble(role, text) {
   body.className = "msg-body";
   body.textContent = text;
   bubble.append(label, body);
+  const strip = chatAttachmentStrip(attachments);
+  if (strip) bubble.appendChild(strip);
 
   if (role === "user") {
     bubble.appendChild(
@@ -7559,6 +7873,77 @@ function renderToolConfirm(holder, event) {
     })
   );
   card.append(text, contentArea, row);
+  holder.appendChild(card);
+  chatScrollToEnd();
+}
+
+// The model would like to remember something about you (§39B).
+//
+// This card is the whole point of the change behind it. `save_user_preference`
+// used to write a standing instruction straight into every future system
+// prompt — no confirmation, no notice, and the only trace was a list in
+// Settings nobody had a reason to open. A model that over-read one sentence
+// ("use British English for this one, actually") gave itself a permanent rule
+// its user never agreed to, and would then keep obeying it for weeks.
+//
+// So the tool now *proposes*: the row is written inactive and flagged, it is
+// excluded from the prompt, and this card is where it becomes real. Declining
+// keeps the row (switched off) on purpose — the tool's duplicate check reads
+// every preference, so a kept "no" is what stops the model suggesting the same
+// thing again an hour later.
+function renderMemoryProposal(holder, proposal) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm memory-proposal";
+
+  const text = document.createElement("p");
+  setLabel(text, "ph:brain Remember this for next time?");
+
+  const quote = document.createElement("blockquote");
+  quote.className = "memory-proposal-text";
+  quote.textContent = proposal.content;
+
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.textContent =
+    "Saved preferences are added to the AI's instructions in every later " +
+    "conversation. Nothing is in force until you say yes.";
+
+  const row = document.createElement("div");
+  row.className = "row";
+
+  let answered = false;
+  const answer = async (accept) => {
+    if (answered) return;
+    answered = true;
+    try {
+      await apiJson(`/memory/${proposal.id}/answer`, {
+        method: "POST",
+        body: JSON.stringify({ accept }),
+      });
+    } catch (error) {
+      answered = false;
+      toast(error.message, true);
+      return;
+    }
+    card.replaceWith(
+      toolChip(
+        accept
+          ? `ph:check-circle Remembered: “${proposal.content}”`
+          : "ph:x Not remembered."
+      )
+    );
+    // The Settings list is the other view of the same row; if it happens to
+    // be open behind the chat, leaving it stale shows a pending question the
+    // user has already answered.
+    if (typeof renderMemorySettings === "function") renderMemorySettings().catch(() => {});
+  };
+
+  row.appendChild(
+    smallButton("Remember it", "Add this to the AI's standing instructions", () => answer(true), false)
+  );
+  row.appendChild(smallButton("No thanks", "Don't save this preference", () => answer(false)));
+
+  card.append(text, quote, note, row);
   holder.appendChild(card);
   chatScrollToEnd();
 }
@@ -8117,10 +8502,22 @@ function renderImageAttachments() {
     remove.textContent = "✕";
     remove.title = "Remove this image";
     remove.setAttribute("aria-label", remove.title);
-    remove.addEventListener("click", () => {
+    remove.addEventListener("click", async () => {
       attachedImages = attachedImages.filter((img) => img.id !== image.id);
       renderImageAttachments();
       announce(`Removed image. ${attachedImages.length} image(s) attached.`);
+      // Reported directly: an image attached then removed before the message
+      // was ever sent stayed uploaded and showed up in the Library gallery —
+      // this only detached it from the composer, same as it did before, and
+      // never told the server the upload was abandoned. Same delete-on-remove
+      // fix already applied to the note composer's own image chips
+      // (renderEntryAttachmentChips): nothing else could reference this
+      // upload yet, since the message carrying it was never sent.
+      try {
+        await apiJson(`/media/${image.id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Couldn't delete the abandoned upload", err);
+      }
     });
     chipEl.append(thumb, remove);
     box.appendChild(chipEl);
@@ -8146,12 +8543,136 @@ async function attachImageFiles(files) {
         headers: { "X-Auth-Token": authToken() },
         body: form,
       });
-      attachedImages.push({ id: uploaded.id, url: uploaded.url });
+      // The filename comes along now: the bubble drawn on send needs a label
+      // for the "find it in the Library" button, and after the composer is
+      // cleared there is nowhere left to look it up from.
+      attachedImages.push({
+        id: uploaded.id,
+        url: uploaded.url,
+        name: uploaded.filename || file.name,
+      });
     } catch (error) {
       toast(error.message || `Couldn't attach "${file.name}".`, true);
     }
   }
   renderImageAttachments();
+}
+
+// --- one attach button, two destinations ---------------------------------------
+//
+// Asked for directly: the chat's image button should attach *any* file —
+// "images should appear in the image gallery (any image format), and the
+// others should probably go in the documents subtab".
+//
+// The split is by what the file *is*, not by what was clicked, because the
+// picker takes both at once and a person selecting four things does not expect
+// to have sorted them first:
+//
+// - An image goes where images already went: uploaded to the gallery and
+//   staged on this message, so a vision model can look at it.
+// - Anything else is imported as a document (`POST /documents/import`, which
+//   extracts its text via core/docview.py). It is then a real document in the
+//   Documents sub-tab, which the AI can reach with its own list_documents /
+//   get_document tools — rather than a file the app had nowhere to put.
+//
+// Failures are per-file and quiet, the same rule attachImageFiles already
+// followed: a picker with four files selected must not lose three because one
+// was a .mp4.
+function isImageFile(file) {
+  // The type the browser reports, falling back to the extension — a file
+  // dragged from some archives arrives with an empty `type`.
+  if ((file.type || "").startsWith("image/")) return true;
+  return /\.(png|jpe?g|gif|webp|bmp|avif|ico|tiff?|heic|heif|svg)$/i.test(file.name || "");
+}
+
+async function attachChatFiles(files) {
+  const all = Array.from(files);
+  const images = all.filter(isImageFile);
+  const documents = all.filter((f) => !isImageFile(f));
+  if (images.length) await attachImageFiles(images);
+  if (documents.length) await importChatDocuments(documents);
+}
+
+async function importChatDocuments(files) {
+  const made = [];
+  for (const file of files) {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      // Same header handling as attachImageFiles: a FormData body needs the
+      // browser to set its own multipart boundary, so apiJson's JSON default
+      // has to be overridden rather than merged.
+      const document = await apiJson("/documents/import", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      made.push(document);
+    } catch (error) {
+      toast(error.message || `Couldn't read "${file.name}".`, true);
+    }
+  }
+  if (!made.length) return;
+  // **Staged on the message, not just imported and announced.** The toast
+  // below still says where the file went, but a toast is a moment and the
+  // report was about what is left behind: "images and files uploaded into a
+  // chat conversation arent rendered with the chat messages". An imported
+  // document is now an attachment of the message being written, exactly as
+  // an image is — a chip in the composer, then a chip in the bubble, then a
+  // way back to the document.
+  for (const document of made) {
+    if (attachedDocuments.length >= 4) break;
+    attachedDocuments.push({ id: document.id, name: document.title });
+  }
+  renderDocumentAttachments();
+
+  const first = made[0];
+  const label =
+    made.length === 1
+      ? `Added “${first.title}” to your documents.`
+      : `Added ${made.length} files to your documents.`;
+  toastAction(label, made.length === 1 ? "Open it" : "Show them", () => {
+    switchTab("documents");
+    if (made.length === 1) openDocument(first.id);
+  });
+}
+
+//: Documents staged on the message being written. Same shape and same
+//: lifecycle as `attachedImages` above — cleared on send, snapshotted for a
+//: regenerate — because a person attaching a photo and a spreadsheet in one
+//: go should not find the app treating them as two different kinds of act.
+//:
+//: Unlike an image, removing one of these does *not* delete the document:
+//: `/documents/import` created a real document in the Documents tab and the
+//: toast said so, so deleting it out from under that promise would be the
+//: app taking back something it already told the user it had done.
+let attachedDocuments = [];
+let lastChatDocumentAttachments = [];
+
+function renderDocumentAttachments() {
+  const box = $("chat-doc-attachments");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", attachedDocuments.length === 0);
+  for (const document_ of attachedDocuments) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip attachment-chip";
+    const label = document.createElement("span");
+    setLabel(label, `ph:file-text ${document_.name}`);
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = `Don't send “${document_.name}” with this message`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedDocuments = attachedDocuments.filter((d) => d.id !== document_.id);
+      renderDocumentAttachments();
+      announce(`Removed attachment. ${attachedDocuments.length} document(s) attached.`);
+    });
+    chipEl.append(label, remove);
+    box.appendChild(chipEl);
+  }
 }
 
 function attachedNotes() {
@@ -8316,26 +8837,61 @@ async function sendChatMessage(preset, opts = {}) {
   // every later question.
   const sentAttachments = opts.noteIds || attachedNoteIds.slice();
   const sentImages = opts.imageMediaIds || attachedImages.map((img) => img.id);
+  const sentDocuments = opts.documentIds || attachedDocuments.map((d) => d.id);
+  // What the bubble will draw. Built here, while the composer still knows the
+  // names and urls — after the clear below there is nothing left to build it
+  // from, and a round trip to re-fetch what we already had would show the
+  // message without its pictures for as long as that took.
+  const sentAttachmentCards = opts.attachmentCards || [
+    ...attachedImages.map((img) => ({
+      kind: "image",
+      id: img.id,
+      url: img.url,
+      name: img.name || "Attached image",
+      // A just-uploaded image has no caption yet — captioning runs in the
+      // background once the message commits it. Reopening the chat picks the
+      // caption up from `GET /conversations/{id}`, which is where it lands.
+      caption: "",
+      text: "",
+    })),
+    ...attachedDocuments.map((d) => ({ kind: "document", id: d.id, name: d.name })),
+    // The paperclip's own attachments. Same card list as the other two kinds
+    // so the bubble shows every reference this question was given, not two of
+    // the three.
+    ...attachedNotes().map((entry) => ({
+      kind: "note",
+      id: entry.id,
+      name: noteLabel(entry, 60),
+    })),
+  ];
   if (!opts.replaceLast) {
     // Remembered so a regenerate re-runs with the same references — by then
     // the picker has been cleared.
     lastChatAttachments = sentAttachments;
     lastChatImageAttachments = attachedImages.slice();
+    lastChatDocumentAttachments = attachedDocuments.slice();
     attachedNoteIds = [];
     attachedImages = [];
+    attachedDocuments = [];
     renderAttachments();
     renderImageAttachments();
+    renderDocumentAttachments();
     closeNotePicker();
   }
 
   $("chat-suggest").classList.add("hidden");
   input.value = "";
   autoGrow(input); // a cleared box must not keep the height of what was in it
+  // The draft is gone, so the suggestions about it are too — including the
+  // ones that were dismissed, which belonged to that draft and not to the
+  // next one.
+  resetChatNudge();
   input.disabled = true;
   hide("chat-send");
   show("chat-stop");
   status.classList.remove("error");
   status.textContent = "Searching your notes…";
+  startChatTimer();
 
   // Regenerate re-runs the same question without adding a duplicate "you".
   //
@@ -8344,8 +8900,15 @@ async function sendChatMessage(preset, opts = {}) {
   // sentence back to them would read as the app putting words in their mouth,
   // and hiding the request entirely would leave the plan looking as though it
   // came from nowhere; the button they pressed is the explanation.
-  if (!opts.skipUserBubble) addBubble("user", opts.displayText || question);
+  const userBubble = opts.skipUserBubble
+    ? null
+    : addBubble("user", opts.displayText || question, sentAttachmentCards);
   const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble();
+  // The live counter rides in the bubble it is timing, and leaves with it.
+  mountChatTimer(bubble);
+  // A newer answer exists, so the previous one's chips stop being the end of
+  // the thread — this bubble is, and it has none yet.
+  refreshFollowupVisibility();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
@@ -8355,6 +8918,13 @@ async function sendChatMessage(preset, opts = {}) {
   let meta = null;
   let toolsActed = false;
   let stats = null;
+  // Captured so the final save below can persist it. Reported directly: the
+  // "Grounded in" chips under a direct Q&A answer only ever existed for the
+  // live stream — reopening the chat, or leaving the tab and coming back,
+  // showed an answer with no sources at all. Same unfixed-until-now shape as
+  // raw_results/search_mode/match_info a few lines below, which got exactly
+  // this treatment already for the same reported-missing-on-reload reason.
+  let groundingSentences = null;
   // Whether the user pressed Stop. An empty answer they asked for needs no
   // explanation; one they didn't ask for does.
   let stopped = false;
@@ -8372,6 +8942,61 @@ async function sendChatMessage(preset, opts = {}) {
   const startedAt = performance.now();
   const toolEvents = []; // {label, ok} — persisted so chips survive a reload
   chatController = new AbortController();
+  const controller = chatController;
+
+  // --- the turn owns its conversation ----------------------------------------
+  //
+  // Reported live: *"I clicked a suggested next response, then instantly
+  // switched to a different chat and switched back. The latest input message
+  // and the generating bubble disappeared, it still said the model is writing,
+  // but nothing showed."*
+  //
+  // The visible half is the smaller half. `chatConv` is module-level and
+  // **reassigned** (not mutated) by openConversation and newChatConversation,
+  // and every save below used to read it *live* — at each checkpoint and again
+  // when the turn finished, seconds or minutes after the send. So switching
+  // conversations mid-stream did not just wipe the bubbles off the screen
+  // (`replaceChildren`), it silently wrote the finished answer into **whichever
+  // conversation happened to be open when it landed** — appending A's turn to
+  // thread B, or, if the user had pressed "+ New", creating a fresh
+  // conversation out of it. Nothing errored, and the turn really did appear
+  // "later, after switching away and back", because by then it had been saved
+  // somewhere.
+  //
+  // Pinning the object reference fixes both: `convRef` keeps pointing at the
+  // conversation that asked the question no matter what the pane switches to,
+  // and `viewing()` is then the honest test for "is this turn's own
+  // conversation still the one on screen?" — the only condition under which
+  // this turn may touch the header, the usage meter, the composer, or the
+  // transcript.
+  const convRef = chatConv;
+  const viewing = () => chatConv === convRef;
+
+  // The live nodes, kept rather than abandoned.
+  //
+  // Reported after the first fix: switching away and back left the bubble
+  // gone, the answer appearing only once it had finished, and an empty bubble
+  // in its place. All three are the same cause — `openConversation` rebuilds
+  // the transcript with `replaceChildren()`, so the nodes this turn is
+  // streaming into are detached, and what the reader comes back to is the
+  // thread as the *server* has it: without the unsaved turn, or with the
+  // half-written checkpoint row, which is the empty bubble.
+  //
+  // Holding the elements means coming back can re-attach the very same ones,
+  // still being written into — so the answer continues in front of the reader
+  // instead of arriving all at once at the end.
+  //
+  // Set here, once, and never reassigned by a switch: the earlier version
+  // recorded it inside `releaseChatComposer`, which runs on *every* switch, so
+  // returning to the original chat relabelled the stream as belonging to
+  // whichever thread had just been left. That is why the notice named the
+  // wrong conversation.
+  chatStreaming = {
+    conv: convRef,
+    title: $("chat-title").textContent || "that chat",
+    nodes: [userBubble, bubble].filter(Boolean),
+    announced: false,
+  };
 
   // --- checkpointing a long turn --------------------------------------------
   // A row for this turn already exists, so the save at the end has to update
@@ -8397,24 +9022,27 @@ async function sendChatMessage(preset, opts = {}) {
         steps: timeline.serialise(),
         // No stats or elapsed yet — the turn is not over, and a half-turn's
         // numbers reported as final would be wrong rather than incomplete.
+        image_media_ids: sentImages.length ? sentImages : null,
+        document_ids: sentDocuments.length ? sentDocuments : null,
+        note_ids: sentAttachments.length ? sentAttachments : null,
       };
-      if (chatConv.id === null) {
+      if (convRef.id === null) {
         const created = await apiJson("/conversations", {
           method: "POST",
           body: JSON.stringify(partial),
           silent: true,
         });
-        chatConv.id = created.id;
-        $("chat-title").textContent = created.title;
+        convRef.id = created.id;
+        if (viewing()) $("chat-title").textContent = created.title;
         loadConversationList();
       } else if (checkpointed || opts.replaceLast) {
-        await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+        await apiJson(`/conversations/${convRef.id}/turns/last`, {
           method: "PUT",
           body: JSON.stringify(partial),
           silent: true,
         });
       } else {
-        await apiJson(`/conversations/${chatConv.id}/turns`, {
+        await apiJson(`/conversations/${convRef.id}/turns`, {
           method: "POST",
           body: JSON.stringify(partial),
           silent: true,
@@ -8456,12 +9084,13 @@ async function sendChatMessage(preset, opts = {}) {
       plan: opts.plan,
       attachedNotesOnly: opts.attachedNotesOnly,
       answeringAgent,
-      signal: chatController.signal,
+      signal: controller.signal,
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
       },
       onGrounding: (event) => {
+        groundingSentences = event.sentences;
         renderAnswerGrounding(groundingHolder, event.sentences, meta?.raw_results || []);
       },
       onPlan: (event) => {
@@ -8515,6 +9144,12 @@ async function sendChatMessage(preset, opts = {}) {
         const label = event.ok ? event.label : `ph:warning ${event.error || event.label}`;
         timeline.tool(toolChip(label, event.ok, event));
         toolEvents.push(event); // remember for persistence
+        if (event.proposal) {
+          // Asked where it was suggested, not in a settings page nobody opens.
+          const card = document.createElement("div");
+          renderMemoryProposal(card, event.proposal);
+          timeline.tool(card.firstElementChild || card);
+        }
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
         chatScrollToEnd();
@@ -8606,23 +9241,43 @@ async function sendChatMessage(preset, opts = {}) {
         if (event.usage_source === "estimated") stats.usage_source = "estimated";
       },
     });
-    status.textContent = "";
+    if (viewing()) status.textContent = "";
   } catch (error) {
     if (error.name === "AbortError") {
       stopped = true;
-      status.textContent = "Stopped.";
+      if (viewing()) status.textContent = "Stopped.";
     } else {
-      status.textContent = error.message;
-      status.classList.add("error");
+      // The timeline is this turn's own, detached or not, so it is always
+      // marked failed; only the shared status line is conditional.
       timeline.failRunningStep("Failed due to error");
+      if (viewing()) {
+        status.textContent = error.message;
+        status.classList.add("error");
+      }
     }
   } finally {
     clearTimeout(slowLoadTimeout);
-    chatController = null;
-    input.disabled = false;
-    show("chat-send");
-    hide("chat-stop");
-    input.focus();
+    // Only if it is still ours. Switching away and sending a second message
+    // installs a new controller, and this line firing late would null it —
+    // leaving Stop wired to nothing while a stream was genuinely running.
+    if (chatController === controller) {
+      chatController = null;
+      stopChatTimer();
+      // The turn is over: it is saved (or about to be) and a reload of this
+      // thread will render it like any other. Re-attaching these nodes after
+      // that point would show it twice.
+      if (chatStreaming && chatStreaming.conv === convRef) chatStreaming = null;
+    }
+    // The composer belongs to whatever conversation is on screen. A turn that
+    // finishes after the reader has moved on must not re-enable, refocus or
+    // re-label the box they are now typing into — releaseChatComposer already
+    // put it back when they switched.
+    if (viewing()) {
+      input.disabled = false;
+      show("chat-send");
+      hide("chat-stop");
+      input.focus();
+    }
   }
 
   clearPending();
@@ -8773,10 +9428,10 @@ async function sendChatMessage(preset, opts = {}) {
   );
 
   // Regenerate replaces the last turn; a normal send appends a new one.
-  if (opts.replaceLast && chatConv.turns.length) {
-    chatConv.turns[chatConv.turns.length - 1] = { question, answer: answerRaw };
+  if (opts.replaceLast && convRef.turns.length) {
+    convRef.turns[convRef.turns.length - 1] = { question, answer: answerRaw };
   } else {
-    chatConv.turns.push({ question, answer: answerRaw });
+    convRef.turns.push({ question, answer: answerRaw });
   }
   // Persist the finished turn so the chat survives restarts.
   try {
@@ -8811,15 +9466,36 @@ async function sendChatMessage(preset, opts = {}) {
       search_mode: meta?.search_mode || null,
       match_info: meta?.match_info && Object.keys(meta.match_info).length ? meta.match_info : null,
       connected_ids: meta?.connected_ids?.length ? meta.connected_ids : null,
+      // The "Grounded in" chips' own data — same reasoning as raw_results
+      // just above. Only meaningful alongside raw_results (renderAnswerGrounding
+      // looks note content up in it), so there's nothing to persist without it.
+      sentence_grounding: groundingSentences?.length ? groundingSentences : null,
+      // Which uploads this turn actually used — asked for directly: without
+      // this, a sent chat image had no record anywhere that anything still
+      // used it, so the Library's "Clean orphaned media" tool (which can
+      // only check notes, documents and whiteboard content for `/media/…`
+      // references) would delete a real, sent attachment's file the moment
+      // someone ran it. Persisting the ids here is what lets media_gc.py
+      // recognise them as still in use.
+      image_media_ids: sentImages.length ? sentImages : null,
+      // Same reason as the ids above, one kind over: a document attached to a
+      // message is what lets the bubble draw its chip again on reopen.
+      document_ids: sentDocuments.length ? sentDocuments : null,
+      // And the notes clipped with the paperclip, which until now were used to
+      // build one prompt and then forgotten — the bubble showed no sign the
+      // answer had been given a note to read.
+      note_ids: sentAttachments.length ? sentAttachments : null,
     };
-    if (chatConv.id === null) {
+    if (convRef.id === null) {
       const created = await apiJson("/conversations", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      chatConv.id = created.id;
-      $("chat-title").textContent = created.title;
-      renderChatUsage(created.tokens);
+      convRef.id = created.id;
+      if (viewing()) {
+        $("chat-title").textContent = created.title;
+        renderChatUsage(created.tokens);
+      }
       // Let the AI name the thread once there's something to name. Silent
       // best-effort: the question-derived title stays if the model can't.
       apiJson(`/conversations/${created.id}/retitle`, { method: "POST", silent: true })
@@ -8833,17 +9509,17 @@ async function sendChatMessage(preset, opts = {}) {
       // turn has already written a row for this exchange (see checkpointTurn),
       // so appending would leave the conversation holding the same question
       // twice — once half-finished and once complete.
-      const saved = await apiJson(`/conversations/${chatConv.id}/turns/last`, {
+      const saved = await apiJson(`/conversations/${convRef.id}/turns/last`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
-      renderChatUsage(saved.tokens);
+      if (viewing()) renderChatUsage(saved.tokens);
     } else {
-      const saved = await apiJson(`/conversations/${chatConv.id}/turns`, {
+      const saved = await apiJson(`/conversations/${convRef.id}/turns`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      renderChatUsage(saved.tokens);
+      if (viewing()) renderChatUsage(saved.tokens);
     }
     loadConversationList();
   } catch {
@@ -8851,6 +9527,129 @@ async function sendChatMessage(preset, opts = {}) {
   }
   loadRecentQuestions();
   loadMostUsed();
+  // Last, and deliberately not awaited: the answer is already on screen and
+  // saved, and this is a second model call. See offerFollowups.
+  offerFollowups(bubble, question, answerRaw);
+}
+
+// --- "what to ask next" chips under a finished answer -------------------------
+//
+// The empty-state chips (loadChatSuggestions) taught the feature for the first
+// question and then went away, which left every turn after it ending on a blank
+// box. These are the same idea for the turn you just read.
+//
+// Three things this must not do, all of which are why it lives out here rather
+// than inside the streaming loop:
+//
+// - **Delay the answer.** It fires after the turn is rendered and saved, and
+//   nothing awaits it.
+// - **Show an error.** `/chat/followups` returns [] on every failure path
+//   including the AI being off, and [] renders nothing at all. A row that says
+//   "couldn't suggest anything" is worse than no row.
+// - **Attach to the wrong bubble.** The reply can land after the reader has
+//   sent another message or opened a different conversation, so the bubble it
+//   was asked for has to still be on screen when it does.
+async function offerFollowups(bubble, question, answer) {
+  if (!bubble || !question || !answer) return;
+  let picks = [];
+  try {
+    picks = await apiJson("/chat/followups", {
+      method: "POST",
+      silent: true,
+      body: JSON.stringify({ question, answer }),
+    });
+  } catch {
+    return; // no honest error state for a suggestion — see the module note
+  }
+  if (!Array.isArray(picks) || !picks.length) return;
+  // `isConnected` is the check that matters: a deleted turn, a cleared chat or
+  // a switched conversation all detach the bubble, and appending to a detached
+  // node is an invisible leak rather than a visible bug.
+  if (!bubble.isConnected) return;
+  renderFollowups(bubble, picks);
+  // Saved, so they are still there next time. Reported directly: "suggested
+  // repsponse continuation prompts in chat doesnt persist and disappears once
+  // I switch chat sessions or quit the app" — they never persisted because
+  // nothing stored them; they lived only on this DOM node.
+  //
+  // Not awaited and silent, for the same reason the request above is: this is
+  // bookkeeping behind a suggestion, and a failed save must not put an error
+  // on screen over an answer that is fine.
+  saveFollowups(bubble, picks);
+}
+
+// The strip itself, shared by the live path above and the reopen path in
+// `openConversation` — two renderers would be two chances for a saved chip to
+// look unlike a fresh one.
+function renderFollowups(bubble, picks) {
+  if (!bubble || !Array.isArray(picks) || !picks.length) return;
+  // Remembered on the bubble rather than only drawn on it. Reported: *"the
+  // suggested next responses on chat messages should only persist for the
+  // latest chat message… if the user deletes the latest message they sent,
+  // then new suggested responses should show for the now latest message"* —
+  // the second half is the reason this is stored instead of discarded. The
+  // chips for an older turn are still the right chips for it; they are simply
+  // not shown while a newer turn exists, and deleting that newer turn has to
+  // bring them back without a second round trip to the model.
+  bubble.dataset.followups = JSON.stringify(picks);
+  refreshFollowupVisibility();
+}
+
+// Exactly one strip in the thread, on the last answer in it.
+//
+// Chips under an older answer are an invitation to fork the conversation
+// backwards: clicking one sends its question as a *new* message at the end, so
+// the suggestion and the place the reply lands are three exchanges apart. Only
+// the newest answer is still the end of the thread, so only it gets them.
+function refreshFollowupVisibility() {
+  const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
+  const last = bubbles.at(-1);
+  for (const bubble of bubbles) {
+    const strip = bubble.querySelector(".chat-followups");
+    if (bubble !== last) {
+      strip?.remove();
+      continue;
+    }
+    if (strip) continue; // already showing this turn's chips
+    let picks = [];
+    try {
+      picks = JSON.parse(bubble.dataset.followups || "[]");
+    } catch {
+      picks = [];
+    }
+    if (picks.length) buildFollowupStrip(bubble, picks);
+  }
+}
+
+function buildFollowupStrip(bubble, picks) {
+  const strip = document.createElement("div");
+  strip.className = "chat-followups";
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Next:";
+  strip.appendChild(label);
+  for (const pick of picks) {
+    // chip()'s second argument is a class, not a tooltip — passing prose there
+    // would put a sentence into `className`.
+    strip.appendChild(chip(pick, "", () => sendChatMessage(pick)));
+  }
+  bubble.appendChild(strip);
+  chatScrollToEnd();
+}
+
+async function saveFollowups(bubble, picks) {
+  if (chatConv.id === null) return; // an unsaved chat has no turn to attach to
+  // Which turn this bubble is: its index among the assistant bubbles, which is
+  // exactly how every other per-turn endpoint in this file addresses one.
+  const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
+  const index = bubbles.indexOf(bubble);
+  if (index === -1) return;
+  const conversationId = chatConv.id;
+  await apiJson(`/conversations/${conversationId}/turns/${index}/followups`, {
+    method: "PUT",
+    silent: true,
+    body: JSON.stringify({ followups: picks }),
+  }).catch(() => {});
 }
 
 // Delete one Q&A exchange: its assistant bubble AND the user bubble just
@@ -8882,11 +9681,161 @@ async function deleteChatTurn(assistantBubble) {
   if (userBubble && userBubble.classList.contains("user")) userBubble.remove();
   assistantBubble.remove();
   chatConv.turns.splice(index, 1);
+  // The turn below is the end of the thread now, so its saved chips come back.
+  refreshFollowupVisibility();
   if (!$("chat-messages").querySelector(".msg")) renderChatEmptyState();
   loadConversationList();
 }
 
+// --- leaving a conversation while it is still answering ------------------------
+//
+// The stream is pinned to the conversation that started it (see `convRef` in
+// sendChatMessage), so switching away no longer misfiles the answer. What is
+// left is the composer, which is shared: it was disabled with Stop showing for
+// a turn that is no longer on screen, and the conversation being switched *to*
+// inherited that state — the reported *"it still said the model is writing, but
+// nothing showed"*.
+//
+// So the composer is handed back to whatever is on screen now, while the stream
+// keeps running underneath. Deliberately NOT an abort: the reader asked a
+// question and is owed the answer, and it will be saved to the thread that
+// asked it and appear there. Saying so once is the difference between a
+// background job and a lost message.
+//
+// `chatStreaming` below holds the live nodes as well as the identity, because
+// the pane can be switched back long before the turn finishes — and the useful
+// thing to do then is put the same still-streaming elements back, not describe
+// them.
+//: The turn currently being streamed, if any: which conversation it belongs
+//: to, that conversation's title *at the time it was sent*, and the live DOM
+//: nodes it is being written into. Set once in sendChatMessage and cleared
+//: when the stream ends — never reassigned by a switch, which is what made an
+//: earlier version name the wrong conversation.
+let chatStreaming = null;
+
+// --- how long this answer has been coming --------------------------------------
+//
+// Asked for directly: "can there be an active timer on responses in chatg
+// messages as well??" The finished time was already in each message's metadata
+// line; what was missing was the *live* one, and that is the one that matters
+// — a local model on a long question can be silent for a minute, and "The
+// model is writing…" is equally true at two seconds and at two minutes.
+//
+// Ticked from a timer rather than from stream events on purpose: the seconds
+// have to keep moving while the model is thinking and sending nothing, which
+// is exactly the stretch that makes someone wonder if it has hung.
+//
+// Where it is drawn changed after a second report: *"the time of response
+// stays below the chat input bar and doesnt disappear, I want the timer to
+// appear on the chat bubble while it is responding until the response is
+// finished."* Both halves are the same mistake — the counter lived in the
+// composer, which is not where the answer is being written and is not
+// unmounted when the answer ends, so it sat under the input box afterwards
+// reading as the age of something that had already arrived. It now rides in
+// the bubble it is timing and is removed when that bubble is finished; the
+// metadata line under the answer keeps the final duration permanently, so
+// nothing is lost by taking the live one away.
+let chatTimerInterval = null;
+let chatTimerStartedAt = 0;
+//: The live counter's node, mounted inside the assistant bubble being
+//: streamed. Null between turns — `paintChatTimer` is a no-op then.
+let chatTimerBox = null;
+
+// Put the counter in the bubble this turn is being written into.
+function mountChatTimer(bubble) {
+  if (!bubble) return;
+  chatTimerBox?.remove();
+  const box = document.createElement("span");
+  box.className = "msg-timer";
+  box.setAttribute("aria-hidden", "true"); // the status line already says it aloud
+  chatTimerBox = box;
+  // Beside the role label, which is the bubble's own header row — it reads as
+  // "LIBRARIAN · 4s" rather than as a number floating in the answer.
+  (bubble.querySelector(".msg-role") || bubble).appendChild(box);
+  paintChatTimer();
+}
+
+function paintChatTimer() {
+  const box = chatTimerBox;
+  if (!box) return;
+  const seconds = Math.floor((performance.now() - chatTimerStartedAt) / 1000);
+  // Plain seconds under a minute, m:ss above it — "97s" is a number you have
+  // to convert, and by then it is the interesting case.
+  box.textContent =
+    seconds < 60
+      ? `${seconds}s`
+      : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function startChatTimer() {
+  // Started before the bubble exists — the clock has to include the wait for
+  // the first byte, which on a cold local model is most of it. `mountChatTimer`
+  // gives it somewhere to draw a moment later.
+  clearInterval(chatTimerInterval);
+  chatTimerStartedAt = performance.now();
+  chatTimerInterval = setInterval(paintChatTimer, 1000);
+}
+
+function stopChatTimer() {
+  clearInterval(chatTimerInterval);
+  chatTimerInterval = null;
+  // Taken off screen, not left showing: the answer is finished, and its
+  // metadata line already carries the final duration. A live-looking counter above a
+  // finished answer is the bug this replaced.
+  chatTimerBox?.remove();
+  chatTimerBox = null;
+}
+
+function releaseChatComposer({ announce = true } = {}) {
+  if (!chatController || !chatStreaming) return;
+  const input = $("chat-input");
+  input.disabled = false;
+  show("chat-send");
+  hide("chat-stop");
+  const status = $("chat-status");
+  status.textContent = "";
+  status.classList.remove("error");
+  // The timer belongs to the composer, which has just been handed back to a
+  // different conversation — leaving it ticking would time this chat's turn
+  // against the next chat's empty box.
+  chatTimerBox?.remove();
+  chatTimerBox = null;
+  $("chat-elapsed")?.classList.add("hidden"); // legacy composer slot, kept hidden
+  // Once per stream, not once per switch. Reported: leaving and returning
+  // repeatedly repeated the notice, and named whichever chat had just been
+  // left rather than the one actually being answered. The title is the one
+  // captured when the message was sent, for the same reason.
+  if (announce && !chatStreaming.announced) {
+    chatStreaming.announced = true;
+    toast(
+      `Still answering in “${chatStreaming.title}” — the reply will appear there.`
+    );
+  }
+}
+
+//: True when the conversation being opened is the one still being written to.
+function isStreamingConversation(id) {
+  return Boolean(chatController && chatStreaming && chatStreaming.conv.id === id);
+}
+
+//: Put the in-flight turn back on screen, still streaming.
+//:
+//: The nodes were never destroyed — `openConversation` detached them with
+//: `replaceChildren()` and this re-appends the same elements, so whatever the
+//: stream has written since is already in them and whatever it writes next
+//: lands in front of the reader. That is the difference between the reported
+//: "the response only shows after it is completed" and watching it arrive.
+function reattachStreamingTurn() {
+  if (!chatStreaming) return false;
+  const host = $("chat-messages");
+  clearChatEmptyState();
+  for (const node of chatStreaming.nodes) host.appendChild(node);
+  chatScrollToEnd();
+  return true;
+}
+
 function newChatConversation() {
+  releaseChatComposer();
   recordTabVisit("chat", "new");
   chatConv = { id: null, turns: [] };
   // A summary belongs to the conversation it summarised (§35I).
@@ -9541,6 +10490,9 @@ function editChatAnswer(handles, turnIndex, current) {
 async function openConversation(id) {
   const full = await apiJson(`/conversations/${id}`).catch(() => null);
   if (!full) return;
+  // Before the pane is rebuilt, not after: this reads the composer state that
+  // belongs to the conversation being left.
+  releaseChatComposer();
   // ROADMAP.md item 13: switching between saved chats was invisible to
   // back/forward. Recorded here rather than at each of this function's
   // call sites (the sidebar, the Library) so neither has to remember to.
@@ -9560,7 +10512,7 @@ async function openConversation(id) {
   for (const message of full.messages) {
     if (message.role === "user") {
       lastQuestionText = message.content;
-      addBubble("user", message.content);
+      addBubble("user", message.content, message.attachments);
     } else {
       const handles = addAssistantBubble();
       // Replay the run in the order it happened when the turn recorded one.
@@ -9610,6 +10562,21 @@ async function openConversation(id) {
           connected_ids: message.connected_ids || [],
         });
       }
+      // Same reload-reconstruction fix as raw_results just above, for the
+      // "Grounded in" chips: reported directly as disappearing once the chat
+      // tab was left or the session ended, since nothing rebuilt this on
+      // reopen either.
+      if (message.sentence_grounding) {
+        renderAnswerGrounding(handles.groundingHolder, message.sentence_grounding, message.raw_results || []);
+      }
+      // And the same shape again for the "what to ask next" chips, reported
+      // separately: "suggested repsponse continuation prompts in chat doesnt
+      // persist and disappears once I switch chat sessions or quit the app".
+      // Rendered through the same function the live path uses, so a restored
+      // chip is not a slightly different chip.
+      if (message.followups) {
+        renderFollowups(handles.bubble, message.followups);
+      }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
@@ -9640,7 +10607,30 @@ async function openConversation(id) {
       }
     }
   }
-  if (!full.messages.length) renderChatEmptyState();
+  // A conversation that is still being answered has not saved that turn yet —
+  // the save happens when the stream ends — so what came back from the server
+  // above is the thread *without* the message in flight. Left alone, coming
+  // back to it shows either an empty pane or a thread missing its newest
+  // question: exactly the "my message disappeared" this whole change is about.
+  // Saying so is the honest render, and the note is replaced by the real turn
+  // the moment the stream finishes and the list refreshes.
+  if (isStreamingConversation(full.id)) {
+    // Coming back to the thread that is still being answered. The saved
+    // messages above are the thread *without* this turn — it has not been
+    // written yet, or exists only as a half-finished checkpoint row, which is
+    // the reported "empty message bubble". Drop that partial and put the live
+    // nodes back instead.
+    const bubbles = $("chat-messages").querySelectorAll(".msg");
+    const lastAssistant = [...bubbles].reverse().find((b) => b.classList.contains("assistant"));
+    if (lastAssistant && !lastAssistant.textContent.trim()) {
+      lastAssistant.previousElementSibling?.classList.contains("msg")
+        && lastAssistant.previousElementSibling.remove();
+      lastAssistant.remove();
+    }
+    reattachStreamingTurn();
+  } else if (!full.messages.length) {
+    renderChatEmptyState();
+  }
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
   chatScrollToEnd();
@@ -10275,6 +11265,171 @@ function skillPacePill() {
   toggle?.addEventListener("change", paint);
   paint();
   return seg;
+}
+
+// --- the composer's two nudges (BACKLOG: agent-mode + skill auto-detect) -----
+//
+// Both capabilities were reachable only by people who already knew where the
+// controls were. Typing "delete the notes I tagged scratch" in Ask mode gets a
+// careful description of how one might do that, because Ask genuinely cannot
+// act; and a skill someone wrote last month for exactly that job sits behind a
+// dropdown behind a popup. Neither is a bug — they are both "a capability with
+// no control is a capability most people never meet", the same observation
+// that put the Plan button in the dock.
+//
+// The rules this follows, because a nudge that gets any of them wrong is worse
+// than no nudge at all:
+//
+// - **It never acts.** It offers a button. Switching modes and running a skill
+//   are both things that change what happens to your notes.
+// - **Dismiss means dismissed.** Per draft, per kind — clearing the box or
+//   sending resets it, so it does not become a thing you dismiss every time.
+// - **It stays quiet when it has nothing to add**: already in Request mode, or
+//   the text is too short to be a request at all.
+//
+// Matching is a heuristic here rather than a model call for the same reason
+// ai/intent.py's is: it runs on every keystroke (debounced), so it has to be
+// instant, and a local model call per keystroke is neither.
+
+// Verbs that only mean something if the assistant can act. Deliberately
+// narrow: "write" and "find" are absent because "write me a poem" and "find
+// out what X means" are ordinary Ask questions, and a nudge that fires on
+// those is noise on most messages.
+const AGENT_INTENT_RE = new RegExp(
+  "\\b(?:" +
+    "delete|remove|archive|rename|merge|de-?duplicate|dedupe|" +
+    "tag|untag|re-?tag|link|unlink|organi[sz]e|tidy|clean ?up|sort|categori[sz]e|" +
+    "create|make|add|save|append|update|edit|change|move|" +
+    "schedule|remind me|set a reminder|" +
+    "summari[sz]e (?:my|all|the|every)|go through (?:my|all|the)" +
+    ")\\b",
+  "i"
+);
+
+// A second, independent trigger: things that need the web tool specifically.
+const AGENT_WEB_RE = /\b(?:search the web|look (?:this |it )?up online|google|browse to|open (?:this |the )?(?:page|link|url)|https?:\/\/)/i;
+
+// A draft is "a request" only if it also names something in the notebook, or
+// is plainly imperative. Without this, "I should probably tag things better"
+// — a musing, not an instruction — fires the nudge.
+const AGENT_OBJECT_RE = /\b(?:not(?:e|es)|entr(?:y|ies)|tag(?:s|ged)?|document|documents|space|spaces|reminder|reminders|task|tasks|link(?:s|ed)?|my notebook|everything)\b/i;
+
+// Which nudges this draft has been told to stop offering. Reset when the box
+// empties or a message is sent — see the input handler at the bottom of this
+// file.
+const chatNudgeDismissed = new Set();
+
+function looksLikeAnAgentRequest(text) {
+  if (text.trim().length < 8) return false;
+  if (AGENT_WEB_RE.test(text)) return true;
+  return AGENT_INTENT_RE.test(text) && AGENT_OBJECT_RE.test(text);
+}
+
+// The skill whose name (or description) the draft is most plainly asking for,
+// or null. Scored rather than first-match: with a dozen skills installed, the
+// one that shares three words with what you typed is a better guess than
+// whichever happens to sort first.
+function skillMatchingDraft(text) {
+  const haystack = text.toLowerCase();
+  if (haystack.trim().length < 8) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const skill of allSkills()) {
+    const name = String(skill.name || "");
+    if (!name) continue;
+    // A name typed out in full is as explicit as it gets — nothing scored
+    // word-by-word should be able to beat it.
+    let score = haystack.includes(name.toLowerCase()) ? 10 : 0;
+    // Words short enough to be incidental ("a", "the", "my", "and") match
+    // everything and would make every skill look relevant.
+    const words = `${name} ${skill.description || ""}`
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 4);
+    const seen = new Set();
+    for (const word of words) {
+      if (seen.has(word)) continue;
+      seen.add(word);
+      if (haystack.includes(word)) score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = skill;
+    }
+  }
+  // Two independent words, or the name in full. One shared word is a
+  // coincidence on any notebook with more than a few skills.
+  return bestScore >= 2 ? best : null;
+}
+
+function renderChatNudge() {
+  const box = $("chat-nudge");
+  if (!box) return;
+  const text = $("chat-input")?.value || "";
+  box.replaceChildren();
+
+  const offers = [];
+  // Mode first: it changes what the message can do at all, so it outranks
+  // "there is a saved job for this".
+  if (
+    !chatNudgeDismissed.has("agent") &&
+    !$("tools-toggle")?.checked &&
+    looksLikeAnAgentRequest(text)
+  ) {
+    offers.push({
+      kind: "agent",
+      icon: "ph:robot",
+      text: "That reads like something to do, not something to answer. Ask mode can't touch your notes.",
+      action: "Switch to Request",
+      run: () => setChatMode("agent"),
+    });
+  }
+  if (!chatNudgeDismissed.has("skill")) {
+    const skill = skillMatchingDraft(text);
+    if (skill) {
+      offers.push({
+        kind: "skill",
+        icon: "ph:lightning",
+        text: `You have a skill for this: “${skill.name}”.`,
+        action: "Run it",
+        title: skillSummary(skill),
+        run: () => runSkill(skill),
+      });
+    }
+  }
+
+  // One at a time. Two stacked nudges above a one-line composer is the dock
+  // arguing with you rather than helping.
+  const offer = offers[0];
+  box.classList.toggle("hidden", !offer);
+  if (!offer) return;
+
+  const mark = document.createElement("span");
+  mark.className = "chat-nudge-mark";
+  setLabel(mark, offer.icon);
+  const line = document.createElement("span");
+  line.className = "chat-nudge-text";
+  line.textContent = offer.text;
+  const act = smallButton(offer.action, offer.title || offer.action, () => {
+    // Whatever the offer was, taking it ends it — re-offering the switch you
+    // just made would be the dock talking to itself.
+    chatNudgeDismissed.add(offer.kind);
+    renderChatNudge();
+    offer.run();
+  }, false);
+  const dismiss = smallButton("ph:x", "Dismiss this suggestion", () => {
+    chatNudgeDismissed.add(offer.kind);
+    renderChatNudge();
+  });
+  dismiss.classList.add("chat-nudge-dismiss");
+  box.append(mark, line, act, dismiss);
+}
+
+// Cleared when the draft is — a new message is a new question, and the
+// suggestion you turned down for the last one should not follow it.
+function resetChatNudge() {
+  chatNudgeDismissed.clear();
+  renderChatNudge();
 }
 
 function skillSummary(skill) {
@@ -12263,6 +13418,22 @@ async function stepTabHistory(delta) {
       } else if (entry.section === "new") {
         newChatConversation();
       }
+    } else if (entry.tab === "documents" && entry.section?.startsWith("doc:")) {
+      // Same awaited-before-finally shape as chat's conv: branch above, for
+      // the same reason: openDocument does its own network fetch before
+      // calling recordTabVisit, so an un-awaited call here would clear
+      // tabHistory.navigating too early and turn this into a fresh entry.
+      await openDocument(Number(entry.section.slice("doc:".length)));
+    } else if (entry.tab === "graph") {
+      // switchTab's own "graph" branch above already rendered once with
+      // whatever graphFocusModeId happened to hold; set it to match this
+      // history entry and render again so Focus Mode itself is part of what
+      // back/forward restores, not just the tab underneath it.
+      graphFocusModeId = entry.section?.startsWith("focus:")
+        ? Number(entry.section.slice("focus:".length))
+        : null;
+      $("graph-focus-clear")?.classList.toggle("hidden", !graphFocusModeId);
+      await renderGraph();
     }
   } finally {
     // Cleared in a finally so a throw inside a tab's own setup cannot strand
@@ -13209,6 +14380,70 @@ $("graph-layout").addEventListener("change", (event) => {
 const NOTES_SECTIONS = ["browse", "capture", "writing-room", "ask"];
 const NOTES_SECTION_STORE = "notesSection";
 
+// --- a new session starts at the front of every tab ----------------------------
+//
+// Reported directly: "Ive had times where I log into the app, click on the
+// notes tab, and the tab is selected on 'Write with AI' instead of 'Your
+// Notes' because that must have been what I was on last."
+//
+// **Which sub-tab you are on is not a preference; it is where you happen to
+// be standing.** Reopening on the last *tab* is useful — you were working on
+// something. Reopening three levels in, on a sub-tab you visited once a week
+// ago, is not: it reads as the app being in a state you did not put it in,
+// and the deeper the restore the more true that is. So a new session lands on
+// each tab's front page.
+//
+// `sessionStorage`, not a timestamp or a login hook, and the distinction it
+// draws is exactly the right one: it survives a reload (F5, or the desktop
+// window reloading itself after an update) and is cleared when the tab or the
+// app window closes. So "I refreshed" keeps your place and "I started the app
+// again" does not.
+//
+// Only navigation is reset. `library-view`'s grid/list, the timeline's own
+// view mode, reminders' list/calendar and the document editor's Live/Source
+// choice are display preferences someone deliberately set, and clearing those
+// would be a different — and unwanted — change.
+const SESSION_STARTED_KEY = "mm-session-started";
+const NAVIGATION_KEYS = [NOTES_SECTION_STORE];
+
+function resetNavigationForNewSession() {
+  try {
+    if (sessionStorage.getItem(SESSION_STARTED_KEY)) return false;
+    sessionStorage.setItem(SESSION_STARTED_KEY, "1");
+  } catch {
+    // Storage can throw outright (a private window, a shell with site data
+    // blocked). Not resetting is the safe answer — it leaves the previous
+    // behaviour rather than resetting on every single navigation.
+    return false;
+  }
+  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  return true;
+}
+
+// Run at load, before anything can have navigated. One-shot per session: a
+// reload inside the same session finds the marker and leaves your place
+// alone, which is the distinction sessionStorage draws for free.
+resetNavigationForNewSession();
+
+function resetNavigationToDefaults() {
+  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  // The Library's switcher keeps its state in the DOM (which button carries
+  // `.active`), not in storage, so clearing a key cannot reach it. Clicking
+  // its default button reuses the real handler — which also shows the right
+  // section, stops the gallery poll and lands the whiteboard view correctly.
+  // A second copy of that logic here is exactly the shape this codebase keeps
+  // getting bitten by.
+  const allTab = document.querySelector(
+    '#library-subtabs button[data-target="library-view-documents"]'
+  );
+  if (allTab && !allTab.classList.contains("active")) allTab.click();
+  // If the Notes strip is already built, put it back on its front page now;
+  // on a cold load it has not been built yet and will read the cleared key.
+  if (typeof showNotesSection === "function" && document.getElementById("notes-subtabs")?.dataset.ready) {
+    showNotesSection("browse");
+  }
+}
+
 function activeNotesSection() {
   const saved = localStorage.getItem(NOTES_SECTION_STORE);
   return NOTES_SECTIONS.includes(saved) ? saved : "browse";
@@ -13495,10 +14730,20 @@ async function renderMemorySettings() {
     : "";
   empty.classList.toggle("hidden", data.preferences.length > 0);
 
+  // Pending suggestions first. They are the only rows that need an answer,
+  // and a proposal buried below thirty settled ones is a proposal nobody
+  // sees — which was the whole complaint about the silent version of this
+  // feature. Order is otherwise unchanged (newest first, from the API).
+  const ordered = [
+    ...data.preferences.filter((p) => p.proposed),
+    ...data.preferences.filter((p) => !p.proposed),
+  ];
+
   list.replaceChildren(
-    ...data.preferences.map((pref) => {
+    ...ordered.map((pref) => {
       const row = document.createElement("div");
-      row.className = "memory-row" + (pref.active ? "" : " is-off");
+      row.className =
+        "memory-row" + (pref.proposed ? " is-proposed" : pref.active ? "" : " is-off");
 
       const text = document.createElement("span");
       text.className = "memory-text";
@@ -13506,6 +14751,37 @@ async function renderMemorySettings() {
       text.title = pref.created_at
         ? `Saved ${new Date(pref.created_at).toLocaleString()}`
         : "";
+
+      // A suggestion is a question, not a switch someone flipped: it gets
+      // yes/no rather than on/off, and it is not in the prompt either way
+      // until it is answered.
+      if (pref.proposed) {
+        const tag = document.createElement("span");
+        tag.className = "memory-proposed-tag";
+        setLabel(tag, "ph:brain Suggested by the AI");
+
+        const answer = async (accept) => {
+          await apiJson(`/memory/${pref.id}/answer`, {
+            method: "POST",
+            body: JSON.stringify({ accept }),
+          }).catch(() => {});
+          renderMemorySettings();
+        };
+        const yes = document.createElement("button");
+        yes.type = "button";
+        yes.className = "small";
+        yes.textContent = "Remember it";
+        yes.addEventListener("click", () => answer(true));
+
+        const no = document.createElement("button");
+        no.type = "button";
+        no.className = "ghost small";
+        no.textContent = "No thanks";
+        no.addEventListener("click", () => answer(false));
+
+        row.append(text, tag, yes, no);
+        return row;
+      }
 
       const toggle = document.createElement("button");
       toggle.type = "button";
@@ -14404,6 +15680,40 @@ async function renderBackups() {
   }
 }
 
+// The retention setting itself — separate fetch from renderBackups() (which
+// only ever hits GET /backups) because the count/bounds live on GET
+// /storage, so this app's own tests that treat GET /backups as a plain list
+// of backups don't have to change shape for a control that isn't about any
+// one backup.
+async function renderBackupRetention() {
+  const input = $("backup-retention");
+  if (!input) return;
+  const storage = await apiJson("/storage", { silent: true }).catch(() => null);
+  if (!storage) return;
+  input.min = storage.backup_retention_min;
+  input.max = storage.backup_retention_max;
+  input.value = storage.backup_retention_count;
+  input.title = `Between ${storage.backup_retention_min} and ${storage.backup_retention_max}`;
+}
+
+$("backup-retention")?.addEventListener("change", async (e) => {
+  const status = $("backup-retention-status");
+  const keep = Number(e.target.value);
+  try {
+    const result = await apiJson("/backups/retention", {
+      method: "PUT",
+      body: JSON.stringify({ keep }),
+    });
+    status.textContent = result.removed
+      ? `Saved — removed ${result.removed} old backup${result.removed === 1 ? "" : "s"}.`
+      : "Saved.";
+    renderBackups();
+  } catch (error) {
+    status.textContent = error.message;
+    renderBackupRetention(); // put the field back to what's actually saved
+  }
+});
+
 async function backupNow() {
   const status = $("backup-status");
   try {
@@ -14503,9 +15813,70 @@ async function importDocument() {
 let paletteIndex = 0;
 
 // Static commands; note search results are appended live as you type.
+//: Interface zoom, in one place so the slider, the +/- buttons, the keyboard
+//: shortcut and the command palette cannot drift apart. Asked for directly:
+//: "a nicer way to adjust zoom… + and - buttons next to the slider, hotkeys
+//: like ctrl + +/-, and in the commands list".
+//:
+//: Same range and step as the slider in Settings -> Appearance, and it writes
+//: the same key, so all four routes are literally the same control.
+const ZOOM_MIN = 70;
+const ZOOM_MAX = 130;
+const ZOOM_STEP = 5;
+
+function currentZoom() {
+  const stored = Number(localStorage.getItem("zoom"));
+  return Number.isFinite(stored) && stored ? stored : 100;
+}
+
+function setZoom(percent) {
+  const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(percent / ZOOM_STEP) * ZOOM_STEP));
+  localStorage.setItem("zoom", String(next));
+  const slider = $("zoom-slider");
+  if (slider) slider.value = next;
+  const readout = $("zoom-value");
+  if (readout) readout.textContent = `${next}%`;
+  applyAppearance();
+  return next;
+}
+
+function nudgeZoom(direction) {
+  const next = setZoom(currentZoom() + direction * ZOOM_STEP);
+  toast(`Zoom ${next}%`);
+}
+
+// Ctrl/Cmd with + or - . On `capture` so a focused textarea cannot swallow it,
+// and `preventDefault` so the browser's own zoom does not fire as well —
+// otherwise the two stack and one press moves both.
+//
+// `event.key` for "-" and "=" rather than a keyCode: "+" needs Shift on most
+// layouts, so the unshifted "=" is what people actually press, and both are
+// accepted for the same reason every other app accepts both.
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (event.key === "+" || event.key === "=") {
+      event.preventDefault();
+      nudgeZoom(1);
+    } else if (event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      nudgeZoom(-1);
+    } else if (event.key === "0") {
+      event.preventDefault();
+      setZoom(100);
+      toast("Zoom 100%");
+    }
+  },
+  true
+);
+
 function paletteCommands() {
   return [
     { label: "ph:clipboard Go to Dashboard", run: () => switchTab("dashboard") },
+    { label: "ph:magnifying-glass-plus Zoom in", run: () => nudgeZoom(1) },
+    { label: "ph:magnifying-glass-minus Zoom out", run: () => nudgeZoom(-1) },
+    { label: "ph:arrow-counter-clockwise Reset zoom to 100%", run: () => { setZoom(100); toast("Zoom 100%"); } },
     { label: "ph:note-pencil Go to Notes", run: () => switchTab("notes") },
     { label: "ph:chat-circle Go to Chat", run: () => switchTab("chat") },
     { label: "ph:graph Go to Graph", run: () => switchTab("graph") },
@@ -14536,6 +15907,16 @@ function paletteCommands() {
     },
     { label: "ph:sparkle New chat", run: () => { switchTab("chat"); newChatConversation(); } },
     { label: "ph:palette New sketch", run: openSketch },
+    {
+      // Reachable from anywhere, which is the point. Asked for directly: "I
+      // would also like the meeting notes popup to be expanded as a proper
+      // feature with more capabilities and expansion which is also accessible
+      // throughout the app, not just from the dashboard." A recording is
+      // started the moment a meeting starts, and "go to the Dashboard first"
+      // is exactly the friction that means it does not get started at all.
+      label: "ph:microphone Record a meeting or lecture",
+      run: openMeetingRecorder,
+    },
     {
       // Asked for directly: "add creating a new board to the command
       // palette and tools and features as well" — the only way in before
@@ -14720,10 +16101,27 @@ function paletteKeydown(event) {
 
 // Reported directly as "completely wrong": at 0.05 the highlighter needed
 // roughly twenty overlapping passes before a stroke showed at all — visually
-// indistinguishable from the tool doing nothing. 0.35 with the existing
-// "multiply" blend mode reads as an actual highlighter (translucent, tints
-// rather than covers) in one pass.
+// indistinguishable from the tool doing nothing. 0.35 reads as an actual
+// highlighter (translucent, tints rather than covers) in one pass.
 const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+
+// **The remaining two differences from the whiteboard's highlighter, now
+// gone.** Reported: "fix the highlighter in the quick sketch feature to be
+// the same as the whiteboard". The alpha and the width multiplier already
+// matched (see both constants); what did not was how the stroke was painted.
+//
+// · `globalCompositeOperation: "multiply"` was the substantive one. Multiply
+//   darkens toward black against whatever is behind it, so the same yellow
+//   that tints a white page turns to mud on a dark one — and this app has a
+//   dark theme. The whiteboard draws an SVG path with plain `stroke-opacity`
+//   and no blend mode at all, which behaves the same on any background.
+// · `lineJoin: "bevel"` against the whiteboard's `round`, which is what made
+//   a scribbled corner look chipped here and smooth there.
+//
+// `lineCap: "square"` stays — the whiteboard sets exactly that, and a flat
+// end is what a marker leaves.
+const SKETCH_HIGHLIGHTER_LINE_JOIN = "round";
+const SKETCH_HIGHLIGHTER_COMPOSITE = "source-over";
 // Was 6x — the whiteboard's own highlighter (WB_STROKE_WIDTH * 4 in
 // whiteboard.js) is the reference the two are meant to match, and reported
 // directly as needing to. Both start from a different base width (sketchPen
@@ -14877,8 +16275,13 @@ function sketchMove(event) {
   }
 
   context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-  context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
-  context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+  context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+  context.globalCompositeOperation =
+    sketchPen.eraser && sketchTool === "pen"
+      ? "destination-out"
+      : sketchTool === "highlighter"
+        ? SKETCH_HIGHLIGHTER_COMPOSITE
+        : "source-over";
   context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
   context.strokeStyle = sketchPen.color;
   context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
@@ -14933,8 +16336,13 @@ function sketchEnd(event) {
   if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
     const context = sketchContext();
     context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-    context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
-    context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+    context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+    context.globalCompositeOperation =
+      sketchPen.eraser && sketchTool === "pen"
+        ? "destination-out"
+        : sketchTool === "highlighter"
+          ? SKETCH_HIGHLIGHTER_COMPOSITE
+          : "source-over";
     context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
     context.strokeStyle = sketchPen.color;
     
@@ -14982,11 +16390,6 @@ async function saveSketch() {
     $("sketch-caption").value.trim() ||
     `Sketch — ${new Date().toLocaleDateString()}`;
   try {
-    // The sketch is a note (searchable caption) + a PNG attachment.
-    const entry = await apiJson("/entries", {
-      method: "POST",
-      body: JSON.stringify({ content: caption, category: "Sketches" }),
-    });
     // Strokes and any uploaded image live on separate canvases (§37G); the
     // saved PNG has to be both together, composited onto a throwaway canvas
     // rather than either layer alone.
@@ -14997,14 +16400,37 @@ async function saveSketch() {
     compositeContext.drawImage($("sketch-bg-canvas"), 0, 0);
     compositeContext.drawImage($("sketch-canvas"), 0, 0);
     const blob = await new Promise((resolve) => composite.toBlob(resolve, "image/png"));
+
+    // **Through `/media/upload`, not `/entries/{id}/files`.** A sketch used
+    // to be saved as an *attachment*, which is a different table and a
+    // different pipeline: attachments are files hanging off a note, and only
+    // `MediaUpload` rows are captioned, OCR'd, read by a vision model, or
+    // listed in the Library's gallery. So a drawing was the one image in this
+    // app that none of that ever touched — reported directly: "add captioning
+    // and vision and ocr for sketches the user draws and saves as well".
+    //
+    // Uploading first and referencing the result in the note's markdown is
+    // exactly what dropping an image into the note editor already does, so
+    // this is now the same path rather than a second one: the picture appears
+    // inline in the note, in the gallery, and in `media_process`'s queue.
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const form = new FormData();
-    form.append("file", blob, "sketch.png");
-    const response = await fetch(`/entries/${entry.id}/files`, {
+    form.append("file", blob, `sketch-${stamp}.png`);
+    const uploaded = await apiJson("/media/upload", {
       method: "POST",
       headers: { "X-Auth-Token": authToken() },
       body: form,
     });
-    if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+    // The caption stays the note's own first line — it is what the person
+    // typed and what the note is called. The image follows it.
+    const entry = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({
+        content: `${caption}\n\n![${caption}](${uploaded.url})`,
+        category: "Sketches",
+      }),
+    });
+    if (!entry?.id) throw new Error("Couldn't save the sketch note.");
     sketchDirty = false;
     $("sketch-overlay").classList.add("hidden");
     $("sketch-caption").value = "";
@@ -15221,6 +16647,121 @@ function meetingElapsedText() {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+//: How many amplitude samples the waveform holds. About four seconds at the
+//: sample rate below, which is enough to see the shape of a sentence without
+//: the line becoming a texture.
+const MEETING_WAVE_POINTS = 140;
+//: Frames between samples. Every frame would fill the window in two seconds
+//: and spend a redraw on a difference nobody can see.
+const MEETING_WAVE_EVERY = 3;
+
+//: Kept at module level so `closeMeetingRecorder` can stop a draw loop that
+//: `toggleMeetingRecording` started — the two are different user actions and
+//: neither can reach the other's locals.
+let stopMeetingWave = () => {};
+
+// The line that moves while you talk. See the note in index.html for why the
+// six-bar meter on the Record button was not enough: a recording with no
+// visible response to your voice is indistinguishable from a broken
+// microphone, and that is what was actually being reported.
+function startMeetingWave(stream) {
+  const canvas = document.getElementById("meeting-wave");
+  if (!canvas) return () => {};
+  let ctx;
+  try {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch {
+    return () => {}; // no Web Audio — the recording itself is unaffected
+  }
+  const analyser = ctx.createAnalyser();
+  // 2048 in the *time* domain: this draws a level line, and a bigger window
+  // gives a steadier RMS than the 256-bin frequency analyser the button meter
+  // uses. Both can run at once — they are separate nodes on the same stream.
+  analyser.fftSize = 2048;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Uint8Array(analyser.fftSize);
+  const levels = new Array(MEETING_WAVE_POINTS).fill(0);
+
+  const paint = canvas.getContext("2d");
+  canvas.classList.remove("hidden");
+  // Size the backing store to the box it is actually drawn in, at the
+  // device's own pixel density. The markup's 960×120 is a fallback for the
+  // frame before layout; leaving it there stretches the line horizontally and
+  // makes it soft on any HiDPI screen. Measured after `remove("hidden")` —
+  // a hidden element has no width to read.
+  const box = canvas.getBoundingClientRect();
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  if (box.width) {
+    canvas.width = Math.round(box.width * ratio);
+    canvas.height = Math.round(box.height * ratio);
+  }
+  let frame = null;
+  let ticks = 0;
+  let stopped = false;
+
+  function draw() {
+    const { width, height } = canvas;
+    const middle = height / 2;
+    paint.clearRect(0, 0, width, height);
+    // The accent, read from the live stylesheet rather than hard-coded, so
+    // the line follows whatever theme is set — including a custom one.
+    const accent =
+      getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
+      "#4f6df5";
+    paint.strokeStyle = accent;
+    paint.lineWidth = 2;
+    paint.lineJoin = "round";
+    paint.lineCap = "round";
+    const step = width / (levels.length - 1);
+    // Two mirrored strokes rather than one: a level line drawn only upward
+    // reads as a graph, and the symmetrical pair reads as sound.
+    for (const direction of [-1, 1]) {
+      paint.beginPath();
+      levels.forEach((level, i) => {
+        const y = middle + direction * level * (middle - 4);
+        if (i === 0) paint.moveTo(0, y);
+        else paint.lineTo(i * step, y);
+      });
+      paint.stroke();
+    }
+  }
+
+  function tick() {
+    if (stopped) return;
+    if (ticks % MEETING_WAVE_EVERY === 0) {
+      analyser.getByteTimeDomainData(samples);
+      // RMS around the 128 midpoint — the honest measure of loudness, and
+      // steadier than a peak, which flickers on consonants.
+      let sum = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const value = (samples[i] - 128) / 128;
+        sum += value * value;
+      }
+      const rms = Math.sqrt(sum / samples.length);
+      // sqrt again for the same reason the bar meter gives: ordinary speech
+      // sits low in the range and a linear map leaves it near the floor.
+      levels.push(Math.min(1, Math.sqrt(rms) * 1.6));
+      levels.shift();
+      draw();
+    }
+    ticks++;
+    frame = requestAnimationFrame(tick);
+  }
+
+  // Chrome creates an AudioContext suspended even inside a click handler, and
+  // the analyser reads all-zero until it is running — the same trap the bar
+  // meter documents. Start the loop after resume resolves.
+  ctx.resume().then(tick, tick);
+
+  return () => {
+    stopped = true;
+    if (frame) cancelAnimationFrame(frame);
+    ctx.close().catch(() => {});
+    canvas.classList.add("hidden");
+    paint.clearRect(0, 0, canvas.width, canvas.height);
+  };
+}
+
 function stopMeetingTimer() {
   if (meetingTimerHandle) clearInterval(meetingTimerHandle);
   meetingTimerHandle = null;
@@ -15238,6 +16779,9 @@ function resetMeetingUI() {
   $("meeting-record").disabled = false;
   $("meeting-record").classList.remove("recording");
   setLabel($("meeting-record"), "ph:record Record");
+  $("meeting-pause")?.classList.add("hidden");
+  setLabel($("meeting-pause"), "ph:pause Pause");
+  $("meeting-wave")?.classList.add("hidden");
 }
 
 async function openMeetingRecorder() {
@@ -15256,6 +16800,8 @@ function closeMeetingRecorder() {
     meetingRecorder.stop();
   }
   meetingStream?.getTracks().forEach((t) => t.stop());
+  stopMeetingWave();
+  stopMeetingWave = () => {};
   meetingRecorder = null;
   meetingStream = null;
   stopMeetingTimer();
@@ -15293,6 +16839,9 @@ async function toggleMeetingRecording() {
   meetingRecorder.addEventListener("stop", async () => {
     meetingStream?.getTracks().forEach((t) => t.stop());
     stopMeetingLevelMeter();
+    stopMeetingWave();
+    stopMeetingWave = () => {};
+    $("meeting-pause").classList.add("hidden");
     meetingStream = null;
     meetingRecorder = null;
     stopMeetingTimer();
@@ -15335,8 +16884,75 @@ async function toggleMeetingRecording() {
   // every child on the button, and the bar meter startMicLevelMeter() builds
   // is one — appending it earlier just got it discarded a line later.
   stopMeetingLevelMeter = startMicLevelMeter(meetingStream, button);
+  stopMeetingWave = startMeetingWave(meetingStream);
+  $("meeting-pause").classList.remove("hidden");
   $("meeting-status").textContent = "";
   $("meeting-status").classList.remove("error");
+}
+
+// Pause and resume, which a MediaRecorder supports directly — the chunks
+// simply stop arriving and the recording continues where it left off. Asked
+// for as part of "expanded as a proper feature with more capabilities", and
+// it is the one a real meeting needs: someone leaves the room, a side
+// conversation starts, and the alternative today is stopping and starting a
+// second recording that transcribes as a separate transcript.
+//
+// The elapsed timer is corrected on resume rather than left running: it is
+// showing how long the *recording* is, and a paused stretch is not in it.
+let meetingPausedAt = 0;
+
+function toggleMeetingPause() {
+  if (!meetingRecorder) return;
+  const button = $("meeting-pause");
+  if (meetingRecorder.state === "recording") {
+    meetingRecorder.pause();
+    meetingPausedAt = Date.now();
+    stopMeetingTimer();
+    setLabel(button, "ph:play Resume");
+    $("meeting-status").textContent = "Paused.";
+  } else if (meetingRecorder.state === "paused") {
+    meetingRecorder.resume();
+    // Push the start forward by however long the pause lasted, so the timer
+    // keeps reading as the length of the audio rather than of the sitting.
+    meetingStartedAt += Date.now() - meetingPausedAt;
+    meetingTimerHandle = setInterval(() => {
+      $("meeting-timer").textContent = meetingElapsedText();
+    }, 1000);
+    setLabel(button, "ph:pause Pause");
+    $("meeting-status").textContent = "";
+  }
+}
+
+// An hour of transcript is not a note. In the Notes list it is one enormous
+// card nobody can scroll past; as a document it is something you can open,
+// edit, extract notes from and export — which is what the rest of this app
+// already does well with long text.
+async function saveMeetingDocument() {
+  const content = $("meeting-transcript").value.trim();
+  if (!content) return;
+  const status = $("meeting-status");
+  const button = $("meeting-save-doc");
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Saving…";
+  try {
+    const title =
+      ($("meeting-title")?.value || "").trim() ||
+      `Recording — ${new Date().toLocaleString()}`;
+    const document_ = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title, content }),
+    });
+    closeMeetingRecorder();
+    switchTab("documents");
+    openDocument(document_.id);
+    toast(`Saved “${title}” to your documents.`);
+  } catch (error) {
+    status.textContent = error.message || "Couldn't save that.";
+    status.classList.add("error");
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function saveMeetingNote() {
@@ -15353,9 +16969,16 @@ async function saveMeetingNote() {
     // meeting about a specific project lands there rather than in a generic
     // "Meetings" bucket regardless of what it was actually about. The tag is
     // what makes every meeting findable as a class either way.
+    // The title, when one was typed, becomes the note's first line — which is
+    // what every list in this app shows as its name. Without it a saved
+    // recording is titled by whatever word the transcript happens to open on.
+    const title = ($("meeting-title")?.value || "").trim();
     const saved = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags: ["meeting"] }),
+      body: JSON.stringify({
+        content: title ? `${title}\n\n${content}` : content,
+        tags: ["meeting"],
+      }),
     });
     toast(filedByText(saved));
     await loadEntries();
@@ -15688,10 +17311,35 @@ function playReminderChime() {
   }
 }
 
+//: How long a system notification stays up before this app closes it itself.
+//: Reported as notifications that "never auto close and stay open until the
+//: user closes them" — which is exactly what a `Notification` does when
+//: nobody calls `close()` on it: the banner's own fade is the *shell's*
+//: behaviour, and the notification object outlives it, sitting in the OS
+//: notification centre (and, in the desktop WebView, sometimes on screen)
+//: until dismissed by hand. The web platform has no `timeout` option, so the
+//: only way to auto-close one is to close it.
+//:
+//: Longer than a toast's 5.5s because a system notification is for the case
+//: where the app is not the window you are looking at.
+const NOTIFICATION_AUTOCLOSE_MS = 12000;
+
 function notify(title, body) {
   if ("Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification(title, { body, icon: "/favicon.svg", tag: "memorymap" });
+      const shown = new Notification(title, {
+        body,
+        icon: "/favicon.svg",
+        tag: "memorymap",
+      });
+      setTimeout(() => {
+        try {
+          shown.close();
+        } catch {
+          // A notification the OS already disposed of. Closing twice is not
+          // an error worth a line in the console.
+        }
+      }, NOTIFICATION_AUTOCLOSE_MS);
       return true;
     } catch {
       // Some embedded shells expose the constructor and then throw. Falling
@@ -16598,6 +18246,7 @@ function renderSettings() {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
     renderVisionModelPicker(status);
+  renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
     renderInstalledModels(status);
     renderSuggested(status);
@@ -16630,11 +18279,85 @@ async function refreshBackgroundTasks() {
   }
   const body = await apiJson("/tasks", { silent: true }).catch(() => null);
   backgroundTasks = (body && body.tasks) || [];
+  noticeTaskTransitions(backgroundTasks, (body && body.history) || []);
   renderStatusBar();
   // One fetch, not two: the panel renders from this payload rather than asking
   // again a few milliseconds later.
   if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
   else renderTaskHistory((body && body.history) || []);
+}
+
+// --- a background job starting and finishing, said out loud --------------------
+//
+// Half of this existed and half did not, which is why it read as broken rather
+// than as missing: `renderTaskHistory` records every *finish* into the
+// notifications centre, but a **start** was recorded nowhere, and neither end
+// was ever said out loud. So kicking off a re-index or an extras install and
+// then going back to writing gave you no sign anything was happening and no
+// sign when it stopped — the only trace was a screen inside Settings and a
+// centre you had to open.
+//
+// What this adds is the transitions: a job appearing in `GET /tasks` and a job
+// disappearing from it.
+//
+// The rule that keeps it from becoming noise: **a toast only for a job whose
+// start this session actually saw.** These jobs run for minutes and the app
+// may well have been opened halfway through one; announcing the end of
+// something you were never told had begun is a notification about nothing.
+// The centre still records both ends either way, because that is a record
+// rather than an interruption.
+
+//: The jobs seen running on the previous poll, keyed the way `taskKey` keys
+//: them. A Map rather than a Set so a finish can name the job that ended
+//: without needing the poll it vanished from to still carry it.
+const seenRunningTasks = new Map();
+
+function taskKey(task) {
+  // `name` distinguishes two downloads running at once; `kind` alone would
+  // merge them into one job that appears to start twice and finish once.
+  return `${task.kind || "job"}:${task.name || ""}`;
+}
+
+function noticeTaskTransitions(running, history) {
+  const now = new Map(running.map((task) => [taskKey(task), task]));
+
+  for (const [key, task] of now) {
+    if (seenRunningTasks.has(key)) continue;
+    seenRunningTasks.set(key, task);
+    recordNotification({
+      kind: "task",
+      title: `Started: ${task.label}`,
+      detail: task.detail || "",
+      // Keyed per *start*, not per job. It used to be `task-start:${key}`,
+      // which deduped against localStorage — so the second time the
+      // autonomous pass (or any recurring job) ran, its start recorded
+      // nothing at all, forever, because an entry with that exact id was
+      // already stored from the first run days earlier. The poll-repeat this
+      // was defending against is already handled by `seenRunningTasks` two
+      // lines up, which `continue`s before reaching here.
+      key: `task-start:${key}:${Date.now()}`,
+    });
+  }
+
+  for (const [key, task] of [...seenRunningTasks]) {
+    if (now.has(key)) continue;
+    seenRunningTasks.delete(key);
+    // The outcome comes from the server's own history, on this same payload —
+    // "it stopped appearing in the running list" is true of a job that died as
+    // much as one that succeeded, and a cheerful toast over a failure is how
+    // people learn to ignore toasts. Newest first, so `find` takes the ending
+    // that just happened rather than a previous run of the same job.
+    const ended = history.find((item) => (item.kind || "job") === (task.kind || "job"));
+    if (ended && ended.outcome === "failed") {
+      toast(`Failed: ${ended.label || task.label}`, true);
+    } else if (ended && ended.outcome === "cancelled") {
+      // Not an error and not an achievement — the user stopped it and already
+      // knows. Recorded in the centre by renderTaskHistory; no toast.
+      continue;
+    } else {
+      toast(`Finished: ${(ended && ended.label) || task.label}`);
+    }
+  }
 }
 
 // --- optional extras (Settings → Optional extras) -----------------------------
@@ -16980,11 +18703,25 @@ async function renderTasks(payload) {
       actions.className = "entry-actions";
       actions.appendChild(
         smallButton("Quit", "Stop this job", async () => {
-          const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
-          await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
-            toast(e.message, true)
-          );
-          toast("Asked the job to stop.");
+          // `/tasks/cancel`, not `/models/jobs/cancel`: the old endpoint knew
+          // about a re-index and a model pull and nothing else, so this
+          // button only ever appeared on two of the eight kinds this panel
+          // lists. The server now answers for all of them and says what it
+          // actually did — a pip install is terminated, an autonomous pass
+          // stops at its next safe point and stays off for a while, an
+          // embedding download stops after the file it is on. Reporting the
+          // server's own sentence rather than a fixed "asked it to stop"
+          // is the difference between the three.
+          try {
+            const result = await apiJson("/tasks/cancel", {
+              method: "POST",
+              body: JSON.stringify({ kind: job.kind, name: job.name || "" }),
+            });
+            toast(result.detail || (result.stopped ? "Stopping." : "It had already finished."));
+          } catch (e) {
+            toast(e.message, true);
+          }
+          renderTasks();
           refreshModelStatus();
         })
       );
@@ -17219,6 +18956,30 @@ function renderVisionModelPicker(status) {
   }
 }
 
+// Separate from the vision picker above because the jobs are separate — see
+// ModelManager.ocr_model. "Automatic" here means something more specific than
+// the vision picker's "Auto-detect": it prefers an installed document reader
+// over a general vision model, because both report the same `vision`
+// capability and only one of them is built to transcribe a page.
+function renderOcrModelPicker(status) {
+  const names = status.installed_models.map((m) => m.name);
+  fillModelSelect(
+    $("ocr-model-select"),
+    names,
+    { value: "", label: "Automatic" },
+    status.ocr_model || ""
+  );
+  const note = $("ocr-model-note");
+  if (status.ocr_model) {
+    note.textContent = `Active: ${status.ocr_model}`;
+  } else if (status.ocr_model_resolved) {
+    note.textContent = `Automatic — currently: ${status.ocr_model_resolved}`;
+  } else {
+    note.textContent =
+      "Automatic — nothing installed can read text off a page yet.";
+  }
+}
+
 function renderAutonomousModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
   fillModelSelect(
@@ -17345,6 +19106,21 @@ function renderInstalledModels(status) {
   }
 }
 
+//: Human-readable section headings for SUGGESTED_MODELS' own dict keys
+//: (model_manager.py) — asked for directly: the list read as one long,
+//: undifferentiated column with the type buried inside each row's own
+//: "kind · size · purpose" text, so nothing set "the small, fast ones"
+//: apart from "the one that reads images" at a glance. Order matches the
+//: backend dict's own insertion order (Object.entries preserves it),
+//: which is already curated small-to-large within each group — grouping
+//: here doesn't re-sort that, only labels the breaks between groups.
+const SUGGESTED_KIND_LABELS = {
+  text: "Text",
+  moe: "Mixture-of-experts (MoE) — big download, small working set",
+  embedding: "Embeddings — for semantic search",
+  vision: "Vision — can see images",
+};
+
 function renderSuggested(status) {
   const list = $("suggested-list");
   if (!suggestedCatalog) return;
@@ -17354,6 +19130,11 @@ function renderSuggested(status) {
   );
 
   for (const [kind, models] of Object.entries(suggestedCatalog)) {
+    if (!models.length) continue;
+    const heading = document.createElement("li");
+    heading.className = "suggested-group-label";
+    heading.textContent = SUGGESTED_KIND_LABELS[kind] || kind;
+    list.appendChild(heading);
     for (const model of models) {
       const li = document.createElement("li");
       const name = document.createElement("span");
@@ -17368,7 +19149,9 @@ function renderSuggested(status) {
       // guess as fact is the part that was wrong, not the guess itself.
       const approximate = model.size_source !== "measured";
       const size = approximate ? `~${String(model.size).replace(/^~/, "")}` : model.size;
-      info.textContent = `${kind} · ${size} · ${model.purpose}`;
+      // No longer repeats `kind` here — the group heading above says it once
+      // for the whole section instead of on every single row under it.
+      info.textContent = `${size} · ${model.purpose}`;
       info.title = approximate
         ? "Approximate download size — the exact figure shows once it's installed."
         : "Measured on your machine.";
@@ -17517,6 +19300,25 @@ async function applyUtilityModel() {
     refreshModelStatus();
   } catch (error) {
     toast(error.message, true);
+  }
+}
+
+async function applyOcrModel() {
+  const select = $("ocr-model-select");
+  try {
+    await api("/models/ocr-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Text will be read with ${select.value}.`
+        : "Reading text is automatic again."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't set that model.", true);
   }
 }
 
@@ -18425,6 +20227,45 @@ $("pref-show-console").addEventListener("change", async (e) => {
   }
 });
 
+// ROADMAP item C: "several extras only take effect on restart and the app
+// says so without offering one." This is that offer — a plain restart, not
+// tied to any preference changing, for Settings → About.
+$("about-restart")?.addEventListener("click", async () => {
+  if (
+    !(await confirmDialog(
+      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
+    ))
+  ) {
+    return;
+  }
+  try {
+    const result = await apiJson("/system/restart", { method: "POST" });
+    if (result.restarting) {
+      toast("Restarting…");
+    } else {
+      // The backend's own platform check said no — this build genuinely
+      // can't relaunch itself (see /system/restart's own docstring for
+      // which platforms that covers).
+      toast("Restart isn't available in this build — close and reopen MemoryMap by hand.", true);
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't restart.", true);
+  }
+});
+
+// Takes effect on the next close, not on a restart — the handler reads the
+// preference each time the window is closed rather than at launch, precisely
+// so this switch is not a "restart to apply" one.
+$("pref-close-to-tray")?.addEventListener("change", (e) => {
+  const checked = e.target.checked;
+  setPreference("close_to_tray", checked);
+  toast(
+    checked
+      ? "Closing the window will keep MemoryMap in the tray."
+      : "Closing the window will quit MemoryMap."
+  );
+});
+
 $("open-exports-folder").addEventListener("click", async () => {
   try {
     const result = await apiJson("/files/open-exports-folder", { method: "POST" });
@@ -18693,7 +20534,7 @@ $("attach-note").addEventListener("click", () => {
 // --- image attachment wiring (vision-capable models) ---
 $("attach-image").addEventListener("click", () => $("chat-image-input").click());
 $("chat-image-input").addEventListener("change", async (e) => {
-  if (e.target.files.length) await attachImageFiles(e.target.files);
+  if (e.target.files.length) await attachChatFiles(e.target.files);
   e.target.value = ""; // so choosing the same file twice still fires "change"
 });
 let notePickerSearchDebounceTimeout;
@@ -18790,6 +20631,19 @@ $("chat-uncompress").addEventListener("click", () => {
   chatSummary = null;
   renderCompressionState();
   toast("Back to sending the real messages.");
+});
+// Debounced, because the matcher walks every installed skill and this fires on
+// every keystroke. 250ms is under the pause between words, so the suggestion is
+// there by the time you stop typing to read it, and never mid-word.
+let chatNudgeTimer = null;
+$("chat-input").addEventListener("input", () => {
+  clearTimeout(chatNudgeTimer);
+  chatNudgeTimer = setTimeout(() => {
+    // Emptying the box by hand is the same event as sending, as far as the
+    // suggestions are concerned: the draft they were about is gone.
+    if (!$("chat-input").value.trim()) resetChatNudge();
+    else renderChatNudge();
+  }, 250);
 });
 $("chat-input").addEventListener("keydown", (e) => {
   // Enter sends, Shift+Enter (or Ctrl/Cmd+Enter) writes a newline. The box is
@@ -18923,6 +20777,7 @@ document.addEventListener("keydown", (event) => {
 });
 $("graph-focus-clear").addEventListener("click", () => {
   graphFocusModeId = null;
+  recordTabVisit("graph", null);
   $("graph-focus-clear").classList.add("hidden");
   renderGraph();
   toast("Exited Focus Mode.");
@@ -18943,6 +20798,12 @@ $("graph-hide-orphans").addEventListener("change", renderGraph);
 // Labels toggle just flips a class — no need to rebuild the whole map.
 $("graph-labels").addEventListener("change", (e) => {
   $("graph-box").classList.toggle("graph-labels-hidden", !e.target.checked);
+  // The layer's positions are skipped while it is hidden (see graph.js's tick
+  // handler — it is one <g> per note, transformed ~300 times a settle, and
+  // moving something invisible is work nobody can see). A settled simulation
+  // has no further ticks, so turning them back on has to reposition them here
+  // or the names sit detached from their notes until something redraws.
+  graphCatchUpLabels();
 });
 let graphSearchDebounceTimeout;
 $("graph-search").addEventListener("input", () => {
@@ -19809,6 +21670,7 @@ $("llm-provider-select").addEventListener("change", () => {
 });
 $("utility-model-apply").addEventListener("click", applyUtilityModel);
 $("vision-model-apply").addEventListener("click", applyVisionModel);
+$("ocr-model-apply")?.addEventListener("click", applyOcrModel);
 $("embedding-apply").addEventListener("click", applyEmbeddingBackend);
 $("utility-model-select").addEventListener(
   "change",
@@ -20339,10 +22201,16 @@ function maybeShowOnboarding() {
 $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
 $("onboarding-skip").addEventListener("click", closeOnboarding);
-$("show-guide-btn").addEventListener("click", () => {
-  closeSettingsModal();
-  openOnboarding();
-});
+// Two buttons, one behaviour. Settings → Help has "Replay welcome tour" and
+// Settings → About has "Take tour again"; only the first was ever wired, so
+// the About one was a button that did nothing at all. Found by listing every
+// id in index.html that no JS file and no stylesheet mentions.
+for (const id of ["show-guide-btn", "about-take-tour"]) {
+  $(id)?.addEventListener("click", () => {
+    closeSettingsModal();
+    openOnboarding();
+  });
+}
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
 // --- rebindable keyboard shortcuts -----------------------------------------------
@@ -20361,6 +22229,10 @@ const DEFAULT_SHORTCUTS = {
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
+  // A recording is started the moment a meeting starts, and anything that
+  // makes you navigate first is what makes it not get started at all — the
+  // reason this is a shortcut as well as a palette entry and a tray item.
+  recordMeeting: { keys: "Ctrl+Shift+R", label: "Record a meeting or lecture" },
   toggleTheme: { keys: "Ctrl+Shift+L", label: "Switch light / dark" },
   undo: { keys: "Ctrl+Z", label: "Undo the last change" },
   redo: { keys: "Ctrl+Shift+Z", label: "Redo" },
@@ -20369,6 +22241,21 @@ const DEFAULT_SHORTCUTS = {
   // selection too (`selectionchange` fires for those), but a menu you can see
   // and cannot open is not an improvement.
   selectionActions: { keys: "Ctrl+Shift+E", label: "Actions for the selected text" },
+  // --- added when the section was expanded (reported: "expand the keyboard
+  // shortcuts section in settings") ---------------------------------------
+  //
+  // Every one of these was already a thing the app does and a thing people do
+  // repeatedly; none of them had a key. The bar for adding one is that it
+  // saves a *navigation*, not a click — a shortcut that only replaces a button
+  // already on the screen you are looking at earns nothing and spends a combo.
+  save: { keys: "Ctrl+S", label: "Save the note or document you're editing" },
+  newChat: { keys: "Ctrl+Shift+O", label: "Start a new chat" },
+  stopAI: { keys: "Ctrl+.", label: "Stop the answer being written" },
+  agentMode: { keys: "Ctrl+Shift+G", label: "Turn agent mode on or off" },
+  quickSketch: { keys: "Ctrl+Shift+K", label: "Open the quick sketch pad" },
+  whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
+  settings: { keys: "Ctrl+,", label: "Open settings" },
+  attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
 };
 
 const SHORTCUT_STORE = "keyboardShortcuts";
@@ -20468,10 +22355,41 @@ function runShortcut(id) {
       switchTab("documents");
       createDocument();
     },
+    recordMeeting: openMeetingRecorder,
     toggleTheme,
     undo: performUndo,
     redo: performRedo,
     selectionActions: openSelectionMenuFromKeyboard,
+    // Ctrl+S means "save what I am editing", and which editor that is depends
+    // on the tab. Documents already autosave, so there it is an explicit
+    // checkpoint rather than the only way the text survives.
+    save: () => {
+      if (localStorage.getItem("activeTab") === "documents") saveDocument();
+      else saveEntry();
+    },
+    newChat: () => {
+      switchTab("chat");
+      newChatConversation();
+      $("chat-input")?.focus();
+    },
+    // The one shortcut whose whole value is being reachable in a hurry: a
+    // local model three minutes into the wrong answer is the moment nobody
+    // wants to go looking for a button.
+    stopAI: () => chatController?.abort(),
+    agentMode: () => {
+      switchTab("chat");
+      const toggle = $("tools-toggle");
+      if (!toggle) return;
+      toggle.checked = !toggle.checked;
+      toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    quickSketch: openSketch,
+    whiteboard: () => switchTab("whiteboard"),
+    settings: () => openSettingsModal(),
+    attachNote: () => {
+      switchTab("chat");
+      openNotePicker();
+    },
   };
   actions[id]?.();
 }
@@ -20986,6 +22904,11 @@ $("meeting-overlay").addEventListener("click", (e) => {
 });
 $("meeting-record").addEventListener("click", toggleMeetingRecording);
 $("meeting-save").addEventListener("click", saveMeetingNote);
+$("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
+$("meeting-pause")?.addEventListener("click", toggleMeetingPause);
+$("meeting-copy")?.addEventListener("click", (event) =>
+  copyToClipboard($("meeting-transcript").value, event.currentTarget)
+);
 $("meeting-discard").addEventListener("click", resetMeetingUI);
 
 // PWA: the shell caches itself so the app opens instantly (Wave F).
@@ -21165,6 +23088,95 @@ if ($("entry-attach-file")) {
   });
 }
 
+if ($("entry-attach-existing")) {
+  $("entry-attach-existing").addEventListener("click", async () => {
+    const upload = await pickMediaDialog();
+    if (!upload) return;
+    // Same inline-markdown insertion shape handleFileUpload's own success
+    // path uses, minus the upload — this is already sitting on disk.
+    const textarea = $("entry-content");
+    const cursorPosition = textarea.selectionStart;
+    const original = textarea.value;
+    const markdown = `![${upload.original_name}](${upload.url})\n`;
+    textarea.value =
+      original.substring(0, cursorPosition) + markdown + original.substring(textarea.selectionEnd);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+// --- what shows in the status bar --------------------------------------------
+//
+// Asked for: "allow more stuff to be added and removed to the bottom status
+// bar?? maybe??" The bar is a permanent strip across the bottom of every
+// screen, so what belongs on it is taste rather than correctness.
+//
+// **Stored as what is hidden, not what is shown**, and that choice is the
+// whole of the forward-compatibility story: a slot added in a later version
+// appears by default for everyone, instead of being invisible to every user
+// who ever opened this screen and saved a list that could not have named it.
+//
+// Only the slots that are *always* there are listed. The offline badge, the
+// power-saver badge and the running-job slot appear when there is something
+// to say and hide themselves again, and hiding a warning you asked for is a
+// different kind of setting from tidying a permanent one away.
+const STATUS_SLOTS = [
+  { key: "ai", label: "AI status", hint: "The dot and emblem saying what the local model is doing" },
+  { key: "notes", label: "Note count", hint: "How many notes you have, as a link to them" },
+  { key: "reminders", label: "Reminders", hint: "Open and due reminders" },
+  { key: "nav", label: "Back and forward", hint: "Move between the pages you have visited" },
+  { key: "undo", label: "Undo and redo", hint: "The same undo the rest of the app uses" },
+  { key: "command", label: "Command palette hint", hint: "The Ctrl-K reminder" },
+];
+
+function hiddenStatusSlots() {
+  // `prefsCache`, not `window.prefsCache`. It is declared with `let` at the
+  // top level of a classic script, which puts it in the *global lexical*
+  // scope — shared with every other script here, so a bare reference works —
+  // and explicitly NOT on `window`. Two existing call sites in this file get
+  // that wrong and silently read `undefined` forever; this one measured as a
+  // toggle that ticked and did nothing.
+  const stored = typeof prefsCache === "object" && prefsCache ? prefsCache.status_bar_hidden : null;
+  return new Set(Array.isArray(stored) ? stored : []);
+}
+
+function applyStatusBarSlots() {
+  const hidden = hiddenStatusSlots();
+  for (const element of document.querySelectorAll("[data-status-slot]")) {
+    // `.hidden` rather than a style: everything else in this app that shows
+    // and hides uses the class, and one of these slots (`status-task`) is
+    // already driven by it from another code path.
+    element.classList.toggle("status-slot-off", hidden.has(element.dataset.statusSlot));
+  }
+}
+
+function renderStatusBarSettings() {
+  const box = $("status-bar-items");
+  if (!box) return;
+  const hidden = hiddenStatusSlots();
+  box.replaceChildren();
+  for (const slot of STATUS_SLOTS) {
+    const label = document.createElement("label");
+    label.className = "checkbox-label status-bar-item";
+    label.title = slot.hint;
+    const box_ = document.createElement("input");
+    box_.type = "checkbox";
+    box_.checked = !hidden.has(slot.key);
+    box_.addEventListener("change", () => {
+      const next = hiddenStatusSlots();
+      if (box_.checked) next.delete(slot.key);
+      else next.add(slot.key);
+      const list = [...next];
+      if (prefsCache) prefsCache.status_bar_hidden = list;
+      applyStatusBarSlots();
+      setPreference("status_bar_hidden", list);
+    });
+    const text = document.createElement("span");
+    text.textContent = slot.label;
+    label.append(box_, text);
+    box.appendChild(label);
+  }
+}
+
 // --- Twitch-style Agent Monitor ---
 const agentMonitor = $("agent-monitor");
 const agentMonitorLogs = $("agent-monitor-logs");
@@ -21178,30 +23190,84 @@ const agentMonitorClose = $("agent-monitor-close");
 function setAgentMonitorVisible(visible) {
   agentMonitor.classList.toggle("hidden", !visible);
   document.body.classList.toggle("has-agent-monitor", visible);
+  if (!visible) clearTimeout(agentMonitorIdleTimer);
+}
+
+//: How long after the last line the monitor puts itself away. Reported
+//: directly: "autonomous background task notifications never auto close and
+//: stay open until the user closes them" — and they did not, because nothing
+//: here ever called `setAgentMonitorVisible(false)` except the X button. A
+//: background pass would open this panel over the corner of the app and leave
+//: it there for the rest of the session.
+//:
+//: Twelve seconds is picked against what the panel is *for*: it is a live
+//: tail, so it is interesting while lines are arriving and is a leftover the
+//: moment they stop. Every new line restarts the clock, so a pass that runs
+//: for four minutes keeps it open for four minutes.
+const AGENT_MONITOR_IDLE_MS = 12000;
+
+//: Long enough that a *new* pass reopens the panel, short enough that a
+//: dismissal during one pass is not overridden two seconds later by the next
+//: line of the same pass. Closing it used to mean nothing at all: the very
+//: next log line re-opened it, so the X button read as broken.
+const AGENT_MONITOR_REOPEN_AFTER_MS = 90000;
+
+let agentMonitorIdleTimer = null;
+let agentMonitorDismissedAt = 0;
+
+function nudgeAgentMonitorIdle() {
+  clearTimeout(agentMonitorIdleTimer);
+  agentMonitorIdleTimer = setTimeout(() => {
+    // Never yank it away from under a pointer or a keyboard focus: someone
+    // reading a line or reaching for the X is the one case where the panel
+    // is doing its job.
+    if (agentMonitor.matches(":hover") || agentMonitor.contains(document.activeElement)) {
+      nudgeAgentMonitorIdle();
+      return;
+    }
+    setAgentMonitorVisible(false);
+  }, AGENT_MONITOR_IDLE_MS);
 }
 
 if (agentMonitorClose) {
-  agentMonitorClose.addEventListener("click", () => setAgentMonitorVisible(false));
+  agentMonitorClose.addEventListener("click", () => {
+    agentMonitorDismissedAt = Date.now();
+    setAgentMonitorVisible(false);
+  });
 }
 
 function appendAgentLog(record) {
-  // Only show autonomous/background agent logs
-  const isAgent = record.logger && (record.logger.includes("memorymap.ai") || record.message.includes("Agent") || record.logger.includes("autonomous"));
-  if (!isAgent && record.level !== "ERROR") return;
-  
-  if (agentMonitor.classList.contains("hidden")) setAgentMonitorVisible(true);
+  // **Agent lines only.** This used to read `if (!isAgent && record.level !==
+  // "ERROR") return;`, which let *every* ERROR in the app through whatever
+  // logger produced it — so a failed embedding backend, a bad request, a
+  // stray traceback all popped open a panel labelled "Agent Activity" and
+  // left it there. Errors already have somewhere to go (a toast, and
+  // Settings → Logs); this panel is a tail of one specific thing.
+  const logger = record.logger || "";
+  const isAgent =
+    logger.startsWith("memorymap.ai") ||
+    logger.includes("autonomous") ||
+    logger.includes("agent");
+  if (!isAgent) return;
+
+  if (agentMonitor.classList.contains("hidden")) {
+    // Respect a dismissal for the rest of the burst — see the constant.
+    if (Date.now() - agentMonitorDismissedAt < AGENT_MONITOR_REOPEN_AFTER_MS) return;
+    setAgentMonitorVisible(true);
+  }
 
   const div = document.createElement("div");
   div.className = "monitor-log-item " + record.level.toLowerCase();
   div.textContent = record.message;
-  
+
   agentMonitorLogs.appendChild(div);
-  
+
   if (agentMonitorLogs.children.length > 50) {
     agentMonitorLogs.removeChild(agentMonitorLogs.firstChild);
   }
-  
+
   agentMonitorLogs.scrollTop = agentMonitorLogs.scrollHeight;
+  nudgeAgentMonitorIdle();
 }
 
 let agentLogStreamStarted = false;

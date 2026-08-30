@@ -15,6 +15,7 @@ import base64
 import json
 import logging
 import mimetypes
+import re
 from collections.abc import Iterator
 from itertools import chain
 
@@ -24,7 +25,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import agent, captioning, intent, librarian, presets, skill_runner, skills, tools
+from memorymap.ai import (
+    agent,
+    captioning,
+    followups,
+    intent,
+    librarian,
+    memory,
+    presets,
+    skill_runner,
+    skills,
+    tools,
+)
 from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
@@ -36,6 +48,10 @@ from memorymap.entry import manager
 from memorymap.entry.manager import UNCATEGORISED
 from memorymap.search import search_manager
 from sqlalchemy import func
+
+#: `/media/<filename>` as it appears inside note and document content —
+#: the only record a note keeps of a picture it holds.
+_MEDIA_REF = re.compile(r"/media/([A-Za-z0-9._-]{1,200})")
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -91,6 +107,36 @@ def suggestions(session: Session = Depends(get_session)) -> list[str]:
     # De-dupe while preserving order, cap at 5.
     seen: set[str] = set()
     return [p for p in picks if not (p in seen or seen.add(p))][:5]
+
+
+class FollowupBody(BaseModel):
+    """One answered turn, sent back to ask what to offer next.
+
+    Bounded here rather than only inside `followups` because this arrives over
+    HTTP: the client is echoing back a turn the server just produced, but
+    nothing makes that true of a hand-made request, and both fields end up in a
+    model prompt.
+    """
+
+    question: str = Field(default="", max_length=2000)
+    answer: str = Field(default="", max_length=20000)
+
+
+@router.post("/followups", response_model=list[str])
+def chat_followups(body: FollowupBody) -> list[str]:
+    """Two or three questions to offer under an answer, or [].
+
+    Its own request rather than part of the turn on purpose: this is a second
+    model call, and the answer must not wait on it. The UI fires this after the
+    turn is on screen and simply renders nothing if it comes back empty — which
+    it does on every failure path, including the AI not running at all.
+    """
+    return followups.suggest_followups(
+        body.question,
+        body.answer,
+        deps.get_model_manager(),
+        deps.get_ollama(),
+    )
 
 
 class ChatTurn(BaseModel):
@@ -217,9 +263,21 @@ def _resolve_mode(requested: str | None) -> str:
     )
 
 
-def _resolve_persona(name: str | None) -> str | None:
-    """Persona name → its system prompt (shared with greetings and titles)."""
-    return librarian.resolve_persona_prompt(name, deps.get_config())
+def _resolve_persona(name: str | None, session: Session | None = None) -> str | None:
+    """Persona name → its system prompt (shared with greetings and titles).
+
+    With a session, the user's standing preferences ride along — see
+    `ai/memory.py`. **They used to reach only the agent path**, so a rule
+    typed into Settings → "What it remembers" was obeyed in Request mode and
+    silently ignored in Ask, which is where most questions are asked. Passed
+    optionally because the two callers that build a *greeting* or a chat
+    *title* genuinely do not want them: neither is answering the user, and a
+    title prefixed with someone's writing-style rules is nonsense.
+    """
+    prompt = librarian.resolve_persona_prompt(name, deps.get_config())
+    if session is None:
+        return prompt
+    return memory.persona_with_memory(session, prompt)
 
 
 # Base64 inflates size by ~33%; a generous per-image cap keeps one photo
@@ -430,6 +488,68 @@ def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
     return found
 
 
+#: At most this many pictures from one note are described to the model, and at
+#: most this much of each reading. A note can hold a dozen scans; the readings
+#: are a *hint* about what is in the note, not a second copy of the notebook,
+#: and every character here is resent on every round of the turn.
+MEDIA_READINGS_PER_NOTE = 4
+MEDIA_READING_CHARS = 240
+
+
+def _media_readings(session: Session, content: str) -> str:
+    """What the app already knows about the pictures inside a note.
+
+    Asked directly: *"if there is an image/sketch/file in that note, can the ai
+    read the captions or ocr in those attachments if they already exist??"* It
+    could not. A note's content carries `/media/<filename>` references and
+    nothing else — so a note whose entire point was a photographed whiteboard
+    reached the model as a sentence and a link, and the caption and OCR text
+    the app had already generated for that exact image sat unread in the
+    database two tables away.
+
+    "If they already exist" is the operative half, and it is why this is a
+    lookup and not a pipeline: nothing here generates a caption or runs vision
+    OCR. Captioning is a background job that may not have run yet, may be off,
+    or may have no model to run against, and a chat turn is the worst possible
+    place to start one — it would block the answer on a second model load. A
+    picture with no reading yet simply contributes nothing.
+    """
+    filenames = _MEDIA_REF.findall(content or "")
+    if not filenames:
+        return ""
+    # De-duplicated, in the order they appear in the note — the same order the
+    # reader sees them in, so "the second diagram" means the same thing to both.
+    ordered = list(dict.fromkeys(filenames))[:MEDIA_READINGS_PER_NOTE]
+    rows = {
+        upload.filename: upload
+        for upload in session.query(MediaUpload)
+        .filter(MediaUpload.filename.in_(ordered))
+        .all()
+    }
+    lines = []
+    for filename in ordered:
+        upload = rows.get(filename)
+        if upload is None:
+            continue
+        caption = (upload.caption or "").strip()
+        text = (upload.vision_ocr_text or upload.ocr_text or "").strip()
+        if not caption and not text:
+            continue
+        parts = []
+        if caption:
+            parts.append(f"shows {caption[:MEDIA_READING_CHARS]}")
+        if text:
+            parts.append(f'text in it: "{text[:MEDIA_READING_CHARS]}"')
+        name = (upload.original_name or filename).strip()
+        lines.append(f"- {name}: {'; '.join(parts)}")
+    if not lines:
+        return ""
+    # Bracketed and labelled so the model can tell the app's reading of a
+    # picture from the user's own words. It is evidence about the note, not
+    # part of it.
+    return "\n\n[Pictures in this note, as this app read them:\n" + "\n".join(lines) + "]"
+
+
 def _prepare(
     session: Session,
     question: str,
@@ -494,11 +614,19 @@ def _prepare(
         mode = "attached" if mode == "none" else f"attached + {mode}"
 
     def as_note(entry) -> dict:
+        content = entry.content
+        if entry.id in attached_ids:
+            # Only for notes the user picked by hand. A retrieved note is a
+            # candidate; an attached one is the subject of the question, and
+            # that is worth the extra characters — doing this for all ten
+            # search hits would spend the notes budget on pictures nobody
+            # asked about.
+            content = f"{content}{_media_readings(session, content)}"
         return {
             # id lets agent-mode tool calls target these notes;
             # the plain librarian prompt simply ignores it.
             "id": entry.id,
-            "content": entry.content,
+            "content": content,
             "category": manager.category_name_for(session, entry),
             # Marked so the prompt can say which notes the user chose.
             "attached": entry.id in attached_ids,
@@ -583,7 +711,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         "style": prepared["style"],
         "profile": prepared["profile"],
         "history": [turn.model_dump() for turn in body.history],
-        "persona_prompt": _resolve_persona(body.persona),
+        "persona_prompt": _resolve_persona(body.persona, session),
     }
     if conversational and body.notes_only:
         # Same rule as the streaming route: this box interrogates the
@@ -669,7 +797,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     ollama = deps.get_ollama()
     model_manager = deps.get_model_manager()
     history = [turn.model_dump() for turn in body.history]
-    persona_prompt = _resolve_persona(body.persona)
+    persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)
     images_raw = _resolve_chat_images(session, body.image_media_ids)
     chat_sees_images = bool(images_raw) and _chat_model_sees_images(model_manager, ollama)
@@ -761,6 +889,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                 persona_prompt=persona_prompt,
                 mode=mode,
                 images=images,
+                # The streaming path is the one people actually use, and it was
+                # the one with no cap on how much of the notebook it sent. Same
+                # budget the blocking `librarian.answer` now builds — measured
+                # against the model this turn will really stream from, which is
+                # the same `chat_model()` passed to `chat_stream` below.
+                budget=librarian.plan_budget(
+                    model_manager.chat_model(),
+                    ollama,
+                    prepared["style"],
+                    prepared["profile"],
+                    persona_prompt,
+                    mode,
+                ),
             )
         streamed_any = False
         try:
@@ -878,7 +1019,30 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     image_context=image_context,
                     **shared,
                 )
-            first = next(agent_events, None)
+            # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
+            # expect to go wrong (OllamaError, ToolsUnsupportedError) is
+            # already caught inside them and turned into a real event — this
+            # is the outer boundary, for whatever isn't. Reported directly: a
+            # skill run that "failed before even completing the first step
+            # ... no answer and no tool call" — an exception here had nothing
+            # catching it, so it killed the generator and the stream just
+            # ended with nothing rendered, no error, the plan card (if any)
+            # never even reaching the page. Silence was the bug, not the
+            # underlying failure, which is why this doesn't try to guess
+            # which failure it was — it says what actually happened and stays
+            # on stage instead of vanishing.
+            try:
+                first = next(agent_events, None)
+            except Exception as exc:  # noqa: BLE001 — the outer boundary
+                logging.getLogger("memorymap.chat").exception(
+                    "%s: unhandled error before the first event: %s",
+                    "skill run" if skill else "agent turn",
+                    exc,
+                )
+                first = {
+                    "type": "answer",
+                    "delta": f"Something went wrong before it could start: {exc}",
+                }
             if first is None or first.get("type") == "unsupported":
                 # The active model can't do tool calls — plain Q&A, never
                 # a hard dependency.
@@ -892,10 +1056,21 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # deltas' worth of string concatenation, not a hot loop) and sent as
         # its own event once the answer is fully in, direct-Q&A only.
         answer_text = ""
-        for payload in events:
-            if payload.get("type") == "answer":
-                answer_text += payload.get("delta") or ""
-            yield event(payload)
+        try:
+            for payload in events:
+                if payload.get("type") == "answer":
+                    answer_text += payload.get("delta") or ""
+                yield event(payload)
+        except Exception as exc:  # noqa: BLE001 — same outer boundary as above,
+            # for a failure that shows up partway through rather than before
+            # the first event (a later skill step, say). Same fix: say what
+            # happened instead of the stream just stopping.
+            logging.getLogger("memorymap.chat").exception(
+                "%s: unhandled error mid-stream: %s",
+                "skill run" if skill else "agent turn",
+                exc,
+            )
+            yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {exc}"})
         conversational = not intent.needs_retrieval(prepared["intent"])
         if not conversational and prepared["notes"] and answer_text:
             grounding = ground_answer_sentences(answer_text, prepared["notes"])

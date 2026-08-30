@@ -50,6 +50,10 @@ let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
 let graphMinimapTick = 0; // throttles minimap repaints during a cooling layout
+//: Set by the renderer each time the map is built. Repositions the label
+//: layer after it has been skipped while invisible — see the tick handler.
+//: A no-op before the first render, so every caller can call it blind.
+let graphCatchUpLabels = () => {};
 let graphDims = { w: 0, h: 0 };
 // Set once the camera has auto-framed the map for the tab's current visit,
 // and cleared again by switchTab() on the next fresh entry — see the two
@@ -1354,7 +1358,13 @@ async function renderGraph() {
         // Use try/catch or typeof since these are initialized after zoom setup
         if (typeof nodeGroups !== "undefined") {
           nodeGroups.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1).style("pointer-events", isZoomedOut ? "none" : "all");
-          if (typeof labelLayer !== "undefined") labelLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+          if (typeof labelLayer !== "undefined") {
+            labelLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
+            // Zooming back in is the other way the layer becomes visible.
+            // The transition sets opacity asynchronously, so the catch-up
+            // has to run after it or `labelsOnScreen()` still reads "0".
+            if (!isZoomedOut) setTimeout(graphCatchUpLabels, duration + 20);
+          }
           if (typeof edgeLayer !== "undefined") edgeLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
           if (typeof graphTraceLayer !== "undefined" && graphTraceLayer) graphTraceLayer.transition().duration(duration).style("opacity", isZoomedOut ? 0 : 1);
           if (typeof clusterLayer !== "undefined" && clusterLayer) clusterLayer.transition().duration(duration).style("opacity", isZoomedOut ? 1 : 0).style("pointer-events", isZoomedOut ? "all" : "none");
@@ -1840,6 +1850,7 @@ async function renderGraph() {
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
   $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
+  graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
   // mystery: how many notes and what kinds of connections link them.
@@ -1901,6 +1912,26 @@ async function renderGraph() {
   }
 
   let fitted = false;
+  // Hoisted out of the tick: `$()` is a getElementById call, and looking the
+  // same element up 300 times to read one class is measurable next to the work
+  // the tick is actually for.
+  const graphBox = $("graph-box");
+
+  // Labels are the expensive half of the per-tick DOM work and are often not
+  // visible — the layer fades to opacity 0 when zoomed out and the Labels
+  // tickbox hides it outright. `catchUpLabels` is the other half of skipping
+  // them: whatever makes them visible again calls it, so they are never left
+  // stale on a settled simulation that has no further ticks to come.
+  const labelsOnScreen = () =>
+    labelLayer.style("opacity") !== "0"
+    && !graphBox.classList.contains("graph-labels-hidden");
+  let labelsStale = false;
+  graphCatchUpLabels = () => {
+    if (!labelsStale || !labelsOnScreen()) return;
+    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    labelsStale = false;
+  };
+
   graphSimulation?.on("tick", () => {
     // Keep the layout inside its own frame. Reported as "the graph ui is out
     // of bounds", and the mechanism is that the view is framed exactly *once*
@@ -1950,11 +1981,40 @@ async function renderGraph() {
     // is a handful of lines beside every edge in the notebook.
     positionTraceLines();
     nodeGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
-    labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    // Labels are the other half of the per-tick DOM cost — one <g> per note,
+    // same as the nodes — and they are frequently not on screen: the layer
+    // fades to opacity 0 when zoomed out (see the zoom handler) and the
+    // Labels tickbox hides it outright. Moving something invisible is work
+    // nobody can see, ~300 times per settle, on every note in the notebook.
+    //
+    // Their positions are restored on the next visible tick, and the
+    // simulation is still running whenever the layer is turned back on
+    // (a drag or a filter reheats it), so nothing can be left stale in a
+    // way the user sees.
+    if (labelsOnScreen()) {
+      labelGroups.attr("transform", (d) => `translate(${d.x},${d.y})`);
+      labelsStale = false;
+    } else {
+      // Remember that they are now behind the nodes, so turning them back on
+      // repositions them immediately rather than waiting for the next tick.
+      // Without this the labels can be left permanently where they were when
+      // the layer was hidden: the simulation stops when it settles, so if
+      // nothing reheats it there is no next tick to fix them, and the names
+      // sit detached from their notes until something else redraws the map.
+      labelsStale = true;
+    }
     clusterGroups.attr("transform", (d) => {
-      const cx = d3.mean(d.nodes, n => n.x) || 0;
-      const cy = d3.mean(d.nodes, n => n.y) || 0;
-      return `translate(${cx},${cy})`;
+      // One pass, not two. `d3.mean` walks the whole member list, and calling
+      // it twice per cluster per tick walks every clustered note twice on
+      // every one of the ~300 ticks a settle takes.
+      let sx = 0;
+      let sy = 0;
+      for (const n of d.nodes) {
+        sx += n.x;
+        sy += n.y;
+      }
+      const count = d.nodes.length || 1;
+      return `translate(${sx / count},${sy / count})`;
     });
     // Once the layout settles, frame all the notes so nothing sits off
     // the edge (Wave N — the old view often had nodes half-cropped). Only
@@ -2144,8 +2204,9 @@ function initGraphKeyboard() {
   box.setAttribute("role", "application");
   box.setAttribute(
     "aria-label",
-    "Map of your notes. Arrow keys move between notes, Enter opens one, " +
-      "Escape leaves the map."
+    "Map of your notes. Arrow keys move between notes, Shift with an arrow " +
+      "pans the view, plus and minus zoom, 0 fits the whole map, Enter opens " +
+      "a note, Escape leaves the map."
   );
 
   box.addEventListener("focus", () => {
@@ -2160,8 +2221,54 @@ function initGraphKeyboard() {
   });
 
   box.addEventListener("keydown", (event) => {
+    // The map's own shortcuts (arrows to move between notes, Enter/Space to
+    // open one, N to step through links, +/-/0 to zoom) live on this box
+    // because it's the thing with `role="application"` — but the note popup
+    // and the "Grow the map" form are both DOM descendants of it too, so
+    // every keystroke typed into their textareas/inputs bubbles up here as
+    // well. Reported: typing in a just-grown note wouldn't take input and
+    // kept reopening the note it was grown from — that was Space/Enter, on
+    // every keystroke, being read as "open the currently keyboard-selected
+    // node" instead of being typed. Any real text field wins outright.
+    const typingTarget =
+      ["INPUT", "TEXTAREA", "SELECT"].includes(event.target?.tagName) ||
+      event.target?.isContentEditable;
+    if (typingTarget) return;
     if (!graphNodesRef?.length) return;
     const current = graphNodeById(graphKeyboardId) || graphNodesRef[0];
+
+    // Zoom and pan from the keyboard. Deliberately checked *before* the arrow
+    // keys below, because Shift+arrow pans the view while a bare arrow moves
+    // between notes — two different jobs on the same keys, which is the only
+    // arrangement that leaves the plain arrows doing the thing this map is
+    // mostly for. The characters are the ones every map on the web uses:
+    // +/- to zoom, 0 to fit. `=` is listed with `+` because on a US layout
+    // the plus is a shifted equals and nobody reaches for the shift.
+    const zoomKeys = { "+": 1.3, "=": 1.3, "-": 1 / 1.3, _: 1 / 1.3 };
+    if (Object.prototype.hasOwnProperty.call(zoomKeys, event.key) && graphSvg && graphZoom) {
+      event.preventDefault();
+      graphSvg.transition().duration(200).call(graphZoom.scaleBy, zoomKeys[event.key]);
+      announce(zoomKeys[event.key] > 1 ? "Zoomed in." : "Zoomed out.");
+      return;
+    }
+    if (event.key === "0" && graphNodesRef.length) {
+      event.preventDefault();
+      fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+      announce("Fitted the whole map to view.");
+      return;
+    }
+    const panBy = { ArrowRight: [-80, 0], ArrowLeft: [80, 0], ArrowUp: [0, 80], ArrowDown: [0, -80] };
+    if (event.shiftKey && panBy[event.key] && graphSvg && graphZoom) {
+      event.preventDefault();
+      const [dx, dy] = panBy[event.key];
+      // translateBy works in the transform's own (pre-scale) units, so a
+      // fixed step would move a hair at high zoom and half the map at low.
+      // Dividing by k keeps the movement a constant number of screen pixels.
+      const k = d3.zoomTransform(graphSvg.node()).k || 1;
+      graphSvg.transition().duration(150).call(graphZoom.translateBy, dx / k, dy / k);
+      return;
+    }
+
     const directions = {
       ArrowRight: "right",
       ArrowLeft: "left",
@@ -2592,6 +2699,7 @@ function renderGraphPopupActions(entry) {
     box.appendChild(
       smallButton("ph:target Focus", "Isolate this note's neighborhood", () => {
         graphFocusModeId = entry.id;
+        recordTabVisit("graph", `focus:${entry.id}`);
         $("graph-focus-clear")?.classList.remove("hidden");
         closeGraphPopup();
         renderGraph();
@@ -2994,28 +3102,91 @@ function initGraphMinimap() {
   const svg = document.getElementById("graph-minimap-svg");
   if (!svg || svg._wired) return;
   svg._wired = true;
-  const jump = (event) => {
-    if (!svg._toCanvas || !graphSvg || !graphZoom) return;
+  // Where in canvas coordinates a pointer event over the minimap is pointing.
+  // Null whenever the map has not been painted yet (`_toCanvas` is set by
+  // graphMinimapPaint) or the zoom behaviour is not up, which is every call
+  // before the first render.
+  const canvasPointFor = (event) => {
+    if (!svg._toCanvas || !graphSvg || !graphZoom) return null;
     const rect = svg.getBoundingClientRect();
-    const [cx, cy] = svg._toCanvas(
+    return svg._toCanvas(
       ((event.clientX - rect.left) / rect.width) * GRAPH_MINIMAP_W,
       ((event.clientY - rect.top) / rect.height) * GRAPH_MINIMAP_H
     );
-    const current = d3.zoomTransform(graphSvg.node());
-    // Keep the zoom level, change only where it is centred — a minimap is for
-    // navigating, not for zooming.
-    graphSvg
-      .transition()
-      .duration(250)
-      .call(
-        graphZoom.transform,
-        d3.zoomIdentity
-          .translate(graphDims.w / 2, graphDims.h / 2)
-          .scale(current.k)
-          .translate(-cx, -cy)
-      );
   };
-  svg.addEventListener("click", jump);
+
+  // Centre the map on a canvas point at a given scale. `animate` is off while
+  // a drag is in flight: a 250ms transition per pointermove queues dozens of
+  // overlapping tweens and the map lurches behind the cursor instead of
+  // tracking it. A single click still animates, because a jump that teleports
+  // loses you your bearings.
+  const centreOn = (cx, cy, scale, animate) => {
+    const target = d3.zoomIdentity
+      .translate(graphDims.w / 2, graphDims.h / 2)
+      .scale(scale)
+      .translate(-cx, -cy);
+    const sel = animate ? graphSvg.transition().duration(250) : graphSvg;
+    sel.call(graphZoom.transform, target);
+  };
+
+  const jump = (event, animate = true) => {
+    const point = canvasPointFor(event);
+    if (!point) return;
+    // Keep the zoom level, change only where it is centred — a click on the
+    // minimap is for navigating. Zooming from here is the wheel, below.
+    centreOn(point[0], point[1], d3.zoomTransform(graphSvg.node()).k, animate);
+  };
+
+  // Press and hold to scrub the map around, rather than clicking, looking,
+  // clicking again. Pointer events (not mouse) so a finger on a tablet drags
+  // the same way; pointer capture so leaving the little box mid-drag keeps
+  // sending moves here instead of dropping the drag where the cursor left.
+  let dragging = false;
+  svg.addEventListener("pointerdown", (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (!canvasPointFor(event)) return;
+    dragging = true;
+    svg.setPointerCapture?.(event.pointerId);
+    svg.classList.add("graph-minimap-dragging");
+    // The press itself centres, so a plain click still works — there is no
+    // separate click listener any more, which is what stopped a click from
+    // firing this and then a second, animated jump on mouseup.
+    jump(event, true);
+    event.preventDefault();
+  });
+  svg.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    jump(event, false);
+  });
+  const endDrag = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    svg.releasePointerCapture?.(event.pointerId);
+    svg.classList.remove("graph-minimap-dragging");
+  };
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+
+  // Wheel (and a trackpad pinch, which browsers deliver as a wheel event with
+  // ctrlKey set) zooms about the point under the cursor, the same gesture the
+  // main canvas already answers to. `passive: false` because preventDefault is
+  // the whole point: without it the page scrolls behind the minimap.
+  svg.addEventListener(
+    "wheel",
+    (event) => {
+      const point = canvasPointFor(event);
+      if (!point) return;
+      event.preventDefault();
+      const current = d3.zoomTransform(graphSvg.node());
+      // deltaY is device-dependent (lines vs pixels vs a pinch's fine steps),
+      // so only its sign is trusted; the step is ours.
+      const factor = event.deltaY < 0 ? 1.2 : 1 / 1.2;
+      const extent = graphZoom.scaleExtent ? graphZoom.scaleExtent() : [0.1, 8];
+      const scale = Math.max(extent[0], Math.min(extent[1], current.k * factor));
+      centreOn(point[0], point[1], scale, false);
+    },
+    { passive: false }
+  );
   // One control for both "is it showing" and "where" — see index.html on why
   // these were merged rather than sitting beside each other.
   //

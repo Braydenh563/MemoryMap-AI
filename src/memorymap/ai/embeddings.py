@@ -179,6 +179,34 @@ def clean_orphaned_vectors(session_factory) -> int:  # noqa: ANN001
     return len(orphans)
 
 
+def embedding_text(session: Session, entry: Entry) -> str:
+    """What actually gets embedded for a note: its own words, plus what the
+    pictures in it say.
+
+    Asked for directly: "allow captions if they accompany images of sketches
+    to be read by the ai if they appear in semantic searches." A note that is
+    a drawing and one line of caption used to embed as that one line — the
+    vision model's description of the drawing was on the `MediaUpload` row and
+    the vector knew nothing about it, so "the diagram of the pond" matched
+    nothing at all.
+
+    The note is never modified: this is derived on the way past, which also
+    means a picture captioned later improves search on the next re-index
+    rather than needing the note rewritten. Falls back to the note's own text
+    whenever there is nothing to add, so the vector for a plain note is
+    exactly what it was before this existed.
+    """
+    import importlib
+
+    media_process = importlib.import_module("memorymap.core.media_process")
+
+    try:
+        extra = media_process.media_text_for(session, entry.content)
+    except Exception:  # noqa: BLE001 — enrichment must never block an embedding
+        return entry.content
+    return f"{entry.content}\n{extra}" if extra else entry.content
+
+
 def vector_to_bytes(vector: np.ndarray) -> bytes:
     """Raw float32 bytes — never pickle (plan §4)."""
     return np.asarray(vector, dtype="float32").tobytes()
@@ -452,7 +480,7 @@ class EmbeddingService:
         would leak exactly what the encryption is there to hide."""
         if getattr(entry, "is_private", False):
             return False
-        vector = self.embed_text(entry.content)
+        vector = self.embed_text(embedding_text(session, entry))
         if vector is None:
             return False
         session.add(

@@ -33,6 +33,34 @@ def test_backup_create_list_delete(client):
     assert missing.status_code == 404
 
 
+def test_retention_is_a_setting_and_prunes_immediately(client):
+    """Asked about directly: "backup retention should be a setting —
+    backups accumulate with no cap the user can see or change." The prune
+    itself already existed; this is the missing control, and lowering it
+    has to take effect now, not just on the next scheduled backup."""
+    storage = client.get("/storage").json()
+    assert storage["backup_retention_count"] == backup.KEEP_BACKUPS
+
+    for _ in range(4):
+        client.post("/backups")
+    assert len(client.get("/backups").json()) >= 4
+
+    trimmed = client.put("/backups/retention", json={"keep": 2})
+    assert trimmed.status_code == 200
+    assert trimmed.json()["keep"] == 2
+    assert trimmed.json()["removed"] >= 2
+    assert len(client.get("/backups").json()) == 2
+    assert client.get("/storage").json()["backup_retention_count"] == 2
+
+    # A later backup respects the new, lower limit too, not just the prune
+    # that ran at the moment it was set.
+    client.post("/backups")
+    assert len(client.get("/backups").json()) == 2
+
+    out_of_range = client.put("/backups/retention", json={"keep": 0})
+    assert out_of_range.status_code == 422
+
+
 def test_backup_restore_rolls_the_database_back(client):
     keep = _save(client, "note before the backup")
     before_count = len(client.get("/backups").json())

@@ -12,6 +12,9 @@
 
 .msg {
   max-width: 82%;
+  /* The per-message action row floats over this bubble's corner (see
+     `.msg-actions`), so the bubble has to be its containing block. */
+  position: relative;
   padding: 0.6rem 0.8rem;
   border-radius: var(--radius-lg);
   white-space: pre-wrap;
@@ -103,22 +106,65 @@
   white-space: pre-wrap;
 }
 
-/* Hover-reveal per-message actions (copy / edit / regenerate / read-aloud). */
+/* Hover-reveal per-message actions (copy / edit / regenerate / read-aloud).
+
+   These float over the bubble's top corner rather than sitting in its flow,
+   and the reason is a reported one: *"the suggested responses appear after
+   the popup buttons which leaves a gap visually when not hovering over the
+   chat bubble."* Exactly right — the row was `opacity: 0`, which hides a
+   thing while it keeps every pixel of its layout, so a finished answer had a
+   2rem band of nothing between its metadata line and its "Next:" chips that
+   only made sense while the cursor was inside the bubble.
+
+   `display: none` until hover would close the gap and introduce a worse
+   problem: the chips below would jump down 2rem the moment the pointer
+   entered the bubble, moving the target out from under the cursor on the way
+   to clicking one. Taking the row out of flow entirely is the only version
+   with neither the gap nor the shift.
+
+   The corner is chosen per role because that is where each bubble's header
+   row *isn't*: the assistant's label sits left, the user's is right-aligned. */
 .msg-actions {
+  position: absolute;
+  top: 0.3rem;
   display: flex;
   gap: 0.25rem;
-  margin-top: 0.4rem;
+  padding: 0.15rem;
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
   opacity: 0;
+  /* Not clickable while invisible — an unhovered bubble must not swallow a
+     click aimed at the text under this. */
+  pointer-events: none;
   transition: opacity var(--motion-fast) ease;
+  z-index: 2;
+}
+
+.msg.assistant .msg-actions {
+  right: 0.4rem;
+}
+
+.msg.user .msg-actions {
+  left: 0.4rem;
 }
 
 .msg:hover .msg-actions,
 .msg:focus-within .msg-actions {
   opacity: 1;
+  pointer-events: auto;
 }
 
-.msg.user .msg-actions {
-  justify-content: flex-end;
+/* The live "how long has this been coming" counter, in the bubble being
+   streamed (app.js, `mountChatTimer`). Tabular figures so the header row does
+   not jitter a pixel every second as the digits change width. */
+.msg-timer {
+  margin-left: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .msg-action {
@@ -151,6 +197,7 @@
 @media (hover: none) {
   .msg-actions {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 
@@ -291,6 +338,14 @@
   margin-bottom: 0;
 }
 
+/* A number of backups to keep, not a name or a path — this app's other
+   `.small-select` uses are all <select>/text and can take the full 16rem;
+   a bare number reads as a stray box that wide. */
+.backup-retention-input {
+  width: 5rem;
+  max-width: 5rem;
+}
+
 .row .small-select {
   flex: 0 1 auto;
 }
@@ -356,13 +411,60 @@ details.tool-chip {
 details.tool-chip > summary {
   cursor: pointer;
   list-style: none;
+  /* One line, always. A long tool label was wrapping the chip to three lines
+     before the body was even opened. */
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Its own affordance, since the native marker is removed above — without one
+   there is nothing to say the chip can be opened at all. */
+details.tool-chip > summary::after {
+  content: "▸";
+  margin-left: auto;
+  flex: 0 0 auto;
+  opacity: 0.7;
+  transition: transform var(--motion-base) ease;
+}
+
+details.tool-chip[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  details.tool-chip > summary::after {
+    transition: none;
+  }
 }
 
 details.tool-chip > summary::-webkit-details-marker {
   display: none;
 }
 
-.tool-chip-body {
+/* **Scoped to `[open]`, and that is the whole bug.**
+   Reported: a tool chip rendered as its label immediately followed by the
+   entire raw result — `Listed your tags{'tags': [{'name': ...}], ...}` — with
+   no way to collapse it.
+
+   The disclosure was built correctly and the server was sending the right
+   fields; this rule was overriding the collapse. A closed <details> hides its
+   non-summary children through the *user-agent* stylesheet, and an author
+   rule beats a UA rule at any specificity — so a bare `display: flex` here
+   forced the body visible whether the chip was open or not. The chip was
+   never actually closed; it only looked like a label with a payload stuck to
+   it, because that is what a permanently-open disclosure reads as.
+
+   `display: none` when closed is belt-and-braces for the same reason: it puts
+   an author rule on the other side of the argument rather than trusting the
+   UA one to win. */
+details.tool-chip:not([open]) > .tool-chip-body {
+  display: none;
+}
+
+details.tool-chip[open] > .tool-chip-body {
   margin-top: var(--space-2);
   display: flex;
   flex-direction: column;
@@ -1472,6 +1574,33 @@ button.recording.live-level {
 }
 
 /* --- meeting notes (§17) ---------------------------------------------------------- */
+/* The live waveform. Full width of the dialog and 5rem tall, which is the
+   whole point of it existing alongside the six-bar meter on the Record
+   button: reported twice as there being "no line animation that visually
+   picks up the user's voice", because at button size it does not read as one.
+   A recording with no visible response to your voice is indistinguishable
+   from a broken microphone. */
+.meeting-wave {
+  display: block;
+  width: 100%;
+  height: 5rem;
+  margin: var(--space-4) 0;
+  border-radius: var(--radius-md);
+  background: var(--inner);
+  border: 1px solid var(--border);
+}
+
+.meeting-title-label {
+  display: block;
+  margin-top: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.meeting-title {
+  margin-bottom: var(--space-4);
+}
+
 .meeting-timer {
   font-variant-numeric: tabular-nums;
   /* mm:ss must not shift width every second */
@@ -2159,19 +2288,57 @@ html {
   opacity: 1;
 }
 
+/* **Scrollable, and centred only when it fits.** Reported with a screenshot:
+   the caption and OCR panel ran off the bottom of the screen with its own
+   scrollbar inside it, and the whole dialog could not be scrolled to reach
+   what was cut off — "is the lightbox scrollable??".
+
+   `place-content: center` on a fixed, non-scrolling box centres content and
+   then clips whatever does not fit, at *both* ends: a column taller than the
+   viewport loses its top and its bottom with no way to reach either. The
+   overlay scrolls now, and `justify-content: center` on a scrolling flex
+   column is the version that centres a short column without stranding a tall
+   one (`align-items: center` alone would let a tall child overflow the
+   scrollable area's start edge). */
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 80;
   background: rgba(8, 10, 18, 0.82);
-  display: grid;
-  place-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  overflow-y: auto;
+  padding: var(--space-8) var(--space-6);
   cursor: zoom-out;
+}
+
+/* One column: the picture, then what it is, then what it says. */
+.lightbox-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  /* `auto` on both, so the column never stretches and never shrinks past its
+     content inside the scrolling flex parent. */
+  margin: auto 0;
+}
+
+/* The picture and its two arrows, in one positioned box — this is what makes
+   the arrows centre on the *image* rather than on the viewport. */
+.lightbox-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .lightbox img {
   max-width: 92vw;
-  max-height: 80vh;
+  /* Room for the information under it. It was 80vh, which with a caption and
+     a transcription below made a column half again as tall as the screen. */
+  max-height: 68vh;
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   cursor: default;
@@ -2233,8 +2400,198 @@ html {
   word-break: break-word;
 }
 
+/* What the app knows about the picture, under the picture: the caption a
+   vision model wrote and the text it read off the page. Bounded and
+   scrollable rather than allowed to grow — a transcribed page can be
+   hundreds of words, and pushing the image off the top of the viewer to
+   show them would trade the thing being viewed for its description. */
+/* The files a message carried, under the message that carried them.
+
+   Reported as attachments that "arent rendered with the chat messages, the
+   captions arent viewable…and they arent previewable or quick navigatable to
+   their stored location". The strip is the render; the thumbnail is the
+   preview (it opens the lightbox, which now carries the caption and the
+   transcription); the buttons are the navigation. */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  /* `flex-start`, not the default stretch: a document chip is one line tall
+     and was being stretched to the height of the thumbnail beside it,
+     leaving its label floating in the middle of an empty box. */
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.msg-attachment {
+  margin: 0;
+}
+
+.msg-attachment-image {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Bounded so a portrait photo cannot push the rest of the conversation off
+     the screen — a chat is a transcript, and an attachment is a reference in
+     it, not the subject of the page. Click for full size. */
+  max-width: 14rem;
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+}
+
+.msg-attachment-image img {
+  display: block;
+  width: 100%;
+  max-height: 10rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+}
+
+.msg-attachment-image figcaption {
+  margin: 0;
+  /* A caption is a model's reading of the picture and can run long; two lines
+     is enough to recognise it by, and the lightbox has the rest. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.msg-attachment-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.msg-attachment-missing {
+  border-style: dashed;
+}
+
+/* A note clipped to the question, and a document: the same card, because
+   they are the same statement — "the answer was given this to read, click to
+   open it". */
+.msg-attachment-note,
+.msg-attachment-doc {
+  cursor: pointer;
+  max-width: 16rem;
+  /* Aligned with the image card beside it rather than floating as a bare
+     chip: two attachments on one message are one row of cards, and a chip
+     with no box next to a boxed thumbnail read as an unrelated stray. */
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  /* A long filename must not stretch the chip past the bubble. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* **On the user's own bubble, which is a solid accent fill.** Measured in a
+   screenshot before this existed: `--chip-bg` over accent is very nearly the
+   accent itself, and `--muted` caption text on it was grey-on-blue — the card
+   was there and could not be read. The tokens are page-surface tokens and
+   there is no page surface here, so the whole strip switches to the same
+   translucent-white treatment the lightbox uses over a photograph, which
+   works against any accent the user has picked rather than against one. */
+.msg.user .msg-attachment-image,
+.msg.user .msg-attachment-note,
+.msg.user .msg-attachment-doc {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.msg.user .msg-attachment-image figcaption {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.msg.user .msg-attachment-actions button {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.msg.user .msg-attachment-actions button:hover,
+.msg.user .msg-attachment-actions button:focus-visible {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.msg.user .msg-attachment-missing p {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.lightbox-info {
+  max-width: min(48rem, 90vw);
+  /* No inner scrollbar and no height cap. The overlay scrolls now, so a long
+     transcription makes the dialog longer instead of hiding itself behind a
+     second scrollbar inside a box that was already cut off — which is what
+     the screenshot showed. */
+  margin-top: 0;
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-md);
+  /* Opaque enough to read against whatever is behind the dialog. At 0.45 the
+     Library grid showed straight through a paragraph of transcribed text —
+     visible in the screenshot that came back from the first version of this
+     panel. The blur is the same material the rest of the app's floating
+     surfaces use. */
+  background: rgba(10, 12, 20, 0.86);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.lightbox-caption {
+  margin: 0;
+}
+
+/* Which picture this is: size, when it arrived, what it is called. Above the
+   readings, because those are about what is *in* it. */
+.lightbox-facts {
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.lightbox-facts:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.lightbox-text {
+  margin: var(--space-4) 0 0;
+  /* A transcription is text as it appeared on the page: line breaks are
+     content, not layout. */
+  white-space: pre-wrap;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.lightbox-caption + .lightbox-text {
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.lightbox-byline {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .lightbox-nav {
-  position: fixed;
+  /* Absolute against `.lightbox-stage`, not fixed against the viewport: the
+     stage is exactly the image's box, so this *is* the image's middle. See
+     the note in openLightbox for the two earlier attempts. */
+  position: absolute;
   top: 50%;
   transform: translateY(-50%);
   width: 2.5rem;
@@ -2382,6 +2739,20 @@ html {
   right: var(--space-3);
   left: auto;
   top: auto;
+}
+
+/* Press-and-hold scrubs the map around (graph.js, `initGraphMinimap`). The
+   grab cursor is the only thing that says so before you try it — the box
+   otherwise looks like a click target, which is all it used to be.
+   `touch-action: none` is load-bearing, not cosmetic: without it a finger
+   drag on a tablet is claimed by the browser's own panning and the
+   pointermove events stop arriving mid-gesture. */
+.graph-minimap svg {
+  touch-action: none;
+}
+
+.graph-minimap-dragging {
+  cursor: grabbing;
 }
 
 /* The current viewport, drawn over the dots. Stroke only — a fill would

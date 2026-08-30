@@ -1,15 +1,17 @@
 # Session handover
 
-## New session — three ROADMAP §89 items closed (chat-mode chip, caption task visibility, whiteboard cut/context-menu), no UI live-verified
+## New session — three ROADMAP §89 items closed (chat-mode chip, caption task visibility, whiteboard cut/context-menu), two of three live-verified in Chromium
 
 Branch `claude/docs-review-priority-work-sequ16`. Worked from §89's "still
 open" list rather than the front of the file — the three picked were the
-ones scoped tightly enough to build with confidence without a running
-Ollama or a live browser session, which this sitting didn't have time to set
-up before diving in. All three are backend-verified (new tests, full suite
-green, ruff clean); **none is Playwright-verified**, unlike the standing
-CLAUDE.md instruction to prefer that. Say so plainly if any of the three is
-reported not working — the code path is exercised, the pixels are not.
+ones scoped tightly enough to build with confidence: no live Ollama needed
+for any of them (§89.4's chip renders off saved-turn data, not a live
+stream; §89.6 and §89.12 don't touch the model at all). Built all three,
+ran the full suite (green, ~1,600 tests), then — rather than stop at
+"backend-verified" — started the real server and drove it with Playwright,
+per CLAUDE.md's own standing instruction. §89.4 and §89.12 are now
+genuinely live-verified, screenshots included; §89.6 is not (see below, and
+its own honest reason why).
 
 ### What was built
 
@@ -24,6 +26,10 @@ reported not working — the code path is exercised, the pixels are not.
   folded into the existing free-form `stats` dict, so it round-trips through
   `GET /conversations/{id}` on reload. Older saved turns simply have no key
   and render no chip. 2 new tests (test_conversations_api.py).
+  **Live-verified**: two turns posted with `used_tools: false`/`true` and
+  real `stats`, reopened via `openConversation` — the line reads `850 ms ·
+  5% · Ask · llama3.2` and `4.2s · 11% · Request · llama3.2 · 1`, chip text
+  and position exactly as designed, zero console errors.
 - **§89.6 — a vision-model caption now shows up in the Tasks panel while it
   runs.** `captioning.running_captions()` — a small in-memory dict guarded
   by a lock, set around the real `caption_text` model call inside
@@ -35,6 +41,11 @@ reported not working — the code path is exercised, the pixels are not.
   reasoning as the embedding warm-up already in that list. 2 new tests: one
   spies on `caption_text` mid-call to check the state a `/tasks` poll would
   actually see (not just before/after), the other checks the `/tasks` shape.
+  **Not live-verified** — this one genuinely needs a real vision model
+  running, which no sandbox in this project's history has had. The other
+  two items don't have that excuse and were checked live; this one's
+  correctness rests on the mid-call spy test above being an honest
+  simulation of what a real call's timing looks like.
 - **§89.12 — whiteboard cut, and a right-click/long-press menu for a
   selection.** `wbCutSelection()` is copy-then-delete, on Ctrl/Cmd+X beside
   the existing Ctrl/Cmd+C/V handlers. The context menu reuses
@@ -50,10 +61,17 @@ reported not working — the code path is exercised, the pixels are not.
   guaranteed to fail is worse than a menu that only offers what the
   selection can do. A text object's own `contenteditable` body is excluded
   from both gestures so its native cut/copy/paste/spellcheck menu keeps
-  working with the mouse. **Not live-verified** — no Playwright
-  pointer/touch session was run against it; checked by reading the d3
-  selection wiring against the toggle-button pattern it mirrors, which *was*
-  verified live in an earlier session.
+  working with the mouse. **Live-verified** (desktop right-click; touch
+  long-press was not exercised — no touch emulation set up this session):
+  right-clicking a text object opens Copy/Cut/Delete at the pointer;
+  right-clicking a note card opens **Delete only**, confirming the
+  card-exclusion guard actually fires; clicking outside closes the menu;
+  its Delete button removes the object from the DOM; Ctrl+X removes a
+  selected object (`.wb-object` count went 5→4) and Ctrl+V restores it
+  (back to 5). Zero console errors across all of it. The screenshots taken
+  along the way lived in the sandbox's scratch directory, not the repo —
+  the sequence above is reproducible from this paragraph plus CLAUDE.md's
+  own drive-the-app recipe if it needs re-checking.
 
 ### What was checked and left alone
 
@@ -72,17 +90,31 @@ reported not working — the code path is exercised, the pixels are not.
   this kind of check would otherwise re-discover. Prior sessions' audits
   hold.
 
-### What I could not check
+### What I still could not check
 
-Everything in the "What was built" section above is backend-verified only.
-No `uvicorn` was started this sitting and no Chromium session ran against
-it — the chat-mode chip's actual rendered position, the whiteboard context
-menu's actual click/long-press behaviour, and the menu's viewport-clamping
-maths are all reasoned from the existing `wbOpenDockedMenu`/`messageMetaLine`
-patterns they copy, not observed. If any of the three is reported not
-working, start by actually looking at it in a browser before changing the
-code further — CLAUDE.md's own standing rule, and this session is the reason
-to repeat it rather than assume the reasoning was enough.
+§89.4 and §89.12 are genuinely live-verified now (see above) — a first
+draft of this handover called all three "not live-verified" and then this
+session actually started `uvicorn` and drove it with Playwright instead of
+leaving that claim standing, which is the point of CLAUDE.md's own rule
+about it. What real live verification did *not* cover, honestly:
+
+- **§89.6's caption task** still rests on a mid-call spy test, not a real
+  vision model — no sandbox in this project's history has had one to call.
+- **Touch long-press** on the whiteboard context menu. Only the desktop
+  right-click path was driven; the 500ms-hold branch shares its selection
+  and open-menu logic with right-click (same `wbOpenContextMenuFor` call)
+  but its own `pointerdown`/timer wiring was reasoned from
+  `wbWireToggleGestures`'s already-proven pattern, not observed.
+
+The viewport-clamping maths **was** checked, in a follow-up pass: a 900×700
+viewport with an object dragged to its bottom-right corner and right-clicked
+there forced both the `rect.right`/`rect.bottom` clamp branches. The menu
+stayed fully on-screen in both axes (screenshotted) — its right edge landed
+flush against the viewport edge rather than the intended 8px margin (an
+~8px discrepancy between the clamp's `window.innerWidth` and the measured
+`getBoundingClientRect()`, worth a look if a future report calls the menu
+"touching the edge," but not an overflow bug — nothing was cut off or
+unreachable).
 
 ## Prior session — a live bug-report batch, a real tool-call parsing bug, one reverted attempt (§97)
 

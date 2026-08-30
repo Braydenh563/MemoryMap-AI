@@ -899,10 +899,13 @@ callouts" entry before rebuilding anything that sounds finished.**
    `TurnBody`/`_turn_messages` (routes_conversations.py) so it survives a
    reload; older saved turns simply have no key and render no chip, same as
    every other field this line already treats that way. 2 new tests
-   (test_conversations_api.py). **Not live-verified** — no running Ollama
-   in this sandbox, so the chip's appearance was checked by reading the
-   rendered DOM structure, not a screenshot; the code path is exercised by
-   the persistence tests above.
+   (test_conversations_api.py). **Live-verified in Chromium**: two turns
+   posted straight through `/conversations` with `used_tools: false`/`true`
+   and real `stats`, reopened via `openConversation` — the metadata line
+   reads `850 ms · 5% · Ask · llama3.2` and `4.2s · 11% · Request ·
+   llama3.2 · 1` respectively, chip text and position exactly as designed,
+   zero console errors. No live Ollama was needed since the chip renders
+   from saved-turn data, not a live stream.
 
 ~~5. **Images pasted, dragged, or dropped into the chat composer don't reach
    the vision-chat staging system at all.**~~ **Built** — the scoping fix,
@@ -1013,10 +1016,15 @@ callouts" entry before rebuilding anything that sounds finished.**
     refuses — a menu offering two buttons guaranteed to fail is worse than
     one that only shows what the selection can do. A text object's own
     `contenteditable` body is excluded from both gestures so its native
-    cut/copy/paste/spellcheck menu still works with the mouse. **Not
-    live-verified** — no Playwright pointer/touch session was run against
-    it this session; checked by reading the d3 selection wiring and the
-    existing `wbOpenDockedMenu` pattern it mirrors.
+    cut/copy/paste/spellcheck menu still works with the mouse.
+    **Live-verified in Chromium** (desktop right-click; touch long-press
+    was not exercised — Playwright's touch emulation wasn't set up this
+    session): right-clicking a text object opens the menu with Copy/Cut/
+    Delete at the pointer, clamped correctly; right-clicking a note card
+    opens it with **Delete only**, confirming the card-exclusion guard;
+    clicking outside closes it; the Delete button removes the object from
+    the DOM; Ctrl+X removes a selected object (`.wb-object` count 5→4) and
+    Ctrl+V restores it (back to 5). Zero console errors throughout.
 
 ## §90 — reported this session (the app.js split's live-verification pass), not yet built
 

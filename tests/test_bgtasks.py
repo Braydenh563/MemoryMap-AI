@@ -159,7 +159,8 @@ def test_cancelling_pip_terminates_the_child(monkeypatch):
 def test_a_terminated_install_is_reported_as_cancelled_not_failed(monkeypatch):
     """Terminating pip makes it exit non-zero. A task history full of
     "Installing X failed" for things nobody wanted stops being read."""
-    source = open(extras.__file__, encoding="utf-8").read()
+    with open(extras.__file__, encoding="utf-8") as f:
+        source = f.read()
     assert 'outcome = "cancelled"' in source
     assert source.index('if _state.cancelled:') < source.index('if _state.outcome == "failed":')
 

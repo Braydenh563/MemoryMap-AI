@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-08-30
+
 Follow-on fixes and features added to the 0.1.5 branch after that release was
 tagged, ahead of the PR merging.
 
@@ -138,6 +140,33 @@ tagged, ahead of the PR merging.
   position fusion the existing semantic/keyword combination already uses —
   never a new source of matches, only a reorder of notes a real search
   already found relevant.
+- The Quick sketch pad's highlighter had no visible transparency — "basically
+  a thick pen." `sketchMove` kept extending one open canvas path with
+  `lineTo()` and calling `stroke()` on every pointer-move without ever
+  starting a fresh path, so `stroke()` re-drew the *entire accumulated path*
+  each time, not just the newest segment — a stroke ten points long got its
+  first segment recomposited ten times. Invisible on the plain pen (opaque
+  drawn twice is still opaque) but at the highlighter's 0.35 alpha, ~10
+  overlapping passes already reads as ~99% opaque. Fixed by reopening the
+  path from the current point after every stroke, so each call draws its one
+  new segment exactly once. Verified by sampling canvas pixels before/after
+  a multi-point stroke — the repeatedly-touched start and the once-touched
+  end now composite identically.
+- Settings → Help's "Reminders" and "Dashboard" topics had no "Related
+  settings" link, unlike most of the other topics — both actually have one
+  (a notification-mute toggle, the dashboard greeting name, both in
+  Preferences), it just wasn't wired up. The topics that still have no link
+  (Graph, Library, Timeline, Spaces) genuinely have nothing of their own in
+  Settings to point to.
+- Arrow-key navigation on the command palette (34+ commands, only ~7 visible
+  at once) never scrolled the selected row into view past the first
+  screenful — confirmed live (15x ArrowDown left the active row off-screen).
+  `renderPalette` rebuilds the list from scratch every keypress, so there
+  was never a focused/tracked element for the browser's native
+  scroll-on-focus to follow; `.active` is a plain CSS class on an unfocused
+  `<li>`. Added an explicit `scrollIntoView` after each move; the same
+  defensive fix went onto the Notes list's roving-tabindex navigation and
+  the `[[wiki-link]]` autocomplete popup for consistency.
 - Every `.small.icon-only`/`.small.icon-button` control (Settings modal's
   back/forward nav arrows, plus several search/sort/filter icon buttons
   elsewhere) rendered oversized and square-boxy — 43px next to a 30px

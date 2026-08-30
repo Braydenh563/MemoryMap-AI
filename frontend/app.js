@@ -4429,6 +4429,10 @@ function initEntryListKeyboardNav() {
       );
       items.forEach((li, i) => { li.tabIndex = i === nextIndex ? 0 : -1; });
       items[nextIndex].focus();
+      // .focus() alone scrolls in most browsers, but not predictably —
+      // explicit and consistent with the same fix on the command palette's
+      // own arrow-key nav, which has no focus to lean on at all.
+      items[nextIndex].scrollIntoView({ block: "nearest" });
     } else if (event.key === "Enter" && event.target === current) {
       // Only when the <li> itself has focus, not a button/link/textarea
       // inside it — those already handle their own Enter behaviour, and
@@ -16222,14 +16226,26 @@ function paletteKeydown(event) {
     event.preventDefault();
     paletteIndex = Math.min(paletteIndex + 1, matches.length - 1);
     renderPalette($("palette-input").value);
+    scrollPaletteToActive();
   } else if (event.key === "ArrowUp") {
     event.preventDefault();
     paletteIndex = Math.max(paletteIndex - 1, 0);
     renderPalette($("palette-input").value);
+    scrollPaletteToActive();
   } else if (event.key === "Enter" && matches[paletteIndex]) {
     closePalette();
     matches[paletteIndex].run();
   }
+}
+
+// Reported live: arrowing past the visible rows left the selection off
+// screen — nothing followed it. `renderPalette` rebuilds the list from
+// scratch on every keypress (replaceChildren), so there is no focused or
+// otherwise browser-tracked element for the browser's own native
+// scroll-on-focus to follow; `.active` is a plain CSS class on an
+// unfocused `<li>`, invisible to that mechanism entirely.
+function scrollPaletteToActive() {
+  $("palette-list").querySelector(".active")?.scrollIntoView({ block: "nearest" });
 }
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
@@ -16424,6 +16440,19 @@ function sketchMove(event) {
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.lineTo(x, y);
     context.stroke();
+    // Reported: "the highlighter has no opacity to it, it's basically a
+    // thick pen." The path opened in sketchStart keeps every point ever
+    // added via lineTo — stroke() re-draws the *whole accumulated path*
+    // each time, not just the newest segment, so a stroke a hundred points
+    // long gets its first segment re-composited a hundred times over. At
+    // full opacity (the plain pen) that's invisible — opaque drawn twice is
+    // still opaque — but at the highlighter's 0.35 alpha, ~10 overlapping
+    // passes already reads as ~99% opaque (1-(1-0.35)^10), which is exactly
+    // "no opacity to it". Starting a fresh single-segment path from the
+    // current point makes every stroke() call draw that one segment
+    // exactly once, at exactly the alpha asked for.
+    context.beginPath();
+    context.moveTo(x, y);
   } else if (sketchTool === "line") {
     context.beginPath();
     context.moveTo(sketchStartX, sketchStartY);
@@ -21368,6 +21397,7 @@ function wikiSuggestKeydown(event, textarea) {
     wikiSuggestIndex =
       (wikiSuggestIndex + step + wikiSuggestMatches.length) % wikiSuggestMatches.length;
     renderWikiSuggest(textarea);
+    $("wiki-suggest").querySelector(".active")?.scrollIntoView({ block: "nearest" });
     return true;
   }
   if (event.key === "Enter" || event.key === "Tab") {

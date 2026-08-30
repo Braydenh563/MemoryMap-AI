@@ -317,6 +317,62 @@ shipped (see below). 2,355 tests pass; ruff clean.
   these two — swept Library and Notes screenshots afterward to confirm
   nothing else got too cramped.
 
+- **Version bumped to 0.1.6**, per RELEASING.md's own checklist steps 1-2
+  only: `__version__` (src/memorymap/__init__.py) and `pyproject.toml`
+  bumped, `CHANGELOG.md`/`docs/CHANGELOG.md`'s `[Unreleased]` renamed to
+  `[0.1.6]` with a fresh empty `[Unreleased]` above it. **Deliberately not
+  tagged or pushed** — step 4 of that checklist is a real, hard-to-reverse
+  action (triggers the public release workflow: a GitHub Release, a Windows
+  installer build) and RELEASING.md itself says to tag from a commit
+  already on `main`, not an unreviewed feature branch. Tag `v0.1.6` and
+  push once this branch has actually merged.
+- **Live report: the Quick sketch pad's highlighter had no visible
+  opacity — "basically a thick pen."** Root cause: `sketchMove` (app.js)
+  opens one canvas path per stroke and keeps extending it with `lineTo()`
+  on every pointer-move, calling `stroke()` each time — but `stroke()`
+  strokes the *entire accumulated path*, not just the newest segment, so a
+  ten-point stroke recomposited its first segment ten times over. Invisible
+  on the plain pen (opaque twice is still opaque); at the highlighter's
+  0.35 alpha, ~10 overlapping passes already reads as ~99% opaque
+  (1-(1-0.35)^10). The whiteboard's own highlighter (a different, SVG-path
+  code path) never had this bug — worth knowing before assuming "the
+  highlighter" means one implementation; there are two. Fixed by reopening
+  the path from the current point after every `stroke()` call. Verified by
+  sampling canvas pixel colour before/after a real 15-point mouse-driven
+  stroke (not synthetic events — those need real `getBoundingClientRect()`
+  coordinates `sketchPointer()` computes from, and synthetic events without
+  a positioned canvas under them silently drew nothing, a dead end worth
+  flagging for next time): the repeatedly-touched start and once-touched
+  end of the stroke now composite identically.
+- **Live report: arrow-key list navigation should follow-scroll "like the
+  command palette."** Checked live first rather than trusting the
+  premise — the command palette itself was *also* broken (confirmed: 15x
+  ArrowDown on a 34-command list left the selection off-screen, `scrollTop`
+  never moved). `renderPalette` rebuilds the whole list from scratch on
+  every keypress, so `.active` is a plain CSS class on an element that was
+  never focused — nothing for the browser's native scroll-on-focus to
+  follow. Added an explicit `scrollIntoView({block:"nearest"})` after every
+  arrow-key move; the same defensive fix went onto the Notes list's
+  roving-tabindex nav (which uses real `.focus()`, so likely already
+  worked in practice, but native focus-scroll behaviour isn't guaranteed
+  across browsers) and the `[[wiki-link]]` autocomplete popup.
+- **Settings → Help's link gap.** Checked which of the 13 topics had a
+  "Related settings" link and which didn't; Reminders and Dashboard had
+  real settings to point to (a notification-mute toggle, the dashboard
+  greeting name — both in Preferences) and just weren't wired up, fixed.
+  Graph, Library, Timeline and Spaces genuinely have nothing in Settings of
+  their own — no link added for those; a manufactured link to something
+  unrelated would be worse than none.
+- **Two more live-reported small UI fixes**, folded into the same batch:
+  Settings → About's five toggles were bare `<label>`s missing the
+  `.check-row` class that actually provides the pill/box/hover treatment
+  (an earlier pass's own comment had claimed they matched); and every
+  `.small.icon-only` control in the app (Settings nav arrows measured 43px
+  square next to a 30px Close button) was oversized because `.icon-only`'s
+  padding and `.small`'s padding target the same physical sides and
+  whichever CSS file loaded second won by accident — fixed generally with
+  a compound selector.
+
 ### Tried, and reverted — read before attempting again
 
 **Skill steps marked "done" despite not meeting their own criteria.** The

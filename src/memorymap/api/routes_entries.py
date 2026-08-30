@@ -731,6 +731,16 @@ def get_entry(
         raise HTTPException(status_code=404, detail="Entry not found")
     if not entry.is_deleted:
         entry.access_count += 1  # opening an entry counts as using it
+        # A private note has no audit trail at all otherwise — encrypted at
+        # rest and invisible to the AI is the whole promise, but nothing
+        # recorded *when* one was actually opened and decrypted for
+        # reading, which is the one thing that would tell you if that
+        # promise had ever been tested. Scoped to private notes only: every
+        # other note already has plenty of activity logged elsewhere (see
+        # the Library's own "activity is 93%+ of a real notebook" note) and
+        # doesn't need a second entry for the same open.
+        if bool(getattr(entry, "is_private", False)):
+            manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
     return _to_out(session, entry)
 

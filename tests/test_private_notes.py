@@ -39,6 +39,25 @@ def _make_private(client, session, content):
     return body.json()
 
 
+def test_opening_a_private_note_leaves_an_audit_trail(client, session):
+    """The whole value of a private note is confidence, and nothing recorded
+    *when* one was decrypted for viewing — asked about directly. A regular
+    note doesn't get this extra log line (it already has plenty of other
+    activity logged), only a private one."""
+    private = _make_private(client, session, "the spare key is under the mat")
+    public = client.post("/entries", json={"content": "buy milk"}).json()
+
+    before = client.get("/audit?entity_type=entry&limit=200").json()
+    client.get(f"/entries/{private['id']}")
+    client.get(f"/entries/{public['id']}")
+    after = client.get("/audit?entity_type=entry&limit=200").json()
+
+    new_rows = after[: len(after) - len(before)]
+    decrypted = [r for r in new_rows if r["action"] == "decrypted"]
+    assert len(decrypted) == 1
+    assert decrypted[0]["entity_id"] == private["id"]
+
+
 def test_a_private_note_is_not_stored_in_the_clear(client, session):
     secret = "my bank pin is 4715 and the spare key is under the mat"
     _make_private(client, session, secret)

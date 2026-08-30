@@ -469,6 +469,7 @@ _ACTION_WORDS = {
     "pinned": "Pinned",
     "renamed": "Renamed",
     "merged": "Merged",
+    "decrypted": "Viewed (decrypted)",
 }
 
 #: What the log's *nouns* are called, article included.

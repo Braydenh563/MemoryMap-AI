@@ -2490,9 +2490,19 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 
-/* Center icon-only buttons by squaring their padding */
+/* Center icon-only buttons by squaring their padding.
+   `summary` alongside `button`: the Documents dock's "⋯" menu and the Image
+   Gallery's kebab (library.js) both carry `icon-button` on a `<summary>`
+   (the `<details>` disclosure pattern this app uses for a menu-that-opens-
+   on-click, not a real `<button>`) — reported directly, with a screenshot,
+   as the Documents dock one sitting off-centre. `button.icon-button` simply
+   never matched either of them, so neither ever got this rule at all;
+   whatever position the icon glyph landed at was the browser's own default
+   `<summary>` layout, not a measurement worth chasing. */
 button.icon-only,
-button.icon-button {
+button.icon-button,
+summary.icon-only,
+summary.icon-button {
   padding-inline: 0.5em;
   aspect-ratio: 1;
   display: inline-flex;

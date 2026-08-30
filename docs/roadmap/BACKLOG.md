@@ -1394,23 +1394,42 @@ are now done** (§85, §86):
   status bar both land on 2500, all 2500 rows actually render, and the
   Dashboard's own widgets (including the fixed tag-counting one) show
   correct totals with zero console errors — screenshotted.
-- **What happens when Ollama hangs, rather than errors.** The app already
-  handles Ollama being *off* gracefully (design principle 2) — a request
-  that never comes back is a different failure, and a more likely one on
-  the hardware this app actually targets: a model loading for the first
-  time, or a machine too small for the model it's asked to run, can leave a
-  request pending indefinitely rather than failing fast. Worth a timeout
-  with a clear message ("still waiting on Ollama — this can take a minute
-  the first time a model loads" past some threshold, then a real failure
-  past a longer one) rather than a spinner with no ceiling.
+- ~~**What happens when Ollama hangs, rather than errors.**~~ **Checked
+  directly — already built, all three pieces this item asked for.**
+  `OllamaClient.__init__` (ai/ollama_client.py) sets a 600s request
+  timeout by deliberate design, not the default — its own comment records
+  the exact live report that set the number ("models larger than like 4B
+  params struggle to even load or respond") and the reasoning: long enough
+  to cover a slow cold load on CPU-only hardware, short enough to
+  eventually give up rather than hang forever. The frontend's own
+  "still waiting" half already exists too: `sendChatMessage`'s
+  `slowLoadTimeout` (app.js) shows "Loading model… (this may take a
+  moment)" once 5s have passed with no reply. And the failure past the
+  timeout is surfaced, not silent — `routes_chat.py`'s streaming
+  generator has an outer `except Exception` boundary around both "before
+  the first event" and "mid-stream" that turns *any* unhandled error,
+  including a `requests.ReadTimeout` once 600s is up, into a real answer
+  event ("Something went wrong before it could start: …") instead of the
+  stream just stopping. Nothing here needed building.
 - **Crash-safe recovery for a re-index or a model download interrupted
-  mid-way.** If the app is closed, or the machine loses power, while an
-  embedding re-index or a model pull is running, does it resume cleanly or
-  leave a half-written state that surfaces as a confusing error next
-  launch? Worth checking directly — the health-check screen in §25 is the
-  natural place to both detect this ("an interrupted re-index was found —
-  resume or restart it") and report it, rather than a repair action with
-  nothing that would ever notice the problem needed fixing.
+  mid-way.** Half-checked directly. **The re-index half is safe by
+  design, already, without a resume button**: `_run_reindex`
+  (ai/model_manager.py) deletes an entry's stale vector and commits, *then*
+  regenerates and stores the new one — so a crash between those two steps
+  leaves that one entry with no vector at all, not a corrupt or
+  inconsistent one, and `start_reindex`'s own docstring already covers this
+  exact state: semantic search falls back to keyword search for any entry
+  missing a current vector, the same fallback a re-index that hasn't run
+  yet relies on. The in-memory `Job` doesn't survive a restart either, so
+  there is no stale "still running" status to confuse the health-check
+  screen — a fresh launch just sees no job, and the next re-index (full,
+  not a true resume-from-checkpoint) fixes whatever was left incomplete.
+  No corruption, no confusing error, nothing to build here. **The model-pull
+  half is still genuinely open** — whether a `POST /api/pull` cut off
+  mid-stream resumes from Ollama's own blob store on the next pull is
+  Ollama's own behaviour, outside this codebase, and wasn't verified this
+  session (no live Ollama in this sandbox to interrupt and re-pull
+  against).
 
 ---
 

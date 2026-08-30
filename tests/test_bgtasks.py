@@ -109,7 +109,8 @@ def test_the_pass_clears_the_flag_when_it_starts_not_when_it_ends():
     """A stop asked for during the previous pass must not cancel the next one
     before it has done anything — but it must stay readable by the thread that
     is still finishing."""
-    source = open(autonomous.__file__, encoding="utf-8").read()
+    with open(autonomous.__file__, encoding="utf-8") as f:
+        source = f.read()
     body = source.split("def _run_optimization()")[1].split("def _remember_pass")[0]
     assert "_cancel.clear()" in body.split("try:")[0], "cleared at the start of the pass"
     assert "_cancel.clear()" not in body.split("finally:")[-1], "not cleared when it ends"
@@ -118,7 +119,8 @@ def test_the_pass_clears_the_flag_when_it_starts_not_when_it_ends():
 def test_the_scheduler_never_sleeps_past_the_end_of_a_hold():
     """A 15-minute hold on a loop that just went to sleep for six hours would
     otherwise behave like a six-hour one."""
-    source = open(autonomous.__file__, encoding="utf-8").read()
+    with open(autonomous.__file__, encoding="utf-8") as f:
+        source = f.read()
     loop = source.split("def _loop(")[1].split("def start()")[0]
     assert "snoozed_for()" in loop
     assert "min(seconds, held + 1)" in loop

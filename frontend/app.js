@@ -8189,6 +8189,75 @@ async function attachImageFiles(files) {
   renderImageAttachments();
 }
 
+// --- one attach button, two destinations ---------------------------------------
+//
+// Asked for directly: the chat's image button should attach *any* file —
+// "images should appear in the image gallery (any image format), and the
+// others should probably go in the documents subtab".
+//
+// The split is by what the file *is*, not by what was clicked, because the
+// picker takes both at once and a person selecting four things does not expect
+// to have sorted them first:
+//
+// - An image goes where images already went: uploaded to the gallery and
+//   staged on this message, so a vision model can look at it.
+// - Anything else is imported as a document (`POST /documents/import`, which
+//   extracts its text via core/docview.py). It is then a real document in the
+//   Documents sub-tab, which the AI can reach with its own list_documents /
+//   get_document tools — rather than a file the app had nowhere to put.
+//
+// Failures are per-file and quiet, the same rule attachImageFiles already
+// followed: a picker with four files selected must not lose three because one
+// was a .mp4.
+function isImageFile(file) {
+  // The type the browser reports, falling back to the extension — a file
+  // dragged from some archives arrives with an empty `type`.
+  if ((file.type || "").startsWith("image/")) return true;
+  return /\.(png|jpe?g|gif|webp|bmp|avif|ico|tiff?|heic|heif|svg)$/i.test(file.name || "");
+}
+
+async function attachChatFiles(files) {
+  const all = Array.from(files);
+  const images = all.filter(isImageFile);
+  const documents = all.filter((f) => !isImageFile(f));
+  if (images.length) await attachImageFiles(images);
+  if (documents.length) await importChatDocuments(documents);
+}
+
+async function importChatDocuments(files) {
+  const made = [];
+  for (const file of files) {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      // Same header handling as attachImageFiles: a FormData body needs the
+      // browser to set its own multipart boundary, so apiJson's JSON default
+      // has to be overridden rather than merged.
+      const document = await apiJson("/documents/import", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken() },
+        body: form,
+      });
+      made.push(document);
+    } catch (error) {
+      toast(error.message || `Couldn't read "${file.name}".`, true);
+    }
+  }
+  if (!made.length) return;
+  // Named, and clickable. A toast saying "imported" and nothing else leaves
+  // the reader to go and find it; the whole reason this lands in Documents is
+  // so it can be opened.
+  const first = made[0];
+  const label =
+    made.length === 1
+      ? `Added “${first.title}” to your documents.`
+      : `Added ${made.length} files to your documents.`;
+  toastAction(label, made.length === 1 ? "Open it" : "Show them", () => {
+    switchTab("documents");
+    if (made.length === 1) openDocument(first.id);
+  });
+}
+
 function attachedNotes() {
   return attachedNoteIds
     .map((id) => allEntries.find((e) => e.id === id))
@@ -19196,7 +19265,7 @@ $("attach-note").addEventListener("click", () => {
 // --- image attachment wiring (vision-capable models) ---
 $("attach-image").addEventListener("click", () => $("chat-image-input").click());
 $("chat-image-input").addEventListener("change", async (e) => {
-  if (e.target.files.length) await attachImageFiles(e.target.files);
+  if (e.target.files.length) await attachChatFiles(e.target.files);
   e.target.value = ""; // so choosing the same file twice still fires "change"
 });
 let notePickerSearchDebounceTimeout;

@@ -8,15 +8,17 @@ AI's retrieved context unless the user asks for them by name.
 from __future__ import annotations
 
 import re
+import tempfile
+from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter
-from memorymap.core import deps, filetypes
+from memorymap.core import deps, docview, filetypes
 from memorymap.core.database import Document, DocumentAiEdit, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import (
@@ -209,6 +211,85 @@ def create_document(
     session.commit()
     _process_committed_media(session, document.content)
     return _full(document, session)
+
+
+#: Same ceiling as every other upload in the app (routes_files.MAX_FILE_BYTES).
+#: Kept as its own name rather than imported, because these two limits answer
+#: different questions — how big a picture may be, and how big a document may
+#: be — and a future change to one should not silently move the other.
+MAX_IMPORT_BYTES = 50 * 1024 * 1024
+
+
+@router.post("/import", status_code=201)
+def import_document(
+    file: UploadFile, session: Session = Depends(get_session)
+) -> dict:
+    """Turn an uploaded file into a document.
+
+    Asked for directly: the chat's attach button should take *any* file, with
+    "images … in the image gallery (any image format), and the others should
+    probably go in the documents subtab". This is the second half — images
+    already had a home (`POST /media/upload`), and everything else had none.
+
+    What arrives is a .docx, .pdf, .csv, .md, a source file; what is stored is
+    its **text**, extracted by `core/docview.py`, in an ordinary Document row.
+    That is deliberate and is the same decision the file viewer made: this app
+    never serves an uploaded byte back inline, so importing means converting
+    once, on the way in, rather than keeping a binary the rest of the app would
+    have to learn to handle.
+
+    Declared above `/{document_id}` because FastAPI matches in declaration
+    order and "import" is not an int — the same trap `/file-types` sits above.
+    """
+    name = (file.filename or "file").strip() or "file"
+    suffix = Path(name).suffix[:12].lower()
+    if suffix not in docview.VIEWABLE_SUFFIXES:
+        raise HTTPException(
+            status_code=415,
+            detail=(
+                f"Can't read a {suffix or 'file'} — this takes documents, "
+                "spreadsheets, PDFs, and text or code files."
+            ),
+        )
+
+    # Written to a scratch file rather than held in memory: docview reads a
+    # path (so does every extractor behind it), and a 50 MB upload buffered
+    # whole is 50 MB of this process for as long as the request runs.
+    with tempfile.TemporaryDirectory(prefix="mm-import-") as scratch:
+        staged = Path(scratch) / f"upload{suffix}"
+        size = 0
+        with staged.open("wb") as out:
+            while chunk := file.file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_IMPORT_BYTES:
+                    raise HTTPException(
+                        status_code=413, detail="File is larger than 50 MB"
+                    )
+                out.write(chunk)
+        viewed = docview.extract(staged)
+
+    if not viewed.text.strip():
+        # The extractor's own message says *why* — a scan with no text layer
+        # reads differently from a converter that is not installed — and it is
+        # a better error than anything this route could invent.
+        raise HTTPException(
+            status_code=422,
+            detail=viewed.message or "There was no readable text in that file.",
+        )
+
+    document = Document(
+        title=Path(name).stem[:200] or "Imported",
+        content=viewed.text,
+        # The extracted text is markdown-ish prose whatever it came from, so
+        # it opens in the editor that suits it. A code file keeps its own type
+        # so the gutter and comment toggle work on it.
+        file_type=filetypes.normalise(suffix.lstrip(".")),
+    )
+    session.add(document)
+    session.flush()
+    log_action(session, "imported", "document", document.id, document.title[:80])
+    session.commit()
+    return {**_full(document, session), "truncated": viewed.truncated}
 
 
 @router.get("/{document_id}")

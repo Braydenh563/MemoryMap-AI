@@ -1070,11 +1070,22 @@ Link to another note with [[its first few words]]."></textarea>
                  declares the "vision" capability (Settings → Models shows
                  which do). A hidden file input behind a button, same shape
                  as the note picker beside it. -->
+            <!-- Any file, not just an image. Asked for directly: images land
+                 in the image gallery, anything else becomes a document in the
+                 Documents sub-tab. The id keeps its original name so the CSS
+                 and the layout tests that reference it still resolve — what it
+                 does is what changed, not where it sits. -->
             <button id="attach-image" class="ghost" type="button"
-              title="Attach an image for the AI to look at"
-              aria-label="Attach an image"><i class="ph ph-image" aria-hidden="true"></i></button>
+              title="Attach a file — an image for the AI to look at, or a document to read"
+              aria-label="Attach a file"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
+            <!-- Images: every format the gallery stores, `image/*` rather
+                 than a list, so "any image format" really is any. Documents:
+                 the set core/docview.py can extract text from — a file this
+                 does not name is refused by the picker instead of by an error
+                 after the upload. -->
             <input id="chat-image-input" type="file" class="visually-hidden"
-              accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" multiple
+              accept="image/*,.pdf,.docx,.doc,.pptx,.xlsx,.xls,.odt,.rtf,.epub,.txt,.text,.log,.csv,.tsv,.md,.markdown,.html,.htm,.json,.xml,.yaml,.yml,.py,.js,.ts,.tsx,.jsx,.css,.java,.c,.h,.cpp,.cs,.go,.rs,.rb,.php,.sh,.sql,.toml,.ini"
+              multiple
               aria-label="Choose an image to attach">
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter

@@ -286,7 +286,12 @@ class ModelManager:
     def set_ocr_model(self, name: str) -> None:
         self._config.set_preference("ocr_model", name or "")
 
-    def resolve_ocr_model(self, ollama, installed: list[dict] | None = None) -> str | None:
+    def resolve_ocr_model(
+        self,
+        ollama,
+        installed: list[dict] | None = None,
+        vision_fallback: str | None = None,
+    ) -> str | None:
         """The model that should read text off an image or a rasterised page.
 
         See `ocr_model` for why this is not simply `resolve_vision_model`.
@@ -322,6 +327,16 @@ class ModelManager:
             if is_ocr_model(name):
                 return name
         # No reader installed: any model that can see is better than refusing.
+        #
+        # `vision_fallback` is for the caller that has already resolved it.
+        # Resolving it here walks every installed model asking `/api/show`
+        # whether it can see — one HTTP round trip each, cached per process but
+        # cold on the first poll. `/models/status` needs both answers, and
+        # deriving them independently made that poll slow enough to trip the
+        # frontend's own 5s abort: reported as
+        # `GET /models/status — signal timed out`.
+        if vision_fallback is not None:
+            return vision_fallback or None
         return self.resolve_vision_model(ollama, installed)
 
     def embedding_backend(self) -> str:

@@ -131,6 +131,12 @@ MemoryMap-AI-v0/
 │   │   │                    #   + store_quietly(): best-effort embed, lives
 │   │   │                    #   here because it needs the shared service
 │   │   ├── backup.py        # daily local snapshot + restore
+│   │   ├── docview.py       # any file -> its text (the viewer + import path)
+│   │   ├── pdfpages.py      # a PDF page -> a PNG, so a model can read a scan.
+│   │   │                    #   Optional (the `pdfpages` extra); returns []
+│   │   │                    #   rather than raising when it is not installed
+│   │   ├── filetypes.py     # the one table of document types: comment
+│   │   │                    #   markers, indent, whether it renders
 │   │   ├── extras.py        # the ALLOWLIST of pip-installable optional
 │   │   │                    #   extras. The request names an entry here; the
 │   │   │                    #   package spec is never client text
@@ -343,6 +349,36 @@ window  ──┬── reply reserve (15%)      kept back; num_ctx covers both
                 notes         25%   ┐  recoverable — the model can ask for
                 history       15%   ┘  more (get_note, the visible thread)
 ```
+
+**Two things then shrink the fixed half, and only on a small window** (§94).
+Measured on 8k with eight notes and no history, the prompt was 32% of the
+context before the conversation started, with tool schemas costing nearly
+twice the user's own notes:
+
+- `tools.compact_schemas` trims each tool's description to one sentence,
+  touching no name, type or required-ness. `within_budget` tries this
+  **before dropping any tool**, because dropping one changes what the app can
+  *do* while trimming prose only changes how verbosely it is explained.
+- `agent.tools_guide(window)` swaps the 2,807-char guide for a 1,034-char
+  rewrite at or below 8k. That guide is re-sent every round, so on a 4k model
+  it was 17% of the whole context per round.
+
+Result: 23%. `tests/test_prompt_budget.py` pins the fixed half under 20% and
+asserts at least eight tools survive, so the saving cannot come from quietly
+handing the model an empty toolbox.
+
+### Which tools are offered
+
+`ai/toolwords.py` reads the request for the tools it plausibly needs —
+deterministic, word-boundary matching, no model call, in the same shape as
+`entry/timewords.py`. Substring matching offered the tag tools for "my vintage
+camera" and the link tools for "blinking lights".
+
+**It advises; it never decides.** `CORE_TOOLS` is always offered, a broad or
+unreadable request gets everything, `agent.FOCUS_NOTE` tells the model the list
+is a suggestion it may reach past, and a call for an unoffered tool widens the
+set to everything for the rest of the turn. A misread costs one round, not the
+request.
 
 Notes and history yield first when space is short *because they are
 recoverable*: `get_note` reads one in full, and the conversation is still on

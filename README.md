@@ -123,14 +123,32 @@ Seven tabs, all offline:
 - **Library** — everything you've made in one place: notes, documents,
   chats, files, tags, the bin and the activity log. Also where the
   long-form **document editor** and the **whiteboard** (freehand sketches +
-  note cards on a pannable canvas) open from
+  note cards on a pannable canvas) open from. The editor has four views —
+  **Live** (renders as you write, showing the raw markdown for the block
+  you're in), **Source**, **Split** and **Read** — and handles code files
+  with line numbers, Tab/Shift+Tab indenting and Ctrl+/ commenting
 - **Timeline** — every note on a time axis, banded by category or tag
 - **Reminders** — due dates with priority, repeats and snooze, or just say
   "call mum tomorrow evening" and let the AI schedule it
 
+Attach **any file** to a chat message: images go to the image gallery for a
+vision model to look at, and documents, spreadsheets, PDFs and code are
+imported into Documents with their text extracted. A **scanned** PDF is
+rasterised page by page and read by an OCR model — no Tesseract, and you can
+pick the model or leave it automatic, in which case a document reader
+(GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) is preferred over a general vision
+model when you have one.
+
 Plus a status bar, command palette (`Ctrl`/`Cmd`+`K`), a sketch pad, local
 Whisper dictation, read-aloud, opt-in web search, 12 themes over 8 colour
-palettes, 19 built-in skills, and daily local backups.
+palettes, 19 built-in skills, interface zoom (`Ctrl`+`+`/`-`/`0`), and daily
+local backups.
+
+**Any OpenAI-compatible server works**, not just Ollama — LM Studio,
+`llama-server`, Jan, vLLM. Settings → Models also exposes the sampling
+parameters (temperature, top-p, top-k, min-p, repeat penalty), and starts each
+one at what the model itself recommends: a GGUF ships its author's values and
+the app reads them rather than guessing.
 
 Two things run on their own once you switch them on — both **off by
 default**, because both act without being asked:
@@ -234,7 +252,7 @@ docs/                  # ARCHITECTURE.md, DESIGN.md, ROADMAP.md + roadmap/
 ## Where it's up to
 
 The core app — capture, chat, the graph, documents, private notes, themes,
-the whiteboard, desktop packaging — is built and stable; **1,900+ tests**
+the whiteboard, desktop packaging — is built and stable; **2,400+ tests**
 stay green on every push. What changed most recently, wave by wave, is in
 [`CHANGELOG.md`](CHANGELOG.md). What's still open, ranked with the
 reasoning behind each item, is [`docs/ROADMAP.md`](docs/ROADMAP.md) — kept

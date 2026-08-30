@@ -1452,16 +1452,80 @@ function renderCustomThemes() {
     return;
   }
   for (const theme of themes) {
-    const chip = document.createElement("div");
-    chip.className = "theme-chip";
-    const apply = smallButton(theme.name, `Apply “${theme.name}”`, () => applySavedTheme(theme), false);
-    const remove = smallButton("✕", `Delete “${theme.name}”`, () => {
-      deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
-    });
-    remove.classList.add("ghost");
-    chip.append(apply, remove);
-    box.appendChild(chip);
+    box.appendChild(savedThemeCard(theme));
   }
+}
+
+//: One saved look, shown as the look rather than as its name.
+//:
+//: It was a text pill and a ✕ — which told you a look called "Sea of
+//: Prosperity" existed but nothing about what it was, so picking between five
+//: of them meant applying each in turn and undoing it. A saved *look* is a set
+//: of colours; showing the colours is the whole job of this control.
+//:
+//: The values are already stored (`currentLookValues`), so the preview is the
+//: real thing, not an illustration: the same accent, page and card colours the
+//: look will apply. A theme saved before a given key existed simply falls back
+//: to the current value for that swatch, which is also what applying it does.
+function savedThemeCard(theme) {
+  const values = theme.values || {};
+  // Built from the keys a look actually stores (OVERRIDABLE_KEYS in app.js),
+  // not from invented ones: the accent is either a custom hex or the name of a
+  // preset whose swatch ACCENTS already holds, and light/dark is what decides
+  // every neutral around it. Anything the saved look does not carry falls back
+  // to the live theme, which is also what applying it would do.
+  const named = (ACCENTS || []).find((a) => a.name === values.accent);
+  const accent = values["accent-custom"] || named?.swatch || cssVarNow("--accent");
+  const dark = (values.theme || document.documentElement.dataset.theme || "dark") !== "light";
+  const page = dark ? "#12141c" : "#f5f6f9";
+  const surface = dark ? "#1b1f2b" : "#ffffff";
+  const ink = dark ? "#e7e9ee" : "#1f2430";
+
+  const card = document.createElement("div");
+  card.className = "saved-look";
+
+  const preview = document.createElement("button");
+  preview.type = "button";
+  preview.className = "saved-look-preview";
+  preview.title = `Apply “${theme.name}”`;
+  preview.setAttribute("aria-label", `Apply the saved look “${theme.name}”`);
+  preview.style.background = page;
+  // A miniature of the thing itself: a card on the page colour, a line of ink
+  // on it, and the accent as the one saturated element — which is how the real
+  // interface is composed.
+  const mini = document.createElement("span");
+  mini.className = "saved-look-mini";
+  mini.style.background = surface;
+  const line = document.createElement("span");
+  line.className = "saved-look-line";
+  line.style.background = ink;
+  const dot = document.createElement("span");
+  dot.className = "saved-look-dot";
+  dot.style.background = accent;
+  mini.append(line, dot);
+  preview.appendChild(mini);
+  preview.addEventListener("click", () => applySavedTheme(theme));
+
+  const foot = document.createElement("div");
+  foot.className = "saved-look-foot";
+  const name = document.createElement("span");
+  name.className = "saved-look-name";
+  name.textContent = theme.name;
+  name.title = theme.name;
+  const remove = smallButton("ph:x", `Delete “${theme.name}”`, () => {
+    deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
+  });
+  remove.classList.add("ghost", "icon-button", "saved-look-delete");
+  foot.append(name, remove);
+
+  card.append(preview, foot);
+  return card;
+}
+
+//: One resolved custom property, for building a preview out of the live theme
+//: when a saved look predates a given key.
+function cssVarNow(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "";
 }
 
 // "#rrggbb" -> "r, g, b" so a custom colour can drive rgba() softs.

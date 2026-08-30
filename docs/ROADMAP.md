@@ -44,171 +44,46 @@ below. Five of those fifteen were already built; §87.1 says which, and where.**
 Everything genuinely open, ranked. **Reprioritized to the top, by direct
 instruction, ahead of the numbered items below.**
 
-0. **A hybrid live-rendering document editor (Obsidian Live Preview /
-   Typora model) — moved here from Tier C.** Full scoping (recommended
-   path: a per-block editor, not a whole-document `contenteditable`) is
-   below, unchanged, at what was item 19. **A second, independent report
-   landed on top of it this session**, and is the reason it moved: "it just
-   feels like a chucked together basic editor with poor usability and tool
-   usage... the windows and panes get squished together and it feels
-   annoying to use." That is a *different* complaint from the live-preview
-   ask — not "make it render like Obsidian" but "the editing surface itself
-   is cramped and the tools are hard to use" — and BACKLOG item 4 above
-   (line ~209) was explicitly left open for exactly this kind of concrete
-   follow-up report. Both belong in the same session's scoping pass since
-   they touch the same surface: before committing to the per-block rewrite,
-   audit the *current* three-pane layout (editor / outline-sidebar / preview
-   — whichever panes are simultaneously visible is what "squished" is
-   describing) for spacing, minimum widths, and what collapses first as the
-   window narrows — some of "squished" may be a layout/CSS fix independent
-   of the live-preview rewrite, and worth doing regardless of whether the
-   bigger rewrite happens this cycle. Not yet scoped further than that; no
-   line-level layout audit has been done this session (would need a live
-   browser at a document actually open, which this pass did not reach).
+~~0. **A hybrid live-rendering document editor.**~~ **Built (§93/§94).**
+   Four views in `#doc-view-seg` — Live (render-as-you-write, the caret's
+   block showing its raw markdown), Source, Split, Read — plus document
+   file types with a line-number gutter, Tab/Shift+Tab indent, and Ctrl+/
+   commenting on the language's own marker. The separate "squished panes"
+   half was a dead CSS rule: `#doc-panes` (an id) beat `.doc-panes.split`,
+   so the side-by-side layout had never once applied. Full narrative in
+   HISTORY.md §93.
 
+**The new top of the list is item A below (llama.cpp), by direct
+instruction.** See BACKLOG.md's "§95 — the forward list" for the full
+brainstorm this was drawn from.
+
+A. **First-class llama.cpp support.** Prioritised by direct instruction.
+   The honest starting point, which changes the shape of the work: the app
+   *already* talks to llama.cpp, because `llama-server` speaks the OpenAI
+   API and `ai/openai_client.py` speaks that. So this is not "add a
+   backend" — it is three smaller things:
+   1. **Say so.** `core/extras.py` still lists `llama-cpp-python` as
+      "not wired into the chat backend yet" with the button disabled,
+      which reads as "llama.cpp is unsupported" when the supported route
+      is `llama-server` and needs no extra at all. Rewrite that entry and
+      document the `--host/--port` recipe in the Models screen.
+   2. **Detect it.** `provider.detect_provider` guesses from the URL;
+      llama-server's `/props` endpoint identifies it exactly and reports
+      `n_ctx`, which is a better context number than the app's own
+      guess-from-name table.
+   3. **Then decide on in-process.** Embedding `llama-cpp-python` means
+      shipping a compiled wheel per platform *and* per accelerator (CUDA,
+      ROCm, Metal, CPU), owning model load/unload and VRAM, and keeping a
+      GIL-blocking call off the event loop. That is a permanent
+      maintenance cost for something steps 1–2 already deliver. Do it only
+      if "no separate server to run" turns out to matter more than that
+      cost — and measure the wheel matrix before committing.
 Items 1–2, below, are the ones with real substance after that.
 
-~~1. **Vision-capable models still cannot be shown an image.**~~ **Built** —
-   the largest item on this list, end to end:
-   - **Composer**: a new `#attach-image` button beside the existing note
-     picker, uploading through the *existing* `/media/upload` (the same
-     endpoint the note/document editors already use for drag-and-drop
-     images) rather than a second upload path. Thumbnails render via the
-     app's existing `attachment-chip-image` look and `mediaSrc()` helper —
-     missed on the first pass and caught live: a plain `<img src>` never
-     attaches `X-Auth-Token`, so the thumbnail 401'd silently until routed
-     through the same query-param fallback `require_unlock_media` already
-     exists for exactly this case.
-   - **Chat route**: `ChatRequest.image_media_ids` (cap 4) →
-     `_resolve_chat_images()` reads each upload off disk and returns a data
-     URI (`routes_chat.py`) — the app's own neutral shape, not raw base64.
-     A real, previously-latent bug found and fixed while wiring this in:
-     both `librarian.answer` and `chat_stream`'s plain path short-circuited
-     to "no matching notes" whenever retrieval came back empty, which a
-     vision-only question ("what's in this photo?") always does — fixed by
-     treating an attached image the same as a matched note for that guard.
-   - **Provider layer**: `images` flows through
-     `librarian.build_messages`/`agent.build_agent_messages` onto the last
-     user message. Each dialect adapts it right at its own wire boundary —
-     `ollama_client._to_ollama_messages` strips the data-URI prefix to bare
-     base64 (Ollama sniffs the format itself); `openai_client._to_openai_messages`
-     hands the URI straight to `image_url.url`, which accepts it unchanged.
-     `model_spec()`'s existing `supports_tools`/`supports_thinking` tri-state
-     gained a third sibling, `supports_vision`, surfaced in Settings → Models
-     as "Can see images" — Ollama answers it for real, an OpenAI-compatible
-     server stays `None` ("not reported"), same as the other two.
-   - **Pairs with OCR** exactly as scoped: `/media/upload` already runs OCR
-     on any image in the background regardless of whether it's also sent to
-     a vision model — the two paths were never exclusive, just previously
-     disconnected from chat entirely.
-   - Six new backend tests (`tests/test_chat_vision.py`) cover the id→data-URI
-     resolution, the plain and agent-mode streaming paths, a missing/expired
-     media id being dropped rather than erroring, and the empty-notes guard
-     fix specifically; five more (`tests/test_providers.py`) cover both
-     dialects' message translation directly. Verified live in this sandbox's
-     Chromium: attach → thumbnail renders → send → attachments clear, zero
-     console errors. **Not verified**: an actual vision model's *answer*
-     quality — this sandbox has no reachable Ollama (the project's standing
-     caveat), so only the plumbing that gets an image to the model round-trip
-     is confirmed, not what a real multimodal model does with it.
-
-~~1b. **A vision-model preference, separate from the chat model.**~~ **Built**,
-   asked for directly right after the item above shipped. Settings → Models
-   gained a third picker (`ModelManager.vision_model`/`resolve_vision_model`)
-   beside the existing chat/utility ones — **the one deliberate exception to
-   this app's own default rule**. Every other model preference here falls
-   back to "same as chat model" when unset (`utility_model()`); vision
-   defaults to **auto-detect** instead (scan installed models for the first
-   one that declares the `"vision"` capability), because falling back to the
-   chat model would silently turn "attach a photo" into "attach a photo the
-   model ignores" on any notebook that has never touched this setting — a
-   worse default than the one other preference here that needs to differ
-   from the rest. An explicit model name still overrides auto-detect, the
-   same shape utility model already has. `routes_chat.py`'s two chat paths
-   (blocking and streaming, both the plain and agent/tools branches) all
-   route an image-carrying turn through the resolved vision model instead of
-   the ordinary chat model; `answered_by` reports whichever one actually
-   ran. 9 new tests (`test_models_api.py`, `test_chat_vision.py`) cover
-   auto-detect, an explicit override, the route's own validation, and that a
-   turn with no image never picks up a vision override that happens to be
-   configured.
-
-1c. **Auto-captions on uploaded images, from whichever vision model is
-   available.** Asked for directly, right after 1b. `MediaUpload.caption`
-   (new column, additive — the existing auto-migrator handles it, no
-   Alembic migration needed) is the same shape `ocr_text` already has:
-   NULL until filled, written once, never silently overwritten. New module
-   `ai/captioning.py` mirrors `core/ocr.py` almost exactly — same
-   never-raises contract, same background-thread trigger from
-   `POST /media/upload` (unconditional for a raster image; whether a vision
-   model actually exists is decided *inside* the background call, not on
-   the upload request, so the request never pays for that round trip). A
-   caption is written **once**; the only way to get a new one is the
-   explicit regenerate button — `POST /media/{id}/caption` with
-   `force: true` — reachable from two places, both asked for by name: the
-   Library's Image Gallery (a ✦ button beside rename/delete on every tile,
-   showing the current caption under the filename, clamped to two lines)
-   and the Notes tab's Capture composer (the same ✦ button added to each
-   inline-image chip `renderEntryAttachmentChips` already draws, result
-   shown as a toast rather than inline — that chip strip is compact and
-   already carries a remove control per image). The Image Gallery's own
-   search box now matches caption text too, alongside the existing filename
-   and OCR-text matching. 27 new tests total: 9 in `test_captioning.py`
-   (`caption_text`/`caption_and_store` directly — write-once, `force`
-   overwrite, never raises on a missing file/upload/backend error) and 9 in
-   `test_media_api.py` (the upload trigger, the manual endpoint's
-   validation — 415 on a PDF, 409 with no vision model, 404 on an unknown
-   id — and force-vs-not). **Scope decision, not an oversight**: this
-   covers `MediaUpload` only (the Library's Image Gallery, and any inline
-   `![]()` image in a note or document — all three funnel through the same
-   `/media/upload`, per that model's own docstring). Note *file attachments*
-   (`Attachment`, `/entries/{id}/files` — a separate upload path with its
-   own allowlist) are not captioned; extending to them would mean a second,
-   parallel implementation for a smaller surface, not a natural extension of
-   this one. **Verified live in this sandbox's Chromium, after a real deploy
-   trap**: the first verification attempt used the wrong tab selector
-   (`library-view-images` — the real id is `library-view-media`) and hung;
-   fixed and re-run, but the *second* attempt got a `405 Method Not Allowed`
-   on the caption button — not a frontend bug, the running server was a
-   stale process (`kill`ed at restart time, but the replacement `uvicorn`
-   had silently failed to bind the port while the old one kept answering,
-   so every request that session hit code from before this feature
-   existed). `ps`/`lsof` caught it; killing the actual PID and starting a
-   genuinely fresh process fixed it. Worth recording plainly: this is
-   exactly CLAUDE.md's own "restart the server after any Python change"
-   trap, one layer deeper — a *restart command that looks like it ran* is
-   not the same as a restart that actually did. With a real fresh server:
-   the ✦ button renders on hover beside rename/delete, and clicking it
-   correctly reports `409 "The AI model isn't running"` — this sandbox has
-   no reachable Ollama (the project's standing caveat), so a clean, honest
-   refusal is the correct and fully-verified behaviour here, not a gap.
-
-1d. **Manual caption input, asked for directly right after 1c shipped** — "as
-   well as" the AI-generate button, not instead of it. `POST /media/{id}
-   /caption` gained a `text` field: when present it sets the caption to
-   exactly that string and skips the model (and the write-once guard, which
-   exists to stop a silent *automatic* rewrite, not a person who opened the
-   field on purpose) entirely; `""` clears it, matching the existing null =
-   "not captioned" convention. Two entry points, kept as separate controls
-   from the ✦ generate button rather than merged into one, each matching an
-   existing pattern already in the app: the Library gallery's caption text
-   is now itself click-to-edit (the same inline-textarea-on-click shape the
-   filename rename right above it already used), showing a real "Add a
-   caption…" placeholder when empty instead of hiding; the Notes composer
-   chip — too compact for an inline field — gained a second (pencil) button
-   that opens `promptDialog`, the same custom text-entry modal the "Title
-   for a new document" flow already uses. 5 new backend tests
-   (`test_media_api.py`: hand-typed text bypasses the model and the
-   write-once guard, an empty string clears, a PDF is still refused).
-   Verified live in Chromium at both sites: the gallery's inline edit saves
-   and displays correctly, and the composer's modal round-trips through
-   the real endpoint (`toast: "Caption saved: Manually typed note
-   caption"`) — the second check needed two attempts, both instructive: the
-   modal is one of eleven `.modal-overlay` elements already in the DOM
-   (most hidden), so a bare `.modal-overlay` selector grabbed the wrong
-   one, and "Save" matches 17 buttons across the app — both fixed by
-   scoping to the one `[role=dialog][aria-modal=true]:visible` element,
-   not by changing the app.
+~~1. **Vision-capable models could not be shown an image.**~~ **Built.**
+   Composer attachment, vision-model selection and captioning. Full
+   narrative in HISTORY.md; kept here as a number so §-references still
+   resolve.
 
 2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
    in two, as BACKLOG always said it should be. **The page-size control and

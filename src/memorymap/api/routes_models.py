@@ -116,6 +116,9 @@ def status() -> dict:
         installed = []
         running = False
     chat_model = manager.chat_model()
+    # Resolved once. It walks the installed models asking each whether it can
+    # see, which is an HTTP call per model on a cold cache.
+    resolved_vision = manager.resolve_vision_model(ollama, installed) if running else None
 
     config = deps.get_config()
     provider = str(config.get_preference("llm_provider", "ollama") or "ollama")
@@ -157,9 +160,16 @@ def status() -> dict:
         # so Settings can show "auto — currently: llama3.2-vision" rather
         # than making the user guess what auto-detect will do.
         "vision_model": manager.vision_model(),
-        "vision_model_resolved": manager.resolve_vision_model(ollama, installed) if running else None,
+        "vision_model_resolved": resolved_vision,
         "ocr_model": manager.ocr_model(),
-        "ocr_model_resolved": manager.resolve_ocr_model(ollama, installed) if running else None,
+        # Derived from the vision answer rather than resolved again — see
+        # `resolve_ocr_model`. Doing both independently walked every installed
+        # model twice and pushed this poll past the frontend's 5s abort.
+        "ocr_model_resolved": (
+            manager.resolve_ocr_model(ollama, installed, vision_fallback=resolved_vision or "")
+            if running
+            else None
+        ),
         "embedding_backend": manager.embedding_backend(),
         # The Ollama model *setting* — only meaningful on that backend.
         "embedding_model": manager.embedding_model(),

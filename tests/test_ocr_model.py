@@ -137,3 +137,37 @@ def test_both_entry_points_pass_a_reader_rather_than_omitting_it():
         text = (Path("src/memorymap/api") / name).read_text(encoding="utf-8")
         assert "docview.extract(" in text
         assert "pdf_reader_or_none()" in text, name
+
+
+def test_the_status_poll_resolves_the_vision_model_once(app_state, monkeypatch):
+    """Reported as `GET /models/status — signal timed out`.
+
+    Resolving a vision model walks every installed model asking `/api/show`
+    whether it can see — one HTTP round trip each, cached per process but cold
+    on the first poll. The status endpoint needs both a vision answer and an
+    OCR answer, and deriving them independently walked that list twice, which
+    on a real install was enough to pass the frontend's own 5s abort.
+    """
+    manager = _manager(app_state)
+    walks = []
+    real = manager.resolve_vision_model
+
+    def counted(ollama, installed=None):
+        walks.append(1)
+        return real(ollama, installed)
+
+    monkeypatch.setattr(manager, "resolve_vision_model", counted)
+    ollama = _FakeOllama(["llava", "moondream"])
+    vision = manager.resolve_vision_model(ollama)
+    manager.resolve_ocr_model(ollama, None, vision_fallback=vision or "")
+    assert len(walks) == 1
+
+
+def test_the_fallback_is_only_used_when_nothing_better_exists(app_state):
+    """Passing a pre-resolved vision model must not override a document reader
+    that is actually installed — the whole point of the preference order."""
+    manager = _manager(app_state)
+    got = manager.resolve_ocr_model(
+        _FakeOllama(["llava", "glm-ocr"]), None, vision_fallback="llava"
+    )
+    assert got == "glm-ocr"

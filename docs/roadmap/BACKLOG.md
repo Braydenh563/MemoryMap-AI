@@ -2472,3 +2472,188 @@ has been scoped; they are here so the finding is not lost with the session.
   "extracts nothing" if not installed, so a notebook that never installs
   it already gets exactly this today for images); the new PDF-page path
   should not add a second dependency on it.
+
+---
+
+## §95 — the forward list
+
+Asked for directly: *"brainstorm new features and improvements… what features
+are missing, what should be added, what new capabilities?"* Written after a
+session that read most of the codebase, so these are shaped by what is
+actually there rather than by what a notes app generally has.
+
+**Ranked by (what it unlocks) ÷ (what it costs), not by size.** Anything
+already built is excluded — five items were dropped from this list during
+writing for exactly that reason, which is the standing lesson of this file.
+
+### A. Model and backend
+
+1. **llama.cpp, properly framed.** Now item A in ROADMAP.md. The app already
+   speaks to `llama-server`; what is missing is saying so, detecting it via
+   `/props` (which reports the real `n_ctx`), and *then* deciding whether
+   in-process `llama-cpp-python` is worth a per-accelerator wheel matrix.
+2. **Model health card.** The app knows a model's window, quantisation,
+   capabilities and — since §94 — its own recommended sampling parameters. It
+   has never shown them in one place with "what this means for you": *this
+   model has an 8k window, so a long chat will start dropping history around
+   turn twelve*. Every input already exists.
+3. **Per-task model routing, made explicit.** `utility_model` exists and the
+   smart-routing toggle exists, but a user cannot see *which* model answered
+   *which* background job. A one-line "filed by X, captioned by Y" in
+   Settings → Background tasks would make the setting legible.
+4. **A "this model is struggling" signal.** §94 added a probe that tells a
+   broken tools path from an outage. The same signal could be surfaced:
+   after two tool-path failures on one model, offer the tool-free mode
+   rather than silently degrading each turn.
+
+### B. Retrieval and context — where the real quality ceiling is
+
+5. **Show the context budget in the UI.** `context.plan` already rations
+   every part of the prompt and logs it. The chat has a percentage meter but
+   no breakdown, so "why didn't it see my note?" is unanswerable without the
+   log. A hover on the meter showing *system / notes / history / reply* is
+   nearly free and answers the single most common AI complaint.
+6. **Recency and pinning as retrieval signals.** Search ranks by relevance;
+   it does not know that a note pinned last week matters more than a
+   relevant one from 2023. Both columns exist.
+7. **Re-rank the top N with the utility model.** Hybrid search picks eight
+   notes; a 1B model scoring those eight for actual relevance to the question
+   costs one short call and is the standard fix for "it quoted the wrong
+   note".
+8. **Conversation summaries as retrieval targets.** `compress_chat` writes
+   summaries; nothing searches them. A question about something discussed a
+   month ago cannot reach it unless a note was made.
+
+### C. Capture — the half the app is named for
+
+9. **Web clipper.** `read_url` exists server-side; there is no bookmarklet or
+   share target, so saving a page means copy-paste.
+10. **Email-in.** A local IMAP poller filing into a category is a well-worn
+    pattern and turns the app into a capture destination rather than a place
+    you go.
+11. **Recurring notes / templates with dates.** Templates exist; they are
+    static. A daily-note template with today's date resolved is the single
+    most-requested feature in every notebook app.
+12. **Voice capture beyond dictation.** faster-whisper is already an extra.
+    A "record a thought" button that transcribes *and* files is a different
+    feature from dictating into a box.
+
+### D. Trust and safety
+
+13. **Private notes need an audit trail.** They are encrypted and invisible
+    to the AI, which is right — but nothing records *when* one was decrypted
+    for viewing. For the one feature whose whole value is confidence, that is
+    the missing half.
+14. **Export a single note/document.** Full export exists. There is no way to
+    hand one note to someone.
+15. **A dry-run mode for the agent.** `make_plan` shows intent, but a user
+    who wants "tell me what you would change without changing it" has to
+    trust the plan. A mode that collects the writes and shows a diff before
+    committing would make destructive skills usable by people who currently
+    avoid agent mode.
+
+### E. Polish worth doing as one pass
+
+16. **A real empty state for every tab.** Several are a bare "nothing here".
+17. **Keyboard-first navigation.** Shortcuts exist and are rebindable; there
+    is no way to *move* between notes without the mouse.
+18. **Undo for destructive skill runs.** Individual tools record undo; a run
+    that made twelve changes has twelve separate undos and no "undo that
+    run".
+19. **`app.js` is 22,000 lines.** The clean first extraction is `chat.js`
+    (~3,300 contiguous lines: ask, the chat tab, image attachment, the agent
+    timeline, the dock disclosure), following the §88.3 pattern that already
+    produced documents.js, library.js, dashboard.js and settings.js. No
+    user-visible gain, so it waits behind anything on this list that has one.
+20. **Backup retention should be a setting.** Backups accumulate with no cap
+    the user can see or change; asked about directly.
+
+### Deliberately not on this list
+
+- **Sync / multi-device.** It is the most-asked-for thing in every notebook
+  app and it is the one that would break this one: the app's premise is that
+  the data never leaves the machine, and every sync design either weakens
+  that or adds a server. If it is ever done it needs its own decision, not a
+  backlog line.
+- **A plugin system.** Skills already cover the "make the app do a new thing"
+  case without a new extension surface to secure.
+
+---
+
+## §96 — Guides, and diagrams the whiteboard can take
+
+Asked for directly, and the two halves belong together: both are about the AI
+producing *structured* output the user then owns.
+
+### Guides — curated instructions the AI writes to
+
+A **Guide** is a named, editable instruction set the AI pulls in when it is
+writing: how to scaffold an academic assignment, how this user wants LaTeX
+written, when a mermaid diagram is the right answer, a house style for
+meeting notes. Ships with curated ones; the user can edit any of them and add
+their own.
+
+**Why it is not a persona and not a skill**, which is the design question:
+
+- A **persona** changes *voice* and applies to everything.
+- A **skill** is a *procedure* the agent runs, start to finish.
+- A **Guide** is a *format contract* for one piece of output — it does not run,
+  it constrains. Several can apply at once (an assignment guide + a LaTeX
+  guide), which neither of the others allows.
+
+Shape:
+
+- Stored like skills (a table, editable in Settings), with a name, a trigger
+  hint, and the instruction body.
+- **Selected, not always-on.** Attached explicitly in the composer or the
+  document editor, and *offered* by the same deterministic matcher the tool
+  focus uses (`ai/toolwords.py`) — which already tells "write my assignment"
+  from "what is an assignment". Prompt budget is the reason: guides are prose,
+  prose is the fixed cost `§94` just spent a release cutting, and a guide that
+  silently attaches itself would undo that.
+- Budgeted the same way everything else is (`ai/context.py`), with its own
+  share, so a long guide crowds out notes visibly rather than silently.
+- Applies to all three surfaces the user named: chat replies, note drafting,
+  and `POST /documents/{id}/ai-edit`.
+
+**Open question worth answering before building:** whether a guide should be
+able to carry *examples* (few-shot) as well as instructions. Examples work far
+better on small models and cost far more tokens — probably a per-guide flag
+rather than a global decision.
+
+### Diagrams: mermaid as the interchange format
+
+The user's framing is the right one and worth keeping exactly: the AI writes
+**mermaid**, the user previews and edits the mermaid, and only when they are
+happy is it *exported* to the whiteboard as real cards, boxes and connectors —
+**with the mermaid kept**, so it can be re-edited or reused later.
+
+That ordering matters. `generate_diagram` already exists and writes straight
+to the whiteboard, which means a wrong diagram is a mess to undo. Mermaid as
+an intermediate makes the AI's output a *text artefact the user owns*: cheap to
+regenerate, diffable, editable by hand, and portable out of this app entirely.
+
+Work, in order:
+
+1. **Render mermaid where markdown already renders.** Fenced ```mermaid blocks
+   in chat, notes and documents. Nothing renders them today (`grep mermaid
+   frontend/` is empty), so today they show as code.
+2. **A preview + edit step** — the mermaid on one side, the rendered diagram on
+   the other. The document editor's Split view is the same shape and can be
+   reused rather than rebuilt.
+3. **Export to whiteboard**: mermaid AST -> whiteboard cards, shapes and links.
+   The whiteboard already has all three primitives and `wbArrangeMindMap`
+   already does tree/radial layout, so this is a translation, not a new engine.
+4. **Keep the source.** The generated mermaid is stored on the board it
+   produced, so "edit the diagram" can mean either "move this card" or "change
+   the text and re-export".
+
+### Related, and cheap: finish the rendering story
+
+Checked this session: chat, documents and the dashboard digest all go through
+`renderMarkdown`, but **notes deliberately do not** (see the comment at
+`app.js:3791`), and **no surface renders mermaid or highlights code**. Before
+any of the above, worth settling as one pass: which surfaces render markdown,
+whether code blocks get syntax highlighting, and whether notes should join —
+because "the AI wrote a diagram and I can't see it" and "my code block is
+grey" are the same gap.

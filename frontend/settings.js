@@ -210,6 +210,16 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   // a browser tab, and a setting whose effect is unreachable reads as broken.
   $("desktop-tray-row")?.classList.toggle("hidden", !isDesktop);
   $("desktop-tray-hint")?.classList.toggle("hidden", !isDesktop);
+  // Same reasoning as the tray/console rows above: /system/restart can only
+  // ever do something in the packaged desktop app on Windows specifically
+  // (the one platform _spawn_desktop knows how to relaunch), not desktop in
+  // general — but this app's own convention (the console row just above)
+  // is to gate on desktop-ness alone and let the backend's own platform
+  // check be the final word, so a browser tab never even offers the button
+  // while a desktop build on macOS/Linux still can — and finds out only
+  // when it actually tries, rather than a client-side guess going stale
+  // the moment this app ships a real relaunch for those platforms too.
+  $("about-restart-row").classList.toggle("hidden", !isDesktop);
   $("open-exports-row").classList.toggle("hidden", !isDesktop);
   $("export-save-dir-row").classList.toggle("hidden", !isDesktop);
   if (isDesktop) $("pref-export-dir").value = prefsCache?.export_save_dir || "";

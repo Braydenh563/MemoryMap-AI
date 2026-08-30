@@ -4492,6 +4492,16 @@ Link to another note with [[its first few words]]."></textarea>
               this computer.
             </p>
             <p class="muted" id="about-version"></p>
+            <!-- ROADMAP item C: several extras only take effect on restart
+                 and the app said so without ever offering one. Hidden by
+                 default (not-restart-capable builds — the browser tab, or
+                 desktop on a non-Windows box — have no way to act on this
+                 at all) and shown once app.js's own /system/console-mode-
+                 style probe confirms it can actually do something. -->
+            <div class="row hidden" id="about-restart-row">
+              <button id="about-restart" class="ghost small" type="button">Restart MemoryMap</button>
+              <span class="muted">Some changes — an installed extra, a switched model backend — only take effect after a restart.</span>
+            </div>
             <!-- Off by default (core/config.py's update_check_enabled) —
                  "100% offline" two lines up has to stay true until this is
                  switched on by hand, the same reasoning Settings -> Web

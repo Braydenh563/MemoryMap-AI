@@ -69,11 +69,17 @@ was not done, because "not done" and "decided against" are different facts.
    1–100 bounds, and Settings → Data has the number field beside the
    existing Backups list.
 
-C. **Restart after installing a package, and from Settings → About.** Several
-   extras only take effect on restart and the app says so without offering
-   one. `routes_settings.py` already restarts the desktop shell for the
-   console-mode switch, so the mechanism exists; this is a second caller and a
-   button. Asked for directly; not built.
+~~C. **Restart after installing a package, and from Settings → About.**~~
+   **The About-page half is built.** `POST /system/restart` is the second
+   caller of `restart_in_console_mode` the console-mode switch already used —
+   same mechanism, current console visibility preserved rather than flipped
+   — behind a "Restart MemoryMap" button in Settings → About, shown only
+   once `desktopShell()` confirms there is anything to restart into. **Not
+   yet done: wiring it to the Extras install-completion flow specifically**
+   (the confirm dialog still just says "needs a restart afterwards" with no
+   button appearing once that install actually finishes) — real remaining
+   scope, since that means hooking the restart offer into whatever the
+   Extras panel polls for a finished install, not reused here.
 
 ~~D. **Notes do not render markdown.**~~ **Partly built, and the rest is
    staying out on purpose.** A later session already gave notes real inline

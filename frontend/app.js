@@ -20226,6 +20226,32 @@ $("pref-show-console").addEventListener("change", async (e) => {
   }
 });
 
+// ROADMAP item C: "several extras only take effect on restart and the app
+// says so without offering one." This is that offer — a plain restart, not
+// tied to any preference changing, for Settings → About.
+$("about-restart")?.addEventListener("click", async () => {
+  if (
+    !(await confirmDialog(
+      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
+    ))
+  ) {
+    return;
+  }
+  try {
+    const result = await apiJson("/system/restart", { method: "POST" });
+    if (result.restarting) {
+      toast("Restarting…");
+    } else {
+      // The backend's own platform check said no — this build genuinely
+      // can't relaunch itself (see /system/restart's own docstring for
+      // which platforms that covers).
+      toast("Restart isn't available in this build — close and reopen MemoryMap by hand.", true);
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't restart.", true);
+  }
+});
+
 // Takes effect on the next close, not on a restart — the handler reads the
 // preference each time the window is closed rather than at launch, precisely
 // so this switch is not a "restart to apply" one.

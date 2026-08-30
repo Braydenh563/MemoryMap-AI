@@ -539,6 +539,31 @@ def set_console_mode(
     return {"show_console_on_startup": show_console, "restarting": restarting}
 
 
+@router.post("/system/restart")
+def restart_app(background_tasks: BackgroundTasks) -> dict:
+    """A plain restart, on request rather than tied to any one preference
+    changing — ROADMAP item C, asked for directly. Several extras only take
+    effect after a restart and the app said so without ever offering one;
+    `restart_in_console_mode` already IS a generic "spawn a replacement
+    process and exit this one," console-mode switching is just its first
+    caller. This is the second: same mechanism, current console visibility
+    preserved rather than flipped.
+
+    Same platform gate as /system/console-mode, for the same reason — this
+    can only ever work in the packaged desktop app on Windows (the one
+    platform `_spawn_desktop` knows how to relaunch). Everywhere else,
+    "restart" means the user's own means of doing that (Ctrl+C and rerun,
+    close and reopen the browser tab), which this app cannot do for them.
+    """
+    if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
+        return {"restarting": False}
+    from memorymap.__main__ import restart_in_console_mode
+
+    show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
+    background_tasks.add_task(restart_in_console_mode, not show_console)
+    return {"restarting": True}
+
+
 def _validated_skills(raw: list[dict]) -> list[dict]:
     """Every skill, normalised — or a 422 naming the one that's wrong."""
     from memorymap.ai import tools

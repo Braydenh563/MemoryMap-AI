@@ -18,12 +18,11 @@ from typing import TypeVar
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
-from memorymap.ai import provider
 from memorymap.ai.embeddings import EmbeddingService
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.ai.openai_client import OpenAICompatClient
-from memorymap.ai.provider import Provider
+from memorymap.ai.provider import Provider, set_sampling_overrides_getter
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
 
@@ -173,7 +172,13 @@ def init_app_state(data_dir: str | Path | None = None) -> None:
     # this is the wiring that builds on it, so the import would be a cycle
     # (CodeQL flagged it) as well as the wrong direction. Registered here,
     # where the config it reads is known to exist.
-    provider.set_sampling_overrides_getter(
+    #
+    # Imported as `from memorymap.ai.provider import set_sampling_overrides_getter`
+    # rather than `from memorymap.ai import provider`: the second spelling
+    # imports the *package* first, and CodeQL flagged that as beginning a
+    # cycle (`memorymap.ai` reaches back here through its own submodules).
+    # Naming the submodule directly is the same call with no package import.
+    set_sampling_overrides_getter(
         lambda: _config.get_preference("sampling_overrides", {})
     )
     if _model_manager is None:

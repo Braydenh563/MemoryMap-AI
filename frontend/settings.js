@@ -203,11 +203,19 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   const isDesktop = await desktopShell();
   $("desktop-console-row").classList.toggle("hidden", !isDesktop);
   $("desktop-console-hint").classList.toggle("hidden", !isDesktop);
+  // Desktop-only for the same reason the console row is: there is no tray in
+  // a browser tab, and a setting whose effect is unreachable reads as broken.
+  $("desktop-tray-row")?.classList.toggle("hidden", !isDesktop);
+  $("desktop-tray-hint")?.classList.toggle("hidden", !isDesktop);
   $("open-exports-row").classList.toggle("hidden", !isDesktop);
   $("export-save-dir-row").classList.toggle("hidden", !isDesktop);
   if (isDesktop) $("pref-export-dir").value = prefsCache?.export_save_dir || "";
   if (isDesktop) {
     $("pref-show-console").checked = Boolean(prefsCache?.show_console_on_startup);
+    // Defaults to on, and `?? true` rather than `Boolean(...)` matters: an
+    // install that has never touched this has no stored value, and Boolean()
+    // of undefined would render the default as off.
+    $("pref-close-to-tray").checked = prefsCache?.close_to_tray ?? true;
   }
   showSettingsSection(section);
   // Re-read every open, not cached: the panel shows what the *currently

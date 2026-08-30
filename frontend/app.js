@@ -2511,6 +2511,26 @@ function openLightbox(items, startIndex = 0) {
   const meta = document.createElement("div");
   meta.className = "lightbox-meta";
 
+  // What the app knows *about* the picture, shown with the picture. Asked for
+  // directly: "if clicking on an image to view expand it in the lightbox…can
+  // the captions and ocr accompany it somehow??" — before this, the caption a
+  // vision model wrote and the text it read off the page existed only on the
+  // Library tile, which is the one view too small to read them in. Optional
+  // per item (`caption`, `text`, and their bylines): every other caller
+  // passes only `{filename, getUrl}` and gets exactly what it got before.
+  const info = document.createElement("div");
+  info.className = "lightbox-info hidden";
+  const infoCaption = document.createElement("p");
+  infoCaption.className = "lightbox-caption";
+  const infoText = document.createElement("p");
+  infoText.className = "lightbox-text";
+  const infoByline = document.createElement("p");
+  infoByline.className = "lightbox-byline";
+  info.append(infoCaption, infoText, infoByline);
+  // Clicking the panel must not dismiss the dialog — someone selecting a line
+  // of transcribed text to copy is the whole reason it is here.
+  info.addEventListener("click", (e) => e.stopPropagation());
+
   const prevBtn = document.createElement("button");
   prevBtn.type = "button";
   prevBtn.className = "lightbox-nav lightbox-prev";
@@ -2560,6 +2580,15 @@ function openLightbox(items, startIndex = 0) {
       items.length > 1
         ? `${item.filename || ""} — ${index + 1} of ${items.length}`
         : item.filename || "";
+    const caption = (item.caption || "").trim();
+    const text = (item.text || "").trim();
+    infoCaption.textContent = caption;
+    infoCaption.classList.toggle("hidden", !caption);
+    infoText.textContent = text;
+    infoText.classList.toggle("hidden", !text);
+    infoByline.textContent = item.byline || "";
+    infoByline.classList.toggle("hidden", !item.byline);
+    info.classList.toggle("hidden", !caption && !text);
     // After the caption text is set, not before — an empty vs. filled
     // caption changes the height of the centred stack `img` sits in, which
     // moves the image's own centre by exactly that much.
@@ -2591,7 +2620,7 @@ function openLightbox(items, startIndex = 0) {
   });
   document.addEventListener("keydown", onKey);
 
-  overlay.append(closeBtn, img, broken, meta);
+  overlay.append(closeBtn, img, broken, meta, info);
   if (items.length > 1) overlay.append(prevBtn, nextBtn);
   document.body.appendChild(overlay);
   closeBtn.focus();
@@ -16295,10 +16324,35 @@ function playReminderChime() {
   }
 }
 
+//: How long a system notification stays up before this app closes it itself.
+//: Reported as notifications that "never auto close and stay open until the
+//: user closes them" — which is exactly what a `Notification` does when
+//: nobody calls `close()` on it: the banner's own fade is the *shell's*
+//: behaviour, and the notification object outlives it, sitting in the OS
+//: notification centre (and, in the desktop WebView, sometimes on screen)
+//: until dismissed by hand. The web platform has no `timeout` option, so the
+//: only way to auto-close one is to close it.
+//:
+//: Longer than a toast's 5.5s because a system notification is for the case
+//: where the app is not the window you are looking at.
+const NOTIFICATION_AUTOCLOSE_MS = 12000;
+
 function notify(title, body) {
   if ("Notification" in window && Notification.permission === "granted") {
     try {
-      new Notification(title, { body, icon: "/favicon.svg", tag: "memorymap" });
+      const shown = new Notification(title, {
+        body,
+        icon: "/favicon.svg",
+        tag: "memorymap",
+      });
+      setTimeout(() => {
+        try {
+          shown.close();
+        } catch {
+          // A notification the OS already disposed of. Closing twice is not
+          // an error worth a line in the console.
+        }
+      }, NOTIFICATION_AUTOCLOSE_MS);
       return true;
     } catch {
       // Some embedded shells expose the constructor and then throw. Falling
@@ -17287,9 +17341,14 @@ function noticeTaskTransitions(running, history) {
       kind: "task",
       title: `Started: ${task.label}`,
       detail: task.detail || "",
-      // Keyed on the job, not on a timestamp: the centre must hold one entry
-      // per start, and the poll runs every few seconds.
-      key: `task-start:${key}`,
+      // Keyed per *start*, not per job. It used to be `task-start:${key}`,
+      // which deduped against localStorage — so the second time the
+      // autonomous pass (or any recurring job) ran, its start recorded
+      // nothing at all, forever, because an entry with that exact id was
+      // already stored from the first run days earlier. The poll-repeat this
+      // was defending against is already handled by `seenRunningTasks` two
+      // lines up, which `continue`s before reaching here.
+      key: `task-start:${key}:${Date.now()}`,
     });
   }
 
@@ -17657,11 +17716,25 @@ async function renderTasks(payload) {
       actions.className = "entry-actions";
       actions.appendChild(
         smallButton("Quit", "Stop this job", async () => {
-          const q = new URLSearchParams({ kind: job.kind, name: job.name || "" });
-          await api(`/models/jobs/cancel?${q}`, { method: "POST" }).catch((e) =>
-            toast(e.message, true)
-          );
-          toast("Asked the job to stop.");
+          // `/tasks/cancel`, not `/models/jobs/cancel`: the old endpoint knew
+          // about a re-index and a model pull and nothing else, so this
+          // button only ever appeared on two of the eight kinds this panel
+          // lists. The server now answers for all of them and says what it
+          // actually did — a pip install is terminated, an autonomous pass
+          // stops at its next safe point and stays off for a while, an
+          // embedding download stops after the file it is on. Reporting the
+          // server's own sentence rather than a fixed "asked it to stop"
+          // is the difference between the three.
+          try {
+            const result = await apiJson("/tasks/cancel", {
+              method: "POST",
+              body: JSON.stringify({ kind: job.kind, name: job.name || "" }),
+            });
+            toast(result.detail || (result.stopped ? "Stopping." : "It had already finished."));
+          } catch (e) {
+            toast(e.message, true);
+          }
+          renderTasks();
           refreshModelStatus();
         })
       );
@@ -19165,6 +19238,19 @@ $("pref-show-console").addEventListener("change", async (e) => {
     e.target.checked = !checked; // the change didn't take — don't leave the switch lying
     toast(error.message || "Couldn't switch view.", true);
   }
+});
+
+// Takes effect on the next close, not on a restart — the handler reads the
+// preference each time the window is closed rather than at launch, precisely
+// so this switch is not a "restart to apply" one.
+$("pref-close-to-tray")?.addEventListener("change", (e) => {
+  const checked = e.target.checked;
+  setPreference("close_to_tray", checked);
+  toast(
+    checked
+      ? "Closing the window will keep MemoryMap in the tray."
+      : "Closing the window will quit MemoryMap."
+  );
 });
 
 $("open-exports-folder").addEventListener("click", async () => {

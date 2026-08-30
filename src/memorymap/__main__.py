@@ -610,6 +610,26 @@ def _apply_console_visibility(targets: dict[int, str], hidden: bool) -> None:
             )
 
 
+def _stop_background_work() -> None:
+    """Stop every background job before an exit that skips the normal one.
+
+    `os._exit` and `os.execv` both replace or end this process immediately:
+    no `finally`, no atexit, no uvicorn shutdown, and so no lifespan handler.
+    The server's own lifespan calls `bgtasks.stop_all()` for the graceful
+    paths (`/shutdown`, Ctrl+C); this is the same call for the two paths that
+    are deliberately abrupt.
+
+    Never raises and never blocks for long: the process is going away, and a
+    Quit button that hangs is worse than a stray subprocess.
+    """
+    try:
+        from memorymap.core import bgtasks
+
+        bgtasks.stop_all()
+    except Exception as exc:  # noqa: BLE001 — best effort on the way out
+        logger.warning("couldn't stop background work before exiting: %s", exc)
+
+
 def _run_desktop(hidden_relaunch: bool = False) -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process.
@@ -779,8 +799,57 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         else None
     )
     if tray_icon is not None:
+        # **Closing the window is not quitting the app, and it now says so.**
+        # The hide itself has been here since the tray was added; what was
+        # missing is everything around it. Reported as a thing to build —
+        # "maybe make it so the app window can be closed but the app will
+        # still be open in the system tray, and then the window can be
+        # reopened again. so there is a difference between minimising the app
+        # and quitting the app" — which is a fair description of what a
+        # silent hide looks like from outside: the window vanishes, nothing
+        # explains where it went, and the only way back is noticing an icon
+        # you were never told to look for.
+        #
+        # Two things fix that and neither changes the hide:
+        #
+        # 1. **A preference.** `close_to_tray` defaults to on (a background
+        #    notebook is the point of the tray) and can be turned off, in
+        #    which case the X button quits properly — which is what someone
+        #    who does not want a resident app expects it to do, and what the
+        #    Linux/macOS builds already do for want of a tray.
+        # 2. **One notice, the first time.** A balloon from the tray icon
+        #    itself, so the explanation appears next to the thing being
+        #    explained. Once per install, keyed on a preference: an app that
+        #    tells you the same thing every time you close it is worse than
+        #    one that never tells you.
+        _told_about_tray = {"done": False}
 
         def _on_closing() -> bool:
+            try:
+                from memorymap.core import deps
+
+                config = deps.get_config()
+                if not config.get_preference("close_to_tray", True):
+                    # A real quit, so the same teardown the tray's own Quit
+                    # does — this path skips the lifespan handler too.
+                    _stop_background_work()
+                    return True
+                if not _told_about_tray["done"] and not config.get_preference(
+                    "tray_hide_explained", False
+                ):
+                    _told_about_tray["done"] = True
+                    config.set_preference("tray_hide_explained", True)
+                    try:
+                        tray_icon.notify(
+                            "Still running here. Click the icon to bring the "
+                            "window back, or right-click → Quit to close it "
+                            "properly.",
+                            "MemoryMap AI",
+                        )
+                    except Exception as exc:  # noqa: BLE001 — balloons are optional
+                        logger.debug("couldn't show the tray balloon: %s", exc)
+            except Exception as exc:  # noqa: BLE001 — never block a close
+                logger.warning("close-to-tray check failed: %s", exc)
             window.hide()
             return False  # cancels the real close — pywebview just hides it
 
@@ -942,6 +1011,36 @@ def _start_tray(
         window.destroy()
         os._exit(0)
 
+    def _go(js: str):
+        """A tray item that brings the window forward and *lands somewhere*.
+
+        Reported directly: "the options and buttons in the system tray dont
+        fully navigate to the propper features, just the tabs or settings
+        modal." Two items existed and each hand-rolled the same three steps —
+        show, focus, evaluate a string of JS — so adding a third meant copying
+        them again, which is why there was never a third.
+
+        Every generated item carries the same lock guard, and that is the
+        reason this is a factory rather than a list of one-liners: a tray menu
+        must never reach past the lock screen, and a guard that has to be
+        remembered per item is a guard that will be forgotten. Locked, the
+        window still comes forward — the person asked for the app, and the
+        honest answer is the lock screen, not nothing happening.
+        """
+
+        def run(icon, item) -> None:
+            window.show()
+            _focus_window(window)
+            try:
+                window.evaluate_js(
+                    "if (document.getElementById('lock-overlay')"
+                    "?.classList.contains('hidden')) {" + js + "}"
+                )
+            except Exception as exc:  # noqa: BLE001 — a menu item is not worth a crash
+                logger.warning("tray navigation failed: %s", exc)
+
+        return run
+
     def _view_logs(icon, item) -> None:
         # Reported directly: this used to open Settings -> Logs unconditionally,
         # which reaches straight past the lock screen if the app is locked —
@@ -973,11 +1072,20 @@ def _start_tray(
         # arguments", and the packaged app has no console to print that to:
         # the user clicks Restart, the window closes, and nothing comes back.
         argv = list(sys.argv) if getattr(sys, "frozen", False) else [sys.executable, *sys.argv]
+        _stop_background_work()
         icon.stop()
         window.destroy()
         os.execv(sys.executable, argv)
 
     def _quit(icon, item) -> None:
+        # **Before the hard exit below, not after it — there is no after.**
+        # Reported directly: "make sure that if the app is quit, all ai tasks
+        # and bg tasks stop as well." `os._exit(0)` skips every shutdown hook
+        # this process has, including the lifespan handler that calls exactly
+        # this function, so quitting from the tray was the one exit path that
+        # left a pip install and a SearXNG server running with nothing left to
+        # own them.
+        _stop_background_work()
         icon.stop()
         window.destroy()
         # window.destroy() runs on this thread (pystray's own), not the main
@@ -1012,10 +1120,45 @@ def _start_tray(
             " document.getElementById('entry-content')?.focus(); }"
         )
 
+    # Everything a tray icon is for: capture something, ask something, check
+    # on the app, get to the settings that matter. Each item lands on the
+    # feature rather than on the tab that contains it — see `_go`.
     menu_items = [
         pystray.MenuItem("Open MemoryMap AI", _open, default=True),
         pystray.MenuItem("New note", _new_note),
+        pystray.MenuItem(
+            "Ask a question",
+            _go("if (typeof switchTab === 'function') { switchTab('chat');"
+                " document.getElementById('chat-input')?.focus(); }"),
+        ),
+        pystray.MenuItem(
+            "Search everything",
+            _go("if (typeof openPalette === 'function') openPalette();"
+                " else if (typeof switchTab === 'function') switchTab('library');"),
+        ),
+        pystray.MenuItem(
+            "Reminders",
+            _go("if (typeof switchTab === 'function') switchTab('reminders');"),
+        ),
+        pystray.MenuItem(
+            "Whiteboard",
+            _go("if (typeof switchTab === 'function') switchTab('whiteboard');"),
+        ),
+        pystray.MenuItem(
+            "Background tasks",
+            _go("if (typeof openSettingsModal === 'function') openSettingsModal('tasks');"),
+        ),
+        pystray.MenuItem(
+            "Settings",
+            _go("if (typeof openSettingsModal === 'function') openSettingsModal('models');"),
+        ),
         pystray.MenuItem("View Logs", _view_logs),
+        pystray.Menu.SEPARATOR,
+        # The other half of "there is a difference between minimising the app
+        # and quitting the app" — the same hide the window's own close button
+        # now does, reachable from here so the behaviour is discoverable
+        # rather than only ever happening to you.
+        pystray.MenuItem("Hide to tray", lambda icon, item: window.hide()),
     ]
     if console_hwnd is not None:
         menu_items.append(

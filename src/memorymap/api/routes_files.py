@@ -748,6 +748,19 @@ class VisionOcrBody(BaseModel):
     #: `CaptionBody.force` — a manual re-read the user pressed the button
     #: for, not a background pass overwriting a reading they already saw.
     force: bool = False
+    #: A correction typed by hand, exactly as `OcrBody.text` already allows for
+    #: the Tesseract reading — `None` means "read it", any string sets it, and
+    #: `""` clears it.
+    #:
+    #: Reported: a vision model asked to transcribe a picture with no text in
+    #: it returned four Pokémon names, and there was no way to remove or edit
+    #: them. That failure is inherent to asking a small VLM to read an image
+    #: with nothing to read — the prompt already asks it to say so and it
+    #: ignored the instruction — so the fix is not a better prompt, it is that
+    #: a wrong reading must be correctable like every other AI output in this
+    #: app. The Tesseract line has been editable since it shipped; this one
+    #: was the odd one out.
+    text: str | None = Field(default=None, max_length=10_000)
 
 
 @router.post("/media/{upload_id}/vision-ocr", response_model=MediaUploadOut)
@@ -767,9 +780,30 @@ def vision_ocr_media(
     upload = deps.get_or_404(session, MediaUpload, upload_id, "No upload with that id")
     if Path(upload.filename).suffix.lower() not in vision_ocr.VISION_OCR_SUFFIXES:
         raise HTTPException(status_code=415, detail="Only images can be read this way.")
+    if body.text is not None:
+        # A hand-typed correction, or "" to clear a wrong reading. Checked
+        # before the backend is: fixing a bad transcription must not require
+        # the model that produced it to still be running.
+        upload.vision_ocr_text = body.text.strip() or None
+        if not upload.vision_ocr_text:
+            # Clearing the text clears the attribution with it — "Read by X"
+            # under nothing is a claim about a reading that no longer exists.
+            upload.vision_ocr_model = None
+        session.commit()
+        return MediaUploadOut(
+            id=upload.id,
+            url=f"/media/{upload.filename}",
+            original_name=upload.original_name,
+            ocr_text=upload.ocr_text or "",
+            caption=upload.caption or "",
+            caption_model=upload.caption_model or "",
+            caption_edited=upload.caption_edited,
+            vision_ocr_text=upload.vision_ocr_text or "",
+            vision_ocr_model=upload.vision_ocr_model or "",
+        )
     if not deps.get_ollama().is_running():
         raise HTTPException(status_code=409, detail="The AI model isn't running.")
-    model = deps.get_model_manager().resolve_vision_model(deps.get_ollama())
+    model = deps.get_model_manager().resolve_ocr_model(deps.get_ollama())
     if not model:
         raise HTTPException(
             status_code=409,

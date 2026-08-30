@@ -103,6 +103,9 @@ class DownloadState:
     log: list[str] = field(default_factory=list)
     started: float = 0.0
     outcome: str = ""  # "" while running, then completed | failed
+    #: Someone pressed Quit. Checked between download attempts — see
+    #: `cancel()` for why that is the only place it can be checked.
+    cancel_requested: bool = False
 
 
 _state = DownloadState()
@@ -198,6 +201,28 @@ def current() -> DownloadState:
     return _state
 
 
+def cancel() -> tuple[bool, str]:
+    """Ask the running download to stop. Returns (asked, message).
+
+    **Between attempts, not mid-file, and the message says so.**
+    `snapshot_download` is one blocking call inside huggingface_hub with no
+    cancellation token and no way to interrupt it short of killing the
+    process, so what this can honestly promise is: no further retry, and no
+    "completed" for a download nobody wants any more. A part-downloaded model
+    is not wasted — the cache is resumable, which is why the wording says the
+    bytes are kept rather than implying they were thrown away.
+
+    Claiming more than that would be the worse outcome: a Quit button that
+    reports success while a 400 MB download carries on is how a user learns
+    not to trust the panel.
+    """
+    if not _state.running:
+        return False, "Nothing is downloading."
+    _state.cancel_requested = True
+    _state.step = "Stopping after the current file…"
+    return True, "It will stop after the file it is on — what's downloaded is kept."
+
+
 def _log(line: str) -> None:
     _state.log.append(line)
     del _state.log[:-MAX_LOG_LINES]
@@ -242,6 +267,10 @@ def _run_download(model: EmbedModel) -> None:
 
         last: Exception | None = None
         for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+            if _state.cancel_requested:
+                _state.outcome = "cancelled"
+                _state.step = "Stopped before it finished. What downloaded is kept."
+                return
             try:
                 _log(
                     f"Fetching {model.repo}…"
@@ -249,6 +278,10 @@ def _run_download(model: EmbedModel) -> None:
                     else f"Connection dropped — resuming ({attempt} of {DOWNLOAD_ATTEMPTS})…"
                 )
                 snapshot_download(repo_id=model.repo)
+                if _state.cancel_requested:
+                    _state.outcome = "cancelled"
+                    _state.step = "Stopped just as it finished — the files are on disk."
+                    return
                 _state.outcome = "completed"
                 _state.step = (
                     f"{model.label} is on this machine. Searching by meaning "
@@ -305,6 +338,7 @@ def start(model_id: str) -> tuple[bool, str]:
         _state.step = "starting…"
         _state.log = []
         _state.started = time.time()
+        _state.cancel_requested = False
     threading.Thread(target=_run_download, args=(model,), daemon=True).start()
     return True, f"Downloading {model.label}."
 

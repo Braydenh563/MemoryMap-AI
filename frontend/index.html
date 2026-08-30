@@ -2026,9 +2026,16 @@ Link to another note with [[its first few words]]."></textarea>
                  the Library is where you find what you have, and what you threw
                  away is not that. The Bin chip still shows them whatever this
                  says, because pressing a filter called Bin is asking. -->
-            <label class="library-sort library-sort-check">
+            <!-- `checkbox-label` as well, so this is literally the same pill
+                 as Semantic beside it rather than a lookalike: reported as
+                 "add the button pill feature look to the 'Include Bin' toggle
+                 and text in the library as well to be same as the semantic
+                 search". The two sit side by side and do the same kind of job
+                 — one border, one padding, one checked state, one rule. -->
+            <label class="library-sort library-sort-check checkbox-label"
+              title="Also show things you have thrown away.">
               <input type="checkbox" id="library-show-binned" class="accent-check">
-              <span class="muted">Include bin</span>
+              <span>Include bin</span>
             </label>
             <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
               <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
@@ -4385,6 +4392,26 @@ Link to another note with [[its first few words]]."></textarea>
               tray icon. You can also switch live from the tray icon's own
               menu, which remembers your choice for next time too, and the
               app briefly restarts itself when you switch this way.
+            </p>
+            <!-- Closing the window and quitting the app are two different
+                 things on a desktop build with a tray icon, and until now the
+                 app made that choice for you silently. Asked for directly:
+                 "make it so the app window can be closed but the app will
+                 still be open in the system tray… so there is a difference
+                 between minimising the app and quitting the app". On by
+                 default — a notebook you can capture into from the tray is
+                 the reason the tray icon exists — and off for anyone who
+                 wants the X button to mean what it says. -->
+            <label class="row space-between hidden" id="desktop-tray-row" for="pref-close-to-tray">
+              Closing the window keeps MemoryMap in the tray
+              <input type="checkbox" id="pref-close-to-tray">
+            </label>
+            <p class="muted hidden" id="desktop-tray-hint">
+              With this on, the X button hides the window and the app keeps
+              running behind the tray icon — click it to bring the window
+              back, or right-click → Quit to close it properly (which also
+              stops any background work). With it off, closing the window
+              quits.
             </p>
             <!-- What changed, read from CHANGELOG.md rather than kept as a
                  second in-app list that would drift from it (§36E). Folded

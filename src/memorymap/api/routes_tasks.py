@@ -25,10 +25,11 @@ from __future__ import annotations
 import time
 
 from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from memorymap.ai import embeddings as embeddings_module
 from memorymap.ai import model_manager as jobs
-from memorymap.core import deps, embedmodels, extras, taskhistory
+from memorymap.core import bgtasks, deps, embedmodels, extras, taskhistory
 
 router = APIRouter(tags=["tasks"])
 
@@ -54,8 +55,7 @@ def collect() -> list[dict]:
                 "label": "Re-indexing your notes",
                 "detail": f"{reindex['done']} of {reindex['total']}",
                 "progress": _percent(reindex["done"], reindex["total"]),
-                "cancellable": True,
-                "log": [],
+                                "log": [],
             }
         )
 
@@ -70,8 +70,7 @@ def collect() -> list[dict]:
                 "label": f"Downloading {name}",
                 "detail": f"{round(fraction * 100)}%" if fraction is not None else "starting…",
                 "progress": fraction,
-                "cancellable": True,
-                "log": [],
+                                "log": [],
             }
         )
 
@@ -85,10 +84,11 @@ def collect() -> list[dict]:
                 "name": deps.get_model_manager().embedding_model(),
                 "label": "Loading the embedding model",
                 "detail": "The first run downloads it (~90 MB). Search falls "
-                "back to keywords until it's ready.",
+                "back to keywords until it's ready. This one can't be "
+                "stopped part-way — it is a single load with nothing to "
+                "interrupt between.",
                 "progress": None,
-                "cancellable": False,
-                "log": [],
+                                "log": [],
             }
         )
 
@@ -100,10 +100,11 @@ def collect() -> list[dict]:
                 "kind": "autonomous",
                 "name": "",
                 "label": "Autonomous optimization",
-                "detail": "Analyzing notes in the background...",
+                "detail": "Analysing your notes in the background. Quitting "
+                "stops it at the next safe point and keeps it from starting "
+                "again for a while.",
                 "progress": None,
-                "cancellable": False,
-                "log": [],
+                                "log": [],
             }
         )
 
@@ -130,8 +131,7 @@ def collect() -> list[dict]:
                     f"{starting.get('backend') or 'source'} backend."
                 ),
                 "progress": min(waited / max(searxng_manager.START_TIMEOUT, 1), 1.0),
-                "cancellable": False,
-                "log": [],
+                                "log": [],
             }
         )
 
@@ -155,8 +155,7 @@ def collect() -> list[dict]:
                 # No fraction reported for the same reason pip's isn't below:
                 # snapshot_download doesn't hand back one worth trusting.
                 "progress": None,
-                "cancellable": False,
-                "log": list(embed_download.log),
+                                "log": list(embed_download.log),
             }
         )
 
@@ -177,8 +176,7 @@ def collect() -> list[dict]:
                 # pip does not report a fraction it is worth believing, and a
                 # bar that guesses is worse than one that admits it can't say.
                 "progress": None,
-                "cancellable": False,
-                "log": list(pip.log),
+                                "log": list(pip.log),
             }
         )
 
@@ -192,8 +190,7 @@ def collect() -> list[dict]:
                 "label": f"Setting up SearXNG — step {stage} of {install['stages']}",
                 "detail": install["step"] or "This takes a few minutes the first time.",
                 "progress": install.get("progress"),
-                "cancellable": False,
-                # The lines the tools themselves printed. Reported directly:
+                                # The lines the tools themselves printed. Reported directly:
                 # "the searxng reinstall doesn't have a progress bar so idk if
                 # it has frozen or is working" — a bar answers that only while
                 # it moves, and pip building lxml can sit on one number for a
@@ -202,6 +199,15 @@ def collect() -> list[dict]:
             }
         )
 
+    # **One table decides, not eight hard-coded booleans.** Every entry above
+    # used to carry its own `"cancellable": True/False`, and six of them said
+    # False because nothing could stop them — which was true when they were
+    # written and stopped being true when `core/bgtasks.py` gave each one a
+    # canceller. A flag repeated at eight call sites is a flag that drifts;
+    # this reads the same table the cancel endpoint dispatches through, so the
+    # button appears exactly where pressing it does something.
+    for task in tasks:
+        task["cancellable"] = task["kind"] in bgtasks.CANCELLABLE_KINDS
     return tasks
 
 
@@ -216,6 +222,34 @@ def list_tasks() -> dict:
     screen that you have to know to look at.
     """
     return {"tasks": collect(), "history": taskhistory.recent()}
+
+
+class CancelTaskBody(BaseModel):
+    """Which job to stop. `kind` is what `/tasks` reported for it."""
+
+    kind: str = Field(min_length=1, max_length=40)
+    #: Only `pull` needs one (a model name); empty means "all of that kind",
+    #: which is what shutdown wants and what a panel with one download means.
+    name: str = Field(default="", max_length=200)
+
+
+@router.post("/tasks/cancel")
+def cancel_task(body: CancelTaskBody) -> dict:
+    """Quit one background job.
+
+    Asked for directly: "allow the quitting/killing of background tasks as
+    well". There was a `/models/jobs/cancel` before this, and it knew about
+    exactly two of the eight kinds `/tasks` reports — so the panel showed a
+    Quit button on a re-index and a model pull and nothing else, including on
+    the jobs that take longest and are most worth stopping.
+
+    Never 404s on an unknown kind and never 409s on a job that has already
+    finished: both are answers, not errors, and the panel is polling — by the
+    time a click arrives the job it was about may genuinely be over. The
+    honest response is `stopped: false` and a sentence saying so.
+    """
+    stopped, detail = bgtasks.cancel(body.kind.strip(), body.name.strip())
+    return {"status": "ok", "stopped": stopped, "detail": detail}
 
 
 @router.post("/tasks/trigger-autonomous")

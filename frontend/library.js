@@ -1605,7 +1605,20 @@ function filterLibraryImagesGallery() {
     });
     img.addEventListener("click", () => {
       openLightbox(
-        images.map((i) => ({ filename: i.original_name, getUrl: () => mediaSrc(i.url) })),
+        images.map((i) => ({
+          filename: i.original_name,
+          getUrl: () => mediaSrc(i.url),
+          // Asked for directly: "if clicking on an image to view expand it in
+          // the lightbox…can the captions and ocr accompany it somehow??"
+          // The tile is the one place these are too small to read.
+          caption: i.caption || "",
+          text: (i.vision_ocr_text || i.ocr_text || "").trim(),
+          byline: i.vision_ocr_text
+            ? `Text read by ${i.vision_ocr_model || "a model"}`
+            : i.ocr_text
+              ? "Text read offline (OCR)"
+              : "",
+        })),
         images.indexOf(image)
       );
     });
@@ -1893,8 +1906,13 @@ function filterLibraryImagesGallery() {
       ocrText.textContent = text || "No text found — click to add";
       ocrText.classList.toggle("library-image-ocr-empty", !text);
       ocrText.title = text ? "Click to edit this text" : "Click to add text";
-      ocrBtn.title = `Re-read the text in “${image.original_name}”`;
+      ocrBtn.title = `Re-read the text in “${image.original_name}” without AI`;
       ocrBtn.setAttribute("aria-label", ocrBtn.title);
+      // The section around this paragraph decides whether to show itself from
+      // the same value. Announced rather than called directly because the
+      // wrapper is built further down, after every handler here is closed
+      // over — a plain call would be a forward reference to a `const`.
+      ocrText.dispatchEvent(new CustomEvent("mm:changed"));
     };
     setOcrState(image.ocr_text);
 
@@ -1983,6 +2001,15 @@ function filterLibraryImagesGallery() {
 
     const visionOcrText = document.createElement("p");
     visionOcrText.className = "library-image-vision-ocr muted text-sm hidden";
+    // Editable for the same reason `ocrText` is, and it took a user report to
+    // notice this one was not: a vision model transcribing a picture with no
+    // text in it does not return nothing, it returns its best guess — the
+    // report was four hallucinated Pokémon names under a picture of one, with
+    // "no text in it and I cant remove or edit the text??". A *reading* the
+    // app cannot correct is worse than no reading, because it is then filed
+    // and searched as if it were what the page said.
+    visionOcrText.tabIndex = 0;
+    visionOcrText.setAttribute("role", "button");
 
     const visionOcrBadge = document.createElement("span");
     visionOcrBadge.className = "library-image-vision-ocr-badge muted text-xs hidden";
@@ -1991,8 +2018,15 @@ function filterLibraryImagesGallery() {
       image.vision_ocr_text = text || "";
       image.vision_ocr_model = model || "";
       const hasRun = Boolean(model);
-      visionOcrText.textContent = text || (hasRun ? "No legible text found." : "");
-      visionOcrText.classList.toggle("hidden", !hasRun);
+      // Always visible, never hidden-until-run: it is the one field on this
+      // tile that can be typed into for an image no model has read, and a
+      // field you cannot see is a field you cannot use. (It used to hide
+      // itself until a read had happened, which left the *offline* OCR
+      // empty-state as the only visible "text" box — the mix-up above.)
+      visionOcrText.textContent =
+        text || (hasRun ? "No legible text found — click to edit" : "No text yet — click to add");
+      visionOcrText.classList.toggle("library-image-ocr-empty", !text);
+      visionOcrText.title = text ? "Click to edit or clear this reading" : "Click to add text";
       visionOcrBadge.textContent = hasRun ? `Read by ${model}` : "";
       visionOcrBadge.classList.toggle("hidden", !hasRun);
       visionOcrBtn.title = hasRun
@@ -2002,10 +2036,71 @@ function filterLibraryImagesGallery() {
     };
     setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
 
+    // Click-to-edit, mirroring `startEditingOcr` above. Clearing the box is
+    // the case that matters most and is why the empty string is sent rather
+    // than skipped: an empty save clears the model badge too, server-side, so
+    // a wrong reading can be deleted outright instead of only overwritten.
+    const startEditingVisionOcr = () => {
+      if (visionOcrText.querySelector("textarea")) return; // already editing
+      const box = document.createElement("textarea");
+      box.className = "library-image-ocr-input";
+      box.value = image.vision_ocr_text || "";
+      box.setAttribute("aria-label", `Text read from “${image.original_name}”`);
+      box.maxLength = 10000;
+      visionOcrText.replaceChildren(box);
+      box.focus();
+      box.select();
+      autoGrow(box);
+      box.addEventListener("input", () => autoGrow(box));
+
+      let settled = false;
+      const finish = (text, model) => {
+        if (settled) return;
+        settled = true;
+        setVisionOcrState(text, model);
+      };
+      const cancel = () => finish(image.vision_ocr_text, image.vision_ocr_model);
+      const save = async () => {
+        const next = box.value.trim();
+        if (next === (image.vision_ocr_text || "")) return cancel();
+        const previousText = image.vision_ocr_text;
+        const previousModel = image.vision_ocr_model;
+        // Emptying it drops the badge with it: "read by <model>" is a claim
+        // about text that no longer exists.
+        finish(next, next ? previousModel : "");
+        try {
+          const updated = await apiJson(`/media/${image.id}/vision-ocr`, {
+            method: "POST",
+            body: JSON.stringify({ text: next }),
+          });
+          setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
+        } catch (error) {
+          setVisionOcrState(previousText, previousModel);
+          toast(error.message || "Couldn't save that text.", true);
+        }
+      };
+      box.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+          keyEvent.preventDefault();
+          save();
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          cancel();
+        }
+      });
+      box.addEventListener("blur", save);
+    };
+    visionOcrText.addEventListener("click", startEditingVisionOcr);
+    visionOcrText.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        startEditingVisionOcr();
+      }
+    });
+
     visionOcrBtn.addEventListener("click", async (event) => {
       event.stopPropagation();
       visionOcrBtn.disabled = true;
-      visionOcrText.classList.remove("hidden");
       visionOcrText.replaceChildren(typingDots("Reading text…"));
       visionOcrBadge.classList.add("hidden");
       try {
@@ -2027,21 +2122,107 @@ function filterLibraryImagesGallery() {
       }
     });
 
+    // **One kebab, not five icons.** Reported directly: "it also seems like
+    // there are two popup buttons on the images in the image library which do
+    // the same thing??" — and they nearly did. `ocrBtn` (ph:scan) and
+    // `visionOcrBtn` (ph:text-aa) are both "read the text in this image",
+    // differing only in *which* reader, which an icon cannot say and a
+    // tooltip only says once you have hovered both. The same report proposed
+    // the fix: "maybe have the button as a 3-dot kebab button with the other
+    // options as a popup menu". A menu row has room for words, so the two
+    // readers are now told apart by name rather than by glyph.
+    //
+    // The buttons themselves are untouched — same elements, same handlers,
+    // relabelled and re-parented. A rewrite would have been a rewrite of five
+    // working things to change where they sit.
+    setLabel(rename, "ph:pencil-simple Rename");
+    setLabel(captionBtn, "ph:sparkle Describe with AI");
+    setLabel(ocrBtn, "ph:scan Read text offline (OCR)");
+    setLabel(visionOcrBtn, "ph:text-aa Read text with AI");
+    setLabel(del, "ph:trash Delete");
+    for (const button of [rename, captionBtn, ocrBtn, visionOcrBtn, del]) {
+      button.classList.remove("icon-button");
+      button.classList.add("library-image-menu-item");
+    }
+    del.classList.add("danger");
+
     const actions = document.createElement("div");
     actions.className = "library-image-actions";
-    actions.append(rename, captionBtn, ocrBtn, visionOcrBtn, del);
 
-    fig.append(
-      img,
-      actions,
-      cap,
+    // `<details>` rather than a hand-rolled popup: it opens on click and on
+    // Enter/Space, closes on Escape, and is exposed to a screen reader as a
+    // disclosure — all of it from the browser, none of it from us. The one
+    // thing it does not do is close when you click elsewhere, which is the
+    // single listener below.
+    const menu = document.createElement("details");
+    menu.className = "library-image-menu";
+    const menuButton = document.createElement("summary");
+    menuButton.className = "ghost small icon-button library-image-menu-btn";
+    menuButton.title = `More actions for “${image.original_name}”`;
+    menuButton.setAttribute("aria-label", menuButton.title);
+    setLabel(menuButton, "ph:dots-three-vertical");
+    const menuList = document.createElement("div");
+    menuList.className = "library-image-menu-list";
+    menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
+    menu.append(menuButton, menuList);
+    // Picking anything closes the menu. Not `capture`, so each button's own
+    // handler still runs first and can stop propagation if it needs to.
+    menuList.addEventListener("click", () => {
+      menu.open = false;
+    });
+    document.addEventListener("click", (event) => {
+      if (menu.open && !menu.contains(event.target)) menu.open = false;
+    });
+    actions.append(menu);
+
+    // **Labelled, and separated.** Reported directly: "I feel the image
+    // captions and ocr extractions should be separated and labeled, for the
+    // ocr, it says 'No text found - click to add' but the extracted text is
+    // below that selectable box and not editable??" — which is exactly what
+    // an unlabelled stack of three paragraphs produces. What the reader saw
+    // was one field's empty-state sitting directly above another field's
+    // filled value, with nothing to say they were different fields at all.
+    //
+    // A description and a transcription are different claims about a picture
+    // and are now named as such. `library-image-field` is one block per
+    // claim: a small label, the (editable) value, and the byline saying who
+    // produced it.
+    const field = (labelText, ...children) => {
+      const section = document.createElement("section");
+      section.className = "library-image-field";
+      const label = document.createElement("h4");
+      label.className = "library-image-field-label";
+      label.textContent = labelText;
+      section.append(label, ...children);
+      return section;
+    };
+
+    const captionField = field(
+      "Description",
       captionText,
       captionToggle,
-      captionBadge,
-      ocrText,
-      visionOcrText,
-      visionOcrBadge
+      captionBadge
     );
+    const visionField = field("Text in this image", visionOcrText, visionOcrBadge);
+    // Offline OCR is shown only when it actually found something. It needs
+    // Tesseract, which this app never installs on its own (by instruction),
+    // so on most machines it is permanently empty — and an empty second
+    // "no text found" box under a filled one is the confusion this whole
+    // block exists to remove. Reachable regardless from the kebab menu.
+    const ocrField = field("Also read offline (OCR)", ocrText);
+    const syncOcrFieldVisibility = () =>
+      ocrField.classList.toggle("hidden", !(image.ocr_text || "").trim());
+    syncOcrFieldVisibility();
+    ocrText.addEventListener("mm:changed", syncOcrFieldVisibility);
+    // Running it from the menu reveals the field, so the result has somewhere
+    // to appear even when the run finds nothing and says so.
+    ocrBtn.addEventListener("click", () => ocrField.classList.remove("hidden"));
+
+    const fields = document.createElement("div");
+    fields.className = "library-image-fields";
+    fields.append(captionField, visionField, ocrField);
+
+    fig.append(img, actions, cap, fields);
     grid.appendChild(fig);
   }
 }

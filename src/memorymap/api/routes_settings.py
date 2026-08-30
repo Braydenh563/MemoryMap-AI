@@ -186,6 +186,15 @@ class PreferencesBody(BaseModel):
     # same round of testing that found show_console_on_startup missing from
     # GET /preferences.
     console_view_intro_seen: bool | None = None
+    #: Whether the desktop window's X button hides to the tray (default) or
+    #: quits. Declared here for the reason the comment above gives: a field
+    #: Pydantic does not know about is silently dropped, so a setting that is
+    #: never declared is a switch that never saves.
+    close_to_tray: bool | None = None
+    #: One-shot: the tray balloon explaining where the window went has been
+    #: shown. Written by the launcher, not the browser, but declared so the
+    #: value round-trips rather than being dropped by a later PUT.
+    tray_hide_explained: bool | None = None
 
     # Optional self-hosted SearXNG instance; empty string = use DuckDuckGo.
     searxng_url: str | None = Field(default=None, max_length=200)
@@ -425,6 +434,9 @@ def get_preferences() -> dict:
         # on this same response) would have shown on every single launch.
         "show_console_on_startup": config.get_preference("show_console_on_startup", True),
         "console_view_intro_seen": config.get_preference("console_view_intro_seen", False),
+        # Default True, matching `_on_closing` in __main__.py — the two must
+        # agree or the checkbox shows the opposite of what the window does.
+        "close_to_tray": config.get_preference("close_to_tray", True),
     }
 
 

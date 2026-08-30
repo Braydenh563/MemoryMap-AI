@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, text
@@ -82,6 +83,32 @@ _loop_thread: threading.Thread | None = None
 #: `trigger_now` reads it to refuse a second concurrent run.
 _working = threading.Event()
 
+#: Set by `request_stop()` and cleared when a pass starts. Checked between the
+#: phases of `_run_optimization` and between the agent's rounds, so pressing
+#: Quit in the tasks panel stops the pass at the next boundary rather than
+#: after however many model calls it had left. Asked for directly: "allow the
+#: quitting/killing of background tasks as well".
+_cancel = threading.Event()
+
+#: Wall-clock time before which no *scheduled* pass may start. This is the
+#: second half of the same request — "and if it is an automated bg task, make
+#: sure it doesnt instantly start back up again" — and it is not hypothetical:
+#: `wake()` exists precisely to cut the interval sleep short whenever a
+#: preference changes, so without a snooze, quitting a pass and then touching
+#: any setting the loop watches would start a new one seconds later. Quitting
+#: a pass therefore also buys the rest of an interval's quiet.
+#:
+#: Deliberately *not* a preference and not persisted: it is a "not now", not a
+#: "not ever". Turning the feature off is what the Settings toggle is for, and
+#: a stop that silently outlived a restart would be a feature nobody switched
+#: off and nobody can find.
+_snooze_until: float = 0.0
+
+#: The floor on that quiet, whatever the interval is set to. An interval of
+#: zero or one hour still buys a real pause — a Quit followed by a restart 40
+#: seconds later reads as the button not having worked.
+MIN_SNOOZE_SECONDS = 15 * 60
+
 #: What the last pass actually did, so the user can read it back and undo any
 #: of it (ROADMAP §40, item 2).
 #:
@@ -113,6 +140,51 @@ def is_running() -> bool:
     return _working.is_set()
 
 
+def cancelled() -> bool:
+    """Has someone asked the running pass to stop?
+
+    Read between phases below. Also handed to anything long-running a pass
+    calls, so a stop is felt inside a batch rather than only between them.
+    """
+    return _cancel.is_set()
+
+
+def request_stop(snooze_seconds: float | None = None) -> bool:
+    """Ask the running pass to stop, and keep the scheduler off it for a while.
+
+    Returns whether there was anything to stop. Never blocks: the pass ends at
+    its next checkpoint, which is at most one model call away — the alternative
+    is killing a thread mid-write to the notebook, which this app will not do.
+    """
+    global _snooze_until
+    if snooze_seconds is None:
+        try:
+            hours = int(deps.get_config().get_preference("autonomous_tasks_interval_hours") or 6)
+        except (TypeError, ValueError, RuntimeError):
+            hours = 6
+        snooze_seconds = max(hours, 1) * 3600
+    _snooze_until = time.time() + max(snooze_seconds, MIN_SNOOZE_SECONDS)
+    was_running = _working.is_set()
+    _cancel.set()
+    return was_running
+
+
+def snoozed_for() -> int:
+    """Seconds until a scheduled pass may run again — 0 when nothing is held.
+
+    Shown to the user rather than only obeyed: a background worker that
+    silently declines to run for six hours is indistinguishable from one that
+    is broken.
+    """
+    return max(0, int(_snooze_until - time.time()))
+
+
+def clear_snooze() -> None:
+    """Forget any hold. Pressing "Run now" is an explicit answer to "not now"."""
+    global _snooze_until
+    _snooze_until = 0.0
+
+
 def scheduler_alive() -> bool:
     """Is the interval loop running? (For diagnostics, not the task list.)"""
     with _lock:
@@ -136,6 +208,11 @@ def _run_optimization() -> None:
         # Belt and braces: both entry points set this before starting the
         # thread, so reaching here without it means a new caller forgot.
         _working.set()
+    # A stop asked for during the *previous* pass must not cancel this one
+    # before it has done anything. Cleared here, at the start, rather than
+    # when the previous pass ended: the flag's whole job is to be readable
+    # by the thread that is finishing, right up until it finishes.
+    _cancel.clear()
     try:
         config = deps.get_config()
         if config.get_preference("battery_efficient_mode"):
@@ -168,6 +245,10 @@ def _run_optimization() -> None:
         # reasons to keep improving (or vice versa) can't say that with one
         # shared flag. Defaults to True, matching every other auto_* toggle
         # here — opt-out, not opt-in.
+        if _cancel.is_set():
+            logger.info("stopped before link reason audit — someone quit this pass")
+            return
+
         if config.get_preference("auto_link_reason_audit", True):
             try:
                 from memorymap.ai.links import audit_vague_links
@@ -197,6 +278,10 @@ def _run_optimization() -> None:
         # confirm a change to a note's visibility, but a tag is the same kind
         # of low-stakes, reversible mark `_tag_note` already makes for a
         # person who asks for one directly.
+        if _cancel.is_set():
+            logger.info("stopped before stale/orphaned review — someone quit this pass")
+            return
+
         if config.get_preference("auto_stale_review_enabled", False):
             try:
                 from memorymap.entry import manager as entry_manager
@@ -216,6 +301,10 @@ def _run_optimization() -> None:
                     logger.info("stale/orphaned review: tagged %d note(s)", tagged)
             except Exception as exc:
                 logger.error("stale/orphaned review failed: %s", exc, exc_info=True)
+
+        if _cancel.is_set():
+            logger.info("stopped before the agent pass — someone quit this pass")
+            return
 
         tasks = _enabled_tasks(config)
         if not tasks:
@@ -266,6 +355,15 @@ def _run_optimization() -> None:
                     use_utility_model=True,
                 )
                 for event in events:
+                    if _cancel.is_set():
+                        # Abandoning the generator rather than killing a
+                        # thread: the round that is already in flight finishes
+                        # and nothing further is asked of the model. Whatever
+                        # it changed up to here is real, was recorded, and is
+                        # in the review list like any other pass's changes.
+                        logger.info("stopped mid-pass — someone quit this job")
+                        outcome, detail = "cancelled", "Stopped part-way through."
+                        break
                     if event.get("type") == "confirm":
                         logger.info(
                             "paused for confirmation on %s with nobody to ask — abandoning run",
@@ -446,7 +544,13 @@ def clean_orphaned_board_cards() -> int:
 def _loop(stop_event: threading.Event, wake_event: threading.Event) -> None:
     while not stop_event.is_set():
         config = deps.get_config()
-        if config.get_preference("autonomous_tasks_enabled", False):
+        held = snoozed_for()
+        if held:
+            # See `_snooze_until`: someone quit a pass, so the scheduler stays
+            # off it until the hold expires — including when `wake()` cut the
+            # sleep short, which is the case that made this necessary.
+            logger.info("skipped: a quit pass holds the scheduler for %ds more", held)
+        elif config.get_preference("autonomous_tasks_enabled", False):
             _working.set()
             try:
                 _run_optimization()
@@ -472,7 +576,15 @@ def _loop(stop_event: threading.Event, wake_event: threading.Event) -> None:
         # woke 21,600 times to check a flag it could have been woken for, and
         # stopping the app meant waiting out the last of those seconds.
         wake_event.clear()
-        wake_event.wait(max(1, hours) * 3600)
+        # Never sleep past the end of a hold: the loop would wake at its next
+        # scheduled time anyway, but a hold that expires 15 minutes in should
+        # not have to wait out the remaining five and three-quarter hours
+        # before anything can run again.
+        seconds = max(1, hours) * 3600
+        held = snoozed_for()
+        if held:
+            seconds = min(seconds, held + 1)
+        wake_event.wait(seconds)
 
 
 def start() -> None:
@@ -521,6 +633,10 @@ def trigger_now() -> bool:
     """Run a pass right now, off-schedule. False if one is already running."""
     if _working.is_set():
         return False
+    # "Run now" is a person overruling their own earlier "not now", so it
+    # clears the hold rather than being refused by it. The hold only ever
+    # governs the *scheduler*.
+    clear_snooze()
     # Set before the thread starts, not inside it: two clicks in the same
     # millisecond would both see a clear flag and both start a run otherwise.
     _working.set()

@@ -282,10 +282,22 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("llama-cpp-python",),
         module="llama_cpp",
         size="~30 MB, and it compiles on some platforms",
-        unavailable="Not wired into the chat backend yet — Ollama and any "
-        "OpenAI-compatible server are the supported paths today, so this "
-        "would install a library nothing asks for. It compiles on some "
-        "platforms, which makes it an expensive thing to install for nothing.",
+        # Was "Not wired into the chat backend yet" — false, and misleading
+        # in the specific way that costs the most: it reads as "llama.cpp
+        # is unsupported," when the supported route (`llama-server`, which
+        # speaks the same API `ai/openai_client.py` already does) needs no
+        # extra here at all. What actually isn't built is *this* extra
+        # specifically — running a GGUF in-process, inside this app, rather
+        # than as a separate server you point the app at. See the Models
+        # screen's provider picker for the llama-server recipe.
+        unavailable="llama.cpp itself is already supported — run "
+        "llama-server and point Settings → Models at it as an "
+        "OpenAI-compatible backend, no install here needed. This extra is "
+        "specifically for running a GGUF in-process instead of as a "
+        "separate server, which isn't built: it means shipping a compiled "
+        "wheel per platform and accelerator (CUDA/ROCm/Metal/CPU) and "
+        "owning model load/unload, for a capability llama-server already "
+        "gives you today.",
     ),
 )
 

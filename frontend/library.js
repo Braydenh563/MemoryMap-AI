@@ -551,6 +551,12 @@ function libraryActions(item) {
   if (item.kind === "note") {
     return [
       makeMenuItem("ph:arrow-square-out Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
+      // hand one note to someone." Same route shape and menu placement as
+      // the Document kind's own "Download .md" a few lines up.
+      makeMenuItem("⬇ Download .md", "Save a copy of this note as a markdown file", () => {
+        window.open(`/entries/${item.id}/export.md`, "_blank");
+      }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not the bin", async () => {
         await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
           toast(e.message, true)

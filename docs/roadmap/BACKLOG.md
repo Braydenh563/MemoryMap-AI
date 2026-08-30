@@ -2540,12 +2540,17 @@ writing for exactly that reason, which is the standing lesson of this file.
 
 ### D. Trust and safety
 
-13. **Private notes need an audit trail.** They are encrypted and invisible
-    to the AI, which is right — but nothing records *when* one was decrypted
-    for viewing. For the one feature whose whole value is confidence, that is
-    the missing half.
-14. **Export a single note/document.** Full export exists. There is no way to
-    hand one note to someone.
+~~13. **Private notes need an audit trail.**~~ **Already built when checked
+    (§97, HANDOVER.md).** `get_entry` (routes_entries.py) already logs
+    `"decrypted"` for a private note read while the vault is unlocked —
+    this item was stale, not the code.
+~~14. **Export a single note/document.**~~ **Built (§97).** `GET
+    /entries/{id}/export.md`, mirroring the document route already in
+    place — same title-as-H1 preamble (skipped when the note already
+    starts with one), same filename sanitising. A "Download .md" item on
+    a note's own overflow menu (Notes tab) and its Library "All"-view
+    card menu, in the same spot the Document kind's own copy already
+    sits. 4 new tests (`test_api_entries.py`).
 15. **A dry-run mode for the agent.** `make_plan` shows intent, but a user
     who wants "tell me what you would change without changing it" has to
     trust the plan. A mode that collects the writes and shows a diff before

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -749,6 +750,50 @@ def get_entry(
             manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
     return _to_out(session, entry)
+
+
+def _safe_filename(title: str, extension: str) -> str:
+    """A title is user text; it must not steer where the file lands.
+
+    Same rule `routes_documents.py`'s own `_safe_filename` already enforces
+    for a document — not shared, because the two files don't otherwise
+    import from each other and a title-to-filename sanitiser is small
+    enough that a shared module for it would be the premature abstraction.
+    """
+    cleaned = re.sub(r"[^\w\s-]", "", title).strip() or "note"
+    cleaned = re.sub(r"[\s_]+", "-", cleaned)[:60]
+    return f"{cleaned}.{extension}"
+
+
+@router.get("/{entry_id}/export.md")
+def export_entry(entry_id: int, session: Session = Depends(get_session)) -> Response:
+    """One note's own text, as a download — BACKLOG.md §95 item D.14: "Full
+    export exists. There is no way to hand one note to someone."
+
+    Mirrors `routes_documents.py`'s `export_markdown` (same route shape,
+    same `Content-Disposition` filename sanitising) rather than reusing it
+    directly — a note has no `file_type` the way a document does, so there
+    is no second branch to share, and the two routes would only be coupled
+    by the part that's already this short.
+
+    `readable_content` is the same call `get_entry` and every other reader
+    already goes through: a locked private note downloads its own "unlock
+    to read it" placeholder rather than erroring or exposing ciphertext,
+    identical to what viewing one already does.
+    """
+    entry = _existing_entry(session, entry_id)
+    if entry.is_deleted:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    content = manager.readable_content(entry)
+    title = manager.extract_title(content) or content.strip()[:60] or "Untitled note"
+    body = content if manager.extract_title(content) else f"# {title}\n\n{content}"
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{_safe_filename(title, "md")}"'
+        },
+    )
 
 
 @router.put("/{entry_id}", response_model=EntryOut)

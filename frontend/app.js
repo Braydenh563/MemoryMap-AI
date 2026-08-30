@@ -1968,6 +1968,15 @@ function entryOverflowMenu(entry) {
         title: "See earlier versions of this note, and put one back",
         run: () => openEntryHistory(entry),
       },
+      // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
+      // hand one note to someone." Same route shape and same "download,
+      // not navigate" pattern the Documents kebab's own "Download .md"
+      // already uses (library.js).
+      {
+        label: "ph:download-simple Download .md",
+        title: "Save a copy of this note as a markdown file",
+        run: () => window.open(`/entries/${entry.id}/export.md`, "_blank"),
+      },
     ];
 
     const aiItems = [

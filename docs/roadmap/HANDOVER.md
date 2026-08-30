@@ -153,6 +153,21 @@ shipped (see below). 2,355 tests pass; ruff clean.
   which fixed anchor ended up active. Verified live at 480px width
   (previously cut off, per the user's own screenshot) and re-verified the
   already-working flip-up case at 520px still needs no correction.
+- **BACKLOG.md §95 items D.13 and D.14, from the ranked brainstorm.** D.13
+  ("private notes need an audit trail") turned out already built —
+  `get_entry` already logs `"decrypted"` for a private note read while
+  unlocked; the backlog entry was stale, not the code. D.14 ("export a
+  single note/document — full export exists, no way to hand one note to
+  someone") was real: `GET /entries/{id}/export.md`, mirroring
+  `routes_documents.py`'s own `export_markdown` (title-as-H1 preamble,
+  skipped when the note already starts with one; the same filename
+  sanitiser, kept as its own local copy rather than shared — the two
+  routes' only overlap). A "Download .md" item on a note's own overflow
+  menu (`entryOverflowMenu`, app.js) and its Library "All"-view card menu
+  (`libraryActions`, library.js), in the same spot the Document kind's own
+  copy already sits in both. 4 new tests (`test_api_entries.py`), verified
+  live end to end (menu item present, download returns the right content
+  and filename).
 
 ### Tried, and reverted — read before attempting again
 

@@ -74,6 +74,9 @@ tagged, ahead of the PR merging.
   (ROADMAP.md item A.2) — a real number (the `-c` it was started with) in
   place of the guess-from-model-name table, for plain llama.cpp servers
   that report neither `loaded_context_length` nor `max_context_length`.
+- Exporting a single note as a `.md` download (`GET /entries/{id}/export.md`),
+  mirroring the document export that already existed — a "Download .md"
+  item on a note's overflow menu and its Library card menu.
 - A search box and a rename/delete kebab menu on the Whiteboards subtab's
   board cards, matching the Documents subtab beside it.
 - An opt-in clock in the bottom status bar (Settings → Appearance).

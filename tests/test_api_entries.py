@@ -32,6 +32,37 @@ def test_post_then_get_entry(client):
     assert single.json()["content"] == "Why did the scarecrow win an award?"
 
 
+def test_export_a_note_with_no_title_synthesises_one(client):
+    # BACKLOG.md §95 item D.14: "Full export exists. There is no way to hand
+    # one note to someone." Mirrors routes_documents.py's own export.md.
+    created = client.post("/entries", json={"content": "Buy milk and eggs."}).json()
+    response = client.get(f"/entries/{created['id']}/export.md")
+    assert response.status_code == 200
+    assert response.text.startswith("# Buy milk and eggs.")
+    assert 'filename="Buy-milk-and-eggs.md"' in response.headers["content-disposition"]
+
+
+def test_export_a_note_that_already_has_a_heading_does_not_double_it(client):
+    created = client.post("/entries", json={"content": "# Recipe\n\nFlour, water."}).json()
+    response = client.get(f"/entries/{created['id']}/export.md")
+    assert response.text == "# Recipe\n\nFlour, water."
+
+
+def test_export_filename_cannot_be_steered_by_note_content(client):
+    created = client.post("/entries", json={"content": "# ../../etc/passwd"}).json()
+    disposition = client.get(f"/entries/{created['id']}/export.md").headers[
+        "content-disposition"
+    ]
+    assert "/" not in disposition.split("filename=")[1]
+    assert ".." not in disposition.split("filename=")[1]
+
+
+def test_a_deleted_note_cannot_be_exported(client):
+    created = client.post("/entries", json={"content": "gone soon"}).json()
+    client.delete(f"/entries/{created['id']}")
+    assert client.get(f"/entries/{created['id']}/export.md").status_code == 404
+
+
 def test_a_clippings_source_is_stored_as_real_metadata(client):
     """BACKLOG §65 ("source as metadata, not just folded into body text").
     The frontend's own `clippingMarkdown` still puts the same link in the

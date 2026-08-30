@@ -191,6 +191,11 @@ class PreferencesBody(BaseModel):
     #: Pydantic does not know about is silently dropped, so a setting that is
     #: never declared is a switch that never saves.
     close_to_tray: bool | None = None
+    #: Which status-bar slots the user has switched off. **The list of what is
+    #: hidden, not what is shown** — see `STATUS_SLOTS` in app.js: a slot added
+    #: in a later version then appears by default for everyone, instead of
+    #: being invisible to every user who ever opened that settings screen.
+    status_bar_hidden: list[str] | None = None
     #: One-shot: the tray balloon explaining where the window went has been
     #: shown. Written by the launcher, not the browser, but declared so the
     #: value round-trips rather than being dropped by a later PUT.
@@ -437,6 +442,7 @@ def get_preferences() -> dict:
         # Default True, matching `_on_closing` in __main__.py — the two must
         # agree or the checkbox shows the opposite of what the window does.
         "close_to_tray": config.get_preference("close_to_tray", True),
+        "status_bar_hidden": config.get_preference("status_bar_hidden", []),
     }
 
 
@@ -768,12 +774,23 @@ def forget_memory(preference_id: int, session: Session = Depends(get_session)) -
 @router.get("/audit")
 def audit_log(
     limit: int = Query(default=100, ge=1, le=500),
+    entity_type: str = Query(default="", max_length=40),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    """The activity log, newest first (viewer in the UI)."""
-    rows = session.scalars(
-        select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
-    )
+    """The activity log, newest first (viewer in the UI).
+
+    `entity_type` filters *before* the limit, and that ordering is the whole
+    reason it exists. The Library's AI Skills tab asked for 20 rows and then
+    filtered them in the browser for skill runs — so on any notebook where the
+    last twenty things that happened were note edits, a real history of skill
+    runs rendered as "No skill execution logs found". Reported as the skill
+    logs not working. Filtering in SQL means the limit counts the rows you
+    asked for rather than the rows you are about to throw away.
+    """
+    query = select(AuditLog)
+    if entity_type:
+        query = query.where(AuditLog.entity_type == entity_type)
+    rows = session.scalars(query.order_by(AuditLog.id.desc()).limit(limit))
     return [
         {
             "id": row.id,

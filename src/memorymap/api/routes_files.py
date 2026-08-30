@@ -493,6 +493,13 @@ class MediaUploadOut(BaseModel):
     vision_ocr_text: str = ""
     #: Which model wrote `vision_ocr_text`, or "" when there is none.
     vision_ocr_model: str = ""
+    #: When it was uploaded, ISO-8601. Asked for with the lightbox rework —
+    #: "maybe it can have the image information and other info about it below
+    #: the image" — and it is the one fact of that kind the browser cannot
+    #: work out for itself: dimensions come from the decoded image, the name
+    #: is already here, and a byte count would cost one `stat` per row on
+    #: every gallery load for a number nobody asked for.
+    created_at: str = ""
 
 
 @router.get("/media", response_model=list[MediaUploadOut])
@@ -513,6 +520,7 @@ def list_media(session: Session = Depends(get_session)) -> list[MediaUploadOut]:
             caption_edited=u.caption_edited,
             vision_ocr_text=u.vision_ocr_text or "",
             vision_ocr_model=u.vision_ocr_model or "",
+            created_at=u.created_at.isoformat() if u.created_at else "",
         )
         for u in uploads
     ]

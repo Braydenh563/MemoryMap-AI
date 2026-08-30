@@ -341,6 +341,11 @@ def _fake_pystray_and_pil(monkeypatch):
             self.checked = checked
 
     class FakeMenu:
+        #: pystray's own sentinel for a divider between menu groups. The real
+        #: `pystray.Menu` carries it as a class attribute, and the tray menu
+        #: uses one to separate "do something with the app" from "hide it".
+        SEPARATOR = object()
+
         def __init__(self, *items):
             self.items = items
 
@@ -383,6 +388,11 @@ def _fake_pystray_only(monkeypatch):
             self.checked = checked
 
     class FakeMenu:
+        #: pystray's own sentinel for a divider between menu groups. The real
+        #: `pystray.Menu` carries it as a class attribute, and the tray menu
+        #: uses one to separate "do something with the app" from "hide it".
+        SEPARATOR = object()
+
         def __init__(self, *items):
             self.items = items
 
@@ -491,7 +501,10 @@ def test_tray_hide_console_item_toggles_a_real_console_window_and_persists_it(
     icon = launcher._start_tray(_fake_window(), tmp_path / "missing.ico", 12345, False)
     assert icon is not None
 
-    items = {item.text: item for item in created["menu"].items}
+    # `getattr`: a separator is pystray's own sentinel object, not a MenuItem.
+    items = {
+        getattr(item, "text", None): item for item in created["menu"].items
+    }
     hide_item = items["Hide console window"]
     assert hide_item.checked(None) is False
 
@@ -519,7 +532,10 @@ def test_tray_hide_console_item_reflects_the_caller_s_initial_state(monkeypatch,
 
     launcher._start_tray(_fake_window(), tmp_path / "missing.ico", 12345, True)
 
-    items = {item.text: item for item in created["menu"].items}
+    # `getattr`: a separator is pystray's own sentinel object, not a MenuItem.
+    items = {
+        getattr(item, "text", None): item for item in created["menu"].items
+    }
     assert items["Hide console window"].checked(None) is True
 
 
@@ -532,12 +548,33 @@ def test_tray_has_no_hide_console_item_without_a_real_console(monkeypatch, tmp_p
 
     launcher._start_tray(_fake_window(), tmp_path / "missing.ico", None, False)
 
-    texts = [item.text for item in created["menu"].items]
+    # `getattr`: a separator is pystray's own sentinel object, not a MenuItem.
+    texts = [getattr(item, "text", None) for item in created["menu"].items]
     assert "Hide console window" not in texts
     # "New note" sits second on purpose: it is the only item on this menu that
     # does the app's actual job rather than manage the app, and it is the
     # reason a notebook earns a tray icon at all.
-    assert texts == ["Open MemoryMap AI", "New note", "View Logs", "Restart", "Quit"]
+    # The order is deliberate and each group is a different kind of thing:
+    # capture and ask (why a notebook earns a tray icon at all), then places
+    # in the app, then managing the app itself. Reported as "the options and
+    # buttons in the system tray dont fully navigate to the propper features,
+    # just the tabs or settings modal" — every entry between "New note" and
+    # "View Logs" is the answer to that.
+    assert texts == [
+        "Open MemoryMap AI",
+        "New note",
+        "Ask a question",
+        "Search everything",
+        "Reminders",
+        "Whiteboard",
+        "Background tasks",
+        "Settings",
+        "View Logs",
+        None,  # separator
+        "Hide to tray",
+        "Restart",
+        "Quit",
+    ]
 
 
 def test_get_console_hwnd_returns_none_on_this_non_windows_platform():

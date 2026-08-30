@@ -48,7 +48,12 @@ REM  parent already opened, instead of opening a second one on top of it.
 if not defined MM_CHILD (
   set "MM_SPLASH_FILE=%TEMP%\mm_splash_%RANDOM%.txt"
   echo Starting...> "!MM_SPLASH_FILE!"
-  if exist "scripts\splash.ps1" start "" /b powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "scripts\splash.ps1" -StatusFile "!MM_SPLASH_FILE!" >nul 2>nul
+  REM  -IconPath so the splash window and its taskbar button carry the app's
+  REM  icon rather than PowerShell's. splash.ps1 works this out for itself
+  REM  from its own location too; passing it explicitly means the packaged
+  REM  layout (where scripts\ and frontend\ may not be siblings) does not
+  REM  have to match the checkout's.
+  if exist "scripts\splash.ps1" start "" /b powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "scripts\splash.ps1" -StatusFile "!MM_SPLASH_FILE!" -IconPath "%~dp0frontend\icon.ico" >nul 2>nul
 )
 
 REM --- Desktop mode ----------------------------------------------------

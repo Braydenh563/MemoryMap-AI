@@ -39,7 +39,14 @@
 #>
 param(
   [Parameter(Mandatory = $true)][string]$StatusFile,
-  [int]$MaxMinutes = 20
+  [int]$MaxMinutes = 20,
+  # Where the app's own icon is. Reported directly: the splash window and its
+  # taskbar button showed the PowerShell icon, because a WinForms form with no
+  # `Icon` set inherits the icon of the process hosting it — and the process
+  # hosting this is powershell.exe. Defaulted rather than required so the
+  # script still runs standalone; resolved below, relative to this file, so it
+  # works from a checkout without start.bat passing anything.
+  [string]$IconPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,6 +70,23 @@ try {
   $form.TopMost         = $true
   $form.ShowInTaskbar   = $true
   $form.Text            = "Starting MemoryMap AI"
+
+  # The window's icon, and therefore the taskbar button's. Best-effort in
+  # every direction: the icon file may genuinely not be there yet — this
+  # script runs during the phase where the checkout is still being updated,
+  # which is the whole reason the logo below is *drawn* rather than loaded —
+  # and a missing icon is a cosmetic detail, never a reason for the loading
+  # window to fail to appear.
+  if (-not $IconPath) {
+    $IconPath = Join-Path (Split-Path -Parent $PSScriptRoot) "frontend\icon.ico"
+  }
+  try {
+    if (Test-Path -LiteralPath $IconPath) {
+      $form.Icon = New-Object System.Drawing.Icon($IconPath)
+    }
+  } catch {
+    # Keep the default icon rather than no window.
+  }
 
   # The mark, drawn rather than loaded. Same geometry as frontend/favicon.svg
   # (a hub with notes orbiting it on spokes). Drawing it avoids depending on a

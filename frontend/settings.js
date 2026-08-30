@@ -217,6 +217,9 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     // of undefined would render the default as off.
     $("pref-close-to-tray").checked = prefsCache?.close_to_tray ?? true;
   }
+  // Rebuilt each open rather than once at startup: the list reflects saved
+  // preferences, and those can change from another window or a restore.
+  renderStatusBarSettings();
   showSettingsSection(section);
   // Re-read every open, not cached: the panel shows what the *currently
   // selected* model recommends, and changing the chat model is the most likely

@@ -2072,6 +2072,23 @@ header#top-bar.tabs-wrapped #tab-bar {
    child: nothing overlaps the page, no tab needs padding reserved for it, and
    a change to the bar's height cannot desynchronise from a padding constant
    somewhere else. A fixed bar would need all three. */
+/* A status-bar slot the user has switched off (Settings → Appearance →
+   Status bar). Its own class rather than `.hidden`, because one of these
+   slots (`#status-task`) is already shown and hidden by `.hidden` from a
+   different code path — sharing the class would mean a running job could
+   un-hide a slot somebody had turned off. */
+.status-slot-off {
+  display: none !important;
+}
+
+/* The checkboxes that drive it: the same pill toggle as everywhere else,
+   wrapped so a narrow settings panel wraps between them. */
+.status-bar-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
 #status-bar {
   /* One height for the strip and everything in it — DESIGN.md's control-height
      rule, the same reason `--header-control-h` exists. Not a spacing token: a

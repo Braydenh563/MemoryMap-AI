@@ -429,6 +429,10 @@ function startApp() {
     // prefsCache actually has it, rather than leaving the pre-load default
     // (unmuted) on screen until the notifications panel happens to be opened.
     renderNotificationBadge();
+    // Same reason, for the status bar: the slots the user has turned off are
+    // in `prefsCache`, and hiding them here rather than on first paint would
+    // mean a visible flash of a bar they chose not to have.
+    applyStatusBarSlots();
   });
 
   const entriesReady = step("load entries", loadEntries);
@@ -2526,7 +2530,12 @@ function openLightbox(items, startIndex = 0) {
   infoText.className = "lightbox-text";
   const infoByline = document.createElement("p");
   infoByline.className = "lightbox-byline";
-  info.append(infoCaption, infoText, infoByline);
+  // Dimensions, when it was added, the filename — the "other info about it"
+  // half of the request. First, because it is the line that says *which*
+  // picture this is; the readings below it are about what is in it.
+  const infoFacts = document.createElement("p");
+  infoFacts.className = "lightbox-facts";
+  info.append(infoFacts, infoCaption, infoText, infoByline);
   // Clicking the panel must not dismiss the dialog — someone selecting a line
   // of transcribed text to copy is the whole reason it is here.
   info.addEventListener("click", (e) => e.stopPropagation());
@@ -2543,20 +2552,21 @@ function openLightbox(items, startIndex = 0) {
   nextBtn.setAttribute("aria-label", "Next image");
   setLabel(nextBtn, "ph:caret-right");
 
-  // The nav arrows used to be centred on the viewport (`top: 50%`), which
-  // only matches the image's own centre when nothing else in `.lightbox`'s
-  // centred stack has height — but the close button above and the filename
-  // caption below both do, so the whole group's midpoint sits above the
-  // image's true centre and the arrows read as floating too low. Reported
-  // live; measured a ~14px gap on a 400×300 test image. Positioned against
-  // the image's actual rendered box instead of assumed from viewport math.
-  function positionNav() {
-    const rect = (broken.classList.contains("hidden") ? img : broken).getBoundingClientRect();
-    if (!rect.height) return;
-    const center = `${rect.top + rect.height / 2}px`;
-    prevBtn.style.top = center;
-    nextBtn.style.top = center;
-  }
+  // **The arrows are centred by the layout now, not by a measurement.**
+  //
+  // They used to be `position: fixed` at `top: 50%`, which is the viewport's
+  // centre and not the image's; a previous fix measured the image's rendered
+  // box on every `show()` and wrote a `top` back. That worked while the
+  // lightbox was one centred stack, and stopped working the moment it grew a
+  // scrollable info panel — reported with a screenshot of both arrows sitting
+  // level with the top edge of the picture.
+  //
+  // The fix is structural: the image and the two arrows share a positioned
+  // wrapper, so `top: 50%; translateY(-50%)` is the middle of the *image*, at
+  // every size, at every scroll offset, with no JS and nothing to keep in
+  // sync. `positionNav`, its `resize` listener and its two callers are gone.
+  const stage = document.createElement("div");
+  stage.className = "lightbox-stage";
 
   async function show(i) {
     index = (i + items.length) % items.length;
@@ -2588,18 +2598,26 @@ function openLightbox(items, startIndex = 0) {
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = item.byline || "";
     infoByline.classList.toggle("hidden", !item.byline);
-    info.classList.toggle("hidden", !caption && !text);
-    // After the caption text is set, not before — an empty vs. filled
-    // caption changes the height of the centred stack `img` sits in, which
-    // moves the image's own centre by exactly that much.
-    positionNav();
+    info.classList.toggle("hidden", !caption && !text && !item.filename);
+    // The picture's own facts, which the app knew and never showed. Asked
+    // for: "maybe it can have the image information and other info about it
+    // below the image with the caption and ocr text??" Dimensions come from
+    // the decoded image rather than from the server — it is the one fact the
+    // browser already has and the API does not carry.
+    const facts = [];
+    if (ok && img.naturalWidth) facts.push(`${img.naturalWidth} × ${img.naturalHeight}`);
+    if (item.addedAt) {
+      const when = new Date(item.addedAt);
+      if (!Number.isNaN(when.valueOf())) facts.push(`Added ${when.toLocaleDateString()}`);
+    }
+    if (item.filename) facts.push(item.filename);
+    infoFacts.textContent = facts.join("  ·  ");
+    infoFacts.classList.toggle("hidden", !facts.length);
   }
 
-  window.addEventListener("resize", positionNav);
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onKey);
-    window.removeEventListener("resize", positionNav);
   };
   const onKey = (e) => {
     if (e.key === "Escape") close();
@@ -2620,8 +2638,12 @@ function openLightbox(items, startIndex = 0) {
   });
   document.addEventListener("keydown", onKey);
 
-  overlay.append(closeBtn, img, broken, meta, info);
-  if (items.length > 1) overlay.append(prevBtn, nextBtn);
+  stage.append(img, broken);
+  if (items.length > 1) stage.append(prevBtn, nextBtn);
+  const column = document.createElement("div");
+  column.className = "lightbox-column";
+  column.append(stage, meta, info);
+  overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
   closeBtn.focus();
   show(startIndex);
@@ -15634,10 +15656,27 @@ function paletteKeydown(event) {
 
 // Reported directly as "completely wrong": at 0.05 the highlighter needed
 // roughly twenty overlapping passes before a stroke showed at all — visually
-// indistinguishable from the tool doing nothing. 0.35 with the existing
-// "multiply" blend mode reads as an actual highlighter (translucent, tints
-// rather than covers) in one pass.
+// indistinguishable from the tool doing nothing. 0.35 reads as an actual
+// highlighter (translucent, tints rather than covers) in one pass.
 const SKETCH_HIGHLIGHTER_ALPHA = 0.35;
+
+// **The remaining two differences from the whiteboard's highlighter, now
+// gone.** Reported: "fix the highlighter in the quick sketch feature to be
+// the same as the whiteboard". The alpha and the width multiplier already
+// matched (see both constants); what did not was how the stroke was painted.
+//
+// · `globalCompositeOperation: "multiply"` was the substantive one. Multiply
+//   darkens toward black against whatever is behind it, so the same yellow
+//   that tints a white page turns to mud on a dark one — and this app has a
+//   dark theme. The whiteboard draws an SVG path with plain `stroke-opacity`
+//   and no blend mode at all, which behaves the same on any background.
+// · `lineJoin: "bevel"` against the whiteboard's `round`, which is what made
+//   a scribbled corner look chipped here and smooth there.
+//
+// `lineCap: "square"` stays — the whiteboard sets exactly that, and a flat
+// end is what a marker leaves.
+const SKETCH_HIGHLIGHTER_LINE_JOIN = "round";
+const SKETCH_HIGHLIGHTER_COMPOSITE = "source-over";
 // Was 6x — the whiteboard's own highlighter (WB_STROKE_WIDTH * 4 in
 // whiteboard.js) is the reference the two are meant to match, and reported
 // directly as needing to. Both start from a different base width (sketchPen
@@ -15791,8 +15830,13 @@ function sketchMove(event) {
   }
 
   context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-  context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
-  context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+  context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+  context.globalCompositeOperation =
+    sketchPen.eraser && sketchTool === "pen"
+      ? "destination-out"
+      : sketchTool === "highlighter"
+        ? SKETCH_HIGHLIGHTER_COMPOSITE
+        : "source-over";
   context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
   context.strokeStyle = sketchPen.color;
   context.lineWidth = sketchTool === "highlighter" ? sketchPen.size * SKETCH_HIGHLIGHTER_WIDTH_MULTIPLIER : (sketchPen.eraser && sketchTool === "pen" ? sketchPen.size * 4 : sketchPen.size);
@@ -15847,8 +15891,13 @@ function sketchEnd(event) {
   if (sketchDrawing && !sketchMoved && event && (event.type === "pointerup" || event.type === "click")) {
     const context = sketchContext();
     context.lineCap = sketchTool === "highlighter" ? "square" : "round";
-    context.lineJoin = sketchTool === "highlighter" ? "bevel" : "round";
-    context.globalCompositeOperation = sketchPen.eraser && sketchTool === "pen" ? "destination-out" : (sketchTool === "highlighter" ? "multiply" : "source-over");
+    context.lineJoin = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_LINE_JOIN : "round";
+    context.globalCompositeOperation =
+      sketchPen.eraser && sketchTool === "pen"
+        ? "destination-out"
+        : sketchTool === "highlighter"
+          ? SKETCH_HIGHLIGHTER_COMPOSITE
+          : "source-over";
     context.globalAlpha = sketchTool === "highlighter" ? SKETCH_HIGHLIGHTER_ALPHA : 1.0;
     context.strokeStyle = sketchPen.color;
     
@@ -15896,11 +15945,6 @@ async function saveSketch() {
     $("sketch-caption").value.trim() ||
     `Sketch — ${new Date().toLocaleDateString()}`;
   try {
-    // The sketch is a note (searchable caption) + a PNG attachment.
-    const entry = await apiJson("/entries", {
-      method: "POST",
-      body: JSON.stringify({ content: caption, category: "Sketches" }),
-    });
     // Strokes and any uploaded image live on separate canvases (§37G); the
     // saved PNG has to be both together, composited onto a throwaway canvas
     // rather than either layer alone.
@@ -15911,14 +15955,37 @@ async function saveSketch() {
     compositeContext.drawImage($("sketch-bg-canvas"), 0, 0);
     compositeContext.drawImage($("sketch-canvas"), 0, 0);
     const blob = await new Promise((resolve) => composite.toBlob(resolve, "image/png"));
+
+    // **Through `/media/upload`, not `/entries/{id}/files`.** A sketch used
+    // to be saved as an *attachment*, which is a different table and a
+    // different pipeline: attachments are files hanging off a note, and only
+    // `MediaUpload` rows are captioned, OCR'd, read by a vision model, or
+    // listed in the Library's gallery. So a drawing was the one image in this
+    // app that none of that ever touched — reported directly: "add captioning
+    // and vision and ocr for sketches the user draws and saves as well".
+    //
+    // Uploading first and referencing the result in the note's markdown is
+    // exactly what dropping an image into the note editor already does, so
+    // this is now the same path rather than a second one: the picture appears
+    // inline in the note, in the gallery, and in `media_process`'s queue.
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const form = new FormData();
-    form.append("file", blob, "sketch.png");
-    const response = await fetch(`/entries/${entry.id}/files`, {
+    form.append("file", blob, `sketch-${stamp}.png`);
+    const uploaded = await apiJson("/media/upload", {
       method: "POST",
       headers: { "X-Auth-Token": authToken() },
       body: form,
     });
-    if (!response.ok) throw new Error(`Upload failed (${response.status})`);
+    // The caption stays the note's own first line — it is what the person
+    // typed and what the note is called. The image follows it.
+    const entry = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({
+        content: `${caption}\n\n![${caption}](${uploaded.url})`,
+        category: "Sketches",
+      }),
+    });
+    if (!entry?.id) throw new Error("Couldn't save the sketch note.");
     sketchDirty = false;
     $("sketch-overlay").classList.add("hidden");
     $("sketch-caption").value = "";
@@ -22296,6 +22363,79 @@ if ($("entry-attach-file")) {
     if (files.length) await handleFileUpload($("entry-content"), files);
     e.target.value = ""; // so picking the same file twice still fires "change"
   });
+}
+
+// --- what shows in the status bar --------------------------------------------
+//
+// Asked for: "allow more stuff to be added and removed to the bottom status
+// bar?? maybe??" The bar is a permanent strip across the bottom of every
+// screen, so what belongs on it is taste rather than correctness.
+//
+// **Stored as what is hidden, not what is shown**, and that choice is the
+// whole of the forward-compatibility story: a slot added in a later version
+// appears by default for everyone, instead of being invisible to every user
+// who ever opened this screen and saved a list that could not have named it.
+//
+// Only the slots that are *always* there are listed. The offline badge, the
+// power-saver badge and the running-job slot appear when there is something
+// to say and hide themselves again, and hiding a warning you asked for is a
+// different kind of setting from tidying a permanent one away.
+const STATUS_SLOTS = [
+  { key: "ai", label: "AI status", hint: "The dot and emblem saying what the local model is doing" },
+  { key: "notes", label: "Note count", hint: "How many notes you have, as a link to them" },
+  { key: "reminders", label: "Reminders", hint: "Open and due reminders" },
+  { key: "nav", label: "Back and forward", hint: "Move between the pages you have visited" },
+  { key: "undo", label: "Undo and redo", hint: "The same undo the rest of the app uses" },
+  { key: "command", label: "Command palette hint", hint: "The Ctrl-K reminder" },
+];
+
+function hiddenStatusSlots() {
+  // `prefsCache`, not `window.prefsCache`. It is declared with `let` at the
+  // top level of a classic script, which puts it in the *global lexical*
+  // scope — shared with every other script here, so a bare reference works —
+  // and explicitly NOT on `window`. Two existing call sites in this file get
+  // that wrong and silently read `undefined` forever; this one measured as a
+  // toggle that ticked and did nothing.
+  const stored = typeof prefsCache === "object" && prefsCache ? prefsCache.status_bar_hidden : null;
+  return new Set(Array.isArray(stored) ? stored : []);
+}
+
+function applyStatusBarSlots() {
+  const hidden = hiddenStatusSlots();
+  for (const element of document.querySelectorAll("[data-status-slot]")) {
+    // `.hidden` rather than a style: everything else in this app that shows
+    // and hides uses the class, and one of these slots (`status-task`) is
+    // already driven by it from another code path.
+    element.classList.toggle("status-slot-off", hidden.has(element.dataset.statusSlot));
+  }
+}
+
+function renderStatusBarSettings() {
+  const box = $("status-bar-items");
+  if (!box) return;
+  const hidden = hiddenStatusSlots();
+  box.replaceChildren();
+  for (const slot of STATUS_SLOTS) {
+    const label = document.createElement("label");
+    label.className = "checkbox-label status-bar-item";
+    label.title = slot.hint;
+    const box_ = document.createElement("input");
+    box_.type = "checkbox";
+    box_.checked = !hidden.has(slot.key);
+    box_.addEventListener("change", () => {
+      const next = hiddenStatusSlots();
+      if (box_.checked) next.delete(slot.key);
+      else next.add(slot.key);
+      const list = [...next];
+      if (prefsCache) prefsCache.status_bar_hidden = list;
+      applyStatusBarSlots();
+      setPreference("status_bar_hidden", list);
+    });
+    const text = document.createElement("span");
+    text.textContent = slot.label;
+    label.append(box_, text);
+    box.appendChild(label);
+  }
 }
 
 // --- Twitch-style Agent Monitor ---

@@ -76,3 +76,50 @@ def process_committed_upload_ids(session: Session, media_dir: Path, media_ids: l
         return
     for upload in session.query(MediaUpload).filter(MediaUpload.id.in_(media_ids)):
         process_committed_upload(upload, media_dir)
+
+
+#: How much of one picture's readings joins the text it is embedded in. A
+#: transcribed page can be thousands of characters, and a note whose embedding
+#: is nine-tenths OCR is no longer a vector for the note.
+MAX_MEDIA_TEXT_CHARS = 600
+
+
+def media_text_for(session: Session, text: str) -> str:
+    """What the pictures in this text say, as text.
+
+    Asked for directly: "allow captions if they accompany images of sketches
+    to be read by the ai if they appear in semantic searches." A note with a
+    drawing in it used to be, to every part of this app that reads notes, a
+    note with a `/media/…` url in it — the vision model's description of that
+    drawing and any text it read off it lived on the `MediaUpload` row and was
+    reachable only from the Library tile.
+
+    **Appended to the text that is embedded and read, never written into the
+    note.** The caption is the app's reading of a picture, not something the
+    user typed, and editing their note to insert it would be the app putting
+    words in their document. Derived on the way past instead, which also means
+    a re-captioned image improves search without rewriting anything.
+
+    Returns "" when there are no pictures or nothing has been read yet, so a
+    caller can concatenate unconditionally.
+    """
+    from memorymap.core import media_gc
+
+    names = media_gc.referenced_names(text)
+    if not names:
+        return ""
+    parts: list[str] = []
+    for upload in session.query(MediaUpload).filter(MediaUpload.filename.in_(names)):
+        readings = [
+            reading.strip()
+            for reading in (upload.caption, upload.vision_ocr_text, upload.ocr_text)
+            if reading and reading.strip()
+        ]
+        if not readings:
+            continue
+        # Named, so a model reading this can tell a picture's description from
+        # the note's own sentences — and so two pictures in one note do not
+        # run together into one paragraph.
+        joined = " ".join(readings)[:MAX_MEDIA_TEXT_CHARS]
+        parts.append(f"[image: {upload.original_name}] {joined}")
+    return "\n".join(parts)

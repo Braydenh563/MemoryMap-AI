@@ -1258,19 +1258,26 @@ async function renderSkillLogs() {
   if (!logList) return;
   logList.innerHTML = "<p class='muted'>Loading logs…</p>";
   
-  const logs = await apiJson("/audit?limit=20").catch(() => null);
+  // **Filtered in SQL, not here, and asking for 20 of *everything* was half
+  // the reason this panel looked broken.** Reported as "I dont think the
+  // skill logs work in the ai skills section in the library??" — and it had
+  // two independent causes, either of which alone was enough:
+  //
+  // 1. Nothing in the app ever wrote a `skill` audit row. The filter below
+  //    looked for `entity_type === "skill"`; a grep for a `log_action` call
+  //    with that entity type found none. `skill_runner._record_run` writes
+  //    one now.
+  // 2. Even once they exist, `/audit?limit=20` returns the last twenty
+  //    things that happened *of any kind*, and this then filtered those in
+  //    the browser — so on any notebook where the last twenty events were
+  //    note edits, a real history of skill runs rendered as "none found".
+  const skillLogs =
+    (await apiJson("/audit?limit=50&entity_type=skill").catch(() => null)) || [];
   logList.innerHTML = "";
-  
-  if (!logs || !logs.length) {
-    logList.innerHTML = "<p class='muted'>No logs found.</p>";
-    return;
-  }
-  
-  // Filter for skill executions if possible, or just show agent actions
-  const skillLogs = logs.filter(log => log.entity_type === "skill" || log.action === "skill_run" || log.action.includes("agent"));
-  
+
   if (!skillLogs.length) {
-    logList.innerHTML = "<p class='muted'>No skill execution logs found.</p>";
+    logList.innerHTML =
+      "<p class='muted'>No skill runs yet. Run a skill from the chat and it will be listed here.</p>";
     return;
   }
   
@@ -1287,7 +1294,10 @@ async function renderSkillLogs() {
     const head = document.createElement("div");
     head.className = "row space-between";
     const action = document.createElement("strong");
-    action.textContent = log.action;
+    // The detail carries the skill's name and outcome; `log.action` is just
+    // "ran", which as a heading told the reader nothing they did not already
+    // know from the panel they were looking at.
+    action.textContent = (log.detail || "").split(" — ")[0] || log.action;
     const when = document.createElement("span");
     when.className = "muted text-sm";
     when.textContent = new Date(log.created_at).toLocaleString();
@@ -1295,7 +1305,8 @@ async function renderSkillLogs() {
 
     const detail = document.createElement("div");
     detail.className = "muted text-sm log-detail";
-    detail.textContent = log.detail || log.entity_id || "";
+    detail.textContent = (log.detail || "").split(" — ").slice(1).join(" — ")
+      || log.detail || "";
 
     div.append(head, detail);
     logList.appendChild(div);
@@ -1618,6 +1629,7 @@ function filterLibraryImagesGallery() {
             : i.ocr_text
               ? "Text read offline (OCR)"
               : "",
+          addedAt: i.created_at || "",
         })),
         images.indexOf(image)
       );

@@ -2206,19 +2206,57 @@ html {
   opacity: 1;
 }
 
+/* **Scrollable, and centred only when it fits.** Reported with a screenshot:
+   the caption and OCR panel ran off the bottom of the screen with its own
+   scrollbar inside it, and the whole dialog could not be scrolled to reach
+   what was cut off — "is the lightbox scrollable??".
+
+   `place-content: center` on a fixed, non-scrolling box centres content and
+   then clips whatever does not fit, at *both* ends: a column taller than the
+   viewport loses its top and its bottom with no way to reach either. The
+   overlay scrolls now, and `justify-content: center` on a scrolling flex
+   column is the version that centres a short column without stranding a tall
+   one (`align-items: center` alone would let a tall child overflow the
+   scrollable area's start edge). */
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 80;
   background: rgba(8, 10, 18, 0.82);
-  display: grid;
-  place-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  overflow-y: auto;
+  padding: var(--space-8) var(--space-6);
   cursor: zoom-out;
+}
+
+/* One column: the picture, then what it is, then what it says. */
+.lightbox-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  /* `auto` on both, so the column never stretches and never shrinks past its
+     content inside the scrolling flex parent. */
+  margin: auto 0;
+}
+
+/* The picture and its two arrows, in one positioned box — this is what makes
+   the arrows centre on the *image* rather than on the viewport. */
+.lightbox-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .lightbox img {
   max-width: 92vw;
-  max-height: 80vh;
+  /* Room for the information under it. It was 80vh, which with a caption and
+     a transcription below made a column half again as tall as the screen. */
+  max-height: 68vh;
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   cursor: default;
@@ -2402,20 +2440,45 @@ html {
 
 .lightbox-info {
   max-width: min(48rem, 90vw);
-  max-height: 30vh;
-  overflow-y: auto;
-  margin-top: var(--space-8);
+  /* No inner scrollbar and no height cap. The overlay scrolls now, so a long
+     transcription makes the dialog longer instead of hiding itself behind a
+     second scrollbar inside a box that was already cut off — which is what
+     the screenshot showed. */
+  margin-top: 0;
   padding: var(--space-5) var(--space-6);
   border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.9);
+  /* Opaque enough to read against whatever is behind the dialog. At 0.45 the
+     Library grid showed straight through a paragraph of transcribed text —
+     visible in the screenshot that came back from the first version of this
+     panel. The blur is the same material the rest of the app's floating
+     surfaces use. */
+  background: rgba(10, 12, 20, 0.86);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.92);
   font-size: var(--text-sm);
   text-align: left;
 }
 
 .lightbox-caption {
   margin: 0;
+}
+
+/* Which picture this is: size, when it arrived, what it is called. Above the
+   readings, because those are about what is *in* it. */
+.lightbox-facts {
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: var(--text-xs);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.lightbox-facts:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .lightbox-text {
@@ -2438,7 +2501,10 @@ html {
 }
 
 .lightbox-nav {
-  position: fixed;
+  /* Absolute against `.lightbox-stage`, not fixed against the viewport: the
+     stage is exactly the image's box, so this *is* the image's middle. See
+     the note in openLightbox for the two earlier attempts. */
+  position: absolute;
   top: 50%;
   transform: translateY(-50%);
   width: 2.5rem;

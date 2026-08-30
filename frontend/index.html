@@ -2757,8 +2757,8 @@ Link to another note with [[its first few words]]."></textarea>
     <!-- The generated emblem, which followed the status dot down: it is an AI
          presence marker and it belongs beside the thing that says what the AI
          is doing, which is the reason it was next to it in the header. -->
-    <span id="ai-mark" class="emblem emblem-mark" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
-    <span class="ai-status-wrap">
+    <span id="ai-mark" class="emblem emblem-mark" data-status-slot="ai" title="MemoryMap's AI, running on this machine" aria-hidden="true"></span>
+    <span class="ai-status-wrap" data-status-slot="ai">
       <button id="ai-status" class="ai-status" type="button"
         aria-expanded="false" aria-describedby="ai-status-popup">
         <span class="ai-status-dot" aria-hidden="true"></span>
@@ -2769,8 +2769,8 @@ Link to another note with [[its first few words]]."></textarea>
         <span id="ai-status-detail" class="ai-status-detail"></span>
       </span>
     </span>
-    <button id="status-notes" class="status-item" type="button"></button>
-    <button id="status-reminders" class="status-item" type="button"></button>
+    <button id="status-notes" class="status-item" type="button" data-status-slot="notes"></button>
+    <button id="status-reminders" class="status-item" type="button" data-status-slot="reminders"></button>
     <!-- Hidden until something is actually running. A slot that says "nothing
          is happening" for hours is the decoration the caveat above warns
          about; a slot that appears is a thing you notice. -->
@@ -2795,13 +2795,13 @@ Link to another note with [[its first few words]]."></textarea>
          u-turn arrows (a different shape, not just a different direction), and
          the .status-nav rule's own divider marking them off as a separate
          pair. They move you between pages; undo/redo change your notes. -->
-    <span class="status-nav" role="group" aria-label="Move between pages">
+    <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
       <button id="status-back" class="status-item" type="button" disabled></button>
       <button id="status-forward" class="status-item" type="button" disabled></button>
     </span>
-    <button id="status-undo" class="status-item" type="button" disabled></button>
-    <button id="status-redo" class="status-item" type="button" disabled></button>
-    <button id="status-command" class="status-item" type="button"></button>
+    <button id="status-undo" class="status-item" type="button" disabled data-status-slot="undo"></button>
+    <button id="status-redo" class="status-item" type="button" disabled data-status-slot="undo"></button>
+    <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
   </footer>
 
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
@@ -3637,6 +3637,29 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
               <p class="muted">It automatically stays still if your system prefers reduced motion.</p>
+            </div>
+
+            <!-- ---------- Status bar ---------- -->
+            <!-- Asked for: "allow more stuff to be added and removed to the
+                 bottom status bar?? maybe??" The bar is a permanent strip
+                 across the bottom of every screen, so what belongs on it is a
+                 matter of taste rather than of correctness — someone who never
+                 uses undo from there wants those two slots back, and someone
+                 who lives in the command palette wants the reminder of its
+                 shortcut.
+
+                 Stored as the list of things *hidden*, not the list shown, so
+                 a slot added in a later version appears by default instead of
+                 being invisible to everyone who ever touched this screen. -->
+            <div class="settings-group">
+              <h3>Status bar</h3>
+              <p class="muted">
+                What shows in the strip along the bottom. The offline and
+                power-saver badges and the running-job slot aren't listed:
+                they appear only when there's something to say, and hiding a
+                warning you asked for is a different kind of setting.
+              </p>
+              <div id="status-bar-items" class="status-bar-items"></div>
             </div>
 
             <!-- ---------- Advanced ---------- -->

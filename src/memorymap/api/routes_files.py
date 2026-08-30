@@ -172,7 +172,20 @@ def attached_file_text(
     """
     attachment = _existing_attachment(session, attachment_id)
     path = deps.get_config().uploads_dir / attachment.stored_name
-    viewed = docview.extract(path)
+    # The scanned-PDF fallback, passed rather than omitted. `docview` has
+    # always taken a `vision_reader` and this — its only caller — passed
+    # nothing, so the whole path was wired and never once ran: exactly the
+    # "features that never executed" shape CLAUDE.md warns about. It only does
+    # any work for a PDF with no text layer, and only when the pdfpages extra
+    # and a vision model are both present; every other file returns before it
+    # is consulted.
+    ollama = deps.get_ollama()
+    reader = None
+    if ollama.is_running():
+        reader = vision_ocr.pdf_vision_reader(
+            deps.get_model_manager().vision_model(), ollama
+        )
+    viewed = docview.extract(path, vision_reader=reader)
     return AttachedFileTextOut(
         filename=attachment.filename,
         kind=viewed.kind,

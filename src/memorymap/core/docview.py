@@ -39,24 +39,22 @@ Three kinds of file, three ways in:
   vision learning and ocr model for images and scanned documents." Nothing
   here imports `core/ocr`.
 
-**The third one has a real dependency gap, and it is stated plainly rather
-than papered over.** `ai/vision_ocr.py` reads an *image*, and a PDF page is
-not one until something rasterises it — and this app ships no PDF rasteriser
-at all (no pypdfium2, no PyMuPDF, no pdf2image, in requirements.txt or
-anywhere else). So the hook is here and wired, the caller passes what it has,
-and a scanned PDF currently reaches the "no text layer" message rather than a
-transcription. That is the honest state: the seam is built and the piece that
-goes in it does not exist yet. Adding a rasteriser as an optional extra
-(`core/extras.py`, beside markitdown) is what would close it, and is logged
-in the backlog rather than done here — it is a new dependency, and the point
-of the extras catalogue is that new dependencies are a decision, not a
-side effect.
+**The third one used to be a dependency gap and no longer is.**
+`ai/vision_ocr.py` reads an *image*, and a PDF page is not one until something
+rasterises it; this app shipped no rasteriser, so the hook was wired and the
+plug did not exist. `core/pdfpages.py` is now that plug — pypdfium2 behind the
+`pdfpages` extra, ~16 MB, no system packages and no torch, measured at about
+20 ms a page. It stays optional, and with it absent this still reaches the
+"probably a scan" message rather than failing: the extras catalogue exists so
+that a new dependency is a decision rather than a side effect.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+
+from memorymap.core import pdfpages
 
 #: Files that are already text. Read straight off disk and decoded — no
 #: converter, no optional package, so these work on a bare install.
@@ -244,13 +242,28 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
         return ViewedFile(
             text="", kind="plain", source="converted", message=importer.INSTALL_HINT
         )
+    # Two different "can't read this", and they need two different next
+    # steps. Telling someone to install a rasteriser they already have is as
+    # unhelpful as telling them nothing.
+    if suffix == ".pdf" and not pdfpages.available():
+        return ViewedFile(
+            text="",
+            kind="plain",
+            source="converted",
+            message=(
+                "There's no text layer in this file — it's probably a scan. "
+                "Reading one needs its pages turned into images first: "
+                "install “Read scanned PDFs” in Settings → Extras, and pick a "
+                "vision or OCR model in Settings → Models."
+            ),
+        )
     return ViewedFile(
         text="",
         kind="plain",
         source="converted",
         message=(
             "There's no text layer in this file — it's probably a scan. "
-            "Reading one needs a vision model *and* a way to turn its pages "
-            "into images, which this app doesn't have yet."
+            "Reading one needs a vision or OCR model; pick one in "
+            "Settings → Models."
         ),
     )

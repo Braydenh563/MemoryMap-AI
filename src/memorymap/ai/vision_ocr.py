@@ -23,8 +23,11 @@ from __future__ import annotations
 import base64
 import logging
 import mimetypes
+import tempfile
 import threading
 from pathlib import Path
+
+from memorymap.core import pdfpages
 
 logger = logging.getLogger("memorymap.vision_ocr")
 
@@ -84,6 +87,56 @@ def vision_ocr_text(image_path: Path, model: str, ollama) -> str | None:
         # or background thread it runs on.
         logger.warning("Vision OCR failed for %s", image_path.name, exc_info=True)
         return None
+
+
+#: How a multi-page transcription is separated. Plain and unambiguous: this
+#: text goes into a viewer and into model prompts, so a marker has to survive
+#: both without looking like content.
+PAGE_MARKER = "\n\n--- page {n} ---\n\n"
+
+
+def pdf_vision_reader(model: str, ollama):
+    """A `docview.extract(vision_reader=…)` callable for scanned PDFs.
+
+    This is the piece that makes the scanned-PDF path real rather than merely
+    wired. `docview` has always taken a `vision_reader` and always passed
+    whatever it was given; every caller passed nothing, because there was no
+    way to turn a PDF page into the image this needs. `core/pdfpages.py` is
+    that way, so this closes the loop.
+
+    Returns a callable rather than doing the work, because `docview` knows
+    nothing about models and should not start: it hands over a path and gets
+    back text or "".
+
+    Never raises, for the same reason everything else on this path doesn't —
+    it runs inside a request that must return a viewer, not a 500.
+    """
+
+    def read(path: Path) -> str:
+        pages = pdfpages.render_pages(path)
+        if not pages:
+            return ""
+        out: list[str] = []
+        with tempfile.TemporaryDirectory(prefix="mm-pdfocr-") as scratch:
+            for number, png in enumerate(pages, start=1):
+                # A file rather than bytes because vision_ocr_text reads a
+                # path — and reusing it matters more than avoiding the write:
+                # it is the one place the prompt, the data-URI encoding and
+                # the no-text sentinel are handled, and a second copy of that
+                # is a second thing to keep in step.
+                page_path = Path(scratch) / f"page-{number:03d}.png"
+                try:
+                    page_path.write_bytes(png)
+                except OSError:
+                    continue
+                text = vision_ocr_text(page_path, model, ollama)
+                if text:
+                    if out:
+                        out.append(PAGE_MARKER.format(n=number))
+                    out.append(text)
+        return "".join(out)
+
+    return read
 
 
 def vision_ocr_and_store(upload_id: int, image_path: Path, force: bool = False) -> str | None:

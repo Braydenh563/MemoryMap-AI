@@ -126,6 +126,37 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
         {"name": "qwen3-vl:8b", "size": "~6.5 GB", "purpose": "Unconfirmed tag, see note above"},
         {"name": "qwen2.5vl:32b", "size": "~21 GB", "purpose": "The most capable here. Needs ~24 GB"},
     ],
+    # Document readers, as opposed to the general vision models above. Asked
+    # for by name (deepseek-ocr, glm-ocr, qwen3-vl).
+    #
+    # **These entries were checked against the live Hugging Face Hub**, unlike
+    # the "unconfirmed tag" notes on the vision list above — that session had
+    # no registry access and said so. Downloads and file sizes below are read
+    # from the repos themselves, so a 404 here would be a repo being deleted
+    # rather than a name this file guessed at.
+    #
+    # `hf.co/…` rather than a bare Ollama tag: Ollama pulls a GGUF straight
+    # from the Hub with `ollama pull hf.co/{repo}:{quant}`, and none of these
+    # are in Ollama's own curated library. Sizes are the weights plus the
+    # mmproj projector that a vision GGUF needs alongside them — Ollama fetches
+    # both from the same repo, and quoting only the weights would understate
+    # every one of these by several hundred megabytes.
+    #
+    # Why a separate category rather than more "vision" entries: a general VLM
+    # is asked "what is in this picture", and a document reader is asked "give
+    # me the text, the tables and the layout". The second is what
+    # core/docview.py's scanned-page path wants, and picking moondream for it
+    # gets a description of a page instead of the page.
+    "ocr": [
+        {"name": "hf.co/ggml-org/GLM-OCR-GGUF:Q8_0", "size": "~1.4 GB",
+         "purpose": "Best size-to-accuracy here. Tables and layout, 8 languages — start with this one"},
+        {"name": "hf.co/PaddlePaddle/PaddleOCR-VL-1.6-GGUF:Q8_0", "size": "~1.8 GB",
+         "purpose": "Layout, tables, formulas, charts. Strong on structured pages"},
+        {"name": "hf.co/unsloth/Qwen3-VL-4B-Instruct-GGUF:Q4_K_M", "size": "~2.5 GB",
+         "purpose": "Reads documents and answers about them — a VLM as well as a reader"},
+        {"name": "hf.co/ggml-org/DeepSeek-OCR-GGUF:Q8_0", "size": "~3.6 GB",
+         "purpose": "The most accurate on dense and handwritten pages. Needs ~8 GB"},
+    ],
 }
 
 

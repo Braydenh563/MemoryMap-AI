@@ -200,6 +200,18 @@ class Extra:
 #: installable, which is the point.
 EXTRAS: tuple[Extra, ...] = (
     Extra(
+        id="pdfpages",
+        label="Read scanned PDFs (pypdfium2)",
+        enables="Turns the pages of a scanned PDF into images so your vision "
+        "model can read them. Without it a PDF with no text layer can only be "
+        "reported as a scan, not opened.",
+        packages=("pypdfium2", "Pillow"),
+        module="pypdfium2",
+        size="~16 MB",
+        caveat="Reading the pages still needs a vision or OCR model — see "
+        "Settings → Models. This only supplies the images.",
+    ),
+    Extra(
         id="voice",
         label="Voice notes (faster-whisper)",
         enables="The dictation buttons: speak a note or a question and have it typed "

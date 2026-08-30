@@ -331,8 +331,31 @@ Items 1–2, below, are the ones with real substance after that.
 - **A `prefers-reduced-motion` audit of the remaining meaningful animations**,
   and a screen-reader pass over the dynamic regions that announce nothing
   (BACKLOG §19; the focus-trap and tap-target halves are now done).
-- **Colour-contrast verification against WCAG AA** for the newer palettes and
-  the glass surfaces specifically. Never actually measured.
+~~- **Colour-contrast verification against WCAG AA**~~ **Measured, live, for
+  the first time.** A Playwright script walked every visible text node on the
+  Dashboard and the Settings modal (light mode, glass on — the default),
+  composited each element's effective background up the ancestor chain
+  (handling translucent glass surfaces), and computed WCAG contrast ratios.
+  Two apparent 1:1 "white on white" hits (a digest button, Settings'
+  "Connect" button) were **false positives in the audit script itself**, not
+  real bugs: both use `background-color: oklab(...)` — a real solid indigo
+  fill — and the script's regex-based colour parser only understood
+  `rgb()`/`rgba()`, so it silently treated `oklab()` as "no background" and
+  fell through to a white default. Real remaining findings, after that fix,
+  are marginal: the brand indigo (`rgb(79,109,245)`) on white or on its own
+  light-indigo chip background lands at 3.64–4.34:1 against a 4.5:1 target at
+  small sizes (12–12.8px) — a wordmark ("MemoryMap AI", exempt under WCAG
+  1.4.3's own logotype carve-out), a status chip, and a category chip.
+  Nothing found reads as actually hard to read; the misses are all within
+  ~0.2–0.9 of the threshold, not the kind of failure a person notices without
+  a tool. **Not exhaustive** — the audit didn't check dark mode (a naive
+  `data-theme` attribute set didn't actually flip the app's real theme
+  machinery, so those results were identical to light mode and discarded)
+  and doesn't account for elements hidden behind an open modal being walked
+  anyway. Fixing the marginal misses means darkening the one shared accent
+  colour used everywhere as this app's brand indigo — real blast radius for
+  a ~0.2–0.9 ratio gap nobody has reported noticing; leave it unless a
+  specific instance is flagged.
 
 ### New this session, not yet scoped
 

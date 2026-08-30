@@ -30,6 +30,7 @@ from memorymap.ai import (
     followups,
     intent,
     librarian,
+    memory,
     presets,
     skill_runner,
     skills,
@@ -257,9 +258,21 @@ def _resolve_mode(requested: str | None) -> str:
     )
 
 
-def _resolve_persona(name: str | None) -> str | None:
-    """Persona name → its system prompt (shared with greetings and titles)."""
-    return librarian.resolve_persona_prompt(name, deps.get_config())
+def _resolve_persona(name: str | None, session: Session | None = None) -> str | None:
+    """Persona name → its system prompt (shared with greetings and titles).
+
+    With a session, the user's standing preferences ride along — see
+    `ai/memory.py`. **They used to reach only the agent path**, so a rule
+    typed into Settings → "What it remembers" was obeyed in Request mode and
+    silently ignored in Ask, which is where most questions are asked. Passed
+    optionally because the two callers that build a *greeting* or a chat
+    *title* genuinely do not want them: neither is answering the user, and a
+    title prefixed with someone's writing-style rules is nonsense.
+    """
+    prompt = librarian.resolve_persona_prompt(name, deps.get_config())
+    if session is None:
+        return prompt
+    return memory.persona_with_memory(session, prompt)
 
 
 # Base64 inflates size by ~33%; a generous per-image cap keeps one photo
@@ -623,7 +636,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         "style": prepared["style"],
         "profile": prepared["profile"],
         "history": [turn.model_dump() for turn in body.history],
-        "persona_prompt": _resolve_persona(body.persona),
+        "persona_prompt": _resolve_persona(body.persona, session),
     }
     if conversational and body.notes_only:
         # Same rule as the streaming route: this box interrogates the
@@ -709,7 +722,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     ollama = deps.get_ollama()
     model_manager = deps.get_model_manager()
     history = [turn.model_dump() for turn in body.history]
-    persona_prompt = _resolve_persona(body.persona)
+    persona_prompt = _resolve_persona(body.persona, session)
     mode = _resolve_mode(body.mode)
     images_raw = _resolve_chat_images(session, body.image_media_ids)
     chat_sees_images = bool(images_raw) and _chat_model_sees_images(model_manager, ollama)

@@ -1148,6 +1148,33 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   color: var(--muted);
 }
 
+/* A suggestion the model made and nobody has answered yet. Marked rather than
+   dimmed: it is the one row on this screen that wants something from the
+   reader, and an unanswered proposal styled like a switched-off preference is
+   an unanswered proposal that stays unanswered. */
+.memory-row.is-proposed {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.memory-proposed-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* The same question inside a chat turn, next to the tool chip that raised it. */
+.memory-proposal-text {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--accent);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
 .memory-text {
   flex: 1;
   min-width: 0;

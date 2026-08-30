@@ -18,11 +18,22 @@ exists precisely to cut the interval sleep short.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pytest
 
 from memorymap.ai import autonomous
 from memorymap.core import bgtasks, embedmodels, extras
+
+
+def _source_of(module) -> str:
+    """A module's own text, read through `Path.read_text`.
+
+    `open(...).read()` leaves the handle to the garbage collector, which
+    CodeQL flags (py/file-not-closed) and which is a real (if small) leak in
+    a suite that does it a dozen times. One helper, closed every time.
+    """
+    return Path(module.__file__).read_text(encoding="utf-8") if module.__file__ else ""
 
 
 @pytest.fixture(autouse=True)
@@ -51,7 +62,7 @@ def test_the_kinds_match_the_ones_tasks_reports():
     press; a job kind with no canceller is the bug this replaced."""
     from memorymap.api import routes_tasks
 
-    source = (routes_tasks.__file__ and open(routes_tasks.__file__, encoding="utf-8").read()) or ""
+    source = _source_of(routes_tasks)
     for kind in bgtasks.CANCELLERS:
         assert f'"kind": "{kind}"' in source, f"nothing in /tasks reports kind={kind}"
 
@@ -109,7 +120,7 @@ def test_the_pass_clears_the_flag_when_it_starts_not_when_it_ends():
     """A stop asked for during the previous pass must not cancel the next one
     before it has done anything — but it must stay readable by the thread that
     is still finishing."""
-    source = open(autonomous.__file__, encoding="utf-8").read()
+    source = _source_of(autonomous)
     body = source.split("def _run_optimization()")[1].split("def _remember_pass")[0]
     assert "_cancel.clear()" in body.split("try:")[0], "cleared at the start of the pass"
     assert "_cancel.clear()" not in body.split("finally:")[-1], "not cleared when it ends"
@@ -118,7 +129,7 @@ def test_the_pass_clears_the_flag_when_it_starts_not_when_it_ends():
 def test_the_scheduler_never_sleeps_past_the_end_of_a_hold():
     """A 15-minute hold on a loop that just went to sleep for six hours would
     otherwise behave like a six-hour one."""
-    source = open(autonomous.__file__, encoding="utf-8").read()
+    source = _source_of(autonomous)
     loop = source.split("def _loop(")[1].split("def start()")[0]
     assert "snoozed_for()" in loop
     assert "min(seconds, held + 1)" in loop
@@ -154,7 +165,7 @@ def test_cancelling_pip_terminates_the_child(monkeypatch):
 def test_a_terminated_install_is_reported_as_cancelled_not_failed(monkeypatch):
     """Terminating pip makes it exit non-zero. A task history full of
     "Installing X failed" for things nobody wanted stops being read."""
-    source = open(extras.__file__, encoding="utf-8").read()
+    source = _source_of(extras)
     assert 'outcome = "cancelled"' in source
     assert source.index('if _state.cancelled:') < source.index('if _state.outcome == "failed":')
 
@@ -179,7 +190,7 @@ def test_stop_all_is_wired_into_the_apps_shutdown():
     at all — `/shutdown`'s docstring described one that did not exist."""
     from memorymap.api import app as app_module
 
-    source = open(app_module.__file__, encoding="utf-8").read()
+    source = _source_of(app_module)
     assert "lifespan=lifespan" in source
     assert "bgtasks.stop_all()" in source
 
@@ -214,7 +225,7 @@ def test_the_warmup_says_why_it_has_no_quit_button():
     """A missing button with no explanation reads as a missing feature."""
     from memorymap.api import routes_tasks
 
-    source = open(routes_tasks.__file__, encoding="utf-8").read()
+    source = _source_of(routes_tasks)
     assert "can't be " in source and "stopped part-way" in source
     assert "embeddings" not in bgtasks.CANCELLABLE_KINDS
 

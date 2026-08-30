@@ -670,11 +670,21 @@ class PreferenceBody(BaseModel):
     active: bool | None = None
 
 
+class ProposalAnswer(BaseModel):
+    """Yes or no to a preference the model suggested."""
+
+    accept: bool
+
+
 def _preference_out(row) -> dict:  # noqa: ANN001 — a UserPreference
     return {
         "id": row.id,
         "content": row.content,
         "active": bool(row.active),
+        # Waiting for an answer — the model wrote it, the user has not said
+        # yes. A third state, not "off": it is out of the prompt *and* the UI
+        # shows it as a question rather than as a switch someone flipped.
+        "proposed": bool(getattr(row, "proposed", False)),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
@@ -682,7 +692,7 @@ def _preference_out(row) -> dict:  # noqa: ANN001 — a UserPreference
 @router.get("/memory")
 def list_memory(session: Session = Depends(get_session)) -> dict:
     """Everything the AI has been told to remember, newest first."""
-    from memorymap.ai import agent
+    from memorymap.ai import memory
     from memorymap.core.database import UserPreference
 
     rows = list(
@@ -694,8 +704,8 @@ def list_memory(session: Session = Depends(get_session)) -> dict:
         # ones do, and only until the character budget runs out — newest first,
         # so a long-standing list quietly stops including its oldest entries.
         # Showing the budget beats letting someone wonder why rule 41 is ignored.
-        "budget_chars": agent.MEMORY_STREAM_BUDGET_CHARS,
-        "in_prompt": len(agent._persona_with_memory(session, "").strip()),
+        "budget_chars": memory.MEMORY_STREAM_BUDGET_CHARS,
+        "in_prompt": len(memory.persona_with_memory(session, "").strip()),
     }
 
 
@@ -737,6 +747,40 @@ def add_memory(body: PreferenceBody, session: Session = Depends(get_session)) ->
 
     row = UserPreference(content=text_)
     session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _preference_out(row)
+
+
+@router.post("/memory/{preference_id}/answer")
+def answer_memory_proposal(
+    preference_id: int, body: ProposalAnswer, session: Session = Depends(get_session)
+) -> dict:
+    """Accept or decline a preference the model suggested.
+
+    Asked for directly: "can the ai pick up things and suggest the user adds it
+    as a preference in that section with an accept or deny or similar popup??"
+    — and the shape of the old behaviour is why that is the right question.
+    `save_user_preference` used to write a standing instruction into every
+    future system prompt with no confirmation at all, so a model that misread
+    one sentence gave itself a permanent rule its user never agreed to.
+
+    **Declining does not delete the row**, and that is deliberate: the
+    duplicate check in `_save_user_preference` looks at *every* preference, so
+    a kept row is what stops the model proposing the same thing again an hour
+    later. It reads as an ordinary switched-off preference afterwards, which
+    it is — and can be switched on if the user changes their mind.
+
+    Answering something that is not a proposal is a no-op rather than an
+    error: two windows, two clicks, one of them second.
+    """
+    from memorymap.core.database import UserPreference
+
+    row = deps.get_or_404(session, UserPreference, preference_id, "No such preference")
+    if not getattr(row, "proposed", False):
+        return _preference_out(row)
+    row.proposed = False
+    row.active = bool(body.accept)
     session.commit()
     session.refresh(row)
     return _preference_out(row)

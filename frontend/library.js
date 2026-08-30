@@ -2276,7 +2276,7 @@ function filterLibraryImagesGallery() {
     menuButton.className = "ghost small icon-button library-image-menu-btn";
     menuButton.title = `More actions for “${image.original_name}”`;
     menuButton.setAttribute("aria-label", menuButton.title);
-    setLabel(menuButton, "ph:dots-three-vertical");
+    setLabel(menuButton, "ph:dots-three");
     const menuList = document.createElement("div");
     menuList.className = "library-image-menu-list";
     menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);

@@ -151,7 +151,14 @@ def cancel(kind: str, name: str = "") -> tuple[bool, str]:
     try:
         return canceller(name)
     except Exception as exc:  # noqa: BLE001 — a failed stop is a message
-        logger.warning("couldn't stop the %s job: %s", kind, exc, exc_info=True)
+        # `kind` arrives in a request body, so it is untrusted text going into
+        # a log line — CodeQL's py/log-injection, and a real one: a value
+        # carrying a newline can forge a whole extra log record, which is
+        # exactly the kind of thing the log viewer in Settings is read to
+        # investigate. Stripped rather than escaped, because a job kind never
+        # legitimately contains a line break.
+        safe_kind = kind.replace("\r", "").replace("\n", "")
+        logger.warning("couldn't stop the %s job: %s", safe_kind, exc, exc_info=True)
         return False, "Couldn't stop that job — see Settings → Logs."
 
 

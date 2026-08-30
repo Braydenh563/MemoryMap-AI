@@ -729,6 +729,23 @@ class UserPreference(Base):
     content: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    #: True while the *model* has proposed this and the user has not answered.
+    #: A proposal is not in the prompt and is not "off" — those are different
+    #: states and the UI shows them differently. Asked for directly: "can the
+    #: ai pick up things and suggest the user adds it as a preference in that
+    #: section with an accept or deny or similar popup??"
+    #:
+    #: The distinction matters beyond tidiness. `save_user_preference` used to
+    #: write a standing instruction into every future prompt with no
+    #: confirmation of any kind — the tool's own description said "quietly
+    #: append" — so a model that misread one sentence could give itself a
+    #: permanent rule the user never agreed to and would only find by opening
+    #: a settings page they had no reason to visit.
+    #:
+    #: Scalar default (not a server_default or a callable) so the additive
+    #: auto-migrator backfills every preference that existed before proposals
+    #: did as already-accepted, which is what they are.
+    proposed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class AuditLog(Base):

@@ -7750,6 +7750,77 @@ function renderToolConfirm(holder, event) {
   chatScrollToEnd();
 }
 
+// The model would like to remember something about you (§39B).
+//
+// This card is the whole point of the change behind it. `save_user_preference`
+// used to write a standing instruction straight into every future system
+// prompt — no confirmation, no notice, and the only trace was a list in
+// Settings nobody had a reason to open. A model that over-read one sentence
+// ("use British English for this one, actually") gave itself a permanent rule
+// its user never agreed to, and would then keep obeying it for weeks.
+//
+// So the tool now *proposes*: the row is written inactive and flagged, it is
+// excluded from the prompt, and this card is where it becomes real. Declining
+// keeps the row (switched off) on purpose — the tool's duplicate check reads
+// every preference, so a kept "no" is what stops the model suggesting the same
+// thing again an hour later.
+function renderMemoryProposal(holder, proposal) {
+  const card = document.createElement("div");
+  card.className = "tool-confirm memory-proposal";
+
+  const text = document.createElement("p");
+  setLabel(text, "ph:brain Remember this for next time?");
+
+  const quote = document.createElement("blockquote");
+  quote.className = "memory-proposal-text";
+  quote.textContent = proposal.content;
+
+  const note = document.createElement("p");
+  note.className = "muted";
+  note.textContent =
+    "Saved preferences are added to the AI's instructions in every later " +
+    "conversation. Nothing is in force until you say yes.";
+
+  const row = document.createElement("div");
+  row.className = "row";
+
+  let answered = false;
+  const answer = async (accept) => {
+    if (answered) return;
+    answered = true;
+    try {
+      await apiJson(`/memory/${proposal.id}/answer`, {
+        method: "POST",
+        body: JSON.stringify({ accept }),
+      });
+    } catch (error) {
+      answered = false;
+      toast(error.message, true);
+      return;
+    }
+    card.replaceWith(
+      toolChip(
+        accept
+          ? `ph:check-circle Remembered: “${proposal.content}”`
+          : "ph:x Not remembered."
+      )
+    );
+    // The Settings list is the other view of the same row; if it happens to
+    // be open behind the chat, leaving it stale shows a pending question the
+    // user has already answered.
+    if (typeof renderMemorySettings === "function") renderMemorySettings().catch(() => {});
+  };
+
+  row.appendChild(
+    smallButton("Remember it", "Add this to the AI's standing instructions", () => answer(true), false)
+  );
+  row.appendChild(smallButton("No thanks", "Don't save this preference", () => answer(false)));
+
+  card.append(text, quote, note, row);
+  holder.appendChild(card);
+  chatScrollToEnd();
+}
+
 // The agent stopped to ask something. Its options become buttons, and picking
 // one sends that text as the next message — so the answer travels through the
 // ordinary conversation history rather than through any parked server state.
@@ -8932,6 +9003,12 @@ async function sendChatMessage(preset, opts = {}) {
         const label = event.ok ? event.label : `ph:warning ${event.error || event.label}`;
         timeline.tool(toolChip(label, event.ok, event));
         toolEvents.push(event); // remember for persistence
+        if (event.proposal) {
+          // Asked where it was suggested, not in a settings page nobody opens.
+          const card = document.createElement("div");
+          renderMemoryProposal(card, event.proposal);
+          timeline.tool(card.firstElementChild || card);
+        }
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
         chatScrollToEnd();
@@ -14441,10 +14518,20 @@ async function renderMemorySettings() {
     : "";
   empty.classList.toggle("hidden", data.preferences.length > 0);
 
+  // Pending suggestions first. They are the only rows that need an answer,
+  // and a proposal buried below thirty settled ones is a proposal nobody
+  // sees — which was the whole complaint about the silent version of this
+  // feature. Order is otherwise unchanged (newest first, from the API).
+  const ordered = [
+    ...data.preferences.filter((p) => p.proposed),
+    ...data.preferences.filter((p) => !p.proposed),
+  ];
+
   list.replaceChildren(
-    ...data.preferences.map((pref) => {
+    ...ordered.map((pref) => {
       const row = document.createElement("div");
-      row.className = "memory-row" + (pref.active ? "" : " is-off");
+      row.className =
+        "memory-row" + (pref.proposed ? " is-proposed" : pref.active ? "" : " is-off");
 
       const text = document.createElement("span");
       text.className = "memory-text";
@@ -14452,6 +14539,37 @@ async function renderMemorySettings() {
       text.title = pref.created_at
         ? `Saved ${new Date(pref.created_at).toLocaleString()}`
         : "";
+
+      // A suggestion is a question, not a switch someone flipped: it gets
+      // yes/no rather than on/off, and it is not in the prompt either way
+      // until it is answered.
+      if (pref.proposed) {
+        const tag = document.createElement("span");
+        tag.className = "memory-proposed-tag";
+        setLabel(tag, "ph:brain Suggested by the AI");
+
+        const answer = async (accept) => {
+          await apiJson(`/memory/${pref.id}/answer`, {
+            method: "POST",
+            body: JSON.stringify({ accept }),
+          }).catch(() => {});
+          renderMemorySettings();
+        };
+        const yes = document.createElement("button");
+        yes.type = "button";
+        yes.className = "small";
+        yes.textContent = "Remember it";
+        yes.addEventListener("click", () => answer(true));
+
+        const no = document.createElement("button");
+        no.type = "button";
+        no.className = "ghost small";
+        no.textContent = "No thanks";
+        no.addEventListener("click", () => answer(false));
+
+        row.append(text, tag, yes, no);
+        return row;
+      }
 
       const toggle = document.createElement("button");
       toggle.type = "button";

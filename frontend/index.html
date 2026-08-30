@@ -1768,7 +1768,7 @@ Link to another note with [[its first few words]]."></textarea>
             <details class="doc-dock-menu" id="doc-dock-menu">
               <summary class="ghost small icon-button doc-dock-menu-btn"
                 title="More actions for this document"
-                aria-label="More actions for this document"><i class="ph ph-dots-three-vertical" aria-hidden="true"></i></summary>
+                aria-label="More actions for this document"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list">
                 <button id="doc-export-md" class="ghost small doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
@@ -3222,10 +3222,17 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- AI Tools: toggle what the chat AI is allowed to do -->
           <section class="settings-section hidden" id="settings-memory">
             <p class="muted">
-              The AI can save itself standing instructions — say
+              The AI can keep standing instructions — say
               <em>"always answer in British English"</em> and it will keep
               doing that in every conversation from then on. This is the whole
               list, and you can switch any of them off or delete them.
+            </p>
+            <p class="muted">
+              When the AI spots one of these in conversation it
+              <strong>suggests</strong> it rather than saving it: the
+              suggestion appears in the chat with a yes/no, and again at the
+              top of this list until you answer. Nothing reaches the AI's
+              instructions until you say yes.
             </p>
             <p class="muted" id="memory-budget"></p>
             <!-- Adding one by hand. The tool covers "tell it in conversation";

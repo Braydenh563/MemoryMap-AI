@@ -18,7 +18,7 @@ from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import context, librarian, tools
+from memorymap.ai import context, librarian, memory, tools
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -346,19 +346,10 @@ def tools_guide(window_tokens: int | None) -> str:
 # TOOLS_GUIDE or the persona; look there rather than at the number.
 PROSE_BUDGET_CHARS = 3_000
 
-#: How much of the memory stream may ride along with the persona.
-#:
-#: `save_user_preference` lets the model write rules it will then be given back
-#: on every later turn, which is a genuinely useful feature and also the one
-#: shape of prompt text `PROSE_BUDGET_CHARS` cannot see: the constant is
-#: asserted against the *static* persona and TOOLS_GUIDE, so anything appended
-#: at runtime slips past the very guard that exists to stop the system prompt
-#: growing. A notebook that has been used for a year could otherwise hold
-#: hundreds of these and quietly push the real question out of a 4k window.
-#:
-#: Newest wins when the budget is spent — a preference stated last month is
-#: likelier to be current than one stated at setup.
-MEMORY_STREAM_BUDGET_CHARS = 600
+#: Re-exported so the constant keeps resolving from `agent` for anything that
+#: already reads it there. It lives in `ai/memory.py` now, next to the code
+#: that enforces it.
+MEMORY_STREAM_BUDGET_CHARS = memory.MEMORY_STREAM_BUDGET_CHARS
 
 # What to do about a failed tool call.
 #
@@ -837,52 +828,6 @@ def _focus(question: str, history: list[dict] | None = None) -> list[str] | None
     return tools.focus_for(question, _recent_text(history))
 
 
-def _persona_with_memory(session: Session, persona_prompt: str | None) -> str:
-    """The persona, plus the standing preferences the user has taught the AI.
-
-    Bounded on purpose (`MEMORY_STREAM_BUDGET_CHARS`) and newest-first: this
-    text is resent on every round of every turn, and nothing downstream trims
-    it, so an unbounded version is a slow leak that ends with a small model
-    losing the actual question off the front of its window.
-
-    Defensive about the query for a reason beyond tidiness — `run_agent` is
-    also driven with lightweight stand-in sessions (the skill runner's, the
-    test fakes'), and a notebook that predates the `user_preferences` table
-    won't have one until migrations run. Losing the memory stream should cost
-    the user their preferences on that turn, never the turn itself.
-    """
-    base = (persona_prompt or librarian.DEFAULT_PERSONA).strip()
-    try:
-        from sqlalchemy import select
-
-        from memorymap.core.database import UserPreference
-
-        rows = session.scalars(
-            select(UserPreference)
-            .where(UserPreference.active == True)  # noqa: E712
-            .order_by(UserPreference.created_at.desc())
-        ).all()
-    except Exception:  # noqa: BLE001 — see the docstring: never fail the turn
-        logging.getLogger("memorymap.agent").debug(
-            "memory stream unavailable for this turn", exc_info=True
-        )
-        return base
-
-    kept: list[str] = []
-    spent = 0
-    for row in rows:
-        line = f"USER PREFERENCE: {(row.content or '').strip()}"
-        if len(line) <= len("USER PREFERENCE: "):
-            continue
-        if spent + len(line) > MEMORY_STREAM_BUDGET_CHARS:
-            break
-        kept.append(line)
-        spent += len(line) + 1
-    # Oldest-first in the prompt even though newest-first won the budget, so
-    # the model reads them in the order they were taught.
-    return " ".join([base, *reversed(kept)]).strip()
-
-
 def run_agent(
     session: Session,
     question: str,
@@ -928,7 +873,7 @@ def run_agent(
         model_manager.utility_model() if use_utility_model else model_manager.chat_model()
     )
     window = report(agent_model) if callable(report) else None
-    persona = _persona_with_memory(session, persona_prompt)
+    persona = memory.persona_with_memory(session, persona_prompt)
 
     system_chars = len(
         f"{persona} "
@@ -1485,6 +1430,15 @@ def run_agent(
                 }
                 if change:
                     event["change"] = change
+                if result.get("proposal"):
+                    # `save_user_preference` no longer saves anything: it asks.
+                    # The row exists but is inactive and flagged `proposed`, and
+                    # it stays out of every system prompt until somebody says
+                    # yes. Carrying the id and the text on the event is what
+                    # lets the chat draw the accept/decline card next to the
+                    # tool chip, so the answer is given where the suggestion was
+                    # made rather than three clicks away in Settings.
+                    event["proposal"] = result["proposal"]
                 yield event
             payload = json.dumps(result)
             # The window's share, but never more than the absolute ceiling —

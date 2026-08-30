@@ -1954,26 +1954,48 @@ def _save_user_preference(session: Session, args: dict) -> dict:
             "characters. Save the rule, not the explanation."
         )
 
-    active = list(
-        session.scalars(
-            select(UserPreference).where(UserPreference.active == True)  # noqa: E712
-        )
-    )
-    if any((row.content or "").strip().lower() == pref.lower() for row in active):
+    # Everything already on file, proposals included: re-proposing something
+    # the user declined an hour ago is worse than not proposing at all.
+    existing = list(session.scalars(select(UserPreference)))
+    if any((row.content or "").strip().lower() == pref.lower() for row in existing):
         return {
             "already_known": True,
             "label": "ph:brain Already remembered",
             "message": f"That preference was already saved: {pref}",
         }
+    active = [row for row in existing if row.active]
     if len(active) >= MAX_ACTIVE_PREFERENCES:
         raise ToolError(
             f"There are already {len(active)} saved preferences, which is the "
             "limit. Ask the user which one to drop before saving another."
         )
 
-    session.add(UserPreference(content=pref))
+    # **Proposed, not saved.** Asked for directly: "can the ai pick up things
+    # and suggest the user adds it as a preference in that section with an
+    # accept or deny or similar popup??" — and the old behaviour is the reason
+    # that is the right shape. This tool used to write a standing instruction
+    # into every future system prompt with no confirmation of any kind (its own
+    # description said "quietly append"), so a model that misread one sentence
+    # gave itself a permanent rule the user never agreed to and would only find
+    # by opening a settings page they had no reason to visit.
+    #
+    # `active=False, proposed=True` is a third state, not "off": it is out of
+    # the prompt, and the chat and Settings both show it as waiting for an
+    # answer. The model is told plainly that it is not in force yet, so it does
+    # not go on to behave as though it were.
+    row = UserPreference(content=pref, active=False, proposed=True)
+    session.add(row)
     session.commit()
-    return {"label": "ph:brain Remembered", "message": f"Saved preference: {pref}"}
+    session.refresh(row)
+    return {
+        "label": "ph:brain Suggested",
+        "message": (
+            f"Suggested remembering: {pref} — it is NOT in force until the user "
+            "accepts it. Do not assume it applies yet."
+        ),
+        # The chat renders an Accept/Not this time card from these.
+        "proposal": {"id": row.id, "content": pref},
+    }
 
 
 # --- the registry ---------------------------------------------------------------
@@ -2026,8 +2048,13 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "save_user_preference",
-            "Quietly append a learned preference to the user's permanent preferences (Memory Stream). "
-            "Use this when the user tells you about their preferences, work style, or rules they want you to remember.",
+            # "Suggest", not "save": the tool proposes and the user accepts.
+            # Saying so in the description matters as much as the code — a
+            # model told it has *saved* something will act as though the rule
+            # is already in force.
+            "Suggest a standing preference for the user to accept. Use it when they "
+            "tell you a rule or work style they want remembered. It does NOT take "
+            "effect until they accept it.",
             {
                 "type": "object",
                 "properties": {

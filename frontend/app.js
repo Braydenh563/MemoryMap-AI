@@ -850,16 +850,7 @@ function buildSelect(options, selected) {
 // styled like the app, it says what the action is in a heading rather than a
 // system font, and the dangerous option can be marked as dangerous.
 function confirmDialog(message, options = {}) {
-  const {
-    confirmLabel = "OK",
-    cancelLabel = "Cancel",
-    danger = true,
-    // Optional third way out, between "do it" and "cancel" — e.g. quit's
-    // "Minimise" on the desktop build. Resolves the promise with the string
-    // "extra" rather than a boolean, so a caller that only checks truthiness
-    // (`if (await confirmDialog(...))`) must opt in deliberately.
-    extraLabel = null,
-  } = options;
+  const { confirmLabel = "OK", cancelLabel = "Cancel", danger = true } = options;
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay confirm-overlay";
@@ -906,12 +897,7 @@ function confirmDialog(message, options = {}) {
     const cancel = smallButton(cancelLabel, cancelLabel, () => close(false));
     const go = smallButton(confirmLabel, confirmLabel, () => close(true), false);
     if (danger) go.classList.add("danger");
-    if (extraLabel) {
-      const extra = smallButton(extraLabel, extraLabel, () => close("extra"), false);
-      row.append(cancel, extra, go);
-    } else {
-      row.append(cancel, go);
-    }
+    row.append(cancel, go);
     card.append(text, row);
     overlay.appendChild(card);
     // Clicking the backdrop cancels, the way every other overlay here behaves.
@@ -19954,32 +19940,10 @@ async function quitApp() {
   // Confirmed, because it is not undoable from inside the app: once the
   // server is down, the button that would bring it back is on the page that
   // just stopped being served.
-  //
-  // "Minimise" only appears on the desktop build (`window.pywebview.api` is
-  // the bridge __main__.py exposes, and only exists there) — the browser
-  // build has no window to minimise, so it keeps the plain two-button
-  // dialog it always had. Picking it hides the window and leaves the server
-  // running, same as the X button already does with close-to-tray on.
-  const desktopMinimize = window.pywebview?.api?.minimize;
-  const answer = await confirmDialog(
+  if (!(await confirmDialog(
     "Quit MemoryMap?\n\nThe app and its server will stop. Your notes are already saved.",
-    desktopMinimize
-      ? { confirmLabel: "Quit", extraLabel: "Minimise" }
-      : { confirmLabel: "Quit" }
-  );
-  if (answer === "extra") {
-    // The bridge itself refuses to hide the window with no way to bring it
-    // back (no real minimize() on this pywebview build and no tray icon to
-    // click) — `false` means it deliberately did nothing, not that it tried
-    // and failed, so say that rather than a generic error.
-    desktopMinimize()
-      .then((ok) => {
-        if (!ok) toast("Minimise isn't available in this build.", true);
-      })
-      .catch((e) => toast(String(e?.message || e), true));
-    return;
-  }
-  if (!answer) {
+    { confirmLabel: "Quit" }
+  ))) {
     return;
   }
   try {

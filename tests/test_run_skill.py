@@ -285,6 +285,54 @@ def test_a_bad_skill_name_is_recoverable_rather_than_fatal(ai_client, fake_ollam
     assert any(e["type"] == "answer" for e in events)
 
 
+def test_an_unhandled_error_before_the_first_event_still_answers(
+    ai_client, fake_ollama, app_state, monkeypatch
+):
+    """Reported directly: a skill run that "failed before even completing the
+    first step ... no answer and no tool call" — the stream just ended with
+    nothing rendered. The route's own outer `next(agent_events, None)` had
+    nothing catching an exception raised before the runner's first yield, so
+    it killed the generator and FastAPI just closed the connection. This is
+    not about what raised (skill_runner.run_skill itself is a thin wrapper;
+    almost anything under it could) — it's that whatever does must still
+    reach the user as a real event, not silence."""
+    from memorymap.ai import skill_runner
+
+    _save({"name": "Tidy up", "prompt": "Tidy the notebook.", "tools": ["search_notes"]})
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated failure before the first event")
+        yield  # pragma: no cover — makes this a generator function
+
+    monkeypatch.setattr(skill_runner, "run_skill", _boom)
+    events = _events(ai_client, "ph:lightning Tidy up", skill="Tidy up", use_tools=True)
+    answers = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert "simulated failure before the first event" in answers
+    assert events[-1]["type"] == "done"
+
+
+def test_an_unhandled_error_mid_run_still_reaches_done(
+    ai_client, fake_ollama, app_state, monkeypatch
+):
+    """Same failure, later: something breaks after the plan/first step has
+    already streamed. The stream must still end cleanly rather than cutting
+    off with the rest of the run rendered as if it simply stopped."""
+    from memorymap.ai import skill_runner
+
+    _save({"name": "Tidy up", "prompt": "Tidy the notebook.", "tools": ["search_notes"]})
+
+    def _boom(*args, **kwargs):
+        yield {"type": "plan", "skill": "Tidy up", "steps": [], "tools": []}
+        raise RuntimeError("simulated failure mid-run")
+
+    monkeypatch.setattr(skill_runner, "run_skill", _boom)
+    events = _events(ai_client, "ph:lightning Tidy up", skill="Tidy up", use_tools=True)
+    assert any(e["type"] == "plan" for e in events)
+    answers = "".join(e["delta"] for e in events if e["type"] == "answer")
+    assert "simulated failure mid-run" in answers
+    assert events[-1]["type"] == "done"
+
+
 def test_list_skills_no_longer_tells_the_model_it_cannot_start_one(session, app_state):
     """The note used to read "You cannot start a skill yourself". Leaving that
     in place while shipping the tool would be worse than either state: a model

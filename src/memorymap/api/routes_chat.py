@@ -1019,7 +1019,30 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     image_context=image_context,
                     **shared,
                 )
-            first = next(agent_events, None)
+            # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
+            # expect to go wrong (OllamaError, ToolsUnsupportedError) is
+            # already caught inside them and turned into a real event — this
+            # is the outer boundary, for whatever isn't. Reported directly: a
+            # skill run that "failed before even completing the first step
+            # ... no answer and no tool call" — an exception here had nothing
+            # catching it, so it killed the generator and the stream just
+            # ended with nothing rendered, no error, the plan card (if any)
+            # never even reaching the page. Silence was the bug, not the
+            # underlying failure, which is why this doesn't try to guess
+            # which failure it was — it says what actually happened and stays
+            # on stage instead of vanishing.
+            try:
+                first = next(agent_events, None)
+            except Exception as exc:  # noqa: BLE001 — the outer boundary
+                logging.getLogger("memorymap.chat").exception(
+                    "%s: unhandled error before the first event: %s",
+                    "skill run" if skill else "agent turn",
+                    exc,
+                )
+                first = {
+                    "type": "answer",
+                    "delta": f"Something went wrong before it could start: {exc}",
+                }
             if first is None or first.get("type") == "unsupported":
                 # The active model can't do tool calls — plain Q&A, never
                 # a hard dependency.
@@ -1033,10 +1056,21 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         # deltas' worth of string concatenation, not a hot loop) and sent as
         # its own event once the answer is fully in, direct-Q&A only.
         answer_text = ""
-        for payload in events:
-            if payload.get("type") == "answer":
-                answer_text += payload.get("delta") or ""
-            yield event(payload)
+        try:
+            for payload in events:
+                if payload.get("type") == "answer":
+                    answer_text += payload.get("delta") or ""
+                yield event(payload)
+        except Exception as exc:  # noqa: BLE001 — same outer boundary as above,
+            # for a failure that shows up partway through rather than before
+            # the first event (a later skill step, say). Same fix: say what
+            # happened instead of the stream just stopping.
+            logging.getLogger("memorymap.chat").exception(
+                "%s: unhandled error mid-stream: %s",
+                "skill run" if skill else "agent turn",
+                exc,
+            )
+            yield event({"type": "answer", "delta": f"\n\nSomething went wrong: {exc}"})
         conversational = not intent.needs_retrieval(prepared["intent"])
         if not conversational and prepared["notes"] and answer_text:
             grounding = ground_answer_sentences(answer_text, prepared["notes"])

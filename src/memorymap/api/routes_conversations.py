@@ -82,6 +82,14 @@ class TurnBody(BaseModel):
     # media_gc._referenced_filenames can look conversations up too, instead
     # of "Clean orphaned media" silently deleting a real, sent attachment.
     image_media_ids: list[int] | None = None
+    #: Documents this turn attached — a file dropped on the chat that was not
+    #: an image is imported into Documents (`POST /documents/import`) rather
+    #: than sent as pixels, and until now the message kept no record that it
+    #: had happened. Reported as attachments that "arent rendered with the
+    #: chat messages… and they arent previewable or quick navigatable to
+    #: their stored location in the library or documents": with nothing
+    #: stored, there was nothing to render and nowhere to navigate to.
+    document_ids: list[int] | None = None
 
 
 class RenameBody(BaseModel):
@@ -114,6 +122,8 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
     user: dict = {"role": "user", "content": turn.question}
     if turn.image_media_ids:
         user["image_media_ids"] = turn.image_media_ids
+    if turn.document_ids:
+        user["document_ids"] = turn.document_ids
     return [user, assistant]
 
 
@@ -241,12 +251,67 @@ def create_conversation(body: TurnBody, session: Session = Depends(get_session))
     return _summary(conversation)
 
 
+def _hydrate_attachments(session: Session, messages: list[dict]) -> None:
+    """Turn the stored id lists into something renderable, in place.
+
+    A message stores ids because ids are what survives a rename and what
+    `media_gc` needs. A *bubble* needs a thumbnail, a name, and the caption
+    and transcription the app already holds for that picture — so the read
+    path resolves them here, once for the whole conversation, rather than
+    leaving the browser to fire one request per attachment per reopen.
+
+    **Missing is normal and is not an error.** An attachment can be deleted
+    from the Library long after the message that carried it; the id then
+    resolves to nothing and the bubble simply shows one fewer thumbnail,
+    which is what happened before this existed. Nothing here 404s.
+    """
+    from memorymap.core.database import Document, MediaUpload
+
+    media_ids = {i for m in messages for i in (m.get("image_media_ids") or [])}
+    doc_ids = {i for m in messages for i in (m.get("document_ids") or [])}
+    if not media_ids and not doc_ids:
+        return
+
+    media = {}
+    if media_ids:
+        for upload in session.query(MediaUpload).filter(MediaUpload.id.in_(media_ids)).all():
+            media[upload.id] = {
+                "id": upload.id,
+                "kind": "image",
+                "url": f"/media/{upload.filename}",
+                "name": upload.original_name,
+                # The two readings the Library tile shows, so the same
+                # picture reads the same way wherever it appears.
+                "caption": upload.caption or "",
+                "text": (upload.vision_ocr_text or upload.ocr_text or "").strip(),
+            }
+    documents = {}
+    if doc_ids:
+        for document in session.query(Document).filter(Document.id.in_(doc_ids)).all():
+            documents[document.id] = {
+                "id": document.id,
+                "kind": "document",
+                "name": document.title,
+            }
+
+    for message in messages:
+        attachments = [
+            media[i] for i in (message.get("image_media_ids") or []) if i in media
+        ] + [
+            documents[i] for i in (message.get("document_ids") or []) if i in documents
+        ]
+        if attachments:
+            message["attachments"] = attachments
+
+
 @router.get("/{conversation_id}")
 def get_conversation(
     conversation_id: int, session: Session = Depends(get_session)
 ) -> dict:
     conversation = _existing(session, conversation_id)
-    return {**_summary(conversation), "messages": json.loads(conversation.messages)}
+    messages = json.loads(conversation.messages)
+    _hydrate_attachments(session, messages)
+    return {**_summary(conversation), "messages": messages}
 
 
 @router.post("/{conversation_id}/turns")

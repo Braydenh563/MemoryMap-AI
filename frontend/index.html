@@ -904,6 +904,12 @@ Link to another note with [[its first few words]]."></textarea>
                  number of thumbnails, not a fixed-height control. -->
             <div id="chat-image-attachments" class="chat-attachments hidden"
               role="group" aria-label="Images attached to your next message"></div>
+            <!-- Its own row rather than sharing the image one: a document has
+                 no thumbnail, so a chip with a filename in a row of pictures
+                 sizes badly next to them. Same lifecycle either way — staged
+                 here, sent with the message, then drawn under it. -->
+            <div id="chat-doc-attachments" class="chat-attachments hidden"
+              role="group" aria-label="Documents attached to your next message"></div>
             <!-- Two capabilities that only ever helped the people who already
                  knew they were there. "Request the Librarian" is the mode that
                  can actually *do* the thing you just typed, and a saved skill

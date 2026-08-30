@@ -2285,6 +2285,121 @@ html {
    scrollable rather than allowed to grow — a transcribed page can be
    hundreds of words, and pushing the image off the top of the viewer to
    show them would trade the thing being viewed for its description. */
+/* The files a message carried, under the message that carried them.
+
+   Reported as attachments that "arent rendered with the chat messages, the
+   captions arent viewable…and they arent previewable or quick navigatable to
+   their stored location". The strip is the render; the thumbnail is the
+   preview (it opens the lightbox, which now carries the caption and the
+   transcription); the buttons are the navigation. */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  /* `flex-start`, not the default stretch: a document chip is one line tall
+     and was being stretched to the height of the thumbnail beside it,
+     leaving its label floating in the middle of an empty box. */
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.msg-attachment {
+  margin: 0;
+}
+
+.msg-attachment-image {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Bounded so a portrait photo cannot push the rest of the conversation off
+     the screen — a chat is a transcript, and an attachment is a reference in
+     it, not the subject of the page. Click for full size. */
+  max-width: 14rem;
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+}
+
+.msg-attachment-image img {
+  display: block;
+  width: 100%;
+  max-height: 10rem;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+}
+
+.msg-attachment-image figcaption {
+  margin: 0;
+  /* A caption is a model's reading of the picture and can run long; two lines
+     is enough to recognise it by, and the lightbox has the rest. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.msg-attachment-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.msg-attachment-missing {
+  border-style: dashed;
+}
+
+.msg-attachment-doc {
+  cursor: pointer;
+  max-width: 16rem;
+  /* Aligned with the image card beside it rather than floating as a bare
+     chip: two attachments on one message are one row of cards, and a chip
+     with no box next to a boxed thumbnail read as an unrelated stray. */
+  align-self: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  /* A long filename must not stretch the chip past the bubble. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* **On the user's own bubble, which is a solid accent fill.** Measured in a
+   screenshot before this existed: `--chip-bg` over accent is very nearly the
+   accent itself, and `--muted` caption text on it was grey-on-blue — the card
+   was there and could not be read. The tokens are page-surface tokens and
+   there is no page surface here, so the whole strip switches to the same
+   translucent-white treatment the lightbox uses over a photograph, which
+   works against any accent the user has picked rather than against one. */
+.msg.user .msg-attachment-image,
+.msg.user .msg-attachment-doc {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+
+.msg.user .msg-attachment-image figcaption {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.msg.user .msg-attachment-actions button {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.msg.user .msg-attachment-actions button:hover,
+.msg.user .msg-attachment-actions button:focus-visible {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.msg.user .msg-attachment-missing p {
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .lightbox-info {
   max-width: min(48rem, 90vw);
   max-height: 30vh;

@@ -6304,6 +6304,7 @@ function regenerateLastAnswer() {
     replaceLast: true,
     noteIds: lastChatAttachments,
     imageMediaIds: lastChatImageAttachments.map((img) => img.id),
+    documentIds: lastChatDocumentAttachments.map((d) => d.id),
   });
 }
 
@@ -7115,7 +7116,110 @@ function chatScrollToEnd() {
   });
 }
 
-function addBubble(role, text) {
+// The files a message carried, under the message that carried them.
+//
+// Reported directly: "images and files uploaded into a chat conversation
+// arent rendered with the chat messages, the captions arent viewable…and they
+// arent previewable or quick navigatable to their stored location in the
+// library or documents etc or viewable in a better environment". All of that
+// was true: the composer showed a thumbnail chip until you pressed send, and
+// then the picture vanished from the conversation entirely — the ids were
+// stored (for the model and for media_gc) and nothing ever drew them again.
+//
+// `attachments` comes hydrated from `GET /conversations/{id}` on reload and is
+// built locally on a live send, so both paths render the same thing.
+function chatAttachmentStrip(attachments) {
+  if (!attachments || !attachments.length) return null;
+  const strip = document.createElement("div");
+  strip.className = "msg-attachments";
+  const images = attachments.filter((a) => a.kind === "image");
+
+  for (const item of attachments) {
+    if (item.kind === "image") {
+      const figure = document.createElement("figure");
+      figure.className = "msg-attachment msg-attachment-image";
+      const img = document.createElement("img");
+      img.src = mediaSrc(item.url);
+      img.alt = item.caption || item.name || "";
+      img.loading = "lazy";
+      img.title = "Click to view it full size";
+      // An upload deleted from the Library long after this message was sent
+      // resolves to a row that no longer has a file. Hiding the broken tile
+      // is what the gallery does; saying so is better than a grey box.
+      img.addEventListener("error", () => {
+        figure.classList.add("msg-attachment-missing");
+        img.remove();
+        const gone = document.createElement("p");
+        gone.className = "muted text-sm";
+        gone.textContent = `“${item.name}” isn't in your library any more.`;
+        figure.prepend(gone);
+      });
+      img.addEventListener("click", () =>
+        openLightbox(
+          images.map((i) => ({
+            filename: i.name,
+            getUrl: () => mediaSrc(i.url),
+            caption: i.caption || "",
+            text: i.text || "",
+          })),
+          images.indexOf(item)
+        )
+      );
+      figure.appendChild(img);
+
+      // The caption, which is the half the report names twice. Shown under
+      // the thumbnail rather than only in the lightbox: a picture in a
+      // conversation is often referred to by what it shows.
+      if (item.caption) {
+        const caption = document.createElement("figcaption");
+        caption.className = "muted text-sm";
+        caption.textContent = item.caption;
+        figure.appendChild(caption);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "msg-attachment-actions";
+      actions.appendChild(
+        smallButton("ph:image Library", `Find “${item.name}” in your library`, () => {
+          switchTab("library");
+          // Clicking the real sub-tab button rather than calling a switcher:
+          // `#library-subtabs`'s own click handler is what sets the active
+          // class, the aria-selected state and the lazy load for that view,
+          // and re-implementing three of those here is how they drift.
+          document
+            .querySelector('#library-subtabs button[data-target="library-view-media"]')
+            ?.click();
+          // The gallery filters on filename, so typing the name into its own
+          // search is what "take me to it" means here.
+          const search = $("library-images-search");
+          if (search) {
+            search.value = item.name;
+            filterLibraryImagesGallery();
+          }
+        })
+      );
+      figure.appendChild(actions);
+      strip.appendChild(figure);
+      continue;
+    }
+
+    // A document: there is nothing to preview inline (its text may be a
+    // hundred pages), so the chip is the navigation.
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip msg-attachment msg-attachment-doc";
+    setLabel(chip, `ph:file-text ${item.name}`);
+    chip.title = `Open “${item.name}” in Documents`;
+    chip.addEventListener("click", () => {
+      switchTab("documents");
+      openDocument(item.id);
+    });
+    strip.appendChild(chip);
+  }
+  return strip;
+}
+
+function addBubble(role, text, attachments = null) {
   clearChatEmptyState();
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
@@ -7127,6 +7231,8 @@ function addBubble(role, text) {
   body.className = "msg-body";
   body.textContent = text;
   bubble.append(label, body);
+  const strip = chatAttachmentStrip(attachments);
+  if (strip) bubble.appendChild(strip);
 
   if (role === "user") {
     bubble.appendChild(
@@ -8210,7 +8316,14 @@ async function attachImageFiles(files) {
         headers: { "X-Auth-Token": authToken() },
         body: form,
       });
-      attachedImages.push({ id: uploaded.id, url: uploaded.url });
+      // The filename comes along now: the bubble drawn on send needs a label
+      // for the "find it in the Library" button, and after the composer is
+      // cleared there is nowhere left to look it up from.
+      attachedImages.push({
+        id: uploaded.id,
+        url: uploaded.url,
+        name: uploaded.filename || file.name,
+      });
     } catch (error) {
       toast(error.message || `Couldn't attach "${file.name}".`, true);
     }
@@ -8273,9 +8386,19 @@ async function importChatDocuments(files) {
     }
   }
   if (!made.length) return;
-  // Named, and clickable. A toast saying "imported" and nothing else leaves
-  // the reader to go and find it; the whole reason this lands in Documents is
-  // so it can be opened.
+  // **Staged on the message, not just imported and announced.** The toast
+  // below still says where the file went, but a toast is a moment and the
+  // report was about what is left behind: "images and files uploaded into a
+  // chat conversation arent rendered with the chat messages". An imported
+  // document is now an attachment of the message being written, exactly as
+  // an image is — a chip in the composer, then a chip in the bubble, then a
+  // way back to the document.
+  for (const document of made) {
+    if (attachedDocuments.length >= 4) break;
+    attachedDocuments.push({ id: document.id, name: document.title });
+  }
+  renderDocumentAttachments();
+
   const first = made[0];
   const label =
     made.length === 1
@@ -8285,6 +8408,44 @@ async function importChatDocuments(files) {
     switchTab("documents");
     if (made.length === 1) openDocument(first.id);
   });
+}
+
+//: Documents staged on the message being written. Same shape and same
+//: lifecycle as `attachedImages` above — cleared on send, snapshotted for a
+//: regenerate — because a person attaching a photo and a spreadsheet in one
+//: go should not find the app treating them as two different kinds of act.
+//:
+//: Unlike an image, removing one of these does *not* delete the document:
+//: `/documents/import` created a real document in the Documents tab and the
+//: toast said so, so deleting it out from under that promise would be the
+//: app taking back something it already told the user it had done.
+let attachedDocuments = [];
+let lastChatDocumentAttachments = [];
+
+function renderDocumentAttachments() {
+  const box = $("chat-doc-attachments");
+  if (!box) return;
+  box.replaceChildren();
+  box.classList.toggle("hidden", attachedDocuments.length === 0);
+  for (const document_ of attachedDocuments) {
+    const chipEl = document.createElement("span");
+    chipEl.className = "chip attachment-chip";
+    const label = document.createElement("span");
+    setLabel(label, `ph:file-text ${document_.name}`);
+    const remove = document.createElement("button");
+    remove.className = "attachment-remove";
+    remove.type = "button";
+    remove.textContent = "✕";
+    remove.title = `Don't send “${document_.name}” with this message`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", () => {
+      attachedDocuments = attachedDocuments.filter((d) => d.id !== document_.id);
+      renderDocumentAttachments();
+      announce(`Removed attachment. ${attachedDocuments.length} document(s) attached.`);
+    });
+    chipEl.append(label, remove);
+    box.appendChild(chipEl);
+  }
 }
 
 function attachedNotes() {
@@ -8449,15 +8610,37 @@ async function sendChatMessage(preset, opts = {}) {
   // every later question.
   const sentAttachments = opts.noteIds || attachedNoteIds.slice();
   const sentImages = opts.imageMediaIds || attachedImages.map((img) => img.id);
+  const sentDocuments = opts.documentIds || attachedDocuments.map((d) => d.id);
+  // What the bubble will draw. Built here, while the composer still knows the
+  // names and urls — after the clear below there is nothing left to build it
+  // from, and a round trip to re-fetch what we already had would show the
+  // message without its pictures for as long as that took.
+  const sentAttachmentCards = opts.attachmentCards || [
+    ...attachedImages.map((img) => ({
+      kind: "image",
+      id: img.id,
+      url: img.url,
+      name: img.name || "Attached image",
+      // A just-uploaded image has no caption yet — captioning runs in the
+      // background once the message commits it. Reopening the chat picks the
+      // caption up from `GET /conversations/{id}`, which is where it lands.
+      caption: "",
+      text: "",
+    })),
+    ...attachedDocuments.map((d) => ({ kind: "document", id: d.id, name: d.name })),
+  ];
   if (!opts.replaceLast) {
     // Remembered so a regenerate re-runs with the same references — by then
     // the picker has been cleared.
     lastChatAttachments = sentAttachments;
     lastChatImageAttachments = attachedImages.slice();
+    lastChatDocumentAttachments = attachedDocuments.slice();
     attachedNoteIds = [];
     attachedImages = [];
+    attachedDocuments = [];
     renderAttachments();
     renderImageAttachments();
+    renderDocumentAttachments();
     closeNotePicker();
   }
 
@@ -8483,7 +8666,7 @@ async function sendChatMessage(preset, opts = {}) {
   // came from nowhere; the button they pressed is the explanation.
   const userBubble = opts.skipUserBubble
     ? null
-    : addBubble("user", opts.displayText || question);
+    : addBubble("user", opts.displayText || question, sentAttachmentCards);
   const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
@@ -8599,6 +8782,7 @@ async function sendChatMessage(preset, opts = {}) {
         // No stats or elapsed yet — the turn is not over, and a half-turn's
         // numbers reported as final would be wrong rather than incomplete.
         image_media_ids: sentImages.length ? sentImages : null,
+        document_ids: sentDocuments.length ? sentDocuments : null,
       };
       if (convRef.id === null) {
         const created = await apiJson("/conversations", {
@@ -9045,6 +9229,9 @@ async function sendChatMessage(preset, opts = {}) {
       // someone ran it. Persisting the ids here is what lets media_gc.py
       // recognise them as still in use.
       image_media_ids: sentImages.length ? sentImages : null,
+      // Same reason as the ids above, one kind over: a document attached to a
+      // message is what lets the bubble draw its chip again on reopen.
+      document_ids: sentDocuments.length ? sentDocuments : null,
     };
     if (convRef.id === null) {
       const created = await apiJson("/conversations", {
@@ -9924,7 +10111,7 @@ async function openConversation(id) {
   for (const message of full.messages) {
     if (message.role === "user") {
       lastQuestionText = message.content;
-      addBubble("user", message.content);
+      addBubble("user", message.content, message.attachments);
     } else {
       const handles = addAssistantBubble();
       // Replay the run in the order it happened when the turn recorded one.

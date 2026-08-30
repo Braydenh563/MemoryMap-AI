@@ -12,7 +12,8 @@ triggering it end to end.
 
 from __future__ import annotations
 
-from memorymap.core import media_process
+from memorymap.ai import captioning, vision_ocr
+from memorymap.core import media_process, ocr
 from memorymap.core.database import MediaUpload
 
 
@@ -27,15 +28,16 @@ def _upload(session, filename="a.png") -> MediaUpload:
 def test_process_committed_upload_triggers_all_three_readers_for_an_image(
     session, tmp_path, monkeypatch
 ):
-    from memorymap.core import media_process as mp
-
+    # `process_committed_upload` imports these three lazily (the CodeQL
+    # cyclic-import fix), so the names it calls are the real modules'
+    # attributes, not attributes of `media_process` itself — patch those.
     calls = []
-    monkeypatch.setattr(mp.ocr, "extract_in_background", lambda *a: calls.append("ocr"))
+    monkeypatch.setattr(ocr, "extract_in_background", lambda *a: calls.append("ocr"))
     monkeypatch.setattr(
-        mp.captioning, "caption_in_background", lambda *a: calls.append("caption")
+        captioning, "caption_in_background", lambda *a: calls.append("caption")
     )
     monkeypatch.setattr(
-        mp.vision_ocr, "vision_ocr_in_background", lambda *a: calls.append("vision_ocr")
+        vision_ocr, "vision_ocr_in_background", lambda *a: calls.append("vision_ocr")
     )
     upload = _upload(session)
     media_process.process_committed_upload(upload, tmp_path)
@@ -45,15 +47,13 @@ def test_process_committed_upload_triggers_all_three_readers_for_an_image(
 def test_process_committed_upload_does_nothing_for_an_unsupported_suffix(
     session, tmp_path, monkeypatch
 ):
-    from memorymap.core import media_process as mp
-
     calls = []
-    monkeypatch.setattr(mp.ocr, "extract_in_background", lambda *a: calls.append("ocr"))
+    monkeypatch.setattr(ocr, "extract_in_background", lambda *a: calls.append("ocr"))
     monkeypatch.setattr(
-        mp.captioning, "caption_in_background", lambda *a: calls.append("caption")
+        captioning, "caption_in_background", lambda *a: calls.append("caption")
     )
     monkeypatch.setattr(
-        mp.vision_ocr, "vision_ocr_in_background", lambda *a: calls.append("vision_ocr")
+        vision_ocr, "vision_ocr_in_background", lambda *a: calls.append("vision_ocr")
     )
     upload = _upload(session, filename="scan.pdf")
     media_process.process_committed_upload(upload, tmp_path)

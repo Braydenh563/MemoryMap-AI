@@ -132,6 +132,31 @@ tagged, ahead of the PR merging.
 - macOS gets a launch splash too now — a non-modal `display notification`
   banner (never steals focus, unlike `display dialog`) showing the same
   phase text the Linux/zenity dialog already showed. Asked for directly.
+- Recency and pinning are now a search-ranking signal (BACKLOG.md §95 item
+  6): hybrid search's candidates are reordered by pinned-first /
+  most-recently-touched and fused in as a third ranked list, the same rank-
+  position fusion the existing semantic/keyword combination already uses —
+  never a new source of matches, only a reorder of notes a real search
+  already found relevant.
+- Every `.small.icon-only`/`.small.icon-button` control (Settings modal's
+  back/forward nav arrows, plus several search/sort/filter icon buttons
+  elsewhere) rendered oversized and square-boxy — 43px next to a 30px
+  "Close" button beside it. `.small`'s own horizontal padding
+  (01-forms-settings.css, a later file) was clobbering `.icon-only`'s
+  intended padding (00-tokens-shell.css) for the shared physical left/
+  right sides, whichever file happened to load second winning regardless
+  of which rule actually fit an icon button — `aspect-ratio: 1` then
+  squared that oversized width into an oversized height too. A compound
+  selector fixes it generally (specificity, not file order), reported live
+  with a screenshot against the Settings nav arrows specifically.
+- Settings → About's five on/off toggles (three Updates, two desktop-only)
+  were still bare `<label>` elements with no `.check-row` class — a prior
+  pass's own comment claimed they'd been lined up with every other toggle
+  in the app, but only the DOM order changed; the actual pill/box/hover
+  treatment `.check-row` provides never applied. Reported live with a
+  screenshot ("make the toggle lines and buttons the same as the semantic
+  buttons or the attached image"). Now genuinely `.check-row`, matching
+  Autonomous Background AI's toggle directly above them on the same page.
 - A search box and a rename/delete kebab menu on the Whiteboards subtab's
   board cards, matching the Documents subtab beside it.
 - An opt-in clock in the bottom status bar (Settings → Appearance).

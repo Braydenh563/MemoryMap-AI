@@ -4593,13 +4593,17 @@ Link to another note with [[its first few words]]."></textarea>
                    until this is switched on by hand, the same reasoning
                    Settings -> Web search already uses for its own opt-in
                    network call.
-                   Same switch (pill-left, label-right) every other on/off
-                   setting in this app uses — these three used to be the one
-                   place still laid out label-first, pill-right, which is why
-                   this redesign pass also lined them up with the rest. -->
-              <label>
+                   Same `.check-row` switch every other on/off setting in
+                   this app uses (Autonomous Background AI's own toggle
+                   below, Library's "Include bin") — these three used to be
+                   a bare `<label>` with no `.check-row` class, so the DOM
+                   order matched but the actual pill/box treatment never
+                   applied. Reported live, screenshot and all: "make the
+                   toggle lines and buttons the same as the semantic
+                   buttons or the attached image". -->
+              <label class="check-row">
                 <input type="checkbox" id="pref-update-check">
-                Check GitHub for a newer version
+                <span>Check GitHub for a newer version</span>
               </label>
               <div class="row" id="update-check-row">
                 <button id="update-check-now" class="ghost small" type="button">Check now</button>
@@ -4620,9 +4624,9 @@ Link to another note with [[its first few words]]."></textarea>
                    someone can want to know a release exists (Settings shows
                    it, the popup mentions it) without ever wanting this app
                    to run an installer by itself. -->
-              <label>
+              <label class="check-row">
                 <input type="checkbox" id="pref-auto-update">
-                Update automatically when a new version is found
+                <span>Update automatically when a new version is found</span>
               </label>
               <!-- "Maybe they can have the option to select the specific
                    versions they wish to switch to??" — asked for directly.
@@ -4634,9 +4638,9 @@ Link to another note with [[its first few words]]."></textarea>
                    fabricating one here would be exactly the kind of silent
                    lie CLAUDE.md calls out as costly. Storing the choice is
                    real; the behaviour catches up once that pipeline exists. -->
-              <label>
+              <label class="check-row">
                 <input type="checkbox" id="pref-update-channel-main">
-                Track the main branch instead of stable releases (not yet available)
+                <span>Track the main branch instead of stable releases (not yet available)</span>
               </label>
               <div class="row" id="update-version-row">
                 <button id="update-show-versions" class="ghost small" type="button">Choose a specific version…</button>
@@ -4655,9 +4659,9 @@ Link to another note with [[its first few words]]."></textarea>
                    already-created window to never creating one for User view
                    (see __main__.py's pythonw.exe relaunch) — hiding one after
                    the fact turned out unreliable under some terminal setups. -->
-              <label class="row space-between hidden" id="desktop-console-row" for="pref-show-console">
-                Dev view — keep a console window open
+              <label class="check-row hidden" id="desktop-console-row">
                 <input type="checkbox" id="pref-show-console">
+                <span>Dev view — keep a console window open</span>
               </label>
               <p class="muted hidden" id="desktop-console-hint">
                 On by default. Turn it off for "User view" — the app runs with
@@ -4675,9 +4679,9 @@ Link to another note with [[its first few words]]."></textarea>
                    default — a notebook you can capture into from the tray is
                    the reason the tray icon exists — and off for anyone who
                    wants the X button to mean what it says. -->
-              <label class="row space-between hidden" id="desktop-tray-row" for="pref-close-to-tray">
-                Closing the window keeps MemoryMap in the tray
+              <label class="check-row hidden" id="desktop-tray-row">
                 <input type="checkbox" id="pref-close-to-tray">
+                <span>Closing the window keeps MemoryMap in the tray</span>
               </label>
               <p class="muted hidden" id="desktop-tray-hint">
                 With this on, the X button hides the window and the app keeps

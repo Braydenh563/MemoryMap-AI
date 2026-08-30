@@ -2539,6 +2539,28 @@ summary.icon-button {
   justify-content: center;
 }
 
+/* Reported live, with a screenshot: the Settings modal's back/forward
+   nav arrows sit noticeably larger and boxier than "Close" right beside
+   them (43px square against Close's 30px). `.small`'s own `padding:
+   0.25rem 0.8rem` (01-forms-settings.css, a later file) was clobbering
+   `.icon-only`'s `padding-inline` above for its horizontal component —
+   both set the same physical left/right padding, so whichever file
+   happens to load second wins, not whichever rule was actually meant for
+   an icon-only button. `aspect-ratio: 1` then squared that oversized
+   width into an oversized height too, which is the part that actually
+   read as "too large" rather than merely "a bit wide". A compound
+   selector (three classes) beats either single-class rule on specificity
+   alone, so this fix holds regardless of file order — and it's general
+   rather than scoped to the two nav buttons, since every `.small.icon-
+   only` control in the app (several — search, sort, filter icon buttons)
+   inherited the same oversized square from the same cascade fight. */
+button.small.icon-only,
+button.small.icon-button,
+summary.small.icon-only,
+summary.small.icon-button {
+  padding-inline: 0.3em;
+}
+
 /* The incremental renderer's chunk marker. Zero height, no list marker, no
    part in layout — it exists only to be watched by an IntersectionObserver,
    and `aria-hidden` plus no `data-id` keeps it out of the keyboard walk and

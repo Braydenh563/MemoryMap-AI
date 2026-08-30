@@ -292,6 +292,31 @@ shipped (see below). 2,355 tests pass; ruff clean.
   exists as a real preference; the backlog entry just hadn't been struck
   through.
 
+- **New session, continuing straight from this handover's own "start here"
+  list.** BACKLOG.md §95 item 6 (recency/pinning as a retrieval signal):
+  built as a third RRF-fused ranked list in `search_manager.py`'s hybrid
+  path — the candidates both searches already agreed on, reordered by
+  pinned-first / most-recently-touched, never a new source of matches.
+  New test isolates it (two notes tied exactly on relevance, pinning the
+  older one flips what would otherwise always be an id tie-break).
+  Item 17 (keyboard-first navigation) turned out already built and wired
+  (`initEntryListKeyboardNav()`, called at module load) — verified live
+  (Up/Down/Enter all correct) and marked done rather than rebuilt.
+- **Two more live UI reports, both fixed.** Settings -> About's five
+  toggles were still bare `<label>`s despite an earlier pass's comment
+  claiming they'd been lined up with the rest of the app — only DOM order
+  changed, the actual `.check-row` class (the pill/box/hover treatment)
+  never got applied. Fixed, screenshot-verified against the reference
+  toggle. Separately: the Settings modal's back/forward nav arrows measured
+  43px square next to a 30px Close button — `.icon-only`'s padding and
+  `.small`'s padding both target the same physical sides, and whichever
+  CSS file loaded second was winning by accident, not by design;
+  `aspect-ratio: 1` then squared the wrong width into a wrong height too.
+  Fixed with a compound selector (specificity beats file order), which
+  benefits every other `.small.icon-only` control in the app, not just
+  these two — swept Library and Notes screenshots afterward to confirm
+  nothing else got too cramped.
+
 ### Tried, and reverted — read before attempting again
 
 **Skill steps marked "done" despite not meeting their own criteria.** The

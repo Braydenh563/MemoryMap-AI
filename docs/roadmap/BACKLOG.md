@@ -2518,9 +2518,15 @@ writing for exactly that reason, which is the standing lesson of this file.
    no breakdown, so "why didn't it see my note?" is unanswerable without the
    log. A hover on the meter showing *system / notes / history / reply* is
    nearly free and answers the single most common AI complaint.
-6. **Recency and pinning as retrieval signals.** Search ranks by relevance;
-   it does not know that a note pinned last week matters more than a
-   relevant one from 2023. Both columns exist.
+~~6. **Recency and pinning as retrieval signals.**~~ **Built (§97).** A
+   third ranked list — the hybrid candidates reordered by pinned-first,
+   then most-recently-touched — fused (RRF, by rank position, same as the
+   existing semantic/keyword fusion) into the two `search_manager.py`
+   already had. Deliberately a *reorder of candidates a real search already
+   found*, never a new source of matches: a pinned note unrelated to the
+   question is not a better answer to it. New test proves it (two notes
+   tied exactly on relevance, pinning the older one flips the tie-break
+   that would otherwise always favour the newer id).
 7. **Re-rank the top N with the utility model.** Hybrid search picks eight
    notes; a 1B model scoring those eight for actual relevance to the question
    costs one short call and is the standard fix for "it quoted the wrong
@@ -2588,8 +2594,12 @@ writing for exactly that reason, which is the standing lesson of this file.
     own `#doc-empty` were deliberately left as plain text — narrow sidebar
     lists, not grid panes, so the same treatment would look oversized;
     unlike the three fixed, no user report named them.
-17. **Keyboard-first navigation.** Shortcuts exist and are rebindable; there
-    is no way to *move* between notes without the mouse.
+~~17. **Keyboard-first navigation.**~~ **Already built when checked (§97).**
+    `initEntryListKeyboardNav()` (app.js) already does Up/Down roving-
+    tabindex movement between note cards and Enter-to-edit, wired up and
+    called at module load. Verified live (Playwright): focus, ArrowDown
+    twice, ArrowUp back, Enter opened the note for editing — all correct.
+    This entry was stale, not the code.
 18. **Undo for destructive skill runs.** Individual tools record undo; a run
     that made twelve changes has twelve separate undos and no "undo that
     run".

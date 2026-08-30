@@ -352,6 +352,32 @@ RRF_K = 10
 FUSION_DEPTH = 20
 
 
+def _recency_pin_ranking(entries: list[Entry]) -> list[Entry]:
+    """The same candidates, reordered by pinned-first then most-recently-
+    touched — a third vote for `_fuse` rather than a new source of matches.
+
+    BACKLOG.md §95 item B.6, asked for directly: "search ranks by relevance;
+    it does not know that a note pinned last week matters more than a
+    relevant one from 2023." Both columns already existed (`Entry.pinned`,
+    `Entry.updated_at`); nothing read them at search time.
+
+    Deliberately a *reorder of the candidates a real search already found*,
+    never a fresh query — a pinned note that has nothing to do with the
+    question is not a better answer to it, so this only ever influences
+    ranking among notes that already matched by meaning or by word. Fed into
+    `_fuse` exactly like the semantic and keyword rankings: by rank
+    position, not a weighted score, for the same reason those two are (see
+    RRF_K's own comment) — "how recently pinned" and "how many days old"
+    are not on a shared scale with cosine similarity or a BM25 tally, and a
+    weighted sum of the three would need a tuning constant this notebook has
+    no way to pick.
+    """
+    return sorted(
+        entries,
+        key=lambda entry: (not entry.pinned, -(entry.updated_at or entry.created_at).timestamp()),
+    )
+
+
 def _fuse(ranked_lists: list[list[Entry]], limit: int) -> list[Entry]:
     """Reciprocal rank fusion over several rankings of the same notes."""
     scores: dict[int, float] = {}
@@ -643,7 +669,18 @@ def _rank(
         # not a fallback, and saying "keyword" is the honest label.
         return keyword[:limit], "keyword"
     if semantic and keyword:
-        return _fuse([[entry for entry, _s in semantic], keyword], limit), "hybrid"
+        sem_entries = [entry for entry, _s in semantic]
+        # The pool both searches already agreed is relevant — recency/pin
+        # only ever reorders within it, see _recency_pin_ranking's own
+        # docstring on why that scope matters.
+        candidates = {entry.id: entry for entry in [*sem_entries, *keyword]}.values()
+        return (
+            _fuse(
+                [sem_entries, keyword, _recency_pin_ranking(list(candidates))],
+                limit,
+            ),
+            "hybrid",
+        )
     if semantic:
         return [entry for entry, _s in semantic][:limit], "semantic"
     return keyword[:limit], "keyword"

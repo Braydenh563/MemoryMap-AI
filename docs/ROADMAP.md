@@ -955,17 +955,23 @@ callouts" entry before rebuilding anything that sounds finished.**
    verbs onto the existing one.
 
 8. **Lightbox prev/next arrow icons read as off-centre.** Reported with a
-   screenshot; not yet fixed, and not confirmed live this session (no image
-   in this sandbox's test data to open a lightbox against). `.lightbox-nav`
-   already centres its child with `display: grid; place-items: center`,
-   which centres the icon's own box regardless of `.ph`'s own
-   `vertical-align: -0.12em` (that rule only affects inline layout, and has
-   no effect inside a grid item) - so if the arrows still look off-centre,
-   the cause is more likely the glyphs themselves (ph-caret-left/
-   ph-caret-right) not being visually centred within their own em-box in
-   the vendored Phosphor font, not a CSS positioning bug. Check by
-   measuring the glyph's actual ink bounds against its box in a live
-   browser before changing any CSS here.
+   screenshot. **Checked live this session, at last** (a real uploaded PNG,
+   500×350 — earlier sessions had no image in this sandbox's test data to
+   open a lightbox against at all): `.lightbox-prev`/`.lightbox-next`
+   render at the correct left/right positions, and the `<i class="ph
+   ph-caret-*">` icon element's own box is perfectly concentric with its
+   button (measured via `getBoundingClientRect()`, offset 0,0 on both
+   buttons) — `display: grid; place-items: center` is doing what its
+   comment says. Cropped screenshots of both buttons at native size showed
+   nothing visually off-centre to the eye either. **Not reproduced** — this
+   report may be specific to the reporter's OS/browser font rendering of
+   the vendored Phosphor glyphs, which this sandbox's Chromium can't
+   speak to. One genuine, minor finding along the way, not the reported
+   bug: with a **pathological 1×1 pixel test image**, the two buttons
+   appeared to cross order (next rendered left of prev) — not investigated
+   further, since a real uploaded photo is never 1×1 and this has nothing
+   to do with the off-centre report. Leave both alone unless re-reported
+   with the reporter's own OS/browser.
 
 9. **Settings modal reads as poor contrast / hazy in light mode.** Reported
    with a screenshot; not reproduced. Audited the pipeline this bug class

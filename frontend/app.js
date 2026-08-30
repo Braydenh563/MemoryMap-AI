@@ -19968,7 +19968,15 @@ async function quitApp() {
       : { confirmLabel: "Quit" }
   );
   if (answer === "extra") {
-    desktopMinimize().catch((e) => toast(String(e?.message || e), true));
+    // The bridge itself refuses to hide the window with no way to bring it
+    // back (no real minimize() on this pywebview build and no tray icon to
+    // click) — `false` means it deliberately did nothing, not that it tried
+    // and failed, so say that rather than a generic error.
+    desktopMinimize()
+      .then((ok) => {
+        if (!ok) toast("Minimise isn't available in this build.", true);
+      })
+      .catch((e) => toast(String(e?.message || e), true));
     return;
   }
   if (!answer) {

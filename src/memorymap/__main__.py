@@ -634,17 +634,23 @@ class _DesktopBridge:
     """The page's one window into pywebview, via `window.pywebview.api.*`.
     `.window` is set right after `create_window()` returns — `js_api` has to
     be handed to `create_window` before the window it will act on exists.
+    `.has_tray` is set once the tray icon (or lack of one) is known, further
+    down `_run_desktop`.
 
     Just `minimize()` for now: the in-app Quit dialog's "Minimise" button
     (quitApp() in app.js), which needs the window gone without the server
-    going with it. `window.minimize()` is the real, taskbar-visible minimize
-    on the pywebview versions that have it; older ones don't, so this falls
-    back to the same `hide()` the close-to-tray path already uses — visible
-    only via the tray icon, which is still strictly better than the button
-    silently doing nothing.
+    going with it. `window.minimize()` — the real, taskbar-visible minimize
+    — is tried first and is the only thing this does when it works: the
+    taskbar is always a way back. Older pywebview without a `.minimize()`
+    falls back to `window.hide()` **only when a tray icon exists** to un-hide
+    it from — `hide()` with nothing watching for the click that would undo
+    it stealths the window with no window-manager trace of it at all, on the
+    one platform (Windows-only tray, see `_start_tray`) where this bridge
+    even runs. Silently doing nothing is the safe failure here, not a guess.
     """
 
     window = None
+    has_tray = False
 
     def minimize(self) -> bool:
         if self.window is None:
@@ -652,13 +658,16 @@ class _DesktopBridge:
         try:
             self.window.minimize()
             return True
-        except Exception:
-            try:
-                self.window.hide()
-                return True
-            except Exception as exc:  # noqa: BLE001 — never worth crashing over
-                logger.debug("minimize() and hide() both failed: %s", exc)
-                return False
+        except Exception as exc:
+            logger.debug("window.minimize() unavailable, falling back: %s", exc)
+        if not self.has_tray:
+            return False
+        try:
+            self.window.hide()
+            return True
+        except Exception as exc:  # noqa: BLE001 — never worth crashing over
+            logger.debug("hide() fallback failed too: %s", exc)
+            return False
 
 
 def _run_desktop(hidden_relaunch: bool = False) -> None:
@@ -835,6 +844,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         if sys.platform == "win32"
         else None
     )
+    bridge.has_tray = tray_icon is not None
     if tray_icon is not None:
         # **Closing the window is not quitting the app, and it now says so.**
         # The hide itself has been here since the tray was added; what was

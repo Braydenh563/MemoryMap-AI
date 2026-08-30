@@ -2452,10 +2452,123 @@ button {
   margin: 0;
 }
 
-.doc-toolbar {
-  gap: 0.5rem;
+/* --- the dock above the editor ------------------------------------------------
+   Title on the left, everything else on the right, wrapping between the two
+   rather than through the middle of a control group. See the note on
+   `.doc-toolbar` in 05-sidebars-themes.css for why these are no longer the
+   same class. */
+.doc-dock {
+  /* **Declared here, not inherited.** `--control-h` is scoped to
+     `.library-toolbar` and `.library-controls` — it is not a global token —
+     so the height rules below resolved to an invalid value and did nothing
+     at all, silently, which is why the first attempt at this measured four
+     different heights again (45 / 43 / 27 / 22 / 18px). The same shape as
+     the appearance-defaults bug in CLAUDE.md: a value that is invalid where
+     it is *used*, not where it is set, does its damage nowhere near the code
+     that caused it. Same 2.3rem the Library toolbar picks, so a control is
+     the same size in both places. */
+  --control-h: 2.3rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
+}
+
+/* **One height for everything in the row**, declared once — the same rule the
+   Library toolbar keeps, and the reason that row aligns. A `<select>`, a
+   segmented control and a `.ghost.small` each arrive from a different base
+   rule and each size themselves; measured against each other they were three
+   different heights on one line. */
+.doc-dock .ghost.small,
+.doc-dock .doc-file-type,
+.doc-dock .seg {
+  height: var(--control-h);
+}
+
+.doc-dock .ghost.small {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 0;
+}
+
+.doc-dock .seg button {
+  padding-block: 0;
+}
+
+/* **The title gets its own line, and the controls get the whole width.**
+   Measured at 1400px with the document sidebar open: the dock is about
+   1018px wide, and a title sharing that row on `flex: 1 1 12rem` took half
+   of it — leaving ~500px for a status group, a select, a four-way segment
+   and three buttons, which wrapped onto two more rows. Giving the title the
+   full row costs one line of height and buys the actions the space to sit on
+   one, which is what the screenshot behind this was asking for. */
+.doc-dock > .doc-dock-identity {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.doc-dock > .doc-actions {
+  flex: 1 1 100%;
+}
+
+/* Status facts as one group, so a narrow window breaks the bar between the
+   status and the actions instead of between two buttons that belong
+   together. `margin-right: auto` is what puts the group on the left of that
+   row and everything else on the right — the dock's own `space-between` only
+   ever separated the title from all of this. */
+.doc-dock-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: auto;
+}
+
+.doc-saved {
+  /* Reserved so "Saving…" → "Saved" does not shift every control to its
+     right by a few pixels twice a minute while someone types. */
+  min-width: 4.5rem;
+}
+
+/* The kebab: export and delete, which were a third of the bar and are the
+   three least-used controls on it. */
+.doc-dock-menu {
+  position: relative;
+}
+
+.doc-dock-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.doc-dock-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.doc-dock-menu-list {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 5;
+  min-width: 15rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  padding: var(--space-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--modal-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+.doc-dock-menu-item {
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
+  white-space: nowrap;
 }
 
 .doc-title-input {
@@ -2480,7 +2593,7 @@ button {
 }
 
 .doc-actions {
-  gap: 0.25rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
 }
@@ -2558,7 +2671,11 @@ button {
 }
 
 .doc-file-type {
-  max-width: 11rem;
+  /* On the title row now, where there is room for the whole label — it was
+     truncated to "Markdow…" at 9rem on the action row, which is the width
+     that row could spare. */
+  max-width: 13rem;
+  flex: 0 0 auto;
 }
 
 /* --- Live Preview ------------------------------------------------------------ */

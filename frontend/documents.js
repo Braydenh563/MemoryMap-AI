@@ -131,9 +131,25 @@ function syncDocFileType() {
   $("doc-gutter")?.classList.toggle("hidden", !code);
   renderDocGutter();
 
-  $("doc-export-md").textContent = `⬇ .${type.ext}`;
+  // A menu row, so it can say the whole thing rather than "⬇ .py".
+  // `setLabel` because `textContent` here would wipe the icon element the
+  // markup puts in front of the words.
+  setLabel($("doc-export-md"), `ph:download-simple Download as .${type.ext}`);
   $("doc-export-md").title = `Download as a .${type.ext} file`;
 }
+
+// The dock's kebab closes when you pick something from it, and when you click
+// away — `<details>` gives everything else (open on click and on Enter/Space,
+// close on Escape, the ARIA) and neither of those two.
+document.getElementById("doc-dock-menu")?.addEventListener("click", (event) => {
+  if (event.target.closest(".doc-dock-menu-item")) {
+    document.getElementById("doc-dock-menu").open = false;
+  }
+});
+document.addEventListener("click", (event) => {
+  const menu = document.getElementById("doc-dock-menu");
+  if (menu?.open && !menu.contains(event.target)) menu.open = false;
+});
 
 // --- which of the four views is showing ----------------------------------------
 //

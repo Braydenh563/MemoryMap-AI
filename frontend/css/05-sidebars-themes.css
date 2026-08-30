@@ -147,6 +147,7 @@
   body.printing-doc #tab-bar,
   body.printing-doc .doc-sidebar,
   body.printing-doc .doc-toolbar,
+  body.printing-doc .doc-dock,
   body.printing-doc .doc-hint,
   body.printing-doc #doc-content,
   body.printing-doc #doc-status,
@@ -920,6 +921,15 @@ body.resizing-sidebar {
 }
 
 /* --- document formatting toolbar ---------------------------------------------- */
+/* **Only the formatting bar, and that split is the fix.** The dock above the
+   editor used to carry `.doc-toolbar` too, so `.doc-toolbar button` below —
+   written for a row of 2rem glyph buttons (H1, B, I, link) — restyled every
+   `.ghost.small` in the dock as well: `min-width: 2rem`, 0.8rem type,
+   transparent border, no background. Next to a full-height `<select>` and a
+   segmented control, which that rule does not touch, the result was the four
+   different control heights in the screenshot that came with "fix/redesign
+   the ui, layout, alignment, sizing". The dock is `.doc-dock` now and shares
+   only the separator. */
 .doc-toolbar {
   display: flex;
   flex-wrap: wrap;

@@ -1673,20 +1673,36 @@ Link to another note with [[its first few words]]."></textarea>
       </aside>
 
       <section class="card doc-main">
-        <div class="row space-between doc-toolbar">
-          <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
-            aria-label="Document title" class="doc-title-input">
-          <span class="row doc-actions">
-            <span id="doc-stats" class="muted doc-stats"
-              title="Words, and roughly how long this takes to read"></span>
-            <button id="doc-word-goal" class="ghost small" type="button" aria-pressed="false"
-              title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
-            <span id="doc-saved" class="muted" role="status"></span>
-            <!-- Same divider the formatting toolbar below uses to separate
-                 its own button groups — status facts (word count, save
-                 state) read as one thing and the actions on the document as
-                 another, instead of eight items in a row with no seam. -->
-            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+        <!-- **The dock, rebuilt as three groups instead of one long row.**
+             Reported with a screenshot: "fix/redesign the ui, layout,
+             alignment, sizing, and look of the documents top dock". What the
+             screenshot showed was a single `row space-between` holding the
+             title plus twelve controls of four different heights — a tall
+             `<select>`, a segmented control, six `.ghost.small` buttons and
+             two bare text spans — wrapping wherever it ran out of room, so
+             "⬇ PDF" and the delete bin ended up alone on a third line with
+             no relationship to anything above them.
+
+             Three things fix it and none of them is "make it smaller":
+
+             · **Groups wrap, not controls.** Status (words, goal, saved) and
+               actions are each their own flex box, so a narrow window breaks
+               the bar between them rather than between "⬇ .md" and "⬇ PDF".
+             · **One height.** `--control-h` across the select, the segment
+               and every button — the same rule the Library toolbar already
+               keeps, and the reason that row aligns and this one did not.
+             · **Fewer things.** The two exports and the delete moved into one
+               kebab. They are the three least-used controls here and they
+               were taking a third of the bar. -->
+        <div class="row space-between doc-dock">
+          <!-- Name and type together, because they are the same statement
+               about the document: what it is called and what it is. Moved
+               off the action row, which is about what you can *do* — and
+               which was 20px too wide to fit on one line with the select
+               still in it, measured rather than guessed at. -->
+          <span class="doc-dock-identity">
+            <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
+              aria-label="Document title" class="doc-title-input">
             <!-- What kind of file this document is. Asked for directly: the
                  editor should handle code as well as prose, the type should
                  be changeable, and a new document should be creatable "of any
@@ -1697,6 +1713,21 @@ Link to another note with [[its first few words]]."></textarea>
                  second thing to update. -->
             <select id="doc-file-type" class="small-select doc-file-type"
               aria-label="File type" title="What kind of file this document is"></select>
+          </span>
+          <span class="row doc-actions">
+            <span class="doc-dock-status">
+              <span id="doc-stats" class="muted doc-stats"
+                title="Words, and roughly how long this takes to read"></span>
+              <button id="doc-word-goal" class="ghost small icon-button" type="button" aria-pressed="false"
+                title="Set a word-count goal" aria-label="Set a word-count goal"><i class="ph ph-flag" aria-hidden="true"></i></button>
+              <span id="doc-saved" class="muted doc-saved" role="status"></span>
+            </span>
+            <!-- Same divider the formatting toolbar below uses to separate
+                 its own button groups — status facts (word count, save
+                 state) read as one thing and the actions on the document as
+                 another, instead of eight items in a row with no seam. -->
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+
             <!-- Four ways to look at the same document, as four named options
                  rather than one Preview tickbox. The tickbox stated one mode
                  and left the other implied — and there are four now, so it
@@ -1727,13 +1758,26 @@ Link to another note with [[its first few words]]."></textarea>
               title="Ask the AI to rewrite this document, or the text you've selected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> AI edit</button>
             <button id="doc-extract" class="ghost small" type="button"
               title="Turn this document (or the text you've selected) into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
-            <button id="doc-export-md" class="ghost small" type="button"
-              title="Download as a .md file">⬇ .md</button>
-            <button id="doc-export-pdf" class="ghost small" type="button"
-              title="Print or save as PDF">⬇ PDF</button>
-            <span class="doc-toolbar-sep" aria-hidden="true"></span>
-            <button id="doc-delete" class="ghost small" type="button"
-              title="Delete this document" aria-label="Delete this document"><i class="ph ph-trash" aria-hidden="true"></i></button>
+            <!-- Export and delete, folded away. Same `<details>` disclosure
+                 the Library's image tiles use, for the same reason: the
+                 browser gives the open/close, the keyboard handling and the
+                 ARIA for free, and the rows have room for words where two
+                 "⬇" buttons had to make do with a glyph. The ids are
+                 unchanged, so every handler in documents.js still finds
+                 exactly the button it bound. -->
+            <details class="doc-dock-menu" id="doc-dock-menu">
+              <summary class="ghost small icon-button doc-dock-menu-btn"
+                title="More actions for this document"
+                aria-label="More actions for this document"><i class="ph ph-dots-three-vertical" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list">
+                <button id="doc-export-md" class="ghost small doc-dock-menu-item" type="button"
+                  title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
+                <button id="doc-export-pdf" class="ghost small doc-dock-menu-item" type="button"
+                  title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
+                <button id="doc-delete" class="ghost small doc-dock-menu-item danger" type="button"
+                  title="Delete this document"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete document</button>
+              </div>
+            </details>
           </span>
         </div>
         <!-- Formatting without remembering the syntax. Everything here is

@@ -2221,6 +2221,19 @@ function initGraphKeyboard() {
   });
 
   box.addEventListener("keydown", (event) => {
+    // The map's own shortcuts (arrows to move between notes, Enter/Space to
+    // open one, N to step through links, +/-/0 to zoom) live on this box
+    // because it's the thing with `role="application"` — but the note popup
+    // and the "Grow the map" form are both DOM descendants of it too, so
+    // every keystroke typed into their textareas/inputs bubbles up here as
+    // well. Reported: typing in a just-grown note wouldn't take input and
+    // kept reopening the note it was grown from — that was Space/Enter, on
+    // every keystroke, being read as "open the currently keyboard-selected
+    // node" instead of being typed. Any real text field wins outright.
+    const typingTarget =
+      ["INPUT", "TEXTAREA", "SELECT"].includes(event.target?.tagName) ||
+      event.target?.isContentEditable;
+    if (typingTarget) return;
     if (!graphNodesRef?.length) return;
     const current = graphNodeById(graphKeyboardId) || graphNodesRef[0];
 

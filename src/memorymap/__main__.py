@@ -630,6 +630,37 @@ def _stop_background_work() -> None:
         logger.warning("couldn't stop background work before exiting: %s", exc)
 
 
+class _DesktopBridge:
+    """The page's one window into pywebview, via `window.pywebview.api.*`.
+    `.window` is set right after `create_window()` returns — `js_api` has to
+    be handed to `create_window` before the window it will act on exists.
+
+    Just `minimize()` for now: the in-app Quit dialog's "Minimise" button
+    (quitApp() in app.js), which needs the window gone without the server
+    going with it. `window.minimize()` is the real, taskbar-visible minimize
+    on the pywebview versions that have it; older ones don't, so this falls
+    back to the same `hide()` the close-to-tray path already uses — visible
+    only via the tray icon, which is still strictly better than the button
+    silently doing nothing.
+    """
+
+    window = None
+
+    def minimize(self) -> bool:
+        if self.window is None:
+            return False
+        try:
+            self.window.minimize()
+            return True
+        except Exception:
+            try:
+                self.window.hide()
+                return True
+            except Exception as exc:  # noqa: BLE001 — never worth crashing over
+                logger.debug("minimize() and hide() both failed: %s", exc)
+                return False
+
+
 def _run_desktop(hidden_relaunch: bool = False) -> None:
     """A real app window: uvicorn in a background thread,
     pywebview in front. Closing the window exits the process.
@@ -707,6 +738,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     # below once this window is actually on screen (pywebview's own
     # `func=`/`args=` — the standard way to do post-open work without
     # blocking the window from appearing in the first place).
+    bridge = _DesktopBridge()
     window = webview.create_window(
         "MemoryMap AI",
         html=_LOADING_HTML,
@@ -718,7 +750,12 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         # highlight or copy text in the desktop view"). Applies to the real
         # app once loaded; the loading page has nothing worth selecting.
         text_select=True,
+        # Exposed to the page as `window.pywebview.api.minimize()` — the
+        # in-app Quit dialog's "Minimise" button (browser build has no such
+        # object and doesn't offer that button; see quitApp() in app.js).
+        js_api=bridge,
     )
+    bridge.window = window
     # The handoff from start.bat's splash to this window. create_window has
     # returned, so this window is the one the user is about to be looking at;
     # the splash's job is over the moment it is.

@@ -127,6 +127,17 @@
     align-self: stretch;
   }
 
+  /* Same reason as #chat-sidebar/#doc-sidebar just above: stacked under a
+     collapsed .skills-split (07-whiteboard-misc.css), a sidebar still
+     `position: sticky` with `max-height: var(--page-sticky-h)` pins itself
+     to viewport height in the middle of the page instead of just being the
+     next block — undo both, the same shape #doc-sidebar's own reset used. */
+  #skills-sidebar {
+    position: relative;
+    height: auto;
+    max-height: none;
+  }
+
   /* The side-by-side preview collapses back to a stack on a narrow screen.
      This used to say `grid-template-columns: 1fr` on `.doc-panes.split`,
      which was dead twice over — #doc-panes is a flex column, not a grid, and

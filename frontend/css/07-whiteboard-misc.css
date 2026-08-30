@@ -1038,6 +1038,20 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   min-height: 0;
 }
 
+/* Reported: the AI Skills page "isnt suitable for smaller resolutions like
+   mobile phones" — the fixed 18.75rem sidebar column never gave way, so a
+   phone-width viewport either squeezed the skill list into a sliver or
+   overflowed horizontally. Same collapse-to-a-stack fix as .doc-layout
+   (04-chat-dock-appearance.css) at the same breakpoint; #skills-sidebar's
+   own sticky/fixed-height rules are undone alongside it in
+   05-sidebars-themes.css, the same way #chat-sidebar/#doc-sidebar already
+   are in that file's matching query. */
+@media (max-width: 900px) {
+  .skills-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The whiteboard's drawing layer and its card layer occupy the same box: the
    SVG takes the strokes, the div takes the note cards on top of them. Without
    this they stacked vertically and every card sat below the canvas. */

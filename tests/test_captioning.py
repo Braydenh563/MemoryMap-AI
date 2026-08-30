@@ -218,3 +218,36 @@ def test_caption_and_store_force_clears_the_edited_flag(app_state, session, fake
         row = check.get(MediaUpload, upload_id)
         assert row.caption_edited is False
         assert row.caption_model
+
+
+def test_running_captions_is_empty_when_nothing_is_captioning():
+    """ROADMAP §89.6 — the Tasks panel's own empty case."""
+    assert captioning.running_captions() == []
+
+
+def test_running_captions_reports_the_upload_while_the_model_call_is_in_flight(
+    app_state, session, fake_ollama, tmp_path, monkeypatch
+):
+    """The gap this item closed: a caption call is a real model round-trip
+    (seconds, not instant) and until now nothing showed it happening. This
+    checks the state a poll of /tasks would see mid-call, not just before
+    and after."""
+    upload_id = _upload(session, filename="vacation.png")
+    image_path = tmp_path / "a.png"
+    image_path.write_bytes(b"\x89PNG\r\n\x1a\n")
+    fake_ollama.capabilities_declared = ["vision"]
+    deps.override_ai(ollama=fake_ollama)
+
+    seen_mid_call = []
+    real_caption_text = captioning.caption_text
+
+    def _spy(*args, **kwargs):
+        seen_mid_call.append(captioning.running_captions())
+        return real_caption_text(*args, **kwargs)
+
+    monkeypatch.setattr(captioning, "caption_text", _spy)
+    captioning.caption_and_store(upload_id, image_path)
+
+    assert seen_mid_call == [[{"upload_id": upload_id, "name": "vacation.png"}]]
+    # Cleared once the call returns, not left stuck "running" forever.
+    assert captioning.running_captions() == []

@@ -1,6 +1,90 @@
 # Session handover
 
-## New session — a live bug-report batch, a real tool-call parsing bug, one reverted attempt (§97)
+## New session — three ROADMAP §89 items closed (chat-mode chip, caption task visibility, whiteboard cut/context-menu), no UI live-verified
+
+Branch `claude/docs-review-priority-work-sequ16`. Worked from §89's "still
+open" list rather than the front of the file — the three picked were the
+ones scoped tightly enough to build with confidence without a running
+Ollama or a live browser session, which this sitting didn't have time to set
+up before diving in. All three are backend-verified (new tests, full suite
+green, ruff clean); **none is Playwright-verified**, unlike the standing
+CLAUDE.md instruction to prefer that. Say so plainly if any of the three is
+reported not working — the code path is exercised, the pixels are not.
+
+### What was built
+
+- **§89.4 — which mode answered a chat turn, on its own metadata line.**
+  `messageMetaLine()` (app.js) takes a new `usedTools` bool and renders an
+  "Ask"/"Request" chip — same icon/label pair as `#chat-mode-seg` — next to
+  the model name. Read from `effectiveUseTools`, captured once at send time
+  rather than re-read from the live toggle, so a conversation that spans
+  mode switches shows what each past turn actually ran with, not what the
+  toggle currently shows. Persisted as `used_tools` on `TurnBody`/
+  `_turn_messages` (routes_conversations.py) — a genuinely new field, not
+  folded into the existing free-form `stats` dict, so it round-trips through
+  `GET /conversations/{id}` on reload. Older saved turns simply have no key
+  and render no chip. 2 new tests (test_conversations_api.py).
+- **§89.6 — a vision-model caption now shows up in the Tasks panel while it
+  runs.** `captioning.running_captions()` — a small in-memory dict guarded
+  by a lock, set around the real `caption_text` model call inside
+  `caption_and_store` and cleared in a `finally` so an exception can't leave
+  a job stuck "running" forever — is read by `routes_tasks.collect()` and
+  appended as a `kind: "caption"` entry, same shape every other job there
+  already has. The frontend's task rendering is fully data-driven
+  (`renderTasks`), so no frontend change was needed. Not cancellable, same
+  reasoning as the embedding warm-up already in that list. 2 new tests: one
+  spies on `caption_text` mid-call to check the state a `/tasks` poll would
+  actually see (not just before/after), the other checks the `/tasks` shape.
+- **§89.12 — whiteboard cut, and a right-click/long-press menu for a
+  selection.** `wbCutSelection()` is copy-then-delete, on Ctrl/Cmd+X beside
+  the existing Ctrl/Cmd+C/V handlers. The context menu reuses
+  `wbOpenDockedMenu`'s own reparent-to-`<body>`-and-position technique (this
+  item's own diagnosis in ROADMAP.md named it as the template) via a new
+  `wbWireContextMenu(selection, kind)`, bound once per sketch/card/object on
+  their `enter()` selection the same way `.on("click", ...)` already is.
+  Right-click opens it immediately; touch gets the same 500ms-hold threshold
+  the toolbar toggle's own long-press already uses, cancelled on
+  release/move. The menu is rebuilt per-open rather than cached static:
+  Copy/Cut are omitted (not disabled) for a card or a multi-selection, both
+  of which `wbCopySelection` already refuses outright — two buttons
+  guaranteed to fail is worse than a menu that only offers what the
+  selection can do. A text object's own `contenteditable` body is excluded
+  from both gestures so its native cut/copy/paste/spellcheck menu keeps
+  working with the mouse. **Not live-verified** — no Playwright
+  pointer/touch session was run against it; checked by reading the d3
+  selection wiring against the toggle-button pattern it mirrors, which *was*
+  verified live in an earlier session.
+
+### What was checked and left alone
+
+- **`manager.all_tags()`'s "no cap"** (ROADMAP's "Smaller, and genuinely
+  cheap" list): traced both real callers. `routes_insights.tag_cloud` already
+  caps to 60. The other two — `GET /tags` (the Tag Manager screen) and the
+  Library "All" tab's tag listing — are correctly uncapped: both are
+  management surfaces where a tag you can't see is a tag you can't rename or
+  delete. Capping either would be a functional regression, not a fix.
+  Left as the docs already assessed it: low urgency, not gone, not this.
+- **A security sweep** (`shell=True`/`os.system`/`eval`/`pickle.load`/raw SQL
+  string interpolation, path-traversal in the file-serving routes) found
+  nothing new — every `subprocess` call already carries a `# noqa: S603 —
+  fixed args, no shell` from prior audits, and `routes_files._within_exports`
+  already has a long comment on exactly the CodeQL `py/path-injection` shape
+  this kind of check would otherwise re-discover. Prior sessions' audits
+  hold.
+
+### What I could not check
+
+Everything in the "What was built" section above is backend-verified only.
+No `uvicorn` was started this sitting and no Chromium session ran against
+it — the chat-mode chip's actual rendered position, the whiteboard context
+menu's actual click/long-press behaviour, and the menu's viewport-clamping
+maths are all reasoned from the existing `wbOpenDockedMenu`/`messageMetaLine`
+patterns they copy, not observed. If any of the three is reported not
+working, start by actually looking at it in a browser before changing the
+code further — CLAUDE.md's own standing rule, and this session is the reason
+to repeat it rather than assume the reasoning was enough.
+
+## Prior session — a live bug-report batch, a real tool-call parsing bug, one reverted attempt (§97)
 
 Branch `claude/ui-improvements-bugs-arf9gy`. A user-reported batch of ten UI/UX
 bugs plus one backend cluster, worked one at a time and verified live in

@@ -152,6 +152,34 @@ def test_conversation_persists_tool_chips(client):
     assert full["messages"][1]["tools"][0]["ok"] is True
 
 
+def test_conversation_persists_which_mode_answered(client):
+    """ROADMAP §89.4: a saved turn remembers whether Ask or Request answered
+    it, so a conversation that spans mode switches shows the right label on
+    reload instead of whatever the live toggle happens to show now."""
+    created = client.post(
+        "/conversations",
+        json={"question": "search my notes", "answer": "Found 3.", "used_tools": False},
+    ).json()
+    client.post(
+        f"/conversations/{created['id']}/turns",
+        json={"question": "tag them all urgent", "answer": "Done.", "used_tools": True},
+    )
+    full = client.get(f"/conversations/{created['id']}").json()
+    assistants = [m for m in full["messages"] if m["role"] == "assistant"]
+    assert assistants[0]["used_tools"] is False
+    assert assistants[1]["used_tools"] is True
+
+
+def test_conversation_omits_used_tools_when_not_sent(client):
+    """Older/unset turns get no key at all, not a misleading False."""
+    created = client.post(
+        "/conversations", json={"question": "hi", "answer": "hello"}
+    ).json()
+    full = client.get(f"/conversations/{created['id']}").json()
+    assistant = [m for m in full["messages"] if m["role"] == "assistant"][0]
+    assert "used_tools" not in assistant
+
+
 def test_replace_last_turn_swaps_answer_in_place(client):
     """Regenerate replaces the last answer instead of appending a new one."""
     created = client.post(

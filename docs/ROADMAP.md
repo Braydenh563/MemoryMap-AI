@@ -889,18 +889,20 @@ callouts" entry before rebuilding anything that sounds finished.**
    using GLM-4V/DeepSeek-VL2 for OCR; check the actual registry before
    scoping model-pull UI around either name.
 
-4. **A visual indicator on a chat message's own metadata line for which
-   mode answered it** (Ask vs. Request/Agent — the segmented control at
-   the bottom of the Chat tab, `renderChatModeSeg()`/`setChatMode()` in
-   app.js, which maps to `body.use_tools` on the wire). Asked for directly.
-   The metadata line already shows the model name and timing (the
-   `{"type": "stats", ...}` NDJSON event, rendered alongside `answered_by`)
-   — this would add which of the two modes produced that particular
-   answer, most naturally read off `use_tools` (or, for a plan/skill run,
-   its own distinct label) rather than the *current* toggle state, since a
-   conversation can span mode switches and each past message should say
-   what it was actually answered with, not what the toggle happens to show
-   now.
+~~4. **A visual indicator on a chat message's own metadata line for which
+   mode answered it.**~~ **Built.** `messageMetaLine()` (app.js) takes a new
+   `usedTools` param and renders an "Ask"/"Request" chip — same
+   icon/label pair as `#chat-mode-seg` — positioned beside the model name.
+   Read off the turn's own `effectiveUseTools` at send time, not the live
+   toggle, so a conversation that spans mode switches shows what each past
+   turn actually ran with. Persisted as a new `used_tools` bool on
+   `TurnBody`/`_turn_messages` (routes_conversations.py) so it survives a
+   reload; older saved turns simply have no key and render no chip, same as
+   every other field this line already treats that way. 2 new tests
+   (test_conversations_api.py). **Not live-verified** — no running Ollama
+   in this sandbox, so the chip's appearance was checked by reading the
+   rendered DOM structure, not a screenshot; the code path is exercised by
+   the persistence tests above.
 
 ~~5. **Images pasted, dragged, or dropped into the chat composer don't reach
    the vision-chat staging system at all.**~~ **Built** — the scoping fix,
@@ -924,14 +926,18 @@ callouts" entry before rebuilding anything that sounds finished.**
    content — content is what gets saved, a toast is a notification, and the
    two were conflated the same way the chat composer's placeholder was.
 
-6. **Captioning an image with a vision model should show in the background
-   tasks list**, the way other long-running work does. Asked for directly,
-   not yet scoped: `ai/captioning.caption_and_store`/`caption_in_background`
-   run a real model call (seconds, not instant) with no visible progress
-   anywhere in the UI today - find the existing background-tasks mechanism
-   (whatever surfaces e.g. imports or backups as in-progress) and register
-   a task around the caption call the same way, rather than inventing a
-   second progress system.
+~~6. **Captioning an image with a vision model should show in the background
+   tasks list.**~~ **Built.** Same mechanism the item asked to reuse:
+   `captioning.running_captions()` is a small in-memory dict (`upload_id` →
+   filename) set around the actual `caption_text` model call inside
+   `caption_and_store`, cleared in a `finally` so a raised exception can't
+   leave a job stuck "running" forever. `routes_tasks.collect()` reads it
+   and appends a `kind: "caption"` entry, same shape every other job there
+   already has — the frontend's `renderTasks()` is fully data-driven, so no
+   frontend change was needed at all. Not cancellable, same reasoning as the
+   embedding warm-up already in this list: one blocking model call with
+   nothing to check a flag between. 2 new tests (a mid-call spy in
+   test_captioning.py, a `/tasks` shape check in test_tasks.py).
 
 7. **The Documents editor's "AI edit" feature should become a more general
    AI assistant**, not just an in-place editor of existing text. Asked for
@@ -993,14 +999,24 @@ callouts" entry before rebuilding anything that sounds finished.**
     (chat streaming already isn't, by its nature) before deciding whether
     this becomes a standing pattern applied elsewhere or stays per-feature.
 
-12. **Whiteboard cut, and a right-click/long-press menu for a selection.**
-    Asked as a question. Copy/paste already exist (`wbCopySelection`/
-    `wbPasteClipboard`, Ctrl/Cmd+C/V) - cut does not (no Ctrl/Cmd+X handler
-    anywhere in whiteboard.js). No right-click menu for a selected item
-    either; `contextmenu` is only wired to one toolbar toggle button
-    (`wbOpenDockedMenu`, with its own touch long-press equivalent already
-    built) - that same pattern is the natural template for a selection's
-    own copy/cut/delete menu, not a new one.
+~~12. **Whiteboard cut, and a right-click/long-press menu for a selection.**~~
+    **Built.** `wbCutSelection()` is copy-then-delete, wired to Ctrl/Cmd+X
+    beside the existing Ctrl/Cmd+C/V handlers. The context menu reuses
+    `wbOpenDockedMenu`'s own reparent-to-`<body>`-and-position technique
+    (this item's own diagnosis named it as the template) via a new
+    `wbWireContextMenu(selection, kind)`, bound once per sketch/card/object
+    on their `enter()` selection the same way `.on("click", ...)` already
+    is. Right-click opens it immediately; touch gets a 500ms hold, same
+    threshold as the toolbar toggle's own long-press, cancelled on
+    release/move. Copy/Cut are omitted from the menu (not merely disabled)
+    for a card or a multi-selection, both of which `wbCopySelection` already
+    refuses — a menu offering two buttons guaranteed to fail is worse than
+    one that only shows what the selection can do. A text object's own
+    `contenteditable` body is excluded from both gestures so its native
+    cut/copy/paste/spellcheck menu still works with the mouse. **Not
+    live-verified** — no Playwright pointer/touch session was run against
+    it this session; checked by reading the d3 selection wiring and the
+    existing `wbOpenDockedMenu` pattern it mirrors.
 
 ## §90 — reported this session (the app.js split's live-verification pass), not yet built
 

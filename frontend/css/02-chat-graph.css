@@ -2042,6 +2042,16 @@ kbd {
   display: none;
 }
 
+/* The whiteboard's right-click/long-press selection menu (ROADMAP §89.12).
+   Appended straight to <body> and positioned at the pointer, same reasoning
+   as `wbOpenDockedMenu`'s reparent — a fixed pixel position rather than
+   `.action-menu`'s default `absolute; right:0` anchored to a `.menu-wrap`
+   ancestor it doesn't have here. */
+.wb-ctx-menu {
+  position: fixed;
+  z-index: 200;
+}
+
 .menu-item {
   background: none;
   border: none;

@@ -6178,7 +6178,7 @@ function metaItem(text, { title = "", kind = "", icon = "" } = {}) {
 //
 // Nothing was removed: every field is still here, and the ones that moved into
 // tooltips moved because they answer a question nobody asks mid-conversation.
-function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 }) {
+function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, usedTools = null }) {
   const row = document.createElement("div");
   row.className = "msg-meta muted";
 
@@ -6226,6 +6226,21 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
 
   // 3. What answered, and what it did. Quieter: this is the same for every
   //    turn in a conversation, so it is context rather than news.
+  // §89.4: a conversation can span mode switches, so each past turn needs to
+  // say which mode actually answered it, not what the live toggle shows now.
+  // Same icons/labels as the segmented control (#chat-mode-seg) so this reads
+  // as the same idea rather than a second vocabulary for it.
+  if (usedTools != null) {
+    row.appendChild(
+      metaItem(usedTools ? "Request" : "Ask", {
+        icon: usedTools ? "ph:robot" : "ph:chat-circle",
+        title: usedTools
+          ? "Answered in Request mode — the Librarian could use tools."
+          : "Answered in Ask mode — read-only, no tools used.",
+        kind: "mode",
+      })
+    );
+  }
   if (model) {
     row.appendChild(
       metaItem(model, { title: "The model that answered", kind: "model" })
@@ -9168,6 +9183,11 @@ async function sendChatMessage(preset, opts = {}) {
     }
   }
 
+  // Captured once, not re-read at save time: the toggle can move on to the
+  // next message while this one is still streaming, and the meta line and
+  // the saved turn must both say what actually answered *this* question.
+  const effectiveUseTools = opts.useTools ?? $("tools-toggle").checked;
+
   let slowLoadTimeout;
   try {
     slowLoadTimeout = setTimeout(() => {
@@ -9180,7 +9200,7 @@ async function sendChatMessage(preset, opts = {}) {
       history: chatHistoryToSend(),
       persona: $("persona-select").value || null,
       mode: $("response-mode-select").value || null,
-      useTools: opts.useTools ?? $("tools-toggle").checked,
+      useTools: effectiveUseTools,
       noteIds: sentAttachments,
       imageMediaIds: sentImages,
       skill: opts.skill,
@@ -9407,6 +9427,7 @@ async function sendChatMessage(preset, opts = {}) {
         stats,
         toolCount: toolEvents.length,
         rounds: (stats && stats.round) || 0,
+        usedTools: effectiveUseTools,
       })
     );
   }
@@ -9563,6 +9584,10 @@ async function sendChatMessage(preset, opts = {}) {
       // rebuilding "3.9k/8k window · 12 tok/s · llama3.2" — so on reload the
       // line used to vanish and the answer looked like it came from nowhere.
       stats: stats || null,
+      // §89.4: which mode actually answered this turn (Ask vs. Request) — a
+      // conversation can span mode switches, so this has to be per-turn, not
+      // read off the toggle's current state on reload.
+      used_tools: effectiveUseTools,
       // How long the answer took, measured here because the client is the only
       // thing that saw the whole turn: the server reports per-round timings,
       // and an agent turn is several rounds plus the tool calls between them.
@@ -10658,6 +10683,7 @@ async function openConversation(id) {
             stats: message.stats,
             toolCount: (message.tools || []).length,
             rounds: message.stats.round || 0,
+            usedTools: message.used_tools ?? null,
           })
         );
       }

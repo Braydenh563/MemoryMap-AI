@@ -15693,6 +15693,7 @@ async function renderBackupRetention() {
   input.min = storage.backup_retention_min;
   input.max = storage.backup_retention_max;
   input.value = storage.backup_retention_count;
+  input.title = `Between ${storage.backup_retention_min} and ${storage.backup_retention_max}`;
 }
 
 $("backup-retention")?.addEventListener("change", async (e) => {

@@ -1968,6 +1968,57 @@
   bottom: 1rem;
   left: 1rem;
   border-radius: var(--radius-pill);
+  /* Measured across eight viewports: this row is ~900px of tools and the zoom
+     cluster is bottom-right on the same edge, so from about 1180px down they
+     overlap, and by 900px the tools row runs off the screen entirely — the
+     controls at its right-hand end simply unreachable. That is the reported
+     "cut off in different window resolutions and sizes", on the whiteboard.
+
+     `flex-wrap` is the fix; the max-width is what makes it fire. Without a
+     width to push against, a nowrap flex row just grows, and with
+     `calc(100vw - 2rem)` it would grow straight under the zoom cluster
+     instead. 18rem is that cluster (~15rem) plus its 1rem margin and a gap,
+     so the two share the bottom edge instead of fighting for it.
+
+     `100%`, not `100vw`: these panels are absolutely positioned inside
+     `#wb-canvas-view`, which is narrower than the window by whatever rail sits
+     beside it — 960px inside a 1024px viewport when this was measured. Sizing
+     against the viewport left the row 56px too wide and it still reached under
+     the zoom cluster, which is what a first attempt did.
+
+     Nothing changes on a wide screen: 100% - 18rem is far more than the row
+     needs, so it stays one line and stays a pill. */
+  flex-wrap: wrap;
+  max-width: calc(100% - 18rem);
+}
+
+/* A pill is a single row of controls. Once it has wrapped it is a block of
+   them, and the fully-rounded ends read as a mistake rather than a shape. */
+.whiteboard-floating-panel.bottom-center:has(> :last-child:not(:first-child)) {
+  border-radius: var(--radius);
+}
+
+/* Below this there is not enough width left to share the edge at all — the
+   tools row would be squeezed to a few icons per line. The zoom cluster moves
+   up out of the way instead and the tools take the full width. */
+@media (max-width: 40rem) {
+
+  .whiteboard-floating-panel.bottom-center {
+    max-width: calc(100% - 2rem);
+    /* Bounded, because the zoom cluster above has to clear it and CSS cannot
+       measure a sibling. Wrapped at this width the row is two or three lines
+       deep and how many depends on the exact viewport — so instead of guessing
+       the clearance, the height is capped and the clearance is derived from
+       the same number. A cap this generous only bites on a very narrow window,
+       where scrolling a toolbar is a better outcome than a control hidden
+       under another panel. */
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+
+  .whiteboard-floating-panel.bottom-right {
+    bottom: calc(30vh + 2rem);
+  }
 }
 
 /* Below the "library"/top-right panel, so a shown properties panel never

@@ -42,8 +42,17 @@ def list_backups(data_dir: Path) -> list[dict]:
     return entries
 
 
-def backup_now(db_path: Path, data_dir: Path) -> Path:
-    """Take one consistent snapshot and prune old ones."""
+def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
+    """Take one consistent snapshot and prune old ones.
+
+    `keep` was a hard-coded 10 until asked about directly ("backup retention
+    should be a setting — backups accumulate with no cap the user can see or
+    change"). The prune itself was never the gap — this function has called
+    `_prune` on every backup since it was written — only that the number was
+    fixed in code instead of being a preference. `keep` defaults to the old
+    constant so a caller that never heard of the preference keeps behaving
+    exactly as before.
+    """
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = backups_dir(data_dir)
     destination = folder / f"memorymap-{stamp}.db"
@@ -63,17 +72,22 @@ def backup_now(db_path: Path, data_dir: Path) -> Path:
     finally:
         source.close()
 
-    _prune(data_dir)
+    prune(data_dir, keep)
     return destination
 
 
-def _prune(data_dir: Path) -> None:
+def prune(data_dir: Path, keep: int = KEEP_BACKUPS) -> int:
+    """Delete every backup past the newest `keep`. Returns how many were
+    removed, so a caller changing the limit can say how much that freed up
+    rather than the user having to reload the list to find out."""
     backups = sorted(backups_dir(data_dir).glob("memorymap-*.db"), reverse=True)
-    for stale in backups[KEEP_BACKUPS:]:
-        stale.unlink(missing_ok=True)
+    stale = backups[max(0, keep) :]
+    for path in stale:
+        path.unlink(missing_ok=True)
+    return len(stale)
 
 
-def backup_if_due(db_path: Path, data_dir: Path) -> Path | None:
+def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path | None:
     """Startup hook: back up unless a recent backup already exists."""
     if not db_path.exists():
         return None
@@ -85,10 +99,10 @@ def backup_if_due(db_path: Path, data_dir: Path) -> Path | None:
         ).total_seconds() / 3600
         if age_hours < BACKUP_EVERY_HOURS:
             return None
-    return backup_now(db_path, data_dir)
+    return backup_now(db_path, data_dir, keep)
 
 
-def restore_backup(name: str, db_path: Path, data_dir: Path) -> None:
+def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> None:
     """Replace the live database with a backup.
 
     The caller MUST dispose every open engine first and rebuild it after
@@ -98,7 +112,7 @@ def restore_backup(name: str, db_path: Path, data_dir: Path) -> None:
     if not source_path.is_file():
         raise FileNotFoundError(f"No backup named {name}")
     if db_path.exists():
-        backup_now(db_path, data_dir)  # the pre-restore safety copy
+        backup_now(db_path, data_dir, keep)  # the pre-restore safety copy
 
     source = sqlite3.connect(source_path)
     try:

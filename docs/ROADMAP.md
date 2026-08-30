@@ -61,9 +61,13 @@ brainstorm this was drawn from.
 session so nothing depends on remembering the conversation. Each says *why* it
 was not done, because "not done" and "decided against" are different facts.
 
-B. **Backup retention is not a setting.** Backups accumulate with no visible
-   cap. Asked about directly; not built. Small: a preference plus a prune on
-   write, and the count belongs beside the existing Backups list.
+~~B. **Backup retention is not a setting.**~~ **Built.** The prune itself
+   already existed (`backup.py`'s `KEEP_BACKUPS` was always enforced on every
+   backup) — the gap was that the number was fixed in code, not a
+   preference. `PUT /backups/retention` sets `backup_retention_count` and
+   prunes immediately, `GET /storage` reports the current count and its
+   1–100 bounds, and Settings → Data has the number field beside the
+   existing Backups list.
 
 C. **Restart after installing a package, and from Settings → About.** Several
    extras only take effect on restart and the app says so without offering
@@ -71,10 +75,18 @@ C. **Restart after installing a package, and from Settings → About.** Several
    console-mode switch, so the mechanism exists; this is a second caller and a
    button. Asked for directly; not built.
 
-D. **Notes do not render markdown, and nothing renders mermaid or highlights
-   code.** Chat, documents and the digest all go through `renderMarkdown`;
-   notes deliberately do not (`app.js:3791`). Settle all three as one pass —
-   it is the prerequisite for BACKLOG §96's diagram work.
+~~D. **Notes do not render markdown.**~~ **Partly built, and the rest is
+   staying out on purpose.** A later session already gave notes real inline
+   markdown — bold, italic, code spans, links, images, strikethrough, LaTeX
+   (`renderInlineMarkdown`, wired into the note-card list via
+   `renderNoteText`) — specifically fixing "notes show raw `**text**`".
+   Full block-level markdown (headings, lists, tables, fenced code, the
+   `renderMarkdown` chat/documents/digest use) is deliberately still out: a
+   note-card list rendered that way "gets very tall very fast," which the
+   comment above `renderInlineMarkdown` calls out as the worse problem. Code
+   highlighting and mermaid rendering are still genuinely missing everywhere
+   (`grep mermaid frontend/` is empty) — that part of BACKLOG §96's "finish
+   the rendering story" is still open, just not the notes half.
 
 E. **`app.js` is 22,000 lines.** The clean first extraction is `chat.js`
    (~3,300 contiguous lines: ask, the chat tab, image attachment, the agent

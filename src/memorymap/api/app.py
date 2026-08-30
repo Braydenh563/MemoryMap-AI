@@ -129,7 +129,8 @@ def _backup_if_due() -> None:
     taken at startup. Failure must never stop the app."""
     try:
         config = deps.get_config()
-        backup.backup_if_due(config.db_path, config.data_dir)
+        keep = int(config.get_preference("backup_retention_count", backup.KEEP_BACKUPS))
+        backup.backup_if_due(config.db_path, config.data_dir, keep)
     except Exception:  # noqa: BLE001 — a failed backup must never block startup
         # This one matters more than it looks: the user believes they have
         # daily local backups, and without this line a backup that has been

@@ -15680,6 +15680,39 @@ async function renderBackups() {
   }
 }
 
+// The retention setting itself — separate fetch from renderBackups() (which
+// only ever hits GET /backups) because the count/bounds live on GET
+// /storage, so this app's own tests that treat GET /backups as a plain list
+// of backups don't have to change shape for a control that isn't about any
+// one backup.
+async function renderBackupRetention() {
+  const input = $("backup-retention");
+  if (!input) return;
+  const storage = await apiJson("/storage", { silent: true }).catch(() => null);
+  if (!storage) return;
+  input.min = storage.backup_retention_min;
+  input.max = storage.backup_retention_max;
+  input.value = storage.backup_retention_count;
+}
+
+$("backup-retention")?.addEventListener("change", async (e) => {
+  const status = $("backup-retention-status");
+  const keep = Number(e.target.value);
+  try {
+    const result = await apiJson("/backups/retention", {
+      method: "PUT",
+      body: JSON.stringify({ keep }),
+    });
+    status.textContent = result.removed
+      ? `Saved — removed ${result.removed} old backup${result.removed === 1 ? "" : "s"}.`
+      : "Saved.";
+    renderBackups();
+  } catch (error) {
+    status.textContent = error.message;
+    renderBackupRetention(); // put the field back to what's actually saved
+  }
+});
+
 async function backupNow() {
   const status = $("backup-status");
   try {

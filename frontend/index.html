@@ -4267,6 +4267,16 @@ Link to another note with [[its first few words]]."></textarea>
                 <span id="backup-status" class="status" role="status"></span>
               </div>
               <ul id="backup-list" class="entry-list"></ul>
+              <!-- Asked about directly: "backup retention should be a
+                   setting — backups accumulate with no cap the user can see
+                   or change." The prune itself already existed (backup.py
+                   has always kept only the newest N); what was missing was
+                   this control and a number to show it working. -->
+              <div class="row" id="backup-retention-row">
+                <label for="backup-retention" class="muted">Keep this many backups</label>
+                <input id="backup-retention" type="number" class="small-select backup-retention-input">
+                <span id="backup-retention-status" class="status" role="status"></span>
+              </div>
               <p class="muted">
                 A backup is also taken automatically once a day when the app
                 starts. Restoring first snapshots the current state, so even a

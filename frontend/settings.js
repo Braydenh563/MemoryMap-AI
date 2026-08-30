@@ -147,7 +147,10 @@ function showSettingsSection(name) {
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});
-  if (name === "data") renderBackups();
+  if (name === "data") {
+    renderBackups();
+    renderBackupRetention();
+  }
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
 }

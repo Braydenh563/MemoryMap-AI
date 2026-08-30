@@ -338,6 +338,14 @@
   margin-bottom: 0;
 }
 
+/* A number of backups to keep, not a name or a path — this app's other
+   `.small-select` uses are all <select>/text and can take the full 16rem;
+   a bare number reads as a stray box that wide. */
+.backup-retention-input {
+  width: 5rem;
+  max-width: 5rem;
+}
+
 .row .small-select {
   flex: 0 1 auto;
 }

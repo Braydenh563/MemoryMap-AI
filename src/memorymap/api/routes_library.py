@@ -427,6 +427,13 @@ def _notes(session: Session) -> list[dict]:
                 "mime": None,
                 "pinned": bool(entry.pinned),
                 "private": private,
+                # A meeting note is tagged "meeting" at the point it's saved
+                # (saveMeetingNote in app.js) — this is what lets the
+                # toolbar's "Meetings only" toggle filter for real, rather
+                # than the earlier "Meeting Notes" sub-tab's `tag:meeting`
+                # in the search box, which matched nothing: this endpoint
+                # never sent tags at all, so it always showed an empty grid.
+                "tags": json.loads(entry.tags) if entry.tags else [],
                 # Never for a private note — hiding the text but showing a
                 # thumbnail of what it's a photo of would be the same
                 # encryption bypass showing the preview text would be.

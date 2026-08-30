@@ -368,6 +368,14 @@ function renderLibrary() {
     // would otherwise clutter the notebook it was archived to get out of.
     items = items.filter((i) => i.kind !== "shelved");
   }
+  // A real data filter, not a search-box trick: `tags` only exists on note
+  // items (routes_library.py's _notes()), so this only ever narrows notes —
+  // everything else (documents, chats, images…) has no tag to check and
+  // stays out while the toggle is on, same as a text search would leave them
+  // out for not matching a word.
+  if ($("library-meetings-only")?.checked) {
+    items = items.filter((i) => (i.tags || []).includes("meeting"));
+  }
   if (query) {
     // Title *and* preview, for the same reason the conversation search reads
     // message text: you remember what a thing was about far more often than
@@ -999,6 +1007,7 @@ for (const button of document.querySelectorAll("#library-sort-seg button")) {
   });
 }
 $("library-show-binned").addEventListener("change", renderLibrary);
+$("library-meetings-only").addEventListener("change", renderLibrary);
 for (const button of document.querySelectorAll("#library-view button")) {
   button.addEventListener("click", () => {
     localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
@@ -2406,14 +2415,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           }
         });
-
-        if (targetId === "library-view-documents") {
-          // "All" itself carries no data-tag-filter, so this also clears a
-          // filter left behind by Meeting Notes when switching back to it.
-          const filterTag = btn.dataset.tagFilter || "";
-          $("library-search").value = filterTag ? `tag:${filterTag}` : "";
-          runLibrarySearch();
-        }
 
         if (targetId === "library-view-media") {
           renderLibraryImagesGallery();

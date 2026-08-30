@@ -29,7 +29,6 @@ from __future__ import annotations
 from pathlib import Path
 from sqlalchemy.orm import Session
 
-from memorymap.ai import captioning, vision_ocr
 from memorymap.core.database import MediaUpload
 
 
@@ -40,6 +39,7 @@ def process_committed_upload(upload: MediaUpload, media_dir: Path) -> None:
     `POST /media/upload`'s own trigger calls always treated it.
     """
     from memorymap.core import ocr
+    from memorymap.ai import captioning, vision_ocr
 
     path = media_dir / upload.filename
     suffix = Path(upload.filename).suffix.lower()

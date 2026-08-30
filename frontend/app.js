@@ -337,6 +337,9 @@ async function lockNow() {
 function hideBootSplash() {
   const splash = document.getElementById("boot-splash");
   if (!splash) return;
+  // Snap the bar to 100% before the fade starts, so it never visibly
+  // disappears mid-crawl — it always reads as "finished", never "cut off".
+  document.getElementById("boot-splash-progress-fill")?.classList.add("done");
   splash.classList.add("hidden");
   splash.addEventListener("transitionend", () => splash.remove(), { once: true });
   // Reduced-motion strips the transition (00-tokens-shell.css), so
@@ -440,6 +443,7 @@ function startApp() {
     // in `prefsCache`, and hiding them here rather than on first paint would
     // mean a visible flash of a bar they chose not to have.
     applyStatusBarSlots();
+    applyStatusClock();
   });
 
   const entriesReady = step("load entries", loadEntries);
@@ -909,6 +913,60 @@ function confirmDialog(message, options = {}) {
     // Cancel takes focus, not the dangerous one: a stray Enter or Space
     // arriving with the dialog must not be the thing that deletes the notes.
     cancel.focus();
+  });
+}
+
+// `confirmDialog`'s other missing sibling: show a whole piece of text with
+// no decision to make, just a way to close it. Asked for directly: "longer
+// logs get truncated with no way to expand or collapse and view the whole
+// log" — the Library's Activity cards show a clipped preview (server-side,
+// `ACTIVITY_DETAIL_CHARS`) so the grid stays scannable, and this is what a
+// click on one opens instead of doing nothing.
+function showDetailDialog(title, text) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", title);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card detail-dialog-card";
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    const body = document.createElement("p");
+    body.className = "confirm-text detail-dialog-text";
+    body.textContent = text;
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const close = () => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve();
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape" || event.key === "Enter") {
+        event.stopPropagation();
+        close();
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const ok = smallButton("Close", "Close", close, false);
+    row.append(ok);
+    card.append(heading, body, row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    ok.focus();
   });
 }
 
@@ -1912,6 +1970,15 @@ function entryOverflowMenu(entry) {
         label: "ph:clock-counter-clockwise History",
         title: "See earlier versions of this note, and put one back",
         run: () => openEntryHistory(entry),
+      },
+      // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
+      // hand one note to someone." Same route shape and same "download,
+      // not navigate" pattern the Documents kebab's own "Download .md"
+      // already uses (library.js).
+      {
+        label: "ph:download-simple Download .md",
+        title: "Save a copy of this note as a markdown file",
+        run: () => window.open(`/entries/${entry.id}/export.md`, "_blank"),
       },
     ];
 
@@ -4362,6 +4429,10 @@ function initEntryListKeyboardNav() {
       );
       items.forEach((li, i) => { li.tabIndex = i === nextIndex ? 0 : -1; });
       items[nextIndex].focus();
+      // .focus() alone scrolls in most browsers, but not predictably —
+      // explicit and consistent with the same fix on the command palette's
+      // own arrow-key nav, which has no focus to lean on at all.
+      items[nextIndex].scrollIntoView({ block: "nearest" });
     } else if (event.key === "Enter" && event.target === current) {
       // Only when the <li> itself has focus, not a button/link/textarea
       // inside it — those already handle their own Enter behaviour, and
@@ -6967,6 +7038,45 @@ async function renderModelSpec(modelName) {
     box.append(dt, dd);
   }
   box.classList.toggle("hidden", rows.length === 0);
+
+  renderModelHealthNote(spec);
+}
+
+// A model health card: every number above already existed, but nothing said
+// what it *means* — "this model has an 8k window" doesn't answer "will it
+// forget what I said earlier in a long chat" (BACKLOG.md §95 item A.2).
+// Mirrors ai/context.py's own shares (CHARS_PER_TOKEN, OUTPUT_RESERVE_SHARE,
+// HISTORY_SHARE) rather than asking the backend, since this is explicitly a
+// rough estimate — context.py's own docstring: "approximately right on every
+// model beats being exactly right on one" — and an average exchange length
+// is itself a guess, so a precise-looking number here would be a false
+// promise the actual conversation could contradict either way.
+function renderModelHealthNote(spec) {
+  const note = $("model-spec-health");
+  if (!note) return;
+  const usable = spec && spec.usable_context;
+  if (!usable) {
+    note.classList.add("hidden");
+    return;
+  }
+  const CHARS_PER_TOKEN = 4;
+  const OUTPUT_RESERVE_SHARE = 0.15;
+  const HISTORY_SHARE = 0.15;
+  const AVG_CHARS_PER_EXCHANGE = 500; // a short question + a real answer
+  const historyChars =
+    usable * CHARS_PER_TOKEN * (1 - OUTPUT_RESERVE_SHARE) * HISTORY_SHARE;
+  const roughTurns = Math.round(historyChars / AVG_CHARS_PER_EXCHANGE / 5) * 5;
+
+  if (roughTurns < 5) {
+    note.textContent =
+      "A small window — a back-and-forth chat will start losing earlier messages within a few exchanges. Notes and documents are unaffected; only the conversation itself is short-lived.";
+  } else if (roughTurns <= 40) {
+    note.textContent = `What this means for you: a long chat will start dropping its earliest messages after roughly ${roughTurns} exchanges. The AI can still recall anything from further back by re-reading the note or asking again — it just won't be sitting in view.`;
+  } else {
+    note.textContent =
+      "A large window — a normal conversation is very unlikely to ever run out of room.";
+  }
+  note.classList.remove("hidden");
 }
 
 // Both pickers for the response preset: the Chat toolbar's and the Notes
@@ -13337,11 +13447,27 @@ function paintTabHistory() {
     icon: "ph:caret-right",
     title: next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to",
   });
+  // The settings modal's own copy of these two buttons — see their markup
+  // comment for why a second copy exists instead of just raising the status
+  // bar's z-index above every modal in the app.
+  const modalBack = $("settings-nav-back");
+  const modalForward = $("settings-nav-forward");
+  if (modalBack && modalForward) {
+    modalBack.disabled = back.disabled;
+    modalForward.disabled = forward.disabled;
+    modalBack.title = prev ? `Back to ${entryLabel(prev)}` : "Nothing to go back to";
+    modalForward.title = next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to";
+    modalBack.setAttribute("aria-label", modalBack.title);
+    modalForward.setAttribute("aria-label", modalForward.title);
+  }
 }
 
 // The tab's own visible name, so a tooltip says "Back to Documents" rather
 // than "Back to documents" or, worse, an internal id.
 function tabLabel(name) {
+  // Not a real tab-page — see stepTabHistory's own "settings" branch — so
+  // there is no `#tab-bar` button to read a label from.
+  if (name === "settings") return "Settings";
   const button = document.querySelector(`#tab-bar button[data-tab="${name}"]`);
   return button?.textContent?.trim() || name;
 }
@@ -13386,6 +13512,19 @@ async function stepTabHistory(delta) {
   tabHistory.index = next;
   tabHistory.navigating = true;
   try {
+    // Settings is a modal overlay, not one of the tab-pages switchTab knows
+    // about — asked for directly: "the back and forward buttons should cover
+    // going in and out of settings too", which they didn't, because nothing
+    // ever called recordTabVisit for it. Restoring a settings entry opens the
+    // modal (or moves it to a different section) instead of going through
+    // switchTab at all; restoring anything else closes it first if it was
+    // left open, the same way clicking Close would.
+    if (entry.tab === "settings") {
+      await openSettingsModal(entry.section || "models");
+      paintTabHistory();
+      return;
+    }
+    if (typeof settingsModalOpen === "function" && settingsModalOpen()) closeSettingsModal();
     switchTab(entry.tab);
     // The sub-tab is restored after the tab, because both restore paths below
     // act on elements the tab switch has just revealed.
@@ -16087,14 +16226,26 @@ function paletteKeydown(event) {
     event.preventDefault();
     paletteIndex = Math.min(paletteIndex + 1, matches.length - 1);
     renderPalette($("palette-input").value);
+    scrollPaletteToActive();
   } else if (event.key === "ArrowUp") {
     event.preventDefault();
     paletteIndex = Math.max(paletteIndex - 1, 0);
     renderPalette($("palette-input").value);
+    scrollPaletteToActive();
   } else if (event.key === "Enter" && matches[paletteIndex]) {
     closePalette();
     matches[paletteIndex].run();
   }
+}
+
+// Reported live: arrowing past the visible rows left the selection off
+// screen — nothing followed it. `renderPalette` rebuilds the list from
+// scratch on every keypress (replaceChildren), so there is no focused or
+// otherwise browser-tracked element for the browser's own native
+// scroll-on-focus to follow; `.active` is a plain CSS class on an
+// unfocused `<li>`, invisible to that mechanism entirely.
+function scrollPaletteToActive() {
+  $("palette-list").querySelector(".active")?.scrollIntoView({ block: "nearest" });
 }
 
 // --- Wave F: whiteboard-lite --------------------------------------------------------
@@ -16289,6 +16440,19 @@ function sketchMove(event) {
   if (sketchTool === "pen" || sketchTool === "highlighter") {
     context.lineTo(x, y);
     context.stroke();
+    // Reported: "the highlighter has no opacity to it, it's basically a
+    // thick pen." The path opened in sketchStart keeps every point ever
+    // added via lineTo — stroke() re-draws the *whole accumulated path*
+    // each time, not just the newest segment, so a stroke a hundred points
+    // long gets its first segment re-composited a hundred times over. At
+    // full opacity (the plain pen) that's invisible — opaque drawn twice is
+    // still opaque — but at the highlighter's 0.35 alpha, ~10 overlapping
+    // passes already reads as ~99% opaque (1-(1-0.35)^10), which is exactly
+    // "no opacity to it". Starting a fresh single-segment path from the
+    // current point makes every stroke() call draw that one segment
+    // exactly once, at exactly the alpha asked for.
+    context.beginPath();
+    context.moveTo(x, y);
   } else if (sketchTool === "line") {
     context.beginPath();
     context.moveTo(sketchStartX, sketchStartY);
@@ -18254,6 +18418,7 @@ function renderSettings() {
   } else {
     $("installed-box").classList.add("hidden");
     $("model-spec").classList.add("hidden");
+    $("model-spec-health").classList.add("hidden");
   }
   renderReindex(status);
 }
@@ -18831,7 +18996,14 @@ function renderTaskHistory(history) {
     setLabel(name, `${style.icon} ${item.label}`);
     const when = document.createElement("span");
     when.className = "muted";
-    when.textContent = relativeTime(item.at);
+    // Which model actually did the work (captioning, OCR, the weekly
+    // digest) — recorded by the backend all along (`taskhistory.record`'s
+    // `name` param) but never shown here, so "which model answered this"
+    // was answerable only by opening the log console. Asked about
+    // directly (BACKLOG.md §95 item A.3).
+    when.textContent = item.name
+      ? `${relativeTime(item.at)} · ${item.name}`
+      : relativeTime(item.at);
     row.append(name, when);
     li.appendChild(row);
 
@@ -21225,6 +21397,7 @@ function wikiSuggestKeydown(event, textarea) {
     wikiSuggestIndex =
       (wikiSuggestIndex + step + wikiSuggestMatches.length) % wikiSuggestMatches.length;
     renderWikiSuggest(textarea);
+    $("wiki-suggest").querySelector(".active")?.scrollIntoView({ block: "nearest" });
     return true;
   }
   if (event.key === "Enter" || event.key === "Tab") {
@@ -21728,6 +21901,8 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
 }
 $("status-back").addEventListener("click", () => stepTabHistory(-1));
 $("status-forward").addEventListener("click", () => stepTabHistory(1));
+$("settings-nav-back")?.addEventListener("click", () => stepTabHistory(-1));
+$("settings-nav-forward")?.addEventListener("click", () => stepTabHistory(1));
 // Seed the stack with wherever the app opened, or the first tab clicked has
 // nothing behind it and Back stays dead until the second navigation — which
 // reads as the button being broken rather than empty.
@@ -23174,6 +23349,47 @@ function renderStatusBarSettings() {
     text.textContent = slot.label;
     label.append(box_, text);
     box.appendChild(label);
+  }
+  // The clock's own opt-in toggle — not one of STATUS_SLOTS above (it is
+  // off by default, so it is rendered and wired separately rather than
+  // joining a loop that assumes every entry starts visible).
+  const clockToggle = $("status-bar-clock-toggle");
+  if (clockToggle) {
+    clockToggle.checked = Boolean(prefsCache?.status_bar_clock);
+    clockToggle.onchange = () => {
+      if (prefsCache) prefsCache.status_bar_clock = clockToggle.checked;
+      applyStatusClock();
+      setPreference("status_bar_clock", clockToggle.checked);
+    };
+  }
+}
+
+let statusClockTimer = null;
+
+// HH:MM, no seconds — a status-bar clock is glanced at, not watched, so a
+// 30s repaint interval keeps it current without the per-second DOM writes
+// the Dashboard's own bigger clock (paintDashClock) uses.
+function paintStatusClock() {
+  const el = $("status-clock");
+  if (!el) return;
+  el.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// Reads prefsCache.status_bar_clock rather than taking an argument, the same
+// convention applyStatusBarSlots() and applyAppearance() already use — one
+// source of truth, called again after every write.
+function applyStatusClock() {
+  const el = $("status-clock");
+  if (!el) return;
+  const on = Boolean(prefsCache?.status_bar_clock);
+  el.classList.toggle("hidden", !on);
+  if (statusClockTimer) {
+    clearInterval(statusClockTimer);
+    statusClockTimer = null;
+  }
+  if (on) {
+    paintStatusClock();
+    statusClockTimer = setInterval(paintStatusClock, 30000);
   }
 }
 

@@ -297,6 +297,35 @@ def test_retrieve_recent_fallback_for_broad_question(session):
     assert len(entries) == 2
 
 
+def test_a_pinned_note_outranks_an_identical_unpinned_one(session):
+    """BACKLOG.md §95 item B.6, asked for directly: "search ranks by
+    relevance; it does not know that a note pinned last week matters more
+    than a relevant one from 2023." Two notes that tie exactly on both
+    semantic and keyword relevance (identical content) would, before this,
+    tie-break on id alone (`_fuse`'s own `-note_id`) — the newer one always
+    wins regardless of anything else. Pinning the *older* one has to be
+    enough to flip that, or the signal isn't doing anything."""
+    embeddings = FakeEmbeddingService()
+    older_pinned = manager.create_entry(session, "kayak repair notes")
+    newer_unpinned = manager.create_entry(session, "kayak repair notes")
+    assert older_pinned.id < newer_unpinned.id  # the tie-break this test isolates
+    older_pinned.pinned = True
+    for entry in (older_pinned, newer_unpinned):
+        session.add(
+            EmbeddingRecord(
+                entry_id=entry.id,
+                embedding=vector_to_bytes(embeddings.embed_text(entry.content)),
+                dim=4,
+                model_version=embeddings.backend_id(),
+            )
+        )
+    session.commit()
+
+    entries, mode = search_manager.retrieve(session, "kayak repair", embeddings, limit=2)
+    assert mode == "hybrid"
+    assert [e.id for e in entries] == [older_pinned.id, newer_unpinned.id]
+
+
 def test_retrieve_recent_fallback_empty_notebook(session):
     # Truly empty notebook → still empty (nothing to fall back to).
     entries, mode = search_manager.retrieve(

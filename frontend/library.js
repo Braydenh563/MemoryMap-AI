@@ -257,6 +257,20 @@ function renderLibraryFilters() {
     button.className =
       "library-chip" + (libraryKind === kind.key ? " active" : "");
     button.setAttribute("aria-pressed", String(libraryKind === kind.key));
+    // Reported live: "can the activity button be moved somewhere better" —
+    // it isn't a *kind of thing you made* the way the ten chips before it
+    // are (it is excluded from "Everything"'s own count above for exactly
+    // that reason), so it read as just one more chip in a row it doesn't
+    // really belong to. `library-chip-activity` pushes it to the row's own
+    // far end with a divider ahead of it, the same "different question,
+    // visually apart" treatment the reminder view-toggle already gets next
+    // to the reminder filter (05-sidebars-themes.css). Still one click away
+    // in the same toolbar — a second surface for one chip would be a second
+    // place to remember, not a better one.
+    if (kind.key === "activity") {
+      button.classList.add("library-chip-activity");
+      button.title = "What you did — a record, not a kind of thing you made";
+    }
     const icon = document.createElement("span");
     setLabel(icon, kind.icon);
     icon.setAttribute("aria-hidden", "true");
@@ -537,6 +551,12 @@ function libraryActions(item) {
   if (item.kind === "note") {
     return [
       makeMenuItem("ph:arrow-square-out Open in Notes", "Show this note in the list", () => flashEntry(item.id)),
+      // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
+      // hand one note to someone." Same route shape and menu placement as
+      // the Document kind's own "Download .md" a few lines up.
+      makeMenuItem("⬇ Download .md", "Save a copy of this note as a markdown file", () => {
+        window.open(`/entries/${item.id}/export.md`, "_blank");
+      }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way — not the bin", async () => {
         await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
           toast(e.message, true)
@@ -852,6 +872,16 @@ function openLibraryItem(item) {
   } else if (item.kind === "activity" && item.entry_id) {
     // The note the entry in the log is about, when it still exists.
     flashEntry(item.entry_id);
+  } else if (item.kind === "activity") {
+    // No related note to jump to (a preference change, a tag merge, a
+    // password change) — the click's only useful job left is showing the
+    // whole record. `item.preview` is what the card already shows, clipped
+    // to ACTIVITY_DETAIL_CHARS server-side; re-fetching by id gets the
+    // record's real, un-clipped `detail` for anything long enough to have
+    // lost the end of it.
+    apiJson(`/audit?id=${item.id}&limit=1`)
+      .then((rows) => showDetailDialog(item.title, rows[0]?.detail || item.preview || "(no detail recorded)"))
+      .catch(() => showDetailDialog(item.title, item.preview || "(no detail recorded)"));
   } else if (item.kind === "archived") {
     // Restore and permanent delete are both on this card's own ⋯ menu, and
     // reading the note in full is the one thing a card cannot do — so that is
@@ -1505,6 +1535,7 @@ const libraryDocsSelection = new Set();
 async function renderLibraryDocuments() {
   const list = document.getElementById("library-docs-list");
   const empty = document.getElementById("library-docs-empty");
+  const noMatch = document.getElementById("library-docs-no-match");
   if (!list) return;
   const needle = (document.getElementById("library-docs-search")?.value || "")
     .trim()
@@ -1530,11 +1561,11 @@ async function renderLibraryDocuments() {
   }
 
   list.replaceChildren();
-  empty?.classList.toggle("hidden", docs.length > 0);
-  if (empty && needle && !docs.length) {
-    empty.textContent = `No documents match \u201C${needle}\u201D.`;
-  } else if (empty) {
-    empty.textContent = "No documents yet — press ＋ New document to start one.";
+  const isFilteredEmpty = Boolean(needle) && !docs.length;
+  empty?.classList.toggle("hidden", docs.length > 0 || isFilteredEmpty);
+  noMatch?.classList.toggle("hidden", !isFilteredEmpty);
+  if (noMatch && isFilteredEmpty) {
+    noMatch.textContent = `No documents match \u201C${needle}\u201D.`;
   }
 
   for (const doc of docs) {
@@ -2362,10 +2393,25 @@ function filterLibraryImagesGallery() {
     menu.addEventListener("toggle", () => {
       if (!menu.open) return;
       menuList.classList.remove("menu-flip-left", "menu-flip-up");
+      menuList.style.transform = "";
       const bound = nearestScrollParent(menu).getBoundingClientRect();
-      const box = menuList.getBoundingClientRect();
+      let box = menuList.getBoundingClientRect();
       if (box.right > bound.right) menuList.classList.add("menu-flip-left");
       if (box.bottom > bound.bottom) menuList.classList.add("menu-flip-up");
+      // The flip above only ever swaps between two *fixed* anchors — right:0
+      // (grows left) and left:0 (grows right) — which covers a tile near one
+      // edge of a wide grid but not a gallery narrower than the menu's own
+      // 13rem min-width, where flipping toward the "open" side just runs the
+      // menu off *that* edge instead. Reported live with a screenshot: cut
+      // off on the left, in the menu's default (un-flipped) position — this
+      // is the gap the flip alone can't close. Re-measured after the flip
+      // decision above and nudged back into bounds with a transform, which
+      // works regardless of which fixed anchor is currently active.
+      box = menuList.getBoundingClientRect();
+      let shift = 0;
+      if (box.left < bound.left) shift = bound.left - box.left + 8;
+      else if (box.right > bound.right) shift = bound.right - box.right - 8;
+      if (shift) menuList.style.transform = `translateX(${shift}px)`;
     });
     actions.append(menu);
 

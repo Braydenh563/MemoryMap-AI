@@ -1217,6 +1217,29 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.75;
 }
 
+/* Activity answers "what did I do", not "what kind of thing is this" — the
+   other ten chips all filter by kind, so it sat among them looking like an
+   eleventh kind rather than the different question it actually is. Set
+   apart with a divider ahead of it, the way the reminder view-toggle
+   already sits apart from the reminder filter beside it, rather than moved
+   to a second surface (a second place to remember is not a better one —
+   reported live: "can the activity button be moved somewhere better").
+   It's still last in DOM order (renderLibraryFilters appends it after every
+   kind chip), so the divider alone reads as "separate from the row before
+   it" without needing to be pushed anywhere.
+
+   **No `margin-left: auto`.** `.library-filters` wraps (flex-wrap), and an
+   auto-margin item in a wrapping flex row gets shoved onto a lonely row of
+   its own the moment the chips before it don't all fit on one line — a
+   full-width row with one small pill on it, which is the exact "ugly,
+   taking up a whole row" reported live. Auto-margins and wrapping don't mix
+   in flexbox; dropping the margin is what lets it wrap in-line like every
+   chip beside it, divider and all. */
+.library-chip-activity {
+  padding-left: calc(var(--space-5) + var(--space-2));
+  border-left: 1px solid var(--border);
+}
+
 .library-grid {
   /* How wide a card's spine is. One value, so the seven kind-colours below
      cannot drift apart — see the note on the spine. */
@@ -1622,17 +1645,13 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: var(--space-6) 0 0;
 }
 
-/* The Boards & Images gallery (HANDOVER.md §53/§56) — a board card is a
-   plain button, not the note/document `<article>` `.library-card` already
-   is, so it needs its own text alignment and cursor rather than inheriting
-   everything from that selector. */
+/* The Boards & Images gallery (HANDOVER.md §53/§56). A board card is now the
+   same `<article role="button">` shape `.library-card` already is (it grew
+   a kebab menu of its own — rename/delete — which can't live inside a plain
+   `<button>`), so this only needs the one thing that shape doesn't give for
+   free. */
 .library-board-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
   cursor: pointer;
-  font-family: inherit;
 }
 
 .library-image-grid {
@@ -1775,6 +1794,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-tile .library-image-menu-btn {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  /* Reported live: this kebab reads as a plain square next to every other
+     icon button in the app. The base `button { border-radius: var(--radius-lg) }`
+     rule (01-forms-settings.css) never reaches it — this is a <summary>,
+     not a <button>, since it is a <details> disclosure rather than a popup
+     menu, and `summary.icon-button` (the rule that gives it the rest of an
+     icon-only button's shape) sets padding/aspect-ratio/centering but not
+     corners. Every other kebab in the app is a real <button> (smallButton(),
+     used by kebabMenu()) and gets this for free; this is the one place that
+     still needed it named explicitly. */
+  border-radius: var(--radius-lg);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);
@@ -2510,6 +2539,28 @@ summary.icon-button {
   justify-content: center;
 }
 
+/* Reported live, with a screenshot: the Settings modal's back/forward
+   nav arrows sit noticeably larger and boxier than "Close" right beside
+   them (43px square against Close's 30px). `.small`'s own `padding:
+   0.25rem 0.8rem` (01-forms-settings.css, a later file) was clobbering
+   `.icon-only`'s `padding-inline` above for its horizontal component —
+   both set the same physical left/right padding, so whichever file
+   happens to load second wins, not whichever rule was actually meant for
+   an icon-only button. `aspect-ratio: 1` then squared that oversized
+   width into an oversized height too, which is the part that actually
+   read as "too large" rather than merely "a bit wide". A compound
+   selector (three classes) beats either single-class rule on specificity
+   alone, so this fix holds regardless of file order — and it's general
+   rather than scoped to the two nav buttons, since every `.small.icon-
+   only` control in the app (several — search, sort, filter icon buttons)
+   inherited the same oversized square from the same cascade fight. */
+button.small.icon-only,
+button.small.icon-button,
+summary.small.icon-only,
+summary.small.icon-button {
+  padding-inline: 0.3em;
+}
+
 /* The incremental renderer's chunk marker. Zero height, no list marker, no
    part in layout — it exists only to be watched by an IntersectionObserver,
    and `aria-hidden` plus no `data-id` keeps it out of the keyboard walk and
@@ -2604,12 +2655,53 @@ summary.icon-button {
   background: var(--muted);
 }
 
+/* Reported: the splash "doesn't actually progress" — it never had a real
+   progress bar, only the dots above. `/auth/status` is one round trip, so
+   there is no real multi-step progress to report honestly; this animates
+   toward (not to) 90% on a fixed timer, which reads as active work rather
+   than a stall, and hideBootSplash() (app.js) snaps it to 100% only once
+   the real request actually resolves — so it never finishes before the
+   work it represents does, on a fast connection or a slow one. */
+.boot-splash-progress {
+  width: 11rem;
+  height: 0.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.boot-splash-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 220ms ease-out;
+  animation: boot-splash-progress-crawl 2.4s ease-out forwards;
+}
+
+@keyframes boot-splash-progress-crawl {
+  0% { width: 8%; }
+  50% { width: 55%; }
+  100% { width: 90%; }
+}
+
+.boot-splash-progress-fill.done {
+  animation: none;
+  width: 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .boot-splash-dots span {
     animation: none;
   }
 
   .boot-splash {
+    transition: none;
+  }
+
+  .boot-splash-progress-fill {
+    animation: none;
+    width: 90%;
     transition: none;
   }
 }

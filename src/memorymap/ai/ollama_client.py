@@ -386,6 +386,10 @@ class OllamaClient(Provider):
                 raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
             except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
                 raise OllamaError(f"Chat with '{model}' failed: {exc}") from exc
+        # Unreachable: every branch above either returns or raises. Only here
+        # so the function reads as exhaustive rather than implicitly
+        # returning None (CodeQL: "mixed implicit/explicit returns", #320).
+        raise OllamaError(f"Chat with '{model}' failed: retries exhausted")
 
     def chat_stream(
         self, model: str, messages: list[dict], mode: str | None = None

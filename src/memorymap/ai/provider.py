@@ -391,6 +391,23 @@ class Provider:
     #: answer at all.
     THINKING_ALLOWANCE_TOKENS = 1_024
 
+    #: **Detailed asks for more thinking, so it needs more room for it.**
+    #: Reported: with "Detailed" selected, some turns came back with no
+    #: answer at all (or a much shorter one than the setting promised) — the
+    #: original fix above gave every preset the *same* flat 1,024-token
+    #: allowance, but Detailed's own `length_hint` explicitly asks the model
+    #: to "work through the relevant notes, draw connections between them,
+    #: and explain your reasoning" — inviting a longer thinking trace than
+    #: Quick or Normal ever asked for, on a preset whose grounding context is
+    #: usually the largest of the three. A verbose reasoning model given more
+    #: to think about and the same 1,024-token leash starves its own answer
+    #: exactly like §35A.3's Quick-mode case did, just less often — this file
+    #: already predicted it: "1,024 shared between deliberation and answer is
+    #: the same trap in a larger size" (test_thinking_budget.py). Unused
+    #: headroom still costs nothing (see below), so there is no downside to
+    #: sizing Detailed's allowance for the reasoning its own prompt invites.
+    THINKING_ALLOWANCE_BY_MODE = {"detailed": 3_072}
+
     def thinking_allowance(self, mode: str | None, model: str) -> int:
         """Headroom for deliberation, unless thinking was actually turned off.
 
@@ -412,9 +429,9 @@ class Provider:
         A total failure on one side and a slightly long answer on the other is
         not a close call.
         """
-        return 0 if self.request_extras(mode, model).get("think") is False else (
-            self.THINKING_ALLOWANCE_TOKENS
-        )
+        if self.request_extras(mode, model).get("think") is False:
+            return 0
+        return self.THINKING_ALLOWANCE_BY_MODE.get(mode or "", self.THINKING_ALLOWANCE_TOKENS)
 
     def runtime_options(
         self,
@@ -629,6 +646,55 @@ class _ToolTextGate:
         return not self._open
 
 
+def _balanced_json_objects(text: str) -> list[tuple[int, int, str]]:
+    """Every brace-balanced ``{...}`` substring in ``text``, as (start, end,
+    substring) triples in the order they open.
+
+    A model's tool-call arguments are routinely themselves an object or
+    contain a list of objects — ``{"name": "create_note", "arguments":
+    {"title": "x", "tags": ["a", "b"]}}`` is a completely ordinary call, not
+    an edge case — so a scanner for this has to track real nesting depth
+    rather than assume one flat level. Quoted braces (inside a JSON string
+    value) are not counted, so a title like ``"Notes on {curly braces}"``
+    can't desync the depth count.
+    """
+    found: list[tuple[int, int, str]] = []
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] != "{":
+            i += 1
+            continue
+        depth = 0
+        in_string = False
+        escape = False
+        j = i
+        while j < n:
+            ch = text[j]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+            elif ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    found.append((i, j + 1, text[i : j + 1]))
+                    break
+            j += 1
+        # Resume scanning right after this object (found) or right after the
+        # unmatched '{' (ran off the end unbalanced) — either way, before j+1
+        # so an object nested immediately inside isn't scanned as if it were
+        # top-level too.
+        i = j + 1
+    return found
+
+
 def extract_text_tool_calls(
     content: str, tool_names: set[str]
 ) -> tuple[list[dict], str]:
@@ -637,18 +703,24 @@ def extract_text_tool_calls(
     calls in prose, so notes the AI 'creates' never actually get made).
 
     Handles both an explicit ``<tool_call>{...}</tool_call>`` wrapper and a
-    bare JSON object that names a known tool. Returns (calls, cleaned_text)
+    bare JSON object that names a known tool — nested objects and arrays in
+    ``arguments`` included, via `_balanced_json_objects` rather than a regex
+    that only matched a single flat level (a call with, say, a `tags` list
+    or a nested `arguments` object silently failed to recover — arguably the
+    single most common shape a real tool call takes, and reported live as
+    "the ai didn't actually call any tools"). Returns (calls, cleaned_text)
     where cleaned_text has the recovered JSON removed so it isn't shown to
     the user."""
     calls: list[dict] = []
     cleaned = content
 
-    def _consume(blob: str, whole: str) -> None:
+    def _consume(blob: str, whole: str) -> bool:
         try:
             data = json.loads(blob)
         except ValueError:
-            return
+            return False
         candidates = data if isinstance(data, list) else [data]
+        matched = False
         for item in candidates:
             if not isinstance(item, dict):
                 continue
@@ -663,16 +735,35 @@ def extract_text_tool_calls(
                     except ValueError:
                         args = {}
                 calls.append({"name": name, "arguments": args if isinstance(args, dict) else {}})
-                nonlocal cleaned
-                cleaned = cleaned.replace(whole, "")
+                matched = True
+        if matched:
+            nonlocal cleaned
+            cleaned = cleaned.replace(whole, "")
+        return matched
 
-    # 1) explicit <tool_call>…</tool_call> blocks (Qwen/Hermes style).
-    for match in re.finditer(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", content, re.S):
-        _consume(match.group(1), match.group(0))
-    # 2) a bare top-level JSON object naming a known tool.
+    # 1) explicit <tool_call>…</tool_call> blocks (Qwen/Hermes style). The
+    # object inside is found by scanning from the opening tag rather than a
+    # `.*?` regex, which stops at the first `}` — the *first nested one* the
+    # moment `arguments` is itself an object, well short of the call's own
+    # close.
+    for tag_match in re.finditer(r"<tool_call>\s*(.*?)\s*</tool_call>", content, re.S):
+        inner = tag_match.group(1)
+        # All of them, not just the first: a model that puts more than one
+        # call inside one pair of tags (`<tool_call>[{...}, {...}]</tool_call>`,
+        # or just two objects back to back) still means every call, not only
+        # the first it wrote.
+        for _start, _end, blob in _balanced_json_objects(inner):
+            _consume(blob, tag_match.group(0))
+    # 2) a bare top-level JSON object naming a known tool. `_balanced_json_
+    # objects` only ever emits the outermost `{...}` at each position (it
+    # jumps past a whole matched span rather than re-entering it), so a
+    # call's own nested `arguments` object is never separately offered as a
+    # second, spurious call.
     if not calls:
-        for match in re.finditer(r"\{[^{}]*\"name\"[^{}]*\}", content, re.S):
-            _consume(match.group(0), match.group(0))
+        for _start, _end, blob in _balanced_json_objects(content):
+            if '"name"' not in blob:
+                continue
+            _consume(blob, blob)
 
     return calls, cleaned.strip()
 

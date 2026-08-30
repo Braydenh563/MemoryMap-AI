@@ -115,27 +115,18 @@ F. **Three things this environment cannot verify**, all needing a real
 G. **The whiteboard's own refinement pass**, beyond the panel-collision fix.
    Its backend efficiency and feature gaps were never audited.
 
-A. **First-class llama.cpp support.** Prioritised by direct instruction.
-   The honest starting point, which changes the shape of the work: the app
-   *already* talks to llama.cpp, because `llama-server` speaks the OpenAI
-   API and `ai/openai_client.py` speaks that. So this is not "add a
-   backend" — it is three smaller things:
-   1. **Say so.** `core/extras.py` still lists `llama-cpp-python` as
-      "not wired into the chat backend yet" with the button disabled,
-      which reads as "llama.cpp is unsupported" when the supported route
-      is `llama-server` and needs no extra at all. Rewrite that entry and
-      document the `--host/--port` recipe in the Models screen.
-   2. **Detect it.** `provider.detect_provider` guesses from the URL;
-      llama-server's `/props` endpoint identifies it exactly and reports
-      `n_ctx`, which is a better context number than the app's own
-      guess-from-name table.
-   3. **Then decide on in-process.** Embedding `llama-cpp-python` means
-      shipping a compiled wheel per platform *and* per accelerator (CUDA,
-      ROCm, Metal, CPU), owning model load/unload and VRAM, and keeping a
-      GIL-blocking call off the event loop. That is a permanent
-      maintenance cost for something steps 1–2 already deliver. Do it only
-      if "no separate server to run" turns out to matter more than that
-      cost — and measure the wheel matrix before committing.
+~~A. **First-class llama.cpp support.**~~ **Steps 1–2 built.** Step 1
+   ("say so" in `core/extras.py`) turned out already done, found stale in
+   this file rather than in the code. Step 2: `OpenAICompatClient` now
+   probes `llama-server`'s own `/props` (`_fetch_props`/`is_llama_cpp`,
+   `ai/openai_client.py`) as a fallback context-length source, ranked
+   between the per-model catalogue entry and the guess-from-name table —
+   plain llama.cpp reports neither `loaded_context_length` nor
+   `max_context_length` on `/v1/models`, so this is a real number in place
+   of a guess. 2 new tests (`test_providers.py`). **Step 3 (in-process
+   `llama-cpp-python`) stays explicitly not done** — the wheel-matrix cost
+   this item's own §97 narrative (HANDOVER.md) weighed against it still
+   holds, and nothing changed it.
 Items 1–2, below, are the ones with real substance after that.
 
 ~~1. **Vision-capable models could not be shown an image.**~~ **Built.**

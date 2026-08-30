@@ -1038,6 +1038,17 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   margin: 0 0 var(--space-8);
 }
 
+/* ".All" is 3 characters next to "Image Gallery"'s 13, so `.seg button`'s
+   content-sized padding alone left it roughly half the click width of its
+   neighbours — reported live as easy to miss on the first click. A shared
+   min-width brings every tab in this particular strip up to the same floor
+   without touching `.seg` generally, which other, already-similar-length
+   segmented controls (Open/All/Done, List/Calendar) don't need. */
+.library-subtabs button {
+  min-width: 6.5rem;
+  text-align: center;
+}
+
 .library-view-section {
   flex: 1;
   overflow-y: auto;
@@ -1957,6 +1968,12 @@ dialog::backdrop {
   gap: var(--space-3);
   row-gap: var(--space-3);
   align-items: center;
+  /* The comment above already claimed "wrap as whole controls" but the
+     property itself was never set, so a narrow window (or the chat dock
+     open beside this tab) pushed the later buttons straight off the card's
+     right edge instead of dropping to a second line. Reported live as
+     "overflowing text at the bottom in the capture tab". */
+  flex-wrap: wrap;
   --control-h: 2.5rem;
   /* The two rows had gap *within* themselves (label→control→button) but
      nothing *between* them — neither row carries its own margin, so "Add to

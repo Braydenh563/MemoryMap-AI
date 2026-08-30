@@ -136,6 +136,7 @@ class OpenAICompatClient(Provider):
         # on the path that is already the slowest thing the app does.
         self._context_lengths: dict[str, int | None] = {}
         self._catalog: list[dict] | None = None
+        self._props: dict | None = None
 
     # --- plumbing -----------------------------------------------------------
 
@@ -222,14 +223,20 @@ class OpenAICompatClient(Provider):
     def context_length(self, model: str) -> int | None:
         """The window this server actually loaded the model with.
 
-        Three sources, best first: what the catalogue reports for this exact
-        model, then what the app knows about the model by name, then None.
+        Four sources, best first: what the catalogue reports for this exact
+        model, then `llama-server`'s own `/props` (ROADMAP.md item A.2), then
+        what the app knows about the model by name, then None.
 
         `loaded_context_length` beats `max_context_length` when both are
         present, and that ordering is the whole point on LM Studio: a model
         *capable* of 128k that was loaded at 4k will drop the front of the
         prompt — the system prompt, telling it that it has tools — if the app
         budgets against what it could have held rather than what it did.
+        `/props`' own `n_ctx` is the same fact for `llama-server`, which
+        reports neither `loaded_context_length` nor `max_context_length` on
+        its plain `/v1/models` — the actual `-c` the server was started
+        with beats this app's guess-from-model-name table for the same
+        "what it could hold vs. what it did" reason.
         """
         if model in self._context_lengths:
             return self._context_lengths[model]
@@ -245,9 +252,52 @@ class OpenAICompatClient(Provider):
                 length = context_from_catalog_entry(entry)
             break
         if length is None:
+            n_ctx = self._fetch_props().get("n_ctx")
+            if isinstance(n_ctx, (int, float)) and n_ctx > 0:
+                length = int(n_ctx)
+        if length is None:
             length = known_context(model)
         self._context_lengths[model] = length
         return length
+
+    def _fetch_props(self) -> dict:
+        """`llama-server`'s own `/props` — ROADMAP.md item A.2: "detect it".
+
+        A sibling of `/v1`, the same shape `/api/v0/models` (LM Studio) is —
+        `self._origin()`, not `self.base_url`. Only `llama-server` answers
+        this; every other OpenAI-compatible server 404s or times out, which
+        is exactly why this is a *fallback* source in `context_length`
+        rather than tried first. Cached for the life of the process, the
+        same reasoning `self._catalog`'s own cache gives: `n_ctx` is fixed
+        at server start (`-c`), so re-probing per turn would cost a round
+        trip on the slowest path in the app for a value that cannot change
+        without a restart.
+        """
+        if self._props is not None:
+            return self._props
+        try:
+            response = requests.get(
+                f"{self._origin()}/props", headers=self._headers(), timeout=2
+            )
+            response.raise_for_status()
+            props = response.json()
+        except (requests.RequestException, ValueError, AttributeError):
+            props = {}
+        self._props = props if isinstance(props, dict) else {}
+        return self._props
+
+    def is_llama_cpp(self) -> bool:
+        """Whether this server is specifically `llama-server`, not just
+        something OpenAI-shaped.
+
+        `/props` is llama.cpp's own endpoint — nothing else in the
+        OpenAI-compatible long tail implements it, so answering it at all
+        (with the one field every version of it has always reported) is
+        the identification itself, the same way LM Studio is told apart by
+        `/api/v0/models` answering. No wire format is shared beyond that;
+        this does not assume any other `/props` field's shape.
+        """
+        return "n_ctx" in self._fetch_props()
 
     def _catalog_entry(self, model: str) -> dict:
         """This model's row in the `/models` catalogue, or an empty dict.
@@ -625,6 +675,10 @@ class OpenAICompatClient(Provider):
                 raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
             except (requests.RequestException, KeyError, IndexError, TypeError, ValueError) as exc:
                 raise ProviderError(f"Chat with '{model}' failed: {exc}") from exc
+        # Unreachable: every branch above either returns or raises. Only here
+        # so the function reads as exhaustive rather than implicitly
+        # returning None (CodeQL: "mixed implicit/explicit returns", #321).
+        raise ProviderError(f"Chat with '{model}' failed: retries exhausted")
 
     def chat_stream(
         self, model: str, messages: list[dict], mode: str | None = None

@@ -1,6 +1,466 @@
 # Session handover
 
-## New session — a cross-conversation data bug, prompt cost, tool focus (§94)
+## New session — a live bug-report batch, a real tool-call parsing bug, one reverted attempt (§97)
+
+Branch `claude/ui-improvements-bugs-arf9gy`. A user-reported batch of ten UI/UX
+bugs plus one backend cluster, worked one at a time and verified live in
+Chromium (Playwright) rather than reasoned from source — CLAUDE.md's own
+standing instruction, and it caught a real self-inflicted bug before it
+shipped (see below). 2,355 tests pass; ruff clean.
+
+### What was built
+
+- **Capture tab overflow** (Notes → Capture): `.capture-field-row` had a
+  comment claiming "wrap as whole controls" but never actually set
+  `flex-wrap: wrap` — at any width narrower than all seven buttons in the
+  "File under" row, the later ones ran off the card's right edge instead of
+  dropping to a second line. Fixed, and `#entry-attach-file`/
+  `#entry-attach-existing` moved up to the "Add to document" row per direct
+  request (that row had room; "File under" was the crowded one).
+- **Library "All" tab width**: `.seg button` sizes to content, so "All" (3
+  chars) was roughly half the click-width of "Image Gallery" (13). Scoped
+  `min-width: 6.5rem` to `.library-subtabs button` only.
+- **Whiteboards subtab**: board cards were a bare `<button>` with a title and
+  an item count — no rename, no delete, no search, unlike the Documents
+  subtab beside it. Rewritten to the same `<article role="button">` +
+  kebab-menu shape `libraryCard()`/the doc list already use (Rename via the
+  existing `PUT /whiteboard/boards/{id}`, Delete via `DELETE /entries/{id}`
+  — a board is just a note), plus a `#library-boards-search` search box
+  matching Documents'.
+- **Settings toggle consistency**: audited all 17 settings sections plus the
+  tool list and library toggles live. The broad
+  `.settings-section label>input[type="checkbox"]` selector
+  (06-timeline-dialogs.css) already catches essentially every toggle in the
+  app regardless of the label's own class, and every one screenshotted
+  rendered as the same pill switch. **No code change was needed here** —
+  logged so a future session doesn't re-audit this from scratch.
+- **About page redesign**: wrapped into `.settings-group` boxed sections
+  (hero/Updates/Get oriented/Keyboard shortcuts) matching every other
+  settings page's visual language; the three update toggles were the one
+  place left still laid out label-then-pill instead of pill-then-label,
+  fixed to match. Help page: every "Settings → X" mention that was inert
+  text is now a real `data-goto-section` link (the same cross-link
+  mechanism Preferences already had one instance of), plus two new
+  "Related:" link rows on topics that had no settings mention at all.
+- **Back/forward now covers Settings.** `tabHistory` (app.js) never recorded
+  opening Settings or switching its sections — asked for directly. It does
+  now (`showSettingsSection` calls `recordTabVisit("settings", name)`), and
+  `stepTabHistory` opens/closes the modal on replay. The status bar's own
+  back/forward buttons are covered by the modal overlay once it's open
+  (`.modal-overlay` is deliberately above the status bar's z-index), so a
+  second pair of the same buttons lives in the Settings header itself,
+  wired to the identical `stepTabHistory` handlers.
+- **Status bar clock**: opt-in (`status_bar_clock` preference, default off —
+  unlike the existing opt-out `STATUS_SLOTS`, a clock is not an existing
+  landmark), `#status-clock`, painted every 30s.
+- **Image gallery kebab + lightbox**: the gallery's own kebab is a
+  `<summary>` (a `<details>` disclosure), and the base `button {
+  border-radius }` rule only ever reaches real `<button>` elements — it
+  rendered as a plain square next to every other (real-`<button>`) kebab in
+  the app. Fixed with an explicit `border-radius` on
+  `.library-image-menu-btn`. The reported "popup gets cut off" and "lightbox
+  closes instead of looping" could **not be reproduced live** after
+  multiple viewport widths and tile positions — both already work (the
+  flip-left/flip-up measurement in library.js, and `show()`'s own modulo
+  wraparound in app.js). **Do not re-fix these blind** if reported again;
+  ask for the exact viewport/window size first.
+- **Lightbox arrow centring** (reported mid-session, not in the original
+  batch): `.lightbox-nav` never reset the inherited `button { padding: 0.5rem
+  1rem }`, unlike its sibling `.lightbox-close` which does. 1rem of
+  horizontal padding left ~8px of content box for a ~21px glyph — CSS
+  Grid's "safe centre" fallback then aligned the oversized glyph to the
+  padding box's start edge instead of overflowing symmetrically, which
+  measured as a consistent ~6.6px rightward shift on *both* arrows
+  (confirmed via `getBoundingClientRect`, not eyeballed). `padding: 0` fixed
+  it; offset is now exactly 0.
+- **Chat sidebar "Browse all in Library"**: centred to match the Documents
+  sidebar's copy, on direct request (this reverses an earlier session's own
+  reasoning for why they *should* differ — see 05-sidebars-themes.css's
+  comment trail for both directions of that decision).
+- **Activity**: three real fixes, not a redesign.
+  1. *Placement* — asked for directly. Not a kind of thing you made (already
+     excluded from "Everything"'s own count), so `.library-chip-activity`
+     now sits at the filter row's far end with a divider, instead of buried
+     as the eleventh of eleven chips.
+  2. *Noise* — `PUT /preferences` logged an audit row for **every** key
+     changed, `ui_state` included, which is the interface's entire
+     appearance/theme/corners/zoom/glass state behind one key. Dragging a
+     slider or ticking a status-bar item produced the identical "Edited your
+     settings" row as changing the model backend. `_QUIET_PREFERENCE_KEYS`
+     (routes_settings.py) skips the audit write for `ui_state` and four
+     other cosmetic/one-shot keys — `config.set_preference` still runs for
+     all of them, only the log entry is skipped. Verified live: two
+     `#glass-toggle` clicks produced zero new `/audit` rows; a real
+     `display_name` change still logged one.
+  3. *Truncation* — the card preview was already correctly un-clamped
+     (00-tokens-shell.css says so in its own comment), but the **backend**
+     hard-truncates `detail` at `ACTIVITY_DETAIL_CHARS` (400) before it ever
+     reaches the browser, with no way to see the rest. Clicking an activity
+     card with no related note (most of them — a preference edit, a tag
+     merge) now opens `showDetailDialog` (new, app.js — confirmDialog's
+     shape, read-only), fetching the full un-clipped text via a new `id`
+     filter on `GET /audit`.
+- **Tool-call parsing — a real, confirmed bug, not a hypothesis.**
+  `extract_text_tool_calls`'s bare-JSON fallback (provider.py, for models
+  that narrate a tool call as text instead of using the structured field)
+  used `\{[^{}]*"name"[^{}]*\}` — a regex that structurally **cannot** match
+  across a nested brace. `{"name": "create_note", "arguments": {"tags":
+  [...]}}`, an entirely ordinary shape, silently failed to recover and the
+  whole call was dropped — the exact symptom reported ("the ai didn't
+  actually call any tools"). The `<tool_call>…</tool_call>`-wrapped path
+  turned out *not* to share the bug (the closing tag anchors the match past
+  one level of nesting), but was rewritten anyway onto the same
+  brace-counting scanner (`_balanced_json_objects`, new) for uniformity and
+  so a wrapper holding more than one call recovers all of them, not just the
+  first. Four new tests, all passing (`test_agent_tools_api.py`).
+- **`notebook_overview` tool** (new): categories + tags + total note count
+  in one call, replacing three separate round-trips (`list_categories`,
+  `list_tags`, `count_notes`) a skill wanting "the notebook's shape" used to
+  need — asked for directly, and it is the literal pattern the "Tidy
+  suggestions" skill screenshot in the ask showed. Wired into "Notebook
+  health check" and "Tidy suggestions" (skills.py), both their `tools` list
+  and their step-1 instruction text. All three narrower tools are untouched
+  and still offered.
+- **ROADMAP.md item A (llama.cpp), steps 1–2.** Step 1 ("say so" in
+  `core/extras.py`) turned out already done by an earlier session — the
+  ROADMAP text describing it as still-needed was the only thing stale.
+  Step 2: `OpenAICompatClient` now probes `llama-server`'s own `/props`
+  (`_fetch_props`/`is_llama_cpp`, `ai/openai_client.py`) as a
+  context-length source, ranked between the per-model catalogue entry and
+  the guess-from-name table — plain llama.cpp reports neither
+  `loaded_context_length` nor `max_context_length` on `/v1/models`, so
+  this is a real number (the actual `-c` the server was started with) in
+  place of a guess. Six existing tests across `test_providers.py`/
+  `test_model_specs.py` that construct `OpenAICompatClient` directly
+  needed `c._props = {}` added alongside their existing `c._catalog = []`
+  — the same hermetic-by-default convention `_catalog` already required,
+  extended to the new network-touching source rather than left as a live
+  call waiting to happen in a test. Two new tests. **Step 3 (in-process
+  `llama-cpp-python`) stays explicitly not done** — the wheel-matrix cost
+  ROADMAP.md's own item A weighs against it wasn't reassessed and still
+  applies.
+- **Image gallery popup, actually cut off this time — the mid-session
+  report was right and the earlier "couldn't reproduce" note above was
+  about a different failure mode.** The existing flip logic
+  (`library.js`'s `menu.addEventListener("toggle", ...)`) only ever
+  corrected *right*-edge overflow by swapping to a second *fixed* anchor
+  (`left: 0`, growing right) — nothing checked whether the menu's
+  **default** position already ran past the *left* edge, which is exactly
+  what a narrow (single- or two-column) gallery does: the popup
+  (`min-width: 13rem`) is wider than the tile it hangs off. Fixed with a
+  post-flip clamp — re-measure after the flip decision and nudge back
+  into bounds with `transform: translateX(...)`, which works regardless of
+  which fixed anchor ended up active. Verified live at 480px width
+  (previously cut off, per the user's own screenshot) and re-verified the
+  already-working flip-up case at 520px still needs no correction.
+- **BACKLOG.md §95 items D.13 and D.14, from the ranked brainstorm.** D.13
+  ("private notes need an audit trail") turned out already built —
+  `get_entry` already logs `"decrypted"` for a private note read while
+  unlocked; the backlog entry was stale, not the code. D.14 ("export a
+  single note/document — full export exists, no way to hand one note to
+  someone") was real: `GET /entries/{id}/export.md`, mirroring
+  `routes_documents.py`'s own `export_markdown` (title-as-H1 preamble,
+  skipped when the note already starts with one; the same filename
+  sanitiser, kept as its own local copy rather than shared — the two
+  routes' only overlap). A "Download .md" item on a note's own overflow
+  menu (`entryOverflowMenu`, app.js) and its Library "All"-view card menu
+  (`libraryActions`, library.js), in the same spot the Document kind's own
+  copy already sits in both. 4 new tests (`test_api_entries.py`), verified
+  live end to end (menu item present, download returns the right content
+  and filename).
+- **BACKLOG.md §95 item 11 ("recurring notes / templates with dates").**
+  Another "mostly already built" case: `applyTemplate()` (app.js) already
+  does `content.replace("{date}", new Date().toLocaleDateString())` on
+  whatever template content is applied — the built-in Journal template
+  already uses it, and it works for a user's own custom template too,
+  since the substitution is generic. The actual gap was discoverability:
+  the Templates settings "Add your own" form never told a user `{date}`
+  was a thing. Added a one-line `<p class="muted">` tip under the
+  custom-template textarea; verified live (Playwright, Settings →
+  Templates) that it renders where intended. No backend change, no new
+  mechanism — a documentation-in-the-UI fix, not a feature build.
+
+- **BACKLOG.md §95 item 16 ("a real empty state for every tab") and a real
+  bug it uncovered.** The Library's "All" and Image Gallery subtabs already
+  had the icon+title `.empty-state` component; Documents and Whiteboards
+  sat right beside them with a bare `<p class="muted">` one-liner instead.
+  Converted both to the same markup — then discovered live that the fix
+  did nothing: `renderLibraryDocuments()` (library.js) and
+  `renderLibraryBoardsGallery()` (whiteboard.js) both called
+  `empty.textContent = "..."` on every render, for the "your search matched
+  nothing" case, which silently wipes any child markup — including the new
+  icon and title, replacing them with a plain string the instant the
+  function ran. A source-only review would have seen the new HTML and
+  called it done; only a live re-render (not just the initial forced
+  screenshot) showed it reverting to plain text — exactly the trap
+  CLAUDE.md's UI caveat exists to catch.
+  Fixed by giving each subtab its own `*-no-match` sibling element for
+  that message (the pattern `library-images-empty`/`library-images-no-match`
+  already used correctly), so the real empty-state element is never
+  textContent'd over again. Verified live in all three states — genuinely
+  empty (icon shows), search-with-no-matches (plain text, no icon),
+  search-with-results (grid shows, both hidden) — via `page.route()`
+  stubbing `/documents`, `/whiteboard/boards` and `/media` to return `[]`
+  so the *real* render path ran rather than a manual `classList` poke.
+  `#conv-empty` (chat sidebar) and `#doc-empty` (Documents tab's own
+  sidebar list) were deliberately left as plain text: narrow sidebar
+  columns, not the wide grid panes the icon treatment is sized for, and
+  no report named them.
+- **BACKLOG.md §95 item 20 ("backup retention should be a setting")
+  found already built** while re-reading the list for the next item —
+  `#backup-retention` in Settings → Data is a real preference already,
+  not the hard cap the backlog entry described. Marked done; the CHANGELOG
+  already recorded the work in an earlier batch this session, the backlog
+  entry itself just hadn't been struck through.
+
+- **A live bug report mid-session: "Detailed" mode not sticking to its own
+  length/complexity.** User-reported with a screenshot: the Notes tab's Ask
+  box, set to Detailed, appeared to answer with much less than the setting
+  promises. Traced through `ai/presets.py` -> `ai/provider.py`'s
+  `generation_budget`/`thinking_allowance` -> `routes_chat.py`'s
+  `plain_events` and confirmed the wiring (mode threading, length_hint,
+  num_predict) is all correct end to end — the actual bug is a scaling
+  mismatch `test_thinking_budget.py` already named without fixing:
+  `THINKING_ALLOWANCE_TOKENS` is a flat 1,024 tokens for every preset, but
+  Detailed's own prompt explicitly invites more reasoning than Quick or
+  Normal ever ask for ("work through the relevant notes, draw connections
+  between them, and explain your reasoning"). `num_predict` bounds thinking
+  *and* answer together, so a verbose reasoning model given more to think
+  about and the same fixed leash starves its own answer — precisely the
+  mechanism §35A.3 already fixed for Quick mode, just less often, on the
+  preset whose whole point is a longer answer. Fixed by giving Detailed its
+  own larger allowance (3,072) via a small per-mode override map rather than
+  the flat constant. **Not reproduced against a live model** — no Ollama in
+  this sandbox — but the code-level trap is real, already flagged in the
+  existing test file's own docstring, and the fix is a minimal, targeted
+  version of what that docstring already called for.
+- **Another live report, this one about a launcher script this sandbox
+  cannot run at all: the PS1 splash's progress bar "doesn't actually
+  progress."** `scripts/splash.ps1` never calls
+  `[System.Windows.Forms.Application]::EnableVisualStyles()`. Without it,
+  WinForms uses the classic unthemed renderer for every control in the
+  process, and that renderer does not animate a Marquee-style ProgressBar at
+  all — a second, independent cause of the exact "bar just stays empty"
+  symptom this same file already fixed once (by removing the bar's
+  ForeColor/BackColor, which is a *different* way to disable the themed
+  renderer, on that one control only). Added the missing call. **This
+  sandbox has no Windows or PowerShell runtime — could not run the script,
+  only read it.** Standard, well-established WinForms/PowerShell practice,
+  and consistent with everything the file's own comments already say about
+  this exact bug class, but say so plainly rather than claim it was seen
+  working.
+- **Follow-up ask: "an equivalent for linux and mac as well."** Linux
+  already had one (zenity, in `start.sh`) — that one was already built. The
+  gap was macOS: the existing comment already explains *why* a macOS splash
+  was skipped ("no equivalent that is not a modal stealing focus"), but that
+  reasoning is about `osascript`'s `display dialog`, and never considered
+  `display notification` — the native, non-modal banner that needs no click
+  and steals no focus. Added a `notify` mode alongside the existing `zenity`
+  mode in `mm_splash()`/`mm_splash_done()`, gated on `uname = Darwin` and
+  `osascript` being present. AppleScript-escaped (not shell-escaped) via a
+  small `sed`, verified by actually running the extracted function against a
+  fake `osascript` in this sandbox (bash exists here even though the real
+  macOS dialog does not) with both a plain phase string and one containing
+  literal `"` and `\` — both produced a well-formed, correctly-escaped
+  `display notification` call. `mm_splash_done` needed no change for this
+  mode: a notification fires and clears on its own, nothing is left running
+  to own or kill.
+- **BACKLOG.md §95 items A.2 and A.3, from the ranked brainstorm.** A.2
+  (model health card): Settings → Models' existing spec table gained a
+  plain-language line — "a long chat will start dropping its earliest
+  messages after roughly N exchanges" — computed client-side from
+  `usable_context`, mirroring `ai/context.py`'s own shares
+  (CHARS_PER_TOKEN, OUTPUT_RESERVE_SHARE, HISTORY_SHARE) rather than asking
+  the backend, since this is explicitly an approximation (an average
+  exchange length is itself a guess) and that module's own docstring says
+  why: "approximately right on every model beats being exactly right on
+  one." Verified live via `page.route()` stubbing `/models/spec` at three
+  window sizes (3,000 / 8,192 / 100,000 tokens) in three separate page
+  contexts — a shared-page loop produced misleading repeated results at
+  first because of Playwright route-stacking, not an app bug; isolating
+  each case in its own page confirmed the real numbers (5, 10, and "large
+  window" respectively) match the formula.
+  A.3 (per-task model routing): the data already existed —
+  `taskhistory.record`'s `name` param, already set by captioning and OCR —
+  but `renderTaskHistory` (app.js) never rendered it. One line to show it
+  next to the relative timestamp; also added `name=` to the autonomous
+  pass's own recording, which used the utility model but never said so.
+  Verified live (stubbed `/tasks`) and with a new pytest for the autonomous
+  case.
+- **BACKLOG.md §95 item 20, found already done** while re-reading the list
+  for the next item — Settings → Data's backup retention control already
+  exists as a real preference; the backlog entry just hadn't been struck
+  through.
+
+- **New session, continuing straight from this handover's own "start here"
+  list.** BACKLOG.md §95 item 6 (recency/pinning as a retrieval signal):
+  built as a third RRF-fused ranked list in `search_manager.py`'s hybrid
+  path — the candidates both searches already agreed on, reordered by
+  pinned-first / most-recently-touched, never a new source of matches.
+  New test isolates it (two notes tied exactly on relevance, pinning the
+  older one flips what would otherwise always be an id tie-break).
+  Item 17 (keyboard-first navigation) turned out already built and wired
+  (`initEntryListKeyboardNav()`, called at module load) — verified live
+  (Up/Down/Enter all correct) and marked done rather than rebuilt.
+- **Two more live UI reports, both fixed.** Settings -> About's five
+  toggles were still bare `<label>`s despite an earlier pass's comment
+  claiming they'd been lined up with the rest of the app — only DOM order
+  changed, the actual `.check-row` class (the pill/box/hover treatment)
+  never got applied. Fixed, screenshot-verified against the reference
+  toggle. Separately: the Settings modal's back/forward nav arrows measured
+  43px square next to a 30px Close button — `.icon-only`'s padding and
+  `.small`'s padding both target the same physical sides, and whichever
+  CSS file loaded second was winning by accident, not by design;
+  `aspect-ratio: 1` then squared the wrong width into a wrong height too.
+  Fixed with a compound selector (specificity beats file order), which
+  benefits every other `.small.icon-only` control in the app, not just
+  these two — swept Library and Notes screenshots afterward to confirm
+  nothing else got too cramped.
+
+- **Version bumped to 0.1.6**, per RELEASING.md's own checklist steps 1-2
+  only: `__version__` (src/memorymap/__init__.py) and `pyproject.toml`
+  bumped, `CHANGELOG.md`/`docs/CHANGELOG.md`'s `[Unreleased]` renamed to
+  `[0.1.6]` with a fresh empty `[Unreleased]` above it. **Deliberately not
+  tagged or pushed** — step 4 of that checklist is a real, hard-to-reverse
+  action (triggers the public release workflow: a GitHub Release, a Windows
+  installer build) and RELEASING.md itself says to tag from a commit
+  already on `main`, not an unreviewed feature branch. Tag `v0.1.6` and
+  push once this branch has actually merged.
+- **Live report: the Quick sketch pad's highlighter had no visible
+  opacity — "basically a thick pen."** Root cause: `sketchMove` (app.js)
+  opens one canvas path per stroke and keeps extending it with `lineTo()`
+  on every pointer-move, calling `stroke()` each time — but `stroke()`
+  strokes the *entire accumulated path*, not just the newest segment, so a
+  ten-point stroke recomposited its first segment ten times over. Invisible
+  on the plain pen (opaque twice is still opaque); at the highlighter's
+  0.35 alpha, ~10 overlapping passes already reads as ~99% opaque
+  (1-(1-0.35)^10). The whiteboard's own highlighter (a different, SVG-path
+  code path) never had this bug — worth knowing before assuming "the
+  highlighter" means one implementation; there are two. Fixed by reopening
+  the path from the current point after every `stroke()` call. Verified by
+  sampling canvas pixel colour before/after a real 15-point mouse-driven
+  stroke (not synthetic events — those need real `getBoundingClientRect()`
+  coordinates `sketchPointer()` computes from, and synthetic events without
+  a positioned canvas under them silently drew nothing, a dead end worth
+  flagging for next time): the repeatedly-touched start and once-touched
+  end of the stroke now composite identically.
+- **Live report: arrow-key list navigation should follow-scroll "like the
+  command palette."** Checked live first rather than trusting the
+  premise — the command palette itself was *also* broken (confirmed: 15x
+  ArrowDown on a 34-command list left the selection off-screen, `scrollTop`
+  never moved). `renderPalette` rebuilds the whole list from scratch on
+  every keypress, so `.active` is a plain CSS class on an element that was
+  never focused — nothing for the browser's native scroll-on-focus to
+  follow. Added an explicit `scrollIntoView({block:"nearest"})` after every
+  arrow-key move; the same defensive fix went onto the Notes list's
+  roving-tabindex nav (which uses real `.focus()`, so likely already
+  worked in practice, but native focus-scroll behaviour isn't guaranteed
+  across browsers) and the `[[wiki-link]]` autocomplete popup.
+- **Settings → Help's link gap.** Checked which of the 13 topics had a
+  "Related settings" link and which didn't; Reminders and Dashboard had
+  real settings to point to (a notification-mute toggle, the dashboard
+  greeting name — both in Preferences) and just weren't wired up, fixed.
+  Graph, Library, Timeline and Spaces genuinely have nothing in Settings of
+  their own — no link added for those; a manufactured link to something
+  unrelated would be worse than none.
+- **Two more live-reported small UI fixes**, folded into the same batch:
+  Settings → About's five toggles were bare `<label>`s missing the
+  `.check-row` class that actually provides the pill/box/hover treatment
+  (an earlier pass's own comment had claimed they matched); and every
+  `.small.icon-only` control in the app (Settings nav arrows measured 43px
+  square next to a 30px Close button) was oversized because `.icon-only`'s
+  padding and `.small`'s padding target the same physical sides and
+  whichever CSS file loaded second won by accident — fixed generally with
+  a compound selector.
+
+- **Follow-up to the Help topic links above, same wake: "the reminders help
+  section should go to the reminders tab... and same for the others."**
+  The links added moments earlier only ever pointed at Settings sections —
+  a fair complaint, since a Help topic about a *tab* has no business
+  routing you into Settings first. Added a second delegated-click
+  mechanism, `[data-goto-tab]`, alongside the existing
+  `[data-goto-section]` in settings.js: closes the modal, calls
+  `switchTab()`. Wired onto every topic that has a real tab to send you to
+  (Capturing notes -> Notes, Asking & chatting -> Chat, Skills -> Chat,
+  Graph -> Graph, Reminders -> Reminders, Dashboard -> Dashboard, Library
+  -> Library, Timeline -> Timeline); Reminders and Dashboard keep their
+  Settings links too, since both actually have one. Verified live: closing
+  the modal and landing on the right active tab, not just navigating
+  Settings to a section that mentions it.
+
+### Tried, and reverted — read before attempting again
+
+**Skill steps marked "done" despite not meeting their own criteria.** The
+mechanical safeguards already in skill_runner.py are more thorough than they
+first look — four separate prior sessions' fixes are documented inline there
+(ran-out-of-rounds, went-offline, tool-failed-with-no-answer, and
+empty-answer-with-no-tool-call all already stop the run and report
+`"failed"`/`"stalled"` rather than `"done"`). The remaining gap — a step
+that produces *some* text and/or runs *some* tool, without that tool or text
+actually satisfying the instruction — genuinely needs semantic judgement
+(a second model call to critique the first) to close in general.
+
+One narrower, mechanical attempt was made and reverted: flag a step "failed"
+if its own instruction names one of the skill's declared tools by literal
+identifier (`"Use rename_tag to merge..."`) and that tool was never called.
+It broke three existing tests (`test_skills.py`) — "Auto-tag my notes"' own
+step 4 is `"Call tag_note on each one..."`, and the check cannot tell "should
+have called it but didn't" from "correctly had nothing to tag". Conditional
+"for each X, do Y" is an extremely common step shape in this skill library,
+and a check that cannot see whether X was empty will false-positive on
+exactly the runs that did nothing wrong. Reverted cleanly (`git diff` on
+`agent.py`/`skill_runner.py` is empty). **Any future attempt at this needs
+either a live model in the loop or the step author to mark which tools are
+actually required vs. incidental** — not a text-mention heuristic.
+
+### Traps this session re-confirmed
+
+- **A stale uvicorn silently serves pre-fix behaviour.** The
+  `_QUIET_PREFERENCE_KEYS` fix above looked like it had done nothing when
+  checked live — the running server predated the edit. `kill <pid>` by PID
+  from `ps aux`, not `pkill`, which matches this session's own shell command
+  line (CLAUDE.md already says so; costs an hour every time it's ignored).
+- **`-->` is not a CSS comment closer.** One CSS edit
+  (05-sidebars-themes.css) accidentally closed a `/* … */` block with `-->`
+  instead of `*/`, which silently swallowed the actual rule into the
+  unterminated comment — `document.styleSheets`/`cssRules` showed the rule
+  simply did not exist, while `curl` of the same file showed it present in
+  the source. Found by comparing the two, not by staring at the CSS. `grep
+  -rn -- "-->" frontend/css/` afterward confirmed it was the only instance.
+
+### What is still open
+
+- The image-gallery cutoff/lightbox-loop reports above — real once, not
+  reproducible now; see their own note.
+- Everything ROADMAP.md already had open before this session (item E, the
+  `app.js` split; item G, the whiteboard's own efficiency/feature audit;
+  item F's three unverifiable-in-this-sandbox items) — untouched this
+  session, still open.
+- A full self-review of this session's own diff for complexity/security
+  issues has not been done as a separate pass — each change was verified
+  individually (tests, ruff, live Chromium) as it landed, but nobody has
+  looked at the whole diff at once yet. A targeted grep pass over the new
+  code specifically (innerHTML/XSS, path traversal, ReDoS) found nothing —
+  see CHANGELOG's absence of a "Fixed — security" entry for this session.
+- **§95 items B.5–B.8, C.9/C.10/C.12, D.15, E.17/E.18, and all of §96
+  (Guides + diagrams) were assessed, not built, this session.** Asked for
+  directly ("finish all of §95 and §96"), and deliberately not attempted at
+  that scope in one sitting: B.7 (re-rank with the utility model) and D.15
+  (an agent dry-run) both need a live model in the loop to verify honestly,
+  which this sandbox does not have; C.9/C.10 (web clipper, email-in) are
+  external-integration surfaces (a bookmarklet/share target, an IMAP
+  poller) larger than a single batch; §96 Guides is a new first-class
+  concept on the scale of Skills or Personas — its own table, budget share,
+  three injection sites, and a Settings CRUD UI — not a bug fix or a
+  one-screen addition, and attempting it alongside everything else above in
+  one sitting was judged more likely to produce the exact failure mode
+  CLAUDE.md warns about (a half-finished implementation, or a feature that
+  never really ran) than to actually finish it. B.6 (recency/pinning in
+  search ranking) and E.16/E.17/E.18 are the most promising *next* items —
+  backend-testable without a live model, no new concept to design — and are
+  where a future session should start.
+
+## Prior session — a cross-conversation data bug, prompt cost, tool focus (§94)
 
 **Full narrative in HISTORY.md §94.** Branch `claude/post-v0.1.4-nav-fixes`.
 2,351 tests pass; ruff clean.

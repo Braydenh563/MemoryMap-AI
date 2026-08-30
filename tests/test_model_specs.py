@@ -142,6 +142,7 @@ def test_capabilities_are_matched_case_insensitively(ollama):
 
 def test_lm_studio_reports_a_rich_spec():
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
+    c._props = {}
     c._catalog = [
         {
             "id": "qwen3-8b",
@@ -167,6 +168,7 @@ def test_a_sparse_server_reports_what_little_it_has():
     six times."""
     c = OpenAICompatClient(base_url="http://localhost:8080/v1")
     c._catalog = [{"id": "qwen3"}]
+    c._props = {}
     spec = c.model_spec("qwen3")
     assert spec["family"] is None
     assert spec["quantisation"] is None
@@ -179,6 +181,7 @@ def test_the_openai_dialect_admits_it_cannot_report_capabilities():
     the 400 — instead of inventing an answer."""
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
     c._catalog = []
+    c._props = {}
     assert c.supports("m", "tools") is None
     assert c.model_spec("m")["supports_tools"] is None
 
@@ -186,6 +189,7 @@ def test_the_openai_dialect_admits_it_cannot_report_capabilities():
 def test_a_publisher_prefix_still_matches():
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
     c._catalog = [{"id": "lmstudio-community/qwen3-8b", "arch": "qwen3"}]
+    c._props = {}
     assert c.model_spec("qwen3-8b")["family"] == "qwen3"
 
 

@@ -1036,8 +1036,16 @@ body.resizing-sidebar {
    rather than left — the chat sidebar's list items it echoes are left-aligned
    rows of text, but the Documents sidebar has no such column for it to line
    up with, so a left-aligned button just read as pushed to one side under a
-   list that isn't. */
-#doc-browse-all {
+   list that isn't.
+
+   Asked for again, directly, the other way round: centre the chat sidebar's
+   own copy to match. `#conv-browse-all` now gets the identical rule rather
+   than deleting `.conv-browse-all`'s left-align above — that base rule has
+   no other reader left, but rewriting it to `center` and dropping these two
+   IDs would read as though centring were still Documents' own special case
+   instead of what both buttons do now. */
+#doc-browse-all,
+#conv-browse-all {
   text-align: center;
   justify-content: center;
 }

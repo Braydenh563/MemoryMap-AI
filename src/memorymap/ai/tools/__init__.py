@@ -808,6 +808,29 @@ def _list_tags(session: Session, args: dict) -> dict:
     }
 
 
+def _notebook_overview(session: Session, args: dict) -> dict:
+    """Categories, tags and totals in one call.
+
+    Reported live: a skill wanting "the shape of the notebook" (its own
+    phrase — Notebook health check, Tidy suggestions) called
+    list_categories, list_tags and count_notes separately to get there —
+    three round trips, three chances for a small model to stop early or
+    misfire one of them, for numbers this app already had cheap SQL for.
+    This is exactly their three result shapes concatenated, not a new query
+    — `count_notes`/`list_categories`/`list_tags` all stay, for a caller
+    that only wants one dimension or a filtered count `count_notes` alone
+    still does.
+    """
+    categories = _list_categories(session, {})
+    tags = _list_tags(session, {})
+    return {
+        "total_notes": categories["total_notes"],
+        "categories": categories["categories"],
+        "tags": tags["tags"],
+        "label": "ph:list-numbers Got the notebook's shape",
+    }
+
+
 def _get_current_time(session: Session, args: dict) -> dict:
     """Time-aware answers: the model can ask what 'now' is.
 
@@ -2231,6 +2254,18 @@ TOOLS: dict[str, ToolSpec] = {
             _list_tags,
         ),
         ToolSpec(
+            "notebook_overview",
+            "Categories, tags and the total note count, in one call. Use this "
+            "instead of list_categories + list_tags + count_notes when you "
+            "want the notebook's overall shape (filing it, auditing it, "
+            "summarising how it's organised) — one call for what those three "
+            "would otherwise cost separately. For one specific number "
+            "(notes in a category, notes with a tag) count_notes alone is "
+            "still the right call.",
+            {"type": "object", "properties": {}},
+            _notebook_overview,
+        ),
+        ToolSpec(
             "list_documents",
             "List the user's long-form documents, newest first, optionally "
             "filtered by a word in the title or body. Documents are separate "
@@ -2955,6 +2990,7 @@ CORE_TOOLS = [
     "count_notes",
     "list_categories",
     "list_tags",
+    "notebook_overview",
     "get_current_time",
     "create_note",
     "save_user_preference",

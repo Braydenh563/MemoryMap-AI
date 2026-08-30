@@ -5549,6 +5549,7 @@ document.addEventListener("DOMContentLoaded", () => {
     await createNewBoard();
   });
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
+  $("library-boards-search")?.addEventListener("input", renderLibraryBoardsGallery);
   // The Reload button beside "+ New board". Its id says `library-media-refresh`
   // — a copy-paste leftover from the Media sub-tab's own refresh button, and
   // the reason it was missed: library.js wires the Media one by that name, so
@@ -5580,34 +5581,103 @@ function wbShowBoardsLanding() {
 async function renderLibraryBoardsGallery() {
   const grid = $("library-boards-grid");
   const empty = $("library-boards-empty");
+  const noMatch = $("library-boards-no-match");
   if (!grid) return;
   const boards = await apiJson("/whiteboard/boards", { silent: true }).catch(() => null);
-  if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); return; }
+  if (!boards) { grid.replaceChildren(); empty?.classList.remove("hidden"); noMatch?.classList.add("hidden"); return; }
   // See `createNewBoard`'s own comment: a board with nothing on it yet
   // doesn't come back from the server at all.
   const created = window.wbLastCreatedBoard;
   if (created && !boards.some((b) => b.id === created.id)) {
     boards.push({ ...created, node_count: 0, sketch_count: 0, object_count: 0 });
   }
+  const needle = ($("library-boards-search")?.value || "").trim().toLowerCase();
+  const shown = needle ? boards.filter((b) => b.title.toLowerCase().includes(needle)) : boards;
   grid.replaceChildren();
-  if (!boards.length) {
-    empty?.classList.remove("hidden");
+  if (!shown.length) {
+    const isFilteredEmpty = Boolean(needle) && boards.length > 0;
+    empty?.classList.toggle("hidden", isFilteredEmpty);
+    noMatch?.classList.toggle("hidden", !isFilteredEmpty);
+    if (noMatch && isFilteredEmpty) {
+      noMatch.textContent = `No boards match “${needle}”.`;
+    }
     return;
   }
   empty?.classList.add("hidden");
-  for (const board of boards) {
-    const card = document.createElement("button");
-    card.type = "button";
+  noMatch?.classList.add("hidden");
+  for (const board of shown) {
+    // An `<article>` with role="button", the same shape libraryCard() and
+    // the Documents subtab's doc-list-item use — a plain <button> can't
+    // also host the kebab menu's own <button>, and reported live: "can't
+    // rename or delete a board from the Whiteboards subtab", the exact gap
+    // that shape already closed for documents.
+    const card = document.createElement("article");
     card.className = "library-card library-board-card";
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    const open = () => openWhiteboardBoard(board.id);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target !== card) return; // a key pressed inside the menu is its own
+      event.preventDefault();
+      open();
+    });
+
+    const top = document.createElement("div");
+    top.className = "library-card-top";
+    const icon = document.createElement("span");
+    icon.className = "library-card-icon";
+    setLabel(icon, "ph:squares-four");
+    icon.setAttribute("aria-hidden", "true");
+    top.appendChild(icon);
+
     const title = document.createElement("strong");
     title.className = "library-card-title";
     title.textContent = board.title;
-    const count = board.node_count + board.sketch_count + (board.object_count || 0);
+
+    const nodeCount = board.node_count || 0;
+    const sketchCount = board.sketch_count || 0;
+    const objectCount = board.object_count || 0;
+    const total = nodeCount + sketchCount + objectCount;
+    const parts = [];
+    if (nodeCount) parts.push(`${nodeCount} card${nodeCount === 1 ? "" : "s"}`);
+    if (sketchCount) parts.push(`${sketchCount} sketch${sketchCount === 1 ? "" : "es"}`);
+    if (objectCount) parts.push(`${objectCount} image${objectCount === 1 ? "" : "s"}`);
     const meta = document.createElement("span");
-    meta.className = "muted";
-    meta.textContent = `${count} item${count === 1 ? "" : "s"}`;
-    card.append(title, meta);
-    card.addEventListener("click", () => openWhiteboardBoard(board.id));
+    meta.className = "muted library-card-meta";
+    meta.textContent = parts.length ? parts.join(" · ") : "Empty board";
+
+    card.append(top, title, meta);
+
+    // The default (id === null) scratch board isn't a note and can't be
+    // renamed or deleted the way a real board (a plain Entry — see
+    // create_board in routes_whiteboard.py) can.
+    if (board.id !== null) {
+      const menu = kebabMenu(
+        [
+          makeMenuItem("ph:pencil-simple Rename", "Rename this board", async () => {
+            const next = await promptDialog("Rename this board:", board.title);
+            if (!next) return;
+            await apiJson(`/whiteboard/boards/${board.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ title: next }),
+            }).catch((e) => toast(e.message, true));
+            renderLibraryBoardsGallery();
+          }),
+          makeMenuItem("ph:trash Delete", "Delete this board", async () => {
+            if (!(await confirmDialog(`Delete "${board.title}"? This cannot be undone.`))) return;
+            await apiJson(`/entries/${board.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+            renderLibraryBoardsGallery();
+          }),
+        ],
+        `Actions for "${board.title}"`
+      );
+      menu.classList.add("library-card-menu");
+      menu.addEventListener("click", (event) => event.stopPropagation());
+      card.appendChild(menu);
+    }
+
     grid.appendChild(card);
   }
 }

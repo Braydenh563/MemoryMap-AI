@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-08-30
+
 Follow-on fixes and features added to the 0.1.5 branch after that release was
 tagged, ahead of the PR merging.
 
@@ -36,8 +38,191 @@ tagged, ahead of the PR merging.
 - The llama.cpp extra's "unavailable" message implied the app doesn't talk to
   llama.cpp at all; it already does, via `llama-server`'s OpenAI-compatible
   API — only in-process `llama-cpp-python` embedding is unbuilt.
+- The Capture tab's "File under" row could run its later buttons off the
+  card's right edge instead of wrapping — `.capture-field-row` claimed to
+  wrap but never set `flex-wrap: wrap`.
+- The Image Gallery's kebab button had square corners: the base `button`
+  rule's `border-radius` never reaches a `<summary>` element (it is a
+  `<details>` disclosure, not a real button) — the centring fix above this
+  same element already got was never joined by one for its corners.
+- The lightbox's prev/next arrow icons sat visibly off-centre — inherited
+  padding (`0.5rem 1rem`) the sibling close button already resets shrank the
+  centring box to less than the glyph's own width, and CSS Grid's "safe
+  centre" fallback shifted the oversized glyph to the padding box's edge.
+- A tool call a model wrote as text instead of using the structured
+  tool_calls field (small/local models do this routinely) silently failed
+  to recover whenever its `arguments` were themselves an object or array —
+  an entirely ordinary shape — because the fallback regex could not match
+  across a nested brace. Replaced with a real brace-balanced scanner.
+- `PUT /preferences` logged an audit-log ("Activity") row for every key
+  changed, `ui_state` (the interface's entire theme/appearance state behind
+  one key) included — a slider drag read identically to changing the model
+  backend. Cosmetic/one-shot keys no longer write an audit row; the
+  preference itself still saves exactly as before.
+- The Library's Activity cards clip long entries at 400 characters
+  server-side with no way to see the rest — clicking one with nothing to
+  jump to (most of them) now opens the full, un-clipped text.
+- The image gallery's popup menu could still run off the *left* edge on a
+  narrow (single/two-column) gallery — the existing flip logic only ever
+  corrected right-edge overflow. Now clamped back into bounds after the
+  flip decision, regardless of which edge or how narrow.
+- `renderLibraryDocuments()` and `renderLibraryBoardsGallery()` overwrote
+  the Library's empty-state element's `textContent` on every render (to
+  show a "no search match" message) — harmless while that element was a
+  plain line of text, but it silently erased any richer markup put there
+  instead. Found while giving those two subtabs the same icon+title empty
+  state "All" and Image Gallery already had (below); the "no match" case
+  now has its own sibling element instead of overwriting the real one.
+- The "Detailed" response length preset could come back with no answer at
+  all, or a much shorter one than promised — the same shared
+  thinking/answer token budget already documented as a risk in
+  `test_thinking_budget.py` ("1,024 shared between deliberation and answer
+  is the same trap in a larger size"). Detailed's own prompt explicitly
+  asks the model to reason through the notes, inviting more deliberation
+  than Normal or Quick, but got the same flat 1,024-token thinking
+  allowance as both — a verbose reasoning model given more to think about
+  and no more room for it starved its own answer. Detailed's allowance is
+  now 3,072 tokens.
+- The launcher's PowerShell splash (`scripts/splash.ps1`) never called
+  `[System.Windows.Forms.Application]::EnableVisualStyles()` — without it
+  WinForms renders every control with the classic, unthemed renderer, and
+  the classic renderer does not animate a Marquee-style ProgressBar at all,
+  regardless of its colours (a second, independent cause of the "bar just
+  stays empty" symptom already fixed once by removing its ForeColor/
+  BackColor). Not verified live — this sandbox has no Windows/PowerShell
+  runtime to run it on; the fix is standard WinForms practice and matches
+  the documented behaviour, but say so plainly rather than claim it's seen.
+- The boot splash (`#boot-splash`, shown for the one `/auth/status` round
+  trip on every page load) had three bouncing dots but nothing that read as
+  progress. Added a bar that crawls toward ~90% on its own and snaps to
+  100% the instant the real request resolves, so it never claims to finish
+  before the work behind it does.
+- The Library's "Activity" filter chip could land alone on its own row,
+  looking like a stray pill under the others — `.library-chip-activity`'s
+  `margin-left: auto` (meant to push it to the end of the row) fights
+  `flex-wrap` the moment the chips before it don't all fit on one line, and
+  a wrapping auto-margin item gets shoved onto a lonely row of its own. The
+  chip is already last in DOM order, so the divider alone does the job;
+  dropped the margin.
 
 ### Added
+- `notebook_overview`, an AI tool combining `list_categories` + `list_tags`
+  + `count_notes` into one call — a skill wanting "the notebook's shape"
+  (Notebook health check, Tidy suggestions) needed three round trips for
+  numbers this app already had cheap SQL for.
+- `llama-server`'s own `/props` is now probed as a context-length source
+  (ROADMAP.md item A.2) — a real number (the `-c` it was started with) in
+  place of the guess-from-model-name table, for plain llama.cpp servers
+  that report neither `loaded_context_length` nor `max_context_length`.
+- Exporting a single note as a `.md` download (`GET /entries/{id}/export.md`),
+  mirroring the document export that already existed — a "Download .md"
+  item on a note's overflow menu and its Library card menu.
+- A tip under the custom-template textarea (Settings → Templates) saying
+  `{date}` resolves to today's date — the substitution already worked for
+  any template (`applyTemplate()` does a plain string replace), including
+  user-made ones; it just wasn't discoverable without reading the source.
+- The Library's Documents, Whiteboards, and Image Gallery subtabs now get
+  the same icon+title empty state their "All" sibling already had, instead
+  of a bare line of muted text (BACKLOG.md §95 item 16).
+- A plain-language "what this means for you" line under Settings → Models'
+  spec table, computed from the model's real context window (BACKLOG.md
+  §95 item 2).
+- Settings → Background tasks' finished-jobs list now shows which model did
+  the work (captioning, OCR, the autonomous pass), when the job recorded
+  one — the data already existed, it just wasn't rendered (BACKLOG.md §95
+  item 3).
+- macOS gets a launch splash too now — a non-modal `display notification`
+  banner (never steals focus, unlike `display dialog`) showing the same
+  phase text the Linux/zenity dialog already showed. Asked for directly.
+- Recency and pinning are now a search-ranking signal (BACKLOG.md §95 item
+  6): hybrid search's candidates are reordered by pinned-first /
+  most-recently-touched and fused in as a third ranked list, the same rank-
+  position fusion the existing semantic/keyword combination already uses —
+  never a new source of matches, only a reorder of notes a real search
+  already found relevant.
+- The Quick sketch pad's highlighter had no visible transparency — "basically
+  a thick pen." `sketchMove` kept extending one open canvas path with
+  `lineTo()` and calling `stroke()` on every pointer-move without ever
+  starting a fresh path, so `stroke()` re-drew the *entire accumulated path*
+  each time, not just the newest segment — a stroke ten points long got its
+  first segment recomposited ten times. Invisible on the plain pen (opaque
+  drawn twice is still opaque) but at the highlighter's 0.35 alpha, ~10
+  overlapping passes already reads as ~99% opaque. Fixed by reopening the
+  path from the current point after every stroke, so each call draws its one
+  new segment exactly once. Verified by sampling canvas pixels before/after
+  a multi-point stroke — the repeatedly-touched start and the once-touched
+  end now composite identically.
+- CodeQL alerts on `main` (user-pasted screenshots): #289/#290
+  (`py/path-injection`, High) — a second fix attempt for this same alert
+  still didn't close it; researched CodeQL's actual sanitiser model
+  (`Path::SafeAccessCheck`'s only recognised Python shape is a bare
+  `x.startswith(base)` as a guard's sole condition) and simplified
+  `_within_exports` to match it exactly, dropping the compound condition
+  and computed `+ os.sep` argument that likely broke pattern recognition
+  the second time. #296 (information exposure through an exception,
+  Medium) — `routes_chat.py`'s error-fallback path sent a raw exception's
+  `str()` straight to the client; now goes through `safe_value`, the same
+  sanitiser `librarian.model_error_message` already uses for the identical
+  shape. #319 (duplicate `import re` in a test function), #320/#321
+  (mixed implicit/explicit returns in `ollama_client.py`/`openai_client.py`'s
+  retry-loop `chat()` methods — added an unreachable trailing raise so the
+  function reads as exhaustive).
+- Three more Preferences toggles ("Mute notifications except reminders",
+  "Let the AI use this profile...", "Allow web search when I ask for it")
+  had the same bare-`<label>`-missing-`.check-row` bug as Settings → About's
+  five — swept the whole file for the pattern (`<label>` directly wrapping
+  a checkbox, no class) rather than trusting the one page already fixed was
+  the only one.
+- Settings → Help's "Related" links could only ever open another Settings
+  section — a topic about a real *tab* (Reminders, Graph, Library…) had
+  nowhere to send you but a settings screen that only tangentially mentions
+  it. Added `[data-goto-tab]`, the same delegated-click pattern as the
+  existing `[data-goto-section]`, closing the modal and switching tabs
+  directly. Wired up for every topic with a real tab to go to (Capturing
+  notes, Asking & chatting, Skills, Graph, Reminders, Dashboard, Library,
+  Timeline); Reminders and Dashboard also gained the Settings links they
+  were missing (a notification-mute toggle, the dashboard greeting name —
+  both in Preferences). Skills, What it remembers, Spaces, Appearance and
+  Keyboard shortcuts have no tab of their own, so no tab link was added for
+  those — a manufactured one would be worse than none.
+- Arrow-key navigation on the command palette (34+ commands, only ~7 visible
+  at once) never scrolled the selected row into view past the first
+  screenful — confirmed live (15x ArrowDown left the active row off-screen).
+  `renderPalette` rebuilds the list from scratch every keypress, so there
+  was never a focused/tracked element for the browser's native
+  scroll-on-focus to follow; `.active` is a plain CSS class on an unfocused
+  `<li>`. Added an explicit `scrollIntoView` after each move; the same
+  defensive fix went onto the Notes list's roving-tabindex navigation and
+  the `[[wiki-link]]` autocomplete popup for consistency.
+- Every `.small.icon-only`/`.small.icon-button` control (Settings modal's
+  back/forward nav arrows, plus several search/sort/filter icon buttons
+  elsewhere) rendered oversized and square-boxy — 43px next to a 30px
+  "Close" button beside it. `.small`'s own horizontal padding
+  (01-forms-settings.css, a later file) was clobbering `.icon-only`'s
+  intended padding (00-tokens-shell.css) for the shared physical left/
+  right sides, whichever file happened to load second winning regardless
+  of which rule actually fit an icon button — `aspect-ratio: 1` then
+  squared that oversized width into an oversized height too. A compound
+  selector fixes it generally (specificity, not file order), reported live
+  with a screenshot against the Settings nav arrows specifically.
+- Settings → About's five on/off toggles (three Updates, two desktop-only)
+  were still bare `<label>` elements with no `.check-row` class — a prior
+  pass's own comment claimed they'd been lined up with every other toggle
+  in the app, but only the DOM order changed; the actual pill/box/hover
+  treatment `.check-row` provides never applied. Reported live with a
+  screenshot ("make the toggle lines and buttons the same as the semantic
+  buttons or the attached image"). Now genuinely `.check-row`, matching
+  Autonomous Background AI's toggle directly above them on the same page.
+- A search box and a rename/delete kebab menu on the Whiteboards subtab's
+  board cards, matching the Documents subtab beside it.
+- An opt-in clock in the bottom status bar (Settings → Appearance).
+- Settings → About redesigned into the same boxed sections every other
+  settings page uses; Settings → Help's "Settings → X" mentions are now
+  real links to that section, plus two new ones for topics that had none.
+- The status bar's back/forward now cover opening Settings and moving
+  between its sections, not just the tabs and sub-tabs it already tracked —
+  including a second copy of the two buttons in the Settings header itself,
+  since the modal overlay sits above the status bar's own.
 - Meeting Notes as a real Library filter chip (tag-based, alongside the
   existing kind filters), after two non-functional attempts at a sub-tab.
 - AI Skills cards: expandable step/tool lists via `<details>`, and the
@@ -53,6 +238,12 @@ tagged, ahead of the PR merging.
   the chat has `/` commands (it doesn't).
 
 ### Reverted
+- A mechanical check flagging a skill step "failed" if its own instruction
+  named one of the skill's tools by identifier and that tool was never
+  called — real steps that conditionally act on "each X" legitimately call
+  nothing when there is no X, and the check could not tell that apart from
+  a step that should have called it and didn't. Reverted before merging;
+  see HANDOVER.md §97 for what would be needed to attempt this safely.
 - Minimise-on-Quit (`js_api=bridge` on `webview.create_window()`): caused a
   real hang on Windows — a recursion storm in `window.native` COM property
   access on the WebView2 UI thread. Fully reverted; root cause confirmed,

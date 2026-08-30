@@ -436,7 +436,11 @@ def _run_optimization() -> None:
             detail = f"{detail} Changed {len(changes)} thing(s)."
         _remember_pass(outcome, changes)
         taskhistory.record(
-            "autonomous", "Autonomous knowledge base optimisation", outcome, detail
+            "autonomous",
+            "Autonomous knowledge base optimisation",
+            outcome,
+            detail,
+            name=deps.get_model_manager().utility_model(),
         )
         logger.info("autonomous optimisation %s, %d change(s)", outcome, len(changes))
     finally:

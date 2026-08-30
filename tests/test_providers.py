@@ -144,20 +144,56 @@ def test_the_window_the_server_loaded_beats_the_window_it_could_hold():
     has tools — if the app budgets against the bigger number."""
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
     c._catalog = [{"id": "m", "max_context_length": 131072, "loaded_context_length": 4096}]
+    c._props = {}
     assert c.context_length("m") == 4096
 
 
 def test_a_model_the_catalog_does_not_describe_falls_back_to_what_we_know():
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
     c._catalog = [{"id": "qwen3"}]
+    c._props = {}
     assert c.context_length("qwen3") == known_context("qwen3")
 
 
 def test_an_unknown_model_on_a_silent_server_is_budgeted_at_the_default():
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
     c._catalog = []
+    c._props = {}
     assert c.context_length("mystery-model") is None
     assert c.usable_context("mystery-model") == c.DEFAULT_CONTEXT_TOKENS
+
+
+def test_llama_server_props_beats_the_name_guess(monkeypatch):
+    """ROADMAP.md item A.2: `llama-server`'s own `/props` reports the `-c`
+    it was actually started with, which beats this app's guess-from-name
+    table the same way LM Studio's `loaded_context_length` does."""
+    from fakes_http import FakeResponse
+
+    c = OpenAICompatClient(base_url="http://localhost:8080/v1")
+    c._catalog = [{"id": "qwen3"}]  # plain llama.cpp: an id, nothing else
+
+    def fake_get(url, headers=None, timeout=None):
+        assert url == "http://localhost:8080/props"
+        return FakeResponse(payload={"n_ctx": 16384})
+
+    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", fake_get)
+    assert c.context_length("qwen3") == 16384
+    assert c.is_llama_cpp() is True
+
+
+def test_a_server_with_no_props_is_not_mistaken_for_llama_cpp(monkeypatch):
+    from fakes_http import FakeResponse
+
+    c = OpenAICompatClient(base_url="http://localhost:1234/v1")
+    c._catalog = [{"id": "qwen3"}]
+
+    def fake_get(url, headers=None, timeout=None):
+        return FakeResponse(status=404, text="not found")
+
+    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", fake_get)
+    # Falls through to the name-guess table, same as before this existed.
+    assert c.context_length("qwen3") == known_context("qwen3")
+    assert c.is_llama_cpp() is False
 
 
 def test_a_huge_window_is_still_capped(openai_client):

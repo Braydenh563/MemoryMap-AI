@@ -102,8 +102,6 @@ def test_the_selection_popup_sits_above_the_persistent_panels():
     """Found live: at 360x640 the kebab rendered in the right place and was
     still unclickable, because `#agent-monitor` (z-index 1000) covered it.
     It must stay below the toast box (1050), which has to outrank everything."""
-    import re
-
     # Comments stripped first: the rule carries a long one that names the very
     # z-index values being asserted on, and a naive split reads those instead.
     css = re.sub(r"/\*.*?\*/", "", _all_css(), flags=re.S)

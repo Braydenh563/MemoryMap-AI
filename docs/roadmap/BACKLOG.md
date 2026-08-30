@@ -2492,15 +2492,20 @@ writing for exactly that reason, which is the standing lesson of this file.
    speaks to `llama-server`; what is missing is saying so, detecting it via
    `/props` (which reports the real `n_ctx`), and *then* deciding whether
    in-process `llama-cpp-python` is worth a per-accelerator wheel matrix.
-2. **Model health card.** The app knows a model's window, quantisation,
-   capabilities and — since §94 — its own recommended sampling parameters. It
-   has never shown them in one place with "what this means for you": *this
-   model has an 8k window, so a long chat will start dropping history around
-   turn twelve*. Every input already exists.
-3. **Per-task model routing, made explicit.** `utility_model` exists and the
-   smart-routing toggle exists, but a user cannot see *which* model answered
-   *which* background job. A one-line "filed by X, captioned by Y" in
-   Settings → Background tasks would make the setting legible.
+~~2. **Model health card.**~~ **Built (§97).** Settings → Models' existing
+   spec table (size, quantisation, window, capabilities) now has a plain-
+   language line under it: "a long chat will start dropping its earliest
+   messages after roughly N exchanges", computed client-side from
+   `usable_context` using the same shares `ai/context.py` uses server-side
+   (an estimate, not a promise — an average exchange length is itself a
+   guess). Banded at the edges: a very small window says so without a
+   number, a very large one says it won't run out.
+~~3. **Per-task model routing, made explicit.**~~ **Built (§97).** Settings →
+   Background tasks' finished-jobs list already carried the model name
+   (`taskhistory.record`'s `name` param, set by captioning and OCR already)
+   but never rendered it — one line in `renderTaskHistory` (app.js) to show
+   it next to the timestamp. Also added `name=` to the autonomous-pass
+   recording (it used the utility model but never said so).
 4. **A "this model is struggling" signal.** §94 added a probe that tells a
    broken tools path from an outage. The same signal could be surfaced:
    after two tool-path failures on one model, offer the tool-free mode
@@ -2513,9 +2518,15 @@ writing for exactly that reason, which is the standing lesson of this file.
    no breakdown, so "why didn't it see my note?" is unanswerable without the
    log. A hover on the meter showing *system / notes / history / reply* is
    nearly free and answers the single most common AI complaint.
-6. **Recency and pinning as retrieval signals.** Search ranks by relevance;
-   it does not know that a note pinned last week matters more than a
-   relevant one from 2023. Both columns exist.
+~~6. **Recency and pinning as retrieval signals.**~~ **Built (§97).** A
+   third ranked list — the hybrid candidates reordered by pinned-first,
+   then most-recently-touched — fused (RRF, by rank position, same as the
+   existing semantic/keyword fusion) into the two `search_manager.py`
+   already had. Deliberately a *reorder of candidates a real search already
+   found*, never a new source of matches: a pinned note unrelated to the
+   question is not a better answer to it. New test proves it (two notes
+   tied exactly on relevance, pinning the older one flips the tie-break
+   that would otherwise always favour the newer id).
 7. **Re-rank the top N with the utility model.** Hybrid search picks eight
    notes; a 1B model scoring those eight for actual relevance to the question
    costs one short call and is the standard fix for "it quoted the wrong
@@ -2531,21 +2542,32 @@ writing for exactly that reason, which is the standing lesson of this file.
 10. **Email-in.** A local IMAP poller filing into a category is a well-worn
     pattern and turns the app into a capture destination rather than a place
     you go.
-11. **Recurring notes / templates with dates.** Templates exist; they are
-    static. A daily-note template with today's date resolved is the single
-    most-requested feature in every notebook app.
+~~11. **Recurring notes / templates with dates.**~~ **Mostly already built,
+    fixed the rest (§97).** `applyTemplate()` (app.js) already resolves a
+    literal `{date}` token against any template's content — built-in
+    ("Journal — {date}") or custom — via a plain string replace, so a
+    daily-note template already worked. What was missing was
+    *discoverability*: nothing in the Templates settings "Add your own" UI
+    said the token existed. Added a one-line tip under the custom-template
+    textarea. True recurrence (auto-create on a schedule) is still not
+    built and would be a separate, larger feature.
 12. **Voice capture beyond dictation.** faster-whisper is already an extra.
     A "record a thought" button that transcribes *and* files is a different
     feature from dictating into a box.
 
 ### D. Trust and safety
 
-13. **Private notes need an audit trail.** They are encrypted and invisible
-    to the AI, which is right — but nothing records *when* one was decrypted
-    for viewing. For the one feature whose whole value is confidence, that is
-    the missing half.
-14. **Export a single note/document.** Full export exists. There is no way to
-    hand one note to someone.
+~~13. **Private notes need an audit trail.**~~ **Already built when checked
+    (§97, HANDOVER.md).** `get_entry` (routes_entries.py) already logs
+    `"decrypted"` for a private note read while the vault is unlocked —
+    this item was stale, not the code.
+~~14. **Export a single note/document.**~~ **Built (§97).** `GET
+    /entries/{id}/export.md`, mirroring the document route already in
+    place — same title-as-H1 preamble (skipped when the note already
+    starts with one), same filename sanitising. A "Download .md" item on
+    a note's own overflow menu (Notes tab) and its Library "All"-view
+    card menu, in the same spot the Document kind's own copy already
+    sits. 4 new tests (`test_api_entries.py`).
 15. **A dry-run mode for the agent.** `make_plan` shows intent, but a user
     who wants "tell me what you would change without changing it" has to
     trust the plan. A mode that collects the writes and shows a diff before
@@ -2554,9 +2576,30 @@ writing for exactly that reason, which is the standing lesson of this file.
 
 ### E. Polish worth doing as one pass
 
-16. **A real empty state for every tab.** Several are a bare "nothing here".
-17. **Keyboard-first navigation.** Shortcuts exist and are rebindable; there
-    is no way to *move* between notes without the mouse.
+~~16. **A real empty state for every tab.**~~ **Partially done (§97).** The
+    Library's three subtabs that sit beside "All" (Documents, Whiteboards,
+    Image Gallery) had a bare one-line `<p class="muted">` where "All"
+    itself already had the icon+title `.empty-state` component — fixed to
+    match. Along the way, found and fixed a real bug the source read alone
+    would have missed: `renderLibraryDocuments()`/
+    `renderLibraryBoardsGallery()` overwrote the empty-state element's
+    `textContent` on every render (to show the "no search match" message),
+    which silently wiped out the new icon+title markup the instant the
+    function ran — the rich version would have shown for one frame, then
+    been replaced by plain text. Fixed by giving the "no results for this
+    search" case its own sibling element (`*-no-match`), matching the
+    pattern the Image Gallery subtab already used correctly. Verified live:
+    genuine-empty (icon+title), no-search-match (plain text), and had-results
+    all screenshotted. Chat sidebar's `#conv-empty` and the Documents tab's
+    own `#doc-empty` were deliberately left as plain text — narrow sidebar
+    lists, not grid panes, so the same treatment would look oversized;
+    unlike the three fixed, no user report named them.
+~~17. **Keyboard-first navigation.**~~ **Already built when checked (§97).**
+    `initEntryListKeyboardNav()` (app.js) already does Up/Down roving-
+    tabindex movement between note cards and Enter-to-edit, wired up and
+    called at module load. Verified live (Playwright): focus, ArrowDown
+    twice, ArrowUp back, Enter opened the note for editing — all correct.
+    This entry was stale, not the code.
 18. **Undo for destructive skill runs.** Individual tools record undo; a run
     that made twelve changes has twelve separate undos and no "undo that
     run".
@@ -2565,8 +2608,10 @@ writing for exactly that reason, which is the standing lesson of this file.
     timeline, the dock disclosure), following the §88.3 pattern that already
     produced documents.js, library.js, dashboard.js and settings.js. No
     user-visible gain, so it waits behind anything on this list that has one.
-20. **Backup retention should be a setting.** Backups accumulate with no cap
-    the user can see or change; asked about directly.
+~~20. **Backup retention should be a setting.**~~ **Built.** Settings → Data
+    → "Keep this many backups" (`#backup-retention`), a real preference that
+    prunes immediately on change — was a hard-coded, always-enforced cap
+    before.
 
 ### Deliberately not on this list
 

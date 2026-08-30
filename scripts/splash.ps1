@@ -54,6 +54,19 @@ try {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
 
+  # Reported: the marquee bar below "doesn't actually progress" — it isn't a
+  # regression of the ForeColor/BackColor fix already documented on $bar
+  # further down, it's a second, independent cause of the same symptom.
+  # WinForms renders every control with the classic (pre-XP, unthemed)
+  # renderer unless the process opts into visual styles explicitly, and the
+  # *classic* renderer does not animate a Marquee-style ProgressBar at all —
+  # it just sits there, themed colours or not. Hosted here inside
+  # powershell.exe, which carries no manifest asking for visual styles on its
+  # own behalf, so nothing turns them on unless this script does. Must run
+  # before any control is created — set after the fact, it does nothing.
+  [System.Windows.Forms.Application]::EnableVisualStyles()
+  [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
+
   # Same palette as _LOADING_HTML in __main__.py, so the handoff from this
   # window to that one does not read as two different applications.
   $bg     = [System.Drawing.Color]::FromArgb(18, 20, 28)

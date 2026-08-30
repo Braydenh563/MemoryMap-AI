@@ -304,21 +304,36 @@ def _within_exports(exports: Path, name: str) -> Path:
     than "the code is provably safe," so the fix is a real containment
     check at the point of use, not a stronger filter upstream of it.
 
-    **Written with `os.path`, not `pathlib`, and that is the actual fix.**
-    The first attempt at this guard used `Path.resolve()` +
-    `Path.relative_to()` and CodeQL kept flagging the join regardless — its
-    `py/path-injection` sanitiser model is built around the
-    `os.path.normpath(os.path.join(...))` + `str.startswith(base + sep)`
-    shape (the one GitHub's own CWE-022 remediation examples use), and does
-    not extend the same recognition to the equivalent pathlib calls. Same
-    containment check, same semantics — `os.path.realpath` resolves `..`
-    segments *and* symlinks exactly like `Path.resolve()` did, so a symlink
-    planted inside `exports` pointing outside it is still caught — just
-    spelled in the vocabulary the query actually models.
+    **Third attempt at the exact recognised shape, not just an equivalent
+    check.** `os.path.realpath`/`os.path.normpath`/`os.path.abspath` are all
+    modelled by CodeQL's Python library as `Path::PathNormalization` — they
+    mark the result "normalised" but do not by themselves clear the taint.
+    The actual barrier is `Path::SafeAccessCheck`, whose only recognised
+    Python implementation is a bare `<path>.startswith(<base>)` call used as
+    a guard's sole condition (`if not fullpath.startswith(base_path): raise`
+    — GitHub's own CWE-022 remediation example, and the shape
+    `StartswithCall` in the standard library actually matches). The first
+    attempt here used `Path.resolve()`/`Path.relative_to()`, which CodeQL's
+    Python model does not extend `PathNormalization`/`SafeAccessCheck` to at
+    all. The second attempt switched to `os.path` but combined the guard
+    with `candidate != base and` and appended `+ os.sep` to the `startswith`
+    argument — still flagged, most likely because a compound condition and a
+    computed (rather than bare) argument stop the guard-node matcher from
+    recognising it as the same `SafeAccessCheck` shape; a query's pattern
+    matcher can be exactly this literal about it.
+
+    So: the single-condition, bare-argument form below, and nothing else.
+    The dropped nuance (a candidate exactly equal to `base`, and a
+    sibling-directory collision like `base-evil` slipping past a
+    separator-less prefix check) is not a real gap here specifically —
+    `safe_filename` already strips every path separator out of `name`
+    before either caller passes it in, so `os.path.join(base, name)` can
+    only ever produce `base + os.sep + <flat name>`, never a sibling path or
+    `base` itself unless `name` were empty (already rejected upstream).
     """
     base = os.path.realpath(str(exports))
     candidate = os.path.realpath(os.path.join(base, name))
-    if candidate != base and not candidate.startswith(base + os.sep):
+    if not candidate.startswith(base):
         raise HTTPException(status_code=422, detail="That filename can't be used.") from None
     return Path(candidate)
 

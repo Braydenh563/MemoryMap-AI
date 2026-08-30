@@ -401,21 +401,22 @@ _AUDIT_SKILLS: list[dict] = [
             "change anything — this is a report, not a clean-up."
         ),
         "steps": [
-            "Count my notes, then list my categories and tags with their counts.",
-            "Name the categories that are nearly empty, and any that hold so " + 
+            "Get the notebook's overview — categories, tags and the total note " +
+            "count, all in one notebook_overview call.",
+            "Name the categories that are nearly empty, and any that hold so " +
             "much they are not really sorting anything.",
-            "Name the tags that look like duplicates of each other (singular " + 
+            "Name the tags that look like duplicates of each other (singular " +
             "and plural, different spellings, near-synonyms).",
-            "Sample the notes in Uncategorised and say what they are actually " + 
+            "Sample the notes in Uncategorised and say what they are actually " +
             "about, so I can see what categories are missing.",
-            "Finish with a short numbered list of what to fix, worst first, " + 
-            "naming which of the clean-up skills would fix each one. Remind me " + 
+            "Finish with a short numbered list of what to fix, worst first, " +
+            "naming which of the clean-up skills would fix each one. Remind me " +
             "you changed nothing.",
         ],
         # No write tool at all. The safety property here is structural rather
         # than promised: the run cannot alter the notebook because it was never
         # offered anything that could.
-        "tools": [*_READING_TOOLS, "list_categories", "list_tags"],
+        "tools": [*_READING_TOOLS, "notebook_overview"],
     },
     {
         "name": "Clean up my tags",
@@ -597,13 +598,14 @@ BUILTIN_SKILLS: list[dict] = [
         "description": "Proposes tidy-ups. Changes nothing on its own.",
         "prompt": "Suggest how I could tidy my notebook, without changing it.",
         "steps": [
-            "List my categories and tags with their counts.",
-            "Find the overlaps: tags that mean the same thing, categories " + 
+            "Get the notebook's overview — categories, tags and totals, all " +
+            "in one notebook_overview call.",
+            "Find the overlaps: tags that mean the same thing, categories " +
             "with one or two notes, notes that look misfiled.",
-            "Give me the suggestions as a numbered list and ask which ones I " + 
+            "Give me the suggestions as a numbered list and ask which ones I " +
             "want applied. Do not change anything yourself.",
         ],
-        "tools": ["list_categories", "list_tags", "count_notes", "list_notes"],
+        "tools": ["notebook_overview", "count_notes", "list_notes"],
     },
     {
         "name": "Catch up on a topic",

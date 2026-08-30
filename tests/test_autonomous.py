@@ -229,6 +229,18 @@ def test_a_pass_that_needs_confirmation_is_abandoned_not_hung(
     assert "delete_note" in entries[0]["detail"]
 
 
+def test_the_pass_records_which_model_did_the_work(app_state, monkeypatch):
+    """Settings -> Background tasks couldn't say which model answered a
+    background job (BACKLOG.md §95 item A.3) — the utility model here, same
+    one `test_the_pass_uses_the_utility_model...` below confirms is used."""
+    monkeypatch.setattr(autonomous.agent, "run_agent", lambda **kwargs: iter([]))
+    autonomous._working.set()
+    autonomous._run_optimization()
+
+    entries = [e for e in taskhistory.recent() if e["kind"] == "autonomous"]
+    assert entries and entries[0]["name"] == deps.get_model_manager().utility_model()
+
+
 def test_the_pass_uses_the_utility_model_and_bars_the_dangerous_tools(
     app_state, monkeypatch
 ):

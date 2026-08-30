@@ -2531,9 +2531,15 @@ writing for exactly that reason, which is the standing lesson of this file.
 10. **Email-in.** A local IMAP poller filing into a category is a well-worn
     pattern and turns the app into a capture destination rather than a place
     you go.
-11. **Recurring notes / templates with dates.** Templates exist; they are
-    static. A daily-note template with today's date resolved is the single
-    most-requested feature in every notebook app.
+~~11. **Recurring notes / templates with dates.**~~ **Mostly already built,
+    fixed the rest (§97).** `applyTemplate()` (app.js) already resolves a
+    literal `{date}` token against any template's content — built-in
+    ("Journal — {date}") or custom — via a plain string replace, so a
+    daily-note template already worked. What was missing was
+    *discoverability*: nothing in the Templates settings "Add your own" UI
+    said the token existed. Added a one-line tip under the custom-template
+    textarea. True recurrence (auto-create on a schedule) is still not
+    built and would be a separate, larger feature.
 12. **Voice capture beyond dictation.** faster-whisper is already an extra.
     A "record a thought" button that transcribes *and* files is a different
     feature from dictating into a box.

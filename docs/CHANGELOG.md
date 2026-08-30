@@ -77,6 +77,10 @@ tagged, ahead of the PR merging.
 - Exporting a single note as a `.md` download (`GET /entries/{id}/export.md`),
   mirroring the document export that already existed — a "Download .md"
   item on a note's overflow menu and its Library card menu.
+- A tip under the custom-template textarea (Settings → Templates) saying
+  `{date}` resolves to today's date — the substitution already worked for
+  any template (`applyTemplate()` does a plain string replace), including
+  user-made ones; it just wasn't discoverable without reading the source.
 - A search box and a rename/delete kebab menu on the Whiteboards subtab's
   board cards, matching the Documents subtab beside it.
 - An opt-in clock in the bottom status bar (Settings → Appearance).

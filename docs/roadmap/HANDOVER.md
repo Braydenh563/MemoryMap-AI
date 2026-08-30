@@ -168,6 +168,17 @@ shipped (see below). 2,355 tests pass; ruff clean.
   copy already sits in both. 4 new tests (`test_api_entries.py`), verified
   live end to end (menu item present, download returns the right content
   and filename).
+- **BACKLOG.md §95 item 11 ("recurring notes / templates with dates").**
+  Another "mostly already built" case: `applyTemplate()` (app.js) already
+  does `content.replace("{date}", new Date().toLocaleDateString())` on
+  whatever template content is applied — the built-in Journal template
+  already uses it, and it works for a user's own custom template too,
+  since the substitution is generic. The actual gap was discoverability:
+  the Templates settings "Add your own" form never told a user `{date}`
+  was a thing. Added a one-line `<p class="muted">` tip under the
+  custom-template textarea; verified live (Playwright, Settings →
+  Templates) that it renders where intended. No backend change, no new
+  mechanism — a documentation-in-the-UI fix, not a feature build.
 
 ### Tried, and reverted — read before attempting again
 

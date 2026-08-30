@@ -185,7 +185,8 @@ def test_stop_all_is_wired_into_the_apps_shutdown():
     at all — `/shutdown`'s docstring described one that did not exist."""
     from memorymap.api import app as app_module
 
-    source = open(app_module.__file__, encoding="utf-8").read()
+    with open(app_module.__file__, encoding="utf-8") as f:
+        source = f.read()
     assert "lifespan=lifespan" in source
     assert "bgtasks.stop_all()" in source
 

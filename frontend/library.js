@@ -2000,7 +2000,12 @@ function filterLibraryImagesGallery() {
     setLabel(visionOcrBtn, "ph:text-aa");
 
     const visionOcrText = document.createElement("p");
-    visionOcrText.className = "library-image-vision-ocr muted text-sm hidden";
+    // Not `hidden` any more, and it is the class that had to go rather than
+    // the toggle: `setVisionOcrState` stopped hiding this paragraph when the
+    // field became always-editable, but the element was still *born* hidden,
+    // so a tile for an image nothing had read rendered the label with nothing
+    // under it. Measured, not reasoned about — the field came back 17px tall.
+    visionOcrText.className = "library-image-vision-ocr muted text-sm";
     // Editable for the same reason `ocrText` is, and it took a user report to
     // notice this one was not: a vision model transcribing a picture with no
     // text in it does not return nothing, it returns its best guess — the

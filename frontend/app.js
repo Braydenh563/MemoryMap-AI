@@ -22033,30 +22033,84 @@ const agentMonitorClose = $("agent-monitor-close");
 function setAgentMonitorVisible(visible) {
   agentMonitor.classList.toggle("hidden", !visible);
   document.body.classList.toggle("has-agent-monitor", visible);
+  if (!visible) clearTimeout(agentMonitorIdleTimer);
+}
+
+//: How long after the last line the monitor puts itself away. Reported
+//: directly: "autonomous background task notifications never auto close and
+//: stay open until the user closes them" — and they did not, because nothing
+//: here ever called `setAgentMonitorVisible(false)` except the X button. A
+//: background pass would open this panel over the corner of the app and leave
+//: it there for the rest of the session.
+//:
+//: Twelve seconds is picked against what the panel is *for*: it is a live
+//: tail, so it is interesting while lines are arriving and is a leftover the
+//: moment they stop. Every new line restarts the clock, so a pass that runs
+//: for four minutes keeps it open for four minutes.
+const AGENT_MONITOR_IDLE_MS = 12000;
+
+//: Long enough that a *new* pass reopens the panel, short enough that a
+//: dismissal during one pass is not overridden two seconds later by the next
+//: line of the same pass. Closing it used to mean nothing at all: the very
+//: next log line re-opened it, so the X button read as broken.
+const AGENT_MONITOR_REOPEN_AFTER_MS = 90000;
+
+let agentMonitorIdleTimer = null;
+let agentMonitorDismissedAt = 0;
+
+function nudgeAgentMonitorIdle() {
+  clearTimeout(agentMonitorIdleTimer);
+  agentMonitorIdleTimer = setTimeout(() => {
+    // Never yank it away from under a pointer or a keyboard focus: someone
+    // reading a line or reaching for the X is the one case where the panel
+    // is doing its job.
+    if (agentMonitor.matches(":hover") || agentMonitor.contains(document.activeElement)) {
+      nudgeAgentMonitorIdle();
+      return;
+    }
+    setAgentMonitorVisible(false);
+  }, AGENT_MONITOR_IDLE_MS);
 }
 
 if (agentMonitorClose) {
-  agentMonitorClose.addEventListener("click", () => setAgentMonitorVisible(false));
+  agentMonitorClose.addEventListener("click", () => {
+    agentMonitorDismissedAt = Date.now();
+    setAgentMonitorVisible(false);
+  });
 }
 
 function appendAgentLog(record) {
-  // Only show autonomous/background agent logs
-  const isAgent = record.logger && (record.logger.includes("memorymap.ai") || record.message.includes("Agent") || record.logger.includes("autonomous"));
-  if (!isAgent && record.level !== "ERROR") return;
-  
-  if (agentMonitor.classList.contains("hidden")) setAgentMonitorVisible(true);
+  // **Agent lines only.** This used to read `if (!isAgent && record.level !==
+  // "ERROR") return;`, which let *every* ERROR in the app through whatever
+  // logger produced it — so a failed embedding backend, a bad request, a
+  // stray traceback all popped open a panel labelled "Agent Activity" and
+  // left it there. Errors already have somewhere to go (a toast, and
+  // Settings → Logs); this panel is a tail of one specific thing.
+  const logger = record.logger || "";
+  const isAgent =
+    logger.startsWith("memorymap.ai") ||
+    logger.includes("autonomous") ||
+    logger.includes("agent");
+  if (!isAgent) return;
+
+  if (agentMonitor.classList.contains("hidden")) {
+    // Respect a dismissal for the rest of the burst — see the constant.
+    if (Date.now() - agentMonitorDismissedAt < AGENT_MONITOR_REOPEN_AFTER_MS) return;
+    setAgentMonitorVisible(true);
+  }
 
   const div = document.createElement("div");
   div.className = "monitor-log-item " + record.level.toLowerCase();
   div.textContent = record.message;
-  
+
   agentMonitorLogs.appendChild(div);
-  
+
   if (agentMonitorLogs.children.length > 50) {
     agentMonitorLogs.removeChild(agentMonitorLogs.firstChild);
   }
-  
+
   agentMonitorLogs.scrollTop = agentMonitorLogs.scrollHeight;
+  nudgeAgentMonitorIdle();
 }
 
 let agentLogStreamStarted = false;

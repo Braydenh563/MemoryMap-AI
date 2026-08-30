@@ -151,3 +151,53 @@ def test_switching_chats_mid_stream_hides_the_timer():
     source = Path("frontend/app.js").read_text(encoding="utf-8")
     block = source.split("function releaseChatComposer(")[1].split("\n}")[0]
     assert 'chat-elapsed' in block
+
+
+# --- reported after the first version shipped --------------------------------
+#
+# Three separate complaints about the same corner of a chat bubble, all lints:
+# nothing in this suite can see a rendered page.
+
+
+def test_the_action_row_does_not_reserve_space_when_hidden():
+    """"the suggested responses appear after the popup buttons which leaves a
+    gap visually when not hovering over the chat bubble" — `opacity: 0` hides a
+    row while keeping every pixel of its layout, so a finished answer had a 2rem
+    band of nothing above its "Next:" chips. Out of flow entirely: `display:
+    none` until hover would close the gap and make the chips jump 2rem the
+    moment the pointer entered the bubble."""
+    css = Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
+    block = css.split(".msg-actions {")[1].split("}")[0]
+    assert "position: absolute" in block
+    # And unclickable while invisible, or an unhovered bubble swallows clicks.
+    assert "pointer-events: none" in block
+
+
+def test_the_live_timer_is_mounted_in_the_bubble_and_removed_with_it():
+    """"the time of response stays below the chat input bar and doesnt
+    disappear, I want the timer to appear on the chat bubble while it is
+    responding until the response is finished." Both halves are the same
+    mistake: the counter lived in the composer, which is not where the answer
+    is written and is not unmounted when the answer ends."""
+    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    assert "function mountChatTimer(bubble)" in source
+    assert "mountChatTimer(bubble);" in source
+    stop = source.split("function stopChatTimer()")[1].split("\n}")[0]
+    assert "chatTimerBox?.remove()" in stop
+    assert "chatTimerBox = null" in stop
+
+
+def test_only_the_last_answer_keeps_its_followup_chips():
+    """Chips under an older answer invite forking the thread backwards: the
+    click sends that question as a new message at the end, three exchanges
+    away from the suggestion. Deleting the newest turn brings the previous
+    turn's saved chips back, which is why they are stashed on the bubble
+    rather than discarded."""
+    source = Path("frontend/app.js").read_text(encoding="utf-8")
+    assert "function refreshFollowupVisibility()" in source
+    render = source.split("function renderFollowups(bubble, picks)")[1].split("\n}")[0]
+    assert "bubble.dataset.followups" in render
+    assert "refreshFollowupVisibility()" in render
+    # Brought back when the turn above becomes the last one again.
+    delete = source.split("async function deleteChatTurn(")[1].split("\n}")[0]
+    assert "refreshFollowupVisibility()" in delete

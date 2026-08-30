@@ -12,6 +12,9 @@
 
 .msg {
   max-width: 82%;
+  /* The per-message action row floats over this bubble's corner (see
+     `.msg-actions`), so the bubble has to be its containing block. */
+  position: relative;
   padding: 0.6rem 0.8rem;
   border-radius: var(--radius-lg);
   white-space: pre-wrap;
@@ -103,22 +106,65 @@
   white-space: pre-wrap;
 }
 
-/* Hover-reveal per-message actions (copy / edit / regenerate / read-aloud). */
+/* Hover-reveal per-message actions (copy / edit / regenerate / read-aloud).
+
+   These float over the bubble's top corner rather than sitting in its flow,
+   and the reason is a reported one: *"the suggested responses appear after
+   the popup buttons which leaves a gap visually when not hovering over the
+   chat bubble."* Exactly right — the row was `opacity: 0`, which hides a
+   thing while it keeps every pixel of its layout, so a finished answer had a
+   2rem band of nothing between its metadata line and its "Next:" chips that
+   only made sense while the cursor was inside the bubble.
+
+   `display: none` until hover would close the gap and introduce a worse
+   problem: the chips below would jump down 2rem the moment the pointer
+   entered the bubble, moving the target out from under the cursor on the way
+   to clicking one. Taking the row out of flow entirely is the only version
+   with neither the gap nor the shift.
+
+   The corner is chosen per role because that is where each bubble's header
+   row *isn't*: the assistant's label sits left, the user's is right-aligned. */
 .msg-actions {
+  position: absolute;
+  top: 0.3rem;
   display: flex;
   gap: 0.25rem;
-  margin-top: 0.4rem;
+  padding: 0.15rem;
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
   opacity: 0;
+  /* Not clickable while invisible — an unhovered bubble must not swallow a
+     click aimed at the text under this. */
+  pointer-events: none;
   transition: opacity var(--motion-fast) ease;
+  z-index: 2;
+}
+
+.msg.assistant .msg-actions {
+  right: 0.4rem;
+}
+
+.msg.user .msg-actions {
+  left: 0.4rem;
 }
 
 .msg:hover .msg-actions,
 .msg:focus-within .msg-actions {
   opacity: 1;
+  pointer-events: auto;
 }
 
-.msg.user .msg-actions {
-  justify-content: flex-end;
+/* The live "how long has this been coming" counter, in the bubble being
+   streamed (app.js, `mountChatTimer`). Tabular figures so the header row does
+   not jitter a pixel every second as the digits change width. */
+.msg-timer {
+  margin-left: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .msg-action {
@@ -151,6 +197,7 @@
 @media (hover: none) {
   .msg-actions {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 

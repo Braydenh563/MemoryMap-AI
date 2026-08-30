@@ -8769,6 +8769,11 @@ async function sendChatMessage(preset, opts = {}) {
     ? null
     : addBubble("user", opts.displayText || question, sentAttachmentCards);
   const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble();
+  // The live counter rides in the bubble it is timing, and leaves with it.
+  mountChatTimer(bubble);
+  // A newer answer exists, so the previous one's chips stop being the end of
+  // the thread — this bubble is, and it has none yet.
+  refreshFollowupVisibility();
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
@@ -9438,10 +9443,45 @@ async function offerFollowups(bubble, question, answer) {
 // look unlike a fresh one.
 function renderFollowups(bubble, picks) {
   if (!bubble || !Array.isArray(picks) || !picks.length) return;
-  // A regenerate can finish a second answer into the same bubble; only ever
-  // one strip.
-  bubble.querySelector(".chat-followups")?.remove();
+  // Remembered on the bubble rather than only drawn on it. Reported: *"the
+  // suggested next responses on chat messages should only persist for the
+  // latest chat message… if the user deletes the latest message they sent,
+  // then new suggested responses should show for the now latest message"* —
+  // the second half is the reason this is stored instead of discarded. The
+  // chips for an older turn are still the right chips for it; they are simply
+  // not shown while a newer turn exists, and deleting that newer turn has to
+  // bring them back without a second round trip to the model.
+  bubble.dataset.followups = JSON.stringify(picks);
+  refreshFollowupVisibility();
+}
 
+// Exactly one strip in the thread, on the last answer in it.
+//
+// Chips under an older answer are an invitation to fork the conversation
+// backwards: clicking one sends its question as a *new* message at the end, so
+// the suggestion and the place the reply lands are three exchanges apart. Only
+// the newest answer is still the end of the thread, so only it gets them.
+function refreshFollowupVisibility() {
+  const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
+  const last = bubbles.at(-1);
+  for (const bubble of bubbles) {
+    const strip = bubble.querySelector(".chat-followups");
+    if (bubble !== last) {
+      strip?.remove();
+      continue;
+    }
+    if (strip) continue; // already showing this turn's chips
+    let picks = [];
+    try {
+      picks = JSON.parse(bubble.dataset.followups || "[]");
+    } catch {
+      picks = [];
+    }
+    if (picks.length) buildFollowupStrip(bubble, picks);
+  }
+}
+
+function buildFollowupStrip(bubble, picks) {
   const strip = document.createElement("div");
   strip.className = "chat-followups";
   const label = document.createElement("span");
@@ -9501,6 +9541,8 @@ async function deleteChatTurn(assistantBubble) {
   if (userBubble && userBubble.classList.contains("user")) userBubble.remove();
   assistantBubble.remove();
   chatConv.turns.splice(index, 1);
+  // The turn below is the end of the thread now, so its saved chips come back.
+  refreshFollowupVisibility();
   if (!$("chat-messages").querySelector(".msg")) renderChatEmptyState();
   loadConversationList();
 }
@@ -9542,11 +9584,39 @@ let chatStreaming = null;
 // Ticked from a timer rather than from stream events on purpose: the seconds
 // have to keep moving while the model is thinking and sending nothing, which
 // is exactly the stretch that makes someone wonder if it has hung.
+//
+// Where it is drawn changed after a second report: *"the time of response
+// stays below the chat input bar and doesnt disappear, I want the timer to
+// appear on the chat bubble while it is responding until the response is
+// finished."* Both halves are the same mistake — the counter lived in the
+// composer, which is not where the answer is being written and is not
+// unmounted when the answer ends, so it sat under the input box afterwards
+// reading as the age of something that had already arrived. It now rides in
+// the bubble it is timing and is removed when that bubble is finished; the
+// metadata line under the answer keeps the final duration permanently, so
+// nothing is lost by taking the live one away.
 let chatTimerInterval = null;
 let chatTimerStartedAt = 0;
+//: The live counter's node, mounted inside the assistant bubble being
+//: streamed. Null between turns — `paintChatTimer` is a no-op then.
+let chatTimerBox = null;
+
+// Put the counter in the bubble this turn is being written into.
+function mountChatTimer(bubble) {
+  if (!bubble) return;
+  chatTimerBox?.remove();
+  const box = document.createElement("span");
+  box.className = "msg-timer";
+  box.setAttribute("aria-hidden", "true"); // the status line already says it aloud
+  chatTimerBox = box;
+  // Beside the role label, which is the bubble's own header row — it reads as
+  // "LIBRARIAN · 4s" rather than as a number floating in the answer.
+  (bubble.querySelector(".msg-role") || bubble).appendChild(box);
+  paintChatTimer();
+}
 
 function paintChatTimer() {
-  const box = $("chat-elapsed");
+  const box = chatTimerBox;
   if (!box) return;
   const seconds = Math.floor((performance.now() - chatTimerStartedAt) / 1000);
   // Plain seconds under a minute, m:ss above it — "97s" is a number you have
@@ -9558,22 +9628,22 @@ function paintChatTimer() {
 }
 
 function startChatTimer() {
-  const box = $("chat-elapsed");
-  if (!box) return;
+  // Started before the bubble exists — the clock has to include the wait for
+  // the first byte, which on a cold local model is most of it. `mountChatTimer`
+  // gives it somewhere to draw a moment later.
   clearInterval(chatTimerInterval);
   chatTimerStartedAt = performance.now();
-  box.classList.remove("hidden");
-  paintChatTimer();
   chatTimerInterval = setInterval(paintChatTimer, 1000);
 }
 
 function stopChatTimer() {
   clearInterval(chatTimerInterval);
   chatTimerInterval = null;
-  // Left on screen, not blanked: the last thing it says is how long the answer
-  // took, which is the number worth keeping for the second or two before the
-  // next question. The metadata line under the answer keeps it permanently.
-  paintChatTimer();
+  // Taken off screen, not left showing: the answer is finished, and its
+  // metadata line already carries the final duration. A live-looking counter above a
+  // finished answer is the bug this replaced.
+  chatTimerBox?.remove();
+  chatTimerBox = null;
 }
 
 function releaseChatComposer({ announce = true } = {}) {
@@ -9588,7 +9658,9 @@ function releaseChatComposer({ announce = true } = {}) {
   // The timer belongs to the composer, which has just been handed back to a
   // different conversation — leaving it ticking would time this chat's turn
   // against the next chat's empty box.
-  $("chat-elapsed")?.classList.add("hidden");
+  chatTimerBox?.remove();
+  chatTimerBox = null;
+  $("chat-elapsed")?.classList.add("hidden"); // legacy composer slot, kept hidden
   // Once per stream, not once per switch. Reported: leaving and returning
   // repeatedly repeated the notice, and named whichever chat had just been
   // left rather than the one actually being answered. The title is the one

@@ -75,9 +75,27 @@ def _cancel_autonomous(_name: str) -> tuple[bool, str]:
 
     if autonomous.request_stop():
         held = autonomous.snoozed_for()
+        hours, minutes = divmod(max(1, round(held / 60)), 60)
+        when = f"{hours}h" if hours and not minutes else (
+            f"{hours}h {minutes}m" if hours else f"{minutes} minutes"
+        )
+        # Reported: *"The auto ai optimisation didnt instantly quit?? what
+        # does quitting safely mean??"* — a fair complaint about both the
+        # behaviour and the sentence. "The next safe point" named nothing a
+        # user could picture, so a stop that took twenty seconds looked like a
+        # button that had not worked.
+        #
+        # What actually happens: the pass is a loop of model calls, and it is
+        # abandoned between them rather than killed mid-call. Nothing further
+        # is asked of the model the moment you press this; what you wait for
+        # is the reply already in flight to arrive and be discarded, which on
+        # a local model is however long that one answer takes. It is not
+        # killed mid-flight because the thread may be part-way through writing
+        # to the notebook, and a half-applied edit is worse than a slow stop.
         return True, (
-            "Stopping at the next safe point. It won't start again for about "
-            f"{max(1, round(held / 60))} minutes."
+            "Stopping — nothing more will be asked of the model. The reply "
+            "already in flight has to arrive first, so this can take a few "
+            f"seconds. It won't start again for {when}."
         )
     return False, "No pass is running."
 

@@ -90,7 +90,13 @@ def test_quitting_a_pass_holds_the_scheduler_off():
     assert acted is True
     assert autonomous.cancelled() is True
     assert autonomous.snoozed_for() > 0
-    assert "minutes" in detail
+    # The default interval is 6 hours, and the message says so in the units a
+    # person would use rather than in minutes.
+    assert "6h" in detail
+    # And says what the wait actually is, because "the next safe point" named
+    # nothing anyone could picture: "The auto ai optimisation didnt instantly
+    # quit?? what does quitting safely mean??"
+    assert "nothing more will be asked of the model" in detail
 
 
 def test_the_hold_is_never_shorter_than_the_floor():
@@ -238,3 +244,26 @@ def test_a_quit_pass_is_skipped_by_the_scheduler_until_the_hold_expires():
     assert held > 0
     time.sleep(0.01)
     assert autonomous.snoozed_for() <= held
+
+
+def test_a_hold_does_not_burn_down_while_the_feature_is_off():
+    """"the limit on it restarting should be based on the set interval and it
+    shouldnt reset if the user disabled it." A hold is a wall-clock deadline,
+    so it expired during time the feature was switched off and could not have
+    run anyway — quit a pass, switch it off for a day, switch it back on, and
+    a pass started within seconds of the toggle."""
+    from memorymap.ai import autonomous
+
+    autonomous.clear_snooze()
+    autonomous.request_stop(snooze_seconds=3600)
+    before = autonomous.snoozed_for()
+    assert before > 0
+
+    autonomous.freeze_hold()
+    frozen = autonomous.snoozed_for()
+    # Frozen means frozen: the number does not move with the clock.
+    assert autonomous.snoozed_for() == frozen
+    autonomous.thaw_hold()
+    assert abs(autonomous.snoozed_for() - frozen) <= 1
+    autonomous.clear_snooze()
+    assert autonomous.snoozed_for() == 0

@@ -2656,29 +2656,43 @@ aside[data-resizable="1"] {
    built-in preset cards above, and reusing it would have restyled every one of
    them. Caught by counting `.theme-card` in the live page and finding 18 where
    there should have been 2. */
+/* One card, reported twice with a screenshot: *"you didnt make the custom
+   theme with the title, graphic and delete button one whole card."* Correct —
+   the border was on the *preview* alone, so the graphic read as a card and the
+   name sat loose underneath it with a delete button hanging off the side.
+   Three parts, one of them boxed, is three things; the chrome belongs on the
+   wrapper and the preview becomes what it always was, the picture inside. */
 .saved-look {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--inner);
+  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease,
+    border-color var(--motion-base) ease;
+}
+
+.saved-look:hover,
+/* The lift follows the *card*, whichever of its two buttons has focus — a
+   card that rises for the preview and sits still for the delete button
+   would read as two controls again. */
+.saved-look:focus-within {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
 }
 
 .saved-look-preview {
   all: unset;
   box-sizing: border-box;
   display: block;
-  height: 3.5rem;
+  height: 3.25rem;
   padding: var(--space-2);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: transform var(--motion-base) ease, box-shadow var(--motion-base) ease;
-}
-
-.saved-look-preview:hover,
-.saved-look-preview:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
 }
 
 .saved-look-preview:focus-visible {
@@ -2728,8 +2742,19 @@ aside[data-resizable="1"] {
 }
 
 /* Revealed on hover/focus, like the Library's own image-tile actions: a grid
-   of saved looks should not be a grid of delete buttons. */
+   of saved looks should not be a grid of delete buttons. Sized down to sit
+   inside the card's footer rather than beside it — at the default icon-button
+   size it was taller than the name row it shares and pushed out of the card,
+   which is what the screenshot showed. */
 .saved-look-delete {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  min-width: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
   transition: opacity var(--motion-base) ease;
 }

@@ -104,9 +104,25 @@ _cancel = threading.Event()
 #: off and nobody can find.
 _snooze_until: float = 0.0
 
-#: The floor on that quiet, whatever the interval is set to. An interval of
-#: zero or one hour still buys a real pause — a Quit followed by a restart 40
-#: seconds later reads as the button not having worked.
+#: The hold's remaining seconds while the feature is switched *off*, or None
+#: when it is running down normally.
+#:
+#: Reported: *"the limit on it restarting should be based on the set interval
+#: and it shouldnt reset if the user disabled it."* The first half was already
+#: true (`request_stop` reads `autonomous_tasks_interval_hours`); the second
+#: was not, and the hole is easy to miss. A hold is a wall-clock deadline, so
+#: it burns down while the feature is disabled — during which nothing could
+#: have run anyway. Quit a pass, switch the feature off for a day, switch it
+#: back on, and the hold you set is long expired: a pass starts within seconds
+#: of the toggle, which is exactly the "it started straight back up" the hold
+#: exists to prevent. So the countdown is frozen while the feature is off and
+#: re-anchored when it comes back — the user gets the quiet they asked for,
+#: measured in time the feature was actually able to run.
+_snooze_frozen: float | None = None
+
+#: A floor under the hold, for the odd caller that passes an explicit one.
+#: The interval is in whole hours, so this never binds on the default path —
+#: it is here so a future "snooze 30s" cannot make Quit look broken.
 MIN_SNOOZE_SECONDS = 15 * 60
 
 #: What the last pass actually did, so the user can read it back and undo any
@@ -156,17 +172,38 @@ def request_stop(snooze_seconds: float | None = None) -> bool:
     its next checkpoint, which is at most one model call away — the alternative
     is killing a thread mid-write to the notebook, which this app will not do.
     """
-    global _snooze_until
+    global _snooze_until, _snooze_frozen
     if snooze_seconds is None:
+        # The user's own interval, which is the only number that means
+        # anything here: "don't start again before you would have anyway".
         try:
             hours = int(deps.get_config().get_preference("autonomous_tasks_interval_hours") or 6)
         except (TypeError, ValueError, RuntimeError):
             hours = 6
         snooze_seconds = max(hours, 1) * 3600
     _snooze_until = time.time() + max(snooze_seconds, MIN_SNOOZE_SECONDS)
+    _snooze_frozen = None  # a fresh hold always runs from now
     was_running = _working.is_set()
     _cancel.set()
     return was_running
+
+
+def freeze_hold() -> None:
+    """Stop the hold counting down — the feature has been switched off.
+
+    Idempotent, and safe to call on every tick of the loop, which is how it is
+    actually called."""
+    global _snooze_frozen
+    if _snooze_frozen is None and _snooze_until:
+        _snooze_frozen = max(0.0, _snooze_until - time.time())
+
+
+def thaw_hold() -> None:
+    """Start it counting down again — the feature is back on."""
+    global _snooze_until, _snooze_frozen
+    if _snooze_frozen is not None:
+        _snooze_until = time.time() + _snooze_frozen
+        _snooze_frozen = None
 
 
 def snoozed_for() -> int:
@@ -176,13 +213,16 @@ def snoozed_for() -> int:
     silently declines to run for six hours is indistinguishable from one that
     is broken.
     """
+    if _snooze_frozen is not None:
+        return int(_snooze_frozen)
     return max(0, int(_snooze_until - time.time()))
 
 
 def clear_snooze() -> None:
     """Forget any hold. Pressing "Run now" is an explicit answer to "not now"."""
-    global _snooze_until
+    global _snooze_until, _snooze_frozen
     _snooze_until = 0.0
+    _snooze_frozen = None
 
 
 def scheduler_alive() -> bool:
@@ -544,13 +584,24 @@ def clean_orphaned_board_cards() -> int:
 def _loop(stop_event: threading.Event, wake_event: threading.Event) -> None:
     while not stop_event.is_set():
         config = deps.get_config()
+        enabled = config.get_preference("autonomous_tasks_enabled", False)
+        # A hold must not burn down during time the feature could not have run
+        # in — see `_snooze_frozen`. Done here rather than in the settings
+        # route so it holds however the preference changed (Settings, the
+        # tray, a restore, an import).
+        if enabled:
+            thaw_hold()
+        else:
+            freeze_hold()
         held = snoozed_for()
-        if held:
+        if not enabled:
+            pass  # nothing to do; the hold (if any) is frozen above
+        elif held:
             # See `_snooze_until`: someone quit a pass, so the scheduler stays
             # off it until the hold expires — including when `wake()` cut the
             # sleep short, which is the case that made this necessary.
             logger.info("skipped: a quit pass holds the scheduler for %ds more", held)
-        elif config.get_preference("autonomous_tasks_enabled", False):
+        else:
             _working.set()
             try:
                 _run_optimization()
@@ -582,7 +633,9 @@ def _loop(stop_event: threading.Event, wake_event: threading.Event) -> None:
         # before anything can run again.
         seconds = max(1, hours) * 3600
         held = snoozed_for()
-        if held:
+        # A frozen hold has no expiry to wake for — only the toggle coming
+        # back on can end it, and that fires `wake()` on its own.
+        if held and _snooze_frozen is None:
             seconds = min(seconds, held + 1)
         wake_event.wait(seconds)
 

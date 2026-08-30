@@ -120,6 +120,13 @@ const LIBRARY_KINDS = [
   // is also where someone looking for "notes I have not finished" would
   // reasonably expect to find it.
   { key: "draft", icon: "ph:pencil-simple-line", label: "Drafts" },
+  // Not a real kind — item.kind is still "note" for these, same as every
+  // other tagged note. A meeting note is finished, unlike a draft, so it
+  // stays reachable from "Everything" too; this chip is a client-side tag
+  // filter (renderLibrary()'s own special case for libraryKind === "meeting"),
+  // and its count below is computed the same way rather than read from the
+  // server's per-kind counts, which only exist for real kinds.
+  { key: "meeting", icon: "ph:video-camera", label: "Meetings" },
   // "archived" is the bin's own internal kind (see routes_library.py's
   // _archive()) — this app's real archive uses "shelved" specifically so
   // the two are never confused at the code level, even though the words
@@ -242,7 +249,9 @@ function renderLibraryFilters() {
     const count =
       kind.key === "all"
         ? libraryItems.length - (libraryCounts.activity || 0) - (libraryCounts.draft || 0)
-        : libraryCounts[kind.key] || 0;
+        : kind.key === "meeting"
+          ? libraryItems.filter((i) => i.kind === "note" && (i.tags || []).includes("meeting")).length
+          : libraryCounts[kind.key] || 0;
     const button = document.createElement("button");
     button.type = "button";
     button.className =
@@ -341,7 +350,14 @@ function renderLibrary() {
   if (!grid) return;
   const query = ($("library-search")?.value || "").trim().toLowerCase();
   let items = libraryItems;
-  if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
+  // "meeting" isn't a real kind (item.kind is still "note") — a meeting note
+  // is a real, finished note, unlike a draft, so it stays reachable from
+  // "Everything" too and doesn't get its own excluded bucket there. The chip
+  // is a client-side tag filter over the same notes the Notes chip shows,
+  // not a second list the server computes.
+  if (libraryKind === "meeting") {
+    items = items.filter((i) => i.kind === "note" && (i.tags || []).includes("meeting"));
+  } else if (libraryKind !== "all") items = items.filter((i) => i.kind === libraryKind);
   else {
     // Two kinds stay out of the mixed list. Deleted things are not part of
     // "everything you have made" — they are things you decided you had not —
@@ -367,14 +383,6 @@ function renderLibrary() {
     // actually matters: the mixed view is exactly where an archived note
     // would otherwise clutter the notebook it was archived to get out of.
     items = items.filter((i) => i.kind !== "shelved");
-  }
-  // A real data filter, not a search-box trick: `tags` only exists on note
-  // items (routes_library.py's _notes()), so this only ever narrows notes —
-  // everything else (documents, chats, images…) has no tag to check and
-  // stays out while the toggle is on, same as a text search would leave them
-  // out for not matching a word.
-  if ($("library-meetings-only")?.checked) {
-    items = items.filter((i) => (i.tags || []).includes("meeting"));
   }
   if (query) {
     // Title *and* preview, for the same reason the conversation search reads
@@ -1007,7 +1015,6 @@ for (const button of document.querySelectorAll("#library-sort-seg button")) {
   });
 }
 $("library-show-binned").addEventListener("change", renderLibrary);
-$("library-meetings-only").addEventListener("change", renderLibrary);
 for (const button of document.querySelectorAll("#library-view button")) {
   button.addEventListener("click", () => {
     localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);

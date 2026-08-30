@@ -2099,21 +2099,6 @@ Link to another note with [[its first few words]]."></textarea>
               <input type="checkbox" id="library-show-binned" class="accent-check">
               <span>Include bin</span>
             </label>
-            <!-- A meeting note is a real, finished note — unlike a draft, it
-                 belongs in "Everything" too, so this is a filter that narrows
-                 the current view rather than a separate kind with its own
-                 chip and count. Same shape as Include bin beside it: a plain
-                 client-side toggle over items already on the page, no extra
-                 request. Replaces a "Meeting Notes" sub-tab that duplicated
-                 the All view and (found while fixing this) never actually
-                 worked — it filtered on `tag:meeting` text in the search box,
-                 which this endpoint's notes never carried a tags field for,
-                 so it always rendered empty. -->
-            <label class="library-sort library-sort-check checkbox-label"
-              title="Only notes tagged “meeting”.">
-              <input type="checkbox" id="library-meetings-only" class="accent-check">
-              <span>Meetings only</span>
-            </label>
             <div class="seg seg-compact library-sort-seg" id="library-sort-seg" role="group" aria-label="Sort the library">
               <button data-sort="recent" class="active" type="button" title="Newest first">Newest</button>
               <button data-sort="oldest" type="button" title="Oldest first">Oldest</button>
@@ -3325,13 +3310,27 @@ Link to another note with [[its first few words]]."></textarea>
                     background — as one look you can come back to.
                   </small>
                 </div>
-                <div id="custom-themes" class="theme-presets"></div>
-                <div class="row custom-theme-save-row">
-                  <input id="custom-theme-name" type="text" maxlength="30"
-                    placeholder="Name this look…"
-                    title="e.g. Late night"
-                    aria-label="Name for the saved theme">
-                  <button id="custom-theme-save" class="small">Save current look</button>
+                <!-- One wrapper, not two siblings: `.setting-row-stack` is a
+                     flex ROW (only align-items changes, never
+                     flex-direction — see its own rule), which is right for
+                     every other stack row here since each of those has just
+                     one control block beside the label. This row has two
+                     (the grid, then the name+save controls), and as two
+                     separate flex children they spread across the row like
+                     the label does — the grid pinned near the label, the
+                     name box and button pushed out to the far right with a
+                     gap between, reported directly with a screenshot. One
+                     wrapper puts both back under the label as a single
+                     control block, stacking normally as block children. -->
+                <div class="custom-themes-block">
+                  <div id="custom-themes" class="theme-presets"></div>
+                  <div class="row custom-theme-save-row">
+                    <input id="custom-theme-name" type="text" maxlength="30"
+                      placeholder="Name this look…"
+                      title="e.g. Late night"
+                      aria-label="Name for the saved theme">
+                    <button id="custom-theme-save" class="small">Save current look</button>
+                  </div>
                 </div>
               </div>
               <div class="row">

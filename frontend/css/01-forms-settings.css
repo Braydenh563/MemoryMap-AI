@@ -1682,6 +1682,21 @@ li.link-source {
   margin: 0.5rem 0;
 }
 
+/* The saved-themes grid and the "name it, save it" row beside `.setting-label`
+   — one flex child, not two. `.setting-row-stack` only changes align-items,
+   never flex-direction (every other stack row here has exactly one control
+   block next to the label), so two separate children spread across the row
+   the same way the label does: the grid pinned near the label, the name box
+   and Save button pushed out to the far right with a gap between, reported
+   directly with a screenshot. `flex: 1 1 auto` (not this app's usual
+   `.setting-control` flex:0, sized for a color input or a select) because the
+   grid genuinely needs the row's full remaining width to lay out more than
+   one column. */
+.custom-themes-block {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* An empty grid is not a grid. See renderCustomThemes(): its empty message is
    a paragraph, and as a grid item in a 104px track it wrapped to about one
    word per line. */

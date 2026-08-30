@@ -23,7 +23,7 @@ from datetime import timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian, skills
+from memorymap.ai import librarian, skills, toolwords
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, Entry, Reminder
@@ -3114,36 +3114,70 @@ def focus_for(question: str, recent: str = "") -> list[str] | None:
     turn would be worse than reading none: a question about beans, asked after
     a conversation about deleting things, would be offered delete_note.
     """
-    text = f" {(question or '').lower()} "
-    if any(cue in text for cue in BROAD_REQUESTS):
-        return None
+    return focus_detail(question, recent).tools
+
+
+def focus_detail(question: str, recent: str = "") -> toolwords.Focus:
+    """`focus_for`, with the reasoning attached — see `toolwords.Focus`.
+
+    Split out so the agent can log *why* a tool was offered. "The AI didn't use
+    the tool I expected" and "the AI tagged something I only asked about" are
+    both otherwise indistinguishable from the model making its own choice.
+    """
+    asked = question or ""
+    text = f" {asked} "
+    broad = toolwords.score_groups(text, [((), BROAD_REQUESTS)])[0]
+    if broad:
+        return toolwords.Focus(tools=None, broad=True)
+
     # A follow-through's subject is in the turn before it. Matched over both,
     # so "implement those suggestions" after a conversation about categories
     # gets the category tools — and so an instruction that names its own
     # subject ("apply that and also tag them") keeps its own cues too.
-    following = is_follow_through(question)
+    following = is_follow_through(asked)
     if following and recent:
-        text = f"{text} {recent.lower()} "
-        if any(cue in text for cue in BROAD_REQUESTS):
-            return None
-    wanted = list(CORE_TOOLS)
-    matched = False
-    for group, cues in TOOL_GROUPS:
-        if any(cue in text for cue in cues):
-            wanted.extend(group)
-            matched = True
-    if following and not matched:
+        text = f"{text} {recent} "
+        if toolwords.score_groups(text, [((), BROAD_REQUESTS)])[0]:
+            return toolwords.Focus(tools=None, broad=True, followed_through=True)
+
+    ranked, cues = toolwords.score_groups(text, TOOL_GROUPS)
+    if following and not ranked:
         # "Do it" and nothing in the conversation says what "it" is. The safe
         # answer is the whole toolbox: this is precisely the turn where the
         # user is expecting an action, so being unable to act is the one
         # outcome that is certainly wrong.
-        return None
+        return toolwords.Focus(tools=None, followed_through=True)
+
+    # A question *about* a capability keeps that capability's reading tools and
+    # loses its writing ones. "How do I tag a note?" should be able to look at
+    # the tags to answer well; it should not be holding delete_tag while it
+    # does. Note this narrows within a group that already fired — it never
+    # drops the group, because the question is still about that subject.
+    asking = toolwords.looks_like_a_question_about(asked)
+
+    wanted = list(CORE_TOOLS)
+    for index, _score in ranked:
+        for name in TOOL_GROUPS[index][0]:
+            if asking and name in WRITE_TOOLS:
+                continue
+            wanted.append(name)
+
     # The web tools are the user's own opt-in, made per-notebook rather than
     # per-question; `tool_enabled` already hides them otherwise, and second-
     # guessing that switch here would mean "web search is on but I didn't
     # think you meant it".
     wanted.extend(["web_search", "read_url"])
-    return wanted
+    # De-duplicated but order-preserving: a group can name a tool that is
+    # already core, and a repeated schema is a wasted schema.
+    seen: set[str] = set()
+    unique = [n for n in wanted if not (n in seen or seen.add(n))]
+    return toolwords.Focus(
+        tools=unique,
+        ranked=ranked,
+        cues=cues,
+        asking_about=asking,
+        followed_through=following,
+    )
 
 
 def tool_enabled(name: str) -> bool:

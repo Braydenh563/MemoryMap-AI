@@ -226,6 +226,28 @@ COMPACT_TOOLS_GUIDE = (
 )
 
 
+#: Appended when the tool list was narrowed by reading the question's words.
+#:
+#: The narrowing is a guess made from wording, and a guess the model is
+#: entitled to disagree with — asked for directly: *"if the program detects
+#: words and suggests that specific tools or skills might need to be used, and
+#: the AI thinks that's wrong then it doesn't have to use them"*.
+#:
+#: It already may. `permitted` is None on an ordinary turn, so a tool the model
+#: names runs whether or not it was in the list, and reaching past the list
+#: widens it for the rest of the turn (see the focus-correction block in the
+#: round loop). What was missing was the model being *told* that — without it,
+#: a well-behaved model treats the list as exhaustive, which is exactly the
+#: behaviour that makes a narrow guess expensive.
+#:
+#: One sentence, because it is on every round of every focused turn.
+FOCUS_NOTE = (
+    " The tools listed were picked from the wording of the request and are a "
+    "suggestion, not a limit: if the right one is not there, call it by name "
+    "anyway, and ignore any that do not fit."
+)
+
+
 def tools_guide(window_tokens: int | None) -> str:
     """The tool guide sized to the window — see COMPACT_TOOLS_GUIDE.
 
@@ -940,9 +962,10 @@ def run_agent(
     # list is also *enforced* below, while the focus is only an economy. A
     # tool left out because a cue didn't fire must still run if the model
     # somehow calls it.
-    offered = tools.ollama_tools(
+    focus_names = (
         allowed_tools if allowed_tools is not None else _focus(question, history)
     )
+    offered = tools.ollama_tools(focus_names)
     # Tools this turn may not use whatever it was offered. The one caller is a
     # run refusing to start another run (`tools.RUN_STARTERS`): each run brings
     # its own fresh rounds, so nesting them means the bound on a turn stops
@@ -971,7 +994,38 @@ def run_agent(
     # fact, and a model declaring 32k was being rationed as if it were a 3B.
     # A skill's declared list is exempt — it asked for exactly those tools, and
     # silently dropping one would break the run rather than trim it.
+    # --- the focus is a guess, and the model gets to overrule it ---------------
+    #
+    # `focus_for` reads the words of the question to decide which tools are
+    # worth the room. It is deterministic and testable, and it is still a guess:
+    # a request can want a tool whose name shares no word with it. So the guess
+    # is never allowed to be final.
+    #
+    # Two mechanisms, and they are different things. The escape hatch already
+    # existed: `permitted` is None on an ordinary turn, so a tool the model
+    # calls anyway still runs even if it was never offered. What is added here
+    # is the correction — a call for something unoffered is *evidence the focus
+    # was wrong*, so the next round of this same turn gets the full toolbox
+    # rather than the same narrow guess that already failed the model once.
+    #
+    # This is why the focus can afford to be narrow. A wrong guess costs one
+    # round, not the request.
+    focused_only = allowed_tools is None
+    every_tool = offered
+    # Say so, once, in the system prompt — but only when the list really was
+    # narrowed. On a broad request the model already has everything, and a note
+    # explaining that the list is partial would simply be false.
+    if focused_only and focus_names is not None and messages:
+        messages[0]["content"] += FOCUS_NOTE
     if allowed_tools is None:
+        every_tool = tools.ollama_tools()
+        if barred:
+            every_tool = [
+                t for t in every_tool if t["function"]["name"] not in barred
+            ]
+        if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
+            every_tool = tools.compact_schemas(every_tool)
+        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars)
         offered, dropped = tools.within_budget(offered, budget.tool_schema_chars)
         if dropped:
             # Visible in Settings → Logs, because "the AI didn't use the tool I
@@ -1160,6 +1214,22 @@ def run_agent(
                 "tool_calls": reply.get("raw_tool_calls") or [],
             }
         )
+        # Did the model reach for something it was not shown? Then the focus
+        # misread the request, and the rounds after this one should not be
+        # working from the same misreading. Widening is deliberately one-way
+        # and lasts the rest of the turn: a request whose subject the words did
+        # not carry does not become readable later in the same turn.
+        if focused_only and offered is not every_tool:
+            shown = {t["function"]["name"] for t in offered}
+            reached_past = [c["name"] for c in calls if c["name"] not in shown]
+            if reached_past:
+                logging.getLogger("memorymap.agent").info(
+                    "focus corrected: model called %s, which the question's "
+                    "words did not suggest — offering the full set from here",
+                    ", ".join(sorted(set(reached_past))[:5]),
+                )
+                offered = every_tool
+
         for call in calls:
             name, arguments = call["name"], call.get("arguments") or {}
             spec = tools.TOOLS.get(name)

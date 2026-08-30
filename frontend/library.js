@@ -1121,137 +1121,236 @@ $("library-new-doc").addEventListener("click", () => {
 
 // ======================= SKILLS DASHBOARD TAB =======================
 
-async function renderSkillsDashboard() {
-  const container = document.getElementById("skills-dashboard-list");
-  if (!container) return;
-  
-  const skills = await loadSkills();
-  const prefs = await apiJson("/preferences").catch(() => ({}));
-  container.innerHTML = "";
-  
-  // Render Autonomous Workers section at the top
-  const autoDiv = document.createElement("div");
-  autoDiv.className = "card";
-  autoDiv.style.marginBottom = "var(--space-6)";
-  autoDiv.innerHTML = `
-    <div class="row space-between">
-      <h3>Autonomous Background Workers</h3>
-      <label class="switch">
-        <input type="checkbox" id="skills-auto-toggle" ${prefs.autonomous_tasks_enabled ? "checked" : ""}>
-        <span class="slider"></span>
-      </label>
-    </div>
-    <p class="muted text-sm">Allow the AI to run tasks in the background automatically.</p>
-    <div class="row row-top-gap">
-      <label><input type="checkbox" id="skills-auto-tag" ${prefs.auto_tag_enabled !== false ? "checked" : ""}> Auto-tag notes</label>
-      <label><input type="checkbox" id="skills-auto-link" ${prefs.auto_link_enabled !== false ? "checked" : ""}> Auto-link ideas</label>
-    </div>
-  `;
-  container.appendChild(autoDiv);
+// --- the AI Skills page ---------------------------------------------------------
+//
+// Asked for: "can you redesign the AI Skills tab in the library??" — and an
+// audit of what was here first found five separate faults, four of which the
+// redesign removes rather than restyles:
+//
+// 1. **The grid was never used.** A `div.skills-grid` was created, appended,
+//    and then every card was appended to `container` instead — so the grid
+//    layout applied to an empty box and the cards stacked full-width below
+//    it. The "No skills found" message went *into* that empty box, which is
+//    why an empty library looked like nothing at all.
+// 2. **A dead control.** "Schedule" toasted "Scheduler functionality coming
+//    soon!". A button that does nothing is worse than a missing feature: it
+//    teaches people the app is unreliable. Gone; it is on the roadmap.
+// 3. **`innerHTML` templates**, against this file's own rule, including a
+//    `.switch`/`.slider` toggle that exists nowhere else in this app — so the
+//    one toggle on this page looked unlike every other toggle in it.
+// 4. **Nothing said what a skill would do.** A name and a description, with
+//    no indication of how many steps it runs, which tools it may use, or
+//    whether it has ever been run — which is exactly what you want to know
+//    before letting something edit your notebook.
+// 5. `window.switchTab` was monkey-patched to notice the Library opening.
+//
+// The shape now: one settings card for the background workers, then a search
+// box, then a real grid of cards that each say what the skill is, what it
+// costs to run, and when it last ran.
 
-  // The autonomous toggles that live on this panel as well as in Settings →
-  // Background tasks. Reported as **"the automated tasks option keeps
-  // automatically disabling itself even when turned on"**, and it did:
-  //
-  // These wrote straight to the server and updated nothing locally. `savePrefs`
-  // — which seven other controls call on every change — then rebuilt the whole
-  // preferences object from the DOM, reading `#pref-autonomous-tasks`, the
-  // *other* checkbox, which nobody had ticked. So enabling it here and then
-  // touching any unrelated setting silently switched it back off.
-  //
-  // `setPreference` is the fix in one place: it saves, updates `prefsCache` so
-  // the next `savePrefs` sends the right value, and reconciles the mirrored
-  // control so the two screens cannot disagree.
-  for (const [id, key] of [
-    ["skills-auto-toggle", "autonomous_tasks_enabled"],
-    ["skills-auto-tag", "auto_tag_enabled"],
-    ["skills-auto-link", "auto_link_enabled"],
-  ]) {
-    const box = $(id);
-    if (box) box.addEventListener("change", (e) => setPreference(key, e.target.checked));
+//: The skill cards currently on screen, so the search box can filter without
+//: another round trip. Rebuilt by `renderSkillsDashboard`.
+let skillCardsCache = [];
+
+function skillLastRunIndex(rows) {
+  //: name → the most recent audit row for it. The rows arrive newest-first,
+  //: so the first one wins and later ones are skipped.
+  const index = new Map();
+  for (const row of rows || []) {
+    const name = (row.detail || "").split(" — ")[0];
+    if (name && !index.has(name)) index.set(name, row);
   }
-  
-  const grid = document.createElement("div");
-  grid.className = "skills-grid";
-  container.appendChild(grid);
-  
-  if (!skills.length) {
-    grid.innerHTML = `<p class="muted">No skills found.</p>`;
-    return;
+  return index;
+}
+
+function skillCard(skill, lastRun) {
+  const card = document.createElement("article");
+  card.className = "skill-card";
+
+  const header = document.createElement("div");
+  header.className = "skill-card-header";
+  const title = document.createElement("h3");
+  title.className = "skill-card-title";
+  title.textContent = skill.name;
+  const badge = document.createElement("span");
+  badge.className = `chip skill-badge ${skill.builtin ? "" : "skill-badge-custom"}`.trim();
+  badge.textContent = skill.builtin ? "Built-in" : "Yours";
+  header.append(title, badge);
+
+  const desc = document.createElement("p");
+  desc.className = "skill-card-desc muted";
+  desc.textContent = skill.description || "No description.";
+
+  // **What running this will actually do.** The missing half of the old card:
+  // a skill is a thing you are about to let edit your notebook, and "how many
+  // steps" and "which tools" are the two facts that decide whether you want
+  // to. Only shown when there is something to say — a one-shot prompt skill
+  // has neither, and a row of zeroes is noise.
+  const facts = document.createElement("div");
+  facts.className = "skill-card-facts";
+  const steps = (skill.steps || []).length;
+  const tools = (skill.tools || []).length;
+  const inputs = (skill.inputs || []).length;
+  for (const [icon, text, title_] of [
+    steps ? ["ph:list-numbers", `${steps} step${steps === 1 ? "" : "s"}`, "Runs as a numbered plan"] : null,
+    tools ? ["ph:wrench", `${tools} tool${tools === 1 ? "" : "s"}`, `Can use: ${(skill.tools || []).join(", ")}`] : null,
+    inputs ? ["ph:textbox", `${inputs} input${inputs === 1 ? "" : "s"}`, "Asks you for these before it runs"] : null,
+  ].filter(Boolean)) {
+    const chip_ = document.createElement("span");
+    chip_.className = "chip skill-fact";
+    chip_.title = title_;
+    setLabel(chip_, `${icon} ${text}`);
+    facts.appendChild(chip_);
   }
-  
-  for (const skill of skills) {
-    const card = document.createElement("div");
-    card.className = "skill-card";
-    
-    // Header: Title and Type badge
-    const header = document.createElement("div");
-    header.className = "skill-card-header";
-    const title = document.createElement("div");
-    title.className = "skill-card-title";
-    title.textContent = skill.name;
-    const badge = document.createElement("span");
-    badge.className = "status badge";
-    badge.textContent = skill.builtin ? "Built-in" : "Custom";
-    header.appendChild(title);
-    header.appendChild(badge);
-    
-    // Description
-    const desc = document.createElement("div");
-    desc.className = "skill-card-desc";
-    desc.textContent = skill.description || "No description provided.";
-    
-    // Footer: Run button
-    const footer = document.createElement("div");
-    footer.className = "skill-card-footer";
-    const runBtn = document.createElement("button");
-    runBtn.className = "small";
-    runBtn.textContent = "Run Skill";
-    runBtn.onclick = () => {
-      // runSkill, not startSkill. Reported as "the Run Skill buttons in the AI
-      // Skills library are broken", and it was two bugs in one line:
-      //
-      //   startSkill(skill.name)
-      //
-      // passed the *name string* where startSkill expects the skill object (so
-      // `skill.name` inside it was undefined), and omitted `values` entirely —
-      // which made `Object.values(values)` throw "Cannot convert undefined or
-      // null to object". That is the app.js:10495 console error reported
-      // alongside it: one line, two symptoms.
-      //
-      // runSkill() is the correct entry point: it prompts for the skill's
-      // inputs when it has any, then calls startSkill with a real values
-      // object. It also switches to chat itself, so doing it here as well
-      // would be a second, redundant tab change.
-      runSkill(skill);
-    };
-    
-    const schedBtn = document.createElement("button");
-    schedBtn.className = "small ghost";
-    schedBtn.textContent = "Schedule";
-    schedBtn.onclick = () => {
-      toast("Scheduler functionality coming soon!"); // Placeholder for Phase 5 implementation
-    };
-    
-    footer.appendChild(schedBtn);
-    footer.appendChild(runBtn);
-    
-    card.appendChild(header);
-    card.appendChild(desc);
-    card.appendChild(footer);
-    container.appendChild(card);
+
+  const when = document.createElement("p");
+  when.className = "skill-card-when muted text-xs";
+  if (lastRun) {
+    const outcome = (lastRun.detail || "").split(" — ")[1] || "";
+    when.textContent = `Last run ${new Date(lastRun.created_at).toLocaleString()} — ${outcome}`;
+  } else {
+    when.textContent = "Never run.";
+  }
+
+  const footer = document.createElement("div");
+  footer.className = "skill-card-footer";
+  const run = document.createElement("button");
+  run.className = "small";
+  setLabel(run, "ph:play Run");
+  run.title = `Run “${skill.name}” in the chat`;
+  // runSkill, not startSkill: it prompts for the skill's inputs when it has
+  // any, then calls startSkill with a real values object, and switches to the
+  // chat itself. (startSkill(skill.name) was the earlier bug here — a name
+  // string where a skill object was expected, and no `values` at all.)
+  run.addEventListener("click", () => runSkill(skill));
+  footer.appendChild(run);
+
+  // A built-in has nothing to edit — it is defined in the app, not in your
+  // preferences — so offering Edit on one would open a form that cannot save.
+  if (!skill.builtin) {
+    const edit = document.createElement("button");
+    edit.className = "ghost small";
+    setLabel(edit, "ph:pencil-simple Edit");
+    edit.addEventListener("click", async () => {
+      await openSettingsModal("skills");
+      startEditingSkill(skill);
+    });
+    footer.appendChild(edit);
+  }
+
+  card.append(header, desc);
+  if (facts.children.length) card.appendChild(facts);
+  card.append(when, footer);
+  return card;
+}
+
+function renderSkillCards(query = "") {
+  const grid = document.getElementById("skills-grid");
+  const empty = document.getElementById("skills-empty");
+  if (!grid) return;
+  const term = query.trim().toLowerCase();
+  const matches = term
+    ? skillCardsCache.filter(
+        ({ skill }) =>
+          skill.name.toLowerCase().includes(term) ||
+          (skill.description || "").toLowerCase().includes(term)
+      )
+    : skillCardsCache;
+  grid.replaceChildren(...matches.map(({ skill, lastRun }) => skillCard(skill, lastRun)));
+  if (empty) {
+    empty.classList.toggle("hidden", matches.length > 0);
+    empty.textContent = skillCardsCache.length
+      ? "No skills match that."
+      : "No skills yet. “New skill” writes one — a name, what it should do, and the steps to take.";
   }
 }
 
-// Hook into switchTab by overriding it to catch the library tab
-const originalSwitchTab = switchTab;
-window.switchTab = function(name) {
-  originalSwitchTab(name);
-  if (name === "library") {
-    renderSkillsDashboard();
-    renderSkillLogs();
+async function renderSkillsDashboard() {
+  const container = document.getElementById("skills-dashboard-list");
+  if (!container) return;
+
+  const [skills, prefs, runs] = await Promise.all([
+    loadSkills(),
+    apiJson("/preferences").catch(() => ({})),
+    apiJson("/audit?limit=100&entity_type=skill", { silent: true }).catch(() => []),
+  ]);
+  const lastRuns = skillLastRunIndex(runs);
+  container.replaceChildren();
+
+  // --- background workers, in this app's own controls ------------------------
+  //
+  // The same three preferences as Settings → Background tasks, and written
+  // through `setPreference` for the reason that fix already documents: these
+  // used to write straight to the server and update nothing locally, so
+  // `savePrefs` — which rebuilds the whole object from the *other* screen's
+  // DOM — silently switched them back off again. Reported as "the automated
+  // tasks option keeps automatically disabling itself even when turned on".
+  const workers = document.createElement("section");
+  workers.className = "card skills-workers";
+  const workersHead = document.createElement("div");
+  workersHead.className = "row space-between";
+  const workersTitle = document.createElement("h3");
+  workersTitle.textContent = "Background workers";
+  workersHead.append(workersTitle);
+  const workersHint = document.createElement("p");
+  workersHint.className = "muted text-sm";
+  workersHint.textContent =
+    "Lets the AI work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
+  const workersRow = document.createElement("div");
+  workersRow.className = "skills-worker-toggles";
+  for (const [id, key, label, on] of [
+    ["skills-auto-toggle", "autonomous_tasks_enabled", "Run in the background", Boolean(prefs.autonomous_tasks_enabled)],
+    ["skills-auto-tag", "auto_tag_enabled", "Tag notes", prefs.auto_tag_enabled !== false],
+    ["skills-auto-link", "auto_link_enabled", "Link related notes", prefs.auto_link_enabled !== false],
+  ]) {
+    const wrap = document.createElement("label");
+    // The app's own pill toggle, not the `.switch`/`.slider` markup that used
+    // to be here and exists nowhere else in this codebase.
+    wrap.className = "checkbox-label";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.id = id;
+    box.checked = on;
+    box.addEventListener("change", (event) => setPreference(key, event.target.checked));
+    const text = document.createElement("span");
+    text.textContent = label;
+    wrap.append(box, text);
+    workersRow.appendChild(wrap);
   }
-};
+  workers.append(workersHead, workersHint, workersRow);
+  container.appendChild(workers);
+
+  // --- the skills themselves --------------------------------------------------
+  const search = document.createElement("input");
+  search.type = "search";
+  search.id = "skills-search";
+  search.className = "skills-search";
+  search.placeholder = "Search skills…";
+  search.setAttribute("aria-label", "Search your skills");
+  search.addEventListener("input", () => renderSkillCards(search.value));
+  container.appendChild(search);
+
+  const grid = document.createElement("div");
+  grid.id = "skills-grid";
+  grid.className = "skills-grid";
+  const empty = document.createElement("p");
+  empty.id = "skills-empty";
+  empty.className = "muted hidden";
+  // Appended *outside* the grid: the previous version put its empty state
+  // inside a grid whose cards went somewhere else entirely, so an empty
+  // library rendered as a blank page.
+  container.append(grid, empty);
+
+  skillCardsCache = skills.map((skill) => ({ skill, lastRun: lastRuns.get(skill.name) }));
+  renderSkillCards(search.value);
+}
+
+// The AI Skills page is rendered when its sub-tab is opened, by the sub-tab
+// handler below — not by monkey-patching `switchTab`, which is what this used
+// to do (`window.switchTab = function(name) { originalSwitchTab(name); … }`).
+// That wrapper ran two network-backed renders every time *any* Library
+// sub-tab was opened, and it depended on load order: whichever script
+// happened to run last owned the global. See `librarySubtabs` below.
 
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
@@ -2304,6 +2403,12 @@ document.addEventListener("DOMContentLoaded", () => {
             wbShowBoardsLanding();
           } else if (targetId === "library-view-docs") {
             renderLibraryDocuments();
+          } else if (targetId === "library-view-skills") {
+            // Here rather than in a `switchTab` wrapper: these are two
+            // network-backed renders and they belong to *this* sub-tab, not
+            // to every visit to the Library.
+            renderSkillsDashboard();
+            renderSkillLogs();
           }
         }
       });

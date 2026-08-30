@@ -490,8 +490,56 @@
 }
 
 .skill-card-title {
+  margin: 0;
   font-weight: 600;
   font-size: var(--text-md);
+}
+
+/* Which kind of skill this is. "Yours" rather than "Custom": the distinction
+   that matters to a reader is whether they can edit it. */
+.skill-badge {
+  flex: 0 0 auto;
+}
+
+.skill-badge-custom {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* **What running this will actually do** — steps, tools, inputs. The card
+   used to carry a name and a description and nothing else, which is not
+   enough to decide whether to let something edit your notebook. */
+.skill-card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.skill-fact {
+  font-size: var(--text-xs);
+}
+
+.skill-card-when {
+  margin: 0;
+}
+
+/* Background workers: this page's own copy of three Settings preferences,
+   using this app's pill toggles rather than the one-off `.switch`/`.slider`
+   markup that used to be here and appears nowhere else. */
+.skills-workers {
+  margin-bottom: var(--space-6);
+}
+
+.skills-worker-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.skills-search {
+  margin-top: var(--space-6);
+  margin-bottom: 0;
 }
 
 .skill-card-desc {
@@ -502,7 +550,10 @@
 
 .skill-card-footer {
   display: flex;
-  justify-content: flex-end;
+  /* Run first and on the left. It is the reason the card exists, and a
+     primary action hiding in the bottom-right corner behind a secondary one
+     is the layout that made "Schedule" look like the main button. */
+  justify-content: flex-start;
   gap: var(--space-3);
   margin-top: var(--space-3);
   padding-top: var(--space-3);

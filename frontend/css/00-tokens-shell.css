@@ -2089,6 +2089,25 @@ header#top-bar.tabs-wrapped #tab-bar {
   gap: var(--space-3);
 }
 
+/* **Two utility classes that were used twenty times and never existed.**
+   Found while measuring the AI Skills cards: `class="muted text-sm"` appears
+   throughout app.js, library.js and index.html, and there was no `.text-sm`
+   rule anywhere in this stylesheet — only the `--text-sm` *token*, which a
+   class name does not reach. So every one of those elements has been
+   rendering at the default body size since the day it was written, and the
+   author of each one had no way to notice: the markup reads as correct and
+   the intent is obvious.
+
+   Declared here, next to the tokens they name. Two rules, and they make
+   twenty existing elements finally do what they say. */
+.text-sm {
+  font-size: var(--text-sm);
+}
+
+.text-xs {
+  font-size: var(--text-xs);
+}
+
 #status-bar {
   /* One height for the strip and everything in it — DESIGN.md's control-height
      rule, the same reason `--header-control-h` exists. Not a spacing token: a

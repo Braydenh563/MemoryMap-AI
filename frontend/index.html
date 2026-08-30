@@ -2213,7 +2213,12 @@ Link to another note with [[its first few words]]."></textarea>
             </span>
           </div>
           <p class="muted graph-help-panel hidden" id="skills-intro" role="dialog" aria-label="What is this?">Manage the capabilities of your AI agent. Enable, configure, and review execution logs.</p>
-          <div id="skills-dashboard-list" class="skills-grid"></div>
+          <!-- Not `skills-grid`: this holds the background-workers card, the
+               search box and the grid *itself*, and having the outer box be a
+               grid too made those three into three columns — a narrow card, an
+               empty lane and the real grid squeezed beside them. The grid is
+               built inside, by renderSkillsDashboard. -->
+          <div id="skills-dashboard-list"></div>
         </section>
 
       

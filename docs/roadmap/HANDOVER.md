@@ -373,6 +373,21 @@ shipped (see below). 2,355 tests pass; ruff clean.
   whichever CSS file loaded second won by accident — fixed generally with
   a compound selector.
 
+- **Follow-up to the Help topic links above, same wake: "the reminders help
+  section should go to the reminders tab... and same for the others."**
+  The links added moments earlier only ever pointed at Settings sections —
+  a fair complaint, since a Help topic about a *tab* has no business
+  routing you into Settings first. Added a second delegated-click
+  mechanism, `[data-goto-tab]`, alongside the existing
+  `[data-goto-section]` in settings.js: closes the modal, calls
+  `switchTab()`. Wired onto every topic that has a real tab to send you to
+  (Capturing notes -> Notes, Asking & chatting -> Chat, Skills -> Chat,
+  Graph -> Graph, Reminders -> Reminders, Dashboard -> Dashboard, Library
+  -> Library, Timeline -> Timeline); Reminders and Dashboard keep their
+  Settings links too, since both actually have one. Verified live: closing
+  the modal and landing on the right active tab, not just navigating
+  Settings to a section that mentions it.
+
 ### Tried, and reverted — read before attempting again
 
 **Skill steps marked "done" despite not meeting their own criteria.** The

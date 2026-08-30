@@ -152,12 +152,24 @@ tagged, ahead of the PR merging.
   new segment exactly once. Verified by sampling canvas pixels before/after
   a multi-point stroke — the repeatedly-touched start and the once-touched
   end now composite identically.
-- Settings → Help's "Reminders" and "Dashboard" topics had no "Related
-  settings" link, unlike most of the other topics — both actually have one
-  (a notification-mute toggle, the dashboard greeting name, both in
-  Preferences), it just wasn't wired up. The topics that still have no link
-  (Graph, Library, Timeline, Spaces) genuinely have nothing of their own in
-  Settings to point to.
+- Three more Preferences toggles ("Mute notifications except reminders",
+  "Let the AI use this profile...", "Allow web search when I ask for it")
+  had the same bare-`<label>`-missing-`.check-row` bug as Settings → About's
+  five — swept the whole file for the pattern (`<label>` directly wrapping
+  a checkbox, no class) rather than trusting the one page already fixed was
+  the only one.
+- Settings → Help's "Related" links could only ever open another Settings
+  section — a topic about a real *tab* (Reminders, Graph, Library…) had
+  nowhere to send you but a settings screen that only tangentially mentions
+  it. Added `[data-goto-tab]`, the same delegated-click pattern as the
+  existing `[data-goto-section]`, closing the modal and switching tabs
+  directly. Wired up for every topic with a real tab to go to (Capturing
+  notes, Asking & chatting, Skills, Graph, Reminders, Dashboard, Library,
+  Timeline); Reminders and Dashboard also gained the Settings links they
+  were missing (a notification-mute toggle, the dashboard greeting name —
+  both in Preferences). Skills, What it remembers, Spaces, Appearance and
+  Keyboard shortcuts have no tab of their own, so no tab link was added for
+  those — a manufactured one would be worse than none.
 - Arrow-key navigation on the command palette (34+ commands, only ~7 visible
   at once) never scrolled the selected row into view past the first
   screenful — confirmed live (15x ArrowDown left the active row off-screen).

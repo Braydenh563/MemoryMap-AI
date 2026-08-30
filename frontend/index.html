@@ -3983,9 +3983,9 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="settings-group">
               <h3>Notifications</h3>
-              <label>
+              <label class="check-row">
                 <input type="checkbox" id="pref-notif-mute-except-reminders">
-                Mute notifications except reminders
+                <span>Mute notifications except reminders</span>
               </label>
               <p class="muted">
                 Quiets the toasts and the notifications panel for background
@@ -4002,9 +4002,9 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="settings-group">
               <h3>About you (optional)</h3>
-              <label>
+              <label class="check-row">
                 <input type="checkbox" id="pref-profile-enabled">
-                Let the AI use this profile for more personal answers
+                <span>Let the AI use this profile for more personal answers</span>
               </label>
               <textarea id="pref-profile" rows="3"
                 placeholder="e.g. I'm Brayden, in Brisbane. I run track and collect dad jokes."></textarea>
@@ -4031,9 +4031,9 @@ Link to another note with [[its first few words]]."></textarea>
             </p>
 
             <h3>Let the AI search the web</h3>
-            <label>
+            <label class="check-row">
               <input type="checkbox" id="pref-web-search">
-              Allow web search when I ask for it
+              <span>Allow web search when I ask for it</span>
             </label>
 
             <h3>Which engine answers</h3>
@@ -4502,30 +4502,32 @@ Link to another note with [[its first few words]]."></textarea>
               <details>
                 <summary><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Capturing notes</summary>
                 <p>In the <strong>Notes</strong> tab, type anything into “Capture a thought” and Save. A local AI files it into a category and suggests tags — you can always re-file or edit. Use a template, dictate with <i class="ph ph-microphone ph-lead" aria-hidden="true"></i>, sketch with <i class="ph ph-palette ph-lead" aria-hidden="true"></i>, or let <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve proofread it first.</p>
-                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-section="templates">Templates</button></p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="notes">Notes tab</button> · <button type="button" class="linklike" data-goto-section="templates">Templates</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Asking &amp; chatting</summary>
                 <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on <strong>Agent mode</strong> to let the assistant use its tools — searching and reading your notes, opening a web page, creating, tagging, linking and organising. Destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
-                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-section="tools">Tools it can use</button> · <button type="button" class="linklike" data-goto-section="personas">Personas</button></p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="chat">Chat tab</button> · <button type="button" class="linklike" data-goto-section="tools">Tools it can use</button> · <button type="button" class="linklike" data-goto-section="personas">Personas</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-lightning ph-lead" aria-hidden="true"></i> Skills</summary>
                 <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <button type="button" class="linklike" data-goto-section="skills">Settings → Skills</button>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="chat">Chat tab</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Graph</summary>
                 <p>The <strong>Graph</strong> tab shows your notes as a network — links, threads, and (optionally) AI similarity lines. Search to highlight, drag to rearrange, toggle categories in the legend, and use the zoom controls to explore.</p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="graph">Graph tab</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-alarm ph-lead" aria-hidden="true"></i> Reminders</summary>
                 <p>The <strong>Reminders</strong> tab groups items by Overdue / Today / Upcoming / Done. Set a priority, snooze, edit inline, or make one recurring. Notifications fire while the app is open.</p>
-                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-section="preferences">Preferences</button></p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="reminders">Reminders tab</button> · <button type="button" class="linklike" data-goto-section="preferences">Preferences</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i> Dashboard</summary>
                 <p>The <strong>Dashboard</strong> is your at-a-glance home: streaks, stats, pinned notes, reminders, a weekly digest, and more. Click “Edit layout” to show/hide and rearrange widgets — your layout is remembered.</p>
-                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-section="preferences">Preferences</button> (the name in your dashboard greeting)</p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="dashboard">Dashboard tab</button> · <button type="button" class="linklike" data-goto-section="preferences">Preferences</button> (the name in your dashboard greeting)</p>
               </details>
               <!-- The gap this closes: eight topics covered Notes, Chat,
                    Skills, Graph, Reminders, Dashboard, Appearance and
@@ -4536,10 +4538,12 @@ Link to another note with [[its first few words]]."></textarea>
               <details>
                 <summary><i class="ph ph-books ph-lead" aria-hidden="true"></i> Library</summary>
                 <p>The <strong>Library</strong> is where you find what you already made — notes, documents, chats, files and tags together, with sort, search and filter chips (including <strong>Meetings</strong> for anything tagged “meeting”) across the top. Its own sub-tabs hold <strong>Documents</strong> (long-form writing, separate from a quick note), <strong>Whiteboards</strong> (freehand sketches and diagrams), the <strong>Image Gallery</strong> (every picture you’ve uploaded or pasted, with AI captions and OCR text), and <strong>AI Skills</strong> (see below).</p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="library">Library tab</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i> Timeline</summary>
                 <p>The <strong>Timeline</strong> tab lays your notes out chronologically — day, week or month buckets, grid or line view, with an optional band (category, tag, or space) to see how things cluster over time.</p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="timeline">Timeline tab</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-brain ph-lead" aria-hidden="true"></i> What it remembers</summary>

@@ -2581,6 +2581,17 @@ $("settings-modal").addEventListener("click", (event) => {
   const link = event.target.closest("[data-goto-section]");
   if (link) showSettingsSection(link.dataset.gotoSection);
 });
+// Same idea, one step further: a Help topic about a *tab* (Reminders,
+// Graph, Library…) should be able to send you there directly, not just to
+// whatever Settings section happens to mention it — asked for directly,
+// after the Settings-only links above shipped without this half. Closes
+// the modal first: a tab switch happening behind it would be invisible.
+$("settings-modal").addEventListener("click", (event) => {
+  const link = event.target.closest("[data-goto-tab]");
+  if (!link) return;
+  closeSettingsModal();
+  switchTab(link.dataset.gotoTab);
+});
 
 // Filters only re-draw what is already held — they never refetch, so changing
 // one mid-incident cannot lose the records you were looking at.

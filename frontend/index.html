@@ -118,6 +118,14 @@
     <span class="typing-dots boot-splash-dots" role="status" aria-label="Loading">
       <span></span><span></span><span></span>
     </span>
+    <!-- Fills toward ~90% on its own (CSS, boot-splash-progress-fill's
+         animation) so it always reads as moving rather than stalled, then
+         JS (hideBootSplash) snaps it to 100% the instant /auth/status
+         actually resolves — so it never claims to finish before the real
+         work behind it has. -->
+    <div class="boot-splash-progress" role="progressbar" aria-hidden="true">
+      <div class="boot-splash-progress-fill" id="boot-splash-progress-fill"></div>
+    </div>
   </div>
 
   <!-- Keyboard users can jump straight past the chrome. -->
@@ -3039,6 +3047,7 @@ Link to another note with [[its first few words]]."></textarea>
                    knowing when "agent mode does nothing", and used to be
                    discoverable only by trying it. -->
               <dl id="model-spec" class="model-spec hidden"></dl>
+              <p id="model-spec-health" class="muted hidden"></p>
               <h3>Utility model (filing, digest &amp; writing fixes)</h3>
               <div class="row">
                 <select id="utility-model-select" aria-label="Model used for background jobs" title="Model used for background jobs"></select>

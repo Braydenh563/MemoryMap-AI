@@ -31,9 +31,20 @@ cd "$(dirname "$0")"
 # with no console to read. Run from a terminal this script already narrates
 # every phase, and a second window over the top would be noise.
 #
-# zenity only. kdialog's progress dialog needs DBus plumbing to update, and
-# macOS ships no equivalent that is not a modal stealing focus — a splash is
-# not worth either. Where it is missing nothing happens, exactly as before.
+# zenity for a real progress dialog on Linux. kdialog's own progress dialog
+# needs DBus plumbing to update, so it's skipped — this only ever helps
+# someone who has zenity, not everyone GTK-adjacent.
+#
+# macOS ships no equivalent progress *dialog* that isn't a modal stealing
+# focus (osascript's `display dialog`), and a splash the user has to click
+# past isn't worth building. `display notification` is a different thing:
+# it's the native banner in the top-right corner, never steals focus, and
+# needs no window to manage or clean up — asked for directly ("can there be
+# an equivalent for linux and mac"), and this is the one the "not worth it"
+# reasoning above never actually ruled out. No progress bar or pulsing, just
+# the same phase text zenity gets, which is the part that answers "did this
+# actually start" — the report this whole splash exists for.
+MM_SPLASH_MODE=""
 MM_SPLASH_PID=""
 MM_SPLASH_FIFO=""
 if [ ! -t 1 ] && command -v zenity >/dev/null 2>&1; then
@@ -46,15 +57,33 @@ if [ ! -t 1 ] && command -v zenity >/dev/null 2>&1; then
     # Held open on fd 9 for the life of the script: closing it is what tells
     # zenity the job is over, so it must not close between phases.
     exec 9>"$MM_SPLASH_FIFO"
+    MM_SPLASH_MODE="zenity"
   else
     MM_SPLASH_FIFO=""
   fi
+elif [ ! -t 1 ] && [ "$(uname)" = "Darwin" ] && command -v osascript >/dev/null 2>&1; then
+  MM_SPLASH_MODE="notify"
 fi
 
-# One line of text into the dialog. zenity reads "#text" as a label update.
+# One line of text into the dialog/notification.
 mm_splash() {
-  [ -n "$MM_SPLASH_PID" ] || return 0
-  printf '#%s\n' "$1" >&9 2>/dev/null || true
+  case "$MM_SPLASH_MODE" in
+    zenity)
+      # zenity reads "#text" as a label update.
+      printf '#%s\n' "$1" >&9 2>/dev/null || true
+      ;;
+    notify)
+      # osascript's own quoting, not the shell's: a title/note with a
+      # double quote or backslash in it would otherwise end the AppleScript
+      # string early or corrupt the script rather than just failing to show
+      # — a cosmetic notification is not worth a shell-out that could break
+      # on a phase string nobody chose. Every `mm_splash` call site in this
+      # file is a fixed literal, but this guards the mechanism itself, not
+      # today's call sites.
+      osascript -e "display notification $(printf '%s' "$1" | sed 's/[\\"]/\\&/g; s/^/"/; s/$/"/') with title \"MemoryMap AI\"" \
+        >/dev/null 2>&1 || true
+      ;;
+  esac
 }
 
 # Must run on every exit — a pulsating dialog left with no owner is worse than
@@ -62,6 +91,8 @@ mm_splash() {
 # exec replaces the shell without firing EXIT, and fd 9 is inherited by the
 # new process, which would hold the fifo open and leave zenity on screen for
 # the entire life of the app. Both of those call mm_splash_done by hand.
+# A no-op in "notify" mode: each call already fired and cleared on its own,
+# nothing is left running to own or close.
 mm_splash_done() {
   [ -n "$MM_SPLASH_PID" ] || return 0
   exec 9>&- 2>/dev/null || true

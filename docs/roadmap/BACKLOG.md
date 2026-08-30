@@ -2492,15 +2492,20 @@ writing for exactly that reason, which is the standing lesson of this file.
    speaks to `llama-server`; what is missing is saying so, detecting it via
    `/props` (which reports the real `n_ctx`), and *then* deciding whether
    in-process `llama-cpp-python` is worth a per-accelerator wheel matrix.
-2. **Model health card.** The app knows a model's window, quantisation,
-   capabilities and — since §94 — its own recommended sampling parameters. It
-   has never shown them in one place with "what this means for you": *this
-   model has an 8k window, so a long chat will start dropping history around
-   turn twelve*. Every input already exists.
-3. **Per-task model routing, made explicit.** `utility_model` exists and the
-   smart-routing toggle exists, but a user cannot see *which* model answered
-   *which* background job. A one-line "filed by X, captioned by Y" in
-   Settings → Background tasks would make the setting legible.
+~~2. **Model health card.**~~ **Built (§97).** Settings → Models' existing
+   spec table (size, quantisation, window, capabilities) now has a plain-
+   language line under it: "a long chat will start dropping its earliest
+   messages after roughly N exchanges", computed client-side from
+   `usable_context` using the same shares `ai/context.py` uses server-side
+   (an estimate, not a promise — an average exchange length is itself a
+   guess). Banded at the edges: a very small window says so without a
+   number, a very large one says it won't run out.
+~~3. **Per-task model routing, made explicit.**~~ **Built (§97).** Settings →
+   Background tasks' finished-jobs list already carried the model name
+   (`taskhistory.record`'s `name` param, set by captioning and OCR already)
+   but never rendered it — one line in `renderTaskHistory` (app.js) to show
+   it next to the timestamp. Also added `name=` to the autonomous-pass
+   recording (it used the utility model but never said so).
 4. **A "this model is struggling" signal.** §94 added a probe that tells a
    broken tools path from an outage. The same signal could be surfaced:
    after two tool-path failures on one model, offer the tool-free mode

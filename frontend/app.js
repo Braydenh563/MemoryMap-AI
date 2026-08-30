@@ -337,6 +337,9 @@ async function lockNow() {
 function hideBootSplash() {
   const splash = document.getElementById("boot-splash");
   if (!splash) return;
+  // Snap the bar to 100% before the fade starts, so it never visibly
+  // disappears mid-crawl — it always reads as "finished", never "cut off".
+  document.getElementById("boot-splash-progress-fill")?.classList.add("done");
   splash.classList.add("hidden");
   splash.addEventListener("transitionend", () => splash.remove(), { once: true });
   // Reduced-motion strips the transition (00-tokens-shell.css), so
@@ -7031,6 +7034,45 @@ async function renderModelSpec(modelName) {
     box.append(dt, dd);
   }
   box.classList.toggle("hidden", rows.length === 0);
+
+  renderModelHealthNote(spec);
+}
+
+// A model health card: every number above already existed, but nothing said
+// what it *means* — "this model has an 8k window" doesn't answer "will it
+// forget what I said earlier in a long chat" (BACKLOG.md §95 item A.2).
+// Mirrors ai/context.py's own shares (CHARS_PER_TOKEN, OUTPUT_RESERVE_SHARE,
+// HISTORY_SHARE) rather than asking the backend, since this is explicitly a
+// rough estimate — context.py's own docstring: "approximately right on every
+// model beats being exactly right on one" — and an average exchange length
+// is itself a guess, so a precise-looking number here would be a false
+// promise the actual conversation could contradict either way.
+function renderModelHealthNote(spec) {
+  const note = $("model-spec-health");
+  if (!note) return;
+  const usable = spec && spec.usable_context;
+  if (!usable) {
+    note.classList.add("hidden");
+    return;
+  }
+  const CHARS_PER_TOKEN = 4;
+  const OUTPUT_RESERVE_SHARE = 0.15;
+  const HISTORY_SHARE = 0.15;
+  const AVG_CHARS_PER_EXCHANGE = 500; // a short question + a real answer
+  const historyChars =
+    usable * CHARS_PER_TOKEN * (1 - OUTPUT_RESERVE_SHARE) * HISTORY_SHARE;
+  const roughTurns = Math.round(historyChars / AVG_CHARS_PER_EXCHANGE / 5) * 5;
+
+  if (roughTurns < 5) {
+    note.textContent =
+      "A small window — a back-and-forth chat will start losing earlier messages within a few exchanges. Notes and documents are unaffected; only the conversation itself is short-lived.";
+  } else if (roughTurns <= 40) {
+    note.textContent = `What this means for you: a long chat will start dropping its earliest messages after roughly ${roughTurns} exchanges. The AI can still recall anything from further back by re-reading the note or asking again — it just won't be sitting in view.`;
+  } else {
+    note.textContent =
+      "A large window — a normal conversation is very unlikely to ever run out of room.";
+  }
+  note.classList.remove("hidden");
 }
 
 // Both pickers for the response preset: the Chat toolbar's and the Notes
@@ -18347,6 +18389,7 @@ function renderSettings() {
   } else {
     $("installed-box").classList.add("hidden");
     $("model-spec").classList.add("hidden");
+    $("model-spec-health").classList.add("hidden");
   }
   renderReindex(status);
 }
@@ -18924,7 +18967,14 @@ function renderTaskHistory(history) {
     setLabel(name, `${style.icon} ${item.label}`);
     const when = document.createElement("span");
     when.className = "muted";
-    when.textContent = relativeTime(item.at);
+    // Which model actually did the work (captioning, OCR, the weekly
+    // digest) — recorded by the backend all along (`taskhistory.record`'s
+    // `name` param) but never shown here, so "which model answered this"
+    // was answerable only by opening the log console. Asked about
+    // directly (BACKLOG.md §95 item A.3).
+    when.textContent = item.name
+      ? `${relativeTime(item.at)} · ${item.name}`
+      : relativeTime(item.at);
     row.append(name, when);
     li.appendChild(row);
 

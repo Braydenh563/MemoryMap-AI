@@ -213,6 +213,85 @@ shipped (see below). 2,355 tests pass; ruff clean.
   already recorded the work in an earlier batch this session, the backlog
   entry itself just hadn't been struck through.
 
+- **A live bug report mid-session: "Detailed" mode not sticking to its own
+  length/complexity.** User-reported with a screenshot: the Notes tab's Ask
+  box, set to Detailed, appeared to answer with much less than the setting
+  promises. Traced through `ai/presets.py` -> `ai/provider.py`'s
+  `generation_budget`/`thinking_allowance` -> `routes_chat.py`'s
+  `plain_events` and confirmed the wiring (mode threading, length_hint,
+  num_predict) is all correct end to end — the actual bug is a scaling
+  mismatch `test_thinking_budget.py` already named without fixing:
+  `THINKING_ALLOWANCE_TOKENS` is a flat 1,024 tokens for every preset, but
+  Detailed's own prompt explicitly invites more reasoning than Quick or
+  Normal ever ask for ("work through the relevant notes, draw connections
+  between them, and explain your reasoning"). `num_predict` bounds thinking
+  *and* answer together, so a verbose reasoning model given more to think
+  about and the same fixed leash starves its own answer — precisely the
+  mechanism §35A.3 already fixed for Quick mode, just less often, on the
+  preset whose whole point is a longer answer. Fixed by giving Detailed its
+  own larger allowance (3,072) via a small per-mode override map rather than
+  the flat constant. **Not reproduced against a live model** — no Ollama in
+  this sandbox — but the code-level trap is real, already flagged in the
+  existing test file's own docstring, and the fix is a minimal, targeted
+  version of what that docstring already called for.
+- **Another live report, this one about a launcher script this sandbox
+  cannot run at all: the PS1 splash's progress bar "doesn't actually
+  progress."** `scripts/splash.ps1` never calls
+  `[System.Windows.Forms.Application]::EnableVisualStyles()`. Without it,
+  WinForms uses the classic unthemed renderer for every control in the
+  process, and that renderer does not animate a Marquee-style ProgressBar at
+  all — a second, independent cause of the exact "bar just stays empty"
+  symptom this same file already fixed once (by removing the bar's
+  ForeColor/BackColor, which is a *different* way to disable the themed
+  renderer, on that one control only). Added the missing call. **This
+  sandbox has no Windows or PowerShell runtime — could not run the script,
+  only read it.** Standard, well-established WinForms/PowerShell practice,
+  and consistent with everything the file's own comments already say about
+  this exact bug class, but say so plainly rather than claim it was seen
+  working.
+- **Follow-up ask: "an equivalent for linux and mac as well."** Linux
+  already had one (zenity, in `start.sh`) — that one was already built. The
+  gap was macOS: the existing comment already explains *why* a macOS splash
+  was skipped ("no equivalent that is not a modal stealing focus"), but that
+  reasoning is about `osascript`'s `display dialog`, and never considered
+  `display notification` — the native, non-modal banner that needs no click
+  and steals no focus. Added a `notify` mode alongside the existing `zenity`
+  mode in `mm_splash()`/`mm_splash_done()`, gated on `uname = Darwin` and
+  `osascript` being present. AppleScript-escaped (not shell-escaped) via a
+  small `sed`, verified by actually running the extracted function against a
+  fake `osascript` in this sandbox (bash exists here even though the real
+  macOS dialog does not) with both a plain phase string and one containing
+  literal `"` and `\` — both produced a well-formed, correctly-escaped
+  `display notification` call. `mm_splash_done` needed no change for this
+  mode: a notification fires and clears on its own, nothing is left running
+  to own or kill.
+- **BACKLOG.md §95 items A.2 and A.3, from the ranked brainstorm.** A.2
+  (model health card): Settings → Models' existing spec table gained a
+  plain-language line — "a long chat will start dropping its earliest
+  messages after roughly N exchanges" — computed client-side from
+  `usable_context`, mirroring `ai/context.py`'s own shares
+  (CHARS_PER_TOKEN, OUTPUT_RESERVE_SHARE, HISTORY_SHARE) rather than asking
+  the backend, since this is explicitly an approximation (an average
+  exchange length is itself a guess) and that module's own docstring says
+  why: "approximately right on every model beats being exactly right on
+  one." Verified live via `page.route()` stubbing `/models/spec` at three
+  window sizes (3,000 / 8,192 / 100,000 tokens) in three separate page
+  contexts — a shared-page loop produced misleading repeated results at
+  first because of Playwright route-stacking, not an app bug; isolating
+  each case in its own page confirmed the real numbers (5, 10, and "large
+  window" respectively) match the formula.
+  A.3 (per-task model routing): the data already existed —
+  `taskhistory.record`'s `name` param, already set by captioning and OCR —
+  but `renderTaskHistory` (app.js) never rendered it. One line to show it
+  next to the relative timestamp; also added `name=` to the autonomous
+  pass's own recording, which used the utility model but never said so.
+  Verified live (stubbed `/tasks`) and with a new pytest for the autonomous
+  case.
+- **BACKLOG.md §95 item 20, found already done** while re-reading the list
+  for the next item — Settings → Data's backup retention control already
+  exists as a real preference; the backlog entry just hadn't been struck
+  through.
+
 ### Tried, and reverted — read before attempting again
 
 **Skill steps marked "done" despite not meeting their own criteria.** The
@@ -264,7 +343,26 @@ actually required vs. incidental** — not a text-mention heuristic.
 - A full self-review of this session's own diff for complexity/security
   issues has not been done as a separate pass — each change was verified
   individually (tests, ruff, live Chromium) as it landed, but nobody has
-  looked at the whole diff at once yet.
+  looked at the whole diff at once yet. A targeted grep pass over the new
+  code specifically (innerHTML/XSS, path traversal, ReDoS) found nothing —
+  see CHANGELOG's absence of a "Fixed — security" entry for this session.
+- **§95 items B.5–B.8, C.9/C.10/C.12, D.15, E.17/E.18, and all of §96
+  (Guides + diagrams) were assessed, not built, this session.** Asked for
+  directly ("finish all of §95 and §96"), and deliberately not attempted at
+  that scope in one sitting: B.7 (re-rank with the utility model) and D.15
+  (an agent dry-run) both need a live model in the loop to verify honestly,
+  which this sandbox does not have; C.9/C.10 (web clipper, email-in) are
+  external-integration surfaces (a bookmarklet/share target, an IMAP
+  poller) larger than a single batch; §96 Guides is a new first-class
+  concept on the scale of Skills or Personas — its own table, budget share,
+  three injection sites, and a Settings CRUD UI — not a bug fix or a
+  one-screen addition, and attempting it alongside everything else above in
+  one sitting was judged more likely to produce the exact failure mode
+  CLAUDE.md warns about (a half-finished implementation, or a feature that
+  never really ran) than to actually finish it. B.6 (recency/pinning in
+  search ranking) and E.16/E.17/E.18 are the most promising *next* items —
+  backend-testable without a live model, no new concept to design — and are
+  where a future session should start.
 
 ## Prior session — a cross-conversation data bug, prompt cost, tool focus (§94)
 

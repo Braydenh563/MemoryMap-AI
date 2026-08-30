@@ -90,6 +90,23 @@ def test_normal_and_detailed_also_get_headroom(client):
         assert client.runtime_options("qwen", mode=mode)["num_predict"] > cap
 
 
+def test_detailed_gets_more_headroom_than_normal(client):
+    """Reported: "Detailed" sometimes came back with no answer, or a much
+    shorter one than the setting promised. Detailed's own length_hint asks
+    the model to "work through the relevant notes, draw connections between
+    them, and explain your reasoning" — inviting more deliberation than
+    Normal or Quick ever asked for, so giving it the same flat 1,024-token
+    allowance as the other two is the exact trap this file's own docstring
+    already named ("the same trap in a larger size"), just less often. A
+    verbose reasoning model given more to think about and no more room for
+    it starves its own answer precisely like the original Quick-mode bug."""
+    client.declared = ["completion", "thinking"]
+    assert client.thinking_allowance("detailed", "qwen") > client.thinking_allowance(
+        "normal", "qwen"
+    )
+    assert client.thinking_allowance("detailed", "qwen") > OllamaClient.THINKING_ALLOWANCE_TOKENS
+
+
 def test_an_explicit_cap_still_gets_headroom(client):
     """A caller that names a number is naming an *answer* length. It has no
     more idea than the preset does how long the model will think first."""

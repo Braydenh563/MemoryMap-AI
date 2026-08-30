@@ -71,6 +71,37 @@ tagged, ahead of the PR merging.
   instead. Found while giving those two subtabs the same icon+title empty
   state "All" and Image Gallery already had (below); the "no match" case
   now has its own sibling element instead of overwriting the real one.
+- The "Detailed" response length preset could come back with no answer at
+  all, or a much shorter one than promised — the same shared
+  thinking/answer token budget already documented as a risk in
+  `test_thinking_budget.py` ("1,024 shared between deliberation and answer
+  is the same trap in a larger size"). Detailed's own prompt explicitly
+  asks the model to reason through the notes, inviting more deliberation
+  than Normal or Quick, but got the same flat 1,024-token thinking
+  allowance as both — a verbose reasoning model given more to think about
+  and no more room for it starved its own answer. Detailed's allowance is
+  now 3,072 tokens.
+- The launcher's PowerShell splash (`scripts/splash.ps1`) never called
+  `[System.Windows.Forms.Application]::EnableVisualStyles()` — without it
+  WinForms renders every control with the classic, unthemed renderer, and
+  the classic renderer does not animate a Marquee-style ProgressBar at all,
+  regardless of its colours (a second, independent cause of the "bar just
+  stays empty" symptom already fixed once by removing its ForeColor/
+  BackColor). Not verified live — this sandbox has no Windows/PowerShell
+  runtime to run it on; the fix is standard WinForms practice and matches
+  the documented behaviour, but say so plainly rather than claim it's seen.
+- The boot splash (`#boot-splash`, shown for the one `/auth/status` round
+  trip on every page load) had three bouncing dots but nothing that read as
+  progress. Added a bar that crawls toward ~90% on its own and snaps to
+  100% the instant the real request resolves, so it never claims to finish
+  before the work behind it does.
+- The Library's "Activity" filter chip could land alone on its own row,
+  looking like a stray pill under the others — `.library-chip-activity`'s
+  `margin-left: auto` (meant to push it to the end of the row) fights
+  `flex-wrap` the moment the chips before it don't all fit on one line, and
+  a wrapping auto-margin item gets shoved onto a lonely row of its own. The
+  chip is already last in DOM order, so the divider alone does the job;
+  dropped the margin.
 
 ### Added
 - `notebook_overview`, an AI tool combining `list_categories` + `list_tags`
@@ -91,6 +122,16 @@ tagged, ahead of the PR merging.
 - The Library's Documents, Whiteboards, and Image Gallery subtabs now get
   the same icon+title empty state their "All" sibling already had, instead
   of a bare line of muted text (BACKLOG.md §95 item 16).
+- A plain-language "what this means for you" line under Settings → Models'
+  spec table, computed from the model's real context window (BACKLOG.md
+  §95 item 2).
+- Settings → Background tasks' finished-jobs list now shows which model did
+  the work (captioning, OCR, the autonomous pass), when the job recorded
+  one — the data already existed, it just wasn't rendered (BACKLOG.md §95
+  item 3).
+- macOS gets a launch splash too now — a non-modal `display notification`
+  banner (never steals focus, unlike `display dialog`) showing the same
+  phase text the Linux/zenity dialog already showed. Asked for directly.
 - A search box and a rename/delete kebab menu on the Whiteboards subtab's
   board cards, matching the Documents subtab beside it.
 - An opt-in clock in the bottom status bar (Settings → Appearance).

@@ -391,6 +391,23 @@ class Provider:
     #: answer at all.
     THINKING_ALLOWANCE_TOKENS = 1_024
 
+    #: **Detailed asks for more thinking, so it needs more room for it.**
+    #: Reported: with "Detailed" selected, some turns came back with no
+    #: answer at all (or a much shorter one than the setting promised) — the
+    #: original fix above gave every preset the *same* flat 1,024-token
+    #: allowance, but Detailed's own `length_hint` explicitly asks the model
+    #: to "work through the relevant notes, draw connections between them,
+    #: and explain your reasoning" — inviting a longer thinking trace than
+    #: Quick or Normal ever asked for, on a preset whose grounding context is
+    #: usually the largest of the three. A verbose reasoning model given more
+    #: to think about and the same 1,024-token leash starves its own answer
+    #: exactly like §35A.3's Quick-mode case did, just less often — this file
+    #: already predicted it: "1,024 shared between deliberation and answer is
+    #: the same trap in a larger size" (test_thinking_budget.py). Unused
+    #: headroom still costs nothing (see below), so there is no downside to
+    #: sizing Detailed's allowance for the reasoning its own prompt invites.
+    THINKING_ALLOWANCE_BY_MODE = {"detailed": 3_072}
+
     def thinking_allowance(self, mode: str | None, model: str) -> int:
         """Headroom for deliberation, unless thinking was actually turned off.
 
@@ -412,9 +429,9 @@ class Provider:
         A total failure on one side and a slightly long answer on the other is
         not a close call.
         """
-        return 0 if self.request_extras(mode, model).get("think") is False else (
-            self.THINKING_ALLOWANCE_TOKENS
-        )
+        if self.request_extras(mode, model).get("think") is False:
+            return 0
+        return self.THINKING_ALLOWANCE_BY_MODE.get(mode or "", self.THINKING_ALLOWANCE_TOKENS)
 
     def runtime_options(
         self,

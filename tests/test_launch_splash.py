@@ -143,12 +143,49 @@ def test_the_unix_splash_is_trapped_on_every_signal():
     assert "trap mm_splash_done EXIT INT TERM" in _start_sh()
 
 
-def test_a_machine_without_zenity_just_gets_no_splash():
-    """Every call must be a no-op when the dialog never started, or a missing
-    zenity would take the launch down with it."""
+def test_a_machine_without_zenity_or_osascript_just_gets_no_splash():
+    """Every call must be a no-op when neither dialog mechanism started, or a
+    missing zenity/osascript would take the launch down with it. `mm_splash`
+    branches on $MM_SPLASH_MODE with a `case`; leaving it unset (neither
+    branch matched at setup) means every call falls through with no match —
+    the shell equivalent of the early-return guard this replaced."""
     text = _start_sh()
     body = text[text.index("mm_splash() {") : text.index("mm_splash_done() {")]
-    assert '[ -n "$MM_SPLASH_PID" ] || return 0' in body
+    assert 'case "$MM_SPLASH_MODE" in' in body
+    assert 'MM_SPLASH_MODE=""' in text  # the default before either branch can set it
+
+
+def test_macos_gets_a_non_modal_notification_not_a_dialog():
+    """Asked for directly: an equivalent splash for Linux (already had one,
+    zenity) and macOS. `display dialog` steals focus and needs a click to
+    dismiss — not worth it for a cosmetic splash, which is why this was
+    skipped before. `display notification` is the native banner that does
+    neither, so it's the one worth adding."""
+    text = _start_sh()
+    assert 'uname)" = "Darwin"' in text
+    assert "command -v osascript" in text
+    body = text[text.index("mm_splash() {") : text.index("mm_splash_done() {")]
+    assert "display notification" in body
+    assert "display dialog" not in body
+
+
+def test_the_notification_text_is_applescript_escaped_not_shell_escaped():
+    """A phase string reaching AppleScript unescaped could end its string
+    literal early on a stray quote or backslash and corrupt the script
+    osascript runs, rather than just failing to show a cosmetic banner."""
+    text = _start_sh()
+    body = text[text.index("mm_splash() {") : text.index("mm_splash_done() {")]
+    notify = body[body.index("notify)") : body.index("esac")]
+    assert 'sed' in notify and '\\\\"' in notify  # escapes both \ and "
+
+
+def test_notify_mode_needs_no_cleanup():
+    """Each notification fires and clears on its own — nothing is left
+    running for mm_splash_done to own or kill, unlike zenity's live dialog
+    process."""
+    text = _start_sh()
+    done_body = text[text.index("mm_splash_done() {") : text.index("trap mm_splash_done")]
+    assert "notify" not in done_body
 
 
 def test_the_progress_bar_is_not_colour_overridden():

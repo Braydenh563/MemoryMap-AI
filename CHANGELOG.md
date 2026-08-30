@@ -7,6 +7,57 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+Follow-on fixes and features added to the 0.1.5 branch after that release was
+tagged, ahead of the PR merging.
+
+### Fixed
+- A `keydown` handler on the graph map hijacked keystrokes typed into a note's
+  popup or the "Grow the map" form — Space/Enter reopened the wrong note
+  instead of typing a space or submitting. Now ignored while the event target
+  is an input, textarea, select, or contenteditable element.
+- An unhandled exception anywhere inside `run_agent`/`run_skill`, outside the
+  cases those functions already caught themselves, killed the chat stream
+  with zero rendered output. Both the first-event fetch and the per-payload
+  drain loop are now wrapped, so a real failure still reaches the user as an
+  answer instead of a silently dead connection.
+- The Image Gallery's kebab menu could render off the right edge of the grid;
+  replaced a `nth-child(3n)` heuristic with a measure-and-flip listener.
+- The AI Skills page was unusable below ~900px (fixed two-column grid, a
+  sticky sidebar with nowhere to go).
+- A private note's new "decrypted" audit-log entry could fire while the vault
+  was locked — `readable_content()` returns a placeholder, not the real text,
+  when the vault has no key, so a locked-vault read logged a decrypt that
+  never happened.
+- `<summary>`-based icon buttons (the kebab/ellipsis menus) were off-centre —
+  the centring CSS selector only ever matched `<button>`.
+- The "Your themes" section in Settings → Appearance had a `-stack` class
+  that only overrode `align-items`, not `flex-direction`, so a row with more
+  than two children never actually stacked.
+- The llama.cpp extra's "unavailable" message implied the app doesn't talk to
+  llama.cpp at all; it already does, via `llama-server`'s OpenAI-compatible
+  API — only in-process `llama-cpp-python` embedding is unbuilt.
+
+### Added
+- Meeting Notes as a real Library filter chip (tag-based, alongside the
+  existing kind filters), after two non-functional attempts at a sub-tab.
+- AI Skills cards: expandable step/tool lists via `<details>`, and the
+  "Run in the background" master toggle separated from the two worker
+  toggles it gates.
+- A way to attach an image already in the library to a note, without
+  re-uploading it.
+- Backup retention count as a real Settings → Data control (was already a
+  hard-coded, always-enforced cap; now a preference, prunes immediately on
+  change).
+- A Restart button in Settings → About on the desktop build.
+- Four missing topics in Settings → Help, and an explicit answer to whether
+  the chat has `/` commands (it doesn't).
+
+### Reverted
+- Minimise-on-Quit (`js_api=bridge` on `webview.create_window()`): caused a
+  real hang on Windows — a recursion storm in `window.native` COM property
+  access on the WebView2 UI thread. Fully reverted; root cause confirmed,
+  not re-attempted this release.
+
 ## [0.1.5] — 2026-08-30
 
 A correctness and cost release. The headline items are a chat bug that could

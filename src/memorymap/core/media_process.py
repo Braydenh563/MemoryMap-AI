@@ -30,7 +30,6 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from memorymap.ai import captioning, vision_ocr
-from memorymap.core import ocr
 from memorymap.core.database import MediaUpload
 
 
@@ -40,6 +39,8 @@ def process_committed_upload(upload: MediaUpload, media_dir: Path) -> None:
     one reader just means that reader has nothing to do, exactly as
     `POST /media/upload`'s own trigger calls always treated it.
     """
+    from memorymap.core import ocr
+
     path = media_dir / upload.filename
     suffix = Path(upload.filename).suffix.lower()
     if suffix in ocr.OCR_SUFFIXES:

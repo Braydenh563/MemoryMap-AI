@@ -2490,6 +2490,52 @@ button {
   padding-block: 0;
 }
 
+/* **The select needs its block padding zeroed too, or the height clips the
+   text.** Reported with a dark-mode screenshot: "the elements in the top
+   documents dock are misaligned, have the text cut off, not the same height".
+   The base `select` rule sets `padding: var(--space-4) var(--space-5)` and
+   `line-height: 1.5`; with `box-sizing: border-box` and a fixed 2.3rem
+   height, the padding eats the line box from both ends and the glyphs are
+   sliced top and bottom. Every other control here is a button, which is why
+   this was the only one that showed it. */
+.doc-dock .doc-file-type {
+  padding-block: 0;
+  line-height: var(--control-h);
+}
+
+/* The title row's two controls share a height of their own — taller than the
+   action row's, because the title is set at 1.15rem and a 2.3rem box around
+   it reads as cramped. Declared on the row so the pair can never disagree. */
+.doc-dock-identity {
+  --identity-h: 2.75rem;
+}
+
+.doc-dock-identity > .doc-title-input,
+.doc-dock-identity > .doc-file-type {
+  height: var(--identity-h);
+  line-height: var(--identity-h);
+  margin-bottom: 0;
+}
+
+/* **The kebab has to be visible.** Reported: "the kebab button is hard to
+   see." It was a bare `.ghost.small.icon-button`, which in dark mode is a
+   glyph on the page background with no edge at all — next to a segmented
+   control and two bordered buttons, it read as a stray character rather than
+   a control. Same resting border every other button in this row carries. */
+.doc-dock .doc-dock-menu-btn {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-h);
+}
+
+.doc-dock .doc-dock-menu-btn:hover,
+.doc-dock-menu[open] > .doc-dock-menu-btn {
+  background: var(--chip-bg);
+  border-color: var(--accent);
+}
+
 .doc-dock .seg button {
   padding-block: 0;
 }
@@ -2525,9 +2571,12 @@ button {
 }
 
 .doc-saved {
-  /* Reserved so "Saving…" → "Saved" does not shift every control to its
-     right by a few pixels twice a minute while someone types. */
-  min-width: 4.5rem;
+  /* Reserved so "Saving…" → "Saved" does not shift the controls to its right
+     by a few pixels twice a minute while someone types. Left-aligned and
+     sitting directly against the stats: right-aligning it inside its own
+     reserved box is what produced the empty channel that got reported. */
+  min-width: 4rem;
+  text-align: left;
 }
 
 /* The kebab: export and delete, which were a third of the bar and are the
@@ -2598,10 +2647,16 @@ button {
   align-items: center;
 }
 
+/* **One reserved width, not two, and not right-aligned.** Reported as the
+   "saved text…oddly in a weird visual gap": this rule reserved 4.5rem and
+   right-aligned *every* muted span in the row, and `.doc-saved` reserved
+   another 4.5rem of its own — so "Saved" sat right-aligned inside a 4.5rem
+   box that was itself padded away from the word count beside it, leaving a
+   channel of empty space with nothing in it. The stats line sizes to its
+   text; only the save state reserves room, because only it changes width as
+   you type. */
 .doc-actions .muted {
   font-size: 0.8rem;
-  min-width: 4.5rem;
-  text-align: right;
 }
 
 /* A goal that's set says so with the accent, the same way the chat dock's

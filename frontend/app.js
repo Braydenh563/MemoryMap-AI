@@ -305,6 +305,13 @@ async function submitLockForm() {
     $("lock-password").value = "";
     $("lock-overlay").classList.add("hidden");
     $("lock-btn").classList.remove("hidden");
+    // Signing in starts a session, and a session starts at the front of every
+    // tab — see `resetNavigationForNewSession`. Here as well as at load
+    // because the lock screen is an *overlay*, not a page: unlocking after an
+    // idle lock never reloads anything, so the load-time reset alone would
+    // leave every sub-tab exactly where it was hours ago. Called before
+    // `startApp()`, which is what reads the stored section back.
+    resetNavigationToDefaults();
     startApp();
   } catch (error) {
     errorLine.textContent = error.message;
@@ -14083,6 +14090,70 @@ $("graph-layout").addEventListener("change", (event) => {
 
 const NOTES_SECTIONS = ["browse", "capture", "writing-room", "ask"];
 const NOTES_SECTION_STORE = "notesSection";
+
+// --- a new session starts at the front of every tab ----------------------------
+//
+// Reported directly: "Ive had times where I log into the app, click on the
+// notes tab, and the tab is selected on 'Write with AI' instead of 'Your
+// Notes' because that must have been what I was on last."
+//
+// **Which sub-tab you are on is not a preference; it is where you happen to
+// be standing.** Reopening on the last *tab* is useful — you were working on
+// something. Reopening three levels in, on a sub-tab you visited once a week
+// ago, is not: it reads as the app being in a state you did not put it in,
+// and the deeper the restore the more true that is. So a new session lands on
+// each tab's front page.
+//
+// `sessionStorage`, not a timestamp or a login hook, and the distinction it
+// draws is exactly the right one: it survives a reload (F5, or the desktop
+// window reloading itself after an update) and is cleared when the tab or the
+// app window closes. So "I refreshed" keeps your place and "I started the app
+// again" does not.
+//
+// Only navigation is reset. `library-view`'s grid/list, the timeline's own
+// view mode, reminders' list/calendar and the document editor's Live/Source
+// choice are display preferences someone deliberately set, and clearing those
+// would be a different — and unwanted — change.
+const SESSION_STARTED_KEY = "mm-session-started";
+const NAVIGATION_KEYS = [NOTES_SECTION_STORE];
+
+function resetNavigationForNewSession() {
+  try {
+    if (sessionStorage.getItem(SESSION_STARTED_KEY)) return false;
+    sessionStorage.setItem(SESSION_STARTED_KEY, "1");
+  } catch {
+    // Storage can throw outright (a private window, a shell with site data
+    // blocked). Not resetting is the safe answer — it leaves the previous
+    // behaviour rather than resetting on every single navigation.
+    return false;
+  }
+  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  return true;
+}
+
+// Run at load, before anything can have navigated. One-shot per session: a
+// reload inside the same session finds the marker and leaves your place
+// alone, which is the distinction sessionStorage draws for free.
+resetNavigationForNewSession();
+
+function resetNavigationToDefaults() {
+  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  // The Library's switcher keeps its state in the DOM (which button carries
+  // `.active`), not in storage, so clearing a key cannot reach it. Clicking
+  // its default button reuses the real handler — which also shows the right
+  // section, stops the gallery poll and lands the whiteboard view correctly.
+  // A second copy of that logic here is exactly the shape this codebase keeps
+  // getting bitten by.
+  const allTab = document.querySelector(
+    '#library-subtabs button[data-target="library-view-documents"]'
+  );
+  if (allTab && !allTab.classList.contains("active")) allTab.click();
+  // If the Notes strip is already built, put it back on its front page now;
+  // on a cold load it has not been built yet and will read the cleared key.
+  if (typeof showNotesSection === "function" && document.getElementById("notes-subtabs")?.dataset.ready) {
+    showNotesSection("browse");
+  }
+}
 
 function activeNotesSection() {
   const saved = localStorage.getItem(NOTES_SECTION_STORE);

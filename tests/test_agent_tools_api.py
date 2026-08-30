@@ -340,6 +340,43 @@ def test_extract_text_tool_calls_ignores_unknown_tool():
     assert calls == []
 
 
+def test_extract_text_tool_calls_bare_json_with_nested_arguments():
+    # A bare (untagged) call whose arguments are themselves an object with a
+    # list inside — an entirely ordinary shape, not an edge case, and the one
+    # the old `\{[^{}]*"name"[^{}]*\}` regex could never match: `[^{}]*`
+    # cannot cross a brace at all, so any nested `{` in `arguments` broke the
+    # match outright and the whole call was silently dropped. Reported live
+    # as "the ai didn't actually call any tools".
+    from memorymap.ai.ollama_client import extract_text_tool_calls
+
+    content = (
+        'On it: {"name": "create_note", "arguments": '
+        '{"content": "buy milk", "tags": ["errand", "home"]}} there you go.'
+    )
+    calls, cleaned = extract_text_tool_calls(content, {"create_note"})
+    assert calls == [
+        {"name": "create_note", "arguments": {"content": "buy milk", "tags": ["errand", "home"]}}
+    ]
+    assert '"name"' not in cleaned
+
+
+def test_extract_text_tool_calls_multiple_in_one_wrapper():
+    # Two calls inside one <tool_call>...</tool_call> pair — both should
+    # come back, not just whichever the parser happened to find first.
+    from memorymap.ai.ollama_client import extract_text_tool_calls
+
+    content = (
+        '<tool_call>{"name": "create_note", "arguments": {"content": "a"}}'
+        '{"name": "create_note", "arguments": {"content": "b"}}</tool_call>'
+    )
+    calls, cleaned = extract_text_tool_calls(content, {"create_note"})
+    assert calls == [
+        {"name": "create_note", "arguments": {"content": "a"}},
+        {"name": "create_note", "arguments": {"content": "b"}},
+    ]
+    assert "<tool_call>" not in cleaned
+
+
 def test_agent_recovers_text_emitted_tool_call(ai_client, fake_ollama):
     # The model "narrates" a create as text instead of a structured call —
     # the client recovers it, so the note is really made (Wave O).

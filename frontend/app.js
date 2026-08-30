@@ -440,6 +440,7 @@ function startApp() {
     // in `prefsCache`, and hiding them here rather than on first paint would
     // mean a visible flash of a bar they chose not to have.
     applyStatusBarSlots();
+    applyStatusClock();
   });
 
   const entriesReady = step("load entries", loadEntries);
@@ -909,6 +910,60 @@ function confirmDialog(message, options = {}) {
     // Cancel takes focus, not the dangerous one: a stray Enter or Space
     // arriving with the dialog must not be the thing that deletes the notes.
     cancel.focus();
+  });
+}
+
+// `confirmDialog`'s other missing sibling: show a whole piece of text with
+// no decision to make, just a way to close it. Asked for directly: "longer
+// logs get truncated with no way to expand or collapse and view the whole
+// log" — the Library's Activity cards show a clipped preview (server-side,
+// `ACTIVITY_DETAIL_CHARS`) so the grid stays scannable, and this is what a
+// click on one opens instead of doing nothing.
+function showDetailDialog(title, text) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", title);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card detail-dialog-card";
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    const body = document.createElement("p");
+    body.className = "confirm-text detail-dialog-text";
+    body.textContent = text;
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const close = () => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve();
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape" || event.key === "Enter") {
+        event.stopPropagation();
+        close();
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const ok = smallButton("Close", "Close", close, false);
+    row.append(ok);
+    card.append(heading, body, row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    ok.focus();
   });
 }
 
@@ -13337,11 +13392,27 @@ function paintTabHistory() {
     icon: "ph:caret-right",
     title: next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to",
   });
+  // The settings modal's own copy of these two buttons — see their markup
+  // comment for why a second copy exists instead of just raising the status
+  // bar's z-index above every modal in the app.
+  const modalBack = $("settings-nav-back");
+  const modalForward = $("settings-nav-forward");
+  if (modalBack && modalForward) {
+    modalBack.disabled = back.disabled;
+    modalForward.disabled = forward.disabled;
+    modalBack.title = prev ? `Back to ${entryLabel(prev)}` : "Nothing to go back to";
+    modalForward.title = next ? `Forward to ${entryLabel(next)}` : "Nothing to go forward to";
+    modalBack.setAttribute("aria-label", modalBack.title);
+    modalForward.setAttribute("aria-label", modalForward.title);
+  }
 }
 
 // The tab's own visible name, so a tooltip says "Back to Documents" rather
 // than "Back to documents" or, worse, an internal id.
 function tabLabel(name) {
+  // Not a real tab-page — see stepTabHistory's own "settings" branch — so
+  // there is no `#tab-bar` button to read a label from.
+  if (name === "settings") return "Settings";
   const button = document.querySelector(`#tab-bar button[data-tab="${name}"]`);
   return button?.textContent?.trim() || name;
 }
@@ -13386,6 +13457,19 @@ async function stepTabHistory(delta) {
   tabHistory.index = next;
   tabHistory.navigating = true;
   try {
+    // Settings is a modal overlay, not one of the tab-pages switchTab knows
+    // about — asked for directly: "the back and forward buttons should cover
+    // going in and out of settings too", which they didn't, because nothing
+    // ever called recordTabVisit for it. Restoring a settings entry opens the
+    // modal (or moves it to a different section) instead of going through
+    // switchTab at all; restoring anything else closes it first if it was
+    // left open, the same way clicking Close would.
+    if (entry.tab === "settings") {
+      await openSettingsModal(entry.section || "models");
+      paintTabHistory();
+      return;
+    }
+    if (typeof settingsModalOpen === "function" && settingsModalOpen()) closeSettingsModal();
     switchTab(entry.tab);
     // The sub-tab is restored after the tab, because both restore paths below
     // act on elements the tab switch has just revealed.
@@ -21728,6 +21812,8 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
 }
 $("status-back").addEventListener("click", () => stepTabHistory(-1));
 $("status-forward").addEventListener("click", () => stepTabHistory(1));
+$("settings-nav-back")?.addEventListener("click", () => stepTabHistory(-1));
+$("settings-nav-forward")?.addEventListener("click", () => stepTabHistory(1));
 // Seed the stack with wherever the app opened, or the first tab clicked has
 // nothing behind it and Back stays dead until the second navigation — which
 // reads as the button being broken rather than empty.
@@ -23174,6 +23260,47 @@ function renderStatusBarSettings() {
     text.textContent = slot.label;
     label.append(box_, text);
     box.appendChild(label);
+  }
+  // The clock's own opt-in toggle — not one of STATUS_SLOTS above (it is
+  // off by default, so it is rendered and wired separately rather than
+  // joining a loop that assumes every entry starts visible).
+  const clockToggle = $("status-bar-clock-toggle");
+  if (clockToggle) {
+    clockToggle.checked = Boolean(prefsCache?.status_bar_clock);
+    clockToggle.onchange = () => {
+      if (prefsCache) prefsCache.status_bar_clock = clockToggle.checked;
+      applyStatusClock();
+      setPreference("status_bar_clock", clockToggle.checked);
+    };
+  }
+}
+
+let statusClockTimer = null;
+
+// HH:MM, no seconds — a status-bar clock is glanced at, not watched, so a
+// 30s repaint interval keeps it current without the per-second DOM writes
+// the Dashboard's own bigger clock (paintDashClock) uses.
+function paintStatusClock() {
+  const el = $("status-clock");
+  if (!el) return;
+  el.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// Reads prefsCache.status_bar_clock rather than taking an argument, the same
+// convention applyStatusBarSlots() and applyAppearance() already use — one
+// source of truth, called again after every write.
+function applyStatusClock() {
+  const el = $("status-clock");
+  if (!el) return;
+  const on = Boolean(prefsCache?.status_bar_clock);
+  el.classList.toggle("hidden", !on);
+  if (statusClockTimer) {
+    clearInterval(statusClockTimer);
+    statusClockTimer = null;
+  }
+  if (on) {
+    paintStatusClock();
+    statusClockTimer = setInterval(paintStatusClock, 30000);
   }
 }
 

@@ -257,6 +257,20 @@ function renderLibraryFilters() {
     button.className =
       "library-chip" + (libraryKind === kind.key ? " active" : "");
     button.setAttribute("aria-pressed", String(libraryKind === kind.key));
+    // Reported live: "can the activity button be moved somewhere better" —
+    // it isn't a *kind of thing you made* the way the ten chips before it
+    // are (it is excluded from "Everything"'s own count above for exactly
+    // that reason), so it read as just one more chip in a row it doesn't
+    // really belong to. `library-chip-activity` pushes it to the row's own
+    // far end with a divider ahead of it, the same "different question,
+    // visually apart" treatment the reminder view-toggle already gets next
+    // to the reminder filter (05-sidebars-themes.css). Still one click away
+    // in the same toolbar — a second surface for one chip would be a second
+    // place to remember, not a better one.
+    if (kind.key === "activity") {
+      button.classList.add("library-chip-activity");
+      button.title = "What you did — a record, not a kind of thing you made";
+    }
     const icon = document.createElement("span");
     setLabel(icon, kind.icon);
     icon.setAttribute("aria-hidden", "true");
@@ -852,6 +866,16 @@ function openLibraryItem(item) {
   } else if (item.kind === "activity" && item.entry_id) {
     // The note the entry in the log is about, when it still exists.
     flashEntry(item.entry_id);
+  } else if (item.kind === "activity") {
+    // No related note to jump to (a preference change, a tag merge, a
+    // password change) — the click's only useful job left is showing the
+    // whole record. `item.preview` is what the card already shows, clipped
+    // to ACTIVITY_DETAIL_CHARS server-side; re-fetching by id gets the
+    // record's real, un-clipped `detail` for anything long enough to have
+    // lost the end of it.
+    apiJson(`/audit?id=${item.id}&limit=1`)
+      .then((rows) => showDetailDialog(item.title, rows[0]?.detail || item.preview || "(no detail recorded)"))
+      .catch(() => showDetailDialog(item.title, item.preview || "(no detail recorded)"));
   } else if (item.kind === "archived") {
     // Restore and permanent delete are both on this card's own ⋯ menu, and
     // reading the note in full is the one thing a card cannot do — so that is

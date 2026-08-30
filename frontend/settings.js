@@ -117,6 +117,13 @@ let currentSettingsSection = "models";
 
 function showSettingsSection(name) {
   currentSettingsSection = name;
+  // Part of the same back/forward stack every tab and sub-tab already lives
+  // in (app.js's tabHistory) — asked for directly. Safe to call on every
+  // section switch, restores included: recordTabVisit no-ops both when
+  // nothing actually changed and while a back/forward move is in progress
+  // (tabHistory.navigating), the same guard showNotesSection already relies
+  // on for Notes' own sub-tabs.
+  if (typeof recordTabVisit === "function") recordTabVisit("settings", name);
   for (const section of SETTINGS_SECTIONS) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }

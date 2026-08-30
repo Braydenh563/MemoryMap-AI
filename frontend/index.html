@@ -482,6 +482,24 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="">None</option>
             </select>
             <span id="entry-document-chips" class="entry-meta"></span>
+            <!-- Moved up from the "File under" row below (reported live: that
+                 row was crowded — Save/Save as draft/Improve/Sketch/mic/Attach/
+                 From library was seven controls fighting one label for space).
+                 These two attach files rather than filing the note, which is
+                 the same "attach a thing to this note" family as the document
+                 picker on this row, not the "commit the note" family below. -->
+            <button id="entry-attach-file" class="ghost" type="button"
+              title="Attach an image or file" aria-label="Attach an image or file"><i class="ph ph-paperclip ph-lead" aria-hidden="true"></i> Attach</button>
+            <input id="entry-attach-file-input" aria-label="Attach a file to this note" title="Attach a file to this note" type="file" multiple class="hidden">
+            <!-- The other half of "attach": something already in the
+                 library, not a new upload. Reported directly: "I also want
+                 to be able to attach images that are already in the image
+                 library... to new notes in the capture subtab." Existing
+                 documents already have their own control (the "Add to
+                 document" select above) — this is the image/file half of
+                 the same ask. -->
+            <button id="entry-attach-existing" class="ghost" type="button"
+              title="Attach an image already in your library" aria-label="Attach an image already in your library"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i> From library</button>
           </div>
           <div class="row capture-field-row">
             <label for="entry-category" class="muted capture-field-label">File under</label>
@@ -502,18 +520,6 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="improve-btn" class="ghost" title="Let the AI proofread or rewrite this before you save" aria-label="Improve writing with AI"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve</button>
             <button id="sketch-btn" class="ghost" title="Draw a quick sketch and save it as a note" aria-label="Open the sketch pad"><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Sketch</button>
             <button id="mic-note" class="ghost" title="Dictate a note (local Whisper)" aria-label="Dictate a note"><i class="ph ph-microphone" aria-hidden="true"></i></button>
-            <button id="entry-attach-file" class="ghost" type="button"
-              title="Attach an image or file" aria-label="Attach an image or file"><i class="ph ph-paperclip ph-lead" aria-hidden="true"></i> Attach</button>
-            <input id="entry-attach-file-input" aria-label="Attach a file to this note" title="Attach a file to this note" type="file" multiple class="hidden">
-            <!-- The other half of "attach": something already in the
-                 library, not a new upload. Reported directly: "I also want
-                 to be able to attach images that are already in the image
-                 library... to new notes in the capture subtab." Existing
-                 documents already have their own control (the "Add to
-                 document" select above) — this is the image/file half of
-                 the same ask. -->
-            <button id="entry-attach-existing" class="ghost" type="button"
-              title="Attach an image already in your library" aria-label="Attach an image already in your library"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i> From library</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>
@@ -2251,6 +2257,13 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="row space-between library-head">
           <h2>Whiteboards</h2>
           <span class="row">
+            <!-- Parity with the Documents subtab's own search box (reported:
+                 the two lists sat side by side with only one able to filter
+                 by name). Filters client-side against the already-loaded
+                 board list rather than a new endpoint — GET /whiteboard/boards
+                 already returns every board in one small array. -->
+            <input id="library-boards-search" type="search" placeholder="Search boards…"
+              aria-label="Search boards by title">
             <button id="wb-boards-new" class="small" type="button">＋ New board</button>
             <button id="library-media-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="wb-boards-help" class="ghost small graph-help-toggle"
@@ -2816,6 +2829,12 @@ Link to another note with [[its first few words]]."></textarea>
     <button id="status-undo" class="status-item" type="button" disabled data-status-slot="undo"></button>
     <button id="status-redo" class="status-item" type="button" disabled data-status-slot="undo"></button>
     <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
+    <!-- Off by default, unlike the STATUS_SLOTS group above (app.js) — a
+         clock is not one of the bar's existing permanent landmarks, so it
+         does not appear for everyone the moment this shipped. Asked for
+         directly: "allow the user to choose to show the current time in the
+         bottom status bar." A <span>, not a button: it starts nothing. -->
+    <span id="status-clock" class="status-item status-clock hidden" role="status" aria-label="Current time"></span>
   </footer>
 
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
@@ -2848,6 +2867,18 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="row space-between">
         <h2>Settings</h2>
         <div class="row">
+          <!-- The status bar's own back/forward pair (footer, `#status-back`/
+               `#status-forward`) sit at a lower z-index than every modal on
+               purpose (`.modal-overlay`'s own comment) — so once Settings is
+               open they are covered and unreachable, which made "back
+               through settings sections" work as *data* (tabHistory records
+               every section switch) but not as a control you could actually
+               click. Same handlers, reachable from in here instead of
+               floating a second copy above the modal. -->
+          <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav">
+            <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
+            <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+          </span>
           <!-- Only meaningful on Appearance, so it is shown there and hidden
                everywhere else: a control that does nothing on nine screens out
                of ten is a control people learn to ignore. -->
@@ -3695,6 +3726,14 @@ Link to another note with [[its first few words]]."></textarea>
                 warning you asked for is a different kind of setting.
               </p>
               <div id="status-bar-items" class="status-bar-items"></div>
+              <!-- Opt-in, not part of the STATUS_SLOTS list above: those are
+                   permanent landmarks that show by default and can be hidden;
+                   a clock is neither permanent nor default — see its own
+                   comment in app.js's applyStatusClock(). -->
+              <label class="checkbox-label status-bar-item">
+                <input type="checkbox" id="status-bar-clock-toggle">
+                <span>Clock <small class="muted">— the current time, bottom right</small></span>
+              </label>
             </div>
 
             <!-- ---------- Advanced ---------- -->
@@ -4426,17 +4465,26 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <p class="muted">A quick reference to what each part of MemoryMap does. Click a topic to expand it.</p>
             <div class="help-accordion">
+              <!-- "Related settings" links below each topic reuse the exact
+                   cross-link mechanism Preferences already had for one case
+                   ("open Settings → Web search") — a delegated click handler
+                   on [data-goto-section] in settings.js. Asked for directly:
+                   quick navigation from a Help topic to the settings screen
+                   it describes, rather than reading "Settings → X" as inert
+                   text and having to find X in the nav by hand. -->
               <details>
                 <summary><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Capturing notes</summary>
                 <p>In the <strong>Notes</strong> tab, type anything into “Capture a thought” and Save. A local AI files it into a category and suggests tags — you can always re-file or edit. Use a template, dictate with <i class="ph ph-microphone ph-lead" aria-hidden="true"></i>, sketch with <i class="ph ph-palette ph-lead" aria-hidden="true"></i>, or let <i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Improve proofread it first.</p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-section="templates">Templates</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-chat-circle ph-lead" aria-hidden="true"></i> Asking &amp; chatting</summary>
                 <p>“Ask your notebook” (Notes tab) and the <strong>Chat</strong> tab both answer from your saved notes. Turn on <strong>Agent mode</strong> to let the assistant use its tools — searching and reading your notes, opening a web page, creating, tagging, linking and organising. Destructive actions always ask first. Save, rename, and switch between conversations in the sidebar.</p>
+                <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-section="tools">Tools it can use</button> · <button type="button" class="linklike" data-goto-section="personas">Personas</button></p>
               </details>
               <details>
                 <summary><i class="ph ph-lightning ph-lead" aria-hidden="true"></i> Skills</summary>
-                <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <em>Settings → Skills</em>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
+                <p>Skills are one-click requests above the chat box (e.g. “Summarise my week”). Add your own in <button type="button" class="linklike" data-goto-section="skills">Settings → Skills</button>; a skill can use the AI’s tools so it actually does the work, not just describes it.</p>
               </details>
               <details>
                 <summary><i class="ph ph-graph ph-lead" aria-hidden="true"></i> Graph</summary>
@@ -4466,7 +4514,7 @@ Link to another note with [[its first few words]]."></textarea>
               </details>
               <details>
                 <summary><i class="ph ph-brain ph-lead" aria-hidden="true"></i> What it remembers</summary>
-                <p>MemoryMap can pick up small facts and preferences about you as you write and chat — asking first each time, never assuming. Accept or decline each suggestion right in the chat, and review or forget anything it’s learned in <em>Settings → Memory</em>.</p>
+                <p>MemoryMap can pick up small facts and preferences about you as you write and chat — asking first each time, never assuming. Accept or decline each suggestion right in the chat, and review or forget anything it’s learned in <button type="button" class="linklike" data-goto-section="memory">Settings → What it remembers</button>.</p>
               </details>
               <details>
                 <summary><i class="ph ph-circles-four ph-lead" aria-hidden="true"></i> Spaces</summary>
@@ -4474,154 +4522,177 @@ Link to another note with [[its first few words]]."></textarea>
               </details>
               <details>
                 <summary><i class="ph ph-palette ph-lead" aria-hidden="true"></i> Appearance</summary>
-                <p><em>Settings → Appearance</em> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
+                <p><button type="button" class="linklike" data-goto-section="appearance">Settings → Appearance</button> controls theme (light/dark/system), accent colour, fonts, density, glass effects, and the animated background. High-contrast and reduce-motion options are there for comfort and accessibility.</p>
               </details>
               <details>
                 <summary><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Keyboard shortcuts</summary>
-                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes. Press <kbd>g</kbd> then a letter to jump straight to a tab (<em>Settings → Shortcuts</em> lists which letter goes where) — MemoryMap has no “/” chat commands to learn; everything happens through the tools the AI already has in Agent mode and Skills.</p>
+                <p>Press <kbd>?</kbd> any time for the full list, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> to open the command palette and jump anywhere or search your notes. Press <kbd>g</kbd> then a letter to jump straight to a tab (<button type="button" class="linklike" data-goto-section="shortcuts">Settings → Shortcuts</button> lists which letter goes where) — MemoryMap has no “/” chat commands to learn; everything happens through the tools the AI already has in Agent mode and Skills.</p>
               </details>
             </div>
           </section>
 
           <section class="settings-section hidden" id="settings-about">
-            <div id="about-emblem" class="emblem" aria-hidden="true"></div>
-            <h3>MemoryMap AI</h3>
-            <p class="muted">
-              A 100% offline, local-first notebook where a local AI files your
-              thoughts and answers questions about them. Your data never leaves
-              this computer.
-            </p>
-            <p class="muted" id="about-version"></p>
-            <!-- ROADMAP item C: several extras only take effect on restart
-                 and the app said so without ever offering one. Hidden by
-                 default (not-restart-capable builds — the browser tab, or
-                 desktop on a non-Windows box — have no way to act on this
-                 at all) and shown once app.js's own /system/console-mode-
-                 style probe confirms it can actually do something. -->
-            <div class="row hidden" id="about-restart-row">
-              <button id="about-restart" class="ghost small" type="button">Restart MemoryMap</button>
-              <span class="muted">Some changes — an installed extra, a switched model backend — only take effect after a restart.</span>
+            <!-- Redesigned into the same boxed `.settings-group` shape every
+                 other section here uses (Preferences, Appearance, Data) —
+                 reported directly: About read as a flat, undifferentiated
+                 wall of text next to those. Nothing below changed what it
+                 does; each group is the same controls, just grouped by the
+                 question it answers. -->
+            <div class="settings-group about-hero">
+              <div id="about-emblem" class="emblem" aria-hidden="true"></div>
+              <h3>MemoryMap AI</h3>
+              <p class="muted">
+                A 100% offline, local-first notebook where a local AI files your
+                thoughts and answers questions about them. Your data never leaves
+                this computer.
+              </p>
+              <p class="muted" id="about-version"></p>
+              <!-- ROADMAP item C: several extras only take effect on restart
+                   and the app said so without ever offering one. Hidden by
+                   default (not-restart-capable builds — the browser tab, or
+                   desktop on a non-Windows box — have no way to act on this
+                   at all) and shown once app.js's own /system/console-mode-
+                   style probe confirms it can actually do something. -->
+              <div class="row hidden" id="about-restart-row">
+                <button id="about-restart" class="ghost small" type="button">Restart MemoryMap</button>
+                <span class="muted">Some changes — an installed extra, a switched model backend — only take effect after a restart.</span>
+              </div>
             </div>
-            <!-- Off by default (core/config.py's update_check_enabled) —
-                 "100% offline" two lines up has to stay true until this is
-                 switched on by hand, the same reasoning Settings -> Web
-                 search already uses for its own opt-in network call. -->
-            <!-- Same switch every other on/off setting in this app uses
-                 (06-timeline-dialogs.css's ".settings-section label>input" —
-                 "I want to ditch the radio buttons ... application wide").
-                 These two fell through that pass: the input used to sit as
-                 a <label for> sibling rather than a child, which is a plain
-                 unstyled browser checkbox as far as that rule can see. -->
-            <label class="row space-between" for="pref-update-check">
-              Check GitHub for a newer version
-              <input type="checkbox" id="pref-update-check">
-            </label>
-            <div class="row" id="update-check-row">
-              <button id="update-check-now" class="ghost small" type="button">Check now</button>
-              <!-- Shown only once a check finds a newer version this app can
-                   actually apply itself (the post-login dialog's own
-                   "Update automatically" — same underlying flow, same
-                   apiJson('/update/apply') call) — asked for directly: a
-                   manual fallback for whoever dismissed the popup, or
-                   started this check from here in the first place. -->
-              <button id="update-apply-now" class="small hidden" type="button">Update automatically</button>
-              <span class="muted" id="update-check-status"></span>
-            </div>
-            <!-- Separate from "Check GitHub for a newer version" above on
-                 purpose — asked for directly: "the option to turn auto
-                 update off entirely" as its own switch, not the same one
-                 that gates whether the app can even see a release exists.
-                 Checking and auto-applying are two different decisions:
-                 someone can want to know a release exists (Settings shows
-                 it, the popup mentions it) without ever wanting this app
-                 to run an installer by itself. -->
-            <label class="row space-between" for="pref-auto-update">
-              Update automatically when a new version is found
-              <input type="checkbox" id="pref-auto-update">
-            </label>
-            <!-- "Maybe they can have the option to select the specific
-                 versions they wish to switch to??" — asked for directly.
-                 Stable/main is a preference (core/config.py's
-                 update_channel), but "main" only ever reports itself
-                 honestly unavailable right now (routes_update.py's own
-                 GET /update/check) — there's no nightly-build pipeline
-                 that publishes a Windows installer on every push yet, and
-                 fabricating one here would be exactly the kind of silent
-                 lie CLAUDE.md calls out as costly. Storing the choice is
-                 real; the behaviour catches up once that pipeline exists. -->
-            <label class="row space-between" for="pref-update-channel-main">
-              Track the main branch instead of stable releases (not yet available)
-              <input type="checkbox" id="pref-update-channel-main">
-            </label>
-            <div class="row" id="update-version-row">
-              <button id="update-show-versions" class="ghost small" type="button">Choose a specific version…</button>
-              <select id="update-version-select" class="small-select hidden" aria-label="Choose a release to install"></select>
-              <button id="update-install-version" class="small hidden" type="button">Install this version</button>
-            </div>
-            <span class="muted" id="update-version-status"></span>
-            <!-- Only meaningful running from start.bat/start-desktop.bat, which
-                 open a console window behind the app — the packaged installer's
-                 build has none to show at all. Shown only in the desktop shell
-                 (app.js checks /health's own "desktop" flag), same gating as
-                 the file-save path this same flag already drives.
 
-                 "Dev view"/"User view" naming asked for directly, alongside
-                 the console-hide mechanism itself changing from hiding an
-                 already-created window to never creating one for User view
-                 (see __main__.py's pythonw.exe relaunch) — hiding one after
-                 the fact turned out unreliable under some terminal setups. -->
-            <label class="row space-between hidden" id="desktop-console-row" for="pref-show-console">
-              Dev view — keep a console window open
-              <input type="checkbox" id="pref-show-console">
-            </label>
-            <p class="muted hidden" id="desktop-console-hint">
-              On by default. Turn it off for "User view" — the app runs with
-              no console window at all, just this app window and a system
-              tray icon. You can also switch live from the tray icon's own
-              menu, which remembers your choice for next time too, and the
-              app briefly restarts itself when you switch this way.
-            </p>
-            <!-- Closing the window and quitting the app are two different
-                 things on a desktop build with a tray icon, and until now the
-                 app made that choice for you silently. Asked for directly:
-                 "make it so the app window can be closed but the app will
-                 still be open in the system tray… so there is a difference
-                 between minimising the app and quitting the app". On by
-                 default — a notebook you can capture into from the tray is
-                 the reason the tray icon exists — and off for anyone who
-                 wants the X button to mean what it says. -->
-            <label class="row space-between hidden" id="desktop-tray-row" for="pref-close-to-tray">
-              Closing the window keeps MemoryMap in the tray
-              <input type="checkbox" id="pref-close-to-tray">
-            </label>
-            <p class="muted hidden" id="desktop-tray-hint">
-              With this on, the X button hides the window and the app keeps
-              running behind the tray icon — click it to bring the window
-              back, or right-click → Quit to close it properly (which also
-              stops any background work). With it off, closing the window
-              quits.
-            </p>
-            <!-- What changed, read from CHANGELOG.md rather than kept as a
-                 second in-app list that would drift from it (§36E). Folded
-                 shut: it is long, and About is not where you go to read it
-                 unless you came looking. -->
-            <details id="changelog-fold" class="settings-fold">
-              <summary>What's new</summary>
-              <div id="changelog-body" class="changelog-body"></div>
-            </details>
-            <div class="row settings-row-spaced-6">
-              <button id="about-take-tour" class="ghost small" type="button"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Take tour again</button>
+            <div class="settings-group">
+              <h3>Updates</h3>
+              <!-- Off by default (core/config.py's update_check_enabled) —
+                   "100% offline" in the hero box above has to stay true
+                   until this is switched on by hand, the same reasoning
+                   Settings -> Web search already uses for its own opt-in
+                   network call.
+                   Same switch (pill-left, label-right) every other on/off
+                   setting in this app uses — these three used to be the one
+                   place still laid out label-first, pill-right, which is why
+                   this redesign pass also lined them up with the rest. -->
+              <label>
+                <input type="checkbox" id="pref-update-check">
+                Check GitHub for a newer version
+              </label>
+              <div class="row" id="update-check-row">
+                <button id="update-check-now" class="ghost small" type="button">Check now</button>
+                <!-- Shown only once a check finds a newer version this app can
+                     actually apply itself (the post-login dialog's own
+                     "Update automatically" — same underlying flow, same
+                     apiJson('/update/apply') call) — asked for directly: a
+                     manual fallback for whoever dismissed the popup, or
+                     started this check from here in the first place. -->
+                <button id="update-apply-now" class="small hidden" type="button">Update automatically</button>
+                <span class="muted" id="update-check-status"></span>
+              </div>
+              <!-- Separate from "Check GitHub for a newer version" above on
+                   purpose — asked for directly: "the option to turn auto
+                   update off entirely" as its own switch, not the same one
+                   that gates whether the app can even see a release exists.
+                   Checking and auto-applying are two different decisions:
+                   someone can want to know a release exists (Settings shows
+                   it, the popup mentions it) without ever wanting this app
+                   to run an installer by itself. -->
+              <label>
+                <input type="checkbox" id="pref-auto-update">
+                Update automatically when a new version is found
+              </label>
+              <!-- "Maybe they can have the option to select the specific
+                   versions they wish to switch to??" — asked for directly.
+                   Stable/main is a preference (core/config.py's
+                   update_channel), but "main" only ever reports itself
+                   honestly unavailable right now (routes_update.py's own
+                   GET /update/check) — there's no nightly-build pipeline
+                   that publishes a Windows installer on every push yet, and
+                   fabricating one here would be exactly the kind of silent
+                   lie CLAUDE.md calls out as costly. Storing the choice is
+                   real; the behaviour catches up once that pipeline exists. -->
+              <label>
+                <input type="checkbox" id="pref-update-channel-main">
+                Track the main branch instead of stable releases (not yet available)
+              </label>
+              <div class="row" id="update-version-row">
+                <button id="update-show-versions" class="ghost small" type="button">Choose a specific version…</button>
+                <select id="update-version-select" class="small-select hidden" aria-label="Choose a release to install"></select>
+                <button id="update-install-version" class="small hidden" type="button">Install this version</button>
+              </div>
+              <span class="muted" id="update-version-status"></span>
+              <!-- Only meaningful running from start.bat/start-desktop.bat, which
+                   open a console window behind the app — the packaged installer's
+                   build has none to show at all. Shown only in the desktop shell
+                   (app.js checks /health's own "desktop" flag), same gating as
+                   the file-save path this same flag already drives.
+
+                   "Dev view"/"User view" naming asked for directly, alongside
+                   the console-hide mechanism itself changing from hiding an
+                   already-created window to never creating one for User view
+                   (see __main__.py's pythonw.exe relaunch) — hiding one after
+                   the fact turned out unreliable under some terminal setups. -->
+              <label class="row space-between hidden" id="desktop-console-row" for="pref-show-console">
+                Dev view — keep a console window open
+                <input type="checkbox" id="pref-show-console">
+              </label>
+              <p class="muted hidden" id="desktop-console-hint">
+                On by default. Turn it off for "User view" — the app runs with
+                no console window at all, just this app window and a system
+                tray icon. You can also switch live from the tray icon's own
+                menu, which remembers your choice for next time too, and the
+                app briefly restarts itself when you switch this way.
+              </p>
+              <!-- Closing the window and quitting the app are two different
+                   things on a desktop build with a tray icon, and until now the
+                   app made that choice for you silently. Asked for directly:
+                   "make it so the app window can be closed but the app will
+                   still be open in the system tray… so there is a difference
+                   between minimising the app and quitting the app". On by
+                   default — a notebook you can capture into from the tray is
+                   the reason the tray icon exists — and off for anyone who
+                   wants the X button to mean what it says. -->
+              <label class="row space-between hidden" id="desktop-tray-row" for="pref-close-to-tray">
+                Closing the window keeps MemoryMap in the tray
+                <input type="checkbox" id="pref-close-to-tray">
+              </label>
+              <p class="muted hidden" id="desktop-tray-hint">
+                With this on, the X button hides the window and the app keeps
+                running behind the tray icon — click it to bring the window
+                back, or right-click → Quit to close it properly (which also
+                stops any background work). With it off, closing the window
+                quits.
+              </p>
+              <!-- What changed, read from CHANGELOG.md rather than kept as a
+                   second in-app list that would drift from it (§36E). Folded
+                   shut: it is long, and About is not where you go to read it
+                   unless you came looking. -->
+              <details id="changelog-fold" class="settings-fold">
+                <summary>What's new</summary>
+                <div id="changelog-body" class="changelog-body"></div>
+              </details>
             </div>
-            <h3>Keyboard shortcuts</h3>
-            <!-- This used to be a second, static list. Someone looking for
-                 "how do I change a shortcut?" naturally opens Settings, so the
-                 one place they look was the one place it couldn't be done. -->
-            <p class="muted">
-              Shortcuts can be changed and reset — press <kbd>?</kbd> any time,
-              or open the list here.
-            </p>
-            <div class="row">
-              <button id="about-shortcuts" class="small" type="button"><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Change keyboard shortcuts</button>
+
+            <div class="settings-group">
+              <h3>Get oriented</h3>
+              <div class="row settings-row-spaced-6">
+                <button id="about-take-tour" class="ghost small" type="button"><i class="ph ph-compass ph-lead" aria-hidden="true"></i> Take tour again</button>
+                <!-- The Help page's own topics are one click further in than
+                     this button already was — asked for directly, so the two
+                     "how do I learn my way around" doors sit beside each
+                     other instead of one being a whole nav click away. -->
+                <button type="button" class="ghost small" data-goto-section="help"><i class="ph ph-question ph-lead" aria-hidden="true"></i> Open Help &amp; guide</button>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <h3>Keyboard shortcuts</h3>
+              <!-- This used to be a second, static list. Someone looking for
+                   "how do I change a shortcut?" naturally opens Settings, so the
+                   one place they look was the one place it couldn't be done. -->
+              <p class="muted">
+                Shortcuts can be changed and reset — press <kbd>?</kbd> any time,
+                or open the list here.
+              </p>
+              <div class="row">
+                <button id="about-shortcuts" class="small" type="button"><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i> Change keyboard shortcuts</button>
+              </div>
             </div>
           </section>
 

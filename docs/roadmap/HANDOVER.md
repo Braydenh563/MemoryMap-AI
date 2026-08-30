@@ -1,6 +1,181 @@
 # Session handover
 
-## New session — a cross-conversation data bug, prompt cost, tool focus (§94)
+## New session — a live bug-report batch, a real tool-call parsing bug, one reverted attempt (§97)
+
+Branch `claude/ui-improvements-bugs-arf9gy`. A user-reported batch of ten UI/UX
+bugs plus one backend cluster, worked one at a time and verified live in
+Chromium (Playwright) rather than reasoned from source — CLAUDE.md's own
+standing instruction, and it caught a real self-inflicted bug before it
+shipped (see below). 2,355 tests pass; ruff clean.
+
+### What was built
+
+- **Capture tab overflow** (Notes → Capture): `.capture-field-row` had a
+  comment claiming "wrap as whole controls" but never actually set
+  `flex-wrap: wrap` — at any width narrower than all seven buttons in the
+  "File under" row, the later ones ran off the card's right edge instead of
+  dropping to a second line. Fixed, and `#entry-attach-file`/
+  `#entry-attach-existing` moved up to the "Add to document" row per direct
+  request (that row had room; "File under" was the crowded one).
+- **Library "All" tab width**: `.seg button` sizes to content, so "All" (3
+  chars) was roughly half the click-width of "Image Gallery" (13). Scoped
+  `min-width: 6.5rem` to `.library-subtabs button` only.
+- **Whiteboards subtab**: board cards were a bare `<button>` with a title and
+  an item count — no rename, no delete, no search, unlike the Documents
+  subtab beside it. Rewritten to the same `<article role="button">` +
+  kebab-menu shape `libraryCard()`/the doc list already use (Rename via the
+  existing `PUT /whiteboard/boards/{id}`, Delete via `DELETE /entries/{id}`
+  — a board is just a note), plus a `#library-boards-search` search box
+  matching Documents'.
+- **Settings toggle consistency**: audited all 17 settings sections plus the
+  tool list and library toggles live. The broad
+  `.settings-section label>input[type="checkbox"]` selector
+  (06-timeline-dialogs.css) already catches essentially every toggle in the
+  app regardless of the label's own class, and every one screenshotted
+  rendered as the same pill switch. **No code change was needed here** —
+  logged so a future session doesn't re-audit this from scratch.
+- **About page redesign**: wrapped into `.settings-group` boxed sections
+  (hero/Updates/Get oriented/Keyboard shortcuts) matching every other
+  settings page's visual language; the three update toggles were the one
+  place left still laid out label-then-pill instead of pill-then-label,
+  fixed to match. Help page: every "Settings → X" mention that was inert
+  text is now a real `data-goto-section` link (the same cross-link
+  mechanism Preferences already had one instance of), plus two new
+  "Related:" link rows on topics that had no settings mention at all.
+- **Back/forward now covers Settings.** `tabHistory` (app.js) never recorded
+  opening Settings or switching its sections — asked for directly. It does
+  now (`showSettingsSection` calls `recordTabVisit("settings", name)`), and
+  `stepTabHistory` opens/closes the modal on replay. The status bar's own
+  back/forward buttons are covered by the modal overlay once it's open
+  (`.modal-overlay` is deliberately above the status bar's z-index), so a
+  second pair of the same buttons lives in the Settings header itself,
+  wired to the identical `stepTabHistory` handlers.
+- **Status bar clock**: opt-in (`status_bar_clock` preference, default off —
+  unlike the existing opt-out `STATUS_SLOTS`, a clock is not an existing
+  landmark), `#status-clock`, painted every 30s.
+- **Image gallery kebab + lightbox**: the gallery's own kebab is a
+  `<summary>` (a `<details>` disclosure), and the base `button {
+  border-radius }` rule only ever reaches real `<button>` elements — it
+  rendered as a plain square next to every other (real-`<button>`) kebab in
+  the app. Fixed with an explicit `border-radius` on
+  `.library-image-menu-btn`. The reported "popup gets cut off" and "lightbox
+  closes instead of looping" could **not be reproduced live** after
+  multiple viewport widths and tile positions — both already work (the
+  flip-left/flip-up measurement in library.js, and `show()`'s own modulo
+  wraparound in app.js). **Do not re-fix these blind** if reported again;
+  ask for the exact viewport/window size first.
+- **Lightbox arrow centring** (reported mid-session, not in the original
+  batch): `.lightbox-nav` never reset the inherited `button { padding: 0.5rem
+  1rem }`, unlike its sibling `.lightbox-close` which does. 1rem of
+  horizontal padding left ~8px of content box for a ~21px glyph — CSS
+  Grid's "safe centre" fallback then aligned the oversized glyph to the
+  padding box's start edge instead of overflowing symmetrically, which
+  measured as a consistent ~6.6px rightward shift on *both* arrows
+  (confirmed via `getBoundingClientRect`, not eyeballed). `padding: 0` fixed
+  it; offset is now exactly 0.
+- **Chat sidebar "Browse all in Library"**: centred to match the Documents
+  sidebar's copy, on direct request (this reverses an earlier session's own
+  reasoning for why they *should* differ — see 05-sidebars-themes.css's
+  comment trail for both directions of that decision).
+- **Activity**: three real fixes, not a redesign.
+  1. *Placement* — asked for directly. Not a kind of thing you made (already
+     excluded from "Everything"'s own count), so `.library-chip-activity`
+     now sits at the filter row's far end with a divider, instead of buried
+     as the eleventh of eleven chips.
+  2. *Noise* — `PUT /preferences` logged an audit row for **every** key
+     changed, `ui_state` included, which is the interface's entire
+     appearance/theme/corners/zoom/glass state behind one key. Dragging a
+     slider or ticking a status-bar item produced the identical "Edited your
+     settings" row as changing the model backend. `_QUIET_PREFERENCE_KEYS`
+     (routes_settings.py) skips the audit write for `ui_state` and four
+     other cosmetic/one-shot keys — `config.set_preference` still runs for
+     all of them, only the log entry is skipped. Verified live: two
+     `#glass-toggle` clicks produced zero new `/audit` rows; a real
+     `display_name` change still logged one.
+  3. *Truncation* — the card preview was already correctly un-clamped
+     (00-tokens-shell.css says so in its own comment), but the **backend**
+     hard-truncates `detail` at `ACTIVITY_DETAIL_CHARS` (400) before it ever
+     reaches the browser, with no way to see the rest. Clicking an activity
+     card with no related note (most of them — a preference edit, a tag
+     merge) now opens `showDetailDialog` (new, app.js — confirmDialog's
+     shape, read-only), fetching the full un-clipped text via a new `id`
+     filter on `GET /audit`.
+- **Tool-call parsing — a real, confirmed bug, not a hypothesis.**
+  `extract_text_tool_calls`'s bare-JSON fallback (provider.py, for models
+  that narrate a tool call as text instead of using the structured field)
+  used `\{[^{}]*"name"[^{}]*\}` — a regex that structurally **cannot** match
+  across a nested brace. `{"name": "create_note", "arguments": {"tags":
+  [...]}}`, an entirely ordinary shape, silently failed to recover and the
+  whole call was dropped — the exact symptom reported ("the ai didn't
+  actually call any tools"). The `<tool_call>…</tool_call>`-wrapped path
+  turned out *not* to share the bug (the closing tag anchors the match past
+  one level of nesting), but was rewritten anyway onto the same
+  brace-counting scanner (`_balanced_json_objects`, new) for uniformity and
+  so a wrapper holding more than one call recovers all of them, not just the
+  first. Four new tests, all passing (`test_agent_tools_api.py`).
+- **`notebook_overview` tool** (new): categories + tags + total note count
+  in one call, replacing three separate round-trips (`list_categories`,
+  `list_tags`, `count_notes`) a skill wanting "the notebook's shape" used to
+  need — asked for directly, and it is the literal pattern the "Tidy
+  suggestions" skill screenshot in the ask showed. Wired into "Notebook
+  health check" and "Tidy suggestions" (skills.py), both their `tools` list
+  and their step-1 instruction text. All three narrower tools are untouched
+  and still offered.
+
+### Tried, and reverted — read before attempting again
+
+**Skill steps marked "done" despite not meeting their own criteria.** The
+mechanical safeguards already in skill_runner.py are more thorough than they
+first look — four separate prior sessions' fixes are documented inline there
+(ran-out-of-rounds, went-offline, tool-failed-with-no-answer, and
+empty-answer-with-no-tool-call all already stop the run and report
+`"failed"`/`"stalled"` rather than `"done"`). The remaining gap — a step
+that produces *some* text and/or runs *some* tool, without that tool or text
+actually satisfying the instruction — genuinely needs semantic judgement
+(a second model call to critique the first) to close in general.
+
+One narrower, mechanical attempt was made and reverted: flag a step "failed"
+if its own instruction names one of the skill's declared tools by literal
+identifier (`"Use rename_tag to merge..."`) and that tool was never called.
+It broke three existing tests (`test_skills.py`) — "Auto-tag my notes"' own
+step 4 is `"Call tag_note on each one..."`, and the check cannot tell "should
+have called it but didn't" from "correctly had nothing to tag". Conditional
+"for each X, do Y" is an extremely common step shape in this skill library,
+and a check that cannot see whether X was empty will false-positive on
+exactly the runs that did nothing wrong. Reverted cleanly (`git diff` on
+`agent.py`/`skill_runner.py` is empty). **Any future attempt at this needs
+either a live model in the loop or the step author to mark which tools are
+actually required vs. incidental** — not a text-mention heuristic.
+
+### Traps this session re-confirmed
+
+- **A stale uvicorn silently serves pre-fix behaviour.** The
+  `_QUIET_PREFERENCE_KEYS` fix above looked like it had done nothing when
+  checked live — the running server predated the edit. `kill <pid>` by PID
+  from `ps aux`, not `pkill`, which matches this session's own shell command
+  line (CLAUDE.md already says so; costs an hour every time it's ignored).
+- **`-->` is not a CSS comment closer.** One CSS edit
+  (05-sidebars-themes.css) accidentally closed a `/* … */` block with `-->`
+  instead of `*/`, which silently swallowed the actual rule into the
+  unterminated comment — `document.styleSheets`/`cssRules` showed the rule
+  simply did not exist, while `curl` of the same file showed it present in
+  the source. Found by comparing the two, not by staring at the CSS. `grep
+  -rn -- "-->" frontend/css/` afterward confirmed it was the only instance.
+
+### What is still open
+
+- The image-gallery cutoff/lightbox-loop reports above — real once, not
+  reproducible now; see their own note.
+- Everything ROADMAP.md already had open before this session (item E, the
+  `app.js` split; item G, the whiteboard's own efficiency/feature audit;
+  item F's three unverifiable-in-this-sandbox items) — untouched this
+  session, still open.
+- A full self-review of this session's own diff for complexity/security
+  issues has not been done as a separate pass — each change was verified
+  individually (tests, ruff, live Chromium) as it landed, but nobody has
+  looked at the whole diff at once yet.
+
+## Prior session — a cross-conversation data bug, prompt cost, tool focus (§94)
 
 **Full narrative in HISTORY.md §94.** Branch `claude/post-v0.1.4-nav-fixes`.
 2,351 tests pass; ruff clean.

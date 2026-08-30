@@ -36,8 +36,46 @@ tagged, ahead of the PR merging.
 - The llama.cpp extra's "unavailable" message implied the app doesn't talk to
   llama.cpp at all; it already does, via `llama-server`'s OpenAI-compatible
   API — only in-process `llama-cpp-python` embedding is unbuilt.
+- The Capture tab's "File under" row could run its later buttons off the
+  card's right edge instead of wrapping — `.capture-field-row` claimed to
+  wrap but never set `flex-wrap: wrap`.
+- The Image Gallery's kebab button had square corners: the base `button`
+  rule's `border-radius` never reaches a `<summary>` element (it is a
+  `<details>` disclosure, not a real button) — the centring fix above this
+  same element already got was never joined by one for its corners.
+- The lightbox's prev/next arrow icons sat visibly off-centre — inherited
+  padding (`0.5rem 1rem`) the sibling close button already resets shrank the
+  centring box to less than the glyph's own width, and CSS Grid's "safe
+  centre" fallback shifted the oversized glyph to the padding box's edge.
+- A tool call a model wrote as text instead of using the structured
+  tool_calls field (small/local models do this routinely) silently failed
+  to recover whenever its `arguments` were themselves an object or array —
+  an entirely ordinary shape — because the fallback regex could not match
+  across a nested brace. Replaced with a real brace-balanced scanner.
+- `PUT /preferences` logged an audit-log ("Activity") row for every key
+  changed, `ui_state` (the interface's entire theme/appearance state behind
+  one key) included — a slider drag read identically to changing the model
+  backend. Cosmetic/one-shot keys no longer write an audit row; the
+  preference itself still saves exactly as before.
+- The Library's Activity cards clip long entries at 400 characters
+  server-side with no way to see the rest — clicking one with nothing to
+  jump to (most of them) now opens the full, un-clipped text.
 
 ### Added
+- `notebook_overview`, an AI tool combining `list_categories` + `list_tags`
+  + `count_notes` into one call — a skill wanting "the notebook's shape"
+  (Notebook health check, Tidy suggestions) needed three round trips for
+  numbers this app already had cheap SQL for.
+- A search box and a rename/delete kebab menu on the Whiteboards subtab's
+  board cards, matching the Documents subtab beside it.
+- An opt-in clock in the bottom status bar (Settings → Appearance).
+- Settings → About redesigned into the same boxed sections every other
+  settings page uses; Settings → Help's "Settings → X" mentions are now
+  real links to that section, plus two new ones for topics that had none.
+- The status bar's back/forward now cover opening Settings and moving
+  between its sections, not just the tabs and sub-tabs it already tracked —
+  including a second copy of the two buttons in the Settings header itself,
+  since the modal overlay sits above the status bar's own.
 - Meeting Notes as a real Library filter chip (tag-based, alongside the
   existing kind filters), after two non-functional attempts at a sub-tab.
 - AI Skills cards: expandable step/tool lists via `<details>`, and the
@@ -53,6 +91,12 @@ tagged, ahead of the PR merging.
   the chat has `/` commands (it doesn't).
 
 ### Reverted
+- A mechanical check flagging a skill step "failed" if its own instruction
+  named one of the skill's tools by identifier and that tool was never
+  called — real steps that conditionally act on "each X" legitimately call
+  nothing when there is no X, and the check could not tell that apart from
+  a step that should have called it and didn't. Reverted before merging;
+  see HANDOVER.md §97 for what would be needed to attempt this safely.
 - Minimise-on-Quit (`js_api=bridge` on `webview.create_window()`): caused a
   real hang on Windows — a recursion storm in `window.native` COM property
   access on the WebView2 UI thread. Fully reverted; root cause confirmed,

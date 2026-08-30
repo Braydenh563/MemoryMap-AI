@@ -196,6 +196,11 @@ class PreferencesBody(BaseModel):
     #: in a later version then appears by default for everyone, instead of
     #: being invisible to every user who ever opened that settings screen.
     status_bar_hidden: list[str] | None = None
+    #: Opt-in, unlike status_bar_hidden above: a clock is not one of the
+    #: permanent landmarks STATUS_SLOTS lists, so it defaults to off rather
+    #: than appearing for everyone the moment this shipped. Asked for
+    #: directly ("show the current time in the status bar").
+    status_bar_clock: bool | None = None
     #: One-shot: the tray balloon explaining where the window went has been
     #: shown. Written by the launcher, not the browser, but declared so the
     #: value round-trips rather than being dropped by a later PUT.
@@ -443,6 +448,7 @@ def get_preferences() -> dict:
         # agree or the checkbox shows the opposite of what the window does.
         "close_to_tray": config.get_preference("close_to_tray", True),
         "status_bar_hidden": config.get_preference("status_bar_hidden", []),
+        "status_bar_clock": config.get_preference("status_bar_clock", False),
     }
 
 
@@ -459,6 +465,32 @@ _AUTONOMOUS_PREFS = frozenset(
         "auto_link_enabled",
         "auto_dedupe_enabled",
         "auto_stale_review_enabled",
+    }
+)
+
+
+#: Preference keys that never reach the audit log (Library → Activity).
+#: Reported directly: "idk what the go is with all the 'Edited your
+#: settings' stuff" — a click that toggles a status-bar icon or drags a
+#: corner-rounding slider produced the exact same "Edited your settings"
+#: row as changing the model backend or the auto-lock timeout, so the one
+#: feed meant to answer "what did I actually do" was mostly cosmetic noise
+#: with the real changes buried in it. `ui_state` alone is most of that
+#: noise — it is the interface's *entire* look (theme, palette, corners,
+#: zoom, shadow, glass, motion — see its own docstring above) behind one
+#: key, so every appearance tweak wrote a row. The rest here are one-shot
+#: internal bookkeeping (`*_intro_seen`, `tray_hide_explained`) or the two
+#: status-bar toggles (§ this session) — never a change a person would
+#: describe as "something I did", only as "how it looks/behaves".
+#: `set_preference` still runs for all of them; only the audit row is
+#: skipped, so nothing about what is saved or restored changes.
+_QUIET_PREFERENCE_KEYS = frozenset(
+    {
+        "ui_state",
+        "status_bar_hidden",
+        "status_bar_clock",
+        "console_view_intro_seen",
+        "tray_hide_explained",
     }
 )
 
@@ -482,6 +514,8 @@ def update_preferences(
             value = _validated_export_dir(value)
         config.set_preference(key, value)
         changed_keys.add(key)
+        if key in _QUIET_PREFERENCE_KEYS:
+            continue
         # Don't copy profile text into the audit log — it's personal.
         detail = f"{key}=…" if key == "user_profile" else f"{key}={value}"
         manager.log_action(session, "edited", "preferences", detail=detail)
@@ -844,6 +878,7 @@ def forget_memory(preference_id: int, session: Session = Depends(get_session)) -
 def audit_log(
     limit: int = Query(default=100, ge=1, le=500),
     entity_type: str = Query(default="", max_length=40),
+    id: int | None = Query(default=None),  # noqa: A002
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """The activity log, newest first (viewer in the UI).
@@ -855,9 +890,17 @@ def audit_log(
     runs rendered as "No skill execution logs found". Reported as the skill
     logs not working. Filtering in SQL means the limit counts the rows you
     asked for rather than the rows you are about to throw away.
+
+    `id` is the Library Activity card's own "view the whole thing" — its own
+    list comes from `_activity()` (routes_library.py), which clips `detail`
+    to `ACTIVITY_DETAIL_CHARS` so a long one doesn't blow out the card grid.
+    This route never clips (`detail` below is the raw column), so re-fetching
+    one row by id is what a click-to-expand needs, without a second endpoint.
     """
     query = select(AuditLog)
-    if entity_type:
+    if id is not None:
+        query = query.where(AuditLog.id == id)
+    elif entity_type:
         query = query.where(AuditLog.entity_type == entity_type)
     rows = session.scalars(query.order_by(AuditLog.id.desc()).limit(limit))
     return [

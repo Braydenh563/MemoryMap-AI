@@ -1217,6 +1217,20 @@ header#top-bar.tabs-wrapped #tab-bar {
   opacity: 0.75;
 }
 
+/* Activity answers "what did I do", not "what kind of thing is this" — the
+   other ten chips all filter by kind, so it sat among them looking like an
+   eleventh kind rather than the different question it actually is. Pushed
+   to the row's own far end with a divider ahead of it, the way the
+   reminder view-toggle already sits apart from the reminder filter beside
+   it, rather than moved to a second surface (a second place to remember is
+   not a better one — reported live: "can the activity button be moved
+   somewhere better"). */
+.library-chip-activity {
+  margin-left: auto;
+  padding-left: calc(var(--space-5) + var(--space-2));
+  border-left: 1px solid var(--border);
+}
+
 .library-grid {
   /* How wide a card's spine is. One value, so the seven kind-colours below
      cannot drift apart — see the note on the spine. */
@@ -1622,17 +1636,13 @@ header#top-bar.tabs-wrapped #tab-bar {
   margin: var(--space-6) 0 0;
 }
 
-/* The Boards & Images gallery (HANDOVER.md §53/§56) — a board card is a
-   plain button, not the note/document `<article>` `.library-card` already
-   is, so it needs its own text alignment and cursor rather than inheriting
-   everything from that selector. */
+/* The Boards & Images gallery (HANDOVER.md §53/§56). A board card is now the
+   same `<article role="button">` shape `.library-card` already is (it grew
+   a kebab menu of its own — rename/delete — which can't live inside a plain
+   `<button>`), so this only needs the one thing that shape doesn't give for
+   free. */
 .library-board-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
   cursor: pointer;
-  font-family: inherit;
 }
 
 .library-image-grid {
@@ -1775,6 +1785,16 @@ header#top-bar.tabs-wrapped #tab-bar {
 .library-image-tile .library-image-menu-btn {
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
+  /* Reported live: this kebab reads as a plain square next to every other
+     icon button in the app. The base `button { border-radius: var(--radius-lg) }`
+     rule (01-forms-settings.css) never reaches it — this is a <summary>,
+     not a <button>, since it is a <details> disclosure rather than a popup
+     menu, and `summary.icon-button` (the rule that gives it the rest of an
+     icon-only button's shape) sets padding/aspect-ratio/centering but not
+     corners. Every other kebab in the app is a real <button> (smallButton(),
+     used by kebabMenu()) and gets this for free; this is the one place that
+     still needed it named explicitly. */
+  border-radius: var(--radius-lg);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   box-shadow: var(--glass-shadow);

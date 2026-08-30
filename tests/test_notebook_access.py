@@ -180,6 +180,21 @@ def test_list_categories_reports_a_total(ai_client, session):
     assert {"name": "Work", "notes": 1} in listed["categories"]
 
 
+def test_notebook_overview_combines_categories_tags_and_total(ai_client, session):
+    # Reported live: a skill wanting "the shape of the notebook" spent three
+    # separate tool calls (count_notes, list_categories, list_tags) to get
+    # what this single call now returns.
+    _save(ai_client, "a", category="Work", tags=["urgent"])
+    _save(ai_client, "b", category="Home", tags=["urgent", "chores"])
+
+    overview = tools.execute_tool(session, "notebook_overview", {})
+    assert overview["total_notes"] == 2
+    assert {"name": "Work", "notes": 1} in overview["categories"]
+    assert {"name": "Home", "notes": 1} in overview["categories"]
+    assert {"name": "urgent", "notes": 2} in overview["tags"]
+    assert {"name": "chores", "notes": 1} in overview["tags"]
+
+
 def test_the_new_tools_are_offered_to_the_model(app_state):
     offered = {t["function"]["name"] for t in tools.ollama_tools()}
     assert {"get_note", "list_notes", "count_notes", "list_tags"} <= offered

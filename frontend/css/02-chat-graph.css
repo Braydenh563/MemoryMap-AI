@@ -2596,6 +2596,17 @@ html {
   transform: translateY(-50%);
   width: 2.5rem;
   height: 2.5rem;
+  /* Reported live: the arrow glyphs sat visibly right of centre. The global
+     `button` rule's `padding: 0.5rem 1rem` was never reset here (unlike
+     `.lightbox-close`, which is why *that* circle centres correctly at the
+     same size) — 1rem of horizontal padding each side left only ~8px of
+     content box for a ~21px glyph to centre inside. An item wider than its
+     own centring box triggers Grid's "safe centre" fallback, which aligns it
+     to the content box's start edge instead of overflowing — and that start
+     edge sits 1rem in from the button's true left edge, which is the exact
+     rightward shift this measured as. Zeroing the padding restores the full
+     40×40 box for `place-items: center` to centre the glyph inside. */
+  padding: 0;
   border-radius: var(--radius-pill);
   border: none;
   background: rgba(255, 255, 255, 0.12);

@@ -60,12 +60,20 @@ tagged, ahead of the PR merging.
 - The Library's Activity cards clip long entries at 400 characters
   server-side with no way to see the rest — clicking one with nothing to
   jump to (most of them) now opens the full, un-clipped text.
+- The image gallery's popup menu could still run off the *left* edge on a
+  narrow (single/two-column) gallery — the existing flip logic only ever
+  corrected right-edge overflow. Now clamped back into bounds after the
+  flip decision, regardless of which edge or how narrow.
 
 ### Added
 - `notebook_overview`, an AI tool combining `list_categories` + `list_tags`
   + `count_notes` into one call — a skill wanting "the notebook's shape"
   (Notebook health check, Tidy suggestions) needed three round trips for
   numbers this app already had cheap SQL for.
+- `llama-server`'s own `/props` is now probed as a context-length source
+  (ROADMAP.md item A.2) — a real number (the `-c` it was started with) in
+  place of the guess-from-model-name table, for plain llama.cpp servers
+  that report neither `loaded_context_length` nor `max_context_length`.
 - A search box and a rename/delete kebab menu on the Whiteboards subtab's
   board cards, matching the Documents subtab beside it.
 - An opt-in clock in the bottom status bar (Settings → Appearance).

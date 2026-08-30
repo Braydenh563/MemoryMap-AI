@@ -121,6 +121,38 @@ shipped (see below). 2,355 tests pass; ruff clean.
   health check" and "Tidy suggestions" (skills.py), both their `tools` list
   and their step-1 instruction text. All three narrower tools are untouched
   and still offered.
+- **ROADMAP.md item A (llama.cpp), steps 1–2.** Step 1 ("say so" in
+  `core/extras.py`) turned out already done by an earlier session — the
+  ROADMAP text describing it as still-needed was the only thing stale.
+  Step 2: `OpenAICompatClient` now probes `llama-server`'s own `/props`
+  (`_fetch_props`/`is_llama_cpp`, `ai/openai_client.py`) as a
+  context-length source, ranked between the per-model catalogue entry and
+  the guess-from-name table — plain llama.cpp reports neither
+  `loaded_context_length` nor `max_context_length` on `/v1/models`, so
+  this is a real number (the actual `-c` the server was started with) in
+  place of a guess. Six existing tests across `test_providers.py`/
+  `test_model_specs.py` that construct `OpenAICompatClient` directly
+  needed `c._props = {}` added alongside their existing `c._catalog = []`
+  — the same hermetic-by-default convention `_catalog` already required,
+  extended to the new network-touching source rather than left as a live
+  call waiting to happen in a test. Two new tests. **Step 3 (in-process
+  `llama-cpp-python`) stays explicitly not done** — the wheel-matrix cost
+  ROADMAP.md's own item A weighs against it wasn't reassessed and still
+  applies.
+- **Image gallery popup, actually cut off this time — the mid-session
+  report was right and the earlier "couldn't reproduce" note above was
+  about a different failure mode.** The existing flip logic
+  (`library.js`'s `menu.addEventListener("toggle", ...)`) only ever
+  corrected *right*-edge overflow by swapping to a second *fixed* anchor
+  (`left: 0`, growing right) — nothing checked whether the menu's
+  **default** position already ran past the *left* edge, which is exactly
+  what a narrow (single- or two-column) gallery does: the popup
+  (`min-width: 13rem`) is wider than the tile it hangs off. Fixed with a
+  post-flip clamp — re-measure after the flip decision and nudge back
+  into bounds with `transform: translateX(...)`, which works regardless of
+  which fixed anchor ended up active. Verified live at 480px width
+  (previously cut off, per the user's own screenshot) and re-verified the
+  already-working flip-up case at 520px still needs no correction.
 
 ### Tried, and reverted — read before attempting again
 

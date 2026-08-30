@@ -2386,10 +2386,25 @@ function filterLibraryImagesGallery() {
     menu.addEventListener("toggle", () => {
       if (!menu.open) return;
       menuList.classList.remove("menu-flip-left", "menu-flip-up");
+      menuList.style.transform = "";
       const bound = nearestScrollParent(menu).getBoundingClientRect();
-      const box = menuList.getBoundingClientRect();
+      let box = menuList.getBoundingClientRect();
       if (box.right > bound.right) menuList.classList.add("menu-flip-left");
       if (box.bottom > bound.bottom) menuList.classList.add("menu-flip-up");
+      // The flip above only ever swaps between two *fixed* anchors — right:0
+      // (grows left) and left:0 (grows right) — which covers a tile near one
+      // edge of a wide grid but not a gallery narrower than the menu's own
+      // 13rem min-width, where flipping toward the "open" side just runs the
+      // menu off *that* edge instead. Reported live with a screenshot: cut
+      // off on the left, in the menu's default (un-flipped) position — this
+      // is the gap the flip alone can't close. Re-measured after the flip
+      // decision above and nudged back into bounds with a transform, which
+      // works regardless of which fixed anchor is currently active.
+      box = menuList.getBoundingClientRect();
+      let shift = 0;
+      if (box.left < bound.left) shift = bound.left - box.left + 8;
+      else if (box.right > bound.right) shift = bound.right - box.right - 8;
+      if (shift) menuList.style.transform = `translateX(${shift}px)`;
     });
     actions.append(menu);
 

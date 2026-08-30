@@ -1,6 +1,56 @@
 # Session handover
 
-## New session — the document editor rebuilt, six backlog items, a prompt-budget bug (§93)
+## New session — a cross-conversation data bug, prompt cost, tool focus (§94)
+
+**Full narrative in HISTORY.md §94.** Branch `claude/post-v0.1.4-nav-fixes`.
+2,351 tests pass; ruff clean.
+
+### Read these three first
+
+1. **`ai/toolwords.py` is new and it is the tool focus now.** `tools.focus_for`
+   delegates to it. Scores **rank, never gate** — that is written down twice
+   because getting it backwards silently removes a capability. `focus_detail`
+   carries the cues for the log.
+2. **A turn owns its conversation.** `sendChatMessage` pins `convRef` and
+   guards every UI write with `viewing()`. If you add a save or a header write
+   to that function, it must use `convRef`, not `chatConv` — reading the live
+   global is exactly the bug that was fixed.
+3. **`context.plan` + `agent.tools_guide(window)` + `tools.compact_schemas`**
+   are one system now. `tests/test_prompt_budget.py` pins the result; if it
+   fails, the prompt grew, and the number in the assertion is the measurement,
+   not a preference.
+
+### Traps this session paid for
+
+- **`pkill -f "port 87xx"` kills your own shell.** It is in CLAUDE.md, it cost
+  an hour last session, and it still caught me twice this session because my
+  own command line contains the pattern. Get the PID from `ps` and `kill` that.
+- **A stale uvicorn is indistinguishable from a broken fix.** `/documents/file-types`
+  returned an int-parsing error for a route that was correctly ordered in the
+  source, because the running server predated it.
+- **CSS `100vw` is not the whiteboard's width.** Its panels are positioned
+  inside `#wb-canvas-view` — 960px in a 1024px window. Measure both rectangles.
+- **Word-boundary matching breaks plurals.** `\bdocument\b` does not match
+  "documents". Substring matching had that right by accident.
+
+### What is still open
+
+- **`app.js` is 22,317 lines** and should be split further. The data: 87
+  section headers, the largest 15 sections are 50% of the file. The clean
+  first extraction is **`chat.js`** — "ask", the chat tab, image attachment,
+  the agent run timeline and the chat-dock disclosure are ~3,300 contiguous
+  lines of one domain, and it follows the §88.3 pattern that already produced
+  documents.js, library.js, dashboard.js and settings.js. Not started: it is a
+  refactor with real regression risk and no user-visible gain, and there were
+  functional requests outstanding.
+- **The `ocr` model entries are unverified *as Ollama pulls*.** The repos and
+  file sizes were checked against the live Hub, but nobody has run
+  `ollama pull hf.co/ggml-org/GLM-OCR-GGUF:Q8_0` from this app.
+- **Not verified in a browser**: `scripts/splash.ps1` (this sandbox is Linux
+  with no PowerShell — its tests cover the contract between launcher, splash
+  and app, not the rendering), and printing to PDF from the editor's Read mode.
+
+## Prior session — the document editor rebuilt, six backlog items, a prompt-budget bug (§93)
 
 **Full narrative in HISTORY.md §93.** Branch `claude/post-v0.1.4-nav-fixes`,
 five commits.

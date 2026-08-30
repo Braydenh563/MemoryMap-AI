@@ -7,6 +7,81 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## §94 — a chat turn saved to the wrong conversation, the prompt on a diet, and the plug for scanned PDFs
+
+**Do not rebuild any of the following.**
+
+**The worst bug of the session was silent.** `chatConv` is module-level and
+*reassigned* by `openConversation`/`newChatConversation`, and every save in
+`sendChatMessage` read it live — at each checkpoint and again when the turn
+finished, seconds or minutes after the send. Switching chats mid-stream
+therefore wrote the finished answer into **whichever conversation was open when
+it landed**, or created a new one from it if the reader had pressed "+ New".
+Reported only as the message and the generating bubble vanishing. The turn now
+pins its conversation (`convRef`) and only touches the header, usage meter and
+composer while that conversation is still on screen.
+
+**Prompt cost, measured then cut.** On an 8k window with eight notes and *no
+history*, the prompt was system 3,288 chars, notes 2,377, tool schemas 4,827 —
+32% of the window before the conversation existed, with the schemas costing
+nearly twice what the user's own notes did. Now 23%:
+- `tools.compact_schemas` trims descriptions, never names or parameters, and
+  `within_budget` tries it **before dropping tools** — dropping a tool changes
+  what the app can do, trimming prose only changes how verbosely it is
+  explained. 8k fits 22 tools where 17 fit before.
+- `agent.COMPACT_TOOLS_GUIDE` replaces the 2,807-char guide below 8k. It is
+  re-sent every round, so on a 4k model it was 17% of the context per round.
+- `tests/test_prompt_budget.py` pins the fixed half under 20% and checks at
+  least eight tools survive, so the saving cannot come from an empty toolbox.
+
+**`ai/toolwords.py` — a new module, the deterministic tool focus.** The old
+rule was `cue in text`; against ten ordinary questions, seven picked up
+unrelated tools ("tag" inside *vintage* and *advantages*, "link" inside
+*blinking*, "draft" inside *drafting*). Word-boundary matching kills that class.
+Scores **rank, never gate** — a first attempt used a threshold one word could
+not clear and lost the tag tools for "tag all my gym notes", which is the worse
+trade. Anchoring both ends broke every plural, so there is an explicit
+inflection list. It also tells a question about a capability from a request to
+use it, so "how do I tag a note?" keeps the group and loses its write tools.
+**The focus advises and never decides**: `FOCUS_NOTE` tells the model the list
+is a suggestion, and a call for an unoffered tool widens to the full set for
+the rest of the turn.
+
+**Scanned PDFs read now.** `docview.py` used to carry a docstring saying they
+could not: it takes a `vision_reader`, `vision_ocr.py` reads images, and nothing
+turned a PDF page into one. pypdfium2 was actually installed and measured —
+~16 MB, no system packages, **no torch**, ~20 ms a page — so `core/pdfpages.py`
+is the plug, behind a `pdfpages` extra. The real bug alongside it:
+`routes_files` called `docview.extract(path)` with no reader, so the whole path
+had **never once executed**.
+
+**Suggested models gained an `ocr` category**, checked against the live
+Hugging Face Hub (GLM-OCR, PaddleOCR-VL, Qwen3-VL, DeepSeek-OCR, as `hf.co/`
+GGUF paths). A previous session declined to add these because it had no registry
+access; this one had it.
+
+**Chat attach takes any file.** Images to the gallery as before; everything else
+through `POST /documents/import`, which extracts text with `docview` and stores
+a Document. Text, not the file — the same rule as the viewer.
+
+**A launch splash** (`scripts/splash.ps1`, plus a zenity path in `start.sh`)
+covers the minutes of git-pull and pip-install that happen *before* Python
+exists, which no window could previously cover.
+
+**Dead controls and graph cost.** Listing every id in `index.html` that no JS
+and no stylesheet mentions found two buttons wired to nothing (Settings → About
+"Take tour again", and the Whiteboards Reload button, whose id is a copy-paste
+leftover from the Media tab). After discounting template-literal ids there are
+now **zero** interactive elements without a handler. The graph tick loop stopped
+transforming the label layer while it is invisible — with an explicit catch-up,
+because a settled simulation has no next tick to fix them.
+
+**Whiteboard panels, measured at eight viewports.** The tools row and the zoom
+cluster shared the bottom edge and overlapped from ~1180px down, running off the
+canvas by 900px. Fixed with wrap plus a reserved gutter — and the first attempt
+used `100vw` when these panels live inside a 960px `#wb-canvas-view`, which is
+the kind of thing only measuring both rectangles catches.
+
 ## §93 — the hybrid document editor, six backlog items, and a prompt with no budget
 
 **Do not rebuild any of the following.** Branch

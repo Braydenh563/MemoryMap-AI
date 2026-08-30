@@ -1107,6 +1107,18 @@ Link to another note with [[its first few words]]."></textarea>
                  asked for it, not at the bottom of a card you have scrolled
                  away from. -->
             <p id="chat-status" class="status" role="status"></p>
+            <!-- How long this answer has been coming. Asked for directly:
+                 "can there be an active timer on responses in chatg messages
+                 as well??" A local model on a long question can be quiet for
+                 a minute, and "The model is writing…" says nothing about
+                 whether that minute is normal. Its own element, not part of
+                 #chat-status: the status text is rewritten a dozen times per
+                 turn by the stream, and a timer folded into it would have to
+                 be re-appended at every one of those call sites.
+                 aria-hidden because a counter that changes every second is
+                 noise to a screen reader, and #chat-status beside it is
+                 already role="status". -->
+            <span id="chat-elapsed" class="status chat-elapsed hidden" aria-hidden="true"></span>
           </div>
         </section>
 

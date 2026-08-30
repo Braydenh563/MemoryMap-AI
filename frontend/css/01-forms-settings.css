@@ -431,6 +431,15 @@ kbd {
   color: var(--error);
 }
 
+/* The live "how long has this been going" counter beside the chat status.
+   Tabular figures so the row does not jitter a pixel every second as the
+   digits change width — a counter that makes the text next to it move is
+   more distracting than the wait it is reporting. */
+.chat-elapsed {
+  margin-left: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
 .status.ok {
   color: var(--ok);
 }

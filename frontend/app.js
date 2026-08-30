@@ -8656,6 +8656,7 @@ async function sendChatMessage(preset, opts = {}) {
   show("chat-stop");
   status.classList.remove("error");
   status.textContent = "Searching your notes…";
+  startChatTimer();
 
   // Regenerate re-runs the same question without adding a duplicate "you".
   //
@@ -9014,6 +9015,7 @@ async function sendChatMessage(preset, opts = {}) {
     // leaving Stop wired to nothing while a stream was genuinely running.
     if (chatController === controller) {
       chatController = null;
+      stopChatTimer();
       // The turn is over: it is saved (or about to be) and a reload of this
       // thread will render it like any other. Re-attaching these nodes after
       // that point would show it twice.
@@ -9313,6 +9315,23 @@ async function offerFollowups(bubble, question, answer) {
   // a switched conversation all detach the bubble, and appending to a detached
   // node is an invisible leak rather than a visible bug.
   if (!bubble.isConnected) return;
+  renderFollowups(bubble, picks);
+  // Saved, so they are still there next time. Reported directly: "suggested
+  // repsponse continuation prompts in chat doesnt persist and disappears once
+  // I switch chat sessions or quit the app" — they never persisted because
+  // nothing stored them; they lived only on this DOM node.
+  //
+  // Not awaited and silent, for the same reason the request above is: this is
+  // bookkeeping behind a suggestion, and a failed save must not put an error
+  // on screen over an answer that is fine.
+  saveFollowups(bubble, picks);
+}
+
+// The strip itself, shared by the live path above and the reopen path in
+// `openConversation` — two renderers would be two chances for a saved chip to
+// look unlike a fresh one.
+function renderFollowups(bubble, picks) {
+  if (!bubble || !Array.isArray(picks) || !picks.length) return;
   // A regenerate can finish a second answer into the same bubble; only ever
   // one strip.
   bubble.querySelector(".chat-followups")?.remove();
@@ -9330,6 +9349,21 @@ async function offerFollowups(bubble, question, answer) {
   }
   bubble.appendChild(strip);
   chatScrollToEnd();
+}
+
+async function saveFollowups(bubble, picks) {
+  if (chatConv.id === null) return; // an unsaved chat has no turn to attach to
+  // Which turn this bubble is: its index among the assistant bubbles, which is
+  // exactly how every other per-turn endpoint in this file addresses one.
+  const bubbles = [...$("chat-messages").querySelectorAll(".msg.assistant")];
+  const index = bubbles.indexOf(bubble);
+  if (index === -1) return;
+  const conversationId = chatConv.id;
+  await apiJson(`/conversations/${conversationId}/turns/${index}/followups`, {
+    method: "PUT",
+    silent: true,
+    body: JSON.stringify({ followups: picks }),
+  }).catch(() => {});
 }
 
 // Delete one Q&A exchange: its assistant bubble AND the user bubble just
@@ -9391,6 +9425,51 @@ async function deleteChatTurn(assistantBubble) {
 //: earlier version name the wrong conversation.
 let chatStreaming = null;
 
+// --- how long this answer has been coming --------------------------------------
+//
+// Asked for directly: "can there be an active timer on responses in chatg
+// messages as well??" The finished time was already in each message's metadata
+// line; what was missing was the *live* one, and that is the one that matters
+// — a local model on a long question can be silent for a minute, and "The
+// model is writing…" is equally true at two seconds and at two minutes.
+//
+// Ticked from a timer rather than from stream events on purpose: the seconds
+// have to keep moving while the model is thinking and sending nothing, which
+// is exactly the stretch that makes someone wonder if it has hung.
+let chatTimerInterval = null;
+let chatTimerStartedAt = 0;
+
+function paintChatTimer() {
+  const box = $("chat-elapsed");
+  if (!box) return;
+  const seconds = Math.floor((performance.now() - chatTimerStartedAt) / 1000);
+  // Plain seconds under a minute, m:ss above it — "97s" is a number you have
+  // to convert, and by then it is the interesting case.
+  box.textContent =
+    seconds < 60
+      ? `${seconds}s`
+      : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+function startChatTimer() {
+  const box = $("chat-elapsed");
+  if (!box) return;
+  clearInterval(chatTimerInterval);
+  chatTimerStartedAt = performance.now();
+  box.classList.remove("hidden");
+  paintChatTimer();
+  chatTimerInterval = setInterval(paintChatTimer, 1000);
+}
+
+function stopChatTimer() {
+  clearInterval(chatTimerInterval);
+  chatTimerInterval = null;
+  // Left on screen, not blanked: the last thing it says is how long the answer
+  // took, which is the number worth keeping for the second or two before the
+  // next question. The metadata line under the answer keeps it permanently.
+  paintChatTimer();
+}
+
 function releaseChatComposer({ announce = true } = {}) {
   if (!chatController || !chatStreaming) return;
   const input = $("chat-input");
@@ -9400,6 +9479,10 @@ function releaseChatComposer({ announce = true } = {}) {
   const status = $("chat-status");
   status.textContent = "";
   status.classList.remove("error");
+  // The timer belongs to the composer, which has just been handed back to a
+  // different conversation — leaving it ticking would time this chat's turn
+  // against the next chat's empty box.
+  $("chat-elapsed")?.classList.add("hidden");
   // Once per stream, not once per switch. Reported: leaving and returning
   // repeatedly repeated the notice, and named whichever chat had just been
   // left rather than the one actually being answered. The title is the one
@@ -10167,6 +10250,14 @@ async function openConversation(id) {
       // reopen either.
       if (message.sentence_grounding) {
         renderAnswerGrounding(handles.groundingHolder, message.sentence_grounding, message.raw_results || []);
+      }
+      // And the same shape again for the "what to ask next" chips, reported
+      // separately: "suggested repsponse continuation prompts in chat doesnt
+      // persist and disappears once I switch chat sessions or quit the app".
+      // Rendered through the same function the live path uses, so a restored
+      // chip is not a slightly different chip.
+      if (message.followups) {
+        renderFollowups(handles.bubble, message.followups);
       }
       const turnIndex = chatConv.turns.length; // index this pair will occupy
       if (message.edited) handles.bubble.appendChild(editedMarker());

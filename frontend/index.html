@@ -505,6 +505,15 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="entry-attach-file" class="ghost" type="button"
               title="Attach an image or file" aria-label="Attach an image or file"><i class="ph ph-paperclip ph-lead" aria-hidden="true"></i> Attach</button>
             <input id="entry-attach-file-input" aria-label="Attach a file to this note" title="Attach a file to this note" type="file" multiple class="hidden">
+            <!-- The other half of "attach": something already in the
+                 library, not a new upload. Reported directly: "I also want
+                 to be able to attach images that are already in the image
+                 library... to new notes in the capture subtab." Existing
+                 documents already have their own control (the "Add to
+                 document" select above) — this is the image/file half of
+                 the same ask. -->
+            <button id="entry-attach-existing" class="ghost" type="button"
+              title="Attach an image already in your library" aria-label="Attach an image already in your library"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i> From library</button>
           </div>
           <p><span id="save-status" class="status" role="status"></span></p>
         </section>

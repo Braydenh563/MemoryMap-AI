@@ -2877,6 +2877,114 @@ function pickEntryDialog(message) {
   });
 }
 
+// Pick something already uploaded rather than uploading it again — asked for
+// directly: "I also want to be able to attach images that are already in the
+// image library... to new notes in the capture subtab." `/media` (the same
+// list the Image Gallery renders from) has no mime field, only a filename
+// and an original name — reusing the gallery's own approach of just trying
+// each as an <img> and dropping the tile on error, rather than guessing from
+// a file extension.
+function pickMediaDialog() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Choose from your library");
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card entry-pick-card";
+    const text = document.createElement("p");
+    text.className = "confirm-text";
+    text.textContent = "Choose an image already in your library";
+    const search = document.createElement("input");
+    search.type = "text";
+    search.placeholder = "Search by filename…";
+    search.setAttribute("aria-label", "Search your uploaded images");
+    const grid = document.createElement("div");
+    grid.className = "media-pick-grid";
+
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (upload) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve(upload);
+    };
+    const onKey = (event) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      close(null);
+    };
+
+    let uploads = [];
+    const paint = () => {
+      const term = search.value.trim().toLowerCase();
+      const matches = uploads
+        .filter((u) => !term || u.original_name.toLowerCase().includes(term))
+        .slice(0, 60);
+      grid.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = uploads.length
+          ? "No uploads match that."
+          : "Nothing uploaded yet — attach a new file to start your library.";
+        grid.appendChild(empty);
+        return;
+      }
+      for (const upload of matches) {
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className = "media-pick-tile";
+        tile.title = upload.original_name;
+        const img = document.createElement("img");
+        img.src = mediaSrc(upload.url);
+        img.alt = "";
+        img.loading = "lazy";
+        // Not every upload is an image (there's no mime field to check
+        // first) — a file that can't decode as one drops its own tile
+        // rather than showing a broken-image glyph, same as the gallery.
+        img.addEventListener("error", () => tile.remove());
+        const name = document.createElement("span");
+        name.textContent = upload.original_name;
+        tile.append(img, name);
+        tile.addEventListener("click", () => close(upload));
+        grid.appendChild(tile);
+      }
+    };
+    search.addEventListener("input", paint);
+
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+    row.append(smallButton("Cancel", "Cancel", () => close(null)));
+    card.append(text, search, grid, row);
+    overlay.appendChild(card);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(null);
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    search.focus();
+
+    apiJson("/media", { silent: true })
+      .then((list) => {
+        uploads = list || [];
+        paint();
+      })
+      .catch(() => {
+        grid.replaceChildren();
+        const err = document.createElement("p");
+        err.className = "muted";
+        err.textContent = "Couldn't load your library.";
+        grid.appendChild(err);
+      });
+  });
+}
+
 // Turn the selection into a reminder, through the same parser the Reminders
 // tab's "magic add" box uses — not a second one.
 async function remindFromSelection(text) {
@@ -22917,6 +23025,22 @@ if ($("entry-attach-file")) {
     const files = Array.from(e.target.files);
     if (files.length) await handleFileUpload($("entry-content"), files);
     e.target.value = ""; // so picking the same file twice still fires "change"
+  });
+}
+
+if ($("entry-attach-existing")) {
+  $("entry-attach-existing").addEventListener("click", async () => {
+    const upload = await pickMediaDialog();
+    if (!upload) return;
+    // Same inline-markdown insertion shape handleFileUpload's own success
+    // path uses, minus the upload — this is already sitting on disk.
+    const textarea = $("entry-content");
+    const cursorPosition = textarea.selectionStart;
+    const original = textarea.value;
+    const markdown = `![${upload.original_name}](${upload.url})\n`;
+    textarea.value =
+      original.substring(0, cursorPosition) + markdown + original.substring(textarea.selectionEnd);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
 

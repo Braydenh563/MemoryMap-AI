@@ -4983,3 +4983,92 @@ screenshot this session — see BACKLOG.md if this recurs.
 redesign (ROADMAP.md item 0), the universal VS-Code-like document
 viewer/editor with OCR for scanned PDFs, and the six items already logged
 in BACKLOG.md from §91's own list. All still open.
+
+## 97. A live-report queue, worked cheapest-first: a real graph bug, a regression caught and reverted, and a silent-failure fix
+
+Nine reports arrived across one sitting, worked cheapest-to-most-expensive
+by direct instruction. In order:
+
+**The graph's own keyboard shortcuts were swallowing keystrokes typed into
+the note popup and the "Grow the map" form.** `initGraphKeyboard()`
+(graph.js) binds arrows/Enter/Space/N/+/-/0 on `#graph-box`, which the
+popup and the new-note form are both DOM descendants of — every keystroke
+typed into either bubbled up and was read as map navigation. Space or
+Enter specifically reopened the *currently keyboard-selected* node's
+popup, which is exactly the reported "grow a note, try to type in it,
+keeps refocusing on the original note behind it." Fixed with one guard:
+bail out immediately when the event target is a text field.
+
+**A "Minimise" button was added to the Quit dialog, then fully reverted
+after a real regression.** `__main__.py` gained a small `js_api` bridge on
+`webview.create_window()` so the page could call `window.pywebview.api
+.minimize()`. Shipped, then the user reported the desktop app hanging on
+its loading screen (Windows "Not Responding") with the logs full of
+`[pywebview] Error while processing window.native.AccessibilityObject
+.Bounds.Empty.Empty...` / `window.native.ModifierKeys.A.A.A...`
+recursion spam — thousands of chained property accesses per line, almost
+certainly running synchronously on the WebView2 UI thread and blocking
+its own message pump. `window.native` (pywebview's own COM reflection
+surface) and `window.pywebview.api` (this feature's bridge) are supposed
+to be unrelated, and nothing in this repo sets `debug=True` — but
+`create_window()`'s call signature was the one thing that changed between
+"worked" and "hung," and the user confirmed directly that reverting it
+fixed the hang. **`js_api` on `create_window()` should not be re-added to
+this codebase without reproducing this on a real Windows/WebView2 box
+first** — the exact mechanism is still not understood, only that it
+causes this. `__main__.py` and `app.js` are now byte-identical to the
+commit before the feature existed for this code (verified with `git diff`)
+— confirmed by re-diffing, not assumed.
+
+**A skill or agent turn that failed before its first event died
+silently.** `agent.run_agent`/`skill_runner.run_skill` already catch what
+*they* expect to go wrong (`OllamaError`, `ToolsUnsupportedError`) and
+turn it into a real event — but `routes_chat.py`'s own `next(agent_events,
+None)` and the loop draining the rest of the stream had nothing catching
+anything else. Any other exception, from anywhere under either of them,
+propagated straight out of the generator and FastAPI just closed the
+connection: no answer, no error, no tool call — reported directly as "I
+tried running a skill and it failed before even completing the first
+step... the model didn't respond." Both call sites now catch the outer
+case, log it, and yield a real answer event describing the failure before
+`done`. Two regression tests simulate exactly this shape (before the
+first event, and mid-run).
+
+**Smaller fixes in the same pass**: the Image Gallery's kebab menu used a
+CSS-only `nth-child(3n)` guess for "last column" to decide which edge to
+flip toward — correct only while the `auto-fill` grid happened to render
+exactly 3 columns, and with no vertical flip at all, so a tile in the
+grid's last row opened its menu straight off the bottom of the screen.
+Replaced with a `toggle` listener that measures the real box against the
+nearest scroll parent, the same approach `openActionMenu()` already uses
+for every other kebab menu in the app. The AI Skills page's `.skills-split`
+grid had no narrow-viewport handling at all, unlike every other sidebar
+split in the app — collapses to one column at the same 900px breakpoint
+`.doc-layout` uses. A Meeting Notes sub-tab was added to the Library,
+reusing the All view's existing `tag:` search syntax against the
+"meeting" tag `saveMeetingNote()` already applies — Sketches and generic
+audio notes were investigated and found to have no equivalent marker on
+the `Entry` model at all (a sketch is documented in `routes_library.py`
+as indistinguishable from any image-only note), so building an accurate
+sub-tab for either needs a real schema decision first, not a heuristic;
+logged, not built.
+
+**Investigated and found already done, not rebuilt**: "make all the
+Settings toggles the same pill as Semantic" turned out to already be
+true — `.settings-section label>input[type="checkbox"]`
+(06-timeline-dialogs.css) already styles every direct `label>input`
+checkbox inside any Settings section this way regardless of wrapper class
+or id, checked against all 22 Settings checkboxes. The `/models/status`
+timeout report traced to a stale code comment (the frontend's own
+`AbortSignal.timeout` was already raised from 5s to 8s in an earlier
+session; the backend comment citing the old figure was never updated) —
+fixed the comment; could not reproduce a genuine hang beyond that without
+the reporter's own environment.
+
+**Verification**: all of it is `ruff`-clean and the full ~1,900-test suite
+passes. **Nothing here was checked in a real browser** — no Playwright
+session ran this sitting; every UI claim (the graph fix, the kebab-menu
+flip, the mobile Skills layout, the Meeting Notes tab) rests on source-level
+reasoning only. The Minimise revert's premise — that `js_api` on
+`create_window()` causes the hang — rests on the user's own before/after
+test on their machine, not on anything reproduced here.

@@ -151,7 +151,8 @@ def cancel(kind: str, name: str = "") -> tuple[bool, str]:
     try:
         return canceller(name)
     except Exception as exc:  # noqa: BLE001 — a failed stop is a message
-        logger.warning("couldn't stop the %s job: %s", kind, exc, exc_info=True)
+        safe_kind = kind.replace("\r", "").replace("\n", "")
+        logger.warning("couldn't stop the %s job: %s", safe_kind, exc, exc_info=True)
         return False, "Couldn't stop that job — see Settings → Logs."
 
 

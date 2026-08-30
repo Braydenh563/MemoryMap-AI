@@ -1021,6 +1021,16 @@ body.resizing-sidebar {
   text-align: left;
 }
 
+/* Same button in the Documents sidebar, reported separately: centred there
+   rather than left — the chat sidebar's list items it echoes are left-aligned
+   rows of text, but the Documents sidebar has no such column for it to line
+   up with, so a left-aligned button just read as pushed to one side under a
+   list that isn't. */
+#doc-browse-all {
+  text-align: center;
+  justify-content: center;
+}
+
 #conversation-list li {
   gap: 0.4rem;
   align-items: center;

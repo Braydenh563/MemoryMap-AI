@@ -1748,14 +1748,21 @@ header#top-bar.tabs-wrapped #tab-bar {
   box-shadow: var(--glass-shadow);
 }
 
-/* A tile in the last column would push its menu off the right of the
-   viewport. Flipped by position rather than by script: the grid is
-   `auto-fill`, so which tiles are last changes with the window width and
-   nothing in JS is watching. */
-.library-image-tile:last-child .library-image-menu-list,
-.library-image-tile:nth-child(3n) .library-image-menu-list {
+/* A tile near the right or bottom edge would otherwise push its menu off
+   screen. `.menu-flip-left`/`.menu-flip-up` are set by library.js's own
+   `toggle` handler, measured against the real box each time the menu opens
+   — the grid is `auto-fill`, so which tiles are actually on an edge changes
+   with the window width and no CSS-only rule (an earlier `nth-child(3n)`
+   guess here, wrong the moment the grid wasn't exactly 3 columns wide) can
+   track that on its own. */
+.library-image-menu-list.menu-flip-left {
   right: auto;
   left: 0;
+}
+
+.library-image-menu-list.menu-flip-up {
+  top: auto;
+  bottom: calc(100% + var(--space-2));
 }
 
 .library-image-menu-item {

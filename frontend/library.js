@@ -2289,6 +2289,22 @@ function filterLibraryImagesGallery() {
     document.addEventListener("click", (event) => {
       if (menu.open && !menu.contains(event.target)) menu.open = false;
     });
+    // Which edges to flip toward used to be a CSS-only guess (nth-child(3n)
+    // for "last column"), which only held while the grid actually rendered
+    // exactly 3 columns — it's `auto-fill`, so a narrower window silently put
+    // the wrong tiles on the flip side and every other tile's five-row menu
+    // ran off the bottom of the screen with nothing to catch it at all.
+    // Reported directly: "make sure the popup options dont get cut off."
+    // Measured against the real box now, the same way openActionMenu()
+    // (app.js) already does it for every other kebab in the app.
+    menu.addEventListener("toggle", () => {
+      if (!menu.open) return;
+      menuList.classList.remove("menu-flip-left", "menu-flip-up");
+      const bound = nearestScrollParent(menu).getBoundingClientRect();
+      const box = menuList.getBoundingClientRect();
+      if (box.right > bound.right) menuList.classList.add("menu-flip-left");
+      if (box.bottom > bound.bottom) menuList.classList.add("menu-flip-up");
+    });
     actions.append(menu);
 
     // **Labelled, and separated.** Reported directly: "I feel the image

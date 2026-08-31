@@ -4183,15 +4183,60 @@ async function toggleRelated(entry) {
   label.textContent = related.length ? "Similar:" : "No similar notes found.";
   row.appendChild(label);
   for (const other of related) {
-    const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
-    const relChip = chip("", "link", () => flashEntry(other.id));
-    relChip.appendChild(document.createTextNode("≈ "));
-    const previewSpan = document.createElement("span");
-    renderInlineMarkdown(previewSpan, preview, [], true);
-    relChip.appendChild(previewSpan);
-    row.appendChild(relChip);
+    row.appendChild(similarNoteRow(entry, other, () => {
+      // Nothing else on this card changes, so re-rendering the whole list
+      // would only cost the open panel its place.
+      if (!row.querySelector(".entry-related-row")) {
+        label.textContent = "All similar notes are linked.";
+      }
+    }));
   }
   card.appendChild(row);
+}
+
+// One similar note, with the button that turns it into a real link.
+//
+// Shared by both places this app shows "≈ Similar" — the panel that stays
+// open while a note is being edited, and the "≈ Similar notes" menu item on
+// a note card. They were already two near-identical loops; adding an action
+// to only one of them is exactly how the two would have drifted, and the
+// ask named the card one specifically ("like in the similar notes shown in
+// the notes tab").
+//
+// A button, not something either view does on its own: `≈` is a resemblance
+// the embedding noticed, while a link is a claim the user makes. The reason
+// is deduced server-side for a pair this similar (create_link's
+// AUTO_REASON_THRESHOLD) and stays editable wherever links are shown, so
+// nothing is asked for at this point.
+function similarNoteRow(entry, other, onLinked) {
+  const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
+  const wrap = document.createElement("span");
+  wrap.className = "entry-related-row";
+  const relChip = chip("", "link", () => flashEntry(other.id));
+  relChip.appendChild(document.createTextNode("≈ "));
+  const previewSpan = document.createElement("span");
+  renderInlineMarkdown(previewSpan, preview, [], true);
+  relChip.appendChild(previewSpan);
+  wrap.appendChild(relChip);
+
+  const linkBtn = smallButton("ph:link Link", `Link this note to “${preview}”`, async () => {
+    linkBtn.disabled = true;
+    try {
+      await apiJson(`/entries/${entry.id}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: other.id }),
+      });
+      toast("Linked.");
+      wrap.remove();
+      onLinked?.();
+    } catch (error) {
+      linkBtn.disabled = false;
+      toast(error.message || "Couldn't link those notes.", true);
+    }
+  });
+  linkBtn.classList.add("entry-related-link-btn");
+  wrap.appendChild(linkBtn);
+  return wrap;
 }
 
 function renderEditForm(li, entry) {
@@ -4277,46 +4322,11 @@ async function renderRelatedWhileEditing(li, entry) {
   label.textContent = "Related: ";
   panel.appendChild(label);
   for (const other of related) {
-    const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
-    const row = document.createElement("span");
-    row.className = "entry-related-row";
-    const relChip = chip("", "link", () => flashEntry(other.id));
-    relChip.appendChild(document.createTextNode("≈ "));
-    const previewSpan = document.createElement("span");
-    renderInlineMarkdown(previewSpan, preview, [], true);
-    relChip.appendChild(previewSpan);
-    row.appendChild(relChip);
-
-    // **Turn a resemblance into a real link.** Asked for directly: "similar
-    // notes should have the option to form links". This panel could only
-    // ever jump you to the other note, so acting on what it found meant
-    // leaving the note you were editing, starting the two-click link mode,
-    // and finding the same note again by hand. `≈` is a similarity the
-    // embedding noticed; a link is a claim *you* make, which is why this is
-    // a button rather than something the panel does on its own.
-    const linkBtn = smallButton("ph:link Link", `Link this note to “${preview}”`, async () => {
-      linkBtn.disabled = true;
-      try {
-        await apiJson(`/entries/${entry.id}/links`, {
-          method: "POST",
-          body: JSON.stringify({ target_id: other.id }),
-        });
-        // The reason is deduced server-side for a pair this similar
-        // (create_link's AUTO_REASON_THRESHOLD) and is editable afterwards
-        // wherever links are shown, so nothing is asked for here.
-        toast("Linked.");
-        row.remove();
-        if (!panel.querySelector(".entry-related-row")) {
-          panel.textContent = "All related notes are linked.";
-        }
-      } catch (error) {
-        linkBtn.disabled = false;
-        toast(error.message || "Couldn't link those notes.", true);
+    panel.appendChild(similarNoteRow(entry, other, () => {
+      if (!panel.querySelector(".entry-related-row")) {
+        panel.textContent = "All related notes are linked.";
       }
-    });
-    linkBtn.classList.add("entry-related-link-btn");
-    row.appendChild(linkBtn);
-    panel.appendChild(row);
+    }));
   }
 }
 

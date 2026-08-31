@@ -42,7 +42,7 @@ from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
 from memorymap.core import deps
-from memorymap.core.database import AskTurn, AuditLog, Category, Entry, MediaUpload
+from memorymap.core.database import AskTurn, AuditLog, Category, Document, Entry, MediaUpload
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -177,6 +177,15 @@ class ChatRequest(BaseModel):
     # ahead of anything retrieval finds — "this note, specifically" is a
     # stronger signal than any similarity score.
     note_ids: list[int] = Field(default_factory=list, max_length=20)
+    # Documents attached by hand (§89.2) — same idea as note_ids, a separate
+    # field because Document is a separate table from Entry (see its own
+    # docstring in core/database.py for why). The frontend has sent this
+    # since the composer's staging UI shipped; nothing here ever read it —
+    # an attached document showed as a chip on the message and the model
+    # never saw its content, which is worse than not offering the feature at
+    # all, since it looks like it worked. Capped at 4, matching the
+    # composer's own `attachedDocuments.length >= 4` limit.
+    document_ids: list[int] = Field(default_factory=list, max_length=4)
     # Vision-capable models (ROADMAP.md's largest open item): ids from the
     # existing `/media/upload` (the same endpoint the document/note editors
     # already use for drag-and-drop images), not a second upload path. Small
@@ -489,6 +498,21 @@ def _attached_notes(session: Session, note_ids: list[int]) -> list[dict]:
     return found
 
 
+def _attached_documents(session: Session, document_ids: list[int]) -> list[Document]:
+    """The documents the user attached by hand, in the order picked.
+
+    No privacy/soft-delete filter here — unlike Entry, Document has neither
+    field (core/database.py's own Document docstring: it's the long-form
+    editor, not the notebook), so there's nothing to check beyond existing.
+    """
+    found = []
+    for document_id in dict.fromkeys(document_ids):
+        document = session.get(Document, document_id)
+        if document is not None:
+            found.append(document)
+    return found
+
+
 #: At most this many pictures from one note are described to the model, and at
 #: most this much of each reading. A note can hold a dozen scans; the readings
 #: are a *hint* about what is in the note, not a second copy of the notebook,
@@ -557,6 +581,7 @@ def _prepare(
     note_ids: list[int] | None = None,
     force_notes_intent: bool = False,
     attached_notes_only: bool = False,
+    document_ids: list[int] | None = None,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
@@ -575,11 +600,12 @@ def _prepare(
     # request actually is, and the client already knows.
     if force_notes_intent:
         detected = intent.NOTES
-    # Attaching a note is itself a statement that this is about the notebook,
-    # so it overrides the classifier — "what do you think?" with three notes
-    # clipped to it is a question about those notes.
+    # Attaching a note (or a document) is itself a statement that this is
+    # about the notebook, so it overrides the classifier — "what do you
+    # think?" with three notes clipped to it is a question about those notes.
     attached = _attached_notes(session, note_ids or [])
-    if attached:
+    attached_docs = _attached_documents(session, document_ids or [])
+    if attached or attached_docs:
         detected = intent.NOTES
     connected_ids: set[int] = set()
     match_info: dict = {}
@@ -646,6 +672,23 @@ def _prepare(
         }
 
     notes = [as_note(entry) for entry in entries]
+    # Same shape `as_note` builds, by hand rather than through it — a
+    # Document has no category/tags and its id lives in a different table
+    # than Entry's, so folding it through the Entry-shaped helper above
+    # would be the wrong abstraction, not a shortcut. `connected`/
+    # `match_info` are never true for a hand-picked document, same as an
+    # attached note.
+    notes.extend(
+        {
+            "id": document.id,
+            "content": f"{document.title}\n\n{document.content}",
+            "category": "Document",
+            "attached": True,
+            "connected": False,
+            "match_info": None,
+        }
+        for document in attached_docs
+    )
     config = deps.get_config()
     profile = (
         config.get_preference("user_profile", "")
@@ -692,7 +735,11 @@ def _prepare(
 @router.post("", response_model=ChatResponse)
 def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResponse:
     prepared = _prepare(
-        session, body.question, body.note_ids, attached_notes_only=body.attached_notes_only
+        session,
+        body.question,
+        body.note_ids,
+        attached_notes_only=body.attached_notes_only,
+        document_ids=body.document_ids,
     )
     model_manager = deps.get_model_manager()
     ollama = deps.get_ollama()
@@ -966,6 +1013,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
             body.note_ids,
             force_notes_intent=body.answering_agent,
             attached_notes_only=body.attached_notes_only,
+            document_ids=body.document_ids,
         )
         ollama_running = ollama.is_running()
         # In agent mode the model can act even when nothing matched — "save a

@@ -149,6 +149,25 @@ def test_build_messages_clips_history_length():
     assert len(assistant_msgs[-1]["content"]) <= librarian.LAST_ANSWER_CHARS
 
 
+def test_an_attached_documents_content_actually_reaches_the_model(ai_client, fake_ollama):
+    """The composer has sent `document_ids` since the staging UI shipped —
+    the field didn't exist on ChatRequest and routes_chat.py never read it,
+    so an attached document showed as a chip on the message and the model
+    never saw a word of it. Worse than not offering the feature: it looked
+    like it worked."""
+    document = ai_client.post(
+        "/documents", json={"title": "Q3 plan", "content": "Ship the thing by October."}
+    ).json()
+
+    ai_client.post(
+        "/chat",
+        json={"question": "what does this say?", "document_ids": [document["id"]]},
+    )
+    sent = fake_ollama.chat_calls[-1]
+    assert any("Ship the thing by October." in m["content"] for m in sent)
+    assert any("Q3 plan" in m["content"] for m in sent)
+
+
 def test_chat_endpoint_threads_history_to_model(ai_client, fake_ollama):
     _save(ai_client, "a funny scarecrow joke")
     ai_client.post(

@@ -188,25 +188,59 @@ twice — once as a baseline before any change, once after — both green;
   TLS hostname verification preserved despite the pinning. No gap found;
   said so rather than inventing one to have something to report.
 
-### Deliberately not started this session — logged, not silently dropped
+### Continued in the same session, after the user asked to keep going
 
-Both of these were asked for directly and are queued, not forgotten. Given
-where the session's usage stood, the honest call was to spend the remaining
-budget finding and fixing real, verifiable bugs (the private-note leak and
-the dropped link-reason above) rather than rushing either of these — each is
-genuinely "its own session" scale, and a half-built version of either is a
-worse outcome than a clearly-scoped starting point for the next one.
+Both items logged above as "deliberately not started" **were** started and
+substantially finished once the user asked to continue — recorded here
+rather than left stale above.
 
-- **Non-image file upload to chat** — fully scoped already at ROADMAP §89
-  item 2 / §90 item 3 (toast-not-fake-chat-text on failure, text extraction
-  per file type, staged-not-immediate upload, a per-message cap, attaching
-  an already-uploaded Library file). Nothing new to add to the scoping;
-  next session can start straight from those two entries.
-- **Timeline line view redesign** — the concrete design already exists at
-  ROADMAP §87.6 (threads as tributaries off a time trunk, using
-  `Entry.parent_id`, which the current line view ignores entirely). Not
-  started; the spec is the starting point, not something this session
-  needed to re-derive.
+- **Timeline line view redesign (§87.6) — built.** "Thread" joins
+  Category/Tag/None as a `group` value (`GET /timeline?group=thread`,
+  `routes_timeline._thread_bands`): one lane per root note and everything
+  that continues it via `Entry.parent_id`. A parent outside the loaded
+  date window becomes its own root; a note with no children folds into one
+  shared "Single notes & smaller threads" lane. No frontend rendering
+  change needed — `renderTimelineBranch` already drew whatever bands the
+  backend sent. 2 new tests; **live-verified in Chromium**: a real 4-note
+  thread plus one lone note, seeded via the app's own API, correct lanes
+  and a drawn spine-branching line, zero console errors.
+- **Non-image chat file upload — audited first, and it was mostly already
+  built.** Checking before building (again) turned up: upload failures
+  already `toast()` rather than writing fake transcript text; a non-image
+  file already imports as a real `Document` via `core/docview.py`'s
+  extraction (markitdown + vision-OCR fallback), reachable in the Library.
+  **One real bug found in the audit, not from a report: the extracted text
+  never reached the model.** The composer has sent `document_ids` since
+  the staging UI shipped; `ChatRequest` never declared the field and
+  `routes_chat.py` never read it — an attached document showed as a chip
+  and the AI answered as though it didn't exist. Fixed (`document_ids`,
+  `_attached_documents()`, folded into the same `notes` list both chat
+  prompt paths render), with a test that checks the model actually
+  received the document's text, not just that the API echoed the
+  attachment. Full narrative: HISTORY.md §102. Genuinely still open:
+  true staging (upload on send, not on pick — a real behavioural
+  decision) and attaching an *existing* Library document rather than
+  importing a fresh one.
+- **A live-reported Documents-list kebab menu visual bug (screenshot
+  supplied) — investigated, not reproduced.** Tried the exact reported
+  menu (`wireEscapedActionMenu`, already reparented to `<body>`) in both
+  light and dark theme, phone and desktop width; every attempt measured
+  and screenshotted clean. The screenshot's teal accent doesn't match this
+  app's default palette — the same shape a prior Settings-modal-contrast
+  report turned out to be (a custom accent/glass setting, not a default-
+  theme bug). One small, real, unrelated thing found along the way: the
+  escaped menu's dark-mode background is very slightly translucent
+  (`rgba(24,27,37,0.97)`), enough that a row directly behind it is
+  faintly visible — not fixed, since it doesn't match what was reported.
+- **A batch of feature asks, logged as BACKLOG §103, none built**: Library
+  "All" tab utility (a real Tag Manager *backend* with no frontend screen;
+  click-a-tag-to-filter may already partly exist via Library tag cards,
+  unconfirmed; renaming a saved chat is a genuine gap), meeting-note
+  editing status (recording works, editing an existing one unconfirmed),
+  whiteboard curved lines/custom anchor points (partly built already — 8
+  fixed anchors and an automatic straight/curve toggle exist; freeform
+  anchors and interactive curve-bending don't), whiteboard bring-to-front/
+  send-to-back (genuinely absent, checked directly).
 
 ### What I still could not check
 
@@ -223,6 +257,13 @@ worse outcome than a clearly-scoped starting point for the next one.
   width — not part of this session's audit, which covered only Dashboard,
   Library and Settings. Don't assume the same clean result without
   checking; §90 item 2's own text says exactly this.
+- The reported kebab-menu visual bug (above) — genuinely unreproduced, not
+  ruled out. Next report needs the browser/OS and whether a custom accent/
+  glass setting is on.
+- BACKLOG §103's "click a tag to filter notes" claim rests on reading one
+  code comment (`openTimelineBand`'s own note in `app.js`), not a live
+  click-through of the Library tag cards — confirm before either building
+  a Tag Manager screen around it or assuming it needs building too.
 
 ## Prior session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
 

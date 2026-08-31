@@ -7,6 +7,51 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## §102 — chat document uploads, audited: mostly already built, one real bug found and fixed
+
+ROADMAP's live-list item 2 ("uploading a document to chat fails silently
+into the transcript") turned out mostly already built by a later session
+that never checked the item off. Audited piece by piece before touching
+anything: upload failures already surface as a `toast()`, never as
+`*(Failed to upload…)*` text in the transcript; a non-image file already
+goes through `POST /documents/import`, which runs `core/docview.py` —
+text read directly, `.docx`/`.pdf`/`.pptx`/`.xlsx`/`.epub`/`.rtf`/`.odt`
+via markitdown, a scanned PDF falling through to the vision model — the
+same extraction infrastructure the Library's own document viewer already
+used; and the import makes a real `Document`, reachable in the Library
+with a "found it" toast pointing straight there.
+
+**The one real bug: the extracted text never reached the model.** The
+composer has sent `document_ids` on every chat request since the staging
+UI shipped; `ChatRequest` had no such field and `routes_chat.py` never
+read it — an attached document showed as a chip on the message and the
+AI answered as though it didn't exist, worse than the feature being
+absent since it looked like it worked. Fixed: `document_ids` (capped at
+4, matching the composer's own limit), `_attached_documents()` mirroring
+`_attached_notes()` (no privacy/soft-delete filter needed — `Document`
+has neither field), folded into the same `notes` list both chat prompt
+paths already render, so an attached document gets the `(attached by
+me)` marker and the same-session `_match_info_hint` fix for free. 1 new
+test (`fake_ollama`-verified: attach a real document, ask about it,
+assert its content is actually in what the model was sent, not just that
+the API echoed the attachment back).
+
+**Still genuinely open**, scoped precisely rather than guessed at:
+- **Staging (upload on send, not on pick).** Both attach paths still
+  upload/import the moment a file is picked, then show a chip — not "a
+  card above the composer, nothing sent until Send" as originally asked.
+  A real behavioural change, not a bug: today's immediate-upload gives
+  robust per-file errors and an instant Library link, which true deferred
+  staging would have to rebuild differently (a temp-upload-then-commit
+  dance, or holding raw `File` objects with no server feedback until
+  send). Worth a deliberate decision, not a default "do what was asked."
+- **The per-message cap** is a real, working `4` (matching images), not
+  the `~10` the original report flagged as uncertain. Revisit only if a
+  real report says 4 is too tight.
+- **Attach an already-uploaded Library document** (not a fresh import) —
+  still missing; `document_ids` now does the hard part (getting content
+  to the model) once a picker exists to populate `attachedDocuments`.
+
 ## §94 — a chat turn saved to the wrong conversation, the prompt on a diet, and the plug for scanned PDFs
 
 **Do not rebuild any of the following.**

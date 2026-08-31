@@ -786,46 +786,15 @@ callouts" entry before rebuilding anything that sounds finished.**
    (Notes, Reminders' Done group, Library Documents, Library "All").
    Full narrative: HISTORY.md §100.
 
-2. **Uploading a document (not an image) to the chat composer fails
-   silently into the transcript.** Reported directly, reproduced in the
-   report itself: attaching `README.md` produced no upload and instead
-   wrote `*(Failed to upload README.md)*` as if it were the AI's own
-   message — an error rendered as chat content rather than surfaced as
-   what it is. The fix has several parts, asked for together:
-   - The upload failure itself needs surfacing as a toast/notification,
-     never as literal text injected into the transcript.
-   - **Any file type**, not just images, should be uploadable to chat and
-     "readable by the AI" — for a document this almost certainly means
-     text extraction (the same shape `core/ocr.py` and
-     `ai/captioning.py` already establish for images: extract once,
-     store, hand the extracted text to the model as context) rather than
-     sending arbitrary bytes.
-   - Every upload (any type) should land in the Library and be viewable
-     there "no matter the format" — needs a real per-type viewer story,
-     not just a download link, for at least the common cases (text/
-     markdown, PDF, common office formats — scope which ones directly
-     rather than guessing at "any format").
-   - **Files should stage, not upload immediately.** A file picked for a
-     chat message should show as a small card above the composer (name,
-     a file-type icon, an × remove button) and only actually reach
-     `/media/upload` (and the Library) when the message is actually
-     sent — not before. This is a different lifecycle from the current
-     image-attach flow, which uploads on pick.
-   - **A per-message attachment cap** — the user suggested 10 as a
-     common default but flagged uncertainty about whether that is too
-     heavy for this app; measure against `MAX_CHAT_IMAGE_BYTES`-style
-     per-file limits and real local-model context budgets before picking
-     a number.
-   - **Attach an already-uploaded Library file/image to a chat message**,
-     the same way a note can already be attached (`body.note_ids`) —
-     currently the composer can only attach something just picked from
-     disk, not something already in the Library.
-   This is a genuinely large feature, not a bug fix — reported with an
-   explicit "add this to the roadmap, I'm low on usage" rather than a
-   request to build it now. Scope it as its own session: it touches the
-   upload route, a new extraction step, the Library's viewer story, and a
-   staging-state redesign of the chat composer, none of which should be
-   mixed with a smaller fix in the same diff.
+~~2. **Uploading a document (not an image) to the chat composer fails
+   silently into the transcript.**~~ **Mostly already built by a later
+   session and never checked off here; one real bug found and fixed —
+   full audit in HISTORY.md §102.** Attached-document content never
+   reached the model at all (a field the composer sent, the backend never
+   read) — now fixed and tested. Still genuinely open: true staging
+   (upload on send, not on pick — a real behavioural decision, not a
+   bug), and attaching an already-uploaded Library document rather than
+   importing a fresh one.
 
 ~~3. **Vision-model OCR, as an alternative (or complement) to Tesseract, with
    model-pull suggestions in Settings → Models.**~~ **Already built —
@@ -1053,13 +1022,10 @@ callouts" entry before rebuilding anything that sounds finished.**
    design call, not a "just add a gradient" fix, and better made
    deliberately than invented under a broader autonomous pass.
 
-3. **Upload any document type (not just images), with a real per-type
-   viewer and AI able to read it — even a small model.** Asked for
-   directly; logged, not built. Broader than §89.2 below: a real Library
-   viewer per type (text/markdown, PDF, office — scope which), plus
-   content handed to the model as extracted plain text (`core/ocr.py`/
-   `ai/captioning.py`'s own shape) — cheap regardless of model size. Own
-   session.
+~~3. **Upload any document type (not just images), with a real per-type
+   viewer and AI able to read it — even a small model.**~~ **Built** —
+   see the live list's item 2 above for the full audit and the one real
+   bug (extracted text never reaching the model) found and fixed there.
 ~~4. **The documents-dock row wasn't aligned.**~~ **Fixed.** `#doc-view-seg`
    inherited `.seg`'s stock `margin-bottom: 0.5rem`; nothing zeroed it for
    `.doc-dock`, so the pills sat 4px above "AI edit"/"Extract notes"/the

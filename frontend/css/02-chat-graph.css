@@ -2664,6 +2664,12 @@ mark.lightbox-hit {
 }
 
 .lightbox-info {
+  /* Reported directly: hovering this panel still showed the zoom-out cursor
+     — `.lightbox`'s own `cursor: zoom-out` (clicking the overlay's empty
+     backdrop closes it) is inherited by every descendant that doesn't say
+     otherwise, and this one is text to read and fields to click into, not
+     a second way to close the dialog. */
+  cursor: default;
   max-width: min(48rem, 90vw);
   /* No inner scrollbar and no height cap. The overlay scrolls now, so a long
      transcription makes the dialog longer instead of hiding itself behind a

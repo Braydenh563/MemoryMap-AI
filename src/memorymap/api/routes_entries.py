@@ -32,9 +32,11 @@ from memorymap.api.schemas import (
 )
 from memorymap.core import deps, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
+    Bookmark,
     Document,
     EmbeddingRecord,
     Entry,
+    EntryBookmark,
     EntryLink,
     EntryRevision,
 )
@@ -626,6 +628,60 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
         if other.id != entry.id and score >= 0.3
     ]
     return [_to_out(session, e) for e in related[:3]]
+
+
+class AttachBookmarkBody(BaseModel):
+    bookmark_id: int
+
+
+@router.get("/{entry_id}/bookmarks")
+def entry_bookmarks(entry_id: int, session: Session = Depends(get_session)) -> list[dict]:
+    """Bookmarks attached to this note — its References, alongside the
+    [[wiki links]] `links` already carries. Its own endpoint rather than a
+    field on EntryOut, matching `/related` right above: only the editor
+    needs this, and `_to_out_bulk`'s per-list-page bulk fetch shouldn't grow
+    a query for something most renders of a note never show."""
+    _existing_entry(session, entry_id)
+    rows = (
+        session.query(Bookmark)
+        .join(EntryBookmark, EntryBookmark.bookmark_id == Bookmark.id)
+        .filter(EntryBookmark.entry_id == entry_id)
+        .order_by(EntryBookmark.created_at)
+        .all()
+    )
+    return [
+        {"id": b.id, "url": b.url, "title": b.title, "group_name": b.group_name}
+        for b in rows
+    ]
+
+
+@router.post("/{entry_id}/bookmarks", status_code=201)
+def attach_bookmark(
+    entry_id: int, body: AttachBookmarkBody, session: Session = Depends(get_session)
+) -> dict:
+    _existing_entry(session, entry_id)
+    deps.get_or_404(session, Bookmark, body.bookmark_id, "Bookmark not found")
+    already = (
+        session.query(EntryBookmark)
+        .filter_by(entry_id=entry_id, bookmark_id=body.bookmark_id)
+        .first()
+    )
+    if not already:
+        session.add(EntryBookmark(entry_id=entry_id, bookmark_id=body.bookmark_id))
+        session.commit()
+    return {"attached": True}
+
+
+@router.delete("/{entry_id}/bookmarks/{bookmark_id}")
+def detach_bookmark(
+    entry_id: int, bookmark_id: int, session: Session = Depends(get_session)
+) -> dict:
+    _existing_entry(session, entry_id)
+    session.query(EntryBookmark).filter_by(
+        entry_id=entry_id, bookmark_id=bookmark_id
+    ).delete()
+    session.commit()
+    return {"detached": True}
 
 
 #: A page of the plain list, not a hard ceiling on notebook size — the

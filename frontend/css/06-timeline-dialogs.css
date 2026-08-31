@@ -978,6 +978,14 @@
   filter: brightness(1.1);
 }
 
+/* The library create-picker's actions row has five buttons where every
+   other .confirm-actions row has two — needs to wrap on a narrow card
+   instead of overflowing it. */
+.library-create-picker-actions {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 /* --- the Ask box explaining itself (§35A) ----------------------------------
    Shown when someone types a greeting into a box that searches notes. It is
    styled as a prompt, NOT as an answer or an error: the first version put a

@@ -1175,6 +1175,91 @@ progress {
   gap: var(--space-2);
 }
 
+/* Library -> Links (§30): a plain list of saved websites, one row each. */
+#bookmark-form {
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+#bookmark-form input {
+  flex: 1 1 12rem;
+}
+
+.bookmark-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bookmark-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.bookmark-main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bookmark-url {
+  margin-top: var(--space-1);
+}
+
+.bookmark-group-label {
+  margin-top: var(--space-1);
+}
+
+#bookmark-search {
+  margin-bottom: var(--space-3);
+}
+
+.bookmark-attach-picker {
+  width: auto;
+  max-width: 16rem;
+}
+
+.bookmark-group-chips {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+/* Library -> Contents (§30): a hyperlinked outline grouped by category or tag. */
+.contents-outline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+
+.contents-heading {
+  margin: 0 0 var(--space-2);
+}
+
+.contents-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.contents-list li a {
+  display: block;
+  padding: var(--space-1) 0;
+}
+
+.bookmark-actions {
+  flex-shrink: 0;
+}
+
 /* Settings sections: a second row of controls below an existing one that
    needs a little breathing room from it — `.row`'s own gap applies *within*
    a row, not between siblings, and two stacked rows with none read as one

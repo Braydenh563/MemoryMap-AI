@@ -1153,6 +1153,21 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-md);
 }
 
+/* Reported live: #search-help rendered as an oval (32px x 36.8px), measured
+   via getComputedStyle. `.graph-help-toggle`'s own `height: 2rem` (a single
+   class, specificity 0,1,0) loses to `.library-toolbar button` right above
+   (class+element, 0,1,1) the moment this circular button sits inside a
+   library toolbar — the rule wins on specificity regardless of source
+   order, so height snaps back to `--control-h` (2.3rem) while nothing here
+   touches width, which stays the 2rem `.graph-help-toggle` set. Two classes
+   beats one class-plus-element, so this reasserts the circle without
+   touching `.graph-help-toggle` itself (still correct everywhere it isn't
+   inside a toolbar that redeclares button height). */
+.library-toolbar .graph-help-toggle {
+  width: 2rem;
+  height: 2rem;
+}
+
 /* The global `select { width: 100% }` base rule (01-forms-settings.css) is
    right for a form field and wrong here: a <select> that shrinks correctly
    while sharing a flex line with its toolbar siblings (note-sort measured

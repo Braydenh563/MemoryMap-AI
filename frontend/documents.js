@@ -364,6 +364,7 @@ async function openDocument(id) {
   renderDocOutline();
   renderDocNotes();
   renderDocBacklinks();
+  renderDocBookmarks();
   renderDocList();
 }
 
@@ -459,6 +460,75 @@ function renderDocNotes() {
     item.append(open, remove);
     list.appendChild(item);
   }
+}
+
+// References (§30): saved links attached to this document, the Documents
+// half of the same concept notes' own edit form already got this session.
+async function renderDocBookmarks() {
+  const list = $("doc-bookmarks");
+  if (!list || !currentDoc) return;
+  let attached;
+  try {
+    attached = await apiJson(`/documents/${currentDoc.id}/bookmarks`);
+  } catch {
+    return;
+  }
+  if (currentDoc?.id == null) return; // the document changed while this was in flight
+  list.replaceChildren();
+  for (const bookmark of attached) {
+    const item = document.createElement("li");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "outline-link";
+    setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
+    open.title = bookmark.url;
+    open.addEventListener("click", () => window.open(bookmark.url, "_blank", "noopener,noreferrer"));
+    const remove = smallButton("✕", "Remove this reference", async () => {
+      await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
+      renderDocBookmarks();
+    });
+    item.append(open, remove);
+    list.appendChild(item);
+  }
+}
+
+async function attachBookmarkToDocument() {
+  if (!currentDoc) return;
+  let all;
+  try {
+    all = await apiJson("/bookmarks");
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  if (!all.length) {
+    toast("No saved links yet — add one in Library → Links first.");
+    return;
+  }
+  const wrap = $("doc-bookmarks-wrap");
+  const select = document.createElement("select");
+  select.className = "bookmark-attach-picker";
+  const placeholder = document.createElement("option");
+  placeholder.textContent = "Pick a saved link…";
+  placeholder.value = "";
+  select.appendChild(placeholder);
+  for (const bookmark of all) {
+    const option = document.createElement("option");
+    option.value = String(bookmark.id);
+    option.textContent = bookmark.title || bookmark.url;
+    select.appendChild(option);
+  }
+  select.addEventListener("change", async () => {
+    if (!select.value || !currentDoc) return;
+    await apiJson(`/documents/${currentDoc.id}/bookmarks`, {
+      method: "POST",
+      body: JSON.stringify({ bookmark_id: Number(select.value) }),
+    });
+    select.remove();
+    renderDocBookmarks();
+  });
+  wrap.insertBefore(select, $("doc-attach-bookmark"));
+  select.focus();
 }
 
 async function createDocument() {
@@ -1934,6 +2004,7 @@ try {
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
+$("doc-attach-bookmark").addEventListener("click", attachBookmarkToDocument);
 $("doc-ai").addEventListener("click", openDocAiPanel);
 $("doc-ai-close").addEventListener("click", closeDocAiPanel);
 $("doc-ai-cancel").addEventListener("click", closeDocAiPanel);

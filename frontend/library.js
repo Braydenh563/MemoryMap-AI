@@ -1235,13 +1235,77 @@ const LIBRARY_CREATE_BY_KIND = {
   },
 };
 
+// **BACKLOG §105 item 1, built**: "Everything" and every kind with no
+// single obvious answer (Files, Tags, Drafts, Activity, the bin) now open
+// a real picker instead of silently defaulting to "+ New note" — asked for
+// again directly ("the buttons for creating and uploading the specific
+// things"). A modal overlay, not a `kebabMenu()` dropdown: the button
+// isn't wrapped in `.menu-wrap` the way every other kebab opener is, and
+// `.library-view-section`'s own `overflow-y: auto` is exactly the clipping
+// trap `wireEscapedActionMenu` exists to work around elsewhere — a full
+// overlay sidesteps both instead of fighting them.
+function openLibraryCreatePicker() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Choose what to create");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card";
+  const text = document.createElement("p");
+  text.className = "confirm-text";
+  text.textContent = "What would you like to create?";
+  const row = document.createElement("div");
+  row.className = "row confirm-actions library-create-picker-actions";
+
+  const returnFocus = document.activeElement;
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      close();
+    }
+  };
+
+  for (const kind of ["note", "document", "chat", "meeting"]) {
+    const entry = LIBRARY_CREATE_BY_KIND[kind];
+    const button = smallButton(entry.label, entry.label, () => {
+      close();
+      entry.run();
+    }, false);
+    row.appendChild(button);
+  }
+  const cancel = smallButton("Cancel", "Cancel", close);
+  row.appendChild(cancel);
+
+  card.append(text, row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  row.querySelector("button")?.focus();
+}
+
 function updateLibraryCreateButton() {
   const btn = $("library-new-doc");
   if (!btn) return;
-  const entry = LIBRARY_CREATE_BY_KIND[libraryKind] || LIBRARY_CREATE_BY_KIND.note;
-  setLabel(btn, entry.label);
-  btn.title = entry.label.replace(/^\S+\s*/, "");
-  btn.onclick = entry.run;
+  const entry = LIBRARY_CREATE_BY_KIND[libraryKind];
+  if (entry) {
+    setLabel(btn, entry.label);
+    btn.title = entry.label.replace(/^\S+\s*/, "");
+    btn.onclick = entry.run;
+  } else {
+    setLabel(btn, "＋ Create");
+    btn.title = "Choose what to create";
+    btn.onclick = openLibraryCreatePicker;
+  }
 }
 updateLibraryCreateButton();
 
@@ -2708,7 +2772,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // routes_library.py).
     const sections = [
       "library-view-documents", "library-view-docs", "library-view-skills",
-      "library-view-whiteboard", "library-view-media",
+      "library-view-whiteboard", "library-view-media", "library-view-links",
+      "library-view-contents",
     ];
 
     buttons.forEach(btn => {
@@ -2755,6 +2820,10 @@ document.addEventListener("DOMContentLoaded", () => {
             // to every visit to the Library.
             renderSkillsDashboard();
             renderSkillLogs();
+          } else if (targetId === "library-view-links") {
+            renderBookmarks();
+          } else if (targetId === "library-view-contents") {
+            renderContents();
           }
         }
       });
@@ -2859,4 +2928,307 @@ document.addEventListener("DOMContentLoaded", () => {
       renderLibraryImagesGallery();
     }
   });
+  $("bookmark-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const urlInput = $("bookmark-url-input");
+    const titleInput = $("bookmark-title-input");
+    const groupInput = $("bookmark-group-input");
+    const url = urlInput.value.trim();
+    if (!url) return;
+    try {
+      const created = await apiJson("/bookmarks", {
+        method: "POST",
+        body: JSON.stringify({
+          url, title: titleInput.value.trim(), group_name: groupInput.value.trim(),
+        }),
+      });
+      urlInput.value = "";
+      titleInput.value = "";
+      groupInput.value = "";
+      urlInput.focus();
+      if (created.duplicate_of) {
+        toast(`Saved — you already had this link (${created.title || created.url}).`);
+      }
+      renderBookmarks();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+  $("bookmark-search")?.addEventListener("input", filterBookmarks);
+  $("contents-refresh")?.addEventListener("click", renderContents);
+  $("contents-mode")?.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      $("contents-mode").querySelectorAll("button").forEach((b) => {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+      contentsMode = btn.getAttribute("data-mode");
+      renderContents();
+    });
+  });
 });
+
+// --- Links (§30): a bookmark shelf for websites, alongside the notes and
+// documents already linkable to each other via [[wiki links]] ------------
+
+let bookmarksCache = [];
+let bookmarkGroupFilter = null; // null = all groups
+
+async function renderBookmarks() {
+  const list = $("bookmark-list");
+  const empty = $("bookmark-empty");
+  if (!list) return;
+  try {
+    bookmarksCache = await apiJson("/bookmarks");
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  empty.classList.toggle("hidden", bookmarksCache.length > 0);
+  renderBookmarkGroupChips();
+  filterBookmarks();
+}
+
+function renderBookmarkGroupChips() {
+  const box = $("bookmark-group-chips");
+  const datalist = $("bookmark-group-options");
+  if (!box) return;
+  const groups = [...new Set(bookmarksCache.map((b) => b.group_name).filter(Boolean))].sort();
+  datalist?.replaceChildren(
+    ...groups.map((g) => { const opt = document.createElement("option"); opt.value = g; return opt; })
+  );
+  box.replaceChildren();
+  if (groups.length === 0) {
+    bookmarkGroupFilter = null;
+    return;
+  }
+  const allChip = document.createElement("button");
+  allChip.type = "button";
+  allChip.className = `library-chip${bookmarkGroupFilter === null ? " active" : ""}`;
+  allChip.textContent = "All";
+  allChip.addEventListener("click", () => { bookmarkGroupFilter = null; renderBookmarkGroupChips(); filterBookmarks(); });
+  box.appendChild(allChip);
+  for (const group of groups) {
+    const chipEl = document.createElement("button");
+    chipEl.type = "button";
+    chipEl.className = `library-chip${bookmarkGroupFilter === group ? " active" : ""}`;
+    // "Work/Reading" renders as "Work / Reading" — the "/" is a grouping
+    // convention for the user to type, not meant to display as a raw slash.
+    chipEl.textContent = group.split("/").join(" / ");
+    chipEl.addEventListener("click", () => { bookmarkGroupFilter = group; renderBookmarkGroupChips(); filterBookmarks(); });
+    box.appendChild(chipEl);
+  }
+}
+
+function filterBookmarks() {
+  const list = $("bookmark-list");
+  const noMatch = $("bookmark-no-match");
+  if (!list) return;
+  const query = ($("bookmark-search")?.value || "").trim().toLowerCase();
+  const visible = bookmarksCache.filter((b) => {
+    if (bookmarkGroupFilter !== null && b.group_name !== bookmarkGroupFilter) return false;
+    if (!query) return true;
+    return (
+      b.title.toLowerCase().includes(query) ||
+      b.url.toLowerCase().includes(query) ||
+      b.note.toLowerCase().includes(query)
+    );
+  });
+  list.replaceChildren();
+  for (const bookmark of visible) {
+    list.appendChild(bookmarkRow(bookmark));
+  }
+  noMatch?.classList.toggle("hidden", !(bookmarksCache.length > 0 && visible.length === 0));
+}
+
+function bookmarkRow(bookmark) {
+  const row = document.createElement("div");
+  row.className = "bookmark-row";
+
+  const main = document.createElement("div");
+  main.className = "bookmark-main";
+  const link = document.createElement("a");
+  link.href = bookmark.url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = bookmark.title || bookmark.url;
+  const urlLine = document.createElement("div");
+  urlLine.className = "muted text-sm bookmark-url";
+  urlLine.textContent = bookmark.url;
+  main.append(link, urlLine);
+  if (bookmark.group_name) {
+    const groupLine = document.createElement("div");
+    groupLine.className = "muted text-sm bookmark-group-label";
+    setLabel(groupLine, `ph:folder-simple ${bookmark.group_name.split("/").join(" / ")}`);
+    main.appendChild(groupLine);
+  }
+  if (bookmark.note) {
+    const noteLine = document.createElement("div");
+    noteLine.className = "muted text-sm";
+    noteLine.textContent = bookmark.note;
+    main.appendChild(noteLine);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "row bookmark-actions";
+
+  const pin = document.createElement("button");
+  pin.type = "button";
+  pin.className = "ghost small";
+  pin.title = bookmark.pinned ? "Unpin" : "Pin to the top";
+  pin.setAttribute("aria-label", pin.title);
+  // No "-fill" pin glyph in this app's bundled Phosphor set (checked: the
+  // font only has push-pin/-slash/-simple/-simple-slash) — reported live as
+  // a blank icon before this went out. `-slash` for "already pinned, click
+  // to undo" is the same pairing the pinned-chat button already uses.
+  setLabel(pin, `ph:${bookmark.pinned ? "push-pin-slash" : "push-pin"}`);
+  pin.addEventListener("click", async () => {
+    await apiJson(`/bookmarks/${bookmark.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ pinned: !bookmark.pinned }),
+    });
+    renderBookmarks();
+  });
+
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "ghost small";
+  edit.title = "Edit";
+  edit.setAttribute("aria-label", "Edit this link");
+  setLabel(edit, "ph:pencil-simple");
+  edit.addEventListener("click", async () => {
+    // promptDialog resolves "" on both Cancel and an emptied field (same
+    // convention saveCurrentSearch already relies on) — there's no way to
+    // distinguish "cancelled" from "cleared it", so both are treated as
+    // cancelled rather than risk silently blanking a title on Escape.
+    const title = await promptDialog("Title:", bookmark.title || bookmark.url);
+    if (!title) return;
+    await apiJson(`/bookmarks/${bookmark.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title }),
+    });
+    renderBookmarks();
+  });
+
+  const group = document.createElement("button");
+  group.type = "button";
+  group.className = "ghost small";
+  group.title = "Move to group";
+  group.setAttribute("aria-label", "Move this link to a group");
+  setLabel(group, "ph:folder-simple");
+  group.addEventListener("click", async () => {
+    const value = await promptDialog(
+      "Group (e.g. Work/Reading — blank clears it):", bookmark.group_name
+    );
+    // Unlike the title prompt above, an intentionally blank group is a real,
+    // useful answer ("ungroup this link") — so only an actual Cancel/Escape
+    // is ignored here, not an emptied field. promptDialog resolves "" for
+    // both, so there's genuinely no way to tell them apart from its return
+    // value alone; this trades "can't ungroup via Escape" for "can ungroup
+    // by clearing the field", the more useful of the two to get right.
+    if (value === "" && bookmark.group_name === "") return;
+    await apiJson(`/bookmarks/${bookmark.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ group_name: value }),
+    });
+    renderBookmarks();
+  });
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "ghost small";
+  remove.title = "Delete";
+  remove.setAttribute("aria-label", "Delete this link");
+  setLabel(remove, "ph:trash");
+  remove.addEventListener("click", async () => {
+    const ok = await confirmDialog(`Delete "${bookmark.title || bookmark.url}"?`);
+    if (!ok) return;
+    await apiJson(`/bookmarks/${bookmark.id}`, { method: "DELETE" });
+    renderBookmarks();
+  });
+
+  actions.append(pin, edit, group, remove);
+  row.append(main, actions);
+  return row;
+}
+
+// --- Contents (§30): a hyperlinked outline of the notebook's own
+// structure — categories and tags, each with what's filed under it. The
+// force-directed, spatial visualisation already lives in the Graph tab;
+// this is the fast, scannable list half of the same ask. Built entirely
+// from `allEntries` (already loaded for the Notes tab) rather than a new
+// endpoint — the same data, grouped differently client-side. -----------
+
+let contentsMode = "category";
+// A big notebook can have a group with hundreds of notes; nobody scans
+// past this many in one outline section, and rendering them all would be
+// the one part of this view that isn't cheap.
+const CONTENTS_GROUP_CAP = 200;
+
+async function renderContents() {
+  const outline = $("contents-outline");
+  const empty = $("contents-empty");
+  if (!outline) return;
+  // Refetched on every visit, not gated behind `entriesEverLoaded` — every
+  // sibling Library subtab (Documents, Image Gallery, AI Skills) re-fetches
+  // its own data on each visit too, and this outline is exactly the kind of
+  // view where showing a note that was just deleted, or missing one just
+  // added, would be a wrong answer, not just a stale one.
+  await loadEntries();
+
+  const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
+  outline.replaceChildren();
+  empty.classList.toggle("hidden", active.length > 0);
+  if (active.length === 0) return;
+
+  const groups = new Map();
+  const addTo = (key, entry) => {
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(entry);
+  };
+  if (contentsMode === "tag") {
+    for (const entry of active) {
+      if (entry.tags && entry.tags.length) {
+        for (const tag of entry.tags) addTo(tag, entry);
+      } else {
+        addTo("(untagged)", entry);
+      }
+    }
+  } else {
+    for (const entry of active) addTo(entry.category || "Uncategorised", entry);
+  }
+
+  for (const key of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+    const members = groups.get(key);
+    const section = document.createElement("div");
+    section.className = "contents-section";
+    const heading = document.createElement("h3");
+    heading.className = "contents-heading";
+    heading.textContent = `${key} (${members.length})`;
+    section.appendChild(heading);
+    const list = document.createElement("ul");
+    list.className = "contents-list";
+    for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) {
+      const li = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = "#";
+      link.textContent = noteLabel(entry, 80);
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        flashEntry(entry.id);
+      });
+      li.appendChild(link);
+      list.appendChild(li);
+    }
+    if (members.length > CONTENTS_GROUP_CAP) {
+      const more = document.createElement("li");
+      more.className = "muted text-sm";
+      more.textContent = `…and ${members.length - CONTENTS_GROUP_CAP} more`;
+      list.appendChild(more);
+    }
+    section.appendChild(list);
+    outline.appendChild(section);
+  }
+}

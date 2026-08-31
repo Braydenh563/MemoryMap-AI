@@ -1764,6 +1764,15 @@ Link to another note with [[its first few words]]."></textarea>
             <ul id="doc-notes" class="doc-outline"></ul>
           </div>
 
+          <!-- References (§30, directly requested — "should bookmarks show
+               in documents... as well?"): saved links attached to this
+               document, same concept as a note's own References. -->
+          <div id="doc-bookmarks-wrap" class="doc-outline-wrap">
+            <h3>References</h3>
+            <ul id="doc-bookmarks" class="doc-outline"></ul>
+            <button id="doc-attach-bookmark" class="ghost small" type="button"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Attach a link</button>
+          </div>
+
           <!-- "Where are they stored?" was asked outright, and the app had no
                answer anywhere. For a local-first app that's most of the promise.
                Used to be an open-by-default <details> here; its body was tall
@@ -2173,6 +2182,8 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
       <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
+      <button role="tab" aria-selected="false" data-target="library-view-links">Links</button>
+      <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -2906,6 +2917,67 @@ Link to another note with [[its first few words]]."></textarea>
         <p>Paste, drop, or attach one to a note and it shows up here.</p>
       </div>
       <p id="library-images-no-match" class="muted hidden">No images match your search.</p>
+    </section>
+  </div>
+
+  <!-- Links (§30, directly requested): "an area where the user can store
+       lists of links... bookmark commonly visited or favourite websites".
+       Deliberately separate from notes — a bookmark has a URL and nothing
+       else to file, search by content, or auto-categorise. -->
+  <div id="library-view-links" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="row space-between library-head">
+        <h2>Links</h2>
+      </div>
+      <p class="muted">Save links to websites you visit often — a bookmark
+        shelf that lives in the notebook instead of the browser.</p>
+      <form id="bookmark-form" class="row">
+        <input id="bookmark-url-input" type="text" class="library-search"
+          placeholder="example.com" aria-label="Bookmark URL" required>
+        <input id="bookmark-title-input" type="text"
+          placeholder="Title (optional)" aria-label="Bookmark title">
+        <input id="bookmark-group-input" type="text" list="bookmark-group-options"
+          placeholder="Group (optional, e.g. Work/Reading)" aria-label="Bookmark group">
+        <datalist id="bookmark-group-options"></datalist>
+        <button type="submit" class="small">＋ Add</button>
+      </form>
+      <input id="bookmark-search" type="search" class="library-search"
+        placeholder="Search saved links…" aria-label="Search saved links">
+      <div id="bookmark-group-chips" class="row bookmark-group-chips"></div>
+      <div id="bookmark-list" class="bookmark-list"></div>
+      <div id="bookmark-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">No links saved yet</p>
+        <p>Add a website above to keep it a click away.</p>
+      </div>
+      <p id="bookmark-no-match" class="muted hidden">No links match your search.</p>
+    </section>
+  </div>
+
+  <!-- Contents (§30, directly requested): a hyperlinked outline of the
+       notebook's own structure — categories and tags, each with the notes
+       filed under it, click to jump. The *visual*, spatial half of "links
+       between sections and tags" is the Graph tab's job (it already colours
+       and filters by category); this is the fast, scannable list half. -->
+  <div id="library-view-contents" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="row space-between library-head">
+        <h2>Contents</h2>
+        <button id="contents-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+      </div>
+      <p class="muted">An outline of your notebook — every category and tag,
+        with what's filed under it. For the visual map of how notes link to
+        each other, see the Graph tab.</p>
+      <div class="seg" id="contents-mode" role="tablist">
+        <button role="tab" aria-selected="true" data-mode="category" class="active" type="button">By category</button>
+        <button role="tab" aria-selected="false" data-mode="tag" type="button">By tag</button>
+      </div>
+      <div id="contents-outline" class="contents-outline"></div>
+      <div id="contents-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">Nothing to outline yet</p>
+        <p>Write a few notes and they'll show up here, grouped and linked.</p>
+      </div>
     </section>
   </div>
 

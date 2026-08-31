@@ -27,6 +27,7 @@ from memorymap.search import searxng_manager
 from memorymap.api import (
     routes_ask_history,
     routes_auth,
+    routes_bookmarks,
     routes_categories,
     routes_chat,
     routes_conversations,
@@ -330,6 +331,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_insights.router, dependencies=locked)
     app.include_router(routes_graph.router, dependencies=locked)
     app.include_router(routes_reminders.router, dependencies=locked)
+    app.include_router(routes_bookmarks.router, dependencies=locked)
     app.include_router(routes_voice.router, dependencies=locked)
     app.include_router(routes_tasks.router, dependencies=locked)
     app.include_router(routes_timeline.router, dependencies=locked)

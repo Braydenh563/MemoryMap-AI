@@ -3205,19 +3205,20 @@ one unambiguous thing to create (Notes/Documents/Chats/Meetings —
 `LIBRARY_CREATE_BY_KIND`, library.js). Verified live: switching chips
 changes the label and the resulting action (Notes → Capture and focuses the
 box; Documents → the existing new-document flow; Chats → a fresh
-conversation; Meetings → the recorder).
+conversation; Meetings → the recorder). **Item 1 below is now also built**
+(re-asked for directly in a later session): "Everything" and every other
+ambiguous chip (Files, Tags, Drafts, Activity, the bin) now open a real
+"What would you like to create?" modal (`openLibraryCreatePicker`,
+library.js) instead of silently defaulting to "+ New note" — a full overlay
+rather than a `kebabMenu()` dropdown, since the button isn't wrapped in
+`.menu-wrap` and `.library-view-section`'s own scroll-clipping is exactly
+the trap `wireEscapedActionMenu` exists to work around elsewhere; a modal
+sidesteps both rather than fighting them. Live-verified: opens on the
+default "Everything" chip, lists all four kinds plus Cancel, picking one
+runs it and closes, Escape and backdrop-click both cancel.
 
 **Not built — logged rather than rushed:**
-1. **A real "choose what to create" picker for Everything** (and every kind
-   with no single obvious answer — Files, Tags, Drafts, Activity, the bin).
-   Falls back to "+ New note" today (the fastest capture path, a defensible
-   default) rather than a modal. Building the modal itself is small; the
-   part worth deciding first is whether it's a dropdown off the button
-   (cheaper, reuses `kebabMenu()`) or a real modal overlay (matches "a
-   modal that shows where the user can choose", asked for by name) — the
-   button isn't currently wrapped the way `kebabMenu()`'s default
-   positioning assumes, so that's a real (small) choice, not just typing.
-2. **A "categories" section of the Library** doesn't exist —
+1. **A "categories" section of the Library** doesn't exist —
    `LIBRARY_KINDS` (library.js) has note/document/chat/file/tag/draft/
    meeting, no category. Cheaper than it sounds: `PUT` and `DELETE
    /categories/{id}` already exist (routes_categories.py), and
@@ -3228,13 +3229,154 @@ conversation; Meetings → the recorder).
    entry/manager.py); a Library category view would need to decide whether
    that stays true or an empty category becomes a first-class creatable
    thing.
-3. **Renaming a tag "everywhere"** has no dedicated endpoint — tags are a
+2. **Renaming a tag "everywhere"** has no dedicated endpoint — tags are a
    JSON array on each `Entry`, not a table, so "rename this tag" today
    means editing it per-note. A real rename-everywhere action needs either
    a new endpoint that rewrites the tag across every entry carrying it, or
    a documented decision that it's out of scope and a tag is meant to be
    cheap to abandon and recreate rather than renamed in place.
-4. **Creating a note/chat directly from the Library**, rather than jumping
-   to the Notes/Chat tab — items 1 and this one may resolve together
-   (if item 1 becomes a real modal, "type it right here" is a natural
-   extension of it rather than a fifth thing to build separately).
+3. **Creating a note/chat directly from the Library**, rather than jumping
+   to the Notes/Chat tab. The create picker (built above) is the natural
+   place to extend from — "type it right here" inside that same modal,
+   rather than a separate affordance.
+
+## §106 — Links, Contents and note References built; §102 items 5 and 6 checked, not built as originally scoped
+
+Asked for directly, three things together: can notes/documents reference
+each other with a References section; a place to store/bookmark website
+links; a table-of-contents-style hyperlinked, visualised view of the
+notebook's structure. Checked first, per this file's own standing rule —
+`[[wiki links]]` already covered note-to-note linking with autocomplete,
+transclusion and backlink chips (`app.js`, extensively) and the Graph tab
+already visualises links coloured/filtered by category. What was genuinely
+missing: anywhere to save a link to the open web, and a fast textual outline
+distinct from the Graph's spatial one.
+
+**Built:**
+- **A `Bookmark` model and `/bookmarks` CRUD** (`core/database.py`,
+  `api/routes_bookmarks.py`) — its own small table, not folded into `Entry`:
+  a bookmark has no body to search, file, or auto-categorise, so forcing it
+  through the note pipeline would solve a problem it doesn't have. URLs
+  typed without a scheme ("example.com") are normalised to `https://`.
+  Creating a URL that's already saved still creates the row and returns
+  `duplicate_of` the existing one — warn, don't block, since re-saving a
+  link by accident is normal, not a mistake worth refusing.
+- **Grouping**, asked about directly ("should they be groupable?"): a free-
+  text `group_name` column rather than a real folder table — a full nested-
+  folder model (a tree table, drag-to-move UI) is a lot of new machinery for
+  what a flat field mostly already buys. A "/" convention ("Work/Reading")
+  the frontend renders as a visual hierarchy, still just one string. Filter
+  chips above the list, a search box (client-side, matching the Image
+  Gallery's own filter), pin-to-top, and edit/move/delete actions round out
+  the Library → **Links** subtab.
+- **A note's References**: a note can now attach a saved bookmark
+  (`entry_bookmarks` join table, `POST/GET/DELETE /entries/{id}/bookmarks`),
+  shown live in the edit form right below the related-notes panel, with an
+  "Attach a link" picker. Its own small table and its own endpoint — not
+  folded into `EntryLink` (which connects two `Entry` rows) or into
+  `EntryOut`'s bulk-fetched `links` field, matching the precedent
+  `/entries/{id}/related` already set: only the editor needs this, so it
+  shouldn't grow a query on every paginated list render.
+- **Library → Contents**: a hyperlinked outline of the notebook, grouped by
+  category or by tag, click a note to jump straight to it. Built from
+  `allEntries` (already loaded for the Notes tab) grouped client-side, not a
+  new endpoint — refetched on every visit like every sibling Library subtab,
+  not cached, since a stale outline (a just-deleted note still listed) would
+  be a wrong answer, not just an old one. This is deliberately the *fast,
+  scannable* half of "visualised links between sections and tags"; the
+  *spatial* half is the Graph tab's job already, and Contents links out to
+  it rather than duplicating a second visualisation engine.
+- Live-verified in Chromium: add/pin/edit/group/delete a bookmark, filter by
+  group and by search text, the duplicate-URL toast, both Contents modes
+  grouping correctly and jumping to a note, and attaching/detaching a
+  bookmark reference from a note's edit form — all measured, not assumed.
+  One real bug caught this way and fixed before shipping: `ph-push-pin-fill`
+  doesn't exist in this app's bundled Phosphor set (checked: only
+  `push-pin`/`-slash`/`-simple`/`-simple-slash` do), so the pin button
+  rendered blank — `-slash` for "already pinned" is the same pairing the
+  pinned-chat button already uses.
+
+**§102 item 5 (tray quick-capture), corrected rather than rebuilt:** the
+tray's own "New note" item (`__main__.py`) already does the load-bearing
+part of this ask — one click, past the lock screen, straight to a focused
+empty note, no tab-hunting. What it does *not* do is the literal ask, "a
+tiny always-on-top composer... without raising the full window" — it raises
+the full window. Not built this session, and deliberately not attempted
+blind: a real floating composer needs a second `pywebview` window (a new
+`webview.create_window()` call, its own minimal page, its own focus/close
+semantics coordinated with the main window's lock state and the existing
+tray event-loop threading, which `_start_tray`'s own docstring already
+flags as delicate). This sandbox has no Windows, no `pywebview` runtime, and
+no display at all for this code path — confirmed live: importing `pystray`
+here raises `Xlib.error.DisplayNameError` on this headless box, the exact
+failure `_start_tray`'s own except-clause already anticipates. Writing a new
+window-management code path with zero ability to launch or see it is how a
+"small" feature ships broken; needs a real Windows session to build safely.
+
+**§102 item 6 (inline chat citations), resolved — the answer was "no", found
+by reading the code, not by needing a live model:** the retrieved notes sent
+to the model are numbered in the prompt (`librarian.build_messages`, "1.
+[category] ..."), but nothing in `GROUNDING` instructs the model to cite
+that number, and the frontend's `#chat-results` list is a plain, separate
+source list rendered alongside the answer — never parsed out of the answer
+text itself. So: confirmed, not "unclear without a live model" any more —
+there is no per-claim citation today, only a source list next to the
+answer. Building real inline citations is a prompt-reliability question a
+fake-transport test can't settle (would a small local model actually emit
+`[1]`-style markers consistently enough to parse?) — left open for a
+session with a live Ollama/LM Studio to validate against, per this
+project's own standing caveat about model-behaviour work. **Not chat-
+specific**, asked about directly afterward: search summaries and the weekly
+digest ground their prose in the same retrieved-notes-numbered-in-the-
+prompt shape `librarian.build_messages` uses, with the same absence of a
+citation instruction — so this is one cross-cutting gap across every place
+the AI writes prose from notes, not three separate ones.
+
+**Bookmarks elsewhere, asked about directly:** *Documents* — **built**:
+`DocumentBookmark` (same shape as `EntryBookmark`, keyed to `document_id`
+instead of `entry_id`), `GET/POST/DELETE /documents/{id}/bookmarks`, and a
+**References** section in the document editor's own Outline sidebar tab
+(next to Backlinks/Notes it draws on), with the same "Attach a link" picker
+notes got. Live-verified in Chromium: attach, the reference chip opens the
+URL, detach, and the picker correctly lists every saved bookmark regardless
+of which note or document (if any) already references it. *Graph* —
+recommended **against** adding bookmarks as graph nodes: the Graph is built
+around note-to-note similarity and typed links, and a bookmark has no
+content to compare against anything, so it would be a node with different
+semantics bolted onto a visualisation designed around one kind of thing. A
+small "has references" indicator on a note's own graph node is a
+reasonable, much smaller alternative if this is picked up later — not built
+this session.
+
+**The Library "All" tab's create/upload buttons — confirmed still covered
+by §105, not missed.** §105 above already logs this in full: the button now
+follows the active filter chip for the four unambiguous kinds
+(Notes/Documents/Chats/Meetings), and §105 item 1 already names the
+remaining gap precisely — a real "choose what to create" picker for
+Everything and every kind with no single obvious answer (Files, Tags,
+Drafts, Activity, the bin), not yet built, with the open question being
+dropdown-off-the-button vs. a real modal. Nothing new to add here; re-
+reading §105 rather than re-logging it.
+
+**A second competitor-analysis pass (Kortex/Granola/Mem.ai) was re-pasted
+this session, from a different subagent run than §102's** — cross-checked
+against §102 rather than logged as new, since it is the same three products
+against the same feature list and overlaps almost entirely:
+- Its items 1–4, 6, 8–10 are §102's items 1, 3, 7, 6, 5, 9, 10 respectively
+  — already logged there, unchanged.
+- Its item 5 ("import from other note apps") and item 7 ("chat query
+  scoping via explicit note selection") are the two claims §102 already
+  checked against the running code and corrected — false/overstated, see
+  §102's own "Corrected before logging" block. Restated here only so a
+  future session doesn't re-file them from this second paste without
+  noticing §102 already settled them.
+- Its item 11 ("structured decisions/action-items block on meeting notes")
+  is §102 item 2 — and item 2 is now **built** (this session, §25/§31 in
+  the live task list): `librarian.summarize_meeting`, `POST
+  /voice/summarize`, wired into `saveMeetingNote()`.
+- Its item 12 ("speaker labeling on local transcripts") is §102 item 8,
+  unchanged — still genuinely absent, still needs checking whether the
+  transcription library in use supports local diarization at all before
+  scoping further.
+
+No new gaps in this second pass beyond what §102 already carries.

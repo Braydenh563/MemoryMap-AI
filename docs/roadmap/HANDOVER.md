@@ -1,6 +1,108 @@
 # Session handover
 
-## New session — a long live-report batch, mostly real bugs found by reproducing rather than guessing: a whiteboard-boards-vanish bug, an OCR-model-priority bug, a genuine CSS over-constraint behind the Documents kebab "transparency", a Timeline lane-collision bug, and a chat file-picker/backend drift, plus several smaller UI fixes
+## New session — v0.1.7: Links/bookmarks, note+document References, a Contents outline, a meeting-summary extraction, and a real "what would you like to create?" picker for the Library — all live-verified in Chromium, full suite green throughout
+
+Continuation of the same long autonomous stretch this file's own "Prior
+session" entry (just below) describes; picked up mid-task and kept going
+through several rounds of new asks added to the same session rather than
+started fresh. `python -m pytest tests/` (~1,700 tests now, having added
+~40 this stretch) run repeatedly and green throughout; `ruff check .` clean
+throughout. Every UI claim below was verified live in Chromium via
+Playwright against a fresh scratch server and data dir per feature —
+screenshots and DOM assertions, not just reading the code, per this
+project's own standing rule.
+
+- **Meeting-note structured summary (BACKLOG §102 item 2, closed).**
+  `librarian.summarize_meeting` (modeled on the existing `suggest_tags`
+  shape: one utility-model completion, never blocks the caller), a new
+  `POST /voice/summarize` endpoint, wired into `saveMeetingNote()` so a
+  transcript gets a "Decisions" / "Action items" block prepended
+  automatically, best-effort — verified live that the network call fires
+  and, with no model available in this sandbox, the plain transcript still
+  saves untouched rather than stalling or corrupting.
+
+- **The `#search-help` "?" button really is a circle now.** A regression
+  from an earlier fix in this same session: `.library-toolbar button`
+  (class+element, higher specificity) was overriding `.graph-help-toggle`'s
+  `height: 2rem` back to the toolbar's shared `--control-h` (2.3rem) while
+  leaving width alone — an oval, measured live at 32×36.8px before the fix,
+  32×32px after. `.library-toolbar .graph-help-toggle` (two classes) wins
+  the specificity fight without touching the shared rule.
+
+- **Version bumped to v0.1.7.** `src/memorymap/__init__.py`,
+  `pyproject.toml`, and both `CHANGELOG.md` copies (kept byte-identical,
+  `test_docs_site.py` enforces it) — tagging/pushing the release itself was
+  deliberately left to the user, per this project's own release checklist
+  (`docs/RELEASING.md`) treating that as a separate, human-triggered step.
+
+- **Links, Contents and note/document References — the bulk of this
+  stretch, §106 in BACKLOG.md has the full narrative.** In short: a new
+  `Bookmark` model and `/bookmarks` CRUD (its own table — a bookmark has no
+  body to search or file, so it doesn't go through the note pipeline);
+  free-text grouping with a "/" convention rendered as a visual hierarchy,
+  filter chips, search, pin, and a duplicate-URL warning (not a block) in a
+  new Library → **Links** sub-tab; a **References** panel in both the note
+  editor and the document editor (`entry_bookmarks`/`document_bookmarks`
+  join tables, their own small endpoints, not folded into `EntryOut`'s
+  bulk-fetched fields); a **Contents** sub-tab outlining the whole notebook
+  by category or by tag, built from the already-loaded `allEntries` rather
+  than a new endpoint. One real bug caught live before shipping:
+  `ph-push-pin-fill` doesn't exist in this app's bundled Phosphor icon set
+  (checked the actual font file), so the pin button rendered blank — fixed
+  to the `-slash` variant, matching the pinned-chat button's own pairing
+  elsewhere in the app.
+
+- **The Library "All" tab's create button (BACKLOG §105 item 1, closed).**
+  "Everything" and every other ambiguous filter chip now open a real
+  "What would you like to create?" modal instead of silently defaulting to
+  "+ New note" — a full overlay chosen over a `kebabMenu()` dropdown
+  specifically because the button isn't wrapped in `.menu-wrap` and the
+  surrounding `.library-view-section` clips absolutely-positioned children,
+  the same trap `wireEscapedActionMenu` already exists to work around
+  elsewhere in this codebase.
+
+- **Two things investigated and correctly *not* built, rather than built
+  blind — both in BACKLOG §106 with the full reasoning:**
+  1. A true floating always-on-top tray quick-capture window (BACKLOG §102
+     item 5). The tray's existing "New note" item already covers the load-
+     bearing value (one click, past the lock, straight to a focused empty
+     note); the literal ask needs a second `pywebview` window this sandbox
+     has no Windows and no display to build or see at all — confirmed live
+     that importing `pystray` here raises `Xlib.error.DisplayNameError`,
+     the exact failure `_start_tray`'s own except-clause anticipates.
+  2. Inline per-claim chat citations (BACKLOG §102 item 6). Resolved by
+     reading the code, not by needing a live model: notes are numbered in
+     the prompt but nothing instructs the model to cite that number, and
+     `#chat-results` is a plain source list beside the answer, never parsed
+     out of the answer text. The same gap applies to search summaries and
+     the weekly digest, not just chat — confirmed to be one cross-cutting
+     absence, not three. Left for a session with a live Ollama/LM Studio,
+     since whether a small local model would reliably emit parseable
+     citation markers is a prompt-reliability question a fake transport
+     can't settle.
+
+- **A second competitor-analysis pass (Kortex/Granola/Mem.ai), re-pasted
+  mid-session, cross-checked against §102 rather than re-logged** — see
+  §106's own closing section. It overlapped almost entirely with §102's
+  existing list; the two genuinely new pieces of information were folded
+  in (item 2/"structured meeting summary" is now built, confirmed above;
+  the citation ask explicitly named the weekly digest too, folded into the
+  citations finding above).
+
+**What's still open, in BACKLOG §102/§105/§106, not attempted this
+stretch:** a live rough-bullets-during-recording capture flow (§102 item
+1); typed note templates with a fixed schema (§102 item 4, needs a schema
+decision first); a dedicated highlights/clippings collection (§102 item 7,
+needs a design decision on whether it's a real gap); local speaker
+diarization on transcripts (§102 item 8, needs checking whether the
+transcription library even supports it); live inline tag suggestions while
+typing (§102 item 9); one-click "synthesize into a draft" (§102 item 10); a
+Library categories section, tag rename-everywhere, and creating a note/chat
+directly from the Library's own picker (§105 items 1–3, renumbered this
+stretch after item 1 there got built); a "has references" indicator on a
+note's graph node for bookmarks (§106).
+
+## Prior session — a long live-report batch, mostly real bugs found by reproducing rather than guessing: a whiteboard-boards-vanish bug, an OCR-model-priority bug, a genuine CSS over-constraint behind the Documents kebab "transparency", a Timeline lane-collision bug, and a chat file-picker/backend drift, plus several smaller UI fixes
 
 Continuation of a single long autonomous stretch, working through a large
 queue of live user reports and asks rather than a single ticket. Full suite

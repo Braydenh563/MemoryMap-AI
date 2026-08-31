@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter, vision_ocr
 from memorymap.core import deps, docview, filetypes
-from memorymap.core.database import Document, DocumentAiEdit, utcnow
+from memorymap.core.database import Bookmark, Document, DocumentAiEdit, DocumentBookmark, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import (
     entries_for_document,
@@ -130,6 +130,58 @@ def _linked_notes(session: Session, document_id: int) -> list[dict]:
 
 def _existing(session: Session, document_id: int) -> Document:
     return deps.get_or_404(session, Document, document_id, "Document not found")
+
+
+class AttachBookmarkBody(BaseModel):
+    bookmark_id: int
+
+
+@router.get("/{document_id}/bookmarks")
+def document_bookmarks(document_id: int, session: Session = Depends(get_session)) -> list[dict]:
+    """Bookmarks attached to this document — same References concept as a
+    note's own `/entries/{id}/bookmarks` (asked about directly: "should
+    bookmarks show in documents... as well?")."""
+    _existing(session, document_id)
+    rows = (
+        session.query(Bookmark)
+        .join(DocumentBookmark, DocumentBookmark.bookmark_id == Bookmark.id)
+        .filter(DocumentBookmark.document_id == document_id)
+        .order_by(DocumentBookmark.created_at)
+        .all()
+    )
+    return [
+        {"id": b.id, "url": b.url, "title": b.title, "group_name": b.group_name}
+        for b in rows
+    ]
+
+
+@router.post("/{document_id}/bookmarks", status_code=201)
+def attach_bookmark(
+    document_id: int, body: AttachBookmarkBody, session: Session = Depends(get_session)
+) -> dict:
+    _existing(session, document_id)
+    deps.get_or_404(session, Bookmark, body.bookmark_id, "Bookmark not found")
+    already = (
+        session.query(DocumentBookmark)
+        .filter_by(document_id=document_id, bookmark_id=body.bookmark_id)
+        .first()
+    )
+    if not already:
+        session.add(DocumentBookmark(document_id=document_id, bookmark_id=body.bookmark_id))
+        session.commit()
+    return {"attached": True}
+
+
+@router.delete("/{document_id}/bookmarks/{bookmark_id}")
+def detach_bookmark(
+    document_id: int, bookmark_id: int, session: Session = Depends(get_session)
+) -> dict:
+    _existing(session, document_id)
+    session.query(DocumentBookmark).filter_by(
+        document_id=document_id, bookmark_id=bookmark_id
+    ).delete()
+    session.commit()
+    return {"detached": True}
 
 
 def _process_committed_media(session: Session, content: str) -> None:

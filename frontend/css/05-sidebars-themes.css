@@ -1222,6 +1222,10 @@ body.resizing-sidebar {
   padding: 0;
 }
 
+#doc-attach-bookmark {
+  margin-top: var(--space-2);
+}
+
 .outline-link {
   background: none;
   border: none;

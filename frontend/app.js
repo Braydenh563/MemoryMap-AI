@@ -4124,6 +4124,7 @@ function renderEditForm(li, entry) {
 
   li.append(textarea, tagsInput, categorySelect, row);
   renderRelatedWhileEditing(li, entry);
+  renderNoteBookmarksWhileEditing(li, entry);
 }
 
 // **A related-notes panel, live while a note is open for editing** — asked
@@ -4168,6 +4169,99 @@ async function renderRelatedWhileEditing(li, entry) {
     relChip.appendChild(previewSpan);
     panel.appendChild(relChip);
   }
+}
+
+// **A note's References** (§30, directly requested — "attach a bookmark to
+// a note... show up in References"): the saved-links half of what a note
+// can point at, alongside `entry.links`' [[wiki links]] to other notes.
+// Its own small panel and its own endpoint (`/entries/{id}/bookmarks`),
+// not folded into `entry.links` — a Bookmark isn't an Entry (see the
+// Bookmark model's own docstring), so this is a second, parallel kind of
+// reference rather than a variant of the first.
+async function renderNoteBookmarksWhileEditing(li, entry) {
+  const panel = document.createElement("div");
+  panel.className = "entry-related-live muted text-sm";
+  li.appendChild(panel);
+
+  const attachButton = document.createElement("button");
+  attachButton.type = "button";
+  attachButton.className = "ghost small";
+  setLabel(attachButton, "ph:link Attach a link");
+  attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, panel));
+
+  async function refresh() {
+    let attached;
+    try {
+      attached = await apiJson(`/entries/${entry.id}/bookmarks`);
+    } catch {
+      return;
+    }
+    if (editingId !== entry.id || !panel.isConnected) return;
+    panel.replaceChildren();
+    if (attached.length) {
+      const label = document.createElement("span");
+      label.textContent = "References: ";
+      panel.appendChild(label);
+      for (const bookmark of attached) {
+        const bmChip = chip(`ph:link ${bookmark.title || bookmark.url}`, "link", () =>
+          window.open(bookmark.url, "_blank", "noopener,noreferrer")
+        );
+        bmChip.title = bookmark.url;
+        const detach = document.createElement("span");
+        detach.className = "unlink";
+        detach.textContent = "×";
+        detach.title = "Remove this reference";
+        detach.setAttribute("aria-label", `Remove reference to ${bookmark.title || bookmark.url}`);
+        detach.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await apiJson(`/entries/${entry.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
+          refresh();
+        });
+        makeUnlinkAccessible(detach);
+        bmChip.appendChild(detach);
+        panel.appendChild(bmChip);
+      }
+    }
+    panel.appendChild(attachButton);
+  }
+  await refresh();
+}
+
+async function openBookmarkAttachPicker(entry, panel) {
+  let all;
+  try {
+    all = await apiJson("/bookmarks");
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  if (!all.length) {
+    toast("No saved links yet — add one in Library → Links first.");
+    return;
+  }
+  const select = document.createElement("select");
+  select.className = "bookmark-attach-picker";
+  const placeholder = document.createElement("option");
+  placeholder.textContent = "Pick a saved link…";
+  placeholder.value = "";
+  select.appendChild(placeholder);
+  for (const bookmark of all) {
+    const option = document.createElement("option");
+    option.value = String(bookmark.id);
+    option.textContent = bookmark.title || bookmark.url;
+    select.appendChild(option);
+  }
+  select.addEventListener("change", async () => {
+    if (!select.value) return;
+    await apiJson(`/entries/${entry.id}/bookmarks`, {
+      method: "POST",
+      body: JSON.stringify({ bookmark_id: Number(select.value) }),
+    });
+    select.remove();
+    renderNoteBookmarksWhileEditing(panel.parentElement, entry);
+  });
+  panel.appendChild(select);
+  select.focus();
 }
 
 // Category <select> shared by capture (guided mode) and the edit form.
@@ -18289,8 +18383,23 @@ async function saveMeetingNote() {
   const button = $("meeting-save");
   button.disabled = true;
   status.classList.remove("error");
-  status.textContent = "Filing…";
+  status.textContent = "Summarizing…";
   try {
+    // Best-effort, same contract as suggest-tags: a model that's offline or
+    // errors must never block filing the note, so any failure here just
+    // means no summary block gets prepended, not a stalled save.
+    let summary = "";
+    try {
+      const result = await apiJson("/voice/summarize", {
+        method: "POST",
+        body: JSON.stringify({ text: content }),
+      });
+      summary = (result?.summary || "").trim();
+    } catch {
+      summary = "";
+    }
+
+    status.textContent = "Filing…";
     // Tagged, not force-categorised: filing still goes through the same
     // AI-or-keyword pipeline as any other capture (routes_entries.py), so a
     // meeting about a specific project lands there rather than in a generic
@@ -18300,10 +18409,11 @@ async function saveMeetingNote() {
     // what every list in this app shows as its name. Without it a saved
     // recording is titled by whatever word the transcript happens to open on.
     const title = ($("meeting-title")?.value || "").trim();
+    const body = summary ? `${summary}\n\n---\n\n${content}` : content;
     const saved = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({
-        content: title ? `${title}\n\n${content}` : content,
+        content: title ? `${title}\n\n${body}` : body,
         tags: ["meeting"],
       }),
     });

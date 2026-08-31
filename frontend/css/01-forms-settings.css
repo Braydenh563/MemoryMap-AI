@@ -1511,6 +1511,47 @@ mark.global-find-hit.global-find-current {
   color: #fff;
 }
 
+/* The status-bar clock's detail popover: seconds, the full date, the
+   timezone. Asked for directly. Fixed, not absolute — the status bar
+   itself has no positioned-ancestor treatment, and `left`/`bottom` are
+   set from the button's own rect in JS (openStatusClockDetail), not
+   here, since the clock's position among the bar's other optional slots
+   isn't fixed. Opens upward, the same "the status bar is the bottom of
+   the screen" reasoning `.lightbox-doc`'s siblings never have to think
+   about. */
+#status-clock-detail {
+  position: fixed;
+  z-index: 1040;
+  min-width: 12rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  box-shadow: var(--glass-shadow);
+}
+
+#status-clock-detail.hidden {
+  display: none;
+}
+
+.status-clock-detail-date {
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+}
+
+.status-clock-detail-time {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-clock-detail-zone {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+}
+
 .toast.error {
   border-left-color: var(--error);
 }

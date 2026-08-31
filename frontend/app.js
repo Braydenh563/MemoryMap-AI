@@ -24354,8 +24354,114 @@ function applyStatusClock() {
   if (on) {
     paintStatusClock();
     statusClockTimer = setInterval(paintStatusClock, 30000);
+  } else {
+    closeStatusClockDetail();
   }
 }
+
+// **The detail popover.** Asked for directly: seconds, the date and the
+// timezone, on click or hover — none of which belong in the bar's own
+// HH:MM (the comment on paintStatusClock explains why: glanced at, not
+// watched, so a 30s repaint is deliberate there). This is the opposite
+// case — open only while someone is actually looking at it — so it gets
+// its own 1s ticker, started on open and stopped on close rather than
+// running unconditionally in the background the way the bar's clock does.
+let statusClockDetailTimer = null;
+let statusClockDetailPinned = false;
+
+function paintStatusClockDetail() {
+  const now = new Date();
+  const dateEl = $("status-clock-detail-date");
+  const timeEl = $("status-clock-detail-time");
+  const zoneEl = $("status-clock-detail-zone");
+  if (!dateEl || !timeEl || !zoneEl) return;
+  dateEl.textContent = now.toLocaleDateString([], {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  timeEl.textContent = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  // Both the IANA name (what a person recognises — "Europe/London") and
+  // the numeric offset (what actually explains a gap between two
+  // people's clocks) — a name alone doesn't say which side of UTC you're
+  // on, and an offset alone doesn't say which timezone that even is.
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const offsetMatch = /GMT([+-]\d+(?::\d+)?)/.exec(
+    now.toLocaleTimeString([], { timeZoneName: "shortOffset" })
+  );
+  zoneEl.textContent = offsetMatch ? `${zone} (UTC${offsetMatch[1]})` : zone;
+}
+
+function openStatusClockDetail(pin) {
+  const panel = $("status-clock-detail");
+  const btn = $("status-clock");
+  if (!panel || !btn || !prefsCache?.status_bar_clock) return;
+  if (pin) statusClockDetailPinned = true;
+  panel.classList.remove("hidden");
+  btn.setAttribute("aria-expanded", "true");
+  paintStatusClockDetail();
+  if (!statusClockDetailTimer) {
+    statusClockDetailTimer = setInterval(paintStatusClockDetail, 1000);
+  }
+  // Positioned from the button's own rect, not a static CSS offset: the
+  // clock's horizontal position among the bar's other optional slots
+  // (STATUS_SLOTS) isn't fixed, so a hardcoded `right:` would drift out
+  // from under the button the moment a neighbouring slot is toggled off.
+  // Opens *upward* — the status bar is the bottom of the screen, so
+  // "below the button" is off-window.
+  const margin = 8;
+  const anchor = btn.getBoundingClientRect();
+  panel.style.left = "0px";
+  const box = panel.getBoundingClientRect();
+  let left = anchor.left;
+  if (left + box.width > window.innerWidth - margin) {
+    left = Math.max(margin, window.innerWidth - margin - box.width);
+  }
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.bottom = `${Math.round(window.innerHeight - anchor.top + margin)}px`;
+}
+
+function closeStatusClockDetail(force) {
+  // Hover-out shouldn't close a click-pinned popover — only Escape,
+  // outside click, or the clock itself being turned off should.
+  if (statusClockDetailPinned && !force) return;
+  statusClockDetailPinned = false;
+  $("status-clock-detail")?.classList.add("hidden");
+  $("status-clock")?.setAttribute("aria-expanded", "false");
+  if (statusClockDetailTimer) {
+    clearInterval(statusClockDetailTimer);
+    statusClockDetailTimer = null;
+  }
+}
+
+(() => {
+  const btn = $("status-clock");
+  if (!btn) return;
+  btn.addEventListener("mouseenter", () => openStatusClockDetail(false));
+  btn.addEventListener("mouseleave", () => closeStatusClockDetail(false));
+  btn.addEventListener("focus", () => openStatusClockDetail(false));
+  btn.addEventListener("blur", () => closeStatusClockDetail(false));
+  btn.addEventListener("click", () => {
+    if (statusClockDetailPinned) closeStatusClockDetail(true);
+    else openStatusClockDetail(true);
+  });
+})();
+document.addEventListener("click", (e) => {
+  if (
+    statusClockDetailPinned &&
+    !e.target.closest("#status-clock, #status-clock-detail")
+  ) {
+    closeStatusClockDetail(true);
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && statusClockDetailPinned) closeStatusClockDetail(true);
+});
 
 // --- Twitch-style Agent Monitor ---
 const agentMonitor = $("agent-monitor");

@@ -2908,8 +2908,18 @@ Link to another note with [[its first few words]]."></textarea>
          clock is not one of the bar's existing permanent landmarks, so it
          does not appear for everyone the moment this shipped. Asked for
          directly: "allow the user to choose to show the current time in the
-         bottom status bar." A <span>, not a button: it starts nothing. -->
-    <span id="status-clock" class="status-item status-clock hidden" role="status" aria-label="Current time"></span>
+         bottom status bar." Was a <span> that "starts nothing" — now a real
+         <button>, since a later ask gave it something to start: a detail
+         popover with seconds, the date and the timezone, none of which fit
+         a glanced-at HH:MM. -->
+    <button id="status-clock" type="button" class="status-item status-clock hidden"
+      aria-haspopup="dialog" aria-expanded="false" aria-controls="status-clock-detail"
+      aria-label="Current time — click or hover for the date, seconds and timezone"></button>
+    <div id="status-clock-detail" class="status-clock-detail hidden" role="dialog" aria-label="Current date and time">
+      <p id="status-clock-detail-date" class="status-clock-detail-date"></p>
+      <p id="status-clock-detail-time" class="status-clock-detail-time"></p>
+      <p id="status-clock-detail-zone" class="muted status-clock-detail-zone"></p>
+    </div>
   </footer>
 
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->

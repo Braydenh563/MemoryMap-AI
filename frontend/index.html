@@ -782,9 +782,16 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
             <button id="save-search" class="ghost small hidden" type="button"
               title="Save this filter so you can come back to it"><i class="ph ph-star ph-lead" aria-hidden="true"></i> Save filter</button>
-            <button id="search-help" class="ghost small" type="button"
+            <!-- Reported directly: this didn't match #capture-help/
+                 #draft-help's own circular icon-button styling despite the
+                 comment above #capture-help already claiming "same
+                 disclosure pattern as #search-help below" — the shape was
+                 shared, the class and markup weren't. -->
+            <button id="search-help" class="ghost small graph-help-toggle" type="button"
               aria-expanded="false" aria-controls="search-help-hint"
-              title="What can I type here?">?</button>
+              title="What can I type here?" aria-label="What can I type here?">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
             <select id="note-sort" aria-label="Sort notes" title="Sort notes">
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>

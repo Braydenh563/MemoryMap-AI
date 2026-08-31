@@ -267,3 +267,39 @@ def test_a_picture_with_no_reading_yet_contributes_nothing(session):
     session.commit()
     assert _media_readings(session, "![](/media/blank.png)") == ""
     assert _media_readings(session, "no pictures here") == ""
+
+
+def test_the_model_is_told_whats_inside_a_notes_own_attached_file(client, session):
+    """`_media_readings`' own sibling gap: a note's non-image *file*
+    attachments (a PDF, a .docx, a code file) never reached the model at
+    all — content only ever carried `/media/<filename>` references, and a
+    file attachment (Attachment table) isn't a content reference, it's a
+    separate list on the note. Round-tripped through the real upload route
+    so this exercises the same stored_name/uploads_dir path the reader
+    uses, not a hand-built row."""
+    from memorymap.api.routes_chat import _attachment_readings
+    from memorymap.core.database import Entry
+
+    entry = Entry(content="See the attached notes.")
+    session.add(entry)
+    session.commit()
+
+    uploaded = client.post(
+        f"/entries/{entry.id}/files",
+        files={"file": ("agenda.txt", b"Standup at 10am. Ship the release.", "text/plain")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+
+    reading = _attachment_readings(session, entry.id)
+    assert "agenda.txt" in reading
+    assert "Standup at 10am" in reading
+
+
+def test_a_note_with_no_attachments_gets_no_attachment_reading(session):
+    from memorymap.api.routes_chat import _attachment_readings
+    from memorymap.core.database import Entry
+
+    entry = Entry(content="Nothing attached here.")
+    session.add(entry)
+    session.commit()
+    assert _attachment_readings(session, entry.id) == ""

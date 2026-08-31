@@ -70,28 +70,38 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     # it — a MoE model's RAM/speed trade-off (see its own comment below) is
     # different enough from a dense model's that grouping them together
     # under one label was misleading, not just imprecise.
+    # Sizes below were checked against the live Ollama library this session
+    # (this file previously had no way to do that — see the vision/ocr
+    # groups' own history). Two real tag mistakes, not just size drift, came
+    # out of it: "qwen3.5:8b" doesn't exist (the real tag between 4b and 27b
+    # is 9b) and "gemma4:26b-a4b" doesn't exist as a plain tag (the model is
+    # a MoE *by construction* under the bare "gemma4:26b" tag — the "-a4b"
+    # suffix belongs to a more specific quantisation variant, not the
+    # ordinary pull). Both would have 404'd for anyone who tried them.
     "text": [
         # --- runs on almost anything, no GPU needed ---
-        {"name": "qwen3.5:2b", "size": "~1.6 GB", "purpose": "The lightest one genuinely worth using"},
-        {"name": "llama3.2", "size": "~2.2 GB", "purpose": "Fast all-rounder — the default, and a good first choice"},
-        {"name": "granite4.1:3b", "size": "~2.2 GB", "purpose": "Strong instruction-following at a small size"},
-        {"name": "qwen3.5:4b", "size": "~2.6 GB", "purpose": "Follows instructions closely — good for agent mode"},
+        {"name": "qwen3.5:2b", "size": "~2.7 GB", "purpose": "The lightest one genuinely worth using"},
+        {"name": "llama3.2", "size": "~2.0 GB", "purpose": "Fast all-rounder — the default, and a good first choice"},
+        {"name": "granite4.1:3b", "size": "~2.1 GB", "purpose": "Strong instruction-following at a small size"},
+        {"name": "qwen3.5:4b", "size": "~3.4 GB", "purpose": "Follows instructions closely — good for agent mode"},
         # --- 8 GB of RAM, or any modern GPU ---
         {"name": "llama3.1:8b", "size": "~4.9 GB", "purpose": "Better reasoning and reliable tool calls"},
-        {"name": "qwen3.5:8b", "size": "~5.2 GB", "purpose": "Best tool use at this size. Thinks, so slower per answer"},
+        {"name": "qwen3.5:9b", "size": "~6.6 GB", "purpose": "Best tool use at this size. Thinks, so slower per answer"},
         {"name": "mistral-nemo", "size": "~7.1 GB", "purpose": "Long-document work — a large context window"},
         {"name": "gemma4:12b", "size": "~7.6 GB", "purpose": "Long-form writing and summarising"},
     ],
     # Mixture-of-experts: big download, small working set. These need the
     # RAM of the model they are named after and run at roughly the speed of
-    # the *active* half — 26B-a4b holds 26B of weights and computes with 4B
-    # of them. That is the one thing worth explaining about them, because
-    # judged on download size alone nobody with 16 GB would try one, and
-    # they are the best answer for that machine.
+    # the *active* half — 26b holds 26B of weights and computes with roughly
+    # 4B of them (it is a MoE model by construction under its own bare tag,
+    # not a separate "-a4b" variant — see the note above this dict). That is
+    # the one thing worth explaining about them, because judged on download
+    # size alone nobody with 16 GB would try one, and they are the best
+    # answer for that machine.
     "moe": [
-        {"name": "gemma4:e2b", "size": "~4.4 GB", "purpose": "MoE: 2B-class speed with more capability. Try it if bigger models are too slow"},
-        {"name": "gemma4:e4b", "size": "~6.9 GB", "purpose": "MoE: noticeably more capable + better writing than the e2b"},
-        {"name": "gemma4:26b-a4b", "size": "~17 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
+        {"name": "gemma4:e2b", "size": "~7.2 GB", "purpose": "MoE: 2B-class speed with more capability. Try it if bigger models are too slow"},
+        {"name": "gemma4:e4b", "size": "~9.6 GB", "purpose": "MoE: noticeably more capable + better writing than the e2b"},
+        {"name": "gemma4:26b", "size": "~19 GB", "purpose": "MoE: 12B-class speed with far better answers. Needs ~16 GB"},
         {"name": "qwen3.5:35b-a3b", "size": "~21 GB", "purpose": "MoE: the most capable here, still quick. Needs ~24 GB"},
     ],
     "embedding": [
@@ -102,28 +112,33 @@ SUGGESTED_MODELS: dict[str, list[dict[str, str]]] = {
     # Any of these can be picked as the explicit vision-model override in
     # Settings → Models (ModelManager.vision_model()), for chat image
     # captions (ai/captioning.py) and image-carrying chat turns
-    # (routes_chat._chat_model_sees_images). Asked for directly. Two are
-    # newer/less certain than the rest of this file's own entries and worth
-    # flagging: qwen3-vl's Ollama tag is a plausible guess at this file's own
-    # naming convention rather than one confirmed against a running Ollama
-    # (no live registry access from where this was written) — if it 404s on
-    # pull, qwen2.5vl below is the confirmed fallback. glm-4v and
-    # deepseek-vl2 were asked about by name but are not included here at
-    # all: unlike every other model in this file, it isn't confirmed either
-    # is actually published on Ollama's library under any tag, and this
-    # file's own "fails safely" rule (a stale *tag* just 404s cleanly) does
-    # not cover suggesting a model that was never offered in the first
-    # place.
+    # (routes_chat._chat_model_sees_images). Asked for directly.
+    #
+    # **qwen3-vl's tags were unconfirmed when this list was first written (no
+    # live registry access) and have since been checked against the real
+    # Ollama library (ollama.com/library/qwen3-vl/tags) — 2b/4b/8b/30b/32b/235b
+    # all exist, so the hedge on those three entries is gone.** lfm2.5-vl is
+    # the opposite finding: checked, and it is **not** a bare Ollama library
+    # tag the way qwen3-vl's are — `ollama.com/library/lfm2.5-vl` does not
+    # exist (only `lfm2.5`, the text-only sibling, is in the curated
+    # library), so the entry below now pulls the GGUF straight from the
+    # publisher's own Hugging Face repo, the same `hf.co/…` shape the OCR
+    # group below already uses for exactly this situation. glm-4v and
+    # deepseek-vl2 were asked about by name but are still not included at
+    # all: neither is published under any tag on Ollama's library or as a
+    # findable GGUF repo, and this file's own "fails safely" rule (a stale
+    # *tag* just 404s cleanly) does not cover suggesting a model that was
+    # never offered in the first place.
     "vision": [
         {"name": "moondream", "size": "~1.7 GB", "purpose": "Tiny and fast — the one to try on modest hardware"},
-        {"name": "lfm2.5-vl", "size": "~1.6 GB", "purpose": "Liquid's small vision model — unconfirmed tag, see note above"},
-        {"name": "qwen3-vl:2b", "size": "~1.5 GB", "purpose": "Smallest of the Qwen-VL line — unconfirmed tag, see note above"},
-        {"name": "qwen2.5vl:3b", "size": "~2.2 GB", "purpose": "Confirmed tag, a fallback for the 2B/4B Qwen3-VL entries either side of it"},
-        {"name": "qwen3-vl:4b", "size": "~2.8 GB", "purpose": "A step up from the 2B — unconfirmed tag, see note above"},
+        {"name": "hf.co/LiquidAI/LFM2.5-VL-1.6B-GGUF", "size": "~1.6 GB", "purpose": "Liquid's small vision model — not in Ollama's own library, pulled from its publisher's Hub repo instead"},
+        {"name": "qwen3-vl:2b", "size": "~1.9 GB", "purpose": "Smallest of the Qwen-VL line"},
+        {"name": "qwen2.5vl:3b", "size": "~2.2 GB", "purpose": "A fallback for the 2B/4B Qwen3-VL entries either side of it, if either is ever pulled from Ollama's library and not this catalogue"},
+        {"name": "qwen3-vl:4b", "size": "~3.3 GB", "purpose": "A step up from the 2B"},
         {"name": "minicpm-v", "size": "~5.5 GB", "purpose": "Notably strong at reading text in images"},
         {"name": "llava", "size": "~4.7 GB", "purpose": "General-purpose vision, the longest-established option"},
         {"name": "qwen2.5vl:7b", "size": "~6.0 GB", "purpose": "Strong all-round vision and text reading"},
-        {"name": "qwen3-vl:8b", "size": "~6.5 GB", "purpose": "Unconfirmed tag, see note above"},
+        {"name": "qwen3-vl:8b", "size": "~6.1 GB", "purpose": "The largest of the small Qwen3-VL tags"},
         {"name": "qwen2.5vl:32b", "size": "~21 GB", "purpose": "The most capable here. Needs ~24 GB"},
     ],
     # Document readers, as opposed to the general vision models above. Asked
@@ -275,11 +290,24 @@ class ModelManager:
           and the layout, and is usually far smaller for that job.
 
         Hence three tiers rather than two, and the order matters: an explicit
-        OCR model, else the vision model the user already chose, else
-        auto-detect. Falling straight through to auto-detect when a vision
-        model *is* set would ignore a deliberate choice; requiring an OCR model
-        before any OCR works would make this a setting people must find before
-        the feature does anything.
+        OCR model, else an installed document-reader model auto-detected by
+        family name, else the vision model the user already chose (if any),
+        else whatever else can see. Requiring an OCR model before any OCR
+        works would make this a setting people must find before the feature
+        does anything, hence the auto-detect tier existing at all.
+
+        The auto-detected reader now outranks an explicit-but-unrelated
+        vision-model choice, reversed from an earlier version of this
+        function that had it the other way — reported live, directly
+        against what that version assumed: "I pressed read text with AI,
+        but it used my vision model and not my OCR model" from someone who
+        had a real OCR-family model installed and a vision model set for
+        chat, never an OCR model. Deferring to the *explicit* choice sounded
+        right in the abstract, but in practice it means a document reader
+        sitting right there in the installed list is never used for the one
+        job it's actually built for, on the strength of a setting that was
+        made for an unrelated purpose (chat). An explicit OCR model still
+        wins outright — that one really is the deliberate, on-purpose case.
         """
         return self._config.get_preference("ocr_model", "")
 
@@ -299,20 +327,18 @@ class ModelManager:
         explicit = self.ocr_model()
         if explicit:
             return explicit
-        # An explicit *vision* model is still a deliberate choice and outranks
-        # anything guessed here.
-        if self.vision_model():
-            return self.vision_model()
 
-        # Nothing chosen. Asked directly: "what if I have qwen3-vl and glm-ocr
-        # available?" — and plain vision auto-detect answers that badly, by
-        # taking whichever the backend happens to list first. Both can see an
-        # image; only one of them is built to transcribe a page.
+        # No explicit OCR model. Asked directly: "what if I have qwen3-vl and
+        # glm-ocr available?" — and plain vision auto-detect answers that
+        # badly, by taking whichever the backend happens to list first. Both
+        # can see an image; only one of them is built to transcribe a page.
+        # Tried before the vision-model fallback below, not after — see this
+        # function's own docstring for why that order flipped.
         #
-        # So a document reader wins when one is installed. Matched on the
-        # family names in SUGGESTED_MODELS["ocr"] rather than on capabilities,
-        # because no backend reports "good at OCR" — `capabilities` says
-        # `vision` for both, which is exactly why the tie needed breaking here.
+        # Matched on the family names in SUGGESTED_MODELS["ocr"] rather than
+        # on capabilities, because no backend reports "good at OCR" —
+        # `capabilities` says `vision` for both, which is exactly why the tie
+        # needed breaking here.
         if installed is None:
             try:
                 installed = ollama.list_models()
@@ -326,7 +352,11 @@ class ModelManager:
         for name in names:
             if is_ocr_model(name):
                 return name
-        # No reader installed: any model that can see is better than refusing.
+
+        # No reader installed. An explicit *vision* model is still a
+        # deliberate choice and beats guessing among whatever else can see.
+        if self.vision_model():
+            return self.vision_model()
         #
         # `vision_fallback` is for the caller that has already resolved it.
         # Resolving it here walks every installed model asking `/api/show`

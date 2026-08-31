@@ -138,9 +138,25 @@ Items 1–2, below, are the ones with real substance after that.
    it. Full build note, the design question's answer, and live thread-
    child verification in BACKLOG §77 item 2.
 
-3. **The Timeline's line view needs a real visual pass** — reported as needing
-   to look "very professional and ready for public use", and never scoped
-   beyond that. Say what specifically, next time it is reported. The grid
+~~3. **The Timeline's line view needs a real visual pass**~~ — the vague half
+   ("very professional and ready for public use") is still unscoped, say
+   what specifically next time it's reported; **§87.6's own concrete design
+   is now built**: "Thread" joins Category/Tag/None as a `group` value
+   (`GET /timeline?group=thread`, `routes_timeline._thread_bands`) — one
+   lane per root note and everything that continues it via `Entry.parent_id`,
+   the branch-and-tributary shape IDEAS.md asked for and the grid view could
+   never show at all. A parent outside the loaded date window becomes its
+   own root rather than a second query reaching further back (same
+   simplification the `days` filter already asks the rest of the view to
+   accept); a note with no children folds into one shared "Single notes &
+   smaller threads" lane rather than spending a lane on every lone note, the
+   same long-tail folding category/tag bands already use. No frontend
+   changes needed beyond the new dropdown option — `renderTimelineBranch`
+   already rendered whatever bands the backend sent. 2 new backend tests.
+   **Live-verified in Chromium**: seeded a real 4-note thread plus one lone
+   note via the real API, selected Line view → Thread — the thread's own
+   lane drew a spine-branching line through all 4 dots, the lone note
+   correctly landed in the shared lane, zero console errors. The grid
    view's text-cropping half is done; a re-report after that fix was never
    reproduced in this sandbox's Chromium and needs the actual browser/OS it
    happens on.
@@ -498,9 +514,8 @@ same session is in §88.0 so nobody re-fixes it.
 ~~13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).~~
     **Fixed** — `routes_graph.py`'s `_preview()` now strips a callout's
     opening line the same way it already strips a `#` heading.
-17. **Timeline line view redesign** — the concrete design is §87.6: threads as
-    tributaries off a time trunk, using `Entry.parent_id`, which that view
-    currently ignores entirely.
+~~17. **Timeline line view redesign.**~~ **Built** — see the live list's item 3
+    above for the full build note and live verification.
 ~~18. **Semantic search ignores time words** ("recents").~~ **Already
     built — checked before building, found done.** `search/query.py`'s
     `understand()` parses "recently"/"recent" (and "yesterday", "last week",
@@ -771,73 +786,41 @@ callouts" entry before rebuilding anything that sounds finished.**
    (Notes, Reminders' Done group, Library Documents, Library "All").
    Full narrative: HISTORY.md §100.
 
-2. **Uploading a document (not an image) to the chat composer fails
-   silently into the transcript.** Reported directly, reproduced in the
-   report itself: attaching `README.md` produced no upload and instead
-   wrote `*(Failed to upload README.md)*` as if it were the AI's own
-   message — an error rendered as chat content rather than surfaced as
-   what it is. The fix has several parts, asked for together:
-   - The upload failure itself needs surfacing as a toast/notification,
-     never as literal text injected into the transcript.
-   - **Any file type**, not just images, should be uploadable to chat and
-     "readable by the AI" — for a document this almost certainly means
-     text extraction (the same shape `core/ocr.py` and
-     `ai/captioning.py` already establish for images: extract once,
-     store, hand the extracted text to the model as context) rather than
-     sending arbitrary bytes.
-   - Every upload (any type) should land in the Library and be viewable
-     there "no matter the format" — needs a real per-type viewer story,
-     not just a download link, for at least the common cases (text/
-     markdown, PDF, common office formats — scope which ones directly
-     rather than guessing at "any format").
-   - **Files should stage, not upload immediately.** A file picked for a
-     chat message should show as a small card above the composer (name,
-     a file-type icon, an × remove button) and only actually reach
-     `/media/upload` (and the Library) when the message is actually
-     sent — not before. This is a different lifecycle from the current
-     image-attach flow, which uploads on pick.
-   - **A per-message attachment cap** — the user suggested 10 as a
-     common default but flagged uncertainty about whether that is too
-     heavy for this app; measure against `MAX_CHAT_IMAGE_BYTES`-style
-     per-file limits and real local-model context budgets before picking
-     a number.
-   - **Attach an already-uploaded Library file/image to a chat message**,
-     the same way a note can already be attached (`body.note_ids`) —
-     currently the composer can only attach something just picked from
-     disk, not something already in the Library.
-   This is a genuinely large feature, not a bug fix — reported with an
-   explicit "add this to the roadmap, I'm low on usage" rather than a
-   request to build it now. Scope it as its own session: it touches the
-   upload route, a new extraction step, the Library's viewer story, and a
-   staging-state redesign of the chat composer, none of which should be
-   mixed with a smaller fix in the same diff.
+~~2. **Uploading a document (not an image) to the chat composer fails
+   silently into the transcript.**~~ **Mostly already built by a later
+   session and never checked off here; one real bug found and fixed —
+   full audit in HISTORY.md §102.** Attached-document content never
+   reached the model at all (a field the composer sent, the backend never
+   read) — now fixed and tested. Still genuinely open: true staging
+   (upload on send, not on pick — a real behavioural decision, not a
+   bug), and attaching an already-uploaded Library document rather than
+   importing a fresh one.
 
-3. **Vision-model OCR, as an alternative (or complement) to Tesseract, with
-   model-pull suggestions in Settings → Models.** Asked as a question, not
-   yet scoped or built. `core/ocr.py` (Tesseract) and `ai/captioning.py`
-   (vision-model description) already establish the two shapes this would
-   choose between: OCR is "what text is in this image", captioning is
-   "what does this image show" — a vision-model OCR mode would follow
-   `caption_and_store`'s own write-once/background-trigger pattern, most
-   naturally as a per-image *choice* of extractor (Tesseract vs. a vision
-   model) rather than a wholesale replacement — raised directly ("might be
-   able to negate the need for py tesseract"), and worth resisting: a
-   vision model needs a multi-GB download and real per-image inference
-   time, where Tesseract is instant, needs no model download at all, and
-   matches this project's own standing "no heavy installs" stance
-   (CLAUDE.md's torch/sentence-transformers avoidance is the same
-   reasoning). Keep both, let the user pick. Named as candidates worth
-   checking against the actual Ollama library before committing to any
-   (unverifiable from this sandbox — no live internet or Ollama registry
-   access): Qwen3-VL if available there (the user's own preference over
-   Qwen2.5-VL, and plausibly the stronger current default), else
-   Qwen2.5-VL (2B/7B/72B), MiniCPM-V (small, specifically strong at OCR),
-   GLM-4V, DeepSeek-VL2, and Moondream (tiny, weaker, for low-spec
-   hardware). The user also named "glm-ocr" and "deepseek-ocr" specifically
-   — unconfirmed whether those are real, distinctly-named Ollama tags
-   separate from the general-purpose VL models above, or shorthand for
-   using GLM-4V/DeepSeek-VL2 for OCR; check the actual registry before
-   scoping model-pull UI around either name.
+~~3. **Vision-model OCR, as an alternative (or complement) to Tesseract, with
+   model-pull suggestions in Settings → Models.**~~ **Already built —
+   this whole item, found stale in this file rather than in the code, per
+   CLAUDE.md's own top rule.** `ai/vision_ocr.py` is exactly the per-image
+   *choice* of extractor this item asked for: `vision_ocr_text`/
+   `vision_ocr_and_store`/`vision_ocr_in_background` write to
+   `MediaUpload.vision_ocr_text`/`vision_ocr_model`, a field distinct from
+   Tesseract's own `ocr_text` — both are shown side by side in the lightbox
+   ("Text read by {model}", `library.js`), and `POST` to the vision-OCR
+   route (`routes_files.vision_ocr_media`) lets a person re-run or hand-edit
+   the result per image, same write-once/background-trigger shape
+   `caption_and_store` established. Settings → Models pulls its suggestions
+   from `SUGGESTED_MODELS` (`ai/model_manager.py`) via `GET
+   /models/suggested`, rendered by `app.js`'s `suggestedCatalog` loop
+   (wired in `settings.js`) — a `"vision"` group (moondream up to
+   qwen2.5vl:32b) and a separate `"ocr"` group specifically for document
+   readers (GLM-OCR, PaddleOCR-VL, Qwen3-VL-4B, DeepSeek-OCR), each with a
+   size and a purpose line. This also settles the exact question this item
+   left open: `glm-ocr`/`deepseek-ocr` **are** real, checked-against-the-
+   live-Hub tags (`hf.co/ggml-org/GLM-OCR-GGUF`/`hf.co/ggml-org/DeepSeek-OCR-GGUF`),
+   not shorthand for the general vision models — the code comment above
+   `SUGGESTED_MODELS["ocr"]` records that check explicitly, unlike the
+   `"vision"` list's own entries, several of which are still marked
+   "unconfirmed tag" for the same honest reason this item originally
+   couldn't check either.
 
 ~~4. **A visual indicator on a chat message's own metadata line for which
    mode answered it.**~~ **Built.** `messageMetaLine()` (app.js) takes a new
@@ -999,24 +982,50 @@ callouts" entry before rebuilding anything that sounds finished.**
    buttons click cleanly now, zero console errors.
 
 2. **Small-screen (tablet/phone) layout needs a real audit, not spot fixes.**
+   **A real audit now exists — Dashboard and Library, both widths, screenshotted
+   and zero console errors.** Tablet (820px): the tab bar fits on one row, the
+   dashboard's "Start something"/"Jump to" cards flow into a clean responsive
+   grid, and Library's dock plus its filter-chip row have room to spare — this
+   already reads as "a professional app," not a squished desktop layout,
+   which was the concrete worry behind this item. Phone (390px): also
+   genuinely clean — Library's five sub-tabs wrap into two full-width rows
+   rather than clipping, the dock stacks its title/New-document button/
+   refresh sensibly, filter chips wrap without overlap. **The one real,
+   already-diagnosed gap is the top tab bar specifically** (measured
+   separately, see below) — not Library, not the dashboard. Chat, Graph, the
+   whiteboard and the document editor at these widths are still unaudited;
+   worth checking before assuming the same clean result holds everywhere.
    Asked for directly — "better handling and ui structure of smaller device
-   sizes... potentially even a whole rearrangement." Not touched this
-   session: no viewport-resize testing exists against this app yet, ever;
-   every live Playwright check so far ran at a default desktop viewport.
-   Audit `docs/DESIGN.md`'s breakpoints against phone (~390px) and tablet
-   (~768-1024px) width, surface by surface: the tab bar (overflow-fade
-   already exists — check it degrades usably), the 17-section Settings
-   modal, the document editor (live-list item 0 — already "squished" at
-   *desktop* width), the whiteboard, the dashboard's masonry grid. Measure
-   before rebuilding.
+   sizes... potentially even a whole rearrangement." Audit `docs/DESIGN.md`'s
+   breakpoints against phone (~390px) and tablet (~768-1024px) width, surface
+   by surface: the 17-section Settings modal, the document editor (live-list
+   item 0 — already "squished" at *desktop* width), the whiteboard, the
+   dashboard's masonry grid. Measure before rebuilding.
 
-3. **Upload any document type (not just images), with a real per-type
-   viewer and AI able to read it — even a small model.** Asked for
-   directly; logged, not built. Broader than §89.2 below: a real Library
-   viewer per type (text/markdown, PDF, office — scope which), plus
-   content handed to the model as extracted plain text (`core/ocr.py`/
-   `ai/captioning.py`'s own shape) — cheap regardless of model size. Own
-   session.
+   **The tab bar specifically — measured live at 390px, the "not confirmed
+   either way" question from an earlier pass now answered.** The
+   `tabs-wrapped` mechanism (`syncTabOverflowFade`, `app.js`) does correctly
+   fire at phone width — the strip drops to its own full-width row rather
+   than squeezing beside the wordmark — but even on its own row, seven tabs
+   still don't fit a 364px-wide bar (`scrollWidth` 640 vs `clientWidth`
+   364: Dashboard/Notes/Chat/Graph visible, Library/Timeline/Reminders need
+   a scroll). The `fade-end` class and its `mask-image` **are** correctly
+   applied (checked via `getComputedStyle`, not assumed) — the mechanism
+   isn't broken. What a real screenshot at 390px shows is that a soft
+   24px alpha fade over a busy glass background doesn't read as "scroll for
+   more" next to a tab whose label is cut clean off mid-letter ("Librar|")
+   — it reads as the tab bar being broken, which is exactly the ambiguity
+   the prior pass flagged and couldn't settle without a browser. Not fixed
+   here: the honest next step is a stronger affordance (a small chevron
+   cue is the obvious candidate), but that's a new visual pattern with no
+   existing precedent anywhere else in this app to match against — a real
+   design call, not a "just add a gradient" fix, and better made
+   deliberately than invented under a broader autonomous pass.
+
+~~3. **Upload any document type (not just images), with a real per-type
+   viewer and AI able to read it — even a small model.**~~ **Built** —
+   see the live list's item 2 above for the full audit and the one real
+   bug (extracted text never reaching the model) found and fixed there.
 ~~4. **The documents-dock row wasn't aligned.**~~ **Fixed.** `#doc-view-seg`
    inherited `.seg`'s stock `margin-bottom: 0.5rem`; nothing zeroed it for
    `.doc-dock`, so the pills sat 4px above "AI edit"/"Extract notes"/the
@@ -1184,7 +1193,7 @@ already built above:**
    that it's cheap. §88.4 item 4's per-stage token accounting (built) is
    available for that measurement now.
 
-### 87.6 The Timeline line view — a concrete design, at last
+### 87.6 The Timeline line view — a concrete design, at last (built — see live list item 3)
 
 Live-list item 3 has said "needs a real visual pass" and nothing more, twice.
 Here is the specific version, and it comes from joining two things already in
@@ -1349,9 +1358,7 @@ from the file that documents it.
    discoverable than the button was. If it is re-reported after a hard
    refresh, the answer is discoverability, and the fix is a visible toggle
    next to the position select rather than folding both into one control.
-6. **Timeline line view redesign** — the concrete design is §87.6 above
-   (threads as tributaries off a time trunk, using `Entry.parent_id`, which
-   the view currently ignores entirely). Still unbuilt.
+~~6. **Timeline line view redesign.**~~ **Built** — see live list item 3.
 
 ### 87.8 Checked this session — three of four were already done, the fourth partly fixed
 
@@ -1516,11 +1523,12 @@ into a good one.
     this is hardening, not a diagnosis — the next session needs the actual
     browser/OS this is happening in. ~~**Also reported: the line-view's own
     note popup shows no markdown rendering and no sketch/image attachment
-    preview.**~~ **Fixed and verified live (HISTORY.md §51).** **Still
-    open:** the line view itself — reported as needing a real visual pass
-    ("very professional and ready for public use"), and grid view could
-    still take general UX polish beyond the text-cropping fix (not scoped
-    further — say what specifically, next time it's reported).
+    preview.**~~ **Fixed and verified live (HISTORY.md §51).** **§87.6's
+    concrete design (thread bands) is now built — see live list item 3.**
+    **Still open:** the *vague* half of the original report ("very
+    professional and ready for public use" — no specifics given), and grid
+    view could still take general UX polish beyond the text-cropping fix
+    (not scoped further — say what specifically, next time it's reported).
 16c. ~~**Images and files still can't be copied, pasted, or dragged into
     notes.**~~ **Two of three already worked — checked live before
     building anything (HISTORY.md §51).** The third path — a file-picker

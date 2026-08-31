@@ -32,9 +32,11 @@ from memorymap.api.schemas import (
 )
 from memorymap.core import deps, vault
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
+    Bookmark,
     Document,
     EmbeddingRecord,
     Entry,
+    EntryBookmark,
     EntryLink,
     EntryRevision,
 )
@@ -272,6 +274,35 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     return _to_out(
         session, entry, filed_by=filed_by, similar=_find_near_duplicate(session, entry)
     )
+
+
+class SuggestTagsBody(BaseModel):
+    content: str
+    tags: list[str] = Field(default_factory=list)
+
+
+@router.post("/suggest-tags")
+def suggest_tags_for_draft(body: SuggestTagsBody) -> dict:
+    """Tag suggestions for a note that doesn't exist yet — the other half of
+    a report that `/{entry_id}/reevaluate` only ever covered post-save:
+    "the ai and application doesnt suggest tags either before creating a
+    new note or after." "After" already had a path (buried in a kebab
+    menu action, easy to never find); "before" had none at all. Reuses
+    `librarian.suggest_tags` directly on the draft's own text — it only
+    ever needed a string and the tags already on it, never a saved
+    `Entry` — so the Capture form can offer suggestions while the user is
+    still typing, before Save exists to be clicked.
+    """
+    content = body.content.strip()
+    if not content:
+        return {"suggested_tags": []}
+    try:
+        suggested = librarian.suggest_tags(
+            content, body.tags, deps.get_model_manager(), deps.get_ollama()
+        )
+    except Exception:
+        suggested = []
+    return {"suggested_tags": suggested}
 
 
 @router.post("/{entry_id}/context", response_model=EntryOut)
@@ -531,6 +562,55 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     return suggestions
 
 
+class LinkSuggestionReasonPair(BaseModel):
+    source_id: int
+    target_id: int
+
+
+class LinkSuggestionReasonsBody(BaseModel):
+    pairs: list[LinkSuggestionReasonPair]
+
+
+@router.post("/link-suggestions/reasons")
+def link_suggestion_reasons(
+    body: LinkSuggestionReasonsBody, session: Session = Depends(get_session)
+) -> dict:
+    """Reasons for *pending* suggestions, not yet real links — the gap
+    `/links/backfill-reasons` (below) deliberately doesn't cover, since that
+    one only ever touches links that already exist. Asked for directly: the
+    suggestions panel's own "Why?" boxes had no way to get an AI guess
+    without linking first, editing, and re-linking. Best-effort per pair —
+    one bad or private pair doesn't sink the rest, and the whole call
+    degrades to an empty list rather than an error the moment the model is
+    down, so the caller can tell "nothing generated" from "everything
+    genuinely had one already" without a special-cased response shape."""
+    reasons = []
+    ai_unavailable = False
+    for pair in body.pairs[:12]:  # same cap link_suggestions() itself uses
+        source = session.get(Entry, pair.source_id)
+        target = session.get(Entry, pair.target_id)
+        if not source or not target or source.is_private or target.is_private:
+            continue
+        try:
+            reason = librarian.generate_link_reason(
+                manager.readable_content(source),
+                manager.readable_content(target),
+                deps.get_model_manager(),
+                deps.get_ollama(),
+            )
+        except Exception as exc:  # model offline, or no model configured
+            logger.info("link suggestion reason skipped: %s", exc)
+            ai_unavailable = True
+            continue
+        reasons.append(
+            {"source_id": pair.source_id, "target_id": pair.target_id, "reason": reason}
+        )
+    result = {"reasons": reasons}
+    if ai_unavailable:
+        result["ai_unavailable"] = True
+    return result
+
+
 class BackfillReasonsBody(BaseModel):
     """`ai=False` runs only the cheap embedding pass — useful when the model
     is known to be down and you just want the links marked."""
@@ -597,6 +677,60 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
         if other.id != entry.id and score >= 0.3
     ]
     return [_to_out(session, e) for e in related[:3]]
+
+
+class AttachBookmarkBody(BaseModel):
+    bookmark_id: int
+
+
+@router.get("/{entry_id}/bookmarks")
+def entry_bookmarks(entry_id: int, session: Session = Depends(get_session)) -> list[dict]:
+    """Bookmarks attached to this note — its References, alongside the
+    [[wiki links]] `links` already carries. Its own endpoint rather than a
+    field on EntryOut, matching `/related` right above: only the editor
+    needs this, and `_to_out_bulk`'s per-list-page bulk fetch shouldn't grow
+    a query for something most renders of a note never show."""
+    _existing_entry(session, entry_id)
+    rows = (
+        session.query(Bookmark)
+        .join(EntryBookmark, EntryBookmark.bookmark_id == Bookmark.id)
+        .filter(EntryBookmark.entry_id == entry_id)
+        .order_by(EntryBookmark.created_at)
+        .all()
+    )
+    return [
+        {"id": b.id, "url": b.url, "title": b.title, "group_name": b.group_name}
+        for b in rows
+    ]
+
+
+@router.post("/{entry_id}/bookmarks", status_code=201)
+def attach_bookmark(
+    entry_id: int, body: AttachBookmarkBody, session: Session = Depends(get_session)
+) -> dict:
+    _existing_entry(session, entry_id)
+    deps.get_or_404(session, Bookmark, body.bookmark_id, "Bookmark not found")
+    already = (
+        session.query(EntryBookmark)
+        .filter_by(entry_id=entry_id, bookmark_id=body.bookmark_id)
+        .first()
+    )
+    if not already:
+        session.add(EntryBookmark(entry_id=entry_id, bookmark_id=body.bookmark_id))
+        session.commit()
+    return {"attached": True}
+
+
+@router.delete("/{entry_id}/bookmarks/{bookmark_id}")
+def detach_bookmark(
+    entry_id: int, bookmark_id: int, session: Session = Depends(get_session)
+) -> dict:
+    _existing_entry(session, entry_id)
+    session.query(EntryBookmark).filter_by(
+        entry_id=entry_id, bookmark_id=bookmark_id
+    ).delete()
+    session.commit()
+    return {"detached": True}
 
 
 #: A page of the plain list, not a hard ceiling on notebook size — the

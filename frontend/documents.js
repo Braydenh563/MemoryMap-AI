@@ -364,6 +364,7 @@ async function openDocument(id) {
   renderDocOutline();
   renderDocNotes();
   renderDocBacklinks();
+  renderDocBookmarks();
   renderDocList();
 }
 
@@ -459,6 +460,75 @@ function renderDocNotes() {
     item.append(open, remove);
     list.appendChild(item);
   }
+}
+
+// References (§30): saved links attached to this document, the Documents
+// half of the same concept notes' own edit form already got this session.
+async function renderDocBookmarks() {
+  const list = $("doc-bookmarks");
+  if (!list || !currentDoc) return;
+  let attached;
+  try {
+    attached = await apiJson(`/documents/${currentDoc.id}/bookmarks`);
+  } catch {
+    return;
+  }
+  if (currentDoc?.id == null) return; // the document changed while this was in flight
+  list.replaceChildren();
+  for (const bookmark of attached) {
+    const item = document.createElement("li");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "outline-link";
+    setLabel(open, `ph:link ${bookmark.title || bookmark.url}`);
+    open.title = bookmark.url;
+    open.addEventListener("click", () => window.open(bookmark.url, "_blank", "noopener,noreferrer"));
+    const remove = smallButton("✕", "Remove this reference", async () => {
+      await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
+      renderDocBookmarks();
+    });
+    item.append(open, remove);
+    list.appendChild(item);
+  }
+}
+
+async function attachBookmarkToDocument() {
+  if (!currentDoc) return;
+  let all;
+  try {
+    all = await apiJson("/bookmarks");
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  if (!all.length) {
+    toast("No saved links yet — add one in Library → Links first.");
+    return;
+  }
+  const wrap = $("doc-bookmarks-wrap");
+  const select = document.createElement("select");
+  select.className = "bookmark-attach-picker";
+  const placeholder = document.createElement("option");
+  placeholder.textContent = "Pick a saved link…";
+  placeholder.value = "";
+  select.appendChild(placeholder);
+  for (const bookmark of all) {
+    const option = document.createElement("option");
+    option.value = String(bookmark.id);
+    option.textContent = bookmark.title || bookmark.url;
+    select.appendChild(option);
+  }
+  select.addEventListener("change", async () => {
+    if (!select.value || !currentDoc) return;
+    await apiJson(`/documents/${currentDoc.id}/bookmarks`, {
+      method: "POST",
+      body: JSON.stringify({ bookmark_id: Number(select.value) }),
+    });
+    select.remove();
+    renderDocBookmarks();
+  });
+  wrap.insertBefore(select, $("doc-attach-bookmark"));
+  select.focus();
 }
 
 async function createDocument() {
@@ -1310,6 +1380,8 @@ const MD_ACTIONS = {
   italic: { wrap: "*", placeholder: "italic text" },
   strike: { wrap: "~~", placeholder: "struck through" },
   code: { wrap: "`", placeholder: "code" },
+  highlight: { wrap: "==", placeholder: "highlighted" },
+  clearformat: { custom: "clearformat" },
   ul: { line: "- " },
   ol: { line: "1. " },
   task: { line: "- [ ] " },
@@ -1322,15 +1394,25 @@ const MD_ACTIONS = {
   hr: { insert: "\n---\n" },
 };
 
-function applyMarkdown(kind) {
+// `boxId` is what lets the Notes composer reuse this whole table. It used to
+// be hardcoded to the document editor, and duplicating the logic for notes
+// would have been the third place in this app to independently decide what
+// `**` means — see MD_ACTIONS' own comment and editor.js's "/" menu, which
+// are already deliberately kept to one dialect.
+function applyMarkdown(kind, boxId = "doc-content") {
   const action = MD_ACTIONS[kind];
-  const box = $("doc-content");
-  if (!action) return;
+  const box = $(boxId);
+  if (!action || !box) return;
   const { selectionStart: start, selectionEnd: end, value } = box;
   const selected = value.slice(start, end);
 
   if (action.wrap) {
-    wrapDocSelection(action.wrap, action.placeholder);
+    wrapDocSelection(action.wrap, action.placeholder, boxId);
+    return;
+  }
+  if (action.custom === "clearformat") {
+    clearInlineFormatting(box);
+    finishMarkdownEdit(box, boxId);
     return;
   }
   if (action.line) {
@@ -1362,14 +1444,43 @@ function applyMarkdown(kind) {
     const at = start + action.insert.length;
     box.setSelectionRange(at, at);
   }
+  finishMarkdownEdit(box, boxId);
+}
+
+// The bookkeeping every toolbar edit ends with. The document editor has a
+// dirty flag and a live preview to refresh; the notes composer has neither,
+// but everything downstream of typing there (autogrow, the character count,
+// draft autosave) listens for `input`, which a programmatic value change does
+// not fire on its own.
+function finishMarkdownEdit(box, boxId) {
   box.focus();
-  markDocDirty();
-  renderDocPreview();
+  if (boxId === "doc-content") {
+    markDocDirty();
+    renderDocPreview();
+  } else {
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+// Strip a highlight or a text colour from the selection. The counterpart to
+// the two colour pickers - asked for directly ("change the colour, or remove
+// the highlight"), and without it the only way back out of a colour was to
+// hand-delete the markers.
+function clearInlineFormatting(box) {
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  const selected = value.slice(start, end);
+  if (!selected) return;
+  const cleaned = selected
+    .replace(/==(?:[a-z]+\|)?([^=\n]+?)==/g, "$1")
+    .replace(/\+\+[a-z]+\|([^+\n]+?)\+\+/g, "$1");
+  if (cleaned === selected) return;
+  box.value = value.slice(0, start) + cleaned + value.slice(end);
+  box.setSelectionRange(start, start + cleaned.length);
 }
 
 // Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
-function wrapDocSelection(marker, placeholder = "") {
-  const box = $("doc-content");
+function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
+  const box = $(boxId);
   const { selectionStart: start, selectionEnd: end, value } = box;
 
   // Toggle off, case 1: the selection sits *inside* an existing pair of
@@ -1385,8 +1496,7 @@ function wrapDocSelection(marker, placeholder = "") {
     box.selectionStart = start - marker.length;
     box.selectionEnd = end - marker.length;
     box.focus();
-    markDocDirty();
-    renderDocPreview();
+    finishMarkdownEdit(box, boxId);
     return;
   }
   // Toggle off, case 2: the markers themselves are part of the selection
@@ -1403,8 +1513,7 @@ function wrapDocSelection(marker, placeholder = "") {
     box.selectionStart = start;
     box.selectionEnd = start + inner.length;
     box.focus();
-    markDocDirty();
-    renderDocPreview();
+    finishMarkdownEdit(box, boxId);
     return;
   }
 
@@ -1896,9 +2005,56 @@ $("doc-content").addEventListener("scroll", () => {
     heightBeforeDrag = null;
   });
 }
-for (const button of document.querySelectorAll("#doc-toolbar button")) {
-  button.addEventListener("click", () => applyMarkdown(button.dataset.md));
+// Both formatting toolbars, wired the same way. `data-md-target` on the
+// toolbar names the textarea it drives, defaulting to the document editor so
+// #doc-toolbar keeps working exactly as it did without carrying the
+// attribute. The colour <select>s reset themselves after firing: they are
+// action menus wearing a select, not a setting with a current value, so
+// leaving "green" showing afterwards would claim a state that does not exist.
+const MD_COLOURS = ["yellow", "green", "blue", "pink", "purple", "orange", "red", "grey"];
+
+function initMarkdownToolbars() {
+  for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
+    const boxId = bar.dataset.mdTarget || "doc-content";
+    for (const button of bar.querySelectorAll("button[data-md]")) {
+      // mousedown-preventDefault keeps the caret in the textarea: without it
+      // the click moves focus to the button first and the selection the
+      // action is about to act on is already gone.
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", () => applyMarkdown(button.dataset.md, boxId));
+    }
+    for (const select of bar.querySelectorAll("select[data-md-colour]")) {
+      const kind = select.dataset.mdColour;
+      for (const colour of MD_COLOURS) {
+        const option = document.createElement("option");
+        option.value = colour;
+        option.textContent = colour[0].toUpperCase() + colour.slice(1);
+        select.appendChild(option);
+      }
+      select.addEventListener("change", () => {
+        const colour = select.value;
+        select.value = "";
+        if (!colour) return;
+        const box = $(boxId);
+        if (!box) return;
+        const { selectionStart: start, selectionEnd: end, value } = box;
+        const selected = value.slice(start, end) || (kind === "ink" ? "coloured text" : "highlighted");
+        // Yellow is the highlight's default, so it needs no colour prefix -
+        // and writing one would put `==yellow|x==` in the note where `==x==`
+        // says the same thing.
+        const open = kind === "ink"
+          ? `++${colour}|`
+          : colour === "yellow" ? "==" : `==${colour}|`;
+        const close = kind === "ink" ? "++" : "==";
+        box.value = value.slice(0, start) + open + selected + close + value.slice(end);
+        box.setSelectionRange(start + open.length, start + open.length + selected.length);
+        finishMarkdownEdit(box, boxId);
+      });
+    }
+  }
 }
+
+initMarkdownToolbars();
 
 $("doc-word-goal").addEventListener("click", promptDocWordGoal);
 $("doc-word-goal-submit").addEventListener("click", () => {
@@ -1934,6 +2090,7 @@ try {
 $("doc-export-md").addEventListener("click", exportDocumentMarkdown);
 $("doc-export-pdf").addEventListener("click", exportDocumentPdf);
 $("doc-delete").addEventListener("click", deleteCurrentDocument);
+$("doc-attach-bookmark").addEventListener("click", attachBookmarkToDocument);
 $("doc-ai").addEventListener("click", openDocAiPanel);
 $("doc-ai-close").addEventListener("click", closeDocAiPanel);
 $("doc-ai-cancel").addEventListener("click", closeDocAiPanel);

@@ -1,6 +1,662 @@
 # Session handover
 
-## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
+## Latest round — two real nav-history bugs found by measurement, AI-first note filing, and text highlighting
+
+**Read BACKLOG.md §109 before touching anything visual.** The single most
+useful thing this round produced is a method, not a fix.
+
+**The nav-history popup took roughly six rounds because it was two separate
+bugs wearing one complaint,** and because every earlier round "verified" a
+fix by looking at a screenshot. Looking is not evidence at this precision.
+
+1. `--modal-bg` is `rgba(…, 0.96)` — 4% see-through *by design*. Over the
+   note editor (the densest small text in the app) that was enough for the
+   form underneath to read as ghost text. Found by decoding the screenshot
+   PNG and sampling raw pixels: `(252,253,255)` at the top of the popup
+   against `(244,246,253)` lower down, a real measurable gradient. New
+   `--modal-bg-opaque` token (alpha 1) for this popup; `--modal-bg` left
+   alone for its other callers. Re-sampled uniform after.
+2. The rows are `<button>`s and the app's generic control-height rule pinned
+   them to 32.36px while their content needed 35px, so `overflow: hidden`
+   sliced every glyph to its top few pixels. **That is the "illegible
+   dashes" symptom an earlier round in this same session dismissed as a
+   screenshot/DPI artifact — that call was wrong**, and it is why the bug
+   outlived several fixes. `scrollHeight` vs `clientHeight` settled it in
+   one number. Fixed with `height: auto; min-height: 0` + flex centring.
+   Ironically the move out of `#status-bar` (an earlier round's attempted
+   fix) is what exposed it: inside the footer, `.status-item` rules won.
+
+**Two tools to reach for, and please keep using them:**
+- `scratchpad/pngpixel.py` — ~50 lines, pure Python, no dependencies. Reads
+  a PNG and prints exact pixel values. Use it for any report about
+  transparency, contrast, or a colour looking wrong.
+- `scrollHeight` vs `clientHeight` in `page.evaluate` — for any report about
+  text being cut off, clipped, or "garbled".
+
+**Never close a visual report as "a capture artifact" without a measurement
+that says so.** This session did exactly that once and paid for it.
+
+### Also this round
+
+- **Note filing now asks the AI first** (`janitor.categorise`). It used to
+  return on a confident centroid match or a kNN match and only fall through
+  to the model if both declined — which in an established notebook meant the
+  model was consulted almost never, since *some* category's vectors are
+  nearly always close. Reported directly: notes landing in the wrong place
+  and needing fixing by hand. The semantic paths are unchanged and still
+  carry the no-model case (`_ask_llm` reports method `'none'` when Ollama
+  isn't running or the reply won't parse, and that is the fallback trigger),
+  with a test now pinning that offline behaviour explicitly.
+- **Text highlighting**: `==highlight==` and `==green|text==` (six
+  allowlisted colours, the allowlist living inside the regex so no colour
+  can be typed without a matching stylesheet rule). Inline markdown, no
+  schema change, renders everywhere `renderInlineMarkdown` runs. Verified
+  live: correct classes, correct computed colours, no regression to bold.
+  **No toolbar button for it** — this editor has no formatting toolbar at
+  all; a selection toolbar is where it belongs (BACKLOG §109.4).
+- **AI Skills sidebar**: the sticking was never broken (measured: pinned at
+  y=196.97 through a 400px scroll). The *height* was — `--page-sticky-h` is
+  the page's figure, but this sidebar's scroller is a nested 534px one, so
+  it ran 52px below the fold. Now `container-type: size` + `100cqh`.
+- Image gallery OCR/vision-OCR text is collapsible like the caption, and
+  long words/URLs no longer breach the tile (`overflow-wrap: anywhere` —
+  which also repaired the clamp, since an unwrappable line cannot be
+  line-clamped). Lightbox captions gained a "Described by <model>" byline.
+- Graph options separator margins made symmetric.
+- Settings gained a manual "Regenerate greeting" button. The dashboard
+  persona was **already** wired end-to-end (`dashboard_persona` →
+  `resolve_persona_prompt` → the greeting's system prompt); only the manual
+  trigger was missing. Checked before building, per the standing rule.
+
+### Reported but did NOT reproduce — check the reporter's cache first
+
+Both were reproduced live and behaved correctly, so if they come back, do
+not re-read the handler: compare the served file's ETag against what the
+browser actually has.
+
+- **Bookmark URL editing** (third report). Full flow driven in Chromium:
+  Edit → "Title:" prefilled → save → "URL:" prefilled → save → both persist
+  through a full page reload.
+- **Nav-history popup missing in the Documents tab.** Measured in Notes and
+  in Library→Documents: visible, correct box, `elementFromPoint` at its
+  centre lands inside the menu, no page errors.
+
+### Open, and honestly unverified
+
+- **"The kebab doesn't appear when I highlight stuff."** Partly explained:
+  `SELECTION_POPUP_EXCLUDED` deliberately excludes `textarea`, so the popup
+  never appears while *editing* a note — only on rendered content. On a
+  rendered `.entry-content` it works (verified live: popup visible, correct
+  text). If the complaint is about the editor, that is current design and
+  needs a decision, not a bug fix.
+- Everything in BACKLOG §109.3/§109.4 — the triaged competitor gaps (6 of
+  the 12 were already built; **check that table before building any of
+  them**) and the brainstormed list.
+
+`python -m pytest tests/` — 2,604 tests, green. `ruff check .` clean. Note
+the full suite needs ~7 minutes and has been OOM-killed when run in the
+foreground here; run it in the background.
+
+## New session — v0.1.7: Links/bookmarks, note+document References, a Contents outline, a meeting-summary extraction, and a real "what would you like to create?" picker for the Library — all live-verified in Chromium, full suite green throughout
+
+**Same session, one more fast round after this was first written — BACKLOG.md
+§107 has the full detail, this is the short version.** Fixed and live-
+verified: the nav-history popup was unreadable in dark mode (a
+spacing/font-size problem, not a colour-contrast one — cramped rows read
+as garbled at a glance); Contents redesigned into a card grid (reported
+"ugly" — it was bare headings and a flat link list); a bookmark's Edit
+action only ever touched the title, never the URL. Logged, not built,
+given the session's remaining budget: whiteboard select/move/copy-between-
+boards UX (asked for directly, needs its own scoping session — copying an
+object to a *different* board is new surface, no existing endpoint does
+it); the AI Skills tab's step/tool lists still reading as unstyled
+(reported with a screenshot, but the renderer wasn't located before budget
+ran out — start with `renderSkillsDashboard` in library.js next time).
+
+Continuation of the same long autonomous stretch this file's own "Prior
+session" entry (just below) describes; picked up mid-task and kept going
+through several rounds of new asks added to the same session rather than
+started fresh. `python -m pytest tests/` (~1,700 tests now, having added
+~40 this stretch) run repeatedly and green throughout; `ruff check .` clean
+throughout. Every UI claim below was verified live in Chromium via
+Playwright against a fresh scratch server and data dir per feature —
+screenshots and DOM assertions, not just reading the code, per this
+project's own standing rule.
+
+- **Meeting-note structured summary (BACKLOG §102 item 2, closed).**
+  `librarian.summarize_meeting` (modeled on the existing `suggest_tags`
+  shape: one utility-model completion, never blocks the caller), a new
+  `POST /voice/summarize` endpoint, wired into `saveMeetingNote()` so a
+  transcript gets a "Decisions" / "Action items" block prepended
+  automatically, best-effort — verified live that the network call fires
+  and, with no model available in this sandbox, the plain transcript still
+  saves untouched rather than stalling or corrupting.
+
+- **The `#search-help` "?" button really is a circle now.** A regression
+  from an earlier fix in this same session: `.library-toolbar button`
+  (class+element, higher specificity) was overriding `.graph-help-toggle`'s
+  `height: 2rem` back to the toolbar's shared `--control-h` (2.3rem) while
+  leaving width alone — an oval, measured live at 32×36.8px before the fix,
+  32×32px after. `.library-toolbar .graph-help-toggle` (two classes) wins
+  the specificity fight without touching the shared rule.
+
+- **Version bumped to v0.1.7.** `src/memorymap/__init__.py`,
+  `pyproject.toml`, and both `CHANGELOG.md` copies (kept byte-identical,
+  `test_docs_site.py` enforces it) — tagging/pushing the release itself was
+  deliberately left to the user, per this project's own release checklist
+  (`docs/RELEASING.md`) treating that as a separate, human-triggered step.
+
+- **Links, Contents and note/document References — the bulk of this
+  stretch, §106 in BACKLOG.md has the full narrative.** In short: a new
+  `Bookmark` model and `/bookmarks` CRUD (its own table — a bookmark has no
+  body to search or file, so it doesn't go through the note pipeline);
+  free-text grouping with a "/" convention rendered as a visual hierarchy,
+  filter chips, search, pin, and a duplicate-URL warning (not a block) in a
+  new Library → **Links** sub-tab; a **References** panel in both the note
+  editor and the document editor (`entry_bookmarks`/`document_bookmarks`
+  join tables, their own small endpoints, not folded into `EntryOut`'s
+  bulk-fetched fields); a **Contents** sub-tab outlining the whole notebook
+  by category or by tag, built from the already-loaded `allEntries` rather
+  than a new endpoint. One real bug caught live before shipping:
+  `ph-push-pin-fill` doesn't exist in this app's bundled Phosphor icon set
+  (checked the actual font file), so the pin button rendered blank — fixed
+  to the `-slash` variant, matching the pinned-chat button's own pairing
+  elsewhere in the app.
+
+- **The Library "All" tab's create button (BACKLOG §105 item 1, closed).**
+  "Everything" and every other ambiguous filter chip now open a real
+  "What would you like to create?" modal instead of silently defaulting to
+  "+ New note" — a full overlay chosen over a `kebabMenu()` dropdown
+  specifically because the button isn't wrapped in `.menu-wrap` and the
+  surrounding `.library-view-section` clips absolutely-positioned children,
+  the same trap `wireEscapedActionMenu` already exists to work around
+  elsewhere in this codebase.
+
+- **Two things investigated and correctly *not* built, rather than built
+  blind — both in BACKLOG §106 with the full reasoning:**
+  1. A true floating always-on-top tray quick-capture window (BACKLOG §102
+     item 5). The tray's existing "New note" item already covers the load-
+     bearing value (one click, past the lock, straight to a focused empty
+     note); the literal ask needs a second `pywebview` window this sandbox
+     has no Windows and no display to build or see at all — confirmed live
+     that importing `pystray` here raises `Xlib.error.DisplayNameError`,
+     the exact failure `_start_tray`'s own except-clause anticipates.
+  2. Inline per-claim chat citations (BACKLOG §102 item 6). Resolved by
+     reading the code, not by needing a live model: notes are numbered in
+     the prompt but nothing instructs the model to cite that number, and
+     `#chat-results` is a plain source list beside the answer, never parsed
+     out of the answer text. The same gap applies to search summaries and
+     the weekly digest, not just chat — confirmed to be one cross-cutting
+     absence, not three. Left for a session with a live Ollama/LM Studio,
+     since whether a small local model would reliably emit parseable
+     citation markers is a prompt-reliability question a fake transport
+     can't settle.
+
+- **A second competitor-analysis pass (Kortex/Granola/Mem.ai), re-pasted
+  mid-session, cross-checked against §102 rather than re-logged** — see
+  §106's own closing section. It overlapped almost entirely with §102's
+  existing list; the two genuinely new pieces of information were folded
+  in (item 2/"structured meeting summary" is now built, confirmed above;
+  the citation ask explicitly named the weekly digest too, folded into the
+  citations finding above).
+
+**What's still open, in BACKLOG §102/§105/§106, not attempted this
+stretch:** a live rough-bullets-during-recording capture flow (§102 item
+1); typed note templates with a fixed schema (§102 item 4, needs a schema
+decision first); a dedicated highlights/clippings collection (§102 item 7,
+needs a design decision on whether it's a real gap); local speaker
+diarization on transcripts (§102 item 8, needs checking whether the
+transcription library even supports it); live inline tag suggestions while
+typing (§102 item 9); one-click "synthesize into a draft" (§102 item 10); a
+Library categories section, tag rename-everywhere, and creating a note/chat
+directly from the Library's own picker (§105 items 1–3, renumbered this
+stretch after item 1 there got built); a "has references" indicator on a
+note's graph node for bookmarks (§106).
+
+## Prior session — a long live-report batch, mostly real bugs found by reproducing rather than guessing: a whiteboard-boards-vanish bug, an OCR-model-priority bug, a genuine CSS over-constraint behind the Documents kebab "transparency", a Timeline lane-collision bug, and a chat file-picker/backend drift, plus several smaller UI fixes
+
+Continuation of a single long autonomous stretch, working through a large
+queue of live user reports and asks rather than a single ticket. Full suite
+(~1,600 tests) run repeatedly through the session, green throughout except
+one self-caught `test_style_scale.py` failure (an `0.3rem` that should have
+been a `--space-*` token, fixed before commit); `ruff check .` clean
+throughout. Every UI claim below was verified live in Chromium via
+Playwright — screenshots and/or DOM measurements taken before and after,
+per this project's own standing rule that a screenshot alone can mislead
+(two "looks cramped" impressions turned out, once actually measured, to be
+a correct and consistent 9.6px gap — logged so the next session trusts
+measurement over eyeballing).
+
+- **Documents kebab dropdown "transparency" — root cause found and fixed.**
+  Reproduced exactly (menu height collapsed to ~14.78px, matching the
+  user's screenshot) with the same repro shape as an earlier, unfinished
+  investigation. Root cause: `openActionMenu()` can set `.action-menu-flip`
+  (`bottom: calc(100% + 4px)`) based on the menu's pre-escape position;
+  `wireEscapedActionMenu()`'s `place()` then sets its own inline `top`
+  without clearing that class, leaving a `position: fixed` element with
+  both `top` and `bottom` pinned and `height: auto` — an over-constrained
+  box Chromium collapses instead of falling back on. Dropping
+  `.action-menu-flip` when escaping fixes it (`place()` already implements
+  the same up/down decision itself). Verified live: height is now the
+  correct 174.78px in both palettes that reproduced it.
+
+- **Whiteboard boards "deleting themselves" — real bug, not data loss.**
+  There was never a delete-board endpoint at all: `list_boards()` only
+  ever listed notes with a *current* nonzero node/sketch/object count, so
+  a freshly created board (empty until something is drawn) or one cleared
+  back to empty mid-edit silently dropped out of the only UI that could
+  find it again — the underlying note was untouched. Added `Entry.is_board`
+  (additive column), set on explicit creation and the first time anything
+  is drawn on a plain note (`_require_board`, the one choke point every
+  node/sketch/object write already passes through); `list_boards()` now
+  includes `is_board` entries regardless of count. One existing test
+  asserted the old (buggy) behaviour outright and needed updating; added a
+  second covering a board emptied back out after having content.
+
+- **OCR model priority bug — reported live, matched a real design flaw.**
+  "I pressed read text with AI, but it used my vision model and not my OCR
+  model." `resolve_ocr_model()` let an *explicit* vision-model choice (set
+  for chat, never for OCR) outrank an installed OCR-specialised model
+  (`glm-ocr` etc.) auto-detected by family name — a deliberate, tested
+  decision from an earlier session that turned out backwards once a real
+  user hit it. Reordered so the auto-detected reader wins over an
+  unrelated explicit vision choice; an explicit *OCR* model still wins
+  outright. Updated the test that pinned the old order, with its
+  docstring's reasoning corrected in place rather than silently changed.
+
+- **Tesseract availability never surfaced — "the option should be disabled
+  or hidden if pytesseract isn't installed", exactly right.** Added
+  `tesseract_available` to `/models/status`; both places that offer a
+  Tesseract-OCR action (the lightbox kebab, the gallery card's own menu)
+  now grey it out with an explanatory tooltip instead of silently
+  no-oping, and every "offline (OCR)" label in the gallery/lightbox is
+  renamed to name the actual method (Tesseract) instead of a property this
+  100%-offline app already shares everywhere. Verified live on this
+  sandbox, which has no tesseract binary: both menus render it disabled.
+
+- **Timeline dense-cluster label/dot collisions — the real fix this time.**
+  An earlier pass in this same session clamped only the label's own
+  position when a same-day cluster staggered too far; reported again
+  ("happens on all the line views, not just Thread") because the *dots*,
+  not just the label, were what collided with a neighbouring band.
+  Reproduced with 5 same-day category bands of 8 notes each — "Ideas",
+  "Health" and "Travel" all visibly bled into each other. Restructured
+  `renderTimelineBranch` into two passes: compute every band's own stagger
+  and the vertical clearance its cluster actually needs first, then lay
+  out lanes with at least the old fixed gap but more whenever a band needs
+  it. Verified live against the same reproduction: clean separation in all
+  five bands.
+
+- **Chat composer file picker vs. what upload actually accepts — real
+  drift, found by diffing, not guessing.** `#chat-image-input`'s `accept=`
+  offered `.cs`, which `docview.VIEWABLE_SUFFIXES` does not include —
+  confirmed live, a `.cs` upload 415s. Missing in the other direction:
+  `.mjs`, `.cjs`, `.cfg`, `.bash`, `.zsh`, `.scss`, `.hpp`, `.swift`,
+  `.kt`, `.r`, `.ppt` are all readable but were never offered — confirmed
+  live, a `.mjs` upload already imported correctly once tried directly.
+  Made the list an exact mirror of `VIEWABLE_SUFFIXES` and added a
+  regression test that pins the two to stay equal.
+
+- **A Settings/Skills spacing audit, done by measuring, not eyeballing.**
+  `.settings-row-spaced` was defined twice in one file with two different
+  values — the cascade always picked the second, so the first was
+  silently dead; consolidated. Three genuine 0px gaps found (Skills' "Add
+  skill" row, Memory's "add a preference" row, the Logs panel's
+  dropped-records line — all missing `margin-top` on an element that only
+  ever had `margin-bottom`), all fixed. `.entry-item` (the Skill Logs
+  panel's own row) had *zero* CSS anywhere in the app — its container is a
+  `<div>`, not `<ul>`, so it never matched `.entry-list li`'s existing
+  card styling; every skill run rendered as bare unstyled text. Gave it
+  the same treatment. Separately: the AI Skills library grid stretched
+  every card in a row to match whichever one had a steps/tools `<details>`
+  open, leaving row-mates with a large dead gap above their Run button —
+  `align-items: start` on `.skills-grid` fixed it.
+
+- **Smaller, still-verified fixes:** the lightbox's `zoom-out` cursor
+  bled into its own info panel (no `cursor: default` override there);
+  the "Your notes" filter's `?` button didn't match the app's other
+  circular icon help-toggles despite a comment claiming it did; the
+  status bar's Back/Forward pair got a navigation-history popup (button
+  and right-click, both open the same most-recent-first list) — its own
+  positioning bug (computed `top` disagreeing with the rendered position
+  by ~800px, for a reason not fully run down) was caught before landing
+  and worked around with the same `bottom: calc(...)` pattern other fixed
+  controls above the status bar already use, rather than chased further;
+  the existing "hide Back and forward" status-bar toggle didn't also hide
+  Settings' own mirrored copy of the same buttons — one `data-status-slot`
+  attribute fixed it; `tags:<N` filter syntax added for finding
+  under-tagged notes (`is:untagged` only ever covered the zero case); a
+  pre-save tag-suggestion feature added to the Capture form (post-save
+  suggestions existed, buried in a kebab menu; pre-save had nothing); the
+  Library "All" tab's create button now matches the active filter chip
+  for the four kinds with one obvious thing to create.
+
+- **Investigated, not changed:** "notes might be undeleting themselves" —
+  checked the global undo stack's Ctrl+Z-in-a-text-field guard (already
+  correct, already commented as the fix for exactly this failure mode);
+  no reproduction found. "AI doesn't consult itself for categorization" —
+  `create_entry()` already defaults to the AI (`janitor.categorise()`)
+  whenever no category is explicitly chosen; the likely real cause is the
+  janitor's own semantic-match/k-NN heuristics winning over the LLM more
+  often than expected in a small notebook, a tuning/UX question rather
+  than a code bug, left for a follow-up decision.
+
+- **Scoped, not built — logged to BACKLOG.md rather than rushed:** §105
+  (Library "All" tab's create-button picker modal for "Everything", a
+  categories section, tag-rename-everywhere, create-from-Library) and
+  §102's addition (a "synthesize N notes into a draft" action, the one
+  item missing from an earlier competitor-research pass re-pasted this
+  session — the rest of that paste was already logged and corrected).
+  ANALYSIS.md §104 answers a sub-categories design question asked
+  directly (recommend against a new hierarchy field; use a tag or a
+  hub-note-plus-links cluster instead) and points a knowledge-graph
+  question at BACKLOG.md §101's already-prioritised next step rather than
+  re-deriving a second answer.
+
+## Prior session — 4 CodeQL notes closed, four stale roadmap/backlog claims corrected against the running code, live web access confirmed and used to fix real broken/wrong model suggestions, the phone-width tab-bar and Library/Dashboard/Settings-modal questions answered live, a first genuinely live competitor read, a real private-note security leak found and fixed in the AI's own tools, and a real gap closed in what the AI's context actually tells it about linked notes
+
+Autonomous session, worked from CLAUDE.md/ROADMAP.md/HANDOVER.md/BACKLOG.md
+top-down rather than a single user-picked item. Full suite (~1,600 tests) run
+twice — once as a baseline before any change, once after — both green;
+`ruff check .` clean throughout.
+
+- **4 open CodeQL notes (2 "unused global variable", 2 "cyclic import"),
+  triaged rather than blanket-dismissed.** The two global-variable notes were
+  real, if harmless: `entry/manager.py`'s tag-count cache used three bare
+  module globals (`_tag_cache`, `_tag_cache_lock`, `_tag_cache_reset_registered`)
+  reassigned via `global` inside `all_tags()`/`_ensure_tag_cache_reset_registered()`
+  — each write is read on the *next* call, never the one writing it, which
+  is exactly the shape CodeQL's `py/unused-global-variable` flags and exactly
+  the shape a process-lifetime cache is supposed to have. Refactored into a
+  small `_TagCache` holder object so the mutation is an attribute write, not
+  a `global` rebind — same behaviour, no more bare global for the check to
+  flag, no `global` keyword left in the file at all. Relevant tests
+  (`test_entry_indexes.py`, `test_insights_api.py`) and `ruff` both green.
+  **The two cyclic-import notes were left alone, deliberately**: both are
+  lazy, function-local `from memorymap.core import deps` /
+  `from memorymap.ai.embeddings import ...` imports, already commented at
+  the call site as the fix for a real circular dependency at module-load
+  time (`deps` imports back into `entry.manager` transitively via
+  `ai.embeddings -> ai.model_manager`). CodeQL's `py/cyclic-import` flags the
+  module dependency graph regardless of where the import statement sits, so
+  there's no code change that clears it short of restructuring which module
+  owns what — real architecture work, not something to do blind as one item
+  in a broad pass. Recommend dismissing those two in the GitHub UI as
+  "won't fix" with this reasoning, rather than have a future session force a
+  refactor for a Note-severity lint on a correct pattern.
+
+- **Two stale "still open" doc claims, found by checking the running code
+  before trusting the docs — CLAUDE.md's own top rule, caught twice more.**
+  - ROADMAP.md §89 item 3 ("vision-model OCR, as an alternative to
+    Tesseract, with model-pull suggestions in Settings → Models") was fully
+    built already: `ai/vision_ocr.py` (`vision_ocr_text`/
+    `vision_ocr_and_store`/`vision_ocr_in_background`, writing to a field
+    distinct from Tesseract's own `ocr_text`), a real per-image endpoint to
+    view/re-run/hand-edit it, both surfaced side by side in the lightbox,
+    and `SUGGESTED_MODELS["vision"]`/`["ocr"]` (`ai/model_manager.py`) wired
+    end to end through `GET /models/suggested` → `settings.js` →
+    `app.js`'s `suggestedCatalog` render. Struck in ROADMAP.md with a
+    pointer to where it lives, so a future session doesn't rebuild it.
+  - BACKLOG.md §20's "Alembic migrations — the additive auto-migrator
+    cannot rename or drop" line was never updated when this was built
+    (ROADMAP's own live list item 7 already said "Built", but §20's older
+    copy of the same claim wasn't touched). Struck, with a pointer to
+    `_ensure_alembic_baseline()`.
+
+- **This sandbox has working web access this session — confirmed, and used
+  productively rather than just noted.** Several past sessions logged in
+  this project's own history hit a network policy blocking
+  `huggingface.co`/live Ollama-registry access; that block is not present
+  right now. Used it to close two real, checkable uncertainties in
+  `ai/model_manager.py`'s `SUGGESTED_MODELS["vision"]` list rather than
+  leave them hedged: `qwen3-vl:2b/4b/8b` are confirmed real, published
+  Ollama library tags (the "unconfirmed tag" hedge on all three removed,
+  sizes corrected against the real listing) — and `lfm2.5-vl`, the other
+  "unconfirmed" entry, turned out to be **wrong as written**: there is no
+  `lfm2.5-vl` on Ollama's own library (only its text-only sibling `lfm2.5`
+  is there), so that suggestion would have 404'd for anyone who clicked it.
+  Fixed to pull `hf.co/LiquidAI/LFM2.5-VL-1.6B-GGUF` directly from the
+  publisher's Hub repo instead — the same `hf.co/…` shape the OCR group
+  already uses for exactly this situation. `ruff` and
+  `test_model_sizes.py`/`test_ocr_model.py` green. **Worth knowing for the
+  next session**: if this sandbox's network access is intermittent or
+  session-specific, don't assume it's still open without checking — this
+  entry is what changed, not a standing guarantee.
+
+- **The phone-width tab bar — the "not confirmed either way" question a
+  prior small-screen pass left open, now actually answered live.** Started
+  the real server, drove it with Playwright at a real 390px viewport (per
+  CLAUDE.md's own recipe: `domcontentloaded` + an explicit wait, not
+  `networkidle`; `#lock-password`/`#lock-submit` for first-run setup).
+  Confirmed with real measurements, not assumption: the `tabs-wrapped`
+  mechanism (`syncTabOverflowFade`, `app.js`) does correctly drop the tab
+  strip to its own full-width row at phone width rather than squeezing it
+  beside the wordmark — but even on its own row, seven tabs still don't fit
+  a 364px bar (`scrollWidth` 640 vs `clientWidth` 364), and the `fade-end`
+  class with its `mask-image` **is** correctly applied (checked via
+  `getComputedStyle`, not assumed broken). A real screenshot at 390px is
+  what settled the actual question: a soft 24px alpha fade over glass next
+  to a tab label cut off mid-letter ("Librar|") reads as broken, not as
+  "scroll for more." **Not fixed** — the honest next step is a stronger
+  affordance (a chevron cue is the obvious candidate), but nothing like
+  that exists anywhere else in this app to match against, so inventing one
+  under a broad autonomous pass felt like exactly the kind of unscoped
+  visual call this project's own docs repeatedly warn against making
+  alone. Logged in ROADMAP.md §90 item 2 with the real numbers, so the next
+  session doesn't have to re-measure this specific question.
+
+- **A first genuinely live competitor read** (Kortex, Granola, Mem.ai),
+  asked for directly now that web access works — every prior competitor
+  read in this project's history (§30, §59, §60, §88.2) was done blind,
+  from supplied text or blocked network. Delegated the web research itself
+  to a background subagent (kept its work off this session's own context),
+  then **audited every finding it returned against the actual codebase
+  before logging anything** — the same discipline §87.1's own audit table
+  used, and worth doing again here since a subagent has no way to grep this
+  repo's git history the way a live session can. Two of its findings were
+  wrong and corrected rather than filed as gaps: "no way to scope a chat
+  query to chosen notes" (false — `note_ids`/`attached_notes_only` already
+  do this) and "no import from other note apps" (overstated — `POST
+  /import/markdown`/`/import/directory` already round-trip Obsidian-style
+  frontmatter and whole folders; only a Notion-specific importer is
+  actually missing). The corrected, ranked list — nine worth-taking items,
+  four explicitly out of scope for a no-cloud app, with the two corrections
+  above — is BACKLOG.md's new §102. Kortex.co and Granola.ai were blocked by
+  this sandbox's own egress proxy even though general web search worked, so
+  those two products are read from reviews/docs pages rather than a
+  first-hand render — said plainly in §102 itself, not glossed over.
+
+- **The Settings modal at phone width — checked, and it holds up.**
+  Continued the same Playwright session, this time reaching the real
+  `#settings-btn` trigger. At 390px the modal collapses to a single-column
+  section list (no two-pane desktop layout fighting the width), fills the
+  viewport cleanly, zero `<html>` horizontal overflow, zero console errors —
+  drilled into a section (Models) and re-checked, same result. No fix
+  needed; the earlier "not confirmed either way" from a prior pass is now
+  a confirmed pass.
+- **A real, live security bug found and fixed in the AI's own tools, not
+  from a report — found while auditing skills/tools per the user's direct
+  question "are there any issues there."** `restore_note`
+  (`ai/tools/__init__.py`) used `manager.get_entry` directly instead of
+  `_require_note`, because its whole job is reaching a *deleted* note,
+  which `_require_note` always refuses. What it silently dropped along with
+  that refusal was the *other* half of `_require_note` — the private-note
+  gate — so the AI could restore a private note straight out of the bin
+  and read its content back through `_note_summary`, the exact "guard
+  quietly missing from one tool" shape CLAUDE.md's own history names as
+  this project's costliest review failure. Checked every other
+  `manager.get_entry` call site in the same file (`_tag_note`,
+  `_link_notes`) — both are pre-existence checks immediately followed by a
+  real `_require_note` call on the same id, not the same bug. Fixed with
+  one added check; one new regression test
+  (`test_restore_note_refuses_a_deleted_private_note`,
+  `test_notebook_access.py`) confirms the note stays both unreadable *and*
+  still deleted — refusing to read it must not restore it as a side effect.
+- **A real gap closed in what the AI's context tells it about linked
+  notes — the exact thing asked for directly: "know their link reasons...
+  understand their meaning and purpose... at a relatively low cost."**
+  `search_manager._retrieve` already traced a connected note back to its
+  specific `EntryLink` row and computed `reason` text — `routes_chat.py`
+  already threaded it through to `match_info` — and then
+  `librarian._match_info_hint` silently dropped it, because that function
+  had branches for a "semantic"/"keyword" match but none for "connected".
+  The reason was computed, forwarded twice, and thrown away one step before
+  reaching the prompt. Added the missing branch (~6 lines); separately,
+  **agent/tool mode had no version of this at all** — `build_agent_messages`
+  called `librarian.note_for_prompt` directly and skipped
+  `_match_info_hint`/the attached/connected flags entirely, so a tool-mode
+  turn was silently worse-informed than a plain librarian turn on the exact
+  same notes. Both fixed, both reuse the one existing helper — no new
+  computation, so no new cost to the prompt budget beyond the words
+  themselves. New test asserts the reason text lands in both prompt paths,
+  not just the API response `test_a_connected_notes_reason_reaches_both_
+  prompts_not_just_the_api` — the existing coverage only checked the API,
+  which is exactly how this stayed unnoticed.
+- **A live small-screen audit, Dashboard and Library, both widths,
+  screenshotted rather than reasoned about.** Verdict: genuinely clean at
+  both 390px and 820px — no overlap, no clipping, nav/dock/filter-chips all
+  adapt sensibly, zero console errors either width. The tab-bar affordance
+  gap (above) is the one real, already-diagnosed exception; Chat, Graph,
+  the whiteboard and the document editor at these widths are still
+  unaudited — say so plainly rather than extrapolating from two tabs to
+  the whole app.
+- **`SUGGESTED_MODELS`'s remaining groups (text/moe) also had real, wrong
+  entries, not just the vision group already fixed** — two tags that would
+  have 404'd (`qwen3.5:8b` should be `qwen3.5:9b`; `gemma4:26b-a4b` should
+  be plain `gemma4:26b`, the model is MoE *by construction* under that
+  tag, not a separate suffix) and several sizes off by a meaningful margin
+  (`qwen3.5:2b` was listed at ~1.6 GB, really ~2.7 GB; `gemma4:e2b` at
+  ~4.4 GB, really ~7.2 GB — QAT builds run larger than a plain quant, which
+  is presumably where the original guess came from). All checked against
+  the live Ollama library this session and fixed; `gemma4:12b` and
+  `granite4.1:3b` were already accurate and left alone.
+- **Two more BACKLOG.md items found already built while auditing the
+  web-search feature the user asked about directly**: a per-turn result
+  cache and "say which engine answered" (both already shipped, wired
+  end-to-end to the frontend) — corrected in place. The web-search
+  fetch/reader path's SSRF defence (`websearch.py`) was read closely and
+  is genuinely solid: every redirect hop re-validated, private/loopback/
+  link-local/reserved/multicast addresses all blocked, the connection
+  pinned to the exact checked IP (closes a DNS-rebinding window), correct
+  TLS hostname verification preserved despite the pinning. No gap found;
+  said so rather than inventing one to have something to report.
+
+### Continued in the same session, after the user asked to keep going
+
+Both items logged above as "deliberately not started" **were** started and
+substantially finished once the user asked to continue — recorded here
+rather than left stale above.
+
+- **Timeline line view redesign (§87.6) — built.** "Thread" joins
+  Category/Tag/None as a `group` value (`GET /timeline?group=thread`,
+  `routes_timeline._thread_bands`): one lane per root note and everything
+  that continues it via `Entry.parent_id`. A parent outside the loaded
+  date window becomes its own root; a note with no children folds into one
+  shared "Single notes & smaller threads" lane. No frontend rendering
+  change needed — `renderTimelineBranch` already drew whatever bands the
+  backend sent. 2 new tests; **live-verified in Chromium**: a real 4-note
+  thread plus one lone note, seeded via the app's own API, correct lanes
+  and a drawn spine-branching line, zero console errors.
+- **Non-image chat file upload — audited first, and it was mostly already
+  built.** Checking before building (again) turned up: upload failures
+  already `toast()` rather than writing fake transcript text; a non-image
+  file already imports as a real `Document` via `core/docview.py`'s
+  extraction (markitdown + vision-OCR fallback), reachable in the Library.
+  **One real bug found in the audit, not from a report: the extracted text
+  never reached the model.** The composer has sent `document_ids` since
+  the staging UI shipped; `ChatRequest` never declared the field and
+  `routes_chat.py` never read it — an attached document showed as a chip
+  and the AI answered as though it didn't exist. Fixed (`document_ids`,
+  `_attached_documents()`, folded into the same `notes` list both chat
+  prompt paths render), with a test that checks the model actually
+  received the document's text, not just that the API echoed the
+  attachment. Full narrative: HISTORY.md §102. Genuinely still open:
+  true staging (upload on send, not on pick — a real behavioural
+  decision) and attaching an *existing* Library document rather than
+  importing a fresh one.
+- **A live-reported Documents-list kebab menu visual bug (screenshot
+  supplied) — investigated, not reproduced.** Tried the exact reported
+  menu (`wireEscapedActionMenu`, already reparented to `<body>`) in both
+  light and dark theme, phone and desktop width; every attempt measured
+  and screenshotted clean. The screenshot's teal accent doesn't match this
+  app's default palette — the same shape a prior Settings-modal-contrast
+  report turned out to be (a custom accent/glass setting, not a default-
+  theme bug). One small, real, unrelated thing found along the way: the
+  escaped menu's dark-mode background is very slightly translucent
+  (`rgba(24,27,37,0.97)`), enough that a row directly behind it is
+  faintly visible — not fixed, since it doesn't match what was reported.
+- **A batch of feature asks, logged as BACKLOG §103, none built**: Library
+  "All" tab utility (a real Tag Manager *backend* with no frontend screen;
+  click-a-tag-to-filter may already partly exist via Library tag cards,
+  unconfirmed; renaming a saved chat is a genuine gap), meeting-note
+  editing status (recording works, editing an existing one unconfirmed),
+  whiteboard curved lines/custom anchor points (partly built already — 8
+  fixed anchors and an automatic straight/curve toggle exist; freeform
+  anchors and interactive curve-bending don't), whiteboard bring-to-front/
+  send-to-back (genuinely absent, checked directly).
+
+### Continued again — a self-caught wrong claim, and a real BACKLOG §103 item built
+
+- **"Renaming a saved chat" was wrongly logged as missing — self-caught,
+  not from a report.** The prior stretch's own grep for `renameConversation`
+  came back empty and concluded the feature didn't exist; it does, just
+  under a different name — the chat list's kebab menu already has both a
+  manual "Rename" (a prompt dialog, `PUT /conversations/{id}`, which itself
+  already existed as `rename_conversation`) and "Name with AI"
+  (`POST /conversations/{id}/retitle`). Corrected in BACKLOG §103 rather
+  than left standing — the exact mistake this project's own top rule
+  exists to catch, caught one level later than ideal but still before
+  anyone acted on it.
+- **Whiteboard bring-to-front / send-to-back — built, and cheaper than the
+  prior stretch's own scoping guessed.** That entry assumed a schema
+  change would be needed; checking first found every whiteboard item
+  already has an unused `z` column that the render code already painted
+  from (`.style("z-index", d => d.z)`) — so the entire fix was one
+  function to change `z` deliberately (`wbSetZOrder`, reusing the existing
+  undo-stack "move" entry shape) plus two context-menu items. One real
+  architectural limit stated rather than glossed over: cards and objects
+  share an HTML stacking context and interleave freely; a sketch lives in
+  a separate SVG layer beneath both and can only reorder against other
+  sketches, never in front of a card. **Live-verified in Chromium**: two
+  overlapping text objects created via the real API, the back one
+  confirmed actually obscured (Playwright's own actionability check
+  reported the front box intercepting pointer events, not assumed),
+  right-clicked → Bring to Front → stacking visibly flipped on screen, and
+  the new `z` survived a full page reload read from live state, not just
+  checked in memory. Full narrative: BACKLOG §103.
+- Not touched this stretch: curved-line/custom-anchor-point whiteboard
+  work (already partly built per the prior audit — needs a real design
+  decision on freeform anchors before building, not a quick fix) and the
+  Tag Manager frontend screen (the backend for it — `rename_tag`/
+  `delete_tag`/`GET /tags` — already exists; no UI calls any of it).
+
+### What I still could not check
+
+- The tray quick-capture idea and the other §102 "worth taking" items are
+  logged, not built or scoped further — same status as everything else
+  freshly landed in a backlog section.
+- The competitor research itself: Kortex.co and Granola.ai's actual pages
+  were not directly rendered (proxy-blocked), so their feature claims in
+  §102 rest on third-party reviews and the products' own docs pages, not a
+  first-hand look — flagged in §102, repeated here since it affects how
+  much weight to put on those specific two products' claims versus Mem.ai's
+  (which did render directly).
+- Chat, Graph, the whiteboard and the document editor at phone/tablet
+  width — not part of this session's audit, which covered only Dashboard,
+  Library and Settings. Don't assume the same clean result without
+  checking; §90 item 2's own text says exactly this.
+- The reported kebab-menu visual bug (above) — genuinely unreproduced, not
+  ruled out. Next report needs the browser/OS and whether a custom accent/
+  glass setting is on.
+- BACKLOG §103's "click a tag to filter notes" claim rests on reading one
+  code comment (`openTimelineBand`'s own note in `app.js`), not a live
+  click-through of the Library tag cards — confirm before either building
+  a Tag Manager screen around it or assuming it needs building too.
+- The whiteboard z-order fix was verified for text objects specifically
+  (create, overlap, reorder, persist); node cards and sketches share the
+  same code path but were not separately driven live this stretch.
+
+## Prior session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
 
 Branch `claude/docs-review-priority-work-sequ16`, a long session driven
 almost entirely by live user reports rather than the roadmap — commits below,

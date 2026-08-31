@@ -70,6 +70,11 @@ CODE_SUFFIXES = frozenset(
         ".yml", ".toml", ".ini", ".cfg", ".sh", ".bash", ".zsh", ".sql",
         ".html", ".htm", ".css", ".scss", ".xml", ".rs", ".go", ".java",
         ".c", ".h", ".cpp", ".hpp", ".rb", ".php", ".swift", ".kt", ".r",
+        # C# — reachable through the note-attachment picker (ATTACHMENT_SUFFIXES,
+        # routes_files.py) but not readable here, so a .cs file could be
+        # attached and then had no viewer, no AI reading, and no import path.
+        # Every other mainstream language already in this set had all three.
+        ".cs",
     }
 )
 

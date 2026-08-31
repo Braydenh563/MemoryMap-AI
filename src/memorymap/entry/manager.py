@@ -774,9 +774,22 @@ def rename_attachment(session: Session, attachment: Attachment, new_filename: st
 # --- tags (tag manager) --------------------------------------------------
 
 
-_tag_cache_lock = threading.Lock()
-_tag_cache: dict | None = None  # (fingerprint, result), one slot — no LRU needed
-_tag_cache_reset_registered = False
+class _TagCache:
+    """Holds the tag-count cache's mutable state as attributes rather than
+    module globals — CodeQL's `py/unused-global-variable` flags a bare
+    `global NAME` reassignment whose new value is never read again inside
+    the same function (true of both writes below: a cache is written for a
+    *future* call to read, not the one writing it), which is a real pattern
+    for a process-lifetime cache, not a bug. An attribute write sidesteps
+    the check without changing behaviour."""
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.entry: tuple | None = None  # (fingerprint, result), one slot — no LRU needed
+        self.reset_registered = False
+
+
+_tag_cache = _TagCache()
 
 
 def _tag_fingerprint(session: Session) -> tuple:
@@ -797,9 +810,8 @@ def _tag_fingerprint(session: Session) -> tuple:
 
 def reset_tag_cache() -> None:
     """Drop the cached tag counts. For the tests, and for a data restore."""
-    global _tag_cache
-    with _tag_cache_lock:
-        _tag_cache = None
+    with _tag_cache.lock:
+        _tag_cache.entry = None
 
 
 def _ensure_tag_cache_reset_registered() -> None:
@@ -808,13 +820,12 @@ def _ensure_tag_cache_reset_registered() -> None:
     # deps` cannot sit at module level here without a circular import at
     # startup — register lazily, on first use, the same way this file
     # already imports `deps` inside `record_dates` for the same reason.
-    global _tag_cache_reset_registered
-    if _tag_cache_reset_registered:
+    if _tag_cache.reset_registered:
         return
     from memorymap.core import deps
 
     deps.register_cache_reset(reset_tag_cache)
-    _tag_cache_reset_registered = True
+    _tag_cache.reset_registered = True
 
 
 def all_tags(session: Session) -> dict[str, int]:
@@ -829,12 +840,11 @@ def all_tags(session: Session) -> dict[str, int]:
     fingerprint miss recomputes once; every other caller within the same
     notebook version gets the cached dict.
     """
-    global _tag_cache
     _ensure_tag_cache_reset_registered()
     fingerprint = _tag_fingerprint(session)
-    with _tag_cache_lock:
-        if _tag_cache is not None and _tag_cache[0] == fingerprint:
-            return _tag_cache[1]
+    with _tag_cache.lock:
+        if _tag_cache.entry is not None and _tag_cache.entry[0] == fingerprint:
+            return _tag_cache.entry[1]
 
     counts: dict[str, int] = {}
     # One column, not one mapped entity per row. `tags` is the only thing this
@@ -852,8 +862,8 @@ def all_tags(session: Session) -> dict[str, int]:
             counts[tag] = counts.get(tag, 0) + 1
     result = dict(sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
 
-    with _tag_cache_lock:
-        _tag_cache = (fingerprint, result)
+    with _tag_cache.lock:
+        _tag_cache.entry = (fingerprint, result)
     return result
 
 

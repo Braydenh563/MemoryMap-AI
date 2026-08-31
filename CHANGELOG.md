@@ -7,6 +7,152 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+- A formatting toolbar for the Notes composer, matching the document
+  editor's: bold, italic, code, lists, links, plus highlight, a highlight
+  colour, a text colour and Remove formatting. Both toolbars share one
+  markdown table, so they cannot drift apart.
+- Text colour in notes and documents: `++red|text++`, in eight colours.
+- Selecting text in any editor now offers the actions menu (it previously
+  only worked on rendered content), including Highlight with a colour.
+- Similar notes can be turned into real links in place, from both the
+  editing panel and the "Similar notes" action on a note card.
+- Suggested links now get an AI-drafted reason automatically, which you can
+  edit before accepting.
+- Settings: automatic image captioning and automatic text-reading (OCR and
+  vision model) can each be turned off. Both stay on by default.
+- Settings: a Regenerate button for the dashboard's welcome message.
+- Text highlighting now supports named colours: `==green|text==`
+  (yellow, green, blue, pink, purple, orange).
+- Settings → Personas: a "Regenerate greeting" button for the dashboard
+  welcome message.
+- The image gallery's OCR and vision-OCR text is collapsible like the
+  caption, and the lightbox shows who described an image, not just who
+  transcribed it.
+- Text highlighting in notes and documents: `==highlighted text==`, an
+  inline markdown convention rendered everywhere note/document content
+  already renders (no new data model).
+- A "generate suggested reasons" action for the Graph tab's pending link
+  suggestions, filling in empty "Why?" boxes via the AI.
+- A "Clear" button for the AI Skills sidebar's run log.
+
+### Fixed
+- The navigation-history popup: it capped at 12 entries with a count of
+  what is not shown, and its rows no longer clip their own text.
+- Editing a saved link now opens one inline form with the title, URL and
+  group together, rather than two dialogs in sequence.
+- The image gallery's actions menu closes when you pick something, instead
+  of staying open over the rename field.
+- The AI Skills step list numbers no longer collide with the panel edge.
+- The Graph options divider no longer crowds the time read-out.
+- Local scripts and stylesheets are versioned, so an upgrade cannot leave a
+  browser running the previous release's files.
+- **Notes are filed by the AI again.** Auto-categorisation used to return
+  on a close vector match and only ask the model if that failed, so in an
+  established notebook the model was almost never consulted and notes landed
+  in the wrong category. The model is now asked first; the semantic paths
+  remain for when no model is running.
+- The navigation-history popup was unreadable: its background was 4%
+  transparent so the page showed through, and its rows were pinned shorter
+  than their own text so every glyph was clipped to a sliver.
+- The AI Skills sidebar is now the height of its own panel instead of
+  overflowing past the bottom of the screen.
+- Long words and URLs no longer overflow the edge of an image-gallery card.
+- The nav-history popup's cramped spacing, a cut-off last row, and an
+  overly-narrow popup for short entries.
+- The Library sub-tab menu bar now matches the Notes sub-tab bar's card
+  styling and corner rounding (was picking up a global rounding rule by
+  file-load order, since it never set its own `border-radius`).
+- Markdown document previews in the lightbox used the translucent card
+  background instead of the near-opaque modal one.
+- `#search-help` and `#capture-help` now close on outside click/Escape via
+  the shared toggle helper, and share the floating popover style used
+  elsewhere.
+- A stray horizontal scrollbar in the Library Contents outline was cutting
+  off text and its hover highlight.
+- The AI Skills tab's step/tool fact list had no visual container.
+- The Graph Options toggles (and two more elsewhere in Settings) now use
+  the same pill styling as other toggles instead of a bare switch.
+## [0.1.7] — 2026-08-31
+
+### Added
+- **Links**: a bookmark shelf for websites, in a new Library sub-tab —
+  save a URL, group them (a free-text group with a "/" convention for
+  sub-groups, e.g. "Work/Reading"), filter by group or search text, pin
+  favourites to the top. Saving a URL you already have warns rather than
+  silently duplicating it.
+- **References**: a note or document can now attach a saved bookmark,
+  shown live in its editor (next to the note's related-notes panel, or the
+  document's Outline sidebar), with a picker to attach one and a one-click
+  way to remove it.
+- **Contents**: a new Library sub-tab with a hyperlinked outline of the
+  whole notebook, grouped by category or by tag — click a note to jump
+  straight to it. The fast, scannable companion to the Graph tab's spatial
+  view, not a replacement for it.
+- The Library "All" tab's create button now opens a "What would you like to
+  create?" picker when the active filter has no single obvious answer
+  (Everything, Files, Tags, Drafts, Activity, the bin), instead of always
+  defaulting to a new note.
+- A global Ctrl+F find bar that works on every tab.
+- The image/document lightbox gained a real actions bar (zoom, copy text,
+  save), drag-to-pan while zoomed, document previews (not just images), and
+  the gallery's AI actions (caption, extract notes).
+- A related-notes panel that updates live while editing a note, not just
+  when you click to reveal it.
+- The AI can now read a note's attached files (PDFs, code, text) when that
+  note is hand-attached to a chat turn — previously only attached pictures
+  were read; other attachments were invisible to the model.
+- Meeting-note transcripts get an AI-generated "Decisions" / "Action items"
+  summary block prepended automatically when saved as a note, best-effort
+  and non-blocking if the model is unavailable.
+- `tags:<N` filter syntax, for finding notes with fewer than N tags.
+- Pre-save tag suggestions when writing a new note, not just after saving.
+- The Timeline gained a thread-line view (threads rendered as tributaries).
+- Whiteboards gained bring-to-front / send-to-back for shapes.
+- Graph traversal is now weighted by link type and confidence, and a
+  double-click node pin persists across reloads instead of resetting.
+- Per-stage token accounting, surfaced in the chat metadata line.
+- The Library's "All" grid, the Documents sub-tab, and the Reminders tab's
+  Done group are now paginated instead of rendering everything at once.
+- A status-bar clock detail popover (seconds, date, timezone) and a
+  navigation-history popup on the status bar's Back/Forward buttons, plus
+  back/forward keyboard hotkeys.
+- A "?" syntax guide on the capture composer, matching the one already on
+  the notes filter.
+
+### Fixed
+- An attached chat document's extracted text never actually reached the
+  model — the attachment showed in the composer but the AI couldn't see it.
+- A private note could leak its content via `restore_note` while the vault
+  was locked.
+- The Documents kebab dropdown's real transparency bug (not a z-index issue,
+  the background itself was never opaque).
+- Whiteboard boards could vanish entirely once emptied of shapes.
+- OCR picked the wrong model by priority in some configurations; Tesseract
+  availability is now surfaced instead of failing silently.
+- The lightbox's zoom-out cursor bled into its info panel.
+- The Timeline thread view's band labels overlapped their own dots; lanes
+  now space dynamically so dense clusters can't bleed into a neighbour.
+- The "Your notes" filter help button (and the capture composer's own "?"
+  button) didn't match the app's other circular help-toggle buttons — first
+  a markup/class mismatch, then, reported again, a `.library-toolbar button`
+  CSS rule silently overriding the circle's height back to the toolbar's
+  shared control height while leaving its width alone, stretching it into
+  an oval. Both are now fixed.
+- The chat composer's file picker accepted types the backend would then
+  reject; the two lists are now kept in sync and pinned by a regression test.
+- Several real Settings/Skills spacing bugs found by a live measured audit,
+  and the Library's context-aware create button now follows the active
+  filter instead of always creating a plain note.
+- Settings → Logs' "View Logs" button called a function that didn't exist.
+- The graph's force simulation kept running in the background (burning CPU)
+  after leaving the Graph tab.
+- The gallery's kebab menu could render off-grid and get clipped.
+- The Documents dock row's alignment, and every scrolling tab strip now
+  fades at its clipped edge instead of cutting off abruptly.
+- Several CodeQL alerts closed: a path-injection sanitizer, an exception's
+  raw text reaching the user, and related lint findings.
+
 ## [0.1.6] — 2026-08-30
 
 Follow-on fixes and features added to the 0.1.5 branch after that release was

@@ -290,6 +290,14 @@ def _match_info_hint(match_info: dict | None) -> str:
         return f" (similarity: {match_info['score']})"
     if match_info.get("type") == "keyword" and match_info.get("terms"):
         return f" (matched: {', '.join(match_info['terms'][:5])})"
+    if match_info.get("type") in ("connected", "connected_2hop") and match_info.get("reason"):
+        # search_manager._retrieve already traces a connected note back to
+        # the specific EntryLink row and its `reason` text — it just never
+        # reached this render function. Asked for directly ("can the ai see
+        # the link reasons... in the searches?"); the similarity-score half
+        # of that question was answered already (the branches above), this
+        # is the other half.
+        return f" (why: {match_info['reason']})"
     return ""
 
 
@@ -765,3 +773,39 @@ def suggest_tags(
             seen.add(tag)
             tags.append(tag)
     return tags[:limit]
+
+
+def summarize_meeting(
+    text: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+) -> str:
+    """Pull a decisions/action-items block out of a raw meeting transcript
+    (§25 — Whisper's `/voice/transcribe-meeting` returns only the transcript
+    itself, nothing structured). Same shape as `suggest_tags`: one
+    utility-model completion, raises `OllamaError` if the model is
+    unavailable and leaves it to the caller, never blocks a save on its own.
+
+    Returns "" when the model replied but found nothing worth extracting
+    (a short or off-topic recording), so the caller can skip prepending an
+    empty block rather than showing one."""
+    system = (
+        "You read meeting transcripts and pull out only what's actionable. "
+        "Reply in this exact Markdown shape, omitting a section entirely if "
+        "it has nothing in it:\n\n"
+        "**Decisions**\n- ...\n\n**Action items**\n- ...\n\n"
+        "Each bullet is one short sentence. No preamble, no closing remarks. "
+        "If the transcript has no decisions and no action items, reply with "
+        "exactly: NONE"
+    )
+    reply = ollama.chat(
+        model_manager.utility_model(),
+        [
+            {"role": "system", "content": system},
+            {"role": "user", "content": text},
+        ],
+    )
+    summary = reply["content"].strip()
+    if not summary or summary.upper() == "NONE":
+        return ""
+    return summary

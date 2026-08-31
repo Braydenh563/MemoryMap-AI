@@ -51,15 +51,30 @@ def test_semantic_match_carries_its_score(ai_client):
     assert 0 < info["score"] <= 1
 
 
-def test_second_joke_skips_llm(ai_client, fake_ollama):
+def test_a_second_note_on_the_same_topic_is_still_filed_by_the_model(
+    ai_client, fake_ollama
+):
+    """This asserted the opposite - that a centroid match skipped the model.
+
+    That was the filing order until it was reversed: the embedding shortcut
+    ran first and was so rarely declined that in an established notebook the
+    model was almost never asked, so notes were filed by what they *resemble*
+    rather than by where they belong. Reported as notes landing in the wrong
+    category and needing fixing by hand.
+
+    What the test protects now is the outcome rather than the shortcut: the
+    second joke still lands in "Dad Jokes", and the model is what decided it.
+    The saving this test was originally written to prove is covered instead
+    by test_ai_core.py's no-model case, which is the situation the embedding
+    paths actually exist for.
+    """
     _save(ai_client, "Why did the scarecrow win an award? Outstanding in his field!")
     calls_before = len(fake_ollama.chat_calls)
 
     second = _save(ai_client, "another funny pun about cheese")
 
-    # Same topic → centroid match decided it; the LLM was not consulted.
     assert second["category"] == "Dad Jokes"
-    assert len(fake_ollama.chat_calls) == calls_before
+    assert len(fake_ollama.chat_calls) == calls_before + 1
 
 
 def test_chat_with_ollama_down_still_returns_raw_results(ai_client, fake_ollama):
@@ -147,6 +162,25 @@ def test_build_messages_clips_history_length():
         for m in assistant_msgs[:-1]
     )
     assert len(assistant_msgs[-1]["content"]) <= librarian.LAST_ANSWER_CHARS
+
+
+def test_an_attached_documents_content_actually_reaches_the_model(ai_client, fake_ollama):
+    """The composer has sent `document_ids` since the staging UI shipped —
+    the field didn't exist on ChatRequest and routes_chat.py never read it,
+    so an attached document showed as a chip on the message and the model
+    never saw a word of it. Worse than not offering the feature: it looked
+    like it worked."""
+    document = ai_client.post(
+        "/documents", json={"title": "Q3 plan", "content": "Ship the thing by October."}
+    ).json()
+
+    ai_client.post(
+        "/chat",
+        json={"question": "what does this say?", "document_ids": [document["id"]]},
+    )
+    sent = fake_ollama.chat_calls[-1]
+    assert any("Ship the thing by October." in m["content"] for m in sent)
+    assert any("Q3 plan" in m["content"] for m in sent)
 
 
 def test_chat_endpoint_threads_history_to_model(ai_client, fake_ollama):

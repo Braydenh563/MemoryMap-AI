@@ -228,12 +228,22 @@ def _require_board(session: Session, board_id: int | None) -> None:
     the id on write the way `_require_entry` already does for `entry_id`.
     Checked the same permissive way `_board_filter` reads it — `None` always
     means the default scratch board, never "board 0".
+
+    Also where an ordinary note gets permanently remembered as a board the
+    first time anything is drawn on it — every node/sketch/object write with
+    a real `board_id` already funnels through here, so this is the one
+    place that sees "this note just became a board" regardless of which of
+    the three it was. See `Entry.is_board`'s own comment for why that has to
+    survive the board being emptied again later, not just recognise it now.
     """
     if board_id is None:
         return
     entry = session.get(Entry, board_id)
     if entry is None or entry.is_deleted:
         raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
+    if not entry.is_board:
+        entry.is_board = True
+        session.commit()
 
 
 @router.get("/", response_model=WhiteboardStateOut)
@@ -323,7 +333,17 @@ def list_boards(db: Session = Depends(get_session)) -> list[BoardOut]:
             object_count=default_objects,
         )
     ]
+    # `is_board` entries are included even at zero counts — see its own
+    # comment on the model and on `_require_board` above: a board that is
+    # currently empty (just created, or cleared back to empty) is still a
+    # board, and used to vanish from this list the moment its count hit
+    # zero, which read as the board having deleted itself.
     board_ids = set(node_counts) | set(sketch_counts) | set(object_counts)
+    board_ids |= set(
+        db.scalars(
+            select(Entry.id).where(Entry.is_board.is_(True), Entry.is_deleted.is_(False))
+        ).all()
+    )
     if board_ids:
         entries = db.scalars(
             select(Entry).where(Entry.id.in_(board_ids), Entry.is_deleted.is_(False))
@@ -394,7 +414,7 @@ def create_board(body: BoardCreate, db: Session = Depends(get_session)) -> Board
     dropdown that listed the entire notebook.
     """
     name = body.name.strip()
-    entry = Entry(content=f"# {name}")
+    entry = Entry(content=f"# {name}", is_board=True)
     db.add(entry)
     db.commit()
     db.refresh(entry)
@@ -419,6 +439,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     if entry is None or entry.is_deleted:
         raise HTTPException(status_code=404, detail=f"No board with id {board_id}")
     title = body.title.strip()
+    entry.is_board = True
     update_entry(db, entry, content=apply_title(entry.content, title))
     node_count = db.scalar(
         select(func.count()).select_from(WhiteboardNode).where(WhiteboardNode.board_id == board_id)

@@ -465,6 +465,14 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-5);
   margin-top: var(--space-6);
+  /* A grid row's cells stretch to match its tallest cell by default —
+     reported (spacing/padding around the steps/tools dropdowns): opening
+     one card's "N steps" or "N tools" disclosure grew that card, which
+     then stretched every *other* card sharing its row into a mismatched
+     shape with a large dead gap between their own (unopened) content and
+     the Run button pinned to the bottom. Each card should size to its own
+     content, not its row-mates'. */
+  align-items: start;
 }
 
 .skill-card {
@@ -532,17 +540,113 @@
   display: none;
 }
 
+/* Reported directly: expanded, this read as plain unstyled paragraphs sat
+   right on the card background — no visual container distinguishing it
+   from the rest of the card, unlike the chip that opens it. A bordered
+   box (the same card-on-card language `.contents-section` uses) gives the
+   revealed content a boundary of its own. */
 .skill-fact-list {
-  margin: var(--space-2) 0 0 var(--space-4);
-  padding: 0;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-6);
   font-size: var(--text-xs);
   color: var(--muted);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+  list-style-position: outside;
 }
 
+.skill-fact-list li {
+  padding-left: var(--space-1);
+}
+
+/* Third pass on this, so here is what each round got wrong. The first had a
+   fill and no border, which read as a flat grey slab. The second added a
+   border but left `list-style-position: outside`, which puts the "1."/"2."
+   markers in the padding *against* that new border - reported again, and
+   visible in the screenshot as numbers pressed into the left edge. And the
+   tools list inherited the same bordered box while each tool was ALSO given
+   its own bordered token, so every tool sat in a frame inside a frame.
+
+   The shape that actually works: steps are prose and keep the panel, with
+   the markers pulled properly inside it; tools are identifiers and drop the
+   panel entirely, because the tokens already are the visual grouping. */
+.skill-fact-list-steps {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  padding: var(--space-3) var(--space-4);
+  /* No generated markers at all - the numbers are real spans (library.js).
+     See that comment for why: an `outside` marker hangs into the padding by
+     an amount CSS here cannot bound, which is what kept clipping them against
+     the border through three rounds of padding changes. */
+  list-style: none;
+}
+
+.skill-fact-list-steps li {
+  display: grid;
+  grid-template-columns: 1.4rem 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding-left: 0;
+  line-height: 1.55;
+}
+
+.skill-step-n {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* No box of its own: the tokens are the grouping. */
+.skill-fact-list-tools {
+  list-style: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 0;
+  background: none;
+  border: none;
+}
+
+.skill-fact-list-tools li {
+  padding-left: 0;
+}
+
+.skill-tool-token {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--text-xs);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* "Never run." / "Last run …" - the one line saying whether this skill has
+   ever actually done anything. It was bare unstyled text sitting under the
+   chips, which is why the block below them read as unfinished. */
 .skill-card-when {
+  display: inline-flex;
+  /* Shrink to the text. Without this it stretched the full card width -
+     the card is a flex column, so a flex child stretches by default and
+     `inline-flex` only governs the box's own inside, not how its parent
+     sizes it. */
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.skill-card-when-plain {
   margin: 0;
 }
 
@@ -939,10 +1043,21 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    strip (DESIGN.md's control-height rule is the same idea one axis over). */
 .graph-temporal {
   display: flex;
-  flex: 1;
+  /* Room for the widest read-out this shows ("Up to DD/MM/YYYY") plus the
+     label and slider, so nothing has to overflow the group to fit. */
+  min-width: 0;
+  /* `flex: 1` here is what made the divider look like it was touching the
+     "All time" read-out, reported twice. The group stretched to its full
+     18.75rem whether or not it needed to, the slider absorbed all the slack,
+     and the label was pushed hard against the group's right edge — so the
+     gap *before* the label was large and the gap *after* it was only the
+     divider's own margin, which reads as a clash however much margin the
+     divider has. Sizing to content instead puts the label next to the slider
+     it describes and leaves the row's own gap between it and the divider. */
+  flex: 0 1 auto;
   align-items: center;
   gap: var(--space-3);
-  max-width: 18.75rem;
+  max-width: 21.5rem;
 }
 
 .graph-temporal>label {
@@ -951,7 +1066,16 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 }
 
 .graph-time-slider {
-  flex: 1;
+  flex: 1 1 auto;
+  /* `min-width: 4rem` alone was not the whole story: a flex item's automatic
+     minimum size is its content, so this could refuse to shrink even below
+     that and push the row past `.graph-temporal`'s max-width. Measured: the
+     group sat at exactly its 300px cap while the "All time" read-out's right
+     edge was at 705px against a group edge of 698 - the label had spilled 7px
+     outside its own box and landed 2px from the next group's divider, which
+     is the "gap between the separator and the time filter" report. The
+     slider is the elastic part of this control, so it is the one that gives
+     way; `min-width` keeps it usable while doing so. */
   min-width: 4rem;
 }
 
@@ -1007,7 +1131,11 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   content: "";
   align-self: stretch;
   width: 1px;
-  margin-inline-end: var(--space-3);
+  /* Symmetric, and that is the fix: only the trailing margin was set, so the
+     line had the parent's gap on one side and gap+space-3 on the other, and
+     sat visibly tighter against the group it followed — reported as the
+     separator clashing with the "All time" read-out beside it. */
+  margin-inline: var(--space-3);
   background: var(--border);
 }
 
@@ -1033,9 +1161,26 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   position: relative;
 }
 
+/* Reported directly — "the Library subtab bar should look like the Notes
+   one, it looks better." Both share the base `.seg` pill, but Notes'
+   own `.notes-subtabs` (05-sidebars-themes.css) layers a raised-card look
+   on top of it — border, shadow, background, sticky positioning — that
+   `.library-subtabs` never got, so it stayed the plainer generic `.seg`.
+   Library's own scroll container is the same shape (`.library-view-section`
+   is `flex:1; overflow-y:auto`, just like Notes'), so sticky behaves the
+   same way here too. */
 .library-subtabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   flex-shrink: 0;
   margin: 0 0 var(--space-8);
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
 }
 
 /* ".All" is 3 characters next to "Image Gallery"'s 13, so `.seg button`'s
@@ -1047,6 +1192,16 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 .library-subtabs button {
   min-width: 6.5rem;
   text-align: center;
+  padding: 0.5rem 1.25rem;
+  /* Without this, "user-tunable corner rounding"'s own `.seg button` rule
+     (04-chat-dock-appearance.css) is the only other rule of equal
+     specificity (class + element) that sets border-radius, and it loads
+     *before* this file — so it wins by default, giving Library's tabs a
+     visibly bigger radius than Notes' own `.notes-subtabs button`, which
+     sets this same value explicitly for the same reason. Reported
+     directly as "more rounded than the ones in the Notes tab" — correct. */
+  border-radius: var(--radius-md);
+  transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
 }
 
 .library-view-section {
@@ -1421,9 +1576,15 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   color: #fff;
 }
 
-/* The "add a preference by hand" row above the list. */
+/* The "add a preference by hand" row above the list. Measured live during a
+   spacing audit: no margin-top meant this sat flush against #memory-budget
+   above it (0px gap) — every other block-of-text-then-a-row transition in
+   Settings gets real breathing room; this was the one exception. */
 .memory-add {
   gap: var(--space-3);
+  /* 1rem, matching .settings-group's own margin-bottom — the app-wide
+     rhythm between one block of Settings content and the next. */
+  margin-top: 1rem;
   margin-bottom: var(--space-5);
 }
 

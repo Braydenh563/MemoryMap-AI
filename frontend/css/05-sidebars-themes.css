@@ -325,6 +325,71 @@ button.ai-unavailable {
   font-weight: 600;
 }
 
+/* `==highlight==` in note/document text — a warm highlighter tone, distinct
+   from the blue search-match <mark> above, and not scoped to .entry-content
+   since renderInlineMarkdown draws it into notes, documents, chat and the
+   digest alike. */
+mark.text-highlight {
+  background: var(--warn-soft);
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 0 0.12em;
+  font-weight: inherit;
+}
+
+/* `==green|text==` and friends. Written as low-alpha colours rather than
+   solid ones so a highlight sits *behind* `--ink` at whatever the theme's
+   text colour is, instead of forcing a light-on-dark inversion that would
+   need its own foreground colour per theme — the same reason `--warn-soft`
+   above works unchanged in both. The set is closed and matches the
+   allowlist inside INLINE_MD (app.js) exactly: a colour with no rule here
+   cannot be typed. */
+mark.text-highlight-yellow { background: var(--warn-soft); }
+mark.text-highlight-green { background: var(--ok-soft); }
+mark.text-highlight-blue { background: var(--accent-soft); }
+mark.text-highlight-pink { background: rgba(236, 72, 153, 0.22); }
+mark.text-highlight-purple { background: rgba(168, 85, 247, 0.22); }
+mark.text-highlight-orange { background: rgba(249, 115, 22, 0.22); }
+mark.text-highlight-red { background: rgba(239, 68, 68, 0.22); }
+mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
+
+/* `++red|text++` — a foreground colour. Set at full strength rather than the
+   highlights' low alpha, because this IS the text: a washed-out foreground
+   is just unreadable text. Each is picked to clear the body background in
+   both themes, which is why they are their own values and not the `--ok`/
+   `--warn`/`--error` status tokens — those are tuned for chips and badges,
+   where they sit on their own soft background rather than on the page. */
+.text-ink-yellow { color: #b45309; }
+.text-ink-green { color: #15803d; }
+.text-ink-blue { color: #1d4ed8; }
+.text-ink-pink { color: #be185d; }
+.text-ink-purple { color: #7e22ce; }
+.text-ink-orange { color: #c2410c; }
+.text-ink-red { color: #b91c1c; }
+.text-ink-grey { color: var(--muted); }
+
+/* Dark themes need the lighter end of each ramp — the light-mode values above
+   are chosen for contrast against white and go muddy on a dark page. Both
+   selectors, so an explicit choice and the system default are covered, the
+   same shape the tokens at the top of 00-tokens-shell.css use. */
+:root[data-theme="dark"] .text-ink-yellow { color: #fbbf24; }
+:root[data-theme="dark"] .text-ink-green { color: #4ade80; }
+:root[data-theme="dark"] .text-ink-blue { color: #7b90f7; }
+:root[data-theme="dark"] .text-ink-pink { color: #f472b6; }
+:root[data-theme="dark"] .text-ink-purple { color: #c084fc; }
+:root[data-theme="dark"] .text-ink-orange { color: #fb923c; }
+:root[data-theme="dark"] .text-ink-red { color: #f87171; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .text-ink-yellow { color: #fbbf24; }
+  :root:not([data-theme="light"]) .text-ink-green { color: #4ade80; }
+  :root:not([data-theme="light"]) .text-ink-blue { color: #7b90f7; }
+  :root:not([data-theme="light"]) .text-ink-pink { color: #f472b6; }
+  :root:not([data-theme="light"]) .text-ink-purple { color: #c084fc; }
+  :root:not([data-theme="light"]) .text-ink-orange { color: #fb923c; }
+  :root:not([data-theme="light"]) .text-ink-red { color: #f87171; }
+}
+
 /* --- filter help ------------------------------------------------------------- */
 .search-help {
   margin: 0 0 0.6rem;
@@ -333,6 +398,24 @@ button.ai-unavailable {
   border-radius: var(--radius);
   background: var(--chip-bg, var(--accent-soft));
   font-size: 0.85rem;
+}
+
+/* Two classes, and that is the point: `#search-help-hint` carries both
+   `.graph-help-panel` (the floating help popover every other tab uses) and
+   `.search-help`, both single-class selectors, so load order alone decided
+   which background won — and this file loads after 03-dashboard-widgets.css,
+   so `.search-help`'s near-transparent `--chip-bg` beat the popover's opaque
+   `--modal-bg`. Reported directly: "the tooltip in the your notes tab is a
+   different colour to the other tabs. the ui needs to stay consistent." The
+   same compound-selector fix `.entry-more.library-image-caption-more` in
+   00-tokens-shell.css already uses, for the same reason: two classes
+   outweigh one regardless of which file loads last. */
+.graph-help-panel.search-help {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  font-size: var(--text-sm);
 }
 
 .search-help.hidden {
@@ -817,6 +900,31 @@ button.ai-unavailable {
   overflow: hidden;
 }
 
+/* Third report of the same thing ("still doesn't float and stay 100% the
+   height of the screen"), and the sticking was never the part that was
+   broken — measured, not guessed: with the log list open, scrolling the
+   container left the sidebar pinned at y=197 exactly, so `position: sticky`
+   was doing its job. The height was wrong. `--page-sticky-h` is
+   viewport-minus-app-chrome (655px here), which is the right figure only for
+   a sidebar whose scrolling ancestor IS the page — `.doc-sidebar`'s case,
+   which is where that pattern was copied from. This sidebar's scrolling
+   ancestor is `#library-view-skills`, a *nested* scroller only 534px tall,
+   so the cap overshot by 121px and the card ran 52px past the bottom of an
+   800px screen: its end was below the fold, which is what "not the height of
+   the screen" was describing. `cqh` resolves against that real scroller
+   instead of the page. `container-type: size` is safe on it specifically
+   because its height is already externally determined (a flex child with a
+   definite height), so declaring it changes no layout — it only makes the
+   height nameable. The `--page-sticky-h` line above stays as the fallback
+   for anything without container-query support. */
+#library-view-skills {
+  container-type: size;
+}
+
+#skills-sidebar {
+  max-height: 100cqh;
+}
+
 #skills-sidebar #skills-logs-list {
   overflow-y: auto;
   min-height: 0;
@@ -950,6 +1058,38 @@ body.resizing-sidebar {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--card);
+}
+
+/* The colour pickers are <select>s, and this app styles form controls as
+   full-width block inputs by default — so each one claimed its own line and
+   turned a one-row toolbar into four, taking more vertical space than the
+   note box underneath it (reported with a screenshot). Sized to their own
+   content and matched to the buttons beside them, they sit inline like every
+   other control in the strip. */
+.doc-toolbar .md-colour-select {
+  width: auto;
+  min-width: 0;
+  /* Wide enough for "Text colour…" at this font size without ellipsis: at
+     9rem the label was being truncated *into* the chevron, so the two ran
+     together (reported with a screenshot). `--space-9` of right padding is
+     the gutter the arrow sits in — the browser draws it inside the padding
+     box, so anything less puts glyphs underneath it. */
+  max-width: 12rem;
+  margin: 0;
+  padding: 0.25rem var(--space-9) 0.25rem 0.4rem;
+  font-size: 0.8rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.doc-toolbar .md-colour-select:hover,
+.doc-toolbar .md-colour-select:focus-visible {
+  border-color: var(--border);
+  background-color: var(--chip-bg);
 }
 
 .doc-toolbar button {
@@ -1220,6 +1360,10 @@ body.resizing-sidebar {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+#doc-attach-bookmark {
+  margin-top: var(--space-2);
 }
 
 .outline-link {
@@ -2289,3 +2433,15 @@ textarea.autogrow {
 }
 
 
+
+
+/* The Notes composer's strip. Tighter than the document editor's: that one
+   is chrome for a full-page editor, this one sits directly above a
+   three-row box and should not out-weigh it. */
+.note-toolbar {
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
+  background: none;
+  border-color: var(--border);
+}

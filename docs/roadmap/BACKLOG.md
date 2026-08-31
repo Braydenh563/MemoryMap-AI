@@ -1040,15 +1040,24 @@ as possible." Split into the two things actually asked for.
 - **Query expansion** — two or three phrasings, results fused
 - **Read before answering** — tell the model a snippet is rarely enough
 - **Cite sources** with the domains actually read
-- **Per-turn result cache**
+- ~~**Per-turn result cache**~~ **Built — found by checking, not assumed
+  missing.** `websearch._CACHE`/`_cache_get`/`_cache_put`, keyed on
+  `provider::searxng_url::query::limit`, a small in-process dict with the
+  simplest correct eviction (clear it all once it's full) rather than a real
+  LRU, which this cache's size doesn't need.
 - ~~**SearXNG as the recommended default** once §2's install path
   works~~ — the install path works now (§8b); worth actually flipping the
   default and updating the README/onboarding copy that still frames it as an
   advanced option
-- **Say which engine answered.** DuckDuckGo and SearXNG have different
-  privacy properties (§ below) and the person chose one deliberately in
-  Settings; the results panel itself doesn't currently say which one served
-  a given search, so that choice is invisible at the point it matters
+- ~~**Say which engine answered.**~~ **Built — found by checking, not
+  assumed missing.** `websearch.answered_by()` returns a label plus a
+  plain-English privacy note per provider ("SearXNG — your own instance,
+  the query stayed on your machine" vs. "DuckDuckGo — a third party saw
+  this query, but not your notes"); `routes_websearch.py` attaches it as
+  `answered_by` on every search response, including a zero-result one on
+  purpose ("no results" and "no results *from DuckDuckGo*" are different
+  facts); `app.js`'s web-search status line already renders both the label
+  and the detail beside the result count.
 - **Result cards worth reading, not just clicking.** A title and a link today;
   a domain/favicon and a snippet with the matched terms highlighted would let
   someone judge relevance before opening the reader view, the same reasoning
@@ -1311,8 +1320,13 @@ are now done** (§85, §86):
 - **Async httpx client** — touches the streaming path, which is what makes chat
   feel responsive, so a subtle regression wouldn't show up in tests. Do it with
   §6.
-- **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
-  won't survive a real schema change
+- ~~**Alembic migrations** — the additive auto-migrator cannot rename or drop, and
+  won't survive a real schema change~~ **Built.** `migrations/` (Alembic),
+  `_ensure_alembic_baseline()` (`core/database.py`) stamps any pre-existing
+  database at the baseline revision on first run under the new system so it
+  never tries to replay history against data that already has the schema.
+  Full narrative: HISTORY.md §100. Stale here since — found by checking the
+  running app before trusting this list, not assumed.
 - ~~**Session TTL** — tokens live in memory and never expire~~ **done.** Two
   clocks (idle 12h, absolute 7d), expiry closes the vault too. See
   HISTORY.md.
@@ -2971,3 +2985,962 @@ better — still open, and now the actual next step**, not §87.5's remaining
 derived-signal composite and not a new mechanism beside the one that
 already runs on every retrieval call. This sandbox has no reachable model,
 so that re-measurement needs a real Ollama and cannot happen here.
+
+## §102 — a live competitor read (Kortex, Granola, Mem.ai), audited before logging
+
+This sandbox has working web access this session — earlier reads in this
+project's history (§30, §59, §60, §88.2) were done blind, from supplied text
+or with a network policy blocking outbound access. Asked directly to look at
+Kortex, Granola and a "second-brain" app (Mem.ai — the most-cited product
+making that exact claim) live and compare. A subagent did the web research;
+**every finding it returned was then checked against this codebase before
+being logged here**, per this file's own standing rule — two of its claims
+were wrong and are corrected below rather than repeated. Kortex.co and
+Granola.ai themselves were blocked by this sandbox's own egress proxy even
+though general web search worked, so those two products are read from
+reviews/docs pages, not a first-hand render — a real gap, not this session's
+laziness.
+
+**Corrected before logging — do not re-file these as gaps:**
+- *"No way to scope a chat query to chosen notes"* — **false.** `note_ids`
+  plus `attached_notes_only` (`routes_chat.py`) already do exactly this;
+  `_attached_notes` already gates it through the same private-note check
+  every other read path uses. The subagent's finding didn't check the
+  running code, which is the exact trap CLAUDE.md warns about — recorded
+  here so nobody re-runs into it from this angle.
+- *"No import from other note apps"* — **overstated.** `POST
+  /import/markdown` and `/import/directory` (`routes_settings.py`) already
+  round-trip Obsidian-style frontmatter and import a whole folder tree.
+  What's genuinely still missing is narrower: a Notion-specific importer
+  (Notion's export is HTML+CSV by default, not the plain markdown this
+  already reads) and any first-run *offer* to import during onboarding
+  rather than a buried Settings action.
+
+**Worth taking, ranked:**
+
+1. **A live "rough bullets + transcript → merged note" capture flow**
+   (Granola's core loop). Today's voice-memo/meeting path
+   (`routes_voice.transcribe_meeting`) transcribes; nothing lets a person
+   type short notes *during* the recording and then merges those bullets
+   with the full transcript into one structured note afterward. Since
+   transcription is already local, the merge step is a local-LLM prompt,
+   not a new dependency — the more contained version of item 2 below.
+2. **A structured summary block on a transcribed meeting** (decisions /
+   action items / owner / date), extracted once after transcription.
+   Checked: `transcribe_meeting` returns a transcript with no such
+   extraction step today. Same shape as `caption_and_store`'s
+   write-once-after-upload pattern.
+3. **A persistent "related to this note" panel inside the note editor
+   itself**, live while writing — not just the graph tab's link-suggestion
+   flow, which is a separate mode a person has to go find. Cheap once
+   scoped: the embedding-similarity query graph's own link-suggestion
+   endpoint already runs already exists (`routes_entries.py` similarity
+   scan); this would be a small, always-visible panel reading the same
+   signal for whichever note is currently open.
+4. **Typed note templates with a fixed field schema** (Sales Call, 1:1,
+   Standup — Granola ships ~29), distinct from Skills (free-form saved
+   *prompts*). A template would pre-structure a note's headings/fields
+   before AI touches it, rather than the AI free-writing a whole note from
+   a prompt. Needs a real schema decision (stored as structured `Entry`
+   metadata vs. just a markdown skeleton) before building.
+5. **A quick-capture popup from the system tray** — the tray already
+   exists (`__main__.py`) with several nav items; a hotkey/click that opens
+   a tiny always-on-top composer (title + body, Enter to save) without
+   raising the full window is small, purely local, and matches a pattern
+   several competitors treat as table stakes.
+6. **Inline citations in chat answers that point back to a specific note**,
+   clickable to jump there. MemoryMap's retrieval already knows which
+   notes it drew on (`search_manager.retrieve_detailed`); what's unclear
+   without a live model to check is whether the *rendered answer text*
+   itself carries a per-claim link back to its source note, versus only a
+   list of sources alongside the answer. Verify against a real chat turn
+   before scoping further — may already be partially there.
+7. **A dedicated, browsable highlights/clippings collection**, distinct
+   from an ordinary note. Checked: `app.js`'s own comment names this "the
+   capture surface half of BACKLOG.md §65 (highlight/web-clip capture)" —
+   selecting text and capturing it as a note already works, but that
+   capture becomes an ordinary note, not an entry in a separate,
+   source-attributed quote library the way Kortex's is. Worth deciding
+   whether that's a real gap or just a different (arguably more
+   consistent-with-the-rest-of-the-app) design before building a second
+   collection type.
+8. **Basic local speaker separation on a transcript** (Speaker 1/2/3, no
+   naming needed) — checked, genuinely absent (`grep -i speaker` across
+   `src/` is empty). A fully local diarization pass, if the transcription
+   library already in use supports one, would be a real, contained
+   improvement over a flat transcript with no turn-taking structure.
+9. **A live, inline organization suggestion while typing** (a tag/category
+   chip appearing as you write), as an *optional* companion to — not a
+   replacement for — the existing off-by-default, audited background
+   auto-tag job. The batch job's conservatism (gated, logged, reviewable)
+   is a deliberate design choice recorded elsewhere in this file and
+   should stay the default; this would be an opt-in faster-feedback mode
+   for someone who wants it.
+10. **A one-click "synthesize these notes into a draft" action**
+    (Kortex's "Blogger"): a named button in the graph/note UI that pulls a
+    chosen set of linked/selected notes into a cohesive long-form outline
+    or draft, distinct from a person hand-writing that prompt themselves
+    in chat today. The re-paste of this same competitor research (a later
+    session) named this one specifically as missing from the list above —
+    correctly; it isn't covered by any of items 1–9. `expandNoteIntoDocument`
+    (app.js) is the nearest existing thing and only ever takes *one* note.
+
+**Out of scope, and why — not filed as gaps:** calendar-integrated
+auto-join of video calls (needs a cloud calendar account or a bot joining
+the call); shared/collaborative workspaces (needs a multi-user server,
+against the single-user/no-sync design); native mobile companion apps kept
+in sync (needs cloud sync or a self-hosted server); meeting-platform-specific
+speaker-name capture via a browser extension (the local, nameless version is
+item 8 above instead).
+
+## §103 — reported live this session, and a batch of feature asks — logged, none built yet
+
+1. **The Documents-list kebab menu reported visually broken, with a
+   screenshot** (a teal-bordered box around "Preview" alone, then a
+   separately-styled block for Rename/Download/Delete below it). **Not
+   reproduced.** Tried live in this sandbox's Chromium: default light theme
+   and dark mode (`applyThemeChoice('dark')`), both desktop (1400px) and
+   phone (390px) width, on the exact menu the screenshot matches
+   (`library.js`'s Documents sub-tab kebab, `wireEscapedActionMenu` —
+   already reparented to `<body>` with a `position: fixed` placement
+   computed from the opener's own rect). Every reproduction measured and
+   screenshotted clean: one menu, one background, items evenly spaced, no
+   overlap. One real but much smaller thing found along the way, not a
+   match for the report: the escaped menu's background
+   (`rgba(24,27,37,0.97)` in dark mode) is very slightly translucent, so a
+   document row directly behind it is faintly visible through it — worth a
+   fully-opaque background if this comes up again, but not what was
+   photographed. The screenshot's teal accent and glassy look don't match
+   this app's default palette, the same shape a prior session's Settings-
+   modal-contrast report turned out to be ("the user's screenshots
+   consistently show a custom teal accent, not the default indigo") —
+   next report should include the browser/OS, whether a custom accent/
+   glass setting is on, and the zoom level.
+2. **The Library "All" tab needs more utility**, asked for broadly with
+   several concrete examples worth splitting out:
+   - **Tag management — rename, merge, browse.** `entry/manager.py` already
+     has `rename_tag`/`delete_tag` (merge-by-rename: renaming to an
+     existing tag's name merges into it) and `GET /tags` already returns
+     every tag uncapped specifically so a management screen could reach all
+     of them — but **no frontend "Tag Manager" screen calls any of this**
+     (`grep -rn "Tag Manager\|renameTag" frontend/` is empty). The backend
+     is the built half; the UI is the missing half.
+   - **Click a tag to see every note carrying it — confirmed, partly
+     built, from a different surface than asked about.** The dashboard's
+     Tag Cloud widget (`renderTagCloudWidget`, `dashboard.js`) already does
+     this: clicking a tag sets the Notes search box to the tag name,
+     switches tabs, and filters. Real gap: it's a **text search** on the
+     tag word, not a strict "notes tagged exactly X" filter (a note that
+     merely mentions the word "work" in its body would also match), and
+     it's reachable only from a Dashboard widget someone has to have
+     added — not from the Library "All" tab's own tag chips, which is
+     where this was actually asked about. The Library's `Tags 0` filter
+     chip (seen in the Library toolbar) switches the grid to a *list of
+     tags*, not straight to one tag's notes — confirm live before deciding
+     whether that's the missing link or a third mechanism is needed.
+   - ~~**Renaming a saved chat.**~~ **Already built — the prior session's
+     own grep missed it because the function isn't named `renameConversation`.**
+     The saved-chats list's kebab menu already has both "Rename" (a prompt
+     dialog, `PUT /conversations/{id}`) and "Name with AI"
+     (`POST /conversations/{id}/retitle`, `app.js` ~line 11252). Corrected
+     here rather than left standing.
+   - The broader "make more and easily access them" ask (drafts, chats,
+     files, everything) needs a concrete list of what's missing per kind
+     rather than one broad redesign — say what specifically, next time.
+3. **Recording new meeting notes already works** (`openMeetingRecorder`,
+   `Ctrl+Shift+R`). **Editing an existing one is unconfirmed** — a
+   transcribed meeting presumably lands as an ordinary note or document,
+   editable the normal way, but whether there's a dedicated "re-open this
+   meeting" flow (re-transcribe, resume a paused recording, see the
+   original audio again) was not checked this session. Scope by asking
+   what "edit" should mean here before building anything.
+4. **Whiteboard: curved lines and custom anchor points — partly built,
+   asked for again without checking first (caught before repeating that
+   mistake here).** A link already toggles straight vs. curved
+   (`wbLinkPathD`, a symmetric cubic bezier through the midpoint — not a
+   freeform curve), and objects already have **eight fixed** anchor points
+   (corners + edge midpoints, `WB` link code, HANDOVER §53-55, "inspiration
+   from draw.io") that a resize carries along for free. What's genuinely
+   still open: an anchor point anywhere on an object's edge, not just the
+   fixed eight, and interactively bending an existing link's curve (drag a
+   control-point handle) rather than only the automatic symmetric bezier.
+   A freeform curved *sketch* tool (not object-to-object links at all) is
+   a separate, bigger ask — the sketch pad is pure-raster today (ROADMAP's
+   own Tier 2 item 10 already names this as needing a real architecture
+   change, not a small patch).
+~~5. **Whiteboard: bring-to-front / send-to-back for a selection.**~~
+   **Built.** Turned out cheaper than it looked: every item already had a
+   `z` column, unused for anything but a fixed value set at creation, and
+   the render code already painted from it (`.style("z-index", d => d.z)`,
+   both cards' and objects' own merge) — so no schema change and no new
+   render path, only the missing action. `wbSetZOrder(kind, item, toFront)`
+   sets `z` to one past the current max/min among its layer's peers and
+   saves via the existing PUT route, plugging into the existing undo stack
+   as a "move" entry. Two new "Bring to Front"/"Send to Back" items in the
+   right-click/long-press context menu, for a single selection or a whole
+   multi-selection at once. **One real architectural limit, stated rather
+   than hidden**: cards and objects share one HTML stacking context and
+   interleave freely against each other; a sketch renders in a separate
+   SVG layer underneath both, so it only ever reorders against other
+   sketches — it can never be brought in front of a card. **Live-verified
+   in Chromium**: two overlapping text objects created via the real API,
+   the back one confirmed actually obscured (Playwright's own
+   actionability check reported the front box "intercepts pointer
+   events"), right-clicked → Bring to Front → the stacking visibly
+   flipped, and the new `z` value survived a full page reload (read
+   straight from `wbState` after a fresh navigation, not just checked
+   in-memory).
+
+## §105 — Library "All" tab: the create button now follows the filter chip, the rest is scoped not built
+
+Asked for directly: the create button at the top of the Library "All" tab
+should change based on the active filter chip — "Create Note" on Notes,
+"Create/Upload Document" on Documents, "New Chat" on Chats, "Transcribe
+Audio" on Meetings, and a general "Create +" picker modal on "Everything" —
+plus more general capability to rename and create things (tags, categories,
+chats) directly from the Library.
+
+**Built:** the button now matches the active chip for the four kinds with
+one unambiguous thing to create (Notes/Documents/Chats/Meetings —
+`LIBRARY_CREATE_BY_KIND`, library.js). Verified live: switching chips
+changes the label and the resulting action (Notes → Capture and focuses the
+box; Documents → the existing new-document flow; Chats → a fresh
+conversation; Meetings → the recorder). **Item 1 below is now also built**
+(re-asked for directly in a later session): "Everything" and every other
+ambiguous chip (Files, Tags, Drafts, Activity, the bin) now open a real
+"What would you like to create?" modal (`openLibraryCreatePicker`,
+library.js) instead of silently defaulting to "+ New note" — a full overlay
+rather than a `kebabMenu()` dropdown, since the button isn't wrapped in
+`.menu-wrap` and `.library-view-section`'s own scroll-clipping is exactly
+the trap `wireEscapedActionMenu` exists to work around elsewhere; a modal
+sidesteps both rather than fighting them. Live-verified: opens on the
+default "Everything" chip, lists all four kinds plus Cancel, picking one
+runs it and closes, Escape and backdrop-click both cancel.
+
+**Not built — logged rather than rushed:**
+1. **A "categories" section of the Library** doesn't exist —
+   `LIBRARY_KINDS` (library.js) has note/document/chat/file/tag/draft/
+   meeting, no category. Cheaper than it sounds: `PUT` and `DELETE
+   /categories/{id}` already exist (routes_categories.py), and
+   `renameCategory()` (app.js) already renames one from the Notes tab's own
+   sidebar — reusable as-is, not built from scratch. "Create an empty
+   category" has no real meaning today (a Category row is created
+   on-demand the first time a note is filed into it — `get_or_create_category`,
+   entry/manager.py); a Library category view would need to decide whether
+   that stays true or an empty category becomes a first-class creatable
+   thing.
+2. **Renaming a tag "everywhere"** has no dedicated endpoint — tags are a
+   JSON array on each `Entry`, not a table, so "rename this tag" today
+   means editing it per-note. A real rename-everywhere action needs either
+   a new endpoint that rewrites the tag across every entry carrying it, or
+   a documented decision that it's out of scope and a tag is meant to be
+   cheap to abandon and recreate rather than renamed in place.
+3. **Creating a note/chat directly from the Library**, rather than jumping
+   to the Notes/Chat tab. The create picker (built above) is the natural
+   place to extend from — "type it right here" inside that same modal,
+   rather than a separate affordance.
+
+## §106 — Links, Contents and note References built; §102 items 5 and 6 checked, not built as originally scoped
+
+Asked for directly, three things together: can notes/documents reference
+each other with a References section; a place to store/bookmark website
+links; a table-of-contents-style hyperlinked, visualised view of the
+notebook's structure. Checked first, per this file's own standing rule —
+`[[wiki links]]` already covered note-to-note linking with autocomplete,
+transclusion and backlink chips (`app.js`, extensively) and the Graph tab
+already visualises links coloured/filtered by category. What was genuinely
+missing: anywhere to save a link to the open web, and a fast textual outline
+distinct from the Graph's spatial one.
+
+**Built:**
+- **A `Bookmark` model and `/bookmarks` CRUD** (`core/database.py`,
+  `api/routes_bookmarks.py`) — its own small table, not folded into `Entry`:
+  a bookmark has no body to search, file, or auto-categorise, so forcing it
+  through the note pipeline would solve a problem it doesn't have. URLs
+  typed without a scheme ("example.com") are normalised to `https://`.
+  Creating a URL that's already saved still creates the row and returns
+  `duplicate_of` the existing one — warn, don't block, since re-saving a
+  link by accident is normal, not a mistake worth refusing.
+- **Grouping**, asked about directly ("should they be groupable?"): a free-
+  text `group_name` column rather than a real folder table — a full nested-
+  folder model (a tree table, drag-to-move UI) is a lot of new machinery for
+  what a flat field mostly already buys. A "/" convention ("Work/Reading")
+  the frontend renders as a visual hierarchy, still just one string. Filter
+  chips above the list, a search box (client-side, matching the Image
+  Gallery's own filter), pin-to-top, and edit/move/delete actions round out
+  the Library → **Links** subtab.
+- **A note's References**: a note can now attach a saved bookmark
+  (`entry_bookmarks` join table, `POST/GET/DELETE /entries/{id}/bookmarks`),
+  shown live in the edit form right below the related-notes panel, with an
+  "Attach a link" picker. Its own small table and its own endpoint — not
+  folded into `EntryLink` (which connects two `Entry` rows) or into
+  `EntryOut`'s bulk-fetched `links` field, matching the precedent
+  `/entries/{id}/related` already set: only the editor needs this, so it
+  shouldn't grow a query on every paginated list render.
+- **Library → Contents**: a hyperlinked outline of the notebook, grouped by
+  category or by tag, click a note to jump straight to it. Built from
+  `allEntries` (already loaded for the Notes tab) grouped client-side, not a
+  new endpoint — refetched on every visit like every sibling Library subtab,
+  not cached, since a stale outline (a just-deleted note still listed) would
+  be a wrong answer, not just an old one. This is deliberately the *fast,
+  scannable* half of "visualised links between sections and tags"; the
+  *spatial* half is the Graph tab's job already, and Contents links out to
+  it rather than duplicating a second visualisation engine.
+- Live-verified in Chromium: add/pin/edit/group/delete a bookmark, filter by
+  group and by search text, the duplicate-URL toast, both Contents modes
+  grouping correctly and jumping to a note, and attaching/detaching a
+  bookmark reference from a note's edit form — all measured, not assumed.
+  One real bug caught this way and fixed before shipping: `ph-push-pin-fill`
+  doesn't exist in this app's bundled Phosphor set (checked: only
+  `push-pin`/`-slash`/`-simple`/`-simple-slash` do), so the pin button
+  rendered blank — `-slash` for "already pinned" is the same pairing the
+  pinned-chat button already uses.
+
+**§102 item 5 (tray quick-capture), corrected rather than rebuilt:** the
+tray's own "New note" item (`__main__.py`) already does the load-bearing
+part of this ask — one click, past the lock screen, straight to a focused
+empty note, no tab-hunting. What it does *not* do is the literal ask, "a
+tiny always-on-top composer... without raising the full window" — it raises
+the full window. Not built this session, and deliberately not attempted
+blind: a real floating composer needs a second `pywebview` window (a new
+`webview.create_window()` call, its own minimal page, its own focus/close
+semantics coordinated with the main window's lock state and the existing
+tray event-loop threading, which `_start_tray`'s own docstring already
+flags as delicate). This sandbox has no Windows, no `pywebview` runtime, and
+no display at all for this code path — confirmed live: importing `pystray`
+here raises `Xlib.error.DisplayNameError` on this headless box, the exact
+failure `_start_tray`'s own except-clause already anticipates. Writing a new
+window-management code path with zero ability to launch or see it is how a
+"small" feature ships broken; needs a real Windows session to build safely.
+
+**§102 item 6 (inline chat citations), resolved — the answer was "no", found
+by reading the code, not by needing a live model:** the retrieved notes sent
+to the model are numbered in the prompt (`librarian.build_messages`, "1.
+[category] ..."), but nothing in `GROUNDING` instructs the model to cite
+that number, and the frontend's `#chat-results` list is a plain, separate
+source list rendered alongside the answer — never parsed out of the answer
+text itself. So: confirmed, not "unclear without a live model" any more —
+there is no per-claim citation today, only a source list next to the
+answer. Building real inline citations is a prompt-reliability question a
+fake-transport test can't settle (would a small local model actually emit
+`[1]`-style markers consistently enough to parse?) — left open for a
+session with a live Ollama/LM Studio to validate against, per this
+project's own standing caveat about model-behaviour work. **Not chat-
+specific**, asked about directly afterward: search summaries and the weekly
+digest ground their prose in the same retrieved-notes-numbered-in-the-
+prompt shape `librarian.build_messages` uses, with the same absence of a
+citation instruction — so this is one cross-cutting gap across every place
+the AI writes prose from notes, not three separate ones.
+
+**Bookmarks elsewhere, asked about directly:** *Documents* — **built**:
+`DocumentBookmark` (same shape as `EntryBookmark`, keyed to `document_id`
+instead of `entry_id`), `GET/POST/DELETE /documents/{id}/bookmarks`, and a
+**References** section in the document editor's own Outline sidebar tab
+(next to Backlinks/Notes it draws on), with the same "Attach a link" picker
+notes got. Live-verified in Chromium: attach, the reference chip opens the
+URL, detach, and the picker correctly lists every saved bookmark regardless
+of which note or document (if any) already references it. *Graph* —
+recommended **against** adding bookmarks as graph nodes: the Graph is built
+around note-to-note similarity and typed links, and a bookmark has no
+content to compare against anything, so it would be a node with different
+semantics bolted onto a visualisation designed around one kind of thing. A
+small "has references" indicator on a note's own graph node is a
+reasonable, much smaller alternative if this is picked up later — not built
+this session.
+
+**The Library "All" tab's create/upload buttons — confirmed still covered
+by §105, not missed.** §105 above already logs this in full: the button now
+follows the active filter chip for the four unambiguous kinds
+(Notes/Documents/Chats/Meetings), and §105 item 1 already names the
+remaining gap precisely — a real "choose what to create" picker for
+Everything and every kind with no single obvious answer (Files, Tags,
+Drafts, Activity, the bin), not yet built, with the open question being
+dropdown-off-the-button vs. a real modal. Nothing new to add here; re-
+reading §105 rather than re-logging it.
+
+**A second competitor-analysis pass (Kortex/Granola/Mem.ai) was re-pasted
+this session, from a different subagent run than §102's** — cross-checked
+against §102 rather than logged as new, since it is the same three products
+against the same feature list and overlaps almost entirely:
+- Its items 1–4, 6, 8–10 are §102's items 1, 3, 7, 6, 5, 9, 10 respectively
+  — already logged there, unchanged.
+- Its item 5 ("import from other note apps") and item 7 ("chat query
+  scoping via explicit note selection") are the two claims §102 already
+  checked against the running code and corrected — false/overstated, see
+  §102's own "Corrected before logging" block. Restated here only so a
+  future session doesn't re-file them from this second paste without
+  noticing §102 already settled them.
+- Its item 11 ("structured decisions/action-items block on meeting notes")
+  is §102 item 2 — and item 2 is now **built** (this session, §25/§31 in
+  the live task list): `librarian.summarize_meeting`, `POST
+  /voice/summarize`, wired into `saveMeetingNote()`.
+- Its item 12 ("speaker labeling on local transcripts") is §102 item 8,
+  unchanged — still genuinely absent, still needs checking whether the
+  transcription library in use supports local diarization at all before
+  scoping further.
+
+No new gaps in this second pass beyond what §102 already carries.
+
+## §107 — a fast live-report round: nav-history contrast, Contents redesign, a bookmark-edit gap, and three items logged not built
+
+**Fixed, live-verified:**
+- **The nav-history popup was unreadable in dark mode** — reported directly.
+  Reproduced (dark theme, 20+ stack entries): rows were cramped (`gap:
+  0.15rem`) with small text, reading as garbled at a glance even though
+  the computed colour itself (`#e7e9ee` on `rgba(24,27,37,0.97)`) was fine
+  — this was a spacing/size problem, not a contrast one. `.nav-history-menu`
+  and `.nav-history-item` now use the standard spacing tokens and
+  `--text-md`/`line-height: 1.6`. Confirmed legible after.
+- **Contents redesigned** — reported as "ugly." Was bare headings and a
+  flat link list with no containment; now a card grid
+  (`.contents-outline` → CSS grid, one bordered `.contents-section` card
+  per group), matching the card language `.bookmark-row`/`.outline-link`
+  already use elsewhere.
+- **A bookmark's Edit action only ever touched its title, not the URL** —
+  reported directly. Now prompts for both (two sequential dialogs, matching
+  the group button's own one-dialog-per-property shape — `promptDialog`
+  only ever takes one field, so a combined dialog would be new machinery
+  for a two-field edit that happens rarely).
+
+**Noticed while fixing the above, not chased further:** the nav-history
+popup's own label for a Library sub-tab visit can show the raw internal id
+("Library → library-view-contents") instead of a friendly name —
+`entryLabel()` looks up `[data-section="..."]`, but Library's sub-tabs
+carry `data-target`, not `data-section`. Pre-existing for every Library
+sub-tab, not something this session's Links/Contents additions introduced;
+cosmetic, not chased given the session's remaining budget.
+
+**Asked about directly, logged rather than built this pass:**
+1. **Whiteboard selection/move/copy UX** — "highlight and select stuff and
+   move it... copy elements and move them other places or to other
+   boards... the whiteboard controls still feel annoying to use." Not
+   scoped or built this session — needs its own live audit of what
+   `whiteboard.js`'s current select/drag code actually does before judging
+   what's missing versus just rough, and copy-between-boards specifically
+   is new surface (today's model is one board's own nodes/sketches/
+   objects; moving one to a *different* board's own table is not
+   something any existing endpoint does). A real "big feature" candidate
+   for its own session, not a quick fix.
+2. **The AI Skills tab's step/tool lists still read as unstyled** —
+   reported directly, with a screenshot: numbered steps and the tool list
+   render as plain paragraphs directly on the card background, with no
+   visual container distinguishing them from the rest of the card (unlike
+   the "N steps"/"N tools" chips above them, which are already styled).
+   Not investigated or fixed this session — the markup/CSS for this
+   specific sub-view wasn't located before the session's budget ran out;
+   next session should grep `library.js` for the skill-card renderer
+   (`renderSkillsDashboard` and neighbours) rather than re-diagnosing from
+   scratch.
+3. **Inline chat/search/digest citations, tray floating composer,
+   templates, highlights collection, speaker diarization, live tag
+   suggestions, one-click draft synthesis** — all still open exactly as
+   §102/§106 already describe them; nothing new to add.
+4. **Library's sub-tab bar asked to match Notes' own sub-tab styling —
+   built.** Both shared the `.seg` base class, but only `.notes-subtabs`
+   (05-sidebars-themes.css) layered the raised-card look on top of it
+   (border, shadow, blur, sticky); `.library-subtabs`
+   (07-whiteboard-misc.css) never got the same treatment and stayed the
+   plainer generic pill. `.library-subtabs` now carries the same
+   properties. Live-verified side-by-side in dark mode — matching now.
+
+**Fixed in the same follow-up round, also live-verified:**
+- **The nav-history popup's last row sat flush against the bottom edge**
+  with no breathing room, unlike the clear gap above the first row — the
+  container's own `padding-bottom` isn't reliably honoured past the end of
+  a scrolled flex container's content in every engine. `.nav-history-item:
+  last-child { margin-bottom: var(--space-2); }` is the robust fix.
+- **Contents cards showed a stray horizontal scrollbar that cut off both a
+  long filename and its hover highlight.** Only `overflow-y` was set on
+  `.contents-list`, which — per the CSS spec's own computed-value rule for
+  a box scrollable on one axis — silently turned `overflow-x` into `auto`
+  too, so an unbroken filename with no wrap point forced the box wide
+  instead of tall. Fixed with `overflow-x: hidden` plus
+  `white-space: normal; overflow-wrap: anywhere` on the link itself, so a
+  long name wraps onto a second line instead of forcing horizontal scroll.
+
+**Reported, not reproduced — logged rather than guessed at:**
+- **The back-to-top button reportedly appears on a page that isn't
+  scrollable.** Read `scrollTopTargetEl()`/the `update()` loop
+  (app.js, ~L15949-16069): each tab's scroll target is either a nested
+  container (`NESTED_SCROLL_TABS`) or that tab's own `.tab-page` element
+  via `scrollingPage()`, and the show/hide condition is a plain
+  `scrollTop > 400` check — nothing in this path obviously explains a
+  false positive on a page with too little content to scroll 400px in the
+  first place. A live repro attempt (scripted scroll + tab switch) did not
+  reproduce it, but the scroll-trigger method used was itself suspect (the
+  button never showed even on a tab confirmed scrollable), so this is an
+  inconclusive negative, not a clean bill of health. Needs a real repro —
+  which tab specifically, and whether it's on first load or after
+  switching from an already-scrolled tab — before attempting a fix.
+
+**New feature request, logged only — not scoped or built:**
+- **Highlighting text in notes and documents.** Asked for directly. Not
+  investigated this session — needs its own pass to decide the storage
+  shape (inline markup in the note/document's own text vs. a separate
+  span-range table) and how it interacts with existing markdown rendering
+  and the AI's own reading of note content, before scoping further.
+
+## §108 — a fast bug-fix round: three real front-end bugs and a batch of small polish
+
+**Fixed, all traced to a root cause rather than patched blind:**
+- **Nav-history popup, genuinely broken this time** — reproduced: a
+  history of short single-word entries (a plain tab visit, no sub-section)
+  shrank the popup's fit-content width down to a narrow, sub-pixel value
+  (164.34px measured), and text that narrow inside a `text-overflow:
+  ellipsis` flex child rendered as illegible marks rather than real
+  glyphs — confirmed clean again at both a wider `min-width` and a higher
+  device-pixel-ratio, so this was the popup's own sizing, not a font/theme
+  regression. `min-width: min(14rem, 90vw)` keeps it out of that zone
+  regardless of how short any one entry's own label is.
+- **`#search-help` and `#capture-help`** were bespoke hand-rolled click
+  toggles from before `initHelpToggle` existed, never migrated — missing
+  the outside-click and Escape closes every *other* help toggle in the app
+  gets (reported: "the capture a thought tooltip doesn't close when
+  clicking off it"), and `search-help-hint` also carried its own one-off
+  `.search-help` class instead of the shared `.graph-help-panel` floating
+  look `capture-help-hint` already had (reported separately as a style
+  mismatch between the two). Both now go through `initHelpToggle`; live-
+  verified open/outside-click-close and confirmed `search-help-hint`
+  carries `.graph-help-panel` now.
+- **The AI Skills tab's step/tool lists** — reported directly, with a
+  screenshot: expanded, they read as plain paragraphs sat right on the
+  card background. `.skill-fact-list` now gets a bordered/backgrounded box
+  of its own (`--chip-bg`, `--radius-md`), the same card-on-card language
+  `.contents-section` uses.
+- **The Graph options row's toggles** (Similarity/Entities/Documents/Hide
+  unlinked/Labels) were bare switches with muted text — hard to tell where
+  one control ended and the next began, reported directly, with a request
+  to match the Semantic toggle's own look. All five now also carry
+  `.checkbox-label`, the shared pill-chip class that toggle already had —
+  same fix applied to two more bare `.tools-toggle`s found the same way
+  (Agent mode, Settings → Logs' "Follow").
+- **The lightbox's document preview panel** was translucent (`var(--card)`,
+  deliberately glass) sitting over the lightbox's own darkened backdrop —
+  reported as "somewhat transparent". Switched to `var(--modal-bg)`, the
+  same near-opaque token every other floating overlay already reads text
+  against.
+- **`.library-subtabs button` was more rounded than `.notes-subtabs
+  button`** — traced to cascade order, not a missing class: a global
+  "user-tunable corner rounding" rule (`.seg button`,
+  04-chat-dock-appearance.css) sets a bigger radius and loads *before*
+  `.notes-subtabs button`'s own explicit `--radius-md` override, so Notes
+  wins on load order while Library's own button rule (added this session,
+  07-whiteboard-misc.css) never set the property at all and inherited the
+  bigger one by default. Now sets it explicitly too.
+
+**Built, asked for directly:**
+- **A "Clear" button for the AI Skills sidebar's own log list** —
+  `DELETE /audit?entity_type=...` (`entity_type` required, so this can
+  never be a way to wipe the *whole* audit trail — note edits/deletes are
+  real accountability history, not a scrollback buffer — only the one
+  filtered slice a caller names). The sidebar's sticky/full-height/
+  internal-scroll behaviour itself was **already built** in an earlier
+  stretch of this session (checked before touching anything, per this
+  file's own standing rule) — only the clear action was actually missing.
+- **Suggested-link reasons, the thing "Explain your existing links" was
+  reported as not doing** (it never could — see that button's own long-
+  standing comment) — a new "Suggest reasons" button next to it,
+  `POST /entries/link-suggestions/reasons`, fills each pending suggestion's
+  empty Why box with an AI guess (best-effort per pair, degrades to an
+  empty list rather than an error when the model is down). Kept the
+  original backfill button rather than replacing it — it's a real, working,
+  separate capability (reasons for links that already exist) the ask
+  didn't say to remove.
+
+**Bookmark URL editing** — re-checked after being reported again: the fix
+from earlier this session (`library.js`'s bookmark Edit action prompting
+for both title and URL) is still present and correct on disk. If still
+seeing title-only editing, it's very likely a stale cached `app.js`/
+`library.js` — this project's own history names exactly that trap
+(HANDOVER.md, "a static-file cache header that let the desktop app run
+yesterday's app.js").
+
+**Still open, unchanged from §106/§107:** whiteboard select/move/copy-
+between-boards UX, a tray floating composer, inline chat/search/digest
+citations — all need either a live model, a Windows environment, or their
+own scoping session, none of which this one has.
+
+## §109 — the measured bug round, the competitor gap list triaged, and what is genuinely still open
+
+Three things in this section: bugs fixed this session **with the measurement
+that proved each one** (not a reading of the source), the twelve-item
+competitor gap analysis triaged against what this app already has, and a
+brainstormed list of what is missing that nobody has asked for yet.
+
+### 109.1 Fixed, and how each was actually proven
+
+The theme of this round: **four separate reports were "already fixed" by the
+source and still wrong on screen, and one was never a bug at all.** Reading
+the code decided none of them. What decided them was measuring.
+
+- **The nav-history popup, reported four times** ("garbled overlapping
+  text", "completely broken", "still broken", with screenshots). Every
+  earlier fix — spacing, a `min-width` floor, a last-row margin, moving it
+  out of the status bar's `backdrop-filter` stacking context — was aimed at
+  the wrong cause, and each one was "verified" by *looking at a screenshot*,
+  which is exactly how four rounds got spent on it.
+
+  The actual cause, found by decoding the screenshot PNG and reading raw
+  pixel values instead of trusting my own eyes on it: `--modal-bg` is
+  `rgba(…, 0.96)`, i.e. **4% see-through by design**. Over most backdrops
+  that is invisible. Over the note editor — the densest block of small text
+  in the app — 4% is enough for the labels underneath to survive as legible
+  ghosting, and any screenshot pipeline that rescales or recompresses
+  amplifies it further. Sampled down the popup's left padding column, the
+  background read `(252,253,255)` at the top and `(244,246,253)` lower down:
+  a real, measurable ~8-unit gradient that was the form showing through.
+
+  Fix: a new `--modal-bg-opaque` token (alpha 1) used by `.nav-history-menu`.
+  Re-sampled after: every point reads `(252,253,255)` exactly, uniformly.
+  `--modal-bg` itself is left alone — its other callers (Settings, the
+  command palette) float over much emptier backdrops.
+
+  **And that was only half of it.** The popup was reported broken *again*
+  after the opacity fix, with a dark-mode screenshot showing the rows as
+  scattered dashes. That is the "illegible dashes" symptom an earlier
+  stretch of this session wrote off as a screenshot/DPI capture artifact —
+  **that conclusion was wrong, and writing it off is what let the bug
+  survive several more rounds.** Measured this time instead of looked at:
+  each row reported `scrollHeight` 35px inside a 32.36px box, so the
+  `overflow: hidden` on `.nav-history-item` was slicing every glyph down to
+  its top few pixels — which is precisely what "dashes" were. The rows are
+  `<button>`s, and the app's generic button rule pins a fixed control
+  height; the menu escaped that while it lived inside `#status-bar` (whose
+  own `.status-item` rules won) and stopped escaping when it was moved out
+  to the body earlier in this same round. Fixed with `height: auto;
+  min-height: 0` plus flex centring; re-measured `clipped: false`, and the
+  dark-mode render is clean and fully legible.
+
+  Two independent bugs presenting as one complaint — which is why each
+  individual fix "didn't work", and why the report kept coming back.
+
+  **The transferable lesson, and it is the important part of this section:**
+  a screenshot viewed by eye is not evidence at this precision. Both a human
+  and a vision model will read faint luminance gradients as "ghost text" or
+  fail to see a real 4% blend depending on scaling. `scratchpad/pngpixel.py`
+  (a ~50-line pure-Python PNG reader, no dependencies) samples exact pixels
+  and is the tool to reach for whenever a report is about transparency,
+  contrast, or a colour looking wrong. For anything about text being cut
+  off, the equivalent is comparing `scrollHeight` against `clientHeight`,
+  which settles in one number what rounds of staring at screenshots could
+  not. **Never close a visual report as "a capture artifact" without a
+  measurement that says so.**
+
+- **The AI Skills sidebar, reported three times** ("still doesn't float and
+  stay 100% the height of the screen"). The sticking was never broken —
+  measured: scrolling its container by 400px left it pinned at y=196.97
+  exactly. **The height was wrong.** `max-height: var(--page-sticky-h)`
+  resolved to 655px, but this sidebar's scrolling ancestor is
+  `#library-view-skills`, a *nested* scroller only 534px tall, so the card
+  ran 121px past its own viewport and 52px below the fold on an 800px
+  screen. `--page-sticky-h` is the right figure only for a sidebar whose
+  scroller is the page (`.doc-sidebar`, where the pattern was copied from).
+  Fixed with `container-type: size` on the scroller and `max-height: 100cqh`
+  on the sidebar; measured after: 534.2px, bottom at 731, still pinned.
+
+- **The Graph options separator** clashing with the "All time" read-out —
+  the divider `::before` set only `margin-inline-end`, so it had the parent
+  gap on one side and gap+space-3 on the other. Now `margin-inline`.
+
+- **No caption byline in the lightbox** — the Library tile has carried one
+  since captions became hand-editable; only the lightbox was missing its
+  half, so the same picture named its transcriber but not its describer.
+  Added, mirroring `syncCaptionBadge` exactly.
+
+- **The OCR text in the image gallery** is now clamped and expandable like
+  the caption above it, for both the Tesseract and the vision-model field.
+
+- **Bookmark URL editing — not a bug, and this is the third report of it.**
+  Reproduced the whole flow live in Chromium this time rather than grepping
+  again: Edit opens "Title:" prefilled, saving opens "URL:" prefilled,
+  changing both persists, and a full page reload still shows the new title
+  and the new URL. The code is correct and the behaviour is correct.
+  Everything points at a stale cached `library.js` on the reporting machine
+  — the trap HANDOVER.md already names. **If it is reported a fourth time,
+  do not re-read the handler; get the served file's ETag and the browser's
+  actual loaded copy and compare them.**
+
+- **The nav-history popup "doesn't appear in the Documents tab"** — does not
+  reproduce. Measured in both Notes and Library→Documents: visible, correct
+  box, `elementFromPoint` at its centre lands inside the menu (so nothing is
+  covering it), no page errors. Same stale-cache suspicion as above.
+
+### 109.2 Text highlighting — built
+
+`==highlighted text==`, plus `==green|text==` for a named colour from a
+closed set (yellow, green, blue, pink, purple, orange). Inline markdown, not
+a new data model — the same choice `**bold**`, `~~strike~~` and `[[wiki
+links]]` already made, so a highlight is still just characters in the note's
+own `content` and needs no column, no span-range table, and works everywhere
+content already goes: search, export, and the AI's own reading of the note.
+
+It renders through the one shared `renderInlineMarkdown`, so it lights up in
+notes, documents, chat answers, the digest and link previews at once. The
+colour allowlist lives *inside the regex*, so a colour with no stylesheet
+rule cannot be typed. Uses `mark.text-highlight`, deliberately distinct from
+the bare `<mark>` that `highlightInto` emits for search matches — same tag,
+different meaning, and without the distinction a highlighted note reads as
+"this matched your search" with no search running.
+
+**Still open on this:** there is no toolbar button or keyboard shortcut for
+it, because this editor has no formatting toolbar at all — bold, italic and
+strike are all typed by hand today. A selection toolbar (see 109.4) is where
+a highlight button belongs, and would carry the colour picker with it.
+
+### 109.3 The competitor gap analysis, triaged
+
+The twelve-item Kortex/Granola/Mem read was checked against the app rather
+than filed as-is. **Six of the twelve are already built** — which is the
+same ratio an earlier audit found, and the reason this project's standing
+rule exists. Do not rebuild these:
+
+| # | Gap | Status |
+| --- | --- | --- |
+| 2 | Persistent related-notes panel in the editor | **Built** — updates live while editing, not just on click |
+| 6 | Inline citations in AI answers | **Built** — answers carry the notes they came from |
+| 8 | Global quick-capture from the system tray | **Built** |
+| 11 | Structured decisions/action-items block on meeting notes | **Built** — prepended automatically on save |
+| 4 | Highlights/clippings library | **Partly** — Links (bookmarks) shipped this session; quote-level highlights are not a library yet, but `==highlight==` now exists as the capture syntax |
+| 7 | Chat query scoping to selected notes | **Partly** — notes can be hand-attached to a chat turn; there is no "search only these" scope toggle |
+
+Genuinely open, ranked by value-per-effort:
+
+1. **Import from other note apps** (gap 5) — *the single biggest adoption
+   blocker in the list.* A local-first tool cannot lean on a cloud migration
+   service, so a folder of Markdown, a Notion export zip and an Obsidian
+   vault all need a real importer: front-matter → tags, `[[wiki links]]` →
+   real links, attachments copied in, and a dry-run preview before anything
+   is written. Nothing here needs a model. Start with plain Markdown; Notion
+   and Obsidian are the same importer with two front-matter dialects.
+2. **Typed note templates with structured fields** (gap 3) — Skills are
+   reusable *prompts*; this is a different thing: a category-bound field
+   schema (decisions, owners, dates) that renders as a form and stores
+   structured values. The meeting-summary block already proves the output
+   shape is useful; this generalises it.
+3. **Speaker labelling on transcripts** (gap 12) — transcription is already
+   local, so "Speaker 1/2/3" by voice is an incremental local win. Named
+   speakers need no platform integration if the user can rename a label once
+   and have it stick for that recording.
+4. **Rough notes + transcript merge** (gap 1) — the two-stage capture
+   Granola is built around. Recording, transcription and the summary block
+   all exist; what is missing is the *merge* of the user's own bullets with
+   the transcript into one note, which is one more local-model pass.
+5. **"Compose a document from these notes"** (gap 10) — the agent can
+   already do it from a hand-written prompt; this is a button on a graph or
+   list selection, not new capability.
+6. **Live organise-suggestions while typing** (gap 9) — offer it *alongside*
+   the audited background librarian, never replacing it. The gating and the
+   audit log are deliberate and must survive.
+
+### 109.4 Brainstormed — not asked for, worth doing
+
+- **The selection popup in editors — decide, then build.** Reported twice as
+  "the ellipse kebab button doesn't appear when I highlight things", and now
+  partly explained rather than guessed at. On *rendered* content it works:
+  driven live against `.entry-content`, the popup appears with the right
+  text. It does not appear in the note editor, and that is deliberate —
+  `SELECTION_POPUP_EXCLUDED` is `"input, textarea, [contenteditable],
+  .selection-popup"`, and the editor is a `<textarea>`.
+
+  So this is a design decision, not a bug fix, which is why it is logged
+  rather than half-built: **should selecting text inside the editor offer
+  the same actions as selecting it on a note card?** The argument for is
+  that the editor is exactly where you would want highlight-with-colour,
+  "extract this to its own note" and "link this to…". The argument against
+  is that a popup over a live cursor fights normal text editing. A textarea
+  can supply the selection via `selectionStart`/`selectionEnd`, so the
+  capability is cheap once the decision is made; the awkward part is
+  dismissal behaviour while typing continues. Whoever picks this up: get
+  that decision from the user first. Beyond
+  fixing whatever regressed, selecting text is the natural home for
+  highlight-with-colour, "ask the AI about this", "extract to a new note"
+  and "link this to…". Today selection offers nothing consistent.
+- **Highlights as a queryable collection.** Once `==highlight==` is in use,
+  "show me everything I highlighted this month" is a search-index question,
+  not a schema question — the marks are already in `content`.
+- **Backlinks panel.** The graph knows what links *to* a note; the note
+  itself never shows it.
+- **A conflict-safe editor.** Two windows on the same note silently
+  last-write-wins today.
+- **Search-result grouping by category/tag**, with counts — the result list
+  is flat however many hit.
+- **Export a single note or document** (Markdown/PDF). Backups export
+  everything; there is no "send this one to someone".
+- **A keyboard-shortcut sheet.** `Ctrl`+`K` exists, zoom exists, dictation
+  exists; nothing lists them in one place.
+- **Per-note pinned AI context** — a note that is always in scope for chat
+  ("my current project"), rather than relying on retrieval to find it.
+- **Bulk tag editing** from the notes list, with the same undo the rest of
+  the app has.
+- **A "why is this here?" affordance on graph edges** — the reasons exist;
+  clicking an edge should show one.
+
+
+## §110 — the toolbar round: formatting in Notes, and five more measured bugs
+
+### 110.1 Built
+
+- **A formatting toolbar for the Notes composer**, asked for as "a toolbar
+  like in the documents but for notes and stuff as well". Deliberately the
+  *same* `.doc-toolbar` markup, `data-md` contract and `MD_ACTIONS` table as
+  the document editor rather than a second implementation —
+  `applyMarkdown`/`wrapDocSelection` now take a target box id instead of
+  hardcoding `#doc-content`. This app already has three places that could
+  independently decide what `**` means (the doc toolbar, the "/" menu in
+  editor.js, and now this); keeping them to one table is what stops them
+  drifting into three dialects.
+- **Highlight, highlight-colour, text-colour and Remove formatting** on both
+  toolbars, plus the same actions on the selection popup.
+- **`++colour|text++`** for a foreground colour, alongside `==highlight==`.
+  Its colour is *required* in the pattern (unlike the highlight's optional
+  one) so an ordinary `++` in prose or code can never begin a match, and the
+  colour set is allowlisted inside the regex itself — a colour with no
+  stylesheet rule cannot be typed. Class names, never inline styles: this
+  app's CSP rejects those outright.
+- **The selection popup now works in text fields.** It never did, and the
+  reason was not the exclusion list: `window.getSelection()` does not see
+  inside a `<textarea>`, whose selection lives on the element as
+  `selectionStart`/`selectionEnd`. A separate `fieldSelection()` path reads
+  that. This is also where highlighting became *discoverable* — a syntax
+  nobody is told about may as well not exist, which is exactly how it was
+  reported ("I still dont know how to highlight text").
+- **Auto-captioning and auto-text-reading are switchable off** in Settings,
+  defaulting on. Two switches, not one: describing a picture is a
+  vision-model round trip and the expensive one; Tesseract is local and
+  cheap, so wanting the text without the description is a real position.
+  (Checked first, per the standing rule: OCR *already* auto-ran alongside
+  captioning — `process_committed_upload` fires all three — so the "make OCR
+  auto-run too" half of that ask needed nothing.)
+- **Bookmark editing is an inline form**, replacing two sequential
+  `promptDialog` calls. See 110.2.
+
+### 110.2 The five bugs, and the measurement that found each
+
+- **Gallery kebab stayed open over the rename field.** The close-on-pick
+  listener was on the bubble phase, with a comment explaining that each
+  button's handler should run first — but every one of those handlers opens
+  with `stopPropagation()` to keep the click off the tile beneath, so the
+  click never reached the listener. Capture phase fixes it; closing the menu
+  does not cancel the click still travelling to the button.
+- **The graph dock's divider clashing with the time read-out**, reported
+  twice and "fixed" once by reasoning. Measured: the group sat at exactly its
+  300px `max-width` while the read-out's right edge was at 705px against a
+  group edge of 698 — **the label had overflowed its own box by 7px** and
+  landed 2px from the next group. A flex item's automatic minimum size is its
+  content, so `min-width: 4rem` on the slider did not make it the thing that
+  gave way. Now it is. Re-measured: no overflow, 10px to the divider.
+- **Skill step numbers clipped against the panel border** — four reports,
+  three of them "fixed" by changing padding. An `outside` `::marker` hangs
+  into the padding by an amount CSS at this level cannot bound, so no padding
+  value was ever going to settle it. The numbers are now real spans in a
+  two-column grid gutter: they cannot overhang, and wrapped steps align under
+  their own text rather than under the number.
+- **The Regenerate-greeting button wrapping onto its own line.** The (usually
+  empty) status span had `flex: 1 1 auto`, giving it a 178px content basis:
+  256 + 205 + 178 + gaps = 663px against a 656px row. A zero basis lets it
+  take only what is left.
+- **Bookmark URL editing, reported five times, working every time it was
+  tested.** The handler was correct and the flow was reproduced end to end —
+  including persistence through a reload — on every check. The fault was
+  never in the code; it was that a second modal appearing only *after* you
+  commit the first is a bad way to expose a second field, and anything that
+  interrupts between them (a stale script, an Escape, a mis-click) leaves the
+  URL never asked for and looks exactly like "editing the URL is broken".
+  Now one inline form with all three fields visible at once. Separately,
+  **every local css/js URL is version-stamped** (`?v=<version>`, pinned by
+  `tests/test_asset_cache_busting.py`) so a stale cached `library.js` cannot
+  survive a release — this project's most-repeated false bug report.
+
+### 110.3 Still open
+
+- **Whether the selection popup should appear in the note editor at all** is
+  now moot — it does. What is *not* settled is its dismissal behaviour while
+  typing continues; it currently follows the same rules as on rendered
+  content. Watch for reports of it getting in the way mid-sentence.
+- Everything in §109.3 (the triaged competitor gaps — **six of the twelve
+  were already built, check that table first**) and §109.4.
+- Highlights as a queryable collection, backlinks panel, conflict-safe
+  editor, per-note pinned AI context, bulk tag editing — all §109.4.
+
+## §111 — where this app should go next, grounded in what the code actually does
+
+Asked for directly: missing features, inefficiencies, and future directions.
+Everything below was checked against the codebase rather than imagined, and
+anything already built is named as such so nobody rebuilds it.
+
+### 111.1 Inefficiencies, measured or read rather than guessed
+
+- **The notes list has no virtualisation, and every render rebuilds it.**
+  `loadEntries` pages at `ENTRIES_PAGE_SIZE = 1000` but loops until it has
+  *all* entries, and `renderEntries()` opens with `list.replaceChildren()`
+  and then builds a node per entry. This file's own comments talk about a
+  75k-note notebook; at that size this is 75,000 DOM nodes rebuilt on every
+  filter keystroke, tag toggle and save. **This is the single biggest
+  scalability item in the frontend** and it is invisible until someone has a
+  big notebook, because it is fine at a few hundred. Windowing the list (or
+  rendering only the filtered slice plus a sentinel) is the fix; the
+  server-side pagination it needs already exists.
+- **`/entries/link-suggestions/reasons` is sequential.** Up to twelve model
+  round-trips one after another in a threadpool endpoint. Concurrency would
+  not help much — a single local model serialises anyway — so the honest
+  lever was the count, now capped at 6 automatically with the button for the
+  rest. Worth revisiting only if someone runs a server that batches.
+- **Filing costs a model round-trip per capture** since the order was
+  reversed. Now a preference (`ai_first_filing`), so this is a *choice*
+  rather than a cost, but it is worth measuring on a slow model before
+  assuming the default suits everyone.
+- **Three places independently decide what markdown means**: `MD_ACTIONS`
+  (toolbars), `INLINE_MD`/`INLINE_MD_LEGACY` (the renderer), and editor.js's
+  "/" menu. The Red/Grey highlight bug (§110) lived precisely in the gap
+  between two of them. `tests/test_highlight_colours.py` pins the colour
+  lists, but the general fix is one grammar module the three consume.
+
+### 111.2 Features worth building, ranked by value per unit of work
+
+1. **Import from other note apps.** Still the biggest adoption blocker: a
+   local-first tool cannot lean on a cloud migration service. A folder of
+   Markdown first (front-matter → tags, `[[wiki links]]` → real links,
+   attachments copied in, dry-run preview before anything is written);
+   Notion and Obsidian are the same importer with different front-matter
+   dialects. Needs no model at all.
+2. **Backlinks on the note itself.** The graph already knows what links *to*
+   a note; the note never shows it. Cheap, and it is half of what people mean
+   by a connected notebook.
+3. **Highlights as a queryable collection.** Now that `==highlight==` exists,
+   "show me everything I highlighted this month" is a search-index question,
+   not a schema one — the marks are already in `content`. This is also the
+   honest version of the "clippings library" competitor gap (§109.3 item 4).
+4. **Export a single note or document** (Markdown/PDF). Backups export
+   everything; there is no "send this one to someone".
+5. **Typed note templates with structured fields** — a category-bound schema
+   (decisions, owners, dates) rendered as a form. The meeting-summary block
+   already proves the output shape is useful; this generalises it. Skills are
+   reusable *prompts*, which is a different thing.
+6. **Bulk tag editing** from the notes list, with the same undo everything
+   else has.
+7. **A keyboard-shortcut sheet.** `Ctrl+K`, zoom, dictation and the "/" menu
+   all exist and nothing lists them in one place.
+8. **Per-note pinned AI context** — a note that is always in scope for chat
+   ("my current project"), instead of relying on retrieval to find it.
+9. **Speaker labelling on transcripts.** Transcription is already local, so
+   "Speaker 1/2/3" by voice is incremental; letting a user rename a label
+   once and having it stick for that recording covers the rest.
+10. **A conflict-safe editor.** Two windows on the same note is silently
+    last-write-wins today. Low frequency, high annoyance when it happens.
+
+### 111.3 Directions, not features
+
+- **Decide what the graph is *for*.** It is currently a picture plus a thing
+  the AI can walk. The two uses pull in different directions — a human wants
+  few, meaningful edges; retrieval wants many, weighted ones. Typed links and
+  link strength (§87.5) are the lever, but the decision comes first.
+- **The AI's honesty surface is the app's real differentiator.** Answers
+  already carry the notes behind them and the librarian is audited and
+  gated. Every future AI feature should be held to that bar — visible
+  reasoning, an undo, and a log — rather than added as another silent
+  automation.
+- **Decide whether the note editor is a text box or an editor.** It now has
+  a toolbar, a preview and a selection menu, while Documents has a full
+  four-view editor. Either the composer stays deliberately small and defers
+  to Documents for real writing, or the two converge. Drifting between the
+  two is what produces a third dialect of markdown.

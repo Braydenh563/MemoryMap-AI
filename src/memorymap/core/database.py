@@ -248,6 +248,19 @@ class Entry(Base, WorkspaceMixin):
     # every other optional column here.
     source_url: Mapped[str | None] = mapped_column(String(2000), default=None)
     source_title: Mapped[str | None] = mapped_column(String(300), default=None)
+    # A note that has ever been used as a whiteboard — created as one via
+    # "+ New board", or drawn on directly (routes_whiteboard.py's own
+    # "a board is just a note" design). Reported live: a board vanished from
+    # the "Switch board" list the moment its last card/sketch/object was
+    # removed, which read exactly like the board itself had been deleted —
+    # it hadn't; list_boards() only ever listed notes with a *current*
+    # nonzero node/sketch/object count, so a freshly created empty board, or
+    # one cleared back to empty mid-edit, dropped out of the only UI that
+    # could find it again. Scalar default so the additive auto-migrator
+    # backfills every existing row as not-a-board; an already-drawn-on note
+    # stays visible regardless (its counts are still nonzero), so nothing
+    # already in someone's board list disappears from this change.
+    is_board: Mapped[bool] = mapped_column(Boolean, default=False)
     # ROADMAP §87.1's own audit: "double-click pin exists but is never
     # persisted" — a node held in place with a double-click on the Graph
     # tab (`d.fx`/`d.fy` in graph.js) only ever lived on the in-memory D3
@@ -479,6 +492,73 @@ class AskTurn(Base, WorkspaceMixin):
     # Pinned turns survive "clear history" and sort first — the same shape
     # Conversation.pinned already uses for saved chats.
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class Bookmark(Base, WorkspaceMixin):
+    """A saved link to somewhere outside the notebook.
+
+    Notes and documents already link to *each other* ([[wiki links]],
+    EntryLink) — nothing held a link to the open web, which is what "an area
+    where the user can store lists of links... bookmark commonly visited or
+    favourite websites" (§30, directly requested) actually needs. Deliberately
+    its own small table rather than bolted onto Entry: a bookmark has no
+    body text to search or file, and forcing it through the note pipeline
+    (auto-categorisation, embeddings, the recycle bin) would be solving a
+    problem this doesn't have."""
+
+    __tablename__ = "bookmarks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    url: Mapped[str] = mapped_column(String(2000))
+    title: Mapped[str] = mapped_column(String(200), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Free text, not a foreign key to a real folder table: asked for directly
+    # ("should they be groupable... make sections and groups"), but a full
+    # nested-folder model is a lot of new machinery (a tree table, drag-to-
+    # move UI) for what a flat field mostly already buys. "Work/Reading"
+    # (a "/" convention, the frontend's to render, not this column's to
+    # enforce) gets most of real folders' value — grouping *and* a visual
+    # hierarchy — without a second data model. Scalar default so the
+    # additive auto-migrator backfills existing rows to "" (ungrouped).
+    group_name: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class EntryBookmark(Base):
+    """A note referencing a saved bookmark, so it shows up in that note's
+    own References alongside its [[wiki links]] to other notes (asked for
+    directly — "attach a bookmark to a note... show up in References").
+
+    A plain join row, not folded into EntryLink: EntryLink connects two
+    Entries, and a Bookmark is deliberately not an Entry (see Bookmark's own
+    docstring) — reusing that table would mean either a nullable
+    target-kind column on every existing link row, or a fake Entry made
+    just to hold a URL. Its own tiny table costs nothing and touches
+    nothing already working."""
+
+    __tablename__ = "entry_bookmarks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"))
+    bookmark_id: Mapped[int] = mapped_column(ForeignKey("bookmarks.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class DocumentBookmark(Base):
+    """The same reference as EntryBookmark, for a Document instead of a note
+    (asked about directly: "should bookmarks show in documents... as well?").
+    Its own table rather than a nullable entry_id/document_id pair on one
+    table — Document and Entry are already deliberately separate (see
+    Document's own docstring), so a single join table would need to know
+    which foreign key was live on any given row."""
+
+    __tablename__ = "document_bookmarks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
+    bookmark_id: Mapped[int] = mapped_column(ForeignKey("bookmarks.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 

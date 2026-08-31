@@ -8,9 +8,10 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from memorymap.ai import voice
+from memorymap.ai import librarian, voice
 from memorymap.core import deps
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
@@ -97,3 +98,25 @@ def transcribe_meeting(file: UploadFile, session: Session = Depends(get_session)
         MAX_MEETING_AUDIO_BYTES,
         "Recording is larger than 300 MB",
     )
+
+
+class SummarizeBody(BaseModel):
+    text: str
+
+
+@router.post("/summarize")
+def summarize(body: SummarizeBody) -> dict:
+    """Decisions/action-items extraction for a meeting transcript (§25).
+    Best-effort like `/entries/suggest-tags`: a model that's offline or
+    errors mid-call must never block saving the meeting note, so every
+    failure here just means an empty summary, not a 5xx."""
+    text = body.text.strip()
+    if not text:
+        return {"summary": ""}
+    try:
+        summary = librarian.summarize_meeting(
+            text, deps.get_model_manager(), deps.get_ollama()
+        )
+    except Exception:
+        summary = ""
+    return {"summary": summary}

@@ -491,13 +491,6 @@ progress {
   flex: 0 0 auto;
 }
 
-/* Two stacked `.row`s have no space between them: `.row`'s own gap applies
-   *within* a row, not between siblings. Reported for the two export settings,
-   which read as one run-on control. */
-.settings-row-spaced {
-  margin-top: var(--space-3);
-}
-
 #thinking-box {
   margin-bottom: 0.6rem;
   font-size: 0.85rem;
@@ -746,6 +739,26 @@ progress {
   border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
+}
+
+/* The AI Skills panel's own log rows (`renderSkillLogs`, library.js) —
+   `#skills-logs-list` is a plain `<div class="entry-list">`, not a `<ul>`
+   (it holds status text on the empty-state path too), so its rows are
+   `<div class="entry-item">` and never matched `.entry-list li` above.
+   `.entry-item` had *no* CSS anywhere in the app — every log row rendered
+   as bare unstyled text with no card, no border, no gap from the next one,
+   which is what "the skill logs UI looks messy" actually was. Same visual
+   language as `.entry-list li`, since it's the same kind of row. */
+.entry-item {
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.entry-item .log-detail {
+  margin-top: var(--space-2);
 }
 
 /* Roving-tabindex keyboard nav (app.js's applyEntryListTabOrder /
@@ -1149,8 +1162,149 @@ progress {
   gap: var(--space-2);
 }
 
+/* The edit form's own related-notes panel (renderRelatedWhileEditing,
+   app.js) — same shape as .entry-links above (it reuses the same chip
+   markup) but its own class, since it lives in a different place in the
+   DOM (appended to the edit form itself, not a note card) and appears
+   automatically rather than only after a click. */
+.entry-related-live {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Library -> Links (§30): a plain list of saved websites, one row each. */
+#bookmark-form {
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+#bookmark-form input {
+  flex: 1 1 12rem;
+}
+
+.bookmark-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bookmark-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.bookmark-main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bookmark-url {
+  margin-top: var(--space-1);
+}
+
+.bookmark-group-label {
+  margin-top: var(--space-1);
+}
+
+#bookmark-search {
+  margin-bottom: var(--space-3);
+}
+
+.bookmark-attach-picker {
+  width: auto;
+  max-width: 16rem;
+}
+
+.bookmark-group-chips {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+/* Library -> Contents (§30): a hyperlinked outline grouped by category or
+   tag, as a grid of bordered cards — reported as "ugly," which the first
+   pass earned: plain headings and a bare link list with no containment
+   read as unstyled text, not a designed view. Matches the card language
+   `.bookmark-row`/`.outline-link` already use elsewhere in this app. */
+.contents-outline {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+.contents-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--card-bg);
+}
+
+.contents-heading {
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-md);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.contents-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 14rem;
+  overflow-y: auto;
+  /* Reported directly: a long unbroken filename (an upload's own name, no
+     spaces to wrap on) forced this scrollable box wide instead of tall,
+     which — because only `overflow-y` was set — silently turned
+     `overflow-x` into `auto` too (the CSS spec's own computed-value rule
+     for a box scrollable on one axis alone), adding a horizontal
+     scrollbar and cutting off both the text and its hover highlight at
+     the card's edge instead of wrapping onto a second line. */
+  overflow-x: hidden;
+}
+
+.contents-list li a {
+  display: block;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.contents-list li a:hover,
+.contents-list li a:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.bookmark-actions {
+  flex-shrink: 0;
+}
+
 /* Settings sections: a second row of controls below an existing one that
-   needs a little breathing room from it. */
+   needs a little breathing room from it — `.row`'s own gap applies *within*
+   a row, not between siblings, and two stacked rows with none read as one
+   run-on control (reported for the two export settings). Was defined twice
+   in this file with two different values (--space-3 up near the export
+   rows that first needed it, --space-2 here) — the cascade always resolved
+   to this second one regardless of which the code near either usage seemed
+   to assume, so the first was silently dead. One definition now. */
 .settings-row-spaced {
   margin-top: var(--space-2);
 }
@@ -1271,6 +1425,18 @@ li.link-source {
 
 .recent .chip:hover {
   filter: brightness(1.08);
+}
+
+/* The Capture form's pre-save tag-suggestion row (app.js's
+   scheduleCaptureTagSuggestions) sits between the tags input and the
+   "Add to document" row below it — `.recent`'s own margin-top gives it a
+   gap above, but nothing gave it one below, so it read as glued to the row
+   after it. Scoped to this one id rather than widening `.recent` itself,
+   which other pages reuse (the reevaluate tag row, the dashboard's "recent"
+   box, the graph legend) in layouts already spaced by their own next
+   sibling's margin. */
+#entry-tag-suggestions {
+  margin-bottom: 0.5rem;
 }
 
 /* --- Ask history: the personal-notes-browser panel (§ROADMAP item 6) ------
@@ -2529,4 +2695,126 @@ html.modal-open body {
 .inline-h3 {
   display: inline;
   font-size: var(--text-base);
+}
+
+
+/* The bookmark row's in-place edit form (library.js). Replaces a chain of
+   two modal prompts - see that handler's comment for why sequencing the
+   fields was the problem rather than the code behind them. Laid out as a
+   column so all three fields and their labels are readable at once at any
+   width, which a row of three inputs is not. */
+.bookmark-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.bookmark-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bookmark-edit-field input {
+  margin: 0;
+  width: 100%;
+}
+
+.bookmark-edit-actions {
+  gap: var(--space-2);
+}
+
+
+/* The Links "+ Add" button sat shorter than the three inputs beside it -
+   reported directly. `.small` trims a button's padding, which is right in a
+   toolbar but wrong in a form row, where the control height is set by the
+   inputs. Matching the row rather than the class, the same
+   one-height-per-control-strip rule DESIGN.md applies elsewhere. */
+#bookmark-form {
+  align-items: stretch;
+}
+
+#bookmark-form button[type="submit"] {
+  align-self: stretch;
+  padding-block: 0;
+  white-space: nowrap;
+}
+
+
+/* The dashboard-greeting persona picker and its Regenerate button share a
+   row and wrap rather than overflow. `align-items: center` keeps the select,
+   the button and the status text on one baseline while they fit; once they
+   do not, each drops to its own line at full width. */
+.dashboard-persona-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* `flex: 1 1 auto` gave the (usually empty) status span a 178px content
+   basis, which measured 256 + 205 + 178 + gaps = 663px against a 656px row
+   and wrapped the button onto its own line for the sake of a span with
+   nothing in it. A zero basis lets it take only what is left over. */
+.dashboard-persona-row .status {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+
+/* Each related note and its Link button on one line. The panel was a plain
+   run of chips; adding an action per row means the pairing has to be
+   explicit or the buttons drift away from the notes they belong to. */
+.entry-related-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
+}
+
+
+/* The note composer's preview pane. Sized like the box it replaces so
+   toggling does not make the form jump, and scrollable rather than
+   unbounded — a long note should not push the Save button off screen. */
+.entry-preview {
+  min-height: 5.5rem;
+  max-height: 24rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  cursor: text;
+  /* Matches the textarea this replaces. `.char-count` below carries
+     `margin-top: -0.4rem` to sit snug under the box, which only works
+     because the box has a bottom margin to absorb it — with none here the
+     count was pulled 6px *inside* the preview and collided with whatever sat
+     at the bottom, a code block in the report. Measured before: the count's
+     top was 6px above the preview's bottom edge. */
+  margin-bottom: var(--space-4);
+}
+
+.entry-preview.hidden {
+  display: none;
+}
+
+.entry-preview > *:first-child {
+  margin-top: 0;
+}
+
+.entry-preview > *:last-child {
+  margin-bottom: 0;
+}
+
+/* A pressed state for the toolbar's Preview toggle, so it reads as a mode
+   you are in rather than a button you pressed once. */
+.doc-toolbar-toggle.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
 }

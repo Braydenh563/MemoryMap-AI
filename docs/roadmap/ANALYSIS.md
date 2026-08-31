@@ -1034,3 +1034,47 @@ tests and the same-origin protection) and the "week of another agent's
 work" that shipped 90 failing tests (§40's audit). Not adopted; revisit
 only if a specific, concrete pain point emerges that modularisation
 doesn't address.
+
+## 104. Sub-categories, asked about directly — and whether the graph needs a new mechanism to answer it
+
+Asked directly: should there be sub-categories — e.g. `Travel` with a
+sub-category `Family Japan Trip December 2026` — and can the knowledge
+graph's traversal/use/design be improved further. Two different questions,
+answered separately.
+
+**Sub-categories: no, not as a new hierarchy field — the tools to do this
+already exist.** `Category` (`core/database.py`) is flat by design (name
+only, no `parent_id`); adding a real parent/child layer means every surface
+that already knows about categories — the janitor's filing prompt, the
+Library's category filter, Timeline's category grouping, the graph's own
+colour-by-category, the chat retrieval prompt — has to learn a second
+concept ("category, or is it a sub-category?") for a need that is really
+just "group these particular notes together under a name," which this app
+already has two ways to do without a schema change:
+- **Tag it**: `Travel` as the category, `family-japan-trip-dec-2026` as a
+  tag. Filters, search (`tag:`), and the janitor's own filing already treat
+  a tag as exactly this granularity.
+- **Hub-note it**: one note titled `# Family Japan Trip — Dec 2026`,
+  every related note linked to it (`[[wiki links]]`/`entry_links`, both
+  already real relationships, not a workaround). The graph tab already
+  renders that cluster as a visibly distinct neighbourhood — which is a
+  truer picture than a rigid tree, since a trip note plausibly also belongs
+  to `Family` or `2026 goals`, and a strict parent/child category can only
+  ever pick one parent.
+
+  If neither reads as discoverable enough in practice, the cheaper next
+  step is surfacing what already exists better — e.g. a Library filter
+  chip for "notes linked to this hub note" — before adding a second
+  category concept.
+
+**Graph traversal: already being worked, and already prioritised — see
+BACKLOG.md §101, don't re-derive this here.** Short version: typed/weighted
+links are built (`link_strength()`, wired into `graph_expansion()`);
+per-stage token cost accounting is built (so a "did this change actually
+help" question is answerable at all now); the *next* concrete step is
+already named there — finish the composite signal (shared tags/category/
+temporal proximity) and then re-measure whether the existing
+`graph_expansion()` walk actually got better, which needs a real reachable
+Ollama and cannot happen in this sandbox. Nothing about the sub-category
+question above changes that order or adds a new item to it — a hub-note
+cluster is read by the exact same traversal, not a different one.

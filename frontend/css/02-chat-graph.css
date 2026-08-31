@@ -338,6 +338,17 @@
   margin-bottom: 0;
 }
 
+/* Reported: the Capture tab's template picker read as cramped, with its
+   label crowding the arrow. Measured rather than eyeballed - it came back
+   146.8px wide against a 32px-tall row of sibling controls, so a label like
+   "Meeting notes" filled it edge to edge and sat right against the chevron.
+   A floor on the width and a wider right gutter give the longest built-in
+   template name room without the box growing past `.small-select`'s cap. */
+#entry-template {
+  min-width: 11rem;
+  padding-right: var(--space-8);
+}
+
 /* A number of backups to keep, not a name or a path — this app's other
    `.small-select` uses are all <select>/text and can take the full 16rem;
    a bare number reads as a stray box that wide. */
@@ -2042,6 +2053,117 @@ kbd {
   display: none;
 }
 
+/* The status bar's navigation-history popup (right-click Back/Forward, or
+   its own button) — asked for directly. Not `.action-menu`: that class
+   assumes a `.menu-wrap` ancestor (`position: absolute; right: 0; top:
+   calc(100% + 4px)`) this doesn't have, since it can open from either of
+   two buttons or a right-click on either, and the status bar sits at the
+   very bottom of the screen so it has to open *upward* — `openNavHistoryMenu`
+   (app.js) positions it with an explicit inline top/left instead. */
+.nav-history-menu {
+  position: fixed;
+  /* Anchored from the bottom, not computed from `top` in JS: this always
+     opens upward from the status bar, at a fixed distance from it, so there
+     is no need to also measure the menu's own height first (the same
+     `bottom: calc(var(--status-bar-h) + var(--space-3))` shape
+     01-forms-settings.css already uses for other fixed controls above the
+     bar). `left` is still set from JS (openNavHistoryMenu, app.js), since
+     that depends on which of three triggers opened it. */
+  bottom: calc(var(--status-bar-h) + var(--space-3));
+  z-index: 90;
+  /* Reported as "completely broken" — real, and reproduced: with only
+     short single-word entries (a plain tab visit, no sub-section), the
+     shrink-to-fit width this element had with no `min-width` collapsed to
+     a narrow, sub-pixel box (164.34px, measured) — and text inside a
+     `text-overflow: ellipsis` flex child that narrow renders as illegible
+     dashes rather than real glyphs, a genuine rendering-engine failure
+     mode at that width, not a colour or font-size problem (both measured
+     fine). A floor keeps every row wide enough to stay out of that zone
+     regardless of how short its own label happens to be. */
+  min-width: min(14rem, 90vw);
+  max-width: min(22rem, 90vw);
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  /* Fully opaque, not `--modal-bg`'s 96% — see that token's own comment in
+     00-tokens-shell.css. This popup opens over the note editor, whose form
+     is the densest block of small text in the app, and 4% see-through was
+     enough there for the labels underneath to read as ghosted text through
+     the menu. */
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--glass-shadow);
+}
+
+.nav-history-menu.hidden {
+  display: none;
+}
+
+.nav-history-item {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 500;
+  font-size: var(--text-md);
+  line-height: 1.6;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  /* **This is what made the rows illegible**, reported repeatedly as the
+     popup being "completely broken" / showing dashes instead of text, and
+     measured rather than guessed: `scrollHeight` 35px against a 32.36px
+     box, so `overflow: hidden` above was slicing every glyph down to its
+     top few pixels. These are `<button>`s, and the app's generic button
+     rule sets a fixed control height — which this menu escaped while it
+     lived inside `#status-bar` (whose own `.status-item` rules won) and
+     stopped escaping when it moved out to the body. `height: auto` with a
+     `min-height` floor of zero puts the row back to its content height;
+     flex centring keeps the icon and its label on one baseline. */
+  height: auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-overflow: ellipsis;
+}
+
+.nav-history-item:hover,
+.nav-history-item:focus-visible {
+  background: var(--accent-soft);
+}
+
+/* Where you are right now — not clickable-to-nowhere, just marked so the
+   list reads as a map with a "you are here" pin rather than a plain stack. */
+.nav-history-item.nav-history-current {
+  color: var(--accent);
+  font-weight: 700;
+  cursor: default;
+}
+
+/* Reported directly: the last row sat flush against the bottom edge with
+   no breathing room, unlike the clear gap above the first row. The
+   container's own `padding-bottom` is set (same as every other side), but
+   isn't reliably honoured past the end of a scrolled flex container's
+   content in every engine — a trailing margin on the last item is the
+   robust fix, not a bigger padding value that only helps when nothing
+   scrolls. */
+.nav-history-more {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  text-align: center;
+}
+
+.nav-history-item:last-child {
+  margin-bottom: var(--space-2);
+}
+
 /* Set by `wireEscapedActionMenu` (app.js) while the menu is reparented to
    <body> to escape a clipping scroll ancestor — see the note there. `left`/
    `top` come from that same function as inline style, computed from the
@@ -2085,6 +2207,21 @@ kbd {
 
 .menu-item.menu-danger:hover {
   background: rgba(185, 28, 28, 0.10);
+}
+
+/* A kebab item that names a real action but can't do it right now (e.g. the
+   gallery's "Read text (Tesseract OCR)" with the tesseract binary missing) —
+   muted rather than natively `disabled`, so its own title tooltip and click
+   (which explains why, rather than the underlying request silently no-oping)
+   both still work. */
+.menu-item.menu-item-unavailable {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.menu-item.menu-item-unavailable:hover,
+.menu-item.menu-item-unavailable:focus-visible {
+  background: none;
 }
 
 /* Grouped submenus in the note card's ⋯ menu, asked for directly: a side
@@ -2394,7 +2531,13 @@ html {
   overflow: auto;
   padding: var(--space-6);
   border-radius: var(--radius-lg);
-  background: var(--card);
+  /* Not `var(--card)` — that token is deliberately translucent glass (a
+     card sitting on the page background), which is wrong for a reading
+     surface sitting over the lightbox's own darkened backdrop and
+     whatever image/UI is behind it. Reported directly as "somewhat
+     transparent". `--modal-bg` is the same near-opaque (96-97%) token
+     every other floating overlay in this app already reads text against. */
+  background: var(--modal-bg);
   color: var(--ink);
   text-align: left;
 }
@@ -2649,6 +2792,12 @@ mark.lightbox-hit {
 }
 
 .lightbox-info {
+  /* Reported directly: hovering this panel still showed the zoom-out cursor
+     — `.lightbox`'s own `cursor: zoom-out` (clicking the overlay's empty
+     backdrop closes it) is inherited by every descendant that doesn't say
+     otherwise, and this one is text to read and fields to click into, not
+     a second way to close the dialog. */
+  cursor: default;
   max-width: min(48rem, 90vw);
   /* No inner scrollbar and no height cap. The overlay scrolls now, so a long
      transcription makes the dialog longer instead of hiding itself behind a

@@ -295,6 +295,7 @@ function renderLibraryFilters() {
       libraryCurrentPage = 1;
       renderLibraryFilters();
       renderLibrary();
+      updateLibraryCreateButton();
     });
     box.appendChild(button);
   }
@@ -1191,12 +1192,122 @@ $("library-bulk-delete").addEventListener("click", async () => {
   loadEntries();
 });
 $("library-refresh").addEventListener("click", loadLibrary);
-$("library-new-doc").addEventListener("click", () => {
-  switchTab("documents");
-  // The Documents page's own loader opens the last document otherwise, and a
-  // new one would be replaced a moment after it appeared.
-  setTimeout(() => $("doc-new").click(), 160);
-});
+
+// **The "All" tab's create button, matched to whichever filter chip is
+// active.** Reported directly: it always said "+ New document" and made a
+// document regardless of whether you were looking at Notes, Chats or
+// Meetings — the one obviously-wrong thing to create in three of those
+// four views. `renderLibraryFilters()` (above) calls this every time the
+// chip changes; the four kinds with one unambiguous thing to create get a
+// matching button, everything else (Everything, Files, Tags, Drafts,
+// Activity, the bin) falls back to "+ New note" — the fastest capture path
+// in the app, and a reasonable default when there's no single obvious
+// answer. A real "choose what to create" picker for the Everything view
+// specifically was asked for too but not built this pass — logged rather
+// than rushed; see BACKLOG.md.
+const LIBRARY_CREATE_BY_KIND = {
+  note: {
+    label: "＋ New note",
+    run: () => {
+      switchTab("notes");
+      showNotesSection("capture", { focus: true });
+    },
+  },
+  document: {
+    label: "＋ New document",
+    run: () => {
+      switchTab("documents");
+      // The Documents page's own loader opens the last document otherwise,
+      // and a new one would be replaced a moment after it appeared.
+      setTimeout(() => $("doc-new").click(), 160);
+    },
+  },
+  chat: {
+    label: "＋ New chat",
+    run: () => {
+      switchTab("chat");
+      newChatConversation();
+    },
+  },
+  meeting: {
+    label: "⏺ Transcribe audio",
+    run: () => openMeetingRecorder(),
+  },
+};
+
+// **BACKLOG §105 item 1, built**: "Everything" and every kind with no
+// single obvious answer (Files, Tags, Drafts, Activity, the bin) now open
+// a real picker instead of silently defaulting to "+ New note" — asked for
+// again directly ("the buttons for creating and uploading the specific
+// things"). A modal overlay, not a `kebabMenu()` dropdown: the button
+// isn't wrapped in `.menu-wrap` the way every other kebab opener is, and
+// `.library-view-section`'s own `overflow-y: auto` is exactly the clipping
+// trap `wireEscapedActionMenu` exists to work around elsewhere — a full
+// overlay sidesteps both instead of fighting them.
+function openLibraryCreatePicker() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Choose what to create");
+
+  const card = document.createElement("div");
+  card.className = "card modal-card confirm-card";
+  const text = document.createElement("p");
+  text.className = "confirm-text";
+  text.textContent = "What would you like to create?";
+  const row = document.createElement("div");
+  row.className = "row confirm-actions library-create-picker-actions";
+
+  const returnFocus = document.activeElement;
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    returnFocus?.focus?.();
+  };
+  const onKey = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      close();
+    }
+  };
+
+  for (const kind of ["note", "document", "chat", "meeting"]) {
+    const entry = LIBRARY_CREATE_BY_KIND[kind];
+    const button = smallButton(entry.label, entry.label, () => {
+      close();
+      entry.run();
+    }, false);
+    row.appendChild(button);
+  }
+  const cancel = smallButton("Cancel", "Cancel", close);
+  row.appendChild(cancel);
+
+  card.append(text, row);
+  overlay.appendChild(card);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+  document.addEventListener("keydown", onKey, true);
+  document.body.appendChild(overlay);
+  row.querySelector("button")?.focus();
+}
+
+function updateLibraryCreateButton() {
+  const btn = $("library-new-doc");
+  if (!btn) return;
+  const entry = LIBRARY_CREATE_BY_KIND[libraryKind];
+  if (entry) {
+    setLabel(btn, entry.label);
+    btn.title = entry.label.replace(/^\S+\s*/, "");
+    btn.onclick = entry.run;
+  } else {
+    setLabel(btn, "＋ Create");
+    btn.title = "Choose what to create";
+    btn.onclick = openLibraryCreatePicker;
+  }
+}
+updateLibraryCreateButton();
 
 // ======================= SKILLS DASHBOARD TAB =======================
 
@@ -1286,10 +1397,37 @@ function skillCard(skill, lastRun) {
     // Steps run in order, so they're numbered; tools are just a set the
     // model may reach for, in no particular order.
     const list = document.createElement(ordered ? "ol" : "ul");
-    list.className = "skill-fact-list";
+    // Steps and tools are different kinds of thing and now look it. A step is
+    // a sentence and reads as numbered prose; a tool is an identifier, so it
+    // gets the monospace chip treatment the rest of the app already gives
+    // code-ish tokens instead of sitting as a bare bullet. Reported twice as
+    // these lists being "still not properly designed UI wise".
+    list.className = ordered
+      ? "skill-fact-list skill-fact-list-steps"
+      : "skill-fact-list skill-fact-list-tools";
     for (const item of items) {
       const li = document.createElement("li");
-      li.textContent = item;
+      if (ordered) {
+        // The number is a real element, not `::marker`. Three rounds of
+        // padding tweaks failed to stop the generated markers from sitting
+        // on (and being clipped by) the panel's left border, because an
+        // `outside` marker is positioned relative to the item's content box
+        // and hangs into the padding by an amount the page does not control.
+        // A two-column grid with the number in its own gutter is
+        // deterministic: it cannot overhang anything, and multi-line steps
+        // align under their own text rather than under the number.
+        const n = document.createElement("span");
+        n.className = "skill-step-n";
+        n.textContent = `${list.childElementCount + 1}.`;
+        const body = document.createElement("span");
+        body.textContent = item;
+        li.append(n, body);
+      } else {
+        const token = document.createElement("code");
+        token.className = "skill-tool-token";
+        token.textContent = item;
+        li.appendChild(token);
+      }
       list.appendChild(li);
     }
     wrap.append(summary, list);
@@ -1477,6 +1615,13 @@ async function renderSkillsDashboard() {
 // sub-tab was opened, and it depended on load order: whichever script
 // happened to run last owned the global. See `librarySubtabs` below.
 
+$("skills-logs-clear")?.addEventListener("click", async () => {
+  const ok = await confirmDialog("Clear the skill run log? This can't be undone.");
+  if (!ok) return;
+  await apiJson("/audit?entity_type=skill", { method: "DELETE" }).catch((e) => toast(e.message, true));
+  renderSkillLogs();
+});
+
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
   if (!logList) return;
@@ -1541,6 +1686,13 @@ async function renderSkillLogs() {
 // upload id. Reported: "the image caption can't be expanded or collapsed",
 // which the two-line clamp had no way to do at all until now.
 const libraryExpandedCaptions = new Set();
+// Same again for the two OCR fields below the caption. Asked for directly:
+// "make the ocr extracted text in the image gallery collapsible and
+// expandable like the image captions as well" — captionText got the clamp
+// fix above; these two never did, so a long transcription still grew the
+// tile unboundedly.
+const libraryExpandedOcr = new Set();
+const libraryExpandedVisionOcr = new Set();
 // Which documents are ticked in the Library's Documents sub-tab — this
 // view's own selection, separate from `librarySelection` (the "All" view's),
 // because this section never populates `libraryItems` and mixing the two
@@ -1931,7 +2083,7 @@ function filterLibraryImagesGallery() {
           byline: i.vision_ocr_text
             ? `Text read by ${i.vision_ocr_model || "a model"}`
             : i.ocr_text
-              ? "Text read offline (OCR)"
+              ? "Text read with Tesseract OCR"
               : "",
           addedAt: i.created_at || "",
         })),
@@ -2217,6 +2369,26 @@ function filterLibraryImagesGallery() {
     ocrText.tabIndex = 0;
     ocrText.setAttribute("role", "button");
 
+    // Same clamp/toggle shape as captionText's above.
+    const OCR_CLAMP_CHARS = 90;
+    const ocrToggle = document.createElement("button");
+    ocrToggle.type = "button";
+    ocrToggle.className = "entry-more library-image-ocr-more hidden";
+    const ocrClamped = () =>
+      !libraryExpandedOcr.has(image.id) && (image.ocr_text || "").length > OCR_CLAMP_CHARS;
+    const syncOcrClamp = () => {
+      ocrText.classList.toggle("library-image-ocr-clamped", ocrClamped());
+      const needsToggle = (image.ocr_text || "").length > OCR_CLAMP_CHARS;
+      ocrToggle.classList.toggle("hidden", !needsToggle);
+      ocrToggle.textContent = libraryExpandedOcr.has(image.id) ? "Show less" : "Show more";
+    };
+    ocrToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (libraryExpandedOcr.has(image.id)) libraryExpandedOcr.delete(image.id);
+      else libraryExpandedOcr.add(image.id);
+      syncOcrClamp();
+    });
+
     const setOcrState = (text) => {
       image.ocr_text = text || "";
       ocrText.textContent = text || "No text found — click to add";
@@ -2224,6 +2396,7 @@ function filterLibraryImagesGallery() {
       ocrText.title = text ? "Click to edit this text" : "Click to add text";
       ocrBtn.title = `Re-read the text in “${image.original_name}” without AI`;
       ocrBtn.setAttribute("aria-label", ocrBtn.title);
+      syncOcrClamp();
       // The section around this paragraph decides whether to show itself from
       // the same value. Announced rather than called directly because the
       // wrapper is built further down, after every handler here is closed
@@ -2234,6 +2407,9 @@ function filterLibraryImagesGallery() {
 
     const startEditingOcr = () => {
       if (ocrText.querySelector("textarea")) return; // already editing
+      // Same reasoning as captionText's own clamp removal above: a <textarea>
+      // squashed into a 2-line clamped box reads as "collapsed" while editing.
+      ocrText.classList.remove("library-image-ocr-clamped");
       const box = document.createElement("textarea");
       box.className = "library-image-ocr-input";
       box.value = image.ocr_text || "";
@@ -2286,6 +2462,17 @@ function filterLibraryImagesGallery() {
       }
     });
 
+    // Reported directly: this button was always enabled, even on a machine
+    // without the `tesseract` binary — the one dependency this app never
+    // installs on its own (INSTALL.md) — so pressing it just silently found
+    // nothing, indistinguishable from "read the image and there was no
+    // text". `/models/status`'s `tesseract_available` (routes_models.py, a
+    // plain `shutil.which` check) is what makes that distinguishable.
+    if (modelStatus && modelStatus.tesseract_available === false) {
+      ocrBtn.disabled = true;
+      ocrBtn.title = "Unavailable — the Tesseract OCR program isn't installed. See INSTALL.md.";
+      ocrBtn.setAttribute("aria-label", ocrBtn.title);
+    }
     ocrBtn.addEventListener("click", async (event) => {
       event.stopPropagation();
       ocrBtn.disabled = true;
@@ -2298,7 +2485,7 @@ function filterLibraryImagesGallery() {
         ocrText.textContent = previousOcrText;
         toast(error.message || "Couldn't read the text in that image.", true);
       } finally {
-        ocrBtn.disabled = false;
+        ocrBtn.disabled = modelStatus && modelStatus.tesseract_available === false;
       }
     });
 
@@ -2335,6 +2522,29 @@ function filterLibraryImagesGallery() {
     const visionOcrBadge = document.createElement("span");
     visionOcrBadge.className = "library-image-vision-ocr-badge muted text-xs hidden";
 
+    // Same clamp/toggle shape as captionText's/ocrText's above.
+    const VISION_OCR_CLAMP_CHARS = 90;
+    const visionOcrToggle = document.createElement("button");
+    visionOcrToggle.type = "button";
+    visionOcrToggle.className = "entry-more library-image-vision-ocr-more hidden";
+    const visionOcrClamped = () =>
+      !libraryExpandedVisionOcr.has(image.id) &&
+      (image.vision_ocr_text || "").length > VISION_OCR_CLAMP_CHARS;
+    const syncVisionOcrClamp = () => {
+      visionOcrText.classList.toggle("library-image-vision-ocr-clamped", visionOcrClamped());
+      const needsToggle = (image.vision_ocr_text || "").length > VISION_OCR_CLAMP_CHARS;
+      visionOcrToggle.classList.toggle("hidden", !needsToggle);
+      visionOcrToggle.textContent = libraryExpandedVisionOcr.has(image.id)
+        ? "Show less"
+        : "Show more";
+    };
+    visionOcrToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (libraryExpandedVisionOcr.has(image.id)) libraryExpandedVisionOcr.delete(image.id);
+      else libraryExpandedVisionOcr.add(image.id);
+      syncVisionOcrClamp();
+    });
+
     const setVisionOcrState = (text, model) => {
       image.vision_ocr_text = text || "";
       image.vision_ocr_model = model || "";
@@ -2354,6 +2564,7 @@ function filterLibraryImagesGallery() {
         ? `Read the text in “${image.original_name}” again`
         : `Read any text in “${image.original_name}” with AI`;
       visionOcrBtn.setAttribute("aria-label", visionOcrBtn.title);
+      syncVisionOcrClamp();
     };
     setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
 
@@ -2363,6 +2574,7 @@ function filterLibraryImagesGallery() {
     // a wrong reading can be deleted outright instead of only overwritten.
     const startEditingVisionOcr = () => {
       if (visionOcrText.querySelector("textarea")) return; // already editing
+      visionOcrText.classList.remove("library-image-vision-ocr-clamped");
       const box = document.createElement("textarea");
       box.className = "library-image-ocr-input";
       box.value = image.vision_ocr_text || "";
@@ -2458,7 +2670,7 @@ function filterLibraryImagesGallery() {
     // working things to change where they sit.
     setLabel(rename, "ph:pencil-simple Rename");
     setLabel(captionBtn, "ph:sparkle Describe with AI");
-    setLabel(ocrBtn, "ph:scan Read text offline (OCR)");
+    setLabel(ocrBtn, "ph:scan Read text (Tesseract OCR)");
     setLabel(visionOcrBtn, "ph:text-aa Read text with AI");
     setLabel(del, "ph:trash Delete");
     for (const button of [rename, captionBtn, ocrBtn, visionOcrBtn, del]) {
@@ -2486,11 +2698,26 @@ function filterLibraryImagesGallery() {
     menuList.className = "library-image-menu-list";
     menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
     menu.append(menuButton, menuList);
-    // Picking anything closes the menu. Not `capture`, so each button's own
-    // handler still runs first and can stop propagation if it needs to.
-    menuList.addEventListener("click", () => {
-      menu.open = false;
-    });
+    // Picking anything closes the menu — on the **capture** phase, which is
+    // the whole point. This was a bubble-phase listener with a comment
+    // explaining that each button's own handler should run first, but every
+    // one of those handlers (rename, caption, both OCR buttons, delete)
+    // opens with `event.stopPropagation()` to keep the click off the tile
+    // underneath — so the click never reached this listener and the menu
+    // never closed. Reported directly: the menu stayed open on top of the
+    // rename field it had just opened, covering the thing you were trying to
+    // type into.
+    //
+    // Capturing runs this before those handlers, where nothing can stop it,
+    // and closing the menu does not cancel the click that is still on its
+    // way to the button — so both halves now happen.
+    menuList.addEventListener(
+      "click",
+      () => {
+        menu.open = false;
+      },
+      { capture: true }
+    );
     document.addEventListener("click", (event) => {
       // `menuList` is reparented to <body> while open (see placeMenu), so
       // `menu.contains()` alone no longer covers a click on the menu's own
@@ -2605,13 +2832,20 @@ function filterLibraryImagesGallery() {
       captionToggle,
       captionBadge
     );
-    const visionField = field("Text in this image", visionOcrText, visionOcrBadge);
-    // Offline OCR is shown only when it actually found something. It needs
-    // Tesseract, which this app never installs on its own (by instruction),
-    // so on most machines it is permanently empty — and an empty second
-    // "no text found" box under a filled one is the confusion this whole
-    // block exists to remove. Reachable regardless from the kebab menu.
-    const ocrField = field("Also read offline (OCR)", ocrText);
+    const visionField = field(
+      "Text in this image",
+      visionOcrText,
+      visionOcrToggle,
+      visionOcrBadge
+    );
+    // The Tesseract reading is shown only when it actually found something.
+    // Tesseract is a system binary this app never installs on its own (by
+    // instruction, and `tesseract_available` in /models/status now says so
+    // up front rather than after a click) — so on most machines it is
+    // permanently empty, and an empty second "no text found" box under a
+    // filled one is the confusion this whole block exists to remove.
+    // Reachable regardless from the kebab menu.
+    const ocrField = field("Also read with Tesseract OCR", ocrText, ocrToggle);
     const syncOcrFieldVisibility = () =>
       ocrField.classList.toggle("hidden", !(image.ocr_text || "").trim());
     syncOcrFieldVisibility();
@@ -2648,7 +2882,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // routes_library.py).
     const sections = [
       "library-view-documents", "library-view-docs", "library-view-skills",
-      "library-view-whiteboard", "library-view-media",
+      "library-view-whiteboard", "library-view-media", "library-view-links",
+      "library-view-contents",
     ];
 
     buttons.forEach(btn => {
@@ -2695,6 +2930,10 @@ document.addEventListener("DOMContentLoaded", () => {
             // to every visit to the Library.
             renderSkillsDashboard();
             renderSkillLogs();
+          } else if (targetId === "library-view-links") {
+            renderBookmarks();
+          } else if (targetId === "library-view-contents") {
+            renderContents();
           }
         }
       });
@@ -2799,4 +3038,385 @@ document.addEventListener("DOMContentLoaded", () => {
       renderLibraryImagesGallery();
     }
   });
+  $("bookmark-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const urlInput = $("bookmark-url-input");
+    const titleInput = $("bookmark-title-input");
+    const groupInput = $("bookmark-group-input");
+    const url = urlInput.value.trim();
+    if (!url) return;
+    try {
+      const created = await apiJson("/bookmarks", {
+        method: "POST",
+        body: JSON.stringify({
+          url, title: titleInput.value.trim(), group_name: groupInput.value.trim(),
+        }),
+      });
+      urlInput.value = "";
+      titleInput.value = "";
+      groupInput.value = "";
+      urlInput.focus();
+      if (created.duplicate_of) {
+        toast(`Saved — you already had this link (${created.title || created.url}).`);
+      }
+      renderBookmarks();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+  $("bookmark-search")?.addEventListener("input", filterBookmarks);
+  $("contents-refresh")?.addEventListener("click", renderContents);
+  $("contents-mode")?.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      $("contents-mode").querySelectorAll("button").forEach((b) => {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+      contentsMode = btn.getAttribute("data-mode");
+      renderContents();
+    });
+  });
 });
+
+// --- Links (§30): a bookmark shelf for websites, alongside the notes and
+// documents already linkable to each other via [[wiki links]] ------------
+
+let bookmarksCache = [];
+let bookmarkGroupFilter = null; // null = all groups
+
+async function renderBookmarks() {
+  const list = $("bookmark-list");
+  const empty = $("bookmark-empty");
+  if (!list) return;
+  try {
+    bookmarksCache = await apiJson("/bookmarks");
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  empty.classList.toggle("hidden", bookmarksCache.length > 0);
+  renderBookmarkGroupChips();
+  filterBookmarks();
+}
+
+function renderBookmarkGroupChips() {
+  const box = $("bookmark-group-chips");
+  const datalist = $("bookmark-group-options");
+  if (!box) return;
+  const groups = [...new Set(bookmarksCache.map((b) => b.group_name).filter(Boolean))].sort();
+  datalist?.replaceChildren(
+    ...groups.map((g) => { const opt = document.createElement("option"); opt.value = g; return opt; })
+  );
+  box.replaceChildren();
+  if (groups.length === 0) {
+    bookmarkGroupFilter = null;
+    return;
+  }
+  const allChip = document.createElement("button");
+  allChip.type = "button";
+  allChip.className = `library-chip${bookmarkGroupFilter === null ? " active" : ""}`;
+  allChip.textContent = "All";
+  allChip.addEventListener("click", () => { bookmarkGroupFilter = null; renderBookmarkGroupChips(); filterBookmarks(); });
+  box.appendChild(allChip);
+  for (const group of groups) {
+    const chipEl = document.createElement("button");
+    chipEl.type = "button";
+    chipEl.className = `library-chip${bookmarkGroupFilter === group ? " active" : ""}`;
+    // "Work/Reading" renders as "Work / Reading" — the "/" is a grouping
+    // convention for the user to type, not meant to display as a raw slash.
+    chipEl.textContent = group.split("/").join(" / ");
+    chipEl.addEventListener("click", () => { bookmarkGroupFilter = group; renderBookmarkGroupChips(); filterBookmarks(); });
+    box.appendChild(chipEl);
+  }
+}
+
+function filterBookmarks() {
+  const list = $("bookmark-list");
+  const noMatch = $("bookmark-no-match");
+  if (!list) return;
+  const query = ($("bookmark-search")?.value || "").trim().toLowerCase();
+  const visible = bookmarksCache.filter((b) => {
+    if (bookmarkGroupFilter !== null && b.group_name !== bookmarkGroupFilter) return false;
+    if (!query) return true;
+    return (
+      b.title.toLowerCase().includes(query) ||
+      b.url.toLowerCase().includes(query) ||
+      b.note.toLowerCase().includes(query)
+    );
+  });
+  list.replaceChildren();
+  for (const bookmark of visible) {
+    list.appendChild(bookmarkRow(bookmark));
+  }
+  noMatch?.classList.toggle("hidden", !(bookmarksCache.length > 0 && visible.length === 0));
+}
+
+function bookmarkRow(bookmark) {
+  const row = document.createElement("div");
+  row.className = "bookmark-row";
+
+  const main = document.createElement("div");
+  main.className = "bookmark-main";
+  const link = document.createElement("a");
+  link.href = bookmark.url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = bookmark.title || bookmark.url;
+  const urlLine = document.createElement("div");
+  urlLine.className = "muted text-sm bookmark-url";
+  urlLine.textContent = bookmark.url;
+  main.append(link, urlLine);
+  if (bookmark.group_name) {
+    const groupLine = document.createElement("div");
+    groupLine.className = "muted text-sm bookmark-group-label";
+    setLabel(groupLine, `ph:folder-simple ${bookmark.group_name.split("/").join(" / ")}`);
+    main.appendChild(groupLine);
+  }
+  if (bookmark.note) {
+    const noteLine = document.createElement("div");
+    noteLine.className = "muted text-sm";
+    noteLine.textContent = bookmark.note;
+    main.appendChild(noteLine);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "row bookmark-actions";
+
+  const pin = document.createElement("button");
+  pin.type = "button";
+  pin.className = "ghost small";
+  pin.title = bookmark.pinned ? "Unpin" : "Pin to the top";
+  pin.setAttribute("aria-label", pin.title);
+  // No "-fill" pin glyph in this app's bundled Phosphor set (checked: the
+  // font only has push-pin/-slash/-simple/-simple-slash) — reported live as
+  // a blank icon before this went out. `-slash` for "already pinned, click
+  // to undo" is the same pairing the pinned-chat button already uses.
+  setLabel(pin, `ph:${bookmark.pinned ? "push-pin-slash" : "push-pin"}`);
+  pin.addEventListener("click", async () => {
+    await apiJson(`/bookmarks/${bookmark.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ pinned: !bookmark.pinned }),
+    });
+    renderBookmarks();
+  });
+
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "ghost small";
+  edit.title = "Edit";
+  edit.setAttribute("aria-label", "Edit this link");
+  setLabel(edit, "ph:pencil-simple");
+  // **An inline form, not a chain of prompts.** This was two sequential
+  // `promptDialog` calls (title, then URL) and was reported as "I still
+  // can't edit the link URLs" five separate times. The flow was driven
+  // end-to-end in a clean browser each time it was checked and worked
+  // every time - including persistence through a reload - so the fault was
+  // never in the handler. But a fix nobody can reach is not a fix, and a
+  // second modal that only appears *after* you commit the first one is a
+  // genuinely poor way to expose a second field: if anything at all
+  // interrupts between them (a stale script, an Escape, a mis-click on
+  // Cancel) the URL silently never gets asked for, and it looks exactly
+  // like "editing the URL is broken".
+  //
+  // Editing the row in place removes the whole class of problem: all three
+  // fields are visible at once, nothing is sequenced, nothing depends on
+  // focus returning correctly between modals, and what you are editing
+  // stays on screen next to the form.
+  edit.addEventListener("click", () => {
+    if (row.querySelector(".bookmark-edit-form")) return; // already editing
+    const form = document.createElement("form");
+    form.className = "bookmark-edit-form";
+
+    const field = (labelText, value, placeholder) => {
+      const wrap = document.createElement("label");
+      wrap.className = "bookmark-edit-field";
+      const span = document.createElement("span");
+      span.className = "muted text-xs";
+      span.textContent = labelText;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = value || "";
+      input.placeholder = placeholder;
+      wrap.append(span, input);
+      form.appendChild(wrap);
+      return input;
+    };
+
+    const titleInput = field("Title", bookmark.title, "Title");
+    const urlInput = field("URL", bookmark.url, "https://example.com");
+    // Blank is meaningful here and always was: it means "no group".
+    const groupInput = field("Group", bookmark.group_name, "e.g. Work/Reading");
+
+    const buttons = document.createElement("div");
+    buttons.className = "row bookmark-edit-actions";
+    const save = document.createElement("button");
+    save.type = "submit";
+    save.className = "small";
+    save.textContent = "Save";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ghost small";
+    cancel.textContent = "Cancel";
+    buttons.append(save, cancel);
+    form.appendChild(buttons);
+
+    const close = () => {
+      form.remove();
+      main.classList.remove("hidden");
+      actions.classList.remove("hidden");
+    };
+    cancel.addEventListener("click", close);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const url = urlInput.value.trim();
+      if (!url) {
+        toast("A link needs a URL.", true);
+        urlInput.focus();
+        return;
+      }
+      save.disabled = true;
+      try {
+        await apiJson(`/bookmarks/${bookmark.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            title: titleInput.value.trim(),
+            url,
+            group_name: groupInput.value.trim(),
+          }),
+        });
+        renderBookmarks();
+      } catch (error) {
+        save.disabled = false;
+        toast(error.message || "Couldn't save that link.", true);
+      }
+    });
+
+    main.classList.add("hidden");
+    actions.classList.add("hidden");
+    row.appendChild(form);
+    urlInput.focus();
+    urlInput.select();
+  });
+
+  const group = document.createElement("button");
+  group.type = "button";
+  group.className = "ghost small";
+  group.title = "Move to group";
+  group.setAttribute("aria-label", "Move this link to a group");
+  setLabel(group, "ph:folder-simple");
+  group.addEventListener("click", async () => {
+    const value = await promptDialog(
+      "Group (e.g. Work/Reading — blank clears it):", bookmark.group_name
+    );
+    // Unlike the title prompt above, an intentionally blank group is a real,
+    // useful answer ("ungroup this link") — so only an actual Cancel/Escape
+    // is ignored here, not an emptied field. promptDialog resolves "" for
+    // both, so there's genuinely no way to tell them apart from its return
+    // value alone; this trades "can't ungroup via Escape" for "can ungroup
+    // by clearing the field", the more useful of the two to get right.
+    if (value === "" && bookmark.group_name === "") return;
+    await apiJson(`/bookmarks/${bookmark.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ group_name: value }),
+    });
+    renderBookmarks();
+  });
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "ghost small";
+  remove.title = "Delete";
+  remove.setAttribute("aria-label", "Delete this link");
+  setLabel(remove, "ph:trash");
+  remove.addEventListener("click", async () => {
+    const ok = await confirmDialog(`Delete "${bookmark.title || bookmark.url}"?`);
+    if (!ok) return;
+    await apiJson(`/bookmarks/${bookmark.id}`, { method: "DELETE" });
+    renderBookmarks();
+  });
+
+  actions.append(pin, edit, group, remove);
+  row.append(main, actions);
+  return row;
+}
+
+// --- Contents (§30): a hyperlinked outline of the notebook's own
+// structure — categories and tags, each with what's filed under it. The
+// force-directed, spatial visualisation already lives in the Graph tab;
+// this is the fast, scannable list half of the same ask. Built entirely
+// from `allEntries` (already loaded for the Notes tab) rather than a new
+// endpoint — the same data, grouped differently client-side. -----------
+
+let contentsMode = "category";
+// A big notebook can have a group with hundreds of notes; nobody scans
+// past this many in one outline section, and rendering them all would be
+// the one part of this view that isn't cheap.
+const CONTENTS_GROUP_CAP = 200;
+
+async function renderContents() {
+  const outline = $("contents-outline");
+  const empty = $("contents-empty");
+  if (!outline) return;
+  // Refetched on every visit, not gated behind `entriesEverLoaded` — every
+  // sibling Library subtab (Documents, Image Gallery, AI Skills) re-fetches
+  // its own data on each visit too, and this outline is exactly the kind of
+  // view where showing a note that was just deleted, or missing one just
+  // added, would be a wrong answer, not just a stale one.
+  await loadEntries();
+
+  const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
+  outline.replaceChildren();
+  empty.classList.toggle("hidden", active.length > 0);
+  if (active.length === 0) return;
+
+  const groups = new Map();
+  const addTo = (key, entry) => {
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(entry);
+  };
+  if (contentsMode === "tag") {
+    for (const entry of active) {
+      if (entry.tags && entry.tags.length) {
+        for (const tag of entry.tags) addTo(tag, entry);
+      } else {
+        addTo("(untagged)", entry);
+      }
+    }
+  } else {
+    for (const entry of active) addTo(entry.category || "Uncategorised", entry);
+  }
+
+  for (const key of [...groups.keys()].sort((a, b) => a.localeCompare(b))) {
+    const members = groups.get(key);
+    const section = document.createElement("div");
+    section.className = "contents-section";
+    const heading = document.createElement("h3");
+    heading.className = "contents-heading";
+    heading.textContent = `${key} (${members.length})`;
+    section.appendChild(heading);
+    const list = document.createElement("ul");
+    list.className = "contents-list";
+    for (const entry of members.slice(0, CONTENTS_GROUP_CAP)) {
+      const li = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = "#";
+      link.textContent = noteLabel(entry, 80);
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        flashEntry(entry.id);
+      });
+      li.appendChild(link);
+      list.appendChild(li);
+    }
+    if (members.length > CONTENTS_GROUP_CAP) {
+      const more = document.createElement("li");
+      more.className = "muted text-sm";
+      more.textContent = `…and ${members.length - CONTENTS_GROUP_CAP} more`;
+      list.appendChild(more);
+    }
+    section.appendChild(list);
+    outline.appendChild(section);
+  }
+}

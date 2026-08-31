@@ -81,6 +81,30 @@ def test_audit_viewer_lists_actions(client):
     assert actions[0] == "deleted"
 
 
+def test_clearing_the_audit_log_only_removes_the_named_entity_type(client):
+    """The AI Skills sidebar's own "Clear" button — asked for directly. Scoped
+    to one entity_type at a time on purpose: this must never be a way to
+    wipe the whole audit trail (note edits/deletes are real accountability
+    history), only the one filtered slice the caller names."""
+    entry = _save(client, "an ordinary note")
+    client.delete(f"/entries/{entry['id']}")
+    before = client.get("/audit").json()
+    assert any(row["entity_type"] == "entry" for row in before)
+
+    response = client.delete("/audit?entity_type=skill")
+    assert response.status_code == 200
+    assert response.json() == {"deleted": 0}
+
+    # Nothing about the entry's own audit trail was touched.
+    after = [row["action"] for row in client.get("/audit").json()]
+    assert "created" in after and "deleted" in after
+
+
+def test_clearing_the_audit_log_requires_an_entity_type(client):
+    response = client.delete("/audit")
+    assert response.status_code == 422
+
+
 def test_export_json_includes_binned_entries(client):
     keep = _save(client, "keeper", tags=["a"])
     binned = _save(client, "binned")

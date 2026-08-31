@@ -1,17 +1,22 @@
 """The janitor: files a new thought into a category (LLM prompt #1).
 
-Not a separate AI model — just a prompt to the active chat model plus a
-cheap embedding shortcut (plan §2, resolution 2). Order of attempts:
+Not a separate AI model — just a prompt to the active chat model, with
+embedding-based filing behind it for when there is no model. Order of
+attempts:
 
-1. Embedding vs. category centroids — free, no LLM call needed when the
-   match is clear.
-2. Nearest neighbours: the k most similar individual notes vote for their
+1. ONE call to the chat model, JSON answer. **This runs first**, which is
+   the reverse of how it worked originally: the embedding shortcuts used to
+   come first and were so rarely declined that in an established notebook
+   the model was almost never asked, and notes were filed by resemblance
+   rather than by meaning. Reported as notes landing in the wrong category
+   and needing fixing by hand; see `categorise` for the full reasoning.
+2. Embedding vs. category centroids — free, and what files notes when no
+   chat model is running.
+3. Nearest neighbours: the k most similar individual notes vote for their
    own category. Catches what a centroid can't — a category holding more
-   than one kind of thing has an average resembling none of them — and it
-   is the path that files notes properly with no chat model running.
-3. Still borderline → ONE call to the chat model, JSON answer.
-4. No AI available at all → 'Uncategorised' with confidence 0. Saving
-   an entry must never fail because the AI is down (plan §4).
+   than one kind of thing has an average resembling none of them.
+4. No AI available and nothing similar → 'Uncategorised' with confidence 0.
+   Saving an entry must never fail because the AI is down (plan §4).
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import UNCATEGORISED
@@ -88,6 +94,87 @@ def categorise(
     When RE-categorising an existing note (add-context), pass
     `exclude_entry_id` — otherwise the note's own stored vector anchors
     it to its old category and it can never move."""
+    # **The model decides when there is a model.** This used to run the other
+    # way round — a confident centroid match, then nearest neighbours, and the
+    # chat model only if both declined — which meant that in an established
+    # notebook the AI was almost never consulted at all: there is nearly
+    # always *some* category whose vectors sit close to a new note. Reported
+    # directly, and the complaint is the right one: "what's the point of
+    # having an ai managed notebook if it is filed inaccurately and I need to
+    # manually fix it". Vector similarity answers "what does this most
+    # resemble", which is not the same question as "where does this belong" —
+    # a note about a bug in a work project resembles every other code note
+    # more than it resembles the rest of "Work", and gets filed accordingly.
+    #
+    # The semantic paths below are kept exactly as they were, because they are
+    # still the right answer for the case they were really written for: no
+    # chat model running, where the alternative is Uncategorised. `_ask_llm`
+    # already reports that case as method 'none' (it returns early when
+    # `ollama.is_running()` is false, and on any model error or unparseable
+    # reply), so "the model had nothing useful to say" and "there is no model"
+    # collapse into the same fallback here without a second availability
+    # check.
+    # The order is a preference, defaulting to the model. Asking the model
+    # first buys accuracy and costs a round-trip on every single capture,
+    # which on a slow local model is felt immediately — so anyone who would
+    # rather have the instant save can have the old order back without giving
+    # up the AI entirely (the model still decides everything the vectors
+    # decline). Flagged as a real latency change when it shipped; this is the
+    # honest fix for it, rather than reverting the accuracy for everyone.
+    if not deps.get_config().get_preference("ai_first_filing", True):
+        semantic = _semantic_category(
+            session, content, embeddings, exclude_entry_id=exclude_entry_id
+        )
+        if semantic is not None:
+            return semantic
+
+    category, confidence, method = _ask_llm(session, content, model_manager, ollama)
+    if method != "none":
+        # The category can come straight from the chat model, so it is
+        # untrusted text on the way to a log line like any other.
+        logger.info(
+            "janitor: filed by %s -> '%s' (%d%%)",
+            method,
+            safe_value(category, 60),
+            confidence,
+        )
+        return category, confidence, method
+
+    semantic = _semantic_category(
+        session, content, embeddings, exclude_entry_id=exclude_entry_id
+    )
+    if semantic is not None:
+        return semantic
+
+    # Still "filed by <method>", even when the method is 'none'. Reversing the
+    # order above briefly replaced this with a differently-worded line, which
+    # broke the one thing every filing decision is supposed to leave behind:
+    # `test_ai_decisions_are_logged` greps the log console for exactly this
+    # prefix, and the Logs tab is where a user finds out *why* a note landed
+    # where it did. A decision with no model and no vector match is still a
+    # decision, and it is the one most worth being able to see.
+    logger.info(
+        "janitor: filed by %s -> '%s' (%d%%)",
+        method,
+        safe_value(category, 60),
+        confidence,
+    )
+    return category, confidence, method
+
+
+def _semantic_category(
+    session: Session,
+    content: str,
+    embeddings: EmbeddingService,
+    exclude_entry_id: int | None = None,
+) -> tuple[str, int, str] | None:
+    """Filing by vectors alone, or None when neither path is confident.
+
+    One implementation because it is now reached from two directions: as the
+    fallback when there is no chat model, and as the *first* attempt when
+    `ai_first_filing` is off. Two copies would be two chances for the
+    orderings to drift apart.
+    """
     match = _best_centroid_match(
         session, content, embeddings, exclude_entry_id=exclude_entry_id
     )
@@ -100,14 +187,11 @@ def categorise(
         )
         return match.name, confidence, "semantic-match"
 
-    # Nearest neighbours, before falling back to the chat model. A centroid is
-    # the average of a whole category, which is a poor description of any
-    # category holding more than one kind of thing: "Work" containing both
-    # meeting notes and code snippets has a centroid sitting between them,
-    # resembling neither, so a new meeting note matches it weakly and gets
-    # sent to the model unnecessarily. Individual neighbours don't average
-    # away like that. This is also the path that matters most with no chat
-    # model running at all, where the alternative is Uncategorised.
+    # A centroid is the average of a whole category, which is a poor
+    # description of any category holding more than one kind of thing: "Work"
+    # containing both meeting notes and code snippets has a centroid sitting
+    # between them, resembling neither. Individual neighbours don't average
+    # away like that.
     neighbours = _knn_match(
         session, content, embeddings, exclude_entry_id=exclude_entry_id
     )
@@ -118,17 +202,7 @@ def categorise(
             neighbours.confidence,
         )
         return neighbours.name, neighbours.confidence, "semantic-neighbours"
-
-    category, confidence, method = _ask_llm(session, content, model_manager, ollama)
-    # The category can come straight from the chat model, so it is
-    # untrusted text on the way to a log line like any other.
-    logger.info(
-        "janitor: filed by %s -> '%s' (%d%%)",
-        method,
-        safe_value(category, 60),
-        confidence,
-    )
-    return category, confidence, method
+    return None
 
 
 def _best_centroid_match(

@@ -58,13 +58,27 @@ def process_committed_upload(upload: MediaUpload, media_dir: Path) -> None:
     captioning = _module("memorymap.ai.captioning")
     vision_ocr = _module("memorymap.ai.vision_ocr")
 
+    # Both default to on, because reading a picture you just filed is the
+    # behaviour that makes the gallery searchable at all — but asked for
+    # directly, they are now switchable off: a vision-model round trip per
+    # image is the single most expensive automatic thing this app does, and
+    # someone on a small model (or who simply does not want their pictures
+    # described) had no way to stop it. The manual buttons on each tile are
+    # unaffected either way; this governs only what happens unasked.
+    #
+    # Read here rather than inside each reader so the decision is in one
+    # place and the readers stay usable directly from their own endpoints.
+    config = _module("memorymap.core.deps").get_config()
+    describe = bool(config.get_preference("auto_caption_images", True))
+    read_text = bool(config.get_preference("auto_read_image_text", True))
+
     path = media_dir / upload.filename
     suffix = Path(upload.filename).suffix.lower()
-    if suffix in ocr.OCR_SUFFIXES:
+    if read_text and suffix in ocr.OCR_SUFFIXES:
         ocr.extract_in_background(upload.id, path)
-    if suffix in captioning.CAPTION_SUFFIXES:
+    if describe and suffix in captioning.CAPTION_SUFFIXES:
         captioning.caption_in_background(upload.id, path)
-    if suffix in vision_ocr.VISION_OCR_SUFFIXES:
+    if read_text and suffix in vision_ocr.VISION_OCR_SUFFIXES:
         vision_ocr.vision_ocr_in_background(upload.id, path)
 
 

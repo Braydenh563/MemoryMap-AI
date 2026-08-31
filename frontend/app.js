@@ -1687,6 +1687,16 @@ function wireEscapedActionMenu(wrap) {
       homeNext = menu.nextSibling;
       document.body.appendChild(menu);
       menu.classList.add("action-menu-escaped");
+      // openActionMenu() may have already set `.action-menu-flip` (`bottom:
+      // calc(100% + 4px)`) based on the menu's *pre-escape* position. `place()`
+      // below sets its own inline `top` to open up-or-down as needed — left
+      // together, an element with both `top` and `bottom` pinned and
+      // `height: auto` is over-constrained, and reproduced live as the menu's
+      // box collapsing to ~15px (just its padding+border) while the buttons
+      // still rendered past that line, which is what "background doesn't
+      // fill the dropdown, looks transparent" actually was. `place()` makes
+      // this class redundant once escaped, so drop it rather than fight it.
+      menu.classList.remove("action-menu-flip");
       place();
     } else if (!open && menu.parentElement === document.body && homeParent) {
       // Restored on close, not left in <body> — closeActionMenus() and
@@ -2685,10 +2695,29 @@ function openLightbox(items, startIndex = 0) {
   // Library tile, which is the one view too small to read them in. Optional
   // per item (`caption`, `text`, and their bylines): every other caller
   // passes only `{filename, getUrl}` and gets exactly what it got before.
+  // Mirrors `syncCaptionBadge` on the Library tile (library.js) exactly, so
+  // the same picture says the same thing in both places: which model wrote
+  // the description, and whether a person has since changed it.
+  const captionBylineFor = (row) => {
+    if (!row || !row.caption) return "";
+    const parts = [];
+    if (row.caption_model) parts.push(`Described by ${row.caption_model}`);
+    if (row.caption_edited) parts.push(row.caption_model ? "edited" : "typed by hand");
+    return parts.join(" · ");
+  };
+
   const info = document.createElement("div");
   info.className = "lightbox-info hidden";
   const infoCaption = document.createElement("p");
   infoCaption.className = "lightbox-caption";
+  // Who wrote the caption. Reported directly: "there is also no 'text read
+  // by' line in the lightbox for the image captions, only the ocr" — the
+  // Library tile has carried a caption byline (`captionBadge`, library.js)
+  // since captions could be edited by hand, and only the lightbox was
+  // missing its half, so the same picture named its transcriber but not its
+  // describer.
+  const infoCaptionByline = document.createElement("p");
+  infoCaptionByline.className = "lightbox-byline";
   const infoText = document.createElement("p");
   infoText.className = "lightbox-text";
   const infoByline = document.createElement("p");
@@ -2698,7 +2727,7 @@ function openLightbox(items, startIndex = 0) {
   // picture this is; the readings below it are about what is in it.
   const infoFacts = document.createElement("p");
   infoFacts.className = "lightbox-facts";
-  info.append(infoFacts, infoCaption, infoText, infoByline);
+  info.append(infoFacts, infoCaption, infoCaptionByline, infoText, infoByline);
   // Clicking the panel must not dismiss the dialog — someone selecting a line
   // of transcribed text to copy is the whole reason it is here.
   info.addEventListener("click", (e) => e.stopPropagation());
@@ -2906,31 +2935,57 @@ function openLightbox(items, startIndex = 0) {
         toast(err.message || `Couldn't ${label.toLowerCase()}.`, true);
       }
     };
+    const items = [
+      {
+        label: "ph:sparkle Describe with AI",
+        title: "Generate a caption for this image",
+        run: run("describe", "Describing…", "/caption", (it, u) => {
+          it.caption = u.caption || "";
+          it.captionByline = captionBylineFor(u);
+        }),
+      },
+      {
+        label: "ph:text-aa Read text with AI",
+        title: "Read the text in this image with a vision model",
+        run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
+          it.text = (u.vision_ocr_text || "").trim();
+          it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
+        }),
+      },
+    ];
+    // "the whole application is offline anyway with local models so that
+    // title is confusing" (reported directly) — renamed to name the actual
+    // method (Tesseract) instead of a property ("offline") every reading
+    // path in this app already shares. And: "the option should be disabled
+    // or hidden if the user doesn't have pytesseract installed" — `/models/
+    // status`'s `tesseract_available` (routes_models.py) is a plain
+    // `shutil.which` check, so this can just not offer a button that would
+    // otherwise silently do nothing, matching how the model-pull panel
+    // already hides itself on a backend that can't pull.
+    if (modelStatus && modelStatus.tesseract_available === false) {
+      items.push({
+        label: "ph:scan Read text (Tesseract OCR)",
+        title:
+          "Unavailable — the Tesseract OCR program isn't installed. See INSTALL.md, " +
+          "or use “Read text with AI” instead.",
+        disabled: true,
+        run: async () => {
+          toast("Tesseract isn't installed — see INSTALL.md, or use “Read text with AI”.", true);
+        },
+      });
+    } else {
+      items.push({
+        label: "ph:scan Read text (Tesseract OCR)",
+        title: "Read the text in this image with Tesseract, a fast local tool — no AI model involved",
+        run: run("read text", "Reading…", "/ocr", (it, u) => {
+          it.text = (u.ocr_text || "").trim();
+          it.byline = it.text ? "Text read with Tesseract OCR" : "";
+        }),
+      });
+    }
     return kebabMenu(
       [
-        {
-          label: "ph:sparkle Describe with AI",
-          title: "Generate a caption for this image",
-          run: run("describe", "Describing…", "/caption", (it, u) => {
-            it.caption = u.caption || "";
-          }),
-        },
-        {
-          label: "ph:text-aa Read text with AI",
-          title: "Read the text in this image with a vision model",
-          run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
-            it.text = (u.vision_ocr_text || "").trim();
-            it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
-          }),
-        },
-        {
-          label: "ph:scan Read text offline (OCR)",
-          title: "Read the text in this image offline",
-          run: run("read text", "Reading…", "/ocr", (it, u) => {
-            it.text = (u.ocr_text || "").trim();
-            it.byline = it.text ? "Text read offline (OCR)" : "";
-          }),
-        },
+        ...items,
         {
           label: "ph:pencil-simple Rename",
           title: "Rename this image",
@@ -3205,6 +3260,8 @@ function openLightbox(items, startIndex = 0) {
     const text = (item.text || "").trim();
     infoCaption.textContent = caption;
     infoCaption.classList.toggle("hidden", !caption);
+    infoCaptionByline.textContent = caption ? item.captionByline || "" : "";
+    infoCaptionByline.classList.toggle("hidden", !caption || !item.captionByline);
     infoText.textContent = text;
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = item.byline || "";
@@ -3288,9 +3345,10 @@ function openLightbox(items, startIndex = 0) {
       item.byline = row.vision_ocr_text
         ? `Text read by ${row.vision_ocr_model || "a model"}`
         : row.ocr_text
-          ? "Text read offline (OCR)"
+          ? "Text read with Tesseract OCR"
           : "";
     }
+    if (!item.captionByline) item.captionByline = captionBylineFor(row);
     // The gallery passes `original_name`; a bare url caller passes the
     // stored name or nothing, and the human-readable one is better.
     if (row.original_name && (!item.filename || item.filename === name)) {
@@ -3306,6 +3364,8 @@ function openLightbox(items, startIndex = 0) {
     const text = (item.text || "").trim();
     infoCaption.textContent = caption;
     infoCaption.classList.toggle("hidden", !caption);
+    infoCaptionByline.textContent = caption ? item.captionByline || "" : "";
+    infoCaptionByline.classList.toggle("hidden", !caption || !item.captionByline);
     infoText.textContent = text;
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = item.byline || "";
@@ -3730,12 +3790,80 @@ async function remindFromSelection(text) {
 // The actions the ⋯ offers. Rebuilt on every open rather than once, because
 // two of them depend on state that changes between selections: whether the
 // passage has a source to attribute, and whether the local model is running.
+// The <textarea>/<input> a selection came from, or null when the selection is
+// in rendered content. Kept separate from `selectionPopupText` because the
+// field is what an edit action needs to write back into.
+let selectionPopupField = null;
+
+// A selection inside a text field, or null.
+//
+// This needs its own path because `window.getSelection()` does not see inside
+// a <textarea> — the browser keeps that selection on the element itself, as
+// `selectionStart`/`selectionEnd`. That is the real reason the popup never
+// appeared while editing, and reading the DOM selection alone will always
+// come back empty there no matter what the exclusion list says.
+function fieldSelection() {
+  const el = document.activeElement;
+  if (!el || (el.tagName !== "TEXTAREA" && el.tagName !== "INPUT")) return null;
+  // `selectionStart` is null on input types that do not support it (number,
+  // email, colour…), which is exactly the set we should not offer this on.
+  if (el.selectionStart == null || el.selectionStart === el.selectionEnd) return null;
+  const text = el.value.slice(el.selectionStart, el.selectionEnd);
+  return text.trim() ? { el, start: el.selectionStart, end: el.selectionEnd, text } : null;
+}
+
+// Replace a field's selected range, then put the caret back around the same
+// passage. Dispatches `input` because everything downstream of typing —
+// draft autosave, the character counter, the live markdown preview — listens
+// for it, and a programmatic value change fires nothing on its own.
+function wrapFieldSelection(field, before, after) {
+  const { el, start, end, text } = field;
+  el.value = el.value.slice(0, start) + before + text + after + el.value.slice(end);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.focus();
+  el.setSelectionRange(start + before.length, start + before.length + text.length);
+}
+
 function selectionMenuItems() {
   const text = selectionPopupText;
   const source = selectionPopupSource;
   const aiOff = modelStatus ? modelStatus.ollama_running === false : false;
 
-  const items = [
+  const items = [];
+
+  // **Where highlighting is discoverable from.** `==text==` renders as a
+  // highlight, but a syntax nobody is told about may as well not exist —
+  // reported exactly that way ("I still dont know how to highlight text").
+  // Selecting the words you want marked and picking a colour is the
+  // affordance; the syntax it writes is still plain text in the note, so
+  // nothing here is a second way of storing a highlight.
+  if (selectionPopupField) {
+    const field = selectionPopupField;
+    items.push(
+      makeMenuItem("ph:highlighter Highlight", "Mark this passage (yellow)", () =>
+        wrapFieldSelection(field, "==", "==")
+      ),
+      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", async () => {
+        const colour = (await promptDialog(
+          "Colour — green, blue, pink, purple or orange:", "green"
+        )).trim().toLowerCase();
+        if (!colour) return;
+        if (!["yellow", "green", "blue", "pink", "purple", "orange"].includes(colour)) {
+          toast("Pick one of: yellow, green, blue, pink, purple, orange.", true);
+          return;
+        }
+        wrapFieldSelection(field, colour === "yellow" ? "==" : `==${colour}|`, "==");
+      }),
+      makeMenuItem("ph:text-b Bold", "Wrap this in **bold**", () =>
+        wrapFieldSelection(field, "**", "**")
+      ),
+      makeMenuItem("ph:text-italic Italic", "Wrap this in *italic*", () =>
+        wrapFieldSelection(field, "*", "*")
+      )
+    );
+  }
+
+  items.push(
     makeMenuItem("ph:note-pencil Save as a note", "File this straight into your notebook", () =>
       saveSelectionAsNote(text)
     ),
@@ -3744,8 +3872,8 @@ function selectionMenuItems() {
     ),
     makeMenuItem("ph:plus-circle Add to a note…", "Append this to a note you already have", () =>
       appendSelectionToNote(text)
-    ),
-  ];
+    )
+  );
 
   if (source) {
     items.push(
@@ -3933,6 +4061,27 @@ function selectionIsActionable(selection) {
 let selectionPointerPoint = null;
 
 function syncSelectionPopup() {
+  // Text fields first. Asked for twice ("the ellipse button doesnt appear
+  // when I highlight text in textboxes") — the editor is a <textarea>, whose
+  // selection lives on the element rather than in the DOM selection, so the
+  // rendered-content path below can never see it.
+  const field = fieldSelection();
+  if (field) {
+    selectionPopupField = field;
+    // A textarea has no range rectangle to anchor to — the browser exposes no
+    // geometry for a selection inside one — so the pointer is the anchor when
+    // there is one, and the field's own box is the fallback for a keyboard
+    // selection. Passing the field rect as `rect` keeps showSelectionPopupAt's
+    // existing "top-right of the selection" logic working unchanged.
+    showSelectionPopupAt(
+      field.el.getBoundingClientRect(),
+      field.text,
+      null,
+      selectionPointerPoint
+    );
+    return;
+  }
+
   const selection = window.getSelection();
   const text = (selection?.toString() || "").trim();
   if (!text || selection.isCollapsed || !selectionIsActionable(selection)) {
@@ -3941,6 +4090,7 @@ function syncSelectionPopup() {
     if (!selectionPopupEl?.querySelector(".action-menu:not(.hidden)")) hideSelectionPopup();
     return;
   }
+  selectionPopupField = null;
   showSelectionPopupAt(
     selection.getRangeAt(0).getBoundingClientRect(),
     text,
@@ -3987,6 +4137,7 @@ function initSelectionPopup() {
   document.addEventListener("mousedown", (event) => {
     if (!event.target.closest(".selection-popup")) hideSelectionPopup();
   });
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") hideSelectionPopup();
   });
@@ -4032,15 +4183,60 @@ async function toggleRelated(entry) {
   label.textContent = related.length ? "Similar:" : "No similar notes found.";
   row.appendChild(label);
   for (const other of related) {
-    const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
-    const relChip = chip("", "link", () => flashEntry(other.id));
-    relChip.appendChild(document.createTextNode("≈ "));
-    const previewSpan = document.createElement("span");
-    renderInlineMarkdown(previewSpan, preview, [], true);
-    relChip.appendChild(previewSpan);
-    row.appendChild(relChip);
+    row.appendChild(similarNoteRow(entry, other, () => {
+      // Nothing else on this card changes, so re-rendering the whole list
+      // would only cost the open panel its place.
+      if (!row.querySelector(".entry-related-row")) {
+        label.textContent = "All similar notes are linked.";
+      }
+    }));
   }
   card.appendChild(row);
+}
+
+// One similar note, with the button that turns it into a real link.
+//
+// Shared by both places this app shows "≈ Similar" — the panel that stays
+// open while a note is being edited, and the "≈ Similar notes" menu item on
+// a note card. They were already two near-identical loops; adding an action
+// to only one of them is exactly how the two would have drifted, and the
+// ask named the card one specifically ("like in the similar notes shown in
+// the notes tab").
+//
+// A button, not something either view does on its own: `≈` is a resemblance
+// the embedding noticed, while a link is a claim the user makes. The reason
+// is deduced server-side for a pair this similar (create_link's
+// AUTO_REASON_THRESHOLD) and stays editable wherever links are shown, so
+// nothing is asked for at this point.
+function similarNoteRow(entry, other, onLinked) {
+  const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
+  const wrap = document.createElement("span");
+  wrap.className = "entry-related-row";
+  const relChip = chip("", "link", () => flashEntry(other.id));
+  relChip.appendChild(document.createTextNode("≈ "));
+  const previewSpan = document.createElement("span");
+  renderInlineMarkdown(previewSpan, preview, [], true);
+  relChip.appendChild(previewSpan);
+  wrap.appendChild(relChip);
+
+  const linkBtn = smallButton("ph:link Link", `Link this note to “${preview}”`, async () => {
+    linkBtn.disabled = true;
+    try {
+      await apiJson(`/entries/${entry.id}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: other.id }),
+      });
+      toast("Linked.");
+      wrap.remove();
+      onLinked?.();
+    } catch (error) {
+      linkBtn.disabled = false;
+      toast(error.message || "Couldn't link those notes.", true);
+    }
+  });
+  linkBtn.classList.add("entry-related-link-btn");
+  wrap.appendChild(linkBtn);
+  return wrap;
 }
 
 function renderEditForm(li, entry) {
@@ -4088,6 +4284,143 @@ function renderEditForm(li, entry) {
   );
 
   li.append(textarea, tagsInput, categorySelect, row);
+  renderRelatedWhileEditing(li, entry);
+  renderNoteBookmarksWhileEditing(li, entry);
+}
+
+// **A related-notes panel, live while a note is open for editing** — asked
+// for as a competitor gap (Mem.ai's own "AI Thought Partner" pitch keeps a
+// similar-notes rail visible continuously while writing, not behind a
+// click). This app already had the same signal one click away
+// (`toggleRelated`'s "≈ Similar notes" menu item, same `/entries/{id}/related`
+// endpoint) — the gap was that it stayed hidden until asked for, so it read
+// as a lookup rather than a thing the app was already thinking about. Shown
+// automatically the moment the edit form opens, not gated behind a second
+// interaction; a note with nothing similar says so rather than leaving a
+// blank space that looks broken.
+async function renderRelatedWhileEditing(li, entry) {
+  const panel = document.createElement("div");
+  panel.className = "entry-related-live muted text-sm";
+  panel.textContent = "Finding related notes…";
+  li.appendChild(panel);
+  let related;
+  try {
+    related = await apiJson(`/entries/${entry.id}/related`);
+  } catch {
+    panel.remove(); // a failed lookup says nothing rather than "no notes found"
+    return;
+  }
+  // The form may have closed (Save/Cancel) or moved on to a different note
+  // while this was in flight.
+  if (editingId !== entry.id || !panel.isConnected) return;
+  panel.replaceChildren();
+  if (!related.length) {
+    panel.textContent = "No related notes yet.";
+    return;
+  }
+  const label = document.createElement("span");
+  label.textContent = "Related: ";
+  panel.appendChild(label);
+  for (const other of related) {
+    panel.appendChild(similarNoteRow(entry, other, () => {
+      if (!panel.querySelector(".entry-related-row")) {
+        panel.textContent = "All related notes are linked.";
+      }
+    }));
+  }
+}
+
+// **A note's References** (§30, directly requested — "attach a bookmark to
+// a note... show up in References"): the saved-links half of what a note
+// can point at, alongside `entry.links`' [[wiki links]] to other notes.
+// Its own small panel and its own endpoint (`/entries/{id}/bookmarks`),
+// not folded into `entry.links` — a Bookmark isn't an Entry (see the
+// Bookmark model's own docstring), so this is a second, parallel kind of
+// reference rather than a variant of the first.
+async function renderNoteBookmarksWhileEditing(li, entry) {
+  const panel = document.createElement("div");
+  panel.className = "entry-related-live muted text-sm";
+  li.appendChild(panel);
+
+  const attachButton = document.createElement("button");
+  attachButton.type = "button";
+  attachButton.className = "ghost small";
+  setLabel(attachButton, "ph:link Attach a link");
+  attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, panel));
+
+  async function refresh() {
+    let attached;
+    try {
+      attached = await apiJson(`/entries/${entry.id}/bookmarks`);
+    } catch {
+      return;
+    }
+    if (editingId !== entry.id || !panel.isConnected) return;
+    panel.replaceChildren();
+    if (attached.length) {
+      const label = document.createElement("span");
+      label.textContent = "References: ";
+      panel.appendChild(label);
+      for (const bookmark of attached) {
+        const bmChip = chip(`ph:link ${bookmark.title || bookmark.url}`, "link", () =>
+          window.open(bookmark.url, "_blank", "noopener,noreferrer")
+        );
+        bmChip.title = bookmark.url;
+        const detach = document.createElement("span");
+        detach.className = "unlink";
+        detach.textContent = "×";
+        detach.title = "Remove this reference";
+        detach.setAttribute("aria-label", `Remove reference to ${bookmark.title || bookmark.url}`);
+        detach.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await apiJson(`/entries/${entry.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
+          refresh();
+        });
+        makeUnlinkAccessible(detach);
+        bmChip.appendChild(detach);
+        panel.appendChild(bmChip);
+      }
+    }
+    panel.appendChild(attachButton);
+  }
+  await refresh();
+}
+
+async function openBookmarkAttachPicker(entry, panel) {
+  let all;
+  try {
+    all = await apiJson("/bookmarks");
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  if (!all.length) {
+    toast("No saved links yet — add one in Library → Links first.");
+    return;
+  }
+  const select = document.createElement("select");
+  select.className = "bookmark-attach-picker";
+  const placeholder = document.createElement("option");
+  placeholder.textContent = "Pick a saved link…";
+  placeholder.value = "";
+  select.appendChild(placeholder);
+  for (const bookmark of all) {
+    const option = document.createElement("option");
+    option.value = String(bookmark.id);
+    option.textContent = bookmark.title || bookmark.url;
+    select.appendChild(option);
+  }
+  select.addEventListener("change", async () => {
+    if (!select.value) return;
+    await apiJson(`/entries/${entry.id}/bookmarks`, {
+      method: "POST",
+      body: JSON.stringify({ bookmark_id: Number(select.value) }),
+    });
+    select.remove();
+    renderNoteBookmarksWhileEditing(panel.parentElement, entry);
+  });
+  panel.appendChild(select);
+  select.focus();
 }
 
 // Category <select> shared by capture (guided mode) and the edit form.
@@ -4181,10 +4514,17 @@ function beginOrCompleteLink(entry) {
 //   tag:work            only notes tagged "work"
 //   cat:recipes         only notes in that category (category: also works)
 //   is:pinned           pinned / private / linked / untagged
+//   tags:<2             fewer than 2 tags — also <=, >, >=, = (or bare N)
 //   -picnic             notes that do NOT mention "picnic"
 //   "exact phrase"      that phrase, verbatim
 //
 // Anything else is a plain word: all of them must appear, in any order.
+
+// `tags:<2`, `tags:<=1`, `tags:0` and so on — "how many tags", not "which
+// ones" (that's plain `tag:`). Asked for directly: a way to find the notes
+// that only ever got the janitor's default filing and never a second look,
+// since `is:untagged` alone only ever answered the zero case.
+const TAG_COUNT_RE = /^tags:(<=|>=|<|>|=)?(\d+)$/;
 
 function parseNoteQuery(raw) {
   const query = {
@@ -4194,6 +4534,7 @@ function parseNoteQuery(raw) {
     tags: [],
     categories: [],
     flags: [],
+    tagCount: null,
   };
   // Pull quoted phrases out first so their spaces don't become word breaks.
   const remainder = (raw || "").replace(/"([^"]+)"/g, (_, phrase) => {
@@ -4203,11 +4544,14 @@ function parseNoteQuery(raw) {
   for (const token of remainder.split(/\s+/)) {
     if (!token) continue;
     const lower = token.toLowerCase();
+    const tagCountMatch = TAG_COUNT_RE.exec(lower);
     if (lower.startsWith("tag:")) query.tags.push(lower.slice(4));
     else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));
     else if (lower.startsWith("cat:")) query.categories.push(lower.slice(4));
     else if (lower.startsWith("is:")) query.flags.push(lower.slice(3));
-    else if (lower.startsWith("-") && lower.length > 1) query.exclude.push(lower.slice(1));
+    else if (tagCountMatch) {
+      query.tagCount = { op: tagCountMatch[1] || "=", n: Number(tagCountMatch[2]) };
+    } else if (lower.startsWith("-") && lower.length > 1) query.exclude.push(lower.slice(1));
     else query.words.push(lower);
   }
   return query;
@@ -4220,8 +4564,24 @@ function noteQueryIsEmpty(query) {
     !query.exclude.length &&
     !query.tags.length &&
     !query.categories.length &&
-    !query.flags.length
+    !query.flags.length &&
+    !query.tagCount
   );
+}
+
+function matchesTagCount(tagCount, n) {
+  switch (tagCount.op) {
+    case "<":
+      return n < tagCount.n;
+    case "<=":
+      return n <= tagCount.n;
+    case ">":
+      return n > tagCount.n;
+    case ">=":
+      return n >= tagCount.n;
+    default:
+      return n === tagCount.n;
+  }
 }
 
 function matchesSearch(entry) {
@@ -4247,6 +4607,7 @@ function matchesSearch(entry) {
     if (flag === "linked" && !(entry.links || []).length) return false;
     if (flag === "untagged" && tags.length) return false;
   }
+  if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
   if (query.exclude.some((word) => haystack.includes(word))) return false;
   if (!query.phrases.every((phrase) => content.includes(phrase))) return false;
   // Every word must appear somewhere, in any order.
@@ -4290,8 +4651,27 @@ function matchesSearch(entry) {
 // pattern already bounds itself (`{1,120}`) for exactly this reason. The
 // caps are far past any real link (200 characters of link text, 500 of
 // URL) and turn the per-position work into a constant.
+// `==highlighted text==` — asked for directly ("a highlighting text
+// feature in notes and documents"). An inline markdown convention, not a
+// new data model: the same choice every other bit of note formatting here
+// already made (**bold**, ~~strike~~, [[wiki links]]) — a highlight is
+// still just characters in the note's own plain-text `content`, so it
+// needs no new column, no span-range table, and works everywhere that
+// content already goes (search, the AI's own reading of a note, export).
+// Bounded the same way `~~…~~` is (excludes its own delimiter and `\n`
+// inside the class) rather than the link/image alternatives' explicit
+// length caps — the reason those need one (an unbounded `[^\]\n]+` against
+// unclosed `[` is O(n²), CodeQL's js/polynomial-redos) doesn't apply to a
+// class that already excludes its own closing character.
+// The colour set here is the same eight the toolbars offer (MD_COLOURS in
+// documents.js) and the same eight that have stylesheet rules. Keeping the
+// three in step matters: this listed only six for a while, so picking Red or
+// Grey from the highlight menu wrote `==red|text==`, the optional-colour group
+// declined to match "red|", and the note rendered the literal text "red|text"
+// in a yellow highlight. Adding a colour means all three, or the new one
+// silently prints its own name. tests/test_highlight_colours.py pins them.
 const INLINE_MD =
-  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|==(?:(yellow|green|blue|pink|purple|orange|red|grey)\|)?([^=\n]+?)==|\+\+(yellow|green|blue|pink|purple|orange|red|grey)\|([^+\n]+?)\+\+|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
 
 // `appendInline`'s own grammar, before it was merged into renderInlineMarkdown
 // below: adds `__bold__`/`_italic_` and bare `https://…` autolinking, and its
@@ -4307,7 +4687,7 @@ const INLINE_MD =
 // selected by `options.underscoreSyntax` below, guarantee neither caller's
 // matching behaviour moves at all.
 const INLINE_MD_LEGACY =
-  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
+  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|==(?:(yellow|green|blue|pink|purple|orange|red|grey)\|)?([^=]+?)==|\+\+(yellow|green|blue|pink|purple|orange|red|grey)\|([^+]+?)\+\+|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
 
 // Same allowlist an <img src> or <a href> built from note text has to pass:
 // an absolute http(s) URL, or a same-origin relative path (one leading
@@ -4457,17 +4837,17 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         element.appendChild(before);
       }
     }
-    let code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
+    let code, bold, strike, markColour, mark, inkColour, ink, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
     if (underscoreSyntax) {
       let boldStar, boldUnderscore, italicStar, italicUnderscore;
       [
-        , code, boldStar, boldUnderscore, strike, italicStar, italicUnderscore,
+        , code, boldStar, boldUnderscore, strike, markColour, mark, inkColour, ink, italicStar, italicUnderscore,
         imageAlt, imageUrl, linkText, linkUrl, bareUrl,
       ] = match;
       bold = boldStar ?? boldUnderscore;
       italic = italicStar ?? italicUnderscore;
     } else {
-      [, code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+      [, code, bold, strike, markColour, mark, inkColour, ink, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
     }
     // Images and links are their own element kinds, not a wrap-in-a-tag like
     // the four above — built and appended directly rather than falling
@@ -4592,13 +4972,43 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
       cursor = pattern.lastIndex;
       continue;
     }
-    const tag = code ? "code" : bold ? "strong" : strike ? strikeTag : "em";
+    const tag = code
+      ? "code"
+      : bold
+        ? "strong"
+        : strike
+          ? strikeTag
+          : mark
+            ? "mark"
+            : ink
+              ? "span"
+              : "em";
     const node = document.createElement(tag);
+    // Distinguishes a `==highlight==` from highlightInto's own <mark> below
+    // (used for search-term matches) — same tag, different meaning, so they
+    // need different styling or a highlighted note reads as "this matched
+    // your search" with no search active.
+    // `++red|text++` — a foreground colour, the counterpart to the highlight's
+    // background one. The colour is part of a class name, never an inline
+    // style: this app's CSP rejects inline styles outright (a whole batch of
+    // them was found doing nothing once), and a closed allowlist means every
+    // colour that can be typed has a theme-aware rule written for it.
+    if (ink) node.className = `text-ink text-ink-${inkColour}`;
+    if (mark) {
+      // `==text==` is the plain (yellow) highlight; `==green|text==` picks one
+      // of a small named set. An allowlist baked into the pattern itself, not
+      // a free-form colour: the value lands in a class name, and every colour
+      // that can appear here therefore has a stylesheet rule written for it
+      // (05-sidebars-themes.css) that is theme-aware in both light and dark.
+      node.className = markColour
+        ? `text-highlight text-highlight-${markColour}`
+        : "text-highlight";
+    }
     // A code span is literal by definition, so it is never searched-highlighted
     // into pieces — the rest still is, or filtering would stop marking any
     // word that happened to sit inside emphasis.
     if (code) node.textContent = code;
-    else highlightInto(node, bold || strike || italic, terms);
+    else highlightInto(node, bold || strike || mark || ink || italic, terms);
     element.appendChild(node);
     cursor = pattern.lastIndex;
   }
@@ -4615,7 +5025,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
 }
 
 // Inline formatting: **bold**/__bold__, *italic*/_italic_, `code`, ~~strike~~,
-// [text](http…url), images, and bare http(s) URLs. Built with textContent
+// ==highlight==, [text](http…url), images, and bare http(s) URLs. Built with textContent
 // only — note/answer text can never inject markup. Was its own ~90-line
 // hand-rolled parser with its own `isRenderableUrl` gate call; now a thin
 // wrapper over renderInlineMarkdown (ROADMAP.md §0/§2) — see that function's
@@ -5611,6 +6021,78 @@ function resetCaptureForm(contentBox, titleBox) {
   captureDocuments.clear();
   renderCaptureDocuments();
   $("entry-template").value = "";
+  clearCaptureTagSuggestions();
+}
+
+// **Tag suggestions while composing, not just after saving.** Reported
+// directly: "the ai and application doesnt suggest tags either before
+// creating a new note or after" — "after" already existed
+// (renderReevaluateResult, above), buried in a saved note's own kebab menu;
+// "before" had nothing at all. `/entries/suggest-tags` needs only the
+// draft's own text, so this can run on the Capture box itself, debounced the
+// same way autosave-to-localStorage already is elsewhere in this file.
+let captureTagSuggestTimer = null;
+let captureTagSuggestSeq = 0; // invalidated on every keystroke — a slow reply
+// to an earlier, shorter draft must never overwrite what a newer one asked for.
+
+function clearCaptureTagSuggestions() {
+  captureTagSuggestSeq++;
+  clearTimeout(captureTagSuggestTimer);
+  const row = $("entry-tag-suggestions");
+  row.replaceChildren();
+  row.classList.add("hidden");
+}
+
+function renderCaptureTagSuggestions(tags) {
+  const row = $("entry-tag-suggestions");
+  row.replaceChildren();
+  if (!tags.length) {
+    row.classList.add("hidden");
+    return;
+  }
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Suggested tags:";
+  row.appendChild(label);
+  for (const tag of tags) {
+    const tagChip = chip(`＋ ${tag}`, "tag", () => {
+      const box = $("entry-tags");
+      const have = box.value.split(",").map((t) => t.trim()).filter(Boolean);
+      if (!have.includes(tag)) box.value = [...have, tag].join(", ");
+      tagChip.remove();
+      if (!row.querySelector(".chip")) row.classList.add("hidden");
+    });
+    tagChip.title = `Add the "${tag}" tag`;
+    row.appendChild(tagChip);
+  }
+  row.classList.remove("hidden");
+}
+
+function scheduleCaptureTagSuggestions() {
+  clearTimeout(captureTagSuggestTimer);
+  const content = $("entry-content").value.trim();
+  // Not worth a round trip for a fragment this short — nothing useful to
+  // label yet, and it would just relabel itself a few keystrokes later.
+  if (content.length < 20) {
+    clearCaptureTagSuggestions();
+    return;
+  }
+  captureTagSuggestTimer = setTimeout(async () => {
+    const seq = ++captureTagSuggestSeq;
+    const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
+    let suggested;
+    try {
+      const result = await apiJson("/entries/suggest-tags", {
+        method: "POST",
+        body: JSON.stringify({ content, tags }),
+      });
+      suggested = result.suggested_tags || [];
+    } catch {
+      suggested = [];
+    }
+    if (seq !== captureTagSuggestSeq) return; // superseded by a later keystroke
+    renderCaptureTagSuggestions(suggested);
+  }, 1200);
 }
 
 async function saveEntry() {
@@ -11091,10 +11573,15 @@ function kebabMenu(items, ariaLabel) {
 
   for (const item of items) {
     const button = document.createElement("button");
-    button.className = "menu-item";
+    button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     button.title = item.title;
+    // Muted, not `disabled` — a native disabled button also blocks its own
+    // title tooltip on some platforms, which is the one piece of information
+    // this state actually needs to deliver (why the button can't do its
+    // normal job). `run` still fires; a disabled item's `run` says why.
+    if (item.disabled) button.setAttribute("aria-disabled", "true");
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
       closeActionMenus();
@@ -14253,6 +14740,96 @@ function revealTab(name) {
 const TAB_HISTORY_CAP = 50;
 const tabHistory = { stack: [], index: -1, navigating: false };
 
+// **The navigation-history popup** — asked for directly: "if they are right
+// clicked, a little popup shows above with the navigation history to fast
+// track back to a place (or maybe it can be a little button next to it??)".
+// Built as both: a dedicated button beside Back/Forward, and right-click on
+// either of them, opening the same list. Most-recent-first (a browser's own
+// history dropdown reads the same way), with the current entry marked
+// rather than clickable — jumping to where you already are is not a step.
+function closeNavHistoryMenu() {
+  const menu = $("status-nav-history-menu");
+  if (!menu || menu.classList.contains("hidden")) return;
+  menu.classList.add("hidden");
+  $("status-nav-history")?.setAttribute("aria-expanded", "false");
+}
+
+function renderNavHistoryMenu() {
+  const menu = $("status-nav-history-menu");
+  if (!menu) return;
+  menu.replaceChildren();
+  if (!tabHistory.stack.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.style.padding = "0.4rem 0.6rem";
+    empty.textContent = "Nowhere visited yet this session.";
+    menu.appendChild(empty);
+    return;
+  }
+  // Asked for directly: "instead of squishing it, just make it scrollable
+  // and/or cap the history stored". Both, and this is the cap half. The
+  // stack itself stays at TAB_HISTORY_CAP so Back/Forward can still walk a
+  // long way; what gets capped is how much of it this menu draws, because a
+  // jump list is for the handful of places you were just at - past a dozen
+  // rows you are reading a log, not picking a destination. The `.hidden`
+  // path below and `max-height`/`overflow-y: auto` in
+  // 02-chat-graph.css keep the rest scrollable rather than clipped.
+  const NAV_HISTORY_SHOWN = 12;
+  const oldest = Math.max(0, tabHistory.stack.length - NAV_HISTORY_SHOWN);
+  for (let i = tabHistory.stack.length - 1; i >= oldest; i--) {
+    const entry = tabHistory.stack[i];
+    const current = i === tabHistory.index;
+    const item = document.createElement(current ? "div" : "button");
+    if (!current) item.type = "button";
+    item.className = current ? "nav-history-item nav-history-current" : "nav-history-item";
+    item.setAttribute("role", "menuitem");
+    setLabel(item, `${current ? "ph:map-pin " : ""}${entryLabel(entry)}`);
+    if (current) {
+      item.title = "You're here";
+    } else {
+      item.addEventListener("click", () => {
+        closeNavHistoryMenu();
+        goToTabHistory(i);
+      });
+    }
+    menu.appendChild(item);
+  }
+  // Say so rather than silently truncating: a jump list that quietly forgets
+  // where you were is worse than one that admits its own limit.
+  if (oldest > 0) {
+    const more = document.createElement("div");
+    more.className = "muted text-xs nav-history-more";
+    more.textContent = `${oldest} older ${oldest === 1 ? "step" : "steps"} not shown`;
+    menu.appendChild(more);
+  }
+}
+
+// Opens upward, anchored to whichever of the three triggers was used — the
+// status bar sits at the very bottom of the screen, so there is no "below"
+// to open into. `position: fixed` (nav-history-menu's own CSS) plus an
+// inline top/left computed here is the same escape-a-container shape
+// `wireEscapedActionMenu` already uses for the Documents kebab, just
+// triggered manually instead of by a class toggle.
+function openNavHistoryMenu(anchorEl) {
+  const menu = $("status-nav-history-menu");
+  if (!menu) return;
+  renderNavHistoryMenu();
+  menu.classList.remove("hidden");
+  $("status-nav-history")?.setAttribute("aria-expanded", "true");
+  // `bottom` is fixed in CSS (nav-history-menu's own rule, anchored off the
+  // status bar) — only `left` needs computing, and only after the menu is
+  // visible and populated, so its real width is known.
+  const margin = 8;
+  const anchor = anchorEl.getBoundingClientRect();
+  menu.style.left = "0px";
+  const box = menu.getBoundingClientRect();
+  let left = anchor.left;
+  if (left + box.width > window.innerWidth - margin) {
+    left = Math.max(margin, window.innerWidth - margin - box.width);
+  }
+  menu.style.left = `${Math.round(left)}px`;
+}
+
 function paintTabHistory() {
   const back = $("status-back");
   const forward = $("status-forward");
@@ -14331,8 +14908,16 @@ function recordTabVisit(name, section = null) {
   paintTabHistory();
 }
 
-async function stepTabHistory(delta) {
-  const next = tabHistory.index + delta;
+function stepTabHistory(delta) {
+  return goToTabHistory(tabHistory.index + delta);
+}
+
+// The shared jump used by both Back/Forward (one step) and the history
+// popup below (any step at once) — asked for directly: "a little popup
+// shows above with the navigation history to fast track back to a place".
+// stepTabHistory used to inline this with a fixed +1/-1, which had no way
+// to land on an arbitrary earlier or later entry.
+async function goToTabHistory(next) {
   if (next < 0 || next >= tabHistory.stack.length) return;
   const entry = tabHistory.stack[next];
   tabHistory.index = next;
@@ -14680,7 +15265,82 @@ function renderTimelineBranch(body) {
   const bands = body.bands;
   const single = bands.length <= 1;
   const spineY = TIMELINE_MARGIN_TOP;
-  const height = spineY + (single ? 1 : bands.length + 1) * TIMELINE_LANE_GAP + 20;
+
+  // **Pass 1: work out how much room each band's own dot cluster actually
+  // needs, before any lane gets a fixed Y.** Reported live, and reproduced
+  // with 5 same-day bands of 8 notes each: a fixed TIMELINE_LANE_GAP between
+  // every lane is fine for a sparse notebook, but nothing stopped a dense
+  // same-timestamp cluster (the vertical stagger below exists exactly to
+  // fan those out) from staggering far enough to reach *past* the gap and
+  // paint over the next band's dots and label — confusing in exactly the
+  // way "too close to other lines" describes, and not something clamping
+  // only the label (an earlier, insufficient pass at this same report) could
+  // fix, since the dots themselves were what collided.
+  //
+  // Each band's stagger only depends on its own notes' x-positions, so it
+  // can run here, before laneY exists, and the render pass below reuses the
+  // result instead of recomputing it.
+  const hereByBand = [];
+  const bandUp = []; // clearance needed above this band's own baseline
+  const bandDown = []; // clearance needed below it
+  bands.forEach((band) => {
+    const inBand = new Set(band.ids);
+    const here = notes
+      .filter((n) => inBand.has(n.id))
+      .sort((a, b) => new Date(a.at) - new Date(b.at));
+    hereByBand.push(here);
+    if (!here.length) {
+      bandUp.push(0);
+      bandDown.push(0);
+      return;
+    }
+    const placed = [];
+    const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
+    here.forEach((n) => {
+      n.cx = scale(new Date(n.at));
+      // Find what dy offsets are already taken at this cx
+      const taken = placed
+        .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
+        .map((p) => p._dy);
+      // Try dy offsets: 0, 15, -15, 30, -30...
+      const step = TIMELINE_DOT_R * 1.5;
+      let offsetIdx = 0;
+      let dy = 0;
+      while (taken.includes(dy)) {
+        offsetIdx++;
+        const sign = offsetIdx % 2 === 0 ? 1 : -1;
+        dy = Math.ceil(offsetIdx / 2) * step * sign;
+      }
+      n._dy = dy;
+      placed.push(n);
+    });
+    const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
+    const lowestDy = Math.max(0, ...here.map((n) => n._dy || 0));
+    // The label sits above the topmost dot (see the render pass), so its own
+    // clearance — not just the dot's radius — belongs in "up".
+    bandUp.push(-highestDy + TIMELINE_DOT_R + 26);
+    bandDown.push(lowestDy + TIMELINE_DOT_R);
+  });
+
+  // **Pass 2: lay out lanes with at least TIMELINE_LANE_GAP between them —
+  // exactly today's fixed rhythm on sparse data — but more when a band's own
+  // cluster needs it.** A minimum breathing gap between one band's lowest
+  // dot and the next band's topmost clearance, on top of whatever each needs.
+  const LANE_MARGIN = 12;
+  const laneYs = [];
+  bands.forEach((_, index) => {
+    if (index === 0) {
+      laneYs.push(spineY + Math.max(TIMELINE_LANE_GAP, bandUp[0] + LANE_MARGIN));
+      return;
+    }
+    const grown =
+      laneYs[index - 1] + bandDown[index - 1] + LANE_MARGIN + bandUp[index];
+    laneYs.push(Math.max(grown, laneYs[index - 1] + TIMELINE_LANE_GAP));
+  });
+
+  const height = single
+    ? spineY + TIMELINE_LANE_GAP + 20
+    : (laneYs[laneYs.length - 1] || spineY) + (bandDown[bandDown.length - 1] || 0) + 20;
   svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
 
   const color = d3.scaleOrdinal(
@@ -14700,11 +15360,8 @@ function renderTimelineBranch(body) {
     .attr("y2", spineY);
 
   bands.forEach((band, index) => {
-    const laneY = single ? spineY : spineY + (index + 1) * TIMELINE_LANE_GAP;
-    const inBand = new Set(band.ids);
-    const here = notes
-      .filter((n) => inBand.has(n.id))
-      .sort((a, b) => new Date(a.at) - new Date(b.at));
+    const laneY = single ? spineY : laneYs[index];
+    const here = hereByBand[index];
     if (!here.length) return;
 
     const laneGroup = svg.append("g").attr("class", "timeline-branch-lane");
@@ -14748,14 +15405,24 @@ function renderTimelineBranch(body) {
         .attr("stroke-dashoffset", 0);
     }
 
+    // `_dy` (per-note vertical stagger) was already computed in the layout
+    // pass above, alongside laneYs — both come from the same per-band pass
+    // so they can never disagree about how much room a cluster needs.
+
     if (!single) {
       // Position label near the actual branch start rather than the fixed left margin
       const startX = scale(new Date(here[0].at));
+      // The label sits above the topmost dot. No clamp needed here any
+      // more — laneYs (the layout pass above) already gave this band's own
+      // "up" clearance room in the gap before it, so this can never reach
+      // into the lane above regardless of how dense this cluster is.
+      const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
+      const labelY = laneY + highestDy - TIMELINE_DOT_R - 8;
       const label = laneGroup
         .append("text")
         .attr("class", "timeline-branch-label")
         .attr("x", startX)
-        .attr("y", laneY - 14)
+        .attr("y", labelY)
         .attr("dy", "0")
         .attr("text-anchor", "start")
         .attr("fill", tint)
@@ -14765,31 +15432,6 @@ function renderTimelineBranch(body) {
       label.transition().duration(600).style("opacity", 1);
       label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
     }
-
-    // Calculate vertical staggering to prevent physical overlap
-    const placed = [];
-    const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
-    
-    here.forEach(n => {
-      n.cx = scale(new Date(n.at));
-      
-      // Find what dy offsets are already taken at this cx
-      const taken = placed
-        .filter(p => Math.abs(p.cx - n.cx) < minDistance)
-        .map(p => p._dy);
-        
-      // Try dy offsets: 0, 15, -15, 30, -30...
-      let step = TIMELINE_DOT_R * 1.5;
-      let offsetIdx = 0;
-      let dy = 0;
-      while (taken.includes(dy)) {
-        offsetIdx++;
-        const sign = offsetIdx % 2 === 0 ? 1 : -1;
-        dy = Math.ceil(offsetIdx / 2) * step * sign;
-      }
-      n._dy = dy;
-      placed.push(n);
-    });
 
     // A soft coloured glow behind each dot, same treatment the Graph tab's
     // nodes use (.graph-halo) — asked for directly ("look similar to the
@@ -16185,6 +16827,9 @@ async function renderPrefs() {
 // Web-search tab having been opened first in the same session.
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
+  $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
+  $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
+  $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
   $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
@@ -17967,8 +18612,23 @@ async function saveMeetingNote() {
   const button = $("meeting-save");
   button.disabled = true;
   status.classList.remove("error");
-  status.textContent = "Filing…";
+  status.textContent = "Summarizing…";
   try {
+    // Best-effort, same contract as suggest-tags: a model that's offline or
+    // errors must never block filing the note, so any failure here just
+    // means no summary block gets prepended, not a stalled save.
+    let summary = "";
+    try {
+      const result = await apiJson("/voice/summarize", {
+        method: "POST",
+        body: JSON.stringify({ text: content }),
+      });
+      summary = (result?.summary || "").trim();
+    } catch {
+      summary = "";
+    }
+
+    status.textContent = "Filing…";
     // Tagged, not force-categorised: filing still goes through the same
     // AI-or-keyword pipeline as any other capture (routes_entries.py), so a
     // meeting about a specific project lands there rather than in a generic
@@ -17978,10 +18638,11 @@ async function saveMeetingNote() {
     // what every list in this app shows as its name. Without it a saved
     // recording is titled by whatever word the transcript happens to open on.
     const title = ($("meeting-title")?.value || "").trim();
+    const body = summary ? `${summary}\n\n---\n\n${content}` : content;
     const saved = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({
-        content: title ? `${title}\n\n${content}` : content,
+        content: title ? `${title}\n\n${body}` : body,
         tags: ["meeting"],
       }),
     });
@@ -20509,12 +21170,113 @@ async function loadLinkSuggestions() {
     }
   );
 
+  // Asked for directly, after the backfill button above was reported as
+  // "doesn't fill in the empty Why boxes" — correctly, because it never
+  // could (it only ever touches links that already exist, see its own
+  // comment). This is the actual thing that was missing: an AI guess for
+  // *these* rows' own reason boxes, written in as a real value (not just a
+  // placeholder) so it's visible, editable, and used as-is by Link if left
+  // alone. `rowReasons` is populated by the suggestion loop below; the
+  // click handler only runs once the user clicks, by which point it's full.
+  const rowReasons = [];
+  const suggestReasons = smallButton(
+    "ph:sparkle Suggest reasons",
+    "Ask the AI to guess why each note pair below might be connected, and fill in any empty Why box with its answer — still yours to edit or clear before linking.",
+    async () => {
+      const targets = rowReasons.filter((r) => !r.input.value.trim());
+      if (!targets.length) {
+        toast("Every visible suggestion already has a reason.");
+        return;
+      }
+      suggestReasons.disabled = true;
+      setLabel(suggestReasons, "ph:sparkle Working…");
+      const result = await apiJson("/entries/link-suggestions/reasons", {
+        method: "POST",
+        body: JSON.stringify({
+          pairs: targets.map((r) => ({ source_id: r.s.source_id, target_id: r.s.target_id })),
+        }),
+      }).catch((e) => {
+        toast(e.message, true);
+        return null;
+      });
+      suggestReasons.disabled = false;
+      setLabel(suggestReasons, "ph:sparkle Suggest reasons");
+      if (!result) return;
+      const byPair = new Map(
+        result.reasons.map((r) => [`${r.source_id}:${r.target_id}`, r.reason])
+      );
+      let filled = 0;
+      for (const r of targets) {
+        const reason = byPair.get(`${r.s.source_id}:${r.s.target_id}`);
+        if (reason) {
+          r.input.value = reason;
+          filled++;
+        }
+      }
+      if (filled) {
+        toast(`Filled in ${filled} reason${filled === 1 ? "" : "s"}.`);
+      } else if (result.ai_unavailable) {
+        toast("The AI isn't running, so no reasons could be guessed.", true);
+      } else {
+        toast("Couldn't guess a reason for any of these.");
+      }
+    }
+  );
+
   const closeAll = smallButton("ph:x", "Close suggestions", () => {
     box.classList.add("hidden");
     box.replaceChildren();
   });
 
-  actions.append(backfill, closeAll);
+  actions.append(backfill, suggestReasons, closeAll);
+
+  // **Reasons arrive on their own now.** Asked for directly: "whenever a
+  // link is suggested, the ai should suggest a reason that the user can
+  // edit." The button above stays — it is how you retry after the model was
+  // down, or refill a box you cleared — but a suggestion that needs a click
+  // before it can say *why* is a suggestion most people will never see the
+  // reason for.
+  //
+  // Fired after render rather than inside the endpoint: `/link-suggestions`
+  // is a GET that already does one embedding scan, and putting a dozen
+  // model round-trips behind it would turn opening this panel from instant
+  // into a stall. This way the rows appear immediately with the deduced
+  // text, and the AI's wording replaces it as each answer lands. Failure is
+  // silent by design: the deduced reason is already showing as the box's
+  // placeholder, and `create_link` deduces the same text server-side if the
+  // box is left empty — so a failed guess costs nothing and there is nothing
+  // to warn about.
+  requestAnimationFrame(() => {
+    // Only the top few automatically. Each pair is a model round-trip and
+    // they run sequentially server-side, so filling all twelve unasked is a
+    // long request on a slow local model for rows most people never scroll
+    // to. The suggestions arrive best-first, so these are the ones worth
+    // spending on; "Suggest reasons" still fills the rest on demand.
+    const AUTO_REASON_LIMIT = 6;
+    const pending = rowReasons
+      .filter((r) => !r.input.dataset.userEdited)
+      .slice(0, AUTO_REASON_LIMIT);
+    if (!pending.length) return;
+    apiJson("/entries/link-suggestions/reasons", {
+      method: "POST",
+      silent: true,
+      body: JSON.stringify({
+        pairs: pending.map((r) => ({ source_id: r.s.source_id, target_id: r.s.target_id })),
+      }),
+    })
+      .then((result) => {
+        const byPair = new Map(
+          result.reasons.map((r) => [`${r.source_id}:${r.target_id}`, r.reason])
+        );
+        for (const r of pending) {
+          // Never overwrite something typed while the request was in flight.
+          if (r.input.dataset.userEdited) continue;
+          const reason = byPair.get(`${r.s.source_id}:${r.s.target_id}`);
+          if (reason) r.input.value = reason;
+        }
+      })
+      .catch(() => {});
+  });
   heading.append(headingText, actions);
   box.appendChild(heading);
 
@@ -20545,6 +21307,12 @@ async function loadLinkSuggestions() {
       ? s.reason
       : "Why? (optional — the AI will work it out)";
     reason.setAttribute("aria-label", "Reason for this link");
+    // Marks the box as the user's the moment they touch it, so the
+    // auto-fill above can never overwrite what someone is typing.
+    reason.addEventListener("input", () => {
+      reason.dataset.userEdited = "1";
+    });
+    rowReasons.push({ s, input: reason });
 
     const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
     const link = smallButton("ph:link Link", "Connect these two notes", async () => {
@@ -21007,7 +21775,15 @@ for (const button of document.querySelectorAll("#tab-bar button")) {
 // and `.focus()` on the null it returned would throw on an arrow key.
 $("tab-bar").addEventListener("keydown", (e) => {
   const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 };
-  if (!(e.key in keys)) return;
+  // Alt+arrow is the app-wide Back/Forward shortcut. Without this check,
+  // a bare arrow here always won — a tab button is exactly where focus
+  // sits right after clicking a tab, so this ARIA-tablist roving-focus
+  // handler (an ancestor of the focused button, so it sees the keydown
+  // before the document-level shortcut listener does) hijacked Alt+Left/
+  // Right into "move to the adjacent tab button" every time, with its own
+  // preventDefault() leaving nothing clean for the real shortcut to act
+  // on. Bare Left/Right/Home/End still cycle tabs exactly as before.
+  if (!(e.key in keys) || e.altKey) return;
   e.preventDefault();
   const buttons = [...document.querySelectorAll("#tab-bar button")];
   if (!buttons.length) return;
@@ -21330,6 +22106,15 @@ $("pref-autonomous-tasks").addEventListener("change", (e) => {
   toggleAutonomousPanel();
   setPreference("autonomous_tasks_enabled", e.target.checked);
 });
+$("pref-ai-first-filing").addEventListener("change", (e) =>
+  setPreference("ai_first_filing", e.target.checked)
+);
+$("pref-auto-caption-images").addEventListener("change", (e) =>
+  setPreference("auto_caption_images", e.target.checked)
+);
+$("pref-auto-read-image-text").addEventListener("change", (e) =>
+  setPreference("auto_read_image_text", e.target.checked)
+);
 $("pref-auto-tag").addEventListener("change", (e) =>
   setPreference("auto_tag_enabled", e.target.checked)
 );
@@ -21841,6 +22626,77 @@ $("persona-select").addEventListener("change", async () => {
     renderChatEmptyState();
   }
 });
+// **Preview for the note composer.** Asked for directly: a way to see the
+// highlight and text colours while writing, and to click a word to edit it.
+//
+// Reuses `liveMarkdownRenderer` (debounced, already used by the streaming
+// answer pane) and `renderMarkdown` rather than growing a second renderer —
+// the document editor's Live view proves that path already renders
+// everything, colours included.
+//
+// Deliberately *not* a copy of that Live view's per-block click-to-edit. That
+// machinery is built around a full-page editor with `docLiveBlocks`,
+// `docLiveActive` and a per-block textarea; a three-row composer does not
+// need a block model, and a second copy of one would be the third place in
+// this app that decides what a block is. The click behaviour people actually
+// want from a preview — "let me fix that word" — is served by going back to
+// the box with the caret already on the words that were clicked.
+let entryPreviewRender = null;
+
+function entryPreviewOn() {
+  return !$("entry-preview").classList.contains("hidden");
+}
+
+function paintEntryPreview() {
+  if (!entryPreviewOn()) return;
+  entryPreviewRender ??= liveMarkdownRenderer($("entry-preview"));
+  const text = $("entry-content").value;
+  entryPreviewRender(text.trim() ? text : "_Nothing to preview yet._");
+}
+
+function setEntryPreview(on) {
+  const preview = $("entry-preview");
+  const box = $("entry-content");
+  const toggle = $("entry-preview-toggle");
+  preview.classList.toggle("hidden", !on);
+  box.classList.toggle("hidden", on);
+  toggle.setAttribute("aria-pressed", String(on));
+  toggle.classList.toggle("is-active", on);
+  if (on) {
+    paintEntryPreview();
+  } else {
+    box.focus();
+  }
+}
+
+// Put the caret where the click landed. There is no exact mapping from a
+// rendered node back to an offset in the source — the markup that produced it
+// has been consumed — so this looks up the clicked node's own text in the
+// source and lands on it. Wrong only when the same words appear twice, where
+// it picks the first, which still beats the caret going to position zero.
+function caretAtClickedText(node) {
+  const box = $("entry-content");
+  const clicked = (node?.textContent || "").trim().slice(0, 60);
+  const at = clicked ? box.value.indexOf(clicked) : -1;
+  setEntryPreview(false);
+  if (at === -1) return;
+  box.setSelectionRange(at, at + clicked.length);
+}
+
+$("entry-preview-toggle")?.addEventListener("click", () => setEntryPreview(!entryPreviewOn()));
+$("entry-preview")?.addEventListener("click", (event) => {
+  caretAtClickedText(event.target);
+});
+$("entry-preview")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    setEntryPreview(false);
+  }
+});
+// Typing with the preview open (via the toolbar, which writes into the box
+// while it is hidden) must still repaint it.
+$("entry-content")?.addEventListener("input", paintEntryPreview);
+
 $("dashboard-persona-select").addEventListener("change", async () => {
   const persona = $("dashboard-persona-select").value;
   await apiJson("/preferences", {
@@ -21849,6 +22705,16 @@ $("dashboard-persona-select").addEventListener("change", async () => {
   }).catch(() => {});
   if (prefsCache) prefsCache.dashboard_persona = persona;
   toast(persona ? `Dashboard greeting now speaks as ${persona}.` : "Dashboard greeting back to matching Chat.");
+});
+$("dashboard-greeting-regenerate")?.addEventListener("click", async () => {
+  const btn = $("dashboard-greeting-regenerate");
+  const status = $("dashboard-greeting-status");
+  btn.disabled = true;
+  if (status) status.textContent = "Asking the AI…";
+  const ok = await refreshAiGreeting(true).catch(() => false);
+  btn.disabled = false;
+  if (status) status.textContent = ok ? "New greeting set." : "Couldn't reach the AI — kept the current one.";
+  setTimeout(() => { if (status) status.textContent = ""; }, 3000);
 });
 for (const id of RESPONSE_MODE_SELECTS) {
   $(id)?.addEventListener("change", (e) => setResponseMode(e.target.value));
@@ -22634,22 +23500,16 @@ $("about-shortcuts").addEventListener("click", () => showSettingsSection("shortc
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
 $("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 
-$("search-help").addEventListener("click", () => {
-  const panel = $("search-help-hint");
-  const showing = panel.classList.toggle("hidden");
-  $("search-help").setAttribute("aria-expanded", String(!showing));
-  if (!showing) $("note-search").focus();
-});
-
-// The capture box's own "?" — same disclosure, same three lines. It does
-// *not* steal focus back to the textarea the way the filter one does:
-// this panel is six lines of syntax you are meant to read while typing,
-// and yanking the caret away mid-read is the opposite of helpful.
-$("capture-help")?.addEventListener("click", () => {
-  const panel = $("capture-help-hint");
-  const hidden = panel.classList.toggle("hidden");
-  $("capture-help").setAttribute("aria-expanded", String(!hidden));
-});
+// Both used to be bespoke click-toggle-only handlers, predating
+// `initHelpToggle` (defined above) and never migrated to it — missing the
+// outside-click and Escape closes every other help toggle in this app
+// gets, reported directly ("the capture a thought tooltip doesn't close
+// when clicking off it"), and `search-help-hint` also carried its own
+// one-off `.search-help` class instead of the shared `.graph-help-panel`
+// floating-popover look, reported separately as a style mismatch against
+// the capture panel right next to it. One shared function fixes both.
+initHelpToggle("search-help", "search-help-hint");
+initHelpToggle("capture-help", "capture-help-hint");
 
 $("prefs-save").addEventListener("click", savePrefs);
 $("pref-search-reset").addEventListener("click", () => {
@@ -22925,6 +23785,28 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
 }
 $("status-back").addEventListener("click", () => stepTabHistory(-1));
 $("status-forward").addEventListener("click", () => stepTabHistory(1));
+$("status-back").addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  openNavHistoryMenu($("status-back"));
+});
+$("status-forward").addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  openNavHistoryMenu($("status-forward"));
+});
+$("status-nav-history")?.addEventListener("click", () => {
+  const menu = $("status-nav-history-menu");
+  if (menu.classList.contains("hidden")) openNavHistoryMenu($("status-nav-history"));
+  else closeNavHistoryMenu();
+});
+document.addEventListener("click", (event) => {
+  const menu = $("status-nav-history-menu");
+  if (!menu || menu.classList.contains("hidden")) return;
+  if (menu.contains(event.target) || event.target.closest("#status-nav-history")) return;
+  closeNavHistoryMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeNavHistoryMenu();
+});
 $("settings-nav-back")?.addEventListener("click", () => stepTabHistory(-1));
 $("settings-nav-forward")?.addEventListener("click", () => stepTabHistory(1));
 // Seed the stack with wherever the app opened, or the first tab clicked has
@@ -22977,6 +23859,7 @@ $("entry-content").addEventListener("keydown", (e) => {
 $("entry-content").addEventListener("input", () => {
   wikiSuggestIndex = 0;
   renderWikiSuggest($("entry-content"));
+  scheduleCaptureTagSuggestions();
 });
 // Moving the caret with the mouse or arrows can leave the fragment behind.
 $("entry-content").addEventListener("click", () => renderWikiSuggest($("entry-content")));
@@ -23467,6 +24350,13 @@ const DEFAULT_SHORTCUTS = {
   whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
   settings: { keys: "Ctrl+,", label: "Open settings" },
   attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
+  // The status bar's own Back/Forward buttons (`stepTabHistory`) were
+  // click-only — asked for directly. Alt+Left/Right rather than the bare
+  // arrow keys: those are needed everywhere text is edited or a list is
+  // navigated, and a modifier is what every browser already uses for this
+  // exact action, so it costs no muscle memory to learn.
+  navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
+  navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
 
 const SHORTCUT_STORE = "keyboardShortcuts";
@@ -23610,6 +24500,9 @@ function runShortcut(id) {
       switchTab("chat");
       openNotePicker();
     },
+    // Same call the status bar's own Back/Forward buttons already make.
+    navigateBack: () => stepTabHistory(-1),
+    navigateForward: () => stepTabHistory(1),
   };
   actions[id]?.();
 }

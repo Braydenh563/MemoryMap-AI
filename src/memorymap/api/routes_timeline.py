@@ -14,9 +14,10 @@ was written otherwise. That is the whole reason the timeline is more than
 `ORDER BY created_at`, and every placed note says which of the two it used so
 the view can be honest about it.
 
-**Bands come from what is already stored** — category or tag — rather than
-from an `events` table that does not exist yet. Grouping by event is still the
-goal (§10), and this is the shape it will slot into: one more `group` value.
+**Bands come from what is already stored** — category, tag, or a note thread
+(`Entry.parent_id`, §87.6) — rather than from an `events` table that does not
+exist yet. Grouping by event is still the goal (§10), and this is the shape
+it will slot into: one more `group` value.
 """
 
 from __future__ import annotations
@@ -88,14 +89,16 @@ def timeline(
     """Notes on a time axis, in bands.
 
     `scale` buckets the axis (day/week/month/year), `group` chooses the bands
-    (category/tag/none), `days` is how far back to look — 0 for everything.
+    (category/tag/thread/none), `days` is how far back to look — 0 for everything.
     """
     if scale not in SCALES:
         raise HTTPException(
             status_code=422, detail=f"scale must be one of {', '.join(SCALES)}"
         )
-    if group not in ("category", "tag", "none"):
-        raise HTTPException(status_code=422, detail="group must be category, tag or none")
+    if group not in ("category", "tag", "thread", "none"):
+        raise HTTPException(
+            status_code=422, detail="group must be category, tag, thread or none"
+        )
 
     query = select(Entry).where(
         Entry.is_deleted == False,  # noqa: E712
@@ -142,6 +145,10 @@ def timeline(
                 "written_at": entry.created_at.isoformat(),
                 "category": categories.get(entry.category_id, manager.UNCATEGORISED),
                 "tags": manager.entry_tags(entry),
+                # Only read by `_thread_bands` (group=thread) — carried for
+                # every note regardless of the chosen group so switching to
+                # "Thread" never needs a second fetch.
+                "parent_id": entry.parent_id,
                 "pinned": entry.pinned,
                 "preview": _clip(manager.readable_content(entry)),
             }
@@ -160,6 +167,8 @@ def _bands(notes: list[dict], group: str) -> list[dict]:
     """The lanes, biggest first, with a lane for the long tail."""
     if group == "none":
         return [{"name": "All notes", "count": len(notes), "ids": [n["id"] for n in notes]}]
+    if group == "thread":
+        return _thread_bands(notes)
 
     members: dict[str, list[int]] = defaultdict(list)
     for note in notes:
@@ -177,4 +186,61 @@ def _bands(notes: list[dict], group: str) -> list[dict]:
     if tail:
         ids = sorted({note_id for _, group_ids in tail for note_id in group_ids})
         bands.append({"name": OTHER_BAND, "count": len(ids), "ids": ids})
+    return bands
+
+
+THREAD_BAND = "Single notes & smaller threads"
+
+
+def _thread_bands(notes: list[dict]) -> list[dict]:
+    """One lane per thread — a root note and everything that continues it
+    (`Entry.parent_id`), the one grouping a grid genuinely cannot show at
+    all: a conversation with itself, spread across days or months (§87.6 —
+    IDEAS.md's "branching line with offshoots", joined with the thread
+    structure `parent_id` already stores). A parent outside the currently
+    loaded window (out of the date range, private, or deleted) makes its
+    child a root of its own rather than a second query reaching further
+    back — the same honest simplification the `days` filter already asks
+    the rest of this view to accept.
+
+    A note with no children is not a thread, so it does not get its own
+    lane — every such note, plus any real thread beyond the lane cap,
+    folds into one shared band, the same shape category/tag grouping
+    already uses for its own long tail.
+    """
+    by_id = {note["id"]: note for note in notes}
+
+    def root_of(note: dict) -> dict:
+        seen = {note["id"]}
+        current = note
+        # A parent chain is at most as deep as the notebook has notes; this
+        # caps the walk defensively rather than trusting that shape holds.
+        for _ in range(200):
+            parent = by_id.get(current.get("parent_id"))
+            if parent is None or parent["id"] in seen:
+                return current
+            seen.add(parent["id"])
+            current = parent
+        return current
+
+    members: dict[int, list[int]] = defaultdict(list)
+    roots: dict[int, dict] = {}
+    for note in notes:
+        root = root_of(note)
+        members[root["id"]].append(note["id"])
+        roots[root["id"]] = root
+
+    threads = sorted(
+        (item for item in members.items() if len(item[1]) > 1),
+        key=lambda pair: (-len(pair[1]), pair[0]),
+    )
+    bands = [
+        {"name": _clip(roots[root_id]["preview"], 40) or f"Note #{root_id}", "count": len(ids), "ids": ids}
+        for root_id, ids in threads[:MAX_BANDS]
+    ]
+    solo_ids = {i for root_id, ids in members.items() if len(ids) == 1 for i in ids}
+    overflow_ids = {i for _, ids in threads[MAX_BANDS:] for i in ids}
+    other = solo_ids | overflow_ids
+    if other:
+        bands.append({"name": THREAD_BAND, "count": len(other), "ids": sorted(other)})
     return bands

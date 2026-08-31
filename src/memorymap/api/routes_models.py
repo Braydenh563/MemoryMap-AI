@@ -17,7 +17,7 @@ from memorymap.ai import sampling
 from memorymap.ai import model_manager as jobs
 from memorymap.ai.model_manager import SUGGESTED_MODELS
 from memorymap.ai.ollama_client import OllamaError
-from memorymap.core import deps, security
+from memorymap.core import deps, ocr, security
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
 
@@ -186,6 +186,13 @@ def status() -> dict:
         "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
         "pulls": jobs.pull_statuses(),
+        # Reported directly: the local-OCR button ("Read text offline") was
+        # always shown enabled, so pressing it without the `tesseract` system
+        # binary installed (never automatable the way the pip half is — see
+        # core/ocr.py's own module docstring) just silently produced nothing,
+        # with no way to tell "it ran and found no text" from "it never ran
+        # at all". A `shutil.which` check, cheap enough for every poll.
+        "tesseract_available": ocr.tesseract_available(),
     }
 
 

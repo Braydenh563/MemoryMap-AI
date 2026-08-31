@@ -31,14 +31,14 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css">
-  <link rel="stylesheet" href="/css/01-forms-settings.css">
-  <link rel="stylesheet" href="/css/02-chat-graph.css">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.1.7">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.1.7">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.1.7">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.1.7">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.1.7">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.1.7">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.1.7">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.1.7">
   <script>
     // Everything visual is applied before first paint, so the app never
     // flashes the default look and then corrects itself.
@@ -485,7 +485,10 @@
                 note's title — the same thing the "Optional title" box
                 above writes for you.</li>
               <li><code>**bold**</code>, <code>*italic*</code>,
-                <code>`code`</code>, <code>~~struck~~</code>,
+                <code>`code`</code>, <code>~~struck~~</code>, <code>==highlight==</code>
+                (or <code>==green|highlight==</code> — also blue, pink,
+                purple, orange; or select the words and use the
+                <span aria-hidden="true">⋯</span> button),
                 <code>[text](url)</code> and <code>$x^2$</code> all render
                 on the saved note.</li>
               <li><code>tag:</code> is for the filter box, not here — tags
@@ -515,9 +518,57 @@
           <input id="entry-title" type="text" maxlength="200"
             placeholder="Optional title"
             aria-label="Optional title — becomes the note's leading heading">
+          <!-- Asked for directly: "can you add like a toolbar like in the
+               documents but for notes and stuff as well". Deliberately the
+               same `.doc-toolbar` markup and the same `data-md` contract as
+               the document editor's strip, wired to the same MD_ACTIONS
+               table — one dialect of markdown, one set of buttons, so the
+               two editors cannot drift into behaving differently. Shorter
+               than the document one on purpose: a note is a short thing, so
+               headings, tables and code blocks are left to the document
+               editor rather than crowding a three-row box. -->
+          <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
+            aria-label="Formatting" data-md-target="entry-content">
+            <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+            <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+            <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
+            <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-md="highlight" title="Highlight (yellow)"
+              aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
+            <select class="md-colour-select" data-md-colour="highlight"
+              aria-label="Highlight colour" title="Highlight in a colour">
+              <option value="">Highlight…</option>
+            </select>
+            <select class="md-colour-select" data-md-colour="ink"
+              aria-label="Text colour" title="Text colour">
+              <option value="">Text colour…</option>
+            </select>
+            <button type="button" data-md="clearformat" title="Remove highlight or colour"
+              aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-md="ul" title="Bulleted list">• List</button>
+            <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
+            <button type="button" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+            <!-- Asked for directly: a way to see highlights and text colours
+                 while writing, and to click a word to edit it. The document
+                 editor's Live view already does this for documents; the note
+                 composer had no preview at all. -->
+            <button type="button" id="entry-preview-toggle" class="doc-toolbar-toggle"
+              aria-pressed="false" aria-controls="entry-preview"
+              title="Preview — see highlights and colours as they will look">
+              <i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview
+            </button>
+          </div>
           <textarea id="entry-content" rows="3" class="autogrow"
             placeholder="Type anything — a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
+          <!-- The rendered note, shown instead of the box while Preview is on.
+               Clicking it goes back to editing with the caret placed at the
+               words that were clicked - see enterEntryPreview in app.js. -->
+          <div id="entry-preview" class="entry-preview hidden" role="button" tabindex="0"
+            aria-label="Preview of this note — click any text to edit it"></div>
           <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
           <ul id="wiki-suggest" class="wiki-suggest hidden" role="listbox"
             aria-label="Notes you can link to"></ul>
@@ -533,6 +584,14 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="entry-tags" type="text" list="tag-suggestions"
             placeholder="Optional tags, comma separated (e.g. joke, work)">
           <datalist id="tag-suggestions"></datalist>
+          <!-- Reported directly: "the ai and application doesnt suggest tags
+               either before creating a new note or after" — a suggestion only
+               ever existed after saving, buried in a note's own kebab menu
+               ("Refresh AI confidence and suggest tags & links"). This is the
+               "before" half: a debounced read of the draft itself, click a
+               chip to add its tag to the field above. Empty and hidden until
+               there is enough text to be worth asking about. -->
+          <div id="entry-tag-suggestions" class="recent hidden" aria-live="polite"></div>
           <!-- Notes and documents are different things, but usually about
                the same thing. Attaching one here is the moment the connection
                is obvious; by the time the note is in a list it is forgotten. -->
@@ -774,9 +833,16 @@ Link to another note with [[its first few words]]."></textarea>
             </label>
             <button id="save-search" class="ghost small hidden" type="button"
               title="Save this filter so you can come back to it"><i class="ph ph-star ph-lead" aria-hidden="true"></i> Save filter</button>
-            <button id="search-help" class="ghost small" type="button"
+            <!-- Reported directly: this didn't match #capture-help/
+                 #draft-help's own circular icon-button styling despite the
+                 comment above #capture-help already claiming "same
+                 disclosure pattern as #search-help below" — the shape was
+                 shared, the class and markup weren't. -->
+            <button id="search-help" class="ghost small graph-help-toggle" type="button"
               aria-expanded="false" aria-controls="search-help-hint"
-              title="What can I type here?">?</button>
+              title="What can I type here?" aria-label="What can I type here?">
+              <i class="ph ph-question" aria-hidden="true"></i>
+            </button>
             <select id="note-sort" aria-label="Sort notes" title="Sort notes">
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -807,7 +873,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="saved-searches" class="saved-searches hidden"
             role="group" aria-label="Saved filters"></div>
           <!-- Search operators are useless if nobody knows they exist. -->
-          <div id="search-help-hint" class="search-help hidden">
+          <div id="search-help-hint" class="graph-help-panel search-help hidden" role="dialog" aria-label="What can I type here?">
             <p class="muted">The filter understands a few shortcuts — all of these work without any AI:</p>
             <ul class="search-help-list">
               <li><code>bread proving</code> — both words, in any order</li>
@@ -815,6 +881,7 @@ Link to another note with [[its first few words]]."></textarea>
               <li><code>tag:work</code> — only notes carrying that tag</li>
               <li><code>cat:recipes</code> — only that category</li>
               <li><code>is:pinned</code> — also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code></li>
+              <li><code>tags:&lt;2</code> — fewer than 2 tags (also <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, or a bare number for exactly that many)</li>
               <li><code>-picnic</code> — notes that do <em>not</em> mention it</li>
             </ul>
           </div>
@@ -1035,7 +1102,7 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
                     aria-label="Request the Librarian"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Request<span class="chat-mode-long"> the Librarian</span></button>
                 </div>
-                <label class="muted tools-toggle agent-toggle hidden"
+                <label class="muted tools-toggle checkbox-label agent-toggle hidden"
                   title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
                   <input type="checkbox" id="tools-toggle">
                   <span class="agent-toggle-label"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent mode</span>
@@ -1164,9 +1231,17 @@ Link to another note with [[its first few words]]."></textarea>
                  than a list, so "any image format" really is any. Documents:
                  the set core/docview.py can extract text from — a file this
                  does not name is refused by the picker instead of by an error
-                 after the upload. -->
+                 after the upload. Kept as an exact mirror of docview.py's
+                 VIEWABLE_SUFFIXES (PLAIN_TEXT/MARKDOWN/CODE/CONVERTED) —
+                 test_the_chat_composers_file_picker_matches_what_import_actually_reads
+                 (test_docview.py) pins the two to stay equal. `.cs` was
+                 briefly removed from here (it wasn't in CODE_SUFFIXES) and
+                 restored once CODE_SUFFIXES gained it — every other
+                 mainstream language already here could be attached to a
+                 note, viewed and read by the AI; C# alone could only be
+                 attached. -->
             <input id="chat-image-input" type="file" class="visually-hidden"
-              accept="image/*,.pdf,.docx,.doc,.pptx,.xlsx,.xls,.odt,.rtf,.epub,.txt,.text,.log,.csv,.tsv,.md,.markdown,.html,.htm,.json,.xml,.yaml,.yml,.py,.js,.ts,.tsx,.jsx,.css,.java,.c,.h,.cpp,.cs,.go,.rs,.rb,.php,.sh,.sql,.toml,.ini"
+              accept="image/*,.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.rtf,.epub,.txt,.text,.log,.csv,.tsv,.md,.markdown,.html,.htm,.json,.xml,.yaml,.yml,.py,.js,.mjs,.cjs,.ts,.tsx,.jsx,.css,.scss,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.swift,.kt,.r,.sh,.bash,.zsh,.sql,.toml,.ini,.cfg"
               multiple
               aria-label="Choose an image to attach">
             <!-- A textarea, not an input: a three-sentence question used to
@@ -1335,6 +1410,7 @@ Link to another note with [[its first few words]]."></textarea>
         <select id="timeline-group" aria-label="Group notes into bands">
           <option value="category" selected>Category</option>
           <option value="tag">Tag</option>
+          <option value="thread">Thread</option>
           <option value="none">None</option>
         </select>
         <label class="muted" for="timeline-days">Show</label>
@@ -1542,19 +1618,19 @@ Link to another note with [[its first few words]]."></textarea>
           <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
         </span>
         <span class="graph-toggle-group" id="graph-toggle-group">
-          <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+          <label class="muted tools-toggle checkbox-label" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
             <input type="checkbox" id="graph-similarity"> Similarity
           </label>
-          <label class="muted tools-toggle" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
+          <label class="muted tools-toggle checkbox-label" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
             <input type="checkbox" id="graph-entities"> Entities
           </label>
-          <label class="muted tools-toggle" title="Show documents linked to a note, as their own nodes">
+          <label class="muted tools-toggle checkbox-label" title="Show documents linked to a note, as their own nodes">
             <input type="checkbox" id="graph-documents"> Documents
           </label>
-          <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
+          <label class="muted tools-toggle checkbox-label" title="Hide notes that aren't linked to anything, to declutter the map">
             <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
           </label>
-          <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+          <label class="muted tools-toggle checkbox-label" title="Show a short label under every note (off = labels only when you hover)">
             <input type="checkbox" id="graph-labels" checked> Labels
           </label>
         </span>
@@ -1739,6 +1815,15 @@ Link to another note with [[its first few words]]."></textarea>
             <ul id="doc-notes" class="doc-outline"></ul>
           </div>
 
+          <!-- References (§30, directly requested — "should bookmarks show
+               in documents... as well?"): saved links attached to this
+               document, same concept as a note's own References. -->
+          <div id="doc-bookmarks-wrap" class="doc-outline-wrap">
+            <h3>References</h3>
+            <ul id="doc-bookmarks" class="doc-outline"></ul>
+            <button id="doc-attach-bookmark" class="ghost small" type="button"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Attach a link</button>
+          </div>
+
           <!-- "Where are they stored?" was asked outright, and the app had no
                answer anywhere. For a local-first app that's most of the promise.
                Used to be an open-by-default <details> here; its body was tall
@@ -1867,6 +1952,19 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
           <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
           <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="highlight" title="Highlight (yellow)"
+            aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
+          <select class="md-colour-select" data-md-colour="highlight"
+            aria-label="Highlight colour" title="Highlight in a colour">
+            <option value="">Highlight…</option>
+          </select>
+          <select class="md-colour-select" data-md-colour="ink"
+            aria-label="Text colour" title="Text colour">
+            <option value="">Text colour…</option>
+          </select>
+          <button type="button" data-md="clearformat" title="Remove highlight or colour"
+            aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" data-md="ul" title="Bulleted list">• List</button>
           <button type="button" data-md="ol" title="Numbered list">1. List</button>
@@ -2148,6 +2246,8 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
       <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
+      <button role="tab" aria-selected="false" data-target="library-view-links">Links</button>
+      <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
     </div>
 
     <div id="library-view-documents" class="library-view-section">
@@ -2360,7 +2460,10 @@ Link to another note with [[its first few words]]."></textarea>
       
         </main>
         <aside class="card glass" id="skills-sidebar">
-        <h2>Skill Logs</h2>
+        <div class="row space-between library-head">
+          <h2>Skill Logs</h2>
+          <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
+        </div>
         <div id="skills-logs-list" class="entry-list"></div>
       </aside>
       </div>
@@ -2884,6 +2987,67 @@ Link to another note with [[its first few words]]."></textarea>
     </section>
   </div>
 
+  <!-- Links (§30, directly requested): "an area where the user can store
+       lists of links... bookmark commonly visited or favourite websites".
+       Deliberately separate from notes — a bookmark has a URL and nothing
+       else to file, search by content, or auto-categorise. -->
+  <div id="library-view-links" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="row space-between library-head">
+        <h2>Links</h2>
+      </div>
+      <p class="muted">Save links to websites you visit often — a bookmark
+        shelf that lives in the notebook instead of the browser.</p>
+      <form id="bookmark-form" class="row">
+        <input id="bookmark-url-input" type="text" class="library-search"
+          placeholder="example.com" aria-label="Bookmark URL" required>
+        <input id="bookmark-title-input" type="text"
+          placeholder="Title (optional)" aria-label="Bookmark title">
+        <input id="bookmark-group-input" type="text" list="bookmark-group-options"
+          placeholder="Group (optional, e.g. Work/Reading)" aria-label="Bookmark group">
+        <datalist id="bookmark-group-options"></datalist>
+        <button type="submit" class="small">＋ Add</button>
+      </form>
+      <input id="bookmark-search" type="search" class="library-search"
+        placeholder="Search saved links…" aria-label="Search saved links">
+      <div id="bookmark-group-chips" class="row bookmark-group-chips"></div>
+      <div id="bookmark-list" class="bookmark-list"></div>
+      <div id="bookmark-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-link ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">No links saved yet</p>
+        <p>Add a website above to keep it a click away.</p>
+      </div>
+      <p id="bookmark-no-match" class="muted hidden">No links match your search.</p>
+    </section>
+  </div>
+
+  <!-- Contents (§30, directly requested): a hyperlinked outline of the
+       notebook's own structure — categories and tags, each with the notes
+       filed under it, click to jump. The *visual*, spatial half of "links
+       between sections and tags" is the Graph tab's job (it already colours
+       and filters by category); this is the fast, scannable list half. -->
+  <div id="library-view-contents" class="library-view-section hidden">
+    <section class="card glass">
+      <div class="row space-between library-head">
+        <h2>Contents</h2>
+        <button id="contents-refresh" class="ghost small" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+      </div>
+      <p class="muted">An outline of your notebook — every category and tag,
+        with what's filed under it. For the visual map of how notes link to
+        each other, see the Graph tab.</p>
+      <div class="seg" id="contents-mode" role="tablist">
+        <button role="tab" aria-selected="true" data-mode="category" class="active" type="button">By category</button>
+        <button role="tab" aria-selected="false" data-mode="tag" type="button">By tag</button>
+      </div>
+      <div id="contents-outline" class="contents-outline"></div>
+      <div id="contents-empty" class="empty-state hidden">
+        <span class="empty-icon" aria-hidden="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i></span>
+        <p class="empty-title">Nothing to outline yet</p>
+        <p>Write a few notes and they'll show up here, grouped and linked.</p>
+      </div>
+    </section>
+  </div>
+
   <!-- Closes #tab-library, opened near the top of this tab's markup. A stray
        extra `</div>` used to sit right after the whiteboard sidebar instead
        of here, which closed #tab-library three sub-views early — the gallery
@@ -2955,6 +3119,16 @@ Link to another note with [[its first few words]]."></textarea>
     <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
       <button id="status-back" class="status-item" type="button" disabled></button>
       <button id="status-forward" class="status-item" type="button" disabled></button>
+      <!-- Asked for directly: "if they are right clicked, a little popup
+           shows above with the navigation history to fast track back to a
+           place (or maybe it can be a little button next to it??)". Both:
+           right-clicking either Back or Forward opens the same popup this
+           button does. -->
+      <button id="status-nav-history" class="status-item" type="button"
+        aria-haspopup="menu" aria-expanded="false" aria-controls="status-nav-history-menu"
+        title="Navigation history" aria-label="Navigation history">
+        <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
+      </button>
     </span>
     <button id="status-undo" class="status-item" type="button" disabled data-status-slot="undo"></button>
     <button id="status-redo" class="status-item" type="button" disabled data-status-slot="undo"></button>
@@ -2976,6 +3150,24 @@ Link to another note with [[its first few words]]."></textarea>
       <p id="status-clock-detail-zone" class="muted status-clock-detail-zone"></p>
     </div>
   </footer>
+
+  <!-- Sibling of #status-bar, not a child of it — asked for directly ("make
+       the nav history popup scrollable pls, it is still broken"), reproduced
+       live: the popup's own text and the page behind it blended together
+       even though its CSS background is 96% opaque. Root cause was DOM
+       nesting, not opacity: #status-bar has `backdrop-filter`, and a
+       backdrop-filter ancestor becomes the containing block for a
+       `position: fixed` descendant (same rule `transform`/`filter` follow) —
+       so this menu was painted inside the footer's own backdrop-filter
+       compositing pass instead of as a normal layer above it, which is what
+       produced the blended look. Escaping the filtered ancestor, the same
+       fix `wireEscapedActionMenu` already uses for the Documents kebab
+       (app.js), removes the effect entirely; nothing about its `position:
+       fixed` + `bottom: calc(...)` placement (02-chat-graph.css) needed to
+       change, since fixed positioning was already relative to the viewport
+       once it has a normal containing block again. -->
+  <div id="status-nav-history-menu" class="nav-history-menu hidden" role="menu"
+    aria-label="Navigation history"></div>
 
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
   <!-- Shared by all three surfaces that offer it (Writing Room, Documents,
@@ -3015,7 +3207,19 @@ Link to another note with [[its first few words]]."></textarea>
                every section switch) but not as a control you could actually
                click. Same handlers, reachable from in here instead of
                floating a second copy above the modal. -->
-          <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav">
+          <!-- Musing raised directly: back/forward navigation "gets annoying"
+               — maybe make it toggleable, or maybe keep the Settings modal's
+               own copy separate from the status bar's. It turns out both were
+               half-true: Settings → status bar already had a "Back and
+               forward" visibility toggle (STATUS_SLOTS' "nav" entry, app.js),
+               but it only ever carried `data-status-slot="nav"` on the status
+               bar's own pair above — this modal's mirrored copy had no such
+               attribute, so hiding "Back and forward" left this pair on
+               screen and clickable regardless. One toggle for both, rather
+               than a second setting: someone who finds it annoying almost
+               certainly means everywhere, not just one of the two places it
+               shows up. -->
+          <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
             <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
             <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
           </span>
@@ -3314,7 +3518,18 @@ Link to another note with [[its first few words]]."></textarea>
               Give the dashboard's welcome message its own persona, independent
               of whichever one is active in Chat and search.
             </p>
-            <select id="dashboard-persona-select" class="small-select" aria-label="Dashboard greeting persona"></select>
+            <!-- Beside the picker it belongs to, wrapping underneath when the
+                 row runs out of width - asked for directly. `flex-wrap` on
+                 the row rather than a media query: the breakpoint that
+                 matters is this row's own content, not the viewport, and the
+                 Settings modal is itself a resizable column. -->
+            <div class="row dashboard-persona-row">
+              <select id="dashboard-persona-select" class="small-select" aria-label="Dashboard greeting persona"></select>
+              <button id="dashboard-greeting-regenerate" class="small" type="button">
+                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i> Regenerate greeting
+              </button>
+              <span id="dashboard-greeting-status" class="status"></span>
+            </div>
             <h3>Add your own</h3>
             <input id="persona-name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
             <textarea id="persona-prompt" rows="2" maxlength="2000"
@@ -3364,7 +3579,12 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               <div id="skill-tool-list" class="tool-picker"></div>
             </details>
-            <div class="row">
+            <!-- Measured live during a spacing audit: this row sat flush
+                 against the </details> above it (0px gap), unlike the
+                 matching "last field → Add X row" transition in both
+                 Personas and Templates (~16px, .settings-row-spaced-6's
+                 own value) — this one had been missed. -->
+            <div class="row settings-row-spaced-6">
               <button id="skill-add" class="small">Add skill</button>
               <button id="skill-cancel" class="ghost small hidden">Cancel edit</button>
               <span id="skill-status" class="status"></span>
@@ -4287,6 +4507,32 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Enable autonomous optimization</span>
               </label>
               
+              <!-- Asked for directly: "make the auto running of image
+                   captioning and ocr a thing the user can turn off". Both
+                   default on and sit outside the autonomous-librarian panel
+                   below on purpose - they are not the librarian, they run on
+                   whatever you file rather than on an interval, and grouping
+                   them under a switch labelled for something else would make
+                   turning one off look like turning the other off. -->
+              <!-- Flagged when AI-first filing shipped: it costs a model
+                   round-trip on every capture, which is felt immediately on a
+                   slow local model. Off puts the embedding shortcuts back in
+                   front; the model still decides anything they decline, so
+                   this trades accuracy for speed rather than turning the AI
+                   off. -->
+              <label class="check-row">
+                <input type="checkbox" id="pref-ai-first-filing">
+                <span>Ask the AI where each note belongs (more accurate, slower to save)</span>
+              </label>
+              <label class="check-row">
+                <input type="checkbox" id="pref-auto-caption-images">
+                <span>Describe images automatically (AI caption on save)</span>
+              </label>
+              <label class="check-row">
+                <input type="checkbox" id="pref-auto-read-image-text">
+                <span>Read text in images automatically (OCR and vision model)</span>
+              </label>
+
               <div id="autonomous-settings-panel" class="settings-indent hidden">
                 <label class="check-row">
                   <input type="checkbox" id="pref-auto-tag">
@@ -4569,7 +4815,7 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
               <input id="log-filter" type="search" placeholder="Filter…"
                 aria-label="Only show records containing this text">
-              <label class="muted tools-toggle" id="log-follow-label"
+              <label class="muted tools-toggle checkbox-label" id="log-follow-label"
                 title="Keep the newest records in view. Scroll up to pause.">
                 <input type="checkbox" id="log-follow" checked> Follow
               </label>
@@ -5239,8 +5485,8 @@ Link to another note with [[its first few words]]."></textarea>
        it can safely go first. See frontend/graph.js's own header for the
        full explanation. -->
 
-  <script src="/graph.js"></script>
-  <script src="/app.js"></script>
+  <script src="/graph.js?v=0.1.7"></script>
+  <script src="/app.js?v=0.1.7"></script>
   <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
        Loaded after app.js and shares its global scope; the two directions
        differ. app.js calls INTO this file (loadDocuments, renderDocStorage,
@@ -5250,14 +5496,14 @@ Link to another note with [[its first few words]]."></textarea>
        `initDocSidebarTabs();` sitting in app.js's own wiring block — moved
        here with the function itself, so this file now calls it on its own
        last line instead of app.js calling it mid-file. -->
-  <script src="/documents.js"></script>
+  <script src="/documents.js?v=0.1.7"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every
        cross-file call between the two happens at runtime (inside a
        function or event listener), never at parse time, so this order is
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
-  <script src="/whiteboard.js"></script>
+  <script src="/whiteboard.js?v=0.1.7"></script>
   <!-- The Library tab, split out of app.js and whiteboard.js both (§88.3 of
        the app.js split plan — documents.js above was the first file, this
        is the second). Loaded after both for the same reason documents.js is
@@ -5272,7 +5518,7 @@ Link to another note with [[its first few words]]."></textarea>
        documents.js's split found that this one checked for and did not
        find (a bare top-level call site left orphaned by a moved
        definition). -->
-  <script src="/library.js"></script>
+  <script src="/library.js?v=0.1.7"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every
@@ -5280,7 +5526,7 @@ Link to another note with [[its first few words]]."></textarea>
        allEntries from app.js, and MD_ACTIONS/markDocDirty from documents.js
        (loaded above) — all runtime reads inside closures, so this ordering
        relative to documents.js isn't load-bearing either. -->
-  <script src="/editor.js"></script>
+  <script src="/editor.js?v=0.1.7"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -5292,7 +5538,7 @@ Link to another note with [[its first few words]]."></textarea>
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()` — see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js"></script>
+  <script src="/dashboard.js?v=0.1.7"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview) — §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -5311,6 +5557,6 @@ Link to another note with [[its first few words]]."></textarea>
        event-listener closure — see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
-  <script src="/settings.js"></script>
+  <script src="/settings.js?v=0.1.7"></script>
 </body>
 </html>

@@ -2328,7 +2328,14 @@ function initGraphKeyboard() {
       ArrowUp: "up",
       ArrowDown: "down",
     };
-    if (directions[event.key]) {
+    // Alt+arrow is the app-wide Back/Forward shortcut (app.js's own
+    // DEFAULT_SHORTCUTS) — without this check, this box's own bare-arrow
+    // "move to the neighbour note" handler ran first (it's the keydown
+    // target while the map has focus) and consumed the keystroke with its
+    // own preventDefault() before the global handler had anything clean
+    // left to act on, so Alt+Left silently moved the graph selection
+    // instead of navigating back. Bare arrows still work exactly as before.
+    if (directions[event.key] && !event.altKey) {
       event.preventDefault();
       const next = graphNeighbourInDirection(current, directions[event.key]);
       // No node that way is not an error — say so rather than silently

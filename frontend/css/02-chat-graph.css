@@ -2106,6 +2106,21 @@ kbd {
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
+  /* **This is what made the rows illegible**, reported repeatedly as the
+     popup being "completely broken" / showing dashes instead of text, and
+     measured rather than guessed: `scrollHeight` 35px against a 32.36px
+     box, so `overflow: hidden` above was slicing every glyph down to its
+     top few pixels. These are `<button>`s, and the app's generic button
+     rule sets a fixed control height — which this menu escaped while it
+     lived inside `#status-bar` (whose own `.status-item` rules won) and
+     stopped escaping when it moved out to the body. `height: auto` with a
+     `min-height` floor of zero puts the row back to its content height;
+     flex centring keeps the icon and its label on one baseline. */
+  height: auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   text-overflow: ellipsis;
 }
 

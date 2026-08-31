@@ -8,6 +8,20 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 ### Added
+- A formatting toolbar for the Notes composer, matching the document
+  editor's: bold, italic, code, lists, links, plus highlight, a highlight
+  colour, a text colour and Remove formatting. Both toolbars share one
+  markdown table, so they cannot drift apart.
+- Text colour in notes and documents: `++red|text++`, in eight colours.
+- Selecting text in any editor now offers the actions menu (it previously
+  only worked on rendered content), including Highlight with a colour.
+- Similar notes can be turned into real links in place, from both the
+  editing panel and the "Similar notes" action on a note card.
+- Suggested links now get an AI-drafted reason automatically, which you can
+  edit before accepting.
+- Settings: automatic image captioning and automatic text-reading (OCR and
+  vision model) can each be turned off. Both stay on by default.
+- Settings: a Regenerate button for the dashboard's welcome message.
 - Text highlighting now supports named colours: `==green|text==`
   (yellow, green, blue, pink, purple, orange).
 - Settings → Personas: a "Regenerate greeting" button for the dashboard
@@ -23,6 +37,16 @@ below). Versioning is `0.x` while the app stabilises.
 - A "Clear" button for the AI Skills sidebar's run log.
 
 ### Fixed
+- The navigation-history popup: it capped at 12 entries with a count of
+  what is not shown, and its rows no longer clip their own text.
+- Editing a saved link now opens one inline form with the title, URL and
+  group together, rather than two dialogs in sequence.
+- The image gallery's actions menu closes when you pick something, instead
+  of staying open over the rename field.
+- The AI Skills step list numbers no longer collide with the panel edge.
+- The Graph options divider no longer crowds the time read-out.
+- Local scripts and stylesheets are versioned, so an upgrade cannot leave a
+  browser running the previous release's files.
 - **Notes are filed by the AI again.** Auto-categorisation used to return
   on a close vector match and only ask the model if that failed, so in an
   established notebook the model was almost never consulted and notes landed

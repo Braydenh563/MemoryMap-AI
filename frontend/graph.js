@@ -1405,7 +1405,18 @@ async function renderGraph() {
     ? tree.nodes
     : visibleNodes.map((n) => {
         const prior = priorPositions.get(n.id);
-        return prior ? { ...n, ...prior } : { ...n };
+        const built = prior ? { ...n, ...prior } : { ...n };
+        // Restore a persisted double-click pin. Deliberately re-applied on
+        // every render, not just a fresh load: `prior` above only carries
+        // x/y/vx/vy, never fx/fy, so without this a pin held this same
+        // session was silently dropped by the next legend-filter toggle or
+        // physics-slider change — the reload case ROADMAP §87.1 named was
+        // one symptom of the same "fx/fy never survives a rebuild" gap.
+        if (built.graph_pin_x != null && built.graph_pin_y != null) {
+          built.fx = built.graph_pin_x;
+          built.fy = built.graph_pin_y;
+        }
+        return built;
       });
   const edges = tree ? tree.links : visibleEdges.map((e) => ({ ...e }));
   graphNodesRef = nodes;
@@ -1586,11 +1597,29 @@ async function renderGraph() {
     .data(nodes)
     .join("g")
     .attr("class", "graph-node")
+    // A pin restored above (fx/fy set from graph_pin_x/graph_pin_y) needs
+    // the same held-look the dblclick handler gives a pin made live —
+    // otherwise a reload shows the node correctly *held in place* with no
+    // visual sign it's pinned at all.
+    .classed("graph-held", (d) => d.fx != null)
     .call(
       d3
         .drag()
         .on("start", (event, d) => {
           if (!event.active) graphSimulation?.alphaTarget(0.3).restart();
+          // Real bug, found live while testing the pin-persistence feature
+          // below: **an ordinary click is a zero-distance drag** — d3-drag
+          // fires start/end on any mousedown+mouseup, moved or not — and
+          // this handler used to set/clear `d.fx` on *every* click
+          // unconditionally, node-being-dragged included. A double-click's
+          // own two constituent clicks each ran a full drag start/end
+          // cycle *before* the dblclick handler ever saw `d.fx`, which
+          // cleared a pre-existing pin both times — so the dblclick
+          // handler always found `d.fx === null` and could only ever pin,
+          // never unpin, no matter what the node's real state was.
+          // Remembered here and restored at "end" below, the same care
+          // `graphDragPinned` already gives every *other* node.
+          d.wasPinnedBeforeThisDrag = d.fx != null;
           d.fx = d.x;
           d.fy = d.y;
           // **Everything else stands still for the length of the drag.**
@@ -1650,8 +1679,14 @@ async function renderGraph() {
           }
           graphDragPinned = [];
           if (tree) return; // a laid-out tree keeps its shape
-          d.fx = null;
-          d.fy = null;
+          // Only release *this* node if the drag itself was what pinned
+          // it — a real double-click hold must survive its own two
+          // constituent clicks, not just survive some *other* drag.
+          if (!d.wasPinnedBeforeThisDrag) {
+            d.fx = null;
+            d.fy = null;
+          }
+          delete d.wasPinnedBeforeThisDrag;
         })
     )
     .on("click", (event, d) => {
@@ -1685,9 +1720,15 @@ async function renderGraph() {
       openGraphPopup(event, d);
     })
     // Double-click pins a node where it is; again releases it (Wave M).
+    // Persisted server-side (PUT /graph/pin/{id}) so the pin survives a
+    // reload, not just this session — ROADMAP §87.1's own audit named the
+    // in-memory-only version as the gap. Group nodes (tree/radial layout's
+    // synthetic category rows) have no backing note to persist against, so
+    // they keep the old in-memory-only behaviour.
     .on("dblclick", function (event, d) {
       event.stopPropagation(); // don't also zoom
-      if (d.fx != null) {
+      const wasPinned = d.fx != null;
+      if (wasPinned) {
         d.fx = null;
         d.fy = null;
         d3.select(this).classed("graph-held", false);
@@ -1696,6 +1737,18 @@ async function renderGraph() {
         d.fy = d.y;
         d3.select(this).classed("graph-held", true);
       }
+      if (d.isGroup) return;
+      d.graph_pin_x = wasPinned ? null : d.fx;
+      d.graph_pin_y = wasPinned ? null : d.fy;
+      apiJson(`/graph/pin/${d.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
+      }).catch(() => {
+        // Best-effort: a failed save leaves the pin working for this
+        // session (the in-memory fx/fy above already took effect) and
+        // simply not surviving a reload, the same degraded-but-working
+        // shape this feature had before persistence existed at all.
+      });
     });
 
   // A soft outer halo behind each node — gives the map more depth and makes

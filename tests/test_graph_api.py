@@ -46,6 +46,69 @@ def test_graph_nodes_and_manual_link_edges(client):
     assert node["category"] == "Alpha"
     assert node["preview"] == "first note"
     assert node["pinned"] is False
+    # A note with no pin ever set — see the pin tests below.
+    assert node["graph_pin_x"] is None
+    assert node["graph_pin_y"] is None
+
+
+def test_a_node_pin_survives_a_refetch(client):
+    """ROADMAP §87.1's own audit: a double-click pin (graph.js) only ever
+    lived on the in-memory D3 node object — `PUT /graph/pin/{id}` is the
+    persistence half, and this is what makes it survive a reload."""
+    a = _save(client, "held in place on purpose")
+    resp = client.put(f"/graph/pin/{a['id']}", json={"x": 12.5, "y": -30.0})
+    assert resp.status_code == 200
+    assert resp.json() == {"id": a["id"], "graph_pin_x": 12.5, "graph_pin_y": -30.0}
+
+    node = next(n for n in client.get("/graph").json()["nodes"] if n["id"] == a["id"])
+    assert node["graph_pin_x"] == 12.5
+    assert node["graph_pin_y"] == -30.0
+
+
+def test_a_pin_can_be_released(client):
+    a = _save(client, "pinned then released")
+    client.put(f"/graph/pin/{a['id']}", json={"x": 1.0, "y": 2.0})
+
+    resp = client.put(f"/graph/pin/{a['id']}", json={"x": None, "y": None})
+    assert resp.status_code == 200
+    assert resp.json() == {"id": a["id"], "graph_pin_x": None, "graph_pin_y": None}
+
+    node = next(n for n in client.get("/graph").json()["nodes"] if n["id"] == a["id"])
+    assert node["graph_pin_x"] is None
+    assert node["graph_pin_y"] is None
+
+
+def test_a_lone_coordinate_is_refused_not_guessed(client):
+    """One axis set and the other null is not a position — refused rather
+    than silently coerced into either a pin or a release."""
+    a = _save(client, "a note")
+    resp = client.put(f"/graph/pin/{a['id']}", json={"x": 5.0, "y": None})
+    assert resp.status_code == 400
+
+
+def test_pinning_an_unknown_note_404s(client):
+    resp = client.put("/graph/pin/999999", json={"x": 1.0, "y": 1.0})
+    assert resp.status_code == 404
+
+
+def test_pinning_a_deleted_note_404s(client):
+    a = _save(client, "about to be binned")
+    client.delete(f"/entries/{a['id']}")
+    resp = client.put(f"/graph/pin/{a['id']}", json={"x": 1.0, "y": 1.0})
+    assert resp.status_code == 404
+
+
+def test_a_pin_shows_up_in_focus_mode_too(client):
+    """The same persisted pin, read from /graph/local — a user can pin a
+    node while already focused on its neighbourhood, not only from the
+    top-level map."""
+    a = _save(client, "central note")
+    client.put(f"/graph/pin/{a['id']}", json={"x": 7.0, "y": 8.0})
+
+    nodes = client.get(f"/graph/local/{a['id']}").json()["nodes"]
+    node = next(n for n in nodes if n["id"] == a["id"])
+    assert node["graph_pin_x"] == 7.0
+    assert node["graph_pin_y"] == 8.0
 
 
 def test_graph_node_dates_are_valid_iso_not_double_timezoned(client):

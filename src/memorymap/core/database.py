@@ -248,6 +248,17 @@ class Entry(Base, WorkspaceMixin):
     # every other optional column here.
     source_url: Mapped[str | None] = mapped_column(String(2000), default=None)
     source_title: Mapped[str | None] = mapped_column(String(300), default=None)
+    # ROADMAP §87.1's own audit: "double-click pin exists but is never
+    # persisted" — a node held in place with a double-click on the Graph
+    # tab (`d.fx`/`d.fy` in graph.js) only ever lived on the in-memory D3
+    # node object, gone the moment `/graph` was refetched. Both null or
+    # both set, never one alone (`routes_graph.py`'s own setter enforces
+    # this) — a lone x with no y is a coordinate nobody asked for. Distinct
+    # names from `pinned` above on purpose: that one means "float to the
+    # top of lists", this means "hold still at this point on the map" —
+    # unrelated concepts that happen to share the English word.
+    graph_pin_x: Mapped[float | None] = mapped_column(Float, default=None)
+    graph_pin_y: Mapped[float | None] = mapped_column(Float, default=None)
 
 
 class Entity(Base):

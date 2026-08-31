@@ -2065,8 +2065,8 @@ kbd {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.4rem;
+  gap: var(--space-1);
+  padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--modal-bg);
@@ -2083,8 +2083,10 @@ kbd {
   box-shadow: none;
   color: var(--ink);
   font-weight: 500;
+  font-size: var(--text-md);
+  line-height: 1.6;
   text-align: left;
-  padding: 0.5rem 0.8rem;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   cursor: pointer;
   white-space: nowrap;

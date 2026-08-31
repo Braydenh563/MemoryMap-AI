@@ -3380,3 +3380,64 @@ against the same feature list and overlaps almost entirely:
   scoping further.
 
 No new gaps in this second pass beyond what §102 already carries.
+
+## §107 — a fast live-report round: nav-history contrast, Contents redesign, a bookmark-edit gap, and three items logged not built
+
+**Fixed, live-verified:**
+- **The nav-history popup was unreadable in dark mode** — reported directly.
+  Reproduced (dark theme, 20+ stack entries): rows were cramped (`gap:
+  0.15rem`) with small text, reading as garbled at a glance even though
+  the computed colour itself (`#e7e9ee` on `rgba(24,27,37,0.97)`) was fine
+  — this was a spacing/size problem, not a contrast one. `.nav-history-menu`
+  and `.nav-history-item` now use the standard spacing tokens and
+  `--text-md`/`line-height: 1.6`. Confirmed legible after.
+- **Contents redesigned** — reported as "ugly." Was bare headings and a
+  flat link list with no containment; now a card grid
+  (`.contents-outline` → CSS grid, one bordered `.contents-section` card
+  per group), matching the card language `.bookmark-row`/`.outline-link`
+  already use elsewhere.
+- **A bookmark's Edit action only ever touched its title, not the URL** —
+  reported directly. Now prompts for both (two sequential dialogs, matching
+  the group button's own one-dialog-per-property shape — `promptDialog`
+  only ever takes one field, so a combined dialog would be new machinery
+  for a two-field edit that happens rarely).
+
+**Noticed while fixing the above, not chased further:** the nav-history
+popup's own label for a Library sub-tab visit can show the raw internal id
+("Library → library-view-contents") instead of a friendly name —
+`entryLabel()` looks up `[data-section="..."]`, but Library's sub-tabs
+carry `data-target`, not `data-section`. Pre-existing for every Library
+sub-tab, not something this session's Links/Contents additions introduced;
+cosmetic, not chased given the session's remaining budget.
+
+**Asked about directly, logged rather than built this pass:**
+1. **Whiteboard selection/move/copy UX** — "highlight and select stuff and
+   move it... copy elements and move them other places or to other
+   boards... the whiteboard controls still feel annoying to use." Not
+   scoped or built this session — needs its own live audit of what
+   `whiteboard.js`'s current select/drag code actually does before judging
+   what's missing versus just rough, and copy-between-boards specifically
+   is new surface (today's model is one board's own nodes/sketches/
+   objects; moving one to a *different* board's own table is not
+   something any existing endpoint does). A real "big feature" candidate
+   for its own session, not a quick fix.
+2. **The AI Skills tab's step/tool lists still read as unstyled** —
+   reported directly, with a screenshot: numbered steps and the tool list
+   render as plain paragraphs directly on the card background, with no
+   visual container distinguishing them from the rest of the card (unlike
+   the "N steps"/"N tools" chips above them, which are already styled).
+   Not investigated or fixed this session — the markup/CSS for this
+   specific sub-view wasn't located before the session's budget ran out;
+   next session should grep `library.js` for the skill-card renderer
+   (`renderSkillsDashboard` and neighbours) rather than re-diagnosing from
+   scratch.
+3. **Inline chat/search/digest citations, tray floating composer,
+   templates, highlights collection, speaker diarization, live tag
+   suggestions, one-click draft synthesis** — all still open exactly as
+   §102/§106 already describe them; nothing new to add.
+4. **Library's sub-tab bar asked to match Notes' own sub-tab styling** —
+   "it looks better." Both already share the `.seg` base class
+   (`#library-subtabs`/`#notes-subtabs`), so any visible difference is in a
+   more specific override somewhere, not the base pattern — not diagnosed
+   or fixed this session; needs a live side-by-side measurement before
+   guessing which rule wins.

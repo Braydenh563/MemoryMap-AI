@@ -3105,9 +3105,16 @@ function bookmarkRow(bookmark) {
     // cancelled rather than risk silently blanking a title on Escape.
     const title = await promptDialog("Title:", bookmark.title || bookmark.url);
     if (!title) return;
+    // Reported directly: Edit only ever touched the title, with no way to
+    // fix a typo'd URL short of delete-and-recreate. A second prompt, not a
+    // combined dialog — promptDialog only ever takes one field, and this
+    // matches the group button's own "one small dialog per property"
+    // pattern rather than inventing a bigger multi-field modal for it.
+    const url = await promptDialog("URL:", bookmark.url);
+    if (!url) return;
     await apiJson(`/bookmarks/${bookmark.id}`, {
       method: "PUT",
-      body: JSON.stringify({ title }),
+      body: JSON.stringify({ title, url }),
     });
     renderBookmarks();
   });

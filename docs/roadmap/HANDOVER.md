@@ -2,6 +2,20 @@
 
 ## New session — v0.1.7: Links/bookmarks, note+document References, a Contents outline, a meeting-summary extraction, and a real "what would you like to create?" picker for the Library — all live-verified in Chromium, full suite green throughout
 
+**Same session, one more fast round after this was first written — BACKLOG.md
+§107 has the full detail, this is the short version.** Fixed and live-
+verified: the nav-history popup was unreadable in dark mode (a
+spacing/font-size problem, not a colour-contrast one — cramped rows read
+as garbled at a glance); Contents redesigned into a card grid (reported
+"ugly" — it was bare headings and a flat link list); a bookmark's Edit
+action only ever touched the title, never the URL. Logged, not built,
+given the session's remaining budget: whiteboard select/move/copy-between-
+boards UX (asked for directly, needs its own scoping session — copying an
+object to a *different* board is new surface, no existing endpoint does
+it); the AI Skills tab's step/tool lists still reading as unstyled
+(reported with a screenshot, but the renderer wasn't located before budget
+ran out — start with `renderSkillsDashboard` in library.js next time).
+
 Continuation of the same long autonomous stretch this file's own "Prior
 session" entry (just below) describes; picked up mid-task and kept going
 through several rounds of new asks added to the same session rather than

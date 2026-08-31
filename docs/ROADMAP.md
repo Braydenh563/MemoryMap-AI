@@ -738,12 +738,25 @@ same-session miss like a couple of others this file records elsewhere.**
    is a real decision (strongest first) rather than database insertion
    order. §87.5's own text below has the full narrative and what's still
    genuinely open past this slice.
-3. **Memory is a surface, not a system.** Still genuinely open — no tiered
-   notion of "always in context" (a small durable profile), "retrieved when
-   relevant" (the notebook), and "this conversation only" exists anywhere
-   in `ai/`. A short, user-editable always-on memory block, capped and shown
-   in Settings, is a contained change with a large effect on how the
-   assistant reads.
+~~3. **Memory is a surface, not a system.**~~ **Checked directly — already
+   built, this claim was stale.** The "always in context" tier this item
+   asks for is exactly `ai/memory.py`'s `persona_with_memory`:
+   `UserPreference` rows, bounded (`MEMORY_STREAM_BUDGET_CHARS = 600`,
+   newest kept when full), folded into the system prompt on **every** turn
+   in **both** modes (`agent.build_agent_messages` and `routes_chat`'s
+   plain path both call it — the module's own docstring records the bug
+   this fixed: it used to reach only agent mode). Fully user-editable in
+   Settings → "What it remembers": a manual add box (`POST /memory`),
+   edit/delete (`PATCH`/`DELETE /memory/{id}`), AI-suggested entries the
+   user must explicitly accept (`POST /memory/{id}/answer` — never silently
+   saved), and a live budget readout ("N in use, about X of 600
+   characters"). The other two tiers this item names — "retrieved when
+   relevant" is the app's core retrieval, "this conversation only" is the
+   existing chat history — already exist as well, just not under a unified
+   "memory" label. What's actually missing is framing, not capability: the
+   Settings copy doesn't say these are three tiers working together. Not
+   worth a rebuild; if the framing gap matters, it's a documentation/UI-copy
+   fix, not new code.
 ~~4. **No token accounting per stage.**~~ **Built.** Both request paths
    (`agent.py`'s tool loop, `routes_chat.py`'s no-tools path) now attach a
    `system`/`tool_schemas`/`history`/`notes` token estimate to the first
@@ -763,12 +776,12 @@ same-session miss like a couple of others this file records elsewhere.**
    retrieval and rightly said it needs measuring first — item 4's
    instrumentation is now in place to do that measuring.
 
-**One caution that still applies to the two real gaps above (item 3,
-item 5).** Every provider test in this repo runs against a fake transport,
+**One caution that still applies to item 5, the one real gap left in this
+section.** Every provider test in this repo runs against a fake transport,
 and this sandbox has no reachable model. Retrieval *quality* changes cannot
 be evaluated here at all. Use item 4's new instrumentation and a small
-fixed question set *first*, or either of these becomes a change nobody can
-prove helped.
+fixed question set *first*, or this becomes a change nobody can prove
+helped.
 
 ## §89 — reported this session, not yet built (start here next)
 

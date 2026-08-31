@@ -3503,8 +3503,13 @@ Link to another note with [[its first few words]]."></textarea>
               Give the dashboard's welcome message its own persona, independent
               of whichever one is active in Chat and search.
             </p>
-            <select id="dashboard-persona-select" class="small-select" aria-label="Dashboard greeting persona"></select>
-            <div class="row">
+            <!-- Beside the picker it belongs to, wrapping underneath when the
+                 row runs out of width - asked for directly. `flex-wrap` on
+                 the row rather than a media query: the breakpoint that
+                 matters is this row's own content, not the viewport, and the
+                 Settings modal is itself a resizable column. -->
+            <div class="row dashboard-persona-row">
+              <select id="dashboard-persona-select" class="small-select" aria-label="Dashboard greeting persona"></select>
               <button id="dashboard-greeting-regenerate" class="small" type="button">
                 <i class="ph ph-arrows-clockwise" aria-hidden="true"></i> Regenerate greeting
               </button>
@@ -4487,6 +4492,22 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Enable autonomous optimization</span>
               </label>
               
+              <!-- Asked for directly: "make the auto running of image
+                   captioning and ocr a thing the user can turn off". Both
+                   default on and sit outside the autonomous-librarian panel
+                   below on purpose - they are not the librarian, they run on
+                   whatever you file rather than on an interval, and grouping
+                   them under a switch labelled for something else would make
+                   turning one off look like turning the other off. -->
+              <label class="check-row">
+                <input type="checkbox" id="pref-auto-caption-images">
+                <span>Describe images automatically (AI caption on save)</span>
+              </label>
+              <label class="check-row">
+                <input type="checkbox" id="pref-auto-read-image-text">
+                <span>Read text in images automatically (OCR and vision model)</span>
+              </label>
+
               <div id="autonomous-settings-panel" class="settings-indent hidden">
                 <label class="check-row">
                   <input type="checkbox" id="pref-auto-tag">

@@ -13,7 +13,7 @@ triggering it end to end.
 from __future__ import annotations
 
 from memorymap.ai import captioning, vision_ocr
-from memorymap.core import media_process, ocr
+from memorymap.core import deps, media_process, ocr
 from memorymap.core.database import MediaUpload
 
 
@@ -204,3 +204,59 @@ def test_creating_a_whiteboard_image_object_processes_its_upload(ai_client, monk
         json={"kind": "image", "data": {"url": uploaded["url"]}, "board_id": None},
     )
     assert any(uploaded["url"] in text for text in calls)
+
+
+def _patch_readers(monkeypatch, calls):
+    monkeypatch.setattr(ocr, "extract_in_background", lambda *a: calls.append("ocr"))
+    monkeypatch.setattr(
+        captioning, "caption_in_background", lambda *a: calls.append("caption")
+    )
+    monkeypatch.setattr(
+        vision_ocr, "vision_ocr_in_background", lambda *a: calls.append("vision_ocr")
+    )
+
+
+def test_turning_off_auto_captioning_leaves_the_text_readers_running(
+    session, tmp_path, monkeypatch, app_state
+):
+    """Asked for directly: both automatic passes must be switchable off.
+
+    Separately, not together - describing a picture is a vision-model round
+    trip and is the expensive one, while Tesseract is local and cheap, so
+    someone may well want the text without the description.
+    """
+    calls = []
+    _patch_readers(monkeypatch, calls)
+    deps.get_config().set_preference("auto_caption_images", False)
+
+    media_process.process_committed_upload(_upload(session), tmp_path)
+
+    assert "caption" not in calls
+    assert set(calls) == {"ocr", "vision_ocr"}
+
+
+def test_turning_off_auto_text_reading_stops_both_ocr_passes(
+    session, tmp_path, monkeypatch, app_state
+):
+    """One switch covers Tesseract and the vision model together: both answer
+    "what does this picture say", and a user turning that off does not mean
+    "only the offline half of it"."""
+    calls = []
+    _patch_readers(monkeypatch, calls)
+    deps.get_config().set_preference("auto_read_image_text", False)
+
+    media_process.process_committed_upload(_upload(session), tmp_path)
+
+    assert calls == ["caption"]
+
+
+def test_both_automatic_passes_are_on_by_default(
+    session, tmp_path, monkeypatch, app_state
+):
+    """The gate must not change behaviour for anyone who never touches it."""
+    calls = []
+    _patch_readers(monkeypatch, calls)
+
+    media_process.process_committed_upload(_upload(session), tmp_path)
+
+    assert set(calls) == {"ocr", "caption", "vision_ocr"}

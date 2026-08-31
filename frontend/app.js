@@ -16777,6 +16777,8 @@ async function renderPrefs() {
 // Web-search tab having been opened first in the same session.
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
+  $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
+  $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
   $("pref-auto-link").checked = prefsCache.auto_link_enabled ?? true;
   $("pref-auto-dedupe").checked = prefsCache.auto_dedupe_enabled ?? true;
@@ -22000,6 +22002,12 @@ $("pref-autonomous-tasks").addEventListener("change", (e) => {
   toggleAutonomousPanel();
   setPreference("autonomous_tasks_enabled", e.target.checked);
 });
+$("pref-auto-caption-images").addEventListener("change", (e) =>
+  setPreference("auto_caption_images", e.target.checked)
+);
+$("pref-auto-read-image-text").addEventListener("change", (e) =>
+  setPreference("auto_read_image_text", e.target.checked)
+);
 $("pref-auto-tag").addEventListener("change", (e) =>
   setPreference("auto_tag_enabled", e.target.checked)
 );

@@ -576,18 +576,28 @@
 .skill-fact-list-steps {
   border: 1px solid var(--border);
   border-left: 2px solid var(--accent);
-  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-8);
-  list-style-position: outside;
+  padding: var(--space-3) var(--space-4);
+  /* No generated markers at all - the numbers are real spans (library.js).
+     See that comment for why: an `outside` marker hangs into the padding by
+     an amount CSS here cannot bound, which is what kept clipping them against
+     the border through three rounds of padding changes. */
+  list-style: none;
 }
 
 .skill-fact-list-steps li {
-  padding-left: var(--space-2);
+  display: grid;
+  grid-template-columns: 1.4rem 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding-left: 0;
   line-height: 1.55;
 }
 
-.skill-fact-list-steps li::marker {
+.skill-step-n {
   color: var(--accent);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* No box of its own: the tokens are the grouping. */
@@ -1033,6 +1043,9 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    strip (DESIGN.md's control-height rule is the same idea one axis over). */
 .graph-temporal {
   display: flex;
+  /* Room for the widest read-out this shows ("Up to DD/MM/YYYY") plus the
+     label and slider, so nothing has to overflow the group to fit. */
+  min-width: 0;
   /* `flex: 1` here is what made the divider look like it was touching the
      "All time" read-out, reported twice. The group stretched to its full
      18.75rem whether or not it needed to, the slider absorbed all the slack,
@@ -1044,7 +1057,7 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   flex: 0 1 auto;
   align-items: center;
   gap: var(--space-3);
-  max-width: 18.75rem;
+  max-width: 21.5rem;
 }
 
 .graph-temporal>label {
@@ -1053,7 +1066,16 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 }
 
 .graph-time-slider {
-  flex: 1;
+  flex: 1 1 auto;
+  /* `min-width: 4rem` alone was not the whole story: a flex item's automatic
+     minimum size is its content, so this could refuse to shrink even below
+     that and push the row past `.graph-temporal`'s max-width. Measured: the
+     group sat at exactly its 300px cap while the "All time" read-out's right
+     edge was at 705px against a group edge of 698 - the label had spilled 7px
+     outside its own box and landed 2px from the next group's divider, which
+     is the "gap between the separator and the time filter" report. The
+     slider is the elastic part of this control, so it is the one that gives
+     way; `min-width` keeps it usable while doing so. */
   min-width: 4rem;
 }
 

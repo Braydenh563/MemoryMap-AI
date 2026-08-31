@@ -1408,7 +1408,20 @@ function skillCard(skill, lastRun) {
     for (const item of items) {
       const li = document.createElement("li");
       if (ordered) {
-        li.textContent = item;
+        // The number is a real element, not `::marker`. Three rounds of
+        // padding tweaks failed to stop the generated markers from sitting
+        // on (and being clipped by) the panel's left border, because an
+        // `outside` marker is positioned relative to the item's content box
+        // and hangs into the padding by an amount the page does not control.
+        // A two-column grid with the number in its own gutter is
+        // deterministic: it cannot overhang anything, and multi-line steps
+        // align under their own text rather than under the number.
+        const n = document.createElement("span");
+        n.className = "skill-step-n";
+        n.textContent = `${list.childElementCount + 1}.`;
+        const body = document.createElement("span");
+        body.textContent = item;
+        li.append(n, body);
       } else {
         const token = document.createElement("code");
         token.className = "skill-tool-token";
@@ -2685,11 +2698,26 @@ function filterLibraryImagesGallery() {
     menuList.className = "library-image-menu-list";
     menuList.append(rename, captionBtn, visionOcrBtn, ocrBtn, del);
     menu.append(menuButton, menuList);
-    // Picking anything closes the menu. Not `capture`, so each button's own
-    // handler still runs first and can stop propagation if it needs to.
-    menuList.addEventListener("click", () => {
-      menu.open = false;
-    });
+    // Picking anything closes the menu — on the **capture** phase, which is
+    // the whole point. This was a bubble-phase listener with a comment
+    // explaining that each button's own handler should run first, but every
+    // one of those handlers (rename, caption, both OCR buttons, delete)
+    // opens with `event.stopPropagation()` to keep the click off the tile
+    // underneath — so the click never reached this listener and the menu
+    // never closed. Reported directly: the menu stayed open on top of the
+    // rename field it had just opened, covering the thing you were trying to
+    // type into.
+    //
+    // Capturing runs this before those handlers, where nothing can stop it,
+    // and closing the menu does not cancel the click that is still on its
+    // way to the button — so both halves now happen.
+    menuList.addEventListener(
+      "click",
+      () => {
+        menu.open = false;
+      },
+      { capture: true }
+    );
     document.addEventListener("click", (event) => {
       // `menuList` is reparented to <body> while open (see placeMenu), so
       // `menu.contains()` alone no longer covers a click on the menu's own

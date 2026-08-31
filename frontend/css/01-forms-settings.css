@@ -2744,3 +2744,23 @@ html.modal-open body {
   padding-block: 0;
   white-space: nowrap;
 }
+
+
+/* The dashboard-greeting persona picker and its Regenerate button share a
+   row and wrap rather than overflow. `align-items: center` keeps the select,
+   the button and the status text on one baseline while they fit; once they
+   do not, each drops to its own line at full width. */
+.dashboard-persona-row {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* `flex: 1 1 auto` gave the (usually empty) status span a 178px content
+   basis, which measured 256 + 205 + 178 + gaps = 663px against a 656px row
+   and wrapped the button onto its own line for the sake of a span with
+   nothing in it. A zero basis lets it take only what is left over. */
+.dashboard-persona-row .status {
+  flex: 1 1 0;
+  min-width: 0;
+}

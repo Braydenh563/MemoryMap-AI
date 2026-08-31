@@ -1060,6 +1060,33 @@ body.resizing-sidebar {
   background: var(--card);
 }
 
+/* The colour pickers are <select>s, and this app styles form controls as
+   full-width block inputs by default — so each one claimed its own line and
+   turned a one-row toolbar into four, taking more vertical space than the
+   note box underneath it (reported with a screenshot). Sized to their own
+   content and matched to the buttons beside them, they sit inline like every
+   other control in the strip. */
+.doc-toolbar .md-colour-select {
+  width: auto;
+  min-width: 0;
+  max-width: 9rem;
+  margin: 0;
+  padding: 0.25rem var(--space-8) 0.25rem 0.4rem;
+  font-size: 0.8rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.doc-toolbar .md-colour-select:hover,
+.doc-toolbar .md-colour-select:focus-visible {
+  border-color: var(--border);
+  background-color: var(--chip-bg);
+}
+
 .doc-toolbar button {
   min-width: 2rem;
   padding: 0.25rem 0.4rem;
@@ -2401,3 +2428,15 @@ textarea.autogrow {
 }
 
 
+
+
+/* The Notes composer's strip. Tighter than the document editor's: that one
+   is chrome for a full-page editor, this one sits directly above a
+   three-row box and should not out-weigh it. */
+.note-toolbar {
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
+  background: none;
+  border-color: var(--border);
+}

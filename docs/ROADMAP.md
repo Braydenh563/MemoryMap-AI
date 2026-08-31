@@ -113,7 +113,16 @@ F. **Three things this environment cannot verify**, all needing a real
    - Printing to PDF from the document editor's Read mode.
 
 G. **The whiteboard's own refinement pass**, beyond the panel-collision fix.
-   Its backend efficiency and feature gaps were never audited.
+   **The efficiency half turned out already done, checked before assuming
+   the "never audited" claim still held**: every drag handler read (sketch,
+   resize, card) already mutates the DOM directly during a drag instead of
+   calling `wbScheduleRender()`/a full `renderWhiteboard()` per frame — and
+   the card handler carries its own comment recording a *prior* live
+   report ("glitchy and slow to update") that was root-caused to exactly
+   that shape and already fixed. `wbScheduleRender` itself batches to one
+   paint per frame regardless, checked "across all 48 sites" per its own
+   comment. Feature gaps are the part still genuinely open — no code-
+   reading answers that, and none was invented here.
 
 ~~A. **First-class llama.cpp support.**~~ **Steps 1–2 built.** Step 1
    ("say so" in `core/extras.py`) turned out already done, found stale in

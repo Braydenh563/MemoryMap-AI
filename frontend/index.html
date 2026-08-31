@@ -459,9 +459,11 @@
                    truncates, cannot be read on a touch device, and
                    disappears the moment you move to type the thing it just
                    described. -->
-              <button id="capture-help" class="ghost small" type="button"
+              <button id="capture-help" class="ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="capture-help-hint"
-                title="What can I type in a note?">?</button>
+                title="What can I type in a note?" aria-label="What can I type in a note?">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
               <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select">
                 <option value="">No template</option>
               </select>

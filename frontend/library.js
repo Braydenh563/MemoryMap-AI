@@ -1397,10 +1397,24 @@ function skillCard(skill, lastRun) {
     // Steps run in order, so they're numbered; tools are just a set the
     // model may reach for, in no particular order.
     const list = document.createElement(ordered ? "ol" : "ul");
-    list.className = "skill-fact-list";
+    // Steps and tools are different kinds of thing and now look it. A step is
+    // a sentence and reads as numbered prose; a tool is an identifier, so it
+    // gets the monospace chip treatment the rest of the app already gives
+    // code-ish tokens instead of sitting as a bare bullet. Reported twice as
+    // these lists being "still not properly designed UI wise".
+    list.className = ordered
+      ? "skill-fact-list skill-fact-list-steps"
+      : "skill-fact-list skill-fact-list-tools";
     for (const item of items) {
       const li = document.createElement("li");
-      li.textContent = item;
+      if (ordered) {
+        li.textContent = item;
+      } else {
+        const token = document.createElement("code");
+        token.className = "skill-tool-token";
+        token.textContent = item;
+        li.appendChild(token);
+      }
       list.appendChild(li);
     }
     wrap.append(summary, list);

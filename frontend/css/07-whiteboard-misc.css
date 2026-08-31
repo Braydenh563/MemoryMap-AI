@@ -562,6 +562,47 @@
   padding-left: var(--space-1);
 }
 
+/* A border, not just a fill. Reported a second time as still looking
+   undesigned: `--chip-bg` alone is a very low-contrast wash, so the box read
+   as a flat grey slab floating under the chip that opened it rather than as
+   a panel belonging to it. An outline plus a left accent rule ties it back to
+   its summary chip, which is the relationship the flat version lost. */
+.skill-fact-list {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+}
+
+.skill-fact-list-steps li::marker {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Tools are identifiers, so they are set as tokens rather than bullets - the
+   list itself carries no markers and each name is its own chip. */
+.skill-fact-list-tools {
+  list-style: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+}
+
+.skill-fact-list-tools li {
+  padding-left: 0;
+}
+
+.skill-tool-token {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--text-xs);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .skill-card-when {
   margin: 0;
 }

@@ -2921,3 +2921,46 @@ it as import, not as in-place editing.
 Also still open on the lightbox itself: the id-requiring actions (describe
 with AI, re-run OCR, rename, delete), which need callers to pass a media id
 — see §98 item 3.
+
+## §101 — the knowledge graph should be second nature to the AI, everywhere
+
+Asked for directly: the AI should be able to "flawlessly and instantly jump
+between notes, know their link reasons, know the context between notes,
+understand their meaning and purpose... at a relatively low cost," across
+every AI feature and especially search — not a new capability so much as a
+demand that an existing one stop being partial and optional.
+
+**This is not a fresh ask — it is §87.5 and §88.4 items 3–5, restated as a
+requirement rather than a nice-to-have, and worth reading in that order
+before scoping anything new:**
+
+- **§87.5 (live list, this file)** already scoped typed, weighted links
+  (`EntryLink.link_type`/strength) as the mechanism for "know their link
+  reasons" — a link today carries a reason as free text at creation time but
+  nothing structured retrieval can weight by. Still open.
+- **§88.4 items 1–2 (ROADMAP.md)** are the reason "jump between notes" is
+  already partly real: `graph_expansion()` walks linked neighbours of a
+  chat/ask question's top hits and is wired into every retrieval call
+  (`_retrieve()`) — not a special mode, the default path. What it cannot do
+  yet is weight *which* neighbour matters more, which is exactly what
+  §87.5's typed links would give it — the two items are the same feature,
+  scoped from two different sides.
+- **§88.4 item 3 ("memory is a surface, not a system")** is the "understand
+  their meaning and purpose" half at the *notebook* level, not just per-note
+  — no tiered always-on/retrieved/session-only memory exists anywhere in
+  `ai/` today.
+- **§88.4 item 4 ("no token accounting per stage")** is the "at a
+  relatively low cost" half, and is explicitly the *prerequisite* to
+  anything else here, not an independent item: there is no instrumentation
+  today measuring what a graph-expanded, link-weighted retrieval pass
+  actually costs per turn, so "low cost" cannot honestly be claimed or
+  tuned toward until it can be measured.
+
+**Not re-scoped here, on purpose.** Writing a second, parallel design for
+"AI-native graph navigation" without first building §88.4 item 4's
+measurement would repeat this project's own standing caution (§88.4's
+closing note: "every one of these becomes a change nobody can prove
+helped"). The order that respects what is already true: instrument (item
+4) → weight links (§87.5) → re-measure whether graph_expansion's existing
+walk got better, not build a new mechanism beside the one that already
+runs on every retrieval call.

@@ -45,13 +45,7 @@ Everything genuinely open, ranked. **Reprioritized to the top, by direct
 instruction, ahead of the numbered items below.**
 
 ~~0. **A hybrid live-rendering document editor.**~~ **Built (§93/§94).**
-   Four views in `#doc-view-seg` — Live (render-as-you-write, the caret's
-   block showing its raw markdown), Source, Split, Read — plus document
-   file types with a line-number gutter, Tab/Shift+Tab indent, and Ctrl+/
-   commenting on the language's own marker. The separate "squished panes"
-   half was a dead CSS rule: `#doc-panes` (an id) beat `.doc-panes.split`,
-   so the side-by-side layout had never once applied. Full narrative in
-   HISTORY.md §93.
+   Full narrative: HISTORY.md §100.
 
 **The new top of the list is item A below (llama.cpp), by direct
 instruction.** See BACKLOG.md's "§95 — the forward list" for the full
@@ -61,13 +55,7 @@ brainstorm this was drawn from.
 session so nothing depends on remembering the conversation. Each says *why* it
 was not done, because "not done" and "decided against" are different facts.
 
-~~B. **Backup retention is not a setting.**~~ **Built.** The prune itself
-   already existed (`backup.py`'s `KEEP_BACKUPS` was always enforced on every
-   backup) — the gap was that the number was fixed in code, not a
-   preference. `PUT /backups/retention` sets `backup_retention_count` and
-   prunes immediately, `GET /storage` reports the current count and its
-   1–100 bounds, and Settings → Data has the number field beside the
-   existing Backups list.
+~~B. **Backup retention is not a setting.**~~ **Built.** Full narrative: HISTORY.md §100.
 
 ~~C. **Restart after installing a package, and from Settings → About.**~~
    **The About-page half is built.** `POST /system/restart` is the second
@@ -192,31 +180,10 @@ Items 1–2, below, are the ones with real substance after that.
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide.
 
-~~6. **Guided first-run tour**, and the rest of onboarding: offering to pull a
-   model, a data-dir writability check, and seeded example notes~~ **Built.**
-   The tour and the data-dir/Ollama diagnostics already existed; the two
-   genuinely missing pieces are now offers on the same "Your setup" slide,
-   neither automatic — a "Download a starter model" button (`POST
-   /models/pull`, only shown when Ollama is running but the chat model isn't
-   installed) and an "Add example notes" button (`POST /entries/seed-examples`,
-   only shown on a genuinely empty notebook — `GET /entries/count`). The
-   seed is five short notes about the app itself, two real `[[wiki-links]]`
-   between them, two categories, spread across the last 9 days so the
-   Timeline isn't a single dot — refuses server-side on any notebook that
-   already has a note, seeded or real, so it can never double up or land on
-   top of someone's actual notes. Verified live: the button appears/hides
-   correctly, seeding produces exactly 5 notes with both links resolved
-   (`tests/test_seed_examples.py`), and a screenshot of the running app
-   afterward shows the Dashboard's note count, category chips and the graph
-   constellation all populated from the seed, unprompted.
+~~6. **Guided first-run tour**, and the rest of onboarding.~~ **Built.**
+   Full narrative: HISTORY.md §100.
 
-~~7. **Alembic migrations.**~~ **Built** — HANDOVER.md's own "Alembic
-   infrastructure" section documents it (`migrations/`, `alembic.ini`, a
-   baseline revision every database is stamped to on first sight,
-   `tests/test_alembic_baseline.py`), this entry was just never struck.
-   Reconfirmed directly this session: `_ensure_alembic_baseline` exists in
-   `core/database.py`, the migration scaffolding is on disk, and the test
-   passes.
+~~7. **Alembic migrations.**~~ **Built.** Full narrative: HISTORY.md §100.
 
 8. **What happens when Ollama hangs, rather than errors.** Checked this
    session, not fixed — closer to already-handled than the item implies.
@@ -234,26 +201,9 @@ Items 1–2, below, are the ones with real substance after that.
    model to observe, not more source reading.
 
 ~~9. **Crash-safe recovery for an interrupted re-index or model download.**~~
-   **Checked directly — already safe by construction, nothing to build.**
-   `model_manager.py`'s `_run_reindex`: each entry's stale vector is deleted
-   and committed *before* re-embedding it, one entry at a time — a crash
-   mid-run leaves already-processed entries with fresh vectors and
-   not-yet-reached ones with their old (still-functional; semantic search
-   already falls back to keyword search on a backend mismatch) vectors.
-   Nothing corrupted, nothing half-written — just a partially-refreshed
-   index a later manual re-run completes. `_run_pull`: `job.status` is set
-   to `"error"` on any failure, and its own comment already states the
-   property directly — "never leave a half-download looking installed"
-   (§6.5). Both jobs (`Job`) are **in-memory only**, not persisted, so a
-   real process crash (not a graceful cancel) simply forgets the job
-   existed on restart — no ghost "still running" state is possible because
-   there is nowhere for one to survive to. The one gap, and it's cosmetic:
-   neither job leaves a `taskhistory` record for a hard crash specifically
-   (only for a clean cancel or a caught exception) — a crash mid-reindex
-   shows nothing in Settings → Tasks afterward, rather than a "did not
-   finish" entry. Not attempted: needs a startup-time reconciliation pass
-   (did the last recorded reindex actually reach `total`?) that's a small
-   but real addition, not a one-line fix.
+   **Checked directly — already safe by construction.** Full narrative,
+   including the one cosmetic gap left open (no `taskhistory` record for a
+   hard crash mid-reindex): HISTORY.md §100.
 
 10. **macOS release packaging.** Linux is done; macOS is not.
 
@@ -271,32 +221,13 @@ Items 1–2, below, are the ones with real substance after that.
     pasting what it says. Everything before that is guessing, and two sessions
     have already guessed.
 
-~~11. **Sorting and grouping saved chats** — conversations sort by recency and
-    nothing else.~~ **Built**: a sort `<select>` in the Chats sidebar (Recent
-    / Most turns / Most tokens / A–Z), persisted in localStorage, pinned
-    conversations always staying first regardless of mode (the existing
-    divider still marks that boundary). One correction to this item's own
-    premise: **model is not actually stored per turn** —
-    `routes_conversations.py`'s `_summary()` returns `tokens`/`turns`/
-    `updated_at`/`title` only, no model field exists on a message at all — so
-    "sort by model" was never available to build cheaply as claimed. The
-    three sorts that *were* real data are shipped; a model-based sort would
-    need a schema change first. Verified live: A–Z sort correctly orders
-    three test conversations, the choice survives a reload.
+~~11. **Sorting and grouping saved chats.**~~ **Built.** Full narrative,
+    including the corrected "model is not stored per turn" premise:
+    HISTORY.md §100.
 
 ~~12. **The Documents Library sub-tab needs a full visual redesign.**~~
-    **Built — root cause found by screenshotting it beside the "All" view,
-    exactly as this item's own note said to.** `#library-docs-list`'s rows
-    (`renderLibraryDocuments`, `whiteboard.js`) shared only the layout class
-    `.doc-list` with the editor's own recent-docs sidebar — no scoped CSS of
-    their own at all, so every row fell through to the app's default filled
-    `<button>` style: a full-width solid-accent bar with the title and word
-    count crammed onto one line, nothing like a card. Given a document icon,
-    a proper title/meta column, a border and hover state matching
-    `.library-card`'s own look (`04-chat-dock-appearance.css`). Verified
-    live in both themes: real cards now, readable at a glance, clicking one
-    still opens the right document. Whiteboards' own pass (item 9 below) is
-    unrelated code and still open.
+    **Built.** Full narrative: HISTORY.md §100. Whiteboards' own pass (item
+    9 above) is unrelated code and still open.
 
 ~~13. **Back/forward navigation still misses most navigation types.**~~
     **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat

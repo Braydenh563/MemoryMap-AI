@@ -6930,6 +6930,19 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
   if (stats && inTok != null && stats.context_tokens) {
     fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
     const approx = stats.usage_source === "estimated" ? "~" : "";
+    // §88.4 item 4 / BACKLOG's "per-chat token meter": where this turn's
+    // prompt actually went, not just how full the window got. Estimated
+    // (chars/4, same as the backend's own approximation), and only on the
+    // turns that have it — older saved turns, from before this shipped,
+    // simply don't add the section rather than showing zeroes.
+    const c = stats.composition;
+    const compositionLines = c
+      ? "\n\n" +
+        `System prompt: ~${compactTokens(c.system)} tok\n` +
+        `Tool schemas: ~${compactTokens(c.tool_schemas)} tok\n` +
+        `History: ~${compactTokens(c.history)} tok\n` +
+        `Notes + question: ~${compactTokens(c.notes)} tok`
+      : "";
     const meter = metaItem(`${fill}%`, {
       title:
         `${approx}${compactTokens(inTok)} of this model's ${compactTokens(stats.context_tokens)} ` +
@@ -6938,7 +6951,8 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, u
           ? "\n\nPast about 80%, the next turn is the one that starts dropping " +
             "the oldest part of its own prompt — Compress in the header " +
             "summarises the conversation so far instead."
-          : ""),
+          : "") +
+        compositionLines,
       kind: "window",
     });
     const bar = document.createElement("span");

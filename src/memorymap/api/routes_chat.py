@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai import (
     agent,
     captioning,
+    context,
     followups,
     intent,
     librarian,
@@ -903,6 +904,16 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     mode,
                 ),
             )
+        # §88.4 item 4: the same per-stage token estimate agent.py's tool
+        # path now attaches to its own stats event (chars/4, no tool
+        # schemas on this path by definition — see build_messages' own
+        # docstring above). Computed once, not per streamed chunk.
+        composition_tokens = {
+            "system": len(messages[0]["content"]) // context.CHARS_PER_TOKEN,
+            "history": sum(len(m["content"]) for m in messages[1:-1]) // context.CHARS_PER_TOKEN,
+            "notes": len(messages[-1]["content"]) // context.CHARS_PER_TOKEN,
+            "tool_schemas": 0,
+        }
         streamed_any = False
         try:
             for piece in ollama.chat_stream(model_manager.chat_model(), messages, mode):
@@ -910,7 +921,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
                     yield {"type": "thinking", "delta": piece["thinking_delta"]}
                 elif "stats" in piece:
                     # Token counts + timings for the message metadata line.
-                    yield {"type": "stats", **piece["stats"]}
+                    yield {"type": "stats", **piece["stats"], "composition": composition_tokens}
                 else:
                     streamed_any = True
                     yield {"type": "answer", "delta": piece["content_delta"]}

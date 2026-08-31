@@ -237,7 +237,7 @@ report — are answered in **[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md
 ## Developing
 
 ```
-pytest                       # ~2,550 tests, ~5-6 minutes
+pytest                       # ~2,600 tests, ~7-8 minutes
 ruff check .                 # what CI lints with
 node --check frontend/app.js # the frontend is one plain-JS file
 ```

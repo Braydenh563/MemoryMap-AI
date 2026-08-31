@@ -1041,9 +1041,26 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   position: relative;
 }
 
+/* Reported directly — "the Library subtab bar should look like the Notes
+   one, it looks better." Both share the base `.seg` pill, but Notes'
+   own `.notes-subtabs` (05-sidebars-themes.css) layers a raised-card look
+   on top of it — border, shadow, background, sticky positioning — that
+   `.library-subtabs` never got, so it stayed the plainer generic `.seg`.
+   Library's own scroll container is the same shape (`.library-view-section`
+   is `flex:1; overflow-y:auto`, just like Notes'), so sticky behaves the
+   same way here too. */
 .library-subtabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   flex-shrink: 0;
   margin: 0 0 var(--space-8);
+  background: var(--card);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
 }
 
 /* ".All" is 3 characters next to "Image Gallery"'s 13, so `.seg button`'s
@@ -1055,6 +1072,8 @@ body.has-agent-monitor .doc-sidebar .doc-list {
 .library-subtabs button {
   min-width: 6.5rem;
   text-align: center;
+  padding: 0.5rem 1.25rem;
+  transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
 }
 
 .library-view-section {

@@ -1268,6 +1268,14 @@ progress {
   gap: var(--space-1);
   max-height: 14rem;
   overflow-y: auto;
+  /* Reported directly: a long unbroken filename (an upload's own name, no
+     spaces to wrap on) forced this scrollable box wide instead of tall,
+     which — because only `overflow-y` was set — silently turned
+     `overflow-x` into `auto` too (the CSS spec's own computed-value rule
+     for a box scrollable on one axis alone), adding a horizontal
+     scrollbar and cutting off both the text and its hover highlight at
+     the card's edge instead of wrapping onto a second line. */
+  overflow-x: hidden;
 }
 
 .contents-list li a {
@@ -1275,6 +1283,8 @@ progress {
   padding: var(--space-2);
   border-radius: var(--radius-md);
   color: var(--ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .contents-list li a:hover,

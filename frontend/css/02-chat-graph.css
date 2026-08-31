@@ -2107,6 +2107,17 @@ kbd {
   cursor: default;
 }
 
+/* Reported directly: the last row sat flush against the bottom edge with
+   no breathing room, unlike the clear gap above the first row. The
+   container's own `padding-bottom` is set (same as every other side), but
+   isn't reliably honoured past the end of a scrolled flex container's
+   content in every engine — a trailing margin on the last item is the
+   robust fix, not a bigger padding value that only helps when nothing
+   scrolls. */
+.nav-history-item:last-child {
+  margin-bottom: var(--space-2);
+}
+
 /* Set by `wireEscapedActionMenu` (app.js) while the menu is reparented to
    <body> to escape a clipping scroll ancestor — see the note there. `left`/
    `top` come from that same function as inline style, computed from the

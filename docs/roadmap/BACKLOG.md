@@ -3435,9 +3435,47 @@ cosmetic, not chased given the session's remaining budget.
    templates, highlights collection, speaker diarization, live tag
    suggestions, one-click draft synthesis** — all still open exactly as
    §102/§106 already describe them; nothing new to add.
-4. **Library's sub-tab bar asked to match Notes' own sub-tab styling** —
-   "it looks better." Both already share the `.seg` base class
-   (`#library-subtabs`/`#notes-subtabs`), so any visible difference is in a
-   more specific override somewhere, not the base pattern — not diagnosed
-   or fixed this session; needs a live side-by-side measurement before
-   guessing which rule wins.
+4. **Library's sub-tab bar asked to match Notes' own sub-tab styling —
+   built.** Both shared the `.seg` base class, but only `.notes-subtabs`
+   (05-sidebars-themes.css) layered the raised-card look on top of it
+   (border, shadow, blur, sticky); `.library-subtabs`
+   (07-whiteboard-misc.css) never got the same treatment and stayed the
+   plainer generic pill. `.library-subtabs` now carries the same
+   properties. Live-verified side-by-side in dark mode — matching now.
+
+**Fixed in the same follow-up round, also live-verified:**
+- **The nav-history popup's last row sat flush against the bottom edge**
+  with no breathing room, unlike the clear gap above the first row — the
+  container's own `padding-bottom` isn't reliably honoured past the end of
+  a scrolled flex container's content in every engine. `.nav-history-item:
+  last-child { margin-bottom: var(--space-2); }` is the robust fix.
+- **Contents cards showed a stray horizontal scrollbar that cut off both a
+  long filename and its hover highlight.** Only `overflow-y` was set on
+  `.contents-list`, which — per the CSS spec's own computed-value rule for
+  a box scrollable on one axis — silently turned `overflow-x` into `auto`
+  too, so an unbroken filename with no wrap point forced the box wide
+  instead of tall. Fixed with `overflow-x: hidden` plus
+  `white-space: normal; overflow-wrap: anywhere` on the link itself, so a
+  long name wraps onto a second line instead of forcing horizontal scroll.
+
+**Reported, not reproduced — logged rather than guessed at:**
+- **The back-to-top button reportedly appears on a page that isn't
+  scrollable.** Read `scrollTopTargetEl()`/the `update()` loop
+  (app.js, ~L15949-16069): each tab's scroll target is either a nested
+  container (`NESTED_SCROLL_TABS`) or that tab's own `.tab-page` element
+  via `scrollingPage()`, and the show/hide condition is a plain
+  `scrollTop > 400` check — nothing in this path obviously explains a
+  false positive on a page with too little content to scroll 400px in the
+  first place. A live repro attempt (scripted scroll + tab switch) did not
+  reproduce it, but the scroll-trigger method used was itself suspect (the
+  button never showed even on a tab confirmed scrollable), so this is an
+  inconclusive negative, not a clean bill of health. Needs a real repro —
+  which tab specifically, and whether it's on first load or after
+  switching from an already-scrolled tab — before attempting a fix.
+
+**New feature request, logged only — not scoped or built:**
+- **Highlighting text in notes and documents.** Asked for directly. Not
+  investigated this session — needs its own pass to decide the storage
+  shape (inline markup in the note/document's own text vs. a separate
+  span-range table) and how it interacts with existing markdown rendering
+  and the AI's own reading of note content, before scoping further.

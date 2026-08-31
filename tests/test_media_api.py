@@ -446,3 +446,38 @@ def test_media_meta_404s_rather_than_shadowing_the_upload_id_route(ai_client):
     comment about.
     """
     assert ai_client.get("/media/meta/never-existed.png").status_code == 404
+
+
+def test_media_text_reads_an_uploaded_pdf_for_the_lightbox(ai_client):
+    """The document-preview half of the lightbox.
+
+    `docview.extract` and its whole format table already existed for
+    **attachments** (`GET /files/{id}/text`); uploads simply had no way to
+    reach it. Note the split this test has to respect: `MEDIA_SUFFIXES` is
+    images + PDF only, and deliberately narrow (that folder is served, and
+    the AI can write into it), so a PDF is the one *document* that reaches
+    the viewer through `/media`. Everything wider — .docx, .csv, .py — is an
+    attachment, and reaches the same extractor by the other route.
+    """
+    pdf = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
+    uploaded = ai_client.post(
+        "/media/upload", files={"file": ("report.pdf", pdf, "application/pdf")}
+    ).json()
+    assert "url" in uploaded, uploaded
+    stored = uploaded["url"].rsplit("/", 1)[-1]
+
+    viewed = ai_client.get(f"/media/text/{stored}")
+    assert viewed.status_code == 200
+    payload = viewed.json()
+    # The name shown is the human one, not the generated storage name.
+    assert payload["filename"] == "report.pdf"
+    # `kind` is what tells the frontend how to render, and is why the
+    # lightbox does not have to sniff the extension a second time. A PDF
+    # with no real text layer still answers the shape honestly rather than
+    # erroring — `source`/`message` carry that.
+    assert payload["kind"] in {"markdown", "code", "plain"}
+    assert "source" in payload and "message" in payload
+
+
+def test_media_text_404s_for_an_unknown_upload(ai_client):
+    assert ai_client.get("/media/text/never-existed.md").status_code == 404

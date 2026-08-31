@@ -2669,6 +2669,26 @@ html {
   background: rgba(255, 255, 255, 0.22);
 }
 
+/* **Out to the edges of the screen, without giving up the fix above.**
+   Asked for directly: "maybe move the next and prev arrow buttons to near
+   the edges of the screen again". The word doing the work is *again* —
+   they used to be `position: fixed` against the viewport, and that is
+   exactly what the comment on `.lightbox-nav` above records as broken:
+   `top: 50%` of the viewport is not the middle of the picture once there
+   is an info panel below it, and the JS that measured the image on every
+   open was deleted for good reason.
+
+   So the anchor stays on the stage (vertical centring keeps working with
+   no JS) and the *stage* is widened to the column's full width instead.
+   The image is still centred inside it by the stage's own flex centring,
+   so nothing about the picture moves — but the box the arrows hang off is
+   now the full width of the overlay, which puts them at the screen edges
+   and keeps them level with the middle of the image at every size. */
+.lightbox-column,
+.lightbox-stage {
+  width: 100%;
+}
+
 .lightbox-prev {
   left: var(--space-6);
 }

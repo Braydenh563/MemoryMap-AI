@@ -636,6 +636,52 @@ def media_meta(filename: str, session: Session = Depends(get_session)) -> MediaU
     )
 
 
+@router.get("/media/text/{filename}", response_model=AttachedFileTextOut)
+def media_text(filename: str, session: Session = Depends(get_session)) -> AttachedFileTextOut:
+    """One uploaded document's *text*, for reading it in the lightbox.
+
+    Asked for directly: the lightbox should become "a sort of document
+    preview… for viewing pdfs, word documents, spreadsheets, text files, code
+    files etc but in a presentable way that isn't editable".
+
+    Almost none of that is new work, and deliberately so — `docview.extract`
+    and its whole format table already existed for **attachments**
+    (`GET /files/{id}/text`), and it already returns the `kind`
+    (markdown/code/plain) that says how to render and the `source` that says
+    whether a human wrote the text or a vision model read it off a scan. The
+    only thing missing was that uploads, which is what the Library and the
+    lightbox actually hold, had no way to reach it. So this is the same
+    extraction pointed at `media/` instead of `uploads/`.
+
+    Deliberately returns **text, never the file**, for the reason
+    `read_file_text` above states at length and `media_file` at the bottom of
+    this module explains: what this sends has already stopped being a .docx,
+    so a viewer built on it cannot inherit the serve-it-inline problem once
+    per file type. That is also why the preview is read-only — a property of
+    the extraction, not a missing feature. Editing here would mean writing
+    text back into a format it was never in.
+    """
+    upload = session.query(MediaUpload).filter(MediaUpload.filename == filename).first()
+    if not upload:
+        raise HTTPException(status_code=404, detail="No upload by that name.")
+    path = deps.get_config().data_dir / "media" / upload.filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="That file is no longer on disk.")
+    # Same scanned-PDF fallback the attachment viewer passes. It only does any
+    # work for a PDF with no text layer, and only when the pdfpages extra and
+    # a vision model are both present; every other file returns before it is
+    # consulted.
+    viewed = docview.extract(path, vision_reader=vision_ocr.pdf_reader_or_none())
+    return AttachedFileTextOut(
+        filename=upload.original_name,
+        kind=viewed.kind,
+        source=viewed.source,
+        text=viewed.text,
+        truncated=viewed.truncated,
+        message=viewed.message,
+    )
+
+
 @router.delete("/media/{upload_id}")
 def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dict:
     """Removes the file and its tracking row. Asked for directly — an

@@ -13003,6 +13003,13 @@ function notePreviewText(content) {
 
 let reminderFilter = "open"; // open | all | done
 
+// BACKLOG §77's pattern, extended to Reminders (§89 item 1) — deliberately
+// narrower than Notes' own version. Applies only to the Done group; see the
+// note on #reminders-page-size in index.html for why Overdue/Today/Upcoming
+// are never paginated in any filter.
+let remindersPageSize = localStorage.getItem("reminders-page-size") || "all";
+let remindersDonePage = 1;
+
 // list | calendar. Persisted the same way timeline's own view toggle is
 // (a bare localStorage key) — a display mode, not data, so it doesn't need
 // the weight of a real preference round-tripped through the backend.
@@ -13056,6 +13063,7 @@ async function loadReminders() {
     groupsBox.appendChild(none);
   }
 
+  const donePagination = $("reminders-done-pagination");
   for (const label of ["Overdue", "Today", "Upcoming", "Done"]) {
     const items = groups[label];
     if (!items.length) continue;
@@ -13070,9 +13078,36 @@ async function loadReminders() {
     groupsBox.appendChild(heading);
     const ul = document.createElement("ul");
     ul.className = "entry-list";
-    for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
+    // Done is the one group this app ever slices — see remindersPageSize's
+    // own comment. Every other group renders in full, always, regardless of
+    // this control's value.
+    const shown =
+      label === "Done" ? paginateDoneReminders(items) : items;
+    for (const reminder of shown) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+  // The bar only means something under a Done group that actually rendered
+  // one — paginateDoneReminders already hid/showed it for that case, but a
+  // filter with no Done items at all (Open) has to hide it too, since the
+  // loop above never reaches the branch that would.
+  if (!groups.Done.length) donePagination.classList.add("hidden");
+}
+
+function paginateDoneReminders(items) {
+  const bar = $("reminders-done-pagination");
+  if (remindersPageSize === "all") {
+    bar.classList.add("hidden");
+    return items;
+  }
+  const pageSize = Number(remindersPageSize);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  remindersDonePage = Math.min(Math.max(1, remindersDonePage), totalPages);
+  const start = (remindersDonePage - 1) * pageSize;
+  bar.classList.remove("hidden");
+  $("reminders-done-page-status").textContent = `Page ${remindersDonePage} of ${totalPages}`;
+  $("reminders-done-page-prev").disabled = remindersDonePage <= 1;
+  $("reminders-done-page-next").disabled = remindersDonePage >= totalPages;
+  return items.slice(start, start + pageSize);
 }
 
 // Month-grid view of due dates (ROADMAP.md gap 4: the flat list has no way
@@ -22192,12 +22227,29 @@ $("reminder-add").addEventListener("click", async () => {
   }
 });
 $("reminder-clear-done").addEventListener("click", clearDoneReminders);
+$("reminders-page-size").value = remindersPageSize;
+$("reminders-page-size").addEventListener("change", (e) => {
+  remindersPageSize = e.target.value;
+  localStorage.setItem("reminders-page-size", remindersPageSize);
+  remindersDonePage = 1;
+  loadReminders();
+});
+$("reminders-done-page-prev").addEventListener("click", () => {
+  if (remindersDonePage <= 1) return;
+  remindersDonePage -= 1;
+  loadReminders();
+});
+$("reminders-done-page-next").addEventListener("click", () => {
+  remindersDonePage += 1; // clamped back down inside paginateDoneReminders if this overshoots
+  loadReminders();
+});
 for (const button of document.querySelectorAll("#reminder-filter button")) {
   button.addEventListener("click", () => {
     reminderFilter = button.dataset.filter;
     for (const b of document.querySelectorAll("#reminder-filter button")) {
       b.classList.toggle("active", b === button);
     }
+    remindersDonePage = 1; // a filter switch can change what's even in Done
     loadReminders();
   });
 }

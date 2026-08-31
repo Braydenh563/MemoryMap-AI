@@ -2271,21 +2271,40 @@ item distinguishes itself from.
    width just never mattered before. `.library-toolbar select { width: auto
    }` fixes it at the toolbar level, not per-control, so the next crowded
    `<select>` added here inherits the fix rather than re-discovering the bug.
-2. **The hard half: a wiki-link click has to land on the right *page*.** Which
-   page a note is on depends on whatever sort and filter is currently active
-   (category, tag, pinned, search term, semantic vs keyword), not just the
-   note's id. That is real routing logic and deserves its own design pass
-   rather than being bolted onto the page-size control. Scoped, not built,
-   this session — the shape it needs: `paginateNotesForDisplay` already
-   computes the exact ordered/filtered array a page is sliced from, so
-   resolving "which page is note N on" is a matter of re-running the same
-   filter+sort+order the *target* view would use, finding N's index in that
-   array, and dividing by the active page size — not a new index or a
-   second source of truth. The real design question is what to do when the
-   click's *origin* view has different sort/filter/page-size than whatever
-   is currently active (e.g. a wiki-link inside a note clicked from Chat,
-   where no Notes-tab filter is active at all) — that decision, not the
-   arithmetic, is why this stayed a separate item.
+~~2. **The hard half: a wiki-link click has to land on the right *page*.**~~
+   **Built.** `flashEntry` (app.js) already answered the design question
+   this item was scoped around: it resets category, drafts and search to
+   whatever the target's own view needs *before* it draws anything — a
+   jump always lands in that reset default view, never in whichever
+   filter the *origin* (Chat, the graph, a document) happened to have
+   active, since most origins have no Notes-tab filter state to preserve
+   in the first place. With that view fixed, the only thing missing was
+   the page number.
+
+   `orderedNotesForCurrentView()` is `renderEntries`'s own order —
+   flat-sorted or thread-flattened, whichever the current search/sort
+   picks — pulled out so there is exactly one place that decides "what
+   order do these notes render in," used both to paint the list and to
+   answer "which page is note N on." Deliberately **not** used to replace
+   `renderEntries`'s own inline copy of the same logic: that render path
+   is live, tested, and previously verified with real numbers (§86,
+   §77 item 1); rewriting it to consume a shared helper risked a working
+   feature for a refactor with no user-visible gain, so the small
+   duplication was accepted instead. `resolveNotePage(id)` walks that
+   order, finds the note, and divides by the active page size — "All"
+   (no pagination) always answers page 1. Returns `null` for a note the
+   current filters would hide entirely, which `flashEntry` treats as "stay
+   on whatever page you're on" rather than lying about a page number.
+
+   **Live-verified, both branches.** 61 flat notes, 25/page: starting on
+   page 1, clicking a wiki-link to the oldest (page-3) note lands on
+   "Page 3 of 3" with that exact note flashed. The harder case — the one
+   this item's own text worried about, a thread **child** whose page
+   depends on its *parent's* position, not its own sort key — verified
+   separately: a parent buried under 55 newer notes, its child linked to
+   directly, correctly resolves to "Page 3 of 3" with the child itself
+   (not the parent) flashed and `.thread-child` still set. Zero console
+   errors either run.
 
 ## 78. Whether the backend needs more concurrency than it already has
 

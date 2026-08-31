@@ -134,17 +134,12 @@ Items 1–2, below, are the ones with real substance after that.
    narrative in HISTORY.md; kept here as a number so §-references still
    resolve.
 
-2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
-   in two, as BACKLOG always said it should be. **The page-size control and
-   page selector are built** — `#notes-page-size` / `#notes-pagination` in
-   the Notes toolbar, "All" (today's §86 continuous scroll, untouched) as
-   the default. See BACKLOG §77 item 1 for the full build note and its one
-   accepted trade-off (a thread can split across a page boundary). **Still
-   open: the hard half.** A wiki-link click has to land on the right *page*,
-   which depends on the sort and filter currently active, not just the
-   note's id — real routing logic, now scoped (BACKLOG §77 item 2) but not
-   built; the open design question is what to do when the click's origin
-   view has different sort/filter/page-size state than whatever's active.
+~~2. **Notes-tab pagination with page-aware note links.**~~ **Built, both
+   halves.** `#notes-page-size`/`#notes-pagination` (BACKLOG §77 item 1);
+   `resolveNotePage()`/`flashEntry` now land a wiki-link click on the
+   *page* its target is on, not just scroll a page that might not contain
+   it. Full build note, the design question's answer, and live thread-
+   child verification in BACKLOG §77 item 2.
 
 3. **The Timeline's line view needs a real visual pass** — reported as needing
    to look "very professional and ready for public use", and never scoped

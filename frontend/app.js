@@ -4941,6 +4941,67 @@ function paginateNotesForDisplay(items) {
   return items.slice(start, start + pageSize);
 }
 
+// **The exact order the Notes list would paint, computed without painting
+// it.** Split out of `renderEntries` (BACKLOG §77 item 2 — routing a
+// wiki-link click to the right *page*) so there is exactly one place that
+// decides "what order do these notes render in", used both to actually
+// render them and to answer "which page would note N land on" before a
+// jump. Threads are the reason this can't be a plain sort-then-slice: a
+// child's position depends on its parent's position, not on the child's own
+// sort key, so `renderEntries`'s own thread-flattening (`ordered`,
+// `addWithChildren`) is reproduced here rather than approximated.
+//
+// Reads the same module-level filter state `renderEntries` does
+// (`draftsOnly`, `activeCategory`, `noteSearch`, `noteSort`) — a caller that
+// wants a *different* view's ordering (see `resolveNotePage` below) sets
+// those first, the same way `flashEntry` already resets category/search/
+// drafts before it ever draws anything.
+function orderedNotesForCurrentView() {
+  let visible = draftsOnly
+    ? allEntries.filter((e) => e.is_draft)
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+      : allEntries.filter((e) => !e.is_draft);
+  visible = visible.filter(matchesSearch);
+
+  const flat = Boolean(noteSearch) || noteSort !== "newest";
+  if (flat) return sortEntries(visible).map((entry) => [entry, 0]);
+
+  const visibleIds = new Set(visible.map((e) => e.id));
+  const childrenOf = new Map();
+  for (const entry of visible) {
+    if (entry.parent_id && visibleIds.has(entry.parent_id)) {
+      if (!childrenOf.has(entry.parent_id)) childrenOf.set(entry.parent_id, []);
+      childrenOf.get(entry.parent_id).push(entry);
+    }
+  }
+  const ordered = [];
+  const addWithChildren = (entry, depth) => {
+    ordered.push([entry, depth]);
+    const children = (childrenOf.get(entry.id) || []).slice().reverse();
+    for (const child of children) addWithChildren(child, depth + 1);
+  };
+  for (const entry of visible) {
+    const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
+    if (!parentVisible) addWithChildren(entry, 0);
+  }
+  return ordered;
+}
+
+// Which page (1-based) a note lands on in the Notes list's *current*
+// filter/sort — the arithmetic half of BACKLOG §77 item 2. "All notes" (no
+// pagination) always answers page 1, since there is only one. Returns null
+// for a note the current filters would hide entirely (a category filter
+// excluding it, say) — a page number for a note that isn't in the list
+// would be a lie, not an answer.
+function resolveNotePage(id) {
+  if (notesPageSize === "all") return 1;
+  const order = orderedNotesForCurrentView();
+  const index = order.findIndex(([entry]) => entry.id === id);
+  if (index === -1) return null;
+  return Math.floor(index / Number(notesPageSize)) + 1;
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
@@ -5732,6 +5793,18 @@ function flashEntry(id) {
   noteSearch = "";
   const searchBox = $("note-search");
   if (searchBox) searchBox.value = "";
+  // **BACKLOG §77 item 2 — the page half of "jump to a note."** Everything
+  // above already resets category/drafts/search to whatever view actually
+  // contains the target (the design question that item scoped: a jump
+  // always lands in that reset default view, never in whatever filter the
+  // *origin* — Chat, the graph, a document — happened to have active,
+  // since most origins have no Notes-tab filter state to preserve at all).
+  // With that view now fixed, `resolveNotePage` answers the one thing that
+  // reset alone didn't: which *page* of it. Set before `renderEntries()` so
+  // the list paints the right page the first time, not the first page
+  // followed by a jump.
+  const targetPage = resolveNotePage(id);
+  if (targetPage) notesCurrentPage = targetPage;
   renderSidebar();
   renderEntries();
   requestAnimationFrame(() => {

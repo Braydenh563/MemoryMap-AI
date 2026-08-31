@@ -1,6 +1,64 @@
 # Session handover
 
-## New session — §90.2 small-screen audit (measured, not yet acted on) + a live-reported documents-dock alignment bug, found and fixed
+## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, and two shared-component clipping fixes
+
+Branch `claude/docs-review-priority-work-sequ16`, a long session driven
+almost entirely by live user reports rather than the roadmap — 11 commits,
+each live-verified in Chromium before pushing. In rough order:
+
+- **The lightbox now works from every caller, not just the gallery.** It was
+  reported as "completely broken" with no download button — the real cause
+  was a `.catch()` chained directly on a non-Promise `getUrl()` return, which
+  crashed `show()` entirely for the Library's own gallery (whose `getUrl` is
+  a plain synchronous string). Fixed with `Promise.resolve()`. Around that:
+  a metadata self-fetch (`GET /media/meta/{filename}`) so caption/OCR/facts
+  show up everywhere, not just where the caller happened to pass them; an
+  actions bar (zoom, drag-to-pan, copy text, save); a document-preview mode
+  for PDFs, uploads and native MemoryMap documents (`GET /media/text`,
+  rendered through the app's own `renderMarkdown`); AI actions (describe/
+  rename/OCR/delete) gated strictly on a real media id so no other caller
+  ever sees a button guaranteed to 404; a "Preview" action on the Documents
+  list; arrows moved to the screen edges without re-breaking the vertical
+  centring two earlier sessions had to get right.
+- **Two clipping bugs, same root cause, same fix, deliberately different
+  scope.** The gallery kebab menu and (later) the Documents-list kebab both
+  turned out to be clipped by a scrolling ancestor's `overflow`, and in both
+  cases the existing measure-and-clamp code couldn't fix it —
+  `getBoundingClientRect()` doesn't know a box is about to be scissored. The
+  gallery fix went into the shared code directly (it's the one caller of
+  that component). The Documents fix (`wireEscapedActionMenu`) stayed
+  scoped to a `MutationObserver` wrapping just that one caller, on purpose:
+  `kebabMenu()`/`.action-menu` is shared by note cards, chat and the
+  selection popup, none of which were re-verified live this session, and
+  rewriting what they all depend on to fix one caller was judged the
+  riskier move.
+- **BACKLOG §77's "hard half" — a wiki-link click landing on the wrong
+  page — is closed.** `resolveNotePage()` reuses `renderEntries`'s own
+  ordering logic (pulled into `orderedNotesForCurrentView`, not
+  duplicated-then-diverged) to answer "which page is this note on" before
+  `flashEntry` scrolls to it. Verified live on both the flat and threaded
+  branches, including the specific hard case the item's own text named: a
+  thread child whose page depends on its parent's position, not its own
+  sort key.
+
+Full detail on all of the above is in ROADMAP.md's live list and BACKLOG
+§77/§98/§99 — not repeated here.
+
+### What I still could not check
+
+- The Documents-list kebab fix (`wireEscapedActionMenu`) was verified for
+  open/close/outside-click/aria-expanded, but only at one viewport size and
+  only for that one caller — the other `.action-menu` callers (note cards,
+  chat dock, selection popup) were deliberately left untouched and
+  unverified, on the reasoning above.
+- Touch/pointer behaviour for the lightbox's drag-to-pan was exercised with
+  Playwright's mouse emulation, not real touch events.
+- §99 (document upload split by file type) is scoped, not started — it
+  needs a real decision about `MEDIA_SUFFIXES` vs. a decoupled attachment
+  path, which is a security-relevant call this session declined to make
+  unilaterally at the end of a long stretch of work.
+
+## Prior session — §90.2 small-screen audit (measured, not yet acted on) + a live-reported documents-dock alignment bug, found and fixed
 
 Branch `claude/docs-review-priority-work-sequ16`, continuing from the prior
 session below. Started §90.2 (the never-done phone/tablet audit): server up,

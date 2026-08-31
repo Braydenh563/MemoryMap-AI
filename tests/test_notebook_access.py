@@ -274,7 +274,8 @@ def test_restore_note_refuses_a_deleted_private_note(ai_client, session, unlocke
     as every other write tool, or restoring becomes a way to read a private
     note's content back through `_note_summary`."""
     private = _make_private(ai_client, "codeword ELDERFLOWER")
-    assert ai_client.delete(f"/entries/{private['id']}").status_code == 200
+    deleted = ai_client.delete(f"/entries/{private['id']}")
+    assert deleted.status_code == 200
 
     result = tools.execute_tool(session, "restore_note", {"note_id": private["id"]})
     assert "error" in result and "private" in result["error"].lower()

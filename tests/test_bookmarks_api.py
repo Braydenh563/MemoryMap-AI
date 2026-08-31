@@ -50,7 +50,8 @@ def test_delete_bookmark(client):
     created = client.post("/bookmarks", json={"url": "a.com"}).json()
     response = client.delete(f"/bookmarks/{created['id']}")
     assert response.json() == {"deleted": True}
-    assert client.get("/bookmarks").json() == []
+    remaining = client.get("/bookmarks")
+    assert remaining.json() == []
 
 
 def test_update_missing_bookmark_is_404(client):

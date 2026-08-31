@@ -51,15 +51,30 @@ def test_semantic_match_carries_its_score(ai_client):
     assert 0 < info["score"] <= 1
 
 
-def test_second_joke_skips_llm(ai_client, fake_ollama):
+def test_a_second_note_on_the_same_topic_is_still_filed_by_the_model(
+    ai_client, fake_ollama
+):
+    """This asserted the opposite - that a centroid match skipped the model.
+
+    That was the filing order until it was reversed: the embedding shortcut
+    ran first and was so rarely declined that in an established notebook the
+    model was almost never asked, so notes were filed by what they *resemble*
+    rather than by where they belong. Reported as notes landing in the wrong
+    category and needing fixing by hand.
+
+    What the test protects now is the outcome rather than the shortcut: the
+    second joke still lands in "Dad Jokes", and the model is what decided it.
+    The saving this test was originally written to prove is covered instead
+    by test_ai_core.py's no-model case, which is the situation the embedding
+    paths actually exist for.
+    """
     _save(ai_client, "Why did the scarecrow win an award? Outstanding in his field!")
     calls_before = len(fake_ollama.chat_calls)
 
     second = _save(ai_client, "another funny pun about cheese")
 
-    # Same topic → centroid match decided it; the LLM was not consulted.
     assert second["category"] == "Dad Jokes"
-    assert len(fake_ollama.chat_calls) == calls_before
+    assert len(fake_ollama.chat_calls) == calls_before + 1
 
 
 def test_chat_with_ollama_down_still_returns_raw_results(ai_client, fake_ollama):

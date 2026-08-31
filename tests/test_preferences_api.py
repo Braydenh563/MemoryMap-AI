@@ -101,7 +101,8 @@ def test_clearing_the_audit_log_only_removes_the_named_entity_type(client):
 
 
 def test_clearing_the_audit_log_requires_an_entity_type(client):
-    assert client.delete("/audit").status_code == 422
+    response = client.delete("/audit")
+    assert response.status_code == 422
 
 
 def test_export_json_includes_binned_entries(client):

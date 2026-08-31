@@ -35,7 +35,8 @@ def test_detach_bookmark(client):
 
     response = client.delete(f"/entries/{entry['id']}/bookmarks/{bookmark['id']}")
     assert response.json() == {"detached": True}
-    assert client.get(f"/entries/{entry['id']}/bookmarks").json() == []
+    attached = client.get(f"/entries/{entry['id']}/bookmarks")
+    assert attached.json() == []
 
 
 def test_attach_to_missing_entry_is_404(client):
@@ -52,4 +53,5 @@ def test_attach_missing_bookmark_is_404(client):
 
 def test_a_note_with_no_bookmarks_returns_empty_list(client):
     entry = _make_entry(client)
-    assert client.get(f"/entries/{entry['id']}/bookmarks").json() == []
+    attached = client.get(f"/entries/{entry['id']}/bookmarks")
+    assert attached.json() == []

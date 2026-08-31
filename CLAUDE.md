@@ -87,6 +87,43 @@ source reads as correct at every single line involved. One `getComputedStyle`
 found it. The shape to remember: *a value that is invalid where it is used, not
 where it is set, does its damage nowhere near the code that caused it.*
 
+**A screenshot you look at is not a measurement, and this cost six rounds on
+one popup.** The nav-history menu was reported broken, "fixed", and reported
+again four times. Each round ended by *looking* at a screenshot and calling
+it good, and one round closed the report as "a screenshot/DPI capture
+artifact" — which was **wrong**, and is what let the real bug survive three
+more fixes. It was two bugs at once, and neither was visible to the eye:
+
+- `--modal-bg` is `rgba(…, 0.96)` — **4% see-through by design**. Over the
+  note editor (the densest small text in the app) that was enough for the
+  form underneath to read as ghost text. Found by decoding the PNG and
+  sampling pixels: `(252,253,255)` at the top of the popup against
+  `(244,246,253)` lower down, a real ~8-unit gradient.
+- Its rows are `<button>`s, and the app's generic control-height rule pinned
+  them to 32.36px while their content needed 35px — so `overflow: hidden`
+  sliced every glyph down to its top few pixels. That was the "illegible
+  dashes" the artifact call had dismissed.
+
+So: **two tools, and reach for them before forming an opinion.**
+`scratchpad/pngpixel.py` (~50 lines, pure Python, no dependencies) prints
+exact pixel values — use it for any report about transparency, contrast or a
+colour looking wrong. `scrollHeight` vs `clientHeight` in `page.evaluate`
+settles any report about text being cut off, clipped or "garbled", in one
+number. **Never close a visual report as a capture artifact without a
+measurement that says so** — and note that a vision model reading a
+downscaled screenshot will both invent faint "ghost text" that is not in the
+pixels and miss a real 3px clip.
+
+The same discipline applies to a report you cannot reproduce. Bookmark URL
+editing was reported broken five times while working end-to-end every single
+time it was driven in a clean browser. The code was never the fault: a
+second modal that only appears *after* you commit the first is a bad way to
+expose a second field. **When a report keeps coming back and the code keeps
+testing clean, stop re-reading the handler — the shape of the interaction is
+the bug, or the reporter is running a stale file.** Local `css`/`js` URLs are
+version-stamped (`?v=<version>`, enforced by
+`tests/test_asset_cache_busting.py`) precisely to kill the second case.
+
 ## Reviewing work that came from somewhere else
 
 A week of another agent's work was merged-in and audited (§40). It was not bad

@@ -39,7 +39,8 @@ def test_detach_bookmark(client):
 
     response = client.delete(f"/documents/{document['id']}/bookmarks/{bookmark['id']}")
     assert response.json() == {"detached": True}
-    assert client.get(f"/documents/{document['id']}/bookmarks").json() == []
+    attached = client.get(f"/documents/{document['id']}/bookmarks")
+    assert attached.json() == []
 
 
 def test_attach_to_missing_document_is_404(client):
@@ -56,7 +57,8 @@ def test_attach_missing_bookmark_is_404(client):
 
 def test_a_document_with_no_bookmarks_returns_empty_list(client):
     document = _make_document(client)
-    assert client.get(f"/documents/{document['id']}/bookmarks").json() == []
+    attached = client.get(f"/documents/{document['id']}/bookmarks")
+    assert attached.json() == []
 
 
 def test_a_notes_bookmarks_and_a_documents_bookmarks_are_independent(client):
@@ -64,4 +66,5 @@ def test_a_notes_bookmarks_and_a_documents_bookmarks_are_independent(client):
     document = _make_document(client)
     bookmark = client.post("/bookmarks", json={"url": "a.com"}).json()
     client.post(f"/entries/{entry['id']}/bookmarks", json={"bookmark_id": bookmark["id"]})
-    assert client.get(f"/documents/{document['id']}/bookmarks").json() == []
+    attached = client.get(f"/documents/{document['id']}/bookmarks")
+    assert attached.json() == []

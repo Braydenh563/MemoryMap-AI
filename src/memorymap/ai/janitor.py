@@ -1,17 +1,22 @@
 """The janitor: files a new thought into a category (LLM prompt #1).
 
-Not a separate AI model — just a prompt to the active chat model plus a
-cheap embedding shortcut (plan §2, resolution 2). Order of attempts:
+Not a separate AI model — just a prompt to the active chat model, with
+embedding-based filing behind it for when there is no model. Order of
+attempts:
 
-1. Embedding vs. category centroids — free, no LLM call needed when the
-   match is clear.
-2. Nearest neighbours: the k most similar individual notes vote for their
+1. ONE call to the chat model, JSON answer. **This runs first**, which is
+   the reverse of how it worked originally: the embedding shortcuts used to
+   come first and were so rarely declined that in an established notebook
+   the model was almost never asked, and notes were filed by resemblance
+   rather than by meaning. Reported as notes landing in the wrong category
+   and needing fixing by hand; see `categorise` for the full reasoning.
+2. Embedding vs. category centroids — free, and what files notes when no
+   chat model is running.
+3. Nearest neighbours: the k most similar individual notes vote for their
    own category. Catches what a centroid can't — a category holding more
-   than one kind of thing has an average resembling none of them — and it
-   is the path that files notes properly with no chat model running.
-3. Still borderline → ONE call to the chat model, JSON answer.
-4. No AI available at all → 'Uncategorised' with confidence 0. Saving
-   an entry must never fail because the AI is down (plan §4).
+   than one kind of thing has an average resembling none of them.
+4. No AI available and nothing similar → 'Uncategorised' with confidence 0.
+   Saving an entry must never fail because the AI is down (plan §4).
 """
 
 from __future__ import annotations
@@ -148,7 +153,19 @@ def categorise(
         )
         return neighbours.name, neighbours.confidence, "semantic-neighbours"
 
-    logger.info("janitor: nothing could file this note")
+    # Still "filed by <method>", even when the method is 'none'. Reversing the
+    # order above briefly replaced this with a differently-worded line, which
+    # broke the one thing every filing decision is supposed to leave behind:
+    # `test_ai_decisions_are_logged` greps the log console for exactly this
+    # prefix, and the Logs tab is where a user finds out *why* a note landed
+    # where it did. A decision with no model and no vector match is still a
+    # decision, and it is the one most worth being able to see.
+    logger.info(
+        "janitor: filed by %s -> '%s' (%d%%)",
+        method,
+        safe_value(category, 60),
+        confidence,
+    )
     return category, confidence, method
 
 

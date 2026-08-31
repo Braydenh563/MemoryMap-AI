@@ -350,6 +350,45 @@ mark.text-highlight-blue { background: var(--accent-soft); }
 mark.text-highlight-pink { background: rgba(236, 72, 153, 0.22); }
 mark.text-highlight-purple { background: rgba(168, 85, 247, 0.22); }
 mark.text-highlight-orange { background: rgba(249, 115, 22, 0.22); }
+mark.text-highlight-red { background: rgba(239, 68, 68, 0.22); }
+mark.text-highlight-grey { background: rgba(148, 163, 184, 0.25); }
+
+/* `++red|text++` — a foreground colour. Set at full strength rather than the
+   highlights' low alpha, because this IS the text: a washed-out foreground
+   is just unreadable text. Each is picked to clear the body background in
+   both themes, which is why they are their own values and not the `--ok`/
+   `--warn`/`--error` status tokens — those are tuned for chips and badges,
+   where they sit on their own soft background rather than on the page. */
+.text-ink-yellow { color: #b45309; }
+.text-ink-green { color: #15803d; }
+.text-ink-blue { color: #1d4ed8; }
+.text-ink-pink { color: #be185d; }
+.text-ink-purple { color: #7e22ce; }
+.text-ink-orange { color: #c2410c; }
+.text-ink-red { color: #b91c1c; }
+.text-ink-grey { color: var(--muted); }
+
+/* Dark themes need the lighter end of each ramp — the light-mode values above
+   are chosen for contrast against white and go muddy on a dark page. Both
+   selectors, so an explicit choice and the system default are covered, the
+   same shape the tokens at the top of 00-tokens-shell.css use. */
+:root[data-theme="dark"] .text-ink-yellow { color: #fbbf24; }
+:root[data-theme="dark"] .text-ink-green { color: #4ade80; }
+:root[data-theme="dark"] .text-ink-blue { color: #7b90f7; }
+:root[data-theme="dark"] .text-ink-pink { color: #f472b6; }
+:root[data-theme="dark"] .text-ink-purple { color: #c084fc; }
+:root[data-theme="dark"] .text-ink-orange { color: #fb923c; }
+:root[data-theme="dark"] .text-ink-red { color: #f87171; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .text-ink-yellow { color: #fbbf24; }
+  :root:not([data-theme="light"]) .text-ink-green { color: #4ade80; }
+  :root:not([data-theme="light"]) .text-ink-blue { color: #7b90f7; }
+  :root:not([data-theme="light"]) .text-ink-pink { color: #f472b6; }
+  :root:not([data-theme="light"]) .text-ink-purple { color: #c084fc; }
+  :root:not([data-theme="light"]) .text-ink-orange { color: #fb923c; }
+  :root:not([data-theme="light"]) .text-ink-red { color: #f87171; }
+}
 
 /* --- filter help ------------------------------------------------------------- */
 .search-help {

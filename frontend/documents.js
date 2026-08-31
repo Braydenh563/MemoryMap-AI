@@ -1380,6 +1380,8 @@ const MD_ACTIONS = {
   italic: { wrap: "*", placeholder: "italic text" },
   strike: { wrap: "~~", placeholder: "struck through" },
   code: { wrap: "`", placeholder: "code" },
+  highlight: { wrap: "==", placeholder: "highlighted" },
+  clearformat: { custom: "clearformat" },
   ul: { line: "- " },
   ol: { line: "1. " },
   task: { line: "- [ ] " },
@@ -1392,15 +1394,25 @@ const MD_ACTIONS = {
   hr: { insert: "\n---\n" },
 };
 
-function applyMarkdown(kind) {
+// `boxId` is what lets the Notes composer reuse this whole table. It used to
+// be hardcoded to the document editor, and duplicating the logic for notes
+// would have been the third place in this app to independently decide what
+// `**` means — see MD_ACTIONS' own comment and editor.js's "/" menu, which
+// are already deliberately kept to one dialect.
+function applyMarkdown(kind, boxId = "doc-content") {
   const action = MD_ACTIONS[kind];
-  const box = $("doc-content");
-  if (!action) return;
+  const box = $(boxId);
+  if (!action || !box) return;
   const { selectionStart: start, selectionEnd: end, value } = box;
   const selected = value.slice(start, end);
 
   if (action.wrap) {
-    wrapDocSelection(action.wrap, action.placeholder);
+    wrapDocSelection(action.wrap, action.placeholder, boxId);
+    return;
+  }
+  if (action.custom === "clearformat") {
+    clearInlineFormatting(box);
+    finishMarkdownEdit(box, boxId);
     return;
   }
   if (action.line) {
@@ -1432,14 +1444,43 @@ function applyMarkdown(kind) {
     const at = start + action.insert.length;
     box.setSelectionRange(at, at);
   }
+  finishMarkdownEdit(box, boxId);
+}
+
+// The bookkeeping every toolbar edit ends with. The document editor has a
+// dirty flag and a live preview to refresh; the notes composer has neither,
+// but everything downstream of typing there (autogrow, the character count,
+// draft autosave) listens for `input`, which a programmatic value change does
+// not fire on its own.
+function finishMarkdownEdit(box, boxId) {
   box.focus();
-  markDocDirty();
-  renderDocPreview();
+  if (boxId === "doc-content") {
+    markDocDirty();
+    renderDocPreview();
+  } else {
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+// Strip a highlight or a text colour from the selection. The counterpart to
+// the two colour pickers - asked for directly ("change the colour, or remove
+// the highlight"), and without it the only way back out of a colour was to
+// hand-delete the markers.
+function clearInlineFormatting(box) {
+  const { selectionStart: start, selectionEnd: end, value } = box;
+  const selected = value.slice(start, end);
+  if (!selected) return;
+  const cleaned = selected
+    .replace(/==(?:[a-z]+\|)?([^=\n]+?)==/g, "$1")
+    .replace(/\+\+[a-z]+\|([^+\n]+?)\+\+/g, "$1");
+  if (cleaned === selected) return;
+  box.value = value.slice(0, start) + cleaned + value.slice(end);
+  box.setSelectionRange(start, start + cleaned.length);
 }
 
 // Wrap the selection in markdown syntax (Ctrl+B / Ctrl+I).
-function wrapDocSelection(marker, placeholder = "") {
-  const box = $("doc-content");
+function wrapDocSelection(marker, placeholder = "", boxId = "doc-content") {
+  const box = $(boxId);
   const { selectionStart: start, selectionEnd: end, value } = box;
 
   // Toggle off, case 1: the selection sits *inside* an existing pair of
@@ -1455,8 +1496,7 @@ function wrapDocSelection(marker, placeholder = "") {
     box.selectionStart = start - marker.length;
     box.selectionEnd = end - marker.length;
     box.focus();
-    markDocDirty();
-    renderDocPreview();
+    finishMarkdownEdit(box, boxId);
     return;
   }
   // Toggle off, case 2: the markers themselves are part of the selection
@@ -1473,8 +1513,7 @@ function wrapDocSelection(marker, placeholder = "") {
     box.selectionStart = start;
     box.selectionEnd = start + inner.length;
     box.focus();
-    markDocDirty();
-    renderDocPreview();
+    finishMarkdownEdit(box, boxId);
     return;
   }
 
@@ -1966,9 +2005,56 @@ $("doc-content").addEventListener("scroll", () => {
     heightBeforeDrag = null;
   });
 }
-for (const button of document.querySelectorAll("#doc-toolbar button")) {
-  button.addEventListener("click", () => applyMarkdown(button.dataset.md));
+// Both formatting toolbars, wired the same way. `data-md-target` on the
+// toolbar names the textarea it drives, defaulting to the document editor so
+// #doc-toolbar keeps working exactly as it did without carrying the
+// attribute. The colour <select>s reset themselves after firing: they are
+// action menus wearing a select, not a setting with a current value, so
+// leaving "green" showing afterwards would claim a state that does not exist.
+const MD_COLOURS = ["yellow", "green", "blue", "pink", "purple", "orange", "red", "grey"];
+
+function initMarkdownToolbars() {
+  for (const bar of document.querySelectorAll("[data-md-target], #doc-toolbar")) {
+    const boxId = bar.dataset.mdTarget || "doc-content";
+    for (const button of bar.querySelectorAll("button[data-md]")) {
+      // mousedown-preventDefault keeps the caret in the textarea: without it
+      // the click moves focus to the button first and the selection the
+      // action is about to act on is already gone.
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", () => applyMarkdown(button.dataset.md, boxId));
+    }
+    for (const select of bar.querySelectorAll("select[data-md-colour]")) {
+      const kind = select.dataset.mdColour;
+      for (const colour of MD_COLOURS) {
+        const option = document.createElement("option");
+        option.value = colour;
+        option.textContent = colour[0].toUpperCase() + colour.slice(1);
+        select.appendChild(option);
+      }
+      select.addEventListener("change", () => {
+        const colour = select.value;
+        select.value = "";
+        if (!colour) return;
+        const box = $(boxId);
+        if (!box) return;
+        const { selectionStart: start, selectionEnd: end, value } = box;
+        const selected = value.slice(start, end) || (kind === "ink" ? "coloured text" : "highlighted");
+        // Yellow is the highlight's default, so it needs no colour prefix -
+        // and writing one would put `==yellow|x==` in the note where `==x==`
+        // says the same thing.
+        const open = kind === "ink"
+          ? `++${colour}|`
+          : colour === "yellow" ? "==" : `==${colour}|`;
+        const close = kind === "ink" ? "++" : "==";
+        box.value = value.slice(0, start) + open + selected + close + value.slice(end);
+        box.setSelectionRange(start + open.length, start + open.length + selected.length);
+        finishMarkdownEdit(box, boxId);
+      });
+    }
+  }
 }
+
+initMarkdownToolbars();
 
 $("doc-word-goal").addEventListener("click", promptDocWordGoal);
 $("doc-word-goal-submit").addEventListener("click", () => {

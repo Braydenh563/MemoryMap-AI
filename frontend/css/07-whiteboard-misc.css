@@ -562,14 +562,27 @@
   padding-left: var(--space-1);
 }
 
-/* A border, not just a fill. Reported a second time as still looking
-   undesigned: `--chip-bg` alone is a very low-contrast wash, so the box read
-   as a flat grey slab floating under the chip that opened it rather than as
-   a panel belonging to it. An outline plus a left accent rule ties it back to
-   its summary chip, which is the relationship the flat version lost. */
-.skill-fact-list {
+/* Third pass on this, so here is what each round got wrong. The first had a
+   fill and no border, which read as a flat grey slab. The second added a
+   border but left `list-style-position: outside`, which puts the "1."/"2."
+   markers in the padding *against* that new border - reported again, and
+   visible in the screenshot as numbers pressed into the left edge. And the
+   tools list inherited the same bordered box while each tool was ALSO given
+   its own bordered token, so every tool sat in a frame inside a frame.
+
+   The shape that actually works: steps are prose and keep the panel, with
+   the markers pulled properly inside it; tools are identifiers and drop the
+   panel entirely, because the tokens already are the visual grouping. */
+.skill-fact-list-steps {
   border: 1px solid var(--border);
   border-left: 2px solid var(--accent);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-8);
+  list-style-position: outside;
+}
+
+.skill-fact-list-steps li {
+  padding-left: var(--space-2);
+  line-height: 1.55;
 }
 
 .skill-fact-list-steps li::marker {
@@ -577,14 +590,15 @@
   font-weight: 600;
 }
 
-/* Tools are identifiers, so they are set as tokens rather than bullets - the
-   list itself carries no markers and each name is its own chip. */
+/* No box of its own: the tokens are the grouping. */
 .skill-fact-list-tools {
   list-style: none;
   flex-direction: row;
   flex-wrap: wrap;
   gap: var(--space-2);
-  padding-left: var(--space-3);
+  padding: var(--space-2) 0 0;
+  background: none;
+  border: none;
 }
 
 .skill-fact-list-tools li {
@@ -603,7 +617,26 @@
   overflow-wrap: anywhere;
 }
 
+/* "Never run." / "Last run …" - the one line saying whether this skill has
+   ever actually done anything. It was bare unstyled text sitting under the
+   chips, which is why the block below them read as unfinished. */
 .skill-card-when {
+  display: inline-flex;
+  /* Shrink to the text. Without this it stretched the full card width -
+     the card is a flex column, so a flex child stretches by default and
+     `inline-flex` only governs the box's own inside, not how its parent
+     sizes it. */
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.skill-card-when-plain {
   margin: 0;
 }
 
@@ -1000,7 +1033,15 @@ body.has-agent-monitor .doc-sidebar .doc-list {
    strip (DESIGN.md's control-height rule is the same idea one axis over). */
 .graph-temporal {
   display: flex;
-  flex: 1;
+  /* `flex: 1` here is what made the divider look like it was touching the
+     "All time" read-out, reported twice. The group stretched to its full
+     18.75rem whether or not it needed to, the slider absorbed all the slack,
+     and the label was pushed hard against the group's right edge — so the
+     gap *before* the label was large and the gap *after* it was only the
+     divider's own margin, which reads as a clash however much margin the
+     divider has. Sizing to content instead puts the label next to the slider
+     it describes and leaves the row's own gap between it and the divider. */
+  flex: 0 1 auto;
   align-items: center;
   gap: var(--space-3);
   max-width: 18.75rem;

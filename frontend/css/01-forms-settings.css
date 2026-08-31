@@ -2696,3 +2696,51 @@ html.modal-open body {
   display: inline;
   font-size: var(--text-base);
 }
+
+
+/* The bookmark row's in-place edit form (library.js). Replaces a chain of
+   two modal prompts - see that handler's comment for why sequencing the
+   fields was the problem rather than the code behind them. Laid out as a
+   column so all three fields and their labels are readable at once at any
+   width, which a row of three inputs is not. */
+.bookmark-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--inner);
+}
+
+.bookmark-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bookmark-edit-field input {
+  margin: 0;
+  width: 100%;
+}
+
+.bookmark-edit-actions {
+  gap: var(--space-2);
+}
+
+
+/* The Links "+ Add" button sat shorter than the three inputs beside it -
+   reported directly. `.small` trims a button's padding, which is right in a
+   toolbar but wrong in a form row, where the control height is set by the
+   inputs. Matching the row rather than the class, the same
+   one-height-per-control-strip rule DESIGN.md applies elsewhere. */
+#bookmark-form {
+  align-items: stretch;
+}
+
+#bookmark-form button[type="submit"] {
+  align-self: stretch;
+  padding-block: 0;
+  white-space: nowrap;
+}

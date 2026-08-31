@@ -485,7 +485,10 @@
                 note's title — the same thing the "Optional title" box
                 above writes for you.</li>
               <li><code>**bold**</code>, <code>*italic*</code>,
-                <code>`code`</code>, <code>~~struck~~</code>,
+                <code>`code`</code>, <code>~~struck~~</code>, <code>==highlight==</code>
+                (or <code>==green|highlight==</code> — also blue, pink,
+                purple, orange; or select the words and use the
+                <span aria-hidden="true">⋯</span> button),
                 <code>[text](url)</code> and <code>$x^2$</code> all render
                 on the saved note.</li>
               <li><code>tag:</code> is for the filter box, not here — tags
@@ -515,6 +518,39 @@
           <input id="entry-title" type="text" maxlength="200"
             placeholder="Optional title"
             aria-label="Optional title — becomes the note's leading heading">
+          <!-- Asked for directly: "can you add like a toolbar like in the
+               documents but for notes and stuff as well". Deliberately the
+               same `.doc-toolbar` markup and the same `data-md` contract as
+               the document editor's strip, wired to the same MD_ACTIONS
+               table — one dialect of markdown, one set of buttons, so the
+               two editors cannot drift into behaving differently. Shorter
+               than the document one on purpose: a note is a short thing, so
+               headings, tables and code blocks are left to the document
+               editor rather than crowding a three-row box. -->
+          <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
+            aria-label="Formatting" data-md-target="entry-content">
+            <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+            <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+            <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
+            <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-md="highlight" title="Highlight (yellow)"
+              aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
+            <select class="md-colour-select" data-md-colour="highlight"
+              aria-label="Highlight colour" title="Highlight in a colour">
+              <option value="">Highlight…</option>
+            </select>
+            <select class="md-colour-select" data-md-colour="ink"
+              aria-label="Text colour" title="Text colour">
+              <option value="">Text colour…</option>
+            </select>
+            <button type="button" data-md="clearformat" title="Remove highlight or colour"
+              aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+            <button type="button" data-md="ul" title="Bulleted list">• List</button>
+            <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
+            <button type="button" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+          </div>
           <textarea id="entry-content" rows="3" class="autogrow"
             placeholder="Type anything — a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
@@ -1901,6 +1937,19 @@ Link to another note with [[its first few words]]."></textarea>
           <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
           <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
           <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+          <span class="doc-toolbar-sep" aria-hidden="true"></span>
+          <button type="button" data-md="highlight" title="Highlight (yellow)"
+            aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
+          <select class="md-colour-select" data-md-colour="highlight"
+            aria-label="Highlight colour" title="Highlight in a colour">
+            <option value="">Highlight…</option>
+          </select>
+          <select class="md-colour-select" data-md-colour="ink"
+            aria-label="Text colour" title="Text colour">
+            <option value="">Text colour…</option>
+          </select>
+          <button type="button" data-md="clearformat" title="Remove highlight or colour"
+            aria-label="Remove highlight or colour"><i class="ph ph-eraser" aria-hidden="true"></i></button>
           <span class="doc-toolbar-sep" aria-hidden="true"></span>
           <button type="button" data-md="ul" title="Bulleted list">• List</button>
           <button type="button" data-md="ol" title="Numbered list">1. List</button>

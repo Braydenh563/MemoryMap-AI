@@ -3790,12 +3790,80 @@ async function remindFromSelection(text) {
 // The actions the ⋯ offers. Rebuilt on every open rather than once, because
 // two of them depend on state that changes between selections: whether the
 // passage has a source to attribute, and whether the local model is running.
+// The <textarea>/<input> a selection came from, or null when the selection is
+// in rendered content. Kept separate from `selectionPopupText` because the
+// field is what an edit action needs to write back into.
+let selectionPopupField = null;
+
+// A selection inside a text field, or null.
+//
+// This needs its own path because `window.getSelection()` does not see inside
+// a <textarea> — the browser keeps that selection on the element itself, as
+// `selectionStart`/`selectionEnd`. That is the real reason the popup never
+// appeared while editing, and reading the DOM selection alone will always
+// come back empty there no matter what the exclusion list says.
+function fieldSelection() {
+  const el = document.activeElement;
+  if (!el || (el.tagName !== "TEXTAREA" && el.tagName !== "INPUT")) return null;
+  // `selectionStart` is null on input types that do not support it (number,
+  // email, colour…), which is exactly the set we should not offer this on.
+  if (el.selectionStart == null || el.selectionStart === el.selectionEnd) return null;
+  const text = el.value.slice(el.selectionStart, el.selectionEnd);
+  return text.trim() ? { el, start: el.selectionStart, end: el.selectionEnd, text } : null;
+}
+
+// Replace a field's selected range, then put the caret back around the same
+// passage. Dispatches `input` because everything downstream of typing —
+// draft autosave, the character counter, the live markdown preview — listens
+// for it, and a programmatic value change fires nothing on its own.
+function wrapFieldSelection(field, before, after) {
+  const { el, start, end, text } = field;
+  el.value = el.value.slice(0, start) + before + text + after + el.value.slice(end);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.focus();
+  el.setSelectionRange(start + before.length, start + before.length + text.length);
+}
+
 function selectionMenuItems() {
   const text = selectionPopupText;
   const source = selectionPopupSource;
   const aiOff = modelStatus ? modelStatus.ollama_running === false : false;
 
-  const items = [
+  const items = [];
+
+  // **Where highlighting is discoverable from.** `==text==` renders as a
+  // highlight, but a syntax nobody is told about may as well not exist —
+  // reported exactly that way ("I still dont know how to highlight text").
+  // Selecting the words you want marked and picking a colour is the
+  // affordance; the syntax it writes is still plain text in the note, so
+  // nothing here is a second way of storing a highlight.
+  if (selectionPopupField) {
+    const field = selectionPopupField;
+    items.push(
+      makeMenuItem("ph:highlighter Highlight", "Mark this passage (yellow)", () =>
+        wrapFieldSelection(field, "==", "==")
+      ),
+      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", async () => {
+        const colour = (await promptDialog(
+          "Colour — green, blue, pink, purple or orange:", "green"
+        )).trim().toLowerCase();
+        if (!colour) return;
+        if (!["yellow", "green", "blue", "pink", "purple", "orange"].includes(colour)) {
+          toast("Pick one of: yellow, green, blue, pink, purple, orange.", true);
+          return;
+        }
+        wrapFieldSelection(field, colour === "yellow" ? "==" : `==${colour}|`, "==");
+      }),
+      makeMenuItem("ph:text-b Bold", "Wrap this in **bold**", () =>
+        wrapFieldSelection(field, "**", "**")
+      ),
+      makeMenuItem("ph:text-italic Italic", "Wrap this in *italic*", () =>
+        wrapFieldSelection(field, "*", "*")
+      )
+    );
+  }
+
+  items.push(
     makeMenuItem("ph:note-pencil Save as a note", "File this straight into your notebook", () =>
       saveSelectionAsNote(text)
     ),
@@ -3804,8 +3872,8 @@ function selectionMenuItems() {
     ),
     makeMenuItem("ph:plus-circle Add to a note…", "Append this to a note you already have", () =>
       appendSelectionToNote(text)
-    ),
-  ];
+    )
+  );
 
   if (source) {
     items.push(
@@ -3993,6 +4061,27 @@ function selectionIsActionable(selection) {
 let selectionPointerPoint = null;
 
 function syncSelectionPopup() {
+  // Text fields first. Asked for twice ("the ellipse button doesnt appear
+  // when I highlight text in textboxes") — the editor is a <textarea>, whose
+  // selection lives on the element rather than in the DOM selection, so the
+  // rendered-content path below can never see it.
+  const field = fieldSelection();
+  if (field) {
+    selectionPopupField = field;
+    // A textarea has no range rectangle to anchor to — the browser exposes no
+    // geometry for a selection inside one — so the pointer is the anchor when
+    // there is one, and the field's own box is the fallback for a keyboard
+    // selection. Passing the field rect as `rect` keeps showSelectionPopupAt's
+    // existing "top-right of the selection" logic working unchanged.
+    showSelectionPopupAt(
+      field.el.getBoundingClientRect(),
+      field.text,
+      null,
+      selectionPointerPoint
+    );
+    return;
+  }
+
   const selection = window.getSelection();
   const text = (selection?.toString() || "").trim();
   if (!text || selection.isCollapsed || !selectionIsActionable(selection)) {
@@ -4001,6 +4090,7 @@ function syncSelectionPopup() {
     if (!selectionPopupEl?.querySelector(".action-menu:not(.hidden)")) hideSelectionPopup();
     return;
   }
+  selectionPopupField = null;
   showSelectionPopupAt(
     selection.getRangeAt(0).getBoundingClientRect(),
     text,
@@ -4047,6 +4137,7 @@ function initSelectionPopup() {
   document.addEventListener("mousedown", (event) => {
     if (!event.target.closest(".selection-popup")) hideSelectionPopup();
   });
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") hideSelectionPopup();
   });
@@ -4530,7 +4621,7 @@ function matchesSearch(entry) {
 // unclosed `[` is O(n²), CodeQL's js/polynomial-redos) doesn't apply to a
 // class that already excludes its own closing character.
 const INLINE_MD =
-  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|==(?:(yellow|green|blue|pink|purple|orange)\|)?([^=\n]+?)==|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|==(?:(yellow|green|blue|pink|purple|orange)\|)?([^=\n]+?)==|\+\+(yellow|green|blue|pink|purple|orange|red|grey)\|([^+\n]+?)\+\+|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
 
 // `appendInline`'s own grammar, before it was merged into renderInlineMarkdown
 // below: adds `__bold__`/`_italic_` and bare `https://…` autolinking, and its
@@ -4546,7 +4637,7 @@ const INLINE_MD =
 // selected by `options.underscoreSyntax` below, guarantee neither caller's
 // matching behaviour moves at all.
 const INLINE_MD_LEGACY =
-  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|==(?:(yellow|green|blue|pink|purple|orange)\|)?([^=]+?)==|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
+  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|==(?:(yellow|green|blue|pink|purple|orange)\|)?([^=]+?)==|\+\+(yellow|green|blue|pink|purple|orange|red|grey)\|([^+]+?)\+\+|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
 
 // Same allowlist an <img src> or <a href> built from note text has to pass:
 // an absolute http(s) URL, or a same-origin relative path (one leading
@@ -4696,17 +4787,17 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         element.appendChild(before);
       }
     }
-    let code, bold, strike, markColour, mark, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
+    let code, bold, strike, markColour, mark, inkColour, ink, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
     if (underscoreSyntax) {
       let boldStar, boldUnderscore, italicStar, italicUnderscore;
       [
-        , code, boldStar, boldUnderscore, strike, markColour, mark, italicStar, italicUnderscore,
+        , code, boldStar, boldUnderscore, strike, markColour, mark, inkColour, ink, italicStar, italicUnderscore,
         imageAlt, imageUrl, linkText, linkUrl, bareUrl,
       ] = match;
       bold = boldStar ?? boldUnderscore;
       italic = italicStar ?? italicUnderscore;
     } else {
-      [, code, bold, strike, markColour, mark, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+      [, code, bold, strike, markColour, mark, inkColour, ink, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
     }
     // Images and links are their own element kinds, not a wrap-in-a-tag like
     // the four above — built and appended directly rather than falling
@@ -4831,12 +4922,28 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
       cursor = pattern.lastIndex;
       continue;
     }
-    const tag = code ? "code" : bold ? "strong" : strike ? strikeTag : mark ? "mark" : "em";
+    const tag = code
+      ? "code"
+      : bold
+        ? "strong"
+        : strike
+          ? strikeTag
+          : mark
+            ? "mark"
+            : ink
+              ? "span"
+              : "em";
     const node = document.createElement(tag);
     // Distinguishes a `==highlight==` from highlightInto's own <mark> below
     // (used for search-term matches) — same tag, different meaning, so they
     // need different styling or a highlighted note reads as "this matched
     // your search" with no search active.
+    // `++red|text++` — a foreground colour, the counterpart to the highlight's
+    // background one. The colour is part of a class name, never an inline
+    // style: this app's CSP rejects inline styles outright (a whole batch of
+    // them was found doing nothing once), and a closed allowlist means every
+    // colour that can be typed has a theme-aware rule written for it.
+    if (ink) node.className = `text-ink text-ink-${inkColour}`;
     if (mark) {
       // `==text==` is the plain (yellow) highlight; `==green|text==` picks one
       // of a small named set. An allowlist baked into the pattern itself, not
@@ -4851,7 +4958,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
     // into pieces — the rest still is, or filtering would stop marking any
     // word that happened to sit inside emphasis.
     if (code) node.textContent = code;
-    else highlightInto(node, bold || strike || mark || italic, terms);
+    else highlightInto(node, bold || strike || mark || ink || italic, terms);
     element.appendChild(node);
     cursor = pattern.lastIndex;
   }
@@ -14609,7 +14716,17 @@ function renderNavHistoryMenu() {
     menu.appendChild(empty);
     return;
   }
-  for (let i = tabHistory.stack.length - 1; i >= 0; i--) {
+  // Asked for directly: "instead of squishing it, just make it scrollable
+  // and/or cap the history stored". Both, and this is the cap half. The
+  // stack itself stays at TAB_HISTORY_CAP so Back/Forward can still walk a
+  // long way; what gets capped is how much of it this menu draws, because a
+  // jump list is for the handful of places you were just at - past a dozen
+  // rows you are reading a log, not picking a destination. The `.hidden`
+  // path below and `max-height`/`overflow-y: auto` in
+  // 02-chat-graph.css keep the rest scrollable rather than clipped.
+  const NAV_HISTORY_SHOWN = 12;
+  const oldest = Math.max(0, tabHistory.stack.length - NAV_HISTORY_SHOWN);
+  for (let i = tabHistory.stack.length - 1; i >= oldest; i--) {
     const entry = tabHistory.stack[i];
     const current = i === tabHistory.index;
     const item = document.createElement(current ? "div" : "button");
@@ -14626,6 +14743,14 @@ function renderNavHistoryMenu() {
       });
     }
     menu.appendChild(item);
+  }
+  // Say so rather than silently truncating: a jump list that quietly forgets
+  // where you were is worse than one that admits its own limit.
+  if (oldest > 0) {
+    const more = document.createElement("div");
+    more.className = "muted text-xs nav-history-more";
+    more.textContent = `${oldest} older ${oldest === 1 ? "step" : "steps"} not shown`;
+    menu.appendChild(more);
   }
 }
 

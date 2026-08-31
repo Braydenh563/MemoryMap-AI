@@ -3180,25 +3180,96 @@ function bookmarkRow(bookmark) {
   edit.title = "Edit";
   edit.setAttribute("aria-label", "Edit this link");
   setLabel(edit, "ph:pencil-simple");
-  edit.addEventListener("click", async () => {
-    // promptDialog resolves "" on both Cancel and an emptied field (same
-    // convention saveCurrentSearch already relies on) — there's no way to
-    // distinguish "cancelled" from "cleared it", so both are treated as
-    // cancelled rather than risk silently blanking a title on Escape.
-    const title = await promptDialog("Title:", bookmark.title || bookmark.url);
-    if (!title) return;
-    // Reported directly: Edit only ever touched the title, with no way to
-    // fix a typo'd URL short of delete-and-recreate. A second prompt, not a
-    // combined dialog — promptDialog only ever takes one field, and this
-    // matches the group button's own "one small dialog per property"
-    // pattern rather than inventing a bigger multi-field modal for it.
-    const url = await promptDialog("URL:", bookmark.url);
-    if (!url) return;
-    await apiJson(`/bookmarks/${bookmark.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ title, url }),
+  // **An inline form, not a chain of prompts.** This was two sequential
+  // `promptDialog` calls (title, then URL) and was reported as "I still
+  // can't edit the link URLs" five separate times. The flow was driven
+  // end-to-end in a clean browser each time it was checked and worked
+  // every time - including persistence through a reload - so the fault was
+  // never in the handler. But a fix nobody can reach is not a fix, and a
+  // second modal that only appears *after* you commit the first one is a
+  // genuinely poor way to expose a second field: if anything at all
+  // interrupts between them (a stale script, an Escape, a mis-click on
+  // Cancel) the URL silently never gets asked for, and it looks exactly
+  // like "editing the URL is broken".
+  //
+  // Editing the row in place removes the whole class of problem: all three
+  // fields are visible at once, nothing is sequenced, nothing depends on
+  // focus returning correctly between modals, and what you are editing
+  // stays on screen next to the form.
+  edit.addEventListener("click", () => {
+    if (row.querySelector(".bookmark-edit-form")) return; // already editing
+    const form = document.createElement("form");
+    form.className = "bookmark-edit-form";
+
+    const field = (labelText, value, placeholder) => {
+      const wrap = document.createElement("label");
+      wrap.className = "bookmark-edit-field";
+      const span = document.createElement("span");
+      span.className = "muted text-xs";
+      span.textContent = labelText;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = value || "";
+      input.placeholder = placeholder;
+      wrap.append(span, input);
+      form.appendChild(wrap);
+      return input;
+    };
+
+    const titleInput = field("Title", bookmark.title, "Title");
+    const urlInput = field("URL", bookmark.url, "https://example.com");
+    // Blank is meaningful here and always was: it means "no group".
+    const groupInput = field("Group", bookmark.group_name, "e.g. Work/Reading");
+
+    const buttons = document.createElement("div");
+    buttons.className = "row bookmark-edit-actions";
+    const save = document.createElement("button");
+    save.type = "submit";
+    save.className = "small";
+    save.textContent = "Save";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ghost small";
+    cancel.textContent = "Cancel";
+    buttons.append(save, cancel);
+    form.appendChild(buttons);
+
+    const close = () => {
+      form.remove();
+      main.classList.remove("hidden");
+      actions.classList.remove("hidden");
+    };
+    cancel.addEventListener("click", close);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const url = urlInput.value.trim();
+      if (!url) {
+        toast("A link needs a URL.", true);
+        urlInput.focus();
+        return;
+      }
+      save.disabled = true;
+      try {
+        await apiJson(`/bookmarks/${bookmark.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            title: titleInput.value.trim(),
+            url,
+            group_name: groupInput.value.trim(),
+          }),
+        });
+        renderBookmarks();
+      } catch (error) {
+        save.disabled = false;
+        toast(error.message || "Couldn't save that link.", true);
+      }
     });
-    renderBookmarks();
+
+    main.classList.add("hidden");
+    actions.classList.add("hidden");
+    row.appendChild(form);
+    urlInput.focus();
+    urlInput.select();
   });
 
   const group = document.createElement("button");

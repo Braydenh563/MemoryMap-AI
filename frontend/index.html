@@ -4791,6 +4791,25 @@ Link to another note with [[its first few words]]."></textarea>
     </div>
   </div>
 
+  <!-- **Find, everywhere.** Asked for directly: "add a ctrl+f or equivalent
+       text search... make the find feature available on all tabs." The
+       document editor already had its own Ctrl+F (`#doc-find-bar`,
+       documents.js) — real find-and-replace over the editor's own
+       `<textarea>`, which no generic DOM search can see the content of at
+       all. Ctrl+F still opens that one when the Documents tab is showing;
+       everywhere else (Notes, Chat, Library, Timeline, Reminders, Graph,
+       Dashboard) it opens this instead, which walks whatever tab-page is
+       currently visible. One overlay, fixed so it works regardless of
+       which tab or scroll position is underneath it, not eleven copies of
+       the same input. -->
+  <div id="global-find-bar" class="global-find-bar hidden" role="search" aria-label="Find on this page">
+    <input id="global-find-input" type="search" placeholder="Find on this page…" aria-label="Find on this page">
+    <span id="global-find-count" class="muted global-find-count" aria-live="polite"></span>
+    <button id="global-find-prev" class="ghost small icon-button" type="button" title="Previous match (Shift+Enter)" aria-label="Previous match"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+    <button id="global-find-next" class="ghost small icon-button" type="button" title="Next match (Enter)" aria-label="Next match"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+    <button id="global-find-close" class="ghost small icon-button" type="button" title="Close (Escape)" aria-label="Close find"><i class="ph ph-x" aria-hidden="true"></i></button>
+  </div>
+
   <!-- aria-live so screen readers hear saves, undos, and errors -->
   <div id="toast-box" aria-live="polite"></div>
   <!-- Off-screen announcements for things with no visible message of their

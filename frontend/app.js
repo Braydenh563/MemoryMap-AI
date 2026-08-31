@@ -3003,11 +3003,6 @@ function openLightbox(items, startIndex = 0) {
   doc.addEventListener("click", (e) => e.stopPropagation());
   stage.appendChild(doc);
 
-  // A typed query is a literal, not a pattern: "a.b" must not match "axb",
-  // and an unbalanced "(" must not throw. CodeQL also flags the unescaped
-  // shape, and this file has already shipped one polynomial-ReDoS.
-  const escapeForFind = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
   // Find within the document. Deliberately a filter over the rendered text
   // rather than the browser's own Ctrl+F: this panel scrolls inside a
   // dialog, and the native find has no idea the rest of the page is inert.
@@ -21566,6 +21561,162 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+// A typed find query is a literal, not a pattern: "a.b" must not match
+// "axb", and an unbalanced "(" must not throw. CodeQL also flags the
+// unescaped shape, and this file has already shipped one polynomial-ReDoS.
+// Shared by the lightbox's document find and the global find bar below,
+// rather than the same six-character regex copied twice.
+function escapeForFind(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// --- global find bar (Ctrl+F on any tab except Documents, which keeps its
+// own find-and-replace) -----------------------------------------------------
+//
+// Deliberately scoped to whichever `.tab-page:not(.hidden)` is currently on
+// screen, not the whole document: searching the header, the status bar or a
+// hidden tab's stale DOM would surface matches you could never scroll to,
+// and the find-and-replace input's own value would match itself.
+//
+// **Known, accepted limit, not a bug**: the Notes list renders
+// incrementally as you scroll (`renderIncrementally`) to keep a large
+// notebook's DOM proportional to what's been scrolled past — a note not yet
+// painted is not in the DOM yet and this cannot find it, the same limit a
+// browser's own native find has on any virtualized list. `#note-search`
+// (which filters the underlying data, not the rendered DOM) is the actual
+// answer for "find a note I haven't scrolled to" and is not replaced by this.
+let globalFindMatches = [];
+let globalFindActive = -1;
+
+function globalFindWalkableRoot() {
+  return document.querySelector(".tab-page:not(.hidden)");
+}
+
+function globalFindClearHighlights() {
+  for (const mark of document.querySelectorAll("mark.global-find-hit")) {
+    mark.replaceWith(document.createTextNode(mark.textContent));
+  }
+  globalFindWalkableRoot()?.normalize();
+  globalFindMatches = [];
+  globalFindActive = -1;
+}
+
+function globalFindRun(needle) {
+  globalFindClearHighlights();
+  const root = globalFindWalkableRoot();
+  const count = $("global-find-count");
+  if (!needle || !root) {
+    count.textContent = "";
+    return;
+  }
+  const lower = needle.toLowerCase();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue || !node.nodeValue.toLowerCase().includes(lower)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      const el = node.parentElement;
+      if (!el || el.closest("script, style, [hidden], .hidden")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      // A note not yet scrolled into view by renderIncrementally, or a
+      // collapsed section, has zero size — nothing to scroll to, so nothing
+      // to count as a match. The same reasoning contrastAudit's own visible-
+      // text walk used.
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const targets = [];
+  let node;
+  while ((node = walker.nextNode())) targets.push(node);
+  const pattern = new RegExp(escapeForFind(needle), "gi");
+  for (const textNode of targets) {
+    const parts = textNode.nodeValue.split(new RegExp(`(${escapeForFind(needle)})`, "gi"));
+    if (parts.length < 2) continue;
+    const frag = document.createDocumentFragment();
+    for (const part of parts) {
+      if (pattern.test(part) && part.toLowerCase() === lower) {
+        const mark = document.createElement("mark");
+        mark.className = "global-find-hit";
+        mark.textContent = part;
+        frag.appendChild(mark);
+      } else if (part) {
+        frag.appendChild(document.createTextNode(part));
+      }
+    }
+    textNode.replaceWith(frag);
+  }
+  globalFindMatches = [...root.querySelectorAll("mark.global-find-hit")];
+  globalFindActive = globalFindMatches.length ? 0 : -1;
+  globalFindShowActive();
+}
+
+function globalFindShowActive() {
+  const count = $("global-find-count");
+  for (const mark of globalFindMatches) mark.classList.remove("global-find-current");
+  if (!globalFindMatches.length) {
+    count.textContent = "No matches";
+    return;
+  }
+  const mark = globalFindMatches[globalFindActive];
+  mark.classList.add("global-find-current");
+  mark.scrollIntoView({ block: "center", behavior: "smooth" });
+  count.textContent = `${globalFindActive + 1} of ${globalFindMatches.length}`;
+}
+
+function globalFindStep(delta) {
+  if (!globalFindMatches.length) return;
+  globalFindActive = (globalFindActive + delta + globalFindMatches.length) % globalFindMatches.length;
+  globalFindShowActive();
+}
+
+function openGlobalFind() {
+  // Ctrl+F while the lightbox's own document find is already showing
+  // should reach *that* one instead of stacking a second bar behind the
+  // overlay it's not even visible through — the lightbox's find is real
+  // extracted text with nothing else underneath it, the same job this bar
+  // does for a tab.
+  const lightboxFind = document.querySelector(".lightbox .lightbox-find:not(.hidden)");
+  if (lightboxFind) {
+    lightboxFind.focus();
+    return;
+  }
+  const bar = $("global-find-bar");
+  bar.classList.remove("hidden");
+  const input = $("global-find-input");
+  input.focus();
+  input.select();
+  if (input.value) globalFindRun(input.value);
+}
+
+function closeGlobalFind() {
+  $("global-find-bar").classList.add("hidden");
+  globalFindClearHighlights();
+  $("global-find-input").value = "";
+}
+
+$("global-find-input")?.addEventListener("input", (e) => globalFindRun(e.target.value.trim()));
+$("global-find-input")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    globalFindStep(e.shiftKey ? -1 : 1);
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    closeGlobalFind();
+  }
+});
+$("global-find-next")?.addEventListener("click", () => globalFindStep(1));
+$("global-find-prev")?.addEventListener("click", () => globalFindStep(-1));
+$("global-find-close")?.addEventListener("click", () => closeGlobalFind());
+// Switching tabs while the bar is open would otherwise leave it searching a
+// now-hidden page, or (worse) leave <mark> wrappers stuck inside a tab-page
+// that a later feature might re-render around and lose track of.
+window.addEventListener("tabSwitched", () => {
+  if (!$("global-find-bar").classList.contains("hidden")) closeGlobalFind();
+});
+
 $("conv-browse-all").addEventListener("click", () => {
   switchTab("library");
   libraryKind = "chat";
@@ -23200,6 +23351,11 @@ for (const id of ["show-guide-btn", "about-take-tour"]) {
 const DEFAULT_SHORTCUTS = {
   palette: { keys: "Ctrl+K", label: "Open the command palette" },
   search: { keys: "/", label: "Jump to search (or the chat box on Chat)" },
+  // Asked for directly: "add a ctrl+f or equivalent text search... make
+  // the find feature available on all tabs." Rebindable like every other
+  // chorded shortcut here, which also means it is discoverable in the
+  // shortcuts cheat-sheet (?) rather than a secret the app never mentions.
+  find: { keys: "Ctrl+F", label: "Find on this page" },
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
@@ -23340,6 +23496,15 @@ function runShortcut(id) {
     save: () => {
       if (localStorage.getItem("activeTab") === "documents") saveDocument();
       else saveEntry();
+    },
+    // Same "which surface depends on the tab" dispatch as `save` above.
+    // The Documents tab keeps its own, more capable find-and-replace
+    // (`#doc-find-bar`) — it can see inside the editor's own textarea,
+    // which no generic DOM search can. Everywhere else opens the global
+    // one below, scoped to whichever tab-page is currently visible.
+    find: () => {
+      if (localStorage.getItem("activeTab") === "documents") toggleDocFindBar(true);
+      else openGlobalFind();
     },
     newChat: () => {
       switchTab("chat");

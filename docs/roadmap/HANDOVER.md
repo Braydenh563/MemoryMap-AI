@@ -1,6 +1,6 @@
 # Session handover
 
-## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, then pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, and three system-tray bugs
+## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
 
 Branch `claude/docs-review-priority-work-sequ16`, a long session driven
 almost entirely by live user reports rather than the roadmap — commits below,
@@ -99,7 +99,39 @@ In rough order:
   names this as the project's most expensive recurring mistake.
 - **ROADMAP.md kept under its 2,000-line cap** by moving the full narrative
   of finished live-list items to HISTORY.md §100, leaving one-line stubs —
-  done twice this stretch as more items closed out (currently 1,915 lines).
+  done twice this stretch as more items closed out (now 1,954 lines —
+  getting closer again, worth another migration pass soon).
+- **Library "All" grid pagination, closing out item 1's last surface.**
+  Same `#library-page-size` shape as Notes/Reminders/Documents, sitting
+  beside the existing view toggle and filter chips — "All" leaves the
+  grid's `renderIncrementally` chunked scroll untouched, a number slices
+  the filtered/sorted list to one flat page. Verified live: 40 seeded
+  notes, 25/page shows "Page 1 of 2", Next shows the remaining 15, choice
+  persists across reload.
+- **§88.4 item 4 — per-stage token accounting, the prerequisite the
+  roadmap named for everything else in that section.** Both chat request
+  paths now attach a system/tool-schemas/history/notes token estimate
+  (chars/4, same approximation `ai/context.py`'s budgeting already used)
+  to the first round's stats event, surfaced in the chat metadata line's
+  window-fill tooltip — also closes BACKLOG's "per-chat token meter" ask.
+  2 new tests against `fake_ollama`; a real end-to-end round-trip could
+  not be verified (no reachable Ollama in this sandbox).
+- **§87.5's first slice — link-type/confidence-weighted graph traversal.**
+  Found a real gap in the process: `EntryLink.link_type`'s own code
+  comment already claimed "the traversal weights them by it", and that
+  was false — every link cost the same regardless of type. Built
+  `link_strength()` (`core/database.py`), wired into both
+  `entry/paths.py`'s Trace search and `graph_expansion()`'s AI-retrieval
+  neighbour ordering. Also corrected two other stale claims in §87.5's own
+  text along the way (the traversal was already weighted by connection
+  *kind*, just not by per-link type; and paths.py/graph_expansion don't
+  actually share code, they're two separate walks). 9 new tests.
+  Deliberately not attempted: the wider composite (shared tags, category,
+  temporal proximity) — needs per-pair query-time computation on a hot
+  path, unmeasured; and distinguishing a wiki link as specifically the
+  strongest signal — `sync_wiki_links` creates a link through the same
+  path a plain no-reason link does, so nothing currently records how a
+  link was made, which would need a real schema decision.
 
 Full detail on all of the above is in ROADMAP.md's live list, HISTORY.md
 §100, and BACKLOG §77/§98/§99/§101 — not repeated here.
@@ -122,6 +154,14 @@ Full detail on all of the above is in ROADMAP.md's live list, HISTORY.md
   way to actually click a system tray icon. Verified only by reading the
   generated JS each tray callback evaluates and confirming the function
   names it calls exist elsewhere in the frontend; never run.
+- §87.5's link-weighting slice is unit-tested deterministically (given a
+  link_type/confidence, does the search prefer the stronger link — yes),
+  but whether it actually makes the AI's retrieved-context *better* on a
+  real question needs a real model and the fixed-question-set harness
+  BACKLOG's §11a section has been asking for. That's the next step BACKLOG
+  §101 names — "re-measure whether graph_expansion's existing walk got
+  better" — and it cannot happen in this sandbox at all, not just
+  "unverified this session."
 - §101 (the knowledge graph made second-nature to the AI across search and
   every AI feature) was logged to BACKLOG, tied to the existing §87.5/§88.4
   scoping, and deliberately not started — the user said "continue what you

@@ -420,3 +420,43 @@ def test_chat_broad_question_answers_from_recent(ai_client, fake_ollama):
     assert body["ai_response"] == fake_ollama.librarian_reply  # the model answered
     assert body["answered_by"] == "llama3.2"
     assert body["ollama_running"] is True
+
+
+def test_turning_off_ai_first_filing_puts_the_vectors_back_in_front(
+    session, app_state
+):
+    """The escape hatch for the latency the reordering introduced.
+
+    Asking the model first costs a round-trip on every capture, which is felt
+    immediately on a slow local model. Off, the embedding shortcuts decide
+    what they can and the model is only asked for what they decline - the old
+    order, without giving up the AI entirely.
+    """
+    embeddings = FakeEmbeddingService()
+    ollama = FakeOllama()
+    model_manager = deps.get_model_manager()
+    _store(session, embeddings, "Why did the scarecrow win an award?", "Dad Jokes")
+    deps.get_config().set_preference("ai_first_filing", False)
+
+    category, _, method = janitor.categorise(
+        session, "another funny pun about cheese", embeddings, model_manager, ollama
+    )
+
+    assert (category, method) == ("Dad Jokes", "semantic-match")
+    assert ollama.chat_calls == []  # the vectors were confident, so no round-trip
+
+
+def test_with_ai_first_filing_off_the_model_still_decides_what_vectors_cannot(
+    session, app_state
+):
+    """Off is not "stop using the AI" - it is only a reordering."""
+    embeddings = FakeEmbeddingService()
+    ollama = FakeOllama()
+    deps.get_config().set_preference("ai_first_filing", False)
+
+    category, confidence, method = janitor.categorise(
+        session, "buy milk and eggs", embeddings, deps.get_model_manager(), ollama
+    )
+
+    assert (category, confidence, method) == ("Shopping", 85, "llm")
+    assert len(ollama.chat_calls) == 1

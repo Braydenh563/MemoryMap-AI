@@ -550,10 +550,25 @@
             <button type="button" data-md="ul" title="Bulleted list">• List</button>
             <button type="button" data-md="task" title="Task list"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> Task</button>
             <button type="button" data-md="link" title="Link" aria-label="Link"><i class="ph ph-link" aria-hidden="true"></i></button>
+            <span class="doc-toolbar-sep" aria-hidden="true"></span>
+            <!-- Asked for directly: a way to see highlights and text colours
+                 while writing, and to click a word to edit it. The document
+                 editor's Live view already does this for documents; the note
+                 composer had no preview at all. -->
+            <button type="button" id="entry-preview-toggle" class="doc-toolbar-toggle"
+              aria-pressed="false" aria-controls="entry-preview"
+              title="Preview — see highlights and colours as they will look">
+              <i class="ph ph-eye ph-lead" aria-hidden="true"></i> Preview
+            </button>
           </div>
           <textarea id="entry-content" rows="3" class="autogrow"
             placeholder="Type anything — a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
+          <!-- The rendered note, shown instead of the box while Preview is on.
+               Clicking it goes back to editing with the caret placed at the
+               words that were clicked - see enterEntryPreview in app.js. -->
+          <div id="entry-preview" class="entry-preview hidden" role="button" tabindex="0"
+            aria-label="Preview of this note — click any text to edit it"></div>
           <!-- Autocomplete for [[wiki links]], anchored under the note box. -->
           <ul id="wiki-suggest" class="wiki-suggest hidden" role="listbox"
             aria-label="Notes you can link to"></ul>
@@ -4499,6 +4514,16 @@ Link to another note with [[its first few words]]."></textarea>
                    whatever you file rather than on an interval, and grouping
                    them under a switch labelled for something else would make
                    turning one off look like turning the other off. -->
+              <!-- Flagged when AI-first filing shipped: it costs a model
+                   round-trip on every capture, which is felt immediately on a
+                   slow local model. Off puts the embedding shortcuts back in
+                   front; the model still decides anything they decline, so
+                   this trades accuracy for speed rather than turning the AI
+                   off. -->
+              <label class="check-row">
+                <input type="checkbox" id="pref-ai-first-filing">
+                <span>Ask the AI where each note belongs (more accurate, slower to save)</span>
+              </label>
               <label class="check-row">
                 <input type="checkbox" id="pref-auto-caption-images">
                 <span>Describe images automatically (AI caption on save)</span>

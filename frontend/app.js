@@ -16827,6 +16827,7 @@ async function renderPrefs() {
 // Web-search tab having been opened first in the same session.
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
+  $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
@@ -21246,7 +21247,15 @@ async function loadLinkSuggestions() {
   // box is left empty — so a failed guess costs nothing and there is nothing
   // to warn about.
   requestAnimationFrame(() => {
-    const pending = rowReasons.filter((r) => !r.input.dataset.userEdited);
+    // Only the top few automatically. Each pair is a model round-trip and
+    // they run sequentially server-side, so filling all twelve unasked is a
+    // long request on a slow local model for rows most people never scroll
+    // to. The suggestions arrive best-first, so these are the ones worth
+    // spending on; "Suggest reasons" still fills the rest on demand.
+    const AUTO_REASON_LIMIT = 6;
+    const pending = rowReasons
+      .filter((r) => !r.input.dataset.userEdited)
+      .slice(0, AUTO_REASON_LIMIT);
     if (!pending.length) return;
     apiJson("/entries/link-suggestions/reasons", {
       method: "POST",
@@ -22097,6 +22106,9 @@ $("pref-autonomous-tasks").addEventListener("change", (e) => {
   toggleAutonomousPanel();
   setPreference("autonomous_tasks_enabled", e.target.checked);
 });
+$("pref-ai-first-filing").addEventListener("change", (e) =>
+  setPreference("ai_first_filing", e.target.checked)
+);
 $("pref-auto-caption-images").addEventListener("change", (e) =>
   setPreference("auto_caption_images", e.target.checked)
 );
@@ -22614,6 +22626,77 @@ $("persona-select").addEventListener("change", async () => {
     renderChatEmptyState();
   }
 });
+// **Preview for the note composer.** Asked for directly: a way to see the
+// highlight and text colours while writing, and to click a word to edit it.
+//
+// Reuses `liveMarkdownRenderer` (debounced, already used by the streaming
+// answer pane) and `renderMarkdown` rather than growing a second renderer —
+// the document editor's Live view proves that path already renders
+// everything, colours included.
+//
+// Deliberately *not* a copy of that Live view's per-block click-to-edit. That
+// machinery is built around a full-page editor with `docLiveBlocks`,
+// `docLiveActive` and a per-block textarea; a three-row composer does not
+// need a block model, and a second copy of one would be the third place in
+// this app that decides what a block is. The click behaviour people actually
+// want from a preview — "let me fix that word" — is served by going back to
+// the box with the caret already on the words that were clicked.
+let entryPreviewRender = null;
+
+function entryPreviewOn() {
+  return !$("entry-preview").classList.contains("hidden");
+}
+
+function paintEntryPreview() {
+  if (!entryPreviewOn()) return;
+  entryPreviewRender ??= liveMarkdownRenderer($("entry-preview"));
+  const text = $("entry-content").value;
+  entryPreviewRender(text.trim() ? text : "_Nothing to preview yet._");
+}
+
+function setEntryPreview(on) {
+  const preview = $("entry-preview");
+  const box = $("entry-content");
+  const toggle = $("entry-preview-toggle");
+  preview.classList.toggle("hidden", !on);
+  box.classList.toggle("hidden", on);
+  toggle.setAttribute("aria-pressed", String(on));
+  toggle.classList.toggle("is-active", on);
+  if (on) {
+    paintEntryPreview();
+  } else {
+    box.focus();
+  }
+}
+
+// Put the caret where the click landed. There is no exact mapping from a
+// rendered node back to an offset in the source — the markup that produced it
+// has been consumed — so this looks up the clicked node's own text in the
+// source and lands on it. Wrong only when the same words appear twice, where
+// it picks the first, which still beats the caret going to position zero.
+function caretAtClickedText(node) {
+  const box = $("entry-content");
+  const clicked = (node?.textContent || "").trim().slice(0, 60);
+  const at = clicked ? box.value.indexOf(clicked) : -1;
+  setEntryPreview(false);
+  if (at === -1) return;
+  box.setSelectionRange(at, at + clicked.length);
+}
+
+$("entry-preview-toggle")?.addEventListener("click", () => setEntryPreview(!entryPreviewOn()));
+$("entry-preview")?.addEventListener("click", (event) => {
+  caretAtClickedText(event.target);
+});
+$("entry-preview")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    setEntryPreview(false);
+  }
+});
+// Typing with the preview open (via the toolbar, which writes into the box
+// while it is hidden) must still repaint it.
+$("entry-content")?.addEventListener("input", paintEntryPreview);
+
 $("dashboard-persona-select").addEventListener("change", async () => {
   const persona = $("dashboard-persona-select").value;
   await apiJson("/preferences", {

@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import UNCATEGORISED
@@ -113,6 +114,20 @@ def categorise(
     # reply), so "the model had nothing useful to say" and "there is no model"
     # collapse into the same fallback here without a second availability
     # check.
+    # The order is a preference, defaulting to the model. Asking the model
+    # first buys accuracy and costs a round-trip on every single capture,
+    # which on a slow local model is felt immediately — so anyone who would
+    # rather have the instant save can have the old order back without giving
+    # up the AI entirely (the model still decides everything the vectors
+    # decline). Flagged as a real latency change when it shipped; this is the
+    # honest fix for it, rather than reverting the accuracy for everyone.
+    if not deps.get_config().get_preference("ai_first_filing", True):
+        semantic = _semantic_category(
+            session, content, embeddings, exclude_entry_id=exclude_entry_id
+        )
+        if semantic is not None:
+            return semantic
+
     category, confidence, method = _ask_llm(session, content, model_manager, ollama)
     if method != "none":
         # The category can come straight from the chat model, so it is
@@ -125,6 +140,41 @@ def categorise(
         )
         return category, confidence, method
 
+    semantic = _semantic_category(
+        session, content, embeddings, exclude_entry_id=exclude_entry_id
+    )
+    if semantic is not None:
+        return semantic
+
+    # Still "filed by <method>", even when the method is 'none'. Reversing the
+    # order above briefly replaced this with a differently-worded line, which
+    # broke the one thing every filing decision is supposed to leave behind:
+    # `test_ai_decisions_are_logged` greps the log console for exactly this
+    # prefix, and the Logs tab is where a user finds out *why* a note landed
+    # where it did. A decision with no model and no vector match is still a
+    # decision, and it is the one most worth being able to see.
+    logger.info(
+        "janitor: filed by %s -> '%s' (%d%%)",
+        method,
+        safe_value(category, 60),
+        confidence,
+    )
+    return category, confidence, method
+
+
+def _semantic_category(
+    session: Session,
+    content: str,
+    embeddings: EmbeddingService,
+    exclude_entry_id: int | None = None,
+) -> tuple[str, int, str] | None:
+    """Filing by vectors alone, or None when neither path is confident.
+
+    One implementation because it is now reached from two directions: as the
+    fallback when there is no chat model, and as the *first* attempt when
+    `ai_first_filing` is off. Two copies would be two chances for the
+    orderings to drift apart.
+    """
     match = _best_centroid_match(
         session, content, embeddings, exclude_entry_id=exclude_entry_id
     )
@@ -152,21 +202,7 @@ def categorise(
             neighbours.confidence,
         )
         return neighbours.name, neighbours.confidence, "semantic-neighbours"
-
-    # Still "filed by <method>", even when the method is 'none'. Reversing the
-    # order above briefly replaced this with a differently-worded line, which
-    # broke the one thing every filing decision is supposed to leave behind:
-    # `test_ai_decisions_are_logged` greps the log console for exactly this
-    # prefix, and the Logs tab is where a user finds out *why* a note landed
-    # where it did. A decision with no model and no vector match is still a
-    # decision, and it is the one most worth being able to see.
-    logger.info(
-        "janitor: filed by %s -> '%s' (%d%%)",
-        method,
-        safe_value(category, 60),
-        confidence,
-    )
-    return category, confidence, method
+    return None
 
 
 def _best_centroid_match(

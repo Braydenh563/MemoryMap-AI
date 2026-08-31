@@ -2775,3 +2775,39 @@ html.modal-open body {
   gap: var(--space-1);
   margin-right: var(--space-2);
 }
+
+
+/* The note composer's preview pane. Sized like the box it replaces so
+   toggling does not make the form jump, and scrollable rather than
+   unbounded — a long note should not push the Save button off screen. */
+.entry-preview {
+  min-height: 5.5rem;
+  max-height: 24rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--input-bg);
+  cursor: text;
+}
+
+.entry-preview.hidden {
+  display: none;
+}
+
+.entry-preview > *:first-child {
+  margin-top: 0;
+}
+
+.entry-preview > *:last-child {
+  margin-bottom: 0;
+}
+
+/* A pressed state for the toolbar's Preview toggle, so it reads as a mode
+   you are in rather than a button you pressed once. */
+.doc-toolbar-toggle.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}

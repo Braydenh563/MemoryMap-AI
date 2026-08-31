@@ -3774,3 +3774,90 @@ Genuinely open, ranked by value-per-effort:
   the app has.
 - **A "why is this here?" affordance on graph edges** — the reasons exist;
   clicking an edge should show one.
+
+
+## §110 — the toolbar round: formatting in Notes, and five more measured bugs
+
+### 110.1 Built
+
+- **A formatting toolbar for the Notes composer**, asked for as "a toolbar
+  like in the documents but for notes and stuff as well". Deliberately the
+  *same* `.doc-toolbar` markup, `data-md` contract and `MD_ACTIONS` table as
+  the document editor rather than a second implementation —
+  `applyMarkdown`/`wrapDocSelection` now take a target box id instead of
+  hardcoding `#doc-content`. This app already has three places that could
+  independently decide what `**` means (the doc toolbar, the "/" menu in
+  editor.js, and now this); keeping them to one table is what stops them
+  drifting into three dialects.
+- **Highlight, highlight-colour, text-colour and Remove formatting** on both
+  toolbars, plus the same actions on the selection popup.
+- **`++colour|text++`** for a foreground colour, alongside `==highlight==`.
+  Its colour is *required* in the pattern (unlike the highlight's optional
+  one) so an ordinary `++` in prose or code can never begin a match, and the
+  colour set is allowlisted inside the regex itself — a colour with no
+  stylesheet rule cannot be typed. Class names, never inline styles: this
+  app's CSP rejects those outright.
+- **The selection popup now works in text fields.** It never did, and the
+  reason was not the exclusion list: `window.getSelection()` does not see
+  inside a `<textarea>`, whose selection lives on the element as
+  `selectionStart`/`selectionEnd`. A separate `fieldSelection()` path reads
+  that. This is also where highlighting became *discoverable* — a syntax
+  nobody is told about may as well not exist, which is exactly how it was
+  reported ("I still dont know how to highlight text").
+- **Auto-captioning and auto-text-reading are switchable off** in Settings,
+  defaulting on. Two switches, not one: describing a picture is a
+  vision-model round trip and the expensive one; Tesseract is local and
+  cheap, so wanting the text without the description is a real position.
+  (Checked first, per the standing rule: OCR *already* auto-ran alongside
+  captioning — `process_committed_upload` fires all three — so the "make OCR
+  auto-run too" half of that ask needed nothing.)
+- **Bookmark editing is an inline form**, replacing two sequential
+  `promptDialog` calls. See 110.2.
+
+### 110.2 The five bugs, and the measurement that found each
+
+- **Gallery kebab stayed open over the rename field.** The close-on-pick
+  listener was on the bubble phase, with a comment explaining that each
+  button's handler should run first — but every one of those handlers opens
+  with `stopPropagation()` to keep the click off the tile beneath, so the
+  click never reached the listener. Capture phase fixes it; closing the menu
+  does not cancel the click still travelling to the button.
+- **The graph dock's divider clashing with the time read-out**, reported
+  twice and "fixed" once by reasoning. Measured: the group sat at exactly its
+  300px `max-width` while the read-out's right edge was at 705px against a
+  group edge of 698 — **the label had overflowed its own box by 7px** and
+  landed 2px from the next group. A flex item's automatic minimum size is its
+  content, so `min-width: 4rem` on the slider did not make it the thing that
+  gave way. Now it is. Re-measured: no overflow, 10px to the divider.
+- **Skill step numbers clipped against the panel border** — four reports,
+  three of them "fixed" by changing padding. An `outside` `::marker` hangs
+  into the padding by an amount CSS at this level cannot bound, so no padding
+  value was ever going to settle it. The numbers are now real spans in a
+  two-column grid gutter: they cannot overhang, and wrapped steps align under
+  their own text rather than under the number.
+- **The Regenerate-greeting button wrapping onto its own line.** The (usually
+  empty) status span had `flex: 1 1 auto`, giving it a 178px content basis:
+  256 + 205 + 178 + gaps = 663px against a 656px row. A zero basis lets it
+  take only what is left.
+- **Bookmark URL editing, reported five times, working every time it was
+  tested.** The handler was correct and the flow was reproduced end to end —
+  including persistence through a reload — on every check. The fault was
+  never in the code; it was that a second modal appearing only *after* you
+  commit the first is a bad way to expose a second field, and anything that
+  interrupts between them (a stale script, an Escape, a mis-click) leaves the
+  URL never asked for and looks exactly like "editing the URL is broken".
+  Now one inline form with all three fields visible at once. Separately,
+  **every local css/js URL is version-stamped** (`?v=<version>`, pinned by
+  `tests/test_asset_cache_busting.py`) so a stale cached `library.js` cannot
+  survive a release — this project's most-repeated false bug report.
+
+### 110.3 Still open
+
+- **Whether the selection popup should appear in the note editor at all** is
+  now moot — it does. What is *not* settled is its dismissal behaviour while
+  typing continues; it currently follows the same rules as on rendered
+  content. Watch for reports of it getting in the way mid-sentence.
+- Everything in §109.3 (the triaged competitor gaps — **six of the twelve
+  were already built, check that table first**) and §109.4.
+- Highlights as a queryable collection, backlinks panel, conflict-safe
+  editor, per-note pinned AI context, bulk tag editing — all §109.4.

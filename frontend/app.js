@@ -4278,12 +4278,45 @@ async function renderRelatedWhileEditing(li, entry) {
   panel.appendChild(label);
   for (const other of related) {
     const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
+    const row = document.createElement("span");
+    row.className = "entry-related-row";
     const relChip = chip("", "link", () => flashEntry(other.id));
     relChip.appendChild(document.createTextNode("≈ "));
     const previewSpan = document.createElement("span");
     renderInlineMarkdown(previewSpan, preview, [], true);
     relChip.appendChild(previewSpan);
-    panel.appendChild(relChip);
+    row.appendChild(relChip);
+
+    // **Turn a resemblance into a real link.** Asked for directly: "similar
+    // notes should have the option to form links". This panel could only
+    // ever jump you to the other note, so acting on what it found meant
+    // leaving the note you were editing, starting the two-click link mode,
+    // and finding the same note again by hand. `≈` is a similarity the
+    // embedding noticed; a link is a claim *you* make, which is why this is
+    // a button rather than something the panel does on its own.
+    const linkBtn = smallButton("ph:link Link", `Link this note to “${preview}”`, async () => {
+      linkBtn.disabled = true;
+      try {
+        await apiJson(`/entries/${entry.id}/links`, {
+          method: "POST",
+          body: JSON.stringify({ target_id: other.id }),
+        });
+        // The reason is deduced server-side for a pair this similar
+        // (create_link's AUTO_REASON_THRESHOLD) and is editable afterwards
+        // wherever links are shown, so nothing is asked for here.
+        toast("Linked.");
+        row.remove();
+        if (!panel.querySelector(".entry-related-row")) {
+          panel.textContent = "All related notes are linked.";
+        }
+      } catch (error) {
+        linkBtn.disabled = false;
+        toast(error.message || "Couldn't link those notes.", true);
+      }
+    });
+    linkBtn.classList.add("entry-related-link-btn");
+    row.appendChild(linkBtn);
+    panel.appendChild(row);
   }
 }
 
@@ -21178,6 +21211,44 @@ async function loadLinkSuggestions() {
   });
 
   actions.append(backfill, suggestReasons, closeAll);
+
+  // **Reasons arrive on their own now.** Asked for directly: "whenever a
+  // link is suggested, the ai should suggest a reason that the user can
+  // edit." The button above stays — it is how you retry after the model was
+  // down, or refill a box you cleared — but a suggestion that needs a click
+  // before it can say *why* is a suggestion most people will never see the
+  // reason for.
+  //
+  // Fired after render rather than inside the endpoint: `/link-suggestions`
+  // is a GET that already does one embedding scan, and putting a dozen
+  // model round-trips behind it would turn opening this panel from instant
+  // into a stall. This way the rows appear immediately with the deduced
+  // text, and the AI's wording replaces it as each answer lands. Failure is
+  // silent by design — the generic reason is already in the box, so there is
+  // nothing to warn about.
+  requestAnimationFrame(() => {
+    const pending = rowReasons.filter((r) => !r.input.dataset.userEdited);
+    if (!pending.length) return;
+    apiJson("/entries/link-suggestions/reasons", {
+      method: "POST",
+      silent: true,
+      body: JSON.stringify({
+        pairs: pending.map((r) => ({ source_id: r.s.source_id, target_id: r.s.target_id })),
+      }),
+    })
+      .then((result) => {
+        const byPair = new Map(
+          result.reasons.map((r) => [`${r.source_id}:${r.target_id}`, r.reason])
+        );
+        for (const r of pending) {
+          // Never overwrite something typed while the request was in flight.
+          if (r.input.dataset.userEdited) continue;
+          const reason = byPair.get(`${r.s.source_id}:${r.s.target_id}`);
+          if (reason) r.input.value = reason;
+        }
+      })
+      .catch(() => {});
+  });
   heading.append(headingText, actions);
   box.appendChild(heading);
 
@@ -21208,6 +21279,11 @@ async function loadLinkSuggestions() {
       ? s.reason
       : "Why? (optional — the AI will work it out)";
     reason.setAttribute("aria-label", "Reason for this link");
+    // Marks the box as the user's the moment they touch it, so the
+    // auto-fill above can never overwrite what someone is typing.
+    reason.addEventListener("input", () => {
+      reason.dataset.userEdited = "1";
+    });
     rowReasons.push({ s, input: reason });
 
     const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");

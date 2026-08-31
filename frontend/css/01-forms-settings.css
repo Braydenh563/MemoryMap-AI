@@ -2764,3 +2764,14 @@ html.modal-open body {
   flex: 1 1 0;
   min-width: 0;
 }
+
+
+/* Each related note and its Link button on one line. The panel was a plain
+   run of chips; adding an action per row means the pairing has to be
+   explicit or the buttons drift away from the notes they belong to. */
+.entry-related-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
+}

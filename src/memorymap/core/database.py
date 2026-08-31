@@ -248,6 +248,19 @@ class Entry(Base, WorkspaceMixin):
     # every other optional column here.
     source_url: Mapped[str | None] = mapped_column(String(2000), default=None)
     source_title: Mapped[str | None] = mapped_column(String(300), default=None)
+    # A note that has ever been used as a whiteboard — created as one via
+    # "+ New board", or drawn on directly (routes_whiteboard.py's own
+    # "a board is just a note" design). Reported live: a board vanished from
+    # the "Switch board" list the moment its last card/sketch/object was
+    # removed, which read exactly like the board itself had been deleted —
+    # it hadn't; list_boards() only ever listed notes with a *current*
+    # nonzero node/sketch/object count, so a freshly created empty board, or
+    # one cleared back to empty mid-edit, dropped out of the only UI that
+    # could find it again. Scalar default so the additive auto-migrator
+    # backfills every existing row as not-a-board; an already-drawn-on note
+    # stays visible regardless (its counts are still nonzero), so nothing
+    # already in someone's board list disappears from this change.
+    is_board: Mapped[bool] = mapped_column(Boolean, default=False)
     # ROADMAP §87.1's own audit: "double-click pin exists but is never
     # persisted" — a node held in place with a double-click on the Graph
     # tab (`d.fx`/`d.fy` in graph.js) only ever lived on the in-memory D3

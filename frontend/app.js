@@ -5621,6 +5621,78 @@ function resetCaptureForm(contentBox, titleBox) {
   captureDocuments.clear();
   renderCaptureDocuments();
   $("entry-template").value = "";
+  clearCaptureTagSuggestions();
+}
+
+// **Tag suggestions while composing, not just after saving.** Reported
+// directly: "the ai and application doesnt suggest tags either before
+// creating a new note or after" — "after" already existed
+// (renderReevaluateResult, above), buried in a saved note's own kebab menu;
+// "before" had nothing at all. `/entries/suggest-tags` needs only the
+// draft's own text, so this can run on the Capture box itself, debounced the
+// same way autosave-to-localStorage already is elsewhere in this file.
+let captureTagSuggestTimer = null;
+let captureTagSuggestSeq = 0; // invalidated on every keystroke — a slow reply
+// to an earlier, shorter draft must never overwrite what a newer one asked for.
+
+function clearCaptureTagSuggestions() {
+  captureTagSuggestSeq++;
+  clearTimeout(captureTagSuggestTimer);
+  const row = $("entry-tag-suggestions");
+  row.replaceChildren();
+  row.classList.add("hidden");
+}
+
+function renderCaptureTagSuggestions(tags) {
+  const row = $("entry-tag-suggestions");
+  row.replaceChildren();
+  if (!tags.length) {
+    row.classList.add("hidden");
+    return;
+  }
+  const label = document.createElement("span");
+  label.className = "muted";
+  label.textContent = "Suggested tags:";
+  row.appendChild(label);
+  for (const tag of tags) {
+    const tagChip = chip(`＋ ${tag}`, "tag", () => {
+      const box = $("entry-tags");
+      const have = box.value.split(",").map((t) => t.trim()).filter(Boolean);
+      if (!have.includes(tag)) box.value = [...have, tag].join(", ");
+      tagChip.remove();
+      if (!row.querySelector(".chip")) row.classList.add("hidden");
+    });
+    tagChip.title = `Add the "${tag}" tag`;
+    row.appendChild(tagChip);
+  }
+  row.classList.remove("hidden");
+}
+
+function scheduleCaptureTagSuggestions() {
+  clearTimeout(captureTagSuggestTimer);
+  const content = $("entry-content").value.trim();
+  // Not worth a round trip for a fragment this short — nothing useful to
+  // label yet, and it would just relabel itself a few keystrokes later.
+  if (content.length < 20) {
+    clearCaptureTagSuggestions();
+    return;
+  }
+  captureTagSuggestTimer = setTimeout(async () => {
+    const seq = ++captureTagSuggestSeq;
+    const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
+    let suggested;
+    try {
+      const result = await apiJson("/entries/suggest-tags", {
+        method: "POST",
+        body: JSON.stringify({ content, tags }),
+      });
+      suggested = result.suggested_tags || [];
+    } catch {
+      suggested = [];
+    }
+    if (seq !== captureTagSuggestSeq) return; // superseded by a later keystroke
+    renderCaptureTagSuggestions(suggested);
+  }, 1200);
 }
 
 async function saveEntry() {
@@ -23015,6 +23087,7 @@ $("entry-content").addEventListener("keydown", (e) => {
 $("entry-content").addEventListener("input", () => {
   wikiSuggestIndex = 0;
   renderWikiSuggest($("entry-content"));
+  scheduleCaptureTagSuggestions();
 });
 // Moving the caret with the mouse or arrows can leave the fragment behind.
 $("entry-content").addEventListener("click", () => renderWikiSuggest($("entry-content")));

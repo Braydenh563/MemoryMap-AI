@@ -274,6 +274,35 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     )
 
 
+class SuggestTagsBody(BaseModel):
+    content: str
+    tags: list[str] = Field(default_factory=list)
+
+
+@router.post("/suggest-tags")
+def suggest_tags_for_draft(body: SuggestTagsBody) -> dict:
+    """Tag suggestions for a note that doesn't exist yet — the other half of
+    a report that `/{entry_id}/reevaluate` only ever covered post-save:
+    "the ai and application doesnt suggest tags either before creating a
+    new note or after." "After" already had a path (buried in a kebab
+    menu action, easy to never find); "before" had none at all. Reuses
+    `librarian.suggest_tags` directly on the draft's own text — it only
+    ever needed a string and the tags already on it, never a saved
+    `Entry` — so the Capture form can offer suggestions while the user is
+    still typing, before Save exists to be clicked.
+    """
+    content = body.content.strip()
+    if not content:
+        return {"suggested_tags": []}
+    try:
+        suggested = librarian.suggest_tags(
+            content, body.tags, deps.get_model_manager(), deps.get_ollama()
+        )
+    except Exception:
+        suggested = []
+    return {"suggested_tags": suggested}
+
+
 @router.post("/{entry_id}/context", response_model=EntryOut)
 def add_context(
     entry_id: int, body: ContextBody, session: Session = Depends(get_session)

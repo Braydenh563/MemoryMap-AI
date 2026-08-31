@@ -533,6 +533,14 @@ Link to another note with [[its first few words]]."></textarea>
           <input id="entry-tags" type="text" list="tag-suggestions"
             placeholder="Optional tags, comma separated (e.g. joke, work)">
           <datalist id="tag-suggestions"></datalist>
+          <!-- Reported directly: "the ai and application doesnt suggest tags
+               either before creating a new note or after" — a suggestion only
+               ever existed after saving, buried in a note's own kebab menu
+               ("Refresh AI confidence and suggest tags & links"). This is the
+               "before" half: a debounced read of the draft itself, click a
+               chip to add its tag to the field above. Empty and hidden until
+               there is enough text to be worth asking about. -->
+          <div id="entry-tag-suggestions" class="recent hidden" aria-live="polite"></div>
           <!-- Notes and documents are different things, but usually about
                the same thing. Attaching one here is the moment the connection
                is obvious; by the time the note is in a list it is forgotten. -->

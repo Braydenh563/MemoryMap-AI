@@ -253,16 +253,48 @@ def test_creating_a_board_makes_a_named_note_and_lists_it(board_client):
     assert body["title"] == "Project Atlas"
     assert body["node_count"] == 0
 
-    # A fresh board isn't "in use" yet — it won't show in the list until
-    # something is actually placed on it, same as any other note.
+    # Reported live: a board made this way vanished from the list the moment
+    # it was created (empty) or later cleared back to empty — indistinguishable
+    # from the board having deleted itself, since the underlying note was
+    # never actually touched. Explicitly creating a board is enough to keep
+    # it listed even with nothing on it yet — unlike a *plain* note, which
+    # still only becomes a board once something is drawn on it (the other
+    # half of this file's own test above).
     boards = board_client.get("/whiteboard/boards").json()
-    assert body["id"] not in [b["id"] for b in boards]
+    assert body["id"] in [b["id"] for b in boards]
 
     board_client.post("/whiteboard/sketches", json={"data": "M0 0 L1 1", "board_id": body["id"]})
     boards = board_client.get("/whiteboard/boards").json()
     entry = next(b for b in boards if b["id"] == body["id"])
     assert entry["title"] == "Project Atlas"
     assert entry["sketch_count"] == 1
+
+
+def test_a_board_survives_being_emptied_back_out(board_client, session):
+    """The other half of the live report: not just a fresh board, but one
+    that *had* content and was cleared back to zero (every card/sketch/object
+    on it removed) used to drop out of the list exactly the same way — the
+    note itself was never deleted, but the only UI that could find it again
+    had lost track of it. A board an ordinary note "graduates" into by
+    having something drawn on it (never created via `+ New board`) has to
+    survive this too, not just an explicitly-created one.
+    """
+    card_note = _note(session, "a note dropped onto someone else's board")
+    board_note = _note(session, "an ordinary note someone started drawing on")
+    created = board_client.post(
+        "/whiteboard/nodes", json={"entry_id": card_note.id, "board_id": board_note.id}
+    )
+    node_id = created.json()["id"]
+
+    boards = board_client.get("/whiteboard/boards").json()
+    assert board_note.id in [b["id"] for b in boards]
+
+    board_client.delete(f"/whiteboard/nodes/{node_id}")
+    boards = board_client.get("/whiteboard/boards").json()
+    ids = [b["id"] for b in boards]
+    assert board_note.id in ids, "emptying a board must not make it vanish from the list"
+    entry = next(b for b in boards if b["id"] == board_note.id)
+    assert entry["node_count"] == 0
 
 
 def test_renaming_a_board_rewrites_its_notes_heading_line(board_client, session):

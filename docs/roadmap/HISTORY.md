@@ -5073,7 +5073,7 @@ reasoning only. The Minimise revert's premise — that `js_api` on
 `create_window()` causes the hang — rests on the user's own before/after
 test on their machine, not on anything reproduced here.
 
-## §100 — seven completed live-list items, full narrative moved from ROADMAP.md
+## §100 — eight completed live-list items, full narrative moved from ROADMAP.md
 
 ROADMAP.md's own opening text says the file is "only what's still open" and
 that keeping finished narrative there "is how it got" past its 2,000-line
@@ -5169,3 +5169,26 @@ Given a document icon, a proper title/meta column, a border and hover state
 matching `.library-card`'s own look (`04-chat-dock-appearance.css`).
 Verified live in both themes: real cards now, readable at a glance, clicking
 one still opens the right document.
+
+**Pagination on other tabs (item 1).** Built, across all four surfaces Notes'
+own `#notes-page-size` pattern was asked to extend to. **Reminders:**
+`#reminders-page-size` paginates only the Done group — Overdue/Today/Upcoming
+always render in full, in every filter, so an overdue reminder can never land
+on a page that isn't shown. Verified live: 3 overdue + 60 done at 25/page
+shows all 3 overdue plus "Page 1 of 3" of Done; paging Done to page 2 leaves
+the overdue count at 3, unmoved; switching to the "Open" filter hides the
+(now-empty) Done pagination bar while the 3 overdue stay fully visible.
+**Library Documents sub-tab:** `#library-docs-page-size`, same shape as
+Notes' (no due/overdue framing to protect here). Verified live: 55 docs,
+25/page shows "Page 1 of 3", Next moves to page 2, the choice persists across
+a reload. **Library "All" grid:** `#library-page-size`, sitting beside the
+existing view toggle and the filter chips. "All" (the default) leaves the
+grid's `renderIncrementally` chunked scroll untouched; a number slices the
+already-filtered/sorted list to one flat page instead — the two rendering
+strategies coexist rather than one replacing the other.
+`libraryCurrentPage` resets to 1 on every control that can move an item to a
+different page: the overview tiles, the kind chips, search, both sort
+controls, and the Include-bin checkbox. Verified live: 40 seeded notes, "All"
+shows all 40 with the bar hidden; 25/page shows "Page 1 of 2" with Prev
+disabled; Next correctly shows the remaining 15 with "Page 2 of 2"; the
+page-size choice survives a reload; no console errors.

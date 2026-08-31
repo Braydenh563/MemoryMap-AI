@@ -1,10 +1,11 @@
 # Session handover
 
-## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, and two shared-component clipping fixes
+## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, then pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, and three system-tray bugs
 
 Branch `claude/docs-review-priority-work-sequ16`, a long session driven
-almost entirely by live user reports rather than the roadmap — 11 commits,
-each live-verified in Chromium before pushing. In rough order:
+almost entirely by live user reports rather than the roadmap — commits below,
+each live-verified in Chromium before pushing except where noted otherwise.
+In rough order:
 
 - **The lightbox now works from every caller, not just the gallery.** It was
   reported as "completely broken" with no download button — the real cause
@@ -41,8 +42,67 @@ each live-verified in Chromium before pushing. In rough order:
   thread child whose page depends on its parent's position, not its own
   sort key.
 
-Full detail on all of the above is in ROADMAP.md's live list and BACKLOG
-§77/§98/§99 — not repeated here.
+- **A global Ctrl+F find bar, everywhere except Documents.** Requested by
+  name: "make the find feature available on all tabs." Registered as a
+  proper rebindable shortcut (`DEFAULT_SHORTCUTS.find`) rather than a raw
+  listener; dispatches to Documents' own existing `#doc-find-bar` when that
+  tab is active, otherwise opens a new bar scoped to whichever `.tab-page`
+  is currently visible, sharing the same `escapeForFind()` the lightbox's
+  own find already used (hoisted to module scope instead of duplicated).
+- **The Capture tab's tooltip now matches "Write with AI"'s style, cut-off
+  and scrollbar bugs found and fixed live.** Switched from an inline
+  `.search-help` (pushes layout) to the floating `.graph-help-panel` used
+  elsewhere, which needed `#capture` added to the shared positioning-root
+  list first. Reported cut off at the bottom twice more after that: one
+  `max-height` attempt correctly stopped growth but still ran past an
+  800px viewport (the panel's `top` offset is relative to `#capture`, not
+  the screen); a second attempt overcorrected and removed the internal
+  scrollbar's own reason to exist. Landed on a flat `24rem`, verified by
+  measuring `scrollHeight` vs `clientHeight`, not derived analytically.
+  Then reported again — "still no visible scrollbar??" — because
+  `overflow-y: auto`'s default is an invisible *overlay* scrollbar on most
+  platforms; fixed with explicit `scrollbar-width`/`scrollbar-color` plus
+  `::-webkit-scrollbar` rules, confirmed via a real reserved gutter
+  (`offsetWidth - clientWidth = 2px`) since a screenshot can't conclusively
+  show a thumb rendering.
+- **A status-bar clock detail popover.** `#status-clock` is now a real
+  `<button>`; hovering shows date/time-with-seconds/timezone (name and
+  numeric offset together), clicking pins it open past mouse-away, closed
+  by Escape, an outside click, or turning the clock off in Settings.
+- **Three system-tray bugs, fixed but unverifiable in this Linux sandbox
+  (no real Windows/pystray runtime here — checked only by parsing
+  `__main__.py`'s own source text, the same strategy `tests/test_tray.py`
+  already uses).** "Show Logs" called a JS function
+  (`showSettingsSection('logs')`) that does not exist anywhere in the
+  frontend — replaced with `openSettingsModal('logs')`, the same call every
+  other tray item already used correctly. Every tray navigation item now
+  closes an open Settings modal first, not just Reminders (asked for
+  Reminders, then "same with the others"). The existing
+  `test_the_tray_only_calls_frontend_functions_that_exist` test had a real
+  blind spot — it only scanned the `menu_items` list literal, not named
+  callback bodies like `_view_logs`, which is exactly where the broken call
+  lived; widened to close that gap.
+- **Pagination extended from Notes to all three remaining surfaces named in
+  ROADMAP item 1**, now fully built and moved to HISTORY.md §100: Reminders
+  (Done group only, protecting Overdue/Today/Upcoming visibility in every
+  filter), the Library Documents sub-tab, and the Library "All" grid
+  (coexisting with its existing `renderIncrementally` chunked scroll rather
+  than replacing it). Each verified live with real seeded data, a page
+  count, Prev/Next, and reload-persistence check.
+- **`manager.all_tags()` capped** to match every other "kind" section in
+  the Library finder response (`GET /tags`, the actual Tag Manager, stays
+  uncapped on purpose — it has to reach any tag to rename or delete it).
+- **The PS1 splash's taskbar icon was checked, not rebuilt** — a live report
+  ("uses the PowerShell icon, not the custom logo") turned out to already be
+  fixed: `$form.Icon` is set from `frontend/icon.ico` with a fallback, and
+  nothing needed changing. Recorded here specifically because CLAUDE.md
+  names this as the project's most expensive recurring mistake.
+- **ROADMAP.md kept under its 2,000-line cap** by moving the full narrative
+  of finished live-list items to HISTORY.md §100, leaving one-line stubs —
+  done twice this stretch as more items closed out (currently 1,915 lines).
+
+Full detail on all of the above is in ROADMAP.md's live list, HISTORY.md
+§100, and BACKLOG §77/§98/§99/§101 — not repeated here.
 
 ### What I still could not check
 
@@ -57,6 +117,16 @@ Full detail on all of the above is in ROADMAP.md's live list and BACKLOG
   needs a real decision about `MEDIA_SUFFIXES` vs. a decoupled attachment
   path, which is a security-relevant call this session declined to make
   unilaterally at the end of a long stretch of work.
+- All three tray fixes (`_view_logs`, the close-Settings-first guard on
+  every nav item) — this sandbox has no Windows, no pystray runtime, and no
+  way to actually click a system tray icon. Verified only by reading the
+  generated JS each tray callback evaluates and confirming the function
+  names it calls exist elsewhere in the frontend; never run.
+- §101 (the knowledge graph made second-nature to the AI across search and
+  every AI feature) was logged to BACKLOG, tied to the existing §87.5/§88.4
+  scoping, and deliberately not started — the user said "continue what you
+  are doing" when raising it, which this session read as "queue it, don't
+  drop the current thread," not as a request to build it now.
 
 ## Prior session — §90.2 small-screen audit (measured, not yet acted on) + a live-reported documents-dock alignment bug, found and fixed
 

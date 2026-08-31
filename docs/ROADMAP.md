@@ -771,25 +771,9 @@ callouts" entry before rebuilding anything that sounds finished.**
 
 **Still open:**
 
-1. **Pagination on other tabs.** Notes already has a page-size selector
-   (§88.0's row on it, BACKLOG §77). Asked for on Reminders and the Library
-   sub-tabs too — "maybe", the user's own hedge, so scoped independently
-   rather than assuming the Notes pattern transfers as-is.
-   ~~Reminders' list is chronological with due/overdue framing that
-   pagination could easily break~~ **Built, respecting exactly that risk.**
-   `#reminders-page-size` paginates **only the Done group** — Overdue/
-   Today/Upcoming render in full, always, in every filter, so an overdue
-   reminder can never be pushed onto a page that isn't shown. Verified
-   live: 3 overdue + 60 done at 25/page shows all 3 overdue plus "Page 1
-   of 3" of Done; paging Done to page 2 leaves the overdue count at 3,
-   unmoved; switching to the "Open" filter hides the (now-empty) Done
-   pagination bar while the 3 overdue stay fully visible.
-   ~~The Library sub-tabs~~ **Documents half built** — `#library-docs-
-   page-size`, same shape as Notes' (no due/overdue framing to protect
-   here, so no carve-out needed). Verified live: 55 docs, 25/page shows
-   "Page 1 of 3", Next moves to page 2, the choice persists across a
-   reload. Still open: the "All" grid, which mixes kinds with its own
-   filter chips and differs in shape from both Notes and Documents.
+~~1. **Pagination on other tabs.**~~ **Built, across all four surfaces**
+   (Notes, Reminders' Done group, Library Documents, Library "All").
+   Full narrative: HISTORY.md §100.
 
 2. **Uploading a document (not an image) to the chat composer fails
    silently into the transcript.** Reported directly, reproduced in the

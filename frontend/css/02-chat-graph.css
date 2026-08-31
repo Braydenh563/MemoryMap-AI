@@ -2042,6 +2042,16 @@ kbd {
   display: none;
 }
 
+/* Set by `wireEscapedActionMenu` (app.js) while the menu is reparented to
+   <body> to escape a clipping scroll ancestor — see the note there. `left`/
+   `top` come from that same function as inline style, computed from the
+   opener's own rect; this only has to override the base rule's
+   `position: absolute; right: 0; top: calc(100% + 4px)`. */
+.action-menu.action-menu-escaped {
+  position: fixed;
+  right: auto;
+}
+
 /* The whiteboard's right-click/long-press selection menu (ROADMAP §89.12).
    Appended straight to <body> and positioned at the pointer, same reasoning
    as `wbOpenDockedMenu`'s reparent — a fixed pixel position rather than

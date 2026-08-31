@@ -1556,7 +1556,13 @@ function inlineActionIs(id, kind) {
 function closeActionMenus() {
   for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
     menu.classList.add("hidden");
-    const opener = menu.parentElement.querySelector("[aria-haspopup]");
+    // `menu._escapedOpener` (set by wireEscapedActionMenu) wins when
+    // present: a menu reparented to <body> has no useful `.parentElement`
+    // to search — `document.body.querySelector` would find the *first*
+    // `[aria-haspopup]` anywhere on the page, not this menu's own opener,
+    // and set the wrong button's aria-expanded. Undefined for every other
+    // menu, so this changes nothing for them.
+    const opener = menu._escapedOpener || menu.parentElement.querySelector("[aria-haspopup]");
     if (opener) opener.setAttribute("aria-expanded", "false");
   }
   for (const strip of document.querySelectorAll(".menu-open")) {
@@ -1618,6 +1624,89 @@ function openActionMenu(menu, opener) {
     menu.classList.add("action-menu-flip");
   }
   menu.querySelector("button")?.focus();
+}
+
+// **Escapes a `kebabMenu()` dropdown from a clipping scroll ancestor.**
+// Reported live, with a screenshot: "the documents popup menu in the
+// library subtab gets cut off." `.library-view-section` is
+// `overflow-y: auto`, and `.action-menu` is `position: absolute` — the
+// same shape as the gallery kebab menu's own clipping bug earlier this
+// session (`section.card.glass`'s `backdrop-filter`, there), fixed the
+// same way: reparent to `<body>` and position from the opener's own rect,
+// which is the only thing that actually escapes an ancestor's `overflow`.
+//
+// Deliberately **not** folded into `openActionMenu`/`closeActionMenus`
+// themselves — `.action-menu` is shared by every note card, the chat
+// dock, the selection popup and nested submenus, none of which are
+// clipped, and none of which this session re-verified live. Rewriting
+// what they all depend on to fix one clipped caller is a bigger, riskier
+// change than watching that one caller's own open/close state and acting
+// on it — which is what this does, via a MutationObserver on the menu's
+// own `hidden` class, so `openActionMenu`'s existing flip logic keeps
+// running unmodified underneath it.
+//
+// Call once, right after building a `kebabMenu()` wrap, for any menu
+// known to live inside a scrolling ancestor.
+function wireEscapedActionMenu(wrap) {
+  const menu = wrap.querySelector(".action-menu");
+  const opener = wrap.querySelector("[aria-haspopup]");
+  if (!menu || !opener) return;
+  // Read by closeActionMenus() in place of a DOM-parent lookup, which
+  // would otherwise search the whole <body> for the first [aria-haspopup]
+  // it finds — the wrong button — once this menu is no longer a
+  // descendant of its own opener's wrapper.
+  menu._escapedOpener = opener;
+  let homeParent = null;
+  let homeNext = null;
+  const place = () => {
+    const margin = 8;
+    const anchor = opener.getBoundingClientRect();
+    // Reset first: a stale left/top from the last open would otherwise
+    // seed the width/height measurement below at the wrong size on some
+    // browsers' layout of a `position: fixed` element mid-transition.
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    const box = menu.getBoundingClientRect();
+    let left = anchor.right - box.width;
+    let top = anchor.bottom + 4;
+    if (left < margin) left = margin;
+    if (left + box.width > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - margin - box.width);
+    }
+    if (top + box.height > window.innerHeight - margin) {
+      const above = anchor.top - 4 - box.height;
+      top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+    }
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+  };
+  const observer = new MutationObserver(() => {
+    const open = !menu.classList.contains("hidden");
+    if (open && menu.parentElement !== document.body) {
+      homeParent = menu.parentElement;
+      homeNext = menu.nextSibling;
+      document.body.appendChild(menu);
+      menu.classList.add("action-menu-escaped");
+      place();
+    } else if (!open && menu.parentElement === document.body && homeParent) {
+      // Restored on close, not left in <body> — closeActionMenus() and
+      // any future openActionMenu() call both expect to find this menu
+      // where it started, and a page that never puts an escaped menu back
+      // accumulates stray position:fixed nodes at <body>'s end forever.
+      homeParent.insertBefore(menu, homeNext);
+      menu.classList.remove("action-menu-escaped");
+      menu.style.left = "";
+      menu.style.top = "";
+    }
+  });
+  observer.observe(menu, { attributes: true, attributeFilter: ["class"] });
+  window.addEventListener(
+    "resize",
+    () => {
+      if (!menu.classList.contains("hidden")) place();
+    },
+    { passive: true }
+  );
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
@@ -2766,17 +2855,28 @@ function openLightbox(items, startIndex = 0) {
 
   // Save the original file. `download` needs a same-origin href to name the
   // file, which `mediaSrc()` gives us — it is this app's own /media route.
-  actionBtn("ph:download-simple Save", "Save this image to your computer", async () => {
+  actionBtn("ph:download-simple Save", "Save this file to your computer", async () => {
     try {
-      const href = await items[index].getUrl();
+      const current = items[index];
+      const href = await current.getUrl();
       const a = document.createElement("a");
       a.href = href;
-      a.download = items[index].filename || "image";
+      // **A document leaves `download` unset, an image sets it.** A
+      // non-empty `download` attribute wins over the server's own
+      // `Content-Disposition: filename="..."` — for
+      // `/documents/{id}/export.md`, that header already carries the
+      // right extension for the file's actual type (`.py`, `.json`,
+      // `.md`, whatever `filetypes.get` picked), computed server-side.
+      // Setting `download` to a bare title here would have downloaded a
+      // "Quarterly Report" with no extension at all, silently discarding
+      // that work — an image has no such header to defer to, so it keeps
+      // naming itself.
+      if (!current.kind) a.download = current.filename || "image";
       document.body.appendChild(a);
       a.click();
       a.remove();
     } catch {
-      toast("Couldn't save that image.", true);
+      toast("Couldn't save that file.", true);
     }
   });
 
@@ -2873,7 +2973,13 @@ function openLightbox(items, startIndex = 0) {
   };
   const syncMoreMenu = (item) => {
     moreMenu?.remove();
-    moreMenu = item.id ? buildMoreMenu(item) : null;
+    // `!item.kind` matters here, not just belt-and-braces: a native
+    // document preview item (below) also carries `item.id`, but that id
+    // names a *document*, not a media upload — feeding it to
+    // `/media/{id}/caption` or `/media/{id}` DELETE would act on whatever
+    // media row happens to share that number, or 404. This menu is media-
+    // actions only; `item.kind` is how a document identifies itself.
+    moreMenu = item.id && !item.kind ? buildMoreMenu(item) : null;
     if (moreMenu) actions.appendChild(moreMenu);
   };
 
@@ -2981,10 +3087,24 @@ function openLightbox(items, startIndex = 0) {
     find.classList.remove("hidden");
     docBody.textContent = "Reading…";
     let payload = null;
-    try {
-      payload = await apiJson(`/media/text/${encodeURIComponent(name)}`);
-    } catch {
-      payload = null;
+    // **A native MemoryMap document already has its content** — asked for
+    // directly: "make a way to view documents in the documents tab in the
+    // lightbox." The Library's Documents list holds real `Document` rows,
+    // not uploads, and their body comes back whole from `GET /documents/
+    // {id}`; there is nothing to *extract*, so going through
+    // `/media/text` (which exists for files that started life as something
+    // other than markdown) would be asking the server to do work it
+    // already did. A caller that already knows its own kind and text — set
+    // by the Documents list's own "Preview" action below — skips the fetch
+    // entirely.
+    if (item.kind && item.text != null) {
+      payload = { kind: item.kind, text: item.text, source: item.source || "file" };
+    } else {
+      try {
+        payload = await apiJson(`/media/text/${encodeURIComponent(name)}`);
+      } catch {
+        payload = null;
+      }
     }
     if (!payload) {
       docBody.textContent = "";
@@ -3046,7 +3166,10 @@ function openLightbox(items, startIndex = 0) {
     const name = (/\/media\/([^/?#]+)/.exec(rawUrl || "") || [])[1] || "";
     const looksLikeImage =
       IMAGE_SUFFIXES.test(item.filename || "") || IMAGE_SUFFIXES.test(name);
-    if (name && !looksLikeImage) {
+    // A native document (item.kind already set — see showDocument) has no
+    // `/media/...` url to sniff at all; a caller that already declares
+    // itself a document skips the filename guess entirely.
+    if (item.kind || (name && !looksLikeImage)) {
       overlay.setAttribute("aria-label", item.filename || "Document preview");
       meta.textContent =
         items.length > 1
@@ -22696,8 +22819,15 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Clicking anywhere outside an open ⋯ menu closes it (Wave L).
+//
+// `.action-menu-escaped` covers a menu `wireEscapedActionMenu` has
+// reparented to `<body>` while open — its dropdown is no longer a
+// descendant of `.menu-wrap` at that point, so a click inside the (still
+// open) dropdown would otherwise fail `closest(".menu-wrap")` and be read
+// as an outside click. Only ever *widens* what counts as inside; no
+// existing kebab gains this class, so nothing about them changes.
 document.addEventListener("click", (e) => {
-  if (!e.target.closest(".menu-wrap")) closeActionMenus();
+  if (!e.target.closest(".menu-wrap, .action-menu-escaped")) closeActionMenus();
 });
 
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it

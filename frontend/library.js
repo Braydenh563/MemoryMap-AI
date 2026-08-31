@@ -1641,6 +1641,40 @@ async function renderLibraryDocuments() {
     // that was just renamed or deleted until something else refreshed it.
     const menu = kebabMenu(
       [
+        // **A read-only showcase, not the editor.** Asked for directly:
+        // "make a way to view documents in the documents tab in the
+        // lightbox." The row's own click already opens the full editor —
+        // this is the quick-look alternative, matching what the lightbox
+        // already does for an uploaded PDF or a note attachment. A native
+        // document needs no extraction (`GET /documents/{id}` already
+        // returns the whole body), so `item.kind`/`item.text` are set
+        // straight from the response and `showDocument` (app.js) skips
+        // its own fetch entirely when it sees them already filled in.
+        makeMenuItem("ph:eye Preview", "View this document without opening the editor", async () => {
+          let full;
+          try {
+            full = await apiJson(`/documents/${doc.id}`);
+          } catch (error) {
+            toast(error.message || "Couldn't open that document.", true);
+            return;
+          }
+          openLightbox(
+            [
+              {
+                filename: full.title || "Untitled",
+                id: full.id,
+                kind: full.file_type === "md" ? "markdown" : "code",
+                text: full.content || "",
+                addedAt: full.updated_at || "",
+                // No file on /media to fetch a URL from — Save reads this
+                // directly, the same route the kebab's own "Download .md"
+                // item already uses.
+                getUrl: () => `/documents/${full.id}/export.md`,
+              },
+            ],
+            0
+          );
+        }),
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
           if (!next) return;
@@ -1664,6 +1698,21 @@ async function renderLibraryDocuments() {
     );
     menu.classList.add("doc-list-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
+    // **Reported: "the documents popup menu in the library subtab gets cut
+    // off."** `.library-view-section` (07-whiteboard-misc.css) is
+    // `overflow-y: auto`, and `.action-menu` — the shared kebab menu
+    // `kebabMenu()` builds — is `position: absolute`, so it is clipped by
+    // that scroll container the same way `.library-image-menu-list` was
+    // clipped by `#library-view-media`/`#tab-library` earlier this session.
+    // That fix (reparent to `<body>`, position from the button's own rect)
+    // is scoped here rather than folded into `openActionMenu` itself:
+    // `.action-menu` is shared by note cards, chat, the selection popup and
+    // nested submenus, and rewriting the function all of them share is a
+    // much larger, riskier change than fixing the one instance actually
+    // reported. A MutationObserver on the menu's own `hidden` class means
+    // `openActionMenu`/`closeActionMenus` (app.js) are not touched at all —
+    // every other kebab in the app keeps its existing, working behaviour.
+    wireEscapedActionMenu(menu);
 
     open.append(top, body, menu);
     item.appendChild(open);

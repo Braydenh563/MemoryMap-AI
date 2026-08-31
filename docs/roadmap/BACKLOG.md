@@ -2779,7 +2779,16 @@ already checked so the next session does not re-derive it.
    detaches the reference, it does not delete the upload) and should answer
    the same way for consistency.
 
-3. **The lightbox's bottom bar should do more.** Asked directly: *"can you
+3. ~~**The lightbox's bottom bar should do more.**~~ **Built** — a
+   `.lightbox-actions` row: zoom out / a live % / zoom in / Fit, plus
+   wheel-to-zoom (1x-6x), drag-to-pan once magnified, Copy text, and Save.
+   Everything works off what `openLightbox` already receives, so it lights
+   up for every caller rather than only the Library's richer items. The
+   id-requiring actions below (describe with AI, re-run OCR, rename,
+   delete) are the part **still open** — see the note at the end of this
+   item. Original scoping kept:
+
+3b. **The lightbox's bottom bar should do more.** Asked directly: *"can you
    improve on and expand the capabilities and features at the bottom of the
    lightbox?"* Not scoped this session. **What is there today**, so the next
    session starts from fact rather than the screenshot: `openLightbox`
@@ -2794,7 +2803,12 @@ already checked so the next session does not re-derive it.
    should be reachable from the lightbox too, since the lightbox is where you
    are actually *looking* at the picture — the same "the action belongs where
    the decision is made" reasoning that put the caption and OCR text there in
-   the first place. Zoom/pan is the other obvious gap and is a bigger piece.
+   the first place. **This half is what is still open**, and it needs one
+   piece of plumbing first: no caller passes a media `id` to `openLightbox`
+   today, so the Library caller (`library.js:1810`) has to start passing one
+   and each action has to hide itself when it is absent — the same optional-
+   field pattern `caption`/`text`/`byline` already use. Zoom and pan, the
+   other half named here, are **built** (see above).
 
 4. **Meeting notes need a real home.** Asked directly: *"the Meeting notes
    feature still needs a way to be accessed and better utilised as well as

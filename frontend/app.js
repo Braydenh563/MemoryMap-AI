@@ -2710,6 +2710,37 @@ function openLightbox(items, startIndex = 0) {
     { passive: false }
   );
 
+  // Drag to pan, once zoomed. The scrollbars already pan the stage, but a
+  // magnified picture with `cursor: grab` on it that does not actually drag
+  // is an affordance telling a lie — every image viewer drags here.
+  let panning = null;
+  img.addEventListener("pointerdown", (e) => {
+    if (zoom === 1) return;
+    e.preventDefault();
+    panning = { x: e.clientX, y: e.clientY, left: stage.scrollLeft, top: stage.scrollTop };
+    img.setPointerCapture(e.pointerId);
+    img.style.cursor = "grabbing";
+  });
+  img.addEventListener("pointermove", (e) => {
+    if (!panning) return;
+    stage.scrollLeft = panning.left - (e.clientX - panning.x);
+    stage.scrollTop = panning.top - (e.clientY - panning.y);
+  });
+  const endPan = (e) => {
+    if (!panning) return;
+    panning = null;
+    img.style.cursor = "";
+    if (e.pointerId !== undefined && img.hasPointerCapture(e.pointerId)) {
+      img.releasePointerCapture(e.pointerId);
+    }
+  };
+  img.addEventListener("pointerup", endPan);
+  img.addEventListener("pointercancel", endPan);
+  // A drag that ends on the image must not also read as a click on the
+  // backdrop, which closes the dialog — panning to the edge of a picture
+  // and having the whole thing vanish is the bug this prevents.
+  img.addEventListener("click", (e) => e.stopPropagation());
+
   // Copy the text the app read out of the picture. Hidden unless this item
   // actually has some — an enabled button that copies "" is a lie.
   const copyBtn = actionBtn("ph:copy Copy text", "Copy the text read from this image", async (b) => {

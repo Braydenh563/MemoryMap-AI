@@ -3734,9 +3734,24 @@ Genuinely open, ranked by value-per-effort:
 
 ### 109.4 Brainstormed — not asked for, worth doing
 
-- **A selection toolbar.** Reported this session as "when I highlight stuff,
-  the ellipse kebab button no longer appears" — not verified here, and the
-  cause is not established, so it needs a live reproduction first. Beyond
+- **The selection popup in editors — decide, then build.** Reported twice as
+  "the ellipse kebab button doesn't appear when I highlight things", and now
+  partly explained rather than guessed at. On *rendered* content it works:
+  driven live against `.entry-content`, the popup appears with the right
+  text. It does not appear in the note editor, and that is deliberate —
+  `SELECTION_POPUP_EXCLUDED` is `"input, textarea, [contenteditable],
+  .selection-popup"`, and the editor is a `<textarea>`.
+
+  So this is a design decision, not a bug fix, which is why it is logged
+  rather than half-built: **should selecting text inside the editor offer
+  the same actions as selecting it on a note card?** The argument for is
+  that the editor is exactly where you would want highlight-with-colour,
+  "extract this to its own note" and "link this to…". The argument against
+  is that a popup over a live cursor fights normal text editing. A textarea
+  can supply the selection via `selectionStart`/`selectionEnd`, so the
+  capability is cheap once the decision is made; the awkward part is
+  dismissal behaviour while typing continues. Whoever picks this up: get
+  that decision from the user first. Beyond
   fixing whatever regressed, selecting text is the natural home for
   highlight-with-colour, "ask the AI about this", "extract to a new note"
   and "link this to…". Today selection offers nothing consistent.

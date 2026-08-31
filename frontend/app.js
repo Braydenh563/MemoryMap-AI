@@ -14748,36 +14748,18 @@ function renderTimelineBranch(body) {
         .attr("stroke-dashoffset", 0);
     }
 
-    if (!single) {
-      // Position label near the actual branch start rather than the fixed left margin
-      const startX = scale(new Date(here[0].at));
-      const label = laneGroup
-        .append("text")
-        .attr("class", "timeline-branch-label")
-        .attr("x", startX)
-        .attr("y", laneY - 14)
-        .attr("dy", "0")
-        .attr("text-anchor", "start")
-        .attr("fill", tint)
-        .text(band.name)
-        .style("opacity", 0);
-
-      label.transition().duration(600).style("opacity", 1);
-      label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
-    }
-
     // Calculate vertical staggering to prevent physical overlap
     const placed = [];
     const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
-    
+
     here.forEach(n => {
       n.cx = scale(new Date(n.at));
-      
+
       // Find what dy offsets are already taken at this cx
       const taken = placed
         .filter(p => Math.abs(p.cx - n.cx) < minDistance)
         .map(p => p._dy);
-        
+
       // Try dy offsets: 0, 15, -15, 30, -30...
       let step = TIMELINE_DOT_R * 1.5;
       let offsetIdx = 0;
@@ -14790,6 +14772,34 @@ function renderTimelineBranch(body) {
       n._dy = dy;
       placed.push(n);
     });
+
+    if (!single) {
+      // Position label near the actual branch start rather than the fixed left margin
+      const startX = scale(new Date(here[0].at));
+      // Reported live: "a bit hard to read" — the label used to sit a fixed
+      // 14px above the lane's own baseline, computed *before* the stagger
+      // loop above ever ran, so it had no idea how far up a crowded cluster
+      // of same-day dots would climb. A "Single notes & smaller threads"
+      // lane (§87.6's thread grouping) is exactly the shape that triggers
+      // this most: it pools otherwise-unrelated notes, which cluster in
+      // time by chance far more than a real thread's own notes do. Clearing
+      // the *tallest* dot in this lane, not just the baseline, fixes it for
+      // every lane this can happen to, not only the new one.
+      const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
+      const label = laneGroup
+        .append("text")
+        .attr("class", "timeline-branch-label")
+        .attr("x", startX)
+        .attr("y", laneY + highestDy - TIMELINE_DOT_R - 8)
+        .attr("dy", "0")
+        .attr("text-anchor", "start")
+        .attr("fill", tint)
+        .text(band.name)
+        .style("opacity", 0);
+
+      label.transition().duration(600).style("opacity", 1);
+      label.append("title").text(`${band.count} note${band.count === 1 ? "" : "s"}`);
+    }
 
     // A soft coloured glow behind each dot, same treatment the Graph tab's
     // nodes use (.graph-halo) — asked for directly ("look similar to the

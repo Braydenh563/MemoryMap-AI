@@ -138,9 +138,25 @@ Items 1–2, below, are the ones with real substance after that.
    it. Full build note, the design question's answer, and live thread-
    child verification in BACKLOG §77 item 2.
 
-3. **The Timeline's line view needs a real visual pass** — reported as needing
-   to look "very professional and ready for public use", and never scoped
-   beyond that. Say what specifically, next time it is reported. The grid
+~~3. **The Timeline's line view needs a real visual pass**~~ — the vague half
+   ("very professional and ready for public use") is still unscoped, say
+   what specifically next time it's reported; **§87.6's own concrete design
+   is now built**: "Thread" joins Category/Tag/None as a `group` value
+   (`GET /timeline?group=thread`, `routes_timeline._thread_bands`) — one
+   lane per root note and everything that continues it via `Entry.parent_id`,
+   the branch-and-tributary shape IDEAS.md asked for and the grid view could
+   never show at all. A parent outside the loaded date window becomes its
+   own root rather than a second query reaching further back (same
+   simplification the `days` filter already asks the rest of the view to
+   accept); a note with no children folds into one shared "Single notes &
+   smaller threads" lane rather than spending a lane on every lone note, the
+   same long-tail folding category/tag bands already use. No frontend
+   changes needed beyond the new dropdown option — `renderTimelineBranch`
+   already rendered whatever bands the backend sent. 2 new backend tests.
+   **Live-verified in Chromium**: seeded a real 4-note thread plus one lone
+   note via the real API, selected Line view → Thread — the thread's own
+   lane drew a spine-branching line through all 4 dots, the lone note
+   correctly landed in the shared lane, zero console errors. The grid
    view's text-cropping half is done; a re-report after that fix was never
    reproduced in this sandbox's Chromium and needs the actual browser/OS it
    happens on.
@@ -498,9 +514,8 @@ same session is in §88.0 so nobody re-fixes it.
 ~~13. **Graph node labels show raw callout syntax** (`Review > [!tip] Remem…`).~~
     **Fixed** — `routes_graph.py`'s `_preview()` now strips a callout's
     opening line the same way it already strips a `#` heading.
-17. **Timeline line view redesign** — the concrete design is §87.6: threads as
-    tributaries off a time trunk, using `Entry.parent_id`, which that view
-    currently ignores entirely.
+~~17. **Timeline line view redesign.**~~ **Built** — see the live list's item 3
+    above for the full build note and live verification.
 ~~18. **Semantic search ignores time words** ("recents").~~ **Already
     built — checked before building, found done.** `search/query.py`'s
     `understand()` parses "recently"/"recent" (and "yesterday", "last week",
@@ -1212,7 +1227,7 @@ already built above:**
    that it's cheap. §88.4 item 4's per-stage token accounting (built) is
    available for that measurement now.
 
-### 87.6 The Timeline line view — a concrete design, at last
+### 87.6 The Timeline line view — a concrete design, at last (built — see live list item 3)
 
 Live-list item 3 has said "needs a real visual pass" and nothing more, twice.
 Here is the specific version, and it comes from joining two things already in
@@ -1377,9 +1392,7 @@ from the file that documents it.
    discoverable than the button was. If it is re-reported after a hard
    refresh, the answer is discoverability, and the fix is a visible toggle
    next to the position select rather than folding both into one control.
-6. **Timeline line view redesign** — the concrete design is §87.6 above
-   (threads as tributaries off a time trunk, using `Entry.parent_id`, which
-   the view currently ignores entirely). Still unbuilt.
+~~6. **Timeline line view redesign.**~~ **Built** — see live list item 3.
 
 ### 87.8 Checked this session — three of four were already done, the fourth partly fixed
 
@@ -1544,11 +1557,12 @@ into a good one.
     this is hardening, not a diagnosis — the next session needs the actual
     browser/OS this is happening in. ~~**Also reported: the line-view's own
     note popup shows no markdown rendering and no sketch/image attachment
-    preview.**~~ **Fixed and verified live (HISTORY.md §51).** **Still
-    open:** the line view itself — reported as needing a real visual pass
-    ("very professional and ready for public use"), and grid view could
-    still take general UX polish beyond the text-cropping fix (not scoped
-    further — say what specifically, next time it's reported).
+    preview.**~~ **Fixed and verified live (HISTORY.md §51).** **§87.6's
+    concrete design (thread bands) is now built — see live list item 3.**
+    **Still open:** the *vague* half of the original report ("very
+    professional and ready for public use" — no specifics given), and grid
+    view could still take general UX polish beyond the text-cropping fix
+    (not scoped further — say what specifically, next time it's reported).
 16c. ~~**Images and files still can't be copied, pasted, or dragged into
     notes.**~~ **Two of three already worked — checked live before
     building anything (HISTORY.md §51).** The third path — a file-picker

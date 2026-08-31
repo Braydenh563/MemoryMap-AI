@@ -3076,6 +3076,14 @@ laziness.
    is a deliberate design choice recorded elsewhere in this file and
    should stay the default; this would be an opt-in faster-feedback mode
    for someone who wants it.
+10. **A one-click "synthesize these notes into a draft" action**
+    (Kortex's "Blogger"): a named button in the graph/note UI that pulls a
+    chosen set of linked/selected notes into a cohesive long-form outline
+    or draft, distinct from a person hand-writing that prompt themselves
+    in chat today. The re-paste of this same competitor research (a later
+    session) named this one specifically as missing from the list above —
+    correctly; it isn't covered by any of items 1–9. `expandNoteIntoDocument`
+    (app.js) is the nearest existing thing and only ever takes *one* note.
 
 **Out of scope, and why — not filed as gaps:** calendar-integrated
 auto-join of video calls (needs a cloud calendar account or a bot joining

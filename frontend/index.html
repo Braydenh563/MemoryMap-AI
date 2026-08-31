@@ -3044,7 +3044,19 @@ Link to another note with [[its first few words]]."></textarea>
                every section switch) but not as a control you could actually
                click. Same handlers, reachable from in here instead of
                floating a second copy above the modal. -->
-          <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav">
+          <!-- Musing raised directly: back/forward navigation "gets annoying"
+               — maybe make it toggleable, or maybe keep the Settings modal's
+               own copy separate from the status bar's. It turns out both were
+               half-true: Settings → status bar already had a "Back and
+               forward" visibility toggle (STATUS_SLOTS' "nav" entry, app.js),
+               but it only ever carried `data-status-slot="nav"` on the status
+               bar's own pair above — this modal's mirrored copy had no such
+               attribute, so hiding "Back and forward" left this pair on
+               screen and clickable regardless. One toggle for both, rather
+               than a second setting: someone who finds it annoying almost
+               certainly means everywhere, not just one of the two places it
+               shows up. -->
+          <span class="row status-nav" role="group" aria-label="Move between pages" id="settings-modal-nav" data-status-slot="nav">
             <button id="settings-nav-back" class="ghost small icon-only" type="button" disabled title="Nothing to go back to" aria-label="Nothing to go back to"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
             <button id="settings-nav-forward" class="ghost small icon-only" type="button" disabled title="Nothing to go forward to" aria-label="Nothing to go forward to"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
           </span>

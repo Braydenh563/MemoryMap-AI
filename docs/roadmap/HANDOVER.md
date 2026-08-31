@@ -242,6 +242,41 @@ rather than left stale above.
   anchors and interactive curve-bending don't), whiteboard bring-to-front/
   send-to-back (genuinely absent, checked directly).
 
+### Continued again — a self-caught wrong claim, and a real BACKLOG §103 item built
+
+- **"Renaming a saved chat" was wrongly logged as missing — self-caught,
+  not from a report.** The prior stretch's own grep for `renameConversation`
+  came back empty and concluded the feature didn't exist; it does, just
+  under a different name — the chat list's kebab menu already has both a
+  manual "Rename" (a prompt dialog, `PUT /conversations/{id}`, which itself
+  already existed as `rename_conversation`) and "Name with AI"
+  (`POST /conversations/{id}/retitle`). Corrected in BACKLOG §103 rather
+  than left standing — the exact mistake this project's own top rule
+  exists to catch, caught one level later than ideal but still before
+  anyone acted on it.
+- **Whiteboard bring-to-front / send-to-back — built, and cheaper than the
+  prior stretch's own scoping guessed.** That entry assumed a schema
+  change would be needed; checking first found every whiteboard item
+  already has an unused `z` column that the render code already painted
+  from (`.style("z-index", d => d.z)`) — so the entire fix was one
+  function to change `z` deliberately (`wbSetZOrder`, reusing the existing
+  undo-stack "move" entry shape) plus two context-menu items. One real
+  architectural limit stated rather than glossed over: cards and objects
+  share an HTML stacking context and interleave freely; a sketch lives in
+  a separate SVG layer beneath both and can only reorder against other
+  sketches, never in front of a card. **Live-verified in Chromium**: two
+  overlapping text objects created via the real API, the back one
+  confirmed actually obscured (Playwright's own actionability check
+  reported the front box intercepting pointer events, not assumed),
+  right-clicked → Bring to Front → stacking visibly flipped on screen, and
+  the new `z` survived a full page reload read from live state, not just
+  checked in memory. Full narrative: BACKLOG §103.
+- Not touched this stretch: curved-line/custom-anchor-point whiteboard
+  work (already partly built per the prior audit — needs a real design
+  decision on freeform anchors before building, not a quick fix) and the
+  Tag Manager frontend screen (the backend for it — `rename_tag`/
+  `delete_tag`/`GET /tags` — already exists; no UI calls any of it).
+
 ### What I still could not check
 
 - The tray quick-capture idea and the other §102 "worth taking" items are
@@ -264,6 +299,9 @@ rather than left stale above.
   code comment (`openTimelineBand`'s own note in `app.js`), not a live
   click-through of the Library tag cards — confirm before either building
   a Tag Manager screen around it or assuming it needs building too.
+- The whiteboard z-order fix was verified for text objects specifically
+  (create, overlap, reorder, persist); node cards and sketches share the
+  same code path but were not separately driven live this stretch.
 
 ## Prior session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
 

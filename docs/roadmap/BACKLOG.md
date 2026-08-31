@@ -3117,14 +3117,25 @@ item 8 above instead).
      of them — but **no frontend "Tag Manager" screen calls any of this**
      (`grep -rn "Tag Manager\|renameTag" frontend/` is empty). The backend
      is the built half; the UI is the missing half.
-   - **Click a tag to see every note carrying it.** Likely partly there
-     already — `openTimelineBand`'s own comment (`app.js`) says clicking a
-     band should do "what clicking either already does elsewhere in the
-     app (the sidebar's category rows, a Library tag card)," implying a
-     Library tag card click already filters to that tag's notes. Confirm
-     live before building a second mechanism.
-   - **Renaming a saved chat.** `grep -rn "renameConversation" frontend/`
-     is empty — genuinely missing, unlike the two above.
+   - **Click a tag to see every note carrying it — confirmed, partly
+     built, from a different surface than asked about.** The dashboard's
+     Tag Cloud widget (`renderTagCloudWidget`, `dashboard.js`) already does
+     this: clicking a tag sets the Notes search box to the tag name,
+     switches tabs, and filters. Real gap: it's a **text search** on the
+     tag word, not a strict "notes tagged exactly X" filter (a note that
+     merely mentions the word "work" in its body would also match), and
+     it's reachable only from a Dashboard widget someone has to have
+     added — not from the Library "All" tab's own tag chips, which is
+     where this was actually asked about. The Library's `Tags 0` filter
+     chip (seen in the Library toolbar) switches the grid to a *list of
+     tags*, not straight to one tag's notes — confirm live before deciding
+     whether that's the missing link or a third mechanism is needed.
+   - ~~**Renaming a saved chat.**~~ **Already built — the prior session's
+     own grep missed it because the function isn't named `renameConversation`.**
+     The saved-chats list's kebab menu already has both "Rename" (a prompt
+     dialog, `PUT /conversations/{id}`) and "Name with AI"
+     (`POST /conversations/{id}/retitle`, `app.js` ~line 11252). Corrected
+     here rather than left standing.
    - The broader "make more and easily access them" ask (drafts, chats,
      files, everything) needs a concrete list of what's missing per kind
      rather than one broad redesign — say what specifically, next time.
@@ -3149,10 +3160,25 @@ item 8 above instead).
    a separate, bigger ask — the sketch pad is pure-raster today (ROADMAP's
    own Tier 2 item 10 already names this as needing a real architecture
    change, not a small patch).
-5. **Whiteboard: bring-to-front / send-to-back for a selection.** Checked,
-   genuinely absent — `grep -n "bringToFront\|sendToBack" whiteboard.js`
-   only turns up an unrelated drag-time DOM reorder (a dragged node is
-   appended as its parent's last child so it paints above its siblings
-   *while being dragged*, not a real, persisted z-order a person can set
-   deliberately). Would need a stored order (an integer column, or array
-   position) per board item, plus the two menu actions.
+~~5. **Whiteboard: bring-to-front / send-to-back for a selection.**~~
+   **Built.** Turned out cheaper than it looked: every item already had a
+   `z` column, unused for anything but a fixed value set at creation, and
+   the render code already painted from it (`.style("z-index", d => d.z)`,
+   both cards' and objects' own merge) — so no schema change and no new
+   render path, only the missing action. `wbSetZOrder(kind, item, toFront)`
+   sets `z` to one past the current max/min among its layer's peers and
+   saves via the existing PUT route, plugging into the existing undo stack
+   as a "move" entry. Two new "Bring to Front"/"Send to Back" items in the
+   right-click/long-press context menu, for a single selection or a whole
+   multi-selection at once. **One real architectural limit, stated rather
+   than hidden**: cards and objects share one HTML stacking context and
+   interleave freely against each other; a sketch renders in a separate
+   SVG layer underneath both, so it only ever reorders against other
+   sketches — it can never be brought in front of a card. **Live-verified
+   in Chromium**: two overlapping text objects created via the real API,
+   the back one confirmed actually obscured (Playwright's own
+   actionability check reported the front box "intercepts pointer
+   events"), right-clicked → Bring to Front → the stacking visibly
+   flipped, and the new `z` value survived a full page reload (read
+   straight from `wbState` after a fresh navigation, not just checked
+   in-memory).

@@ -1359,6 +1359,77 @@ function deleteWbSelection() {
   return true;
 }
 
+// --- Layer order: bring to front / send to back (asked for directly) ------
+//
+// `z` already exists on every kind's own row and already drives paint order
+// (`.style("z-index", d => d.z)`, both nodes' and objects' own render merge
+// a few hundred lines down) — nothing here needed a schema change or a new
+// render path, only an action that actually changes the number. Nodes and
+// objects share one HTML stacking context (`canvas` in renderWhiteboard),
+// so they interleave against each other; a sketch renders in the separate
+// SVG layer beneath both (wbShowAnchorHints's own comment explains why), so
+// it only ever reorders against other sketches — never in front of a card.
+// An honest limit of this app's layering, not something faked here.
+
+function wbZOrderPeers(kind) {
+  return kind === "sketch"
+    ? wbState.sketches || []
+    : [...(wbState.nodes || []), ...(wbState.objects || [])];
+}
+
+//: Moves one item to the front/back of its own layer and saves it, mirroring
+//: `wbMoveItemBy`'s shape (capture `before`, mutate, save, return a "move"
+//: undo entry) so it plugs into the same undo/redo stack without a new
+//: action type.
+async function wbSetZOrder(kind, item, toFront) {
+  const zs = wbZOrderPeers(kind).map((p) => p.z || 0);
+  const next = toFront ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1;
+  if ((item.z || 0) === next) return null;
+  const before = WB_KIND_INFO[kind].payload(item);
+  item.z = next;
+  try {
+    const saved = await apiJson(`${WB_KIND_INFO[kind].base}/${item.id}`, {
+      method: "PUT",
+      body: JSON.stringify(WB_KIND_INFO[kind].payload(item)),
+    });
+    Object.assign(item, saved);
+  } catch {
+    recordBrowserLog("WARN", [`[Whiteboard] ${kind} ${item.id} is stale — reloading the board`]);
+    await fetchWhiteboardState();
+    wbScheduleRender();
+    return null;
+  }
+  return { action: "move", kind, id: item.id, before };
+}
+
+//: The context menu's own entry point — single selection or a whole
+//: multi-selection at once, same iteration shape `deleteWbSelection` above
+//: already uses.
+async function wbSendSelectionZOrder(toFront) {
+  const targets = [];
+  if (wbMultiSelection.size > 0) {
+    for (const key of wbMultiSelection) {
+      const sep = key.indexOf(":");
+      const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+      const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+      if (item) targets.push({ kind, item });
+    }
+  } else if (wbSelectedItem) {
+    const { kind, id } = wbSelectedItem;
+    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    if (item) targets.push({ kind, item });
+  }
+  if (!targets.length) return;
+  const entries = [];
+  for (const { kind, item } of targets) {
+    const entry = await wbSetZOrder(kind, item, toFront);
+    if (entry) entries.push(entry);
+  }
+  if (entries.length === 1) wbPushUndo(entries[0]);
+  else if (entries.length > 1) wbPushUndo({ action: "batch", entries });
+  if (entries.length) wbScheduleRender();
+}
+
 // --- Bulk move: dragging one member of a multi-selection moves all of them
 // together — the reason to select more than one thing in the first place.
 // Three per-kind drag handlers (node/object/sketch) each call these three
@@ -1552,6 +1623,11 @@ function wbBuildContextMenu(kind) {
     item("Copy", "Ctrl/Cmd+C", () => wbCopySelection());
     item("Cut", "Ctrl/Cmd+X", () => wbCutSelection());
   }
+  // Asked for directly. Available for every kind — a sketch reorders
+  // against other sketches, a card/object against both (wbZOrderPeers'
+  // own comment has the full reasoning for that split).
+  item("Bring to Front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
+  item("Send to Back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
   item("Delete", "Delete", () => deleteWbSelection());
   return menu;
 }

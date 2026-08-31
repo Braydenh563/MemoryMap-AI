@@ -289,27 +289,26 @@ Items 1–2, below, are the ones with real substance after that.
     still opens the right document. Whiteboards' own pass (item 9 below) is
     unrelated code and still open.
 
-13. **Back/forward navigation still misses most navigation types.** Reported
-    directly, and traced to source rather than guessed at. Library's own
-    sub-tabs were fixed earlier (§88.1 item 7). **Switching between saved
-    chat conversations is now fixed too**: `openConversation` and
-    `newChatConversation` each record a `{tab: "chat", section}` entry —
-    `"conv:<id>"` or `"new"` — and `stepTabHistory` restores it. This one
-    caught and fixed a genuine bug before it shipped, not just a gap: making
-    `stepTabHistory` `async` and `await`-ing `openConversation` on that
-    branch specifically was necessary — `openConversation` calls
-    `recordTabVisit` itself, but only *after* an `await apiJson(...)`, so an
-    un-awaited call would let `stepTabHistory`'s own `finally` clear
-    `tabHistory.navigating` before that later call ran, turning every single
-    Back/Forward through a saved chat into a spurious new history entry.
-    Verified live via Playwright: opening two conversations, then stepping
-    Back and Forward, restores the right conversation each time with the
-    stack length unchanged by the navigation itself.
-
-    Still open: opening/closing a document in the editor, and
-    entering/exiting Graph focus mode. Same `{tab, section}` shape to
-    extend — worth checking for the same async-ordering trap this one had
-    before assuming either is a small change.
+~~13. **Back/forward navigation still misses most navigation types.**~~
+    **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
+    conversations (`openConversation`/`newChatConversation` recording a
+    `{tab: "chat", section}` entry, restored by `stepTabHistory` — the
+    session that built this also had to make `stepTabHistory` `async` and
+    `await` that branch specifically, since `openConversation` calls
+    `recordTabVisit` itself only *after* an `await apiJson(...)`, and an
+    un-awaited restore let the `finally` clear `tabHistory.navigating` too
+    early, turning every Back/Forward through a saved chat into a spurious
+    new entry). **Documents and Graph focus mode turned out to be already
+    built too** — found by grep before being re-built, not assumed:
+    `documents.js:349` and `graph.js:2702` already call `recordTabVisit`
+    (`doc:<id>` / `focus:<id>`), and `stepTabHistory` already restores
+    both. Live-verified rather than trusted, since a call site existing is
+    not the same claim as it working: opened a document, switched to
+    Dashboard, pressed Back — the Documents tab reopened with the right
+    title loaded. Separately, entered Graph focus mode on a note, switched
+    to Dashboard, pressed Back — the Graph tab reopened with the same
+    note's focus mode active and "Clear focus" visible. Zero console
+    errors either check.
 
 ### Smaller, and genuinely cheap
 

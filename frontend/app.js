@@ -21677,6 +21677,16 @@ $("search-help").addEventListener("click", () => {
   if (!showing) $("note-search").focus();
 });
 
+// The capture box's own "?" — same disclosure, same three lines. It does
+// *not* steal focus back to the textarea the way the filter one does:
+// this panel is six lines of syntax you are meant to read while typing,
+// and yanking the caret away mid-read is the opposite of helpful.
+$("capture-help")?.addEventListener("click", () => {
+  const panel = $("capture-help-hint");
+  const hidden = panel.classList.toggle("hidden");
+  $("capture-help").setAttribute("aria-expanded", String(!hidden));
+});
+
 $("prefs-save").addEventListener("click", savePrefs);
 $("pref-search-reset").addEventListener("click", () => {
   $("pref-search-min-sim").value = 0.25;

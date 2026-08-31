@@ -449,9 +449,60 @@
         <section class="card" id="capture">
           <div class="row space-between">
             <h2>Capture a thought</h2>
-            <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select" title="Start from a template">
-              <option value="">No template</option>
-            </select>
+            <span class="row align-center">
+              <!-- Asked for directly: a "? tooltip circle somewhere that
+                   tells the user about [[]] note linking and / commands".
+                   Same disclosure pattern as #search-help below (a `?`
+                   button, `aria-expanded`, a `.search-help` panel it
+                   controls) rather than a title= tooltip: this is four
+                   lines of syntax with examples, which a native tooltip
+                   truncates, cannot be read on a touch device, and
+                   disappears the moment you move to type the thing it just
+                   described. -->
+              <button id="capture-help" class="ghost small" type="button"
+                aria-expanded="false" aria-controls="capture-help-hint"
+                title="What can I type in a note?">?</button>
+              <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select">
+                <option value="">No template</option>
+              </select>
+            </span>
+          </div>
+          <!-- Syntax that exists is useless if nobody knows it does. Every
+               line below was checked against the code that implements it
+               before being written here — see the note on "/" in
+               particular, which is *not* a composer command and is
+               documented as what it actually is. -->
+          <div id="capture-help-hint" class="search-help hidden">
+            <p class="muted">A note is plain text. These few things do something extra:</p>
+            <ul class="search-help-list">
+              <li><code>[[its first few words]]</code> — links to another
+                note. Start typing <code>[[</code> and a list of your notes
+                appears; pick one to complete it. The link becomes a
+                clickable chip on the saved note.</li>
+              <li><code># A title</code> on the first line becomes the
+                note's title — the same thing the "Optional title" box
+                above writes for you.</li>
+              <li><code>**bold**</code>, <code>*italic*</code>,
+                <code>`code`</code>, <code>~~struck~~</code>,
+                <code>[text](url)</code> and <code>$x^2$</code> all render
+                on the saved note.</li>
+              <li><code>tag:</code> is for the filter box, not here — tags
+                go in the tags field below, comma separated.</li>
+            </ul>
+            <p class="muted">Two things worth knowing, because they are
+              easy to assume and both untrue:</p>
+            <ul class="search-help-list">
+              <li><strong>There is no <code>/</code> command menu in this
+                box.</strong> Pressing <code>/</code> anywhere you are
+                <em>not</em> typing jumps to the search box; inside a
+                document, <code>Ctrl</code>+<code>/</code> comments the
+                line. Neither is a note-composer command.</li>
+              <li>Headings beyond the first line, lists, tables, fenced
+                code and <code>&gt; [!tip]</code> callouts are stored
+                faithfully but are <em>not</em> rendered on a note card —
+                a note list rendered that way gets very tall very fast.
+                They do render in the document editor.</li>
+            </ul>
           </div>
           <!-- Optional — asked for directly. Not a second stored field: it
                writes the same leading `# heading` line manager.extract_title

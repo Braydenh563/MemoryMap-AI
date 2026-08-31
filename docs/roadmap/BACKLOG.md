@@ -3861,3 +3861,86 @@ Genuinely open, ranked by value-per-effort:
   were already built, check that table first**) and §109.4.
 - Highlights as a queryable collection, backlinks panel, conflict-safe
   editor, per-note pinned AI context, bulk tag editing — all §109.4.
+
+## §111 — where this app should go next, grounded in what the code actually does
+
+Asked for directly: missing features, inefficiencies, and future directions.
+Everything below was checked against the codebase rather than imagined, and
+anything already built is named as such so nobody rebuilds it.
+
+### 111.1 Inefficiencies, measured or read rather than guessed
+
+- **The notes list has no virtualisation, and every render rebuilds it.**
+  `loadEntries` pages at `ENTRIES_PAGE_SIZE = 1000` but loops until it has
+  *all* entries, and `renderEntries()` opens with `list.replaceChildren()`
+  and then builds a node per entry. This file's own comments talk about a
+  75k-note notebook; at that size this is 75,000 DOM nodes rebuilt on every
+  filter keystroke, tag toggle and save. **This is the single biggest
+  scalability item in the frontend** and it is invisible until someone has a
+  big notebook, because it is fine at a few hundred. Windowing the list (or
+  rendering only the filtered slice plus a sentinel) is the fix; the
+  server-side pagination it needs already exists.
+- **`/entries/link-suggestions/reasons` is sequential.** Up to twelve model
+  round-trips one after another in a threadpool endpoint. Concurrency would
+  not help much — a single local model serialises anyway — so the honest
+  lever was the count, now capped at 6 automatically with the button for the
+  rest. Worth revisiting only if someone runs a server that batches.
+- **Filing costs a model round-trip per capture** since the order was
+  reversed. Now a preference (`ai_first_filing`), so this is a *choice*
+  rather than a cost, but it is worth measuring on a slow model before
+  assuming the default suits everyone.
+- **Three places independently decide what markdown means**: `MD_ACTIONS`
+  (toolbars), `INLINE_MD`/`INLINE_MD_LEGACY` (the renderer), and editor.js's
+  "/" menu. The Red/Grey highlight bug (§110) lived precisely in the gap
+  between two of them. `tests/test_highlight_colours.py` pins the colour
+  lists, but the general fix is one grammar module the three consume.
+
+### 111.2 Features worth building, ranked by value per unit of work
+
+1. **Import from other note apps.** Still the biggest adoption blocker: a
+   local-first tool cannot lean on a cloud migration service. A folder of
+   Markdown first (front-matter → tags, `[[wiki links]]` → real links,
+   attachments copied in, dry-run preview before anything is written);
+   Notion and Obsidian are the same importer with different front-matter
+   dialects. Needs no model at all.
+2. **Backlinks on the note itself.** The graph already knows what links *to*
+   a note; the note never shows it. Cheap, and it is half of what people mean
+   by a connected notebook.
+3. **Highlights as a queryable collection.** Now that `==highlight==` exists,
+   "show me everything I highlighted this month" is a search-index question,
+   not a schema one — the marks are already in `content`. This is also the
+   honest version of the "clippings library" competitor gap (§109.3 item 4).
+4. **Export a single note or document** (Markdown/PDF). Backups export
+   everything; there is no "send this one to someone".
+5. **Typed note templates with structured fields** — a category-bound schema
+   (decisions, owners, dates) rendered as a form. The meeting-summary block
+   already proves the output shape is useful; this generalises it. Skills are
+   reusable *prompts*, which is a different thing.
+6. **Bulk tag editing** from the notes list, with the same undo everything
+   else has.
+7. **A keyboard-shortcut sheet.** `Ctrl+K`, zoom, dictation and the "/" menu
+   all exist and nothing lists them in one place.
+8. **Per-note pinned AI context** — a note that is always in scope for chat
+   ("my current project"), instead of relying on retrieval to find it.
+9. **Speaker labelling on transcripts.** Transcription is already local, so
+   "Speaker 1/2/3" by voice is incremental; letting a user rename a label
+   once and having it stick for that recording covers the rest.
+10. **A conflict-safe editor.** Two windows on the same note is silently
+    last-write-wins today. Low frequency, high annoyance when it happens.
+
+### 111.3 Directions, not features
+
+- **Decide what the graph is *for*.** It is currently a picture plus a thing
+  the AI can walk. The two uses pull in different directions — a human wants
+  few, meaningful edges; retrieval wants many, weighted ones. Typed links and
+  link strength (§87.5) are the lever, but the decision comes first.
+- **The AI's honesty surface is the app's real differentiator.** Answers
+  already carry the notes behind them and the librarian is audited and
+  gated. Every future AI feature should be held to that bar — visible
+  reasoning, an undo, and a log — rather than added as another silent
+  automation.
+- **Decide whether the note editor is a text box or an editor.** It now has
+  a toolbar, a preview and a selection menu, while Documents has a full
+  four-view editor. Either the composer stays deliberately small and defers
+  to Documents for real writing, or the two converge. Drifting between the
+  two is what produces a third dialect of markdown.

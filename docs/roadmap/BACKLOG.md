@@ -1040,15 +1040,24 @@ as possible." Split into the two things actually asked for.
 - **Query expansion** — two or three phrasings, results fused
 - **Read before answering** — tell the model a snippet is rarely enough
 - **Cite sources** with the domains actually read
-- **Per-turn result cache**
+- ~~**Per-turn result cache**~~ **Built — found by checking, not assumed
+  missing.** `websearch._CACHE`/`_cache_get`/`_cache_put`, keyed on
+  `provider::searxng_url::query::limit`, a small in-process dict with the
+  simplest correct eviction (clear it all once it's full) rather than a real
+  LRU, which this cache's size doesn't need.
 - ~~**SearXNG as the recommended default** once §2's install path
   works~~ — the install path works now (§8b); worth actually flipping the
   default and updating the README/onboarding copy that still frames it as an
   advanced option
-- **Say which engine answered.** DuckDuckGo and SearXNG have different
-  privacy properties (§ below) and the person chose one deliberately in
-  Settings; the results panel itself doesn't currently say which one served
-  a given search, so that choice is invisible at the point it matters
+- ~~**Say which engine answered.**~~ **Built — found by checking, not
+  assumed missing.** `websearch.answered_by()` returns a label plus a
+  plain-English privacy note per provider ("SearXNG — your own instance,
+  the query stayed on your machine" vs. "DuckDuckGo — a third party saw
+  this query, but not your notes"); `routes_websearch.py` attaches it as
+  `answered_by` on every search response, including a zero-result one on
+  purpose ("no results" and "no results *from DuckDuckGo*" are different
+  facts); `app.js`'s web-search status line already renders both the label
+  and the detail beside the result count.
 - **Result cards worth reading, not just clicking.** A title and a link today;
   a domain/favicon and a snippet with the matched terms highlighted would let
   someone judge relevance before opening the reader view, the same reasoning
@@ -1311,8 +1320,13 @@ are now done** (§85, §86):
 - **Async httpx client** — touches the streaming path, which is what makes chat
   feel responsive, so a subtle regression wouldn't show up in tests. Do it with
   §6.
-- **Alembic migrations** — the additive auto-migrator cannot rename or drop, and
-  won't survive a real schema change
+- ~~**Alembic migrations** — the additive auto-migrator cannot rename or drop, and
+  won't survive a real schema change~~ **Built.** `migrations/` (Alembic),
+  `_ensure_alembic_baseline()` (`core/database.py`) stamps any pre-existing
+  database at the baseline revision on first run under the new system so it
+  never tries to replay history against data that already has the schema.
+  Full narrative: HISTORY.md §100. Stale here since — found by checking the
+  running app before trusting this list, not assumed.
 - ~~**Session TTL** — tokens live in memory and never expire~~ **done.** Two
   clocks (idle 12h, absolute 7d), expiry closes the vault too. See
   HISTORY.md.
@@ -2971,3 +2985,102 @@ better — still open, and now the actual next step**, not §87.5's remaining
 derived-signal composite and not a new mechanism beside the one that
 already runs on every retrieval call. This sandbox has no reachable model,
 so that re-measurement needs a real Ollama and cannot happen here.
+
+## §102 — a live competitor read (Kortex, Granola, Mem.ai), audited before logging
+
+This sandbox has working web access this session — earlier reads in this
+project's history (§30, §59, §60, §88.2) were done blind, from supplied text
+or with a network policy blocking outbound access. Asked directly to look at
+Kortex, Granola and a "second-brain" app (Mem.ai — the most-cited product
+making that exact claim) live and compare. A subagent did the web research;
+**every finding it returned was then checked against this codebase before
+being logged here**, per this file's own standing rule — two of its claims
+were wrong and are corrected below rather than repeated. Kortex.co and
+Granola.ai themselves were blocked by this sandbox's own egress proxy even
+though general web search worked, so those two products are read from
+reviews/docs pages, not a first-hand render — a real gap, not this session's
+laziness.
+
+**Corrected before logging — do not re-file these as gaps:**
+- *"No way to scope a chat query to chosen notes"* — **false.** `note_ids`
+  plus `attached_notes_only` (`routes_chat.py`) already do exactly this;
+  `_attached_notes` already gates it through the same private-note check
+  every other read path uses. The subagent's finding didn't check the
+  running code, which is the exact trap CLAUDE.md warns about — recorded
+  here so nobody re-runs into it from this angle.
+- *"No import from other note apps"* — **overstated.** `POST
+  /import/markdown` and `/import/directory` (`routes_settings.py`) already
+  round-trip Obsidian-style frontmatter and import a whole folder tree.
+  What's genuinely still missing is narrower: a Notion-specific importer
+  (Notion's export is HTML+CSV by default, not the plain markdown this
+  already reads) and any first-run *offer* to import during onboarding
+  rather than a buried Settings action.
+
+**Worth taking, ranked:**
+
+1. **A live "rough bullets + transcript → merged note" capture flow**
+   (Granola's core loop). Today's voice-memo/meeting path
+   (`routes_voice.transcribe_meeting`) transcribes; nothing lets a person
+   type short notes *during* the recording and then merges those bullets
+   with the full transcript into one structured note afterward. Since
+   transcription is already local, the merge step is a local-LLM prompt,
+   not a new dependency — the more contained version of item 2 below.
+2. **A structured summary block on a transcribed meeting** (decisions /
+   action items / owner / date), extracted once after transcription.
+   Checked: `transcribe_meeting` returns a transcript with no such
+   extraction step today. Same shape as `caption_and_store`'s
+   write-once-after-upload pattern.
+3. **A persistent "related to this note" panel inside the note editor
+   itself**, live while writing — not just the graph tab's link-suggestion
+   flow, which is a separate mode a person has to go find. Cheap once
+   scoped: the embedding-similarity query graph's own link-suggestion
+   endpoint already runs already exists (`routes_entries.py` similarity
+   scan); this would be a small, always-visible panel reading the same
+   signal for whichever note is currently open.
+4. **Typed note templates with a fixed field schema** (Sales Call, 1:1,
+   Standup — Granola ships ~29), distinct from Skills (free-form saved
+   *prompts*). A template would pre-structure a note's headings/fields
+   before AI touches it, rather than the AI free-writing a whole note from
+   a prompt. Needs a real schema decision (stored as structured `Entry`
+   metadata vs. just a markdown skeleton) before building.
+5. **A quick-capture popup from the system tray** — the tray already
+   exists (`__main__.py`) with several nav items; a hotkey/click that opens
+   a tiny always-on-top composer (title + body, Enter to save) without
+   raising the full window is small, purely local, and matches a pattern
+   several competitors treat as table stakes.
+6. **Inline citations in chat answers that point back to a specific note**,
+   clickable to jump there. MemoryMap's retrieval already knows which
+   notes it drew on (`search_manager.retrieve_detailed`); what's unclear
+   without a live model to check is whether the *rendered answer text*
+   itself carries a per-claim link back to its source note, versus only a
+   list of sources alongside the answer. Verify against a real chat turn
+   before scoping further — may already be partially there.
+7. **A dedicated, browsable highlights/clippings collection**, distinct
+   from an ordinary note. Checked: `app.js`'s own comment names this "the
+   capture surface half of BACKLOG.md §65 (highlight/web-clip capture)" —
+   selecting text and capturing it as a note already works, but that
+   capture becomes an ordinary note, not an entry in a separate,
+   source-attributed quote library the way Kortex's is. Worth deciding
+   whether that's a real gap or just a different (arguably more
+   consistent-with-the-rest-of-the-app) design before building a second
+   collection type.
+8. **Basic local speaker separation on a transcript** (Speaker 1/2/3, no
+   naming needed) — checked, genuinely absent (`grep -i speaker` across
+   `src/` is empty). A fully local diarization pass, if the transcription
+   library already in use supports one, would be a real, contained
+   improvement over a flat transcript with no turn-taking structure.
+9. **A live, inline organization suggestion while typing** (a tag/category
+   chip appearing as you write), as an *optional* companion to — not a
+   replacement for — the existing off-by-default, audited background
+   auto-tag job. The batch job's conservatism (gated, logged, reviewable)
+   is a deliberate design choice recorded elsewhere in this file and
+   should stay the default; this would be an opt-in faster-feedback mode
+   for someone who wants it.
+
+**Out of scope, and why — not filed as gaps:** calendar-integrated
+auto-join of video calls (needs a cloud calendar account or a bot joining
+the call); shared/collaborative workspaces (needs a multi-user server,
+against the single-user/no-sync design); native mobile companion apps kept
+in sync (needs cloud sync or a self-hosted server); meeting-platform-specific
+speaker-name capture via a browser extension (the local, nameless version is
+item 8 above instead).

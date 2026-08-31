@@ -812,32 +812,31 @@ callouts" entry before rebuilding anything that sounds finished.**
    staging-state redesign of the chat composer, none of which should be
    mixed with a smaller fix in the same diff.
 
-3. **Vision-model OCR, as an alternative (or complement) to Tesseract, with
-   model-pull suggestions in Settings → Models.** Asked as a question, not
-   yet scoped or built. `core/ocr.py` (Tesseract) and `ai/captioning.py`
-   (vision-model description) already establish the two shapes this would
-   choose between: OCR is "what text is in this image", captioning is
-   "what does this image show" — a vision-model OCR mode would follow
-   `caption_and_store`'s own write-once/background-trigger pattern, most
-   naturally as a per-image *choice* of extractor (Tesseract vs. a vision
-   model) rather than a wholesale replacement — raised directly ("might be
-   able to negate the need for py tesseract"), and worth resisting: a
-   vision model needs a multi-GB download and real per-image inference
-   time, where Tesseract is instant, needs no model download at all, and
-   matches this project's own standing "no heavy installs" stance
-   (CLAUDE.md's torch/sentence-transformers avoidance is the same
-   reasoning). Keep both, let the user pick. Named as candidates worth
-   checking against the actual Ollama library before committing to any
-   (unverifiable from this sandbox — no live internet or Ollama registry
-   access): Qwen3-VL if available there (the user's own preference over
-   Qwen2.5-VL, and plausibly the stronger current default), else
-   Qwen2.5-VL (2B/7B/72B), MiniCPM-V (small, specifically strong at OCR),
-   GLM-4V, DeepSeek-VL2, and Moondream (tiny, weaker, for low-spec
-   hardware). The user also named "glm-ocr" and "deepseek-ocr" specifically
-   — unconfirmed whether those are real, distinctly-named Ollama tags
-   separate from the general-purpose VL models above, or shorthand for
-   using GLM-4V/DeepSeek-VL2 for OCR; check the actual registry before
-   scoping model-pull UI around either name.
+~~3. **Vision-model OCR, as an alternative (or complement) to Tesseract, with
+   model-pull suggestions in Settings → Models.**~~ **Already built —
+   this whole item, found stale in this file rather than in the code, per
+   CLAUDE.md's own top rule.** `ai/vision_ocr.py` is exactly the per-image
+   *choice* of extractor this item asked for: `vision_ocr_text`/
+   `vision_ocr_and_store`/`vision_ocr_in_background` write to
+   `MediaUpload.vision_ocr_text`/`vision_ocr_model`, a field distinct from
+   Tesseract's own `ocr_text` — both are shown side by side in the lightbox
+   ("Text read by {model}", `library.js`), and `POST` to the vision-OCR
+   route (`routes_files.vision_ocr_media`) lets a person re-run or hand-edit
+   the result per image, same write-once/background-trigger shape
+   `caption_and_store` established. Settings → Models pulls its suggestions
+   from `SUGGESTED_MODELS` (`ai/model_manager.py`) via `GET
+   /models/suggested`, rendered by `app.js`'s `suggestedCatalog` loop
+   (wired in `settings.js`) — a `"vision"` group (moondream up to
+   qwen2.5vl:32b) and a separate `"ocr"` group specifically for document
+   readers (GLM-OCR, PaddleOCR-VL, Qwen3-VL-4B, DeepSeek-OCR), each with a
+   size and a purpose line. This also settles the exact question this item
+   left open: `glm-ocr`/`deepseek-ocr` **are** real, checked-against-the-
+   live-Hub tags (`hf.co/ggml-org/GLM-OCR-GGUF`/`hf.co/ggml-org/DeepSeek-OCR-GGUF`),
+   not shorthand for the general vision models — the code comment above
+   `SUGGESTED_MODELS["ocr"]` records that check explicitly, unlike the
+   `"vision"` list's own entries, several of which are still marked
+   "unconfirmed tag" for the same honest reason this item originally
+   couldn't check either.
 
 ~~4. **A visual indicator on a chat message's own metadata line for which
    mode answered it.**~~ **Built.** `messageMetaLine()` (app.js) takes a new
@@ -999,16 +998,45 @@ callouts" entry before rebuilding anything that sounds finished.**
    buttons click cleanly now, zero console errors.
 
 2. **Small-screen (tablet/phone) layout needs a real audit, not spot fixes.**
+   **A real audit now exists — Dashboard and Library, both widths, screenshotted
+   and zero console errors.** Tablet (820px): the tab bar fits on one row, the
+   dashboard's "Start something"/"Jump to" cards flow into a clean responsive
+   grid, and Library's dock plus its filter-chip row have room to spare — this
+   already reads as "a professional app," not a squished desktop layout,
+   which was the concrete worry behind this item. Phone (390px): also
+   genuinely clean — Library's five sub-tabs wrap into two full-width rows
+   rather than clipping, the dock stacks its title/New-document button/
+   refresh sensibly, filter chips wrap without overlap. **The one real,
+   already-diagnosed gap is the top tab bar specifically** (measured
+   separately, see below) — not Library, not the dashboard. Chat, Graph, the
+   whiteboard and the document editor at these widths are still unaudited;
+   worth checking before assuming the same clean result holds everywhere.
    Asked for directly — "better handling and ui structure of smaller device
-   sizes... potentially even a whole rearrangement." Not touched this
-   session: no viewport-resize testing exists against this app yet, ever;
-   every live Playwright check so far ran at a default desktop viewport.
-   Audit `docs/DESIGN.md`'s breakpoints against phone (~390px) and tablet
-   (~768-1024px) width, surface by surface: the tab bar (overflow-fade
-   already exists — check it degrades usably), the 17-section Settings
-   modal, the document editor (live-list item 0 — already "squished" at
-   *desktop* width), the whiteboard, the dashboard's masonry grid. Measure
-   before rebuilding.
+   sizes... potentially even a whole rearrangement." Audit `docs/DESIGN.md`'s
+   breakpoints against phone (~390px) and tablet (~768-1024px) width, surface
+   by surface: the 17-section Settings modal, the document editor (live-list
+   item 0 — already "squished" at *desktop* width), the whiteboard, the
+   dashboard's masonry grid. Measure before rebuilding.
+
+   **The tab bar specifically — measured live at 390px, the "not confirmed
+   either way" question from an earlier pass now answered.** The
+   `tabs-wrapped` mechanism (`syncTabOverflowFade`, `app.js`) does correctly
+   fire at phone width — the strip drops to its own full-width row rather
+   than squeezing beside the wordmark — but even on its own row, seven tabs
+   still don't fit a 364px-wide bar (`scrollWidth` 640 vs `clientWidth`
+   364: Dashboard/Notes/Chat/Graph visible, Library/Timeline/Reminders need
+   a scroll). The `fade-end` class and its `mask-image` **are** correctly
+   applied (checked via `getComputedStyle`, not assumed) — the mechanism
+   isn't broken. What a real screenshot at 390px shows is that a soft
+   24px alpha fade over a busy glass background doesn't read as "scroll for
+   more" next to a tab whose label is cut clean off mid-letter ("Librar|")
+   — it reads as the tab bar being broken, which is exactly the ambiguity
+   the prior pass flagged and couldn't settle without a browser. Not fixed
+   here: the honest next step is a stronger affordance (a small chevron
+   cue is the obvious candidate), but that's a new visual pattern with no
+   existing precedent anywhere else in this app to match against — a real
+   design call, not a "just add a gradient" fix, and better made
+   deliberately than invented under a broader autonomous pass.
 
 3. **Upload any document type (not just images), with a real per-type
    viewer and AI able to read it — even a small model.** Asked for

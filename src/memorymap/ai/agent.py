@@ -729,7 +729,16 @@ def build_agent_messages(
         )
 
     numbered = "\n".join(
-        f"{i}. (note id {note.get('id', '?')}) [{note['category']}] "
+        # Same caveats the plain (no-tools) librarian prompt already gives —
+        # attached-by-hand, linked-not-matched (with its reason, when the
+        # link has one), similarity/keyword match info — reused rather than
+        # left agent-mode-only silent about them. Nothing new to compute:
+        # `prepared["notes"]` already carries this from routes_chat.py; the
+        # agent path just never read it before.
+        f"{i}. (note id {note.get('id', '?')}) [{note['category']}]"
+        f"{' (attached by me)' if note.get('attached') else ''}"
+        f"{' (not a match — linked to one of the above)' if note.get('connected') else ''}"
+        f"{librarian._match_info_hint(note.get('match_info'))} "
         f"{librarian.note_for_prompt(note)}"
         for i, note in enumerate(notes, start=1)
     )

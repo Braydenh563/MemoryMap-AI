@@ -1347,9 +1347,21 @@ def _delete_note(session: Session, args: dict) -> dict:
 
 
 def _restore_note(session: Session, args: dict) -> dict:
+    # Not `_require_note`: its whole point is refusing a *deleted* note, and
+    # restoring one is exactly the case that has to reach a deleted note.
+    # But its other refusal — a private note — still has to hold here.
+    # Without this check a private note that had been soft-deleted could be
+    # restored *and* its content read back through `_note_summary` below,
+    # the same private-note bypass CLAUDE.md's own history warns about: a
+    # guard quietly missing from one tool while the rest of the shape (and
+    # the code review) looks correct.
     entry = manager.get_entry(session, int(args["note_id"]))
     if entry is None:
         raise ToolError(f"No note with id {args.get('note_id')}")
+    if entry.is_private:
+        raise ToolError(
+            f"Note #{entry.id} is private, so it isn't available to the AI"
+        )
     if entry.is_deleted:
         manager.restore_entry(session, entry)
     result = _note_summary(session, entry)

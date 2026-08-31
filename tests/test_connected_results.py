@@ -85,6 +85,30 @@ def test_a_connected_note_carries_the_links_own_reason(ai_client, session):
     assert body["match_info"][str(linked.id)]["reason"] == "both about the shed"
 
 
+def test_a_connected_notes_reason_reaches_both_prompts_not_just_the_api(client):
+    """The API carrying `reason` (test above) isn't the same fact as the model
+    ever seeing it — `_match_info_hint` had a branch for "semantic"/"keyword"
+    match types but none for "connected", so a reason traced all the way to
+    the Link row was still dropped right before it reached the prompt text,
+    on both the plain librarian path and agent mode."""
+    from memorymap.ai import agent, librarian
+
+    note = {
+        "id": 1,
+        "content": "the shed roof",
+        "category": "Home",
+        "attached": False,
+        "connected": True,
+        "match_info": {"type": "connected", "reason": "both about the shed"},
+    }
+
+    messages = librarian.build_messages("what about the shed?", [note])
+    assert "both about the shed" in messages[-1]["content"]
+
+    agent_messages = agent.build_agent_messages("what about the shed?", [note])
+    assert "both about the shed" in agent_messages[-1]["content"]
+
+
 def test_graph_expansion_keeps_the_strongest_neighbour_when_the_hop_limit_bites(session):
     """§87.5: `GRAPH_EXPANSION_LIMIT` truncates a hop to 3 neighbours, so
     which three survive is a real decision, not an accident of query order.

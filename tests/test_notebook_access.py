@@ -266,6 +266,28 @@ def test_write_tools_refuse_private_notes_too(ai_client, session, unlocked_vault
         assert "error" in result and "private" in result["error"].lower(), name
 
 
+def test_restore_note_refuses_a_deleted_private_note(ai_client, session, unlocked_vault):
+    """A private note soft-deleted from the UI must stay unreadable through
+    restore too — `restore_note` has to reach a *deleted* note where
+    `_require_note` normally refuses one, so it cannot just call
+    `_require_note` unmodified. It still has to refuse a *private* one, same
+    as every other write tool, or restoring becomes a way to read a private
+    note's content back through `_note_summary`."""
+    private = _make_private(ai_client, "codeword ELDERFLOWER")
+    assert ai_client.delete(f"/entries/{private['id']}").status_code == 200
+
+    result = tools.execute_tool(session, "restore_note", {"note_id": private["id"]})
+    assert "error" in result and "private" in result["error"].lower()
+    assert "ELDERFLOWER" not in json.dumps(result)
+
+    # And it must actually still be deleted — refusing to read it should not
+    # have restored it as a side effect.
+    from memorymap.entry import manager as entry_manager
+
+    entry = entry_manager.get_entry(session, private["id"])
+    assert entry.is_deleted is True
+
+
 def test_a_private_notes_tags_are_not_listed(ai_client, session, unlocked_vault):
     """A tag is a description of the note; listing it leaks what it's about."""
     entry = ai_client.post(

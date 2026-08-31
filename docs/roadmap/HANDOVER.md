@@ -1,6 +1,230 @@
 # Session handover
 
-## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
+## New session — 4 CodeQL notes closed, four stale roadmap/backlog claims corrected against the running code, live web access confirmed and used to fix real broken/wrong model suggestions, the phone-width tab-bar and Library/Dashboard/Settings-modal questions answered live, a first genuinely live competitor read, a real private-note security leak found and fixed in the AI's own tools, and a real gap closed in what the AI's context actually tells it about linked notes
+
+Autonomous session, worked from CLAUDE.md/ROADMAP.md/HANDOVER.md/BACKLOG.md
+top-down rather than a single user-picked item. Full suite (~1,600 tests) run
+twice — once as a baseline before any change, once after — both green;
+`ruff check .` clean throughout.
+
+- **4 open CodeQL notes (2 "unused global variable", 2 "cyclic import"),
+  triaged rather than blanket-dismissed.** The two global-variable notes were
+  real, if harmless: `entry/manager.py`'s tag-count cache used three bare
+  module globals (`_tag_cache`, `_tag_cache_lock`, `_tag_cache_reset_registered`)
+  reassigned via `global` inside `all_tags()`/`_ensure_tag_cache_reset_registered()`
+  — each write is read on the *next* call, never the one writing it, which
+  is exactly the shape CodeQL's `py/unused-global-variable` flags and exactly
+  the shape a process-lifetime cache is supposed to have. Refactored into a
+  small `_TagCache` holder object so the mutation is an attribute write, not
+  a `global` rebind — same behaviour, no more bare global for the check to
+  flag, no `global` keyword left in the file at all. Relevant tests
+  (`test_entry_indexes.py`, `test_insights_api.py`) and `ruff` both green.
+  **The two cyclic-import notes were left alone, deliberately**: both are
+  lazy, function-local `from memorymap.core import deps` /
+  `from memorymap.ai.embeddings import ...` imports, already commented at
+  the call site as the fix for a real circular dependency at module-load
+  time (`deps` imports back into `entry.manager` transitively via
+  `ai.embeddings -> ai.model_manager`). CodeQL's `py/cyclic-import` flags the
+  module dependency graph regardless of where the import statement sits, so
+  there's no code change that clears it short of restructuring which module
+  owns what — real architecture work, not something to do blind as one item
+  in a broad pass. Recommend dismissing those two in the GitHub UI as
+  "won't fix" with this reasoning, rather than have a future session force a
+  refactor for a Note-severity lint on a correct pattern.
+
+- **Two stale "still open" doc claims, found by checking the running code
+  before trusting the docs — CLAUDE.md's own top rule, caught twice more.**
+  - ROADMAP.md §89 item 3 ("vision-model OCR, as an alternative to
+    Tesseract, with model-pull suggestions in Settings → Models") was fully
+    built already: `ai/vision_ocr.py` (`vision_ocr_text`/
+    `vision_ocr_and_store`/`vision_ocr_in_background`, writing to a field
+    distinct from Tesseract's own `ocr_text`), a real per-image endpoint to
+    view/re-run/hand-edit it, both surfaced side by side in the lightbox,
+    and `SUGGESTED_MODELS["vision"]`/`["ocr"]` (`ai/model_manager.py`) wired
+    end to end through `GET /models/suggested` → `settings.js` →
+    `app.js`'s `suggestedCatalog` render. Struck in ROADMAP.md with a
+    pointer to where it lives, so a future session doesn't rebuild it.
+  - BACKLOG.md §20's "Alembic migrations — the additive auto-migrator
+    cannot rename or drop" line was never updated when this was built
+    (ROADMAP's own live list item 7 already said "Built", but §20's older
+    copy of the same claim wasn't touched). Struck, with a pointer to
+    `_ensure_alembic_baseline()`.
+
+- **This sandbox has working web access this session — confirmed, and used
+  productively rather than just noted.** Several past sessions logged in
+  this project's own history hit a network policy blocking
+  `huggingface.co`/live Ollama-registry access; that block is not present
+  right now. Used it to close two real, checkable uncertainties in
+  `ai/model_manager.py`'s `SUGGESTED_MODELS["vision"]` list rather than
+  leave them hedged: `qwen3-vl:2b/4b/8b` are confirmed real, published
+  Ollama library tags (the "unconfirmed tag" hedge on all three removed,
+  sizes corrected against the real listing) — and `lfm2.5-vl`, the other
+  "unconfirmed" entry, turned out to be **wrong as written**: there is no
+  `lfm2.5-vl` on Ollama's own library (only its text-only sibling `lfm2.5`
+  is there), so that suggestion would have 404'd for anyone who clicked it.
+  Fixed to pull `hf.co/LiquidAI/LFM2.5-VL-1.6B-GGUF` directly from the
+  publisher's Hub repo instead — the same `hf.co/…` shape the OCR group
+  already uses for exactly this situation. `ruff` and
+  `test_model_sizes.py`/`test_ocr_model.py` green. **Worth knowing for the
+  next session**: if this sandbox's network access is intermittent or
+  session-specific, don't assume it's still open without checking — this
+  entry is what changed, not a standing guarantee.
+
+- **The phone-width tab bar — the "not confirmed either way" question a
+  prior small-screen pass left open, now actually answered live.** Started
+  the real server, drove it with Playwright at a real 390px viewport (per
+  CLAUDE.md's own recipe: `domcontentloaded` + an explicit wait, not
+  `networkidle`; `#lock-password`/`#lock-submit` for first-run setup).
+  Confirmed with real measurements, not assumption: the `tabs-wrapped`
+  mechanism (`syncTabOverflowFade`, `app.js`) does correctly drop the tab
+  strip to its own full-width row at phone width rather than squeezing it
+  beside the wordmark — but even on its own row, seven tabs still don't fit
+  a 364px bar (`scrollWidth` 640 vs `clientWidth` 364), and the `fade-end`
+  class with its `mask-image` **is** correctly applied (checked via
+  `getComputedStyle`, not assumed broken). A real screenshot at 390px is
+  what settled the actual question: a soft 24px alpha fade over glass next
+  to a tab label cut off mid-letter ("Librar|") reads as broken, not as
+  "scroll for more." **Not fixed** — the honest next step is a stronger
+  affordance (a chevron cue is the obvious candidate), but nothing like
+  that exists anywhere else in this app to match against, so inventing one
+  under a broad autonomous pass felt like exactly the kind of unscoped
+  visual call this project's own docs repeatedly warn against making
+  alone. Logged in ROADMAP.md §90 item 2 with the real numbers, so the next
+  session doesn't have to re-measure this specific question.
+
+- **A first genuinely live competitor read** (Kortex, Granola, Mem.ai),
+  asked for directly now that web access works — every prior competitor
+  read in this project's history (§30, §59, §60, §88.2) was done blind,
+  from supplied text or blocked network. Delegated the web research itself
+  to a background subagent (kept its work off this session's own context),
+  then **audited every finding it returned against the actual codebase
+  before logging anything** — the same discipline §87.1's own audit table
+  used, and worth doing again here since a subagent has no way to grep this
+  repo's git history the way a live session can. Two of its findings were
+  wrong and corrected rather than filed as gaps: "no way to scope a chat
+  query to chosen notes" (false — `note_ids`/`attached_notes_only` already
+  do this) and "no import from other note apps" (overstated — `POST
+  /import/markdown`/`/import/directory` already round-trip Obsidian-style
+  frontmatter and whole folders; only a Notion-specific importer is
+  actually missing). The corrected, ranked list — nine worth-taking items,
+  four explicitly out of scope for a no-cloud app, with the two corrections
+  above — is BACKLOG.md's new §102. Kortex.co and Granola.ai were blocked by
+  this sandbox's own egress proxy even though general web search worked, so
+  those two products are read from reviews/docs pages rather than a
+  first-hand render — said plainly in §102 itself, not glossed over.
+
+- **The Settings modal at phone width — checked, and it holds up.**
+  Continued the same Playwright session, this time reaching the real
+  `#settings-btn` trigger. At 390px the modal collapses to a single-column
+  section list (no two-pane desktop layout fighting the width), fills the
+  viewport cleanly, zero `<html>` horizontal overflow, zero console errors —
+  drilled into a section (Models) and re-checked, same result. No fix
+  needed; the earlier "not confirmed either way" from a prior pass is now
+  a confirmed pass.
+- **A real, live security bug found and fixed in the AI's own tools, not
+  from a report — found while auditing skills/tools per the user's direct
+  question "are there any issues there."** `restore_note`
+  (`ai/tools/__init__.py`) used `manager.get_entry` directly instead of
+  `_require_note`, because its whole job is reaching a *deleted* note,
+  which `_require_note` always refuses. What it silently dropped along with
+  that refusal was the *other* half of `_require_note` — the private-note
+  gate — so the AI could restore a private note straight out of the bin
+  and read its content back through `_note_summary`, the exact "guard
+  quietly missing from one tool" shape CLAUDE.md's own history names as
+  this project's costliest review failure. Checked every other
+  `manager.get_entry` call site in the same file (`_tag_note`,
+  `_link_notes`) — both are pre-existence checks immediately followed by a
+  real `_require_note` call on the same id, not the same bug. Fixed with
+  one added check; one new regression test
+  (`test_restore_note_refuses_a_deleted_private_note`,
+  `test_notebook_access.py`) confirms the note stays both unreadable *and*
+  still deleted — refusing to read it must not restore it as a side effect.
+- **A real gap closed in what the AI's context tells it about linked
+  notes — the exact thing asked for directly: "know their link reasons...
+  understand their meaning and purpose... at a relatively low cost."**
+  `search_manager._retrieve` already traced a connected note back to its
+  specific `EntryLink` row and computed `reason` text — `routes_chat.py`
+  already threaded it through to `match_info` — and then
+  `librarian._match_info_hint` silently dropped it, because that function
+  had branches for a "semantic"/"keyword" match but none for "connected".
+  The reason was computed, forwarded twice, and thrown away one step before
+  reaching the prompt. Added the missing branch (~6 lines); separately,
+  **agent/tool mode had no version of this at all** — `build_agent_messages`
+  called `librarian.note_for_prompt` directly and skipped
+  `_match_info_hint`/the attached/connected flags entirely, so a tool-mode
+  turn was silently worse-informed than a plain librarian turn on the exact
+  same notes. Both fixed, both reuse the one existing helper — no new
+  computation, so no new cost to the prompt budget beyond the words
+  themselves. New test asserts the reason text lands in both prompt paths,
+  not just the API response `test_a_connected_notes_reason_reaches_both_
+  prompts_not_just_the_api` — the existing coverage only checked the API,
+  which is exactly how this stayed unnoticed.
+- **A live small-screen audit, Dashboard and Library, both widths,
+  screenshotted rather than reasoned about.** Verdict: genuinely clean at
+  both 390px and 820px — no overlap, no clipping, nav/dock/filter-chips all
+  adapt sensibly, zero console errors either width. The tab-bar affordance
+  gap (above) is the one real, already-diagnosed exception; Chat, Graph,
+  the whiteboard and the document editor at these widths are still
+  unaudited — say so plainly rather than extrapolating from two tabs to
+  the whole app.
+- **`SUGGESTED_MODELS`'s remaining groups (text/moe) also had real, wrong
+  entries, not just the vision group already fixed** — two tags that would
+  have 404'd (`qwen3.5:8b` should be `qwen3.5:9b`; `gemma4:26b-a4b` should
+  be plain `gemma4:26b`, the model is MoE *by construction* under that
+  tag, not a separate suffix) and several sizes off by a meaningful margin
+  (`qwen3.5:2b` was listed at ~1.6 GB, really ~2.7 GB; `gemma4:e2b` at
+  ~4.4 GB, really ~7.2 GB — QAT builds run larger than a plain quant, which
+  is presumably where the original guess came from). All checked against
+  the live Ollama library this session and fixed; `gemma4:12b` and
+  `granite4.1:3b` were already accurate and left alone.
+- **Two more BACKLOG.md items found already built while auditing the
+  web-search feature the user asked about directly**: a per-turn result
+  cache and "say which engine answered" (both already shipped, wired
+  end-to-end to the frontend) — corrected in place. The web-search
+  fetch/reader path's SSRF defence (`websearch.py`) was read closely and
+  is genuinely solid: every redirect hop re-validated, private/loopback/
+  link-local/reserved/multicast addresses all blocked, the connection
+  pinned to the exact checked IP (closes a DNS-rebinding window), correct
+  TLS hostname verification preserved despite the pinning. No gap found;
+  said so rather than inventing one to have something to report.
+
+### Deliberately not started this session — logged, not silently dropped
+
+Both of these were asked for directly and are queued, not forgotten. Given
+where the session's usage stood, the honest call was to spend the remaining
+budget finding and fixing real, verifiable bugs (the private-note leak and
+the dropped link-reason above) rather than rushing either of these — each is
+genuinely "its own session" scale, and a half-built version of either is a
+worse outcome than a clearly-scoped starting point for the next one.
+
+- **Non-image file upload to chat** — fully scoped already at ROADMAP §89
+  item 2 / §90 item 3 (toast-not-fake-chat-text on failure, text extraction
+  per file type, staged-not-immediate upload, a per-message cap, attaching
+  an already-uploaded Library file). Nothing new to add to the scoping;
+  next session can start straight from those two entries.
+- **Timeline line view redesign** — the concrete design already exists at
+  ROADMAP §87.6 (threads as tributaries off a time trunk, using
+  `Entry.parent_id`, which the current line view ignores entirely). Not
+  started; the spec is the starting point, not something this session
+  needed to re-derive.
+
+### What I still could not check
+
+- The tray quick-capture idea and the other §102 "worth taking" items are
+  logged, not built or scoped further — same status as everything else
+  freshly landed in a backlog section.
+- The competitor research itself: Kortex.co and Granola.ai's actual pages
+  were not directly rendered (proxy-blocked), so their feature claims in
+  §102 rest on third-party reviews and the products' own docs pages, not a
+  first-hand look — flagged in §102, repeated here since it affects how
+  much weight to put on those specific two products' claims versus Mem.ai's
+  (which did render directly).
+- Chat, Graph, the whiteboard and the document editor at phone/tablet
+  width — not part of this session's audit, which covered only Dashboard,
+  Library and Settings. Don't assume the same clean result without
+  checking; §90 item 2's own text says exactly this.
+
+## Prior session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
 
 Branch `claude/docs-review-priority-work-sequ16`, a long session driven
 almost entirely by live user reports rather than the roadmap — commits below,

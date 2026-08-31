@@ -1,5 +1,102 @@
 # Session handover
 
+## Latest round — two real nav-history bugs found by measurement, AI-first note filing, and text highlighting
+
+**Read BACKLOG.md §109 before touching anything visual.** The single most
+useful thing this round produced is a method, not a fix.
+
+**The nav-history popup took roughly six rounds because it was two separate
+bugs wearing one complaint,** and because every earlier round "verified" a
+fix by looking at a screenshot. Looking is not evidence at this precision.
+
+1. `--modal-bg` is `rgba(…, 0.96)` — 4% see-through *by design*. Over the
+   note editor (the densest small text in the app) that was enough for the
+   form underneath to read as ghost text. Found by decoding the screenshot
+   PNG and sampling raw pixels: `(252,253,255)` at the top of the popup
+   against `(244,246,253)` lower down, a real measurable gradient. New
+   `--modal-bg-opaque` token (alpha 1) for this popup; `--modal-bg` left
+   alone for its other callers. Re-sampled uniform after.
+2. The rows are `<button>`s and the app's generic control-height rule pinned
+   them to 32.36px while their content needed 35px, so `overflow: hidden`
+   sliced every glyph to its top few pixels. **That is the "illegible
+   dashes" symptom an earlier round in this same session dismissed as a
+   screenshot/DPI artifact — that call was wrong**, and it is why the bug
+   outlived several fixes. `scrollHeight` vs `clientHeight` settled it in
+   one number. Fixed with `height: auto; min-height: 0` + flex centring.
+   Ironically the move out of `#status-bar` (an earlier round's attempted
+   fix) is what exposed it: inside the footer, `.status-item` rules won.
+
+**Two tools to reach for, and please keep using them:**
+- `scratchpad/pngpixel.py` — ~50 lines, pure Python, no dependencies. Reads
+  a PNG and prints exact pixel values. Use it for any report about
+  transparency, contrast, or a colour looking wrong.
+- `scrollHeight` vs `clientHeight` in `page.evaluate` — for any report about
+  text being cut off, clipped, or "garbled".
+
+**Never close a visual report as "a capture artifact" without a measurement
+that says so.** This session did exactly that once and paid for it.
+
+### Also this round
+
+- **Note filing now asks the AI first** (`janitor.categorise`). It used to
+  return on a confident centroid match or a kNN match and only fall through
+  to the model if both declined — which in an established notebook meant the
+  model was consulted almost never, since *some* category's vectors are
+  nearly always close. Reported directly: notes landing in the wrong place
+  and needing fixing by hand. The semantic paths are unchanged and still
+  carry the no-model case (`_ask_llm` reports method `'none'` when Ollama
+  isn't running or the reply won't parse, and that is the fallback trigger),
+  with a test now pinning that offline behaviour explicitly.
+- **Text highlighting**: `==highlight==` and `==green|text==` (six
+  allowlisted colours, the allowlist living inside the regex so no colour
+  can be typed without a matching stylesheet rule). Inline markdown, no
+  schema change, renders everywhere `renderInlineMarkdown` runs. Verified
+  live: correct classes, correct computed colours, no regression to bold.
+  **No toolbar button for it** — this editor has no formatting toolbar at
+  all; a selection toolbar is where it belongs (BACKLOG §109.4).
+- **AI Skills sidebar**: the sticking was never broken (measured: pinned at
+  y=196.97 through a 400px scroll). The *height* was — `--page-sticky-h` is
+  the page's figure, but this sidebar's scroller is a nested 534px one, so
+  it ran 52px below the fold. Now `container-type: size` + `100cqh`.
+- Image gallery OCR/vision-OCR text is collapsible like the caption, and
+  long words/URLs no longer breach the tile (`overflow-wrap: anywhere` —
+  which also repaired the clamp, since an unwrappable line cannot be
+  line-clamped). Lightbox captions gained a "Described by <model>" byline.
+- Graph options separator margins made symmetric.
+- Settings gained a manual "Regenerate greeting" button. The dashboard
+  persona was **already** wired end-to-end (`dashboard_persona` →
+  `resolve_persona_prompt` → the greeting's system prompt); only the manual
+  trigger was missing. Checked before building, per the standing rule.
+
+### Reported but did NOT reproduce — check the reporter's cache first
+
+Both were reproduced live and behaved correctly, so if they come back, do
+not re-read the handler: compare the served file's ETag against what the
+browser actually has.
+
+- **Bookmark URL editing** (third report). Full flow driven in Chromium:
+  Edit → "Title:" prefilled → save → "URL:" prefilled → save → both persist
+  through a full page reload.
+- **Nav-history popup missing in the Documents tab.** Measured in Notes and
+  in Library→Documents: visible, correct box, `elementFromPoint` at its
+  centre lands inside the menu, no page errors.
+
+### Open, and honestly unverified
+
+- **"The kebab doesn't appear when I highlight stuff."** Partly explained:
+  `SELECTION_POPUP_EXCLUDED` deliberately excludes `textarea`, so the popup
+  never appears while *editing* a note — only on rendered content. On a
+  rendered `.entry-content` it works (verified live: popup visible, correct
+  text). If the complaint is about the editor, that is current design and
+  needs a decision, not a bug fix.
+- Everything in BACKLOG §109.3/§109.4 — the triaged competitor gaps (6 of
+  the 12 were already built; **check that table before building any of
+  them**) and the brainstormed list.
+
+`python -m pytest tests/` — 2,604 tests, green. `ruff check .` clean. Note
+the full suite needs ~7 minutes and has been OOM-killed when run in the
+foreground here; run it in the background.
+
 ## New session — v0.1.7: Links/bookmarks, note+document References, a Contents outline, a meeting-summary extraction, and a real "what would you like to create?" picker for the Library — all live-verified in Chromium, full suite green throughout
 
 **Same session, one more fast round after this was first written — BACKLOG.md

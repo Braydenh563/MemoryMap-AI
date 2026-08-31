@@ -8,6 +8,13 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 ### Added
+- Text highlighting now supports named colours: `==green|text==`
+  (yellow, green, blue, pink, purple, orange).
+- Settings → Personas: a "Regenerate greeting" button for the dashboard
+  welcome message.
+- The image gallery's OCR and vision-OCR text is collapsible like the
+  caption, and the lightbox shows who described an image, not just who
+  transcribed it.
 - Text highlighting in notes and documents: `==highlighted text==`, an
   inline markdown convention rendered everywhere note/document content
   already renders (no new data model).
@@ -16,6 +23,17 @@ below). Versioning is `0.x` while the app stabilises.
 - A "Clear" button for the AI Skills sidebar's run log.
 
 ### Fixed
+- **Notes are filed by the AI again.** Auto-categorisation used to return
+  on a close vector match and only ask the model if that failed, so in an
+  established notebook the model was almost never consulted and notes landed
+  in the wrong category. The model is now asked first; the semantic paths
+  remain for when no model is running.
+- The navigation-history popup was unreadable: its background was 4%
+  transparent so the page showed through, and its rows were pinned shorter
+  than their own text so every glyph was clipped to a sliver.
+- The AI Skills sidebar is now the height of its own panel instead of
+  overflowing past the bottom of the screen.
+- Long words and URLs no longer overflow the edge of an image-gallery card.
 - The nav-history popup's cramped spacing, a cut-off last row, and an
   overly-narrow popup for short entries.
 - The Library sub-tab menu bar now matches the Notes sub-tab bar's card

@@ -1659,6 +1659,13 @@ async function renderSkillLogs() {
 // upload id. Reported: "the image caption can't be expanded or collapsed",
 // which the two-line clamp had no way to do at all until now.
 const libraryExpandedCaptions = new Set();
+// Same again for the two OCR fields below the caption. Asked for directly:
+// "make the ocr extracted text in the image gallery collapsible and
+// expandable like the image captions as well" — captionText got the clamp
+// fix above; these two never did, so a long transcription still grew the
+// tile unboundedly.
+const libraryExpandedOcr = new Set();
+const libraryExpandedVisionOcr = new Set();
 // Which documents are ticked in the Library's Documents sub-tab — this
 // view's own selection, separate from `librarySelection` (the "All" view's),
 // because this section never populates `libraryItems` and mixing the two
@@ -2335,6 +2342,26 @@ function filterLibraryImagesGallery() {
     ocrText.tabIndex = 0;
     ocrText.setAttribute("role", "button");
 
+    // Same clamp/toggle shape as captionText's above.
+    const OCR_CLAMP_CHARS = 90;
+    const ocrToggle = document.createElement("button");
+    ocrToggle.type = "button";
+    ocrToggle.className = "entry-more library-image-ocr-more hidden";
+    const ocrClamped = () =>
+      !libraryExpandedOcr.has(image.id) && (image.ocr_text || "").length > OCR_CLAMP_CHARS;
+    const syncOcrClamp = () => {
+      ocrText.classList.toggle("library-image-ocr-clamped", ocrClamped());
+      const needsToggle = (image.ocr_text || "").length > OCR_CLAMP_CHARS;
+      ocrToggle.classList.toggle("hidden", !needsToggle);
+      ocrToggle.textContent = libraryExpandedOcr.has(image.id) ? "Show less" : "Show more";
+    };
+    ocrToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (libraryExpandedOcr.has(image.id)) libraryExpandedOcr.delete(image.id);
+      else libraryExpandedOcr.add(image.id);
+      syncOcrClamp();
+    });
+
     const setOcrState = (text) => {
       image.ocr_text = text || "";
       ocrText.textContent = text || "No text found — click to add";
@@ -2342,6 +2369,7 @@ function filterLibraryImagesGallery() {
       ocrText.title = text ? "Click to edit this text" : "Click to add text";
       ocrBtn.title = `Re-read the text in “${image.original_name}” without AI`;
       ocrBtn.setAttribute("aria-label", ocrBtn.title);
+      syncOcrClamp();
       // The section around this paragraph decides whether to show itself from
       // the same value. Announced rather than called directly because the
       // wrapper is built further down, after every handler here is closed
@@ -2352,6 +2380,9 @@ function filterLibraryImagesGallery() {
 
     const startEditingOcr = () => {
       if (ocrText.querySelector("textarea")) return; // already editing
+      // Same reasoning as captionText's own clamp removal above: a <textarea>
+      // squashed into a 2-line clamped box reads as "collapsed" while editing.
+      ocrText.classList.remove("library-image-ocr-clamped");
       const box = document.createElement("textarea");
       box.className = "library-image-ocr-input";
       box.value = image.ocr_text || "";
@@ -2464,6 +2495,29 @@ function filterLibraryImagesGallery() {
     const visionOcrBadge = document.createElement("span");
     visionOcrBadge.className = "library-image-vision-ocr-badge muted text-xs hidden";
 
+    // Same clamp/toggle shape as captionText's/ocrText's above.
+    const VISION_OCR_CLAMP_CHARS = 90;
+    const visionOcrToggle = document.createElement("button");
+    visionOcrToggle.type = "button";
+    visionOcrToggle.className = "entry-more library-image-vision-ocr-more hidden";
+    const visionOcrClamped = () =>
+      !libraryExpandedVisionOcr.has(image.id) &&
+      (image.vision_ocr_text || "").length > VISION_OCR_CLAMP_CHARS;
+    const syncVisionOcrClamp = () => {
+      visionOcrText.classList.toggle("library-image-vision-ocr-clamped", visionOcrClamped());
+      const needsToggle = (image.vision_ocr_text || "").length > VISION_OCR_CLAMP_CHARS;
+      visionOcrToggle.classList.toggle("hidden", !needsToggle);
+      visionOcrToggle.textContent = libraryExpandedVisionOcr.has(image.id)
+        ? "Show less"
+        : "Show more";
+    };
+    visionOcrToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (libraryExpandedVisionOcr.has(image.id)) libraryExpandedVisionOcr.delete(image.id);
+      else libraryExpandedVisionOcr.add(image.id);
+      syncVisionOcrClamp();
+    });
+
     const setVisionOcrState = (text, model) => {
       image.vision_ocr_text = text || "";
       image.vision_ocr_model = model || "";
@@ -2483,6 +2537,7 @@ function filterLibraryImagesGallery() {
         ? `Read the text in “${image.original_name}” again`
         : `Read any text in “${image.original_name}” with AI`;
       visionOcrBtn.setAttribute("aria-label", visionOcrBtn.title);
+      syncVisionOcrClamp();
     };
     setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
 
@@ -2492,6 +2547,7 @@ function filterLibraryImagesGallery() {
     // a wrong reading can be deleted outright instead of only overwritten.
     const startEditingVisionOcr = () => {
       if (visionOcrText.querySelector("textarea")) return; // already editing
+      visionOcrText.classList.remove("library-image-vision-ocr-clamped");
       const box = document.createElement("textarea");
       box.className = "library-image-ocr-input";
       box.value = image.vision_ocr_text || "";
@@ -2734,7 +2790,12 @@ function filterLibraryImagesGallery() {
       captionToggle,
       captionBadge
     );
-    const visionField = field("Text in this image", visionOcrText, visionOcrBadge);
+    const visionField = field(
+      "Text in this image",
+      visionOcrText,
+      visionOcrToggle,
+      visionOcrBadge
+    );
     // The Tesseract reading is shown only when it actually found something.
     // Tesseract is a system binary this app never installs on its own (by
     // instruction, and `tesseract_available` in /models/status now says so
@@ -2742,7 +2803,7 @@ function filterLibraryImagesGallery() {
     // permanently empty, and an empty second "no text found" box under a
     // filled one is the confusion this whole block exists to remove.
     // Reachable regardless from the kebab menu.
-    const ocrField = field("Also read with Tesseract OCR", ocrText);
+    const ocrField = field("Also read with Tesseract OCR", ocrText, ocrToggle);
     const syncOcrFieldVisibility = () =>
       ocrField.classList.toggle("hidden", !(image.ocr_text || "").trim());
     syncOcrFieldVisibility();

@@ -88,6 +88,38 @@ def categorise(
     When RE-categorising an existing note (add-context), pass
     `exclude_entry_id` — otherwise the note's own stored vector anchors
     it to its old category and it can never move."""
+    # **The model decides when there is a model.** This used to run the other
+    # way round — a confident centroid match, then nearest neighbours, and the
+    # chat model only if both declined — which meant that in an established
+    # notebook the AI was almost never consulted at all: there is nearly
+    # always *some* category whose vectors sit close to a new note. Reported
+    # directly, and the complaint is the right one: "what's the point of
+    # having an ai managed notebook if it is filed inaccurately and I need to
+    # manually fix it". Vector similarity answers "what does this most
+    # resemble", which is not the same question as "where does this belong" —
+    # a note about a bug in a work project resembles every other code note
+    # more than it resembles the rest of "Work", and gets filed accordingly.
+    #
+    # The semantic paths below are kept exactly as they were, because they are
+    # still the right answer for the case they were really written for: no
+    # chat model running, where the alternative is Uncategorised. `_ask_llm`
+    # already reports that case as method 'none' (it returns early when
+    # `ollama.is_running()` is false, and on any model error or unparseable
+    # reply), so "the model had nothing useful to say" and "there is no model"
+    # collapse into the same fallback here without a second availability
+    # check.
+    category, confidence, method = _ask_llm(session, content, model_manager, ollama)
+    if method != "none":
+        # The category can come straight from the chat model, so it is
+        # untrusted text on the way to a log line like any other.
+        logger.info(
+            "janitor: filed by %s -> '%s' (%d%%)",
+            method,
+            safe_value(category, 60),
+            confidence,
+        )
+        return category, confidence, method
+
     match = _best_centroid_match(
         session, content, embeddings, exclude_entry_id=exclude_entry_id
     )
@@ -100,14 +132,11 @@ def categorise(
         )
         return match.name, confidence, "semantic-match"
 
-    # Nearest neighbours, before falling back to the chat model. A centroid is
-    # the average of a whole category, which is a poor description of any
-    # category holding more than one kind of thing: "Work" containing both
-    # meeting notes and code snippets has a centroid sitting between them,
-    # resembling neither, so a new meeting note matches it weakly and gets
-    # sent to the model unnecessarily. Individual neighbours don't average
-    # away like that. This is also the path that matters most with no chat
-    # model running at all, where the alternative is Uncategorised.
+    # A centroid is the average of a whole category, which is a poor
+    # description of any category holding more than one kind of thing: "Work"
+    # containing both meeting notes and code snippets has a centroid sitting
+    # between them, resembling neither. Individual neighbours don't average
+    # away like that.
     neighbours = _knn_match(
         session, content, embeddings, exclude_entry_id=exclude_entry_id
     )
@@ -119,15 +148,7 @@ def categorise(
         )
         return neighbours.name, neighbours.confidence, "semantic-neighbours"
 
-    category, confidence, method = _ask_llm(session, content, model_manager, ollama)
-    # The category can come straight from the chat model, so it is
-    # untrusted text on the way to a log line like any other.
-    logger.info(
-        "janitor: filed by %s -> '%s' (%d%%)",
-        method,
-        safe_value(category, 60),
-        confidence,
-    )
+    logger.info("janitor: nothing could file this note")
     return category, confidence, method
 
 

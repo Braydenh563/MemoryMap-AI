@@ -3066,8 +3066,6 @@ Link to another note with [[its first few words]]."></textarea>
         <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
       </button>
     </span>
-    <div id="status-nav-history-menu" class="nav-history-menu hidden" role="menu"
-      aria-label="Navigation history"></div>
     <button id="status-undo" class="status-item" type="button" disabled data-status-slot="undo"></button>
     <button id="status-redo" class="status-item" type="button" disabled data-status-slot="undo"></button>
     <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
@@ -3088,6 +3086,24 @@ Link to another note with [[its first few words]]."></textarea>
       <p id="status-clock-detail-zone" class="muted status-clock-detail-zone"></p>
     </div>
   </footer>
+
+  <!-- Sibling of #status-bar, not a child of it — asked for directly ("make
+       the nav history popup scrollable pls, it is still broken"), reproduced
+       live: the popup's own text and the page behind it blended together
+       even though its CSS background is 96% opaque. Root cause was DOM
+       nesting, not opacity: #status-bar has `backdrop-filter`, and a
+       backdrop-filter ancestor becomes the containing block for a
+       `position: fixed` descendant (same rule `transform`/`filter` follow) —
+       so this menu was painted inside the footer's own backdrop-filter
+       compositing pass instead of as a normal layer above it, which is what
+       produced the blended look. Escaping the filtered ancestor, the same
+       fix `wireEscapedActionMenu` already uses for the Documents kebab
+       (app.js), removes the effect entirely; nothing about its `position:
+       fixed` + `bottom: calc(...)` placement (02-chat-graph.css) needed to
+       change, since fixed positioning was already relative to the viewport
+       once it has a normal containing block again. -->
+  <div id="status-nav-history-menu" class="nav-history-menu hidden" role="menu"
+    aria-label="Navigation history"></div>
 
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
   <!-- Shared by all three surfaces that offer it (Writing Room, Documents,
@@ -3439,6 +3455,12 @@ Link to another note with [[its first few words]]."></textarea>
               of whichever one is active in Chat and search.
             </p>
             <select id="dashboard-persona-select" class="small-select" aria-label="Dashboard greeting persona"></select>
+            <div class="row">
+              <button id="dashboard-greeting-regenerate" class="small" type="button">
+                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i> Regenerate greeting
+              </button>
+              <span id="dashboard-greeting-status" class="status"></span>
+            </div>
             <h3>Add your own</h3>
             <input id="persona-name" type="text" maxlength="40" placeholder="Name (e.g. Pirate)">
             <textarea id="persona-prompt" rows="2" maxlength="2000"

@@ -217,16 +217,18 @@ function cachedGreetingPhrase(now = new Date()) {
 }
 
 // Ask the AI for this block's greeting. Silent by design: any failure simply
-// leaves the handwritten fallback on screen.
-async function refreshAiGreeting() {
+// leaves the handwritten fallback on screen. `forced` skips the cache check —
+// used by the Settings "Regenerate" button (asked for directly) so a click
+// gets a genuinely new line instead of the one already cached for this hour.
+async function refreshAiGreeting(forced = false) {
   const now = new Date();
-  if (cachedGreetingPhrase(now)) return; // still fresh for this block
+  if (!forced && cachedGreetingPhrase(now)) return; // still fresh for this block
   const block = greetingBlock(now.getHours());
   const body = await apiJson(`/insights/greeting?block=${block}`, { silent: true }).catch(
     () => null
   );
   const phrase = body && body.greeting;
-  if (!phrase) return;
+  if (!phrase) return false;
   const punctuation = (body && body.punctuation) || ".";
   const appendName = !(body && body.append_name === false);
   localStorage.setItem(
@@ -235,6 +237,7 @@ async function refreshAiGreeting() {
   );
   const el = $("dash-greeting");
   if (el) el.textContent = withDisplayName(phrase, punctuation, appendName);
+  return true;
 }
 
 let dashClockTimer = null;

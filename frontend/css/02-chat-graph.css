@@ -2079,7 +2079,12 @@ kbd {
   padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--modal-bg);
+  /* Fully opaque, not `--modal-bg`'s 96% — see that token's own comment in
+     00-tokens-shell.css. This popup opens over the note editor, whose form
+     is the densest block of small text in the app, and 4% see-through was
+     enough there for the labels underneath to read as ghosted text through
+     the menu. */
+  background: var(--modal-bg-opaque);
   box-shadow: var(--glass-shadow);
 }
 

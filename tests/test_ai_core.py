@@ -49,9 +49,41 @@ def _store(session, embeddings, content, category):
     return entry
 
 
-def test_janitor_uses_centroid_match_without_llm(session, app_state):
+def test_janitor_prefers_the_model_over_a_confident_semantic_match(session, app_state):
+    """A close vector match no longer short-circuits the model.
+
+    This asserted the opposite until the filing order was reversed: a
+    confident centroid match used to return before the chat model was asked,
+    which in an established notebook meant the AI was consulted almost never
+    (there is nearly always *some* category whose vectors sit close). Filed
+    as a real complaint - notes landing in the wrong category and needing
+    fixing by hand. "What does this resemble" is not "where does this
+    belong", and only the model is answering the second question.
+    """
     embeddings = FakeEmbeddingService()
     ollama = FakeOllama()
+    model_manager = deps.get_model_manager()
+    _store(session, embeddings, "Why did the scarecrow win an award?", "Dad Jokes")
+
+    _, _, method = janitor.categorise(
+        session, "another funny pun about cheese", embeddings, model_manager, ollama
+    )
+
+    assert method == "llm"
+    assert len(ollama.chat_calls) == 1
+
+
+def test_janitor_falls_back_to_centroid_match_with_no_model(session, app_state):
+    """The semantic paths are still what files a note with no chat model.
+
+    That is the case they were really written for, and reversing the order
+    above must not cost it: with nothing running, `_ask_llm` reports method
+    'none' and the centroid match takes over rather than everything landing
+    in Uncategorised.
+    """
+    embeddings = FakeEmbeddingService()
+    ollama = FakeOllama()
+    ollama.running = False
     model_manager = deps.get_model_manager()
     _store(session, embeddings, "Why did the scarecrow win an award?", "Dad Jokes")
 
@@ -62,7 +94,7 @@ def test_janitor_uses_centroid_match_without_llm(session, app_state):
     assert category == "Dad Jokes"
     assert confidence >= 60
     assert method == "semantic-match"
-    assert ollama.chat_calls == []  # clear match → the LLM was never asked
+    assert ollama.chat_calls == []  # no model → nothing was asked
 
 
 def test_janitor_asks_llm_when_no_match(session, app_state):

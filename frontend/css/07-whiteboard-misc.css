@@ -1027,7 +1027,11 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   content: "";
   align-self: stretch;
   width: 1px;
-  margin-inline-end: var(--space-3);
+  /* Symmetric, and that is the fix: only the trailing margin was set, so the
+     line had the parent's gap on one side and gap+space-3 on the other, and
+     sat visibly tighter against the group it followed — reported as the
+     separator clashing with the "All time" read-out beside it. */
+  margin-inline: var(--space-3);
   background: var(--border);
 }
 

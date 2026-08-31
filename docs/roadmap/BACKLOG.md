@@ -3559,3 +3559,180 @@ yesterday's app.js").
 between-boards UX, a tray floating composer, inline chat/search/digest
 citations — all need either a live model, a Windows environment, or their
 own scoping session, none of which this one has.
+
+## §109 — the measured bug round, the competitor gap list triaged, and what is genuinely still open
+
+Three things in this section: bugs fixed this session **with the measurement
+that proved each one** (not a reading of the source), the twelve-item
+competitor gap analysis triaged against what this app already has, and a
+brainstormed list of what is missing that nobody has asked for yet.
+
+### 109.1 Fixed, and how each was actually proven
+
+The theme of this round: **four separate reports were "already fixed" by the
+source and still wrong on screen, and one was never a bug at all.** Reading
+the code decided none of them. What decided them was measuring.
+
+- **The nav-history popup, reported four times** ("garbled overlapping
+  text", "completely broken", "still broken", with screenshots). Every
+  earlier fix — spacing, a `min-width` floor, a last-row margin, moving it
+  out of the status bar's `backdrop-filter` stacking context — was aimed at
+  the wrong cause, and each one was "verified" by *looking at a screenshot*,
+  which is exactly how four rounds got spent on it.
+
+  The actual cause, found by decoding the screenshot PNG and reading raw
+  pixel values instead of trusting my own eyes on it: `--modal-bg` is
+  `rgba(…, 0.96)`, i.e. **4% see-through by design**. Over most backdrops
+  that is invisible. Over the note editor — the densest block of small text
+  in the app — 4% is enough for the labels underneath to survive as legible
+  ghosting, and any screenshot pipeline that rescales or recompresses
+  amplifies it further. Sampled down the popup's left padding column, the
+  background read `(252,253,255)` at the top and `(244,246,253)` lower down:
+  a real, measurable ~8-unit gradient that was the form showing through.
+
+  Fix: a new `--modal-bg-opaque` token (alpha 1) used by `.nav-history-menu`.
+  Re-sampled after: every point reads `(252,253,255)` exactly, uniformly.
+  `--modal-bg` itself is left alone — its other callers (Settings, the
+  command palette) float over much emptier backdrops.
+
+  **The transferable lesson, and it is the important part of this section:**
+  a screenshot viewed by eye is not evidence at this precision. Both a human
+  and a vision model will read faint luminance gradients as "ghost text" or
+  fail to see a real 4% blend depending on scaling. `scratchpad/pngpixel.py`
+  (a ~50-line pure-Python PNG reader, no dependencies) samples exact pixels
+  and is the tool to reach for whenever a report is about transparency,
+  contrast, or a colour looking wrong.
+
+- **The AI Skills sidebar, reported three times** ("still doesn't float and
+  stay 100% the height of the screen"). The sticking was never broken —
+  measured: scrolling its container by 400px left it pinned at y=196.97
+  exactly. **The height was wrong.** `max-height: var(--page-sticky-h)`
+  resolved to 655px, but this sidebar's scrolling ancestor is
+  `#library-view-skills`, a *nested* scroller only 534px tall, so the card
+  ran 121px past its own viewport and 52px below the fold on an 800px
+  screen. `--page-sticky-h` is the right figure only for a sidebar whose
+  scroller is the page (`.doc-sidebar`, where the pattern was copied from).
+  Fixed with `container-type: size` on the scroller and `max-height: 100cqh`
+  on the sidebar; measured after: 534.2px, bottom at 731, still pinned.
+
+- **The Graph options separator** clashing with the "All time" read-out —
+  the divider `::before` set only `margin-inline-end`, so it had the parent
+  gap on one side and gap+space-3 on the other. Now `margin-inline`.
+
+- **No caption byline in the lightbox** — the Library tile has carried one
+  since captions became hand-editable; only the lightbox was missing its
+  half, so the same picture named its transcriber but not its describer.
+  Added, mirroring `syncCaptionBadge` exactly.
+
+- **The OCR text in the image gallery** is now clamped and expandable like
+  the caption above it, for both the Tesseract and the vision-model field.
+
+- **Bookmark URL editing — not a bug, and this is the third report of it.**
+  Reproduced the whole flow live in Chromium this time rather than grepping
+  again: Edit opens "Title:" prefilled, saving opens "URL:" prefilled,
+  changing both persists, and a full page reload still shows the new title
+  and the new URL. The code is correct and the behaviour is correct.
+  Everything points at a stale cached `library.js` on the reporting machine
+  — the trap HANDOVER.md already names. **If it is reported a fourth time,
+  do not re-read the handler; get the served file's ETag and the browser's
+  actual loaded copy and compare them.**
+
+- **The nav-history popup "doesn't appear in the Documents tab"** — does not
+  reproduce. Measured in both Notes and Library→Documents: visible, correct
+  box, `elementFromPoint` at its centre lands inside the menu (so nothing is
+  covering it), no page errors. Same stale-cache suspicion as above.
+
+### 109.2 Text highlighting — built
+
+`==highlighted text==`, plus `==green|text==` for a named colour from a
+closed set (yellow, green, blue, pink, purple, orange). Inline markdown, not
+a new data model — the same choice `**bold**`, `~~strike~~` and `[[wiki
+links]]` already made, so a highlight is still just characters in the note's
+own `content` and needs no column, no span-range table, and works everywhere
+content already goes: search, export, and the AI's own reading of the note.
+
+It renders through the one shared `renderInlineMarkdown`, so it lights up in
+notes, documents, chat answers, the digest and link previews at once. The
+colour allowlist lives *inside the regex*, so a colour with no stylesheet
+rule cannot be typed. Uses `mark.text-highlight`, deliberately distinct from
+the bare `<mark>` that `highlightInto` emits for search matches — same tag,
+different meaning, and without the distinction a highlighted note reads as
+"this matched your search" with no search running.
+
+**Still open on this:** there is no toolbar button or keyboard shortcut for
+it, because this editor has no formatting toolbar at all — bold, italic and
+strike are all typed by hand today. A selection toolbar (see 109.4) is where
+a highlight button belongs, and would carry the colour picker with it.
+
+### 109.3 The competitor gap analysis, triaged
+
+The twelve-item Kortex/Granola/Mem read was checked against the app rather
+than filed as-is. **Six of the twelve are already built** — which is the
+same ratio an earlier audit found, and the reason this project's standing
+rule exists. Do not rebuild these:
+
+| # | Gap | Status |
+| --- | --- | --- |
+| 2 | Persistent related-notes panel in the editor | **Built** — updates live while editing, not just on click |
+| 6 | Inline citations in AI answers | **Built** — answers carry the notes they came from |
+| 8 | Global quick-capture from the system tray | **Built** |
+| 11 | Structured decisions/action-items block on meeting notes | **Built** — prepended automatically on save |
+| 4 | Highlights/clippings library | **Partly** — Links (bookmarks) shipped this session; quote-level highlights are not a library yet, but `==highlight==` now exists as the capture syntax |
+| 7 | Chat query scoping to selected notes | **Partly** — notes can be hand-attached to a chat turn; there is no "search only these" scope toggle |
+
+Genuinely open, ranked by value-per-effort:
+
+1. **Import from other note apps** (gap 5) — *the single biggest adoption
+   blocker in the list.* A local-first tool cannot lean on a cloud migration
+   service, so a folder of Markdown, a Notion export zip and an Obsidian
+   vault all need a real importer: front-matter → tags, `[[wiki links]]` →
+   real links, attachments copied in, and a dry-run preview before anything
+   is written. Nothing here needs a model. Start with plain Markdown; Notion
+   and Obsidian are the same importer with two front-matter dialects.
+2. **Typed note templates with structured fields** (gap 3) — Skills are
+   reusable *prompts*; this is a different thing: a category-bound field
+   schema (decisions, owners, dates) that renders as a form and stores
+   structured values. The meeting-summary block already proves the output
+   shape is useful; this generalises it.
+3. **Speaker labelling on transcripts** (gap 12) — transcription is already
+   local, so "Speaker 1/2/3" by voice is an incremental local win. Named
+   speakers need no platform integration if the user can rename a label once
+   and have it stick for that recording.
+4. **Rough notes + transcript merge** (gap 1) — the two-stage capture
+   Granola is built around. Recording, transcription and the summary block
+   all exist; what is missing is the *merge* of the user's own bullets with
+   the transcript into one note, which is one more local-model pass.
+5. **"Compose a document from these notes"** (gap 10) — the agent can
+   already do it from a hand-written prompt; this is a button on a graph or
+   list selection, not new capability.
+6. **Live organise-suggestions while typing** (gap 9) — offer it *alongside*
+   the audited background librarian, never replacing it. The gating and the
+   audit log are deliberate and must survive.
+
+### 109.4 Brainstormed — not asked for, worth doing
+
+- **A selection toolbar.** Reported this session as "when I highlight stuff,
+  the ellipse kebab button no longer appears" — not verified here, and the
+  cause is not established, so it needs a live reproduction first. Beyond
+  fixing whatever regressed, selecting text is the natural home for
+  highlight-with-colour, "ask the AI about this", "extract to a new note"
+  and "link this to…". Today selection offers nothing consistent.
+- **Highlights as a queryable collection.** Once `==highlight==` is in use,
+  "show me everything I highlighted this month" is a search-index question,
+  not a schema question — the marks are already in `content`.
+- **Backlinks panel.** The graph knows what links *to* a note; the note
+  itself never shows it.
+- **A conflict-safe editor.** Two windows on the same note silently
+  last-write-wins today.
+- **Search-result grouping by category/tag**, with counts — the result list
+  is flat however many hit.
+- **Export a single note or document** (Markdown/PDF). Backups export
+  everything; there is no "send this one to someone".
+- **A keyboard-shortcut sheet.** `Ctrl`+`K` exists, zoom exists, dictation
+  exists; nothing lists them in one place.
+- **Per-note pinned AI context** — a note that is always in scope for chat
+  ("my current project"), rather than relying on retrieval to find it.
+- **Bulk tag editing** from the notes list, with the same undo the rest of
+  the app has.
+- **A "why is this here?" affordance on graph edges** — the reasons exist;
+  clicking an edge should show one.

@@ -2695,10 +2695,29 @@ function openLightbox(items, startIndex = 0) {
   // Library tile, which is the one view too small to read them in. Optional
   // per item (`caption`, `text`, and their bylines): every other caller
   // passes only `{filename, getUrl}` and gets exactly what it got before.
+  // Mirrors `syncCaptionBadge` on the Library tile (library.js) exactly, so
+  // the same picture says the same thing in both places: which model wrote
+  // the description, and whether a person has since changed it.
+  const captionBylineFor = (row) => {
+    if (!row || !row.caption) return "";
+    const parts = [];
+    if (row.caption_model) parts.push(`Described by ${row.caption_model}`);
+    if (row.caption_edited) parts.push(row.caption_model ? "edited" : "typed by hand");
+    return parts.join(" · ");
+  };
+
   const info = document.createElement("div");
   info.className = "lightbox-info hidden";
   const infoCaption = document.createElement("p");
   infoCaption.className = "lightbox-caption";
+  // Who wrote the caption. Reported directly: "there is also no 'text read
+  // by' line in the lightbox for the image captions, only the ocr" — the
+  // Library tile has carried a caption byline (`captionBadge`, library.js)
+  // since captions could be edited by hand, and only the lightbox was
+  // missing its half, so the same picture named its transcriber but not its
+  // describer.
+  const infoCaptionByline = document.createElement("p");
+  infoCaptionByline.className = "lightbox-byline";
   const infoText = document.createElement("p");
   infoText.className = "lightbox-text";
   const infoByline = document.createElement("p");
@@ -2708,7 +2727,7 @@ function openLightbox(items, startIndex = 0) {
   // picture this is; the readings below it are about what is in it.
   const infoFacts = document.createElement("p");
   infoFacts.className = "lightbox-facts";
-  info.append(infoFacts, infoCaption, infoText, infoByline);
+  info.append(infoFacts, infoCaption, infoCaptionByline, infoText, infoByline);
   // Clicking the panel must not dismiss the dialog — someone selecting a line
   // of transcribed text to copy is the whole reason it is here.
   info.addEventListener("click", (e) => e.stopPropagation());
@@ -2922,6 +2941,7 @@ function openLightbox(items, startIndex = 0) {
         title: "Generate a caption for this image",
         run: run("describe", "Describing…", "/caption", (it, u) => {
           it.caption = u.caption || "";
+          it.captionByline = captionBylineFor(u);
         }),
       },
       {
@@ -3240,6 +3260,8 @@ function openLightbox(items, startIndex = 0) {
     const text = (item.text || "").trim();
     infoCaption.textContent = caption;
     infoCaption.classList.toggle("hidden", !caption);
+    infoCaptionByline.textContent = caption ? item.captionByline || "" : "";
+    infoCaptionByline.classList.toggle("hidden", !caption || !item.captionByline);
     infoText.textContent = text;
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = item.byline || "";
@@ -3326,6 +3348,7 @@ function openLightbox(items, startIndex = 0) {
           ? "Text read with Tesseract OCR"
           : "";
     }
+    if (!item.captionByline) item.captionByline = captionBylineFor(row);
     // The gallery passes `original_name`; a bare url caller passes the
     // stored name or nothing, and the human-readable one is better.
     if (row.original_name && (!item.filename || item.filename === name)) {
@@ -3341,6 +3364,8 @@ function openLightbox(items, startIndex = 0) {
     const text = (item.text || "").trim();
     infoCaption.textContent = caption;
     infoCaption.classList.toggle("hidden", !caption);
+    infoCaptionByline.textContent = caption ? item.captionByline || "" : "";
+    infoCaptionByline.classList.toggle("hidden", !caption || !item.captionByline);
     infoText.textContent = text;
     infoText.classList.toggle("hidden", !text);
     infoByline.textContent = item.byline || "";
@@ -4505,7 +4530,7 @@ function matchesSearch(entry) {
 // unclosed `[` is O(n²), CodeQL's js/polynomial-redos) doesn't apply to a
 // class that already excludes its own closing character.
 const INLINE_MD =
-  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|==([^=\n]+?)==|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|==(?:(yellow|green|blue|pink|purple|orange)\|)?([^=\n]+?)==|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
 
 // `appendInline`'s own grammar, before it was merged into renderInlineMarkdown
 // below: adds `__bold__`/`_italic_` and bare `https://…` autolinking, and its
@@ -4521,7 +4546,7 @@ const INLINE_MD =
 // selected by `options.underscoreSyntax` below, guarantee neither caller's
 // matching behaviour moves at all.
 const INLINE_MD_LEGACY =
-  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|==([^=]+)==|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
+  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|==(?:(yellow|green|blue|pink|purple|orange)\|)?([^=]+?)==|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
 
 // Same allowlist an <img src> or <a href> built from note text has to pass:
 // an absolute http(s) URL, or a same-origin relative path (one leading
@@ -4671,17 +4696,17 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         element.appendChild(before);
       }
     }
-    let code, bold, strike, mark, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
+    let code, bold, strike, markColour, mark, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
     if (underscoreSyntax) {
       let boldStar, boldUnderscore, italicStar, italicUnderscore;
       [
-        , code, boldStar, boldUnderscore, strike, mark, italicStar, italicUnderscore,
+        , code, boldStar, boldUnderscore, strike, markColour, mark, italicStar, italicUnderscore,
         imageAlt, imageUrl, linkText, linkUrl, bareUrl,
       ] = match;
       bold = boldStar ?? boldUnderscore;
       italic = italicStar ?? italicUnderscore;
     } else {
-      [, code, bold, strike, mark, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+      [, code, bold, strike, markColour, mark, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
     }
     // Images and links are their own element kinds, not a wrap-in-a-tag like
     // the four above — built and appended directly rather than falling
@@ -4812,7 +4837,16 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
     // (used for search-term matches) — same tag, different meaning, so they
     // need different styling or a highlighted note reads as "this matched
     // your search" with no search active.
-    if (mark) node.className = "text-highlight";
+    if (mark) {
+      // `==text==` is the plain (yellow) highlight; `==green|text==` picks one
+      // of a small named set. An allowlist baked into the pattern itself, not
+      // a free-form colour: the value lands in a class name, and every colour
+      // that can appear here therefore has a stylesheet rule written for it
+      // (05-sidebars-themes.css) that is theme-aware in both light and dark.
+      node.className = markColour
+        ? `text-highlight text-highlight-${markColour}`
+        : "text-highlight";
+    }
     // A code span is literal by definition, so it is never searched-highlighted
     // into pieces — the rest still is, or filtering would stop marking any
     // word that happened to sit inside emphasis.
@@ -22360,6 +22394,16 @@ $("dashboard-persona-select").addEventListener("change", async () => {
   }).catch(() => {});
   if (prefsCache) prefsCache.dashboard_persona = persona;
   toast(persona ? `Dashboard greeting now speaks as ${persona}.` : "Dashboard greeting back to matching Chat.");
+});
+$("dashboard-greeting-regenerate")?.addEventListener("click", async () => {
+  const btn = $("dashboard-greeting-regenerate");
+  const status = $("dashboard-greeting-status");
+  btn.disabled = true;
+  if (status) status.textContent = "Asking the AI…";
+  const ok = await refreshAiGreeting(true).catch(() => false);
+  btn.disabled = false;
+  if (status) status.textContent = ok ? "New greeting set." : "Couldn't reach the AI — kept the current one.";
+  setTimeout(() => { if (status) status.textContent = ""; }, 3000);
 });
 for (const id of RESPONSE_MODE_SELECTS) {
   $(id)?.addEventListener("change", (e) => setResponseMode(e.target.value));

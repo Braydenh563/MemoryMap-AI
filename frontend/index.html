@@ -3405,7 +3405,12 @@ Link to another note with [[its first few words]]."></textarea>
               </p>
               <div id="skill-tool-list" class="tool-picker"></div>
             </details>
-            <div class="row">
+            <!-- Measured live during a spacing audit: this row sat flush
+                 against the </details> above it (0px gap), unlike the
+                 matching "last field → Add X row" transition in both
+                 Personas and Templates (~16px, .settings-row-spaced-6's
+                 own value) — this one had been missed. -->
+            <div class="row settings-row-spaced-6">
               <button id="skill-add" class="small">Add skill</button>
               <button id="skill-cancel" class="ghost small hidden">Cancel edit</button>
               <span id="skill-status" class="status"></span>

@@ -3190,3 +3190,51 @@ item 8 above instead).
    flipped, and the new `z` value survived a full page reload (read
    straight from `wbState` after a fresh navigation, not just checked
    in-memory).
+
+## §105 — Library "All" tab: the create button now follows the filter chip, the rest is scoped not built
+
+Asked for directly: the create button at the top of the Library "All" tab
+should change based on the active filter chip — "Create Note" on Notes,
+"Create/Upload Document" on Documents, "New Chat" on Chats, "Transcribe
+Audio" on Meetings, and a general "Create +" picker modal on "Everything" —
+plus more general capability to rename and create things (tags, categories,
+chats) directly from the Library.
+
+**Built:** the button now matches the active chip for the four kinds with
+one unambiguous thing to create (Notes/Documents/Chats/Meetings —
+`LIBRARY_CREATE_BY_KIND`, library.js). Verified live: switching chips
+changes the label and the resulting action (Notes → Capture and focuses the
+box; Documents → the existing new-document flow; Chats → a fresh
+conversation; Meetings → the recorder).
+
+**Not built — logged rather than rushed:**
+1. **A real "choose what to create" picker for Everything** (and every kind
+   with no single obvious answer — Files, Tags, Drafts, Activity, the bin).
+   Falls back to "+ New note" today (the fastest capture path, a defensible
+   default) rather than a modal. Building the modal itself is small; the
+   part worth deciding first is whether it's a dropdown off the button
+   (cheaper, reuses `kebabMenu()`) or a real modal overlay (matches "a
+   modal that shows where the user can choose", asked for by name) — the
+   button isn't currently wrapped the way `kebabMenu()`'s default
+   positioning assumes, so that's a real (small) choice, not just typing.
+2. **A "categories" section of the Library** doesn't exist —
+   `LIBRARY_KINDS` (library.js) has note/document/chat/file/tag/draft/
+   meeting, no category. Cheaper than it sounds: `PUT` and `DELETE
+   /categories/{id}` already exist (routes_categories.py), and
+   `renameCategory()` (app.js) already renames one from the Notes tab's own
+   sidebar — reusable as-is, not built from scratch. "Create an empty
+   category" has no real meaning today (a Category row is created
+   on-demand the first time a note is filed into it — `get_or_create_category`,
+   entry/manager.py); a Library category view would need to decide whether
+   that stays true or an empty category becomes a first-class creatable
+   thing.
+3. **Renaming a tag "everywhere"** has no dedicated endpoint — tags are a
+   JSON array on each `Entry`, not a table, so "rename this tag" today
+   means editing it per-note. A real rename-everywhere action needs either
+   a new endpoint that rewrites the tag across every entry carrying it, or
+   a documented decision that it's out of scope and a tag is meant to be
+   cheap to abandon and recreate rather than renamed in place.
+4. **Creating a note/chat directly from the Library**, rather than jumping
+   to the Notes/Chat tab — items 1 and this one may resolve together
+   (if item 1 becomes a real modal, "type it right here" is a natural
+   extension of it rather than a fifth thing to build separately).

@@ -465,6 +465,14 @@
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-5);
   margin-top: var(--space-6);
+  /* A grid row's cells stretch to match its tallest cell by default —
+     reported (spacing/padding around the steps/tools dropdowns): opening
+     one card's "N steps" or "N tools" disclosure grew that card, which
+     then stretched every *other* card sharing its row into a mismatched
+     shape with a large dead gap between their own (unopened) content and
+     the Run button pinned to the bottom. Each card should size to its own
+     content, not its row-mates'. */
+  align-items: start;
 }
 
 .skill-card {
@@ -1421,9 +1429,15 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   color: #fff;
 }
 
-/* The "add a preference by hand" row above the list. */
+/* The "add a preference by hand" row above the list. Measured live during a
+   spacing audit: no margin-top meant this sat flush against #memory-budget
+   above it (0px gap) — every other block-of-text-then-a-row transition in
+   Settings gets real breathing room; this was the one exception. */
 .memory-add {
   gap: var(--space-3);
+  /* 1rem, matching .settings-group's own margin-bottom — the app-wide
+     rhythm between one block of Settings content and the next. */
+  margin-top: 1rem;
   margin-bottom: var(--space-5);
 }
 

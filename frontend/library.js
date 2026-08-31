@@ -295,6 +295,7 @@ function renderLibraryFilters() {
       libraryCurrentPage = 1;
       renderLibraryFilters();
       renderLibrary();
+      updateLibraryCreateButton();
     });
     box.appendChild(button);
   }
@@ -1191,12 +1192,58 @@ $("library-bulk-delete").addEventListener("click", async () => {
   loadEntries();
 });
 $("library-refresh").addEventListener("click", loadLibrary);
-$("library-new-doc").addEventListener("click", () => {
-  switchTab("documents");
-  // The Documents page's own loader opens the last document otherwise, and a
-  // new one would be replaced a moment after it appeared.
-  setTimeout(() => $("doc-new").click(), 160);
-});
+
+// **The "All" tab's create button, matched to whichever filter chip is
+// active.** Reported directly: it always said "+ New document" and made a
+// document regardless of whether you were looking at Notes, Chats or
+// Meetings — the one obviously-wrong thing to create in three of those
+// four views. `renderLibraryFilters()` (above) calls this every time the
+// chip changes; the four kinds with one unambiguous thing to create get a
+// matching button, everything else (Everything, Files, Tags, Drafts,
+// Activity, the bin) falls back to "+ New note" — the fastest capture path
+// in the app, and a reasonable default when there's no single obvious
+// answer. A real "choose what to create" picker for the Everything view
+// specifically was asked for too but not built this pass — logged rather
+// than rushed; see BACKLOG.md.
+const LIBRARY_CREATE_BY_KIND = {
+  note: {
+    label: "＋ New note",
+    run: () => {
+      switchTab("notes");
+      showNotesSection("capture", { focus: true });
+    },
+  },
+  document: {
+    label: "＋ New document",
+    run: () => {
+      switchTab("documents");
+      // The Documents page's own loader opens the last document otherwise,
+      // and a new one would be replaced a moment after it appeared.
+      setTimeout(() => $("doc-new").click(), 160);
+    },
+  },
+  chat: {
+    label: "＋ New chat",
+    run: () => {
+      switchTab("chat");
+      newChatConversation();
+    },
+  },
+  meeting: {
+    label: "⏺ Transcribe audio",
+    run: () => openMeetingRecorder(),
+  },
+};
+
+function updateLibraryCreateButton() {
+  const btn = $("library-new-doc");
+  if (!btn) return;
+  const entry = LIBRARY_CREATE_BY_KIND[libraryKind] || LIBRARY_CREATE_BY_KIND.note;
+  setLabel(btn, entry.label);
+  btn.title = entry.label.replace(/^\S+\s*/, "");
+  btn.onclick = entry.run;
+}
+updateLibraryCreateButton();
 
 // ======================= SKILLS DASHBOARD TAB =======================
 

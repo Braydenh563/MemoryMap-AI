@@ -509,7 +509,10 @@
    caution rather than an error: the log is working, it is just not the whole
    story, and a red banner would read as a fault in the app being diagnosed. */
 .log-dropped {
-  margin: 0 0 0.5rem;
+  /* Measured live during a spacing audit: no margin-top meant this sat
+     flush against the toolbar row above it (0px gap) whenever it's
+     actually shown (dropped log lines during this session). */
+  margin: var(--space-3) 0 0.5rem;
   padding: 0.4rem 0.6rem;
   border-left: 3px solid var(--warn);
   border-radius: var(--radius-sm);

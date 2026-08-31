@@ -491,13 +491,6 @@ progress {
   flex: 0 0 auto;
 }
 
-/* Two stacked `.row`s have no space between them: `.row`'s own gap applies
-   *within* a row, not between siblings. Reported for the two export settings,
-   which read as one run-on control. */
-.settings-row-spaced {
-  margin-top: var(--space-3);
-}
-
 #thinking-box {
   margin-bottom: 0.6rem;
   font-size: 0.85rem;
@@ -746,6 +739,26 @@ progress {
   border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
+}
+
+/* The AI Skills panel's own log rows (`renderSkillLogs`, library.js) —
+   `#skills-logs-list` is a plain `<div class="entry-list">`, not a `<ul>`
+   (it holds status text on the empty-state path too), so its rows are
+   `<div class="entry-item">` and never matched `.entry-list li` above.
+   `.entry-item` had *no* CSS anywhere in the app — every log row rendered
+   as bare unstyled text with no card, no border, no gap from the next one,
+   which is what "the skill logs UI looks messy" actually was. Same visual
+   language as `.entry-list li`, since it's the same kind of row. */
+.entry-item {
+  background: var(--inner);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.entry-item .log-detail {
+  margin-top: var(--space-2);
 }
 
 /* Roving-tabindex keyboard nav (app.js's applyEntryListTabOrder /
@@ -1150,7 +1163,13 @@ progress {
 }
 
 /* Settings sections: a second row of controls below an existing one that
-   needs a little breathing room from it. */
+   needs a little breathing room from it — `.row`'s own gap applies *within*
+   a row, not between siblings, and two stacked rows with none read as one
+   run-on control (reported for the two export settings). Was defined twice
+   in this file with two different values (--space-3 up near the export
+   rows that first needed it, --space-2 here) — the cascade always resolved
+   to this second one regardless of which the code near either usage seemed
+   to assume, so the first was silently dead. One definition now. */
 .settings-row-spaced {
   margin-top: var(--space-2);
 }

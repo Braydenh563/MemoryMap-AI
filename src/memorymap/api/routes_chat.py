@@ -41,8 +41,16 @@ from memorymap.ai import (
 from memorymap.ai.grounding import ground_answer_sentences
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps
-from memorymap.core.database import AskTurn, AuditLog, Category, Document, Entry, MediaUpload
+from memorymap.core import deps, docview
+from memorymap.core.database import (
+    Attachment,
+    AskTurn,
+    AuditLog,
+    Category,
+    Document,
+    Entry,
+    MediaUpload,
+)
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -575,6 +583,50 @@ def _media_readings(session: Session, content: str) -> str:
     return "\n\n[Pictures in this note, as this app read them:\n" + "\n".join(lines) + "]"
 
 
+def _attachment_readings(session: Session, entry_id: int) -> str:
+    """What's inside the *files* attached to a note (PDFs, Office documents,
+    code, plain text) — `_media_readings` above's own sibling, and the gap it
+    left. Asked about directly in the same spirit as that function's own
+    report: a note whose entire point was an attached spreadsheet or PDF
+    reached the model as a filename and nothing else, even when the note
+    carrying it was hand-attached to the very question being asked.
+
+    Same "attached notes get more, retrieved ones don't" budget
+    `_media_readings` already uses, and read live rather than cached: unlike
+    a caption or an OCR pass (a background job that may not have run yet),
+    extraction here is `docview.extract` (core/docview.py) — exactly what
+    `/documents/import` and `/files/{id}/text` already pay synchronously per
+    request — bounded to a handful of files on a note the user explicitly
+    picked, not a background sweep over the whole notebook.
+    """
+    attachments = (
+        session.query(Attachment)
+        .filter(Attachment.entry_id == entry_id)
+        .order_by(Attachment.id)
+        .limit(MEDIA_READINGS_PER_NOTE)
+        .all()
+    )
+    if not attachments:
+        return ""
+    uploads_dir = deps.get_config().uploads_dir
+    lines = []
+    for attachment in attachments:
+        path = uploads_dir / attachment.stored_name
+        if not path.is_file():
+            continue
+        try:
+            viewed = docview.extract(path)
+        except Exception:  # noqa: BLE001 — a bad file must not cost the answer
+            continue
+        text = viewed.text.strip()
+        if not text:
+            continue
+        lines.append(f"- {attachment.filename}: {text[:MEDIA_READING_CHARS]}")
+    if not lines:
+        return ""
+    return "\n\n[Files attached to this note, as this app read them:\n" + "\n".join(lines) + "]"
+
+
 def _prepare(
     session: Session,
     question: str,
@@ -648,7 +700,7 @@ def _prepare(
             # that is worth the extra characters — doing this for all ten
             # search hits would spend the notes budget on pictures nobody
             # asked about.
-            content = f"{content}{_media_readings(session, content)}"
+            content = f"{content}{_media_readings(session, content)}{_attachment_readings(session, entry.id)}"
         return {
             # id lets agent-mode tool calls target these notes;
             # the plain librarian prompt simply ignores it.

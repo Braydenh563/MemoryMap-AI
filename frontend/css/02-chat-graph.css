@@ -2060,6 +2060,16 @@ kbd {
      that depends on which of three triggers opened it. */
   bottom: calc(var(--status-bar-h) + var(--space-3));
   z-index: 90;
+  /* Reported as "completely broken" — real, and reproduced: with only
+     short single-word entries (a plain tab visit, no sub-section), the
+     shrink-to-fit width this element had with no `min-width` collapsed to
+     a narrow, sub-pixel box (164.34px, measured) — and text inside a
+     `text-overflow: ellipsis` flex child that narrow renders as illegible
+     dashes rather than real glyphs, a genuine rendering-engine failure
+     mode at that width, not a colour or font-size problem (both measured
+     fine). A floor keeps every row wide enough to stay out of that zone
+     regardless of how short its own label happens to be. */
+  min-width: min(14rem, 90vw);
   max-width: min(22rem, 90vw);
   max-height: min(24rem, 70vh);
   overflow-y: auto;
@@ -2485,7 +2495,13 @@ html {
   overflow: auto;
   padding: var(--space-6);
   border-radius: var(--radius-lg);
-  background: var(--card);
+  /* Not `var(--card)` — that token is deliberately translucent glass (a
+     card sitting on the page background), which is wrong for a reading
+     surface sitting over the lightbox's own darkened backdrop and
+     whatever image/UI is behind it. Reported directly as "somewhat
+     transparent". `--modal-bg` is the same near-opaque (96-97%) token
+     every other floating overlay in this app already reads text against. */
+  background: var(--modal-bg);
   color: var(--ink);
   text-align: left;
 }

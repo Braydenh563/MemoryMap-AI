@@ -562,6 +562,55 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     return suggestions
 
 
+class LinkSuggestionReasonPair(BaseModel):
+    source_id: int
+    target_id: int
+
+
+class LinkSuggestionReasonsBody(BaseModel):
+    pairs: list[LinkSuggestionReasonPair]
+
+
+@router.post("/link-suggestions/reasons")
+def link_suggestion_reasons(
+    body: LinkSuggestionReasonsBody, session: Session = Depends(get_session)
+) -> dict:
+    """Reasons for *pending* suggestions, not yet real links — the gap
+    `/links/backfill-reasons` (below) deliberately doesn't cover, since that
+    one only ever touches links that already exist. Asked for directly: the
+    suggestions panel's own "Why?" boxes had no way to get an AI guess
+    without linking first, editing, and re-linking. Best-effort per pair —
+    one bad or private pair doesn't sink the rest, and the whole call
+    degrades to an empty list rather than an error the moment the model is
+    down, so the caller can tell "nothing generated" from "everything
+    genuinely had one already" without a special-cased response shape."""
+    reasons = []
+    ai_unavailable = False
+    for pair in body.pairs[:12]:  # same cap link_suggestions() itself uses
+        source = session.get(Entry, pair.source_id)
+        target = session.get(Entry, pair.target_id)
+        if not source or not target or source.is_private or target.is_private:
+            continue
+        try:
+            reason = librarian.generate_link_reason(
+                manager.readable_content(source),
+                manager.readable_content(target),
+                deps.get_model_manager(),
+                deps.get_ollama(),
+            )
+        except Exception as exc:  # model offline, or no model configured
+            logger.info("link suggestion reason skipped: %s", exc)
+            ai_unavailable = True
+            continue
+        reasons.append(
+            {"source_id": pair.source_id, "target_id": pair.target_id, "reason": reason}
+        )
+    result = {"reasons": reasons}
+    if ai_unavailable:
+        result["ai_unavailable"] = True
+    return result
+
+
 class BackfillReasonsBody(BaseModel):
     """`ai=False` runs only the cheap embedding pass — useful when the model
     is known to be down and you just want the links marked."""

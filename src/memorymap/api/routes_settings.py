@@ -916,6 +916,22 @@ def audit_log(
     ]
 
 
+@router.delete("/audit")
+def clear_audit_log(
+    entity_type: str = Query(..., max_length=40),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Asked for directly — a "Clear" button for the AI Skills sidebar's own
+    log list. `entity_type` is required, not optional: this deliberately
+    cannot clear the whole audit trail (note edits, deletes, private-note
+    decryption events — real accountability history, not a scrollback
+    buffer someone would want to blank), only one filtered slice of it at a
+    time, the same scope `GET /audit?entity_type=` already reads."""
+    deleted = session.query(AuditLog).filter(AuditLog.entity_type == entity_type).delete()
+    session.commit()
+    return {"deleted": deleted}
+
+
 @router.post("/recycle-bin/empty")
 def empty_recycle_bin(session: Session = Depends(get_session)) -> dict:
     removed = manager.empty_recycle_bin(

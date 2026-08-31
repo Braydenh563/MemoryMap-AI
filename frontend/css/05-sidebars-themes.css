@@ -325,6 +325,18 @@ button.ai-unavailable {
   font-weight: 600;
 }
 
+/* `==highlight==` in note/document text — a warm highlighter tone, distinct
+   from the blue search-match <mark> above, and not scoped to .entry-content
+   since renderInlineMarkdown draws it into notes, documents, chat and the
+   digest alike. */
+mark.text-highlight {
+  background: var(--warn-soft);
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 0 0.12em;
+  font-weight: inherit;
+}
+
 /* --- filter help ------------------------------------------------------------- */
 .search-help {
   margin: 0 0 0.6rem;

@@ -7,6 +7,30 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Added
+- Text highlighting in notes and documents: `==highlighted text==`, an
+  inline markdown convention rendered everywhere note/document content
+  already renders (no new data model).
+- A "generate suggested reasons" action for the Graph tab's pending link
+  suggestions, filling in empty "Why?" boxes via the AI.
+- A "Clear" button for the AI Skills sidebar's run log.
+
+### Fixed
+- The nav-history popup's cramped spacing, a cut-off last row, and an
+  overly-narrow popup for short entries.
+- The Library sub-tab menu bar now matches the Notes sub-tab bar's card
+  styling and corner rounding (was picking up a global rounding rule by
+  file-load order, since it never set its own `border-radius`).
+- Markdown document previews in the lightbox used the translucent card
+  background instead of the near-opaque modal one.
+- `#search-help` and `#capture-help` now close on outside click/Escape via
+  the shared toggle helper, and share the floating popover style used
+  elsewhere.
+- A stray horizontal scrollbar in the Library Contents outline was cutting
+  off text and its hover highlight.
+- The AI Skills tab's step/tool fact list had no visual container.
+- The Graph Options toggles (and two more elsewhere in Settings) now use
+  the same pill styling as other toggles instead of a bare switch.
 ## [0.1.7] — 2026-08-31
 
 ### Added

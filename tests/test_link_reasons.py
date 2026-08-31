@@ -726,6 +726,70 @@ def test_ordinary_today_phrasing_in_note_text_rescues_a_borderline_reason(sessio
     assert link.reason_confidence == 0.5
 
 
+# --- AI-guessed reasons for pending suggestions (not yet real links) ------------
+
+
+def test_suggestion_reasons_are_generated_per_pair(ai_client, fake_ollama):
+    a = _save(ai_client, "a funny scarecrow joke")
+    b = _save(ai_client, "another funny pun")
+    fake_ollama.librarian_reply = "both are jokes about scarecrows"
+
+    result = ai_client.post(
+        "/entries/link-suggestions/reasons",
+        json={"pairs": [{"source_id": a["id"], "target_id": b["id"]}]},
+    ).json()
+
+    assert result["reasons"] == [
+        {"source_id": a["id"], "target_id": b["id"], "reason": "both are jokes about scarecrows"}
+    ]
+
+
+def test_suggestion_reasons_skip_a_private_note(ai_client, session):
+    from memorymap.core import crypto, vault
+
+    vault.close()
+    vault.create(session, "test-passphrase")
+    session.commit()
+    try:
+        public = ai_client.post("/entries", json={"content": "a public note"}).json()
+        private = ai_client.post("/entries", json={"content": "codeword ELDERFLOWER"}).json()
+        ai_client.post(f"/entries/{private['id']}/privacy", json={"private": True})
+
+        result = ai_client.post(
+            "/entries/link-suggestions/reasons",
+            json={"pairs": [{"source_id": public["id"], "target_id": private["id"]}]},
+        ).json()
+
+        assert result["reasons"] == []
+        stored = session.get(Entry, private["id"])
+        assert crypto.is_encrypted(stored.content)
+    finally:
+        vault.close()
+
+
+def test_suggestion_reasons_report_ai_unavailable_without_crashing(client):
+    a = _save(client, "a funny scarecrow joke")
+    b = _save(client, "another funny pun")
+
+    result = client.post(
+        "/entries/link-suggestions/reasons",
+        json={"pairs": [{"source_id": a["id"], "target_id": b["id"]}]},
+    ).json()
+
+    assert result["reasons"] == []
+    assert result["ai_unavailable"] is True
+
+
+def test_suggestion_reasons_pairs_are_capped_at_twelve(ai_client, fake_ollama):
+    ids = [_save(ai_client, f"note {i}")["id"] for i in range(14)]
+    fake_ollama.librarian_reply = "a reason"
+    pairs = [{"source_id": ids[i], "target_id": ids[i + 1]} for i in range(13)]
+
+    result = ai_client.post("/entries/link-suggestions/reasons", json={"pairs": pairs}).json()
+
+    assert len(result["reasons"]) == 12
+
+
 def test_a_score_already_over_threshold_keeps_the_plain_reason(session):
     """A shared date must not relabel a pair that already clears the bar on
     meaning alone — the exact-match text and score every existing test

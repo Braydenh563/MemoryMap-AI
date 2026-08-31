@@ -3479,3 +3479,83 @@ cosmetic, not chased given the session's remaining budget.
   shape (inline markup in the note/document's own text vs. a separate
   span-range table) and how it interacts with existing markdown rendering
   and the AI's own reading of note content, before scoping further.
+
+## §108 — a fast bug-fix round: three real front-end bugs and a batch of small polish
+
+**Fixed, all traced to a root cause rather than patched blind:**
+- **Nav-history popup, genuinely broken this time** — reproduced: a
+  history of short single-word entries (a plain tab visit, no sub-section)
+  shrank the popup's fit-content width down to a narrow, sub-pixel value
+  (164.34px measured), and text that narrow inside a `text-overflow:
+  ellipsis` flex child rendered as illegible marks rather than real
+  glyphs — confirmed clean again at both a wider `min-width` and a higher
+  device-pixel-ratio, so this was the popup's own sizing, not a font/theme
+  regression. `min-width: min(14rem, 90vw)` keeps it out of that zone
+  regardless of how short any one entry's own label is.
+- **`#search-help` and `#capture-help`** were bespoke hand-rolled click
+  toggles from before `initHelpToggle` existed, never migrated — missing
+  the outside-click and Escape closes every *other* help toggle in the app
+  gets (reported: "the capture a thought tooltip doesn't close when
+  clicking off it"), and `search-help-hint` also carried its own one-off
+  `.search-help` class instead of the shared `.graph-help-panel` floating
+  look `capture-help-hint` already had (reported separately as a style
+  mismatch between the two). Both now go through `initHelpToggle`; live-
+  verified open/outside-click-close and confirmed `search-help-hint`
+  carries `.graph-help-panel` now.
+- **The AI Skills tab's step/tool lists** — reported directly, with a
+  screenshot: expanded, they read as plain paragraphs sat right on the
+  card background. `.skill-fact-list` now gets a bordered/backgrounded box
+  of its own (`--chip-bg`, `--radius-md`), the same card-on-card language
+  `.contents-section` uses.
+- **The Graph options row's toggles** (Similarity/Entities/Documents/Hide
+  unlinked/Labels) were bare switches with muted text — hard to tell where
+  one control ended and the next began, reported directly, with a request
+  to match the Semantic toggle's own look. All five now also carry
+  `.checkbox-label`, the shared pill-chip class that toggle already had —
+  same fix applied to two more bare `.tools-toggle`s found the same way
+  (Agent mode, Settings → Logs' "Follow").
+- **The lightbox's document preview panel** was translucent (`var(--card)`,
+  deliberately glass) sitting over the lightbox's own darkened backdrop —
+  reported as "somewhat transparent". Switched to `var(--modal-bg)`, the
+  same near-opaque token every other floating overlay already reads text
+  against.
+- **`.library-subtabs button` was more rounded than `.notes-subtabs
+  button`** — traced to cascade order, not a missing class: a global
+  "user-tunable corner rounding" rule (`.seg button`,
+  04-chat-dock-appearance.css) sets a bigger radius and loads *before*
+  `.notes-subtabs button`'s own explicit `--radius-md` override, so Notes
+  wins on load order while Library's own button rule (added this session,
+  07-whiteboard-misc.css) never set the property at all and inherited the
+  bigger one by default. Now sets it explicitly too.
+
+**Built, asked for directly:**
+- **A "Clear" button for the AI Skills sidebar's own log list** —
+  `DELETE /audit?entity_type=...` (`entity_type` required, so this can
+  never be a way to wipe the *whole* audit trail — note edits/deletes are
+  real accountability history, not a scrollback buffer — only the one
+  filtered slice a caller names). The sidebar's sticky/full-height/
+  internal-scroll behaviour itself was **already built** in an earlier
+  stretch of this session (checked before touching anything, per this
+  file's own standing rule) — only the clear action was actually missing.
+- **Suggested-link reasons, the thing "Explain your existing links" was
+  reported as not doing** (it never could — see that button's own long-
+  standing comment) — a new "Suggest reasons" button next to it,
+  `POST /entries/link-suggestions/reasons`, fills each pending suggestion's
+  empty Why box with an AI guess (best-effort per pair, degrades to an
+  empty list rather than an error when the model is down). Kept the
+  original backfill button rather than replacing it — it's a real, working,
+  separate capability (reasons for links that already exist) the ask
+  didn't say to remove.
+
+**Bookmark URL editing** — re-checked after being reported again: the fix
+from earlier this session (`library.js`'s bookmark Edit action prompting
+for both title and URL) is still present and correct on disk. If still
+seeing title-only editing, it's very likely a stale cached `app.js`/
+`library.js` — this project's own history names exactly that trap
+(HANDOVER.md, "a static-file cache header that let the desktop app run
+yesterday's app.js").
+
+**Still open, unchanged from §106/§107:** whiteboard select/move/copy-
+between-boards UX, a tray floating composer, inline chat/search/digest
+citations — all need either a live model, a Windows environment, or their
+own scoping session, none of which this one has.

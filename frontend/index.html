@@ -822,7 +822,7 @@ Link to another note with [[its first few words]]."></textarea>
           <div id="saved-searches" class="saved-searches hidden"
             role="group" aria-label="Saved filters"></div>
           <!-- Search operators are useless if nobody knows they exist. -->
-          <div id="search-help-hint" class="search-help hidden">
+          <div id="search-help-hint" class="graph-help-panel search-help hidden" role="dialog" aria-label="What can I type here?">
             <p class="muted">The filter understands a few shortcuts — all of these work without any AI:</p>
             <ul class="search-help-list">
               <li><code>bread proving</code> — both words, in any order</li>
@@ -1051,7 +1051,7 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Request something of the Librarian. It can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first."
                     aria-label="Request the Librarian"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Request<span class="chat-mode-long"> the Librarian</span></button>
                 </div>
-                <label class="muted tools-toggle agent-toggle hidden"
+                <label class="muted tools-toggle checkbox-label agent-toggle hidden"
                   title="Agent mode: the AI can use tools — search and read your notes, open web pages, create, tag, link and organise. Destructive actions always ask you first.">
                   <input type="checkbox" id="tools-toggle">
                   <span class="agent-toggle-label"><i class="ph ph-robot ph-lead" aria-hidden="true"></i> Agent mode</span>
@@ -1567,19 +1567,19 @@ Link to another note with [[its first few words]]."></textarea>
           <span id="graph-time-label" class="muted text-sm graph-time-label">All Time</span>
         </span>
         <span class="graph-toggle-group" id="graph-toggle-group">
-          <label class="muted tools-toggle" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
+          <label class="muted tools-toggle checkbox-label" title="Draw dotted lines between notes that mean similar things (needs semantic search)">
             <input type="checkbox" id="graph-similarity"> Similarity
           </label>
-          <label class="muted tools-toggle" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
+          <label class="muted tools-toggle checkbox-label" title="Show people/projects/things a local model has found mentioned across your notes, as their own nodes">
             <input type="checkbox" id="graph-entities"> Entities
           </label>
-          <label class="muted tools-toggle" title="Show documents linked to a note, as their own nodes">
+          <label class="muted tools-toggle checkbox-label" title="Show documents linked to a note, as their own nodes">
             <input type="checkbox" id="graph-documents"> Documents
           </label>
-          <label class="muted tools-toggle" title="Hide notes that aren't linked to anything, to declutter the map">
+          <label class="muted tools-toggle checkbox-label" title="Hide notes that aren't linked to anything, to declutter the map">
             <input type="checkbox" id="graph-hide-orphans"> Hide unlinked
           </label>
-          <label class="muted tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+          <label class="muted tools-toggle checkbox-label" title="Show a short label under every note (off = labels only when you hover)">
             <input type="checkbox" id="graph-labels" checked> Labels
           </label>
         </span>
@@ -2396,7 +2396,10 @@ Link to another note with [[its first few words]]."></textarea>
       
         </main>
         <aside class="card glass" id="skills-sidebar">
-        <h2>Skill Logs</h2>
+        <div class="row space-between library-head">
+          <h2>Skill Logs</h2>
+          <button id="skills-logs-clear" class="ghost small" type="button" title="Clear this log">Clear</button>
+        </div>
         <div id="skills-logs-list" class="entry-list"></div>
       </aside>
       </div>
@@ -4695,7 +4698,7 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
               <input id="log-filter" type="search" placeholder="Filter…"
                 aria-label="Only show records containing this text">
-              <label class="muted tools-toggle" id="log-follow-label"
+              <label class="muted tools-toggle checkbox-label" id="log-follow-label"
                 title="Keep the newest records in view. Scroll up to pause.">
                 <input type="checkbox" id="log-follow" checked> Follow
               </label>

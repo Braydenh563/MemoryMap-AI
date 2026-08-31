@@ -1588,6 +1588,13 @@ async function renderSkillsDashboard() {
 // sub-tab was opened, and it depended on load order: whichever script
 // happened to run last owned the global. See `librarySubtabs` below.
 
+$("skills-logs-clear")?.addEventListener("click", async () => {
+  const ok = await confirmDialog("Clear the skill run log? This can't be undone.");
+  if (!ok) return;
+  await apiJson("/audit?entity_type=skill", { method: "DELETE" }).catch((e) => toast(e.message, true));
+  renderSkillLogs();
+});
+
 async function renderSkillLogs() {
   const logList = document.getElementById("skills-logs-list");
   if (!logList) return;

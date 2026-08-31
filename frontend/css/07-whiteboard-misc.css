@@ -540,14 +540,26 @@
   display: none;
 }
 
+/* Reported directly: expanded, this read as plain unstyled paragraphs sat
+   right on the card background — no visual container distinguishing it
+   from the rest of the card, unlike the chip that opens it. A bordered
+   box (the same card-on-card language `.contents-section` uses) gives the
+   revealed content a boundary of its own. */
 .skill-fact-list {
-  margin: var(--space-2) 0 0 var(--space-4);
-  padding: 0;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-6);
   font-size: var(--text-xs);
   color: var(--muted);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  background: var(--chip-bg);
+  border-radius: var(--radius-md);
+  list-style-position: outside;
+}
+
+.skill-fact-list li {
+  padding-left: var(--space-1);
 }
 
 .skill-card-when {
@@ -1073,6 +1085,14 @@ body.has-agent-monitor .doc-sidebar .doc-list {
   min-width: 6.5rem;
   text-align: center;
   padding: 0.5rem 1.25rem;
+  /* Without this, "user-tunable corner rounding"'s own `.seg button` rule
+     (04-chat-dock-appearance.css) is the only other rule of equal
+     specificity (class + element) that sets border-radius, and it loads
+     *before* this file — so it wins by default, giving Library's tabs a
+     visibly bigger radius than Notes' own `.notes-subtabs button`, which
+     sets this same value explicitly for the same reason. Reported
+     directly as "more rounded than the ones in the Notes tab" — correct. */
+  border-radius: var(--radius-md);
   transition: background var(--motion-slow), color var(--motion-slow), transform var(--motion-fast), box-shadow var(--motion-slow);
 }
 

@@ -4492,8 +4492,20 @@ function matchesSearch(entry) {
 // pattern already bounds itself (`{1,120}`) for exactly this reason. The
 // caps are far past any real link (200 characters of link text, 500 of
 // URL) and turn the per-position work into a constant.
+// `==highlighted text==` — asked for directly ("a highlighting text
+// feature in notes and documents"). An inline markdown convention, not a
+// new data model: the same choice every other bit of note formatting here
+// already made (**bold**, ~~strike~~, [[wiki links]]) — a highlight is
+// still just characters in the note's own plain-text `content`, so it
+// needs no new column, no span-range table, and works everywhere that
+// content already goes (search, the AI's own reading of a note, export).
+// Bounded the same way `~~…~~` is (excludes its own delimiter and `\n`
+// inside the class) rather than the link/image alternatives' explicit
+// length caps — the reason those need one (an unbounded `[^\]\n]+` against
+// unclosed `[` is O(n²), CodeQL's js/polynomial-redos) doesn't apply to a
+// class that already excludes its own closing character.
 const INLINE_MD =
-  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
+  /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|~~([^~\n]+?)~~|==([^=\n]+?)==|\*([^*\n]+?)\*|!\[([^\]\n]{0,200})\]\(([^)\n]{1,500})\)|\[([^\]\n]{1,200})\]\(([^)\n]{1,500})\)/g;
 
 // `appendInline`'s own grammar, before it was merged into renderInlineMarkdown
 // below: adds `__bold__`/`_italic_` and bare `https://…` autolinking, and its
@@ -4509,7 +4521,7 @@ const INLINE_MD =
 // selected by `options.underscoreSyntax` below, guarantee neither caller's
 // matching behaviour moves at all.
 const INLINE_MD_LEGACY =
-  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
+  /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|==([^=]+)==|\*([^*]+)\*|(?<![\w])_([^_]+)_(?![\w])|!\[([^\]]{0,200})\]\(([^)\s]{1,500})\)|\[([^\]]{1,200})\]\(([^)\s]{1,500})\)|(https?:\/\/[^\s)]+)/g;
 
 // Same allowlist an <img src> or <a href> built from note text has to pass:
 // an absolute http(s) URL, or a same-origin relative path (one leading
@@ -4659,17 +4671,17 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         element.appendChild(before);
       }
     }
-    let code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
+    let code, bold, strike, mark, italic, imageAlt, imageUrl, linkText, linkUrl, bareUrl;
     if (underscoreSyntax) {
       let boldStar, boldUnderscore, italicStar, italicUnderscore;
       [
-        , code, boldStar, boldUnderscore, strike, italicStar, italicUnderscore,
+        , code, boldStar, boldUnderscore, strike, mark, italicStar, italicUnderscore,
         imageAlt, imageUrl, linkText, linkUrl, bareUrl,
       ] = match;
       bold = boldStar ?? boldUnderscore;
       italic = italicStar ?? italicUnderscore;
     } else {
-      [, code, bold, strike, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
+      [, code, bold, strike, mark, italic, imageAlt, imageUrl, linkText, linkUrl] = match;
     }
     // Images and links are their own element kinds, not a wrap-in-a-tag like
     // the four above — built and appended directly rather than falling
@@ -4794,13 +4806,18 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
       cursor = pattern.lastIndex;
       continue;
     }
-    const tag = code ? "code" : bold ? "strong" : strike ? strikeTag : "em";
+    const tag = code ? "code" : bold ? "strong" : strike ? strikeTag : mark ? "mark" : "em";
     const node = document.createElement(tag);
+    // Distinguishes a `==highlight==` from highlightInto's own <mark> below
+    // (used for search-term matches) — same tag, different meaning, so they
+    // need different styling or a highlighted note reads as "this matched
+    // your search" with no search active.
+    if (mark) node.className = "text-highlight";
     // A code span is literal by definition, so it is never searched-highlighted
     // into pieces — the rest still is, or filtering would stop marking any
     // word that happened to sit inside emphasis.
     if (code) node.textContent = code;
-    else highlightInto(node, bold || strike || italic, terms);
+    else highlightInto(node, bold || strike || mark || italic, terms);
     element.appendChild(node);
     cursor = pattern.lastIndex;
   }
@@ -4817,7 +4834,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
 }
 
 // Inline formatting: **bold**/__bold__, *italic*/_italic_, `code`, ~~strike~~,
-// [text](http…url), images, and bare http(s) URLs. Built with textContent
+// ==highlight==, [text](http…url), images, and bare http(s) URLs. Built with textContent
 // only — note/answer text can never inject markup. Was its own ~90-line
 // hand-rolled parser with its own `isRenderableUrl` gate call; now a thin
 // wrapper over renderInlineMarkdown (ROADMAP.md §0/§2) — see that function's
@@ -20941,12 +20958,65 @@ async function loadLinkSuggestions() {
     }
   );
 
+  // Asked for directly, after the backfill button above was reported as
+  // "doesn't fill in the empty Why boxes" — correctly, because it never
+  // could (it only ever touches links that already exist, see its own
+  // comment). This is the actual thing that was missing: an AI guess for
+  // *these* rows' own reason boxes, written in as a real value (not just a
+  // placeholder) so it's visible, editable, and used as-is by Link if left
+  // alone. `rowReasons` is populated by the suggestion loop below; the
+  // click handler only runs once the user clicks, by which point it's full.
+  const rowReasons = [];
+  const suggestReasons = smallButton(
+    "ph:sparkle Suggest reasons",
+    "Ask the AI to guess why each note pair below might be connected, and fill in any empty Why box with its answer — still yours to edit or clear before linking.",
+    async () => {
+      const targets = rowReasons.filter((r) => !r.input.value.trim());
+      if (!targets.length) {
+        toast("Every visible suggestion already has a reason.");
+        return;
+      }
+      suggestReasons.disabled = true;
+      setLabel(suggestReasons, "ph:sparkle Working…");
+      const result = await apiJson("/entries/link-suggestions/reasons", {
+        method: "POST",
+        body: JSON.stringify({
+          pairs: targets.map((r) => ({ source_id: r.s.source_id, target_id: r.s.target_id })),
+        }),
+      }).catch((e) => {
+        toast(e.message, true);
+        return null;
+      });
+      suggestReasons.disabled = false;
+      setLabel(suggestReasons, "ph:sparkle Suggest reasons");
+      if (!result) return;
+      const byPair = new Map(
+        result.reasons.map((r) => [`${r.source_id}:${r.target_id}`, r.reason])
+      );
+      let filled = 0;
+      for (const r of targets) {
+        const reason = byPair.get(`${r.s.source_id}:${r.s.target_id}`);
+        if (reason) {
+          r.input.value = reason;
+          filled++;
+        }
+      }
+      if (filled) {
+        toast(`Filled in ${filled} reason${filled === 1 ? "" : "s"}.`);
+      } else if (result.ai_unavailable) {
+        toast("The AI isn't running, so no reasons could be guessed.", true);
+      } else {
+        toast("Couldn't guess a reason for any of these.");
+      }
+    }
+  );
+
   const closeAll = smallButton("ph:x", "Close suggestions", () => {
     box.classList.add("hidden");
     box.replaceChildren();
   });
 
-  actions.append(backfill, closeAll);
+  actions.append(backfill, suggestReasons, closeAll);
   heading.append(headingText, actions);
   box.appendChild(heading);
 
@@ -20977,6 +21047,7 @@ async function loadLinkSuggestions() {
       ? s.reason
       : "Why? (optional — the AI will work it out)";
     reason.setAttribute("aria-label", "Reason for this link");
+    rowReasons.push({ s, input: reason });
 
     const score = chip(`${Math.round(s.similarity * 100)}%`, "confidence");
     const link = smallButton("ph:link Link", "Connect these two notes", async () => {
@@ -23074,22 +23145,16 @@ $("about-shortcuts").addEventListener("click", () => showSettingsSection("shortc
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
 $("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 
-$("search-help").addEventListener("click", () => {
-  const panel = $("search-help-hint");
-  const showing = panel.classList.toggle("hidden");
-  $("search-help").setAttribute("aria-expanded", String(!showing));
-  if (!showing) $("note-search").focus();
-});
-
-// The capture box's own "?" — same disclosure, same three lines. It does
-// *not* steal focus back to the textarea the way the filter one does:
-// this panel is six lines of syntax you are meant to read while typing,
-// and yanking the caret away mid-read is the opposite of helpful.
-$("capture-help")?.addEventListener("click", () => {
-  const panel = $("capture-help-hint");
-  const hidden = panel.classList.toggle("hidden");
-  $("capture-help").setAttribute("aria-expanded", String(!hidden));
-});
+// Both used to be bespoke click-toggle-only handlers, predating
+// `initHelpToggle` (defined above) and never migrated to it — missing the
+// outside-click and Escape closes every other help toggle in this app
+// gets, reported directly ("the capture a thought tooltip doesn't close
+// when clicking off it"), and `search-help-hint` also carried its own
+// one-off `.search-help` class instead of the shared `.graph-help-panel`
+// floating-popover look, reported separately as a style mismatch against
+// the capture panel right next to it. One shared function fixes both.
+initHelpToggle("search-help", "search-help-hint");
+initHelpToggle("capture-help", "capture-help-hint");
 
 $("prefs-save").addEventListener("click", savePrefs);
 $("pref-search-reset").addEventListener("click", () => {

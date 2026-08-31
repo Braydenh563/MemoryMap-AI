@@ -23,7 +23,7 @@ from memorymap.ai.embeddings import (
     EmbeddingService,
     bytes_to_vector,
 )
-from memorymap.core.database import EmbeddingRecord, Entry
+from memorymap.core.database import EmbeddingRecord, Entry, link_strength
 from memorymap.search import query as query_understanding
 
 logger = logging.getLogger("memorymap.search")
@@ -421,14 +421,24 @@ def _linked_neighbours(
     session: Session, seeds: list[int], exclude: set[int]
 ) -> tuple[list[int], dict[int, str]]:
     """One hop of `graph_expansion`'s own walk — links plus reply threads,
-    in the order found. Factored out so a second hop can call it again
-    starting from the first hop's own results, rather than duplicating the
-    walk.
+    strongest first (ties in the order found). Factored out so a second hop
+    can call it again starting from the first hop's own results, rather than
+    duplicating the walk.
+
+    Ordering matters here specifically because both `GRAPH_EXPANSION_LIMIT`
+    and `GRAPH_EXPANSION_HOP2_LIMIT` truncate this list — §87.5's payoff for
+    this side is which neighbours *survive* that truncation, not just how
+    they're labelled.
     """
     from memorymap.core.database import EntryLink
 
     neighbours: list[int] = []
     reasons: dict[int, str] = {}
+    # A reply/parent thread has no EntryLink to read a type or confidence
+    # off, so it gets no entry here — the sort below falls back to 1.0 for
+    # it, the same baseline `entry/paths.py`'s THREAD_WEIGHT == LINK_WEIGHT
+    # already treats a reply and a bare link as equally strong.
+    strengths: dict[int, float] = {}
     if not seeds:
         return neighbours, reasons
 
@@ -441,11 +451,18 @@ def _linked_neighbours(
         )
     )
     for link in links:
+        strength = link_strength(link.link_type, link.reason_confidence)
         for end in (link.source_entry_id, link.target_entry_id):
-            if end not in exclude and end not in neighbours:
+            if end in exclude:
+                continue
+            if end not in neighbours:
                 neighbours.append(end)
                 if link.reason:
                     reasons[end] = link.reason
+            # A neighbour reachable by more than one link (from different
+            # seeds, say) is scored by its strongest connection, not its
+            # first-seen one.
+            strengths[end] = max(strengths.get(end, 0.0), strength)
     # Replies, both directions: a thread is one train of thought, so the note
     # that answers the match is as relevant as the one it answers.
     for entry in session.scalars(
@@ -461,6 +478,7 @@ def _linked_neighbours(
     ):
         if parent_id not in exclude and parent_id not in neighbours:
             neighbours.append(parent_id)
+    neighbours.sort(key=lambda n: strengths.get(n, 1.0), reverse=True)
     return neighbours, reasons
 
 

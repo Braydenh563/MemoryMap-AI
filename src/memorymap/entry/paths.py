@@ -54,12 +54,14 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Entry, EntryLink
+from memorymap.core.database import Entry, EntryLink, link_strength
 
-#: What each kind of step costs. Links and replies are decisions somebody made
-#: and cost the same; a shared tag is an observation and costs four times as
-#: much, so a four-link chain still beats one tag hop. The absolute numbers
-#: mean nothing — only the ratio does.
+#: What each kind of step costs, before `link_strength` (core/database.py)
+#: adjusts an individual link up or down. Links and replies are decisions
+#: somebody made and cost the same by default; a shared tag is an
+#: observation and costs four times as much, so a four-link chain still
+#: beats one tag hop. The absolute numbers mean nothing — only the ratio
+#: does.
 LINK_WEIGHT = 1
 THREAD_WEIGHT = 1
 TAG_WEIGHT = 4
@@ -86,7 +88,7 @@ class Step:
     #: it", "both tagged #recipes". Written from `source` towards `target`, so
     #: a chain of these reads in order.
     how: str
-    weight: int
+    weight: float
 
 
 def _entry_tags(entry: Entry) -> list[str]:
@@ -121,7 +123,7 @@ class Connections:
         #: path" answer can say what it declined to count.
         self.hub_tags: list[str] = []
 
-    def _add(self, source: int, target: int, kind: str, how: str, back: str, weight: int) -> None:
+    def _add(self, source: int, target: int, kind: str, how: str, back: str, weight: float) -> None:
         """Record a step and its reverse. Cheaper always wins."""
         for a, b, phrase in ((source, target, how), (target, source, back)):
             existing = self.edges[a].get(b)
@@ -176,13 +178,16 @@ def build(
                 if link.reason_confidence is not None:
                     phrase += f", {round(link.reason_confidence * 100)}% confidence, deduced"
                 phrase += ")"
+            # §87.5's first slice: a typed link, or one whose reason came
+            # from a confident deduction, costs less than a bare one — see
+            # `link_strength`'s own docstring for why this is a divisor.
             index._add(
                 link.source_entry_id,
                 link.target_entry_id,
                 "link",
                 phrase,
                 phrase,
-                LINK_WEIGHT,
+                LINK_WEIGHT / link_strength(link.link_type, link.reason_confidence),
             )
 
     for entry in entries:

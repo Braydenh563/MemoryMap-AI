@@ -20,6 +20,7 @@ import json
 
 from memorymap.ai import librarian
 from memorymap.core.database import Entry, EntryLink
+from memorymap.search import search_manager
 
 
 def _note(session, content, tags=None):
@@ -82,6 +83,25 @@ def test_a_connected_note_carries_the_links_own_reason(ai_client, session):
 
     body = ai_client.post("/chat", json={"question": "beans netting"}).json()
     assert body["match_info"][str(linked.id)]["reason"] == "both about the shed"
+
+
+def test_graph_expansion_keeps_the_strongest_neighbour_when_the_hop_limit_bites(session):
+    """§87.5: `GRAPH_EXPANSION_LIMIT` truncates a hop to 3 neighbours, so
+    which three survive is a real decision, not an accident of query order.
+    A typed link is created *last*, after four bare ones already fill the
+    limit — insertion order alone would drop it; strength-ordering must not."""
+    match = _note(session, "the source note everything connects to")
+    bare = [_note(session, f"a bare neighbour {n}") for n in range(4)]
+    for note in bare:
+        session.add(EntryLink(source_entry_id=match.id, target_entry_id=note.id))
+    typed = _note(session, "the neighbour somebody actually typed a reason for")
+    session.add(
+        EntryLink(source_entry_id=match.id, target_entry_id=typed.id, link_type="supports")
+    )
+    session.commit()
+
+    neighbours, _reasons, _hop_of = search_manager.graph_expansion(session, [match])
+    assert typed.id in [entry.id for entry in neighbours]
 
 
 def test_the_prompt_tells_the_model_which_notes_did_not_match():

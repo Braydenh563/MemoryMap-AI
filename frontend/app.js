@@ -2826,6 +2826,99 @@ function openLightbox(items, startIndex = 0) {
     copyBtn.classList.toggle("hidden", !text);
     // Nothing to act on when the file itself failed to load.
     actions.classList.toggle("hidden", !ok);
+
+    // **Fill in whatever the caller did not know.** Reported directly: the
+    // caption, OCR text and facts appeared in the Image Gallery and nowhere
+    // else. The lightbox was never the problem — this metadata arrived as
+    // *arguments*, and of nine callers only the gallery holds a full media
+    // row to pass. Everywhere else (a note attachment, a chat image, a graph
+    // or dashboard thumbnail, a whiteboard object) has a url and a name, so
+    // the panel below the picture stayed empty on the same picture that
+    // showed a full description one tab over.
+    //
+    // Asking the server closes that gap in one place instead of nine, and
+    // covers callers added later without them having to know to pass
+    // anything. Only ever *fills* — a caller that did pass a caption keeps
+    // the one it passed, so the gallery's own (possibly just-edited,
+    // not-yet-saved) values still win.
+    hydrate(index, item, ok);
+  }
+
+  // Looked up once per filename per lightbox, then remembered: paging back
+  // and forth across a gallery would otherwise refetch the same rows.
+  const metaCache = new Map();
+  async function hydrate(forIndex, item, ok) {
+    if (item.caption && item.text && item.addedAt) return;
+    let url;
+    try {
+      url = await item.getUrl();
+    } catch {
+      return;
+    }
+    // `/media/<stored name>` — possibly with the `?token=` mediaSrc() adds
+    // for declarative loads, which is not part of the name.
+    const match = /\/media\/([^/?#]+)/.exec(url || "");
+    if (!match) return;
+    const name = match[1];
+    if (!metaCache.has(name)) {
+      metaCache.set(
+        name,
+        apiJson(`/media/meta/${encodeURIComponent(name)}`).catch(() => null)
+      );
+    }
+    const row = await metaCache.get(name);
+    // Not an error worth surfacing: plenty of images in this app are not
+    // `MediaUpload` rows at all (a sketch rendered straight to a data url,
+    // a file whose row was deleted out from under a note that still links
+    // it). No metadata simply means no panel, exactly as before.
+    if (!row) return;
+    // The picture may have been paged away from while this was in flight.
+    if (forIndex !== index) return;
+
+    if (!item.caption && row.caption) item.caption = row.caption;
+    if (!item.text) item.text = (row.vision_ocr_text || row.ocr_text || "").trim();
+    if (!item.addedAt && row.created_at) item.addedAt = row.created_at;
+    if (!item.byline) {
+      item.byline = row.vision_ocr_text
+        ? `Text read by ${row.vision_ocr_model || "a model"}`
+        : row.ocr_text
+          ? "Text read offline (OCR)"
+          : "";
+    }
+    // The gallery passes `original_name`; a bare url caller passes the
+    // stored name or nothing, and the human-readable one is better.
+    if (row.original_name && (!item.filename || item.filename === name)) {
+      item.filename = row.original_name;
+    }
+    renderInfo(item, ok);
+  }
+
+  // The half of `show()` that draws the panel, split out so `hydrate` can
+  // redraw it once the answer arrives without re-running the image load.
+  function renderInfo(item, ok) {
+    const caption = (item.caption || "").trim();
+    const text = (item.text || "").trim();
+    infoCaption.textContent = caption;
+    infoCaption.classList.toggle("hidden", !caption);
+    infoText.textContent = text;
+    infoText.classList.toggle("hidden", !text);
+    infoByline.textContent = item.byline || "";
+    infoByline.classList.toggle("hidden", !item.byline);
+    info.classList.toggle("hidden", !caption && !text && !item.filename);
+    meta.textContent =
+      items.length > 1
+        ? `${item.filename || ""} — ${index + 1} of ${items.length}`
+        : item.filename || "";
+    const facts = [];
+    if (ok && img.naturalWidth) facts.push(`${img.naturalWidth} × ${img.naturalHeight}`);
+    if (item.addedAt) {
+      const when = new Date(item.addedAt);
+      if (!Number.isNaN(when.valueOf())) facts.push(`Added ${when.toLocaleDateString()}`);
+    }
+    if (item.filename) facts.push(item.filename);
+    infoFacts.textContent = facts.join("  ·  ");
+    infoFacts.classList.toggle("hidden", !facts.length);
+    copyBtn.classList.toggle("hidden", !text);
   }
 
   const close = () => {

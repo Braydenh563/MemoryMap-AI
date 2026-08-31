@@ -592,6 +592,50 @@ def clean_orphaned_media(session: Session = Depends(get_session)) -> MediaOrphan
     )
 
 
+# Declared ahead of `/media/{upload_id}` for the same reason `/media/orphans`
+# above is: "meta" would otherwise be matched as an `{upload_id}` and 422 out
+# before ever reaching this handler.
+@router.get("/media/meta/{filename}", response_model=MediaUploadOut)
+def media_meta(filename: str, session: Session = Depends(get_session)) -> MediaUploadOut:
+    """Everything the app knows *about* one upload, looked up by its stored
+    filename — which is the only identifier most of the app actually holds.
+
+    Reported directly: the lightbox showed a caption, OCR text and the
+    picture's own facts when opened from the Image Gallery and nothing at
+    all anywhere else. The cause was not the lightbox — it was that
+    `openLightbox` took this metadata as *arguments*, and of its nine
+    callers only the gallery had a full `MediaUpload` row to pass. Every
+    other one (a note's attachment, a chat image, a graph or dashboard
+    thumbnail, a whiteboard object) has a `/media/<filename>` url and
+    nothing else, so it passed a filename and a url and the panel below the
+    picture stayed empty.
+
+    Handing the lightbox a way to *ask* fixes it in one place instead of
+    nine, and keeps working for any caller added later — which is the same
+    reason `GET /media` exists rather than each surface keeping its own
+    list. Keyed on filename rather than id precisely because a url is what
+    those callers have.
+    """
+    upload = session.query(MediaUpload).filter(MediaUpload.filename == filename).first()
+    if not upload:
+        # A url can outlive its row: deleting an upload deliberately leaves
+        # any note still pointing at it alone (see delete_media below), so a
+        # miss here is an ordinary state, not a fault.
+        raise HTTPException(status_code=404, detail="No upload by that name.")
+    return MediaUploadOut(
+        id=upload.id,
+        url=f"/media/{upload.filename}",
+        original_name=upload.original_name,
+        ocr_text=upload.ocr_text or "",
+        caption=upload.caption or "",
+        caption_model=upload.caption_model or "",
+        caption_edited=upload.caption_edited,
+        vision_ocr_text=upload.vision_ocr_text or "",
+        vision_ocr_model=upload.vision_ocr_model or "",
+        created_at=upload.created_at.isoformat() if upload.created_at else "",
+    )
+
+
 @router.delete("/media/{upload_id}")
 def delete_media(upload_id: int, session: Session = Depends(get_session)) -> dict:
     """Removes the file and its tracking row. Asked for directly — an

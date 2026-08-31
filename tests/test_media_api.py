@@ -407,3 +407,42 @@ def test_a_hand_typed_caption_works_on_a_pdf_upload_target_refused(ai_client, fa
     ).json()["id"]
     response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "a caption"})
     assert response.status_code == 415
+
+
+def test_media_meta_returns_what_the_app_knows_about_one_upload(ai_client):
+    """The lightbox's own lookup, keyed on the stored filename because a url
+    is the only identifier most callers hold.
+
+    Reported directly: a caption and OCR text showed under the picture in
+    the Image Gallery and nowhere else in the app. The cause was that
+    `openLightbox` took them as arguments and only the gallery had a media
+    row to pass — so this endpoint exists to let the lightbox ask instead.
+    """
+    uploaded = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()
+    stored = uploaded["url"].rsplit("/", 1)[-1]
+
+    body = ai_client.get(f"/media/meta/{stored}").json()
+    assert body["id"] == uploaded["id"]
+    assert body["original_name"] == "shot.png"
+    assert body["url"] == uploaded["url"]
+    # The fields the lightbox actually renders are all present, even empty.
+    for key in ("caption", "ocr_text", "vision_ocr_text", "created_at"):
+        assert key in body
+
+
+def test_media_meta_404s_rather_than_shadowing_the_upload_id_route(ai_client):
+    """Two things at once, both real.
+
+    A url can outlive its row — deleting an upload deliberately leaves any
+    note still pointing at it alone — so a miss is an ordinary state the
+    lightbox renders as "no panel", not a fault.
+
+    And a 404 (rather than a 422) is what proves the route is not being
+    shadowed: declared after `/media/{upload_id}`, "meta" would be parsed as
+    an upload id and rejected as a non-integer before this handler ever ran.
+    That is the same ordering trap `/media/orphans` already carries a
+    comment about.
+    """
+    assert ai_client.get("/media/meta/never-existed.png").status_code == 404

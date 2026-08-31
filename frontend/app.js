@@ -2693,10 +2693,17 @@ function openLightbox(items, startIndex = 0) {
     return b;
   };
 
-  actionBtn("ph:magnifying-glass-minus", "Zoom out", () => setZoom(zoom - 0.5));
+  const zoomOutBtn = actionBtn("ph:magnifying-glass-minus", "Zoom out", () => setZoom(zoom - 0.5));
   actions.appendChild(zoomLabel);
-  actionBtn("ph:magnifying-glass-plus", "Zoom in", () => setZoom(zoom + 0.5));
+  const zoomInBtn = actionBtn("ph:magnifying-glass-plus", "Zoom in", () => setZoom(zoom + 0.5));
   const resetBtn = actionBtn("ph:arrows-in Fit", "Back to fit", () => setZoom(1));
+  // Zoom is an image control. A document scrolls and reflows instead, so
+  // showing a disabled-in-spirit 100% beside a page of text is three
+  // controls that do nothing — the same "only show what this can do"
+  // reasoning the whiteboard context menu already settled.
+  const zoomControls = [zoomOutBtn, zoomLabel, zoomInBtn, resetBtn];
+  const showZoomControls = (on) =>
+    zoomControls.forEach((el) => el.classList.toggle("hidden", !on));
 
   // Wheel-to-zoom, because that is what every image viewer does and a person
   // who has zoomed once will try it. Non-passive so the page behind cannot
@@ -2774,11 +2781,182 @@ function openLightbox(items, startIndex = 0) {
   });
 
 
+  // **The document half of the showcase.** Asked for directly: the lightbox
+  // should be "a sort of document preview… for viewing pdfs, word documents,
+  // spreadsheets, text files, code files etc but in a presentable way that
+  // isn't editable".
+  //
+  // Read-only is not a shortcut here — `/media/text` returns *extracted*
+  // text, so what is on screen has already stopped being a .docx and there
+  // is nothing coherent to write back into. `core/docview.py`'s own module
+  // docstring makes the same point.
+  const doc = document.createElement("div");
+  doc.className = "lightbox-doc hidden";
+  const docBody = document.createElement("div");
+  docBody.className = "lightbox-doc-body";
+  const docNote = document.createElement("p");
+  docNote.className = "muted lightbox-doc-note hidden";
+  doc.append(docNote, docBody);
+  doc.addEventListener("click", (e) => e.stopPropagation());
+  stage.appendChild(doc);
+
+  // A typed query is a literal, not a pattern: "a.b" must not match "axb",
+  // and an unbalanced "(" must not throw. CodeQL also flags the unescaped
+  // shape, and this file has already shipped one polynomial-ReDoS.
+  const escapeForFind = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  // Find within the document. Deliberately a filter over the rendered text
+  // rather than the browser's own Ctrl+F: this panel scrolls inside a
+  // dialog, and the native find has no idea the rest of the page is inert.
+  const find = document.createElement("input");
+  find.type = "search";
+  find.className = "lightbox-find hidden";
+  find.placeholder = "Find in document";
+  find.setAttribute("aria-label", "Find in document");
+  const findCount = document.createElement("span");
+  findCount.className = "muted lightbox-find-count hidden";
+  const clearFind = () => {
+    find.value = "";
+    findCount.textContent = "";
+    docBody.querySelectorAll("mark.lightbox-hit").forEach((m) => {
+      m.replaceWith(document.createTextNode(m.textContent));
+    });
+    docBody.normalize();
+  };
+  find.addEventListener("input", () => {
+    // Unwrap previous hits before re-scanning, or each keystroke would
+    // search text already split across <mark> boundaries.
+    docBody.querySelectorAll("mark.lightbox-hit").forEach((m) => {
+      m.replaceWith(document.createTextNode(m.textContent));
+    });
+    docBody.normalize();
+    const needle = find.value.trim();
+    if (!needle) {
+      findCount.textContent = "";
+      findCount.classList.add("hidden");
+      return;
+    }
+    // Walk text nodes and wrap matches. Text-node surgery rather than an
+    // innerHTML replace, which would corrupt the rendered markup and is the
+    // classic way this feature introduces an injection bug.
+    const lower = needle.toLowerCase();
+    const walker = document.createTreeWalker(docBody, NodeFilter.SHOW_TEXT);
+    const targets = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.nodeValue.toLowerCase().includes(lower)) targets.push(node);
+    }
+    let hits = 0;
+    for (const textNode of targets) {
+      const parts = textNode.nodeValue.split(new RegExp(`(${escapeForFind(needle)})`, "gi"));
+      if (parts.length < 2) continue;
+      const frag = document.createDocumentFragment();
+      for (const part of parts) {
+        if (part.toLowerCase() === lower) {
+          const mark = document.createElement("mark");
+          mark.className = "lightbox-hit";
+          mark.textContent = part;
+          frag.appendChild(mark);
+          hits += 1;
+        } else if (part) {
+          frag.appendChild(document.createTextNode(part));
+        }
+      }
+      textNode.replaceWith(frag);
+    }
+    findCount.textContent = hits ? `${hits} match${hits === 1 ? "" : "es"}` : "No matches";
+    findCount.classList.remove("hidden");
+    docBody.querySelector("mark.lightbox-hit")?.scrollIntoView({ block: "center" });
+  });
+  actions.append(find, findCount);
+
+  // Which suffixes this viewer renders as a *picture*. Everything else that
+  // reaches the lightbox is offered to the document reader instead.
+  const IMAGE_SUFFIXES = /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i;
+
+  async function showDocument(item, name) {
+    img.classList.add("hidden");
+    broken.classList.add("hidden");
+    doc.classList.remove("hidden");
+    docBody.replaceChildren();
+    docNote.classList.add("hidden");
+    clearFind();
+    find.classList.remove("hidden");
+    docBody.textContent = "Reading…";
+    let payload = null;
+    try {
+      payload = await apiJson(`/media/text/${encodeURIComponent(name)}`);
+    } catch {
+      payload = null;
+    }
+    if (!payload) {
+      docBody.textContent = "";
+      docNote.textContent =
+        "This file can't be previewed here. Use Save to open it in another app.";
+      docNote.classList.remove("hidden");
+      find.classList.add("hidden");
+      return;
+    }
+    docBody.replaceChildren();
+    const body = payload.text || "";
+    if (!body.trim()) {
+      docNote.textContent =
+        payload.message || "There's no readable text in this file.";
+      docNote.classList.remove("hidden");
+      return;
+    }
+    if (payload.kind === "markdown") {
+      // The same renderer documents and chat use, so a previewed .md looks
+      // like the same app rather than a second idea of what markdown is.
+      renderMarkdown(docBody, body);
+    } else {
+      // Code and plain text keep their own whitespace, which is most of
+      // what makes them readable.
+      const pre = document.createElement("pre");
+      pre.className = "lightbox-doc-pre";
+      const code = document.createElement("code");
+      code.textContent = body;
+      pre.appendChild(code);
+      docBody.appendChild(pre);
+    }
+    // `source` is shown, not just logged: text a vision model transcribed
+    // off a scanned page is a *reading* of the file, and presenting it
+    // identically to text read out of a .txt would state a guess as fact.
+    const notes = [];
+    if (payload.source === "vision-ocr") notes.push("Text read off the page by a vision model");
+    else if (payload.source === "converted") notes.push("Converted for preview");
+    if (payload.truncated) notes.push("Long file — showing the beginning only");
+    if (payload.message) notes.push(payload.message);
+    docNote.textContent = notes.join(" · ");
+    docNote.classList.toggle("hidden", !notes.length);
+  }
+
   async function show(i) {
     index = (i + items.length) % items.length;
     const item = items[index];
+    const rawUrl = await item.getUrl().catch(() => "");
+    const name = (/\/media\/([^/?#]+)/.exec(rawUrl || "") || [])[1] || "";
+    const looksLikeImage =
+      IMAGE_SUFFIXES.test(item.filename || "") || IMAGE_SUFFIXES.test(name);
+    if (name && !looksLikeImage) {
+      overlay.setAttribute("aria-label", item.filename || "Document preview");
+      meta.textContent =
+        items.length > 1
+          ? `${item.filename || ""} — ${index + 1} of ${items.length}`
+          : item.filename || "";
+      actions.classList.remove("hidden");
+      setZoom(1);
+      showZoomControls(false);
+      await showDocument(item, name);
+      hydrate(index, item, true);
+      return;
+    }
+    doc.classList.add("hidden");
+    find.classList.add("hidden");
+    findCount.classList.add("hidden");
+    showZoomControls(true);
     img.alt = item.filename || "";
-    img.src = await item.getUrl();
+    img.src = rawUrl;
     // A failed decode used to be swallowed here, leaving a blank box with no
     // explanation — reported live as "the second page doesn't load" (an
     // image whose underlying file was gone, paged to from a gallery that
@@ -2945,10 +3123,26 @@ function openLightbox(items, startIndex = 0) {
   document.addEventListener("keydown", onKey);
 
   stage.append(img, broken);
-  if (items.length > 1) stage.append(prevBtn, nextBtn);
+  // **The arrows must not live inside the stage.** The stage scrolls now
+  // (zoom needs it to, so a magnified picture can be panned to its edges),
+  // and an absolutely-positioned child of a scrolling box scrolls with its
+  // content — so the arrows drifted off-centre and away from the edges the
+  // moment anything overflowed. Reported live: "completely off, different
+  // distances from the edge of the screen, at different heights, and not
+  // even aligned."
+  //
+  // A non-scrolling wrapper holds both: the stage scrolls inside it, the
+  // arrows are positioned against it, and because the wrapper is exactly
+  // the stage's box, `top: 50%` is still the middle of the picture — which
+  // is the property the note on `.lightbox-nav` says two earlier attempts
+  // lost.
+  const stageWrap = document.createElement("div");
+  stageWrap.className = "lightbox-stage-wrap";
+  stageWrap.appendChild(stage);
+  if (items.length > 1) stageWrap.append(prevBtn, nextBtn);
   const column = document.createElement("div");
   column.className = "lightbox-column";
-  column.append(stage, meta, actions, info);
+  column.append(stageWrap, meta, actions, info);
   overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
   closeBtn.focus();

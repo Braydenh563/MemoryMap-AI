@@ -2832,3 +2832,73 @@ already checked so the next session does not re-derive it.
    become a first-class kind — which is a schema change with an Alembic
    migration behind it, and should be decided deliberately rather than
    drifted into. Scope that question first; the UI follows from the answer.
+
+## §99 — the lightbox as a showcase, and uploads split by file type
+
+Reported live across several messages. The lightbox half is **partly built**
+(see HANDOVER.md); the upload half is **logged, not built**, and is the
+larger piece.
+
+### What was built
+
+- **Metadata everywhere, not just the gallery.** `GET /media/meta/{filename}`
+  plus the lightbox asking for anything its caller did not pass. The bug was
+  never in the lightbox: caption/OCR/facts arrived as *arguments* and only
+  the gallery had a media row to pass, so the same picture showed a full
+  description in one tab and an empty panel in another.
+- **An actions bar**: zoom (buttons + wheel, 1x-6x), drag-to-pan, Fit, Copy
+  text, Save. Zoom controls hide in document mode, where they do nothing.
+- **Document preview**: `GET /media/text/{filename}` exposing the
+  `docview.extract` table that already existed for attachments, rendered as
+  real markdown (the app's own `renderMarkdown`) or as preserved-whitespace
+  code/plain, with find-in-document over the rendered text.
+- **Arrows out to the screen edges**, anchored to a new non-scrolling
+  `.lightbox-stage-wrap` rather than to the scrolling stage.
+
+### Still open — the upload split, and what it collides with
+
+Asked for directly: *"there should be an upload documents option in the
+documents tab in the library for uploading files pdf, docx, spreadsheet,
+code documents, md, text files etc. all uploaded files get split based on
+their filetype between the documents and image gallery tabs in the library,
+and all documents should be viewable and editable in the documents area."*
+
+**Read this before starting, because there is a real constraint in the way
+and it is a security boundary, not an oversight.** There are two allowlists:
+
+- `ATTACHMENT_SUFFIXES` (routes_files.py) is broad — pdf/docx/xlsx/csv/md/
+  txt/code/zip. Attachments are **downloaded**, never served inline, and
+  already reach `docview.extract` via `GET /files/{id}/text`.
+- `MEDIA_SUFFIXES` is images + PDF only, and its comment explains why: that
+  folder **is served**, and *"the AI can write into this folder too, so 'the
+  only person who can put a file here is the person at the keyboard' is not
+  true."* It is an allowlist precisely because a missed denylist entry there
+  is a served-file problem.
+
+So "all uploaded files go to /media and get split by type in the Library"
+cannot be done by widening `MEDIA_SUFFIXES` — that would put .html, .svg and
+friends in a served directory the AI can write to. The honest shapes are:
+
+1. **Route by type at upload time**: an image goes to `media/` (served,
+   narrow allowlist, unchanged), anything else goes to the attachment/
+   uploads path (never served inline) and the Library lists both, reading
+   documents through the text extractor. Most work, least risk, and it is
+   the one that matches how the app already stores each kind.
+2. Widen `MEDIA_SUFFIXES` and harden serving (explicit `Content-Type`,
+   `Content-Disposition: attachment`, a sandboxed CSP on that route).
+   Smaller diff, but it re-opens a question this codebase already closed
+   deliberately — do not take this one without saying so out loud.
+
+**"Editable in the documents area" needs its own decision first.** The
+preview is read-only because the text is *extracted* — `core/docview.py`'s
+own docstring makes the point that editing would mean writing text back into
+a format it was never in. Editing a .docx in place is not a feature this app
+can honestly offer. What it *can* offer, and what is probably meant: **import
+the extracted text as a real MemoryMap document**, which is then editable
+like any other, with the original file kept as the source. That is a
+different feature from "edit the upload", and much more achievable — scope
+it as import, not as in-place editing.
+
+Also still open on the lightbox itself: the id-requiring actions (describe
+with AI, re-run OCR, rename, delete), which need callers to pass a media id
+— see §98 item 3.

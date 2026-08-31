@@ -2322,6 +2322,14 @@ html {
   overflow-y: auto;
   padding: var(--space-8) var(--space-6);
   cursor: zoom-out;
+  /* **Both edges, so the arrows are symmetric.** This overlay scrolls, and
+     where the platform draws a classic scrollbar it eats width from the
+     right only — so `left: var(--space-6)` and `right: var(--space-6)` on
+     the two arrows measured 32px and 32px+scrollbar on screen, which is the
+     "different distances from the edge" half of that report. Reserving the
+     gutter on both sides makes the two edges agree whether a bar is drawn
+     or not, and costs nothing on platforms with overlay scrollbars. */
+  scrollbar-gutter: stable both-edges;
 }
 
 /* One column: the picture, then what it is, then what it says. */
@@ -2363,6 +2371,54 @@ html {
 
 .lightbox-actions.hidden {
   display: none;
+}
+
+/* The document half of the showcase: a page, not a picture. Sized like a
+   sheet of paper rather than stretched to the viewport, because the thing
+   being previewed is a document and a 1300px-wide line of body text is not
+   readable. Scrolls inside itself so the arrows and the actions bar stay
+   put while you read. */
+.lightbox-doc {
+  width: min(52rem, 92vw);
+  max-height: 74vh;
+  overflow: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+}
+
+.lightbox-doc.hidden {
+  display: none;
+}
+
+.lightbox-doc-note {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xs);
+}
+
+.lightbox-doc-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: var(--text-sm);
+}
+
+.lightbox-find {
+  max-width: 14rem;
+}
+
+.lightbox-action.hidden,
+.lightbox-zoom-label.hidden,
+.lightbox-find.hidden,
+.lightbox-find-count.hidden {
+  display: none;
+}
+
+mark.lightbox-hit {
+  background: var(--accent-soft);
+  color: inherit;
 }
 
 .lightbox-zoom-label {
@@ -2410,10 +2466,16 @@ html {
    so there's now an explicit close affordance too. Fixed to the viewport
    corner, not the image, so it's in the same place regardless of image size
    or aspect ratio. */
+/* **Nudged in from the corner.** Reported live: "move the x close button in
+   the corner a bit to the left, as the scrollbar puts it on the edge a bit."
+   The overlay scrolls, and on any platform that draws a classic (space-
+   taking) scrollbar rather than an overlay one, that bar lands between this
+   button and the edge and crowds it. `--space-8` clears a standard ~15px
+   bar and still reads as a corner button where there is no bar at all. */
 .lightbox-close {
   position: fixed;
   top: var(--space-6);
-  right: var(--space-6);
+  right: var(--space-8);
   width: 2.5rem;
   height: 2.5rem;
   padding: 0;
@@ -2635,9 +2697,12 @@ html {
 }
 
 .lightbox-nav {
-  /* Absolute against `.lightbox-stage`, not fixed against the viewport: the
-     stage is exactly the image's box, so this *is* the image's middle. See
-     the note in openLightbox for the two earlier attempts. */
+  /* Absolute against `.lightbox-stage-wrap`, not fixed against the viewport
+     and no longer against the stage itself: the wrapper is exactly the
+     image's box and does not scroll, so this *is* the image's middle at
+     every scroll offset. See the note in openLightbox for the three earlier
+     attempts, the last of which drifted because the stage gained
+     `overflow: auto` for zoom. */
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -2664,6 +2729,20 @@ html {
   place-items: center;
 }
 
+/* **The press cue must keep the centring transform.** Reported live: "the
+   jumping animation of the next and prev buttons when I click them is
+   annoying." It was not an animation anyone designed — the global
+   `button:active` rule (01-forms-settings.css) sets
+   `transform: translateY(1px) scale(0.985)`, and `transform` is one
+   property, not a list: applying it *replaces* this button's own
+   `translateY(-50%)`, so every press dropped the arrow by half its height
+   and snapped it back. Restating the centring alongside the press cue keeps
+   the tactile feedback and removes the jump. Same trap as any element that
+   both centres and animates with transform. */
+.lightbox-nav:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.985);
+}
+
 .lightbox-nav:hover,
 .lightbox-nav:focus-visible {
   background: rgba(255, 255, 255, 0.22);
@@ -2685,8 +2764,18 @@ html {
    now the full width of the overlay, which puts them at the screen edges
    and keeps them level with the middle of the image at every size. */
 .lightbox-column,
-.lightbox-stage {
+.lightbox-stage,
+.lightbox-stage-wrap {
   width: 100%;
+}
+
+/* Holds the scrolling stage and the two arrows. Positioned, but never
+   scrolls — that is the whole point: the arrows anchor to this and so stay
+   put and stay level while the picture inside scrolls under them. */
+.lightbox-stage-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
 }
 
 .lightbox-prev {

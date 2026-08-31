@@ -1069,9 +1069,14 @@ body.resizing-sidebar {
 .doc-toolbar .md-colour-select {
   width: auto;
   min-width: 0;
-  max-width: 9rem;
+  /* Wide enough for "Text colour…" at this font size without ellipsis: at
+     9rem the label was being truncated *into* the chevron, so the two ran
+     together (reported with a screenshot). `--space-9` of right padding is
+     the gutter the arrow sits in — the browser draws it inside the padding
+     box, so anything less puts glyphs underneath it. */
+  max-width: 12rem;
   margin: 0;
-  padding: 0.25rem var(--space-8) 0.25rem 0.4rem;
+  padding: 0.25rem var(--space-9) 0.25rem 0.4rem;
   font-size: 0.8rem;
   border: 1px solid transparent;
   border-radius: var(--radius-md);

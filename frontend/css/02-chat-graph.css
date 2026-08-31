@@ -2342,6 +2342,43 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Zoom scales the image past the stage's box; without this it would
+     spill over the meta line and the actions bar below it. `auto` rather
+     than `hidden` so a zoomed-in picture can actually be panned to its
+     edges — the scrollbars are the pan control. */
+  overflow: auto;
+}
+
+/* The actions bar: zoom, copy text, save. One row, centred under the
+   picture, sharing the meta line's muted register so it reads as chrome
+   for the image rather than as content of its own. */
+.lightbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.lightbox-actions.hidden {
+  display: none;
+}
+
+.lightbox-zoom-label {
+  min-width: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Transform-origin centre so zooming grows the picture out from its middle
+   rather than pushing it down and to the right off its own stage. */
+.lightbox img {
+  transform-origin: center center;
+}
+
+.lightbox img.zoomed {
+  cursor: grab;
 }
 
 .lightbox img {

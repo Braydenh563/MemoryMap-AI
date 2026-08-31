@@ -2642,6 +2642,107 @@ function openLightbox(items, startIndex = 0) {
   const stage = document.createElement("div");
   stage.className = "lightbox-stage";
 
+  // **The actions bar.** Asked for directly: "improve on and expand the
+  // capabilities and features at the bottom of the lightbox". Until now the
+  // lightbox was purely an *information* surface — filename, dimensions,
+  // caption, OCR text — with no action on it at all, which meant the one
+  // place you are actually looking at a picture was the one place you could
+  // not do anything to it.
+  //
+  // Everything here works from what `openLightbox` already receives, so it
+  // lights up for **every** caller (notes, chat, graph, dashboard, library)
+  // rather than only the Library's richer items. Actions that need a media
+  // id — describe with AI, re-run OCR, rename, delete — are deliberately
+  // not here: no caller passes one today, and inventing a half-working row
+  // that only the Library populates is the "two buttons guaranteed to fail"
+  // shape this project has already rejected once on the whiteboard menu.
+  const actions = document.createElement("div");
+  actions.className = "lightbox-actions";
+  actions.addEventListener("click", (e) => e.stopPropagation());
+
+  // Zoom is the gap that mattered most: a lightbox that cannot magnify is
+  // just a bigger thumbnail, and the OCR panel below is often the only way
+  // to read text in a picture precisely because you could not zoom into it.
+  let zoom = 1;
+  const ZOOM_MIN = 1;
+  const ZOOM_MAX = 6;
+  const zoomLabel = document.createElement("span");
+  zoomLabel.className = "muted lightbox-zoom-label";
+  const applyZoom = () => {
+    img.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
+    // Only grab-able once there is something to pan to.
+    img.classList.toggle("zoomed", zoom > 1);
+    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+    if (zoom === 1) stage.scrollTo({ left: 0, top: 0 });
+  };
+  const setZoom = (next) => {
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
+    applyZoom();
+  };
+  const actionBtn = (label, title, fn) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small lightbox-action";
+    b.title = title;
+    setLabel(b, label);
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      fn(b);
+    });
+    actions.appendChild(b);
+    return b;
+  };
+
+  actionBtn("ph:magnifying-glass-minus", "Zoom out", () => setZoom(zoom - 0.5));
+  actions.appendChild(zoomLabel);
+  actionBtn("ph:magnifying-glass-plus", "Zoom in", () => setZoom(zoom + 0.5));
+  const resetBtn = actionBtn("ph:arrows-in Fit", "Back to fit", () => setZoom(1));
+
+  // Wheel-to-zoom, because that is what every image viewer does and a person
+  // who has zoomed once will try it. Non-passive so the page behind cannot
+  // scroll out from under the picture mid-zoom.
+  stage.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      setZoom(zoom + (e.deltaY < 0 ? 0.25 : -0.25));
+    },
+    { passive: false }
+  );
+
+  // Copy the text the app read out of the picture. Hidden unless this item
+  // actually has some — an enabled button that copies "" is a lie.
+  const copyBtn = actionBtn("ph:copy Copy text", "Copy the text read from this image", async (b) => {
+    const value = (items[index].text || "").trim();
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setLabel(b, "ph:check Copied");
+      setTimeout(() => setLabel(b, "ph:copy Copy text"), 1500);
+    } catch {
+      // Clipboard access can be refused outright (permissions, or a
+      // non-secure context). Say so rather than appearing to succeed.
+      toast("Couldn't copy — your browser refused clipboard access.", true);
+    }
+  });
+
+  // Save the original file. `download` needs a same-origin href to name the
+  // file, which `mediaSrc()` gives us — it is this app's own /media route.
+  actionBtn("ph:download-simple Save", "Save this image to your computer", async () => {
+    try {
+      const href = await items[index].getUrl();
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = items[index].filename || "image";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      toast("Couldn't save that image.", true);
+    }
+  });
+
+
   async function show(i) {
     index = (i + items.length) % items.length;
     const item = items[index];
@@ -2687,6 +2788,13 @@ function openLightbox(items, startIndex = 0) {
     if (item.filename) facts.push(item.filename);
     infoFacts.textContent = facts.join("  ·  ");
     infoFacts.classList.toggle("hidden", !facts.length);
+    // Paging to another picture starts it at fit, the same way opening one
+    // does — carrying a 400% zoom onto the next image lands you somewhere
+    // arbitrary in a picture you have not seen yet.
+    setZoom(1);
+    copyBtn.classList.toggle("hidden", !text);
+    // Nothing to act on when the file itself failed to load.
+    actions.classList.toggle("hidden", !ok);
   }
 
   const close = () => {
@@ -2716,7 +2824,7 @@ function openLightbox(items, startIndex = 0) {
   if (items.length > 1) stage.append(prevBtn, nextBtn);
   const column = document.createElement("div");
   column.className = "lightbox-column";
-  column.append(stage, meta, info);
+  column.append(stage, meta, actions, info);
   overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
   closeBtn.focus();

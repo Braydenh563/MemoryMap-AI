@@ -1687,6 +1687,16 @@ function wireEscapedActionMenu(wrap) {
       homeNext = menu.nextSibling;
       document.body.appendChild(menu);
       menu.classList.add("action-menu-escaped");
+      // openActionMenu() may have already set `.action-menu-flip` (`bottom:
+      // calc(100% + 4px)`) based on the menu's *pre-escape* position. `place()`
+      // below sets its own inline `top` to open up-or-down as needed — left
+      // together, an element with both `top` and `bottom` pinned and
+      // `height: auto` is over-constrained, and reproduced live as the menu's
+      // box collapsing to ~15px (just its padding+border) while the buttons
+      // still rendered past that line, which is what "background doesn't
+      // fill the dropdown, looks transparent" actually was. `place()` makes
+      // this class redundant once escaped, so drop it rather than fight it.
+      menu.classList.remove("action-menu-flip");
       place();
     } else if (!open && menu.parentElement === document.body && homeParent) {
       // Restored on close, not left in <body> — closeActionMenus() and

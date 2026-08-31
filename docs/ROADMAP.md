@@ -739,38 +739,9 @@ same-session miss like a couple of others this file records elsewhere.**
    order. §87.5's own text below has the full narrative and what's still
    genuinely open past this slice.
 ~~3. **Memory is a surface, not a system.**~~ **Checked directly — already
-   built, this claim was stale.** The "always in context" tier this item
-   asks for is exactly `ai/memory.py`'s `persona_with_memory`:
-   `UserPreference` rows, bounded (`MEMORY_STREAM_BUDGET_CHARS = 600`,
-   newest kept when full), folded into the system prompt on **every** turn
-   in **both** modes (`agent.build_agent_messages` and `routes_chat`'s
-   plain path both call it — the module's own docstring records the bug
-   this fixed: it used to reach only agent mode). Fully user-editable in
-   Settings → "What it remembers": a manual add box (`POST /memory`),
-   edit/delete (`PATCH`/`DELETE /memory/{id}`), AI-suggested entries the
-   user must explicitly accept (`POST /memory/{id}/answer` — never silently
-   saved), and a live budget readout ("N in use, about X of 600
-   characters"). The other two tiers this item names — "retrieved when
-   relevant" is the app's core retrieval, "this conversation only" is the
-   existing chat history — already exist as well, just not under a unified
-   "memory" label. What's actually missing is framing, not capability: the
-   Settings copy doesn't say these are three tiers working together. Not
-   worth a rebuild; if the framing gap matters, it's a documentation/UI-copy
-   fix, not new code.
-~~4. **No token accounting per stage.**~~ **Built.** Both request paths
-   (`agent.py`'s tool loop, `routes_chat.py`'s no-tools path) now attach a
-   `system`/`tool_schemas`/`history`/`notes` token estimate to the first
-   round's stats event — chars/4, the same approximation `ai/context.py`'s
-   own budgeting already used, so no new dependency. Surfaced in the chat
-   metadata line's window-fill tooltip, which is also BACKLOG's "per-chat
-   token meter" ask, answered by extending what already existed there
-   rather than a second UI element. 2 new tests (`test_chat_metadata.py`,
-   against `fake_ollama` — this sandbox has no reachable model, so that is
-   the only way to test the wire format). What this does **not** do: give
-   §5 below a *per-round* re-measurement (still the first round's snapshot,
-   same limitation the pre-existing char-based log line already had) — a
-   real per-round breakdown would need re-measuring inside the tool loop,
-   not attempted.
+   built, this claim was stale.** Full narrative: HISTORY.md §100.
+~~4. **No token accounting per stage.**~~ **Built.** Full narrative:
+   HISTORY.md §100.
 5. **Tool retrieval is all-or-nothing.** Still genuinely open. Every tool
    definition is sent every round. §33 already scoped semantic tool
    retrieval and rightly said it needs measuring first — item 4's
@@ -1188,23 +1159,10 @@ several signals is the natural next step:
 | Same category | `Entry.category_id` | No |
 | Temporal proximity | `created_at` — written the same afternoon is a real signal | No |
 
-**First slice built.** `link_strength(link_type, reason_confidence)`
-(`core/database.py`) is a single shared function: 1.0 baseline, boosted for
-any of the six named types, discounted (floored, never to zero) for a
-low-confidence deduced reason. Wired into both consumers that wanted it —
-`entry/paths.py`'s shortest-path search (as a cost divisor) and
-`search_manager.graph_expansion()`'s neighbour ordering (as a sort key,
-since the hop-count limits there truncate the list — which neighbours
-survive the cut is the real payoff for the AI's retrieval). 9 tests,
-`tests/test_graph_paths.py` and `tests/test_connected_results.py`.
-
-**Correction to this section's own premise.** "Explicit `[[wiki link]]`
-should be the strongest" cannot actually be built as scoped:
-`sync_wiki_links` calls the exact same `create_link()` a plain graph-drag
-link with no reason given does, and neither `link_type` nor any other
-column records *how* a link was made. Distinguishing a wiki link from any
-other bare link needs a real schema decision (a new field, or overloading
-an existing one), not something to sneak into the slice above.
+**First slice built** — `link_strength()`, wired into both `entry/paths.py`
+and `graph_expansion()`. Full narrative, including the correction that
+"explicit `[[wiki link]]` should be strongest" can't be built as scoped
+(nothing distinguishes how a link was made): HISTORY.md §100.
 
 **Two design calls, for the composite that is still open — the derived
 signals (shared tags, category, temporal proximity), not the explicit ones
@@ -1225,13 +1183,6 @@ already built above:**
    query-time computation needs real measurement first, not an assumption
    that it's cheap. §88.4 item 4's per-stage token accounting (built) is
    available for that measurement now.
-
-**What's left of the original payoff.** `entry/paths.py`'s traversal and
-`graph_expansion()`'s walk are two separate implementations, not shared
-code (corrected — the original text here overstated that) — each now reads
-`link_strength()` independently. Both consumers of the *explicit* signal
-are done; the *derived* composite above is the remaining, larger, and
-genuinely unmeasured piece.
 
 ### 87.6 The Timeline line view — a concrete design, at last
 
@@ -1390,15 +1341,31 @@ from the file that documents it.
    (threads as tributaries off a time trunk, using `Entry.parent_id`, which
    the view currently ignores entirely). Still unbuilt.
 
-### 87.8 Still open from this pass, mine to finish
+### 87.8 Checked this session — three of four were already done
 
-- Backlinks panel ("what links here") — edges already stored by
-  `sync_wiki_links`; a query plus a sidebar section.
-- Whiteboard render scheduler (the 49-call-site fix above).
-- Typed links / `link_type` as the first slice of 87.5.
-- Graph performance (§87.7c item 1) — now ahead of the whiteboard scheduler in
-  priority, because it was reported live and the whiteboard's cause is at
-  least already known.
+~~Backlinks panel ("what links here") — edges already stored by
+`sync_wiki_links`; a query plus a sidebar section.~~ **Already built,
+found by checking rather than assuming.** `manager.links_for_entry()` is
+already bidirectional ("all links touching this entry"), and every note
+card's `.entry-links` row (`app.js`) already renders it as clickable
+preview chips — this app's link model has no directional/citation
+semantics (a link's reason reads "the same phrase either direction" —
+`entry/paths.py`'s own docstring), so an undirected "linked notes" panel
+*is* the backlinks panel, not a lesser version of one.
+
+~~Whiteboard render scheduler (the 49-call-site fix above).~~ **Already
+fixed** — see item G on the live list above: every drag handler already
+mutates the DOM directly rather than calling `wbScheduleRender()`/a full
+re-render, checked across all 48 call sites per that function's own
+comment.
+
+~~Typed links / `link_type` as the first slice of 87.5.~~ **Built this
+session** — see §87.5's own text above for the full narrative
+(`link_strength()`, wired into `entry/paths.py` and `graph_expansion()`).
+
+**Still genuinely open: graph performance (§87.7c item 1).** Reported
+live, not yet diagnosed — "profile it before theorising," the same shape
+the whiteboard's jank turned out to have. Not attempted yet this session.
 
 ### 87.9 Handoff list — each item already located, none needs re-deriving
 

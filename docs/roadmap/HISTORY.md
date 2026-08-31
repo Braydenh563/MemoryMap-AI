@@ -5073,7 +5073,7 @@ reasoning only. The Minimise revert's premise — that `js_api` on
 `create_window()` causes the hang — rests on the user's own before/after
 test on their machine, not on anything reproduced here.
 
-## §100 — eight completed live-list items, full narrative moved from ROADMAP.md
+## §100 — twelve completed items, full narrative moved from ROADMAP.md
 
 ROADMAP.md's own opening text says the file is "only what's still open" and
 that keeping finished narrative there "is how it got" past its 2,000-line
@@ -5192,3 +5192,100 @@ controls, and the Include-bin checkbox. Verified live: 40 seeded notes, "All"
 shows all 40 with the bar hidden; 25/page shows "Page 1 of 2" with Prev
 disabled; Next correctly shows the remaining 15 with "Page 2 of 2"; the
 page-size choice survives a reload; no console errors.
+
+**§88.4 item 3 — memory is a surface, not a system.** Checked directly,
+not built — the claim ("no tiered notion of always-in-context/retrieved/
+session-only exists anywhere in `ai/`") was stale. The "always in context"
+tier is exactly `ai/memory.py`'s `persona_with_memory`: `UserPreference`
+rows, bounded (`MEMORY_STREAM_BUDGET_CHARS = 600`, newest kept when full),
+folded into the system prompt on every turn in both Ask and Request mode
+(the module's own docstring records the bug that made it agent-mode-only
+until a prior session fixed it). Fully user-editable in Settings → "What
+it remembers": a manual add box (`POST /memory`), edit/delete
+(`PATCH`/`DELETE /memory/{id}`), AI-suggested entries the user must
+explicitly accept (`POST /memory/{id}/answer` — never silently saved),
+and a live budget readout ("N in use, about X of 600 characters"). The
+other two tiers the item names — "retrieved when relevant" is the app's
+core retrieval, "this conversation only" is the existing chat history —
+already exist too, just not under a unified "memory" label. What's
+actually missing is framing (the Settings copy doesn't present these as
+three tiers working together), not capability — a documentation/UI-copy
+question, not new code, and not attempted here.
+
+**§88.4 item 4 — no token accounting per stage.** Built. Both request
+paths (`agent.py`'s tool-calling loop, `routes_chat.py`'s no-tools path)
+now attach a `system`/`tool_schemas`/`history`/`notes` token estimate
+(chars/4, the same approximation `ai/context.py`'s own budgeting already
+used) to the first round's stats event. In `agent.py` this is measured
+once, before the loop appends any tool-result rounds to `messages` —
+matching what the pre-existing char-based log line (§11a) already
+measured, not a new per-round re-measurement. `routes_chat.py`'s path
+always reports `tool_schemas: 0`, by construction (no tools on that
+path). The whole `stats` object was already an opaque JSON blob the
+frontend persists and the server round-trips verbatim, so this needed no
+schema or migration change. Surfaced in the chat metadata line's
+window-fill tooltip as a few extra lines, shown only when a turn actually
+has a `composition` — an older saved turn from before this shipped
+renders exactly as it always did. Also closes BACKLOG's "per-chat token
+meter" ask, answered by extending what already existed there rather than
+a second UI element. 2 new tests in `test_chat_metadata.py`, against
+`fake_ollama` (this sandbox has no reachable Ollama, so this is the only
+way to test the wire format). Live-verified in Chromium by calling
+`messageMetaLine()` directly with a payload shaped like what the backend
+now sends: renders correctly, formats tokens consistent with the rest of
+the app, and an older stats object with no `composition` key renders
+with no stray "undefined" in the tooltip. A real end-to-end model
+round-trip could not be verified — no reachable Ollama in this sandbox.
+
+**§87.5's first slice — link-type/confidence-weighted graph traversal.**
+`EntryLink.link_type`'s own column comment already claimed "the traversal
+weights them by it" — checked, and that was false: every link cost the
+same flat `LINK_WEIGHT` regardless of type, in both places that walk the
+link graph. `link_strength(link_type, reason_confidence)`
+(`core/database.py`, beside `LINK_TYPES`) is the shared signal: 1.0
+baseline (a bare link, what every link from before either column existed
+still is), boosted for any of the six named types (a considered choice,
+not a ranking between them), discounted — floored, never to nothing —
+for a reason that was *deduced* rather than said (`reason_confidence`
+only exists on a guess). Wired into `entry/paths.py`'s Dijkstra search
+(as a divisor — strength up, cost down, so `Step.weight` is now `float`)
+and `search_manager.graph_expansion()`'s neighbour ordering (as a sort
+key on `_linked_neighbours`, since `GRAPH_EXPANSION_LIMIT`/
+`GRAPH_EXPANSION_HOP2_LIMIT` truncate that list — which neighbours
+survive the cut is the actual payoff for the AI's retrieval). Two other
+stale claims in §87.5's own original text were corrected in the same
+pass: the traversal was described as "currently unweighted" (false — it
+was already weighted by connection *kind*, link vs. thread vs. tag, just
+not by per-link type/confidence, which is the distinction that actually
+mattered) and paths.py/graph_expansion were described as "sharing that
+code" (they don't — two separate implementations, now each independently
+calling `link_strength()`). Deliberately not attempted: the wider
+composite (shared tags Jaccard, same category, temporal proximity) —
+those are derived signals needing per-pair query-time computation on a
+hot path (`graph_expansion` runs on every chat/ask retrieval), unmeasured
+against real usage; and distinguishing a hand-typed `[[wiki link]]` as
+specifically the strongest signal, as the original table suggested —
+`sync_wiki_links` creates a link through the exact same `create_link()`
+path a plain no-reason link does, so nothing currently records *how* a
+link was made, which needs a real schema decision, not a same-session
+guess. 9 new tests: `link_strength`'s own behaviour (baseline, type
+boost, the confidence floor, the two combining) in
+`tests/test_graph_paths.py`, a typed link beating a bare one at equal hop
+count and a low-confidence deduced link losing to a plain one (same
+file), and `graph_expansion` keeping a strength-worthy neighbour that
+insertion order alone would have dropped past the hop limit
+(`tests/test_connected_results.py`).
+
+**§87.8's backlinks panel and whiteboard render scheduler — both already
+built, found by checking rather than assuming.** "Backlinks panel ('what
+links here')" turned out to already exist: `manager.links_for_entry()` is
+already bidirectional ("all links touching this entry"), and every note
+card's `.entry-links` row (`app.js`) already renders it as clickable
+preview chips. This app's link model has no directional/citation
+semantics (a link's reason reads "the same phrase either direction" per
+`entry/paths.py`'s own docstring), so an undirected "linked notes" panel
+*is* the backlinks panel, not a lesser version of one. The whiteboard
+render scheduler item was already fixed in an earlier pass this same
+session (see live-list item G): every drag handler mutates the DOM
+directly rather than calling `wbScheduleRender()`/a full re-render,
+checked across all 48 call sites per that function's own comment.

@@ -2152,6 +2152,37 @@
 .capture-help-hint {
   max-height: 24rem;
   overflow-y: auto;
+  /* **The scroll itself worked; nothing showed it did.** Reported after
+     the cap above landed: "still no visible scrollbar??" — correct, and
+     not this rule's fault so much as `overflow-y: auto`'s own default:
+     most current browsers (macOS Chromium/Safari, several Windows
+     themes) render an *overlay* scrollbar that stays fully invisible
+     until the pointer is over the scrolling element, so a panel that
+     scrolls correctly can still look exactly like one that doesn't. No
+     surface in this app has ever needed a permanently visible scrollbar
+     before — every other `overflow` here either has an edge-fade
+     affordance instead (`.edge-fade`) or hides its scrollbar on purpose
+     (`.notes-subtabs`) — so there is no existing pattern to reuse; this
+     is the first one. Forcing a classic, always-reserved-space scrollbar
+     (rather than styling an overlay one, which cannot be made to *always*
+     show by CSS alone) is the only property that actually answers the
+     report on every platform. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+
+.capture-help-hint::-webkit-scrollbar {
+  width: 10px;
+}
+
+.capture-help-hint::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.capture-help-hint::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--modal-bg);
 }
 
 /* A .graph-help-panel used as a standalone element (Timeline, the Skills/

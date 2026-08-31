@@ -1026,7 +1026,21 @@ def _start_tray(
         remembered per item is a guard that will be forgotten. Locked, the
         window still comes forward — the person asked for the app, and the
         honest answer is the lock screen, not nothing happening.
+
+        **Also closes Settings first, if it's open.** Reported directly, on
+        "Reminders" specifically but asked to apply to "the others" too: a
+        tray item that calls `switchTab(...)` switches the tab *underneath*
+        an open Settings modal, which is a full-screen overlay — the tab
+        changes, nothing about it is visible, and clicking Reminders reads as
+        broken. `switchTab()` itself has no opinion on a modal sitting on top
+        of it; closing that modal first is this factory's job, applied once
+        here rather than repeated (or, as happened once already, forgotten)
+        per item.
         """
+        close_settings_first = (
+            "if (typeof settingsModalOpen === 'function' && settingsModalOpen()"
+            " && typeof closeSettingsModal === 'function') { closeSettingsModal(); }"
+        )
 
         def run(icon, item) -> None:
             window.show()
@@ -1034,7 +1048,10 @@ def _start_tray(
             try:
                 window.evaluate_js(
                     "if (document.getElementById('lock-overlay')"
-                    "?.classList.contains('hidden')) {" + js + "}"
+                    "?.classList.contains('hidden')) {"
+                    + close_settings_first
+                    + js
+                    + "}"
                 )
             except Exception as exc:  # noqa: BLE001 — a menu item is not worth a crash
                 logger.warning("tray navigation failed: %s", exc)
@@ -1042,19 +1059,23 @@ def _start_tray(
         return run
 
     def _view_logs(icon, item) -> None:
-        # Reported directly: this used to open Settings -> Logs unconditionally,
-        # which reaches straight past the lock screen if the app is locked —
-        # a tray menu item is not a place that should ever be able to do that.
-        # #lock-overlay's own hidden class is the same signal the frontend
-        # itself uses to know whether it's locked; only jump into Settings
-        # when that overlay isn't showing, otherwise just bring the window
-        # (still locked) forward.
+        # Reported directly, twice: this used to open Settings unconditionally
+        # (reaching straight past the lock screen — fixed once already, see
+        # the lock-overlay guard below) and, separately, never actually landed
+        # on the Logs section — it called `openSettingsModal()` with no
+        # argument and then `showSettingsSection('logs')`, a function that
+        # does not exist anywhere in the frontend (grepped, not assumed) and
+        # so silently did nothing past opening Settings on whatever section it
+        # last had open. `openSettingsModal(section)` already takes the
+        # section directly — every other settings-bound tray item below
+        # already calls it this way (`openSettingsModal('tasks')`,
+        # `openSettingsModal('models')`); this was the one holdout.
         window.show()
         _focus_window(window)
         window.evaluate_js(
             "if (document.getElementById('lock-overlay')?.classList.contains('hidden')"
             " && typeof openSettingsModal === 'function') {"
-            " openSettingsModal(); showSettingsSection('logs'); }"
+            " openSettingsModal('logs'); }"
         )
 
     def _restart(icon, item) -> None:
@@ -1109,13 +1130,23 @@ def _start_tray(
 
         Guarded by the lock overlay exactly as View Logs is — a tray item must
         never reach past the lock screen — and by `typeof`, because the menu
-        can be clicked while the page is still loading.
+        can be clicked while the page is still loading. Kept as its own named
+        function rather than folded into the `_go` factory below (which would
+        remove some duplication) because test_tray.py locates this function's
+        body by splitting this file's source text on its own signature — the
+        safer fix for "close Settings first" was adding the same guard `_go`
+        now carries, not restructuring around a test with no other reason to
+        change today. (This paragraph deliberately avoids spelling that
+        signature out verbatim, for the same reason — that string appearing
+        twice is exactly what broke the split the first time this was tried.)
         """
         window.show()
         _focus_window(window)
         window.evaluate_js(
             "if (!document.getElementById('lock-overlay')?.classList.contains('hidden')) {}"
             " else if (typeof switchTab === 'function') {"
+            " if (typeof settingsModalOpen === 'function' && settingsModalOpen()"
+            " && typeof closeSettingsModal === 'function') { closeSettingsModal(); }"
             " switchTab('notes');"
             " document.getElementById('entry-content')?.focus(); }"
         )

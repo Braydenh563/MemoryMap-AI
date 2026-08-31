@@ -2142,7 +2142,8 @@ p.graph-help-panel {
 #tab-timeline > .card,
 #library-skills-section,
 #wb-boards-landing .card,
-#library-view-media .card {
+#library-view-media .card,
+#capture {
   position: relative;
 }
 

@@ -2126,6 +2126,34 @@
   margin: 0;
 }
 
+/* Reported live, with a screenshot: cut off at the bottom. This panel
+   (six bullets across two lists) is meaningfully longer than every other
+   .graph-help-panel use (a single paragraph — #draft-intro, #timeline-
+   intro, #graph-help-panel itself), none of which has hit this, so the
+   cap is scoped here rather than added to the shared rule for a problem
+   only this instance has.
+   Two wrong attempts before this, both measured and rejected rather than
+   assumed fixed: a flat `73vh` correctly stopped the panel growing but
+   still left its own bottom edge below the window on a short viewport
+   (827px box on 800px, measured), because the panel's `top: 3.5rem` is an
+   offset from `#capture`'s own top, not the viewport's — CSS has no way
+   to know how far down the page `#capture` itself sits, so vh alone can't
+   account for it. A `calc(100vh - offset)` guess at that distance was
+   worse: it *overestimated* the room available, so the box grew tall
+   enough to fit all the content without ever triggering its own
+   scrollbar (701px of content inside a 728px cap) while still extending
+   to y=944 on an 800px screen — no internal scroll to reach the part that
+   was cut off, which is a regression on the reported bug, not a fix. A
+   small flat cap, small enough that internal scrolling reliably kicks in
+   regardless of where `#capture` sits on the page, is the one property
+   that has to hold for this to actually work — verified at 800px tall:
+   the panel's own scrollHeight (701px) now exceeds this cap, so it
+   scrolls internally and the last bullet is reachable within its own box. */
+.capture-help-hint {
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
 /* A .graph-help-panel used as a standalone element (Timeline, the Skills/
    Whiteboard/Image-Gallery Library sub-tabs) rather than nested one level
    down like the graph's own <div><p>…</p></div> shape — this file's own

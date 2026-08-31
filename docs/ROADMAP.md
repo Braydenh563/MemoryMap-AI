@@ -1311,13 +1311,25 @@ from the file that documents it.
 
 ### 87.7c Reported live, NOT yet built — next session starts here
 
-1. **The graph is slow and janky to move around.** Reported directly and not
-   yet diagnosed. Do not guess: this is the same shape as the whiteboard's
-   jank, which turned out to have one findable cause (a full re-render on
-   every frame), so **profile it before theorising**. `graph.js` already had a
-   force/render tuning pass (HISTORY §71) that fixed two concrete re-render
-   bugs, so the cheap wins may already be taken — start by measuring frame
-   cost during a pan and during a drag, separately.
+~~1. **The graph is slow and janky to move around.**~~ **Profiled directly
+   (120 notes, 6x CPU throttling, CDP `Performance.getMetrics`) — one real
+   cause found and fixed, one still open.**
+   **Fixed:** `graphSimulation.stop()` was only ever called "before every
+   rebuild," never on leaving the Graph tab — so a simulation still cooling
+   when the user switched away kept ticking on whatever tab they moved to.
+   Measured: Dashboard busy time 21% before ever opening Graph, 58% right
+   after leaving it, ~12 more seconds to decay back to baseline. This is
+   very likely a real contributor to "the app feels slow" reports that
+   don't obviously implicate the graph. Now stopped on tab-leave; re-measured
+   at ~20% (baseline) within 6 seconds instead of 12+.
+   **Still open:** the graph's own busy time *while cooling, on the Graph
+   tab itself* is genuinely high (82-88%, matching this file's own prior
+   documented pass) and this session did not reduce it — the existing
+   `alphaDecay(0.05)` tuning was already in place and the physics/tick-cost
+   work described just above this item was not reopened. Whether that
+   specific window still reads as "janky" to a real user on real (not
+   throttled) hardware is unverified — this sandbox has no way to compare
+   against unthrottled perception, only relative measurements.
 ~~2. **The saved-view select truncates to "No saved vi…"** in the redesigned
    toolbar.~~ **Already fixed** — `.graph-toolbar #graph-view-picker`
    already carries `min-width: 12.5rem` with a comment recording this exact
@@ -1341,7 +1353,7 @@ from the file that documents it.
    (threads as tributaries off a time trunk, using `Entry.parent_id`, which
    the view currently ignores entirely). Still unbuilt.
 
-### 87.8 Checked this session — three of four were already done
+### 87.8 Checked this session — three of four were already done, the fourth partly fixed
 
 ~~Backlinks panel ("what links here") — edges already stored by
 `sync_wiki_links`; a query plus a sidebar section.~~ **Already built,
@@ -1363,9 +1375,11 @@ comment.
 session** — see §87.5's own text above for the full narrative
 (`link_strength()`, wired into `entry/paths.py` and `graph_expansion()`).
 
-**Still genuinely open: graph performance (§87.7c item 1).** Reported
-live, not yet diagnosed — "profile it before theorising," the same shape
-the whiteboard's jank turned out to have. Not attempted yet this session.
+**Graph performance (§87.7c item 1) — profiled, partly fixed.** One real
+cause found and fixed (the simulation kept running on other tabs after
+leaving Graph); the graph's own busy time while actively cooling on its
+own tab is still high and unaddressed. §87.7c's own text above has the
+full narrative and the measured numbers.
 
 ### 87.9 Handoff list — each item already located, none needs re-deriving
 

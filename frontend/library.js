@@ -2380,7 +2380,13 @@ function filterLibraryImagesGallery() {
       menu.open = false;
     });
     document.addEventListener("click", (event) => {
-      if (menu.open && !menu.contains(event.target)) menu.open = false;
+      // `menuList` is reparented to <body> while open (see placeMenu), so
+      // `menu.contains()` alone no longer covers a click on the menu's own
+      // rows — it has to be asked about separately or every click inside
+      // the menu reads as a click outside it.
+      if (menu.open && !menu.contains(event.target) && !menuList.contains(event.target)) {
+        menu.open = false;
+      }
     });
     // Which edges to flip toward used to be a CSS-only guess (nth-child(3n)
     // for "last column"), which only held while the grid actually rendered
@@ -2390,29 +2396,73 @@ function filterLibraryImagesGallery() {
     // Reported directly: "make sure the popup options dont get cut off."
     // Measured against the real box now, the same way openActionMenu()
     // (app.js) already does it for every other kebab in the app.
-    menu.addEventListener("toggle", () => {
-      if (!menu.open) return;
-      menuList.classList.remove("menu-flip-left", "menu-flip-up");
-      menuList.style.transform = "";
-      const bound = nearestScrollParent(menu).getBoundingClientRect();
-      let box = menuList.getBoundingClientRect();
-      if (box.right > bound.right) menuList.classList.add("menu-flip-left");
-      if (box.bottom > bound.bottom) menuList.classList.add("menu-flip-up");
-      // The flip above only ever swaps between two *fixed* anchors — right:0
-      // (grows left) and left:0 (grows right) — which covers a tile near one
-      // edge of a wide grid but not a gallery narrower than the menu's own
-      // 13rem min-width, where flipping toward the "open" side just runs the
-      // menu off *that* edge instead. Reported live with a screenshot: cut
-      // off on the left, in the menu's default (un-flipped) position — this
-      // is the gap the flip alone can't close. Re-measured after the flip
-      // decision above and nudged back into bounds with a transform, which
-      // works regardless of which fixed anchor is currently active.
-      box = menuList.getBoundingClientRect();
-      let shift = 0;
-      if (box.left < bound.left) shift = bound.left - box.left + 8;
-      else if (box.right > bound.right) shift = bound.right - box.right - 8;
-      if (shift) menuList.style.transform = `translateX(${shift}px)`;
-    });
+    // **Re-reported after the clamp below was already in place**, with a
+    // screenshot of the menu cut off dead straight down its left edge — and
+    // a straight vertical cut is a *clipping ancestor*, not a menu that ran
+    // past the window. Measured: the menu's ancestor chain has two of them,
+    // `#library-view-media` (`overflow-x: auto`) and `#tab-library`
+    // (`overflow-x: hidden`). No amount of measuring fixes that, because
+    // `getBoundingClientRect()` reports the box the menu *would* occupy —
+    // it does not know the box is about to be clipped, so a clamp that
+    // keeps the menu inside those bounds still gets scissored by them, and
+    // a clamp measured against the scroll parent has nowhere left to move.
+    //
+    // So the menu stops being `position: absolute` inside that subtree and
+    // becomes `position: fixed`, positioned from the button's own rect
+    // against the viewport — the same escape the whiteboard's context menu
+    // already makes (`wb-ctx-menu`), for the same reason. Nothing can clip
+    // a fixed element to an ancestor's overflow, so the only bound left to
+    // respect is the window, which is what a clamp can actually enforce.
+    // **`position: fixed` alone is not enough, and the reason is worth
+    // recording.** The first attempt at this made the list fixed and
+    // positioned it from the button's rect — and it still landed inside the
+    // clipped box, offset from where it was told to go by 54px on one tile
+    // and 709px on another. A fixed element resolves against the viewport
+    // *unless* an ancestor establishes a containing block for it, which
+    // `transform`, `filter`, `backdrop-filter` and `will-change` all do —
+    // and the tile's own `section.card.glass` carries `backdrop-filter`.
+    // So the coordinates were being resolved against the very element the
+    // menu needed to escape.
+    //
+    // Reparenting to <body> is what actually escapes it: no glass ancestor,
+    // no clipping ancestor, and `fixed` finally means the viewport. Same
+    // move `wbOpenDockedMenu` makes for the same reason.
+    const placeMenu = () => {
+      if (!menu.open) {
+        if (menuList.parentElement === document.body) menu.append(menuList);
+        return;
+      }
+      if (menuList.parentElement !== document.body) document.body.append(menuList);
+      const margin = 8;
+      const anchor = menuButton.getBoundingClientRect();
+      // Default: hung below the button, right edges aligned — the same
+      // placement the absolute version had, just resolved against the
+      // viewport instead of the (clipping) offset parent.
+      menuList.style.left = "0px";
+      menuList.style.top = "0px";
+      const box = menuList.getBoundingClientRect();
+      let left = anchor.right - box.width;
+      let top = anchor.bottom + margin;
+      if (left < margin) left = margin;
+      if (left + box.width > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - margin - box.width);
+      }
+      // Flip above the button when there is no room below it, and only
+      // then — the menu is five rows tall and a tile near the bottom of
+      // the gallery has none.
+      if (top + box.height > window.innerHeight - margin) {
+        const above = anchor.top - margin - box.height;
+        top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+      }
+      menuList.style.left = `${Math.round(left)}px`;
+      menuList.style.top = `${Math.round(top)}px`;
+    };
+    menu.addEventListener("toggle", placeMenu);
+    // A fixed element does not travel with the content it was opened from,
+    // so a scroll would leave it stranded over the wrong tile. Cheapest
+    // correct answer, and the one the rest of the app uses: close it.
+    window.addEventListener("scroll", () => { if (menu.open) menu.open = false; }, true);
+    window.addEventListener("resize", () => { if (menu.open) menu.open = false; }, { passive: true });
     actions.append(menu);
 
     // **Labelled, and separated.** Reported directly: "I feel the image

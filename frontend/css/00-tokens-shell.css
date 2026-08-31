@@ -1778,10 +1778,14 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-menu-list {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  z-index: 5;
+  /* **Fixed, not absolute** — see the long note above `placeMenu` in
+     library.js. Two ancestors of this menu clip horizontally
+     (`#library-view-media`, `#tab-library`), and an absolutely-positioned
+     child cannot escape an ancestor's overflow no matter where it is
+     measured to. Positioned entirely from JS against the viewport now, so
+     `top`/`right` here would only fight it. */
+  position: fixed;
+  z-index: 1020;
   min-width: 13rem;
   display: flex;
   flex-direction: column;
@@ -1796,22 +1800,11 @@ header#top-bar.tabs-wrapped #tab-bar {
   box-shadow: var(--glass-shadow);
 }
 
-/* A tile near the right or bottom edge would otherwise push its menu off
-   screen. `.menu-flip-left`/`.menu-flip-up` are set by library.js's own
-   `toggle` handler, measured against the real box each time the menu opens
-   — the grid is `auto-fill`, so which tiles are actually on an edge changes
-   with the window width and no CSS-only rule (an earlier `nth-child(3n)`
-   guess here, wrong the moment the grid wasn't exactly 3 columns wide) can
-   track that on its own. */
-.library-image-menu-list.menu-flip-left {
-  right: auto;
-  left: 0;
-}
-
-.library-image-menu-list.menu-flip-up {
-  top: auto;
-  bottom: calc(100% + var(--space-2));
-}
+/* (`.menu-flip-left`/`.menu-flip-up` lived here. They flipped this menu
+   between two *fixed anchors* on its offset parent, which was the best a
+   clipped absolute element could do; `placeMenu` positions the fixed menu
+   freely against the viewport now and both classes had no remaining
+   setter.) */
 
 .library-image-menu-item {
   justify-content: flex-start;

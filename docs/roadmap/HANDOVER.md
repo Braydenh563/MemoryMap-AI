@@ -58,6 +58,33 @@ a real, reproducible bug, which took priority:
   the fix — the "before" state was only ever inspected via computed style,
   not screenshotted, since the bug is a few pixels and the numbers were
   the conclusive evidence).
+- **The image-gallery kebab menu was still being cut off** — re-reported
+  with a screenshot after a previous session had already added a
+  measure-and-clamp to it. The screenshot is what identified it: a dead
+  straight vertical cut is a *clipping ancestor*, not a menu that ran past
+  the window, and no clamp can fix that — `getBoundingClientRect()` reports
+  the box the menu *would* occupy and knows nothing about being scissored,
+  so keeping it "in bounds" still left it clipped. Measured the ancestor
+  chain: `#library-view-media` (`overflow-x: auto`) and `#tab-library`
+  (`overflow-x: hidden`) both clip.
+  **Two fixes deep, and the first one is the instructive part.** Making the
+  list `position: fixed` and placing it from the button's rect was not
+  enough: it still landed inside the clipped box, off by 54px on one tile
+  and 709px on another. A fixed element resolves against the viewport
+  *unless* an ancestor establishes a containing block — `transform`,
+  `filter`, `backdrop-filter` and `will-change` all do — and the tile's own
+  `section.card.glass` carries `backdrop-filter`, so the coordinates were
+  resolving against the very element it needed to escape. Same shape as
+  CLAUDE.md's standing warning: *the damage happens nowhere near the code
+  that caused it.* Reparenting the list to `<body>` on open (what
+  `wbOpenDockedMenu` already does) is what actually escapes it. The
+  now-unreachable `.menu-flip-left`/`.menu-flip-up` rules were removed, and
+  the outside-click handler had to learn to ask `menuList` separately since
+  it is no longer inside `menu` while open. **Live-verified at 1400/900/
+  600px, first/middle/last tile each**: `style.left` now equals the
+  measured `rect.left` exactly (29→29, 684→684), and every tile reports
+  `offLeft/offRight/offBottom/clippedByAncestor` all false. Zero console
+  errors.
 - **Answered, not built: whether the Library sub-tabs bar (All · Documents ·
   Whiteboards · Image Gallery · AI Skills) should show at the top of the
   documents editor.** No — by the design already recorded at §87.7d: the

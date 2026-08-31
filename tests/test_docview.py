@@ -20,6 +20,8 @@ here rather than left implicit.
 from __future__ import annotations
 
 import io
+import re
+from pathlib import Path
 
 from memorymap.core import docview
 
@@ -243,3 +245,23 @@ def test_a_short_word_document_is_not_mistaken_for_a_scan(tmp_path, monkeypatch)
     viewed = docview.extract(path)
     assert viewed.source == "converted"
     assert viewed.text == "Short."
+
+
+def test_the_chat_composers_file_picker_matches_what_import_actually_reads():
+    """`POST /documents/import` (routes_documents.py) 415s anything not in
+    VIEWABLE_SUFFIXES — caught out of sync during a live audit: the chat
+    composer's own `accept=` attribute (index.html's `#chat-image-input`)
+    offered `.cs`, which the picker would let through only for the upload to
+    then 415, and left out over ten extensions (`.mjs`, `.scss`, `.ppt`,
+    `.swift`...) that import would have happily read. This pins the two
+    lists to agree, the same drift-guard shape as test_frontend_ids.py for
+    ids Python cannot otherwise see the browser check."""
+    html = (Path(__file__).resolve().parents[1] / "frontend" / "index.html").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r'id="chat-image-input"[^>]*\baccept="([^"]+)"', html)
+    assert match, "chat-image-input's accept attribute has moved or been removed"
+    accepted = {
+        token for token in match.group(1).split(",") if token.startswith(".")
+    }
+    assert accepted == set(docview.VIEWABLE_SUFFIXES)

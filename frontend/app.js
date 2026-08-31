@@ -4123,6 +4123,51 @@ function renderEditForm(li, entry) {
   );
 
   li.append(textarea, tagsInput, categorySelect, row);
+  renderRelatedWhileEditing(li, entry);
+}
+
+// **A related-notes panel, live while a note is open for editing** — asked
+// for as a competitor gap (Mem.ai's own "AI Thought Partner" pitch keeps a
+// similar-notes rail visible continuously while writing, not behind a
+// click). This app already had the same signal one click away
+// (`toggleRelated`'s "≈ Similar notes" menu item, same `/entries/{id}/related`
+// endpoint) — the gap was that it stayed hidden until asked for, so it read
+// as a lookup rather than a thing the app was already thinking about. Shown
+// automatically the moment the edit form opens, not gated behind a second
+// interaction; a note with nothing similar says so rather than leaving a
+// blank space that looks broken.
+async function renderRelatedWhileEditing(li, entry) {
+  const panel = document.createElement("div");
+  panel.className = "entry-related-live muted text-sm";
+  panel.textContent = "Finding related notes…";
+  li.appendChild(panel);
+  let related;
+  try {
+    related = await apiJson(`/entries/${entry.id}/related`);
+  } catch {
+    panel.remove(); // a failed lookup says nothing rather than "no notes found"
+    return;
+  }
+  // The form may have closed (Save/Cancel) or moved on to a different note
+  // while this was in flight.
+  if (editingId !== entry.id || !panel.isConnected) return;
+  panel.replaceChildren();
+  if (!related.length) {
+    panel.textContent = "No related notes yet.";
+    return;
+  }
+  const label = document.createElement("span");
+  label.textContent = "Related: ";
+  panel.appendChild(label);
+  for (const other of related) {
+    const preview = other.content.length > 50 ? other.content.slice(0, 49) + "…" : other.content;
+    const relChip = chip("", "link", () => flashEntry(other.id));
+    relChip.appendChild(document.createTextNode("≈ "));
+    const previewSpan = document.createElement("span");
+    renderInlineMarkdown(previewSpan, preview, [], true);
+    relChip.appendChild(previewSpan);
+    panel.appendChild(relChip);
+  }
 }
 
 // Category <select> shared by capture (guided mode) and the edit form.

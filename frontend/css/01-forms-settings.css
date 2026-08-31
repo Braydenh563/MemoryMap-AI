@@ -1162,6 +1162,19 @@ progress {
   gap: var(--space-2);
 }
 
+/* The edit form's own related-notes panel (renderRelatedWhileEditing,
+   app.js) — same shape as .entry-links above (it reuses the same chip
+   markup) but its own class, since it lives in a different place in the
+   DOM (appended to the edit form itself, not a note card) and appears
+   automatically rather than only after a click. */
+.entry-related-live {
+  margin-top: var(--space-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 /* Settings sections: a second row of controls below an existing one that
    needs a little breathing room from it — `.row`'s own gap applies *within*
    a row, not between siblings, and two stacked rows with none read as one

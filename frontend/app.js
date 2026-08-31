@@ -21241,8 +21241,10 @@ async function loadLinkSuggestions() {
   // model round-trips behind it would turn opening this panel from instant
   // into a stall. This way the rows appear immediately with the deduced
   // text, and the AI's wording replaces it as each answer lands. Failure is
-  // silent by design — the generic reason is already in the box, so there is
-  // nothing to warn about.
+  // silent by design: the deduced reason is already showing as the box's
+  // placeholder, and `create_link` deduces the same text server-side if the
+  // box is left empty — so a failed guess costs nothing and there is nothing
+  // to warn about.
   requestAnimationFrame(() => {
     const pending = rowReasons.filter((r) => !r.input.dataset.userEdited);
     if (!pending.length) return;

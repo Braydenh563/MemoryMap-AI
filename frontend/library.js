@@ -1811,6 +1811,11 @@ function filterLibraryImagesGallery() {
         images.map((i) => ({
           filename: i.original_name,
           getUrl: () => mediaSrc(i.url),
+          // The one caller with a real media row, so the lightbox's id-
+          // gated actions (rename/describe/OCR/delete) only ever appear
+          // here — every other caller has a url and nothing else, and a
+          // button guaranteed to 404 is worse than no button.
+          id: i.id,
           // Asked for directly: "if clicking on an image to view expand it in
           // the lightbox…can the captions and ocr accompany it somehow??"
           // The tile is the one place these are too small to read.

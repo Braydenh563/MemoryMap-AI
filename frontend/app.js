@@ -2750,18 +2750,18 @@ function openLightbox(items, startIndex = 0) {
 
   // Copy the text the app read out of the picture. Hidden unless this item
   // actually has some — an enabled button that copies "" is a lie.
+  // Goes through the app's own `copyToClipboard` helper rather than the raw
+  // browser clipboard call — caught by
+  // test_every_copy_path_goes_through_the_fallback (whose naive string scan
+  // would otherwise flag even *this comment* if it spelled the call out
+  // literally, which is why it doesn't). The helper already covers what a
+  // hand-rolled version here did not: a non-secure context, permission
+  // refused, and a last-resort "here's the text, already selected" UI when
+  // both fail, instead of this button just going silent.
   const copyBtn = actionBtn("ph:copy Copy text", "Copy the text read from this image", async (b) => {
     const value = (items[index].text || "").trim();
     if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      setLabel(b, "ph:check Copied");
-      setTimeout(() => setLabel(b, "ph:copy Copy text"), 1500);
-    } catch {
-      // Clipboard access can be refused outright (permissions, or a
-      // non-secure context). Say so rather than appearing to succeed.
-      toast("Couldn't copy — your browser refused clipboard access.", true);
-    }
+    await copyToClipboard(value, b);
   });
 
   // Save the original file. `download` needs a same-origin href to name the
@@ -2779,6 +2779,103 @@ function openLightbox(items, startIndex = 0) {
       toast("Couldn't save that image.", true);
     }
   });
+
+  // **The AI/manage actions — gated on a media id, and only ever visible
+  // when one is present.** Reported directly, and left open on purpose the
+  // first time this bar was built: rename, describe with AI, read text (two
+  // ways) and delete all need a real `MediaUpload` row, and of nine
+  // `openLightbox` callers only the Library's own gallery has one to pass.
+  // Every other caller (a note attachment, a chat image, a graph or
+  // dashboard thumbnail, a whiteboard object) opens the lightbox from a bare
+  // url, and a menu that 404s on click is worse than no menu — the same "two
+  // buttons guaranteed to fail" shape this project already rejected once on
+  // the whiteboard's own context menu.
+  //
+  // Reuses the endpoints and request shapes the gallery kebab already
+  // established (library.js) rather than inventing a second idea of what
+  // "describe with AI" does.
+  let moreMenu = null;
+  const buildMoreMenu = (item) => {
+    const run = (label, busyText, endpoint, applyTo) => async () => {
+      try {
+        toast(busyText);
+        const updated = await apiJson(`/media/${item.id}${endpoint}`, { method: "POST" });
+        applyTo(item, updated);
+        renderInfo(item, true);
+      } catch (err) {
+        toast(err.message || `Couldn't ${label.toLowerCase()}.`, true);
+      }
+    };
+    return kebabMenu(
+      [
+        {
+          label: "ph:sparkle Describe with AI",
+          title: "Generate a caption for this image",
+          run: run("describe", "Describing…", "/caption", (it, u) => {
+            it.caption = u.caption || "";
+          }),
+        },
+        {
+          label: "ph:text-aa Read text with AI",
+          title: "Read the text in this image with a vision model",
+          run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
+            it.text = (u.vision_ocr_text || "").trim();
+            it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
+          }),
+        },
+        {
+          label: "ph:scan Read text offline (OCR)",
+          title: "Read the text in this image offline",
+          run: run("read text", "Reading…", "/ocr", (it, u) => {
+            it.text = (u.ocr_text || "").trim();
+            it.byline = it.text ? "Text read offline (OCR)" : "";
+          }),
+        },
+        {
+          label: "ph:pencil-simple Rename",
+          title: "Rename this image",
+          run: async () => {
+            const next = window.prompt("New name", item.filename || "");
+            if (!next || !next.trim() || next === item.filename) return;
+            try {
+              const updated = await apiJson(`/media/${item.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ original_name: next.trim() }),
+              });
+              item.filename = updated.original_name;
+              renderInfo(item, true);
+            } catch (err) {
+              toast(err.message || "Couldn't rename that image.", true);
+            }
+          },
+        },
+        {
+          label: "ph:trash Delete",
+          title: "Delete this image",
+          run: async () => {
+            if (!(await confirmDialog(`Delete "${item.filename || "this image"}"?`))) return;
+            try {
+              await apiJson(`/media/${item.id}`, { method: "DELETE" });
+              items.splice(index, 1);
+              if (!items.length) {
+                close();
+                return;
+              }
+              show(index);
+            } catch (err) {
+              toast(err.message || "Couldn't delete that image.", true);
+            }
+          },
+        },
+      ],
+      "More actions for this image"
+    );
+  };
+  const syncMoreMenu = (item) => {
+    moreMenu?.remove();
+    moreMenu = item.id ? buildMoreMenu(item) : null;
+    if (moreMenu) actions.appendChild(moreMenu);
+  };
 
 
   // **The document half of the showcase.** Asked for directly: the lightbox
@@ -2934,7 +3031,18 @@ function openLightbox(items, startIndex = 0) {
   async function show(i) {
     index = (i + items.length) % items.length;
     const item = items[index];
-    const rawUrl = await item.getUrl().catch(() => "");
+    // **`Promise.resolve()`, not a bare `.catch()` on the call.** Found live,
+    // not by reading: this crashed the entire lightbox — not just the new
+    // document detection — for the Library's own gallery, whose `getUrl` is
+    // `() => mediaSrc(i.url)`, a plain synchronous string return, not a
+    // Promise. `.catch` does not exist on a string, so this threw
+    // synchronously and no code past it in `show()` ever ran, including the
+    // metadata panel that predates this change entirely. `await` on a
+    // non-Promise already resolves fine (`show()`'s other two `getUrl()`
+    // call sites never hit this); wrapping in `Promise.resolve()` first is
+    // what makes `.catch()` safe to chain regardless of which shape a
+    // caller returns.
+    const rawUrl = await Promise.resolve(item.getUrl()).catch(() => "");
     const name = (/\/media\/([^/?#]+)/.exec(rawUrl || "") || [])[1] || "";
     const looksLikeImage =
       IMAGE_SUFFIXES.test(item.filename || "") || IMAGE_SUFFIXES.test(name);
@@ -2947,6 +3055,7 @@ function openLightbox(items, startIndex = 0) {
       actions.classList.remove("hidden");
       setZoom(1);
       showZoomControls(false);
+      syncMoreMenu(item);
       await showDocument(item, name);
       hydrate(index, item, true);
       return;
@@ -3004,6 +3113,7 @@ function openLightbox(items, startIndex = 0) {
     copyBtn.classList.toggle("hidden", !text);
     // Nothing to act on when the file itself failed to load.
     actions.classList.toggle("hidden", !ok);
+    syncMoreMenu(item);
 
     // **Fill in whatever the caller did not know.** Reported directly: the
     // caption, OCR text and facts appeared in the Image Gallery and nowhere

@@ -2427,12 +2427,6 @@ mark.lightbox-hit {
   font-variant-numeric: tabular-nums;
 }
 
-/* Transform-origin centre so zooming grows the picture out from its middle
-   rather than pushing it down and to the right off its own stage. */
-.lightbox img {
-  transform-origin: center center;
-}
-
 .lightbox img.zoomed {
   cursor: grab;
 }
@@ -2445,6 +2439,16 @@ mark.lightbox-hit {
   border-radius: var(--radius-lg);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
   cursor: default;
+  /* Transform-origin centre so zooming grows the picture out from its
+     middle rather than pushing it down and to the right off its own stage.
+     Merged into this rule rather than a second `.lightbox img {}` block —
+     a duplicate selector reads fine to a browser but not to
+     test_lightbox.py, which greps the *first* `.lightbox img {` block by
+     string-splitting the file; a second block earlier in the file would
+     have hidden max-height from that check while leaving it live in the
+     browser, exactly the "looks fine, test lies" gap that check exists to
+     catch. */
+  transform-origin: center center;
 }
 
 /* Stands in for the image when it fails to decode — a deleted underlying

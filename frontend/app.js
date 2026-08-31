@@ -14820,7 +14820,82 @@ function renderTimelineBranch(body) {
   const bands = body.bands;
   const single = bands.length <= 1;
   const spineY = TIMELINE_MARGIN_TOP;
-  const height = spineY + (single ? 1 : bands.length + 1) * TIMELINE_LANE_GAP + 20;
+
+  // **Pass 1: work out how much room each band's own dot cluster actually
+  // needs, before any lane gets a fixed Y.** Reported live, and reproduced
+  // with 5 same-day bands of 8 notes each: a fixed TIMELINE_LANE_GAP between
+  // every lane is fine for a sparse notebook, but nothing stopped a dense
+  // same-timestamp cluster (the vertical stagger below exists exactly to
+  // fan those out) from staggering far enough to reach *past* the gap and
+  // paint over the next band's dots and label — confusing in exactly the
+  // way "too close to other lines" describes, and not something clamping
+  // only the label (an earlier, insufficient pass at this same report) could
+  // fix, since the dots themselves were what collided.
+  //
+  // Each band's stagger only depends on its own notes' x-positions, so it
+  // can run here, before laneY exists, and the render pass below reuses the
+  // result instead of recomputing it.
+  const hereByBand = [];
+  const bandUp = []; // clearance needed above this band's own baseline
+  const bandDown = []; // clearance needed below it
+  bands.forEach((band) => {
+    const inBand = new Set(band.ids);
+    const here = notes
+      .filter((n) => inBand.has(n.id))
+      .sort((a, b) => new Date(a.at) - new Date(b.at));
+    hereByBand.push(here);
+    if (!here.length) {
+      bandUp.push(0);
+      bandDown.push(0);
+      return;
+    }
+    const placed = [];
+    const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
+    here.forEach((n) => {
+      n.cx = scale(new Date(n.at));
+      // Find what dy offsets are already taken at this cx
+      const taken = placed
+        .filter((p) => Math.abs(p.cx - n.cx) < minDistance)
+        .map((p) => p._dy);
+      // Try dy offsets: 0, 15, -15, 30, -30...
+      const step = TIMELINE_DOT_R * 1.5;
+      let offsetIdx = 0;
+      let dy = 0;
+      while (taken.includes(dy)) {
+        offsetIdx++;
+        const sign = offsetIdx % 2 === 0 ? 1 : -1;
+        dy = Math.ceil(offsetIdx / 2) * step * sign;
+      }
+      n._dy = dy;
+      placed.push(n);
+    });
+    const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
+    const lowestDy = Math.max(0, ...here.map((n) => n._dy || 0));
+    // The label sits above the topmost dot (see the render pass), so its own
+    // clearance — not just the dot's radius — belongs in "up".
+    bandUp.push(-highestDy + TIMELINE_DOT_R + 26);
+    bandDown.push(lowestDy + TIMELINE_DOT_R);
+  });
+
+  // **Pass 2: lay out lanes with at least TIMELINE_LANE_GAP between them —
+  // exactly today's fixed rhythm on sparse data — but more when a band's own
+  // cluster needs it.** A minimum breathing gap between one band's lowest
+  // dot and the next band's topmost clearance, on top of whatever each needs.
+  const LANE_MARGIN = 12;
+  const laneYs = [];
+  bands.forEach((_, index) => {
+    if (index === 0) {
+      laneYs.push(spineY + Math.max(TIMELINE_LANE_GAP, bandUp[0] + LANE_MARGIN));
+      return;
+    }
+    const grown =
+      laneYs[index - 1] + bandDown[index - 1] + LANE_MARGIN + bandUp[index];
+    laneYs.push(Math.max(grown, laneYs[index - 1] + TIMELINE_LANE_GAP));
+  });
+
+  const height = single
+    ? spineY + TIMELINE_LANE_GAP + 20
+    : (laneYs[laneYs.length - 1] || spineY) + (bandDown[bandDown.length - 1] || 0) + 20;
   svg.attr("viewBox", `0 0 ${width} ${height}`).attr("width", width).attr("height", height);
 
   const color = d3.scaleOrdinal(
@@ -14840,11 +14915,8 @@ function renderTimelineBranch(body) {
     .attr("y2", spineY);
 
   bands.forEach((band, index) => {
-    const laneY = single ? spineY : spineY + (index + 1) * TIMELINE_LANE_GAP;
-    const inBand = new Set(band.ids);
-    const here = notes
-      .filter((n) => inBand.has(n.id))
-      .sort((a, b) => new Date(a.at) - new Date(b.at));
+    const laneY = single ? spineY : laneYs[index];
+    const here = hereByBand[index];
     if (!here.length) return;
 
     const laneGroup = svg.append("g").attr("class", "timeline-branch-lane");
@@ -14888,54 +14960,19 @@ function renderTimelineBranch(body) {
         .attr("stroke-dashoffset", 0);
     }
 
-    // Calculate vertical staggering to prevent physical overlap
-    const placed = [];
-    const minDistance = TIMELINE_DOT_R * 2 + 2; // 2px padding
-
-    here.forEach(n => {
-      n.cx = scale(new Date(n.at));
-
-      // Find what dy offsets are already taken at this cx
-      const taken = placed
-        .filter(p => Math.abs(p.cx - n.cx) < minDistance)
-        .map(p => p._dy);
-
-      // Try dy offsets: 0, 15, -15, 30, -30...
-      let step = TIMELINE_DOT_R * 1.5;
-      let offsetIdx = 0;
-      let dy = 0;
-      while (taken.includes(dy)) {
-        offsetIdx++;
-        const sign = offsetIdx % 2 === 0 ? 1 : -1;
-        dy = Math.ceil(offsetIdx / 2) * step * sign;
-      }
-      n._dy = dy;
-      placed.push(n);
-    });
+    // `_dy` (per-note vertical stagger) was already computed in the layout
+    // pass above, alongside laneYs — both come from the same per-band pass
+    // so they can never disagree about how much room a cluster needs.
 
     if (!single) {
       // Position label near the actual branch start rather than the fixed left margin
       const startX = scale(new Date(here[0].at));
-      // Reported live: "a bit hard to read" — the label used to sit a fixed
-      // 14px above the lane's own baseline, computed *before* the stagger
-      // loop above ever ran, so it had no idea how far up a crowded cluster
-      // of same-day dots would climb. A "Single notes & smaller threads"
-      // lane (§87.6's thread grouping) is exactly the shape that triggers
-      // this most: it pools otherwise-unrelated notes, which cluster in
-      // time by chance far more than a real thread's own notes do. Clearing
-      // the *tallest* dot in this lane, not just the baseline, fixes it for
-      // every lane this can happen to, not only the new one.
+      // The label sits above the topmost dot. No clamp needed here any
+      // more — laneYs (the layout pass above) already gave this band's own
+      // "up" clearance room in the gap before it, so this can never reach
+      // into the lane above regardless of how dense this cluster is.
       const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
-      // Clamped separately from the dots: a lane with enough same-day notes
-      // can stagger far enough that the *unclamped* label position lands in
-      // the lane above — a different band's dots and label, which is what
-      // "hard to read" meant on every grouping mode, not just Thread (any
-      // lane can cluster this densely). Never let the label rise past the
-      // midpoint of the gap to the lane above, whatever the dots do.
-      const labelY = Math.max(
-        laneY + highestDy - TIMELINE_DOT_R - 8,
-        laneY - TIMELINE_LANE_GAP / 2 - 4
-      );
+      const labelY = laneY + highestDy - TIMELINE_DOT_R - 8;
       const label = laneGroup
         .append("text")
         .attr("class", "timeline-branch-label")

@@ -121,7 +121,11 @@ Seven tabs, all offline:
 - **Graph** — your notes as a force-directed map and a knowledge graph the
   AI can walk, labelled with *how* two notes connect
 - **Library** — everything you've made in one place: notes, documents,
-  chats, files, tags, the bin and the activity log. Also where the
+  chats, files, tags, the bin and the activity log, plus **Links** (a
+  bookmark shelf for websites, grouped and pinnable), **Contents** (a
+  hyperlinked outline of the whole notebook, grouped by category or tag) and
+  **AI Skills**. A note or document can attach a saved bookmark as a
+  **reference**, shown live beside it while you edit. Also where the
   long-form **document editor** and the **whiteboard** (freehand sketches +
   note cards on a pannable canvas) open from. The editor has four views —
   **Live** (renders as you write, showing the raw markdown for the block
@@ -131,6 +135,12 @@ Seven tabs, all offline:
 - **Reminders** — due dates with priority, repeats and snooze, or just say
   "call mum tomorrow evening" and let the AI schedule it
 
+Every image added to the library is read automatically in the background,
+three ways where each is available: a **caption** describing it, a **vision
+model transcription** of any text in it, and **Tesseract OCR** (if the
+binary is installed). All three are editable by hand, and all three are
+searchable. Nothing blocks the upload — the tile fills in as each finishes.
+
 Attach **any file** to a chat message: images go to the image gallery for a
 vision model to look at, and documents, spreadsheets, PDFs and code are
 imported into Documents with their text extracted. A **scanned** PDF is
@@ -138,6 +148,12 @@ rasterised page by page and read by an OCR model — no Tesseract, and you can
 pick the model or leave it automatic, in which case a document reader
 (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) is preferred over a general vision
 model when you have one.
+
+Notes and documents take markdown inline — `**bold**`, `*italic*`,
+`` `code` ``, `~~strike~~`, `[[wiki links]]` — plus **highlighting**:
+`==like this==`, or `==green|like this==` for one of six colours. It is
+just characters in the note, so a highlight survives search, export and the
+AI's own reading of it.
 
 Plus a status bar, command palette (`Ctrl`/`Cmd`+`K`), a sketch pad, local
 Whisper dictation, read-aloud, opt-in web search, 10 themes over 8 colour

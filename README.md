@@ -268,7 +268,7 @@ docs/                  # ARCHITECTURE.md, DESIGN.md, ROADMAP.md + roadmap/
 ## Where it's up to
 
 The core app — capture, chat, the graph, documents, private notes, themes,
-the whiteboard, desktop packaging — is built and stable; **2,500+ tests**
+the whiteboard, desktop packaging — is built and stable; **2,600+ tests**
 stay green on every push. What changed most recently, wave by wave, is in
 [`CHANGELOG.md`](CHANGELOG.md). What's still open, ranked with the
 reasoning behind each item, is [`docs/ROADMAP.md`](docs/ROADMAP.md) — kept

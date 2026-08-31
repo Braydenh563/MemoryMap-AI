@@ -3595,13 +3595,36 @@ the code decided none of them. What decided them was measuring.
   `--modal-bg` itself is left alone — its other callers (Settings, the
   command palette) float over much emptier backdrops.
 
+  **And that was only half of it.** The popup was reported broken *again*
+  after the opacity fix, with a dark-mode screenshot showing the rows as
+  scattered dashes. That is the "illegible dashes" symptom an earlier
+  stretch of this session wrote off as a screenshot/DPI capture artifact —
+  **that conclusion was wrong, and writing it off is what let the bug
+  survive several more rounds.** Measured this time instead of looked at:
+  each row reported `scrollHeight` 35px inside a 32.36px box, so the
+  `overflow: hidden` on `.nav-history-item` was slicing every glyph down to
+  its top few pixels — which is precisely what "dashes" were. The rows are
+  `<button>`s, and the app's generic button rule pins a fixed control
+  height; the menu escaped that while it lived inside `#status-bar` (whose
+  own `.status-item` rules won) and stopped escaping when it was moved out
+  to the body earlier in this same round. Fixed with `height: auto;
+  min-height: 0` plus flex centring; re-measured `clipped: false`, and the
+  dark-mode render is clean and fully legible.
+
+  Two independent bugs presenting as one complaint — which is why each
+  individual fix "didn't work", and why the report kept coming back.
+
   **The transferable lesson, and it is the important part of this section:**
   a screenshot viewed by eye is not evidence at this precision. Both a human
   and a vision model will read faint luminance gradients as "ghost text" or
   fail to see a real 4% blend depending on scaling. `scratchpad/pngpixel.py`
   (a ~50-line pure-Python PNG reader, no dependencies) samples exact pixels
   and is the tool to reach for whenever a report is about transparency,
-  contrast, or a colour looking wrong.
+  contrast, or a colour looking wrong. For anything about text being cut
+  off, the equivalent is comparing `scrollHeight` against `clientHeight`,
+  which settles in one number what rounds of staring at screenshots could
+  not. **Never close a visual report as "a capture artifact" without a
+  measurement that says so.**
 
 - **The AI Skills sidebar, reported three times** ("still doesn't float and
   stay 100% the height of the screen"). The sticking was never broken —

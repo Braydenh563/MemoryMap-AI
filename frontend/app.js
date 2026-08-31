@@ -14786,11 +14786,21 @@ function renderTimelineBranch(body) {
       // the *tallest* dot in this lane, not just the baseline, fixes it for
       // every lane this can happen to, not only the new one.
       const highestDy = Math.min(0, ...here.map((n) => n._dy || 0));
+      // Clamped separately from the dots: a lane with enough same-day notes
+      // can stagger far enough that the *unclamped* label position lands in
+      // the lane above — a different band's dots and label, which is what
+      // "hard to read" meant on every grouping mode, not just Thread (any
+      // lane can cluster this densely). Never let the label rise past the
+      // midpoint of the gap to the lane above, whatever the dots do.
+      const labelY = Math.max(
+        laneY + highestDy - TIMELINE_DOT_R - 8,
+        laneY - TIMELINE_LANE_GAP / 2 - 4
+      );
       const label = laneGroup
         .append("text")
         .attr("class", "timeline-branch-label")
         .attr("x", startX)
-        .attr("y", laneY + highestDy - TIMELINE_DOT_R - 8)
+        .attr("y", labelY)
         .attr("dy", "0")
         .attr("text-anchor", "start")
         .attr("fill", tint)
@@ -21017,7 +21027,15 @@ for (const button of document.querySelectorAll("#tab-bar button")) {
 // and `.focus()` on the null it returned would throw on an arrow key.
 $("tab-bar").addEventListener("keydown", (e) => {
   const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 0, End: 0 };
-  if (!(e.key in keys)) return;
+  // Alt+arrow is the app-wide Back/Forward shortcut. Without this check,
+  // a bare arrow here always won — a tab button is exactly where focus
+  // sits right after clicking a tab, so this ARIA-tablist roving-focus
+  // handler (an ancestor of the focused button, so it sees the keydown
+  // before the document-level shortcut listener does) hijacked Alt+Left/
+  // Right into "move to the adjacent tab button" every time, with its own
+  // preventDefault() leaving nothing clean for the real shortcut to act
+  // on. Bare Left/Right/Home/End still cycle tabs exactly as before.
+  if (!(e.key in keys) || e.altKey) return;
   e.preventDefault();
   const buttons = [...document.querySelectorAll("#tab-bar button")];
   if (!buttons.length) return;
@@ -23477,6 +23495,13 @@ const DEFAULT_SHORTCUTS = {
   whiteboard: { keys: "Ctrl+Shift+B", label: "Open the whiteboard" },
   settings: { keys: "Ctrl+,", label: "Open settings" },
   attachNote: { keys: "Ctrl+Shift+P", label: "Clip a note to your next question" },
+  // The status bar's own Back/Forward buttons (`stepTabHistory`) were
+  // click-only — asked for directly. Alt+Left/Right rather than the bare
+  // arrow keys: those are needed everywhere text is edited or a list is
+  // navigated, and a modifier is what every browser already uses for this
+  // exact action, so it costs no muscle memory to learn.
+  navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
+  navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
 
 const SHORTCUT_STORE = "keyboardShortcuts";
@@ -23620,6 +23645,9 @@ function runShortcut(id) {
       switchTab("chat");
       openNotePicker();
     },
+    // Same call the status bar's own Back/Forward buttons already make.
+    navigateBack: () => stepTabHistory(-1),
+    navigateForward: () => stepTabHistory(1),
   };
   actions[id]?.();
 }

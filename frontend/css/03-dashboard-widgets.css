@@ -2353,12 +2353,34 @@ p.graph-help-panel {
 }
 
 #library-view-docs .library-head input,
+#library-view-docs .library-head select,
 #library-view-docs .library-head button {
   height: var(--control-h);
   padding-block: 0;
 }
 
 #library-docs-search {
+  width: 14rem;
+  max-width: 100%;
+  margin: 0;
+}
+
+/* --- Library → Whiteboards -----------------------------------------------
+   Same failure as the Documents dock above, unfixed here until now: the
+   search input and three buttons in this row had no shared height, so each
+   rendered at its own natural size and the row grew to fit the tallest one. */
+#wb-boards-landing .library-head {
+  --control-h: 2rem;
+  gap: var(--space-2);
+}
+
+#wb-boards-landing .library-head input,
+#wb-boards-landing .library-head button {
+  height: var(--control-h);
+  padding-block: 0;
+}
+
+#library-boards-search {
   width: 14rem;
   max-width: 100%;
   margin: 0;

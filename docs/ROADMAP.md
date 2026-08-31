@@ -256,9 +256,12 @@ Items 1–2, below, are the ones with real substance after that.
   most note-CRUD and agent orchestration. Left deliberately when the other
   four modules were extracted; it is the most interleaved part of the file and
   needs its own session.
-- **`manager.all_tags()` has no cap**, unlike every sibling section of the
-  same responses. Now cheap on a cache miss (§86 made it a column-only
-  select), so this is lower urgency than it was, not gone.
+~~- **`manager.all_tags()` has no cap**, unlike every sibling section of the
+  same responses.~~ **Built.** `routes_library.py`'s `_tags()` now slices
+  to `PER_KIND_LIMIT` like every other kind section there; already most-
+  used-first, so the slice keeps the tags worth finding by. `GET /tags`
+  (the Tag Manager itself) stays uncapped on purpose — its job is renaming
+  or deleting *any* tag. 2 new tests.
 - **Mirroring ordinary toasts into the notifications panel** — the other half
   of the mute feature. Every `toast()` call site needs a `kind` first, or the
   panel floods with routine "Saved." noise.

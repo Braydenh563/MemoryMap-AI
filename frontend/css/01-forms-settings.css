@@ -2790,6 +2790,13 @@ html.modal-open body {
   border-radius: var(--radius-md);
   background: var(--input-bg);
   cursor: text;
+  /* Matches the textarea this replaces. `.char-count` below carries
+     `margin-top: -0.4rem` to sit snug under the box, which only works
+     because the box has a bottom margin to absorb it — with none here the
+     count was pulled 6px *inside* the preview and collided with whatever sat
+     at the bottom, a code block in the report. Measured before: the count's
+     top was 6px above the preview's bottom edge. */
+  margin-bottom: var(--space-4);
 }
 
 .entry-preview.hidden {

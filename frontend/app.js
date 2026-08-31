@@ -12131,6 +12131,30 @@ function revealActiveTab() {
 
 window.addEventListener("resize", syncTabOverflowFade, { passive: true });
 $("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true });
+
+// Same edge-fade, generalised for every other `.edge-fade` strip (Notes
+// sub-tabs, Library sub-tabs, the document sidebar's tabs) — none of them
+// wrap to their own row the way #tab-bar does, so this is just the fade
+// half of syncTabOverflowFade, reused rather than duplicated.
+function syncEdgeFade(bar) {
+  if (!bar) return;
+  const hidden = bar.scrollWidth - bar.clientWidth;
+  bar.classList.toggle("fade-start", hidden > 1 && bar.scrollLeft > 1);
+  bar.classList.toggle("fade-end", hidden - bar.scrollLeft > 1);
+}
+
+for (const bar of document.querySelectorAll(".edge-fade")) {
+  syncEdgeFade(bar);
+  bar.addEventListener("scroll", () => syncEdgeFade(bar), { passive: true });
+  if (typeof ResizeObserver !== "undefined") {
+    // Fires when a hidden (0-width) strip becomes visible on tab switch,
+    // same as content changing width — no extra wiring needed per tab.
+    new ResizeObserver(() => syncEdgeFade(bar)).observe(bar);
+  }
+}
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".edge-fade").forEach(syncEdgeFade);
+}, { passive: true });
 // The pill's text arrives with the status polls, long after first paint, and
 // changes width when it does — so remeasure whenever the header changes size
 // rather than only on window resize.

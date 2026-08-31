@@ -1090,6 +1090,15 @@ callouts" entry before rebuilding anything that sounds finished.**
    content handed to the model as extracted plain text (`core/ocr.py`/
    `ai/captioning.py`'s own shape) — cheap regardless of model size. Own
    session.
+~~4. **The documents-dock row wasn't aligned.**~~ **Fixed.** `#doc-view-seg`
+   inherited `.seg`'s stock `margin-bottom: 0.5rem`; nothing zeroed it for
+   `.doc-dock`, so the pills sat 4px above "AI edit"/"Extract notes"/the
+   kebab — the exact bug `.chat-dock-controls .seg` already fixed for
+   itself. `.doc-dock .seg { margin: 0; }` added; live-verified, all six
+   controls now share one `centerY`. Also answered: the Library sub-tabs
+   bar is deliberately absent from the editor (§87.7d) — the editor has its
+   own switcher (sidebar Recent list + "Browse all in Library →"); showing
+   All/Whiteboards/Image Gallery there would apply to nothing on screen.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 

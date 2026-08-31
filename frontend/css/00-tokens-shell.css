@@ -681,6 +681,35 @@ header#top-bar.tabs-wrapped #tab-bar {
   width: 100%;
 }
 
+/* Generic version of the same edge-fade `#tab-bar` uses, for every other
+   horizontally-scrolling tab strip (Notes sub-tabs, Library sub-tabs, the
+   document sidebar's tabs) — same reasoning: a tab a phone/tablet width
+   scrolls out of reach should look scrollable, not just cut off. Asked for
+   directly after the small-screen audit found the Notes strip clips at
+   390px with no affordance at all (`scrollbar-width: none` hides the one
+   native hint browsers give). JS (`syncEdgeFade`, app.js) toggles the same
+   `fade-start`/`fade-end` classes `#tab-bar` already defines. */
+.edge-fade {
+  --tab-fade: 1.5rem;
+}
+
+.edge-fade.fade-end {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+
+.edge-fade.fade-start {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade));
+}
+
+.edge-fade.fade-start.fade-end {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
+      #000 calc(100% - var(--tab-fade)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--tab-fade),
+      #000 calc(100% - var(--tab-fade)), transparent 100%);
+}
+
 #tab-bar.fade-end {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);
   mask-image: linear-gradient(to right, #000 calc(100% - var(--tab-fade)), transparent 100%);

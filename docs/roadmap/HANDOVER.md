@@ -1,6 +1,88 @@
 # Session handover
 
-## New session — three ROADMAP §89 items closed (chat-mode chip, caption task visibility, whiteboard cut/context-menu), two of three live-verified in Chromium
+## New session — §90.2 small-screen audit (measured, not yet acted on) + a live-reported documents-dock alignment bug, found and fixed
+
+Branch `claude/docs-review-priority-work-sequ16`, continuing from the prior
+session below. Started §90.2 (the never-done phone/tablet audit): server up,
+Playwright driven at 390px and 820px against the tab bar, dashboard,
+Settings modal, Notes, Library and Chat/Graph. Findings, not yet acted on:
+
+- **The tab bar's overflow-fade clips real tab buttons at phone width**
+  (390px: `scrollWidth` 640 vs `clientWidth` 364 — Library/Timeline/Reminders
+  scroll out of view) and needs a closer look at whether the fade affordance
+  reads as "more tabs" or just looks cut off — not confirmed either way,
+  screenshot only shows the visible slice.
+- ~~A dashboard activity-heatmap widget appeared to render its cells
+  entirely off the left edge~~ **False positive, chased down and ruled
+  out.** `.heat-cell` spans reported negative `left` (`-339px` at 390px
+  width) against the *window*, which looked like an overflow bug — but
+  `.heatmap` (`03-dashboard-widgets.css:1149`) is a deliberately
+  horizontally-scrollable widget (`overflow-x: auto`, a year of days as
+  10px columns), and `renderHeatmapWidget` (dashboard.js:2025-2027)
+  scrolls it to `scrollWidth` on load so it opens on "today" rather than a
+  year of empty squares. A cell scrolled past the left edge of its own
+  scroll container reports negative `left` against the window the same way
+  any carousel's off-screen items would — that is the widget working as
+  designed, not a layout bug. The audit script's `findOverflow` doesn't
+  know about scrollable ancestors and needs that exemption before it can
+  be trusted on any other horizontally-scrolling surface (the tab bar
+  itself is one — see below).
+- Several other flagged "overflow" elements (buttons/spans reported off-
+  canvas on Notes/Chat/Graph at phone width) were **not chased down** — may
+  be the same false-positive shape the WCAG audit hit last session
+  (something legitimately off-screen until toggled, like a dropdown), may
+  be real. Script is `smallscreen.js` in scratch; rerun and inspect each
+  flagged element's class/role before trusting the count.
+
+This got interrupted mid-audit by a live user report (with a screenshot) of
+a real, reproducible bug, which took priority:
+
+### What was built
+
+- **The documents editor's top dock row wasn't vertically aligned.**
+  Reported directly with a screenshot: the Live/Source/Split/Read pill
+  segment sat visibly higher than "AI edit"/"Extract notes"/the kebab
+  beside it. Root cause, found by reading CSS rather than guessing:
+  `#doc-view-seg` carries the base `.seg` rule's `margin-bottom: 0.5rem`,
+  and nothing in `.doc-dock`'s own block zeroed it — the exact bug
+  `.chat-dock-controls .seg` already hit and fixed for itself (documented
+  in its own comment, `04-chat-dock-appearance.css:642-654`): `align-items:
+  center` centres a flex item's *margin box*, so an unmatched bottom margin
+  pulls that one control up relative to siblings that don't carry it.
+  Fixed the same way: `.doc-dock .seg { margin: 0; }`. **Live-verified**:
+  before the fix, `getComputedStyle` showed `#doc-view-seg` at
+  `margin-bottom: 8px` against `0px` on `#doc-ai`/`#doc-extract`/the kebab;
+  after, all four (plus `.doc-dock-status` and the divider) report the
+  identical `centerY` (203.98px) in a real rendered document editor.
+  Screenshot before/after in scratch (`dd-01-dock-before.png`, taken after
+  the fix — the "before" state was only ever inspected via computed style,
+  not screenshotted, since the bug is a few pixels and the numbers were
+  the conclusive evidence).
+- **Answered, not built: whether the Library sub-tabs bar (All · Documents ·
+  Whiteboards · Image Gallery · AI Skills) should show at the top of the
+  documents editor.** No — by the design already recorded at §87.7d: the
+  editor is deliberately not a peer of Library's own tab strip any more
+  (the top-level Documents tab was removed for exactly this reason), and
+  it already has its own equivalent — the sidebar's Recent list plus
+  "Browse all in Library →" at the bottom. Confirmed live in the same
+  screenshot: the top tab bar shows "Library" as the active tab while the
+  editor is open (the documented `revealTab` alias), and the sub-tabs bar
+  is absent from that view — reproducing it would apply to nothing on
+  screen, since none of its five tabs describe what the editor shows.
+
+Full suite run in the background this session; `ruff check .` and the four
+docs/frontend lint tests (`test_style_scale`, `test_docs_layout`,
+`test_frontend_ids`, `test_frontend_handlers`) all green before commit.
+
+### What I still could not check
+
+- The §90.2 audit above is a first pass, not a finished one — the heatmap
+  overflow and the tab-bar fade both need a closer look before either is
+  called a real bug or dismissed.
+- The dock-alignment fix was checked at desktop width (1400px) only; not
+  re-checked at the phone/tablet widths the audit above was measuring.
+
+## Prior session — three ROADMAP §89 items closed (chat-mode chip, caption task visibility, whiteboard cut/context-menu), two of three live-verified in Chromium
 
 Branch `claude/docs-review-priority-work-sequ16`. Worked from §89's "still
 open" list rather than the front of the file — the three picked were the

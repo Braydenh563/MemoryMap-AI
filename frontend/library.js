@@ -103,6 +103,12 @@ let libraryCounts = {};
 let libraryOverview = {};
 let libraryKind = "all";
 
+//: Same pattern as Notes' and the Library Documents sub-tab's own paging —
+//: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
+//: a number slices the already-filtered/sorted list to one flat page instead.
+let libraryPageSize = localStorage.getItem("library-page-size") || "all";
+let libraryCurrentPage = 1;
+
 //: Order matters: it is the order of the chips. "All" first because it is the
 //: default and the one you come back to, then by how often you would reach for
 //: the kind — a document is something you sat down to write, a binned note is
@@ -213,6 +219,7 @@ function renderLibraryOverview() {
     button.addEventListener("click", () => {
       libraryKind = tile.kind;
       if (tile.kind === "archived") $("library-show-binned").checked = true;
+      libraryCurrentPage = 1; // a filter switch can move an item off whatever page it was on
       renderLibraryOverview();
       renderLibraryFilters();
       renderLibrary();
@@ -285,6 +292,7 @@ function renderLibraryFilters() {
     button.append(icon, label, badge);
     button.addEventListener("click", () => {
       libraryKind = kind.key;
+      libraryCurrentPage = 1;
       renderLibraryFilters();
       renderLibrary();
     });
@@ -413,6 +421,23 @@ function renderLibrary() {
       : items.filter(wordMatch);
   }
   items = librarySorted(items);
+
+  // Sliced after filtering/sorting and before the render loop below, same
+  // point renderLibraryDocuments() slices at.
+  const pageBar = $("library-pagination");
+  if (libraryPageSize === "all" || !items.length) {
+    pageBar?.classList.add("hidden");
+  } else {
+    const pageSize = Number(libraryPageSize);
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+    libraryCurrentPage = Math.min(Math.max(1, libraryCurrentPage), totalPages);
+    const start = (libraryCurrentPage - 1) * pageSize;
+    items = items.slice(start, start + pageSize);
+    pageBar?.classList.remove("hidden");
+    $("library-page-status").textContent = `Page ${libraryCurrentPage} of ${totalPages}`;
+    $("library-page-prev").disabled = libraryCurrentPage <= 1;
+    $("library-page-next").disabled = libraryCurrentPage >= totalPages;
+  }
 
   const updateDOM = () => {
     grid.replaceChildren();
@@ -1027,6 +1052,7 @@ $("skills-add-new")?.addEventListener("click", async () => {
 let librarySearchDebounceTimeout;
 async function runLibrarySearch() {
   await refreshLibrarySemantic();
+  libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }
 $("library-semantic-toggle").addEventListener("change", runLibrarySearch);
@@ -1034,17 +1060,24 @@ $("library-search").addEventListener("input", () => {
   clearTimeout(librarySearchDebounceTimeout);
   librarySearchDebounceTimeout = setTimeout(runLibrarySearch, 150);
 });
-$("library-sort").addEventListener("change", renderLibrary);
+$("library-sort").addEventListener("change", () => {
+  libraryCurrentPage = 1;
+  renderLibrary();
+});
 for (const button of document.querySelectorAll("#library-sort-seg button")) {
   button.addEventListener("click", () => {
     document.querySelectorAll("#library-sort-seg button").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
     const select = $("library-sort");
     if (select) select.value = button.dataset.sort;
+    libraryCurrentPage = 1;
     renderLibrary();
   });
 }
-$("library-show-binned").addEventListener("change", renderLibrary);
+$("library-show-binned").addEventListener("change", () => {
+  libraryCurrentPage = 1;
+  renderLibrary();
+});
 for (const button of document.querySelectorAll("#library-view button")) {
   button.addEventListener("click", () => {
     localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
@@ -2707,6 +2740,25 @@ document.addEventListener("DOMContentLoaded", () => {
   $("library-docs-page-next")?.addEventListener("click", () => {
     libraryDocsCurrentPage += 1; // clamped back down inside renderLibraryDocuments if this overshoots
     renderLibraryDocuments();
+  });
+  const libraryPageSizeSelect = $("library-page-size");
+  if (libraryPageSizeSelect) {
+    libraryPageSizeSelect.value = libraryPageSize;
+    libraryPageSizeSelect.addEventListener("change", (e) => {
+      libraryPageSize = e.target.value;
+      localStorage.setItem("library-page-size", libraryPageSize);
+      libraryCurrentPage = 1;
+      renderLibrary();
+    });
+  }
+  $("library-page-prev")?.addEventListener("click", () => {
+    if (libraryCurrentPage <= 1) return;
+    libraryCurrentPage -= 1;
+    renderLibrary();
+  });
+  $("library-page-next")?.addEventListener("click", () => {
+    libraryCurrentPage += 1; // clamped back down inside renderLibrary if this overshoots
+    renderLibrary();
   });
   $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
   $("library-images-upload-input")?.addEventListener("change", async (event) => {

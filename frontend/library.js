@@ -1515,6 +1515,13 @@ const libraryExpandedCaptions = new Set();
 // bulk-delete silently found nothing to act on.
 const libraryDocsSelection = new Set();
 
+// BACKLOG §77's page-size pattern, extended to the Library's Documents
+// sub-tab (§89 item 1) — a plain newest-first list with no due/overdue
+// framing to protect, unlike Reminders, so a straight full-list page slice
+// is safe here.
+let libraryDocsPageSize = localStorage.getItem("library-docs-page-size") || "all";
+let libraryDocsCurrentPage = 1;
+
 // The Library sub-tab drafts were supposed to live in from the start — a
 // stray comment already claimed "the sidebar/Library Drafts filter... is
 // what makes them findable" and HISTORY.md said the same, but no
@@ -1566,6 +1573,24 @@ async function renderLibraryDocuments() {
   noMatch?.classList.toggle("hidden", !isFilteredEmpty);
   if (noMatch && isFilteredEmpty) {
     noMatch.textContent = `No documents match \u201C${needle}\u201D.`;
+  }
+
+  // Sliced after the selection-cleanup above (which has to see every live
+  // id, not just the current page) and before the render loop below.
+  const pageBar = document.getElementById("library-docs-pagination");
+  if (libraryDocsPageSize === "all" || !docs.length) {
+    pageBar?.classList.add("hidden");
+  } else {
+    const pageSize = Number(libraryDocsPageSize);
+    const totalPages = Math.max(1, Math.ceil(docs.length / pageSize));
+    libraryDocsCurrentPage = Math.min(Math.max(1, libraryDocsCurrentPage), totalPages);
+    const start = (libraryDocsCurrentPage - 1) * pageSize;
+    docs = docs.slice(start, start + pageSize);
+    pageBar?.classList.remove("hidden");
+    document.getElementById("library-docs-page-status").textContent =
+      `Page ${libraryDocsCurrentPage} of ${totalPages}`;
+    document.getElementById("library-docs-page-prev").disabled = libraryDocsCurrentPage <= 1;
+    document.getElementById("library-docs-page-next").disabled = libraryDocsCurrentPage >= totalPages;
   }
 
   for (const doc of docs) {
@@ -2660,7 +2685,29 @@ document.addEventListener("DOMContentLoaded", () => {
   // Filter as you type. No debounce: the list is already in memory after the
   // first fetch and re-rendering it is cheap, unlike the semantic searches
   // elsewhere that a debounce exists to protect.
-  $("library-docs-search")?.addEventListener("input", renderLibraryDocuments);
+  $("library-docs-search")?.addEventListener("input", () => {
+    libraryDocsCurrentPage = 1; // a new search can move a document off whatever page it was on
+    renderLibraryDocuments();
+  });
+  const docsPageSizeSelect = $("library-docs-page-size");
+  if (docsPageSizeSelect) {
+    docsPageSizeSelect.value = libraryDocsPageSize;
+    docsPageSizeSelect.addEventListener("change", (e) => {
+      libraryDocsPageSize = e.target.value;
+      localStorage.setItem("library-docs-page-size", libraryDocsPageSize);
+      libraryDocsCurrentPage = 1;
+      renderLibraryDocuments();
+    });
+  }
+  $("library-docs-page-prev")?.addEventListener("click", () => {
+    if (libraryDocsCurrentPage <= 1) return;
+    libraryDocsCurrentPage -= 1;
+    renderLibraryDocuments();
+  });
+  $("library-docs-page-next")?.addEventListener("click", () => {
+    libraryDocsCurrentPage += 1; // clamped back down inside renderLibraryDocuments if this overshoots
+    renderLibraryDocuments();
+  });
   $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
   $("library-images-upload-input")?.addEventListener("change", async (event) => {
     const input = event.target;

@@ -783,10 +783,13 @@ callouts" entry before rebuilding anything that sounds finished.**
    live: 3 overdue + 60 done at 25/page shows all 3 overdue plus "Page 1
    of 3" of Done; paging Done to page 2 leaves the overdue count at 3,
    unmoved; switching to the "Open" filter hides the (now-empty) Done
-   pagination bar while the 3 overdue stay fully visible. Still open: the
-   Library sub-tabs, which differ in shape from each other (Documents is a
-   flat list, the "All" grid mixes kinds with its own filter chips) more
-   than Notes' browse view did.
+   pagination bar while the 3 overdue stay fully visible.
+   ~~The Library sub-tabs~~ **Documents half built** — `#library-docs-
+   page-size`, same shape as Notes' (no due/overdue framing to protect
+   here, so no carve-out needed). Verified live: 55 docs, 25/page shows
+   "Page 1 of 3", Next moves to page 2, the choice persists across a
+   reload. Still open: the "All" grid, which mixes kinds with its own
+   filter chips and differs in shape from both Notes and Documents.
 
 2. **Uploading a document (not an image) to the chat composer fails
    silently into the transcript.** Reported directly, reproduced in the

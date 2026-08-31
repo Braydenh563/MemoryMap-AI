@@ -140,7 +140,7 @@ pick the model or leave it automatic, in which case a document reader
 model when you have one.
 
 Plus a status bar, command palette (`Ctrl`/`Cmd`+`K`), a sketch pad, local
-Whisper dictation, read-aloud, opt-in web search, 12 themes over 8 colour
+Whisper dictation, read-aloud, opt-in web search, 10 themes over 8 colour
 palettes, 19 built-in skills, interface zoom (`Ctrl`+`+`/`-`/`0`), and daily
 local backups.
 
@@ -221,7 +221,7 @@ report — are answered in **[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md
 ## Developing
 
 ```
-pytest                       # ~2, 400 tests, ~5-6 minutes
+pytest                       # ~2,550 tests, ~5-6 minutes
 ruff check .                 # what CI lints with
 node --check frontend/app.js # the frontend is one plain-JS file
 ```
@@ -252,7 +252,7 @@ docs/                  # ARCHITECTURE.md, DESIGN.md, ROADMAP.md + roadmap/
 ## Where it's up to
 
 The core app — capture, chat, the graph, documents, private notes, themes,
-the whiteboard, desktop packaging — is built and stable; **2,400+ tests**
+the whiteboard, desktop packaging — is built and stable; **2,500+ tests**
 stay green on every push. What changed most recently, wave by wave, is in
 [`CHANGELOG.md`](CHANGELOG.md). What's still open, ranked with the
 reasoning behind each item, is [`docs/ROADMAP.md`](docs/ROADMAP.md) — kept
@@ -273,12 +273,15 @@ current every session rather than periodically reconciled with this file.
 | [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed, wave by wave |
 
-**Operational decisions worth knowing:** migrations are additive (no
-Alembic yet — deliberately deferred until a column rename is genuinely
-needed); SQLCipher is deferred too (your OS's disk encryption covers a
-single-user local file, and private notes are already encrypted
-individually); CI lints with ruff and runs the full suite on Python 3.11–3.13
-on every push, needing no GPU, models or network beyond pip.
+**Operational decisions worth knowing:** migrations are additive by
+default — a new column is added automatically the next time the app opens
+an older database, no migration script needed; Alembic is wired in behind
+that (every database is stamped to a baseline revision) for the day a
+rename or drop is actually needed, which additive-only changes can't do;
+SQLCipher is deferred (your OS's disk encryption covers a single-user
+local file, and private notes are already encrypted individually); CI
+lints with ruff and runs the full suite on Python 3.11–3.13 on every push,
+needing no GPU, models or network beyond pip.
 
 ## License
 

@@ -3084,3 +3084,75 @@ against the single-user/no-sync design); native mobile companion apps kept
 in sync (needs cloud sync or a self-hosted server); meeting-platform-specific
 speaker-name capture via a browser extension (the local, nameless version is
 item 8 above instead).
+
+## §103 — reported live this session, and a batch of feature asks — logged, none built yet
+
+1. **The Documents-list kebab menu reported visually broken, with a
+   screenshot** (a teal-bordered box around "Preview" alone, then a
+   separately-styled block for Rename/Download/Delete below it). **Not
+   reproduced.** Tried live in this sandbox's Chromium: default light theme
+   and dark mode (`applyThemeChoice('dark')`), both desktop (1400px) and
+   phone (390px) width, on the exact menu the screenshot matches
+   (`library.js`'s Documents sub-tab kebab, `wireEscapedActionMenu` —
+   already reparented to `<body>` with a `position: fixed` placement
+   computed from the opener's own rect). Every reproduction measured and
+   screenshotted clean: one menu, one background, items evenly spaced, no
+   overlap. One real but much smaller thing found along the way, not a
+   match for the report: the escaped menu's background
+   (`rgba(24,27,37,0.97)` in dark mode) is very slightly translucent, so a
+   document row directly behind it is faintly visible through it — worth a
+   fully-opaque background if this comes up again, but not what was
+   photographed. The screenshot's teal accent and glassy look don't match
+   this app's default palette, the same shape a prior session's Settings-
+   modal-contrast report turned out to be ("the user's screenshots
+   consistently show a custom teal accent, not the default indigo") —
+   next report should include the browser/OS, whether a custom accent/
+   glass setting is on, and the zoom level.
+2. **The Library "All" tab needs more utility**, asked for broadly with
+   several concrete examples worth splitting out:
+   - **Tag management — rename, merge, browse.** `entry/manager.py` already
+     has `rename_tag`/`delete_tag` (merge-by-rename: renaming to an
+     existing tag's name merges into it) and `GET /tags` already returns
+     every tag uncapped specifically so a management screen could reach all
+     of them — but **no frontend "Tag Manager" screen calls any of this**
+     (`grep -rn "Tag Manager\|renameTag" frontend/` is empty). The backend
+     is the built half; the UI is the missing half.
+   - **Click a tag to see every note carrying it.** Likely partly there
+     already — `openTimelineBand`'s own comment (`app.js`) says clicking a
+     band should do "what clicking either already does elsewhere in the
+     app (the sidebar's category rows, a Library tag card)," implying a
+     Library tag card click already filters to that tag's notes. Confirm
+     live before building a second mechanism.
+   - **Renaming a saved chat.** `grep -rn "renameConversation" frontend/`
+     is empty — genuinely missing, unlike the two above.
+   - The broader "make more and easily access them" ask (drafts, chats,
+     files, everything) needs a concrete list of what's missing per kind
+     rather than one broad redesign — say what specifically, next time.
+3. **Recording new meeting notes already works** (`openMeetingRecorder`,
+   `Ctrl+Shift+R`). **Editing an existing one is unconfirmed** — a
+   transcribed meeting presumably lands as an ordinary note or document,
+   editable the normal way, but whether there's a dedicated "re-open this
+   meeting" flow (re-transcribe, resume a paused recording, see the
+   original audio again) was not checked this session. Scope by asking
+   what "edit" should mean here before building anything.
+4. **Whiteboard: curved lines and custom anchor points — partly built,
+   asked for again without checking first (caught before repeating that
+   mistake here).** A link already toggles straight vs. curved
+   (`wbLinkPathD`, a symmetric cubic bezier through the midpoint — not a
+   freeform curve), and objects already have **eight fixed** anchor points
+   (corners + edge midpoints, `WB` link code, HANDOVER §53-55, "inspiration
+   from draw.io") that a resize carries along for free. What's genuinely
+   still open: an anchor point anywhere on an object's edge, not just the
+   fixed eight, and interactively bending an existing link's curve (drag a
+   control-point handle) rather than only the automatic symmetric bezier.
+   A freeform curved *sketch* tool (not object-to-object links at all) is
+   a separate, bigger ask — the sketch pad is pure-raster today (ROADMAP's
+   own Tier 2 item 10 already names this as needing a real architecture
+   change, not a small patch).
+5. **Whiteboard: bring-to-front / send-to-back for a selection.** Checked,
+   genuinely absent — `grep -n "bringToFront\|sendToBack" whiteboard.js`
+   only turns up an unrelated drag-time DOM reorder (a dragged node is
+   appended as its parent's last child so it paints above its siblings
+   *while being dragged*, not a real, persisted z-order a person can set
+   deliberately). Would need a stored order (an integer column, or array
+   position) per board item, plus the two menu actions.

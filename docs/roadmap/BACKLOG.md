@@ -908,13 +908,15 @@ spends its time is currently a guess.
   rebuilds the entire list on any change. See §31's module-split
   recommendation in ANALYSIS.md, still unaddressed.
 - **Context warning** as the window fills — the per-turn cost is already shown.
-- **A per-chat token/context meter the user can actually see.** Asked twice,
-  once directly ("a better way to track tokens and other things") and once
-  from the outside review ("prompt inspector, token counts, latency
-  breakdown"). §11a already measures this server-side (prompt composition is
-  logged per round); what's missing is surfacing it in the Chat tab itself —
-  a small "~1.4k tokens this turn, 3.1k fixed overhead" readout, not just a
-  log line only visible in Settings → Logs.
+~~- **A per-chat token/context meter the user can actually see.**~~ **Built**
+  (ROADMAP §88.4 item 4). Asked twice, once directly ("a better way to track
+  tokens and other things") and once from the outside review ("prompt
+  inspector, token counts, latency breakdown"). §11a already measured this
+  server-side (prompt composition logged per round, chars only, Settings →
+  Logs only) — now also attached as a token estimate to the chat metadata
+  line's own window-fill tooltip, exactly the "~1.4k tokens this turn, 3.1k
+  fixed overhead" shape asked for, per stage (system/tools/history/notes)
+  rather than a single fixed-overhead number.
 - **An eval/benchmark harness tied to changes here.** Every optimisation in
   this section so far has been measured by hand, in one session, against
   whatever the person doing it happened to type. A small fixed set of
@@ -2949,18 +2951,21 @@ before scoping anything new:**
   their meaning and purpose" half at the *notebook* level, not just per-note
   — no tiered always-on/retrieved/session-only memory exists anywhere in
   `ai/` today.
-- **§88.4 item 4 ("no token accounting per stage")** is the "at a
-  relatively low cost" half, and is explicitly the *prerequisite* to
-  anything else here, not an independent item: there is no instrumentation
-  today measuring what a graph-expanded, link-weighted retrieval pass
-  actually costs per turn, so "low cost" cannot honestly be claimed or
-  tuned toward until it can be measured.
+~~- **§88.4 item 4 ("no token accounting per stage")**~~ **Built** — the "at a
+  relatively low cost" half, and was the *prerequisite* to anything else
+  here, not an independent item. A per-stage token estimate (system/tool
+  schemas/history/notes) is now attached to every turn's stats and shown in
+  the chat metadata line's tooltip, so a graph-expanded, link-weighted
+  retrieval pass's actual cost can now be read off directly, turn by turn,
+  rather than needing new instrumentation first.
 
-**Not re-scoped here, on purpose.** Writing a second, parallel design for
-"AI-native graph navigation" without first building §88.4 item 4's
-measurement would repeat this project's own standing caution (§88.4's
-closing note: "every one of these becomes a change nobody can prove
-helped"). The order that respects what is already true: instrument (item
-4) → weight links (§87.5) → re-measure whether graph_expansion's existing
-walk got better, not build a new mechanism beside the one that already
-runs on every retrieval call.
+**Not re-scoped here, on purpose — but the order can now actually start.**
+Writing a second, parallel design for "AI-native graph navigation" without
+first building §88.4 item 4's measurement would have repeated this
+project's own standing caution (§88.4's closing note: "every one of these
+becomes a change nobody can prove helped"). That measurement now exists.
+The order that respects what is already true: instrument (item 4, done) →
+weight links (§87.5, still open) → re-measure whether `graph_expansion`'s
+existing walk got better, not build a new mechanism beside the one that
+already runs on every retrieval call. §87.5 is the next real step, not
+this item.

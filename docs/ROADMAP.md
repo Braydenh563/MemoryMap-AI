@@ -741,22 +741,31 @@ same-session miss like a couple of others this file records elsewhere.**
    in `ai/`. A short, user-editable always-on memory block, capped and shown
    in Settings, is a contained change with a large effect on how the
    assistant reads.
-4. **No token accounting per stage.** Still genuinely open — `ai/context.py`
-   manages a token *budget* (staying under the window), which is a
-   different thing from *measuring* how much of a real turn goes to system
-   prompt vs. retrieved notes vs. history. Instrument it before tuning
-   anything further; a per-turn breakdown makes every later decision
-   evidence-based. (BACKLOG's per-chat token meter is the same idea.)
+~~4. **No token accounting per stage.**~~ **Built.** Both request paths
+   (`agent.py`'s tool loop, `routes_chat.py`'s no-tools path) now attach a
+   `system`/`tool_schemas`/`history`/`notes` token estimate to the first
+   round's stats event — chars/4, the same approximation `ai/context.py`'s
+   own budgeting already used, so no new dependency. Surfaced in the chat
+   metadata line's window-fill tooltip, which is also BACKLOG's "per-chat
+   token meter" ask, answered by extending what already existed there
+   rather than a second UI element. 2 new tests (`test_chat_metadata.py`,
+   against `fake_ollama` — this sandbox has no reachable model, so that is
+   the only way to test the wire format). What this does **not** do: give
+   §5 below a *per-round* re-measurement (still the first round's snapshot,
+   same limitation the pre-existing char-based log line already had) — a
+   real per-round breakdown would need re-measuring inside the tool loop,
+   not attempted.
 5. **Tool retrieval is all-or-nothing.** Still genuinely open. Every tool
    definition is sent every round. §33 already scoped semantic tool
-   retrieval and rightly said it needs measuring first — item 4 above is
-   the prerequisite.
+   retrieval and rightly said it needs measuring first — item 4's
+   instrumentation is now in place to do that measuring.
 
-**One caution that applies to the three real gaps above.** Every provider
-test in this repo runs against a fake transport, and this sandbox has no
-reachable model. Retrieval *quality* changes cannot be evaluated here at
-all. Build the measurement (item 4) and a small fixed question set *first*,
-or every one of these becomes a change nobody can prove helped.
+**One caution that still applies to the two real gaps above (item 3,
+item 5).** Every provider test in this repo runs against a fake transport,
+and this sandbox has no reachable model. Retrieval *quality* changes cannot
+be evaluated here at all. Use item 4's new instrumentation and a small
+fixed question set *first*, or either of these becomes a change nobody can
+prove helped.
 
 ## §89 — reported this session, not yet built (start here next)
 

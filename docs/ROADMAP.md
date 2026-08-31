@@ -1045,7 +1045,7 @@ them.
 | Callout boxes / frames | ABSENT (now built, 87.2) | `renderMarkdown`'s blockquote branch had no `[!kind]` sniffing |
 | Wiki-links | PARTIAL | Worked in notes (`renderNoteText`) and doc preview (`layerDocWikiLinks`) — but two *different* resolvers, `[[` autocomplete on `#entry-content` only, and no create-on-miss. Backend hook: `sync_wiki_links`, `entry/manager.py:1496` |
 | Gravity / spread sliders | **ALREADY BUILT** | `index.html:1263-1269`, applied `graph.js:1255-1273`, persisted. Known gap: no effect under tree/radial (BACKLOG §536) |
-| Move nodes freely | PARTIAL | Drag exists (`graph.js:1411-1476`) but **clears `fx/fy` on drop**. Double-click pin exists (`:1496-1508`) but is **never persisted** |
+| Move nodes freely | **BUILT** | Drag still releases an unpinned node on drop (correct — that's a normal drag, not a hold). Double-click pin is now persisted (`Entry.graph_pin_x/y`, `PUT /graph/pin/{id}`) and survives a reload. A real toggle bug found live in the process — a double-click's own two constituent clicks each ran a zero-distance drag that unconditionally cleared the pin before the dblclick handler saw it, so unpinning never actually worked — is also fixed. Full narrative: HISTORY.md §100 |
 | Hide nodes / groups | PARTIAL | Category-legend hide, orphan hide and time filter all exist. **No per-node hide, no marquee** — a full marquee exists only in `whiteboard.js:3167-3320` |
 | Graph → whiteboard | ABSENT | But **both auto-layout engines already exist**: `ai/tools/whiteboard.py:263-432` and `wbMindMapSpanningTree` |
 | Custom graph configurations | **ALREADY BUILT** | Saved views, `graph.js:2839-2958` |

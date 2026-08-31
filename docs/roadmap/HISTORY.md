@@ -5289,3 +5289,47 @@ render scheduler item was already fixed in an earlier pass this same
 session (see live-list item G): every drag handler mutates the DOM
 directly rather than calling `wbScheduleRender()`/a full re-render,
 checked across all 48 call sites per that function's own comment.
+
+**§87.1's "Move nodes freely" audit row — the pin persistence half
+built, and a real toggle bug found live in the process.** Two nullable
+columns (`Entry.graph_pin_x`/`graph_pin_y`, additive — the existing
+auto-migrator handles it, no migration script needed) and
+`PUT /graph/pin/{id}` to set or clear them (both-null or both-set only,
+a lone coordinate refused with a 400 rather than guessed). Both `/graph`
+and `/graph/local/{id}` return the fields, and `graph.js` restores
+`fx`/`fy` from them on every render — not only a fresh load, but any
+re-render at all, since the existing "carry prior position forward"
+logic (`priorPositions`) never carried `fx`/`fy`, so a pin used to be
+silently dropped by the next legend-filter toggle or physics-slider
+change even within the same session.
+
+Live-testing the unpin half in Chromium surfaced a second, genuinely
+pre-existing bug, not introduced by this change: a double-click is two
+constituent clicks, and `d3.drag()` fires its own start/end lifecycle on
+*any* mousedown+mouseup, including a zero-distance one that never
+actually moves the node. The drag-end handler unconditionally cleared
+the dragged node's own `fx`/`fy` on every such click — including both
+clicks inside every double-click gesture — before the `dblclick` handler
+itself ever ran. The result: `dblclick` always found `fx` already `null`
+and could only ever take the "pin" branch, never "unpin," regardless of
+the node's actual prior state — double-click-to-release had almost
+certainly never worked in the shipped app, just never caught, since nobody
+had tested the unpin half against a running instance before. Fixed by
+remembering (`d.wasPinnedBeforeThisDrag`) whether a node was already
+pinned before its own drag started, and only releasing it at drag-end
+if the drag itself was what pinned it — the same care `graphDragPinned`
+already gave every *other* node in the same handler, just never
+extended to the node being dragged itself.
+
+7 new backend tests (`test_graph_api.py`): set/clear/persist, the
+lone-coordinate 400, an unknown or deleted note 404s, and the same pin
+showing up in Focus Mode's `/graph/local/{id}`. Live-verified in
+Chromium: pinning shows the held look immediately and survives a
+reload (confirmed both via the `.graph-held` CSS class and a direct
+`/graph` refetch); a second double-click now correctly unpins (the PUT
+body changes from real coordinates to `{x: null, y: null}`, matching
+the bug fix above); leaving and re-entering the Graph tab still renders
+and pans correctly afterward. Not attempted: persisting a pinned node's
+new position when it is later dragged to reposition it — currently
+updates only in memory, a smaller and separate gap from "never
+persisted at all," which is what this closes.

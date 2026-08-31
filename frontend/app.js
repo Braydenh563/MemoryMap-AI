@@ -4216,10 +4216,17 @@ function beginOrCompleteLink(entry) {
 //   tag:work            only notes tagged "work"
 //   cat:recipes         only notes in that category (category: also works)
 //   is:pinned           pinned / private / linked / untagged
+//   tags:<2             fewer than 2 tags — also <=, >, >=, = (or bare N)
 //   -picnic             notes that do NOT mention "picnic"
 //   "exact phrase"      that phrase, verbatim
 //
 // Anything else is a plain word: all of them must appear, in any order.
+
+// `tags:<2`, `tags:<=1`, `tags:0` and so on — "how many tags", not "which
+// ones" (that's plain `tag:`). Asked for directly: a way to find the notes
+// that only ever got the janitor's default filing and never a second look,
+// since `is:untagged` alone only ever answered the zero case.
+const TAG_COUNT_RE = /^tags:(<=|>=|<|>|=)?(\d+)$/;
 
 function parseNoteQuery(raw) {
   const query = {
@@ -4229,6 +4236,7 @@ function parseNoteQuery(raw) {
     tags: [],
     categories: [],
     flags: [],
+    tagCount: null,
   };
   // Pull quoted phrases out first so their spaces don't become word breaks.
   const remainder = (raw || "").replace(/"([^"]+)"/g, (_, phrase) => {
@@ -4238,11 +4246,14 @@ function parseNoteQuery(raw) {
   for (const token of remainder.split(/\s+/)) {
     if (!token) continue;
     const lower = token.toLowerCase();
+    const tagCountMatch = TAG_COUNT_RE.exec(lower);
     if (lower.startsWith("tag:")) query.tags.push(lower.slice(4));
     else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));
     else if (lower.startsWith("cat:")) query.categories.push(lower.slice(4));
     else if (lower.startsWith("is:")) query.flags.push(lower.slice(3));
-    else if (lower.startsWith("-") && lower.length > 1) query.exclude.push(lower.slice(1));
+    else if (tagCountMatch) {
+      query.tagCount = { op: tagCountMatch[1] || "=", n: Number(tagCountMatch[2]) };
+    } else if (lower.startsWith("-") && lower.length > 1) query.exclude.push(lower.slice(1));
     else query.words.push(lower);
   }
   return query;
@@ -4255,8 +4266,24 @@ function noteQueryIsEmpty(query) {
     !query.exclude.length &&
     !query.tags.length &&
     !query.categories.length &&
-    !query.flags.length
+    !query.flags.length &&
+    !query.tagCount
   );
+}
+
+function matchesTagCount(tagCount, n) {
+  switch (tagCount.op) {
+    case "<":
+      return n < tagCount.n;
+    case "<=":
+      return n <= tagCount.n;
+    case ">":
+      return n > tagCount.n;
+    case ">=":
+      return n >= tagCount.n;
+    default:
+      return n === tagCount.n;
+  }
 }
 
 function matchesSearch(entry) {
@@ -4282,6 +4309,7 @@ function matchesSearch(entry) {
     if (flag === "linked" && !(entry.links || []).length) return false;
     if (flag === "untagged" && tags.length) return false;
   }
+  if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
   if (query.exclude.some((word) => haystack.includes(word))) return false;
   if (!query.phrases.every((phrase) => content.includes(phrase))) return false;
   // Every word must appear somewhere, in any order.

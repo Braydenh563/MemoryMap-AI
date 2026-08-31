@@ -2732,3 +2732,89 @@ any of the above, worth settling as one pass: which surfaces render markdown,
 whether code blocks get syntax highlighting, and whether notes should join —
 because "the AI wrote a diagram and I can't see it" and "my code block is
 grey" are the same gap.
+
+## §98 — reported live during the §90.2 small-screen pass, logged not built
+
+Four asks landed while the small-screen audit was running. Two were built the
+same session (the capture-composer `?` guide; the gallery-menu clipping fix —
+both in HANDOVER.md). These are the ones deliberately left open, with what was
+already checked so the next session does not re-derive it.
+
+1. **Collapsible / dropdown blocks at small screen sizes.** Asked for
+   directly, and deferred by the same message: *"some element blocks can
+   collapse and become dropdown menus, or can have left right buttons to move
+   left and right."* This is the shape §90.2 (ROADMAP) was heading toward
+   anyway, so treat it as that item's design direction rather than a separate
+   one. **What the audit already measured, so it does not need re-running:**
+   at 390px the tab bar is genuinely scrollable (`scrollWidth` 640 vs
+   `clientWidth` 364) and `#notes-subtabs` likewise (591 vs 341) — both now
+   at least *look* scrollable (`.edge-fade`, built this session), which is the
+   affordance half, not the restructure half. The dashboard heatmap's
+   apparently-off-canvas cells were chased down and are a **false positive**
+   (a deliberately horizontally-scrolling widget, scrolled to today by
+   design). Library, Chat and Graph reported clean at both 390px and 820px.
+   So the remaining work is a genuine layout restructure on the surfaces that
+   are merely *cramped* rather than broken — the 17-section Settings modal and
+   the document editor being the two named candidates — not a bug hunt.
+
+2. **Links in a note should show as a card, like an attached image or file.**
+   Asked as a question: *"if the user adds links to notes in the capture tab,
+   can they show as a card like an attached image or file at the bottom??"*
+   **Read this before scoping it, because two different things are called a
+   "link" here and only one of them is missing.** A `[[wiki link]]` to another
+   note *already* renders as a clickable chip on the saved note
+   (`renderNoteText`/`renderInlineMarkdown`, app.js) — that half exists and
+   should not be rebuilt. What does not exist is a card for an **external
+   URL**: paste `https://…` into a note and it renders as a plain inline
+   link, with none of the treatment `#entry-attachment-chips` gives an
+   attached file. The ask is for that shape — a card at the bottom of the
+   note, beside the attachment chips. Open design questions, all real:
+   whether the card is generated at save time or render time; whether it
+   fetches anything (this app is **offline-first** — a card that needs a
+   favicon or an OpenGraph title is a network call this project has spent
+   real effort avoiding, so the honest default is a card built from the URL
+   itself: host, path, and the link text the user typed); and whether
+   removing the card removes the URL from the note's text, which is exactly
+   the question `#entry-attachment-chips` already answered for images (it
+   detaches the reference, it does not delete the upload) and should answer
+   the same way for consistency.
+
+3. **The lightbox's bottom bar should do more.** Asked directly: *"can you
+   improve on and expand the capabilities and features at the bottom of the
+   lightbox?"* Not scoped this session. **What is there today**, so the next
+   session starts from fact rather than the screenshot: `openLightbox`
+   (app.js:2560) builds a `.lightbox-meta` line (filename, and "3 of 12" when
+   there is more than one item) and a `.lightbox-info` panel below it holding
+   four optional fields — `infoFacts` (dimensions, date added, filename),
+   `infoCaption`, `infoText` (OCR), and `infoByline`. So it is already an
+   *information* surface and has no *actions* at all: no download, no delete,
+   no rename, no "describe with AI", no rotate, no zoom, no copy-text. The
+   obvious move is that the five actions the gallery kebab already offers
+   (rename, describe with AI, read text with AI, read text offline, delete)
+   should be reachable from the lightbox too, since the lightbox is where you
+   are actually *looking* at the picture — the same "the action belongs where
+   the decision is made" reasoning that put the caption and OCR text there in
+   the first place. Zoom/pan is the other obvious gap and is a bigger piece.
+
+4. **Meeting notes need a real home.** Asked directly: *"the Meeting notes
+   feature still needs a way to be accessed and better utilised as well as
+   managed in the library as rn it is only accessible through the
+   dashboard."* **Checked before scoping, and the premise is partly out of
+   date — read this first.** Meetings are *already* a Library filter chip
+   (`library.js:129`, `{ key: "meeting", icon: "ph:video-camera", label:
+   "Meetings" }`) with a live count and a working filter, implemented as a
+   tag filter over notes rather than a real kind (`libraryKind === "meeting"`
+   filters `i.kind === "note" && tags.includes("meeting")`, library.js:372)
+   — a meeting note is a finished note, unlike a draft, which is why it is a
+   chip and not a sub-tab. Recording is also already reachable from the
+   command palette (`ph:microphone Record a meeting or lecture`,
+   app.js:16106), not only the Dashboard, and app.js:16101 carries a comment
+   recording an earlier ask to expand that popup into a proper surface.
+   So the genuine remaining work is **not** "add it to the Library" and
+   **not** "add a second entry point" — both exist. It is the *"better
+   utilised"* half, which is the unscoped one: what a meeting note should
+   carry beyond a transcript (speakers, decisions, action items → reminders,
+   a summary), and whether a meeting deserves to stop being a tagged note and
+   become a first-class kind — which is a schema change with an Alembic
+   migration behind it, and should be decided deliberately rather than
+   drifted into. Scope that question first; the UI follows from the answer.

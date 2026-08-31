@@ -5072,3 +5072,264 @@ flip, the mobile Skills layout, the Meeting Notes tab) rests on source-level
 reasoning only. The Minimise revert's premise — that `js_api` on
 `create_window()` causes the hang — rests on the user's own before/after
 test on their machine, not on anything reproduced here.
+
+## §100 — twelve completed items, full narrative moved from ROADMAP.md
+
+ROADMAP.md's own opening text says the file is "only what's still open" and
+that keeping finished narrative there "is how it got" past its 2,000-line
+ceiling — true of §1–§38, but not consistently applied to items added in
+later sessions, several of which sat fully written out, struck through, for
+multiple sessions after being marked Built. Moved here verbatim (each is now
+a one-line stub in ROADMAP.md pointing back to this section), not
+re-summarised, so nothing about what was actually verified is lost in the
+move.
+
+**A hybrid live-rendering document editor (live-list item 0).** Built
+(§93/§94). Four views in `#doc-view-seg` — Live (render-as-you-write, the
+caret's block showing its raw markdown), Source, Split, Read — plus document
+file types with a line-number gutter, Tab/Shift+Tab indent, and Ctrl+/
+commenting on the language's own marker. The separate "squished panes" half
+was a dead CSS rule: `#doc-panes` (an id) beat `.doc-panes.split`, so the
+side-by-side layout had never once applied. Full narrative in this file's own
+§93 entry.
+
+**Backup retention is not a setting (item B).** Built. The prune itself
+already existed (`backup.py`'s `KEEP_BACKUPS` was always enforced on every
+backup) — the gap was that the number was fixed in code, not a preference.
+`PUT /backups/retention` sets `backup_retention_count` and prunes
+immediately, `GET /storage` reports the current count and its 1–100 bounds,
+and Settings → Data has the number field beside the existing Backups list.
+
+**Guided first-run tour, and the rest of onboarding (item 6).** Built. The
+tour and the data-dir/Ollama diagnostics already existed; the two genuinely
+missing pieces are now offers on the same "Your setup" slide, neither
+automatic — a "Download a starter model" button (`POST /models/pull`, only
+shown when Ollama is running but the chat model isn't installed) and an "Add
+example notes" button (`POST /entries/seed-examples`, only shown on a
+genuinely empty notebook — `GET /entries/count`). The seed is five short
+notes about the app itself, two real `[[wiki-links]]` between them, two
+categories, spread across the last 9 days so the Timeline isn't a single dot
+— refuses server-side on any notebook that already has a note, seeded or
+real, so it can never double up or land on top of someone's actual notes.
+Verified live: the button appears/hides correctly, seeding produces exactly
+5 notes with both links resolved (`tests/test_seed_examples.py`), and a
+screenshot of the running app afterward shows the Dashboard's note count,
+category chips and the graph constellation all populated from the seed,
+unprompted.
+
+**Alembic migrations (item 7).** Built — HANDOVER.md's own "Alembic
+infrastructure" section documents it (`migrations/`, `alembic.ini`, a
+baseline revision every database is stamped to on first sight,
+`tests/test_alembic_baseline.py`), this entry was just never struck.
+Reconfirmed directly: `_ensure_alembic_baseline` exists in
+`core/database.py`, the migration scaffolding is on disk, and the test
+passes.
+
+**Crash-safe recovery for an interrupted re-index or model download (item
+9).** Checked directly — already safe by construction, nothing to build.
+`model_manager.py`'s `_run_reindex`: each entry's stale vector is deleted and
+committed *before* re-embedding it, one entry at a time — a crash mid-run
+leaves already-processed entries with fresh vectors and not-yet-reached ones
+with their old (still-functional; semantic search already falls back to
+keyword search on a backend mismatch) vectors. Nothing corrupted, nothing
+half-written — just a partially-refreshed index a later manual re-run
+completes. `_run_pull`: `job.status` is set to `"error"` on any failure, and
+its own comment already states the property directly — "never leave a
+half-download looking installed" (§6.5). Both jobs (`Job`) are **in-memory
+only**, not persisted, so a real process crash (not a graceful cancel) simply
+forgets the job existed on restart — no ghost "still running" state is
+possible because there is nowhere for one to survive to. The one gap, and
+it's cosmetic: neither job leaves a `taskhistory` record for a hard crash
+specifically (only for a clean cancel or a caught exception) — a crash
+mid-reindex shows nothing in Settings → Tasks afterward, rather than a "did
+not finish" entry. Not attempted: needs a startup-time reconciliation pass
+(did the last recorded reindex actually reach `total`?) that's a small but
+real addition, not a one-line fix.
+
+**Sorting and grouping saved chats (item 11).** Built: a sort `<select>` in
+the Chats sidebar (Recent / Most turns / Most tokens / A–Z), persisted in
+localStorage, pinned conversations always staying first regardless of mode
+(the existing divider still marks that boundary). One correction to this
+item's own premise: **model is not actually stored per turn** —
+`routes_conversations.py`'s `_summary()` returns `tokens`/`turns`/
+`updated_at`/`title` only, no model field exists on a message at all — so
+"sort by model" was never available to build cheaply as claimed. The three
+sorts that *were* real data are shipped; a model-based sort would need a
+schema change first. Verified live: A–Z sort correctly orders three test
+conversations, the choice survives a reload.
+
+**The Documents Library sub-tab needed a full visual redesign (item 12).**
+Built — root cause found by screenshotting it beside the "All" view.
+`#library-docs-list`'s rows (`renderLibraryDocuments`, `whiteboard.js`)
+shared only the layout class `.doc-list` with the editor's own recent-docs
+sidebar — no scoped CSS of their own at all, so every row fell through to
+the app's default filled `<button>` style: a full-width solid-accent bar
+with the title and word count crammed onto one line, nothing like a card.
+Given a document icon, a proper title/meta column, a border and hover state
+matching `.library-card`'s own look (`04-chat-dock-appearance.css`).
+Verified live in both themes: real cards now, readable at a glance, clicking
+one still opens the right document.
+
+**Pagination on other tabs (item 1).** Built, across all four surfaces Notes'
+own `#notes-page-size` pattern was asked to extend to. **Reminders:**
+`#reminders-page-size` paginates only the Done group — Overdue/Today/Upcoming
+always render in full, in every filter, so an overdue reminder can never land
+on a page that isn't shown. Verified live: 3 overdue + 60 done at 25/page
+shows all 3 overdue plus "Page 1 of 3" of Done; paging Done to page 2 leaves
+the overdue count at 3, unmoved; switching to the "Open" filter hides the
+(now-empty) Done pagination bar while the 3 overdue stay fully visible.
+**Library Documents sub-tab:** `#library-docs-page-size`, same shape as
+Notes' (no due/overdue framing to protect here). Verified live: 55 docs,
+25/page shows "Page 1 of 3", Next moves to page 2, the choice persists across
+a reload. **Library "All" grid:** `#library-page-size`, sitting beside the
+existing view toggle and the filter chips. "All" (the default) leaves the
+grid's `renderIncrementally` chunked scroll untouched; a number slices the
+already-filtered/sorted list to one flat page instead — the two rendering
+strategies coexist rather than one replacing the other.
+`libraryCurrentPage` resets to 1 on every control that can move an item to a
+different page: the overview tiles, the kind chips, search, both sort
+controls, and the Include-bin checkbox. Verified live: 40 seeded notes, "All"
+shows all 40 with the bar hidden; 25/page shows "Page 1 of 2" with Prev
+disabled; Next correctly shows the remaining 15 with "Page 2 of 2"; the
+page-size choice survives a reload; no console errors.
+
+**§88.4 item 3 — memory is a surface, not a system.** Checked directly,
+not built — the claim ("no tiered notion of always-in-context/retrieved/
+session-only exists anywhere in `ai/`") was stale. The "always in context"
+tier is exactly `ai/memory.py`'s `persona_with_memory`: `UserPreference`
+rows, bounded (`MEMORY_STREAM_BUDGET_CHARS = 600`, newest kept when full),
+folded into the system prompt on every turn in both Ask and Request mode
+(the module's own docstring records the bug that made it agent-mode-only
+until a prior session fixed it). Fully user-editable in Settings → "What
+it remembers": a manual add box (`POST /memory`), edit/delete
+(`PATCH`/`DELETE /memory/{id}`), AI-suggested entries the user must
+explicitly accept (`POST /memory/{id}/answer` — never silently saved),
+and a live budget readout ("N in use, about X of 600 characters"). The
+other two tiers the item names — "retrieved when relevant" is the app's
+core retrieval, "this conversation only" is the existing chat history —
+already exist too, just not under a unified "memory" label. What's
+actually missing is framing (the Settings copy doesn't present these as
+three tiers working together), not capability — a documentation/UI-copy
+question, not new code, and not attempted here.
+
+**§88.4 item 4 — no token accounting per stage.** Built. Both request
+paths (`agent.py`'s tool-calling loop, `routes_chat.py`'s no-tools path)
+now attach a `system`/`tool_schemas`/`history`/`notes` token estimate
+(chars/4, the same approximation `ai/context.py`'s own budgeting already
+used) to the first round's stats event. In `agent.py` this is measured
+once, before the loop appends any tool-result rounds to `messages` —
+matching what the pre-existing char-based log line (§11a) already
+measured, not a new per-round re-measurement. `routes_chat.py`'s path
+always reports `tool_schemas: 0`, by construction (no tools on that
+path). The whole `stats` object was already an opaque JSON blob the
+frontend persists and the server round-trips verbatim, so this needed no
+schema or migration change. Surfaced in the chat metadata line's
+window-fill tooltip as a few extra lines, shown only when a turn actually
+has a `composition` — an older saved turn from before this shipped
+renders exactly as it always did. Also closes BACKLOG's "per-chat token
+meter" ask, answered by extending what already existed there rather than
+a second UI element. 2 new tests in `test_chat_metadata.py`, against
+`fake_ollama` (this sandbox has no reachable Ollama, so this is the only
+way to test the wire format). Live-verified in Chromium by calling
+`messageMetaLine()` directly with a payload shaped like what the backend
+now sends: renders correctly, formats tokens consistent with the rest of
+the app, and an older stats object with no `composition` key renders
+with no stray "undefined" in the tooltip. A real end-to-end model
+round-trip could not be verified — no reachable Ollama in this sandbox.
+
+**§87.5's first slice — link-type/confidence-weighted graph traversal.**
+`EntryLink.link_type`'s own column comment already claimed "the traversal
+weights them by it" — checked, and that was false: every link cost the
+same flat `LINK_WEIGHT` regardless of type, in both places that walk the
+link graph. `link_strength(link_type, reason_confidence)`
+(`core/database.py`, beside `LINK_TYPES`) is the shared signal: 1.0
+baseline (a bare link, what every link from before either column existed
+still is), boosted for any of the six named types (a considered choice,
+not a ranking between them), discounted — floored, never to nothing —
+for a reason that was *deduced* rather than said (`reason_confidence`
+only exists on a guess). Wired into `entry/paths.py`'s Dijkstra search
+(as a divisor — strength up, cost down, so `Step.weight` is now `float`)
+and `search_manager.graph_expansion()`'s neighbour ordering (as a sort
+key on `_linked_neighbours`, since `GRAPH_EXPANSION_LIMIT`/
+`GRAPH_EXPANSION_HOP2_LIMIT` truncate that list — which neighbours
+survive the cut is the actual payoff for the AI's retrieval). Two other
+stale claims in §87.5's own original text were corrected in the same
+pass: the traversal was described as "currently unweighted" (false — it
+was already weighted by connection *kind*, link vs. thread vs. tag, just
+not by per-link type/confidence, which is the distinction that actually
+mattered) and paths.py/graph_expansion were described as "sharing that
+code" (they don't — two separate implementations, now each independently
+calling `link_strength()`). Deliberately not attempted: the wider
+composite (shared tags Jaccard, same category, temporal proximity) —
+those are derived signals needing per-pair query-time computation on a
+hot path (`graph_expansion` runs on every chat/ask retrieval), unmeasured
+against real usage; and distinguishing a hand-typed `[[wiki link]]` as
+specifically the strongest signal, as the original table suggested —
+`sync_wiki_links` creates a link through the exact same `create_link()`
+path a plain no-reason link does, so nothing currently records *how* a
+link was made, which needs a real schema decision, not a same-session
+guess. 9 new tests: `link_strength`'s own behaviour (baseline, type
+boost, the confidence floor, the two combining) in
+`tests/test_graph_paths.py`, a typed link beating a bare one at equal hop
+count and a low-confidence deduced link losing to a plain one (same
+file), and `graph_expansion` keeping a strength-worthy neighbour that
+insertion order alone would have dropped past the hop limit
+(`tests/test_connected_results.py`).
+
+**§87.8's backlinks panel and whiteboard render scheduler — both already
+built, found by checking rather than assuming.** "Backlinks panel ('what
+links here')" turned out to already exist: `manager.links_for_entry()` is
+already bidirectional ("all links touching this entry"), and every note
+card's `.entry-links` row (`app.js`) already renders it as clickable
+preview chips. This app's link model has no directional/citation
+semantics (a link's reason reads "the same phrase either direction" per
+`entry/paths.py`'s own docstring), so an undirected "linked notes" panel
+*is* the backlinks panel, not a lesser version of one. The whiteboard
+render scheduler item was already fixed in an earlier pass this same
+session (see live-list item G): every drag handler mutates the DOM
+directly rather than calling `wbScheduleRender()`/a full re-render,
+checked across all 48 call sites per that function's own comment.
+
+**§87.1's "Move nodes freely" audit row — the pin persistence half
+built, and a real toggle bug found live in the process.** Two nullable
+columns (`Entry.graph_pin_x`/`graph_pin_y`, additive — the existing
+auto-migrator handles it, no migration script needed) and
+`PUT /graph/pin/{id}` to set or clear them (both-null or both-set only,
+a lone coordinate refused with a 400 rather than guessed). Both `/graph`
+and `/graph/local/{id}` return the fields, and `graph.js` restores
+`fx`/`fy` from them on every render — not only a fresh load, but any
+re-render at all, since the existing "carry prior position forward"
+logic (`priorPositions`) never carried `fx`/`fy`, so a pin used to be
+silently dropped by the next legend-filter toggle or physics-slider
+change even within the same session.
+
+Live-testing the unpin half in Chromium surfaced a second, genuinely
+pre-existing bug, not introduced by this change: a double-click is two
+constituent clicks, and `d3.drag()` fires its own start/end lifecycle on
+*any* mousedown+mouseup, including a zero-distance one that never
+actually moves the node. The drag-end handler unconditionally cleared
+the dragged node's own `fx`/`fy` on every such click — including both
+clicks inside every double-click gesture — before the `dblclick` handler
+itself ever ran. The result: `dblclick` always found `fx` already `null`
+and could only ever take the "pin" branch, never "unpin," regardless of
+the node's actual prior state — double-click-to-release had almost
+certainly never worked in the shipped app, just never caught, since nobody
+had tested the unpin half against a running instance before. Fixed by
+remembering (`d.wasPinnedBeforeThisDrag`) whether a node was already
+pinned before its own drag started, and only releasing it at drag-end
+if the drag itself was what pinned it — the same care `graphDragPinned`
+already gave every *other* node in the same handler, just never
+extended to the node being dragged itself.
+
+7 new backend tests (`test_graph_api.py`): set/clear/persist, the
+lone-coordinate 400, an unknown or deleted note 404s, and the same pin
+showing up in Focus Mode's `/graph/local/{id}`. Live-verified in
+Chromium: pinning shows the held look immediately and survives a
+reload (confirmed both via the `.graph-held` CSS class and a direct
+`/graph` refetch); a second double-click now correctly unpins (the PUT
+body changes from real coordinates to `{x: null, y: null}`, matching
+the bug fix above); leaving and re-entering the Graph tab still renders
+and pans correctly afterward. Not attempted: persisting a pinned node's
+new position when it is later dragged to reposition it — currently
+updates only in memory, a smaller and separate gap from "never
+persisted at all," which is what this closes.

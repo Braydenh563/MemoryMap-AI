@@ -433,7 +433,7 @@
         <!-- Sub-tabs. The Notes tab was four full-height cards stacked on one
              page, so reaching your notes meant scrolling past three forms you
              weren't using. One at a time, remembered. -->
-        <div class="notes-subtabs seg" id="notes-subtabs" role="tablist"
+        <div class="notes-subtabs seg edge-fade" id="notes-subtabs" role="tablist"
           aria-label="Notes sections">
           <button role="tab" data-section="browse" aria-selected="true"
             aria-controls="browse"><i class="ph ph-books ph-lead" aria-hidden="true"></i> Your notes</button>
@@ -449,9 +449,62 @@
         <section class="card" id="capture">
           <div class="row space-between">
             <h2>Capture a thought</h2>
-            <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select" title="Start from a template">
-              <option value="">No template</option>
-            </select>
+            <span class="row align-center">
+              <!-- Asked for directly: a "? tooltip circle somewhere that
+                   tells the user about [[]] note linking and / commands".
+                   Same disclosure pattern as #search-help below (a `?`
+                   button, `aria-expanded`, a `.search-help` panel it
+                   controls) rather than a title= tooltip: this is four
+                   lines of syntax with examples, which a native tooltip
+                   truncates, cannot be read on a touch device, and
+                   disappears the moment you move to type the thing it just
+                   described. -->
+              <button id="capture-help" class="ghost small graph-help-toggle" type="button"
+                aria-expanded="false" aria-controls="capture-help-hint"
+                title="What can I type in a note?" aria-label="What can I type in a note?">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
+              <select id="entry-template" aria-label="Start from a template" title="Start from a template" class="small-select">
+                <option value="">No template</option>
+              </select>
+            </span>
+          </div>
+          <!-- Syntax that exists is useless if nobody knows it does. Every
+               line below was checked against the code that implements it
+               before being written here — see the note on "/" in
+               particular, which is *not* a composer command and is
+               documented as what it actually is. -->
+          <div id="capture-help-hint" class="graph-help-panel capture-help-hint hidden" role="dialog" aria-label="What can I type in a note?">
+            <p class="muted">A note is plain text. These few things do something extra:</p>
+            <ul class="search-help-list">
+              <li><code>[[its first few words]]</code> — links to another
+                note. Start typing <code>[[</code> and a list of your notes
+                appears; pick one to complete it. The link becomes a
+                clickable chip on the saved note.</li>
+              <li><code># A title</code> on the first line becomes the
+                note's title — the same thing the "Optional title" box
+                above writes for you.</li>
+              <li><code>**bold**</code>, <code>*italic*</code>,
+                <code>`code`</code>, <code>~~struck~~</code>,
+                <code>[text](url)</code> and <code>$x^2$</code> all render
+                on the saved note.</li>
+              <li><code>tag:</code> is for the filter box, not here — tags
+                go in the tags field below, comma separated.</li>
+            </ul>
+            <p class="muted">Two things worth knowing, because they are
+              easy to assume and both untrue:</p>
+            <ul class="search-help-list">
+              <li><strong>There is no <code>/</code> command menu in this
+                box.</strong> Pressing <code>/</code> anywhere you are
+                <em>not</em> typing jumps to the search box; inside a
+                document, <code>Ctrl</code>+<code>/</code> comments the
+                line. Neither is a note-composer command.</li>
+              <li>Headings beyond the first line, lists, tables, fenced
+                code and <code>&gt; [!tip]</code> callouts are stored
+                faithfully but are <em>not</em> rendered on a note card —
+                a note list rendered that way gets very tall very fast.
+                They do render in the document editor.</li>
+            </ul>
           </div>
           <!-- Optional — asked for directly. Not a second stored field: it
                writes the same leading `# heading` line manager.extract_title
@@ -1639,7 +1692,7 @@ Link to another note with [[its first few words]]."></textarea>
              outline, what it draws on, where it lives). Reported live —
              asked for directly as its own tab strip, the same pattern
              #notes-subtabs already uses. -->
-        <div class="seg doc-sidebar-tabs" id="doc-sidebar-tabs" role="tablist"
+        <div class="seg doc-sidebar-tabs edge-fade" id="doc-sidebar-tabs" role="tablist"
           aria-label="Document sidebar sections">
           <button role="tab" data-section="list" aria-selected="true"
             aria-controls="doc-sidebar-list">Documents</button>
@@ -2028,10 +2081,31 @@ Link to another note with [[its first few words]]."></textarea>
           <button data-view="list" class="active">List</button>
           <button data-view="calendar">Calendar</button>
         </div>
+        <!-- BACKLOG §77's own pattern, extended here (§89 item 1): Notes'
+             page-size control, applied only to the Done group below.
+             Deliberately narrower than Notes' own version — Overdue/Today/
+             Upcoming are never paginated, in any filter, because an overdue
+             reminder pushed onto page 2 is a reminder that stops being seen,
+             which is worse than no pagination at all. Done has no such
+             urgency and is the one group that can grow unbounded between
+             "Clear done" presses, so it's the one this control affects. -->
+        <select id="reminders-page-size" aria-label="Completed reminders per page" title="Completed reminders per page">
+          <option value="all">All completed</option>
+          <option value="25">25 per page</option>
+          <option value="50">50 per page</option>
+          <option value="100">100 per page</option>
+        </select>
         <button id="reminder-clear-done" class="ghost small"
           title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
       </div>
       <div id="reminder-groups"></div>
+      <!-- Only ever appears under the Done group — see the note on
+           #reminders-page-size above. -->
+      <div id="reminders-done-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Completed reminder pages">
+        <button id="reminders-done-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+        <span id="reminders-done-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
+        <button id="reminders-done-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      </div>
       <!-- A month grid alongside the flat list (ROADMAP.md gap 4): "what's due
            this week" as a calendar rather than scrolling a list grouped only
            into Overdue/Today/Upcoming buckets. Hidden unless the toggle above
@@ -2057,7 +2131,7 @@ Link to another note with [[its first few words]]."></textarea>
        same length it was. A library that duplicated two lists that already
        existed would be a third place to look. -->
   <div class="tab-page hidden" id="tab-library" role="tabpanel" aria-labelledby="tab-btn-library" tabindex="-1">
-    <div class="seg library-subtabs" id="library-subtabs" role="tablist">
+    <div class="seg library-subtabs edge-fade" id="library-subtabs" role="tablist">
       <!-- Reordered, and the first one renamed. It was called "Documents"
            while actually showing everything you have ever made — notes,
            chats, files and documents together — so the one place a person
@@ -2142,6 +2216,19 @@ Link to another note with [[its first few words]]."></textarea>
               <button data-library-view="grid" type="button" title="Cards" aria-label="Card view"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
               <button data-library-view="list" type="button" title="Rows" aria-label="Rows"><i class="ph ph-list" aria-hidden="true"></i></button>
             </div>
+            <!-- BACKLOG §77's pattern, completing §89 item 1's third and
+                 last surface. "All" already renders through
+                 renderIncrementally (the same chunked-scroll safety Notes'
+                 own "All" keeps) — this sits beside it exactly the way
+                 #notes-page-size sits beside Notes' continuous scroll: All
+                 (the default) keeps chunked scroll untouched; a number
+                 slices the already-filtered/sorted list to one flat page. -->
+            <select id="library-page-size" aria-label="Items per page" title="Items per page">
+              <option value="all">All items</option>
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+              <option value="100">100 per page</option>
+            </select>
           </div>
           <!-- Filled by renderLibraryFilters: one chip per kind, each with its
                count, so an empty kind says so before you press it. -->
@@ -2170,6 +2257,11 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </section>
         <div id="library-grid" class="library-grid"></div>
+        <div id="library-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Library pages">
+          <button id="library-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+          <span id="library-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
+          <button id="library-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
+        </div>
         <div id="library-empty" class="empty-state library-empty hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-books ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title" id="library-empty-title"></p>
@@ -2189,6 +2281,17 @@ Link to another note with [[its first few words]]."></textarea>
           <div class="row">
             <input id="library-docs-search" type="search" placeholder="Search documents…"
               aria-label="Search documents by title or content">
+            <!-- BACKLOG §77's Notes pattern, extended (§89 item 1). Unlike
+                 Reminders, a document list has no due/overdue framing to
+                 protect — plain newest-first, so a straight page-size
+                 selector is safe here without the "only paginate one
+                 subgroup" carve-out Reminders needed. -->
+            <select id="library-docs-page-size" aria-label="Documents per page" title="Documents per page">
+              <option value="all">All documents</option>
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+              <option value="100">100 per page</option>
+            </select>
             <button id="library-docs-new" class="small" type="button"
               title="Start a new document">＋ New document</button>
             <button id="library-docs-refresh" class="ghost small" type="button"
@@ -2215,6 +2318,11 @@ Link to another note with [[its first few words]]."></textarea>
           </span>
         </div>
         <ul id="library-docs-list" class="doc-list"></ul>
+        <div id="library-docs-pagination" class="row notes-pagination hidden" role="navigation" aria-label="Document pages">
+          <button id="library-docs-page-prev" class="ghost small" type="button" aria-label="Previous page"><i class="ph ph-caret-left" aria-hidden="true"></i> Prev</button>
+          <span id="library-docs-page-status" class="muted text-sm" role="status">Page 1 of 1</span>
+          <button id="library-docs-page-next" class="ghost small" type="button" aria-label="Next page">Next <i class="ph ph-caret-right" aria-hidden="true"></i></button>
+        </div>
         <div id="library-docs-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i></span>
           <p class="empty-title">No documents yet</p>
@@ -2855,8 +2963,18 @@ Link to another note with [[its first few words]]."></textarea>
          clock is not one of the bar's existing permanent landmarks, so it
          does not appear for everyone the moment this shipped. Asked for
          directly: "allow the user to choose to show the current time in the
-         bottom status bar." A <span>, not a button: it starts nothing. -->
-    <span id="status-clock" class="status-item status-clock hidden" role="status" aria-label="Current time"></span>
+         bottom status bar." Was a <span> that "starts nothing" — now a real
+         <button>, since a later ask gave it something to start: a detail
+         popover with seconds, the date and the timezone, none of which fit
+         a glanced-at HH:MM. -->
+    <button id="status-clock" type="button" class="status-item status-clock hidden"
+      aria-haspopup="dialog" aria-expanded="false" aria-controls="status-clock-detail"
+      aria-label="Current time — click or hover for the date, seconds and timezone"></button>
+    <div id="status-clock-detail" class="status-clock-detail hidden" role="dialog" aria-label="Current date and time">
+      <p id="status-clock-detail-date" class="status-clock-detail-date"></p>
+      <p id="status-clock-detail-time" class="status-clock-detail-time"></p>
+      <p id="status-clock-detail-zone" class="muted status-clock-detail-zone"></p>
+    </div>
   </footer>
 
   <!-- ======================= EXTRACT NOTES (BACKLOG.md §62) ================ -->
@@ -4736,6 +4854,25 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- **Find, everywhere.** Asked for directly: "add a ctrl+f or equivalent
+       text search... make the find feature available on all tabs." The
+       document editor already had its own Ctrl+F (`#doc-find-bar`,
+       documents.js) — real find-and-replace over the editor's own
+       `<textarea>`, which no generic DOM search can see the content of at
+       all. Ctrl+F still opens that one when the Documents tab is showing;
+       everywhere else (Notes, Chat, Library, Timeline, Reminders, Graph,
+       Dashboard) it opens this instead, which walks whatever tab-page is
+       currently visible. One overlay, fixed so it works regardless of
+       which tab or scroll position is underneath it, not eleven copies of
+       the same input. -->
+  <div id="global-find-bar" class="global-find-bar hidden" role="search" aria-label="Find on this page">
+    <input id="global-find-input" type="search" placeholder="Find on this page…" aria-label="Find on this page">
+    <span id="global-find-count" class="muted global-find-count" aria-live="polite"></span>
+    <button id="global-find-prev" class="ghost small icon-button" type="button" title="Previous match (Shift+Enter)" aria-label="Previous match"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+    <button id="global-find-next" class="ghost small icon-button" type="button" title="Next match (Enter)" aria-label="Next match"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+    <button id="global-find-close" class="ghost small icon-button" type="button" title="Close (Escape)" aria-label="Close find"><i class="ph ph-x" aria-hidden="true"></i></button>
   </div>
 
   <!-- aria-live so screen readers hear saves, undos, and errors -->

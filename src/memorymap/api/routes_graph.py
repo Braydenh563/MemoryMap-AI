@@ -13,7 +13,8 @@ from __future__ import annotations
 import re
 import threading
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -216,6 +217,14 @@ def graph(
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "access_count": e.access_count,
             "pinned": e.pinned,
+            # Where a double-click hold (graph.js) left this node, if it was
+            # ever pinned in place — both null or both set, never one alone.
+            # Distinct from `pinned` just above: that means "float to the
+            # top of lists", this means "hold still at this point on the
+            # map". Read on load so a pin survives a page reload, which is
+            # the gap ROADMAP §87.1's own audit named.
+            "graph_pin_x": e.graph_pin_x,
+            "graph_pin_y": e.graph_pin_y,
             # A note's reply-to, so the tree layouts can nest a train of
             # thought under the note that started it instead of laying every
             # note out as a sibling (§9).
@@ -454,6 +463,12 @@ def graph_local(
             "category": category_names.get(index.entries[e_id].category_id, manager.UNCATEGORISED),
             "access_count": index.entries[e_id].access_count,
             "pinned": index.entries[e_id].pinned,
+            # Same pin-restore field as the top-level /graph — see that
+            # endpoint's own comment. Focus Mode is the other real place a
+            # double-click pin can be made or seen, so it needs the same
+            # persistence, not just the top-level map.
+            "graph_pin_x": index.entries[e_id].graph_pin_x,
+            "graph_pin_y": index.entries[e_id].graph_pin_y,
             "parent_id": index.entries[e_id].parent_id if index.entries[e_id].parent_id in visited else None,
             # See the other node-list above: `created_at` is already
             # timezone-aware (`core/database.DateTime` guarantees it), so
@@ -649,3 +664,39 @@ def graph_path(
             for step in chain
         ],
     }
+
+
+class PinBody(BaseModel):
+    # Both set or both null — never one alone. `x`/`y` rather than reusing
+    # `graph_pin_x`/`graph_pin_y` verbatim: the column names carry "graph_"
+    # because they live on the shared `Entry` table, but this endpoint is
+    # already scoped to the graph by its own path.
+    x: float | None = None
+    y: float | None = None
+
+
+@router.put("/graph/pin/{entry_id}")
+def pin_node(
+    entry_id: int, body: PinBody, session: Session = Depends(get_session)
+) -> dict:
+    """Hold a node in place, or release it — the persistence half of the
+    Graph tab's double-click pin (graph.js), which used to live only on the
+    in-memory D3 node object and vanish the moment `/graph` was refetched
+    (ROADMAP §87.1's own audit named this gap directly).
+
+    `x`/`y` both null clears the pin; both set pins it there. One set and
+    one null is refused rather than silently coerced — a lone coordinate is
+    not a position, and guessing which axis was meant would be worse than
+    asking again.
+    """
+    entry = session.get(Entry, entry_id)
+    if entry is None or entry.is_deleted:
+        raise HTTPException(status_code=404, detail="No such note.")
+    if (body.x is None) != (body.y is None):
+        raise HTTPException(
+            status_code=400, detail="A pin needs both x and y, or neither."
+        )
+    entry.graph_pin_x = body.x
+    entry.graph_pin_y = body.y
+    session.commit()
+    return {"id": entry.id, "graph_pin_x": entry.graph_pin_x, "graph_pin_y": entry.graph_pin_y}

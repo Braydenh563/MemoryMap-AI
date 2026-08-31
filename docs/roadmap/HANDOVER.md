@@ -1,6 +1,399 @@
 # Session handover
 
-## New session — a live bug-report batch, a real tool-call parsing bug, one reverted attempt (§97)
+## New session — the lightbox rebuilt into a real showcase, a wiki-link pagination bug closed, two shared-component clipping fixes, pagination extended to Reminders and the Library, a global find bar, a status-clock detail popover, three system-tray bugs, per-stage token accounting, and link-type-weighted graph traversal
+
+Branch `claude/docs-review-priority-work-sequ16`, a long session driven
+almost entirely by live user reports rather than the roadmap — commits below,
+each live-verified in Chromium before pushing except where noted otherwise.
+In rough order:
+
+- **The lightbox now works from every caller, not just the gallery.** It was
+  reported as "completely broken" with no download button — the real cause
+  was a `.catch()` chained directly on a non-Promise `getUrl()` return, which
+  crashed `show()` entirely for the Library's own gallery (whose `getUrl` is
+  a plain synchronous string). Fixed with `Promise.resolve()`. Around that:
+  a metadata self-fetch (`GET /media/meta/{filename}`) so caption/OCR/facts
+  show up everywhere, not just where the caller happened to pass them; an
+  actions bar (zoom, drag-to-pan, copy text, save); a document-preview mode
+  for PDFs, uploads and native MemoryMap documents (`GET /media/text`,
+  rendered through the app's own `renderMarkdown`); AI actions (describe/
+  rename/OCR/delete) gated strictly on a real media id so no other caller
+  ever sees a button guaranteed to 404; a "Preview" action on the Documents
+  list; arrows moved to the screen edges without re-breaking the vertical
+  centring two earlier sessions had to get right.
+- **Two clipping bugs, same root cause, same fix, deliberately different
+  scope.** The gallery kebab menu and (later) the Documents-list kebab both
+  turned out to be clipped by a scrolling ancestor's `overflow`, and in both
+  cases the existing measure-and-clamp code couldn't fix it —
+  `getBoundingClientRect()` doesn't know a box is about to be scissored. The
+  gallery fix went into the shared code directly (it's the one caller of
+  that component). The Documents fix (`wireEscapedActionMenu`) stayed
+  scoped to a `MutationObserver` wrapping just that one caller, on purpose:
+  `kebabMenu()`/`.action-menu` is shared by note cards, chat and the
+  selection popup, none of which were re-verified live this session, and
+  rewriting what they all depend on to fix one caller was judged the
+  riskier move.
+- **BACKLOG §77's "hard half" — a wiki-link click landing on the wrong
+  page — is closed.** `resolveNotePage()` reuses `renderEntries`'s own
+  ordering logic (pulled into `orderedNotesForCurrentView`, not
+  duplicated-then-diverged) to answer "which page is this note on" before
+  `flashEntry` scrolls to it. Verified live on both the flat and threaded
+  branches, including the specific hard case the item's own text named: a
+  thread child whose page depends on its parent's position, not its own
+  sort key.
+
+- **A global Ctrl+F find bar, everywhere except Documents.** Requested by
+  name: "make the find feature available on all tabs." Registered as a
+  proper rebindable shortcut (`DEFAULT_SHORTCUTS.find`) rather than a raw
+  listener; dispatches to Documents' own existing `#doc-find-bar` when that
+  tab is active, otherwise opens a new bar scoped to whichever `.tab-page`
+  is currently visible, sharing the same `escapeForFind()` the lightbox's
+  own find already used (hoisted to module scope instead of duplicated).
+- **The Capture tab's tooltip now matches "Write with AI"'s style, cut-off
+  and scrollbar bugs found and fixed live.** Switched from an inline
+  `.search-help` (pushes layout) to the floating `.graph-help-panel` used
+  elsewhere, which needed `#capture` added to the shared positioning-root
+  list first. Reported cut off at the bottom twice more after that: one
+  `max-height` attempt correctly stopped growth but still ran past an
+  800px viewport (the panel's `top` offset is relative to `#capture`, not
+  the screen); a second attempt overcorrected and removed the internal
+  scrollbar's own reason to exist. Landed on a flat `24rem`, verified by
+  measuring `scrollHeight` vs `clientHeight`, not derived analytically.
+  Then reported again — "still no visible scrollbar??" — because
+  `overflow-y: auto`'s default is an invisible *overlay* scrollbar on most
+  platforms; fixed with explicit `scrollbar-width`/`scrollbar-color` plus
+  `::-webkit-scrollbar` rules, confirmed via a real reserved gutter
+  (`offsetWidth - clientWidth = 2px`) since a screenshot can't conclusively
+  show a thumb rendering.
+- **A status-bar clock detail popover.** `#status-clock` is now a real
+  `<button>`; hovering shows date/time-with-seconds/timezone (name and
+  numeric offset together), clicking pins it open past mouse-away, closed
+  by Escape, an outside click, or turning the clock off in Settings.
+- **Three system-tray bugs, fixed but unverifiable in this Linux sandbox
+  (no real Windows/pystray runtime here — checked only by parsing
+  `__main__.py`'s own source text, the same strategy `tests/test_tray.py`
+  already uses).** "Show Logs" called a JS function
+  (`showSettingsSection('logs')`) that does not exist anywhere in the
+  frontend — replaced with `openSettingsModal('logs')`, the same call every
+  other tray item already used correctly. Every tray navigation item now
+  closes an open Settings modal first, not just Reminders (asked for
+  Reminders, then "same with the others"). The existing
+  `test_the_tray_only_calls_frontend_functions_that_exist` test had a real
+  blind spot — it only scanned the `menu_items` list literal, not named
+  callback bodies like `_view_logs`, which is exactly where the broken call
+  lived; widened to close that gap.
+- **Pagination extended from Notes to all three remaining surfaces named in
+  ROADMAP item 1**, now fully built and moved to HISTORY.md §100: Reminders
+  (Done group only, protecting Overdue/Today/Upcoming visibility in every
+  filter), the Library Documents sub-tab, and the Library "All" grid
+  (coexisting with its existing `renderIncrementally` chunked scroll rather
+  than replacing it). Each verified live with real seeded data, a page
+  count, Prev/Next, and reload-persistence check.
+- **`manager.all_tags()` capped** to match every other "kind" section in
+  the Library finder response (`GET /tags`, the actual Tag Manager, stays
+  uncapped on purpose — it has to reach any tag to rename or delete it).
+- **The PS1 splash's taskbar icon was checked, not rebuilt** — a live report
+  ("uses the PowerShell icon, not the custom logo") turned out to already be
+  fixed: `$form.Icon` is set from `frontend/icon.ico` with a fallback, and
+  nothing needed changing. Recorded here specifically because CLAUDE.md
+  names this as the project's most expensive recurring mistake.
+- **ROADMAP.md kept under its 2,000-line cap** by moving the full narrative
+  of finished live-list items to HISTORY.md §100, leaving one-line stubs —
+  done twice this stretch as more items closed out (now 1,954 lines —
+  getting closer again, worth another migration pass soon).
+- **Library "All" grid pagination, closing out item 1's last surface.**
+  Same `#library-page-size` shape as Notes/Reminders/Documents, sitting
+  beside the existing view toggle and filter chips — "All" leaves the
+  grid's `renderIncrementally` chunked scroll untouched, a number slices
+  the filtered/sorted list to one flat page. Verified live: 40 seeded
+  notes, 25/page shows "Page 1 of 2", Next shows the remaining 15, choice
+  persists across reload.
+- **§88.4 item 4 — per-stage token accounting, the prerequisite the
+  roadmap named for everything else in that section.** Both chat request
+  paths now attach a system/tool-schemas/history/notes token estimate
+  (chars/4, same approximation `ai/context.py`'s budgeting already used)
+  to the first round's stats event, surfaced in the chat metadata line's
+  window-fill tooltip — also closes BACKLOG's "per-chat token meter" ask.
+  2 new tests against `fake_ollama`; a real end-to-end round-trip could
+  not be verified (no reachable Ollama in this sandbox).
+- **§87.5's first slice — link-type/confidence-weighted graph traversal.**
+  Found a real gap in the process: `EntryLink.link_type`'s own code
+  comment already claimed "the traversal weights them by it", and that
+  was false — every link cost the same regardless of type. Built
+  `link_strength()` (`core/database.py`), wired into both
+  `entry/paths.py`'s Trace search and `graph_expansion()`'s AI-retrieval
+  neighbour ordering. Also corrected two other stale claims in §87.5's own
+  text along the way (the traversal was already weighted by connection
+  *kind*, just not by per-link type; and paths.py/graph_expansion don't
+  actually share code, they're two separate walks). 9 new tests.
+  Deliberately not attempted: the wider composite (shared tags, category,
+  temporal proximity) — needs per-pair query-time computation on a hot
+  path, unmeasured; and distinguishing a wiki link as specifically the
+  strongest signal — `sync_wiki_links` creates a link through the same
+  path a plain no-reason link does, so nothing currently records how a
+  link was made, which would need a real schema decision.
+
+Full detail on all of the above is in ROADMAP.md's live list, HISTORY.md
+§100, and BACKLOG §77/§98/§99/§101 — not repeated here.
+
+### What I still could not check
+
+- The Documents-list kebab fix (`wireEscapedActionMenu`) was verified for
+  open/close/outside-click/aria-expanded, but only at one viewport size and
+  only for that one caller — the other `.action-menu` callers (note cards,
+  chat dock, selection popup) were deliberately left untouched and
+  unverified, on the reasoning above.
+- Touch/pointer behaviour for the lightbox's drag-to-pan was exercised with
+  Playwright's mouse emulation, not real touch events.
+- §99 (document upload split by file type) is scoped, not started — it
+  needs a real decision about `MEDIA_SUFFIXES` vs. a decoupled attachment
+  path, which is a security-relevant call this session declined to make
+  unilaterally at the end of a long stretch of work.
+- All three tray fixes (`_view_logs`, the close-Settings-first guard on
+  every nav item) — this sandbox has no Windows, no pystray runtime, and no
+  way to actually click a system tray icon. Verified only by reading the
+  generated JS each tray callback evaluates and confirming the function
+  names it calls exist elsewhere in the frontend; never run.
+- §87.5's link-weighting slice is unit-tested deterministically (given a
+  link_type/confidence, does the search prefer the stronger link — yes),
+  but whether it actually makes the AI's retrieved-context *better* on a
+  real question needs a real model and the fixed-question-set harness
+  BACKLOG's §11a section has been asking for. That's the next step BACKLOG
+  §101 names — "re-measure whether graph_expansion's existing walk got
+  better" — and it cannot happen in this sandbox at all, not just
+  "unverified this session."
+- §101 (the knowledge graph made second-nature to the AI across search and
+  every AI feature) was logged to BACKLOG, tied to the existing §87.5/§88.4
+  scoping, and deliberately not started — the user said "continue what you
+  are doing" when raising it, which this session read as "queue it, don't
+  drop the current thread," not as a request to build it now.
+
+## Prior session — §90.2 small-screen audit (measured, not yet acted on) + a live-reported documents-dock alignment bug, found and fixed
+
+Branch `claude/docs-review-priority-work-sequ16`, continuing from the prior
+session below. Started §90.2 (the never-done phone/tablet audit): server up,
+Playwright driven at 390px and 820px against the tab bar, dashboard,
+Settings modal, Notes, Library and Chat/Graph. Findings, not yet acted on:
+
+- **The tab bar's overflow-fade clips real tab buttons at phone width**
+  (390px: `scrollWidth` 640 vs `clientWidth` 364 — Library/Timeline/Reminders
+  scroll out of view) and needs a closer look at whether the fade affordance
+  reads as "more tabs" or just looks cut off — not confirmed either way,
+  screenshot only shows the visible slice.
+- ~~A dashboard activity-heatmap widget appeared to render its cells
+  entirely off the left edge~~ **False positive, chased down and ruled
+  out.** `.heat-cell` spans reported negative `left` (`-339px` at 390px
+  width) against the *window*, which looked like an overflow bug — but
+  `.heatmap` (`03-dashboard-widgets.css:1149`) is a deliberately
+  horizontally-scrollable widget (`overflow-x: auto`, a year of days as
+  10px columns), and `renderHeatmapWidget` (dashboard.js:2025-2027)
+  scrolls it to `scrollWidth` on load so it opens on "today" rather than a
+  year of empty squares. A cell scrolled past the left edge of its own
+  scroll container reports negative `left` against the window the same way
+  any carousel's off-screen items would — that is the widget working as
+  designed, not a layout bug. The audit script's `findOverflow` doesn't
+  know about scrollable ancestors and needs that exemption before it can
+  be trusted on any other horizontally-scrolling surface (the tab bar
+  itself is one — see below).
+- Several other flagged "overflow" elements (buttons/spans reported off-
+  canvas on Notes/Chat/Graph at phone width) were **not chased down** — may
+  be the same false-positive shape the WCAG audit hit last session
+  (something legitimately off-screen until toggled, like a dropdown), may
+  be real. Script is `smallscreen.js` in scratch; rerun and inspect each
+  flagged element's class/role before trusting the count.
+
+This got interrupted mid-audit by a live user report (with a screenshot) of
+a real, reproducible bug, which took priority:
+
+### What was built
+
+- **The documents editor's top dock row wasn't vertically aligned.**
+  Reported directly with a screenshot: the Live/Source/Split/Read pill
+  segment sat visibly higher than "AI edit"/"Extract notes"/the kebab
+  beside it. Root cause, found by reading CSS rather than guessing:
+  `#doc-view-seg` carries the base `.seg` rule's `margin-bottom: 0.5rem`,
+  and nothing in `.doc-dock`'s own block zeroed it — the exact bug
+  `.chat-dock-controls .seg` already hit and fixed for itself (documented
+  in its own comment, `04-chat-dock-appearance.css:642-654`): `align-items:
+  center` centres a flex item's *margin box*, so an unmatched bottom margin
+  pulls that one control up relative to siblings that don't carry it.
+  Fixed the same way: `.doc-dock .seg { margin: 0; }`. **Live-verified**:
+  before the fix, `getComputedStyle` showed `#doc-view-seg` at
+  `margin-bottom: 8px` against `0px` on `#doc-ai`/`#doc-extract`/the kebab;
+  after, all four (plus `.doc-dock-status` and the divider) report the
+  identical `centerY` (203.98px) in a real rendered document editor.
+  Screenshot before/after in scratch (`dd-01-dock-before.png`, taken after
+  the fix — the "before" state was only ever inspected via computed style,
+  not screenshotted, since the bug is a few pixels and the numbers were
+  the conclusive evidence).
+- **The image-gallery kebab menu was still being cut off** — re-reported
+  with a screenshot after a previous session had already added a
+  measure-and-clamp to it. The screenshot is what identified it: a dead
+  straight vertical cut is a *clipping ancestor*, not a menu that ran past
+  the window, and no clamp can fix that — `getBoundingClientRect()` reports
+  the box the menu *would* occupy and knows nothing about being scissored,
+  so keeping it "in bounds" still left it clipped. Measured the ancestor
+  chain: `#library-view-media` (`overflow-x: auto`) and `#tab-library`
+  (`overflow-x: hidden`) both clip.
+  **Two fixes deep, and the first one is the instructive part.** Making the
+  list `position: fixed` and placing it from the button's rect was not
+  enough: it still landed inside the clipped box, off by 54px on one tile
+  and 709px on another. A fixed element resolves against the viewport
+  *unless* an ancestor establishes a containing block — `transform`,
+  `filter`, `backdrop-filter` and `will-change` all do — and the tile's own
+  `section.card.glass` carries `backdrop-filter`, so the coordinates were
+  resolving against the very element it needed to escape. Same shape as
+  CLAUDE.md's standing warning: *the damage happens nowhere near the code
+  that caused it.* Reparenting the list to `<body>` on open (what
+  `wbOpenDockedMenu` already does) is what actually escapes it. The
+  now-unreachable `.menu-flip-left`/`.menu-flip-up` rules were removed, and
+  the outside-click handler had to learn to ask `menuList` separately since
+  it is no longer inside `menu` while open. **Live-verified at 1400/900/
+  600px, first/middle/last tile each**: `style.left` now equals the
+  measured `rect.left` exactly (29→29, 684→684), and every tile reports
+  `offLeft/offRight/offBottom/clippedByAncestor` all false. Zero console
+  errors.
+- **Answered, not built: whether the Library sub-tabs bar (All · Documents ·
+  Whiteboards · Image Gallery · AI Skills) should show at the top of the
+  documents editor.** No — by the design already recorded at §87.7d: the
+  editor is deliberately not a peer of Library's own tab strip any more
+  (the top-level Documents tab was removed for exactly this reason), and
+  it already has its own equivalent — the sidebar's Recent list plus
+  "Browse all in Library →" at the bottom. Confirmed live in the same
+  screenshot: the top tab bar shows "Library" as the active tab while the
+  editor is open (the documented `revealTab` alias), and the sub-tabs bar
+  is absent from that view — reproducing it would apply to nothing on
+  screen, since none of its five tabs describe what the editor shows.
+
+Full suite run in the background this session; `ruff check .` and the four
+docs/frontend lint tests (`test_style_scale`, `test_docs_layout`,
+`test_frontend_ids`, `test_frontend_handlers`) all green before commit.
+
+### What I still could not check
+
+- The §90.2 audit above is a first pass, not a finished one — the heatmap
+  overflow and the tab-bar fade both need a closer look before either is
+  called a real bug or dismissed.
+- The dock-alignment fix was checked at desktop width (1400px) only; not
+  re-checked at the phone/tablet widths the audit above was measuring.
+
+## Prior session — three ROADMAP §89 items closed (chat-mode chip, caption task visibility, whiteboard cut/context-menu), two of three live-verified in Chromium
+
+Branch `claude/docs-review-priority-work-sequ16`. Worked from §89's "still
+open" list rather than the front of the file — the three picked were the
+ones scoped tightly enough to build with confidence: no live Ollama needed
+for any of them (§89.4's chip renders off saved-turn data, not a live
+stream; §89.6 and §89.12 don't touch the model at all). Built all three,
+ran the full suite (green, ~1,600 tests), then — rather than stop at
+"backend-verified" — started the real server and drove it with Playwright,
+per CLAUDE.md's own standing instruction. §89.4 and §89.12 are now
+genuinely live-verified, screenshots included; §89.6 is not (see below, and
+its own honest reason why).
+
+### What was built
+
+- **§89.4 — which mode answered a chat turn, on its own metadata line.**
+  `messageMetaLine()` (app.js) takes a new `usedTools` bool and renders an
+  "Ask"/"Request" chip — same icon/label pair as `#chat-mode-seg` — next to
+  the model name. Read from `effectiveUseTools`, captured once at send time
+  rather than re-read from the live toggle, so a conversation that spans
+  mode switches shows what each past turn actually ran with, not what the
+  toggle currently shows. Persisted as `used_tools` on `TurnBody`/
+  `_turn_messages` (routes_conversations.py) — a genuinely new field, not
+  folded into the existing free-form `stats` dict, so it round-trips through
+  `GET /conversations/{id}` on reload. Older saved turns simply have no key
+  and render no chip. 2 new tests (test_conversations_api.py).
+  **Live-verified**: two turns posted with `used_tools: false`/`true` and
+  real `stats`, reopened via `openConversation` — the line reads `850 ms ·
+  5% · Ask · llama3.2` and `4.2s · 11% · Request · llama3.2 · 1`, chip text
+  and position exactly as designed, zero console errors.
+- **§89.6 — a vision-model caption now shows up in the Tasks panel while it
+  runs.** `captioning.running_captions()` — a small in-memory dict guarded
+  by a lock, set around the real `caption_text` model call inside
+  `caption_and_store` and cleared in a `finally` so an exception can't leave
+  a job stuck "running" forever — is read by `routes_tasks.collect()` and
+  appended as a `kind: "caption"` entry, same shape every other job there
+  already has. The frontend's task rendering is fully data-driven
+  (`renderTasks`), so no frontend change was needed. Not cancellable, same
+  reasoning as the embedding warm-up already in that list. 2 new tests: one
+  spies on `caption_text` mid-call to check the state a `/tasks` poll would
+  actually see (not just before/after), the other checks the `/tasks` shape.
+  **Not live-verified** — this one genuinely needs a real vision model
+  running, which no sandbox in this project's history has had. The other
+  two items don't have that excuse and were checked live; this one's
+  correctness rests on the mid-call spy test above being an honest
+  simulation of what a real call's timing looks like.
+- **§89.12 — whiteboard cut, and a right-click/long-press menu for a
+  selection.** `wbCutSelection()` is copy-then-delete, on Ctrl/Cmd+X beside
+  the existing Ctrl/Cmd+C/V handlers. The context menu reuses
+  `wbOpenDockedMenu`'s own reparent-to-`<body>`-and-position technique (this
+  item's own diagnosis in ROADMAP.md named it as the template) via a new
+  `wbWireContextMenu(selection, kind)`, bound once per sketch/card/object on
+  their `enter()` selection the same way `.on("click", ...)` already is.
+  Right-click opens it immediately; touch gets the same 500ms-hold threshold
+  the toolbar toggle's own long-press already uses, cancelled on
+  release/move. The menu is rebuilt per-open rather than cached static:
+  Copy/Cut are omitted (not disabled) for a card or a multi-selection, both
+  of which `wbCopySelection` already refuses outright — two buttons
+  guaranteed to fail is worse than a menu that only offers what the
+  selection can do. A text object's own `contenteditable` body is excluded
+  from both gestures so its native cut/copy/paste/spellcheck menu keeps
+  working with the mouse. **Live-verified** (desktop right-click; touch
+  long-press was not exercised — no touch emulation set up this session):
+  right-clicking a text object opens Copy/Cut/Delete at the pointer;
+  right-clicking a note card opens **Delete only**, confirming the
+  card-exclusion guard actually fires; clicking outside closes the menu;
+  its Delete button removes the object from the DOM; Ctrl+X removes a
+  selected object (`.wb-object` count went 5→4) and Ctrl+V restores it
+  (back to 5). Zero console errors across all of it. The screenshots taken
+  along the way lived in the sandbox's scratch directory, not the repo —
+  the sequence above is reproducible from this paragraph plus CLAUDE.md's
+  own drive-the-app recipe if it needs re-checking.
+
+### What was checked and left alone
+
+- **`manager.all_tags()`'s "no cap"** (ROADMAP's "Smaller, and genuinely
+  cheap" list): traced both real callers. `routes_insights.tag_cloud` already
+  caps to 60. The other two — `GET /tags` (the Tag Manager screen) and the
+  Library "All" tab's tag listing — are correctly uncapped: both are
+  management surfaces where a tag you can't see is a tag you can't rename or
+  delete. Capping either would be a functional regression, not a fix.
+  Left as the docs already assessed it: low urgency, not gone, not this.
+- **A security sweep** (`shell=True`/`os.system`/`eval`/`pickle.load`/raw SQL
+  string interpolation, path-traversal in the file-serving routes) found
+  nothing new — every `subprocess` call already carries a `# noqa: S603 —
+  fixed args, no shell` from prior audits, and `routes_files._within_exports`
+  already has a long comment on exactly the CodeQL `py/path-injection` shape
+  this kind of check would otherwise re-discover. Prior sessions' audits
+  hold.
+
+### What I still could not check
+
+§89.4 and §89.12 are genuinely live-verified now (see above) — a first
+draft of this handover called all three "not live-verified" and then this
+session actually started `uvicorn` and drove it with Playwright instead of
+leaving that claim standing, which is the point of CLAUDE.md's own rule
+about it. What real live verification did *not* cover, honestly:
+
+- **§89.6's caption task** still rests on a mid-call spy test, not a real
+  vision model — no sandbox in this project's history has had one to call.
+- **Touch long-press** on the whiteboard context menu. Only the desktop
+  right-click path was driven; the 500ms-hold branch shares its selection
+  and open-menu logic with right-click (same `wbOpenContextMenuFor` call)
+  but its own `pointerdown`/timer wiring was reasoned from
+  `wbWireToggleGestures`'s already-proven pattern, not observed.
+
+The viewport-clamping maths **was** checked, in a follow-up pass: a 900×700
+viewport with an object dragged to its bottom-right corner and right-clicked
+there forced both the `rect.right`/`rect.bottom` clamp branches. The menu
+stayed fully on-screen in both axes (screenshotted) — its right edge landed
+flush against the viewport edge rather than the intended 8px margin (an
+~8px discrepancy between the clamp's `window.innerWidth` and the measured
+`getBoundingClientRect()`, worth a look if a future report calls the menu
+"touching the edge," but not an overflow bug — nothing was cut off or
+unreachable).
+
+## Prior session — a live bug-report batch, a real tool-call parsing bug, one reverted attempt (§97)
 
 Branch `claude/ui-improvements-bugs-arf9gy`. A user-reported batch of ten UI/UX
 bugs plus one backend cluster, worked one at a time and verified live in

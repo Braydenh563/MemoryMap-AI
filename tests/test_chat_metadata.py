@@ -55,6 +55,51 @@ def test_agent_mode_reports_stats_for_every_round(ai_client, fake_ollama):
     assert len(stats) >= 2  # one per round, so the totals can accumulate
 
 
+def test_agent_mode_stats_carry_a_per_stage_token_estimate(ai_client, fake_ollama):
+    """§88.4 item 4: a token estimate per stage, not just a total.
+
+    Attached only to the first round's stats event — see agent.py's own
+    comment on why a later round isn't re-measured — so the UI's metadata
+    line (whose accumulation logic just spreads the first event wholesale)
+    ends up carrying it for the whole turn.
+    """
+    ai_client.post("/entries", json={"content": "a note about woodworking"})
+    fake_ollama.librarian_reply = "Done."
+    fake_ollama.tool_script = [
+        [{"name": "count_notes", "arguments": {}}],
+        [{"name": "list_categories", "arguments": {}}],
+    ]
+    events = _events(ai_client, "how many notes do I have and in what categories?")
+    stats = [e for e in events if e["type"] == "stats"]
+    assert len(stats) >= 2
+    first, rest = stats[0], stats[1:]
+
+    composition = first["composition"]
+    assert set(composition) == {"system", "history", "notes", "tool_schemas"}
+    assert all(isinstance(v, int) for v in composition.values())
+    # Tools are on and the registry is non-empty, so this can't be zero —
+    # a zero here would mean the schemas were measured before `offered` was
+    # ever populated.
+    assert composition["tool_schemas"] > 0
+
+    for later in rest:
+        assert "composition" not in later
+
+
+def test_ask_mode_stats_carry_a_composition_with_no_tool_schemas(ai_client, fake_ollama):
+    """The no-tools path (build_messages) gets the same breakdown, minus the
+    schemas half that only exists when tools are offered at all."""
+    ai_client.post("/entries", json={"content": "a note about kayaking"})
+    fake_ollama.librarian_reply = "You wrote about kayaking."
+
+    events = _events(ai_client, "what did I write about kayaking?", use_tools=False)
+    stats = next(e for e in events if e["type"] == "stats")
+    composition = stats["composition"]
+    assert set(composition) == {"system", "history", "notes", "tool_schemas"}
+    assert composition["tool_schemas"] == 0
+    assert composition["notes"] > 0  # the retrieved note went in this message
+
+
 def test_thinking_model_in_agent_mode_reports_both(ai_client, fake_ollama):
     """The exact reported combination: thinking model + tools on."""
     ai_client.post("/entries", json={"content": "a note about gardening"})

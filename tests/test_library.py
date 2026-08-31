@@ -360,6 +360,46 @@ def test_a_private_note_never_leaks_a_thumbnail(client, session):
     assert item["thumb_url"] is None
 
 
+def test_tags_are_capped_like_every_other_kind_here(client, session, monkeypatch):
+    """`_tags()` was the one kind section in this file with no `PER_KIND_LIMIT`
+    slice — `manager.all_tags` was made cheap to *compute* (a fingerprint
+    cache, §86) but nothing capped how many of the result this endpoint
+    actually sent to the browser. Lowers the module's own limit to 3 rather
+    than seeding 200+ notes, which is both slow and not what this test is
+    about — the slicing logic, not the real-world threshold.
+    """
+    from memorymap.api import routes_library
+
+    monkeypatch.setattr(routes_library, "PER_KIND_LIMIT", 3)
+    for i in range(5):
+        session.add(Entry(content=f"note {i}", tags=json.dumps([f"tag{i}"])))
+    session.commit()
+
+    body = client.get("/library").json()
+    tags = _of_kind(body, "tag")
+    assert len(tags) == 3
+
+
+def test_tags_keep_the_most_used_ones_when_capped(client, session, monkeypatch):
+    """The cap has to keep the *right* three, not an arbitrary three —
+    `all_tags()` is already most-used-first, so the slice should be too."""
+    from memorymap.api import routes_library
+
+    monkeypatch.setattr(routes_library, "PER_KIND_LIMIT", 2)
+    # "popular" on 3 notes, "rare-a"/"rare-b" on 1 each — popular must survive
+    # the cap, the two rare ones are the ones that should be dropped.
+    for i in range(3):
+        session.add(Entry(content=f"popular note {i}", tags=json.dumps(["popular"])))
+    session.add(Entry(content="rare a", tags=json.dumps(["rare-a"])))
+    session.add(Entry(content="rare b", tags=json.dumps(["rare-b"])))
+    session.commit()
+
+    body = client.get("/library").json()
+    titles = {item["title"] for item in _of_kind(body, "tag")}
+    assert "popular" in titles
+    assert len(titles) == 2
+
+
 def test_the_library_is_behind_the_unlock_gate(client):
     """It lists documents, chats, files and binned notes — every kind of thing
     the lock screen exists to keep behind it.

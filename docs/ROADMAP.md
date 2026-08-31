@@ -45,13 +45,7 @@ Everything genuinely open, ranked. **Reprioritized to the top, by direct
 instruction, ahead of the numbered items below.**
 
 ~~0. **A hybrid live-rendering document editor.**~~ **Built (§93/§94).**
-   Four views in `#doc-view-seg` — Live (render-as-you-write, the caret's
-   block showing its raw markdown), Source, Split, Read — plus document
-   file types with a line-number gutter, Tab/Shift+Tab indent, and Ctrl+/
-   commenting on the language's own marker. The separate "squished panes"
-   half was a dead CSS rule: `#doc-panes` (an id) beat `.doc-panes.split`,
-   so the side-by-side layout had never once applied. Full narrative in
-   HISTORY.md §93.
+   Full narrative: HISTORY.md §100.
 
 **The new top of the list is item A below (llama.cpp), by direct
 instruction.** See BACKLOG.md's "§95 — the forward list" for the full
@@ -61,13 +55,7 @@ brainstorm this was drawn from.
 session so nothing depends on remembering the conversation. Each says *why* it
 was not done, because "not done" and "decided against" are different facts.
 
-~~B. **Backup retention is not a setting.**~~ **Built.** The prune itself
-   already existed (`backup.py`'s `KEEP_BACKUPS` was always enforced on every
-   backup) — the gap was that the number was fixed in code, not a
-   preference. `PUT /backups/retention` sets `backup_retention_count` and
-   prunes immediately, `GET /storage` reports the current count and its
-   1–100 bounds, and Settings → Data has the number field beside the
-   existing Backups list.
+~~B. **Backup retention is not a setting.**~~ **Built.** Full narrative: HISTORY.md §100.
 
 ~~C. **Restart after installing a package, and from Settings → About.**~~
    **The About-page half is built.** `POST /system/restart` is the second
@@ -113,7 +101,16 @@ F. **Three things this environment cannot verify**, all needing a real
    - Printing to PDF from the document editor's Read mode.
 
 G. **The whiteboard's own refinement pass**, beyond the panel-collision fix.
-   Its backend efficiency and feature gaps were never audited.
+   **The efficiency half turned out already done, checked before assuming
+   the "never audited" claim still held**: every drag handler read (sketch,
+   resize, card) already mutates the DOM directly during a drag instead of
+   calling `wbScheduleRender()`/a full `renderWhiteboard()` per frame — and
+   the card handler carries its own comment recording a *prior* live
+   report ("glitchy and slow to update") that was root-caused to exactly
+   that shape and already fixed. `wbScheduleRender` itself batches to one
+   paint per frame regardless, checked "across all 48 sites" per its own
+   comment. Feature gaps are the part still genuinely open — no code-
+   reading answers that, and none was invented here.
 
 ~~A. **First-class llama.cpp support.**~~ **Steps 1–2 built.** Step 1
    ("say so" in `core/extras.py`) turned out already done, found stale in
@@ -134,17 +131,12 @@ Items 1–2, below, are the ones with real substance after that.
    narrative in HISTORY.md; kept here as a number so §-references still
    resolve.
 
-2. **Notes-tab pagination with page-aware note links** — BACKLOG §77. Split
-   in two, as BACKLOG always said it should be. **The page-size control and
-   page selector are built** — `#notes-page-size` / `#notes-pagination` in
-   the Notes toolbar, "All" (today's §86 continuous scroll, untouched) as
-   the default. See BACKLOG §77 item 1 for the full build note and its one
-   accepted trade-off (a thread can split across a page boundary). **Still
-   open: the hard half.** A wiki-link click has to land on the right *page*,
-   which depends on the sort and filter currently active, not just the
-   note's id — real routing logic, now scoped (BACKLOG §77 item 2) but not
-   built; the open design question is what to do when the click's origin
-   view has different sort/filter/page-size state than whatever's active.
+~~2. **Notes-tab pagination with page-aware note links.**~~ **Built, both
+   halves.** `#notes-page-size`/`#notes-pagination` (BACKLOG §77 item 1);
+   `resolveNotePage()`/`flashEntry` now land a wiki-link click on the
+   *page* its target is on, not just scroll a page that might not contain
+   it. Full build note, the design question's answer, and live thread-
+   child verification in BACKLOG §77 item 2.
 
 3. **The Timeline's line view needs a real visual pass** — reported as needing
    to look "very professional and ready for public use", and never scoped
@@ -188,31 +180,10 @@ Items 1–2, below, are the ones with real substance after that.
    different tag was applied). Needs real model output to tune against, which
    this sandbox cannot provide.
 
-~~6. **Guided first-run tour**, and the rest of onboarding: offering to pull a
-   model, a data-dir writability check, and seeded example notes~~ **Built.**
-   The tour and the data-dir/Ollama diagnostics already existed; the two
-   genuinely missing pieces are now offers on the same "Your setup" slide,
-   neither automatic — a "Download a starter model" button (`POST
-   /models/pull`, only shown when Ollama is running but the chat model isn't
-   installed) and an "Add example notes" button (`POST /entries/seed-examples`,
-   only shown on a genuinely empty notebook — `GET /entries/count`). The
-   seed is five short notes about the app itself, two real `[[wiki-links]]`
-   between them, two categories, spread across the last 9 days so the
-   Timeline isn't a single dot — refuses server-side on any notebook that
-   already has a note, seeded or real, so it can never double up or land on
-   top of someone's actual notes. Verified live: the button appears/hides
-   correctly, seeding produces exactly 5 notes with both links resolved
-   (`tests/test_seed_examples.py`), and a screenshot of the running app
-   afterward shows the Dashboard's note count, category chips and the graph
-   constellation all populated from the seed, unprompted.
+~~6. **Guided first-run tour**, and the rest of onboarding.~~ **Built.**
+   Full narrative: HISTORY.md §100.
 
-~~7. **Alembic migrations.**~~ **Built** — HANDOVER.md's own "Alembic
-   infrastructure" section documents it (`migrations/`, `alembic.ini`, a
-   baseline revision every database is stamped to on first sight,
-   `tests/test_alembic_baseline.py`), this entry was just never struck.
-   Reconfirmed directly this session: `_ensure_alembic_baseline` exists in
-   `core/database.py`, the migration scaffolding is on disk, and the test
-   passes.
+~~7. **Alembic migrations.**~~ **Built.** Full narrative: HISTORY.md §100.
 
 8. **What happens when Ollama hangs, rather than errors.** Checked this
    session, not fixed — closer to already-handled than the item implies.
@@ -230,26 +201,9 @@ Items 1–2, below, are the ones with real substance after that.
    model to observe, not more source reading.
 
 ~~9. **Crash-safe recovery for an interrupted re-index or model download.**~~
-   **Checked directly — already safe by construction, nothing to build.**
-   `model_manager.py`'s `_run_reindex`: each entry's stale vector is deleted
-   and committed *before* re-embedding it, one entry at a time — a crash
-   mid-run leaves already-processed entries with fresh vectors and
-   not-yet-reached ones with their old (still-functional; semantic search
-   already falls back to keyword search on a backend mismatch) vectors.
-   Nothing corrupted, nothing half-written — just a partially-refreshed
-   index a later manual re-run completes. `_run_pull`: `job.status` is set
-   to `"error"` on any failure, and its own comment already states the
-   property directly — "never leave a half-download looking installed"
-   (§6.5). Both jobs (`Job`) are **in-memory only**, not persisted, so a
-   real process crash (not a graceful cancel) simply forgets the job
-   existed on restart — no ghost "still running" state is possible because
-   there is nowhere for one to survive to. The one gap, and it's cosmetic:
-   neither job leaves a `taskhistory` record for a hard crash specifically
-   (only for a clean cancel or a caught exception) — a crash mid-reindex
-   shows nothing in Settings → Tasks afterward, rather than a "did not
-   finish" entry. Not attempted: needs a startup-time reconciliation pass
-   (did the last recorded reindex actually reach `total`?) that's a small
-   but real addition, not a one-line fix.
+   **Checked directly — already safe by construction.** Full narrative,
+   including the one cosmetic gap left open (no `taskhistory` record for a
+   hard crash mid-reindex): HISTORY.md §100.
 
 10. **macOS release packaging.** Linux is done; macOS is not.
 
@@ -267,54 +221,34 @@ Items 1–2, below, are the ones with real substance after that.
     pasting what it says. Everything before that is guessing, and two sessions
     have already guessed.
 
-~~11. **Sorting and grouping saved chats** — conversations sort by recency and
-    nothing else.~~ **Built**: a sort `<select>` in the Chats sidebar (Recent
-    / Most turns / Most tokens / A–Z), persisted in localStorage, pinned
-    conversations always staying first regardless of mode (the existing
-    divider still marks that boundary). One correction to this item's own
-    premise: **model is not actually stored per turn** —
-    `routes_conversations.py`'s `_summary()` returns `tokens`/`turns`/
-    `updated_at`/`title` only, no model field exists on a message at all — so
-    "sort by model" was never available to build cheaply as claimed. The
-    three sorts that *were* real data are shipped; a model-based sort would
-    need a schema change first. Verified live: A–Z sort correctly orders
-    three test conversations, the choice survives a reload.
+~~11. **Sorting and grouping saved chats.**~~ **Built.** Full narrative,
+    including the corrected "model is not stored per turn" premise:
+    HISTORY.md §100.
 
 ~~12. **The Documents Library sub-tab needs a full visual redesign.**~~
-    **Built — root cause found by screenshotting it beside the "All" view,
-    exactly as this item's own note said to.** `#library-docs-list`'s rows
-    (`renderLibraryDocuments`, `whiteboard.js`) shared only the layout class
-    `.doc-list` with the editor's own recent-docs sidebar — no scoped CSS of
-    their own at all, so every row fell through to the app's default filled
-    `<button>` style: a full-width solid-accent bar with the title and word
-    count crammed onto one line, nothing like a card. Given a document icon,
-    a proper title/meta column, a border and hover state matching
-    `.library-card`'s own look (`04-chat-dock-appearance.css`). Verified
-    live in both themes: real cards now, readable at a glance, clicking one
-    still opens the right document. Whiteboards' own pass (item 9 below) is
-    unrelated code and still open.
+    **Built.** Full narrative: HISTORY.md §100. Whiteboards' own pass (item
+    9 above) is unrelated code and still open.
 
-13. **Back/forward navigation still misses most navigation types.** Reported
-    directly, and traced to source rather than guessed at. Library's own
-    sub-tabs were fixed earlier (§88.1 item 7). **Switching between saved
-    chat conversations is now fixed too**: `openConversation` and
-    `newChatConversation` each record a `{tab: "chat", section}` entry —
-    `"conv:<id>"` or `"new"` — and `stepTabHistory` restores it. This one
-    caught and fixed a genuine bug before it shipped, not just a gap: making
-    `stepTabHistory` `async` and `await`-ing `openConversation` on that
-    branch specifically was necessary — `openConversation` calls
-    `recordTabVisit` itself, but only *after* an `await apiJson(...)`, so an
-    un-awaited call would let `stepTabHistory`'s own `finally` clear
-    `tabHistory.navigating` before that later call ran, turning every single
-    Back/Forward through a saved chat into a spurious new history entry.
-    Verified live via Playwright: opening two conversations, then stepping
-    Back and Forward, restores the right conversation each time with the
-    stack length unchanged by the navigation itself.
-
-    Still open: opening/closing a document in the editor, and
-    entering/exiting Graph focus mode. Same `{tab, section}` shape to
-    extend — worth checking for the same async-ordering trap this one had
-    before assuming either is a small change.
+~~13. **Back/forward navigation still misses most navigation types.**~~
+    **Built, all four cases.** Library's sub-tabs (§88.1 item 7), saved chat
+    conversations (`openConversation`/`newChatConversation` recording a
+    `{tab: "chat", section}` entry, restored by `stepTabHistory` — the
+    session that built this also had to make `stepTabHistory` `async` and
+    `await` that branch specifically, since `openConversation` calls
+    `recordTabVisit` itself only *after* an `await apiJson(...)`, and an
+    un-awaited restore let the `finally` clear `tabHistory.navigating` too
+    early, turning every Back/Forward through a saved chat into a spurious
+    new entry). **Documents and Graph focus mode turned out to be already
+    built too** — found by grep before being re-built, not assumed:
+    `documents.js:349` and `graph.js:2702` already call `recordTabVisit`
+    (`doc:<id>` / `focus:<id>`), and `stepTabHistory` already restores
+    both. Live-verified rather than trusted, since a call site existing is
+    not the same claim as it working: opened a document, switched to
+    Dashboard, pressed Back — the Documents tab reopened with the right
+    title loaded. Separately, entered Graph focus mode on a note, switched
+    to Dashboard, pressed Back — the Graph tab reopened with the same
+    note's focus mode active and "Clear focus" visible. Zero console
+    errors either check.
 
 ### Smaller, and genuinely cheap
 
@@ -322,17 +256,43 @@ Items 1–2, below, are the ones with real substance after that.
   most note-CRUD and agent orchestration. Left deliberately when the other
   four modules were extracted; it is the most interleaved part of the file and
   needs its own session.
-- **`manager.all_tags()` has no cap**, unlike every sibling section of the
-  same responses. Now cheap on a cache miss (§86 made it a column-only
-  select), so this is lower urgency than it was, not gone.
+~~- **`manager.all_tags()` has no cap**, unlike every sibling section of the
+  same responses.~~ **Built.** `routes_library.py`'s `_tags()` now slices
+  to `PER_KIND_LIMIT` like every other kind section there; already most-
+  used-first, so the slice keeps the tags worth finding by. `GET /tags`
+  (the Tag Manager itself) stays uncapped on purpose — its job is renaming
+  or deleting *any* tag. 2 new tests.
 - **Mirroring ordinary toasts into the notifications panel** — the other half
   of the mute feature. Every `toast()` call site needs a `kind` first, or the
   panel floods with routine "Saved." noise.
 - **A `prefers-reduced-motion` audit of the remaining meaningful animations**,
   and a screen-reader pass over the dynamic regions that announce nothing
   (BACKLOG §19; the focus-trap and tap-target halves are now done).
-- **Colour-contrast verification against WCAG AA** for the newer palettes and
-  the glass surfaces specifically. Never actually measured.
+~~- **Colour-contrast verification against WCAG AA**~~ **Measured, live, for
+  the first time.** A Playwright script walked every visible text node on the
+  Dashboard and the Settings modal (light mode, glass on — the default),
+  composited each element's effective background up the ancestor chain
+  (handling translucent glass surfaces), and computed WCAG contrast ratios.
+  Two apparent 1:1 "white on white" hits (a digest button, Settings'
+  "Connect" button) were **false positives in the audit script itself**, not
+  real bugs: both use `background-color: oklab(...)` — a real solid indigo
+  fill — and the script's regex-based colour parser only understood
+  `rgb()`/`rgba()`, so it silently treated `oklab()` as "no background" and
+  fell through to a white default. Real remaining findings, after that fix,
+  are marginal: the brand indigo (`rgb(79,109,245)`) on white or on its own
+  light-indigo chip background lands at 3.64–4.34:1 against a 4.5:1 target at
+  small sizes (12–12.8px) — a wordmark ("MemoryMap AI", exempt under WCAG
+  1.4.3's own logotype carve-out), a status chip, and a category chip.
+  Nothing found reads as actually hard to read; the misses are all within
+  ~0.2–0.9 of the threshold, not the kind of failure a person notices without
+  a tool. **Not exhaustive** — the audit didn't check dark mode (a naive
+  `data-theme` attribute set didn't actually flip the app's real theme
+  machinery, so those results were identical to light mode and discarded)
+  and doesn't account for elements hidden behind an open modal being walked
+  anyway. Fixing the marginal misses means darkening the one shared accent
+  colour used everywhere as this app's brand indigo — real blast radius for
+  a ~0.2–0.9 ratio gap nobody has reported noticing; leave it unless a
+  specific instance is flagged.
 
 ### New this session, not yet scoped
 
@@ -769,34 +729,30 @@ same-session miss like a couple of others this file records elsewhere.**
    keyword result lists — labelling the result `"hybrid"`, wired into
    `_retrieve()` (every chat/ask question's own retrieval path). Re-ranking
    and query expansion beyond this are the only parts still genuinely open.
-2. ~~The graph is not used for retrieval.~~ **Already used.**
+2. ~~The graph is not used for retrieval.~~ **Already used, and now weighted.**
    `graph_expansion()` walks linked neighbours of the top hits (and a
    second, weaker hop — ROADMAP item 33, `GRAPH_EXPANSION_HOP2_LIMIT`) and
-   is called from `_retrieve()`. §87.5's `link_type`/strength weighting
-   (still open, see §87.5 above) would make this walk *smarter*, not bring
-   it into existence — it already exists.
-3. **Memory is a surface, not a system.** Still genuinely open — no tiered
-   notion of "always in context" (a small durable profile), "retrieved when
-   relevant" (the notebook), and "this conversation only" exists anywhere
-   in `ai/`. A short, user-editable always-on memory block, capped and shown
-   in Settings, is a contained change with a large effect on how the
-   assistant reads.
-4. **No token accounting per stage.** Still genuinely open — `ai/context.py`
-   manages a token *budget* (staying under the window), which is a
-   different thing from *measuring* how much of a real turn goes to system
-   prompt vs. retrieved notes vs. history. Instrument it before tuning
-   anything further; a per-turn breakdown makes every later decision
-   evidence-based. (BACKLOG's per-chat token meter is the same idea.)
+   is called from `_retrieve()`. §87.5's first slice — `link_type`/
+   `reason_confidence` weighting, via the shared `link_strength()` — now
+   makes this walk *smarter*: which neighbours survive the hop-count limit
+   is a real decision (strongest first) rather than database insertion
+   order. §87.5's own text below has the full narrative and what's still
+   genuinely open past this slice.
+~~3. **Memory is a surface, not a system.**~~ **Checked directly — already
+   built, this claim was stale.** Full narrative: HISTORY.md §100.
+~~4. **No token accounting per stage.**~~ **Built.** Full narrative:
+   HISTORY.md §100.
 5. **Tool retrieval is all-or-nothing.** Still genuinely open. Every tool
    definition is sent every round. §33 already scoped semantic tool
-   retrieval and rightly said it needs measuring first — item 4 above is
-   the prerequisite.
+   retrieval and rightly said it needs measuring first — item 4's
+   instrumentation is now in place to do that measuring.
 
-**One caution that applies to the three real gaps above.** Every provider
-test in this repo runs against a fake transport, and this sandbox has no
-reachable model. Retrieval *quality* changes cannot be evaluated here at
-all. Build the measurement (item 4) and a small fixed question set *first*,
-or every one of these becomes a change nobody can prove helped.
+**One caution that still applies to item 5, the one real gap left in this
+section.** Every provider test in this repo runs against a fake transport,
+and this sandbox has no reachable model. Retrieval *quality* changes cannot
+be evaluated here at all. Use item 4's new instrumentation and a small
+fixed question set *first*, or this becomes a change nobody can prove
+helped.
 
 ## §89 — reported this session, not yet built (start here next)
 
@@ -811,15 +767,9 @@ callouts" entry before rebuilding anything that sounds finished.**
 
 **Still open:**
 
-1. **Pagination on other tabs.** Notes already has a page-size selector
-   (§88.0's row on it, BACKLOG §77). Asked for on Reminders and the Library
-   sub-tabs too — "maybe", the user's own hedge, so scope each independently
-   rather than assuming the Notes pattern transfers as-is: Reminders' list
-   is chronological with due/overdue framing that pagination could easily
-   break (an overdue reminder pushed onto page 2 is a reminder that stops
-   being seen), and the Library sub-tabs differ in shape from each other
-   (Documents is a flat list, the "All" grid mixes kinds with its own
-   filter chips) more than Notes' browse view did.
+~~1. **Pagination on other tabs.**~~ **Built, across all four surfaces**
+   (Notes, Reminders' Done group, Library Documents, Library "All").
+   Full narrative: HISTORY.md §100.
 
 2. **Uploading a document (not an image) to the chat composer fails
    silently into the transcript.** Reported directly, reproduced in the
@@ -889,18 +839,23 @@ callouts" entry before rebuilding anything that sounds finished.**
    using GLM-4V/DeepSeek-VL2 for OCR; check the actual registry before
    scoping model-pull UI around either name.
 
-4. **A visual indicator on a chat message's own metadata line for which
-   mode answered it** (Ask vs. Request/Agent — the segmented control at
-   the bottom of the Chat tab, `renderChatModeSeg()`/`setChatMode()` in
-   app.js, which maps to `body.use_tools` on the wire). Asked for directly.
-   The metadata line already shows the model name and timing (the
-   `{"type": "stats", ...}` NDJSON event, rendered alongside `answered_by`)
-   — this would add which of the two modes produced that particular
-   answer, most naturally read off `use_tools` (or, for a plan/skill run,
-   its own distinct label) rather than the *current* toggle state, since a
-   conversation can span mode switches and each past message should say
-   what it was actually answered with, not what the toggle happens to show
-   now.
+~~4. **A visual indicator on a chat message's own metadata line for which
+   mode answered it.**~~ **Built.** `messageMetaLine()` (app.js) takes a new
+   `usedTools` param and renders an "Ask"/"Request" chip — same
+   icon/label pair as `#chat-mode-seg` — positioned beside the model name.
+   Read off the turn's own `effectiveUseTools` at send time, not the live
+   toggle, so a conversation that spans mode switches shows what each past
+   turn actually ran with. Persisted as a new `used_tools` bool on
+   `TurnBody`/`_turn_messages` (routes_conversations.py) so it survives a
+   reload; older saved turns simply have no key and render no chip, same as
+   every other field this line already treats that way. 2 new tests
+   (test_conversations_api.py). **Live-verified in Chromium**: two turns
+   posted straight through `/conversations` with `used_tools: false`/`true`
+   and real `stats`, reopened via `openConversation` — the metadata line
+   reads `850 ms · 5% · Ask · llama3.2` and `4.2s · 11% · Request ·
+   llama3.2 · 1` respectively, chip text and position exactly as designed,
+   zero console errors. No live Ollama was needed since the chip renders
+   from saved-turn data, not a live stream.
 
 ~~5. **Images pasted, dragged, or dropped into the chat composer don't reach
    the vision-chat staging system at all.**~~ **Built** — the scoping fix,
@@ -924,14 +879,18 @@ callouts" entry before rebuilding anything that sounds finished.**
    content — content is what gets saved, a toast is a notification, and the
    two were conflated the same way the chat composer's placeholder was.
 
-6. **Captioning an image with a vision model should show in the background
-   tasks list**, the way other long-running work does. Asked for directly,
-   not yet scoped: `ai/captioning.caption_and_store`/`caption_in_background`
-   run a real model call (seconds, not instant) with no visible progress
-   anywhere in the UI today - find the existing background-tasks mechanism
-   (whatever surfaces e.g. imports or backups as in-progress) and register
-   a task around the caption call the same way, rather than inventing a
-   second progress system.
+~~6. **Captioning an image with a vision model should show in the background
+   tasks list.**~~ **Built.** Same mechanism the item asked to reuse:
+   `captioning.running_captions()` is a small in-memory dict (`upload_id` →
+   filename) set around the actual `caption_text` model call inside
+   `caption_and_store`, cleared in a `finally` so a raised exception can't
+   leave a job stuck "running" forever. `routes_tasks.collect()` reads it
+   and appends a `kind: "caption"` entry, same shape every other job there
+   already has — the frontend's `renderTasks()` is fully data-driven, so no
+   frontend change was needed at all. Not cancellable, same reasoning as the
+   embedding warm-up already in this list: one blocking model call with
+   nothing to check a flag between. 2 new tests (a mid-call spy in
+   test_captioning.py, a `/tasks` shape check in test_tasks.py).
 
 7. **The Documents editor's "AI edit" feature should become a more general
    AI assistant**, not just an in-place editor of existing text. Asked for
@@ -946,17 +905,23 @@ callouts" entry before rebuilding anything that sounds finished.**
    verbs onto the existing one.
 
 8. **Lightbox prev/next arrow icons read as off-centre.** Reported with a
-   screenshot; not yet fixed, and not confirmed live this session (no image
-   in this sandbox's test data to open a lightbox against). `.lightbox-nav`
-   already centres its child with `display: grid; place-items: center`,
-   which centres the icon's own box regardless of `.ph`'s own
-   `vertical-align: -0.12em` (that rule only affects inline layout, and has
-   no effect inside a grid item) - so if the arrows still look off-centre,
-   the cause is more likely the glyphs themselves (ph-caret-left/
-   ph-caret-right) not being visually centred within their own em-box in
-   the vendored Phosphor font, not a CSS positioning bug. Check by
-   measuring the glyph's actual ink bounds against its box in a live
-   browser before changing any CSS here.
+   screenshot. **Checked live this session, at last** (a real uploaded PNG,
+   500×350 — earlier sessions had no image in this sandbox's test data to
+   open a lightbox against at all): `.lightbox-prev`/`.lightbox-next`
+   render at the correct left/right positions, and the `<i class="ph
+   ph-caret-*">` icon element's own box is perfectly concentric with its
+   button (measured via `getBoundingClientRect()`, offset 0,0 on both
+   buttons) — `display: grid; place-items: center` is doing what its
+   comment says. Cropped screenshots of both buttons at native size showed
+   nothing visually off-centre to the eye either. **Not reproduced** — this
+   report may be specific to the reporter's OS/browser font rendering of
+   the vendored Phosphor glyphs, which this sandbox's Chromium can't
+   speak to. One genuine, minor finding along the way, not the reported
+   bug: with a **pathological 1×1 pixel test image**, the two buttons
+   appeared to cross order (next rendered left of prev) — not investigated
+   further, since a real uploaded photo is never 1×1 and this has nothing
+   to do with the off-centre report. Leave both alone unless re-reported
+   with the reporter's own OS/browser.
 
 9. **Settings modal reads as poor contrast / hazy in light mode.** Reported
    with a screenshot; not reproduced. Audited the pipeline this bug class
@@ -993,14 +958,29 @@ callouts" entry before rebuilding anything that sounds finished.**
     (chat streaming already isn't, by its nature) before deciding whether
     this becomes a standing pattern applied elsewhere or stays per-feature.
 
-12. **Whiteboard cut, and a right-click/long-press menu for a selection.**
-    Asked as a question. Copy/paste already exist (`wbCopySelection`/
-    `wbPasteClipboard`, Ctrl/Cmd+C/V) - cut does not (no Ctrl/Cmd+X handler
-    anywhere in whiteboard.js). No right-click menu for a selected item
-    either; `contextmenu` is only wired to one toolbar toggle button
-    (`wbOpenDockedMenu`, with its own touch long-press equivalent already
-    built) - that same pattern is the natural template for a selection's
-    own copy/cut/delete menu, not a new one.
+~~12. **Whiteboard cut, and a right-click/long-press menu for a selection.**~~
+    **Built.** `wbCutSelection()` is copy-then-delete, wired to Ctrl/Cmd+X
+    beside the existing Ctrl/Cmd+C/V handlers. The context menu reuses
+    `wbOpenDockedMenu`'s own reparent-to-`<body>`-and-position technique
+    (this item's own diagnosis named it as the template) via a new
+    `wbWireContextMenu(selection, kind)`, bound once per sketch/card/object
+    on their `enter()` selection the same way `.on("click", ...)` already
+    is. Right-click opens it immediately; touch gets a 500ms hold, same
+    threshold as the toolbar toggle's own long-press, cancelled on
+    release/move. Copy/Cut are omitted from the menu (not merely disabled)
+    for a card or a multi-selection, both of which `wbCopySelection` already
+    refuses — a menu offering two buttons guaranteed to fail is worse than
+    one that only shows what the selection can do. A text object's own
+    `contenteditable` body is excluded from both gestures so its native
+    cut/copy/paste/spellcheck menu still works with the mouse.
+    **Live-verified in Chromium** (desktop right-click; touch long-press
+    was not exercised — Playwright's touch emulation wasn't set up this
+    session): right-clicking a text object opens the menu with Copy/Cut/
+    Delete at the pointer, clamped correctly; right-clicking a note card
+    opens it with **Delete only**, confirming the card-exclusion guard;
+    clicking outside closes it; the Delete button removes the object from
+    the DOM; Ctrl+X removes a selected object (`.wb-object` count 5→4) and
+    Ctrl+V restores it (back to 5). Zero console errors throughout.
 
 ## §90 — reported this session (the app.js split's live-verification pass), not yet built
 
@@ -1037,6 +1017,15 @@ callouts" entry before rebuilding anything that sounds finished.**
    content handed to the model as extracted plain text (`core/ocr.py`/
    `ai/captioning.py`'s own shape) — cheap regardless of model size. Own
    session.
+~~4. **The documents-dock row wasn't aligned.**~~ **Fixed.** `#doc-view-seg`
+   inherited `.seg`'s stock `margin-bottom: 0.5rem`; nothing zeroed it for
+   `.doc-dock`, so the pills sat 4px above "AI edit"/"Extract notes"/the
+   kebab — the exact bug `.chat-dock-controls .seg` already fixed for
+   itself. `.doc-dock .seg { margin: 0; }` added; live-verified, all six
+   controls now share one `centerY`. Also answered: the Library sub-tabs
+   bar is deliberately absent from the editor (§87.7d) — the editor has its
+   own switcher (sidebar Recent list + "Browse all in Library →"); showing
+   All/Whiteboards/Image Gallery there would apply to nothing on screen.
 
 ## §87 — the connected-notebook pass: the editor layer, and everything reported with it
 
@@ -1056,7 +1045,7 @@ them.
 | Callout boxes / frames | ABSENT (now built, 87.2) | `renderMarkdown`'s blockquote branch had no `[!kind]` sniffing |
 | Wiki-links | PARTIAL | Worked in notes (`renderNoteText`) and doc preview (`layerDocWikiLinks`) — but two *different* resolvers, `[[` autocomplete on `#entry-content` only, and no create-on-miss. Backend hook: `sync_wiki_links`, `entry/manager.py:1496` |
 | Gravity / spread sliders | **ALREADY BUILT** | `index.html:1263-1269`, applied `graph.js:1255-1273`, persisted. Known gap: no effect under tree/radial (BACKLOG §536) |
-| Move nodes freely | PARTIAL | Drag exists (`graph.js:1411-1476`) but **clears `fx/fy` on drop**. Double-click pin exists (`:1496-1508`) but is **never persisted** |
+| Move nodes freely | **BUILT** | Drag still releases an unpinned node on drop (correct — that's a normal drag, not a hold). Double-click pin is now persisted (`Entry.graph_pin_x/y`, `PUT /graph/pin/{id}`) and survives a reload. A real toggle bug found live in the process — a double-click's own two constituent clicks each ran a zero-distance drag that unconditionally cleared the pin before the dblclick handler saw it, so unpinning never actually worked — is also fixed. Full narrative: HISTORY.md §100 |
 | Hide nodes / groups | PARTIAL | Category-legend hide, orphan hide and time filter all exist. **No per-node hide, no marquee** — a full marquee exists only in `whiteboard.js:3167-3320` |
 | Graph → whiteboard | ABSENT | But **both auto-layout engines already exist**: `ai/tools/whiteboard.py:263-432` and `wbMindMapSpanningTree` |
 | Custom graph configurations | **ALREADY BUILT** | Saved views, `graph.js:2839-2958` |
@@ -1160,16 +1149,24 @@ already exists**: `EntryLink.reason_confidence` is a float that today only ever
 holds an embedding cosine score. Generalising it into a composite strength over
 several signals is the natural next step:
 
-| Signal | Where it already is |
-| --- | --- |
-| Embedding similarity | `routes_entries.py:476-502` |
-| Explicit `[[wiki link]]` | `sync_wiki_links` — should be the **strongest**; the user typed it on purpose |
-| Thread parent/child | `Entry.parent_id` — structural, not inferred |
-| Shared tags (Jaccard) | `Entry.tags`, better after 87.3 |
-| Same category | `Entry.category_id` |
-| Temporal proximity | `created_at` — written the same afternoon is a real signal |
+| Signal | Where it already is | Used for weighting? |
+| --- | --- | --- |
+| Explicit `link_type` (6 named kinds) | `EntryLink.link_type` | **Yes — first slice, built** |
+| Deduced-reason confidence | `EntryLink.reason_confidence` | **Yes — first slice, built** |
+| Embedding similarity | `routes_entries.py:476-502` | Only indirectly (`SIMILAR_WEIGHT` in paths.py, flat) |
+| Explicit `[[wiki link]]`, distinguished from any other bare link | `sync_wiki_links` | **No — see the correction below** |
+| Shared tags (Jaccard) | `Entry.tags`, better after 87.3 | No |
+| Same category | `Entry.category_id` | No |
+| Temporal proximity | `created_at` — written the same afternoon is a real signal | No |
 
-**Two design calls to make before writing any of it:**
+**First slice built** — `link_strength()`, wired into both `entry/paths.py`
+and `graph_expansion()`. Full narrative, including the correction that
+"explicit `[[wiki link]]` should be strongest" can't be built as scoped
+(nothing distinguishes how a link was made): HISTORY.md §100.
+
+**Two design calls, for the composite that is still open — the derived
+signals (shared tags, category, temporal proximity), not the explicit ones
+already built above:**
 
 1. **Store the components, not just the number.** This app already learned that
    "these are related" is not good enough — that is why link *reasons* exist. A
@@ -1178,15 +1175,14 @@ several signals is the natural next step:
    category, written the same day"*. That is also what makes the score
    debuggable when it is wrong.
 2. **Store explicit, compute derived.** An explicit link's type and strength
-   belong in the row. Shared-tag and same-category strength changes every time a
-   tag changes, so storing it means an invalidation problem; compute those at
-   query time, which is what `_similarity_edges` already does for similarity.
-
-**And the part that makes it worth doing:** `entry/paths.py`'s traversal is
-currently unweighted, so "trace a path between these two notes" treats a
-throwaway similarity edge and a hand-typed wiki link as equal. Weighting the
-traversal by strength improves *both* the Trace feature and the AI's context
-retrieval, which share that code. That is the payoff — not the number itself.
+   belong in the row (done, above). Shared-tag and same-category strength
+   changes every time a tag changes, so storing it means an invalidation
+   problem; compute those at query time, which is what `_similarity_edges`
+   already does for similarity — but note both consumers are on a hot path
+   (`graph_expansion` runs on every chat/ask retrieval), so a per-pair
+   query-time computation needs real measurement first, not an assumption
+   that it's cheap. §88.4 item 4's per-stage token accounting (built) is
+   available for that measurement now.
 
 ### 87.6 The Timeline line view — a concrete design, at last
 
@@ -1315,13 +1311,25 @@ from the file that documents it.
 
 ### 87.7c Reported live, NOT yet built — next session starts here
 
-1. **The graph is slow and janky to move around.** Reported directly and not
-   yet diagnosed. Do not guess: this is the same shape as the whiteboard's
-   jank, which turned out to have one findable cause (a full re-render on
-   every frame), so **profile it before theorising**. `graph.js` already had a
-   force/render tuning pass (HISTORY §71) that fixed two concrete re-render
-   bugs, so the cheap wins may already be taken — start by measuring frame
-   cost during a pan and during a drag, separately.
+~~1. **The graph is slow and janky to move around.**~~ **Profiled directly
+   (120 notes, 6x CPU throttling, CDP `Performance.getMetrics`) — one real
+   cause found and fixed, one still open.**
+   **Fixed:** `graphSimulation.stop()` was only ever called "before every
+   rebuild," never on leaving the Graph tab — so a simulation still cooling
+   when the user switched away kept ticking on whatever tab they moved to.
+   Measured: Dashboard busy time 21% before ever opening Graph, 58% right
+   after leaving it, ~12 more seconds to decay back to baseline. This is
+   very likely a real contributor to "the app feels slow" reports that
+   don't obviously implicate the graph. Now stopped on tab-leave; re-measured
+   at ~20% (baseline) within 6 seconds instead of 12+.
+   **Still open:** the graph's own busy time *while cooling, on the Graph
+   tab itself* is genuinely high (82-88%, matching this file's own prior
+   documented pass) and this session did not reduce it — the existing
+   `alphaDecay(0.05)` tuning was already in place and the physics/tick-cost
+   work described just above this item was not reopened. Whether that
+   specific window still reads as "janky" to a real user on real (not
+   throttled) hardware is unverified — this sandbox has no way to compare
+   against unthrottled perception, only relative measurements.
 ~~2. **The saved-view select truncates to "No saved vi…"** in the redesigned
    toolbar.~~ **Already fixed** — `.graph-toolbar #graph-view-picker`
    already carries `min-width: 12.5rem` with a comment recording this exact
@@ -1345,15 +1353,33 @@ from the file that documents it.
    (threads as tributaries off a time trunk, using `Entry.parent_id`, which
    the view currently ignores entirely). Still unbuilt.
 
-### 87.8 Still open from this pass, mine to finish
+### 87.8 Checked this session — three of four were already done, the fourth partly fixed
 
-- Backlinks panel ("what links here") — edges already stored by
-  `sync_wiki_links`; a query plus a sidebar section.
-- Whiteboard render scheduler (the 49-call-site fix above).
-- Typed links / `link_type` as the first slice of 87.5.
-- Graph performance (§87.7c item 1) — now ahead of the whiteboard scheduler in
-  priority, because it was reported live and the whiteboard's cause is at
-  least already known.
+~~Backlinks panel ("what links here") — edges already stored by
+`sync_wiki_links`; a query plus a sidebar section.~~ **Already built,
+found by checking rather than assuming.** `manager.links_for_entry()` is
+already bidirectional ("all links touching this entry"), and every note
+card's `.entry-links` row (`app.js`) already renders it as clickable
+preview chips — this app's link model has no directional/citation
+semantics (a link's reason reads "the same phrase either direction" —
+`entry/paths.py`'s own docstring), so an undirected "linked notes" panel
+*is* the backlinks panel, not a lesser version of one.
+
+~~Whiteboard render scheduler (the 49-call-site fix above).~~ **Already
+fixed** — see item G on the live list above: every drag handler already
+mutates the DOM directly rather than calling `wbScheduleRender()`/a full
+re-render, checked across all 48 call sites per that function's own
+comment.
+
+~~Typed links / `link_type` as the first slice of 87.5.~~ **Built this
+session** — see §87.5's own text above for the full narrative
+(`link_strength()`, wired into `entry/paths.py` and `graph_expansion()`).
+
+**Graph performance (§87.7c item 1) — profiled, partly fixed.** One real
+cause found and fixed (the simulation kept running on other tabs after
+leaving Graph); the graph's own busy time while actively cooling on its
+own tab is still high and unaddressed. §87.7c's own text above has the
+full narrative and the measured numbers.
 
 ### 87.9 Handoff list — each item already located, none needs re-deriving
 

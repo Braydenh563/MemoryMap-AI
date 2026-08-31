@@ -103,6 +103,12 @@ let libraryCounts = {};
 let libraryOverview = {};
 let libraryKind = "all";
 
+//: Same pattern as Notes' and the Library Documents sub-tab's own paging —
+//: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
+//: a number slices the already-filtered/sorted list to one flat page instead.
+let libraryPageSize = localStorage.getItem("library-page-size") || "all";
+let libraryCurrentPage = 1;
+
 //: Order matters: it is the order of the chips. "All" first because it is the
 //: default and the one you come back to, then by how often you would reach for
 //: the kind — a document is something you sat down to write, a binned note is
@@ -213,6 +219,7 @@ function renderLibraryOverview() {
     button.addEventListener("click", () => {
       libraryKind = tile.kind;
       if (tile.kind === "archived") $("library-show-binned").checked = true;
+      libraryCurrentPage = 1; // a filter switch can move an item off whatever page it was on
       renderLibraryOverview();
       renderLibraryFilters();
       renderLibrary();
@@ -285,6 +292,7 @@ function renderLibraryFilters() {
     button.append(icon, label, badge);
     button.addEventListener("click", () => {
       libraryKind = kind.key;
+      libraryCurrentPage = 1;
       renderLibraryFilters();
       renderLibrary();
     });
@@ -413,6 +421,23 @@ function renderLibrary() {
       : items.filter(wordMatch);
   }
   items = librarySorted(items);
+
+  // Sliced after filtering/sorting and before the render loop below, same
+  // point renderLibraryDocuments() slices at.
+  const pageBar = $("library-pagination");
+  if (libraryPageSize === "all" || !items.length) {
+    pageBar?.classList.add("hidden");
+  } else {
+    const pageSize = Number(libraryPageSize);
+    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+    libraryCurrentPage = Math.min(Math.max(1, libraryCurrentPage), totalPages);
+    const start = (libraryCurrentPage - 1) * pageSize;
+    items = items.slice(start, start + pageSize);
+    pageBar?.classList.remove("hidden");
+    $("library-page-status").textContent = `Page ${libraryCurrentPage} of ${totalPages}`;
+    $("library-page-prev").disabled = libraryCurrentPage <= 1;
+    $("library-page-next").disabled = libraryCurrentPage >= totalPages;
+  }
 
   const updateDOM = () => {
     grid.replaceChildren();
@@ -1027,6 +1052,7 @@ $("skills-add-new")?.addEventListener("click", async () => {
 let librarySearchDebounceTimeout;
 async function runLibrarySearch() {
   await refreshLibrarySemantic();
+  libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }
 $("library-semantic-toggle").addEventListener("change", runLibrarySearch);
@@ -1034,17 +1060,24 @@ $("library-search").addEventListener("input", () => {
   clearTimeout(librarySearchDebounceTimeout);
   librarySearchDebounceTimeout = setTimeout(runLibrarySearch, 150);
 });
-$("library-sort").addEventListener("change", renderLibrary);
+$("library-sort").addEventListener("change", () => {
+  libraryCurrentPage = 1;
+  renderLibrary();
+});
 for (const button of document.querySelectorAll("#library-sort-seg button")) {
   button.addEventListener("click", () => {
     document.querySelectorAll("#library-sort-seg button").forEach(b => b.classList.remove("active"));
     button.classList.add("active");
     const select = $("library-sort");
     if (select) select.value = button.dataset.sort;
+    libraryCurrentPage = 1;
     renderLibrary();
   });
 }
-$("library-show-binned").addEventListener("change", renderLibrary);
+$("library-show-binned").addEventListener("change", () => {
+  libraryCurrentPage = 1;
+  renderLibrary();
+});
 for (const button of document.querySelectorAll("#library-view button")) {
   button.addEventListener("click", () => {
     localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
@@ -1515,6 +1548,13 @@ const libraryExpandedCaptions = new Set();
 // bulk-delete silently found nothing to act on.
 const libraryDocsSelection = new Set();
 
+// BACKLOG §77's page-size pattern, extended to the Library's Documents
+// sub-tab (§89 item 1) — a plain newest-first list with no due/overdue
+// framing to protect, unlike Reminders, so a straight full-list page slice
+// is safe here.
+let libraryDocsPageSize = localStorage.getItem("library-docs-page-size") || "all";
+let libraryDocsCurrentPage = 1;
+
 // The Library sub-tab drafts were supposed to live in from the start — a
 // stray comment already claimed "the sidebar/Library Drafts filter... is
 // what makes them findable" and HISTORY.md said the same, but no
@@ -1566,6 +1606,24 @@ async function renderLibraryDocuments() {
   noMatch?.classList.toggle("hidden", !isFilteredEmpty);
   if (noMatch && isFilteredEmpty) {
     noMatch.textContent = `No documents match \u201C${needle}\u201D.`;
+  }
+
+  // Sliced after the selection-cleanup above (which has to see every live
+  // id, not just the current page) and before the render loop below.
+  const pageBar = document.getElementById("library-docs-pagination");
+  if (libraryDocsPageSize === "all" || !docs.length) {
+    pageBar?.classList.add("hidden");
+  } else {
+    const pageSize = Number(libraryDocsPageSize);
+    const totalPages = Math.max(1, Math.ceil(docs.length / pageSize));
+    libraryDocsCurrentPage = Math.min(Math.max(1, libraryDocsCurrentPage), totalPages);
+    const start = (libraryDocsCurrentPage - 1) * pageSize;
+    docs = docs.slice(start, start + pageSize);
+    pageBar?.classList.remove("hidden");
+    document.getElementById("library-docs-page-status").textContent =
+      `Page ${libraryDocsCurrentPage} of ${totalPages}`;
+    document.getElementById("library-docs-page-prev").disabled = libraryDocsCurrentPage <= 1;
+    document.getElementById("library-docs-page-next").disabled = libraryDocsCurrentPage >= totalPages;
   }
 
   for (const doc of docs) {
@@ -1641,6 +1699,40 @@ async function renderLibraryDocuments() {
     // that was just renamed or deleted until something else refreshed it.
     const menu = kebabMenu(
       [
+        // **A read-only showcase, not the editor.** Asked for directly:
+        // "make a way to view documents in the documents tab in the
+        // lightbox." The row's own click already opens the full editor —
+        // this is the quick-look alternative, matching what the lightbox
+        // already does for an uploaded PDF or a note attachment. A native
+        // document needs no extraction (`GET /documents/{id}` already
+        // returns the whole body), so `item.kind`/`item.text` are set
+        // straight from the response and `showDocument` (app.js) skips
+        // its own fetch entirely when it sees them already filled in.
+        makeMenuItem("ph:eye Preview", "View this document without opening the editor", async () => {
+          let full;
+          try {
+            full = await apiJson(`/documents/${doc.id}`);
+          } catch (error) {
+            toast(error.message || "Couldn't open that document.", true);
+            return;
+          }
+          openLightbox(
+            [
+              {
+                filename: full.title || "Untitled",
+                id: full.id,
+                kind: full.file_type === "md" ? "markdown" : "code",
+                text: full.content || "",
+                addedAt: full.updated_at || "",
+                // No file on /media to fetch a URL from — Save reads this
+                // directly, the same route the kebab's own "Download .md"
+                // item already uses.
+                getUrl: () => `/documents/${full.id}/export.md`,
+              },
+            ],
+            0
+          );
+        }),
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
           if (!next) return;
@@ -1664,6 +1756,21 @@ async function renderLibraryDocuments() {
     );
     menu.classList.add("doc-list-menu");
     menu.addEventListener("click", (event) => event.stopPropagation());
+    // **Reported: "the documents popup menu in the library subtab gets cut
+    // off."** `.library-view-section` (07-whiteboard-misc.css) is
+    // `overflow-y: auto`, and `.action-menu` — the shared kebab menu
+    // `kebabMenu()` builds — is `position: absolute`, so it is clipped by
+    // that scroll container the same way `.library-image-menu-list` was
+    // clipped by `#library-view-media`/`#tab-library` earlier this session.
+    // That fix (reparent to `<body>`, position from the button's own rect)
+    // is scoped here rather than folded into `openActionMenu` itself:
+    // `.action-menu` is shared by note cards, chat, the selection popup and
+    // nested submenus, and rewriting the function all of them share is a
+    // much larger, riskier change than fixing the one instance actually
+    // reported. A MutationObserver on the menu's own `hidden` class means
+    // `openActionMenu`/`closeActionMenus` (app.js) are not touched at all —
+    // every other kebab in the app keeps its existing, working behaviour.
+    wireEscapedActionMenu(menu);
 
     open.append(top, body, menu);
     item.appendChild(open);
@@ -1811,6 +1918,11 @@ function filterLibraryImagesGallery() {
         images.map((i) => ({
           filename: i.original_name,
           getUrl: () => mediaSrc(i.url),
+          // The one caller with a real media row, so the lightbox's id-
+          // gated actions (rename/describe/OCR/delete) only ever appear
+          // here — every other caller has a url and nothing else, and a
+          // button guaranteed to 404 is worse than no button.
+          id: i.id,
           // Asked for directly: "if clicking on an image to view expand it in
           // the lightbox…can the captions and ocr accompany it somehow??"
           // The tile is the one place these are too small to read.
@@ -2380,7 +2492,13 @@ function filterLibraryImagesGallery() {
       menu.open = false;
     });
     document.addEventListener("click", (event) => {
-      if (menu.open && !menu.contains(event.target)) menu.open = false;
+      // `menuList` is reparented to <body> while open (see placeMenu), so
+      // `menu.contains()` alone no longer covers a click on the menu's own
+      // rows — it has to be asked about separately or every click inside
+      // the menu reads as a click outside it.
+      if (menu.open && !menu.contains(event.target) && !menuList.contains(event.target)) {
+        menu.open = false;
+      }
     });
     // Which edges to flip toward used to be a CSS-only guess (nth-child(3n)
     // for "last column"), which only held while the grid actually rendered
@@ -2390,29 +2508,73 @@ function filterLibraryImagesGallery() {
     // Reported directly: "make sure the popup options dont get cut off."
     // Measured against the real box now, the same way openActionMenu()
     // (app.js) already does it for every other kebab in the app.
-    menu.addEventListener("toggle", () => {
-      if (!menu.open) return;
-      menuList.classList.remove("menu-flip-left", "menu-flip-up");
-      menuList.style.transform = "";
-      const bound = nearestScrollParent(menu).getBoundingClientRect();
-      let box = menuList.getBoundingClientRect();
-      if (box.right > bound.right) menuList.classList.add("menu-flip-left");
-      if (box.bottom > bound.bottom) menuList.classList.add("menu-flip-up");
-      // The flip above only ever swaps between two *fixed* anchors — right:0
-      // (grows left) and left:0 (grows right) — which covers a tile near one
-      // edge of a wide grid but not a gallery narrower than the menu's own
-      // 13rem min-width, where flipping toward the "open" side just runs the
-      // menu off *that* edge instead. Reported live with a screenshot: cut
-      // off on the left, in the menu's default (un-flipped) position — this
-      // is the gap the flip alone can't close. Re-measured after the flip
-      // decision above and nudged back into bounds with a transform, which
-      // works regardless of which fixed anchor is currently active.
-      box = menuList.getBoundingClientRect();
-      let shift = 0;
-      if (box.left < bound.left) shift = bound.left - box.left + 8;
-      else if (box.right > bound.right) shift = bound.right - box.right - 8;
-      if (shift) menuList.style.transform = `translateX(${shift}px)`;
-    });
+    // **Re-reported after the clamp below was already in place**, with a
+    // screenshot of the menu cut off dead straight down its left edge — and
+    // a straight vertical cut is a *clipping ancestor*, not a menu that ran
+    // past the window. Measured: the menu's ancestor chain has two of them,
+    // `#library-view-media` (`overflow-x: auto`) and `#tab-library`
+    // (`overflow-x: hidden`). No amount of measuring fixes that, because
+    // `getBoundingClientRect()` reports the box the menu *would* occupy —
+    // it does not know the box is about to be clipped, so a clamp that
+    // keeps the menu inside those bounds still gets scissored by them, and
+    // a clamp measured against the scroll parent has nowhere left to move.
+    //
+    // So the menu stops being `position: absolute` inside that subtree and
+    // becomes `position: fixed`, positioned from the button's own rect
+    // against the viewport — the same escape the whiteboard's context menu
+    // already makes (`wb-ctx-menu`), for the same reason. Nothing can clip
+    // a fixed element to an ancestor's overflow, so the only bound left to
+    // respect is the window, which is what a clamp can actually enforce.
+    // **`position: fixed` alone is not enough, and the reason is worth
+    // recording.** The first attempt at this made the list fixed and
+    // positioned it from the button's rect — and it still landed inside the
+    // clipped box, offset from where it was told to go by 54px on one tile
+    // and 709px on another. A fixed element resolves against the viewport
+    // *unless* an ancestor establishes a containing block for it, which
+    // `transform`, `filter`, `backdrop-filter` and `will-change` all do —
+    // and the tile's own `section.card.glass` carries `backdrop-filter`.
+    // So the coordinates were being resolved against the very element the
+    // menu needed to escape.
+    //
+    // Reparenting to <body> is what actually escapes it: no glass ancestor,
+    // no clipping ancestor, and `fixed` finally means the viewport. Same
+    // move `wbOpenDockedMenu` makes for the same reason.
+    const placeMenu = () => {
+      if (!menu.open) {
+        if (menuList.parentElement === document.body) menu.append(menuList);
+        return;
+      }
+      if (menuList.parentElement !== document.body) document.body.append(menuList);
+      const margin = 8;
+      const anchor = menuButton.getBoundingClientRect();
+      // Default: hung below the button, right edges aligned — the same
+      // placement the absolute version had, just resolved against the
+      // viewport instead of the (clipping) offset parent.
+      menuList.style.left = "0px";
+      menuList.style.top = "0px";
+      const box = menuList.getBoundingClientRect();
+      let left = anchor.right - box.width;
+      let top = anchor.bottom + margin;
+      if (left < margin) left = margin;
+      if (left + box.width > window.innerWidth - margin) {
+        left = Math.max(margin, window.innerWidth - margin - box.width);
+      }
+      // Flip above the button when there is no room below it, and only
+      // then — the menu is five rows tall and a tile near the bottom of
+      // the gallery has none.
+      if (top + box.height > window.innerHeight - margin) {
+        const above = anchor.top - margin - box.height;
+        top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+      }
+      menuList.style.left = `${Math.round(left)}px`;
+      menuList.style.top = `${Math.round(top)}px`;
+    };
+    menu.addEventListener("toggle", placeMenu);
+    // A fixed element does not travel with the content it was opened from,
+    // so a scroll would leave it stranded over the wrong tile. Cheapest
+    // correct answer, and the one the rest of the app uses: close it.
+    window.addEventListener("scroll", () => { if (menu.open) menu.open = false; }, true);
+    window.addEventListener("resize", () => { if (menu.open) menu.open = false; }, { passive: true });
     actions.append(menu);
 
     // **Labelled, and separated.** Reported directly: "I feel the image
@@ -2556,7 +2718,48 @@ document.addEventListener("DOMContentLoaded", () => {
   // Filter as you type. No debounce: the list is already in memory after the
   // first fetch and re-rendering it is cheap, unlike the semantic searches
   // elsewhere that a debounce exists to protect.
-  $("library-docs-search")?.addEventListener("input", renderLibraryDocuments);
+  $("library-docs-search")?.addEventListener("input", () => {
+    libraryDocsCurrentPage = 1; // a new search can move a document off whatever page it was on
+    renderLibraryDocuments();
+  });
+  const docsPageSizeSelect = $("library-docs-page-size");
+  if (docsPageSizeSelect) {
+    docsPageSizeSelect.value = libraryDocsPageSize;
+    docsPageSizeSelect.addEventListener("change", (e) => {
+      libraryDocsPageSize = e.target.value;
+      localStorage.setItem("library-docs-page-size", libraryDocsPageSize);
+      libraryDocsCurrentPage = 1;
+      renderLibraryDocuments();
+    });
+  }
+  $("library-docs-page-prev")?.addEventListener("click", () => {
+    if (libraryDocsCurrentPage <= 1) return;
+    libraryDocsCurrentPage -= 1;
+    renderLibraryDocuments();
+  });
+  $("library-docs-page-next")?.addEventListener("click", () => {
+    libraryDocsCurrentPage += 1; // clamped back down inside renderLibraryDocuments if this overshoots
+    renderLibraryDocuments();
+  });
+  const libraryPageSizeSelect = $("library-page-size");
+  if (libraryPageSizeSelect) {
+    libraryPageSizeSelect.value = libraryPageSize;
+    libraryPageSizeSelect.addEventListener("change", (e) => {
+      libraryPageSize = e.target.value;
+      localStorage.setItem("library-page-size", libraryPageSize);
+      libraryCurrentPage = 1;
+      renderLibrary();
+    });
+  }
+  $("library-page-prev")?.addEventListener("click", () => {
+    if (libraryCurrentPage <= 1) return;
+    libraryCurrentPage -= 1;
+    renderLibrary();
+  });
+  $("library-page-next")?.addEventListener("click", () => {
+    libraryCurrentPage += 1; // clamped back down inside renderLibrary if this overshoots
+    renderLibrary();
+  });
   $("library-images-upload")?.addEventListener("click", () => $("library-images-upload-input").click());
   $("library-images-upload-input")?.addEventListener("change", async (event) => {
     const input = event.target;

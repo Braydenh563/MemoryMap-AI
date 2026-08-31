@@ -2513,6 +2513,19 @@ button {
   height: var(--control-h);
 }
 
+/* **Same bug the chat dock already fixed for its own `.seg`** (see the note
+   above `.chat-dock-controls .seg`): the base `.seg` rule carries
+   `margin-bottom: 0.5rem` for the stacked forms it was built for, and
+   nothing in this block zeroed it for `#doc-view-seg`. `align-items: center`
+   on `.doc-actions` centres a flex item's *margin box*, so that stray bottom
+   margin — invisible in the markup, present only in the rule that set it —
+   pulled the view-mode pills 4px above "AI edit" / "Extract notes" / the
+   kebab, none of which carry it. Reported live: "the view-mode pill selector
+   and other elements in its row arent aligned". */
+.doc-dock .seg {
+  margin: 0;
+}
+
 .doc-dock .ghost.small {
   display: inline-flex;
   align-items: center;

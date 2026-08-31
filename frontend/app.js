@@ -1556,7 +1556,13 @@ function inlineActionIs(id, kind) {
 function closeActionMenus() {
   for (const menu of document.querySelectorAll(".action-menu:not(.hidden)")) {
     menu.classList.add("hidden");
-    const opener = menu.parentElement.querySelector("[aria-haspopup]");
+    // `menu._escapedOpener` (set by wireEscapedActionMenu) wins when
+    // present: a menu reparented to <body> has no useful `.parentElement`
+    // to search — `document.body.querySelector` would find the *first*
+    // `[aria-haspopup]` anywhere on the page, not this menu's own opener,
+    // and set the wrong button's aria-expanded. Undefined for every other
+    // menu, so this changes nothing for them.
+    const opener = menu._escapedOpener || menu.parentElement.querySelector("[aria-haspopup]");
     if (opener) opener.setAttribute("aria-expanded", "false");
   }
   for (const strip of document.querySelectorAll(".menu-open")) {
@@ -1618,6 +1624,89 @@ function openActionMenu(menu, opener) {
     menu.classList.add("action-menu-flip");
   }
   menu.querySelector("button")?.focus();
+}
+
+// **Escapes a `kebabMenu()` dropdown from a clipping scroll ancestor.**
+// Reported live, with a screenshot: "the documents popup menu in the
+// library subtab gets cut off." `.library-view-section` is
+// `overflow-y: auto`, and `.action-menu` is `position: absolute` — the
+// same shape as the gallery kebab menu's own clipping bug earlier this
+// session (`section.card.glass`'s `backdrop-filter`, there), fixed the
+// same way: reparent to `<body>` and position from the opener's own rect,
+// which is the only thing that actually escapes an ancestor's `overflow`.
+//
+// Deliberately **not** folded into `openActionMenu`/`closeActionMenus`
+// themselves — `.action-menu` is shared by every note card, the chat
+// dock, the selection popup and nested submenus, none of which are
+// clipped, and none of which this session re-verified live. Rewriting
+// what they all depend on to fix one clipped caller is a bigger, riskier
+// change than watching that one caller's own open/close state and acting
+// on it — which is what this does, via a MutationObserver on the menu's
+// own `hidden` class, so `openActionMenu`'s existing flip logic keeps
+// running unmodified underneath it.
+//
+// Call once, right after building a `kebabMenu()` wrap, for any menu
+// known to live inside a scrolling ancestor.
+function wireEscapedActionMenu(wrap) {
+  const menu = wrap.querySelector(".action-menu");
+  const opener = wrap.querySelector("[aria-haspopup]");
+  if (!menu || !opener) return;
+  // Read by closeActionMenus() in place of a DOM-parent lookup, which
+  // would otherwise search the whole <body> for the first [aria-haspopup]
+  // it finds — the wrong button — once this menu is no longer a
+  // descendant of its own opener's wrapper.
+  menu._escapedOpener = opener;
+  let homeParent = null;
+  let homeNext = null;
+  const place = () => {
+    const margin = 8;
+    const anchor = opener.getBoundingClientRect();
+    // Reset first: a stale left/top from the last open would otherwise
+    // seed the width/height measurement below at the wrong size on some
+    // browsers' layout of a `position: fixed` element mid-transition.
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    const box = menu.getBoundingClientRect();
+    let left = anchor.right - box.width;
+    let top = anchor.bottom + 4;
+    if (left < margin) left = margin;
+    if (left + box.width > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - margin - box.width);
+    }
+    if (top + box.height > window.innerHeight - margin) {
+      const above = anchor.top - 4 - box.height;
+      top = above >= margin ? above : Math.max(margin, window.innerHeight - margin - box.height);
+    }
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+  };
+  const observer = new MutationObserver(() => {
+    const open = !menu.classList.contains("hidden");
+    if (open && menu.parentElement !== document.body) {
+      homeParent = menu.parentElement;
+      homeNext = menu.nextSibling;
+      document.body.appendChild(menu);
+      menu.classList.add("action-menu-escaped");
+      place();
+    } else if (!open && menu.parentElement === document.body && homeParent) {
+      // Restored on close, not left in <body> — closeActionMenus() and
+      // any future openActionMenu() call both expect to find this menu
+      // where it started, and a page that never puts an escaped menu back
+      // accumulates stray position:fixed nodes at <body>'s end forever.
+      homeParent.insertBefore(menu, homeNext);
+      menu.classList.remove("action-menu-escaped");
+      menu.style.left = "";
+      menu.style.top = "";
+    }
+  });
+  observer.observe(menu, { attributes: true, attributeFilter: ["class"] });
+  window.addEventListener(
+    "resize",
+    () => {
+      if (!menu.classList.contains("hidden")) place();
+    },
+    { passive: true }
+  );
 }
 
 // The ⋯ overflow menu on each note card (Wave L rework).
@@ -2642,11 +2731,459 @@ function openLightbox(items, startIndex = 0) {
   const stage = document.createElement("div");
   stage.className = "lightbox-stage";
 
+  // **The actions bar.** Asked for directly: "improve on and expand the
+  // capabilities and features at the bottom of the lightbox". Until now the
+  // lightbox was purely an *information* surface — filename, dimensions,
+  // caption, OCR text — with no action on it at all, which meant the one
+  // place you are actually looking at a picture was the one place you could
+  // not do anything to it.
+  //
+  // Everything here works from what `openLightbox` already receives, so it
+  // lights up for **every** caller (notes, chat, graph, dashboard, library)
+  // rather than only the Library's richer items. Actions that need a media
+  // id — describe with AI, re-run OCR, rename, delete — are deliberately
+  // not here: no caller passes one today, and inventing a half-working row
+  // that only the Library populates is the "two buttons guaranteed to fail"
+  // shape this project has already rejected once on the whiteboard menu.
+  const actions = document.createElement("div");
+  actions.className = "lightbox-actions";
+  actions.addEventListener("click", (e) => e.stopPropagation());
+
+  // Zoom is the gap that mattered most: a lightbox that cannot magnify is
+  // just a bigger thumbnail, and the OCR panel below is often the only way
+  // to read text in a picture precisely because you could not zoom into it.
+  let zoom = 1;
+  const ZOOM_MIN = 1;
+  const ZOOM_MAX = 6;
+  const zoomLabel = document.createElement("span");
+  zoomLabel.className = "muted lightbox-zoom-label";
+  const applyZoom = () => {
+    img.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
+    // Only grab-able once there is something to pan to.
+    img.classList.toggle("zoomed", zoom > 1);
+    zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+    if (zoom === 1) stage.scrollTo({ left: 0, top: 0 });
+  };
+  const setZoom = (next) => {
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
+    applyZoom();
+  };
+  const actionBtn = (label, title, fn) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small lightbox-action";
+    b.title = title;
+    setLabel(b, label);
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      fn(b);
+    });
+    actions.appendChild(b);
+    return b;
+  };
+
+  const zoomOutBtn = actionBtn("ph:magnifying-glass-minus", "Zoom out", () => setZoom(zoom - 0.5));
+  actions.appendChild(zoomLabel);
+  const zoomInBtn = actionBtn("ph:magnifying-glass-plus", "Zoom in", () => setZoom(zoom + 0.5));
+  const resetBtn = actionBtn("ph:arrows-in Fit", "Back to fit", () => setZoom(1));
+  // Zoom is an image control. A document scrolls and reflows instead, so
+  // showing a disabled-in-spirit 100% beside a page of text is three
+  // controls that do nothing — the same "only show what this can do"
+  // reasoning the whiteboard context menu already settled.
+  const zoomControls = [zoomOutBtn, zoomLabel, zoomInBtn, resetBtn];
+  const showZoomControls = (on) =>
+    zoomControls.forEach((el) => el.classList.toggle("hidden", !on));
+
+  // Wheel-to-zoom, because that is what every image viewer does and a person
+  // who has zoomed once will try it. Non-passive so the page behind cannot
+  // scroll out from under the picture mid-zoom.
+  stage.addEventListener(
+    "wheel",
+    (e) => {
+      e.preventDefault();
+      setZoom(zoom + (e.deltaY < 0 ? 0.25 : -0.25));
+    },
+    { passive: false }
+  );
+
+  // Drag to pan, once zoomed. The scrollbars already pan the stage, but a
+  // magnified picture with `cursor: grab` on it that does not actually drag
+  // is an affordance telling a lie — every image viewer drags here.
+  let panning = null;
+  img.addEventListener("pointerdown", (e) => {
+    if (zoom === 1) return;
+    e.preventDefault();
+    panning = { x: e.clientX, y: e.clientY, left: stage.scrollLeft, top: stage.scrollTop };
+    img.setPointerCapture(e.pointerId);
+    img.style.cursor = "grabbing";
+  });
+  img.addEventListener("pointermove", (e) => {
+    if (!panning) return;
+    stage.scrollLeft = panning.left - (e.clientX - panning.x);
+    stage.scrollTop = panning.top - (e.clientY - panning.y);
+  });
+  const endPan = (e) => {
+    if (!panning) return;
+    panning = null;
+    img.style.cursor = "";
+    if (e.pointerId !== undefined && img.hasPointerCapture(e.pointerId)) {
+      img.releasePointerCapture(e.pointerId);
+    }
+  };
+  img.addEventListener("pointerup", endPan);
+  img.addEventListener("pointercancel", endPan);
+  // A drag that ends on the image must not also read as a click on the
+  // backdrop, which closes the dialog — panning to the edge of a picture
+  // and having the whole thing vanish is the bug this prevents.
+  img.addEventListener("click", (e) => e.stopPropagation());
+
+  // Copy the text the app read out of the picture. Hidden unless this item
+  // actually has some — an enabled button that copies "" is a lie.
+  // Goes through the app's own `copyToClipboard` helper rather than the raw
+  // browser clipboard call — caught by
+  // test_every_copy_path_goes_through_the_fallback (whose naive string scan
+  // would otherwise flag even *this comment* if it spelled the call out
+  // literally, which is why it doesn't). The helper already covers what a
+  // hand-rolled version here did not: a non-secure context, permission
+  // refused, and a last-resort "here's the text, already selected" UI when
+  // both fail, instead of this button just going silent.
+  const copyBtn = actionBtn("ph:copy Copy text", "Copy the text read from this image", async (b) => {
+    const value = (items[index].text || "").trim();
+    if (!value) return;
+    await copyToClipboard(value, b);
+  });
+
+  // Save the original file. `download` needs a same-origin href to name the
+  // file, which `mediaSrc()` gives us — it is this app's own /media route.
+  actionBtn("ph:download-simple Save", "Save this file to your computer", async () => {
+    try {
+      const current = items[index];
+      const href = await current.getUrl();
+      const a = document.createElement("a");
+      a.href = href;
+      // **A document leaves `download` unset, an image sets it.** A
+      // non-empty `download` attribute wins over the server's own
+      // `Content-Disposition: filename="..."` — for
+      // `/documents/{id}/export.md`, that header already carries the
+      // right extension for the file's actual type (`.py`, `.json`,
+      // `.md`, whatever `filetypes.get` picked), computed server-side.
+      // Setting `download` to a bare title here would have downloaded a
+      // "Quarterly Report" with no extension at all, silently discarding
+      // that work — an image has no such header to defer to, so it keeps
+      // naming itself.
+      if (!current.kind) a.download = current.filename || "image";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      toast("Couldn't save that file.", true);
+    }
+  });
+
+  // **The AI/manage actions — gated on a media id, and only ever visible
+  // when one is present.** Reported directly, and left open on purpose the
+  // first time this bar was built: rename, describe with AI, read text (two
+  // ways) and delete all need a real `MediaUpload` row, and of nine
+  // `openLightbox` callers only the Library's own gallery has one to pass.
+  // Every other caller (a note attachment, a chat image, a graph or
+  // dashboard thumbnail, a whiteboard object) opens the lightbox from a bare
+  // url, and a menu that 404s on click is worse than no menu — the same "two
+  // buttons guaranteed to fail" shape this project already rejected once on
+  // the whiteboard's own context menu.
+  //
+  // Reuses the endpoints and request shapes the gallery kebab already
+  // established (library.js) rather than inventing a second idea of what
+  // "describe with AI" does.
+  let moreMenu = null;
+  const buildMoreMenu = (item) => {
+    const run = (label, busyText, endpoint, applyTo) => async () => {
+      try {
+        toast(busyText);
+        const updated = await apiJson(`/media/${item.id}${endpoint}`, { method: "POST" });
+        applyTo(item, updated);
+        renderInfo(item, true);
+      } catch (err) {
+        toast(err.message || `Couldn't ${label.toLowerCase()}.`, true);
+      }
+    };
+    return kebabMenu(
+      [
+        {
+          label: "ph:sparkle Describe with AI",
+          title: "Generate a caption for this image",
+          run: run("describe", "Describing…", "/caption", (it, u) => {
+            it.caption = u.caption || "";
+          }),
+        },
+        {
+          label: "ph:text-aa Read text with AI",
+          title: "Read the text in this image with a vision model",
+          run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
+            it.text = (u.vision_ocr_text || "").trim();
+            it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
+          }),
+        },
+        {
+          label: "ph:scan Read text offline (OCR)",
+          title: "Read the text in this image offline",
+          run: run("read text", "Reading…", "/ocr", (it, u) => {
+            it.text = (u.ocr_text || "").trim();
+            it.byline = it.text ? "Text read offline (OCR)" : "";
+          }),
+        },
+        {
+          label: "ph:pencil-simple Rename",
+          title: "Rename this image",
+          run: async () => {
+            const next = window.prompt("New name", item.filename || "");
+            if (!next || !next.trim() || next === item.filename) return;
+            try {
+              const updated = await apiJson(`/media/${item.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ original_name: next.trim() }),
+              });
+              item.filename = updated.original_name;
+              renderInfo(item, true);
+            } catch (err) {
+              toast(err.message || "Couldn't rename that image.", true);
+            }
+          },
+        },
+        {
+          label: "ph:trash Delete",
+          title: "Delete this image",
+          run: async () => {
+            if (!(await confirmDialog(`Delete "${item.filename || "this image"}"?`))) return;
+            try {
+              await apiJson(`/media/${item.id}`, { method: "DELETE" });
+              items.splice(index, 1);
+              if (!items.length) {
+                close();
+                return;
+              }
+              show(index);
+            } catch (err) {
+              toast(err.message || "Couldn't delete that image.", true);
+            }
+          },
+        },
+      ],
+      "More actions for this image"
+    );
+  };
+  const syncMoreMenu = (item) => {
+    moreMenu?.remove();
+    // `!item.kind` matters here, not just belt-and-braces: a native
+    // document preview item (below) also carries `item.id`, but that id
+    // names a *document*, not a media upload — feeding it to
+    // `/media/{id}/caption` or `/media/{id}` DELETE would act on whatever
+    // media row happens to share that number, or 404. This menu is media-
+    // actions only; `item.kind` is how a document identifies itself.
+    moreMenu = item.id && !item.kind ? buildMoreMenu(item) : null;
+    if (moreMenu) actions.appendChild(moreMenu);
+  };
+
+
+  // **The document half of the showcase.** Asked for directly: the lightbox
+  // should be "a sort of document preview… for viewing pdfs, word documents,
+  // spreadsheets, text files, code files etc but in a presentable way that
+  // isn't editable".
+  //
+  // Read-only is not a shortcut here — `/media/text` returns *extracted*
+  // text, so what is on screen has already stopped being a .docx and there
+  // is nothing coherent to write back into. `core/docview.py`'s own module
+  // docstring makes the same point.
+  const doc = document.createElement("div");
+  doc.className = "lightbox-doc hidden";
+  const docBody = document.createElement("div");
+  docBody.className = "lightbox-doc-body";
+  const docNote = document.createElement("p");
+  docNote.className = "muted lightbox-doc-note hidden";
+  doc.append(docNote, docBody);
+  doc.addEventListener("click", (e) => e.stopPropagation());
+  stage.appendChild(doc);
+
+  // Find within the document. Deliberately a filter over the rendered text
+  // rather than the browser's own Ctrl+F: this panel scrolls inside a
+  // dialog, and the native find has no idea the rest of the page is inert.
+  const find = document.createElement("input");
+  find.type = "search";
+  find.className = "lightbox-find hidden";
+  find.placeholder = "Find in document";
+  find.setAttribute("aria-label", "Find in document");
+  const findCount = document.createElement("span");
+  findCount.className = "muted lightbox-find-count hidden";
+  const clearFind = () => {
+    find.value = "";
+    findCount.textContent = "";
+    docBody.querySelectorAll("mark.lightbox-hit").forEach((m) => {
+      m.replaceWith(document.createTextNode(m.textContent));
+    });
+    docBody.normalize();
+  };
+  find.addEventListener("input", () => {
+    // Unwrap previous hits before re-scanning, or each keystroke would
+    // search text already split across <mark> boundaries.
+    docBody.querySelectorAll("mark.lightbox-hit").forEach((m) => {
+      m.replaceWith(document.createTextNode(m.textContent));
+    });
+    docBody.normalize();
+    const needle = find.value.trim();
+    if (!needle) {
+      findCount.textContent = "";
+      findCount.classList.add("hidden");
+      return;
+    }
+    // Walk text nodes and wrap matches. Text-node surgery rather than an
+    // innerHTML replace, which would corrupt the rendered markup and is the
+    // classic way this feature introduces an injection bug.
+    const lower = needle.toLowerCase();
+    const walker = document.createTreeWalker(docBody, NodeFilter.SHOW_TEXT);
+    const targets = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.nodeValue.toLowerCase().includes(lower)) targets.push(node);
+    }
+    let hits = 0;
+    for (const textNode of targets) {
+      const parts = textNode.nodeValue.split(new RegExp(`(${escapeForFind(needle)})`, "gi"));
+      if (parts.length < 2) continue;
+      const frag = document.createDocumentFragment();
+      for (const part of parts) {
+        if (part.toLowerCase() === lower) {
+          const mark = document.createElement("mark");
+          mark.className = "lightbox-hit";
+          mark.textContent = part;
+          frag.appendChild(mark);
+          hits += 1;
+        } else if (part) {
+          frag.appendChild(document.createTextNode(part));
+        }
+      }
+      textNode.replaceWith(frag);
+    }
+    findCount.textContent = hits ? `${hits} match${hits === 1 ? "" : "es"}` : "No matches";
+    findCount.classList.remove("hidden");
+    docBody.querySelector("mark.lightbox-hit")?.scrollIntoView({ block: "center" });
+  });
+  actions.append(find, findCount);
+
+  // Which suffixes this viewer renders as a *picture*. Everything else that
+  // reaches the lightbox is offered to the document reader instead.
+  const IMAGE_SUFFIXES = /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i;
+
+  async function showDocument(item, name) {
+    img.classList.add("hidden");
+    broken.classList.add("hidden");
+    doc.classList.remove("hidden");
+    docBody.replaceChildren();
+    docNote.classList.add("hidden");
+    clearFind();
+    find.classList.remove("hidden");
+    docBody.textContent = "Reading…";
+    let payload = null;
+    // **A native MemoryMap document already has its content** — asked for
+    // directly: "make a way to view documents in the documents tab in the
+    // lightbox." The Library's Documents list holds real `Document` rows,
+    // not uploads, and their body comes back whole from `GET /documents/
+    // {id}`; there is nothing to *extract*, so going through
+    // `/media/text` (which exists for files that started life as something
+    // other than markdown) would be asking the server to do work it
+    // already did. A caller that already knows its own kind and text — set
+    // by the Documents list's own "Preview" action below — skips the fetch
+    // entirely.
+    if (item.kind && item.text != null) {
+      payload = { kind: item.kind, text: item.text, source: item.source || "file" };
+    } else {
+      try {
+        payload = await apiJson(`/media/text/${encodeURIComponent(name)}`);
+      } catch {
+        payload = null;
+      }
+    }
+    if (!payload) {
+      docBody.textContent = "";
+      docNote.textContent =
+        "This file can't be previewed here. Use Save to open it in another app.";
+      docNote.classList.remove("hidden");
+      find.classList.add("hidden");
+      return;
+    }
+    docBody.replaceChildren();
+    const body = payload.text || "";
+    if (!body.trim()) {
+      docNote.textContent =
+        payload.message || "There's no readable text in this file.";
+      docNote.classList.remove("hidden");
+      return;
+    }
+    if (payload.kind === "markdown") {
+      // The same renderer documents and chat use, so a previewed .md looks
+      // like the same app rather than a second idea of what markdown is.
+      renderMarkdown(docBody, body);
+    } else {
+      // Code and plain text keep their own whitespace, which is most of
+      // what makes them readable.
+      const pre = document.createElement("pre");
+      pre.className = "lightbox-doc-pre";
+      const code = document.createElement("code");
+      code.textContent = body;
+      pre.appendChild(code);
+      docBody.appendChild(pre);
+    }
+    // `source` is shown, not just logged: text a vision model transcribed
+    // off a scanned page is a *reading* of the file, and presenting it
+    // identically to text read out of a .txt would state a guess as fact.
+    const notes = [];
+    if (payload.source === "vision-ocr") notes.push("Text read off the page by a vision model");
+    else if (payload.source === "converted") notes.push("Converted for preview");
+    if (payload.truncated) notes.push("Long file — showing the beginning only");
+    if (payload.message) notes.push(payload.message);
+    docNote.textContent = notes.join(" · ");
+    docNote.classList.toggle("hidden", !notes.length);
+  }
+
   async function show(i) {
     index = (i + items.length) % items.length;
     const item = items[index];
+    // **`Promise.resolve()`, not a bare `.catch()` on the call.** Found live,
+    // not by reading: this crashed the entire lightbox — not just the new
+    // document detection — for the Library's own gallery, whose `getUrl` is
+    // `() => mediaSrc(i.url)`, a plain synchronous string return, not a
+    // Promise. `.catch` does not exist on a string, so this threw
+    // synchronously and no code past it in `show()` ever ran, including the
+    // metadata panel that predates this change entirely. `await` on a
+    // non-Promise already resolves fine (`show()`'s other two `getUrl()`
+    // call sites never hit this); wrapping in `Promise.resolve()` first is
+    // what makes `.catch()` safe to chain regardless of which shape a
+    // caller returns.
+    const rawUrl = await Promise.resolve(item.getUrl()).catch(() => "");
+    const name = (/\/media\/([^/?#]+)/.exec(rawUrl || "") || [])[1] || "";
+    const looksLikeImage =
+      IMAGE_SUFFIXES.test(item.filename || "") || IMAGE_SUFFIXES.test(name);
+    // A native document (item.kind already set — see showDocument) has no
+    // `/media/...` url to sniff at all; a caller that already declares
+    // itself a document skips the filename guess entirely.
+    if (item.kind || (name && !looksLikeImage)) {
+      overlay.setAttribute("aria-label", item.filename || "Document preview");
+      meta.textContent =
+        items.length > 1
+          ? `${item.filename || ""} — ${index + 1} of ${items.length}`
+          : item.filename || "";
+      actions.classList.remove("hidden");
+      setZoom(1);
+      showZoomControls(false);
+      syncMoreMenu(item);
+      await showDocument(item, name);
+      hydrate(index, item, true);
+      return;
+    }
+    doc.classList.add("hidden");
+    find.classList.add("hidden");
+    findCount.classList.add("hidden");
+    showZoomControls(true);
     img.alt = item.filename || "";
-    img.src = await item.getUrl();
+    img.src = rawUrl;
     // A failed decode used to be swallowed here, leaving a blank box with no
     // explanation — reported live as "the second page doesn't load" (an
     // image whose underlying file was gone, paged to from a gallery that
@@ -2687,6 +3224,107 @@ function openLightbox(items, startIndex = 0) {
     if (item.filename) facts.push(item.filename);
     infoFacts.textContent = facts.join("  ·  ");
     infoFacts.classList.toggle("hidden", !facts.length);
+    // Paging to another picture starts it at fit, the same way opening one
+    // does — carrying a 400% zoom onto the next image lands you somewhere
+    // arbitrary in a picture you have not seen yet.
+    setZoom(1);
+    copyBtn.classList.toggle("hidden", !text);
+    // Nothing to act on when the file itself failed to load.
+    actions.classList.toggle("hidden", !ok);
+    syncMoreMenu(item);
+
+    // **Fill in whatever the caller did not know.** Reported directly: the
+    // caption, OCR text and facts appeared in the Image Gallery and nowhere
+    // else. The lightbox was never the problem — this metadata arrived as
+    // *arguments*, and of nine callers only the gallery holds a full media
+    // row to pass. Everywhere else (a note attachment, a chat image, a graph
+    // or dashboard thumbnail, a whiteboard object) has a url and a name, so
+    // the panel below the picture stayed empty on the same picture that
+    // showed a full description one tab over.
+    //
+    // Asking the server closes that gap in one place instead of nine, and
+    // covers callers added later without them having to know to pass
+    // anything. Only ever *fills* — a caller that did pass a caption keeps
+    // the one it passed, so the gallery's own (possibly just-edited,
+    // not-yet-saved) values still win.
+    hydrate(index, item, ok);
+  }
+
+  // Looked up once per filename per lightbox, then remembered: paging back
+  // and forth across a gallery would otherwise refetch the same rows.
+  const metaCache = new Map();
+  async function hydrate(forIndex, item, ok) {
+    if (item.caption && item.text && item.addedAt) return;
+    let url;
+    try {
+      url = await item.getUrl();
+    } catch {
+      return;
+    }
+    // `/media/<stored name>` — possibly with the `?token=` mediaSrc() adds
+    // for declarative loads, which is not part of the name.
+    const match = /\/media\/([^/?#]+)/.exec(url || "");
+    if (!match) return;
+    const name = match[1];
+    if (!metaCache.has(name)) {
+      metaCache.set(
+        name,
+        apiJson(`/media/meta/${encodeURIComponent(name)}`).catch(() => null)
+      );
+    }
+    const row = await metaCache.get(name);
+    // Not an error worth surfacing: plenty of images in this app are not
+    // `MediaUpload` rows at all (a sketch rendered straight to a data url,
+    // a file whose row was deleted out from under a note that still links
+    // it). No metadata simply means no panel, exactly as before.
+    if (!row) return;
+    // The picture may have been paged away from while this was in flight.
+    if (forIndex !== index) return;
+
+    if (!item.caption && row.caption) item.caption = row.caption;
+    if (!item.text) item.text = (row.vision_ocr_text || row.ocr_text || "").trim();
+    if (!item.addedAt && row.created_at) item.addedAt = row.created_at;
+    if (!item.byline) {
+      item.byline = row.vision_ocr_text
+        ? `Text read by ${row.vision_ocr_model || "a model"}`
+        : row.ocr_text
+          ? "Text read offline (OCR)"
+          : "";
+    }
+    // The gallery passes `original_name`; a bare url caller passes the
+    // stored name or nothing, and the human-readable one is better.
+    if (row.original_name && (!item.filename || item.filename === name)) {
+      item.filename = row.original_name;
+    }
+    renderInfo(item, ok);
+  }
+
+  // The half of `show()` that draws the panel, split out so `hydrate` can
+  // redraw it once the answer arrives without re-running the image load.
+  function renderInfo(item, ok) {
+    const caption = (item.caption || "").trim();
+    const text = (item.text || "").trim();
+    infoCaption.textContent = caption;
+    infoCaption.classList.toggle("hidden", !caption);
+    infoText.textContent = text;
+    infoText.classList.toggle("hidden", !text);
+    infoByline.textContent = item.byline || "";
+    infoByline.classList.toggle("hidden", !item.byline);
+    info.classList.toggle("hidden", !caption && !text && !item.filename);
+    meta.textContent =
+      items.length > 1
+        ? `${item.filename || ""} — ${index + 1} of ${items.length}`
+        : item.filename || "";
+    const facts = [];
+    if (ok && img.naturalWidth) facts.push(`${img.naturalWidth} × ${img.naturalHeight}`);
+    if (item.addedAt) {
+      const when = new Date(item.addedAt);
+      if (!Number.isNaN(when.valueOf())) facts.push(`Added ${when.toLocaleDateString()}`);
+    }
+    if (item.filename) facts.push(item.filename);
+    infoFacts.textContent = facts.join("  ·  ");
+    infoFacts.classList.toggle("hidden", !facts.length);
+    copyBtn.classList.toggle("hidden", !text);
   }
 
   const close = () => {
@@ -2713,10 +3351,26 @@ function openLightbox(items, startIndex = 0) {
   document.addEventListener("keydown", onKey);
 
   stage.append(img, broken);
-  if (items.length > 1) stage.append(prevBtn, nextBtn);
+  // **The arrows must not live inside the stage.** The stage scrolls now
+  // (zoom needs it to, so a magnified picture can be panned to its edges),
+  // and an absolutely-positioned child of a scrolling box scrolls with its
+  // content — so the arrows drifted off-centre and away from the edges the
+  // moment anything overflowed. Reported live: "completely off, different
+  // distances from the edge of the screen, at different heights, and not
+  // even aligned."
+  //
+  // A non-scrolling wrapper holds both: the stage scrolls inside it, the
+  // arrows are positioned against it, and because the wrapper is exactly
+  // the stage's box, `top: 50%` is still the middle of the picture — which
+  // is the property the note on `.lightbox-nav` says two earlier attempts
+  // lost.
+  const stageWrap = document.createElement("div");
+  stageWrap.className = "lightbox-stage-wrap";
+  stageWrap.appendChild(stage);
+  if (items.length > 1) stageWrap.append(prevBtn, nextBtn);
   const column = document.createElement("div");
   column.className = "lightbox-column";
-  column.append(stage, meta, info);
+  column.append(stageWrap, meta, actions, info);
   overlay.append(closeBtn, column);
   document.body.appendChild(overlay);
   closeBtn.focus();
@@ -4282,6 +4936,67 @@ function paginateNotesForDisplay(items) {
   return items.slice(start, start + pageSize);
 }
 
+// **The exact order the Notes list would paint, computed without painting
+// it.** Split out of `renderEntries` (BACKLOG §77 item 2 — routing a
+// wiki-link click to the right *page*) so there is exactly one place that
+// decides "what order do these notes render in", used both to actually
+// render them and to answer "which page would note N land on" before a
+// jump. Threads are the reason this can't be a plain sort-then-slice: a
+// child's position depends on its parent's position, not on the child's own
+// sort key, so `renderEntries`'s own thread-flattening (`ordered`,
+// `addWithChildren`) is reproduced here rather than approximated.
+//
+// Reads the same module-level filter state `renderEntries` does
+// (`draftsOnly`, `activeCategory`, `noteSearch`, `noteSort`) — a caller that
+// wants a *different* view's ordering (see `resolveNotePage` below) sets
+// those first, the same way `flashEntry` already resets category/search/
+// drafts before it ever draws anything.
+function orderedNotesForCurrentView() {
+  let visible = draftsOnly
+    ? allEntries.filter((e) => e.is_draft)
+    : activeCategory
+      ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
+      : allEntries.filter((e) => !e.is_draft);
+  visible = visible.filter(matchesSearch);
+
+  const flat = Boolean(noteSearch) || noteSort !== "newest";
+  if (flat) return sortEntries(visible).map((entry) => [entry, 0]);
+
+  const visibleIds = new Set(visible.map((e) => e.id));
+  const childrenOf = new Map();
+  for (const entry of visible) {
+    if (entry.parent_id && visibleIds.has(entry.parent_id)) {
+      if (!childrenOf.has(entry.parent_id)) childrenOf.set(entry.parent_id, []);
+      childrenOf.get(entry.parent_id).push(entry);
+    }
+  }
+  const ordered = [];
+  const addWithChildren = (entry, depth) => {
+    ordered.push([entry, depth]);
+    const children = (childrenOf.get(entry.id) || []).slice().reverse();
+    for (const child of children) addWithChildren(child, depth + 1);
+  };
+  for (const entry of visible) {
+    const parentVisible = entry.parent_id && visibleIds.has(entry.parent_id);
+    if (!parentVisible) addWithChildren(entry, 0);
+  }
+  return ordered;
+}
+
+// Which page (1-based) a note lands on in the Notes list's *current*
+// filter/sort — the arithmetic half of BACKLOG §77 item 2. "All notes" (no
+// pagination) always answers page 1, since there is only one. Returns null
+// for a note the current filters would hide entirely (a category filter
+// excluding it, say) — a page number for a note that isn't in the list
+// would be a lie, not an answer.
+function resolveNotePage(id) {
+  if (notesPageSize === "all") return 1;
+  const order = orderedNotesForCurrentView();
+  const index = order.findIndex(([entry]) => entry.id === id);
+  if (index === -1) return null;
+  return Math.floor(index / Number(notesPageSize)) + 1;
+}
+
 function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
@@ -5073,6 +5788,18 @@ function flashEntry(id) {
   noteSearch = "";
   const searchBox = $("note-search");
   if (searchBox) searchBox.value = "";
+  // **BACKLOG §77 item 2 — the page half of "jump to a note."** Everything
+  // above already resets category/drafts/search to whatever view actually
+  // contains the target (the design question that item scoped: a jump
+  // always lands in that reset default view, never in whatever filter the
+  // *origin* — Chat, the graph, a document — happened to have active,
+  // since most origins have no Notes-tab filter state to preserve at all).
+  // With that view now fixed, `resolveNotePage` answers the one thing that
+  // reset alone didn't: which *page* of it. Set before `renderEntries()` so
+  // the list paints the right page the first time, not the first page
+  // followed by a jump.
+  const targetPage = resolveNotePage(id);
+  if (targetPage) notesCurrentPage = targetPage;
   renderSidebar();
   renderEntries();
   requestAnimationFrame(() => {
@@ -6178,7 +6905,7 @@ function metaItem(text, { title = "", kind = "", icon = "" } = {}) {
 //
 // Nothing was removed: every field is still here, and the ones that moved into
 // tooltips moved because they answer a question nobody asks mid-conversation.
-function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 }) {
+function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0, usedTools = null }) {
   const row = document.createElement("div");
   row.className = "msg-meta muted";
 
@@ -6203,6 +6930,19 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
   if (stats && inTok != null && stats.context_tokens) {
     fill = Math.min(100, Math.round((inTok / stats.context_tokens) * 100));
     const approx = stats.usage_source === "estimated" ? "~" : "";
+    // §88.4 item 4 / BACKLOG's "per-chat token meter": where this turn's
+    // prompt actually went, not just how full the window got. Estimated
+    // (chars/4, same as the backend's own approximation), and only on the
+    // turns that have it — older saved turns, from before this shipped,
+    // simply don't add the section rather than showing zeroes.
+    const c = stats.composition;
+    const compositionLines = c
+      ? "\n\n" +
+        `System prompt: ~${compactTokens(c.system)} tok\n` +
+        `Tool schemas: ~${compactTokens(c.tool_schemas)} tok\n` +
+        `History: ~${compactTokens(c.history)} tok\n` +
+        `Notes + question: ~${compactTokens(c.notes)} tok`
+      : "";
     const meter = metaItem(`${fill}%`, {
       title:
         `${approx}${compactTokens(inTok)} of this model's ${compactTokens(stats.context_tokens)} ` +
@@ -6211,7 +6951,8 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
           ? "\n\nPast about 80%, the next turn is the one that starts dropping " +
             "the oldest part of its own prompt — Compress in the header " +
             "summarises the conversation so far instead."
-          : ""),
+          : "") +
+        compositionLines,
       kind: "window",
     });
     const bar = document.createElement("span");
@@ -6226,6 +6967,21 @@ function messageMetaLine({ model, elapsedMs, stats, toolCount = 0, rounds = 0 })
 
   // 3. What answered, and what it did. Quieter: this is the same for every
   //    turn in a conversation, so it is context rather than news.
+  // §89.4: a conversation can span mode switches, so each past turn needs to
+  // say which mode actually answered it, not what the live toggle shows now.
+  // Same icons/labels as the segmented control (#chat-mode-seg) so this reads
+  // as the same idea rather than a second vocabulary for it.
+  if (usedTools != null) {
+    row.appendChild(
+      metaItem(usedTools ? "Request" : "Ask", {
+        icon: usedTools ? "ph:robot" : "ph:chat-circle",
+        title: usedTools
+          ? "Answered in Request mode — the Librarian could use tools."
+          : "Answered in Ask mode — read-only, no tools used.",
+        kind: "mode",
+      })
+    );
+  }
   if (model) {
     row.appendChild(
       metaItem(model, { title: "The model that answered", kind: "model" })
@@ -9168,6 +9924,11 @@ async function sendChatMessage(preset, opts = {}) {
     }
   }
 
+  // Captured once, not re-read at save time: the toggle can move on to the
+  // next message while this one is still streaming, and the meta line and
+  // the saved turn must both say what actually answered *this* question.
+  const effectiveUseTools = opts.useTools ?? $("tools-toggle").checked;
+
   let slowLoadTimeout;
   try {
     slowLoadTimeout = setTimeout(() => {
@@ -9180,7 +9941,7 @@ async function sendChatMessage(preset, opts = {}) {
       history: chatHistoryToSend(),
       persona: $("persona-select").value || null,
       mode: $("response-mode-select").value || null,
-      useTools: opts.useTools ?? $("tools-toggle").checked,
+      useTools: effectiveUseTools,
       noteIds: sentAttachments,
       imageMediaIds: sentImages,
       skill: opts.skill,
@@ -9407,6 +10168,7 @@ async function sendChatMessage(preset, opts = {}) {
         stats,
         toolCount: toolEvents.length,
         rounds: (stats && stats.round) || 0,
+        usedTools: effectiveUseTools,
       })
     );
   }
@@ -9563,6 +10325,10 @@ async function sendChatMessage(preset, opts = {}) {
       // rebuilding "3.9k/8k window · 12 tok/s · llama3.2" — so on reload the
       // line used to vanish and the answer looked like it came from nowhere.
       stats: stats || null,
+      // §89.4: which mode actually answered this turn (Ask vs. Request) — a
+      // conversation can span mode switches, so this has to be per-turn, not
+      // read off the toggle's current state on reload.
+      used_tools: effectiveUseTools,
       // How long the answer took, measured here because the client is the only
       // thing that saw the whole turn: the server reports per-round timings,
       // and an agent turn is several rounds plus the tool calls between them.
@@ -10658,6 +11424,7 @@ async function openConversation(id) {
             stats: message.stats,
             toolCount: (message.tools || []).length,
             rounds: message.stats.round || 0,
+            usedTools: message.used_tools ?? null,
           })
         );
       }
@@ -12105,6 +12872,30 @@ function revealActiveTab() {
 
 window.addEventListener("resize", syncTabOverflowFade, { passive: true });
 $("tab-bar")?.addEventListener("scroll", syncTabOverflowFade, { passive: true });
+
+// Same edge-fade, generalised for every other `.edge-fade` strip (Notes
+// sub-tabs, Library sub-tabs, the document sidebar's tabs) — none of them
+// wrap to their own row the way #tab-bar does, so this is just the fade
+// half of syncTabOverflowFade, reused rather than duplicated.
+function syncEdgeFade(bar) {
+  if (!bar) return;
+  const hidden = bar.scrollWidth - bar.clientWidth;
+  bar.classList.toggle("fade-start", hidden > 1 && bar.scrollLeft > 1);
+  bar.classList.toggle("fade-end", hidden - bar.scrollLeft > 1);
+}
+
+for (const bar of document.querySelectorAll(".edge-fade")) {
+  syncEdgeFade(bar);
+  bar.addEventListener("scroll", () => syncEdgeFade(bar), { passive: true });
+  if (typeof ResizeObserver !== "undefined") {
+    // Fires when a hidden (0-width) strip becomes visible on tab switch,
+    // same as content changing width — no extra wiring needed per tab.
+    new ResizeObserver(() => syncEdgeFade(bar)).observe(bar);
+  }
+}
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".edge-fade").forEach(syncEdgeFade);
+}, { passive: true });
 // The pill's text arrives with the status polls, long after first paint, and
 // changes width when it does — so remeasure whenever the header changes size
 // rather than only on window resize.
@@ -12226,6 +13017,13 @@ function notePreviewText(content) {
 
 let reminderFilter = "open"; // open | all | done
 
+// BACKLOG §77's pattern, extended to Reminders (§89 item 1) — deliberately
+// narrower than Notes' own version. Applies only to the Done group; see the
+// note on #reminders-page-size in index.html for why Overdue/Today/Upcoming
+// are never paginated in any filter.
+let remindersPageSize = localStorage.getItem("reminders-page-size") || "all";
+let remindersDonePage = 1;
+
 // list | calendar. Persisted the same way timeline's own view toggle is
 // (a bare localStorage key) — a display mode, not data, so it doesn't need
 // the weight of a real preference round-tripped through the backend.
@@ -12279,6 +13077,7 @@ async function loadReminders() {
     groupsBox.appendChild(none);
   }
 
+  const donePagination = $("reminders-done-pagination");
   for (const label of ["Overdue", "Today", "Upcoming", "Done"]) {
     const items = groups[label];
     if (!items.length) continue;
@@ -12293,9 +13092,36 @@ async function loadReminders() {
     groupsBox.appendChild(heading);
     const ul = document.createElement("ul");
     ul.className = "entry-list";
-    for (const reminder of items) ul.appendChild(reminderItem(reminder, label));
+    // Done is the one group this app ever slices — see remindersPageSize's
+    // own comment. Every other group renders in full, always, regardless of
+    // this control's value.
+    const shown =
+      label === "Done" ? paginateDoneReminders(items) : items;
+    for (const reminder of shown) ul.appendChild(reminderItem(reminder, label));
     groupsBox.appendChild(ul);
   }
+  // The bar only means something under a Done group that actually rendered
+  // one — paginateDoneReminders already hid/showed it for that case, but a
+  // filter with no Done items at all (Open) has to hide it too, since the
+  // loop above never reaches the branch that would.
+  if (!groups.Done.length) donePagination.classList.add("hidden");
+}
+
+function paginateDoneReminders(items) {
+  const bar = $("reminders-done-pagination");
+  if (remindersPageSize === "all") {
+    bar.classList.add("hidden");
+    return items;
+  }
+  const pageSize = Number(remindersPageSize);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  remindersDonePage = Math.min(Math.max(1, remindersDonePage), totalPages);
+  const start = (remindersDonePage - 1) * pageSize;
+  bar.classList.remove("hidden");
+  $("reminders-done-page-status").textContent = `Page ${remindersDonePage} of ${totalPages}`;
+  $("reminders-done-page-prev").disabled = remindersDonePage <= 1;
+  $("reminders-done-page-next").disabled = remindersDonePage >= totalPages;
+  return items.slice(start, start + pageSize);
 }
 
 // Month-grid view of due dates (ROADMAP.md gap 4: the flat list has no way
@@ -13583,8 +14409,23 @@ async function stepTabHistory(delta) {
 }
 
 function switchTab(name) {
+  // Profiled directly: leaving the Graph tab left `graphSimulation` running
+  // — it is only ever `.stop()`-ed "before every rebuild" (graph.js), never
+  // on navigating away — so its tick handler kept costing real main-thread
+  // time on every *other* tab until its own alpha naturally decayed. Under
+  // 6x CPU throttling on a 120-note graph: busy time on the Dashboard tab
+  // measured 21% before ever opening Graph, 58% immediately after leaving
+  // it, decaying back to ~20% only after roughly 12 more seconds — a
+  // background cost with no relation to whatever tab the person actually
+  // switched to, and easily misread as "the app feels slow" generally
+  // rather than traced back to the Graph tab. `graphSimulation?.stop()` is
+  // safe to call unconditionally on leaving: `renderGraph()` already
+  // creates a fresh simulation on the next visit regardless of whether the
+  // old one was still running or already stopped.
+  const leavingGraph = localStorage.getItem("activeTab") === "graph" && name !== "graph";
   recordTabVisit(name);
   revealTab(name);
+  if (leavingGraph) graphSimulation?.stop();
   // The generative-art animation only needs to run while it's on screen.
   if (name !== "dashboard") stopArt();
   if (name === "chat") {
@@ -20784,6 +21625,162 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+// A typed find query is a literal, not a pattern: "a.b" must not match
+// "axb", and an unbalanced "(" must not throw. CodeQL also flags the
+// unescaped shape, and this file has already shipped one polynomial-ReDoS.
+// Shared by the lightbox's document find and the global find bar below,
+// rather than the same six-character regex copied twice.
+function escapeForFind(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// --- global find bar (Ctrl+F on any tab except Documents, which keeps its
+// own find-and-replace) -----------------------------------------------------
+//
+// Deliberately scoped to whichever `.tab-page:not(.hidden)` is currently on
+// screen, not the whole document: searching the header, the status bar or a
+// hidden tab's stale DOM would surface matches you could never scroll to,
+// and the find-and-replace input's own value would match itself.
+//
+// **Known, accepted limit, not a bug**: the Notes list renders
+// incrementally as you scroll (`renderIncrementally`) to keep a large
+// notebook's DOM proportional to what's been scrolled past — a note not yet
+// painted is not in the DOM yet and this cannot find it, the same limit a
+// browser's own native find has on any virtualized list. `#note-search`
+// (which filters the underlying data, not the rendered DOM) is the actual
+// answer for "find a note I haven't scrolled to" and is not replaced by this.
+let globalFindMatches = [];
+let globalFindActive = -1;
+
+function globalFindWalkableRoot() {
+  return document.querySelector(".tab-page:not(.hidden)");
+}
+
+function globalFindClearHighlights() {
+  for (const mark of document.querySelectorAll("mark.global-find-hit")) {
+    mark.replaceWith(document.createTextNode(mark.textContent));
+  }
+  globalFindWalkableRoot()?.normalize();
+  globalFindMatches = [];
+  globalFindActive = -1;
+}
+
+function globalFindRun(needle) {
+  globalFindClearHighlights();
+  const root = globalFindWalkableRoot();
+  const count = $("global-find-count");
+  if (!needle || !root) {
+    count.textContent = "";
+    return;
+  }
+  const lower = needle.toLowerCase();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue || !node.nodeValue.toLowerCase().includes(lower)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      const el = node.parentElement;
+      if (!el || el.closest("script, style, [hidden], .hidden")) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      // A note not yet scrolled into view by renderIncrementally, or a
+      // collapsed section, has zero size — nothing to scroll to, so nothing
+      // to count as a match. The same reasoning contrastAudit's own visible-
+      // text walk used.
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const targets = [];
+  let node;
+  while ((node = walker.nextNode())) targets.push(node);
+  const pattern = new RegExp(escapeForFind(needle), "gi");
+  for (const textNode of targets) {
+    const parts = textNode.nodeValue.split(new RegExp(`(${escapeForFind(needle)})`, "gi"));
+    if (parts.length < 2) continue;
+    const frag = document.createDocumentFragment();
+    for (const part of parts) {
+      if (pattern.test(part) && part.toLowerCase() === lower) {
+        const mark = document.createElement("mark");
+        mark.className = "global-find-hit";
+        mark.textContent = part;
+        frag.appendChild(mark);
+      } else if (part) {
+        frag.appendChild(document.createTextNode(part));
+      }
+    }
+    textNode.replaceWith(frag);
+  }
+  globalFindMatches = [...root.querySelectorAll("mark.global-find-hit")];
+  globalFindActive = globalFindMatches.length ? 0 : -1;
+  globalFindShowActive();
+}
+
+function globalFindShowActive() {
+  const count = $("global-find-count");
+  for (const mark of globalFindMatches) mark.classList.remove("global-find-current");
+  if (!globalFindMatches.length) {
+    count.textContent = "No matches";
+    return;
+  }
+  const mark = globalFindMatches[globalFindActive];
+  mark.classList.add("global-find-current");
+  mark.scrollIntoView({ block: "center", behavior: "smooth" });
+  count.textContent = `${globalFindActive + 1} of ${globalFindMatches.length}`;
+}
+
+function globalFindStep(delta) {
+  if (!globalFindMatches.length) return;
+  globalFindActive = (globalFindActive + delta + globalFindMatches.length) % globalFindMatches.length;
+  globalFindShowActive();
+}
+
+function openGlobalFind() {
+  // Ctrl+F while the lightbox's own document find is already showing
+  // should reach *that* one instead of stacking a second bar behind the
+  // overlay it's not even visible through — the lightbox's find is real
+  // extracted text with nothing else underneath it, the same job this bar
+  // does for a tab.
+  const lightboxFind = document.querySelector(".lightbox .lightbox-find:not(.hidden)");
+  if (lightboxFind) {
+    lightboxFind.focus();
+    return;
+  }
+  const bar = $("global-find-bar");
+  bar.classList.remove("hidden");
+  const input = $("global-find-input");
+  input.focus();
+  input.select();
+  if (input.value) globalFindRun(input.value);
+}
+
+function closeGlobalFind() {
+  $("global-find-bar").classList.add("hidden");
+  globalFindClearHighlights();
+  $("global-find-input").value = "";
+}
+
+$("global-find-input")?.addEventListener("input", (e) => globalFindRun(e.target.value.trim()));
+$("global-find-input")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    globalFindStep(e.shiftKey ? -1 : 1);
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    closeGlobalFind();
+  }
+});
+$("global-find-next")?.addEventListener("click", () => globalFindStep(1));
+$("global-find-prev")?.addEventListener("click", () => globalFindStep(-1));
+$("global-find-close")?.addEventListener("click", () => closeGlobalFind());
+// Switching tabs while the bar is open would otherwise leave it searching a
+// now-hidden page, or (worse) leave <mark> wrappers stuck inside a tab-page
+// that a later feature might re-render around and lose track of.
+window.addEventListener("tabSwitched", () => {
+  if (!$("global-find-bar").classList.contains("hidden")) closeGlobalFind();
+});
+
 $("conv-browse-all").addEventListener("click", () => {
   switchTab("library");
   libraryKind = "chat";
@@ -21259,12 +22256,29 @@ $("reminder-add").addEventListener("click", async () => {
   }
 });
 $("reminder-clear-done").addEventListener("click", clearDoneReminders);
+$("reminders-page-size").value = remindersPageSize;
+$("reminders-page-size").addEventListener("change", (e) => {
+  remindersPageSize = e.target.value;
+  localStorage.setItem("reminders-page-size", remindersPageSize);
+  remindersDonePage = 1;
+  loadReminders();
+});
+$("reminders-done-page-prev").addEventListener("click", () => {
+  if (remindersDonePage <= 1) return;
+  remindersDonePage -= 1;
+  loadReminders();
+});
+$("reminders-done-page-next").addEventListener("click", () => {
+  remindersDonePage += 1; // clamped back down inside paginateDoneReminders if this overshoots
+  loadReminders();
+});
 for (const button of document.querySelectorAll("#reminder-filter button")) {
   button.addEventListener("click", () => {
     reminderFilter = button.dataset.filter;
     for (const b of document.querySelectorAll("#reminder-filter button")) {
       b.classList.toggle("active", b === button);
     }
+    remindersDonePage = 1; // a filter switch can change what's even in Done
     loadReminders();
   });
 }
@@ -21625,6 +22639,16 @@ $("search-help").addEventListener("click", () => {
   const showing = panel.classList.toggle("hidden");
   $("search-help").setAttribute("aria-expanded", String(!showing));
   if (!showing) $("note-search").focus();
+});
+
+// The capture box's own "?" — same disclosure, same three lines. It does
+// *not* steal focus back to the textarea the way the filter one does:
+// this panel is six lines of syntax you are meant to read while typing,
+// and yanking the caret away mid-read is the opposite of helpful.
+$("capture-help")?.addEventListener("click", () => {
+  const panel = $("capture-help-hint");
+  const hidden = panel.classList.toggle("hidden");
+  $("capture-help").setAttribute("aria-expanded", String(!hidden));
 });
 
 $("prefs-save").addEventListener("click", savePrefs);
@@ -22100,8 +23124,15 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Clicking anywhere outside an open ⋯ menu closes it (Wave L).
+//
+// `.action-menu-escaped` covers a menu `wireEscapedActionMenu` has
+// reparented to `<body>` while open — its dropdown is no longer a
+// descendant of `.menu-wrap` at that point, so a click inside the (still
+// open) dropdown would otherwise fail `closest(".menu-wrap")` and be read
+// as an outside click. Only ever *widens* what counts as inside; no
+// existing kebab gains this class, so nothing about them changes.
 document.addEventListener("click", (e) => {
-  if (!e.target.closest(".menu-wrap")) closeActionMenus();
+  if (!e.target.closest(".menu-wrap, .action-menu-escaped")) closeActionMenus();
 });
 
 // Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
@@ -22401,6 +23432,11 @@ for (const id of ["show-guide-btn", "about-take-tour"]) {
 const DEFAULT_SHORTCUTS = {
   palette: { keys: "Ctrl+K", label: "Open the command palette" },
   search: { keys: "/", label: "Jump to search (or the chat box on Chat)" },
+  // Asked for directly: "add a ctrl+f or equivalent text search... make
+  // the find feature available on all tabs." Rebindable like every other
+  // chorded shortcut here, which also means it is discoverable in the
+  // shortcuts cheat-sheet (?) rather than a secret the app never mentions.
+  find: { keys: "Ctrl+F", label: "Find on this page" },
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
@@ -22541,6 +23577,15 @@ function runShortcut(id) {
     save: () => {
       if (localStorage.getItem("activeTab") === "documents") saveDocument();
       else saveEntry();
+    },
+    // Same "which surface depends on the tab" dispatch as `save` above.
+    // The Documents tab keeps its own, more capable find-and-replace
+    // (`#doc-find-bar`) — it can see inside the editor's own textarea,
+    // which no generic DOM search can. Everywhere else opens the global
+    // one below, scoped to whichever tab-page is currently visible.
+    find: () => {
+      if (localStorage.getItem("activeTab") === "documents") toggleDocFindBar(true);
+      else openGlobalFind();
     },
     newChat: () => {
       switchTab("chat");
@@ -23390,8 +24435,114 @@ function applyStatusClock() {
   if (on) {
     paintStatusClock();
     statusClockTimer = setInterval(paintStatusClock, 30000);
+  } else {
+    closeStatusClockDetail();
   }
 }
+
+// **The detail popover.** Asked for directly: seconds, the date and the
+// timezone, on click or hover — none of which belong in the bar's own
+// HH:MM (the comment on paintStatusClock explains why: glanced at, not
+// watched, so a 30s repaint is deliberate there). This is the opposite
+// case — open only while someone is actually looking at it — so it gets
+// its own 1s ticker, started on open and stopped on close rather than
+// running unconditionally in the background the way the bar's clock does.
+let statusClockDetailTimer = null;
+let statusClockDetailPinned = false;
+
+function paintStatusClockDetail() {
+  const now = new Date();
+  const dateEl = $("status-clock-detail-date");
+  const timeEl = $("status-clock-detail-time");
+  const zoneEl = $("status-clock-detail-zone");
+  if (!dateEl || !timeEl || !zoneEl) return;
+  dateEl.textContent = now.toLocaleDateString([], {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  timeEl.textContent = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  // Both the IANA name (what a person recognises — "Europe/London") and
+  // the numeric offset (what actually explains a gap between two
+  // people's clocks) — a name alone doesn't say which side of UTC you're
+  // on, and an offset alone doesn't say which timezone that even is.
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const offsetMatch = /GMT([+-]\d+(?::\d+)?)/.exec(
+    now.toLocaleTimeString([], { timeZoneName: "shortOffset" })
+  );
+  zoneEl.textContent = offsetMatch ? `${zone} (UTC${offsetMatch[1]})` : zone;
+}
+
+function openStatusClockDetail(pin) {
+  const panel = $("status-clock-detail");
+  const btn = $("status-clock");
+  if (!panel || !btn || !prefsCache?.status_bar_clock) return;
+  if (pin) statusClockDetailPinned = true;
+  panel.classList.remove("hidden");
+  btn.setAttribute("aria-expanded", "true");
+  paintStatusClockDetail();
+  if (!statusClockDetailTimer) {
+    statusClockDetailTimer = setInterval(paintStatusClockDetail, 1000);
+  }
+  // Positioned from the button's own rect, not a static CSS offset: the
+  // clock's horizontal position among the bar's other optional slots
+  // (STATUS_SLOTS) isn't fixed, so a hardcoded `right:` would drift out
+  // from under the button the moment a neighbouring slot is toggled off.
+  // Opens *upward* — the status bar is the bottom of the screen, so
+  // "below the button" is off-window.
+  const margin = 8;
+  const anchor = btn.getBoundingClientRect();
+  panel.style.left = "0px";
+  const box = panel.getBoundingClientRect();
+  let left = anchor.left;
+  if (left + box.width > window.innerWidth - margin) {
+    left = Math.max(margin, window.innerWidth - margin - box.width);
+  }
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.bottom = `${Math.round(window.innerHeight - anchor.top + margin)}px`;
+}
+
+function closeStatusClockDetail(force) {
+  // Hover-out shouldn't close a click-pinned popover — only Escape,
+  // outside click, or the clock itself being turned off should.
+  if (statusClockDetailPinned && !force) return;
+  statusClockDetailPinned = false;
+  $("status-clock-detail")?.classList.add("hidden");
+  $("status-clock")?.setAttribute("aria-expanded", "false");
+  if (statusClockDetailTimer) {
+    clearInterval(statusClockDetailTimer);
+    statusClockDetailTimer = null;
+  }
+}
+
+(() => {
+  const btn = $("status-clock");
+  if (!btn) return;
+  btn.addEventListener("mouseenter", () => openStatusClockDetail(false));
+  btn.addEventListener("mouseleave", () => closeStatusClockDetail(false));
+  btn.addEventListener("focus", () => openStatusClockDetail(false));
+  btn.addEventListener("blur", () => closeStatusClockDetail(false));
+  btn.addEventListener("click", () => {
+    if (statusClockDetailPinned) closeStatusClockDetail(true);
+    else openStatusClockDetail(true);
+  });
+})();
+document.addEventListener("click", (e) => {
+  if (
+    statusClockDetailPinned &&
+    !e.target.closest("#status-clock, #status-clock-detail")
+  ) {
+    closeStatusClockDetail(true);
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && statusClockDetailPinned) closeStatusClockDetail(true);
+});
 
 // --- Twitch-style Agent Monitor ---
 const agentMonitor = $("agent-monitor");

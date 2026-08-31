@@ -109,6 +109,24 @@ def test_the_embedding_warm_up_is_a_visible_job(client, monkeypatch):
     assert "stopped part-way" in task["detail"]
 
 
+def test_a_vision_caption_shows_up_while_running(client, monkeypatch):
+    """ROADMAP §89.6: a caption call is a real model round-trip with nothing
+    visible anywhere while it runs — same "invisible until it's the Tasks
+    panel's job to say so" shape as the embedding warm-up above."""
+    from memorymap.ai import captioning
+
+    monkeypatch.setattr(
+        captioning,
+        "running_captions",
+        lambda: [{"upload_id": 7, "name": "vacation.png"}],
+    )
+    task = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "caption")
+    assert "vacation.png" in task["label"]
+    # Same reasoning as the embedding warm-up: one blocking model call, no
+    # flag to check between — a Quit button here would do nothing.
+    assert task["cancellable"] is False
+
+
 def test_the_searxng_install_is_a_visible_job(client, monkeypatch):
     """Minutes long, and previously visible only on the Web search screen."""
     from memorymap.search import searxng_manager

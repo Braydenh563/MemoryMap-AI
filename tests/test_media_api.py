@@ -407,3 +407,77 @@ def test_a_hand_typed_caption_works_on_a_pdf_upload_target_refused(ai_client, fa
     ).json()["id"]
     response = ai_client.post(f"/media/{upload_id}/caption", json={"text": "a caption"})
     assert response.status_code == 415
+
+
+def test_media_meta_returns_what_the_app_knows_about_one_upload(ai_client):
+    """The lightbox's own lookup, keyed on the stored filename because a url
+    is the only identifier most callers hold.
+
+    Reported directly: a caption and OCR text showed under the picture in
+    the Image Gallery and nowhere else in the app. The cause was that
+    `openLightbox` took them as arguments and only the gallery had a media
+    row to pass — so this endpoint exists to let the lightbox ask instead.
+    """
+    uploaded = ai_client.post(
+        "/media/upload", files={"file": ("shot.png", b"\x89PNG\r\n\x1a\n", "image/png")}
+    ).json()
+    stored = uploaded["url"].rsplit("/", 1)[-1]
+
+    body = ai_client.get(f"/media/meta/{stored}").json()
+    assert body["id"] == uploaded["id"]
+    assert body["original_name"] == "shot.png"
+    assert body["url"] == uploaded["url"]
+    # The fields the lightbox actually renders are all present, even empty.
+    for key in ("caption", "ocr_text", "vision_ocr_text", "created_at"):
+        assert key in body
+
+
+def test_media_meta_404s_rather_than_shadowing_the_upload_id_route(ai_client):
+    """Two things at once, both real.
+
+    A url can outlive its row — deleting an upload deliberately leaves any
+    note still pointing at it alone — so a miss is an ordinary state the
+    lightbox renders as "no panel", not a fault.
+
+    And a 404 (rather than a 422) is what proves the route is not being
+    shadowed: declared after `/media/{upload_id}`, "meta" would be parsed as
+    an upload id and rejected as a non-integer before this handler ever ran.
+    That is the same ordering trap `/media/orphans` already carries a
+    comment about.
+    """
+    assert ai_client.get("/media/meta/never-existed.png").status_code == 404
+
+
+def test_media_text_reads_an_uploaded_pdf_for_the_lightbox(ai_client):
+    """The document-preview half of the lightbox.
+
+    `docview.extract` and its whole format table already existed for
+    **attachments** (`GET /files/{id}/text`); uploads simply had no way to
+    reach it. Note the split this test has to respect: `MEDIA_SUFFIXES` is
+    images + PDF only, and deliberately narrow (that folder is served, and
+    the AI can write into it), so a PDF is the one *document* that reaches
+    the viewer through `/media`. Everything wider — .docx, .csv, .py — is an
+    attachment, and reaches the same extractor by the other route.
+    """
+    pdf = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
+    uploaded = ai_client.post(
+        "/media/upload", files={"file": ("report.pdf", pdf, "application/pdf")}
+    ).json()
+    assert "url" in uploaded, uploaded
+    stored = uploaded["url"].rsplit("/", 1)[-1]
+
+    viewed = ai_client.get(f"/media/text/{stored}")
+    assert viewed.status_code == 200
+    payload = viewed.json()
+    # The name shown is the human one, not the generated storage name.
+    assert payload["filename"] == "report.pdf"
+    # `kind` is what tells the frontend how to render, and is why the
+    # lightbox does not have to sniff the extension a second time. A PDF
+    # with no real text layer still answers the shape honestly rather than
+    # erroring — `source`/`message` carry that.
+    assert payload["kind"] in {"markdown", "code", "plain"}
+    assert "source" in payload and "message" in payload
+
+
+def test_media_text_404s_for_an_unknown_upload(ai_client):
+    assert ai_client.get("/media/text/never-existed.md").status_code == 404

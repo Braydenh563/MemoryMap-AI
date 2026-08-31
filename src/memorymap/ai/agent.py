@@ -987,15 +987,34 @@ def run_agent(
     # real chat — the notes or the history?" is answered from the log rather
     # than argued about. Chars, not tokens: the ratio is what matters, and
     # the true token counts already arrive in each round's stats event.
+    system_chars = len(messages[0]["content"])
+    history_chars = sum(len(m["content"]) for m in messages[1:-1])
+    notes_chars = len(messages[-1]["content"])
+    tool_schema_chars = len(json.dumps(offered))
     logging.getLogger("memorymap.agent").info(
         "prompt composition: system=%d history=%d notes+question=%d "
         "tool_schemas=%d chars (%d tools offered)",
-        len(messages[0]["content"]),
-        sum(len(m["content"]) for m in messages[1:-1]),
-        len(messages[-1]["content"]),
-        len(json.dumps(offered)),
+        system_chars,
+        history_chars,
+        notes_chars,
+        tool_schema_chars,
         len(offered),
     )
+    # §88.4 item 4's next step past the log line above: the same breakdown,
+    # as a rough token estimate (chars/4 — the same approximation
+    # ai/context.py's own budgeting uses), attached to the first round's
+    # stats event so the UI's metadata line can show it rather than it
+    # being visible only in Settings -> Logs. Measured once, here, before
+    # the loop below appends any tool-result rounds to `messages` — a
+    # later round's true composition would need re-measuring inside the
+    # loop, which this does not attempt; the first round is also the one
+    # every turn actually has, tool calls or not.
+    composition_tokens = {
+        "system": system_chars // context.CHARS_PER_TOKEN,
+        "history": history_chars // context.CHARS_PER_TOKEN,
+        "notes": notes_chars // context.CHARS_PER_TOKEN,
+        "tool_schemas": tool_schema_chars // context.CHARS_PER_TOKEN,
+    }
     permitted = set(allowed_tools) if allowed_tools else None
     did_write = False  # did any real write tool run this turn?
     # *Which* ones ran, so a claim can be checked against the action that
@@ -1086,7 +1105,10 @@ def run_agent(
         # so switching tools on — the default — silently stripped the token
         # counts out of the message metadata line.
         if reply.get("stats"):
-            yield {"type": "stats", **reply["stats"], "round": round_number + 1}
+            stats = {**reply["stats"], "round": round_number + 1}
+            if round_number == 0:
+                stats["composition"] = composition_tokens
+            yield {"type": "stats", **stats}
 
         calls = reply.get("tool_calls") or []
         if not calls:

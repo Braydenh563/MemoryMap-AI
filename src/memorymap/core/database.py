@@ -248,6 +248,17 @@ class Entry(Base, WorkspaceMixin):
     # every other optional column here.
     source_url: Mapped[str | None] = mapped_column(String(2000), default=None)
     source_title: Mapped[str | None] = mapped_column(String(300), default=None)
+    # ROADMAP §87.1's own audit: "double-click pin exists but is never
+    # persisted" — a node held in place with a double-click on the Graph
+    # tab (`d.fx`/`d.fy` in graph.js) only ever lived on the in-memory D3
+    # node object, gone the moment `/graph` was refetched. Both null or
+    # both set, never one alone (`routes_graph.py`'s own setter enforces
+    # this) — a lone x with no y is a coordinate nobody asked for. Distinct
+    # names from `pinned` above on purpose: that one means "float to the
+    # top of lists", this means "hold still at this point on the map" —
+    # unrelated concepts that happen to share the English word.
+    graph_pin_x: Mapped[float | None] = mapped_column(Float, default=None)
+    graph_pin_y: Mapped[float | None] = mapped_column(Float, default=None)
 
 
 class Entity(Base):
@@ -337,6 +348,44 @@ LINK_TYPES: dict[str, str] = {
     "contradicts": "Contradicts — these disagree",
     "example_of": "Example of — this is an instance of that",
 }
+
+# ROADMAP §87.5's first slice, using only what a link already stores — no new
+# column, no migration. A named type is a considered choice (a person or the
+# AI, with approval) and reads as a stronger connection than a bare link,
+# which is why every one of the six above gets the same boost regardless of
+# which: the distinction that matters here is "somebody decided this" versus
+# "nobody said", not a ranking between "supports" and "contradicts" — those
+# are equally deliberate.
+TYPED_LINK_BOOST = 1.5
+
+# A floor, not a zero: `reason_confidence` only exists on a reason nobody
+# actually gave (see the column's own docstring) — it is a guess, and a
+# low-confidence guess should weigh less, but even a 10%-confidence deduction
+# is still a real signal, not nothing.
+DEDUCED_LINK_FLOOR = 0.5
+
+
+def link_strength(link_type: str | None, reason_confidence: float | None) -> float:
+    """One number for how strong an `EntryLink` is. 1.0 is the baseline — a
+    bare link with no type and no deduced-reason confidence, which is what
+    every link created before either column existed still is.
+
+    Consumed by `entry/paths.py`'s shortest-path weighting (as a divisor —
+    strength up, cost down) and `search_manager.graph_expansion()`'s
+    neighbour ordering (as a sort key — strength up, ranked first), so a
+    typed or well-evidenced connection is preferred over a bare one in both
+    the places that already claimed to do this and did not.
+
+    Deliberately **not** the full composite §87.5 scopes (shared tags,
+    category, temporal proximity) — those are derived signals that would
+    need computing per-pair at query time on two hot paths (every chat/ask
+    retrieval goes through `graph_expansion`), and neither has been measured
+    against real usage yet. This uses only what a link already carries.
+    """
+    strength = TYPED_LINK_BOOST if link_type else 1.0
+    if reason_confidence is not None:
+        strength *= max(DEDUCED_LINK_FLOOR, reason_confidence)
+    return strength
 
 
 class EmbeddingRecord(Base):

@@ -2126,6 +2126,65 @@
   margin: 0;
 }
 
+/* Reported live, with a screenshot: cut off at the bottom. This panel
+   (six bullets across two lists) is meaningfully longer than every other
+   .graph-help-panel use (a single paragraph — #draft-intro, #timeline-
+   intro, #graph-help-panel itself), none of which has hit this, so the
+   cap is scoped here rather than added to the shared rule for a problem
+   only this instance has.
+   Two wrong attempts before this, both measured and rejected rather than
+   assumed fixed: a flat `73vh` correctly stopped the panel growing but
+   still left its own bottom edge below the window on a short viewport
+   (827px box on 800px, measured), because the panel's `top: 3.5rem` is an
+   offset from `#capture`'s own top, not the viewport's — CSS has no way
+   to know how far down the page `#capture` itself sits, so vh alone can't
+   account for it. A `calc(100vh - offset)` guess at that distance was
+   worse: it *overestimated* the room available, so the box grew tall
+   enough to fit all the content without ever triggering its own
+   scrollbar (701px of content inside a 728px cap) while still extending
+   to y=944 on an 800px screen — no internal scroll to reach the part that
+   was cut off, which is a regression on the reported bug, not a fix. A
+   small flat cap, small enough that internal scrolling reliably kicks in
+   regardless of where `#capture` sits on the page, is the one property
+   that has to hold for this to actually work — verified at 800px tall:
+   the panel's own scrollHeight (701px) now exceeds this cap, so it
+   scrolls internally and the last bullet is reachable within its own box. */
+.capture-help-hint {
+  max-height: 24rem;
+  overflow-y: auto;
+  /* **The scroll itself worked; nothing showed it did.** Reported after
+     the cap above landed: "still no visible scrollbar??" — correct, and
+     not this rule's fault so much as `overflow-y: auto`'s own default:
+     most current browsers (macOS Chromium/Safari, several Windows
+     themes) render an *overlay* scrollbar that stays fully invisible
+     until the pointer is over the scrolling element, so a panel that
+     scrolls correctly can still look exactly like one that doesn't. No
+     surface in this app has ever needed a permanently visible scrollbar
+     before — every other `overflow` here either has an edge-fade
+     affordance instead (`.edge-fade`) or hides its scrollbar on purpose
+     (`.notes-subtabs`) — so there is no existing pattern to reuse; this
+     is the first one. Forcing a classic, always-reserved-space scrollbar
+     (rather than styling an overlay one, which cannot be made to *always*
+     show by CSS alone) is the only property that actually answers the
+     report on every platform. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+
+.capture-help-hint::-webkit-scrollbar {
+  width: 10px;
+}
+
+.capture-help-hint::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.capture-help-hint::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--modal-bg);
+}
+
 /* A .graph-help-panel used as a standalone element (Timeline, the Skills/
    Whiteboard/Image-Gallery Library sub-tabs) rather than nested one level
    down like the graph's own <div><p>…</p></div> shape — this file's own
@@ -2142,7 +2201,8 @@ p.graph-help-panel {
 #tab-timeline > .card,
 #library-skills-section,
 #wb-boards-landing .card,
-#library-view-media .card {
+#library-view-media .card,
+#capture {
   position: relative;
 }
 

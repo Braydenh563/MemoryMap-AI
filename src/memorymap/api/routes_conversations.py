@@ -98,6 +98,11 @@ class TurnBody(BaseModel):
     #: same plain text, so the answer's whole basis was invisible after the
     #: fact. Same fix as images and documents above, one release later.
     note_ids: list[int] | None = None
+    #: Which mode actually answered this turn — Ask (read-only) or Request
+    #: (tools allowed). Reported directly: a conversation can span mode
+    #: switches, and each past message should say what answered it, not what
+    #: the live #chat-mode-seg toggle happens to show now (ROADMAP §89.4).
+    used_tools: bool | None = None
 
 
 class RenameBody(BaseModel):
@@ -127,6 +132,8 @@ def _turn_messages(turn: TurnBody) -> list[dict]:
         assistant["connected_ids"] = turn.connected_ids or []
     if turn.sentence_grounding:
         assistant["sentence_grounding"] = turn.sentence_grounding
+    if turn.used_tools is not None:
+        assistant["used_tools"] = turn.used_tools
     user: dict = {"role": "user", "content": turn.question}
     if turn.image_media_ids:
         user["image_media_ids"] = turn.image_media_ids

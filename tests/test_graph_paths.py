@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 
 from memorymap.ai import tools
-from memorymap.core.database import Entry, EntryLink
+from memorymap.core.database import Entry, EntryLink, link_strength
 from memorymap.entry import paths
 
 
@@ -53,6 +53,44 @@ def _link(session, a, b):
 
 def _chain(session, source, target):
     return paths.find(paths.build(session), source.id, target.id)
+
+
+# --- link_strength, the pure function §87.5's weighting is built on -----------
+
+
+def test_link_strength_is_one_for_a_bare_link():
+    """The baseline — no type, no deduced-reason confidence — is exactly
+    what every link created before either column existed still is, so this
+    has to be neutral or every old link would silently get weaker."""
+    assert link_strength(None, None) == 1.0
+
+
+def test_link_strength_favours_a_named_type():
+    assert link_strength("supports", None) > link_strength(None, None)
+
+
+def test_every_named_type_gets_the_same_boost():
+    """The distinction is "somebody decided this" vs. "nobody said" — not a
+    ranking between e.g. "supports" and "contradicts", which are equally
+    deliberate choices."""
+    boosted = {link_strength(kind, None) for kind in ("related", "continues", "context", "supports", "contradicts", "example_of")}
+    assert len(boosted) == 1
+
+
+def test_link_strength_discounts_a_low_confidence_deduction():
+    assert 0 < link_strength(None, 0.15) < link_strength(None, None)
+
+
+def test_link_strength_has_a_floor_so_a_low_confidence_guess_is_still_a_real_signal():
+    assert link_strength(None, 0.01) == link_strength(None, 0.4)  # both hit the floor
+
+
+def test_link_strength_combines_type_and_confidence():
+    """A typed link with a confidently deduced reason (unusual — `create_link`
+    only deduces when no reason was given at all) still stacks both signals
+    rather than one silently overriding the other."""
+    assert link_strength("supports", 0.9) < link_strength("supports", None)
+    assert link_strength("supports", 0.9) > link_strength(None, 0.9)
 
 
 # --- the path itself ----------------------------------------------------------
@@ -154,6 +192,56 @@ def test_deliberate_links_beat_a_tag_shortcut(session):
 
     chain = _chain(session, a, d)
     assert [step.kind for step in chain] == ["link", "link", "link"]
+
+
+def test_typed_links_beat_bare_links_at_equal_hop_count(session):
+    """§87.5's first slice: a link somebody deliberately typed ("supports",
+    "contradicts", ...) is a stronger signal than a bare one, so a
+    shortest-path search should prefer it when two routes tie on hop count."""
+    a = _note(session, "the trip plan")
+    bare_mid = _note(session, "a note with no real bearing on it")
+    typed_mid = _note(session, "the note that actually explains it")
+    d = _note(session, "the outcome")
+    _link(session, a, bare_mid)
+    _link(session, bare_mid, d)
+    session.add(EntryLink(source_entry_id=a.id, target_entry_id=typed_mid.id, link_type="supports"))
+    session.add(EntryLink(source_entry_id=typed_mid.id, target_entry_id=d.id, link_type="supports"))
+    session.commit()
+
+    chain = _chain(session, a, d)
+    assert [step.target for step in chain] == [typed_mid.id, d.id]
+
+
+def test_a_low_confidence_deduced_link_loses_to_a_plain_one_at_equal_hop_count(session):
+    """The other half: a deduced reason is a guess, and a low-confidence
+    guess should weigh less than a link somebody just made with no
+    explanation at all."""
+    a = _note(session, "the trip plan")
+    guessed_mid = _note(session, "loosely similar, low confidence")
+    solid_mid = _note(session, "a plain deliberate link")
+    d = _note(session, "the outcome")
+    session.add(
+        EntryLink(
+            source_entry_id=a.id,
+            target_entry_id=guessed_mid.id,
+            reason="maybe related",
+            reason_confidence=0.15,
+        )
+    )
+    session.add(
+        EntryLink(
+            source_entry_id=guessed_mid.id,
+            target_entry_id=d.id,
+            reason="maybe related",
+            reason_confidence=0.15,
+        )
+    )
+    _link(session, a, solid_mid)
+    _link(session, solid_mid, d)
+    session.commit()
+
+    chain = _chain(session, a, d)
+    assert [step.target for step in chain] == [solid_mid.id, d.id]
 
 
 def test_a_tag_route_is_still_found_when_it_is_the_only_one(session):

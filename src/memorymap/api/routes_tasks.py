@@ -92,6 +92,23 @@ def collect() -> list[dict]:
             }
         )
 
+    # A vision-model caption in flight (ROADMAP §89.6). Not cancellable —
+    # same reasoning as the embedding warmup above: one blocking model call
+    # with nothing to check a flag between.
+    from memorymap.ai import captioning
+
+    for job in captioning.running_captions():
+        tasks.append(
+            {
+                "kind": "caption",
+                "name": str(job["upload_id"]),
+                "label": f"Captioning {job['name']}",
+                "detail": "A vision model is describing this image.",
+                "progress": None,
+                "log": [],
+            }
+        )
+
     # Autonomous optimization task
     from memorymap.ai import autonomous
     if autonomous.is_running():

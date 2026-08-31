@@ -1499,6 +1499,140 @@ async function wbPasteClipboard() {
   }
 }
 
+// Cut — ROADMAP §89.12, asked as a question alongside the context menu
+// below. Same restrictions as copy (a card can't be cut, a link-sketch
+// can't be cut) — wbCopySelection already toasts why, so cut just declines
+// to delete anything when the copy half refuses.
+function wbCutSelection() {
+  if (!wbCopySelection()) return false;
+  deleteWbSelection();
+  return true;
+}
+
+// --- Right-click / long-press menu for a selection (ROADMAP §89.12) --------
+//
+// Asked as a question, alongside cut above: today the only way to act on a
+// selection is a keyboard shortcut, and `wbOpenDockedMenu`'s reparent-to-body
+// technique (a few hundred lines up) is the only precedent in this file for
+// a menu that has to escape a clipped, scrolling ancestor — so this reuses
+// that shape rather than inventing a second one, just triggered by a gesture
+// on the canvas instead of a toolbar toggle.
+let wbCtxMenuEl = null;
+
+//: Rebuilt on every open rather than cached with static buttons: a card
+//: can't be copied or cut at all (`wbCopySelection`'s own comment — POSTing
+//: a copy would silently move the original instead of duplicating it), and
+//: a menu offering two buttons guaranteed to fail is worse than one that
+//: only ever offers what this selection can actually do.
+function wbBuildContextMenu(kind) {
+  if (!wbCtxMenuEl) {
+    const menu = document.createElement("div");
+    menu.className = "action-menu wb-ctx-menu hidden";
+    menu.setAttribute("role", "menu");
+    document.body.appendChild(menu);
+    wbCtxMenuEl = menu;
+  }
+  const menu = wbCtxMenuEl;
+  menu.replaceChildren();
+  const item = (label, title, fn) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "menu-item";
+    button.setAttribute("role", "menuitem");
+    button.textContent = label;
+    if (title) button.title = title;
+    button.addEventListener("click", (e) => {
+      e.stopPropagation();
+      wbCloseContextMenu();
+      fn();
+    });
+    menu.appendChild(button);
+  };
+  if (kind !== "node") {
+    item("Copy", "Ctrl/Cmd+C", () => wbCopySelection());
+    item("Cut", "Ctrl/Cmd+X", () => wbCutSelection());
+  }
+  item("Delete", "Delete", () => deleteWbSelection());
+  return menu;
+}
+
+function wbCloseContextMenu() {
+  wbCtxMenuEl?.classList.add("hidden");
+}
+
+//: Selects whatever the gesture landed on (unless it's already part of a
+//: multi-selection — right-clicking one member of a group opens the menu
+//: for the whole group, same rule a plain click already uses) and opens the
+//: menu at the pointer, clamped to the viewport the same way the docked
+//: toolbar menu already clamps itself.
+function wbOpenContextMenuFor(kind, id, clientX, clientY) {
+  const key = wbMultiKey(kind, id);
+  if (!wbMultiSelection.has(key)) wbHandleItemClick(kind, id, { shiftKey: false });
+  // Copy/Cut only ever act on a single-item selection (`wbCopySelection`'s
+  // own `wbSelectedItem` check) — a multi-selection gets the same "node"
+  // treatment as a card, which is "Delete only", rather than two buttons
+  // that would silently do nothing.
+  const menu = wbBuildContextMenu(wbMultiSelection.size > 0 ? "node" : kind);
+  menu.classList.remove("hidden");
+  menu.style.left = `${clientX}px`;
+  menu.style.top = `${clientY}px`;
+  const margin = 8;
+  const rect = menu.getBoundingClientRect();
+  if (rect.right > window.innerWidth - margin) {
+    menu.style.left = `${Math.max(margin, window.innerWidth - rect.width - margin)}px`;
+  }
+  if (rect.bottom > window.innerHeight - margin) {
+    menu.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
+  }
+}
+
+document.addEventListener("click", (e) => {
+  if (wbCtxMenuEl && !wbCtxMenuEl.classList.contains("hidden") && !e.target.closest(".wb-ctx-menu")) {
+    wbCloseContextMenu();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") wbCloseContextMenu();
+});
+
+//: Wires the gesture onto one item type's `enter()` selection — called
+//: right after that type's own `.on("click", ...)` is set up, so it only
+//: needs binding once per element the same way click already is (d3 keeps
+//: the same DOM node across a keyed re-render, so a handler bound on enter
+//: persists without needing to be re-applied on every update/merge).
+function wbWireContextMenu(selection, kind) {
+  let holdTimer = null;
+  const cancelHold = () => {
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+  };
+  selection
+    .on("contextmenu.wbctx", (event, d) => {
+      // A text object's own editable body needs its native context menu
+      // (cut/copy/paste, spellcheck) — hijacking it here would make the
+      // text box's contenteditable unusable with the mouse.
+      if (event.target.closest("[contenteditable]")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      wbOpenContextMenuFor(kind, d.id, event.clientX, event.clientY);
+    })
+    // Touch has no right-click, so a hold stands in for it — same 500ms
+    // threshold and cancel-on-release/move shape as the toolbar toggle's own
+    // long-press (wbWireToggleGestures, a few hundred lines up).
+    .on("pointerdown.wbctx", (event, d) => {
+      if (event.pointerType !== "touch") return;
+      if (event.target.closest("[contenteditable]")) return;
+      cancelHold();
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        wbOpenContextMenuFor(kind, d.id, event.clientX, event.clientY);
+      }, 500);
+    })
+    .on("pointerup.wbctx pointercancel.wbctx pointermove.wbctx", cancelHold);
+}
+
 function wbUpdateUndoRedoButtons() {
   const undoBtn = document.getElementById("wb-undo");
   const redoBtn = document.getElementById("wb-redo");
@@ -3062,6 +3196,10 @@ async function initWhiteboard() {
       if (wbCopySelection()) e.preventDefault();
       return;
     }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "x") {
+      if (wbCutSelection()) e.preventDefault();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "v") {
       e.preventDefault();
       wbPasteClipboard();
@@ -4583,6 +4721,8 @@ function renderWhiteboard() {
     .attr("stroke-linejoin", "round")
     .attr("pointer-events", "none");
 
+  wbWireContextMenu(sketchEnter, "sketch");
+
   const sketchUpdate = sketchEnter.merge(sketchSelection);
 
   sketchUpdate.each(function(d) {
@@ -4885,6 +5025,8 @@ function renderWhiteboard() {
     .attr("class", "wb-rotate-handle")
     .attr("title", "Drag to rotate — hold Shift to snap to 15°")
     .call(nodeRotateDrag());
+
+  wbWireContextMenu(nodeEnter, "node");
 
   nodeSelection.merge(nodeEnter)
     .style("transform", wbItemTransform)
@@ -5253,6 +5395,8 @@ function renderWbObjects(canvas) {
       .attr("title", "Drag to rotate — hold Shift to snap to 15°")
       .call(objectRotateDrag());
   });
+
+  wbWireContextMenu(objectEnter, "object");
 
   const objectUpdate = objectEnter.merge(objectSelection);
   objectUpdate

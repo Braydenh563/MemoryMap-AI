@@ -587,10 +587,21 @@ def _tags(session: Session) -> list[dict]:
     A tag manager is a finding surface behind a sidebar button, which is the
     exact description of everything else that moved here. Renaming and merging
     still happen through /tags — this is the list, not a second implementation.
+
+    Capped at PER_KIND_LIMIT, the same bound every other kind section in
+    this file already carries — this was the one exception, left uncapped
+    when `manager.all_tags` was made cheap (§86, a cache keyed by notebook
+    fingerprint), which fixed the *cost* of computing the dict but not the
+    length of what this endpoint sent to the browser. `all_tags()` is
+    already most-used-first, so the slice keeps the tags anyone is actually
+    likely to be finding by. `GET /tags` (routes_tags.py) — the Tag
+    Manager's own listing, not this finder — is deliberately left
+    uncapped: its job is renaming or deleting *any* tag, including a
+    rarely-used one that a length cap here would hide from it entirely.
     """
     from memorymap.entry import manager
 
-    counts = manager.all_tags(session)
+    counts = list(manager.all_tags(session).items())[:PER_KIND_LIMIT]
     return [
         {
             "kind": "tag",
@@ -606,7 +617,7 @@ def _tags(session: Session) -> list[dict]:
             "mime": None,
             "pinned": False,
         }
-        for index, (name, count) in enumerate(counts.items())
+        for index, (name, count) in enumerate(counts)
     ]
 
 

@@ -27,6 +27,25 @@ from pathlib import Path
 
 logger = logging.getLogger("memorymap.captioning")
 
+#: Captions in flight right now, keyed by upload id → the file's own name.
+#: ROADMAP §89.6: a real model round-trip is seconds, not instant, and until
+#: now nothing showed it happening anywhere in the UI — `caption_and_store`
+#: already recorded the *finished* job in `taskhistory`, but the Tasks panel
+#: (routes_tasks.collect, the same list a re-index or a model pull shows up
+#: in) had no way to know one was running. A plain dict rather than a class:
+#: there is no progress fraction to report, only "is this upload's caption
+#: being written right now" — the same shape `embeddings.warmup_running()`
+#: already uses for the one other job with nothing to measure.
+_running_lock = threading.Lock()
+_running: dict[int, str] = {}
+
+
+def running_captions() -> list[dict]:
+    """What `caption_and_store` is working on right now, for the Tasks panel."""
+    with _running_lock:
+        return [{"upload_id": uid, "name": name} for uid, name in _running.items()]
+
+
 #: Short, factual, no preamble — this is metadata a search box and another
 #: AI will read, not a sentence a person is meant to enjoy. Kept as a plain
 #: instruction rather than a persona-flavoured prompt on purpose: a caption
@@ -96,7 +115,13 @@ def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> 
             # notebook with no vision model installed would otherwise fill
             # the ring with the same expected, non-actionable line.
             return None
-        text = caption_text(image_path, model, deps.get_ollama())
+        with _running_lock:
+            _running[upload_id] = upload.original_name
+        try:
+            text = caption_text(image_path, model, deps.get_ollama())
+        finally:
+            with _running_lock:
+                _running.pop(upload_id, None)
         if not text:
             # A real attempt was made (a model was resolved) and produced
             # nothing — the actual failure the report was about: a caption

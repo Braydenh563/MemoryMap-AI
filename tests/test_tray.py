@@ -191,10 +191,20 @@ def test_every_generated_menu_item_carries_the_lock_guard():
 
 def test_the_tray_only_calls_frontend_functions_that_exist():
     """A tray item that calls a function nobody defined does nothing and says
-    nothing — the exact failure the report describes."""
+    nothing — the exact failure the report describes.
+
+    Widened after a real miss: this used to scan only the `menu_items = [...]`
+    list literal, which covers an inline `_go("...")` call but not a named
+    callback's own body — exactly where `_view_logs` called `showSettingsSection`,
+    a function that existed nowhere in the frontend, for at least one whole
+    session before being caught. Scoped from `_go`'s own definition (the
+    first tray-navigation helper) through the end of `menu_items`, which
+    covers `_go`, `_view_logs`, `_new_note` and the list itself in one pass —
+    everything that runs JS in the page on this menu.
+    """
     import re as _re
 
-    menu = SOURCE.split("menu_items = [")[1].split("icon = pystray.Icon(")[0]
+    menu = SOURCE.split("def _go(js: str):")[1].split("icon = pystray.Icon(")[0]
     names = set(_re.findall(r"typeof (\w+) === 'function'", menu))
     js = "".join(
         Path(f"frontend/{name}").read_text(encoding="utf-8")

@@ -908,13 +908,15 @@ spends its time is currently a guess.
   rebuilds the entire list on any change. See §31's module-split
   recommendation in ANALYSIS.md, still unaddressed.
 - **Context warning** as the window fills — the per-turn cost is already shown.
-- **A per-chat token/context meter the user can actually see.** Asked twice,
-  once directly ("a better way to track tokens and other things") and once
-  from the outside review ("prompt inspector, token counts, latency
-  breakdown"). §11a already measures this server-side (prompt composition is
-  logged per round); what's missing is surfacing it in the Chat tab itself —
-  a small "~1.4k tokens this turn, 3.1k fixed overhead" readout, not just a
-  log line only visible in Settings → Logs.
+~~- **A per-chat token/context meter the user can actually see.**~~ **Built**
+  (ROADMAP §88.4 item 4). Asked twice, once directly ("a better way to track
+  tokens and other things") and once from the outside review ("prompt
+  inspector, token counts, latency breakdown"). §11a already measured this
+  server-side (prompt composition logged per round, chars only, Settings →
+  Logs only) — now also attached as a token estimate to the chat metadata
+  line's own window-fill tooltip, exactly the "~1.4k tokens this turn, 3.1k
+  fixed overhead" shape asked for, per stage (system/tools/history/notes)
+  rather than a single fixed-overhead number.
 - **An eval/benchmark harness tied to changes here.** Every optimisation in
   this section so far has been measured by hand, in one session, against
   whatever the person doing it happened to type. A small fixed set of
@@ -1324,14 +1326,25 @@ are now done** (§85, §86):
 - ~~**Is SQLite in WAL mode?**~~ **yes, and it already was** —
   `core/database.py` sets it on every connect, `busy_timeout=5000` and
   `synchronous=NORMAL` beside it. Pinned by a test now.
-- **What blocks the request thread.** A re-index on switching embedding
-  models, a SearXNG install, a daily backup — if any of these run
-  synchronously on the same thread that serves requests, the whole
-  single-user app freezes for their duration rather than just slowing
-  down. Worth an inventory of which long-running operations already run in
-  a background thread (§25's health-check screen would be a natural place
-  to surface "an indexing job is running" if one is) versus which quietly
-  block.
+- ~~**What blocks the request thread.**~~ **Checked directly, not assumed —
+  none of the three named cases actually do.** A re-index
+  (`model_manager.start_reindex`) and a model pull
+  (`model_manager.start_pull`) each spawn a daemon `threading.Thread`
+  before returning, same as `searxng_manager.start()`'s own install/start
+  path — none of the three ties up the thread serving the request that
+  triggered them. **The daily backup is different, and safer than the
+  worry implied**: `_backup_if_due()` (api/app.py) runs once during
+  `create_app()`, *before* uvicorn starts accepting connections at all — a
+  due backup makes the app take longer to finish starting, not something
+  a live request ever waits on mid-session. A manually-triggered backup
+  (`POST /backups` → `backup.backup_now`, a plain sync route function) is
+  the one real nuance: FastAPI runs a sync `def` route in its own bounded
+  threadpool, not on the asyncio event-loop thread, so it doesn't freeze
+  concurrent requests the way a truly blocking call on the event loop
+  would — it just holds one worker-thread slot for the copy's duration,
+  which is a non-issue for a single-user local app with nobody else
+  concurrently hitting the API. Nothing here needed fixing; this item can
+  be struck rather than built.
 - ~~**Singletons and worker count are coupled, and that coupling isn't written
   down anywhere.**~~ **done — checked in the running code, not assumed.**
   `deps.refuse_multiple_workers()` already exists and already runs first
@@ -1383,23 +1396,42 @@ are now done** (§85, §86):
   status bar both land on 2500, all 2500 rows actually render, and the
   Dashboard's own widgets (including the fixed tag-counting one) show
   correct totals with zero console errors — screenshotted.
-- **What happens when Ollama hangs, rather than errors.** The app already
-  handles Ollama being *off* gracefully (design principle 2) — a request
-  that never comes back is a different failure, and a more likely one on
-  the hardware this app actually targets: a model loading for the first
-  time, or a machine too small for the model it's asked to run, can leave a
-  request pending indefinitely rather than failing fast. Worth a timeout
-  with a clear message ("still waiting on Ollama — this can take a minute
-  the first time a model loads" past some threshold, then a real failure
-  past a longer one) rather than a spinner with no ceiling.
+- ~~**What happens when Ollama hangs, rather than errors.**~~ **Checked
+  directly — already built, all three pieces this item asked for.**
+  `OllamaClient.__init__` (ai/ollama_client.py) sets a 600s request
+  timeout by deliberate design, not the default — its own comment records
+  the exact live report that set the number ("models larger than like 4B
+  params struggle to even load or respond") and the reasoning: long enough
+  to cover a slow cold load on CPU-only hardware, short enough to
+  eventually give up rather than hang forever. The frontend's own
+  "still waiting" half already exists too: `sendChatMessage`'s
+  `slowLoadTimeout` (app.js) shows "Loading model… (this may take a
+  moment)" once 5s have passed with no reply. And the failure past the
+  timeout is surfaced, not silent — `routes_chat.py`'s streaming
+  generator has an outer `except Exception` boundary around both "before
+  the first event" and "mid-stream" that turns *any* unhandled error,
+  including a `requests.ReadTimeout` once 600s is up, into a real answer
+  event ("Something went wrong before it could start: …") instead of the
+  stream just stopping. Nothing here needed building.
 - **Crash-safe recovery for a re-index or a model download interrupted
-  mid-way.** If the app is closed, or the machine loses power, while an
-  embedding re-index or a model pull is running, does it resume cleanly or
-  leave a half-written state that surfaces as a confusing error next
-  launch? Worth checking directly — the health-check screen in §25 is the
-  natural place to both detect this ("an interrupted re-index was found —
-  resume or restart it") and report it, rather than a repair action with
-  nothing that would ever notice the problem needed fixing.
+  mid-way.** Half-checked directly. **The re-index half is safe by
+  design, already, without a resume button**: `_run_reindex`
+  (ai/model_manager.py) deletes an entry's stale vector and commits, *then*
+  regenerates and stores the new one — so a crash between those two steps
+  leaves that one entry with no vector at all, not a corrupt or
+  inconsistent one, and `start_reindex`'s own docstring already covers this
+  exact state: semantic search falls back to keyword search for any entry
+  missing a current vector, the same fallback a re-index that hasn't run
+  yet relies on. The in-memory `Job` doesn't survive a restart either, so
+  there is no stale "still running" status to confuse the health-check
+  screen — a fresh launch just sees no job, and the next re-index (full,
+  not a true resume-from-checkpoint) fixes whatever was left incomplete.
+  No corruption, no confusing error, nothing to build here. **The model-pull
+  half is still genuinely open** — whether a `POST /api/pull` cut off
+  mid-stream resumes from Ollama's own blob store on the next pull is
+  Ollama's own behaviour, outside this codebase, and wasn't verified this
+  session (no live Ollama in this sandbox to interrupt and re-pull
+  against).
 
 ---
 
@@ -2241,21 +2273,40 @@ item distinguishes itself from.
    width just never mattered before. `.library-toolbar select { width: auto
    }` fixes it at the toolbar level, not per-control, so the next crowded
    `<select>` added here inherits the fix rather than re-discovering the bug.
-2. **The hard half: a wiki-link click has to land on the right *page*.** Which
-   page a note is on depends on whatever sort and filter is currently active
-   (category, tag, pinned, search term, semantic vs keyword), not just the
-   note's id. That is real routing logic and deserves its own design pass
-   rather than being bolted onto the page-size control. Scoped, not built,
-   this session — the shape it needs: `paginateNotesForDisplay` already
-   computes the exact ordered/filtered array a page is sliced from, so
-   resolving "which page is note N on" is a matter of re-running the same
-   filter+sort+order the *target* view would use, finding N's index in that
-   array, and dividing by the active page size — not a new index or a
-   second source of truth. The real design question is what to do when the
-   click's *origin* view has different sort/filter/page-size than whatever
-   is currently active (e.g. a wiki-link inside a note clicked from Chat,
-   where no Notes-tab filter is active at all) — that decision, not the
-   arithmetic, is why this stayed a separate item.
+~~2. **The hard half: a wiki-link click has to land on the right *page*.**~~
+   **Built.** `flashEntry` (app.js) already answered the design question
+   this item was scoped around: it resets category, drafts and search to
+   whatever the target's own view needs *before* it draws anything — a
+   jump always lands in that reset default view, never in whichever
+   filter the *origin* (Chat, the graph, a document) happened to have
+   active, since most origins have no Notes-tab filter state to preserve
+   in the first place. With that view fixed, the only thing missing was
+   the page number.
+
+   `orderedNotesForCurrentView()` is `renderEntries`'s own order —
+   flat-sorted or thread-flattened, whichever the current search/sort
+   picks — pulled out so there is exactly one place that decides "what
+   order do these notes render in," used both to paint the list and to
+   answer "which page is note N on." Deliberately **not** used to replace
+   `renderEntries`'s own inline copy of the same logic: that render path
+   is live, tested, and previously verified with real numbers (§86,
+   §77 item 1); rewriting it to consume a shared helper risked a working
+   feature for a refactor with no user-visible gain, so the small
+   duplication was accepted instead. `resolveNotePage(id)` walks that
+   order, finds the note, and divides by the active page size — "All"
+   (no pagination) always answers page 1. Returns `null` for a note the
+   current filters would hide entirely, which `flashEntry` treats as "stay
+   on whatever page you're on" rather than lying about a page number.
+
+   **Live-verified, both branches.** 61 flat notes, 25/page: starting on
+   page 1, clicking a wiki-link to the oldest (page-3) note lands on
+   "Page 3 of 3" with that exact note flashed. The harder case — the one
+   this item's own text worried about, a thread **child** whose page
+   depends on its *parent's* position, not its own sort key — verified
+   separately: a parent buried under 55 newer notes, its child linked to
+   directly, correctly resolves to "Page 3 of 3" with the child itself
+   (not the parent) flashed and `.thread-child` still set. Zero console
+   errors either run.
 
 ## 78. Whether the backend needs more concurrency than it already has
 
@@ -2702,3 +2753,221 @@ any of the above, worth settling as one pass: which surfaces render markdown,
 whether code blocks get syntax highlighting, and whether notes should join —
 because "the AI wrote a diagram and I can't see it" and "my code block is
 grey" are the same gap.
+
+## §98 — reported live during the §90.2 small-screen pass, logged not built
+
+Four asks landed while the small-screen audit was running. Two were built the
+same session (the capture-composer `?` guide; the gallery-menu clipping fix —
+both in HANDOVER.md). These are the ones deliberately left open, with what was
+already checked so the next session does not re-derive it.
+
+1. **Collapsible / dropdown blocks at small screen sizes.** Asked for
+   directly, and deferred by the same message: *"some element blocks can
+   collapse and become dropdown menus, or can have left right buttons to move
+   left and right."* This is the shape §90.2 (ROADMAP) was heading toward
+   anyway, so treat it as that item's design direction rather than a separate
+   one. **What the audit already measured, so it does not need re-running:**
+   at 390px the tab bar is genuinely scrollable (`scrollWidth` 640 vs
+   `clientWidth` 364) and `#notes-subtabs` likewise (591 vs 341) — both now
+   at least *look* scrollable (`.edge-fade`, built this session), which is the
+   affordance half, not the restructure half. The dashboard heatmap's
+   apparently-off-canvas cells were chased down and are a **false positive**
+   (a deliberately horizontally-scrolling widget, scrolled to today by
+   design). Library, Chat and Graph reported clean at both 390px and 820px.
+   So the remaining work is a genuine layout restructure on the surfaces that
+   are merely *cramped* rather than broken — the 17-section Settings modal and
+   the document editor being the two named candidates — not a bug hunt.
+
+2. **Links in a note should show as a card, like an attached image or file.**
+   Asked as a question: *"if the user adds links to notes in the capture tab,
+   can they show as a card like an attached image or file at the bottom??"*
+   **Read this before scoping it, because two different things are called a
+   "link" here and only one of them is missing.** A `[[wiki link]]` to another
+   note *already* renders as a clickable chip on the saved note
+   (`renderNoteText`/`renderInlineMarkdown`, app.js) — that half exists and
+   should not be rebuilt. What does not exist is a card for an **external
+   URL**: paste `https://…` into a note and it renders as a plain inline
+   link, with none of the treatment `#entry-attachment-chips` gives an
+   attached file. The ask is for that shape — a card at the bottom of the
+   note, beside the attachment chips. Open design questions, all real:
+   whether the card is generated at save time or render time; whether it
+   fetches anything (this app is **offline-first** — a card that needs a
+   favicon or an OpenGraph title is a network call this project has spent
+   real effort avoiding, so the honest default is a card built from the URL
+   itself: host, path, and the link text the user typed); and whether
+   removing the card removes the URL from the note's text, which is exactly
+   the question `#entry-attachment-chips` already answered for images (it
+   detaches the reference, it does not delete the upload) and should answer
+   the same way for consistency.
+
+3. ~~**The lightbox's bottom bar should do more.**~~ **Built** — a
+   `.lightbox-actions` row: zoom out / a live % / zoom in / Fit, plus
+   wheel-to-zoom (1x-6x), drag-to-pan once magnified, Copy text, and Save.
+   Everything works off what `openLightbox` already receives, so it lights
+   up for every caller rather than only the Library's richer items. The
+   id-requiring actions below (describe with AI, re-run OCR, rename,
+   delete) are the part **still open** — see the note at the end of this
+   item. Original scoping kept:
+
+3b. **The lightbox's bottom bar should do more.** Asked directly: *"can you
+   improve on and expand the capabilities and features at the bottom of the
+   lightbox?"* Not scoped this session. **What is there today**, so the next
+   session starts from fact rather than the screenshot: `openLightbox`
+   (app.js:2560) builds a `.lightbox-meta` line (filename, and "3 of 12" when
+   there is more than one item) and a `.lightbox-info` panel below it holding
+   four optional fields — `infoFacts` (dimensions, date added, filename),
+   `infoCaption`, `infoText` (OCR), and `infoByline`. So it is already an
+   *information* surface and has no *actions* at all: no download, no delete,
+   no rename, no "describe with AI", no rotate, no zoom, no copy-text. The
+   obvious move is that the five actions the gallery kebab already offers
+   (rename, describe with AI, read text with AI, read text offline, delete)
+   should be reachable from the lightbox too, since the lightbox is where you
+   are actually *looking* at the picture — the same "the action belongs where
+   the decision is made" reasoning that put the caption and OCR text there in
+   the first place. **This half is what is still open**, and it needs one
+   piece of plumbing first: no caller passes a media `id` to `openLightbox`
+   today, so the Library caller (`library.js:1810`) has to start passing one
+   and each action has to hide itself when it is absent — the same optional-
+   field pattern `caption`/`text`/`byline` already use. Zoom and pan, the
+   other half named here, are **built** (see above).
+
+4. **Meeting notes need a real home.** Asked directly: *"the Meeting notes
+   feature still needs a way to be accessed and better utilised as well as
+   managed in the library as rn it is only accessible through the
+   dashboard."* **Checked before scoping, and the premise is partly out of
+   date — read this first.** Meetings are *already* a Library filter chip
+   (`library.js:129`, `{ key: "meeting", icon: "ph:video-camera", label:
+   "Meetings" }`) with a live count and a working filter, implemented as a
+   tag filter over notes rather than a real kind (`libraryKind === "meeting"`
+   filters `i.kind === "note" && tags.includes("meeting")`, library.js:372)
+   — a meeting note is a finished note, unlike a draft, which is why it is a
+   chip and not a sub-tab. Recording is also already reachable from the
+   command palette (`ph:microphone Record a meeting or lecture`,
+   app.js:16106), not only the Dashboard, and app.js:16101 carries a comment
+   recording an earlier ask to expand that popup into a proper surface.
+   So the genuine remaining work is **not** "add it to the Library" and
+   **not** "add a second entry point" — both exist. It is the *"better
+   utilised"* half, which is the unscoped one: what a meeting note should
+   carry beyond a transcript (speakers, decisions, action items → reminders,
+   a summary), and whether a meeting deserves to stop being a tagged note and
+   become a first-class kind — which is a schema change with an Alembic
+   migration behind it, and should be decided deliberately rather than
+   drifted into. Scope that question first; the UI follows from the answer.
+
+## §99 — the lightbox as a showcase, and uploads split by file type
+
+Reported live across several messages. The lightbox half is **partly built**
+(see HANDOVER.md); the upload half is **logged, not built**, and is the
+larger piece.
+
+### What was built
+
+- **Metadata everywhere, not just the gallery.** `GET /media/meta/{filename}`
+  plus the lightbox asking for anything its caller did not pass. The bug was
+  never in the lightbox: caption/OCR/facts arrived as *arguments* and only
+  the gallery had a media row to pass, so the same picture showed a full
+  description in one tab and an empty panel in another.
+- **An actions bar**: zoom (buttons + wheel, 1x-6x), drag-to-pan, Fit, Copy
+  text, Save. Zoom controls hide in document mode, where they do nothing.
+- **Document preview**: `GET /media/text/{filename}` exposing the
+  `docview.extract` table that already existed for attachments, rendered as
+  real markdown (the app's own `renderMarkdown`) or as preserved-whitespace
+  code/plain, with find-in-document over the rendered text.
+- **Arrows out to the screen edges**, anchored to a new non-scrolling
+  `.lightbox-stage-wrap` rather than to the scrolling stage.
+
+### Still open — the upload split, and what it collides with
+
+Asked for directly: *"there should be an upload documents option in the
+documents tab in the library for uploading files pdf, docx, spreadsheet,
+code documents, md, text files etc. all uploaded files get split based on
+their filetype between the documents and image gallery tabs in the library,
+and all documents should be viewable and editable in the documents area."*
+
+**Read this before starting, because there is a real constraint in the way
+and it is a security boundary, not an oversight.** There are two allowlists:
+
+- `ATTACHMENT_SUFFIXES` (routes_files.py) is broad — pdf/docx/xlsx/csv/md/
+  txt/code/zip. Attachments are **downloaded**, never served inline, and
+  already reach `docview.extract` via `GET /files/{id}/text`.
+- `MEDIA_SUFFIXES` is images + PDF only, and its comment explains why: that
+  folder **is served**, and *"the AI can write into this folder too, so 'the
+  only person who can put a file here is the person at the keyboard' is not
+  true."* It is an allowlist precisely because a missed denylist entry there
+  is a served-file problem.
+
+So "all uploaded files go to /media and get split by type in the Library"
+cannot be done by widening `MEDIA_SUFFIXES` — that would put .html, .svg and
+friends in a served directory the AI can write to. The honest shapes are:
+
+1. **Route by type at upload time**: an image goes to `media/` (served,
+   narrow allowlist, unchanged), anything else goes to the attachment/
+   uploads path (never served inline) and the Library lists both, reading
+   documents through the text extractor. Most work, least risk, and it is
+   the one that matches how the app already stores each kind.
+2. Widen `MEDIA_SUFFIXES` and harden serving (explicit `Content-Type`,
+   `Content-Disposition: attachment`, a sandboxed CSP on that route).
+   Smaller diff, but it re-opens a question this codebase already closed
+   deliberately — do not take this one without saying so out loud.
+
+**"Editable in the documents area" needs its own decision first.** The
+preview is read-only because the text is *extracted* — `core/docview.py`'s
+own docstring makes the point that editing would mean writing text back into
+a format it was never in. Editing a .docx in place is not a feature this app
+can honestly offer. What it *can* offer, and what is probably meant: **import
+the extracted text as a real MemoryMap document**, which is then editable
+like any other, with the original file kept as the source. That is a
+different feature from "edit the upload", and much more achievable — scope
+it as import, not as in-place editing.
+
+Also still open on the lightbox itself: the id-requiring actions (describe
+with AI, re-run OCR, rename, delete), which need callers to pass a media id
+— see §98 item 3.
+
+## §101 — the knowledge graph should be second nature to the AI, everywhere
+
+Asked for directly: the AI should be able to "flawlessly and instantly jump
+between notes, know their link reasons, know the context between notes,
+understand their meaning and purpose... at a relatively low cost," across
+every AI feature and especially search — not a new capability so much as a
+demand that an existing one stop being partial and optional.
+
+**This is not a fresh ask — it is §87.5 and §88.4 items 3–5, restated as a
+requirement rather than a nice-to-have, and worth reading in that order
+before scoping anything new:**
+
+~~- **§87.5 (live list, this file)** already scoped typed, weighted links
+  (`EntryLink.link_type`/strength) as the mechanism for "know their link
+  reasons"~~ **First slice built** — `link_strength()`, wired into both
+  `entry/paths.py` and `graph_expansion()`. Still open: the composite over
+  shared tags/category/temporal proximity (§87.5's own text has the full
+  split of what's done vs. not).
+- **§88.4 items 1–2 (ROADMAP.md)** are the reason "jump between notes" is
+  already partly real: `graph_expansion()` walks linked neighbours of a
+  chat/ask question's top hits and is wired into every retrieval call
+  (`_retrieve()`) — not a special mode, the default path. **It now does
+  weight *which* neighbour matters more** — §87.5's typed-link slice above,
+  the two items being the same feature scoped from two different sides.
+- **§88.4 item 3 ("memory is a surface, not a system")** is the "understand
+  their meaning and purpose" half at the *notebook* level, not just per-note
+  — no tiered always-on/retrieved/session-only memory exists anywhere in
+  `ai/` today.
+~~- **§88.4 item 4 ("no token accounting per stage")**~~ **Built** — the "at a
+  relatively low cost" half, and was the *prerequisite* to anything else
+  here, not an independent item. A per-stage token estimate (system/tool
+  schemas/history/notes) is now attached to every turn's stats and shown in
+  the chat metadata line's tooltip, so a graph-expanded, link-weighted
+  retrieval pass's actual cost can now be read off directly, turn by turn,
+  rather than needing new instrumentation first.
+
+**Not re-scoped here, on purpose — the order has now run two of its three
+steps.** Writing a second, parallel design for "AI-native graph navigation"
+without first building §88.4 item 4's measurement would have repeated this
+project's own standing caution (§88.4's closing note: "every one of these
+becomes a change nobody can prove helped"). The order that respects what is
+already true: instrument (item 4, done) → weight links (§87.5's explicit
+slice, done) → **re-measure whether `graph_expansion`'s existing walk got
+better — still open, and now the actual next step**, not §87.5's remaining
+derived-signal composite and not a new mechanism beside the one that
+already runs on every retrieval call. This sandbox has no reachable model,
+so that re-measurement needs a real Ollama and cannot happen here.

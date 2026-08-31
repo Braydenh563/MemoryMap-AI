@@ -1,6 +1,146 @@
 # Session handover
 
-## New session — 4 CodeQL notes closed, four stale roadmap/backlog claims corrected against the running code, live web access confirmed and used to fix real broken/wrong model suggestions, the phone-width tab-bar and Library/Dashboard/Settings-modal questions answered live, a first genuinely live competitor read, a real private-note security leak found and fixed in the AI's own tools, and a real gap closed in what the AI's context actually tells it about linked notes
+## New session — a long live-report batch, mostly real bugs found by reproducing rather than guessing: a whiteboard-boards-vanish bug, an OCR-model-priority bug, a genuine CSS over-constraint behind the Documents kebab "transparency", a Timeline lane-collision bug, and a chat file-picker/backend drift, plus several smaller UI fixes
+
+Continuation of a single long autonomous stretch, working through a large
+queue of live user reports and asks rather than a single ticket. Full suite
+(~1,600 tests) run repeatedly through the session, green throughout except
+one self-caught `test_style_scale.py` failure (an `0.3rem` that should have
+been a `--space-*` token, fixed before commit); `ruff check .` clean
+throughout. Every UI claim below was verified live in Chromium via
+Playwright — screenshots and/or DOM measurements taken before and after,
+per this project's own standing rule that a screenshot alone can mislead
+(two "looks cramped" impressions turned out, once actually measured, to be
+a correct and consistent 9.6px gap — logged so the next session trusts
+measurement over eyeballing).
+
+- **Documents kebab dropdown "transparency" — root cause found and fixed.**
+  Reproduced exactly (menu height collapsed to ~14.78px, matching the
+  user's screenshot) with the same repro shape as an earlier, unfinished
+  investigation. Root cause: `openActionMenu()` can set `.action-menu-flip`
+  (`bottom: calc(100% + 4px)`) based on the menu's pre-escape position;
+  `wireEscapedActionMenu()`'s `place()` then sets its own inline `top`
+  without clearing that class, leaving a `position: fixed` element with
+  both `top` and `bottom` pinned and `height: auto` — an over-constrained
+  box Chromium collapses instead of falling back on. Dropping
+  `.action-menu-flip` when escaping fixes it (`place()` already implements
+  the same up/down decision itself). Verified live: height is now the
+  correct 174.78px in both palettes that reproduced it.
+
+- **Whiteboard boards "deleting themselves" — real bug, not data loss.**
+  There was never a delete-board endpoint at all: `list_boards()` only
+  ever listed notes with a *current* nonzero node/sketch/object count, so
+  a freshly created board (empty until something is drawn) or one cleared
+  back to empty mid-edit silently dropped out of the only UI that could
+  find it again — the underlying note was untouched. Added `Entry.is_board`
+  (additive column), set on explicit creation and the first time anything
+  is drawn on a plain note (`_require_board`, the one choke point every
+  node/sketch/object write already passes through); `list_boards()` now
+  includes `is_board` entries regardless of count. One existing test
+  asserted the old (buggy) behaviour outright and needed updating; added a
+  second covering a board emptied back out after having content.
+
+- **OCR model priority bug — reported live, matched a real design flaw.**
+  "I pressed read text with AI, but it used my vision model and not my OCR
+  model." `resolve_ocr_model()` let an *explicit* vision-model choice (set
+  for chat, never for OCR) outrank an installed OCR-specialised model
+  (`glm-ocr` etc.) auto-detected by family name — a deliberate, tested
+  decision from an earlier session that turned out backwards once a real
+  user hit it. Reordered so the auto-detected reader wins over an
+  unrelated explicit vision choice; an explicit *OCR* model still wins
+  outright. Updated the test that pinned the old order, with its
+  docstring's reasoning corrected in place rather than silently changed.
+
+- **Tesseract availability never surfaced — "the option should be disabled
+  or hidden if pytesseract isn't installed", exactly right.** Added
+  `tesseract_available` to `/models/status`; both places that offer a
+  Tesseract-OCR action (the lightbox kebab, the gallery card's own menu)
+  now grey it out with an explanatory tooltip instead of silently
+  no-oping, and every "offline (OCR)" label in the gallery/lightbox is
+  renamed to name the actual method (Tesseract) instead of a property this
+  100%-offline app already shares everywhere. Verified live on this
+  sandbox, which has no tesseract binary: both menus render it disabled.
+
+- **Timeline dense-cluster label/dot collisions — the real fix this time.**
+  An earlier pass in this same session clamped only the label's own
+  position when a same-day cluster staggered too far; reported again
+  ("happens on all the line views, not just Thread") because the *dots*,
+  not just the label, were what collided with a neighbouring band.
+  Reproduced with 5 same-day category bands of 8 notes each — "Ideas",
+  "Health" and "Travel" all visibly bled into each other. Restructured
+  `renderTimelineBranch` into two passes: compute every band's own stagger
+  and the vertical clearance its cluster actually needs first, then lay
+  out lanes with at least the old fixed gap but more whenever a band needs
+  it. Verified live against the same reproduction: clean separation in all
+  five bands.
+
+- **Chat composer file picker vs. what upload actually accepts — real
+  drift, found by diffing, not guessing.** `#chat-image-input`'s `accept=`
+  offered `.cs`, which `docview.VIEWABLE_SUFFIXES` does not include —
+  confirmed live, a `.cs` upload 415s. Missing in the other direction:
+  `.mjs`, `.cjs`, `.cfg`, `.bash`, `.zsh`, `.scss`, `.hpp`, `.swift`,
+  `.kt`, `.r`, `.ppt` are all readable but were never offered — confirmed
+  live, a `.mjs` upload already imported correctly once tried directly.
+  Made the list an exact mirror of `VIEWABLE_SUFFIXES` and added a
+  regression test that pins the two to stay equal.
+
+- **A Settings/Skills spacing audit, done by measuring, not eyeballing.**
+  `.settings-row-spaced` was defined twice in one file with two different
+  values — the cascade always picked the second, so the first was
+  silently dead; consolidated. Three genuine 0px gaps found (Skills' "Add
+  skill" row, Memory's "add a preference" row, the Logs panel's
+  dropped-records line — all missing `margin-top` on an element that only
+  ever had `margin-bottom`), all fixed. `.entry-item` (the Skill Logs
+  panel's own row) had *zero* CSS anywhere in the app — its container is a
+  `<div>`, not `<ul>`, so it never matched `.entry-list li`'s existing
+  card styling; every skill run rendered as bare unstyled text. Gave it
+  the same treatment. Separately: the AI Skills library grid stretched
+  every card in a row to match whichever one had a steps/tools `<details>`
+  open, leaving row-mates with a large dead gap above their Run button —
+  `align-items: start` on `.skills-grid` fixed it.
+
+- **Smaller, still-verified fixes:** the lightbox's `zoom-out` cursor
+  bled into its own info panel (no `cursor: default` override there);
+  the "Your notes" filter's `?` button didn't match the app's other
+  circular icon help-toggles despite a comment claiming it did; the
+  status bar's Back/Forward pair got a navigation-history popup (button
+  and right-click, both open the same most-recent-first list) — its own
+  positioning bug (computed `top` disagreeing with the rendered position
+  by ~800px, for a reason not fully run down) was caught before landing
+  and worked around with the same `bottom: calc(...)` pattern other fixed
+  controls above the status bar already use, rather than chased further;
+  the existing "hide Back and forward" status-bar toggle didn't also hide
+  Settings' own mirrored copy of the same buttons — one `data-status-slot`
+  attribute fixed it; `tags:<N` filter syntax added for finding
+  under-tagged notes (`is:untagged` only ever covered the zero case); a
+  pre-save tag-suggestion feature added to the Capture form (post-save
+  suggestions existed, buried in a kebab menu; pre-save had nothing); the
+  Library "All" tab's create button now matches the active filter chip
+  for the four kinds with one obvious thing to create.
+
+- **Investigated, not changed:** "notes might be undeleting themselves" —
+  checked the global undo stack's Ctrl+Z-in-a-text-field guard (already
+  correct, already commented as the fix for exactly this failure mode);
+  no reproduction found. "AI doesn't consult itself for categorization" —
+  `create_entry()` already defaults to the AI (`janitor.categorise()`)
+  whenever no category is explicitly chosen; the likely real cause is the
+  janitor's own semantic-match/k-NN heuristics winning over the LLM more
+  often than expected in a small notebook, a tuning/UX question rather
+  than a code bug, left for a follow-up decision.
+
+- **Scoped, not built — logged to BACKLOG.md rather than rushed:** §105
+  (Library "All" tab's create-button picker modal for "Everything", a
+  categories section, tag-rename-everywhere, create-from-Library) and
+  §102's addition (a "synthesize N notes into a draft" action, the one
+  item missing from an earlier competitor-research pass re-pasted this
+  session — the rest of that paste was already logged and corrected).
+  ANALYSIS.md §104 answers a sub-categories design question asked
+  directly (recommend against a new hierarchy field; use a tag or a
+  hub-note-plus-links cluster instead) and points a knowledge-graph
+  question at BACKLOG.md §101's already-prioritised next step rather than
+  re-deriving a second answer.
+
+## Prior session — 4 CodeQL notes closed, four stale roadmap/backlog claims corrected against the running code, live web access confirmed and used to fix real broken/wrong model suggestions, the phone-width tab-bar and Library/Dashboard/Settings-modal questions answered live, a first genuinely live competitor read, a real private-note security leak found and fixed in the AI's own tools, and a real gap closed in what the AI's context actually tells it about linked notes
 
 Autonomous session, worked from CLAUDE.md/ROADMAP.md/HANDOVER.md/BACKLOG.md
 top-down rather than a single user-picked item. Full suite (~1,600 tests) run

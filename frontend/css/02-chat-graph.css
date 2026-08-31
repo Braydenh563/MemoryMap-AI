@@ -2087,6 +2087,21 @@ kbd {
   background: rgba(185, 28, 28, 0.10);
 }
 
+/* A kebab item that names a real action but can't do it right now (e.g. the
+   gallery's "Read text (Tesseract OCR)" with the tesseract binary missing) —
+   muted rather than natively `disabled`, so its own title tooltip and click
+   (which explains why, rather than the underlying request silently no-oping)
+   both still work. */
+.menu-item.menu-item-unavailable {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.menu-item.menu-item-unavailable:hover,
+.menu-item.menu-item-unavailable:focus-visible {
+  background: none;
+}
+
 /* Grouped submenus in the note card's ⋯ menu, asked for directly: a side
    flyout for related actions instead of one long flat list. */
 .menu-group {

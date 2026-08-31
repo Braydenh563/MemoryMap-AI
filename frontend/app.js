@@ -2916,31 +2916,56 @@ function openLightbox(items, startIndex = 0) {
         toast(err.message || `Couldn't ${label.toLowerCase()}.`, true);
       }
     };
+    const items = [
+      {
+        label: "ph:sparkle Describe with AI",
+        title: "Generate a caption for this image",
+        run: run("describe", "Describing…", "/caption", (it, u) => {
+          it.caption = u.caption || "";
+        }),
+      },
+      {
+        label: "ph:text-aa Read text with AI",
+        title: "Read the text in this image with a vision model",
+        run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
+          it.text = (u.vision_ocr_text || "").trim();
+          it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
+        }),
+      },
+    ];
+    // "the whole application is offline anyway with local models so that
+    // title is confusing" (reported directly) — renamed to name the actual
+    // method (Tesseract) instead of a property ("offline") every reading
+    // path in this app already shares. And: "the option should be disabled
+    // or hidden if the user doesn't have pytesseract installed" — `/models/
+    // status`'s `tesseract_available` (routes_models.py) is a plain
+    // `shutil.which` check, so this can just not offer a button that would
+    // otherwise silently do nothing, matching how the model-pull panel
+    // already hides itself on a backend that can't pull.
+    if (modelStatus && modelStatus.tesseract_available === false) {
+      items.push({
+        label: "ph:scan Read text (Tesseract OCR)",
+        title:
+          "Unavailable — the Tesseract OCR program isn't installed. See INSTALL.md, " +
+          "or use “Read text with AI” instead.",
+        disabled: true,
+        run: async () => {
+          toast("Tesseract isn't installed — see INSTALL.md, or use “Read text with AI”.", true);
+        },
+      });
+    } else {
+      items.push({
+        label: "ph:scan Read text (Tesseract OCR)",
+        title: "Read the text in this image with Tesseract, a fast local tool — no AI model involved",
+        run: run("read text", "Reading…", "/ocr", (it, u) => {
+          it.text = (u.ocr_text || "").trim();
+          it.byline = it.text ? "Text read with Tesseract OCR" : "";
+        }),
+      });
+    }
     return kebabMenu(
       [
-        {
-          label: "ph:sparkle Describe with AI",
-          title: "Generate a caption for this image",
-          run: run("describe", "Describing…", "/caption", (it, u) => {
-            it.caption = u.caption || "";
-          }),
-        },
-        {
-          label: "ph:text-aa Read text with AI",
-          title: "Read the text in this image with a vision model",
-          run: run("read text", "Reading…", "/vision-ocr", (it, u) => {
-            it.text = (u.vision_ocr_text || "").trim();
-            it.byline = it.text ? `Text read by ${u.vision_ocr_model || "a model"}` : "";
-          }),
-        },
-        {
-          label: "ph:scan Read text offline (OCR)",
-          title: "Read the text in this image offline",
-          run: run("read text", "Reading…", "/ocr", (it, u) => {
-            it.text = (u.ocr_text || "").trim();
-            it.byline = it.text ? "Text read offline (OCR)" : "";
-          }),
-        },
+        ...items,
         {
           label: "ph:pencil-simple Rename",
           title: "Rename this image",
@@ -3298,7 +3323,7 @@ function openLightbox(items, startIndex = 0) {
       item.byline = row.vision_ocr_text
         ? `Text read by ${row.vision_ocr_model || "a model"}`
         : row.ocr_text
-          ? "Text read offline (OCR)"
+          ? "Text read with Tesseract OCR"
           : "";
     }
     // The gallery passes `original_name`; a bare url caller passes the
@@ -11173,10 +11198,15 @@ function kebabMenu(items, ariaLabel) {
 
   for (const item of items) {
     const button = document.createElement("button");
-    button.className = "menu-item";
+    button.className = item.disabled ? "menu-item menu-item-unavailable" : "menu-item";
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     button.title = item.title;
+    // Muted, not `disabled` — a native disabled button also blocks its own
+    // title tooltip on some platforms, which is the one piece of information
+    // this state actually needs to deliver (why the button can't do its
+    // normal job). `run` still fires; a disabled item's `run` says why.
+    if (item.disabled) button.setAttribute("aria-disabled", "true");
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
       closeActionMenus();

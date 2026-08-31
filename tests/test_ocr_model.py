@@ -87,12 +87,23 @@ def test_an_explicit_ocr_model_beats_the_preference_order(app_state):
     assert manager.resolve_ocr_model(_FakeOllama(["glm-ocr", "moondream"])) == "moondream"
 
 
-def test_an_explicit_vision_model_is_used_when_no_ocr_model_is_set(app_state):
-    """A deliberate choice, even one made for a different purpose, beats a
-    guess made here."""
+def test_an_explicit_vision_model_is_used_only_when_no_reader_is_installed(app_state):
+    """No document reader installed: fall back to the vision model chosen for
+    an unrelated job (chat) rather than guessing among whatever else can see."""
     manager = _manager(app_state)
     manager.set_vision_model("qwen2.5vl:7b")
-    assert manager.resolve_ocr_model(_FakeOllama(["glm-ocr"])) == "qwen2.5vl:7b"
+    assert manager.resolve_ocr_model(_FakeOllama(["llava"])) == "qwen2.5vl:7b"
+
+
+def test_an_installed_reader_beats_an_explicit_but_unrelated_vision_model(app_state):
+    """Reported live: "I pressed read text with AI, but it used my vision
+    model and not my OCR model" — a real OCR-family model was installed, but
+    an earlier version of this function let an explicit vision-model choice
+    (set for chat, never for OCR) outrank it. A document reader sitting right
+    there beats a setting made for a different purpose."""
+    manager = _manager(app_state)
+    manager.set_vision_model("qwen2.5vl:7b")
+    assert manager.resolve_ocr_model(_FakeOllama(["glm-ocr"])) == "glm-ocr"
 
 
 def test_clearing_the_choice_returns_to_automatic(app_state):
@@ -106,6 +117,14 @@ def test_the_status_endpoint_reports_both_the_choice_and_what_it_resolved_to(cli
     body = client.get("/models/status").json()
     assert "ocr_model" in body
     assert "ocr_model_resolved" in body
+
+
+def test_the_status_endpoint_reports_whether_tesseract_is_installed(client):
+    """Reported directly: the local-OCR button was shown enabled whether or
+    not the `tesseract` binary was actually there, so pressing it without
+    it just silently did nothing. A plain bool the frontend can gate on."""
+    body = client.get("/models/status").json()
+    assert isinstance(body["tesseract_available"], bool)
 
 
 def test_the_picker_refuses_a_model_that_is_not_installed(client):

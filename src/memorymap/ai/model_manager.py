@@ -290,11 +290,24 @@ class ModelManager:
           and the layout, and is usually far smaller for that job.
 
         Hence three tiers rather than two, and the order matters: an explicit
-        OCR model, else the vision model the user already chose, else
-        auto-detect. Falling straight through to auto-detect when a vision
-        model *is* set would ignore a deliberate choice; requiring an OCR model
-        before any OCR works would make this a setting people must find before
-        the feature does anything.
+        OCR model, else an installed document-reader model auto-detected by
+        family name, else the vision model the user already chose (if any),
+        else whatever else can see. Requiring an OCR model before any OCR
+        works would make this a setting people must find before the feature
+        does anything, hence the auto-detect tier existing at all.
+
+        The auto-detected reader now outranks an explicit-but-unrelated
+        vision-model choice, reversed from an earlier version of this
+        function that had it the other way — reported live, directly
+        against what that version assumed: "I pressed read text with AI,
+        but it used my vision model and not my OCR model" from someone who
+        had a real OCR-family model installed and a vision model set for
+        chat, never an OCR model. Deferring to the *explicit* choice sounded
+        right in the abstract, but in practice it means a document reader
+        sitting right there in the installed list is never used for the one
+        job it's actually built for, on the strength of a setting that was
+        made for an unrelated purpose (chat). An explicit OCR model still
+        wins outright — that one really is the deliberate, on-purpose case.
         """
         return self._config.get_preference("ocr_model", "")
 
@@ -314,20 +327,18 @@ class ModelManager:
         explicit = self.ocr_model()
         if explicit:
             return explicit
-        # An explicit *vision* model is still a deliberate choice and outranks
-        # anything guessed here.
-        if self.vision_model():
-            return self.vision_model()
 
-        # Nothing chosen. Asked directly: "what if I have qwen3-vl and glm-ocr
-        # available?" — and plain vision auto-detect answers that badly, by
-        # taking whichever the backend happens to list first. Both can see an
-        # image; only one of them is built to transcribe a page.
+        # No explicit OCR model. Asked directly: "what if I have qwen3-vl and
+        # glm-ocr available?" — and plain vision auto-detect answers that
+        # badly, by taking whichever the backend happens to list first. Both
+        # can see an image; only one of them is built to transcribe a page.
+        # Tried before the vision-model fallback below, not after — see this
+        # function's own docstring for why that order flipped.
         #
-        # So a document reader wins when one is installed. Matched on the
-        # family names in SUGGESTED_MODELS["ocr"] rather than on capabilities,
-        # because no backend reports "good at OCR" — `capabilities` says
-        # `vision` for both, which is exactly why the tie needed breaking here.
+        # Matched on the family names in SUGGESTED_MODELS["ocr"] rather than
+        # on capabilities, because no backend reports "good at OCR" —
+        # `capabilities` says `vision` for both, which is exactly why the tie
+        # needed breaking here.
         if installed is None:
             try:
                 installed = ollama.list_models()
@@ -341,7 +352,11 @@ class ModelManager:
         for name in names:
             if is_ocr_model(name):
                 return name
-        # No reader installed: any model that can see is better than refusing.
+
+        # No reader installed. An explicit *vision* model is still a
+        # deliberate choice and beats guessing among whatever else can see.
+        if self.vision_model():
+            return self.vision_model()
         #
         # `vision_fallback` is for the caller that has already resolved it.
         # Resolving it here walks every installed model asking `/api/show`

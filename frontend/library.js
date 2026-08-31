@@ -1931,7 +1931,7 @@ function filterLibraryImagesGallery() {
           byline: i.vision_ocr_text
             ? `Text read by ${i.vision_ocr_model || "a model"}`
             : i.ocr_text
-              ? "Text read offline (OCR)"
+              ? "Text read with Tesseract OCR"
               : "",
           addedAt: i.created_at || "",
         })),
@@ -2286,6 +2286,17 @@ function filterLibraryImagesGallery() {
       }
     });
 
+    // Reported directly: this button was always enabled, even on a machine
+    // without the `tesseract` binary — the one dependency this app never
+    // installs on its own (INSTALL.md) — so pressing it just silently found
+    // nothing, indistinguishable from "read the image and there was no
+    // text". `/models/status`'s `tesseract_available` (routes_models.py, a
+    // plain `shutil.which` check) is what makes that distinguishable.
+    if (modelStatus && modelStatus.tesseract_available === false) {
+      ocrBtn.disabled = true;
+      ocrBtn.title = "Unavailable — the Tesseract OCR program isn't installed. See INSTALL.md.";
+      ocrBtn.setAttribute("aria-label", ocrBtn.title);
+    }
     ocrBtn.addEventListener("click", async (event) => {
       event.stopPropagation();
       ocrBtn.disabled = true;
@@ -2298,7 +2309,7 @@ function filterLibraryImagesGallery() {
         ocrText.textContent = previousOcrText;
         toast(error.message || "Couldn't read the text in that image.", true);
       } finally {
-        ocrBtn.disabled = false;
+        ocrBtn.disabled = modelStatus && modelStatus.tesseract_available === false;
       }
     });
 
@@ -2458,7 +2469,7 @@ function filterLibraryImagesGallery() {
     // working things to change where they sit.
     setLabel(rename, "ph:pencil-simple Rename");
     setLabel(captionBtn, "ph:sparkle Describe with AI");
-    setLabel(ocrBtn, "ph:scan Read text offline (OCR)");
+    setLabel(ocrBtn, "ph:scan Read text (Tesseract OCR)");
     setLabel(visionOcrBtn, "ph:text-aa Read text with AI");
     setLabel(del, "ph:trash Delete");
     for (const button of [rename, captionBtn, ocrBtn, visionOcrBtn, del]) {
@@ -2606,12 +2617,14 @@ function filterLibraryImagesGallery() {
       captionBadge
     );
     const visionField = field("Text in this image", visionOcrText, visionOcrBadge);
-    // Offline OCR is shown only when it actually found something. It needs
-    // Tesseract, which this app never installs on its own (by instruction),
-    // so on most machines it is permanently empty — and an empty second
-    // "no text found" box under a filled one is the confusion this whole
-    // block exists to remove. Reachable regardless from the kebab menu.
-    const ocrField = field("Also read offline (OCR)", ocrText);
+    // The Tesseract reading is shown only when it actually found something.
+    // Tesseract is a system binary this app never installs on its own (by
+    // instruction, and `tesseract_available` in /models/status now says so
+    // up front rather than after a click) — so on most machines it is
+    // permanently empty, and an empty second "no text found" box under a
+    // filled one is the confusion this whole block exists to remove.
+    // Reachable regardless from the kebab menu.
+    const ocrField = field("Also read with Tesseract OCR", ocrText);
     const syncOcrFieldVisibility = () =>
       ocrField.classList.toggle("hidden", !(image.ocr_text || "").trim());
     syncOcrFieldVisibility();

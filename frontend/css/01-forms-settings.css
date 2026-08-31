@@ -1273,6 +1273,18 @@ li.link-source {
   filter: brightness(1.08);
 }
 
+/* The Capture form's pre-save tag-suggestion row (app.js's
+   scheduleCaptureTagSuggestions) sits between the tags input and the
+   "Add to document" row below it — `.recent`'s own margin-top gives it a
+   gap above, but nothing gave it one below, so it read as glued to the row
+   after it. Scoped to this one id rather than widening `.recent` itself,
+   which other pages reuse (the reevaluate tag row, the dashboard's "recent"
+   box, the graph legend) in layouts already spaced by their own next
+   sibling's margin. */
+#entry-tag-suggestions {
+  margin-bottom: 0.5rem;
+}
+
 /* --- Ask history: the personal-notes-browser panel (§ROADMAP item 6) ------
    Every notes-only question the Ask box has answered, searchable and
    reopenable in place of the model re-answering it. */

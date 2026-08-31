@@ -2936,17 +2936,18 @@ demand that an existing one stop being partial and optional.
 requirement rather than a nice-to-have, and worth reading in that order
 before scoping anything new:**
 
-- **§87.5 (live list, this file)** already scoped typed, weighted links
+~~- **§87.5 (live list, this file)** already scoped typed, weighted links
   (`EntryLink.link_type`/strength) as the mechanism for "know their link
-  reasons" — a link today carries a reason as free text at creation time but
-  nothing structured retrieval can weight by. Still open.
+  reasons"~~ **First slice built** — `link_strength()`, wired into both
+  `entry/paths.py` and `graph_expansion()`. Still open: the composite over
+  shared tags/category/temporal proximity (§87.5's own text has the full
+  split of what's done vs. not).
 - **§88.4 items 1–2 (ROADMAP.md)** are the reason "jump between notes" is
   already partly real: `graph_expansion()` walks linked neighbours of a
   chat/ask question's top hits and is wired into every retrieval call
-  (`_retrieve()`) — not a special mode, the default path. What it cannot do
-  yet is weight *which* neighbour matters more, which is exactly what
-  §87.5's typed links would give it — the two items are the same feature,
-  scoped from two different sides.
+  (`_retrieve()`) — not a special mode, the default path. **It now does
+  weight *which* neighbour matters more** — §87.5's typed-link slice above,
+  the two items being the same feature scoped from two different sides.
 - **§88.4 item 3 ("memory is a surface, not a system")** is the "understand
   their meaning and purpose" half at the *notebook* level, not just per-note
   — no tiered always-on/retrieved/session-only memory exists anywhere in
@@ -2959,13 +2960,14 @@ before scoping anything new:**
   retrieval pass's actual cost can now be read off directly, turn by turn,
   rather than needing new instrumentation first.
 
-**Not re-scoped here, on purpose — but the order can now actually start.**
-Writing a second, parallel design for "AI-native graph navigation" without
-first building §88.4 item 4's measurement would have repeated this
+**Not re-scoped here, on purpose — the order has now run two of its three
+steps.** Writing a second, parallel design for "AI-native graph navigation"
+without first building §88.4 item 4's measurement would have repeated this
 project's own standing caution (§88.4's closing note: "every one of these
-becomes a change nobody can prove helped"). That measurement now exists.
-The order that respects what is already true: instrument (item 4, done) →
-weight links (§87.5, still open) → re-measure whether `graph_expansion`'s
-existing walk got better, not build a new mechanism beside the one that
-already runs on every retrieval call. §87.5 is the next real step, not
-this item.
+becomes a change nobody can prove helped"). The order that respects what is
+already true: instrument (item 4, done) → weight links (§87.5's explicit
+slice, done) → **re-measure whether `graph_expansion`'s existing walk got
+better — still open, and now the actual next step**, not §87.5's remaining
+derived-signal composite and not a new mechanism beside the one that
+already runs on every retrieval call. This sandbox has no reachable model,
+so that re-measurement needs a real Ollama and cannot happen here.

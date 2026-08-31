@@ -729,12 +729,15 @@ same-session miss like a couple of others this file records elsewhere.**
    keyword result lists — labelling the result `"hybrid"`, wired into
    `_retrieve()` (every chat/ask question's own retrieval path). Re-ranking
    and query expansion beyond this are the only parts still genuinely open.
-2. ~~The graph is not used for retrieval.~~ **Already used.**
+2. ~~The graph is not used for retrieval.~~ **Already used, and now weighted.**
    `graph_expansion()` walks linked neighbours of the top hits (and a
    second, weaker hop — ROADMAP item 33, `GRAPH_EXPANSION_HOP2_LIMIT`) and
-   is called from `_retrieve()`. §87.5's `link_type`/strength weighting
-   (still open, see §87.5 above) would make this walk *smarter*, not bring
-   it into existence — it already exists.
+   is called from `_retrieve()`. §87.5's first slice — `link_type`/
+   `reason_confidence` weighting, via the shared `link_strength()` — now
+   makes this walk *smarter*: which neighbours survive the hop-count limit
+   is a real decision (strongest first) rather than database insertion
+   order. §87.5's own text below has the full narrative and what's still
+   genuinely open past this slice.
 3. **Memory is a surface, not a system.** Still genuinely open — no tiered
    notion of "always in context" (a small durable profile), "retrieved when
    relevant" (the notebook), and "this conversation only" exists anywhere
@@ -1162,16 +1165,37 @@ already exists**: `EntryLink.reason_confidence` is a float that today only ever
 holds an embedding cosine score. Generalising it into a composite strength over
 several signals is the natural next step:
 
-| Signal | Where it already is |
-| --- | --- |
-| Embedding similarity | `routes_entries.py:476-502` |
-| Explicit `[[wiki link]]` | `sync_wiki_links` — should be the **strongest**; the user typed it on purpose |
-| Thread parent/child | `Entry.parent_id` — structural, not inferred |
-| Shared tags (Jaccard) | `Entry.tags`, better after 87.3 |
-| Same category | `Entry.category_id` |
-| Temporal proximity | `created_at` — written the same afternoon is a real signal |
+| Signal | Where it already is | Used for weighting? |
+| --- | --- | --- |
+| Explicit `link_type` (6 named kinds) | `EntryLink.link_type` | **Yes — first slice, built** |
+| Deduced-reason confidence | `EntryLink.reason_confidence` | **Yes — first slice, built** |
+| Embedding similarity | `routes_entries.py:476-502` | Only indirectly (`SIMILAR_WEIGHT` in paths.py, flat) |
+| Explicit `[[wiki link]]`, distinguished from any other bare link | `sync_wiki_links` | **No — see the correction below** |
+| Shared tags (Jaccard) | `Entry.tags`, better after 87.3 | No |
+| Same category | `Entry.category_id` | No |
+| Temporal proximity | `created_at` — written the same afternoon is a real signal | No |
 
-**Two design calls to make before writing any of it:**
+**First slice built.** `link_strength(link_type, reason_confidence)`
+(`core/database.py`) is a single shared function: 1.0 baseline, boosted for
+any of the six named types, discounted (floored, never to zero) for a
+low-confidence deduced reason. Wired into both consumers that wanted it —
+`entry/paths.py`'s shortest-path search (as a cost divisor) and
+`search_manager.graph_expansion()`'s neighbour ordering (as a sort key,
+since the hop-count limits there truncate the list — which neighbours
+survive the cut is the real payoff for the AI's retrieval). 9 tests,
+`tests/test_graph_paths.py` and `tests/test_connected_results.py`.
+
+**Correction to this section's own premise.** "Explicit `[[wiki link]]`
+should be the strongest" cannot actually be built as scoped:
+`sync_wiki_links` calls the exact same `create_link()` a plain graph-drag
+link with no reason given does, and neither `link_type` nor any other
+column records *how* a link was made. Distinguishing a wiki link from any
+other bare link needs a real schema decision (a new field, or overloading
+an existing one), not something to sneak into the slice above.
+
+**Two design calls, for the composite that is still open — the derived
+signals (shared tags, category, temporal proximity), not the explicit ones
+already built above:**
 
 1. **Store the components, not just the number.** This app already learned that
    "these are related" is not good enough — that is why link *reasons* exist. A
@@ -1180,15 +1204,21 @@ several signals is the natural next step:
    category, written the same day"*. That is also what makes the score
    debuggable when it is wrong.
 2. **Store explicit, compute derived.** An explicit link's type and strength
-   belong in the row. Shared-tag and same-category strength changes every time a
-   tag changes, so storing it means an invalidation problem; compute those at
-   query time, which is what `_similarity_edges` already does for similarity.
+   belong in the row (done, above). Shared-tag and same-category strength
+   changes every time a tag changes, so storing it means an invalidation
+   problem; compute those at query time, which is what `_similarity_edges`
+   already does for similarity — but note both consumers are on a hot path
+   (`graph_expansion` runs on every chat/ask retrieval), so a per-pair
+   query-time computation needs real measurement first, not an assumption
+   that it's cheap. §88.4 item 4's per-stage token accounting (built) is
+   available for that measurement now.
 
-**And the part that makes it worth doing:** `entry/paths.py`'s traversal is
-currently unweighted, so "trace a path between these two notes" treats a
-throwaway similarity edge and a hand-typed wiki link as equal. Weighting the
-traversal by strength improves *both* the Trace feature and the AI's context
-retrieval, which share that code. That is the payoff — not the number itself.
+**What's left of the original payoff.** `entry/paths.py`'s traversal and
+`graph_expansion()`'s walk are two separate implementations, not shared
+code (corrected — the original text here overstated that) — each now reads
+`link_strength()` independently. Both consumers of the *explicit* signal
+are done; the *derived* composite above is the remaining, larger, and
+genuinely unmeasured piece.
 
 ### 87.6 The Timeline line view — a concrete design, at last
 

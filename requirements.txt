@@ -26,7 +26,7 @@ SQLAlchemy>=2.0.52,<3.0
 # escape hatch for the day that stops being enough. Never fatal if missing
 # (_ensure_alembic_baseline catches ImportError and logs), but the app then
 # silently stays on the additive-only path — keep it installed.
-alembic>=1.13,<2.0
+alembic>=1.19.1,<2.0
 
 # Config
 python-dotenv>=1.2.3,<2.0
@@ -74,7 +74,7 @@ bcrypt>=5.0.0,<6.0
 # uses the AES-GCM cipher and nothing else — but the floor costs nothing and
 # Dependabot was blocked by our own `<47.0` ceiling rather than by any real
 # incompatibility. Verified against 50.0.0, which the suite runs on.
-cryptography>=50.0.0,<51.0
+cryptography>=50.0.1,<51.0
 
 # File attachments (Wave B) — multipart form parsing
 python-multipart>=0.0.32,<1.0

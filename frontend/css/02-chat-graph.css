@@ -2042,6 +2042,69 @@ kbd {
   display: none;
 }
 
+/* The status bar's navigation-history popup (right-click Back/Forward, or
+   its own button) — asked for directly. Not `.action-menu`: that class
+   assumes a `.menu-wrap` ancestor (`position: absolute; right: 0; top:
+   calc(100% + 4px)`) this doesn't have, since it can open from either of
+   two buttons or a right-click on either, and the status bar sits at the
+   very bottom of the screen so it has to open *upward* — `openNavHistoryMenu`
+   (app.js) positions it with an explicit inline top/left instead. */
+.nav-history-menu {
+  position: fixed;
+  /* Anchored from the bottom, not computed from `top` in JS: this always
+     opens upward from the status bar, at a fixed distance from it, so there
+     is no need to also measure the menu's own height first (the same
+     `bottom: calc(var(--status-bar-h) + var(--space-3))` shape
+     01-forms-settings.css already uses for other fixed controls above the
+     bar). `left` is still set from JS (openNavHistoryMenu, app.js), since
+     that depends on which of three triggers opened it. */
+  bottom: calc(var(--status-bar-h) + var(--space-3));
+  z-index: 90;
+  max-width: min(22rem, 90vw);
+  max-height: min(24rem, 70vh);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--modal-bg);
+  box-shadow: var(--glass-shadow);
+}
+
+.nav-history-menu.hidden {
+  display: none;
+}
+
+.nav-history-item {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 500;
+  text-align: left;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-history-item:hover,
+.nav-history-item:focus-visible {
+  background: var(--accent-soft);
+}
+
+/* Where you are right now — not clickable-to-nowhere, just marked so the
+   list reads as a map with a "you are here" pin rather than a plain stack. */
+.nav-history-item.nav-history-current {
+  color: var(--accent);
+  font-weight: 700;
+  cursor: default;
+}
+
 /* Set by `wireEscapedActionMenu` (app.js) while the menu is reparented to
    <body> to escape a clipping scroll ancestor — see the note there. `left`/
    `top` come from that same function as inline style, computed from the

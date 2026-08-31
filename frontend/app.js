@@ -14393,6 +14393,78 @@ function revealTab(name) {
 const TAB_HISTORY_CAP = 50;
 const tabHistory = { stack: [], index: -1, navigating: false };
 
+// **The navigation-history popup** — asked for directly: "if they are right
+// clicked, a little popup shows above with the navigation history to fast
+// track back to a place (or maybe it can be a little button next to it??)".
+// Built as both: a dedicated button beside Back/Forward, and right-click on
+// either of them, opening the same list. Most-recent-first (a browser's own
+// history dropdown reads the same way), with the current entry marked
+// rather than clickable — jumping to where you already are is not a step.
+function closeNavHistoryMenu() {
+  const menu = $("status-nav-history-menu");
+  if (!menu || menu.classList.contains("hidden")) return;
+  menu.classList.add("hidden");
+  $("status-nav-history")?.setAttribute("aria-expanded", "false");
+}
+
+function renderNavHistoryMenu() {
+  const menu = $("status-nav-history-menu");
+  if (!menu) return;
+  menu.replaceChildren();
+  if (!tabHistory.stack.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.style.padding = "0.4rem 0.6rem";
+    empty.textContent = "Nowhere visited yet this session.";
+    menu.appendChild(empty);
+    return;
+  }
+  for (let i = tabHistory.stack.length - 1; i >= 0; i--) {
+    const entry = tabHistory.stack[i];
+    const current = i === tabHistory.index;
+    const item = document.createElement(current ? "div" : "button");
+    if (!current) item.type = "button";
+    item.className = current ? "nav-history-item nav-history-current" : "nav-history-item";
+    item.setAttribute("role", "menuitem");
+    setLabel(item, `${current ? "ph:map-pin " : ""}${entryLabel(entry)}`);
+    if (current) {
+      item.title = "You're here";
+    } else {
+      item.addEventListener("click", () => {
+        closeNavHistoryMenu();
+        goToTabHistory(i);
+      });
+    }
+    menu.appendChild(item);
+  }
+}
+
+// Opens upward, anchored to whichever of the three triggers was used — the
+// status bar sits at the very bottom of the screen, so there is no "below"
+// to open into. `position: fixed` (nav-history-menu's own CSS) plus an
+// inline top/left computed here is the same escape-a-container shape
+// `wireEscapedActionMenu` already uses for the Documents kebab, just
+// triggered manually instead of by a class toggle.
+function openNavHistoryMenu(anchorEl) {
+  const menu = $("status-nav-history-menu");
+  if (!menu) return;
+  renderNavHistoryMenu();
+  menu.classList.remove("hidden");
+  $("status-nav-history")?.setAttribute("aria-expanded", "true");
+  // `bottom` is fixed in CSS (nav-history-menu's own rule, anchored off the
+  // status bar) — only `left` needs computing, and only after the menu is
+  // visible and populated, so its real width is known.
+  const margin = 8;
+  const anchor = anchorEl.getBoundingClientRect();
+  menu.style.left = "0px";
+  const box = menu.getBoundingClientRect();
+  let left = anchor.left;
+  if (left + box.width > window.innerWidth - margin) {
+    left = Math.max(margin, window.innerWidth - margin - box.width);
+  }
+  menu.style.left = `${Math.round(left)}px`;
+}
+
 function paintTabHistory() {
   const back = $("status-back");
   const forward = $("status-forward");
@@ -14471,8 +14543,16 @@ function recordTabVisit(name, section = null) {
   paintTabHistory();
 }
 
-async function stepTabHistory(delta) {
-  const next = tabHistory.index + delta;
+function stepTabHistory(delta) {
+  return goToTabHistory(tabHistory.index + delta);
+}
+
+// The shared jump used by both Back/Forward (one step) and the history
+// popup below (any step at once) — asked for directly: "a little popup
+// shows above with the navigation history to fast track back to a place".
+// stepTabHistory used to inline this with a fixed +1/-1, which had no way
+// to land on an arbitrary earlier or later entry.
+async function goToTabHistory(next) {
   if (next < 0 || next >= tabHistory.stack.length) return;
   const entry = tabHistory.stack[next];
   tabHistory.index = next;
@@ -23130,6 +23210,28 @@ for (const radio of document.querySelectorAll('input[name="emb-backend"]')) {
 }
 $("status-back").addEventListener("click", () => stepTabHistory(-1));
 $("status-forward").addEventListener("click", () => stepTabHistory(1));
+$("status-back").addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  openNavHistoryMenu($("status-back"));
+});
+$("status-forward").addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  openNavHistoryMenu($("status-forward"));
+});
+$("status-nav-history")?.addEventListener("click", () => {
+  const menu = $("status-nav-history-menu");
+  if (menu.classList.contains("hidden")) openNavHistoryMenu($("status-nav-history"));
+  else closeNavHistoryMenu();
+});
+document.addEventListener("click", (event) => {
+  const menu = $("status-nav-history-menu");
+  if (!menu || menu.classList.contains("hidden")) return;
+  if (menu.contains(event.target) || event.target.closest("#status-nav-history")) return;
+  closeNavHistoryMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeNavHistoryMenu();
+});
 $("settings-nav-back")?.addEventListener("click", () => stepTabHistory(-1));
 $("settings-nav-forward")?.addEventListener("click", () => stepTabHistory(1));
 // Seed the stack with wherever the app opened, or the first tab clicked has

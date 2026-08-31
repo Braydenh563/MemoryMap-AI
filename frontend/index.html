@@ -2972,7 +2972,19 @@ Link to another note with [[its first few words]]."></textarea>
     <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
       <button id="status-back" class="status-item" type="button" disabled></button>
       <button id="status-forward" class="status-item" type="button" disabled></button>
+      <!-- Asked for directly: "if they are right clicked, a little popup
+           shows above with the navigation history to fast track back to a
+           place (or maybe it can be a little button next to it??)". Both:
+           right-clicking either Back or Forward opens the same popup this
+           button does. -->
+      <button id="status-nav-history" class="status-item" type="button"
+        aria-haspopup="menu" aria-expanded="false" aria-controls="status-nav-history-menu"
+        title="Navigation history" aria-label="Navigation history">
+        <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
+      </button>
     </span>
+    <div id="status-nav-history-menu" class="nav-history-menu hidden" role="menu"
+      aria-label="Navigation history"></div>
     <button id="status-undo" class="status-item" type="button" disabled data-status-slot="undo"></button>
     <button id="status-redo" class="status-item" type="button" disabled data-status-slot="undo"></button>
     <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>

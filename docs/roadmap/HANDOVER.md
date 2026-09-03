@@ -8920,3 +8920,146 @@ missing.
   `py/polynomial-redos` in `search/query.py` in consecutive sessions; both
   times the fix was `str.split` and a set. **A character class with `*` or
   `+` next to an anchor is the shape to avoid.**
+
+---
+
+## Same session, continued: the graph Labels toggle, root-caused this time
+
+Reported repeatedly (§ this session's earlier "labels and other buttons in the
+graph dock don't work" — investigated then and not reproduced, wrongly
+flagged as a possible test-script timing artifact). It came back: "the labels
+graph button and potentially the others still dont work." This time it was
+root-caused, not just re-measured.
+
+**The other four toggles (Similarity/Entities/Documents/Hide unlinked) are
+fine** — `page.evaluate` checks confirm each flips its checkbox and calls
+`renderGraph()`/toggles its class correctly. **Labels was genuinely broken**,
+and it was two things:
+
+1. **The CSS selector could never match.** `graph.js` appends node circles
+   and node labels as two *sibling* `<g>` layers directly under `<canvas>`
+   (`nodeGroups` at one `canvas.append("g")...`, `labelLayer` at a separate
+   one) — a label is never a descendant of its node. The CSS was
+   `.graph-labels-hidden .graph-node .graph-label { opacity: 0 }`, which
+   requires exactly that ancestry and so never matched anything, ever.
+   Clicking the checkbox correctly set `graph-labels-hidden` on `#graph-box`
+   — nothing on screen responded, because no rule was listening. Fixed by
+   dropping the `.graph-node` requirement: `.graph-labels-hidden .graph-label`.
+2. **Hover-reveal (see a label when Labels is off, by hovering that node)
+   had the same shape of bug.** `.graph-node:hover .graph-label` has the
+   same impossible-ancestry problem, and worse: even a JS fix needs the
+   label layer to know *which* label belongs to the hovered node, since
+   they're not adjacent in the DOM either. Added `graphLabelSelection`
+   (mirrors `graphNodeSelection`, set to `labelGroups`) and mirrored the
+   `graph-focus` class onto it wherever the node's hover code already sets it
+   (`frontend/graph.js`, next to `graphNodeSelection.classed("graph-focus", ...)`).
+   CSS: `.graph-labels-hidden g.graph-focus .graph-label { opacity: 1 }`.
+
+Verified live: `.graph-label` opacity flips `1`→`0` across all 61 labels on
+click (checked twice, clean). Hover-reveal (`graph-focus` landing on the
+matching label's own `<g>`, opacity back to `1`) verified once cleanly with
+generous waits; two other attempts in the same session showed `0` focused
+labels — **that flakiness turned out to be my own test script's timing
+against a force-directed layout that's still settling early in a tab visit,
+not the app** (confirmed by re-running with a longer settle + `elementFromPoint`
+proving the mouse coordinates were stale, not the click target). Screenshot
+evidence is in scratch `shots/` from this session; not worth re-chasing
+further without a fresh report.
+
+**A real methodology trap, worth keeping:** Playwright's `chromium.launch()`
+in this sandbox is *not* a fresh profile per `node script.js` invocation —
+`localStorage` (and therefore anything gated on it, like the graph Options
+panel's remembered open/closed state) leaks across separate script runs on
+the same session. A script that assumes "fresh browser, panel starts closed"
+will alternate between passing and failing every other run, and it looks
+exactly like the app being flaky. **`await page.evaluate(() =>
+localStorage.clear())` then `page.reload()` before driving anything
+state-dependent** — this cost several throwaway test runs this round before
+being caught.
+
+## Same session, continued: five more raw "×" glyphs converted to Phosphor
+
+Reported: "the x icon in the remove image from note button isn't centred" —
+the same bug already fixed twice earlier this session for the link-chip's
+`reason-clear`/`unlink` icons (a raw Unicode `×` character sits on different
+glyph metrics than the Phosphor icon font used everywhere else, so it never
+visually centres in a button sized for a Phosphor glyph, regardless of how
+correct the box geometry is). Swept the whole file for the same shape
+(`grep -n 'textContent = "×"'`) instead of fixing only the reported instance,
+since this exact bug had already recurred twice. Five more sites, all
+`frontend/app.js`, all converted the same way,
+`setLabel(el, "ph:x")` in place of `el.textContent = "×"`:
+document-detach (`unlink`), attachment-remove (`remove`), bookmark-detach
+(`detach`), the reported inline-image remove button (`dismissBtn`), and the
+deleted-image-placeholder dismiss (`dismiss`). `node --check` and the
+frontend lint tests are clean. **Not independently re-verified live** for
+this specific batch beyond the earlier two instances already confirmed
+working this session with the identical pattern — reasoned from precedent,
+not re-observed pixel-by-pixel for all five.
+
+Bumped the shared asset version `0.1.7` → `0.1.8` (`src/memorymap/__init__.py`
+and every `?v=` stamp in `index.html`) for this batch, since `graph.js`,
+`app.js`, and `css/02-chat-graph.css` all changed — `test_asset_cache_busting.py`
+enforces this and caught the omission on the first run.
+
+## Same session, continued: `.ghost` buttons given real affordance
+
+Reported: "all the control elements and buttons feel more like just shapes
+with text in them, rather than being official clean buttons" — not one
+control, `button.ghost`, which is what almost every toolbar/toggle button in
+the app carries (graph toolbar, Options/Trace, the five filter pills above,
+Settings, whiteboard panels). Its old recipe reused `--chip-bg`/
+`--glass-border` verbatim — the same 7-10% opacity a plain tag chip uses —
+with `box-shadow: none`, so a button and a label read the same: near-flat
+colour, a border at the edge of visibility, nothing raised. `--chip-bg`/
+`--glass-border` are left alone (real chips/tags elsewhere still need their
+current, quieter look); four new tokens instead
+(`frontend/css/00-tokens-shell.css`, both light `:root` and both dark
+blocks — the manual-toggle one and the `prefers-color-scheme` one, which is
+a duplicate of the first by necessity, see the file's own comment on why):
+`--ghost-btn-bg`, `--ghost-btn-border`, `--ghost-btn-bg-hover`,
+`--ghost-btn-border-hover`, each roughly double the old opacity. `.ghost` in
+`frontend/css/01-forms-settings.css` now uses these plus `box-shadow:
+var(--shadow-sm)` (previously `none`) and a real `:hover` background/border
+step. Deliberately did **not** touch `button.is-on`
+(`frontend/css/05-sidebars-themes.css:1852`) — an existing, already
+accessibility-conscious pressed-state rule ("both signals, never colour
+alone") that a first draft of this fix would have silently overridden by
+specificity; reverted that part rather than fight a rule that was already
+right.
+
+Verified live (`getComputedStyle` on `#graph-unpin-all`, a `.ghost.small`
+button): `background-color` went from transparent/near-nothing to
+`rgba(31, 36, 48, 0.11)`, `border-color` to `rgba(31, 36, 48, 0.22)`, and
+`box-shadow` from `none` to a real `0 2px 8px` shadow — screenshotted
+(`shots/ghost_buttons_after.png` in scratch) in light mode, borders and
+shadows visibly present on Trace/Options/Unpin all/the five filter pills.
+Dark-mode tokens verified the same way (`getComputedStyle` with
+`document.documentElement.setAttribute("data-mode", "dark")` forced):
+`background-color` → `rgba(255, 255, 255, 0.14)`, `border-color` →
+`rgba(255, 255, 255, 0.22)`, matching the new dark-block values exactly —
+so the rule itself is confirmed correct in both themes. **The screenshot
+taken under that forced attribute did not visually flip the rest of the
+chrome to dark** (header/panels stayed light while the button tokens
+correctly resolved dark) — `data-mode` is described elsewhere in this
+codebase as "the RESOLVED light/dark" a boot script computes from stored
+Appearance settings, so forcing the attribute directly after load likely
+raced with (or was overwritten by) that resolution; the actual theme
+toggle (moon icon, header) was not used. Not chased further since the
+computed-style check already proves the fix itself is right — flag it as
+a test-methodology gap, not a rendering bug, for whoever next needs a real
+dark-mode screenshot. `test_style_scale.py` (design-token lint) stays
+green — this only touched color/shadow properties, not spacing.
+
+## Still open from before this batch, unchanged
+
+- **Lightbox drag-to-pan when zoomed** ("when zooming in on docs or images
+  etc in the lightbox, i cant drag to adjust the zoom position") — not yet
+  investigated. The existing pointerdown/move/up drag code is bound only to
+  the single-image `<img>` and scrolls `stage`; the PDF-pages view's
+  scrollable container is `doc`/`pdfPages`, so this likely needs the same
+  `zoomTarget()`/`scrollTarget()`-style dispatch already used for zoom to be
+  extended to the drag handlers too, rather than being a fresh bug.
+- CodeQL PR check alert count/detail still not confirmed resolved — this
+  session's tools could not surface per-alert SARIF locations; unchanged from
+  the last handover entry.

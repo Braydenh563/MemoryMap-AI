@@ -321,13 +321,29 @@ button:disabled {
   cursor: wait;
 }
 
+/* Reported: "control elements and buttons feel more like just shapes with
+   text in them, rather than proper official buttons" — traced to `.ghost`,
+   the class nearly every toolbar/toggle button in the app uses. Its old
+   recipe reused --chip-bg/--glass-border verbatim (8-10% opacity in dark
+   mode, the same values a plain tag chip uses) and set box-shadow: none, so
+   a button and a label both read as barely-there flat text with the
+   faintest outline — nothing said "press me". A dedicated, slightly
+   stronger pair of tokens (not the shared chip ones, so actual tag/filter
+   chips elsewhere don't inherit this) plus a real --shadow-sm gives it the
+   lifted-surface look a button needs without changing its size or the
+   spacing scale test cares about. */
 button.ghost {
-  background: var(--chip-bg);
-  border: 1px solid var(--glass-border);
+  background: var(--ghost-btn-bg);
+  border: 1px solid var(--ghost-btn-border);
   color: var(--ink);
   font-weight: 500;
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
   backdrop-filter: blur(8px);
+}
+
+button.ghost:hover {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--ghost-btn-border-hover);
 }
 
 button.small {

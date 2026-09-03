@@ -1196,15 +1196,19 @@ button.ghost.danger {
   filter: drop-shadow(0 0 6px var(--accent));
 }
 
-/* Labels-off mode: hide labels until a node is hovered/spotlit. */
-/* Scoped to .graph-label so turning labels off doesn't also hide the 📌 badge. */
-.graph-labels-hidden .graph-node .graph-label {
+/* Labels-off mode: hide labels until a node is hovered/spotlit.
+   The label layer is a sibling of the node-circle layer (graph.js appends
+   both directly under <canvas>, one node per <g> in each), never a
+   descendant of .graph-node — so this can't be scoped through .graph-node
+   the way the focus ring on the circle itself is. graphLabelSelection in
+   graph.js mirrors the "graph-focus" class from the hovered node onto the
+   matching label's own <g> instead. */
+.graph-labels-hidden .graph-label {
   opacity: 0;
   transition: opacity var(--motion-fast) ease;
 }
 
-.graph-labels-hidden .graph-node:hover .graph-label,
-.graph-labels-hidden .graph-node.graph-focus .graph-label {
+.graph-labels-hidden g.graph-focus .graph-label {
   opacity: 1;
 }
 

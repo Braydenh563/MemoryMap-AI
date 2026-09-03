@@ -321,29 +321,18 @@
   flex: 0 0 auto;
 }
 
-/* The legend plus its own collapse toggle (index.html) — asked for twice:
-   "the categories toggle line needs to be collapsible or redesigned," the
-   fixed-row-cost complaint above, taken one step further: collapsible
-   reclaims the row entirely for whoever doesn't need it open. This wrapper
-   is a *horizontal* flex row (the vertical stack above it flows the toggle
-   and the legend as two rows otherwise), so #graph-legend's own `flex: 0 0
-   auto` — correct for holding its single-row *height* fixed in the
-   original vertical flow — would take the legend's full natural *width*
-   here instead of filling what's left beside the button; overridden back
-   to filling the row, with `min-width: 0` so its own `overflow-x: auto`
-   still has a constrained box to scroll within rather than growing past
-   it. */
-.graph-legend-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.graph-legend-row #graph-legend {
-  flex: 1 1 0%;
-  min-width: 0;
-}
-
+/* The legend's collapse — asked for twice: "the categories toggle line
+   needs to be collapsible or redesigned," the fixed-row-cost complaint
+   above, taken one step further: collapsible reclaims the row entirely for
+   whoever doesn't need it open. `#graph-legend-toggle` (the button that
+   drives this) lives up in the toolbar now, beside Options — direct
+   instruction: "move the collapse legend button to the row above so it
+   doesnt take the whole row by itself" — so this wrapper holds only the
+   legend itself and exists to give app.js's toggle logic
+   (`.graph-legend-row`/`.legend-collapsed`) one element to hide, without
+   `#graph-legend`'s own id-scoped rules (`04-chat-dock-appearance.css`,
+   the ones just above this comment) having to grow a second `.hidden`
+   condition of their own. */
 .graph-legend-row.legend-collapsed #graph-legend {
   display: none;
 }

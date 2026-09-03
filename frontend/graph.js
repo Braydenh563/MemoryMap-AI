@@ -43,6 +43,7 @@ let graphSimulation = null; // stopped before every rebuild
 let graphHiddenCategories = new Set(); // legend toggles (Wave M)
 let graphNodeSelection = null; // live d3 selections, for search-highlight
 let graphEdgeSelection = null;
+let graphLabelSelection = null; // the label layer's per-node <g> wrappers
 // Refs kept so the on-screen zoom buttons can drive the same behaviour as
 // scroll-zoom, and hover-highlight can look up a node's neighbours.
 let graphSvg = null;
@@ -2183,6 +2184,7 @@ async function renderGraph() {
   // query that's already typed.
   graphNodeSelection = nodeGroups;
   graphEdgeSelection = edgeLines;
+  graphLabelSelection = labelGroups;
   // The pickers describe the map, so they are refilled with it — and the trace
   // is redrawn, because a refresh (a new note, a new link, a layout change)
   // must not silently drop the answer on screen.
@@ -2557,6 +2559,11 @@ function applyGraphHighlight() {
     (d) => isSearchActive && searchOk(d)
   );
   graphNodeSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
+  // Labels live in their own layer, a sibling of the node circles rather
+  // than nested inside them (graphNodeSelection above), so a hovered node
+  // can't reveal its label through a CSS descendant selector — it has to
+  // be told directly which label is its own.
+  graphLabelSelection.classed("graph-focus", (d) => d.id === graphHoveredId);
   graphEdgeSelection.classed("graph-dim", (d) => {
     const s = idOf(d.source);
     const t = idOf(d.target);

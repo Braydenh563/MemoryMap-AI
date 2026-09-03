@@ -1291,7 +1291,7 @@ function entryItem(entry, options = {}) {
       // you are already looking at.
       const unlink = document.createElement("span");
       unlink.className = "unlink";
-      unlink.textContent = "×";
+      setLabel(unlink, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
       unlink.title = `Detach from “${doc.title}” — the note stays`;
       unlink.addEventListener("click", async (event) => {
         event.stopPropagation(); // the chip itself opens the document
@@ -1459,7 +1459,7 @@ function entryItem(entry, options = {}) {
       const removeButton = () => {
         const remove = document.createElement("span");
         remove.className = "unlink";
-        remove.textContent = "×";
+        setLabel(remove, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
         remove.title = "Remove this file";
         remove.addEventListener("click", async (e) => {
           e.stopPropagation();
@@ -4646,7 +4646,7 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
         bmChip.title = bookmark.url;
         const detach = document.createElement("span");
         detach.className = "unlink";
-        detach.textContent = "×";
+        setLabel(detach, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
         detach.title = "Remove this reference";
         detach.setAttribute("aria-label", `Remove reference to ${bookmark.title || bookmark.url}`);
         detach.addEventListener("click", async (e) => {
@@ -5256,7 +5256,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
         const dismissBtn = document.createElement("span");
         dismissBtn.className = "unlink";
         dismissBtn.title = "Remove image from note";
-        dismissBtn.textContent = "×";
+        setLabel(dismissBtn, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
         // `match` is one `let` binding reused by every pass of the while
         // loop above (a `while` reassigns it, unlike a `for (let x of …)`'s
         // fresh-per-iteration binding) — every dismiss button's closure
@@ -5292,7 +5292,7 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
           const dismiss = document.createElement("span");
           dismiss.className = "unlink";
           dismiss.title = "Dismiss";
-          dismiss.textContent = "×";
+          setLabel(dismiss, "ph:x"); // raw "×" glyph vs Phosphor icon font mismatch mis-centers the icon
           dismiss.addEventListener("click", (e) => { e.stopPropagation(); placeholder.remove(); });
           makeUnlinkAccessible(dismiss);
           placeholder.appendChild(dismiss);

@@ -2351,6 +2351,8 @@ async function initWhiteboard() {
   document.getElementById("wb-zoom-in").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 1.2));
   document.getElementById("wb-zoom-out").addEventListener("click", () => container.transition().call(wbZoom.scaleBy, 0.8));
   document.getElementById("wb-zoom-fit").addEventListener("click", () => container.transition().call(wbZoom.transform, d3.zoomIdentity));
+
+  document.getElementById("wb-fullscreen")?.addEventListener("click", toggleWhiteboardFullscreen);
   
   // Sidebar toggling
   const setWbLibraryOpen = (open) => {
@@ -5914,3 +5916,51 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   wbApplyBgImage();
 }
+
+/** Full screen for the board — asked for directly ("the whiteboard
+ *  definately needs a fullscreen mode because it feels too squished").
+ *
+ *  Measured before building: the canvas is 1376x676 inside a 1440x900
+ *  window, so a quarter of the height is the app header, the Library
+ *  sub-tab bar and the status bar. None of those help while drawing.
+ *
+ *  The class goes on `#library-view-whiteboard`, not on `#wb-canvas-view`.
+ *  That looks like the wrong element and is not: `#wb-canvas-view` is a
+ *  wrapper whose children are all absolutely positioned, so it measures
+ *  **0px tall** — giving it `position: fixed; inset: 0` would size it, but
+ *  the board would then be sized by a parent that had not been, which is
+ *  the shape of bug this file already has a comment about further down.
+ *  `#library-view-whiteboard` is the element that actually carries the
+ *  board's height today, so it is the one to promote.
+ *
+ *  Escape leaves, matching every other full-screen surface in the app.
+ */
+function toggleWhiteboardFullscreen(force) {
+  const host = document.getElementById("library-view-whiteboard");
+  if (!host) return;
+  const on = force === undefined ? !host.classList.contains("wb-fullscreen") : force;
+  host.classList.toggle("wb-fullscreen", on);
+  const button = document.getElementById("wb-fullscreen");
+  if (button) {
+    button.classList.toggle("is-on", on);
+    button.title = on ? "Leave full screen (Esc)" : "Full screen (Esc to leave)";
+    const icon = button.querySelector("i");
+    if (icon) icon.className = on ? "ph ph-arrows-in" : "ph ph-arrows-out";
+  }
+  // d3's zoom reads the container's size when it clamps a pan, and the
+  // floating panels are positioned against it — neither notices a class
+  // change on an ancestor on its own.
+  window.dispatchEvent(new Event("resize"));
+}
+
+// Escape leaves full screen. Capture phase and a check that we are actually
+// in it, so this never swallows an Escape meant for a dialog opened *over*
+// the board (the properties panel's own inputs, a confirm) — those are the
+// common case and closing the whole board instead would be maddening.
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const host = document.getElementById("library-view-whiteboard");
+  if (!host || !host.classList.contains("wb-fullscreen")) return;
+  if (document.querySelector(".modal-overlay:not(.hidden), .lightbox")) return;
+  toggleWhiteboardFullscreen(false);
+});

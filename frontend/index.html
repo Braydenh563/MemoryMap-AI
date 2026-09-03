@@ -2809,6 +2809,14 @@ Link to another note with [[its first few words]]."></textarea>
       <button id="wb-zoom-in" class="ghost small" title="Zoom In" aria-label="Zoom In"><i class="ph ph-plus" aria-hidden="true"></i></button>
       <button id="wb-zoom-out" class="ghost small" title="Zoom Out" aria-label="Zoom Out"><i class="ph ph-minus" aria-hidden="true"></i></button>
       <button id="wb-zoom-fit" class="ghost small" title="Fit to Screen" aria-label="Fit to Screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
+      <!-- Reported directly: "the whiteboard definately needs a fullscreen
+           mode because it feels too squished." Measured before building —
+           the board is 1376x676 in a 1440x900 window, so a quarter of the
+           height goes to the app header, the Library sub-tab bar and the
+           status bar. Sits in the zoom cluster because that is where the
+           graph's own fullscreen toggle sits, and the two should not be in
+           different places. -->
+      <button id="wb-fullscreen" class="ghost small" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
       <button id="wb-help-btn" class="ghost small" title="Show the whiteboard help again">?</button>
     </div>
 

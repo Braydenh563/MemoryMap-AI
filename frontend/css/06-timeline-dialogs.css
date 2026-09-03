@@ -1765,6 +1765,33 @@
   overflow: hidden;
 }
 
+/* Full screen. Mirrors `.graph-fullscreen` deliberately — the graph and the
+   board are the app's two canvases and a user who learns one should not
+   have to learn the other. See `toggleWhiteboardFullscreen` in
+   whiteboard.js for why the class lands on this element and not on
+   `#wb-canvas-view`.
+
+   `!important` on the sizing for the same reason the graph's rule needs it:
+   `#library-view-whiteboard` above sets its own width/height from an id
+   selector, which a single class cannot outrank. */
+#library-view-whiteboard.wb-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0;
+  border-radius: 0;
+  background: var(--bg);
+}
+
+/* The board's own rounded corners are a nice touch inside a card and are
+   wrong edge-to-edge — a 14px radius against the window reads as a
+   rendering fault, not a style. */
+#library-view-whiteboard.wb-fullscreen .whiteboard-container {
+  border-radius: 0;
+}
+
 /* `#wb-canvas-view`'s own back button — top-centre, since every other
    corner is already a floating panel (board picker top-left, library
    top-right, tools bottom-centre, zoom bottom-right, properties mid-right)

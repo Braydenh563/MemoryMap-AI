@@ -2608,3 +2608,38 @@ input[type="email"]:hover:not(:focus),
 input[type="url"]:hover:not(:focus) {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
+
+/* --- reminders: "when" is one decision, so it is one group ----------------
+   Reported as needing a redesign ("the reminder bottom two control rows").
+   Quick set and the -15m/+1d nudges both answer the same question — when
+   does this fire — but were two unrelated rows, and the live readout of the
+   resulting time sat between them next to a static sentence about
+   notifications, so the one *live* thing on the row looked like more
+   chrome. Grouping them inside a single bordered block says they are one
+   control; the footnote is now a footnote. */
+.reminder-when {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+
+.reminder-when>.row {
+  margin: 0;
+}
+
+.reminder-when>.row+.row {
+  margin-top: var(--space-2);
+}
+
+/* The readout is the group's answer, not an aside — it gets the ink the
+   nudge buttons around it already have. */
+#reminder-due-readout {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.reminder-hint {
+  margin: 0;
+}

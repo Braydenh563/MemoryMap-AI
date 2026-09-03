@@ -2226,8 +2226,19 @@ Link to another note with [[its first few words]]."></textarea>
       <!-- Quick set covers the times people actually pick, so the
            datetime-local field is a fallback rather than the only way in.
            Each button shows the time it resolves to once pressed. -->
+      <!-- **One group, not two rows.** Quick set and the +/- nudges do the
+           same job — decide when this fires — but sat as two separate rows
+           of different weight, so nothing said they belonged together or
+           that the readout between them was their result. They are now one
+           labelled "When" block: presets to land near the time, nudges to
+           settle it, and the readout showing what those add up to. The
+           notification footnote that used to sit at the end of the nudge row
+           moved out of the controls entirely; it is help about the card, not
+           a control in it, and it was competing with a live status readout
+           for the same line. -->
+      <div class="reminder-when">
       <div class="row" id="reminder-presets">
-        <span class="muted">Quick set:</span>
+        <span class="muted reminder-when-label">Quick set:</span>
         <button class="ghost small" data-preset="30m">In 30 min</button>
         <button class="ghost small" data-preset="1h">In 1 hour</button>
         <button class="ghost small" data-preset="3h">In 3 hours</button>
@@ -2247,8 +2258,9 @@ Link to another note with [[its first few words]]."></textarea>
           title="A day earlier" aria-label="A day earlier">−1d</button>
         <button id="reminder-due-day-up" class="ghost small"
           title="A day later" aria-label="A day later">+1d</button>
-        <span class="muted reminder-hint">Notifications fire while the app is open — or hit Remind on any note.</span>
       </div>
+      </div>
+      <p class="muted reminder-hint">Notifications fire while the app is open — or hit Remind on any note.</p>
     </section>
 
     <!-- The list, with its own toolbar -->

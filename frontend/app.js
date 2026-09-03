@@ -1572,7 +1572,13 @@ function entryItem(entry, options = {}) {
         if (link.reason) {
           const clearReason = document.createElement("span");
           clearReason.className = "unlink reason-clear";
-          clearReason.textContent = "⊘";
+          // A Phosphor icon, not the "⊘" character: that glyph comes from
+          // the system font and sits at a different vertical offset than
+          // Phosphor's — .ph's `vertical-align: -0.12em` tuning (and the
+          // flex centring around it) only lines up glyphs sharing one font.
+          // Mixing "⊘"/"×" with a Phosphor pencil icon here is exactly what
+          // made these three actions look vertically staggered.
+          setLabel(clearReason, "ph:prohibit");
           clearReason.title = "Remove this link's reason";
           clearReason.addEventListener("click", async (e) => {
             e.stopPropagation();
@@ -1587,7 +1593,10 @@ function entryItem(entry, options = {}) {
 
         const unlink = document.createElement("span");
         unlink.className = "unlink";
-        unlink.textContent = "×";
+        // Phosphor's "x", not the "×" character — see the reason-clear icon
+        // above for why: a mixed-font row of action icons never lines up,
+        // no matter how the flex box around each one is centred.
+        setLabel(unlink, "ph:x");
         unlink.title = "Remove this link";
         unlink.addEventListener("click", async () => {
           const otherId = link.entry_id;

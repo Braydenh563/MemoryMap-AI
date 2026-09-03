@@ -9419,12 +9419,24 @@ rather than from images.
 2. **A file detail view worth copying.** Odysseus's gallery opens a file into
    Back / Edit / Open chat / favourite / kebab (Favorite, AI Tag, Download,
    Delete), with a right-hand metadata column: NAME, OCR CAPTION, PROMPT,
-   DATE, EDITED, DIMENSIONS, SOURCE, SESSION, TAGS (add a tag), ALBUM. This
-   app's Files & Images shows caption and OCR on the tile itself and has no
-   detail view at all — **dimensions, file size, source, which chat it came
-   from, and albums do not exist here.** That is the single biggest gap in
-   the second batch, and it is mostly presentation over data the app already
-   stores (`MediaUpload` has source and session).
+   DATE, EDITED, DIMENSIONS, SOURCE, SESSION, TAGS (add a tag), ALBUM.
+
+   **Corrected after checking, and the first version of this entry was
+   wrong — the same mistake this file keeps warning about.** It claimed
+   dimensions, source and session "do not exist here" and that the gap was
+   "mostly presentation over data the app already stores". Neither half held
+   up. The lightbox *is* the detail view and already renders a facts row of
+   **dimensions × date added × filename** (dimensions read off the decoded
+   image, with a comment explaining that the browser has that fact and the
+   API does not). And `MediaUpload` stores no source or session at all —
+   its columns are filename, original_name, created_at, ocr/caption/vision
+   fields and nothing else. So:
+   - already built: dimensions, added date, filename, caption, OCR;
+   - cheap to add: **file size**, one `stat` on a single-item path (the list
+     endpoint deliberately avoids it — "a byte count would cost one `stat`
+     per row on every gallery load", which is still right);
+   - genuine features needing new columns and capture at upload time:
+     **source**, **originating chat/session**, **albums**.
 3. **One manager shell, four tabs** — Chats / Documents / Research / Archive —
    each with: a count in the header ("37 documents"), Import + Create, a
    Recent / Select / Tidy row, a search field, **type-filter chips carrying

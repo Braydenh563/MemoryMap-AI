@@ -24,11 +24,15 @@ class SpaceUpdate(BaseModel):
     # blank out the other with None (see routes_spaces.update_space).
     name: str | None = Field(default=None, min_length=1)
     icon: str | None = Field(default=None, min_length=1)
+    #: None means "leave as it is", the same convention as the two above.
+    hidden_from_all: bool | None = None
 
 class SpaceResponse(BaseModel):
     id: str
     name: str
     icon: str
+    #: True when this space's contents are kept out of "All spaces".
+    hidden_from_all: bool = False
     
     class Config:
         from_attributes = True

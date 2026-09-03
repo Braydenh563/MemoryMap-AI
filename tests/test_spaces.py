@@ -199,3 +199,61 @@ def test_deleting_a_space_reassigns_its_chats_to_default(client, session):
 
     session.expire_all()
     assert session.get(Conversation, conversation.id).workspace_id == "default"
+
+
+def test_a_hidden_space_leaves_all_spaces_but_still_works_when_selected(client):
+    """Asked for directly: "how do I hide a specific space's notes and
+    images/documents etc, all the content from the 'all spaces' space if I
+    wish??" There was no way — `Space` carried only id/name/icon, and "all"
+    switched the workspace filter off entirely, so it showed everything.
+
+    The flag is a *view* filter and this pins both halves of that: the space
+    drops out of the everything-view, and stays completely usable when it is
+    the one selected.
+    """
+    private = client.post("/spaces", json={"name": "Journal"}).json()
+    other = client.post("/spaces", json={"name": "Work"}).json()
+
+    client.post(
+        "/entries",
+        json={"content": "a private thought", "defer_filing": True},
+        headers={"X-Workspace-ID": private["id"]},
+    )
+    client.post(
+        "/entries",
+        json={"content": "a work note", "defer_filing": True},
+        headers={"X-Workspace-ID": other["id"]},
+    )
+
+    def contents(workspace):
+        rows = client.get("/entries", headers={"X-Workspace-ID": workspace}).json()
+        return {e["content"] for e in rows}
+
+    # Before hiding, "all" sees both.
+    everything = contents("all")
+    assert "a private thought" in everything
+    assert "a work note" in everything
+
+    hidden = client.put(f"/spaces/{private['id']}", json={"hidden_from_all": True})
+    assert hidden.status_code == 200
+    assert hidden.json()["hidden_from_all"] is True
+
+    # Gone from the everything-view, and nothing else went with it.
+    after = contents("all")
+    assert "a private thought" not in after
+    assert "a work note" in after
+
+    # Still entirely usable when you actually go there.
+    assert "a private thought" in contents(private["id"])
+
+    # And it comes back.
+    client.put(f"/spaces/{private['id']}", json={"hidden_from_all": False})
+    assert "a private thought" in contents("all")
+
+
+def test_the_default_space_cannot_be_hidden(client):
+    """It is where a deleted space's notes land, so hiding it would quietly
+    empty the everything-view of anything that ever fell back to it.
+    """
+    refused = client.put("/spaces/default", json={"hidden_from_all": True})
+    assert refused.status_code == 400

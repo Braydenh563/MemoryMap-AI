@@ -86,6 +86,16 @@ def update_space(space_id: str, space_in: SpaceUpdate, session: Session = Depend
         space.name = _validate_name(provided["name"])
     if "icon" in provided:
         space.icon = _validate_icon(provided["icon"])
+    if "hidden_from_all" in provided:
+        # "default" is where a deleted space's notes land, so hiding it would
+        # quietly empty the everything-view of anything that ever fell back
+        # to it — refused for the same reason it cannot be deleted.
+        if space.id == "default" and provided["hidden_from_all"]:
+            raise HTTPException(
+                status_code=400,
+                detail="The default space cannot be hidden from All spaces.",
+            )
+        space.hidden_from_all = bool(provided["hidden_from_all"])
     session.commit()
     session.refresh(space)
     return space

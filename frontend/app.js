@@ -26734,7 +26734,7 @@ function spaceIconPicker(container, hiddenInput) {
   }
 }
 
-function spaceMenuOption({ id, name, icon, deletable }) {
+function spaceMenuOption({ id, name, icon, deletable, hiddenFromAll }) {
   const option = document.createElement("button");
   option.type = "button";
   option.className = "space-option";
@@ -26765,6 +26765,23 @@ function spaceMenuOption({ id, name, icon, deletable }) {
     // trip the row's own switch-to-this-space handler and reload the page out
     // from under the dialog that was about to open.
     for (const [glyphName, title, run] of [
+      // Keep this space out of "All spaces", or put it back. Asked for
+      // directly: "how do I hide a specific space's notes and
+      // images/documents etc, all the content from the 'all spaces' space if
+      // I wish??" It lives on the space's own row because that is where a
+      // person is when they think it — not buried in Settings, which is the
+      // other place it could have gone and a worse one.
+      //
+      // The glyph carries the state (an open eye means visible, a struck-out
+      // one means hidden), and the title says what pressing it will do,
+      // which is the pair every other toggle in this app uses.
+      [
+        hiddenFromAll ? "ph-eye-slash" : "ph-eye",
+        hiddenFromAll
+          ? "Hidden from All spaces — show it there again"
+          : "Hide this space's contents from All spaces",
+        () => toggleSpaceHidden(id, !hiddenFromAll),
+      ],
       ["ph-pencil-simple", "Rename this space", () => openSpaceEdit(id, name, icon)],
       ["ph-trash", "Delete this space", () => openSpaceDelete(id)],
     ]) {
@@ -26795,6 +26812,29 @@ function spaceMenuOption({ id, name, icon, deletable }) {
   return option;
 }
 
+// Flip a space in or out of the everything-view. A view filter, not a
+// privacy boundary — the space stays completely usable when selected.
+async function toggleSpaceHidden(id, hidden) {
+  try {
+    await apiJson(`/spaces/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ hidden_from_all: hidden }),
+    });
+    await loadSpaces();
+    renderSpaceMenu();
+    toast(
+      hidden
+        ? "Hidden from All spaces. It still opens normally when you pick it."
+        : "Showing in All spaces again."
+    );
+    // The everything-view's contents just changed under whatever is on
+    // screen, so it has to be re-read rather than left stale.
+    if (activeSpaceId() === SPACE_ALL) await loadEntries();
+  } catch (error) {
+    toast(error.message || "Couldn't change that space.", true);
+  }
+}
+
 function renderSpaceMenu() {
   const menu = $("space-menu");
   if (!menu) return;
@@ -26814,6 +26854,7 @@ function renderSpaceMenu() {
       // "default" is where a deleted space's notes go, so it cannot itself be
       // deleted — the server refuses it too, but offering a button that always
       // errors is not a UI.
+      hiddenFromAll: Boolean(space.hidden_from_all),
       deletable: space.id !== "default",
     }));
   }

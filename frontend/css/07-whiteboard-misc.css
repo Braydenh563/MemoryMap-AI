@@ -2643,3 +2643,64 @@ input[type="url"]:hover:not(:focus) {
 .reminder-hint {
   margin: 0;
 }
+
+/* --- left-aligned button lists stay left-aligned --------------------------
+   Reported with a screenshot: "the settings sidebar items are unaligned??" —
+   and they were, as a direct consequence of giving every `button` a centred
+   flex layout earlier in this session so that lone glyphs would stop sitting
+   off-centre.
+
+   **`text-align` does not survive that change.** Each of these rules already
+   said `text-align: left`, which is how a button lays its text out while it
+   is an inline box — but a flex container aligns its children with
+   `justify-content` instead, and the base rule's `center` silently took over
+   the moment the display changed. Nothing looked wrong in the stylesheet;
+   the property that was meant to be doing the work had simply stopped
+   applying. Every list- or nav-shaped button in the app is restated here in
+   the vocabulary that now governs it.
+
+   The list came from grepping the stylesheets for rules that set
+   `text-align: left` on something that can be a button, so it is the
+   complete set as of this change rather than the ones that happened to be
+   noticed. */
+.modal-nav button,
+.menu-item,
+.nav-history-item,
+.library-image-menu-item,
+.doc-item-button,
+.doc-list-item,
+.doc-dock-menu-item,
+.wb-export-menu button {
+  justify-content: flex-start;
+}
+
+/* --- column-flex cards keep their full width ------------------------------
+   Reported with a screenshot: "the themes are all visually broken" — every
+   theme swatch had collapsed to a thin vertical line.
+
+   Same root cause as the settings-sidebar misalignment, on the other axis.
+   Giving every `button` `align-items: center` centres its children on the
+   *cross* axis, and in a `flex-direction: column` card the cross axis is the
+   horizontal one — so `.theme-preview`, a span whose entire content is a
+   background colour, stopped stretching to the card's width and shrank to
+   its own content width, which is zero. A colour swatch with no width is a
+   line.
+
+   `stretch` is the initial value, so restating it here is a no-op for every
+   element that is not a button and a repair for every one that is. The list
+   is every rule in the stylesheets that sets `flex-direction: column` on
+   something that can be a card, tile or button and does not already set its
+   own `align-items`. */
+.theme-card,
+.library-card,
+.media-pick-tile,
+.skill-card,
+.doc-ai-card,
+.extract-card,
+.extract-note-card,
+.wb-card,
+.file-card-text,
+.copy-fallback-card,
+.modal-card {
+  align-items: stretch;
+}

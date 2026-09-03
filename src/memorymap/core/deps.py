@@ -304,6 +304,18 @@ def get_session(request: Request = None) -> Iterator[Session]:
         workspace_id = request.headers.get("X-Workspace-ID")
         if workspace_id:
             session.info["workspace_id"] = workspace_id
+            # Resolved here, once, because the statement-level filter in
+            # database.py runs for every query and must not issue one of its
+            # own (it would re-enter that same event). Only "all" needs it.
+            if workspace_id == "all":
+                from memorymap.core.database import Space
+
+                session.info["hidden_workspaces"] = [
+                    row[0]
+                    for row in session.query(Space.id)
+                    .filter(Space.hidden_from_all.is_(True))
+                    .all()
+                ]
     try:
         yield session
     finally:

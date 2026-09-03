@@ -95,6 +95,19 @@ class Space(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     icon: Mapped[str] = mapped_column(String, nullable=False, default="ph-circles-four")
+    #: Keep this space's contents out of "All spaces".
+    #:
+    #: Asked for directly: "how do I hide a specific space's notes and
+    #: images/documents etc, all the content from the 'all spaces' space if I
+    #: wish??" There was no way — `Space` carried only id/name/icon, and
+    #: "all" simply switched the workspace filter off, so it showed
+    #: everything with no exclusion path at all.
+    #:
+    #: **A view filter, not a privacy boundary.** The space stays completely
+    #: usable when selected directly; this only decides whether its rows join
+    #: the everything-view. Anything that must actually be unreadable is what
+    #: the private-note vault is for.
+    hidden_from_all: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
 
 
@@ -134,6 +147,25 @@ def _add_workspace_filter(execute_state):
                     include_aliases=True
                 )
             )
+        elif workspace_id == "all":
+            # "All spaces" means every space that has not opted out. A space
+            # marked `hidden_from_all` stays fully usable when it is selected
+            # directly; it just does not pour its notes, files and boards
+            # into the everything-view.
+            #
+            # The ids are resolved once per request by `get_session` and
+            # cached in `session.info` rather than queried here: this handler
+            # runs for *every* statement, so a query inside it would both
+            # multiply the work and re-enter this same event.
+            hidden = execute_state.session.info.get("hidden_workspaces")
+            if hidden:
+                execute_state.statement = execute_state.statement.options(
+                    with_loader_criteria(
+                        WorkspaceMixin,
+                        lambda cls: cls.workspace_id.notin_(hidden),
+                        include_aliases=True
+                    )
+                )
 
 @event.listens_for(Session, "before_flush")
 def _set_workspace(session, flush_context, instances):

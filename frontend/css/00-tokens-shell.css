@@ -616,8 +616,16 @@ header#top-bar {
      size, and snapping it to a gap step would make it drift with the density
      setting. 2rem is what the header buttons already were, so this levels the
      others up to the value the majority already used rather than moving
-     everything. */
-  --header-control-h: 2rem;
+     everything.
+
+     **Raised from 2rem to 2.25rem.** Reported: "the buttons and spaces
+     elements in the top bar are too small". 32px is the WCAG-ish floor, not
+     a comfortable size for the app's most-used row — the tab you switch with
+     all day and the five icon buttons beside it. 36px reads as deliberate
+     rather than cramped, still leaves the bar shorter than its 3.7rem
+     height, and every control in the bar moves together because they all
+     read this one token. */
+  --header-control-h: 2.25rem;
   /* Kept `sticky` rather than made `static`: it costs nothing in a
      non-scrolling flex parent, and it means the bar still behaves if this
      layout is ever loaded somewhere the body does scroll. */

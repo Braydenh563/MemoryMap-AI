@@ -2396,7 +2396,11 @@ textarea.autogrow {
    the exception belongs here where the conflict is, not there where it
    wouldn't be seen. */
 .header-controls button:not(.ai-status) {
-  height: 2rem;
+  /* The token, not a repeat of its value — raising --header-control-h has
+     to move these with the tabs, or the bar goes ragged the moment it
+     changes ("the buttons and spaces elements in the top bar are too
+     small"). */
+  height: var(--header-control-h);
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;

@@ -9328,7 +9328,7 @@ function addBubble(role, text, attachments = null) {
   if (role === "user") {
     bubble.appendChild(
       chatMessageActions([
-        { label: "⧉", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
+        { label: "ph:copy", title: "Copy", onClick: (e) => copyToClipboard(text, e.currentTarget) },
         { label: "ph:pencil-simple", title: "Edit this question", onClick: () => editAndResend(bubble, text) },
         { label: "ph:trash", title: "Delete this message", onClick: () => removeChatBubble(bubble) },
       ])
@@ -11378,7 +11378,7 @@ async function sendChatMessage(preset, opts = {}) {
   // save-as-note and add-reminder (one-click capture, ROADMAP.md).
   bubble.appendChild(
     chatMessageActions([
-      { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
+      { label: "ph:copy", title: "Copy answer", onClick: (e) => copyToClipboard(answerRaw, e.currentTarget) },
       { label: "ph:arrow-clockwise", title: "Regenerate (replaces this answer)", onClick: () => regenerateLastAnswer() },
       { label: "ph:speaker-high", title: "Read aloud", onClick: () => speakText(answerRaw) },
       { label: "ph:note-pencil", title: "Save this answer as a draft note", onClick: () => saveChatAnswerAsNote(question, answerRaw) },
@@ -12599,7 +12599,7 @@ async function openConversation(id) {
       if (message.edited) handles.bubble.appendChild(editedMarker());
       handles.bubble.appendChild(
         chatMessageActions([
-          { label: "⧉", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
+          { label: "ph:copy", title: "Copy answer", onClick: (e) => copyToClipboard(message.content, e.currentTarget) },
           {
             label: "ph:pencil-simple",
             title: "Edit this answer",

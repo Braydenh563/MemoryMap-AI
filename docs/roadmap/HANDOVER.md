@@ -9384,3 +9384,24 @@ rough order of value:
 
 None of this is built yet; it is recorded here so the next block starts from
 a list rather than from the screenshots.
+
+## Correction to the odysseus gap list: per-message actions already exist, and are richer
+
+Item 1 of the list above was wrong, and checking before building is what
+caught it — the rule this file opens with. `chatMessageActions()` (app.js)
+has been there all along: a hover-revealed row under every bubble, wired
+with **copy, edit, regenerate, speak aloud, save as a draft note, set a
+reminder from this answer, and delete**. Against odysseus's copy / edit /
+rewrite shorter / explain simpler / fork, this app is ahead on four of them
+and behind on three.
+
+So the real gap in per-message actions is only: **Rewrite shorter**,
+**Explain simpler** (both just canned follow-up prompts over the existing
+send path) and **Fork conversation** (genuinely new — it needs conversation
+duplication). Those three are the work; the row itself is not.
+
+What the read did turn up was one more instance of this session's recurring
+bug: the copy action was labelled with a raw `⧉` glyph next to Phosphor
+icons in the same row — the identical font-metric mismatch already fixed for
+`×` in five places and `⊘` in one. All three copy buttons now use
+`ph:copy`.

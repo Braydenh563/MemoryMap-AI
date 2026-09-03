@@ -216,7 +216,7 @@ def attached_file_pdf_info(attachment_id: int, session: Session = Depends(get_se
     attachment = _existing_attachment(session, attachment_id)
     if Path(attachment.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=422, detail="Not a PDF.")
-    path = deps.get_config().uploads_dir / attachment.stored_name
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
     if not pdfpages.available():
@@ -251,7 +251,7 @@ def attached_file_pdf_page(attachment_id: int, index: int, session: Session = De
     attachment = _existing_attachment(session, attachment_id)
     if Path(attachment.filename).suffix.lower() != ".pdf":
         raise HTTPException(status_code=404, detail="Not a PDF.")
-    path = deps.get_config().uploads_dir / attachment.stored_name
+    path = _within_dir(deps.get_config().uploads_dir, attachment.stored_name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from disk")
     png = pdfpages.render_page(path, index)
@@ -405,6 +405,27 @@ def _within_exports(exports: Path, name: str) -> Path:
     candidate = os.path.realpath(os.path.join(base, name))
     if not candidate.startswith(base):
         raise HTTPException(status_code=422, detail="That filename can't be used.") from None
+    return Path(candidate)
+
+
+def _within_dir(base_dir: Path, name: str) -> Path:
+    """`_within_exports`'s own containment check, generalised to any base
+    directory — the PDF-page endpoints' `_media_upload_path` and the two
+    attachment `pdf-page`/`pdf-info` routes each build a path from a name
+    that traces back to a request parameter (via a DB round trip, but
+    CodeQL's `py/path-injection` tracks the taint through the query filter
+    regardless), the same shape `_within_exports` already exists to close.
+    Kept as its own function rather than reusing `_within_exports` directly:
+    that one is precision-tuned to the exact guard shape CodeQL's
+    `Path::SafeAccessCheck` recognises (see its own long comment on how many
+    equivalent-looking forms it rejected) and duplicating the same five
+    lines here is safer than risking that tuning by generalising its name
+    or signature for a second, differently-named caller.
+    """
+    base = os.path.realpath(str(base_dir))
+    candidate = os.path.realpath(os.path.join(base, name))
+    if not candidate.startswith(base):
+        raise HTTPException(status_code=422, detail="That file can't be used.") from None
     return Path(candidate)
 
 
@@ -756,7 +777,7 @@ def _media_upload_path(session: Session, filename: str) -> tuple[MediaUpload, Pa
     upload = session.query(MediaUpload).filter(MediaUpload.filename == filename).first()
     if not upload:
         raise HTTPException(status_code=404, detail="No upload by that name.")
-    path = deps.get_config().data_dir / "media" / upload.filename
+    path = _within_dir(deps.get_config().data_dir / "media", upload.filename)
     if not path.exists():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
     return upload, path

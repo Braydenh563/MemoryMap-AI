@@ -408,6 +408,34 @@ be more than expected.
 
 ---
 
+## R5b. Local, offline, private — audited
+
+> *"make sure the app is completely local, offline and private for the
+> user."*
+
+Audited and **verified empirically**, not asserted:
+
+- **Zero external requests.** A full tour of all seven tabs in Chromium,
+  logging every request the page made, produced **0** to any host other than
+  `127.0.0.1:8781`.
+- **The browser cannot reach one.** The served CSP is
+  `default-src 'self'; connect-src 'self'; object-src 'none';
+  frame-ancestors 'none'` with a script hash — no CDN, d3 and p5 vendored.
+  Even injected markup has nowhere to send anything.
+- **Three outbound hosts exist in the whole backend, all opt-in and all
+  defaulting to off:** `html.duckduckgo.com` (web search,
+  `web_search_enabled` → `False`), `github.com` / `api.github.com` (update
+  check, `update_check_enabled` → `False`), and `searxng`, which is a
+  container on the user's own machine.
+- The frontend contains no outbound fetch at all; the `ollama.com` string is
+  a link in help text.
+
+**What was not audited:** whether Ollama or LM Studio, once running, phone
+home on their own. That is outside this codebase and outside what it can
+promise — worth stating in the app's own privacy copy rather than implied.
+
+---
+
 ## R6. Sequencing
 
 Ordered by *"how much does this change the feeling of using the app per unit
@@ -432,3 +460,166 @@ there. That is how this got to 21,750 lines of CSS across eight files. The
 measurements in §R1.1 are the acceptance criteria: if a change does not move
 "notes visible in a 900px viewport" or "pixels of chrome before the first
 item", it is not the change.
+
+---
+
+## R7. What is still open, ranked — start here next session
+
+Written at the end of the session that produced §R1–§R6, at the user's
+request: *"outline and scope out everything not possible in this session as
+the top priority for next sessions."* Every item below was **asked for
+directly** and is quoted, so nothing has to be re-derived from a
+paraphrase. Ranked by how much it changes the feeling of using the app per
+unit of work — the same test §R6 uses.
+
+### R7.1 The document/file editor — the largest single gap
+
+> *"the documents editor feels really rudimentary, unrefined, contained,
+> small, and annoying to use and make sense of."*
+> *"all the files should be managable, viewable and editable in the library
+> and document/file/text editor."*
+> *"look at how the odysseus documents feature works, you can import, edit
+> and create multiple file types, there are options for code lines, viewing
+> html and other code, rendering pdfs, exporting, allowing the ai to read
+> the documents, able to highlight text and say something in the chat and
+> the agent gets the context of what is highlighted and cursor position."*
+
+**What exists here now:** a markdown editor with a title, outline, word
+count and AI actions, plus a read-only viewer (`openLightbox`'s document
+mode → `/media/text` → `core/docview.py`) that renders PDFs, Office files,
+code and plain text with find-in-document. This session wired notes' own
+files into that viewer; nothing else changed.
+
+**What is missing, in build order:**
+
+1. **Selection → chat context.** The highest ratio of "feels capable" to
+   work in the whole list. Odysseus's `getSelectionContext()`
+   (`static/js/document.js`, AGPL — this project is AGPL-3.0 so it may come
+   in with notices; see [ANALYSIS.md](ANALYSIS.md)) is the shape to port,
+   including the part that matters: it **re-validates offsets before
+   shipping them**, so the model never receives text from a region the user
+   is no longer looking at. Add cursor position alongside.
+2. **Editing a file, not only viewing it.** Text and code files can be
+   edited in place; a PDF or .docx cannot, and the honest reason is worth
+   putting in the UI rather than leaving as a dead end — the viewer returns
+   *extracted text*, which has already stopped being a .docx.
+3. **Syntax highlighting with language auto-detection**, per odysseus's
+   `HLJS_TO_DROPDOWN` map.
+4. **An HTML preview pane.** Must be an iframe, which needs
+   `frame-src 'self' blob:` added to the CSP in `core/security.py` — it is
+   absent today so a blob iframe is blocked with no visible error.
+5. **Export.** Per-format, from the same place the file is viewed.
+6. **A file opens in the editor from the Library**, not only in a lightbox.
+
+### R7.2 Stage every file until the thing it belongs to is committed
+
+> *"ALL FILES, need to be rendered, manageable, files should only be
+> instantly uploaded if directly through the library and there needs to be a
+> file uplaod button. files should only be staged and not permanently saved
+> while uploaded to a note that hasnt been saved yet, or chat messages that
+> havent been sent yet etc."*
+
+**Done this session:** non-image files dropped in the note composer stage
+and become real `Attachment`s on save. **Still immediate, and should not
+be:**
+
+- **Images in the note composer.** They still `POST /media/upload` on drop,
+  so abandoning a draft leaves an orphan on disk. Harder than the non-image
+  case because an image is *inline content* — its markdown needs a URL at
+  the point it was dropped. Suggested shape: insert a placeholder keyed to a
+  staged `File`, render it from an object URL, and rewrite the markdown to
+  the real URL after the upload that Save triggers.
+- **Chat attachments** (`attachImageFiles`) — same treatment, keyed to the
+  unsent message.
+- **The Library's own upload button** is the one place instant upload is
+  correct. It exists (Files & Images → Upload); confirm it is the *only*
+  such path once the two above are staged.
+
+### R7.3 Cross-linking everything
+
+> *"all the features in the entire application need to be closely integrated
+> and work with eahc other, I should be able to seamelessly utilise, flick,
+> link, manage, create and search between multiple features in each primary
+> feature."*
+> *"I really like kortex's use of backlinking and elements for structured
+> documents as well."*
+
+1. **A `Connections` block on every note and document**, listing incoming
+   and outgoing links with direction (↗ out, ↙ in). The data already exists
+   (`EntryLink`, `DocumentLink`); nothing surfaces it as part of the thing.
+2. **One universal picker** — `@` in any composer, resolving notes,
+   documents, files and maps alike, replacing the several kind-specific
+   pickers.
+3. **Typed, collapsible blocks** inside a document (Kortex's "elements"),
+   introduced as a fenced marker in the markdown so storage and export do
+   not change and old notes are unaffected.
+
+### R7.4 The agent harness
+
+> *"I think the way skills are is very tight and a lot of things go wrong.
+> the agent harness needs major improvement… there needs to be some weight
+> lifiting of the application to help thbe agent use tool calling."*
+
+§R5 lists the five changes and their order. **None has been audited against
+the running code** — `ai/agent.py`, `ai/skill_runner.py`, `ai/skills.py` and
+`ai/tools/` have not been read against that list. Do that first and say
+which are already handled; this project's history says it will be more than
+expected.
+
+### R7.5 The rest of the UI, surface by surface
+
+> *"ALL THE UI NEEDS IMPROVEMENT, INCLUDING THE SETTINGS AND WHITEBOARD AND
+> EVERYTHING ELSE."*
+> *"fix and reimagine/refine the ui control elements and panels on the
+> witeboard as well."*
+> *"a lot of ui elements arent where they should be from a learnability and
+> ux point of view. it doesnt feel intuitive."*
+
+The method is set: measure first, then change, then re-measure. The numbers
+that matter are in §R1.1 and in [DESIGN.md](../DESIGN.md)'s new
+principles section. Per surface:
+
+- **The shell (§R6 item 6)** is still the big one, and its acceptance
+  criterion is the alignment count in DESIGN.md: **37 distinct left edges on
+  the Dashboard, 35 on Graph, 32 on Notes**, against the two-to-four a
+  composed layout has. A change that does not reduce that count is not the
+  change.
+- **The whiteboard's panels.** Five floating draggable panels with mixed
+  control sizes, unlabelled icon buttons and a raw colour input. Full screen
+  landed this session; the panels did not.
+- **Settings** has not been measured at all.
+- **The Dashboard's triple navigation** — the tab bar, "START SOMETHING",
+  and a "JUMP TO" row naming the same seven tabs — is the clearest
+  learnability fault found and is a deletion, not a redesign.
+
+### R7.6 Concept maps: manage, not just make
+
+Creating one works end to end (§R4, built). Still missing: a **Maps listing
+in the Library** — rename, delete, duplicate, open — so they can be managed
+rather than only found through the Whiteboards sub-tab.
+
+### R7.7 Backend
+
+> *"fix and refine the backend after or at least scope it for next session."*
+
+Nothing here is urgent after this session's fixes; it is the honest list of
+what a backend pass should cover.
+
+- **`app.js` is 26,000 lines.** It was split once already; the split moved
+  four files out and left this. Every UI change pays for it.
+- **The notes list renders every note into the DOM.** Fine at 40, not at
+  4,000. Virtualization is the standard answer and the skill's own
+  guidelines name it.
+- **`_to_out` is ~4 queries per entry**; `_to_out_bulk` exists for lists but
+  not every caller uses it.
+- **The two file models remain two.** `MediaUpload` (inline, images/PDF
+  only, served inline) and `Attachment` (per-entry, ~60 types, served as a
+  download) now behave consistently at the UI, but a single model with a
+  `disposition` flag would remove the class of bug this session fixed three
+  instances of.
+- **`filing_similar_id` is not a ForeignKey**, deliberately (see its
+  docstring); a periodic sweep for dangling ids would be tidier than
+  resolving-and-shrugging forever.
+- **Alembic is stamped but unused.** The additive auto-migrator plus this
+  session's two hand-written rebuilds is now three migration mechanisms. Pick
+  one before a fourth.

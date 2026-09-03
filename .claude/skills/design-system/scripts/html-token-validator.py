@@ -13,11 +13,10 @@ Usage:
 """
 
 import re
-import json
 import sys
 import os
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List
 
 # The skill can be installed outside the project it operates on (user-level
 # ~/.claude/skills/, or as a plugin), so the project root cannot be derived from

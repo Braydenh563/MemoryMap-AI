@@ -9,8 +9,7 @@ import json
 import argparse
 from slide_search_core import (
     search, search_all, AVAILABLE_DOMAINS,
-    search_with_context, get_layout_for_goal, get_typography_for_slide,
-    get_color_for_emotion, get_background_config
+    search_with_context,
 )
 
 # Force UTF-8 on stdout/stderr: this script prints emoji, which raises

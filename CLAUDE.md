@@ -37,6 +37,7 @@ say whether it meets what was asked, not just whether the code path exists.
 | [`docs/roadmap/HISTORY.md`](docs/roadmap/HISTORY.md) | **What is already built, including every retraction.** Read it before starting anything — five items have now been caught as "already built" one grep before being rebuilt. |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | The design system. Any CSS work has to follow it; `tests/test_style_scale.py` fails the build otherwise. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit. |
+| [`.claude/skills/README.md`](.claude/skills/README.md) | The seven vendored MIT design skills (`ui-ux-pro-max` and friends) — what they cover, the two local edits, and what was never verified. Read before doing visual design work; `docs/DESIGN.md` still overrides them for anything in `frontend/`. |
 
 The roadmap was split because it passed 4,500 lines. **Section numbers did not
 change**, so a `§21` in a code comment still resolves — but a session that

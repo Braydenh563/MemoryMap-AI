@@ -48,6 +48,11 @@ where = ["src"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+# Vendored third-party skills (MIT, see .claude/skills/README.md). Their Python
+# is not ours to style: it lints with ~50 F401/F541/E402 findings, and CI runs
+# `ruff check .` from the repo root, so without this exclusion pulling in an
+# upstream update would fail the build for cosmetics in someone else's code.
+extend-exclude = [".claude/skills"]
 
 [tool.ruff.lint]
 # Ruff's default rules: pyflakes (F) + a curated pycodestyle subset (E). This

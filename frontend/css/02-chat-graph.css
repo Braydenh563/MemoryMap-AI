@@ -2634,6 +2634,19 @@ mark.lightbox-hit {
   cursor: grab;
 }
 
+/* A PDF's own page column, zoomed the same way a single image is —
+   `transform: scale()`, which Chromium/Firefox both already factor into a
+   `overflow: auto` ancestor's scrollable bounds, so the parent
+   `.lightbox-doc`'s existing scrollbars become the pan control with no
+   drag handler of its own needed. */
+.lightbox-pdf-pages {
+  transform-origin: top center;
+}
+
+.lightbox-pdf-pages.zoomed {
+  cursor: grab;
+}
+
 .lightbox img {
   max-width: 92vw;
   /* Room for the information under it. It was 80vh, which with a caption and

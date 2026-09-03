@@ -1,109 +1,291 @@
 # Session handover
 
-## Latest round — three small real fixes, and a large new request burst that reverses a design assumption; read the priority list below before building anything
+## Latest round — the PDF/AI reversal is built, three more real bugs measured and fixed, three CodeQL notes closed; read the priority list before building anything
 
 This round landed after the big redesign session (§R1–§R9 in REDESIGN.md,
-commits `708aeda`..`2a7b918` and earlier — 12 whiteboard/graph/library/notes
-fixes, the async-backend answer, the space-leak fix, all already narrated at
-REDESIGN.md and HISTORY.md). What's new here is three small fixes plus a
-fresh burst of user requests that landed faster than they could be built.
-**Read the priority list below before starting anything** — it is more
-valuable than the fixes, and one item in it overturns something `docview.py`
-was deliberately built around.
+commits `708aeda`..`2a7b918` and earlier) and a first follow-up round (three
+small fixes, `f3ce204`/`cf7d005`). **The headline: item 1 from that round's
+priority list — PDF/document viewing with zero AI involvement — is now
+built, live-verified in Chromium, and covers both files an upload creates
+and files a note attaches directly.** Everything below it in this section is
+new since then: more real, measured bugs, three CodeQL "Note"-severity
+alerts closed, and a fresh burst of requests logged for next.
 
-**Fixed and verified this round** (full suite green, `ruff` clean, pushed as
-`f3ce204` and `cf7d005`):
+**Fixed and verified this round:**
 
-1. **Settings rows collapsed to one height.** Long hints (measured: six over
-   160 characters, longest 385) were making rows 22/37/91px depending on
-   whether a hint happened to have one. They now collapse behind a small `?`
-   toggle — `collapseLongSettingHints` in settings.js, `.setting-hint` rules
-   in `01-forms-settings.css`.
-2. **A PDF misdiagnosis, caught from the user's own log.** A PDF PDFium
-   can't open at all — corrupted, truncated, encrypted, or an unsupported
-   feature (`Failed to load document (PDFium: Data format error)`, verbatim
-   from a user log delivered through `/logs/client`) — was reported
-   identically to a genuine scanned page with no text layer, sending the
-   user to install a vision model that cannot help either way. `docview.py`
-   now calls `pdfpages.page_count(path)` before falling through to the
-   "probably a scan" message; a file that can't be decoded says so instead.
-   New test: `test_a_pdf_pdfium_cannot_open_says_so_not_probably_a_scan`.
-3. **Note-link chip action icons, measured before being touched.** Reported
-   twice as "still not aligned" after an earlier round already fixed the
-   *box* geometry. Measured live with `getBoundingClientRect` first rather
-   than guessing again: every child's box **was** correctly centred
-   (`centerY` identical across all five children, down to one decimal). The
-   bug was font metrics, not layout — `reason-clear` and `unlink` were the
-   raw characters "⊘" and "×" from the system font sitting next to a
-   Phosphor `<i class="ph">` pencil icon, and two different fonts have two
-   different vertical origins no amount of flex centring can reconcile.
-   Both now render as Phosphor icons (`ph:prohibit`, `ph:x`) via `setLabel`,
-   matching the pencil. Re-screenshotted after the change to confirm.
+1. **PDF/document viewing with zero AI involvement — the reversal.**
+   `core/pdfpages.py` gained `render_page(path, index)`, a single-page
+   sibling of the existing `render_pages` batch call, deliberately *not*
+   capped by `MAX_PAGES` (that cap bounds vision-model cost and has nothing
+   to do with how many pages a person can scroll past for free) and
+   rendering in colour rather than the batch call's greyscale (nothing here
+   is paying a model's token budget). Two new endpoint pairs serve it:
+   `GET /media/pdf-info/{filename}` + `GET /media/pdf-page/{filename}/{i}`
+   for a Library upload, and `GET /files/{attachment_id}/pdf-info` +
+   `GET /files/{attachment_id}/pdf-page/{i}` for a note's own attachment —
+   both return **freshly rendered PNG bytes, never the PDF's own bytes**,
+   which is what makes this safe under `get_media`'s own "an inline PDF
+   viewer is a script host" reasoning: a rasterised page can't carry a PDF
+   action or an embedded script, so that reasoning simply doesn't apply to
+   it. The lightbox (`showDocument` in app.js) now tries this path first
+   for any PDF, rendering one `<img>` per page in a new `.lightbox-pdf-pages`
+   column; a "Read text with AI" button (hidden unless a PDF is showing as
+   pages) is the *opt-in* second step for actually reading the words, not a
+   forced first one — clicking it swaps to the pre-existing extracted-text
+   view. When `pdfpages` isn't installed or a file genuinely can't be
+   opened, it falls through to that same text view and its honest message
+   (the misdiagnosis fix from the round before this one), rather than a
+   second, differently-worded dead end. Live-verified end to end in
+   Chromium: uploaded a real one-page PDF as a note attachment, clicked its
+   file chip, watched the actual page render as a loaded `<img>`
+   (400×200 natural size, matching the source at 2× scale) with the literal
+   text ("Hello view") visible in the screenshot, then clicked "Read text
+   with AI" and confirmed it swaps views and shows the honest "markitdown
+   isn't installed" message rather than hanging — the sandbox has no
+   markitdown, so this is exactly the fallback path a real install without
+   the optional extras would hit too.
+2. **A note attachment's non-image file only ever downloaded — never
+   viewed.** A second, separate bug from the one the *previous* round
+   fixed (that one was for a `/media/`-uploaded file referenced in a note's
+   own markdown body, via `fileCard`/`fileChip` in `renderInlineMarkdown`).
+   This one was the true `Attachment` model — a file attached directly to a
+   note, rendered by an entirely different, older code path
+   (`app.js`'s note-card renderer, ~line 1463) that built a chip whose only
+   action was `downloadAttachment`. Reported directly: *"I tried to open
+   and view a file i attached to a note, instead it just downloaded it."*
+   Now opens the lightbox (via `mediaSrc('/files/{id}')`, which `show()`
+   learned to recognise alongside `/media/{name}`) with download moved to
+   its own small icon button, matching the pattern the previous round's
+   fix already established for the other file surface.
+3. **The Settings "?" hint toggle stretched full-width on `.setting-check`
+   rows.** Reported with a screenshot: a "?" alone in a wide, empty,
+   full-row bar under "Keep the AI on this machine." Measured the live DOM
+   before touching anything (per this file's own standing rule) rather
+   than guessing from the screenshot: `.setting-check > span` is
+   `display: flex; flex-direction: column` with no `align-items` set, so it
+   defaults to `stretch` — and the hint-toggle button, a real flex item,
+   stretched to the column's full width along with it. Every other
+   `.setting-hint-toggle` in the app sits inside a plain block-flow
+   `<label>`, which never had anything to stretch against, so this was
+   invisible everywhere except `.setting-check` rows. Fixed with
+   `align-self: flex-start` on the button itself, so it's correct
+   regardless of what kind of container it lands in next. Re-screenshotted
+   after: a compact button next to its own text, matching every other
+   instance.
+4. **The status-bar Clock toggle didn't match its siblings.** Reported
+   with a mockup-style comparison image: five compact pill toggles ("AI
+   status", "Note count", etc.) wrapping neatly, then "Clock" as a lone
+   full-width bar below them. `#status-bar-items` is
+   `display: flex; flex-wrap: wrap`; the Clock row was a hand-written
+   `<label>` living as a *sibling* after that container rather than a
+   child inside it, so it never got the flex-wrap treatment at all and
+   fell back to block-level full width — despite sharing the exact same
+   `.checkbox-label.status-bar-item` class as the rows that render
+   correctly. Moved into `#status-bar-items` in index.html; `app.js`'s
+   `renderStatusBarSettings()` (which does `box.replaceChildren()` to
+   rebuild the generated rows) now pulls the clock `<label>` out first and
+   re-appends it after the loop, so it survives every re-render instead of
+   being deleted by it. Re-screenshotted: now a same-height chip on the
+   same wrapped row as its siblings.
+5. **Three CodeQL `py/cyclic-import` "Note"-severity alerts, closed.** All
+   three pointed at `entry/manager.py` (`_tag_fingerprint`,
+   `_ensure_tag_cache_reset_registered`, and the embedding-based
+   auto-reason helper), each importing `memorymap.core.deps` or
+   `memorymap.ai.embeddings` — both of which import back into this module
+   transitively. These were already deliberately function-local (deferred)
+   imports, and the existing comment on
+   `_ensure_tag_cache_reset_registered` already explained why the deferral
+   is necessary — but CodeQL flags the *import statement itself* as
+   beginning a cycle in the static module graph, regardless of whether it
+   sits at module level or inside a function, so deferring it was never
+   going to clear the alert. `ai/vision_ocr.py` had already hit this same
+   wall and solved it: `importlib.import_module("memorymap.core.deps")` —
+   a lazy lookup with no `import` *statement* for the static check to see,
+   behaviourally identical at runtime. Applied the same pattern to all
+   three sites (plus a fourth, same-shaped import in `record_dates`, not
+   separately flagged but the same risk). Targeted tests (entry/link/
+   tag/embedding suites) and `ruff` both clean after.
+6. **Every generated p5.js emblem now rotates.** Direct instruction, after
+   the onboarding slides' and the About page's marks were caught sitting
+   still: *"whenever the generated p5.js node graph logo shows, make sure
+   it is never static and always rotating."* `EMBLEM_SLOTS` in app.js had
+   `animate: false` for `onboarding-emblem`, `graph-empty-emblem` and
+   `about-emblem` specifically (`ai-mark`, `lock-emblem` and
+   `chat-empty-emblem` were already `true`) — all three flipped to `true`.
+   `renderEmblem()` already gates on Settings → Appearance's own motion
+   switch (deliberately not the OS-level `prefers-reduced-motion` hint
+   alone — see its own comment), so this doesn't reintroduce motion for
+   anyone who asked this app to hold still; it only removes a second,
+   per-slot "hold this one still anyway" that had nothing to do with that
+   preference.
+7. **A real crash in the PDF viewer, found from the user's own server log
+   within minutes of the feature shipping — the most serious bug this round
+   by far.** Reported live: *"it crashed when I tried to view a pdf and i
+   couldnt scroll,"* with a log showing pages 0/1/2 returning 200 and pages
+   3/4/6/7/12 all 404ing on the same file. Reproduced directly, no FastAPI
+   involved: hammering `pdfpages.render_page` from several threads at once
+   — exactly what a browser does, firing one request per `<img>` on a
+   multi-page PDF roughly simultaneously — corrupts PDFium's C-level heap
+   and aborts the whole process (`corrupted double-linked list`, SIGABRT),
+   even against independently-opened `PdfDocument`s. That failure mode
+   can't raise a Python exception (the process is just gone), which is why
+   `render_page`'s own broad `except Exception` never caught it and some
+   requests simply died mid-flight as the connection dropped — a 404 from
+   the caller's point of view, indistinguishable from an oversized-page
+   skip without the server log to compare against. Fixed with a single
+   module-level `threading.Lock` in `core/pdfpages.py` serialising every
+   call into pypdfium2 (`page_count`, `render_pages`, `render_page` all
+   take it) — cheap, since a render is ~20ms; an 8-page view goes from
+   racing to ~160ms sequential, not from fast to slow. New regression test,
+   `test_concurrent_page_renders_do_not_corrupt_or_crash`: a hand-built
+   15-page PDF, hammered from 8 threads across 60 render calls, asserts
+   every single one succeeds — this is the one place in the test suite
+   where "it didn't crash" is itself the assertion, since a real crash
+   can't be `pytest.raises`'d.
+8. **Two more real bugs the same live PDF report surfaced, both fixed in
+   the same pass:**
+   - **Couldn't scroll at all**, including with two fingers on a trackpad
+     — a second, independent cause from the crash above, not a symptom of
+     it. `.lightbox-stage`'s wheel-to-zoom handler called
+     `e.preventDefault()` on *every* wheel event over the whole stage
+     unconditionally, including one arriving over `.lightbox-doc` (text,
+     and now PDF pages) — blocking the browser's native scroll while doing
+     nothing visible in return, since `setZoom` only ever touched the
+     single-image view's transform. Now checks
+     `doc.classList.contains("hidden")` first and lets a document scroll
+     natively; a trackpad pinch (reported by the browser as `wheel` with
+     `ctrlKey: true`, the same convention Chrome/Firefox use everywhere
+     else) still reaches zoom.
+   - **No zoom controls on the PDF-pages view at all** — reported next,
+     same session: *"or zoom. a lot of controls are missing."* The zoom
+     system only ever knew how to scale the single-image `<img>`; a PDF
+     shown as pages has no single element for it to target. `zoomTarget()`
+     now picks `pdfPages` or `img` depending on which view is showing, and
+     `showDocument`'s PDF-pages branch calls `showZoomControls(true)` (was
+     always `false` for every document, PDF included). Zoom transform on a
+     flex column inside `.lightbox-doc`'s `overflow: auto` works the same
+     way it already did for the single image — Chromium/Firefox both
+     factor a `transform: scale()`'d child into its scrollable ancestor's
+     bounds, so the existing scrollbars become the pan control with no new
+     drag handler needed. Live-verified in Chromium: zoom buttons visible,
+     two zoom-in clicks read "200%" and the container's own computed
+     `transform` was genuinely `scale(2)`, and a plain wheel event moved
+     `.lightbox-doc.scrollTop` from 0 to 184 confirming scroll survived
+     both this fix and the crash fix above.
 
-**Not investigated this round, reported live and unresolved:** "some chat
-sessions have a random horizontal scrollbar" — no screenshot, and "some"
-means it wasn't reproduced. Next session: `document.documentElement.scrollWidth
-> innerWidth` per chat session, the same check `wiring.js` in scratchpad
-already uses elsewhere in this repo's history, tried across a few sessions
-with different content (long code blocks and attachments are the likely
-cause — an unconstrained `<pre>` or a wide table are simpler answers than
-anything actually filed).
+   One user report received *after* these three fixes were written but
+   before they were confirmed pushed — *"only 7 out of the 14 pages in my
+   pdf loaded"* — is almost certainly the crash bug above, from before the
+   fix reached them (this session cannot push to a desktop app someone
+   else is already running; they need to update and restart, the same
+   standing advice as every stale-bundle report this project has hit).
+   Flagged rather than assumed: if a fresh, confirmed-updated report of
+   partial page loads shows up next, treat it as new and reproduce it
+   the same way — don't assume it's explained by this one.
+
+**Investigated this round, not reproduced — read before touching either:**
+
+- **Overlapping "Saved to…" toasts,** reported with a screenshot showing
+  two stacked toasts visually overlapping. Measured directly:
+  `#toast-box` is `display: flex; flex-direction: column; gap: 8px`, and
+  firing two `toastAction()` calls back to back in a live page produced
+  `getBoundingClientRect()` rects with **zero overlap** — the first
+  toast's bottom edge sat exactly one `gap` above the second's top edge,
+  both `position: static`. The stacking mechanism itself is correct. Two
+  candidates for what the user actually saw, in order of likelihood: (a) a
+  stale bundle — this exact user's own logs already showed a
+  `[browser/csp] blocked script-src-elem: inline` error earlier this
+  session, which only happens when the server is running old code against
+  a newer `index.html`'s CSP hashes, and a stale `app.js` could easily
+  predate whatever last touched toast stacking; (b) the two toasts in the
+  screenshot had different filenames, one carrying a `-<timestamp>` suffix
+  — that suffix is this app's own collision-avoidance renaming, which only
+  fires when a save target already exists, suggesting the same export was
+  triggered twice in quick succession (e.g. a double-click) rather than
+  a rendering bug. Tell the user to fully close and reopen the desktop
+  app (not Ctrl+Shift+R, which doesn't work as a hotkey in their shell —
+  already told them this once) before re-reporting this one.
+- **"Some chat sessions have a random horizontal scrollbar"** — no
+  screenshot, and "some" means it wasn't reproduced this round either.
+  Still next: `document.documentElement.scrollWidth > innerWidth` per chat
+  session, tried across a few sessions with different content (long code
+  blocks and attachments are the likely cause — an unconstrained `<pre>`
+  or a wide table are simpler answers than anything actually filed).
+
+**New requests logged this round, not yet built:**
+
+- **Manage the exports folder from inside the app.** Direct instruction.
+  `routes_files.py`'s `_exports_dir()` / `EXPORTS_DIRNAME` write generated
+  exports to `data_dir/exports` (or a user-chosen path, see below) and the
+  save toast offers "Open folder" (shells out to the OS), but there is no
+  in-app listing — no way to see, rename, re-download or delete a past
+  export without leaving the app. A Library-shaped list (name, kind, size,
+  saved-at) with the same actions files already get elsewhere is the
+  obvious shape; nothing exists to build on yet, this is greenfield.
+- **Default exports to the user's OS Downloads folder.** Direct
+  instruction — *"is it possible to default downloaded files to the
+  user's downloads folder on their device??"* **Check before building
+  more:** this is already half-answered — Settings has a "Save exports to"
+  text field (`#pref-export-dir`, wired to the `export_save_dir`
+  preference) the user can already point anywhere, including their real
+  Downloads folder, today. What's actually missing is a *default* and
+  *discoverability*: it defaults to `data_dir/exports` (inside the app's
+  own data folder) rather than auto-detecting the OS Downloads path
+  (`~/Downloads`, or `%USERPROFILE%\Downloads` on Windows), and there's no
+  one-click "use my Downloads folder" option beside the free-text field —
+  a person has to already know their own Downloads path and type it. Scope
+  is small: an OS-appropriate default plus a quick-pick button, not a new
+  mechanism.
+- **Recover a missed toast's action (e.g. "Open folder") later,
+  from somewhere like Notifications.** Direct instruction, tied to the
+  toast-overlap report above — a toast that times out (5.5–8s, see
+  `toast()`/`toastAction()`) currently just vanishes, and its action goes
+  with it. Needs a small persistent log of recent toasts-with-actions
+  (bounded, session-only is probably fine — nothing here claims to survive
+  a reload today either) surfaced from the existing notification bell/
+  panel, with the same action button re-offered from there.
 
 ### ► Next session priority list — read this before building
 
-Ranked by what blocks the most, with the specific reversal first because it
-changes the shape of work already scoped below it (R7.1, the document/file
-editor rebuild).
+Ranked by what blocks the most.
 
-1. **PDFs and documents must be viewable, downloadable and manageable with
-   zero AI involvement — direct instruction, stated three times.** *"pdfs
-   should be renderable and readable without the ai models anyway... or
-   rasterization. like a regular pdf viewer"* and *"it is the user's
-   notebook, the ai shouldnt impede that."* This reverses a stated design
-   decision: `docview.py`'s own module docstring argues at length for
-   **never** serving a file to the browser inline ("an inline PDF viewer is
-   a script host... the folder it serves from is not guaranteed to contain
-   only things this app wrote") and for extraction-as-text instead. That
-   reasoning was sound for *AI reading*; the user is asking for something
-   the app currently has no answer for at all — opening and reading a PDF
-   like a PDF, independent of whether markitdown or a vision model can say
-   anything about it. This needs real design work, not a quick patch:
-   - The file management basics (list, rename, download, delete an
-     attachment) already don't touch AI — `GET /files/{id}` and
-     `DELETE`/`PUT /media/{id}` are plain byte/metadata operations. Confirm
-     that's actually reachable from every surface a file appears in
-     (note card, Library, chat attachment) — the user's complaint may be
-     partly that the *UI* routes every file through the AI-reading viewer
-     with no "just open/download it" escape hatch, not that the backend
-     requires AI.
-     — that's the actual gap even before a real renderer exists: something
-       tried to open `/media/{filename}` directly.
-   - The larger piece is real client-side PDF rendering (pages, zoom, text
-     selection) without a round trip through markitdown/vision at all — a
-     vendored, sandboxed PDF.js is the standard answer, but it has to be
-     reconciled with this app's CSP (`object-src 'none'`, no `frame-src`,
-     and the documented reason a raw-file endpoint was refused). Options to
-     weigh: a Web Worker + canvas renderer (no iframe, no `object`/`embed`,
-     PDF.js's own recommended embedding and the one most compatible with a
-     strict CSP) vs. a sandboxed same-origin `<iframe>` with a narrow,
-     newly-scoped CSP just for it. Needs a decision recorded in
-     ANALYSIS.md, not a silent pick.
-   - Whatever ships needs the extraction-based viewer (docview.py) kept
-     *behind* it as the AI-reading path, not replaced — the two are
-     answering different questions ("what does this page look like" vs.
-     "what can the model do with this").
-
-2. **A dedicated Files area in the Library, separate from Images.** Direct
+1. **A dedicated Files area in the Library, separate from Images.** Direct
    instruction: *"files need a separate area to images in the library as
    the text extracted from large files like scanned pdfs could be wayy more
    than images meaning the ui design that works for image would be
    insufficient."* The image-gallery tile treats every item as a thumbnail;
    a file's "preview" can be tens of thousands of characters of extracted
    text, which needs its own list/card shape (title, kind, size, page/word
-   count, an excerpt) rather than a scaled-down thumbnail. Ties directly
-   into item 1 and R7.1 below — build them together.
+   count, an excerpt) rather than a scaled-down thumbnail. Now that PDF
+   pages actually render (this round, above), a Files card is the natural
+   place to surface a page-thumbnail strip too, not just extracted text.
+   Ties directly into R7.1 below — build them together. **Scope confirmed
+   directly by the user, after uploading a PDF as a note attachment and not
+   finding it in the Library:** *"a pdf I uplaoded to a note doesnt show in
+   the libary, but once you finish all the ui designs and add that files
+   tab, it should appear there."* Checked rather than assumed, and it's
+   narrower than it first looks — **two different things in this app are
+   both called "the Library":**
+   - The "Files & Images" *gallery* sub-tab (`library-view-media`, the one
+     with thumbnails a screenshot showed earlier this round) —
+     `renderLibraryImagesGallery()` in library.js calls `GET /media`, which
+     is `MediaUpload` rows only. This is the one the user's PDF is actually
+     missing from, and the one "the files tab" in the quote means.
+   - The Library's general overview list (`GET /library`, `routes_library.py`)
+     — its `_images()` (despite the name; its own docstring says "not
+     images only") already unions in `Attachment` rows too, note-attached
+     files included, and already shows a note-attached PDF under its "file"
+     kind. Checked directly rather than assumed after the first pass at
+     this note got it backwards.
 
-3. **Concept maps — audit against the actual ask before extending.**
+   So the gap is specifically the gallery sub-tab, and specifically that it
+   never queries `Attachment` at all. This Files area's data source has to
+   be **both** models this session's viewer fixes already unified at the
+   render level (`MediaUpload` via `/media/pdf-*`, `Attachment` via
+   `/files/{id}/pdf-*`) — building it against `GET /media` alone, the way
+   the existing gallery does, would reproduce the exact gap being reported.
+
+2. **Concept maps — audit against the actual ask before extending.**
    Direct instruction: *"is it possible to make new custom graphs like I
    mentioned?? with core topic nodes and branching notes and ideas that can
    either become real linked notes, or contained within that graph??"* This
@@ -120,13 +302,13 @@ editor rebuild).
    **R7.6, listing/managing maps in the Library** (rename, duplicate — only
    creation exists).
 
-4. **Floating panel margins.** Recurring complaint, not yet acted on:
+3. **Floating panel margins.** Recurring complaint, not yet acted on:
    modals/panels lose roughly a centimetre of edge space that could go to
    content. Needs the same measured approach as the pane-shell work
    (R7.5) — before/after distinct-left-edge and used-viewport-percentage
    numbers, not a guess at padding values.
 
-5. **Row-expand button: fixed position, and click-anywhere-on-the-row.**
+4. **Row-expand button: fixed position, and click-anywhere-on-the-row.**
    Direct instruction: *"move the note collapse button on the compact rows
    view to the permanent left, make sure the button keeps its position even
    when expanded, and make it so if the user clicks on the main body of the
@@ -140,13 +322,17 @@ editor rebuild).
    element — links, chips, other buttons — the usual "don't swallow clicks
    meant for something else" care) that toggles the same state.
 
-6. **A "Select" action in the note's kebab/more-actions menu**, direct
-   instruction, for entering a multi-select mode from the row itself rather
-   than requiring some other discovery path (shift-click, a toolbar button)
-   the user hasn't found. Should drive the same selection state bulk
-   actions already use, if one exists — check before adding a second one.
+~~5. A "Select" action in the note's kebab/more-actions menu.~~ **Built.**
+   Added as `entryOverflowMenu`'s first item (app.js), driving the exact
+   same `enterSelectMode()`/`selectedIds` the toolbar's own "Select" button
+   already used — checked first, per this file's own "already exists" rule
+   — rather than a second selection mechanism, and seeds `selectedIds` with
+   the note it was opened from, a head start the toolbar button's own empty
+   selection doesn't give. Live-verified: opened a note's ⋯ menu in
+   Chromium, clicked "Select", confirmed the batch bar opened, "1 selected"
+   showed, and that note's own checkbox came up already checked.
 
-7. **All-spaces space exclusion — build this one carefully.** Direct
+6. **All-spaces space exclusion — build this one carefully.** Direct
    instruction, and quoted in full because the caution is the point:
    *"I want to be able to exclude content from specific spaces in the all
    spaces space, and that needs to be thorough, make sure if that is
@@ -164,22 +350,25 @@ editor rebuild).
    categories bug this session only surfaced because a second space was
    exercised at all.
 
-8. **A generating/loading animation on the Notes tab's "Ask" sub-box.**
-   Reported live: *"there's no generating animation on the ask tab."* This
-   may be a live-verification gap rather than a missing feature — reading
-   `askQuestion()` (app.js:7169), it already calls `answerBox.appendChild(
-   typingDots())` before the first token and sets `status.textContent` to
-   "Searching your notes…" / "The model is writing…", which is exactly the
-   pattern the main Chat tab's own generation animation uses (task 9,
-   built). **Don't rebuild this blind** — drive the Ask sub-tab live first
-   (Notes → Ask) and check whether `typingDots()` is actually rendering,
-   whether a CSS rule elsewhere (a later `display`/`animation` override,
-   the same shape as this session's three regressions in §R8.4) is
-   suppressing it, or whether `prefers-reduced-motion` is stripping it
-   entirely for a viewer that has it set. Only write new animation code if
-   the live check says the existing one genuinely isn't there.
+~~7. A generating/loading animation on the Notes tab's "Ask" sub-box.~~
+   **Checked live, not reproduced — closing this one rather than carrying it
+   forward as open.** Reported: *"there's no generating animation on the ask
+   tab."* Submitted a real question through Notes → Ask in Chromium and
+   inspected the actual animated elements (`.typing-dots span`, not the
+   `.typing-dots` container the animation lives on its children rather than
+   on it — a mistake worth flagging since it's an easy one to repeat):
+   `animationName: "dot-bounce"`, `animationPlayState: "running"`, on all
+   three dots. It genuinely animates. One real nuance worth keeping in mind
+   if this comes back: this sandbox has no reachable Ollama, so the
+   "Searching your notes…" / dots state is replaced by the "AI answer isn't
+   available right now" fallback text within a couple hundred milliseconds
+   — on a real install where the backend is down or slow to respond the same
+   way, the dots' visible window could be short enough to read as "no
+   animation" to someone who blinked. Not a code bug either way, but if a
+   fresh report lands, check the user's own Ollama reachability before
+   re-diagnosing the frontend.
 
-9. **Control-element redesign, app-wide** — the broad, repeated instruction
+8. **Control-element redesign, app-wide** — the broad, repeated instruction
    ("ALL THE UI NEEDS IMPROVEMENT... fix the ui control elements and
    panels") remains open. Tasks 10/11/14 below are this same ask split by
    surface; nothing new to add here except that it is still the largest

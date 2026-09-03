@@ -2191,6 +2191,25 @@ function entryOverflowMenu(entry) {
     // grouping below saves. Everything else groups into three side flyouts —
     // asked for directly, to cut what had grown into a 15-item flat list.
     const topLevel = [
+      // Direct instruction: a way into multi-select from the row itself,
+      // not only the toolbar's own "Select" button — which is real and
+      // already works, but requires knowing it exists and is above the
+      // list rather than on the note someone actually wants to start
+      // selecting from. Reuses that exact same mode (`enterSelectMode`,
+      // `selectedIds`) rather than inventing a second one, and seeds it
+      // with this note already checked, so choosing "Select" here is a
+      // head start rather than an empty selection identical to the
+      // toolbar button's own.
+      {
+        label: "ph:check-square Select",
+        title: "Start selecting multiple notes, beginning with this one",
+        run: () => {
+          enterSelectMode();
+          selectedIds.add(entry.id);
+          updateBatchCount();
+          renderEntries();
+        },
+      },
       {
         label: entry.is_private ? "ph:lock-open Make readable" : "ph:lock Make private",
         title: entry.is_private
@@ -2919,12 +2938,24 @@ function openLightbox(items, startIndex = 0) {
   const ZOOM_MAX = 6;
   const zoomLabel = document.createElement("span");
   zoomLabel.className = "muted lightbox-zoom-label";
+  // A single image is the usual target; a PDF shown as pages (pdfPages,
+  // below) is a second one, added when PDFs stopped being AI-text-only —
+  // "or zoom. a lot of controls are missing," reported live once pages
+  // started rendering. Same zoom state and the same three buttons drive
+  // both; only which element the transform lands on, and which container's
+  // scroll resets on "Fit", differ.
+  const zoomTarget = () => (!pdfPages.classList.contains("hidden") ? pdfPages : img);
+  const scrollTarget = () => (!pdfPages.classList.contains("hidden") ? doc : stage);
   const applyZoom = () => {
-    img.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
-    // Only grab-able once there is something to pan to.
-    img.classList.toggle("zoomed", zoom > 1);
+    const target = zoomTarget();
+    target.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
+    // Set on the stage too — a multi-page column has no single element
+    // whose own hover state would otherwise flip the grab cursor.
+    target.classList.toggle("zoomed", zoom > 1);
+    stage.classList.toggle("zoomed", zoom > 1);
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
-    if (zoom === 1) stage.scrollTo({ left: 0, top: 0 });
+    // Only grab-able once there is something to pan to.
+    if (zoom === 1) scrollTarget().scrollTo({ left: 0, top: 0 });
   };
   const setZoom = (next) => {
     zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
@@ -2959,9 +2990,28 @@ function openLightbox(items, startIndex = 0) {
   // Wheel-to-zoom, because that is what every image viewer does and a person
   // who has zoomed once will try it. Non-passive so the page behind cannot
   // scroll out from under the picture mid-zoom.
+  //
+  // **Only while an image is actually showing.** Reported live, from a real
+  // multi-page PDF: "it crashed when I tried to view a pdf and i couldnt
+  // scroll." Not a crash — `stage` is the shared container for both the
+  // picture view and `.lightbox-doc` (text, and now PDF pages), and this
+  // handler used to call `preventDefault()` on every wheel event over it
+  // unconditionally, regardless of which one was showing. Over a scrolling
+  // multi-page PDF that blocked the browser's own scroll on every tick
+  // while doing nothing visible in return — `setZoom` only ever touches the
+  // single `<img>` element's transform, which isn't part of the document
+  // view at all. `doc.classList.contains("hidden")` is the same check
+  // `show()` already uses to know which of the two is current.
   stage.addEventListener(
     "wheel",
     (e) => {
+      // A browser reports a trackpad pinch gesture as a wheel event with
+      // ctrlKey set — the same convention Chrome/Firefox use for
+      // Maps/Docs/Figma-style pinch-to-zoom — so it still reaches zoom even
+      // while the document view owns plain scroll below. Plain wheel/two-
+      // finger scroll over a document (not pinch) is left alone entirely.
+      if (!doc.classList.contains("hidden") && !e.ctrlKey) return;
+      if (!doc.classList.contains("hidden") && pdfPages.classList.contains("hidden")) return; // plain text: nothing to zoom
       e.preventDefault();
       setZoom(zoom + (e.deltaY < 0 ? 0.25 : -0.25));
     },
@@ -3311,6 +3361,11 @@ function openLightbox(items, startIndex = 0) {
       pdfPages.classList.add("hidden");
       docBody.classList.remove("hidden");
       find.classList.remove("hidden");
+      // Undoes the PDF-pages branch's own showZoomControls(true)/setZoom(1)
+      // when this runs as the "Read text with AI" swap — there is nothing
+      // to zoom in a text view.
+      showZoomControls(false);
+      setZoom(1);
       docBody.textContent = "Reading…";
       let payload = null;
       // See the doc-viewer comment block above `doc`'s own creation: a
@@ -3386,6 +3441,13 @@ function openLightbox(items, startIndex = 0) {
         find.classList.add("hidden"); // nothing here is text to search yet
         readWithAiBtn.classList.remove("hidden");
         pdfPages.classList.remove("hidden");
+        // Zoom, same as the image view — reported live once pages actually
+        // rendered: "or zoom. a lot of controls are missing." `setZoom(1)`
+        // resets any leftover magnification from a previously viewed item;
+        // `zoomTarget()`/`applyZoom` (above) already know to scale
+        // `pdfPages` rather than `img` while this view is the one showing.
+        showZoomControls(true);
+        setZoom(1);
         for (let i = 0; i < info.pages; i++) {
           const pageImg = document.createElement("img");
           pageImg.className = "lightbox-pdf-page";

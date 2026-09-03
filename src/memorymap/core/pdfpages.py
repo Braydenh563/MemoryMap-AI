@@ -30,9 +30,26 @@ hands them to the model.
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+#: Serialises every call into pypdfium2. Not a performance nicety — a real
+#: crash, reproduced and confirmed: FastAPI's sync routes run in an anyio
+#: threadpool, and a browser viewing a multi-page PDF fires several
+#: `GET /media/pdf-page/{n}` requests concurrently (one per `<img>`,
+#: unthrottled by `loading="lazy"` for anything near the viewport). Hammering
+#: `pdfium.PdfDocument()`/`.render()` from several threads at once — even
+#: against independently opened documents — corrupts PDFium's C-level heap:
+#: reproduced locally as `corrupted double-linked list` and a hard process
+#: abort (SIGABRT), which no Python `except` clause can catch, since it never
+#: raises a Python exception at all. Reported live, from a real PDF: several
+#: pages 404ing at once and "it crashed... i couldnt scroll." The render
+#: itself is ~20ms (this module's own docstring), so serialising it costs
+#: nothing perceptible — an 8-page view goes from "mostly-parallel" to
+#: "160ms sequential," not from fast to slow.
+_pdfium_lock = threading.Lock()
 
 #: How many pages of one PDF are ever rendered.
 #:
@@ -79,11 +96,12 @@ def page_count(path: Path) -> int:
     try:
         import pypdfium2 as pdfium
 
-        document = pdfium.PdfDocument(str(path))
-        try:
-            return len(document)
-        finally:
-            document.close()
+        with _pdfium_lock:
+            document = pdfium.PdfDocument(str(path))
+            try:
+                return len(document)
+            finally:
+                document.close()
     except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
         logger.debug("couldn't count pages in %s: %s", path, exc)
         return 0
@@ -141,15 +159,16 @@ def render_pages(path: Path, limit: int = MAX_PAGES) -> list[bytes]:
     pages: list[bytes] = []
     document = None
     try:
-        document = pdfium.PdfDocument(str(path))
-        for index in range(min(len(document), max(0, limit))):
-            page = document[index]
-            try:
-                png = _render_one(page, path, index, greyscale=True)
-                if png is not None:
-                    pages.append(png)
-            finally:
-                page.close()
+        with _pdfium_lock:
+            document = pdfium.PdfDocument(str(path))
+            for index in range(min(len(document), max(0, limit))):
+                page = document[index]
+                try:
+                    png = _render_one(page, path, index, greyscale=True)
+                    if png is not None:
+                        pages.append(png)
+                finally:
+                    page.close()
     except Exception as exc:  # noqa: BLE001 — see the docstring
         logger.info("couldn't rasterise %s: %s", path, exc)
         return pages
@@ -184,14 +203,15 @@ def render_page(path: Path, index: int) -> bytes | None:
 
     document = None
     try:
-        document = pdfium.PdfDocument(str(path))
-        if index >= len(document):
-            return None
-        page = document[index]
-        try:
-            return _render_one(page, path, index, greyscale=False)
-        finally:
-            page.close()
+        with _pdfium_lock:
+            document = pdfium.PdfDocument(str(path))
+            if index >= len(document):
+                return None
+            page = document[index]
+            try:
+                return _render_one(page, path, index, greyscale=False)
+            finally:
+                page.close()
     except Exception as exc:  # noqa: BLE001 — a viewer must not 500 on a bad file
         logger.info("couldn't rasterise page %d of %s: %s", index, path, exc)
         return None

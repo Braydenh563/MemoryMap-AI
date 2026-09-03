@@ -29,6 +29,7 @@ from sqlalchemy import (
     String,
     Text,
     TypeDecorator,
+    UniqueConstraint,
     create_engine,
     event,
 )
@@ -172,10 +173,29 @@ class Vault(Base):
 
 
 class Category(Base, WorkspaceMixin):
+    """A filing category. **Unique per space, not globally.**
+
+    The `unique=True` this used to carry on `name` alone predates spaces, and
+    it made two spaces genuinely unable to coexist: the moment a note in one
+    space needed a category another space already had — "Uni", "Work",
+    "Ideas", every ordinary name — `get_or_create_category` looked it up
+    under the *current* space's filter, found nothing, inserted, and hit a
+    global UNIQUE. Reproduced as a **500 on `POST /entries`**: creating a
+    note in a second space simply failed, which is as close to "spaces do not
+    work" as a bug gets.
+
+    Two categories with the same name in two spaces are two different
+    categories — that is the entire point of a space — so the constraint
+    moves to the pair. Within one space the old guarantee is unchanged.
+    """
+
     __tablename__ = "categories"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "name", name="uq_categories_workspace_name"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True)
+    name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
@@ -1073,6 +1093,7 @@ class DatabaseManager:
 
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()
+        self._rebuild_categories_unique_constraint()
         self._backfill_inherited_workspaces()
         self._ensure_fts5()
         self._ensure_indexes()
@@ -1241,6 +1262,94 @@ class DatabaseManager:
         ("whiteboard_sketches", "board_id", "entries"),
         ("whiteboard_objects", "board_id", "entries"),
     )
+
+    def _rebuild_categories_unique_constraint(self) -> None:
+        """Move `categories.name`'s UNIQUE from the column to (space, name).
+
+        `create_all` never touches an existing table and `_add_missing_columns`
+        only ever *adds* columns, so an existing database keeps whatever
+        constraints it was built with — and the one this replaces made a
+        second space unusable. `get_or_create_category` looks a name up under
+        the current space's filter; in another space it finds nothing, tries
+        to insert, and hits a UNIQUE that spans every space at once.
+        Reproduced as a **500 on `POST /entries`** the first time a note in a
+        new space wanted a category name the default space already had —
+        which for ordinary names ("Work", "Ideas", "Uni") is immediately.
+
+        SQLite cannot drop a constraint, so this is the standard rebuild:
+        make the table with the right shape, copy every row, swap the names.
+        Guarded on actually finding the old single-column unique index, so it
+        runs exactly once per database and is a no-op on a fresh one (where
+        `create_all` has already built the correct shape) and on every
+        startup after the first.
+
+        Never allowed to stop the app from starting, the same rule
+        `_ensure_alembic_baseline` follows: a database that somehow cannot be
+        rebuilt still opens, with the old constraint and the old limitation,
+        rather than not opening at all.
+        """
+        try:
+            with self.engine.begin() as connection:
+                tables = {
+                    row[0]
+                    for row in connection.exec_driver_sql(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    ).fetchall()
+                }
+                if "categories" not in tables:
+                    return
+                stale = None
+                for index in connection.exec_driver_sql(
+                    "PRAGMA index_list('categories')"
+                ).fetchall():
+                    name, unique = index[1], index[2]
+                    if not unique:
+                        continue
+                    columns = [
+                        row[2]
+                        for row in connection.exec_driver_sql(
+                            f"PRAGMA index_info('{name}')"
+                        ).fetchall()
+                    ]
+                    if columns == ["name"]:
+                        stale = name
+                        break
+                if stale is None:
+                    return  # already the composite constraint, or never had one
+
+                _logger.info("rebuilding categories to scope its unique name per space")
+                connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+                connection.exec_driver_sql(
+                    'CREATE TABLE "categories_rebuilt" ('
+                    " id INTEGER NOT NULL PRIMARY KEY,"
+                    " name VARCHAR(100) NOT NULL,"
+                    " description TEXT,"
+                    " created_at DATETIME,"
+                    " workspace_id VARCHAR DEFAULT 'default' NOT NULL,"
+                    " CONSTRAINT uq_categories_workspace_name UNIQUE (workspace_id, name)"
+                    ")"
+                )
+                connection.exec_driver_sql(
+                    'INSERT INTO "categories_rebuilt" '
+                    " (id, name, description, created_at, workspace_id)"
+                    " SELECT id, name, description, created_at,"
+                    "        COALESCE(workspace_id, 'default') FROM categories"
+                )
+                connection.exec_driver_sql('DROP TABLE "categories"')
+                connection.exec_driver_sql(
+                    'ALTER TABLE "categories_rebuilt" RENAME TO "categories"'
+                )
+                connection.exec_driver_sql(
+                    "CREATE INDEX IF NOT EXISTS ix_categories_workspace_id"
+                    " ON categories (workspace_id)"
+                )
+                connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        except Exception:
+            _logger.warning(
+                "couldn't rebuild the categories table; spaces will still share "
+                "one category namespace on this database",
+                exc_info=True,
+            )
 
     def _backfill_inherited_workspaces(self) -> None:
         """Give a newly-scoped child row the space its parent note is in.

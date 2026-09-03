@@ -623,3 +623,38 @@ what a backend pass should cover.
 - **Alembic is stamped but unused.** The additive auto-migrator plus this
   session's two hand-written rebuilds is now three migration mechanisms. Pick
   one before a fourth.
+
+#### "Should the backend be async?" — asked directly, and the answer is no
+
+> *"I feel like the backend should be made asyncronous if it isnt already,
+> maybe add it to the list for backend fixes and redesigns??"*
+
+Worth putting on the list precisely so it does not get done. Measured: **230
+sync `def` routes, 1 `async def`, and a blocking `create_engine`** (the
+stdlib `sqlite3` driver).
+
+That is already the correct arrangement, and the reason is a FastAPI detail
+that is easy to have backwards. **A `def` route runs in a threadpool** —
+Starlette hands it to anyio's worker pool, so requests already run
+concurrently and one slow route does not block another. That is why
+deferring note filing worked at all.
+
+Converting those 230 routes to `async def` **without** also replacing the
+database layer would make things strictly worse: blocking `sqlite3` calls
+would then run on the event loop itself and serialise every request in the
+process, turning a working threadpool into a global lock.
+
+Doing it *properly* means `aiosqlite`, `AsyncSession`, and rewriting every
+route and every `session.query` in the codebase. For a single-user
+local-first app the payoff is close to zero: SQLite serialises writers
+regardless, WAL and a 5s busy timeout are already set, and the only latency
+anyone actually feels is the local model — which this session moved off the
+request path.
+
+**The real wins are elsewhere and are already on this list**: keep slow work
+off the request (filing, embedding and the duplicate search moved this
+session; captioning, OCR and vision-OCR were already there), use
+`_to_out_bulk` everywhere a list is served, and virtualize the notes list.
+Revisit async only if this ever becomes multi-user or gains a real network
+backend — at which point the database layer changes first and the routes
+follow, not the other way round.

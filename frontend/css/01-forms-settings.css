@@ -502,8 +502,14 @@ input[type="radio"] {
    lands on exactly the strip height — without capping the one that cannot
    fit. `padding-block` is left alone here for the same reason: zeroing it
    is what makes a wrapped label touch its own border. */
-.settings-group .row button,
-.focus-presets button {
+/* The `:not()`s are not decoration: an icon button already declares its own
+   square size, and a strip-height floor on top of that makes it 32 wide by
+   35 tall — measured on the Settings "?" immediately after this rule went
+   in, which is exactly the oval that was reported in the first place. A
+   floor helps a button whose *text* might wrap; it has nothing to offer one
+   whose size is fixed by definition. */
+.settings-group .row button:not(.graph-help-toggle):not(.icon-only):not(.icon-button),
+.focus-presets button:not(.graph-help-toggle):not(.icon-only):not(.icon-button) {
   min-height: var(--control-h);
   margin-bottom: 0;
 }

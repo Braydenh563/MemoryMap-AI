@@ -331,8 +331,45 @@ button.ghost {
 }
 
 button.small {
-  padding: 0.25rem 0.8rem;
+  /* Vertical padding given up, a floor declared instead — DESIGN.md's own
+     rule for a control that has to line up with its neighbours ("keep it
+     horizontally, give it up vertically, and let the declared height
+     decide"). Before this, `button.small` rendered at 19, 24, 25, 26 and
+     30px across the app, entirely according to what each button happened to
+     contain. `inline-flex` + centring is what makes the extra height from
+     the floor sit around the label rather than above it. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 0.8rem;
   font-size: 0.85rem;
+}
+
+/* A checkbox or switch is a hit target too, and these were the smallest in
+   the app: the Semantic and "include bin" toggles measured 32x18, and the
+   reminder rows' raw checkboxes 13x13 — half of WCAG 2.2 AA's 24px floor,
+   and genuinely fiddly with a trackpad. The label around them already had
+   `min-height: 1.5rem`; the control itself did not.
+
+   Sized in `em` so it tracks the text it sits beside instead of fixing a
+   pixel count, with the same `--target-min` floor underneath. */
+input[type="checkbox"],
+input[type="radio"] {
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+}
+
+/* The exception, and it is a real one: a checkbox whose *visible* control is
+   drawn by a sibling (the switch pattern) is clipped to nothing on purpose,
+   and forcing a size on it would put a 28px invisible box back into a row
+   that has already been laid out around the switch. The switch itself is
+   the target there, and it is larger than the floor. */
+.switch input[type="checkbox"],
+.checkbox-label input[type="checkbox"].sr-only {
+  min-width: 0;
+  min-height: 0;
 }
 
 /* The update-available dialog's "View release" is a real <a>, not a button

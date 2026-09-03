@@ -233,6 +233,25 @@ select optgroup {
      a wide screen, so nothing about the roomy case changes and every narrow
      one gains. `--density` still multiplies it, so the Appearance setting
      keeps working. */
+  /* **The floor under every hit target**, distinct from `--control-h`.
+     `--control-h` is a *strip's* declared height and is scoped per toolbar
+     (see DESIGN.md); this is a global minimum that applies to a control
+     wherever it sits, including the many that belong to no strip at all.
+
+     Measured across six screens: `button.small` — the most-used control
+     class in the app — rendered at 19, 24, 25, 26 and 30px depending only
+     on whether it happened to hold an icon, a word, or both, because
+     `button.small` set padding and font-size and never a height. Five
+     heights for one class is the "assembled rather than designed" failure
+     DESIGN.md's control-height section is about, at a larger scale than the
+     four pixels that prompted it.
+
+     1.75rem is 28px at the default root size, clearing WCAG 2.2 AA's 24px
+     minimum target with room for a border. A `min-height`, not a `height`,
+     so a strip that declares a taller `--control-h` still wins and a
+     two-line control still grows. Not a spacing token, for the reason
+     DESIGN.md already gives: a hit target must not move with density. */
+  --target-min: 1.75rem;
   --page-gutter: clamp(var(--space-4), 2.2vw, var(--space-9));
   --page-left: var(--page-gutter);
   --page-right: var(--page-gutter);

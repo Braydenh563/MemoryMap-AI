@@ -1633,6 +1633,21 @@ button.recording.live-level {
   margin-bottom: 0.5rem;
 }
 
+/* Found by the reduced-motion lint the moment it was written, which is the
+   argument for having it: a full-width bar sweeping a gradient forever is
+   one of the least comfortable things a page can do for someone sensitive to
+   motion, and it had shipped unnoticed.
+
+   The gradient stays — it is what says "there is a note here, still
+   loading", and per DESIGN.md the branch keeps the information — it just
+   stops moving, resting at the position the sweep starts from. */
+@media (prefers-reduced-motion: reduce) {
+  .entry-list li.skeleton {
+    animation: none;
+    background-position: 200% 0;
+  }
+}
+
 @keyframes shimmer {
   from {
     background-position: 200% 0;

@@ -2591,3 +2591,20 @@ summary:not(.icon-only):not(.icon-button):hover {
 .entry-list li.selectable {
   cursor: pointer;
 }
+
+/* --- fields answer the pointer too ---------------------------------------
+   Every button in the app now changes under the cursor; a text field and a
+   select were the last controls that did not, which reads as "not a control"
+   for the same reason a flat button did. One border step — deliberately not
+   a background change, which would fight the recessed inset that says
+   "type here". */
+textarea:hover:not(:focus),
+select:hover:not(:focus),
+input[type="text"]:hover:not(:focus),
+input[type="search"]:hover:not(:focus),
+input[type="number"]:hover:not(:focus),
+input[type="password"]:hover:not(:focus),
+input[type="email"]:hover:not(:focus),
+input[type="url"]:hover:not(:focus) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}

@@ -9454,3 +9454,30 @@ per-message action row. It is behind on **detail views** (a file or document
 opened into its own screen with its metadata) and on a few chat affordances
 (context-window meter, fork, rewrite/explain). Those are the things worth
 building; the shell is not.
+
+## Same session: the Ask sub-tab, and a duplicate rule caught by measuring
+
+Reported: "some of the ui control and button elements are missing the
+affordances in the notes 'ask' sub tab". A probe across that tab reported
+control heights running **28px to 40px**, which looked like the same
+field-vs-button mismatch already fixed in Settings — and a `.ask-query-row`
+control-strip rule was written to fix it.
+
+**It was already there.** `.ask-query-row { --control-h: 2.5rem }` plus
+heights on its input/select/button has been in `07-whiteboard-misc.css` all
+along, with a comment naming the same problem. Measuring the row itself
+rather than the whole tab settles it: `question:40, ask-mode-select:40,
+ask-search-tune:40, ask-btn:40` — perfectly level. The 28px readings were
+other rows on the same tab (the "Try asking" pills, the History button)
+caught by a probe scoped to `#tab-notes`. The duplicate block was removed
+before it shipped.
+
+That is twice in this session that a too-wide probe has invented work
+(fourteen phantom "no hover" controls earlier, a phantom height mismatch
+here). **Scope the query to the thing being judged, then measure it.**
+
+What *was* real: a text field and a select were the last controls in the app
+that did not respond to the pointer at all — every button now does. They take
+one border step toward the accent on hover, deliberately not a background
+change, which would fight the recessed inset that says "type here". Verified
+on `#question` and `#ask-mode-select`.

@@ -1210,6 +1210,12 @@ async function wbMindMapAddCard(parentId, x, y) {
   });
   wbState.sketches.push(sketchRes);
 
+  // The card about to render reads its text out of `allEntries`, which was
+  // fetched before this note existed. Without this the new branch renders
+  // as a placeholder and never resolves — see the `!entry` branch in the
+  // card renderer.
+  await loadEntries();
+
   const map = wbMindMapEnsureMap(parentId);
   map.parentOf.set(nodeRes.id, parentId);
   if (!map.childrenOf.has(parentId)) map.childrenOf.set(parentId, []);
@@ -1218,7 +1224,84 @@ async function wbMindMapAddCard(parentId, x, y) {
 
   selectWbItem("node", nodeRes.id);
   wbScheduleRender();
+  // **A new branch is an empty thought, so it opens ready to be typed.**
+  // Before this it was a card reading "New branch" and nothing else: the
+  // gesture created a node and then left you to find the way to name it,
+  // which is the difference between a mind-mapping tool and a diagram
+  // editor. `wbScheduleRender` is async, so this waits for the card to
+  // exist rather than assuming it does.
+  requestAnimationFrame(() => wbEditNodeText(nodeRes.id));
   return nodeRes;
+}
+
+/** Put a card into edit mode with its text selected.
+ *
+ *  A concept map is written by typing, so the node a branch gesture just
+ *  created has to be typeable *now* — not after finding a menu. Selecting
+ *  the placeholder means the first keystroke replaces it, which is what
+ *  makes `Tab, type, Tab, type` a fluent way to work rather than a sequence
+ *  of edits.
+ */
+function wbEditNodeText(nodeId) {
+  const node = wbState.nodes.find((n) => n.id === nodeId);
+  if (!node) return;
+  const card = document.querySelector(`.node-card[data-id="${nodeId}"]`);
+  const content = card?.querySelector(".wb-card-content");
+  if (!content) return;
+  const entry = allEntries.find((e) => e.id === node.entry_id);
+  const original = entry?.content || "";
+
+  const box = document.createElement("textarea");
+  box.className = "wb-card-editor";
+  box.value = original;
+  content.replaceChildren(box);
+  box.focus();
+  box.select();
+
+  let settled = false;
+  const finish = async (save) => {
+    if (settled) return;
+    settled = true;
+    const text = box.value.trim();
+    const keep = save && text ? text : original;
+    if (save && text && text !== original) {
+      try {
+        await apiJson(`/entries/${node.entry_id}`, {
+          method: "PUT",
+          body: JSON.stringify({ content: text }),
+        });
+        // The card reads its text out of `allEntries`; without this the next
+        // render would use the old content and the edit would look discarded.
+        await loadEntries();
+      } catch (err) {
+        toast(err.message || "Couldn't save that.", true);
+      }
+    }
+    // **Put the text back by hand, not by re-rendering.** Found live: after
+    // saving, the textarea was still on the card. `wbScheduleRender` runs a
+    // d3 data join, and card *content* is only built in the `enter`
+    // selection — an existing card keeps whatever DOM it already has, which
+    // here was the editor. So the edit saved correctly to the server and
+    // looked like it had done nothing, which is the worst of both.
+    content.replaceChildren();
+    renderMarkdown(content, keep);
+    wbScheduleRender();
+  };
+
+  // Enter commits, Shift+Enter is a real newline — the convention for a
+  // single-idea field. Escape abandons. Blur commits, because clicking away
+  // to the next card is the most common way to finish one.
+  box.addEventListener("keydown", (event) => {
+    event.stopPropagation(); // Tab/Enter here are text, not branch gestures
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      finish(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+  box.addEventListener("blur", () => finish(true));
 }
 
 //: Tab — a new child of the selected card, at "the next open radial slot":
@@ -1231,7 +1314,14 @@ async function wbMindMapAddChild(parentId) {
   const map = wbMindMapEnsureMap(parentId);
   const existing = (map.childrenOf.get(parentId) || []).length;
   const slots = Math.max(existing + 1, 3);
-  const angle = (existing / slots) * 2 * Math.PI - Math.PI / 2;
+  // **Fan out sideways first, not upwards.** The offset used to be
+  // `-Math.PI / 2` — straight up — so the very first branch off a root card
+  // landed one full ring *above* it. Driven live: a map created at the
+  // canvas centre put its first Tab branch off the top edge, clipped and
+  // half unreadable, which is a bad first impression of the one gesture the
+  // whole feature turns on. Sideways is also how every mind-mapping tool
+  // fans a first child, because a page is wider than it is tall.
+  const angle = (existing / slots) * 2 * Math.PI;
   const parentBox = wbItemBBox("node", parent);
   const cx = (parentBox.minX + parentBox.maxX) / 2, cy = (parentBox.minY + parentBox.maxY) / 2;
   const w = parent.width || WB_CARD_DEFAULT_SIZE.w, h = parent.height || WB_CARD_DEFAULT_SIZE.h;
@@ -5046,7 +5136,16 @@ function renderWhiteboard() {
     const card = d3.select(this);
     const entry = entriesById.get(String(d.entry_id));
     if (!entry) {
-      card.append("div").attr("class", "wb-card-content").node().textContent = "Loading…";
+      // **"Loading…" with nothing loading.** `entriesById` is built from
+      // `allEntries`, the app's in-memory note list — so a card whose note
+      // was created *after* the last `loadEntries()` said "Loading…"
+      // forever, because nothing here ever fetched it. Every path that
+      // creates a note and immediately places it now refreshes that list
+      // first (`wbMindMapAddCard`, `createConceptMap`), which is the real
+      // fix; this branch is the honest fallback for the case that remains:
+      // a card pointing at a note that has actually been deleted.
+      card.append("div").attr("class", "wb-card-content muted").node().textContent =
+        "This note is no longer here";
       return;
     }
     // A sketch's actual content is a file attachment, not text — never
@@ -5916,6 +6015,85 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   wbApplyBgImage();
 }
+
+/** A new concept map: a board that opens with a core idea on it, selected
+ *  and ready to branch from.
+ *
+ *  Asked for directly: "I want ways to make custom knowledge graphs that are
+ *  like mindmaps where I can add and remove nodes, move them around, change
+ *  how they connect and reasons, and just make my own thought process map",
+ *  and on where it belongs, "I should be able to make and manage map graphs
+ *  (maybe in library??)".
+ *
+ *  **Deliberately not a new canvas.** Everything a concept map needs already
+ *  exists on the whiteboard — freely placed cards whose positions persist, a
+ *  link tool, `Tab` for a new branch off the selected card and `Enter` for a
+ *  sibling, "Arrange as mind map" to re-tidy, pan/zoom, undo, spaces,
+ *  export. A parallel implementation would have been a second set of all of
+ *  that, immediately behind on every fix either one got.
+ *
+ *  So what this adds is the three things that were actually missing, and
+ *  they are all about *entry*:
+ *
+ *  1. **A name.** Nothing in the app said the words "concept map", so the
+ *     feature was reachable only through a button called "New board" on a
+ *     tab called Whiteboards. A feature nobody can name is a feature nobody
+ *     finds — reported as missing while fully built.
+ *  2. **A root.** An empty board is a blank rectangle; `Tab` and `Enter` do
+ *     nothing until something is selected, so the one gesture that makes
+ *     this a mind map was unreachable from the state the board opens in.
+ *  3. **The gestures, said out loud, once**, at the moment they apply.
+ *
+ *  The map is a board, so a concept map exported to the whiteboard is a
+ *  concept map — which closes the "maybe with a way to export that into a
+ *  visual diagram on the whiteboard" half of the ask by construction rather
+ *  than by building an exporter.
+ */
+async function createConceptMap() {
+  const name = await promptDialog("What is this map about?", "");
+  if (!name || !name.trim()) return;
+  const title = name.trim();
+  try {
+    const board = await apiJson("/whiteboard/boards", {
+      method: "POST",
+      body: JSON.stringify({ name: title }),
+    });
+    // The root idea is a real note, the same as every other card on a board.
+    // That is the app's own premise rather than a shortcut: an idea here *is*
+    // a short note, which is what lets a map node carry tags, links, search
+    // and everything else a note has. `defer_filing` keeps the AI's
+    // categorisation off the critical path — the map should open now.
+    const root = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content: `# ${title}`, tags: [], defer_filing: true }),
+    });
+    await apiJson("/whiteboard/nodes", {
+      method: "POST",
+      body: JSON.stringify({
+        entry_id: root.id,
+        board_id: board.id,
+        // Centre of the default view. The board opens unzoomed and unpanned,
+        // so this is where the middle of the canvas is.
+        x: 400,
+        y: 260,
+        z: 1,
+      }),
+    });
+    window.wbLastCreatedBoard = board;
+    // Same reason as `wbMindMapAddCard`: the root card reads its text out of
+    // `allEntries`, and this note is newer than the last fetch.
+    await loadEntries();
+    await openWhiteboardBoard(board.id);
+    // Selected, because `Tab`/`Enter` act on the selection and an unselected
+    // root leaves the map's whole point one undiscoverable click away.
+    const placed = wbState.nodes.find((n) => n.entry_id === root.id);
+    if (placed) selectWbItem("node", placed.id);
+    toast(`“${title}” — press Tab for a branch, Enter for a sibling.`);
+  } catch (err) {
+    toast(err.message || "Couldn't create that map.", true);
+  }
+}
+window.createConceptMap = createConceptMap;
 
 /** Full screen for the board — asked for directly ("the whiteboard
  *  definately needs a fullscreen mode because it feels too squished").

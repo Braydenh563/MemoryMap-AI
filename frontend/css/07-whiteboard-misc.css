@@ -2292,3 +2292,22 @@ dialog::backdrop {
 .doc-ai-history-entry button {
   flex: 0 0 auto;
 }
+/* Typing into a card on a concept map. Fills the card it replaces rather
+   than floating over it, so the thing being edited stays the same size and
+   in the same place — a card that jumps when you start typing makes a fast
+   Tab/type/Tab rhythm impossible to aim. */
+.wb-card-editor {
+  width: 100%;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  resize: none;
+}
+
+.wb-card-editor:focus {
+  outline: none;
+}

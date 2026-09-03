@@ -1211,6 +1211,30 @@ const LIBRARY_CREATE_BY_KIND = {
     label: "⏺ Transcribe audio",
     run: () => openMeetingRecorder(),
   },
+  // Asked for directly: "I want ways to make custom knowledge graphs that are
+  // like mindmaps where I can add and remove nodes, move them around, change
+  // how they connect and reasons, and just make my own thought process map"
+  // — and, on where it should live, "I should be able to make and manage map
+  // graphs (maybe in library??)".
+  //
+  // **This is a board, not a third canvas**, and that is the whole design
+  // decision. The whiteboard already has every part of a concept map:
+  // freely-placed cards whose positions persist, a link tool, Tab for a new
+  // branch and Enter for a new sibling off the selected card, "Arrange as
+  // mind map" to re-tidy, pan/zoom, undo, spaces, and export. What it did
+  // not have was a *name* — nothing in the app said "concept map", so the
+  // one feature the user was asking for was sitting behind a button called
+  // "New board" on a tab called Whiteboards, which is why they reported it
+  // missing. See `createConceptMap` for what the entry point adds on top.
+  //
+  // It also answers the deferred half of the ask — "maybe with a way to
+  // export that into a visual diagram on the whiteboard" — by construction:
+  // the map *is* a whiteboard, so it exports through the export button that
+  // is already there.
+  map: {
+    label: "ph:graph New concept map",
+    run: () => createConceptMap(),
+  },
 };
 
 // **BACKLOG §105 item 1, built**: "Everything" and every kind with no
@@ -1250,7 +1274,7 @@ function openLibraryCreatePicker() {
     }
   };
 
-  for (const kind of ["note", "document", "chat", "meeting"]) {
+  for (const kind of ["note", "document", "map", "chat", "meeting"]) {
     const entry = LIBRARY_CREATE_BY_KIND[kind];
     const button = smallButton(entry.label, entry.label, () => {
       close();

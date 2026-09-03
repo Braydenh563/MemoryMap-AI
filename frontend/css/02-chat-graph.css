@@ -918,24 +918,6 @@ details.tool-chip[open] > .tool-chip-body {
   background: var(--card);
 }
 
-.graph-fullscreen-close {
-  display: none;
-}
-
-.graph-fullscreen .graph-fullscreen-close {
-  display: inline-flex;
-  /* Measured live: align-items/justify-content computed as "normal" here
-     (effectively stretch) rather than the centred icon+label every other
-     toolbar button gets from its own base rule — this selector re-declares
-     `display` alone, and whatever centres the others never carried over.
-     Reported live as the button's text not being centred; it also explains
-     the button's own odd extra height (a stretched flex item, not a
-     centred one). Declared explicitly rather than chasing why the base
-     rule stopped applying. */
-  align-items: center;
-  justify-content: center;
-}
-
 .graph-zoom {
   position: absolute;
   right: 12px;

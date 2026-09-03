@@ -894,6 +894,27 @@ progress {
 .entry-list.is-rows .entry-meta {
   margin: 0;
   flex-wrap: nowrap;
+  /* Reported with a screenshot: a note with several tags plus a category,
+     an AI-confidence chip, a time-phrase chip and a date could fill the
+     entire row with metadata and hide the note's own text completely. The
+     grid track this sits in (`grid-template-columns: auto minmax(0, 1fr)
+     auto` above) sized the meta column to its full natural width — with no
+     wrap and nothing to shrink it, that width could exceed what was left
+     after the title, and CSS Grid's own rule is that a `minmax(0, 1fr)`
+     column shrinks toward zero before an `auto` one gives back any space.
+     `max-width` here caps what the meta column can claim, the same "chips
+     don't shrink; the lane scrolls instead" answer #graph-legend already
+     uses for the identical shape — capping the item's own box is what
+     brings the auto *track*'s size down with it, so content keeps its
+     column regardless of how many chips a note happens to carry. */
+  max-width: min(45%, 26rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.entry-list.is-rows .entry-meta > * {
+  flex: 0 0 auto;
 }
 
 .entry-list.is-rows .entry-title {

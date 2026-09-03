@@ -211,6 +211,84 @@ alerts closed, and a fresh burst of requests logged for next.
   session, tried across a few sessions with different content (long code
   blocks and attachments are the likely cause — an unconstrained `<pre>`
   or a wide table are simpler answers than anything actually filed).
+- **"The 'labels' and other buttons in the graph dock dont work"** —
+  investigated but **not confirmed as a real bug**: driving `#graph-labels`
+  live in Chromium, a programmatic `change` event correctly hides the
+  labels, and a real mouse click at the checkbox's own settled coordinates
+  also correctly toggles it — both the wiring and the CSS check out.
+  What did reproduce: the very first click attempt, right after opening
+  `#graph-options` (400ms wait), landed on a checkbox/label whose measured
+  `getBoundingClientRect()` came back all-zero or intercepted — something
+  in the graph tab's own async settling (model status, a simulation tick)
+  shifts the toolbar briefly after the panel opens. A real click always
+  happens well after a human has visually registered the panel opening, so
+  this doesn't obviously explain a persistent complaint — but it's exactly
+  the shape of thing worth re-checking with a fresh, specific repro rather
+  than assumed fixed. Not touched further this round.
+
+9. **CodeQL `py/path-injection`, closed on the three new PDF-page path
+   lookups (4 "error"-severity alerts on the PR).** The new `/media/pdf-*`
+   and `/files/{id}/pdf-*` endpoints build a filesystem path from a
+   DB-stored filename, but CodeQL tracks taint through the query filter
+   that selected the row regardless of the round trip. This project
+   already has the proven fix for the exact shape — `_within_exports`'s own
+   long comment documents that only a single-condition, bare-argument
+   `os.path.realpath()` + `.startswith()` guard is recognised as
+   `Path::SafeAccessCheck`; `Path.resolve()`/`relative_to()` and a
+   compound-condition form were both tried and rejected by the query
+   before. Added `_within_dir`, the same five-line shape applied to
+   `media`/`uploads_dir` instead of `exports`, at all three new call sites.
+   Pre-existing routes with the identical pattern (`download_file`,
+   `attached_file_text`) are untouched — not flagged as new alerts, outside
+   this PR's diff.
+10. **The graph's redundant fullscreen-exit button, and the legend's
+    collapse toggle, both asked for directly.** `#graph-fullscreen-close`
+    (a labelled toolbar button, visible only in fullscreen) called the
+    exact same `toggleGraphFullscreen()` as `#graph-fullscreen` (the small
+    icon toggle in the floating zoom cluster) and existed only because that
+    icon button gave no sign it also exits — *"move the close full screen
+    button in the graph to be next to the new graph button or smth so it
+    isnt making an extra row."* Removed the redundant button entirely
+    rather than relocate it; the zoom-cluster button now swaps its own
+    icon (`ph-frame-corners` ↔ `ph-arrows-in`) and title between the two
+    states. Separately, the legend (asked to be collapsible twice now) got
+    a real toggle: `#graph-legend-toggle`, a static sibling in
+    `.graph-legend-row` rather than a child of `#graph-legend` itself
+    (which is rebuilt wholesale — `replaceChildren()` — on every
+    colour-mode change and would silently delete a toggle living inside
+    it), persisted via `localStorage`. Both live-verified in Chromium:
+    icon/title/`aria-pressed` swap correctly across enter/exit, and the
+    legend collapses, persists across the toggle, and un-collapses.
+11. **A one-click "Unpin all" for the graph, asked for directly:** *"I want
+    to be able to unroot and reset the graph to free float if I want with
+    a button."* New `POST /graph/unpin-all` clears `graph_pin_x`/
+    `graph_pin_y` on every pinned, non-deleted note in one call — the
+    existing `PUT /graph/pin/{id}` only ever handled one note, fine for the
+    drag-to-place gesture it serves but not for "start over" without
+    tracking down every pinned node individually. Button lives in the
+    Options panel beside Gravity/Spread (a "tune once" reset, not a
+    toolbar-strip control), and reuses `renderGraph()` — the same refetch
+    `#graph-refresh` already does — to actually clear `fx`/`fy`, so a
+    freshly unpinned layout settles through the ordinary simulation rather
+    than a special-cased one. Two new backend tests (multiple pinned notes
+    released together; a no-op when nothing is pinned).
+12. **Collapsed-row metadata could hide a note's own text entirely.**
+    Reported with a screenshot: a note with several tags, a category, an
+    AI-confidence chip, a time-phrase chip and a date filled an entire
+    collapsed row with metadata, with no body text visible at all. Real
+    cause, found by reading the grid rather than guessing:
+    `grid-template-columns: auto minmax(0, 1fr) auto` gives the metadata
+    column `auto` (unbounded) width while content gets `minmax(0, 1fr)` —
+    and CSS Grid's own rule is that a `1fr` track shrinks toward zero
+    *before* an `auto` one gives back any space, so enough chips could
+    squeeze content to nothing. Fixed the same way `#graph-legend` already
+    solves the identical "many chips, one row" shape: capped
+    `.entry-meta`'s own `max-width` (which brings the `auto` track's size
+    down with it) and let it scroll horizontally instead of stealing the
+    row. Live-verified: a 7-tag note's content column went from effectively
+    0px to a visible 155px with real text on screen, and the metadata lane
+    itself now scrolls (`scrollWidth` 801px inside a 360px capped box)
+    rather than expanding.
 
 **New requests logged this round, not yet built:**
 
@@ -385,13 +463,25 @@ notes already stage, these two surfaces still upload immediately; rebuild
 the document/file editor (now scoped by items 1–2 above, not the old
 AI-only assumption); reimagine the whiteboard's control panels; cross-link
 everything (notes, documents, files, maps) from anywhere; list and manage
-concept maps in the Library (folded into item 3 above). Also still open
-from earlier rounds and not superseded by anything above: the graph legend
-collapsible behind the top dock (asked twice), togglable cluster-drag
-grouping and shift/button multi-select in the graph (old behaviour kept as
-opt-in, not default), the Settings tool-toggle card redesign, and the
-Instagram-style-optimistic-UI + transparent-logging framing for
-background AI work that R5/R7.4 scoped but didn't fully write up.
+concept maps in the Library (folded into item 3 above). ~~The graph legend
+collapsible behind the top dock (asked twice)~~ **built this round — item
+10 above.** Also still open from earlier rounds and not superseded by
+anything above: togglable cluster-drag grouping and shift/button
+multi-select in the graph (old behaviour kept as opt-in, not default), the
+Settings tool-toggle card redesign, and the Instagram-style-optimistic-UI +
+transparent-logging framing for background AI work that R5/R7.4 scoped but
+didn't fully write up.
+
+**Concept maps, asked about again — deferred by direct instruction, not
+dropped:** *"idk how to make a concept map or custom graph with idea and
+concept nodes that I can link notes to like categories or smth... idk save
+it for later."* This is the same feature §R8's audit item (item 2 above)
+already flagged as needing a live check against what actually shipped
+(`createConceptMap()` in whiteboard.js) — the user's own uncertainty here
+("idk how") is itself evidence for that audit: if it existed and were
+discoverable, this question likely wouldn't have come up unprompted a
+second time. Do the audit in item 2 first; this question is what it should
+answer.
 
 ## Prior round — two real nav-history bugs found by measurement, AI-first note filing, and text highlighting
 

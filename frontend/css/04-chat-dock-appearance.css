@@ -321,6 +321,33 @@
   flex: 0 0 auto;
 }
 
+/* The legend plus its own collapse toggle (index.html) — asked for twice:
+   "the categories toggle line needs to be collapsible or redesigned," the
+   fixed-row-cost complaint above, taken one step further: collapsible
+   reclaims the row entirely for whoever doesn't need it open. This wrapper
+   is a *horizontal* flex row (the vertical stack above it flows the toggle
+   and the legend as two rows otherwise), so #graph-legend's own `flex: 0 0
+   auto` — correct for holding its single-row *height* fixed in the
+   original vertical flow — would take the legend's full natural *width*
+   here instead of filling what's left beside the button; overridden back
+   to filling the row, with `min-width: 0` so its own `overflow-x: auto`
+   still has a constrained box to scroll within rather than growing past
+   it. */
+.graph-legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.graph-legend-row #graph-legend {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+.graph-legend-row.legend-collapsed #graph-legend {
+  display: none;
+}
+
 @media (max-width: 720px) {
   #graph-card {
     margin: 0 0 var(--space-5);

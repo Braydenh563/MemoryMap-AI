@@ -23401,6 +23401,27 @@ $("graph-refresh").addEventListener("click", () => {
   renderGraph();
 });
 $("graph-export-png")?.addEventListener("click", exportGraphPng);
+// Direct instruction: "I want to be able to unroot and reset the graph to
+// free float if I want with a button." One request releases every pinned
+// node at once (routes_graph.py's unpin_all_nodes) rather than tracking
+// each one down to double-click it individually; renderGraph() afterwards
+// re-fetches from /graph, which is what actually clears fx/fy — the same
+// path #graph-refresh already uses, so a freshly unpinned layout settles
+// through the ordinary simulation rather than a special-cased one.
+$("graph-unpin-all")?.addEventListener("click", async () => {
+  try {
+    const result = await apiJson("/graph/unpin-all", { method: "POST" });
+    graphHighlightIds = null;
+    await renderGraph();
+    toast(
+      result.unpinned
+        ? `${result.unpinned} note${result.unpinned === 1 ? "" : "s"} released — the layout can move freely again.`
+        : "Nothing was pinned."
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't unpin the graph.", true);
+  }
+});
 $("graph-similarity").addEventListener("change", renderGraph);
 $("graph-entities")?.addEventListener("change", renderGraph);
 $("graph-documents")?.addEventListener("change", renderGraph);
@@ -23468,6 +23489,29 @@ $("graph-highlight-clear").addEventListener("click", () => {
   toast("Highlight cleared.");
 });
 $("graph-trace-clear").addEventListener("click", () => clearTrace());
+// The legend's own collapse — asked for twice: "the categories toggle line
+// needs to be collapsible or redesigned." A fixed row taken from the
+// canvas whether or not anyone reads it; collapsing it reclaims that row
+// entirely. Persisted like the graph's other view preferences
+// (graph-colour, right above) rather than reset every visit.
+(() => {
+  const row = document.querySelector(".graph-legend-row");
+  const toggle = $("graph-legend-toggle");
+  if (!row || !toggle) return;
+  const apply = (collapsed) => {
+    row.classList.toggle("legend-collapsed", collapsed);
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+    toggle.title = collapsed ? "Show the legend" : "Hide the legend";
+    toggle.setAttribute("aria-label", toggle.title);
+    setLabel(toggle, collapsed ? "ph:caret-down" : "ph:caret-up");
+  };
+  apply(localStorage.getItem("graphLegendCollapsed") === "1");
+  toggle.addEventListener("click", () => {
+    const collapsed = !row.classList.contains("legend-collapsed");
+    apply(collapsed);
+    localStorage.setItem("graphLegendCollapsed", collapsed ? "1" : "0");
+  });
+})();
 // What the colours mean, remembered like the layout is — it is a property of
 // how you read your notebook, not of one visit.
 $("graph-colour").addEventListener("change", (event) => {
@@ -23541,6 +23585,22 @@ function toggleGraphFullscreen() {
   const card = $("graph-card");
   if (card) {
     const isFull = card.classList.toggle("graph-fullscreen");
+    // The single zoom-cluster button now does both jobs a separate "Close
+    // Full Screen" toolbar button used to split between them — asked for
+    // directly: "move the close full screen button in the graph to be next
+    // to the new graph button or smth so it isnt making an extra row." That
+    // second button (`#graph-fullscreen-close`, toolbar) called this exact
+    // same function and existed only because this one gave no sign it also
+    // exits — so rather than relocate a redundant second button, this one
+    // now says which of its two jobs it will do next.
+    const fsBtn = $("graph-fullscreen");
+    if (fsBtn) {
+      fsBtn.title = isFull ? "Exit full screen" : "Full screen";
+      fsBtn.setAttribute("aria-label", fsBtn.title);
+      fsBtn.setAttribute("aria-pressed", String(isFull));
+      const icon = fsBtn.querySelector("i");
+      if (icon) icon.className = isFull ? "ph ph-arrows-in" : "ph ph-frame-corners";
+    }
     // Trigger a resize event to ensure D3 SVG rescales properly
     window.dispatchEvent(new Event('resize'));
     if (graphNodesRef && graphNodesRef.length) {
@@ -23566,7 +23626,6 @@ function toggleGraphFullscreen() {
 }
 
 $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
-$("graph-fullscreen-close")?.addEventListener("click", toggleGraphFullscreen);
 
 // Wave M: batch operations + skill/persona sharing.
 $("select-btn").addEventListener("click", () =>

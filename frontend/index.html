@@ -1597,7 +1597,16 @@ Link to another note with [[its first few words]]."></textarea>
                shape as Exit Focus above: hidden until that state is active. -->
           <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear Highlight</button>
           </div>
-          <button id="graph-fullscreen-close" class="ghost small graph-fullscreen-close"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Close Full Screen</button>
+          <!-- No separate "Close Full Screen" button here any more — direct
+               instruction: "move the close full screen button in the graph
+               to be next to the new graph button or smth so it isnt making
+               an extra row." It called the exact same toggleGraphFullscreen()
+               as #graph-fullscreen (the zoom-cluster icon button, floating
+               over the canvas so it's already reachable in full screen too)
+               and existed only because that button gave no sign it also
+               exits. Rather than relocate a second, redundant button, that
+               one now swaps its own icon/title between the two states
+               (app.js's toggleGraphFullscreen). -->
         </div>
 
         <!-- Grouped rather than "+ New note" living beside the "Graph" title
@@ -1655,6 +1664,16 @@ Link to another note with [[its first few words]]."></textarea>
           <label for="graph-spread" class="muted">Spread</label>
           <input id="graph-spread" type="range" min="0" max="100" value="50"
             title="How far apart linked notes sit">
+          <!-- Direct instruction: "I want to be able to unroot and reset
+               the graph to free float if I want with a button." Lives
+               beside Gravity/Spread rather than the main toolbar (Refresh,
+               Export) on purpose — an occasional reset, not a control
+               reached for while reading the map, the same "tuned once"
+               reasoning this whole panel already exists for. -->
+          <button id="graph-unpin-all" class="ghost small" type="button"
+            title="Release every node you've pinned in place, so the layout can move freely again">
+            <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
+          </button>
         </span>
         <span class="graph-temporal" id="graph-temporal">
           <label for="graph-time-slider" class="muted">Time Filter</label>
@@ -1716,7 +1735,23 @@ Link to another note with [[its first few words]]."></textarea>
       <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
       <p id="graph-stats" class="muted graph-stats" role="status"></p>
       <div id="link-suggestions" class="hidden"></div>
-      <div id="graph-legend" class="recent"></div>
+      <!-- The legend is a fixed-cost row (a single non-wrapping scroller,
+           already fixed once from a three-row growth problem — see
+           04-chat-dock-appearance.css's own comment on #graph-legend) taken
+           out of the canvas every time the graph is open, whether or not
+           anyone is reading it. Asked for twice: "the categories toggle
+           line needs to be collapsible or redesigned." A static sibling
+           button rather than a child of #graph-legend itself, since that
+           div's own contents are rebuilt wholesale on every colour-mode
+           change (graph.js's legend.replaceChildren()) and would silently
+           delete a toggle living inside it. -->
+      <div class="graph-legend-row">
+        <button type="button" id="graph-legend-toggle" class="ghost small icon-only"
+          title="Hide the legend" aria-label="Hide the legend" aria-expanded="true">
+          <i class="ph ph-caret-up" aria-hidden="true"></i>
+        </button>
+        <div id="graph-legend" class="recent"></div>
+      </div>
       <div id="graph-box">
           <!-- Floats over the canvas, bottom-right. Inside #graph-box rather
                than beside it so it moves with the map in fullscreen too. -->
@@ -1777,7 +1812,7 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="graph-zoom-in" class="graph-zoom-btn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="graph-zoom-out" class="graph-zoom-btn" title="Zoom out" aria-label="Zoom out">－</button>
           <button id="graph-zoom-fit" class="graph-zoom-btn" title="Fit the whole map to view" aria-label="Fit map to view">⤢</button>
-          <button id="graph-fullscreen" class="graph-zoom-btn" title="Toggle Full Screen" aria-label="Toggle full screen"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
+          <button id="graph-fullscreen" class="graph-zoom-btn" title="Full screen" aria-label="Full screen" aria-pressed="false"><i class="ph ph-frame-corners" aria-hidden="true"></i></button>
         </div>
         <div id="graph-empty" class="empty-state hidden">
           <span class="empty-icon" aria-hidden="true"><i class="ph ph-share-network ph-lead" aria-hidden="true"></i></span>

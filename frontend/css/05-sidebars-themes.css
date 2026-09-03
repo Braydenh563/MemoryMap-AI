@@ -2573,3 +2573,19 @@ textarea.autogrow {
   font-size: var(--text-sm);
   letter-spacing: 0.06em;
 }
+
+/* A file staged in the composer: chosen, not yet uploaded, because the note
+   it belongs to has no id until Save. Dimmed rather than hidden — it is a
+   real commitment the user has made and should be able to see and undo. */
+.file-card-staged {
+  border-style: dashed;
+}
+
+.file-card-staged .file-card-open {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.file-card-pending {
+  color: var(--accent);
+}

@@ -6232,6 +6232,12 @@ function resetCaptureForm(contentBox, titleBox) {
   renderCaptureDocuments();
   $("entry-template").value = "";
   clearCaptureTagSuggestions();
+  // NOT cleared here: `captureStagedFiles`. `saveEntry` hands the list to
+  // `uploadStagedFiles`, which takes ownership of it and empties it itself.
+  // Clearing here as well would race that and silently drop the attachments
+  // on every save — the composer resets before the uploads finish, by
+  // design. `saveEntryAsDraft` clears it explicitly instead, below.
+  renderCaptureFiles();
 }
 
 // **Tag suggestions while composing, not just after saving.** Reported
@@ -6353,6 +6359,11 @@ async function saveEntry() {
     });
     status.textContent = filedByText(saved);
     if (saved.filing_state === "pending") watchFiling(saved);
+    // The note finally has an id, which is the only thing the staged files
+    // were ever waiting for. Not awaited: the composer is already clear and
+    // the toasts report per file — making Save wait on N uploads would put
+    // back exactly the blocking this session removed from filing.
+    uploadStagedFiles(saved.id);
     if (saved.similar) {
       // Duplicate detection (Wave B) — informational, never blocking.
       toast(
@@ -6413,7 +6424,7 @@ async function saveEntryAsDraft() {
   status.classList.remove("error");
   status.textContent = "Saving as draft…";
   try {
-    await apiJson("/entries", {
+    const saved = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({
         content,
@@ -6424,6 +6435,11 @@ async function saveEntryAsDraft() {
     });
     status.textContent = "Saved as a draft — find it later under Drafts in the sidebar.";
     resetCaptureForm(contentBox, titleBox);
+    // A draft is still a note with an id, so staged files attach to it the
+    // same way. Doing this here rather than in `resetCaptureForm` is what
+    // keeps that function from having to know which of its two callers has
+    // already taken the list — see its own comment.
+    uploadStagedFiles(saved.id);
     await loadEntries();
   } catch (error) {
     status.textContent = error.message;
@@ -25192,7 +25208,37 @@ function renderCaptureFiles() {
   const pattern = /(?<!!)\[([^\]]{0,200})\]\((\/media\/[^)\s]{1,500})\)/g;
   const matches = [...textarea.value.matchAll(pattern)];
   strip.replaceChildren();
-  strip.classList.toggle("hidden", matches.length === 0);
+  strip.classList.toggle("hidden", matches.length === 0 && captureStagedFiles.length === 0);
+
+  // Files not yet uploaded, because this note has no id to attach them to.
+  // Rendered from the staging list rather than from the note text — they are
+  // deliberately *not* in the text (see `captureStagedFiles`), so there is no
+  // markdown to read them out of, and removing one is dropping it from the
+  // list rather than deleting anything on disk.
+  for (const file of captureStagedFiles) {
+    const card = fileCard(file.name, `/media/${file.name}`);
+    card.classList.add("file-card-staged");
+    const pending = document.createElement("span");
+    pending.className = "file-card-kind file-card-pending";
+    pending.textContent = "attaches on save";
+    card.querySelector(".file-card-text")?.appendChild(pending);
+    // A staged file has no url yet, so there is nothing to open or download.
+    card.querySelector(".file-card-open")?.setAttribute("disabled", "true");
+    card.querySelector(".file-card-save")?.remove();
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "ghost small icon-only file-card-remove";
+    setLabel(drop, "ph:x");
+    drop.title = `Don't attach “${file.name}”`;
+    drop.setAttribute("aria-label", drop.title);
+    drop.addEventListener("click", () => {
+      captureStagedFiles = captureStagedFiles.filter((f) => f !== file);
+      renderCaptureFiles();
+    });
+    card.appendChild(drop);
+    strip.appendChild(card);
+  }
+
   for (const match of matches) {
     const [full, name, url] = match;
     const card = fileCard(name, url);
@@ -25496,10 +25542,78 @@ document.addEventListener("paste", async (e) => {
   await handleFileUpload(e.target, files);
 });
 
+//: Files waiting to become attachments on a note that does not exist yet.
+//:
+//: **Why staging rather than uploading immediately.** `/media/upload` — the
+//: only endpoint the composer could reach — accepts nine image types and
+//: `.pdf`, and that allowlist is not paranoia to widen: `/media/{name}`
+//: serves inline from the app's own origin, so an `.html` or `.svg` landing
+//: there is stored XSS, and the AI can write to that folder too. So a
+//: `.docx`, a `.txt` or a code file dropped into the composer got a 415 and
+//: a red toast, while **the same file attached fine to an already-saved
+//: note** through `POST /entries/{id}/files`, whose allowlist covers about
+//: sixty types precisely because attachments are served as downloads.
+//:
+//: The difference was never the file. It was that the composer has no note
+//: id yet. So the file waits here until Save produces one, and then takes
+//: the attachment path it should have taken all along — which also gets it
+//: a real row, a card with a delete button, and a place in the Library.
+//:
+//: Images are deliberately *not* staged: an image in the middle of a
+//: paragraph is content, and it needs to be inline markdown at the point in
+//: the text where it was dropped, not an attachment at the bottom.
+let captureStagedFiles = [];
+
+async function uploadStagedFiles(entryId) {
+  if (!captureStagedFiles.length) return;
+  const staged = captureStagedFiles;
+  captureStagedFiles = [];
+  renderCaptureFiles();
+  let failures = 0;
+  for (const file of staged) {
+    const form = new FormData();
+    form.append("file", file);
+    // Raw fetch: multipart must NOT get the JSON content-type header.
+    const response = await fetch(`/entries/${entryId}/files`, {
+      method: "POST",
+      headers: { "X-Auth-Token": authToken() },
+      body: form,
+    });
+    if (!response.ok) {
+      failures++;
+      const detail = await response.json().catch(() => ({}));
+      toast(detail.detail || `${file.name}: couldn't attach (${response.status})`, true);
+    }
+  }
+  // Only mentioned when it worked; a failure already said so, per file, and
+  // "attached 2 files" under two error toasts would be the app arguing with
+  // itself.
+  if (failures < staged.length) await loadEntries();
+}
+
 async function handleFileUpload(textarea, files) {
+  // The capture composer is the one place that can stage: it is the only
+  // textarea whose content becomes a note with an id a moment later. A
+  // document's own editor writes into a document, which has no attachment
+  // table, so it keeps the inline-markdown path for everything.
+  const canStage = textarea.id === "entry-content";
+  const images = canStage ? files.filter((f) => f.type.startsWith("image/")) : files;
+  const others = canStage ? files.filter((f) => !f.type.startsWith("image/")) : [];
+  if (others.length) {
+    captureStagedFiles.push(...others);
+    renderCaptureFiles();
+    toast(
+      others.length === 1
+        ? `“${others[0].name}” will be attached when you save.`
+        : `${others.length} files will be attached when you save.`
+    );
+  }
+  if (!images.length) return;
+  files = images;
+
   const cursorPosition = textarea.selectionStart;
   let textToInsert = "";
-  
+
   for (const file of files) {
     textToInsert += `![Uploading ${file.name}…]()\n`;
   }

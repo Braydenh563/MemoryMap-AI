@@ -1635,6 +1635,22 @@
      density setting, for the reason `--control-h` gives in the chat dock. */
   width: 2rem;
   height: 1.15rem;
+  /* **Restated as a floor as well as a height, and that is load-bearing.**
+     A global `input[type="checkbox"] { min-height: var(--target-min) }` was
+     added to lift the 13x13 native checkboxes elsewhere in the app to WCAG
+     2.2 AA's 24px — and `min-height` beats `height`, so it silently inflated
+     every switch here from 32x18 into a 32x28 slab with its knob adrift.
+     Reported with a screenshot within the hour: "should the toggle switches
+     be looking like that??"
+
+     Declaring the floor here, in the rule that already owns these selectors,
+     is what keeps the two from fighting — and it cannot drift, because
+     anything added to the selector list above gets both values at once. The
+     24px target is not lost: `.checkbox-label`/`.setting-check` wrap these
+     and carry `min-height: 1.5rem`, so the *label* is the hit area, which is
+     what a person aims at anyway. */
+  min-width: 2rem;
+  min-height: 1.15rem;
   flex: 0 0 auto;
   margin: 0;
   padding: 0;

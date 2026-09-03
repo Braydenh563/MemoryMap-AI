@@ -1075,6 +1075,9 @@ function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
   if (entry.id === linkSource) li.classList.add("link-source");
+  // An opened-out row renders as the full card — see `expandedRows`. The
+  // class does nothing in card view, where every note is already this shape.
+  if (expandedRows.has(entry.id)) li.classList.add("row-expanded");
 
   if (editingId === entry.id && options.actions) {
     renderEditForm(li, entry);
@@ -1160,10 +1163,55 @@ function entryItem(entry, options = {}) {
       toggle.textContent = label();
     });
     li.appendChild(toggle);
+    // **Then check whether it was actually needed.** Reported: "a show
+    // more/less button appears when it isnt needed sometimes", and
+    // "notes shouldnt be truncated".
+    //
+    // `isLong` above is a character and line count, not a measurement, and
+    // the comment there explains why: this list renders inside a
+    // `display: none` sub-tab where every measured height comes back 0 —
+    // the trap that has caught four features in this codebase. But a count
+    // is a guess, and it is wrong in both directions: a note of 700 short
+    // words wrapped narrow really is long, while 700 characters of one
+    // paragraph in a wide card is three lines that fit with room to spare,
+    // and gets a "Show more" that expands nothing.
+    //
+    // So: guess first so the markup is right when it cannot be measured,
+    // then measure on the next frame and take the control back off when the
+    // text was never clipped. `requestAnimationFrame` is after layout, and
+    // `clientHeight` of 0 (still hidden) fails the comparison and changes
+    // nothing — which is exactly the conservative behaviour that trap
+    // wants.
+    requestAnimationFrame(() => {
+      if (!content.isConnected || expandedNotes.has(entry.id)) return;
+      if (content.clientHeight > 0 && content.scrollHeight <= content.clientHeight + 2) {
+        content.classList.remove("entry-clamped");
+        toggle.remove();
+      }
+    });
   }
 
   const meta = document.createElement("div");
   meta.className = "entry-meta";
+  // The row's own open/close control. Rendered always but only *shown* in
+  // rows view (CSS), rather than branched on `notesViewMode` here — the view
+  // can change without a re-render, and a control that exists only in the
+  // mode it was rendered in would go missing on the toggle.
+  {
+    const open = expandedRows.has(entry.id);
+    const expand = document.createElement("button");
+    expand.type = "button";
+    expand.className = "ghost small icon-only row-expand";
+    setLabel(expand, open ? "ph:caret-up" : "ph:caret-down");
+    expand.title = open ? "Show less of this note" : "Show the whole note here";
+    expand.setAttribute("aria-label", expand.title);
+    expand.setAttribute("aria-expanded", String(open));
+    expand.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleRowExpanded(entry.id);
+    });
+    meta.appendChild(expand);
+  }
   // A note saved with filing deferred is in its holding category, not its
   // real one, and saying "Uncategorised" for the second or two before the
   // background pass lands reads as the AI having failed. Say what is
@@ -5549,17 +5597,24 @@ function resolveNotePage(id) {
   return Math.floor(index / Number(notesPageSize)) + 1;
 }
 
-//: Rows or cards. Rows is the default and the reason is measured, not a
-//: preference: a two-line note was a 111px card plus a 10px gap, so a
-//: 900px window showed five notes — reported as "half the screen is taken
-//: up by poor ui choices or structuring." Cards stay for a note carrying an
-//: image or a file, which genuinely needs the room.
+//: Rows or cards.
 //:
-//: Stored in localStorage rather than as a server preference: it is a
-//: property of this screen on this machine, in the same family as the
-//: expanded/collapsed sets above, and a round trip to change how a list
-//: looks would be the wrong trade.
-let notesViewMode = localStorage.getItem("notesViewMode") === "cards" ? "cards" : "rows";
+//: **Cards is the default, by direct instruction** — "maybe make the cards
+//: notes view default" — after rows shipped as the default first. Rows
+//: exist because a two-line note was a 111px card plus a 10px gap, so a
+//: 900px window showed five notes; they fit twelve. But density is not the
+//: only thing a list of notes is for, and a card shows the note rather than
+//: a clipped line of it. Both are one click apart, and a row expands in
+//: place (see `row-expanded` below), so the compact view is no longer a
+//: view that *withholds* things.
+//:
+//: **The choice is remembered**, also asked for directly. localStorage
+//: rather than a server preference: it is a property of this screen on this
+//: machine, the same family as the expanded/collapsed sets above, and a
+//: round trip to change how a list looks would be the wrong trade. Read as
+//: "rows only if rows was explicitly chosen", so a profile that has never
+//: touched the toggle gets cards.
+let notesViewMode = localStorage.getItem("notesViewMode") === "rows" ? "rows" : "cards";
 
 function applyNotesViewMode() {
   const list = $("entry-list");
@@ -5574,6 +5629,28 @@ function setNotesViewMode(mode) {
   notesViewMode = mode === "cards" ? "cards" : "rows";
   localStorage.setItem("notesViewMode", notesViewMode);
   applyNotesViewMode();
+}
+
+//: Which rows the reader has opened out. Asked for directly: "I think the
+//: compact cards need to be expandable to show all the note details and
+//: features."
+//:
+//: A row is a summary — it clips the body to one line and hides images, file
+//: cards and link chips, which is what makes twelve of them fit. That is the
+//: right default and the wrong dead end: wanting to *see* one of them should
+//: not mean switching the whole list to cards and losing your place. An
+//: expanded row drops back to the full card layout in place, so one note can
+//: be open inside an otherwise compact list.
+//:
+//: Not persisted, deliberately. It is a reading position, not a preference —
+//: coming back to a list with six notes arbitrarily open would be worse than
+//: coming back to a tidy one.
+const expandedRows = new Set();
+
+function toggleRowExpanded(id) {
+  if (expandedRows.has(id)) expandedRows.delete(id);
+  else expandedRows.add(id);
+  renderEntries();
 }
 
 $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));

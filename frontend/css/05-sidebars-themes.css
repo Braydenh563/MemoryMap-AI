@@ -2608,4 +2608,29 @@ textarea.autogrow {
   justify-content: center;
   min-width: var(--target-min);
   min-height: var(--target-min);
+  /* **Zero the inherited line box.** Reported with a screenshot right after
+     the target floor landed: "the linked notes buttons arent aligned". The
+     chip is an `inline-flex` row with `align-items: center`, which centres
+     its children's *boxes* — but each of these had inherited the chip's own
+     0.75rem line-height on top of a 28px box, so the glyph sat low inside a
+     box that was itself correctly centred. Two different vertical
+     alignments, one visible offset.
+
+     `line-height: 1` makes the glyph fill its own box, and the flex
+     centring above then puts it where it belongs. The 28px target is
+     untouched — the box stays the size a finger needs, the ink just sits in
+     the middle of it. */
+  line-height: 1;
+  /* The floor grows the row it sits in unless the chip is told it may stay
+     shorter than its tallest child's *minimum*. Without this the whole link
+     chip inflated to 28px tall, which is a third taller than every other
+     chip in the same strip. */
+  align-self: center;
+}
+
+/* A chip carrying action buttons is a row of boxes, not a line of text, so
+   its own line-height must not decide anyone's height. */
+.chip.link {
+  line-height: 1;
+  padding-block: 0;
 }

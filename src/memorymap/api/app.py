@@ -310,6 +310,10 @@ def create_app() -> FastAPI:
     app.include_router(routes_ask_history.router, dependencies=locked)
     app.include_router(routes_models.router, dependencies=locked)
     app.include_router(routes_settings.router, dependencies=locked)
+    # The browser's own crash reports, which have to reach the log *before*
+    # unlock — that is when the failure they describe happens. One route, and
+    # `routes_settings.open_router`'s own comment says why it is separate.
+    app.include_router(routes_settings.open_router)
     app.include_router(routes_update.router, dependencies=locked)
     app.include_router(routes_websearch.router, dependencies=locked)
     app.include_router(routes_backups.router, dependencies=locked)

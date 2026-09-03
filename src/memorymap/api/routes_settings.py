@@ -8,6 +8,7 @@ import asyncio
 import csv
 import io
 import json
+import logging
 import os
 import platform
 import re
@@ -34,6 +35,11 @@ from memorymap.entry import importer, manager
 from memorymap.search import searxng_manager, websearch
 
 router = APIRouter(tags=["settings"])
+
+#: Routes in this module that must work **before** the notebook is unlocked.
+#: Included in `app.py` without the `locked` dependency, deliberately and
+#: only for the client-error sink below — see its docstring.
+open_router = APIRouter(tags=["settings"])
 
 # Preferences the user may change from the UI — a deliberate allowlist
 # so a stray request can't scribble on model settings (those have their
@@ -1036,6 +1042,71 @@ def remove_embedding_model(model_id: str) -> dict:
 def server_logs(limit: int = Query(default=200, ge=1, le=logbuffer.MAX_RECORDS)) -> list[dict]:
     """Recent server-side log records for the Settings → Logs viewer."""
     return logbuffer.recent(limit=limit)
+
+
+class ClientError(BaseModel):
+    """One thing that went wrong in the browser, on its way to the terminal."""
+
+    message: str = Field(max_length=2000)
+    #: Where it happened, when the browser knows: "app.js:6088:12". Free text
+    #: because a stack frame's shape differs per engine and none of it is
+    #: parsed — it is read by a person.
+    source: str = Field(default="", max_length=500)
+    #: "error" | "unhandledrejection" | "csp" — what kind of failure this was,
+    #: since the three need different first questions asked about them.
+    kind: str = Field(default="error", max_length=40)
+
+
+@open_router.post("/logs/client", status_code=204)
+def record_client_error(body: ClientError, response: Response) -> None:
+    """Put a browser-side failure into the same log everything else uses.
+
+    Asked for directly: *"can you make any other erros like what aoppeared on
+    the loading screen appear in the logs as well?? the terminal and logs need
+    to capture everything."*
+
+    The gap was real and had just cost a session. A JavaScript error aborts
+    the rest of the file it is in, so the app can hang on its loading screen
+    with **nothing** in the terminal, nothing in Settings → Logs, and the only
+    record sitting in a browser console nobody opens — least of all in the
+    desktop shell, which has no obvious way to open one. The crash that
+    prompted this (`Cannot access 'captureStagedFiles' before initialization`)
+    was invisible to every log this app keeps.
+
+    Deliberately `logger.error`, not a new channel: `logbuffer`'s handler is
+    already attached to the root logger, so this reaches the terminal, the
+    Settings → Logs viewer and `/logs/stream` at once, with no new plumbing to
+    keep in step. The `[browser]` prefix is what tells a reader the failure
+    happened on the other side of the wire, which changes what they should
+    look at next.
+
+    **On `open_router`, outside the unlock gate, on purpose.** This has to
+    work *before* unlock: the loading-screen hang it exists for happens with
+    the lock overlay still up, and a crash report that needs a token cannot
+    describe the failure that stopped the token from ever being used. Every
+    other route in this module stays behind `locked`.
+
+    What it accepts is bounded instead of authenticated: three short strings,
+    length-capped by the schema, appended to a ring buffer that already caps
+    itself at `MAX_RECORDS`, reachable only from an origin the CSP pins to
+    `'self'` on a server that binds to localhost. The worst an abuser of it
+    can do is push older lines out of a 500-record buffer on their own
+    machine.
+    """
+    # **Through `safe_value`, not raw.** Everything in this payload is
+    # attacker-shaped by construction — it is text the browser was handed by
+    # whatever failed, and a message containing a newline would draw a forged
+    # second row in the Settings → Logs viewer while control characters can
+    # rewrite what a terminal shows. `logbuffer.sanitise` runs at the ring
+    # buffer and so protects the viewer only; the terminal sees the raw
+    # record, which is exactly why this module's own helper exists and says
+    # to clean at the call site.
+    logger = logging.getLogger("memorymap.browser")
+    kind = logbuffer.safe_value(body.kind, limit=40)
+    message = logbuffer.safe_value(body.message, limit=logbuffer.MAX_MESSAGE_CHARS)
+    where = f" ({logbuffer.safe_value(body.source, limit=200)})" if body.source else ""
+    logger.error("[browser/%s] %s%s", kind, message, where)
+    response.status_code = 204
 
 
 @router.get("/logs/stats")

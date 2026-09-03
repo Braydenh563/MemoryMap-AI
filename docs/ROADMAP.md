@@ -12,13 +12,39 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
-**A full UX/architecture re-imagining was asked for and is written up in
-[roadmap/REDESIGN.md](roadmap/REDESIGN.md)** — measured evidence for every
-complaint (notes visible per viewport, pixels of chrome before the first
-item, the file dead end, the 971ms save), the three underlying causes, the
-target shell, and a sequenced plan. **Read it before doing any layout,
-file-handling or graph work.** Items 1–3 of its §R6 are done and verified
-live; item 4 onward is open.
+## ► START HERE: the redesign is the priority
+
+A full UX/architecture re-imagining was asked for and is written up in
+**[roadmap/REDESIGN.md](roadmap/REDESIGN.md)** — measured evidence for every
+complaint, the three underlying causes, the target shape, a complete ledger
+of all forty requests with their state (§R8), and the numbers as they stand
+(§R9). **Read it before doing any UI, file-handling, graph or backend work.**
+
+**The next session's order of work, highest value first.** Each links to the
+section that holds the quoted request and the detail:
+
+| | Work | Why it is first |
+| --- | --- | --- |
+| 1 | **A lock audit** ([§R8.2](roadmap/REDESIGN.md)) | Shortcuts ran behind the lock screen and were found by a user pressing keys, not by a test. What else is reachable while locked has not been checked. It is the only privacy boundary this app has. |
+| 2 | **The document/file editor** ([§R7.1](roadmap/REDESIGN.md)) | The largest single gap, and the most-repeated complaint. Selection → chat context first: highest "feels capable" per unit of work. |
+| 3 | **Stage every file** ([§R7.2](roadmap/REDESIGN.md)) | Note files stage; images and chat attachments still upload immediately, so an abandoned draft leaves orphans. |
+| 4 | **The pane-based shell** ([§R7.5](roadmap/REDESIGN.md), [§R8.3](roadmap/REDESIGN.md)) | Every remaining UI complaint is downstream of seven screens that each own the whole window. Its acceptance criterion is the distinct-left-edge count in [DESIGN.md](DESIGN.md) — re-baseline it on a fixed fixture first, per §R9. |
+| 5 | **Cross-linking + a Connections block** ([§R7.3](roadmap/REDESIGN.md)) | Link direction landed; grouping, the block, and one universal `@` picker did not. |
+| 6 | **The agent-harness audit** ([§R5](roadmap/REDESIGN.md), [§R7.4](roadmap/REDESIGN.md)) | Five named changes, **none yet checked against the running code**. Do that before building. |
+| 7 | **Settings, and the whiteboard's panel layout** ([§R7.5](roadmap/REDESIGN.md)) | Settings has never been measured. Panel control sizes are unified; the layout rethink is not. |
+| 8 | **Managing concept maps** ([§R7.6](roadmap/REDESIGN.md)) | Creating works; a maps listing with rename/duplicate does not. |
+| 9 | **The backend list** ([§R7.7](roadmap/REDESIGN.md)) | Not urgent. Includes the answer to "should it be async" — measured, and it is **no**; the reasoning is there so nobody redoes it. |
+
+**Two standing rules from that work**, both learned the expensive way this
+session:
+
+- **Measure, change, re-measure.** Every claim in REDESIGN.md has a number
+  behind it. A change that does not move one of §R1's numbers is decoration.
+- **A load-time path behind a condition needs a test that meets the
+  condition.** A crash that hung the app on its loading screen passed
+  `node --check`, passed every cold-boot test, and needed exactly one thing
+  to reproduce: an unsaved draft in the capture box. See
+  `tests/test_frontend_load_order.py`.
 
 ## What is open right now — start here
 

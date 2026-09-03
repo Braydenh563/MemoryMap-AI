@@ -367,11 +367,21 @@ input[type="radio"] {
   min-height: var(--target-min);
 }
 
-/* The exception, and it is a real one: a checkbox whose *visible* control is
-   drawn by a sibling (the switch pattern) is clipped to nothing on purpose,
-   and forcing a size on it would put a 28px invisible box back into a row
-   that has already been laid out around the switch. The switch itself is
-   the target there, and it is larger than the floor. */
+/* **The exceptions, and getting this list wrong broke every toggle in the
+   app once already.** Two different patterns opt out:
+
+   1. A checkbox whose *visible* control is drawn by a sibling is clipped to
+      nothing on purpose; forcing a size on it puts a 28px invisible box back
+      into a row already laid out around the switch.
+   2. A checkbox that **is** the switch — `appearance: none` plus an explicit
+      32x18 — which this floor silently inflated into a slab, reported as
+      "should the toggle switches be looking like that??". Those restate the
+      floor at their own size in `06-timeline-dialogs.css`, beside the rule
+      that sets it, so the two cannot drift apart. That is the fix; this
+      comment exists so the next person does not try to solve it here.
+
+   Neither loses the target: the label around a switch carries
+   `min-height: 1.5rem`, and the label is what a person aims at. */
 .switch input[type="checkbox"],
 .checkbox-label input[type="checkbox"].sr-only {
   min-width: 0;
@@ -902,10 +912,46 @@ progress {
    have nothing to do here: an image, a file card and a "Show more" all
    assume the full card. Hidden rather than shrunk — a 3px-tall thumbnail is
    worse than none, and the card view is one click away. */
-.entry-list.is-rows .entry-content img,
-.entry-list.is-rows .file-card,
-.entry-list.is-rows .entry-links,
-.entry-list.is-rows .entry-more {
+.entry-list.is-rows li:not(.row-expanded) .entry-content img,
+.entry-list.is-rows li:not(.row-expanded) .file-card,
+.entry-list.is-rows li:not(.row-expanded) .entry-links,
+.entry-list.is-rows li:not(.row-expanded) .entry-more {
+  display: none;
+}
+
+/* **One row opened out, inside an otherwise compact list.** Asked for: "the
+   compact cards need to be expandable to show all the note details and
+   features." Everything the row hides to stay one line — the clipped body,
+   images, file cards, link chips, Show more — comes back, by *undoing* the
+   row rules rather than by restating the card ones, so the expanded state
+   cannot drift away from what a card actually looks like. */
+.entry-list.is-rows li.row-expanded:not(:has(textarea)) {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+}
+
+.entry-list.is-rows li.row-expanded .entry-title {
+  margin: 0 0 var(--space-2);
+  white-space: normal;
+  max-width: none;
+}
+
+.entry-list.is-rows li.row-expanded .entry-content {
+  display: block;
+  overflow: visible;
+  margin: 0 0 var(--space-2);
+  max-width: 72ch;
+  color: var(--ink);
+}
+
+.entry-list.is-rows li.row-expanded .entry-meta {
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+/* The open/close control belongs to the compact view; in card view the note
+   is already whole and a caret would promise something it cannot do. */
+.entry-list:not(.is-rows) .row-expand {
   display: none;
 }
 

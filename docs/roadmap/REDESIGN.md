@@ -713,6 +713,83 @@ if an item is still open, its own §R7 entry quotes the original words.
 | 38 | "I can use keyboard shortcuts to access features even when locked out" | **Done** — a lock gate, §R8.2 |
 | 39 | "if the backend is closed the ui should fail to load" | **Done** — the service worker no longer caches the shell |
 | 40 | Commit and push in batches so nothing is lost | **Done** — pushed throughout |
+| 41 | "the app is stuck on th eloading screen" — the real cause | **Done** — a TDZ crash of mine; §R8.4 |
+| 42 | Ctrl+Shift+R is a hotkey, so that advice was unusable | **Done** — every message says restart the app instead |
+| 43 | "the terminal and logs need to capture everything" | **Done** — `POST /logs/client`, outside the unlock gate |
+| 44 | "should the toggle switches be looking like that??" | **Done** — another regression of mine, §R8.4 |
+| 45 | "the linked notes buttons arent aligned" | **Done** — measured to 0px offset |
+| 46 | Make cards the default note view, and remember the choice | **Done** — verified across a reload |
+| 47 | "the compact cards need to be expandable" | **Done** — a row opens out in place |
+| 48 | Spacing and excessive paragraph text in Settings | **Open** — §R7.5; Settings is still unmeasured |
+| 49 | "a show more/less button appears when it isnt needed sometimes" | **Done** — measured on the next frame, removed when nothing is clipped |
+| 50 | "notes shouldnt be truncated" | **Done** — same fix; a note that fits is never clamped |
+| 51 | "if I delete a deleted image placeholder, it should stay deleted" | **Open** — §R7.8 |
+| 52 | Filter by space while in All spaces | **Open** — §R7.9 |
+
+### R7.8 A dismissed image placeholder comes back
+
+> *"if I delete a deleted image placeholder, it should stay deleted"*
+
+When a note's inline image no longer exists on disk, `renderInlineMarkdown`
+swaps the broken `<img>` for a closable placeholder — and its × calls
+`placeholder.remove()`, which takes the *element* out of the DOM and leaves
+the `![alt](/media/…)` markdown in the note untouched. The next render puts
+it straight back.
+
+The fix is the one the *other* placeholder in that same function already
+uses: `renderNoteText`'s `remove-inline-image` event, which rewrites the
+note's content and PUTs it. Dismissing should either do that (delete it for
+good) or say it is only hiding it for now. It must not look like a delete
+and behave like a blink.
+
+### R7.9 Filtering inside "All spaces"
+
+> *"I think there should be a way to filter out content from different
+> spaces in the all spaces space"*
+
+"All spaces" is implemented as `workspace_id = "all"`, which switches the
+scoping hooks off entirely (`core/database.py`) — so it is genuinely
+everything, with no way to narrow it. Two pieces are needed:
+
+1. **Say which space each thing is from.** A note in the All view carries no
+   marker at all today, which is most of why the view feels like a pile. A
+   space chip on the card is the smaller half and worth doing alone.
+2. **Filter by space.** The scoping hook takes one id; a *set* of ids is the
+   real change, and it belongs in `_add_workspace_filter` rather than in each
+   route, for the same reason the single-id version does.
+
+Worth doing together with the space chip, and worth measuring after: the All
+view is the one screen where the notes list has no other grouping.
+
+### R8.4 Three regressions I introduced, and what they have in common
+
+Recorded because the pattern matters more than the three fixes.
+
+1. **`button.small { display: inline-flex }`** (added to centre a label inside
+   the new hit-target floor) is specificity (0,1,1), and every rule in the app
+   that hides a button by class alone — `.graph-fullscreen-close { display:
+   none }` — is (0,1,0). It forced all of them visible. Reported within
+   minutes: "the exit full screen button even shows when not in fullscreen."
+2. **`input[type="checkbox"] { min-height: var(--target-min) }`** (added to
+   lift 13×13 native checkboxes to the 24px floor) beat the switch pattern's
+   own `height: 1.15rem`, because `min-height` wins over `height`. Every
+   toggle in Settings inflated into a slab: "should the toggle switches be
+   looking like that??"
+3. **`let captureStagedFiles`** declared beside the function that fills it,
+   19,000 lines below the load-time code that reads it — a temporal-dead-zone
+   crash that aborted `app.js` and hung the app on its loading screen.
+
+All three are the same mistake: **a broad rule written for one problem,
+applied to a codebase whose other rules were not checked against it.** The
+first two were CSS specificity, the third was evaluation order. None was
+visible in the diff; all three were visible in one screenshot.
+
+The defence that worked is worth keeping: `boot-guard.js` caught the third
+one and named it exactly, which is why it took minutes rather than a
+session. The defence that did *not* work is worth naming too — every
+cold-boot test passed, because the crashing path only runs when there is an
+unsaved draft. **A load-time path behind a condition needs a test that meets
+the condition.**
 
 ### R8.1 The stuck loading screen, and what was actually found
 

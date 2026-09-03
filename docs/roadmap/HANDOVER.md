@@ -9087,6 +9087,50 @@ screenshotted (`shots/dragpan_pdf.png`) showing the page's "Hello" text
 panned into a different position than where it zoomed in. Both previously
 impossible for PDF pages, confirmed working now.
 
+## Same session, continued: the control-affordance pass, part two
+
+Part one fixed `button.ghost`. Continuing the same report ("all the control
+elements and buttons feel more like just shapes with text in them"), the rest
+of the control set was measured the same way — `getComputedStyle` on one
+representative of each type on a live page — rather than eyeballed. Two more
+real gaps, and they are worth recording because both were invisible in a
+screenshot:
+
+1. **A segmented control's unselected options had no state at all.**
+   Measured: `background: rgba(0,0,0,0)`, `border: none`, `box-shadow: none`,
+   muted text — and **no `:hover` rule anywhere in the stylesheet**. So
+   "Tree / Radial / Arc" beside an accent-filled "Force" were three words
+   that did nothing when you pointed at them. A flat *resting* state is
+   correct here (it is what makes the selected segment legible), so the fix
+   is the missing feedback rather than a resting fill: `.seg
+   button:not(.active):hover` now takes `--ghost-btn-bg` and full `--ink`.
+2. **A text field and a button rendered with the same recipe.** Both were
+   translucent fill + one hairline border + no shadow, so nothing on screen
+   said which one you type into and which one you press. Fields now carry
+   `box-shadow: inset 0 1px 2px var(--field-inset)` — recessed, against the
+   button's raised `--shadow-sm`. New token in all three palette blocks
+   (light, dark-manual, dark-media), deliberately light because `--input-bg`
+   is translucent over a gradient and a heavier inset reads as dirt on the
+   glass.
+
+Verified live on the running app: the seg hover was measured at rest and
+under the pointer on **two** different tabs — Notes ("Capture": transparent →
+a real surface, `rgb(76,85,99)` → `rgb(31,36,48)`) and Library ("Documents":
+transparent → `rgba(31,36,48,0.11)`, same text change). Field vs button
+separation confirmed in one read: field `rgba(31,36,48,0.07) 0px 1px 2px
+inset`, button `rgba(31,38,135,0.05) 0px 2px 8px` outer.
+
+**One thing noticed and deliberately not chased:** the Notes seg hovers to a
+white-ish surface (`color(srgb 1 1 1 / 0.45)`) rather than the
+`--ghost-btn-bg` the Library one takes, so some other rule wins in that
+context. Both give real feedback, which is what the report asked for, so
+this is a consistency nit rather than the bug — worth unifying if the seg
+gets touched again, not worth a speculative selector fight now.
+
+Asset version bumped `0.1.10` → `0.1.11`. `test_style_scale.py` and the
+other four lints stay green (37 passed); this only touched colour/shadow
+properties, never spacing.
+
 ## Still open from before this batch, unchanged
 
 - CodeQL PR check alert count/detail still not confirmed resolved — this

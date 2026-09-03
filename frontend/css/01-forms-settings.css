@@ -199,6 +199,15 @@ input[type="datetime-local"] {
   color: var(--ink);
   resize: vertical;
   backdrop-filter: blur(8px);
+  /* Part of the same report as button.ghost's own surface ("controls feel
+     like shapes with text in them"): measured, a text field and a ghost
+     button rendered with the *same* recipe — translucent fill, one hairline
+     border, no shadow — so nothing on screen said which one you type into
+     and which one you press. A field is recessed and a button is raised;
+     this inset is the half of that pair that was missing. Kept to one soft
+     inner edge rather than a heavy bevel — enough to read as a well, not
+     enough to look like a 2005 form. */
+  box-shadow: inset 0 1px 2px var(--field-inset);
 }
 
 /* Safari draws its own rounded box and an inner shadow on a search field, and

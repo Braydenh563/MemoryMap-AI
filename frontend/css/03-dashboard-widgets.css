@@ -203,6 +203,20 @@
   border-radius: var(--radius-md);
 }
 
+/* Hovering an unselected segment did nothing at all — measured: transparent
+   background, no border, no shadow, muted text, and no `:hover` rule
+   anywhere. Next to the accent-filled selected segment, "Tree / Radial /
+   Arc" read as three plain words rather than three things you can press,
+   which is the "shapes with text in them" report in its purest form. A flat
+   *resting* state is right for a segmented control (that is what makes the
+   selected one legible), so the fix is the missing feedback, not a resting
+   fill: the surface appears under the pointer, and the label goes to full
+   --ink so the hovered option looks as real as the selected one. */
+.seg button:not(.active):hover {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+}
+
 .seg button.active {
   background: var(--accent);
   color: #fff;

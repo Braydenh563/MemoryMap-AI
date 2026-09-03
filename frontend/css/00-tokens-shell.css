@@ -163,6 +163,11 @@ select optgroup {
   --ghost-btn-border: rgba(31, 36, 48, 0.22);
   --ghost-btn-bg-hover: rgba(31, 36, 48, 0.16);
   --ghost-btn-border-hover: rgba(31, 36, 48, 0.32);
+  /* The inner top edge that makes a text field read as recessed, against a
+     button's raised --shadow-sm. Deliberately lighter than it would be on
+     an opaque field: --input-bg is translucent and sits over a busy
+     gradient, so a heavier inset reads as dirt on the glass. */
+  --field-inset: rgba(31, 36, 48, 0.07);
   /* User-tunable in Settings → Appearance (set inline on <html> by JS). */
   /* --- the type scale (§35L) ------------------------------------------------
      Ten steps, extracted the same way the spacing scale was. This file had
@@ -432,6 +437,7 @@ select,
   --ghost-btn-border: rgba(255, 255, 255, 0.22);
   --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
   --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
+  --field-inset: rgba(0, 0, 0, 0.28);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -465,6 +471,7 @@ select,
     --ghost-btn-border: rgba(255, 255, 255, 0.22);
     --ghost-btn-bg-hover: rgba(255, 255, 255, 0.20);
     --ghost-btn-border-hover: rgba(255, 255, 255, 0.32);
+    --field-inset: rgba(0, 0, 0, 0.28);
   }
 }
 

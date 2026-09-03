@@ -6066,6 +6066,27 @@ function filedByText(saved) {
 
 const captureDocuments = new Set();
 
+//: Files waiting to become attachments on a note that does not exist yet.
+//: The long "why staging" explanation lives on `handleFileUpload`, which is
+//: the only thing that fills this.
+//:
+//: **Declared here, ~19,000 lines before its first write, and that is the
+//: fix for a real crash.** It was originally declared next to
+//: `handleFileUpload`, near the end of the file — but `renderCaptureFiles`
+//: reads it, and the draft-restore IIFE calls that at module load time, from
+//: *earlier* in the file. `let` is hoisted into the temporal dead zone
+//: rather than initialised, so that read threw `Cannot access
+//: 'captureStagedFiles' before initialization`, which aborted the rest of
+//: app.js — `initAuth` never ran, the splash never hid, and the app sat on
+//: its loading screen forever. Reported exactly that way, and caught by the
+//: boot guard added the same session, which is the only reason the cause was
+//: visible at all rather than being a silent hang.
+//:
+//: `node --check` does not catch this: it is valid syntax and a runtime
+//: ordering fault. The lesson for anything similar: module-level state read
+//: during load must be declared above every path that runs at load.
+let captureStagedFiles = [];
+
 async function loadCaptureDocuments() {
   const select = $("entry-document");
   const documents = await apiJson("/documents").catch(() => []);
@@ -25604,7 +25625,6 @@ document.addEventListener("paste", async (e) => {
 //: Images are deliberately *not* staged: an image in the middle of a
 //: paragraph is content, and it needs to be inline markdown at the point in
 //: the text where it was dropped, not an attachment at the bottom.
-let captureStagedFiles = [];
 
 async function uploadStagedFiles(entryId) {
   if (!captureStagedFiles.length) return;

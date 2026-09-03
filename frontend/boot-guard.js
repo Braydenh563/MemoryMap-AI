@@ -31,11 +31,18 @@
   // A script error is the likeliest cause and the one worth naming exactly:
   // it is the difference between "my machine is slow" and "this build is
   // broken", and nobody can tell those apart from a progress bar.
+  // **No "press Ctrl+Shift+R" here.** Reported immediately after the first
+  // version said exactly that: "ctrl shift r hard reload doesnt work as it is
+  // a hothey" — in the desktop shell that chord is bound to something else,
+  // so the one instruction on a dead screen was one the reader could not
+  // follow. Restarting the app is the advice that works in every shell this
+  // runs in, and it also fixes the stale-server case below.
   window.addEventListener("error", function (event) {
     say(
       "Something failed while starting: " +
         (event.message || "a script error") +
-        ". Try a hard refresh (Ctrl+Shift+R); if it persists this is a bug."
+        ". Close MemoryMap and start it again. If it keeps happening this is " +
+        "a bug \u2014 the message above is the useful part of the report."
     );
   });
 
@@ -47,14 +54,14 @@
       "The app blocked one of its own scripts (" +
         (event.violatedDirective || "script-src") +
         "). This usually means the MemoryMap server is still running from " +
-        "before an update — restart it, then refresh."
+        "before an update \u2014 close MemoryMap completely and start it again."
     );
   });
 
   setTimeout(function () {
     say(
-      "This is taking longer than it should. If it doesn't finish, check the " +
-        "MemoryMap server is running, then hard-refresh (Ctrl+Shift+R)."
+      "This is taking longer than it should. If it doesn't finish, close " +
+        "MemoryMap completely and start it again."
     );
   }, 12000);
 })();

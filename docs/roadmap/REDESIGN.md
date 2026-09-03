@@ -806,3 +806,36 @@ this session fixed in files was a seam between them. One model with a
 `disposition` flag removes the class, not the instances. The same is true of
 three migration mechanisms and of `app.js` at 26,000 lines. None of that is
 urgent; all of it is why small changes cost more than they should.
+
+---
+
+## R9. Where the numbers stand at the end of this session
+
+Measured the same way as §R1, on the same machine, at 1440×900.
+
+| | Before | After |
+| --- | ---: | ---: |
+| Notes visible in a 900px viewport | 5 | **12** |
+| Note row height (2-line note) | 121px incl. gap | **57px**, no gap |
+| Save round trip, no model running | 971ms | **32ms** |
+| Library chrome above the first item | 344px | **301px** |
+| Side gutter at 1024 / 1440 / 1920 | 32 / 32 / 32px | **22.5 / 31.7 / 32px** |
+| Sidebar at 820px wide | 260px (32% of the window) | **197px** |
+| Distinct control heights — Notes | 7 | **4** |
+| Distinct control heights — Library | 7 | **4** |
+| Controls below the 24px target floor | 13 across 4 tabs | **0** |
+| `/media/` anchors in a rendered note | one per file | **0** |
+| Graph nodes on the layout's bounding edge | most of them | **5 of 47** |
+
+**One number deliberately not claimed as improved: alignment.** Distinct
+left edges now read 40 (Dashboard), 41 (Graph), 36 (Notes) against the
+37/35/32 in §R1.1 — but the notebook has three times as many notes in it
+than when the baseline was taken, so the two are **not comparable** and
+neither figure should be quoted as progress or regression. Alignment is the
+shell's problem (§R7.5), it has not been worked yet, and the honest position
+is that it is unchanged. Re-baseline it on a fixed fixture before starting
+that work, or the same ambiguity will repeat.
+
+**What has demonstrably not been done** is in §R7, and the largest piece of
+it — the document editor and the pane-based shell — is most of what is left
+between this app and the one the requests describe.

@@ -1128,9 +1128,32 @@ function entryItem(entry, options = {}) {
   // click meant for something else" guard the rest of this file already
   // uses for row-level handlers.
   li.addEventListener("click", (event) => {
-    if (!li.closest(".entry-list.is-rows")) return;
     if (event.target.closest("a, button, input, textarea, .chip, img, .unlink")) return;
     if (window.getSelection()?.toString()) return; // a text selection, not a click
+    // **In select mode the whole card is the checkbox.** Direct instruction:
+    // "when I have selected on the 'select' button in the notes tab, I want
+    // to be able to click on the whole body of the note to select it, not
+    // the select radiobutton in the corner." Asking someone to hit a 16px
+    // box in the corner of a card they are already pointing at is the
+    // slowest possible way to tick twenty notes, and every list that has a
+    // batch mode (Finder, Gmail, Photos) lets the row itself carry it.
+    //
+    // Checked before the rows-view guard below, and in every view: the
+    // expand-on-click behaviour is a *rows* affordance, but selecting is
+    // what the card means while this mode is on, so it takes precedence
+    // wherever it is shown.
+    if (selectMode && options.actions) {
+      const check = li.querySelector(".select-check");
+      if (check) {
+        check.checked = !check.checked;
+        // `change` does not fire for a programmatic `.checked`, and the
+        // checkbox's own listener is the single place that owns the set.
+        check.dispatchEvent(new Event("change", { bubbles: true }));
+        li.classList.toggle("is-selected", check.checked);
+      }
+      return;
+    }
+    if (!li.closest(".entry-list.is-rows")) return;
     toggleRowExpanded(entry.id);
   });
 
@@ -1144,10 +1167,14 @@ function entryItem(entry, options = {}) {
     check.addEventListener("change", () => {
       if (check.checked) selectedIds.add(entry.id);
       else selectedIds.delete(entry.id);
+      // The card carries the selected look, so it has to follow the box
+      // whichever of the two was actually clicked.
+      li.classList.toggle("is-selected", check.checked);
       updateBatchCount();
     });
     li.appendChild(check);
     li.classList.add("selectable");
+    li.classList.toggle("is-selected", check.checked);
   }
 
   // A note's own leading `# Heading` becomes its title (asked for directly).

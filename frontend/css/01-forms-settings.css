@@ -308,6 +308,22 @@ button {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  /* **Every button centres its own content.** Reported with a screenshot:
+     "some of the icons and text in buttons aren't centred" — a lone glyph
+     sat high and left of its box, because a button laid out inline puts its
+     text on a baseline rather than in the middle of the box, and a bare
+     glyph's baseline is nowhere near its optical centre.
+
+     On the *element* selector deliberately, not on `button.small`. DESIGN.md
+     records what happened when this was tried there: `button.small` is
+     (0,1,1), which outranks a single-class `.some-thing { display: none }`
+     at (0,1,0), so a display declaration there forced hidden buttons
+     visible across the app. A bare `button` is (0,0,1) — below every class —
+     so `.hidden` and friends still win, and only buttons nothing else has
+     an opinion about pick this up. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
@@ -469,13 +485,27 @@ input[type="radio"] {
 .settings-group .row input[type="text"],
 .settings-group .row input[type="search"],
 .settings-group .row input[type="number"],
-.settings-group .row button,
 .focus-presets input[type="text"],
-.focus-presets input[type="number"],
-.focus-presets button {
+.focus-presets input[type="number"] {
   height: var(--control-h);
   margin-bottom: 0;
   padding-block: 0;
+}
+
+/* **A button gets a floor, not a ceiling** — and the difference broke a
+   real control. The first version of this rule gave buttons the same fixed
+   `height` as the fields beside them, which is right until a label wraps:
+   "Restart MemoryMap" is two lines in its column, so a 2.2rem box squashed
+   it, reported with a screenshot as the button being broken. A field is
+   single-line by nature and can be pinned; a button has to be able to grow
+   to its own text. `min-height` still lines the row up — a one-line button
+   lands on exactly the strip height — without capping the one that cannot
+   fit. `padding-block` is left alone here for the same reason: zeroing it
+   is what makes a wrapped label touch its own border. */
+.settings-group .row button,
+.focus-presets button {
+  min-height: var(--control-h);
+  margin-bottom: 0;
 }
 
 /* BACKLOG §77 item 1: the Notes-tab page selector, shown under the list only

@@ -12,6 +12,14 @@ against a running Ollama/LM Studio. UI claims are now checkable (Chromium is
 in the sandbox); model *behaviour* claims are not — reproduce or say plainly
 you couldn't.
 
+**A full UX/architecture re-imagining was asked for and is written up in
+[roadmap/REDESIGN.md](roadmap/REDESIGN.md)** — measured evidence for every
+complaint (notes visible per viewport, pixels of chrome before the first
+item, the file dead end, the 971ms save), the three underlying causes, the
+target shell, and a sequenced plan. **Read it before doing any layout,
+file-handling or graph work.** Items 1–3 of its §R6 are done and verified
+live; item 4 onward is open.
+
 ## What is open right now — start here
 
 Six sessions of finished narrative used to sit above this line. It has moved

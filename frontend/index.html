@@ -40,6 +40,55 @@
   <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.1.7">
   <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.1.7">
   <script>
+    // **A watchdog on the splash, so a broken boot says so instead of
+    // spinning forever.** Reported: "idk if it is just slow but the app is
+    // stuck on th eloading screen", with a screenshot of the progress bar
+    // stalled short of the end.
+    //
+    // `initAuth()` in app.js already bounds its own `/auth/status` probe at
+    // 8s and hides the splash on every branch, so it cannot hang *if it
+    // runs*. The failure this catches is the one where it never runs at all:
+    // a runtime error earlier in app.js aborts the script, `hideBootSplash`
+    // is never called, and the splash sits at ~90% with its dots animating
+    // from CSS — which looks exactly like "still loading" and is not.
+    //
+    // Lives here, in the inline script that runs before anything else, for
+    // the same reason: a watchdog inside the file that failed cannot fire.
+    // It only ever *adds* a message; the normal path removes the splash long
+    // before this and there is nothing left to write into.
+    (function () {
+      const say = (text) => {
+        const splash = document.getElementById("boot-splash");
+        if (!splash || splash.classList.contains("hidden")) return;
+        let line = document.getElementById("boot-splash-error");
+        if (!line) {
+          line = document.createElement("p");
+          line.id = "boot-splash-error";
+          line.className = "boot-splash-error";
+          line.setAttribute("role", "alert");
+          splash.appendChild(line);
+        }
+        line.textContent = text;
+      };
+      // A script error is the likeliest cause and the one worth naming
+      // exactly: it is the difference between "my machine is slow" and
+      // "this build is broken", and the user cannot tell those apart from a
+      // progress bar.
+      window.addEventListener("error", (event) => {
+        say(
+          "Something failed while starting: " +
+            (event.message || "a script error") +
+            ". Try a hard refresh (Ctrl+Shift+R); if it persists this is a bug."
+        );
+      });
+      setTimeout(() => {
+        say(
+          "This is taking longer than it should. If it doesn't finish, check " +
+            "the MemoryMap server is running, then hard-refresh (Ctrl+Shift+R)."
+        );
+      }, 12000);
+    })();
+
     // Everything visual is applied before first paint, so the app never
     // flashes the default look and then corrects itself.
     //

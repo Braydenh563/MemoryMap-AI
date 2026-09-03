@@ -95,6 +95,16 @@ class LinkOut(BaseModel):
     # 0..1, set only when `reason` above came from embedding similarity
     # rather than from a person or the AI saying it — see EntryLink.reason_confidence.
     reason_confidence: float | None = None
+    #: "out" when this note is the link's source, "in" when it is the target.
+    #:
+    #: `links_for_entry` has always returned both directions merged into one
+    #: list, so a note could show what it was connected to but never which
+    #: way round — and "this note points at that one" and "that one points at
+    #: this" are different facts. Asked for by way of Kortex's own
+    #: Connections block, which shows every link with an in/out arrow.
+    #: Defaults to "out" so an older client (or a caller that doesn't care)
+    #: reads exactly as it did before this field existed.
+    direction: str = "out"
 
 
 class AttachmentOut(BaseModel):

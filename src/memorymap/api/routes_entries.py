@@ -121,6 +121,9 @@ def _to_out(
                 preview=_preview(manager.readable_content(other)),
                 reason=link.reason,
                 reason_confidence=link.reason_confidence,
+                # The one fact the merged list could never carry. See
+                # `LinkOut.direction`.
+                direction="out" if link.source_entry_id == entry.id else "in",
             )
             for link, other in resolved_links
         ],

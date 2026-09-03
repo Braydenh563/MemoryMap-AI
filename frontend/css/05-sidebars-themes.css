@@ -2589,3 +2589,11 @@ textarea.autogrow {
 .file-card-pending {
   color: var(--accent);
 }
+
+/* Direction on a link chip. Colour is deliberately *not* the only signal —
+   the arrow glyph carries it, and DESIGN.md's contrast rule (and WCAG's
+   "don't convey information by colour alone") both say so. The tint is a
+   second, faster read for someone scanning a well-linked note. */
+.chip.link.link-in {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}

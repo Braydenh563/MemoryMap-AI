@@ -2868,3 +2868,14 @@ summary.small.icon-button {
     transition: none;
   }
 }
+
+/* The splash's own failure line. Only ever created by the watchdog in
+   index.html — a boot that works removes the splash before this can exist. */
+.boot-splash-error {
+  max-width: 28rem;
+  margin: var(--space-6) var(--space-6) 0;
+  color: var(--warn);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  text-align: center;
+}

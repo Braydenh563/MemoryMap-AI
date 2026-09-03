@@ -1469,7 +1469,21 @@ function entryItem(entry, options = {}) {
         flashEntry(link.entry_id);
       };
       const linkChip = chip("", "link", goToLinkedNote);
-      linkChip.appendChild(setLabel(document.createElement("span"), "ph:arrows-left-right"));
+      // **Which way the link points.** Every link used to draw the same
+      // bidirectional glyph, because the API merged both directions into one
+      // list and never said which was which — so a note could show what it
+      // was connected to and never whether it had reached out or been
+      // reached for. Those are different facts, and telling them apart is
+      // most of what a Connections list is for (asked for by way of
+      // Kortex's own, which arrows every row).
+      const outgoing = link.direction !== "in";
+      linkChip.classList.add(outgoing ? "link-out" : "link-in");
+      linkChip.appendChild(
+        setLabel(
+          document.createElement("span"),
+          outgoing ? "ph:arrow-up-right" : "ph:arrow-down-left"
+        )
+      );
     linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
       renderInlineMarkdown(linkPreview, short, [], true);
@@ -1479,9 +1493,10 @@ function entryItem(entry, options = {}) {
           ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
           : link.reason
         : null;
+      const wayRound = outgoing ? "This note links to" : "Links to this note";
       linkChip.title = reasonNote
-        ? `Go to note: ${label}\nReason: ${reasonNote}`
-        : `Go to note: ${label}`;
+        ? `${wayRound}: ${label}\nReason: ${reasonNote}`
+        : `${wayRound}: ${label}`;
       if (options.actions) {
         const editReason = document.createElement("span");
         editReason.className = "unlink reason-edit";

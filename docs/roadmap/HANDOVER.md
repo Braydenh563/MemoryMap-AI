@@ -9295,3 +9295,37 @@ the light theme for the same reason the sheen gradient already records
 future opt-in in Settings → Appearance, which already owns glass on/off,
 blur and sheen — the right home for a taste-dependent, GPU-heavy option,
 rather than something imposed on every surface.
+
+## Same session: the Library's Files & Images tile, quietened
+
+Asked for: "fix up the library, add the new files area, redesign the
+subtabs". **The files area already exists** — Library → Files & Images
+(`library-view-media`), with upload, its own search over filenames/captions/
+OCR text, AI captions and vision-OCR per file, and a Files chip in the
+filter row. Per this file's own first rule that is where a rebuild would
+have gone; per its second rule, existing is not the same as good enough, so
+it was driven and judged rather than ticked off.
+
+What was actually wrong was **weight, not function**. Every tile rendered
+four lines of chrome before it said anything about the file: an uppercase
+DESCRIPTION over "Add a caption…", then an uppercase TEXT IN THIS IMAGE over
+"No text yet — click to add". On a library where nothing has been captioned
+yet — which is every new library — a screen of files was a screen of
+identical placeholders announcing what was missing. That is most of why the
+gallery read as unfinished.
+
+Both fields had to stay present (library.js records the reason on the vision
+one: "a field you cannot see is a field you cannot use", and clicking the
+placeholder is how you add one), so the fix changes weight only: while a
+field is empty its uppercase label is dropped and the placeholder recedes to
+one quiet line; the moment it has content the label returns. `:has()` on the
+`-empty` class the JS already sets, so nothing new is tracked. Tiles went
+from ~310px to ~265px and the filename now leads the card.
+
+**The sub-tabs were measured before being "redesigned" and left alone.** The
+gaps between them are 2–3px, even; what reads as uneven in a screenshot is
+short labels ("All", "Links") sitting in min-width boxes next to long ones
+("Boards & maps"). That is a real but minor typographic effect, not the
+misalignment it looks like, and it did not justify a speculative rewrite of
+a working tab bar. Worth revisiting deliberately if it is reported again
+with what specifically looks wrong.

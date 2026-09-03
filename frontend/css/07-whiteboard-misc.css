@@ -2455,3 +2455,35 @@ button.setting-hint-toggle {
   max-width: none;
   margin-top: var(--space-2);
 }
+
+/* --- a file tile shows what it has, not what it lacks ---------------------
+   Every card in Files & Images rendered four lines of chrome before it
+   rendered anything about the file: an uppercase "DESCRIPTION" over "Add a
+   caption…", then an uppercase "TEXT IN THIS IMAGE" over "No text yet —
+   click to add". On a fresh library, where nothing has been captioned or
+   read yet, a screen of files is a screen of identical placeholders shouting
+   about what is missing — which is most of why the gallery read as unfinished.
+
+   Both fields must stay *present*: library.js records the reason on the
+   vision field ("a field you cannot see is a field you cannot use"), and
+   clicking either placeholder is how you add one. So this changes weight,
+   not behaviour — while a field is in its empty state its uppercase label is
+   dropped and the placeholder recedes to a quiet single line. The moment
+   either has real content, the label comes back and the field reads as
+   normal. `:has()` is already used in this codebase, and the empty state is
+   already announced by a class, so nothing new has to be tracked in JS. */
+.library-image-field:has(.library-image-caption-empty) .library-image-field-label,
+.library-image-field:has(.library-image-ocr-empty) .library-image-field-label {
+  display: none;
+}
+
+.library-image-field:has(.library-image-caption-empty),
+.library-image-field:has(.library-image-ocr-empty) {
+  gap: 0;
+}
+
+.library-image-caption-empty,
+.library-image-ocr-empty {
+  font-size: var(--text-xs);
+  opacity: 0.55;
+}

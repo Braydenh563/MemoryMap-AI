@@ -3107,3 +3107,43 @@ html.modal-open body {
   background: var(--accent-soft);
   color: var(--ink);
 }
+
+/* --- settings rows: one shape at rest ---------------------------------------
+   Measured before this: six hints over 160 characters (longest 385) and rows
+   at 22px, 37px and 91px — a four-fold height spread decided by whether a
+   row happened to carry an explanation. A list whose items are three
+   different sizes cannot be scanned, and scanning is the whole job of a
+   settings page.
+
+   The prose is kept, not cut: it explains consequences, which is what a
+   hint should do. It is collapsed instead, so every row is the same height
+   until you ask. See `collapseLongSettingHints` in settings.js. */
+.setting-hint {
+  display: block;
+  margin-top: var(--space-1);
+  line-height: 1.5;
+}
+
+.setting-hint.is-collapsed {
+  /* Zero height rather than `display: none`: the element keeps its place in
+     the accessibility tree and the transition below has something to run
+     between. */
+  max-height: 0;
+  margin-top: 0;
+  overflow: hidden;
+}
+
+.setting-hint:not(.is-collapsed) {
+  max-height: 40rem;
+}
+
+.setting-hint-toggle {
+  margin-left: var(--space-2);
+  padding-inline: var(--space-2);
+  vertical-align: middle;
+  color: var(--muted);
+}
+
+.setting-hint-toggle[aria-expanded="true"] {
+  color: var(--accent);
+}

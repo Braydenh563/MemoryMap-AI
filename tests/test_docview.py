@@ -175,6 +175,33 @@ def test_a_scanned_pdf_with_no_vision_reader_says_what_is_missing(tmp_path, monk
     assert "scan" in viewed.message.lower()
 
 
+def test_a_pdf_pdfium_cannot_open_says_so_not_probably_a_scan(tmp_path, monkeypatch):
+    """The misdiagnosis a real user's own log caught: PDFium refusing a
+    corrupted/truncated/encrypted PDF ("Failed to load document (PDFium: Data
+    format error)") looks identical to a scan up to this point — markitdown
+    also returns nothing useful for it — but sending someone to install a
+    vision model does not help a file that cannot be decoded at all."""
+    from memorymap.core import pdfpages
+    from memorymap.entry import importer
+
+    monkeypatch.setattr(importer, "markitdown_available", lambda: True)
+    monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "")
+    monkeypatch.setattr(pdfpages, "available", lambda: True)
+    monkeypatch.setattr(pdfpages, "page_count", lambda p: 0)
+    path = tmp_path / "broken.pdf"
+    path.write_bytes(b"%PDF-1.4 not actually valid")
+
+    # Even with a vision reader on hand, a file PDFium can't open is never
+    # reached — there's no image for it to describe.
+    called = []
+    viewed = docview.extract(path, vision_reader=lambda p: called.append(p) or "text")
+
+    assert called == []
+    assert viewed.text == ""
+    assert "scan" not in viewed.message.lower()
+    assert "couldn't be opened" in viewed.message.lower()
+
+
 def test_a_vision_reader_that_throws_does_not_break_the_view(tmp_path, monkeypatch):
     from memorymap.entry import importer
 

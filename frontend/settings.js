@@ -199,6 +199,11 @@ function updatePeekAvailability(section) {
 async function openSettingsModal(section = "models", scrollToId = null) {
   overlayReturnFocus = document.activeElement;
   $("settings-modal").classList.remove("hidden");
+  // Runs on open rather than once at load: several sections are built
+  // lazily, and a pass that ran before they existed would leave exactly the
+  // rows a user is most likely to be reading uncollapsed. Idempotent, so
+  // reopening costs nothing.
+  collapseLongSettingHints();
   $("settings-close").focus();
   $("about-version").textContent = `Version ${
     (await apiJson("/health").catch(() => ({ version: "?" }))).version
@@ -2818,3 +2823,69 @@ $("sampling-reset")?.addEventListener("click", async () => {
   }
   await loadSamplingSettings();
 });
+
+
+// --- settings rows: one shape, and the prose out of the way ------------------
+//
+// Reported: "there is often a spacing issue between elements and excessive
+// paragraph texts in places", with a screenshot of Settings, and later
+// "fix and reimagine the ui design for the settings pages".
+//
+// Measured before this: **six paragraphs over 160 characters, the longest
+// 385**, and setting rows at 22px, 37px and 91px — a four-fold height spread
+// decided entirely by whether a row happened to carry an explanation. A list
+// whose items are three different sizes is not a list you can scan, and the
+// scan is the whole job of a settings page: find the one switch you came for.
+//
+// The prose itself is good and worth keeping — it explains *consequences*,
+// which is exactly what a settings hint should do and what most apps omit.
+// So it is not cut; it is collapsed. Every row is the same height at rest,
+// with a hint one click away on the rows that have one.
+//
+// Long ones only. A six-word hint costs nothing to read and hiding it behind
+// a control would be more chrome than text — the threshold is where a hint
+// stops being a label's tail and starts being a paragraph.
+const SETTINGS_HINT_INLINE_CHARS = 90;
+
+function collapseLongSettingHints(root) {
+  const scope = root || document.getElementById("settings-modal");
+  if (!scope) return;
+  // Any depth, not `label > small`: most hints sit inside a `<span>` that
+  // wraps the label's text, so a direct-child selector matched none of the
+  // twenty-three that exist. Checked live rather than assumed — the first
+  // version of this ran, found nothing, and changed no measurement.
+  for (const hint of scope.querySelectorAll("label small.muted")) {
+    if (hint.dataset.collapsible) continue;
+    const text = (hint.textContent || "").trim();
+    if (text.length <= SETTINGS_HINT_INLINE_CHARS) continue;
+    hint.dataset.collapsible = "1";
+    hint.classList.add("setting-hint", "is-collapsed");
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "ghost small setting-hint-toggle";
+    setLabel(toggle, "ph:question");
+    // The label text, so the control says which setting it explains rather
+    // than being one of a column of identical "?"s to a screen reader.
+    const label = (hint.parentElement.textContent || "")
+      .replace(text, "")
+      .trim()
+      .slice(0, 60);
+    toggle.title = `What does “${label}” do?`;
+    toggle.setAttribute("aria-label", toggle.title);
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", (event) => {
+      // The hint lives inside a <label>, so a click anywhere in it would
+      // otherwise toggle the setting itself — the one thing this control
+      // must never do.
+      event.preventDefault();
+      event.stopPropagation();
+      const open = hint.classList.toggle("is-collapsed") === false;
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    // After the hint, so the reading order is label -> explanation -> the
+    // control that reveals it, which is also the tab order.
+    hint.insertAdjacentElement("afterend", toggle);
+  }
+}
+window.collapseLongSettingHints = collapseLongSettingHints;

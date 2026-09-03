@@ -227,10 +227,30 @@ def _extract_converted(path: Path, suffix: str, vision_reader) -> ViewedFile:
             text=text, kind="markdown", source="converted", truncated=truncated
         )
 
-    # Nothing usable came out. Two different reasons, and they need two
-    # different messages — "install markitdown" is unhelpful advice for a
-    # scanned page, and "this looks like a scan" is wrong when the converter
-    # was simply not there.
+    # Nothing usable came out. Before assuming "probably a scan", find out
+    # whether PDFium can even open the file — a corrupted, truncated or
+    # encrypted PDF fails here with zero pages, which looks identical to a
+    # real scan to every check above it but needs a completely different
+    # message: no vision model on earth reads a file that can't be decoded
+    # at all. This was a real misdiagnosis, caught from a user's own log —
+    # `pdfpages.render_pages` logged "Failed to load document (PDFium: Data
+    # format error)" while the viewer told them to go install a vision model.
+    if suffix == ".pdf" and pdfpages.available() and pdfpages.page_count(path) == 0:
+        return ViewedFile(
+            text="",
+            kind="plain",
+            source="converted",
+            message=(
+                "This PDF couldn't be opened. It may be corrupted, "
+                "password-protected, or saved in a way this app's reader "
+                "doesn't support — re-exporting or re-saving it from its "
+                "original source usually fixes this."
+            ),
+        )
+
+    # Two different reasons, and they need two different messages —
+    # "install markitdown" is unhelpful advice for a scanned page, and "this
+    # looks like a scan" is wrong when the converter was simply not there.
     if suffix == ".pdf" and vision_reader is not None:
         read = ""
         try:

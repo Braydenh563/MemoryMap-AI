@@ -31,14 +31,14 @@
        every later file's var() calls depend on. See
        tests/test_style_scale.py's STYLE_FILES for the list the design-token
        lint reads instead of a single style.css path. -->
-  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.1.14">
-  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.1.14">
-  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.1.14">
-  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.1.14">
-  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.1.14">
-  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.1.14">
-  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.1.14">
-  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.1.14">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.1.20">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.1.20">
+  <link rel="stylesheet" href="/css/02-chat-graph.css?v=0.1.20">
+  <link rel="stylesheet" href="/css/03-dashboard-widgets.css?v=0.1.20">
+  <link rel="stylesheet" href="/css/04-chat-dock-appearance.css?v=0.1.20">
+  <link rel="stylesheet" href="/css/05-sidebars-themes.css?v=0.1.20">
+  <link rel="stylesheet" href="/css/06-timeline-dialogs.css?v=0.1.20">
+  <link rel="stylesheet" href="/css/07-whiteboard-misc.css?v=0.1.20">
   <!-- **Its own file, not an inline block, and that is the point.** The CSP
        allows inline scripts only by sha256 hash, and `create_app` computes
        those hashes from index.html **once at startup**. A server still
@@ -48,7 +48,7 @@
        the loading screen". A guard that exists to report a broken boot must
        not itself be the thing that breaks, and `script-src 'self'` covers a
        same-origin file unconditionally. -->
-  <script src="/boot-guard.js?v=0.1.14"></script>
+  <script src="/boot-guard.js?v=0.1.20"></script>
   <script>
     // Everything visual is applied before first paint, so the app never
     // flashes the default look and then corrects itself.
@@ -215,7 +215,7 @@
            state worth having at a glance, which is the test §36D sets for
            anything that earns a permanent place in the chrome. -->
       <span class="notif-wrap">
-        <button id="notif-btn" class="ghost small" title="Notifications"
+        <button id="notif-btn" class="ghost small icon-only" title="Notifications"
           aria-label="Notifications" aria-expanded="false"
           aria-controls="notif-panel"><i class="ph ph-bell" aria-hidden="true"></i></button>
         <div id="notif-panel" class="notif-panel hidden" role="dialog"
@@ -852,10 +852,10 @@ Link to another note with [[its first few words]]."></textarea>
                  a file in it — this is a view switch, not a replacement,
                  and it defaults to rows because a list of notes is a list. -->
             <div class="seg notes-view-toggle" role="group" aria-label="How to show notes">
-              <button type="button" id="notes-view-rows" class="active"
+              <button type="button" id="notes-view-rows" class="active icon-only"
                 title="Compact rows — more notes on screen" aria-label="Show notes as compact rows"><i class="ph ph-list" aria-hidden="true"></i></button>
               <button type="button" id="notes-view-cards"
-                title="Cards — full preview of each note" aria-label="Show notes as cards"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+                title="Cards — full preview of each note" aria-label="Show notes as cards" class="icon-only"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
             </div>
             <input id="note-search" class="library-search" type="search"
               placeholder="Filter — try tag:work or &quot;exact phrase&quot;"
@@ -1165,7 +1165,7 @@ Link to another note with [[its first few words]]."></textarea>
                    pair rather than a list. Filled from /chat/modes so the
                    list can't drift from what the server actually does. -->
               <div class="chat-dock-more">
-                <button id="chat-dock-more-btn" class="ghost small" type="button"
+                <button id="chat-dock-more-btn" class="ghost small icon-only" type="button"
                   aria-haspopup="dialog" aria-expanded="false"
                   aria-controls="chat-dock-more-panel"
                   aria-label="Settings"
@@ -1230,7 +1230,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="row chat-composer">
             <div class="note-picker">
-              <button id="attach-note" class="ghost" type="button"
+              <button id="attach-note" class="ghost icon-only" type="button"
                 aria-haspopup="dialog" aria-expanded="false"
                 title="Attach notes as references for this question"
                 aria-label="Attach notes"><i class="ph ph-note" aria-hidden="true"></i></button>
@@ -1257,7 +1257,7 @@ Link to another note with [[its first few words]]."></textarea>
                  Documents sub-tab. The id keeps its original name so the CSS
                  and the layout tests that reference it still resolve — what it
                  does is what changed, not where it sits. -->
-            <button id="attach-image" class="ghost" type="button"
+            <button id="attach-image" class="ghost icon-only" type="button"
               title="Attach a file — an image for the AI to look at, or a document to read"
               aria-label="Attach a file"><i class="ph ph-paperclip" aria-hidden="true"></i></button>
             <!-- Images: every format the gallery stores, `image/*` rather
@@ -1282,7 +1282,7 @@ Link to another note with [[its first few words]]."></textarea>
                  is a newline, which an <input> could not offer at all. -->
             <textarea id="chat-input" rows="1" class="autogrow chat-input"
               placeholder="Ask your notebook anything…"></textarea>
-            <button id="mic-chat" class="ghost" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
+            <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
             <button id="chat-send">Send</button>
             <button id="chat-stop" class="ghost hidden" title="Stop the answer">Stop</button>
             </div>
@@ -1590,7 +1590,7 @@ Link to another note with [[its first few words]]."></textarea>
             <select id="graph-view-picker" class="ghost small" aria-label="Saved views"></select>
             <button id="graph-view-save" class="ghost small" type="button"
               title="Save the current layout, filters and position as a named view"><i class="ph ph-bookmark-simple ph-lead" aria-hidden="true"></i> Save view</button>
-            <button id="graph-view-delete" class="ghost small" type="button"
+            <button id="graph-view-delete" class="ghost small icon-only" type="button"
               title="Delete the selected saved view" aria-label="Delete the selected saved view"><i class="ph ph-trash" aria-hidden="true"></i></button>
           </div>
 
@@ -2344,7 +2344,7 @@ Link to another note with [[its first few words]]."></textarea>
             <span class="row">
               <button id="library-new-doc" class="small" type="button"
                 title="Start a new document">＋ New document</button>
-              <button id="library-refresh" class="ghost small" type="button"
+              <button id="library-refresh" class="ghost small icon-only" type="button"
                 title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             </span>
           </div>
@@ -3212,21 +3212,21 @@ Link to another note with [[its first few words]]."></textarea>
          the .status-nav rule's own divider marking them off as a separate
          pair. They move you between pages; undo/redo change your notes. -->
     <span class="status-nav" role="group" aria-label="Move between pages" data-status-slot="nav">
-      <button id="status-back" class="status-item" type="button" disabled></button>
-      <button id="status-forward" class="status-item" type="button" disabled></button>
+      <button id="status-back" class="status-item icon-only" type="button" disabled></button>
+      <button id="status-forward" class="status-item icon-only" type="button" disabled></button>
       <!-- Asked for directly: "if they are right clicked, a little popup
            shows above with the navigation history to fast track back to a
            place (or maybe it can be a little button next to it??)". Both:
            right-clicking either Back or Forward opens the same popup this
            button does. -->
-      <button id="status-nav-history" class="status-item" type="button"
+      <button id="status-nav-history" class="status-item icon-only" type="button"
         aria-haspopup="menu" aria-expanded="false" aria-controls="status-nav-history-menu"
         title="Navigation history" aria-label="Navigation history">
         <i class="ph ph-caret-up ph-lead" aria-hidden="true"></i>
       </button>
     </span>
-    <button id="status-undo" class="status-item" type="button" disabled data-status-slot="undo"></button>
-    <button id="status-redo" class="status-item" type="button" disabled data-status-slot="undo"></button>
+    <button id="status-undo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
+    <button id="status-redo" class="status-item icon-only" type="button" disabled data-status-slot="undo"></button>
     <button id="status-command" class="status-item" type="button" data-status-slot="command"></button>
     <!-- Off by default, unlike the STATUS_SLOTS group above (app.js) — a
          clock is not one of the bar's existing permanent landmarks, so it
@@ -5598,8 +5598,8 @@ Link to another note with [[its first few words]]."></textarea>
        it can safely go first. See frontend/graph.js's own header for the
        full explanation. -->
 
-  <script src="/graph.js?v=0.1.14"></script>
-  <script src="/app.js?v=0.1.14"></script>
+  <script src="/graph.js?v=0.1.20"></script>
+  <script src="/app.js?v=0.1.20"></script>
   <!-- Document editor, split out of app.js (§10 of the app.js-split plan).
        Loaded after app.js and shares its global scope; the two directions
        differ. app.js calls INTO this file (loadDocuments, renderDocStorage,
@@ -5609,14 +5609,14 @@ Link to another note with [[its first few words]]."></textarea>
        `initDocSidebarTabs();` sitting in app.js's own wiring block — moved
        here with the function itself, so this file now calls it on its own
        last line instead of app.js calling it mid-file. -->
-  <script src="/documents.js?v=0.1.14"></script>
+  <script src="/documents.js?v=0.1.20"></script>
   <!-- Whiteboard subsystem, split out of app.js (ROADMAP.md Priority 0 item
        2). Loaded after app.js and shares its global scope; every
        cross-file call between the two happens at runtime (inside a
        function or event listener), never at parse time, so this order is
        not load-bearing for correctness — it just keeps app.js as the
        first, larger script, matching the split's own diff. -->
-  <script src="/whiteboard.js?v=0.1.14"></script>
+  <script src="/whiteboard.js?v=0.1.20"></script>
   <!-- The Library tab, split out of app.js and whiteboard.js both (§88.3 of
        the app.js split plan — documents.js above was the first file, this
        is the second). Loaded after both for the same reason documents.js is
@@ -5631,7 +5631,7 @@ Link to another note with [[its first few words]]."></textarea>
        documents.js's split found that this one checked for and did not
        find (a bare top-level call site left orphaned by a moved
        definition). -->
-  <script src="/library.js?v=0.1.14"></script>
+  <script src="/library.js?v=0.1.20"></script>
   <!-- The editor layer: the "/" command menu, the block frames it inserts, and
        the caret-anchored popup the document editor's [[ autocomplete uses.
        Loaded after app.js for the same reason whiteboard.js is — every
@@ -5639,7 +5639,7 @@ Link to another note with [[its first few words]]."></textarea>
        allEntries from app.js, and MD_ACTIONS/markDocDirty from documents.js
        (loaded above) — all runtime reads inside closures, so this ordering
        relative to documents.js isn't load-bearing either. -->
-  <script src="/editor.js?v=0.1.14"></script>
+  <script src="/editor.js?v=0.1.20"></script>
   <!-- Dashboard: widgets, masonry packing, the generative-art widget (§88.3
        of the app.js-split plan). Loaded after app.js and shares its global
        scope; every cross-file call happens at runtime (inside a function or
@@ -5651,7 +5651,7 @@ Link to another note with [[its first few words]]."></textarea>
        closure) moved here along with the functions they call, the same fix
        documents.js made for `initDocSidebarTabs()` — see dashboard.js's own
        header for the full explanation. -->
-  <script src="/dashboard.js?v=0.1.14"></script>
+  <script src="/dashboard.js?v=0.1.20"></script>
   <!-- Settings: the modal shell, the logs console, and appearance (theme,
        accent, curated palettes, saved looks, the generative background
        preview) — §88.3 of the app.js-split plan, the fourth and LAST file.
@@ -5670,6 +5670,6 @@ Link to another note with [[its first few words]]."></textarea>
        event-listener closure — see this file's own header for the full
        account of what moved, what stayed in app.js and why, and the two
        hazards this ordering fixes. -->
-  <script src="/settings.js?v=0.1.14"></script>
+  <script src="/settings.js?v=0.1.20"></script>
 </body>
 </html>

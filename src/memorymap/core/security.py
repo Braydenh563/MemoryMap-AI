@@ -207,19 +207,71 @@ def build_csp(script_hashes: list[str]) -> str:
     return "; ".join(f"{name} {value}" for name, value in directives.items())
 
 
+class CspForPage:
+    """The CSP for `html_path`, recomputed whenever that file changes on disk.
+
+    **This exists because of a real, repeatedly-reported bug, and the shape of
+    it is worth keeping in mind.** The policy names the page's inline script by
+    sha256 hash — there is no `'unsafe-inline'` — so the hash in the header and
+    the script in the body have to agree exactly. They were computed at
+    *startup* and then frozen for the life of the process, while `index.html`
+    itself is read from disk on every request. Any update to the frontend under
+    a running server therefore served a new script with the old hash, and the
+    browser did the only thing it can:
+
+        [browser/csp] blocked script-src-elem: inline
+
+    That script is the anti-flash theme bootstrap in the page head, so the cost
+    was not abstract — losing it means the app paints its default look and the
+    resolved light/dark mode is never applied. It was reported more than once
+    ("this error keeps appearing"), and each time the honest answer was "the
+    server is stale, restart it". A correct policy that silently goes wrong
+    whenever a file changes is a trap rather than a policy, so the fix is to
+    stop freezing it: re-read when, and only when, the file's mtime or size
+    moves. A `stat` per response is cheaper by orders of magnitude than the
+    static-file read the same request already does, and the hash work only
+    happens on the request after an actual edit.
+    """
+
+    def __init__(self, html_path: Path) -> None:
+        self._path = html_path
+        self._stamp: tuple[float, int] | None = None
+        self._csp = build_csp([])
+
+    def _current_stamp(self) -> tuple[float, int] | None:
+        try:
+            st = self._path.stat()
+        except OSError:
+            return None
+        return (st.st_mtime, st.st_size)
+
+    def value(self) -> str:
+        stamp = self._current_stamp()
+        # An unreadable page keeps the last good policy rather than silently
+        # widening to one with no hashes at all.
+        if stamp is not None and stamp != self._stamp:
+            self._csp = build_csp(inline_script_hashes(self._path))
+            self._stamp = stamp
+        return self._csp
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Attach the CSP and its neighbours to every response."""
 
-    def __init__(self, app, csp: str) -> None:
+    def __init__(self, app, csp: str | CspForPage) -> None:
         super().__init__(app)
         self._csp = csp
+
+    def _policy(self) -> str:
+        # A plain string is still accepted so a test can pin an exact policy.
+        return self._csp.value() if isinstance(self._csp, CspForPage) else self._csp
 
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         headers = response.headers
         # setdefault, not assignment: a route that has deliberately set its own
         # policy knows something this middleware does not.
-        headers.setdefault("Content-Security-Policy", self._csp)
+        headers.setdefault("Content-Security-Policy", self._policy())
         # Belt and braces with frame-ancestors above, for anything that reads
         # the older header instead.
         headers.setdefault("X-Frame-Options", "DENY")

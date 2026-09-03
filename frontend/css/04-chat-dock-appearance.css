@@ -1489,14 +1489,51 @@ button {
 }
 
 /* Checkbox settings: box left, label + hint stacked right. */
+/* **The toggle row, redesigned.** Asked for directly, with a screenshot:
+   "can the 'Keep the AI on this machine' line be redesigned at all??" What
+   was there put the switch first and the label second, both top-aligned, so
+   the switch floated at the top-left of a text block of unpredictable height
+   and no two rows in the group started at the same place.
+
+   This is now the arrangement every settings screen a person has used
+   already puts it in — **what the setting is, on the left; the control that
+   changes it, hard right** — which also means the switches down a group form
+   one straight edge instead of tracking the length of each label. Two
+   columns rather than a flex row because the hint has to sit *under* the
+   label and not squeeze the switch: label and hint share column one (the
+   `<span>` the markup already wraps them in), the switch owns column two and
+   centres against the label's own line. */
+/* `label.setting-check` and not just `.setting-check`: `.settings-section
+   label` (01-forms-settings.css) is (0,1,1) and sets `display: flex`, which
+   outranked a bare `.setting-check` at (0,1,0) — the grid below was being
+   declared and then ignored, and the switch stayed wherever DOM order put
+   it. Measured: `display` computed to `flex` while `grid-template-columns`
+   and `grid-column` were both applied but inert. Matching the element as
+   well as the class ties the specificity, and this file loads after that
+   one, so the tie resolves here. */
+label.setting-check,
 .setting-check {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 0.6rem;
   padding: 0.5rem 0;
   border-top: 1px solid var(--border);
   cursor: pointer;
   margin: 0;
+}
+
+/* The label column: its own text, its "?", and the hint that opens below. */
+.setting-check>span {
+  grid-column: 1;
+}
+
+/* Hard right, and level with the label's first line however tall the row
+   grows when its hint is open. */
+.setting-check>input[type="checkbox"] {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
 }
 
 .settings-group>.setting-check:first-of-type {

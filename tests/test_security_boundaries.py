@@ -500,3 +500,54 @@ def test_the_real_page_still_yields_a_hash():
     from memorymap.api.app import FRONTEND_DIR
 
     assert security.inline_script_hashes(FRONTEND_DIR / "index.html")
+
+
+def test_csp_follows_the_page_when_it_changes_under_a_running_server(tmp_path):
+    """A frontend update must not leave the policy naming the old script.
+
+    The bug this pins down was reported from real use, more than once, as
+
+        [browser/csp] blocked script-src-elem: inline
+
+    and the cause was structural rather than a bad hash: the policy was built
+    once at startup while `index.html` is read from disk on every request, so
+    any edit to the page under a running server served a new inline script
+    against the *previous* script's hash. The browser blocks it, and what is
+    lost is the anti-flash theme bootstrap in the page head — the app paints
+    its default look instead of the user's. Restarting fixed it, which is why
+    it kept coming back.
+    """
+    page = tmp_path / "index.html"
+    page.write_text("<script>window.A = 1;</script>", encoding="utf-8")
+    provider = security.CspForPage(page)
+
+    first = provider.value()
+    assert security.inline_script_hashes(page)[0] in first
+
+    # Same content, no re-read needed: the policy must stay valid.
+    assert provider.value() == first
+
+    # Now the page changes under the running process, exactly as a frontend
+    # update does. os.utime keeps the test independent of filesystem mtime
+    # granularity, which is coarse enough on some platforms to hide this.
+    page.write_text("<script>window.A = 2;</script>", encoding="utf-8")
+    import os
+
+    st = page.stat()
+    os.utime(page, (st.st_atime, st.st_mtime + 10))
+
+    second = provider.value()
+    assert second != first, "policy still names the old script after an edit"
+    assert security.inline_script_hashes(page)[0] in second
+
+
+def test_csp_keeps_the_last_good_policy_if_the_page_goes_missing(tmp_path):
+    """Never silently widen to a policy with no hashes at all."""
+    page = tmp_path / "index.html"
+    page.write_text("<script>window.A = 1;</script>", encoding="utf-8")
+    provider = security.CspForPage(page)
+    good = provider.value()
+
+    page.unlink()
+
+    assert provider.value() == good

@@ -296,9 +296,10 @@ def create_app() -> FastAPI:
     app.add_middleware(security.OriginCheckMiddleware)
     app.add_middleware(
         security.SecurityHeadersMiddleware,
-        csp=security.build_csp(
-            security.inline_script_hashes(FRONTEND_DIR / "index.html")
-        ),
+        # Tracks index.html rather than freezing one policy at startup — see
+        # CspForPage for the reported bug that caused ("blocked
+        # script-src-elem: inline" after any frontend update, until restart).
+        csp=security.CspForPage(FRONTEND_DIR / "index.html"),
     )
 
     # Everything that touches the user's data sits behind the unlock

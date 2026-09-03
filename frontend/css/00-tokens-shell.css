@@ -2739,6 +2739,51 @@ summary.icon-button {
   justify-content: center;
 }
 
+/* **A button holding one icon is square, whether or not anyone remembered
+   the class.** Reported directly, as part of why controls "feel like just
+   shapes with text in them": "some single icon or character buttons are
+   rectangular and not square". Measured across seven tabs plus Settings,
+   twenty-one of them were — the whole header set (notifications, theme,
+   settings, lock, quit) at **44x32**, the status bar's history and undo
+   controls at 32x28, the chat composer's at 52x44.
+
+   The cause is that `.icon-only` above has to be remembered per button, and
+   for most of these it never was: they are `class="ghost small"` around a
+   lone `<i class="ph …">`, so they inherit `button.small`'s text padding
+   (`0 0.8rem`) and come out wider than they are tall. Matching on the
+   *content* instead of on a class fixes every one of them at once and keeps
+   the next one honest without anybody having to remember.
+
+   `align-self: center` is load-bearing, not tidiness: `aspect-ratio` only
+   decides a dimension nothing else has decided, so an icon button in a
+   stretching flex row has BOTH width and height imposed from outside and
+   ovals anyway — measured at 28x51 on a button that already carried
+   `.icon-only`, which is why adding the class everywhere would not have
+   been enough on its own. */
+/* **An icon-only button must not be ovalled by the row it sits in.**
+   `aspect-ratio` above only sizes an axis nothing else has decided, so a
+   button stretched by `align-items: stretch` (flex) or the default
+   `stretch` (grid) has *both* dimensions imposed from outside and comes out
+   rectangular regardless — measured at 28x51 on a button that already
+   carried `.icon-only`, which is why the class alone was never enough.
+
+   **Do not try to do this by matching content instead of the class.** A
+   `button:has(> i.ph:only-child)` rule looks like it would catch every
+   icon-only button in the app at once, and it was tried: `:only-child`
+   counts *element* siblings only, so it matches an icon that is followed by
+   a text label too. Every icon+label button in the app squared itself to
+   the width of its own words — `chat-compress` came out 91x91, measured.
+   CSS cannot see text, so the class stays the source of truth. */
+button.icon-only,
+button.icon-button,
+summary.icon-only,
+summary.icon-button {
+  align-self: center;
+  justify-self: center;
+  flex: 0 0 auto;
+  width: auto;
+}
+
 /* Reported live, with a screenshot: the Settings modal's back/forward
    nav arrows sit noticeably larger and boxier than "Close" right beside
    them (43px square against Close's 30px). `.small`'s own `padding:

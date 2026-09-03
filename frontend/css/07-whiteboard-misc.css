@@ -2392,3 +2392,35 @@ dialog::backdrop {
   background: var(--accent);
   cursor: grab;
 }
+
+/* --- icon-only buttons are square, everywhere -----------------------------
+   Reported as part of why controls read as "just shapes with text in them":
+   "some single icon or character buttons are rectangular and not square".
+   Measured across seven tabs and Settings — twenty-one of them were, the
+   header set (notifications, theme, settings, lock, quit) at 44x32.
+
+   `.icon-only` already declares `aspect-ratio: 1` in 00-tokens-shell.css and
+   it was not enough, for a reason worth writing down: **aspect-ratio only
+   sizes an axis that nothing else has decided.** A container like
+   `.header-controls button:not(.ai-status)` sets an explicit `height` *and*
+   an inline padding, which fixes the height and lets the content plus that
+   padding fix the width — both axes taken, nothing left for the ratio to
+   do. Its selector is (0,2,1), exactly equal to `button.small.icon-only`, so
+   it won purely by being later in the cascade.
+
+   Zeroing the inline padding is the whole fix: with width no longer pinned
+   by padding, the ratio derives it from the height the context already
+   declared, and the button comes out square at whatever size that context
+   wants. This block lives at the end of the last stylesheet so it wins that
+   source-order tie honestly, rather than by an !important or a doubled
+   class. The floor keeps a button square rather than shrinking to its glyph
+   in the rarer case where the height is `auto` too. */
+button.icon-only,
+button.icon-button,
+summary.icon-only,
+summary.icon-button {
+  padding-inline: 0;
+  width: auto;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+}

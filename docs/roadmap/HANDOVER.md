@@ -9196,3 +9196,60 @@ a data attribute and reading styles back from *that* gave the honest number:
 **2 of 32**, one of which (`.scroll-top`) was merely `visibility: hidden` at
 the time and has a perfectly good hover rule. A bad probe will invent a
 backlog; check what your measurement is actually pointing at.
+
+## Same session: the geometry pass — square icon buttons, matched control heights, a redesigned toggle row
+
+Reported: "some single icon or character buttons are rectangular and not
+square", "a lot of elements are mismatching in height, alignment, sizing,
+hierarchy", "can the 'Keep the AI on this machine' line be redesigned at
+all??". All measured across seven tabs plus Settings before and after.
+
+**Icon buttons: 21 non-square, now 3.** The header set was **44x32**
+(notifications/theme/settings/lock/quit), the status bar's history and undo
+controls 32x28, the chat composer's 52x44. Two distinct causes:
+- Most simply never carried `.icon-only`; the class is now on the fourteen
+  static ones, applied by id after confirming in the DOM that each really
+  holds a lone icon and no text.
+- **The class alone was not enough, and this is the part to remember.**
+  `aspect-ratio` only sizes an axis nothing else has decided. A container
+  like `.header-controls button:not(.ai-status)` sets an explicit `height`
+  *and* an inline padding, so height is fixed and width follows content +
+  padding — both axes taken, the ratio inert. Its selector is (0,2,1),
+  exactly equal to `button.small.icon-only`, so it won on source order
+  alone. Zeroing the inline padding in a block at the end of the *last*
+  stylesheet frees the width to follow the height, and wins that tie
+  honestly rather than with `!important`.
+
+**A dead end worth not repeating:** `button:has(> i.ph:only-child)` looks
+like it would catch every icon-only button at once without touching markup.
+It was tried and reverted — `:only-child` counts *element* siblings only, so
+it also matches an icon followed by a text label, and every icon+label
+button in the app squared itself to the width of its own words
+(`chat-compress` came out 91x91, measured). **CSS cannot see text**; the
+class stays the source of truth.
+
+**Control heights.** `.focus-presets` had a 45px field beside 28px buttons —
+the same stacked-form padding problem the Settings rows had, so it takes the
+same `--control-h: 2.2rem` strip treatment. After this pass the row scan
+reports **two** rows with a height spread, and both are range sliders, which
+DESIGN.md deliberately exempts ("sliders and switches are their own size").
+Chat's composer was checked directly on the report that its message bar
+disagreed with its row: every control in it measures 44px at the same y —
+the reporter's screenshots are from a build before the Settings fix landed.
+
+**The toggle row.** Switch first and label second, both top-aligned, meant
+the switch floated at the top-left of a text block of unpredictable height
+and no two rows in a group began at the same place. It is now the
+arrangement every settings screen already uses — **what the setting is on
+the left, the control that changes it hard right** — as a two-column grid so
+the hint can open under the label without squeezing the switch.
+
+That last one took two attempts, and the reason is a specificity trap worth
+recording: `.settings-section label` (0,1,1) sets `display: flex` and
+outranked a bare `.setting-check` (0,1,0), so the grid was declared and then
+silently ignored — `display` computed to `flex` while `grid-template-columns`
+and `grid-column` were both applied but inert, and the switch stayed where
+DOM order put it. Matching the element as well as the class ties the
+specificity, and 04 loads after 01, so the tie resolves correctly. **A
+screenshot is what caught it**: the row looked "fixed" (one tidy line)
+while being nothing of the kind.

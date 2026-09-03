@@ -1620,6 +1620,10 @@ async function renderGraph() {
           // Remembered here and restored at "end" below, the same care
           // `graphDragPinned` already gives every *other* node.
           d.wasPinnedBeforeThisDrag = d.fx != null;
+          // Where this gesture began, so "end" can tell a placement from a
+          // bare click — see its own comment.
+          d.dragStartX = d.x;
+          d.dragStartY = d.y;
           d.fx = d.x;
           d.fy = d.y;
           // **Everything else stands still for the length of the drag.**
@@ -1655,7 +1659,11 @@ async function renderGraph() {
           graphDropTarget = graphNodeUnder(d, event);
           nodeGroups.classed("graph-drop-target", (other) => other === graphDropTarget);
         })
-        .on("end", (event, d) => {
+        // A regular function, not an arrow: `d3.select(this)` below needs the
+        // dragged node's own element, and d3 supplies it as `this`. An arrow
+        // would silently close over the module scope instead and the
+        // held-look would be applied to nothing.
+        .on("end", function (event, d) {
           if (!event.active) graphSimulation?.alphaTarget(0);
           // **The note that was lit, not the one under the cursor now.**
           // Dragging reheats the simulation, so every other node is still
@@ -1679,12 +1687,52 @@ async function renderGraph() {
           }
           graphDragPinned = [];
           if (tree) return; // a laid-out tree keeps its shape
-          // Only release *this* node if the drag itself was what pinned
-          // it — a real double-click hold must survive its own two
-          // constituent clicks, not just survive some *other* drag.
-          if (!d.wasPinnedBeforeThisDrag) {
+
+          // **Dragging a note places it, and it stays placed.** Reported
+          // directly: "the way connections are made feels more annoying and
+          // manual", "the main graph view, while cool to look at, is soooooo
+          // annoying to use", "the gravity and separation in the main graph
+          // view are annoying".
+          //
+          // This line used to be `d.fx = null; d.fy = null` — the node you
+          // had just dragged somewhere was handed straight back to the
+          // simulation, which pulled it off to wherever the forces wanted it.
+          // Holding a note where you put it required a *double-click*, a
+          // gesture nothing on screen mentions. So the honest description of
+          // the old behaviour is: the one obvious way to arrange the map did
+          // not arrange it, and the way that did was invisible.
+          //
+          // A drag is an intentional placement — the most deliberate gesture
+          // in the whole view — so it is treated as one. Double-click keeps
+          // its meaning and becomes the *inverse*: hand this note back to
+          // the layout. That is a better pairing than the old one anyway,
+          // because "let go of this" is the rarer action and the one worth
+          // hiding behind a second gesture.
+          //
+          // A drag that never moved is not a placement. d3-drag fires
+          // start/end on a bare click (the bug the "start" handler above
+          // documents at length), and pinning every note anyone clicked on
+          // would freeze the map by accident.
+          const movedFar =
+            Math.abs(d.x - d.dragStartX) > 2 || Math.abs(d.y - d.dragStartY) > 2;
+          if (!movedFar && !d.wasPinnedBeforeThisDrag) {
             d.fx = null;
             d.fy = null;
+          } else if (movedFar && !d.isGroup) {
+            // Same persistence the double-click pin has always used, so a
+            // map you arranged is still arranged after a reload — which is
+            // most of what "make my own thought process map" means.
+            d3.select(this).classed("graph-held", true);
+            d.graph_pin_x = d.fx;
+            d.graph_pin_y = d.fy;
+            apiJson(`/graph/pin/${d.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
+            }).catch(() => {
+              // Best-effort, exactly as the double-click path already is: the
+              // in-memory placement above has already taken effect, so a
+              // failed save costs the reload and nothing else.
+            });
           }
           delete d.wasPinnedBeforeThisDrag;
         })

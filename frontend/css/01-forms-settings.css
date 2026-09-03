@@ -851,6 +851,33 @@ progress {
   color: var(--warn);
 }
 
+/* A note that is saved but not yet filed. Quiet on purpose — this is a
+   progress state on a note that is already safely on disk, not a warning,
+   and it replaces the category chip for the second or two it lasts. */
+.chip.filing {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chip.filing .ph {
+  animation: chip-filing-spin 1.1s linear infinite;
+}
+
+@keyframes chip-filing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Someone who has asked for less movement has asked for exactly this kind
+   of movement to stop: an indefinite spinner in a list of notes. The chip
+   still says "Filing…", which was always the part carrying the meaning. */
+@media (prefers-reduced-motion: reduce) {
+  .chip.filing .ph {
+    animation: none;
+  }
+}
+
 /* Chips that carry a click handler are real buttons — show it and give them a
    visible keyboard focus ring. */
 .chip-interactive {

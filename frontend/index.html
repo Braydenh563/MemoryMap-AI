@@ -621,6 +621,16 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="entry-attach-existing" class="ghost" type="button"
               title="Attach an image already in your library" aria-label="Attach an image already in your library"><i class="ph ph-images-square ph-lead" aria-hidden="true"></i> From library</button>
           </div>
+          <!-- Files waiting to go onto this note when it saves. Reported
+               directly: "when I uplaod pdfs to a note, they are in pure md
+               with no visual card allowing me to delete the files. I cant
+               see, manage or view the files or documents anywhere." Before
+               this, a non-image file dropped here became a bare markdown
+               link and nothing else — no card, no size, no way to take it
+               back off, and clicking it navigated the whole app away to a
+               401 page with no way back. Empty and hidden until something
+               is staged; `renderCaptureFiles` fills it. -->
+          <div id="entry-file-strip" class="file-strip hidden" aria-label="Files attached to this note"></div>
           <div class="row capture-field-row">
             <label for="entry-category" class="muted capture-field-label">File under</label>
             <select id="entry-category"></select>
@@ -2244,7 +2254,7 @@ Link to another note with [[its first few words]]."></textarea>
       <button role="tab" aria-selected="true" data-target="library-view-documents" class="active">All</button>
       <button role="tab" aria-selected="false" data-target="library-view-docs">Documents</button>
       <button role="tab" aria-selected="false" data-target="library-view-whiteboard">Whiteboards</button>
-      <button role="tab" aria-selected="false" data-target="library-view-media">Image Gallery</button>
+      <button role="tab" aria-selected="false" data-target="library-view-media">Files &amp; Images</button>
       <button role="tab" aria-selected="false" data-target="library-view-skills">AI Skills</button>
       <button role="tab" aria-selected="false" data-target="library-view-links">Links</button>
       <button role="tab" aria-selected="false" data-target="library-view-contents">Contents</button>
@@ -2956,7 +2966,7 @@ Link to another note with [[its first few words]]."></textarea>
   <div id="library-view-media" class="library-view-section hidden">
     <section class="card glass">
       <div class="row space-between library-head">
-        <h2>Image Gallery</h2>
+        <h2>Files &amp; Images</h2>
         <div class="row">
           <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
@@ -2975,7 +2985,7 @@ Link to another note with [[its first few words]]."></textarea>
            search box above, not a server round-trip, since a gallery is
            small enough that a plain substring pass costs nothing. -->
       <input id="library-images-search" type="search" class="library-search"
-        placeholder="Search filenames and text found in images…"
+        placeholder="Search filenames, captions and text found in files…"
         aria-label="Search the image gallery">
       <div id="library-images-grid" class="library-image-grid"></div>
       <div id="library-images-empty" class="empty-state hidden">
@@ -4524,6 +4534,15 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="pref-ai-first-filing">
                 <span>Ask the AI where each note belongs (more accurate, slower to save)</span>
               </label>
+              <!-- On by default. With this off, Save blocks until the model
+                   has decided a category — which is what the setting above
+                   makes slower, and the pair is the point: accuracy is worth
+                   a model round-trip, it is just not worth *waiting* for one
+                   with the composer disabled. -->
+              <label class="check-row">
+                <input type="checkbox" id="pref-background-filing">
+                <span>File notes in the background (save is instant; a notification says where it landed)</span>
+              </label>
               <label class="check-row">
                 <input type="checkbox" id="pref-auto-caption-images">
                 <span>Describe images automatically (AI caption on save)</span>
@@ -4901,7 +4920,7 @@ Link to another note with [[its first few words]]."></textarea>
                    features??" It didn't. -->
               <details>
                 <summary><i class="ph ph-books ph-lead" aria-hidden="true"></i> Library</summary>
-                <p>The <strong>Library</strong> is where you find what you already made — notes, documents, chats, files and tags together, with sort, search and filter chips (including <strong>Meetings</strong> for anything tagged “meeting”) across the top. Its own sub-tabs hold <strong>Documents</strong> (long-form writing, separate from a quick note), <strong>Whiteboards</strong> (freehand sketches and diagrams), the <strong>Image Gallery</strong> (every picture you’ve uploaded or pasted, with AI captions and OCR text), and <strong>AI Skills</strong> (see below).</p>
+                <p>The <strong>Library</strong> is where you find what you already made — notes, documents, chats, files and tags together, with sort, search and filter chips (including <strong>Meetings</strong> for anything tagged “meeting”) across the top. Its own sub-tabs hold <strong>Documents</strong> (long-form writing, separate from a quick note), <strong>Whiteboards</strong> (freehand sketches and diagrams), the <strong>Files &amp; Images</strong> gallery (every file you’ve uploaded or pasted — pictures with AI captions and OCR text, and PDFs and documents you can open in the reader), and <strong>AI Skills</strong> (see below).</p>
                 <p class="help-topic-links muted">Related: <button type="button" class="linklike" data-goto-tab="library">Library tab</button></p>
               </details>
               <details>

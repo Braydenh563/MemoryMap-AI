@@ -57,6 +57,18 @@ class EntryCreate(BaseModel):
     # falls back.
     source_url: str | None = Field(default=None, max_length=2000)
     source_title: str | None = Field(default=None, max_length=300)
+    #: Save now, decide the category later on a background thread.
+    #:
+    #: Filing asks a local model, which on a small machine is seconds, and
+    #: it used to happen *inside* this request — so the composer stayed
+    #: disabled behind "Filing…" for the whole of it. With this set the
+    #: response comes back as soon as the note is on disk, carrying
+    #: `filing_state: "pending"`; the caller polls `GET /entries/{id}/filing`
+    #: (or just reloads the list) to find out where it landed.
+    #:
+    #: Ignored when `category` or `parent_id` decides the category anyway —
+    #: there is nothing to defer in either case.
+    defer_filing: bool = False
 
 
 class EntryUpdate(BaseModel):
@@ -155,5 +167,8 @@ class EntryOut(BaseModel):
     # How this entry was filed — only present on the create response:
     # 'semantic-match' | 'llm' | 'user' | 'thread' | 'none'
     filed_by: str | None = None
+    # 'done' | 'pending' | 'failed' — see Entry.filing_state. A note saved
+    # with `defer_filing` comes back 'pending' and settles later.
+    filing_state: str = "done"
     # Near-duplicate warning — only present on the create response.
     similar: SimilarOut | None = None

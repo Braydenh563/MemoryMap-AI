@@ -1164,7 +1164,17 @@ function entryItem(entry, options = {}) {
 
   const meta = document.createElement("div");
   meta.className = "entry-meta";
-  meta.appendChild(chip(entry.category));
+  // A note saved with filing deferred is in its holding category, not its
+  // real one, and saying "Uncategorised" for the second or two before the
+  // background pass lands reads as the AI having failed. Say what is
+  // actually happening instead.
+  if (entry.filing_state === "pending") {
+    const filing = chip("ph:circle-notch Filing…", "filing");
+    filing.title = "The AI is deciding where this note goes. It's already saved.";
+    meta.appendChild(filing);
+  } else {
+    meta.appendChild(chip(entry.category));
+  }
   for (const tag of entry.tags) meta.appendChild(chip(tag, "tag"));
 
   // "AI 0% — check this" is a warning about the AI's filing, and it only makes
@@ -2539,7 +2549,7 @@ async function attachFromLibrary(entry) {
     return;
   }
   if (!images.length) {
-    toast("Nothing in the Library gallery yet — upload one from Library → Image Gallery first.", true);
+    toast("Nothing in the Library gallery yet — upload one from Library → Files & Images first.", true);
     return;
   }
 
@@ -4721,6 +4731,100 @@ function attachmentIconClass(url) {
   return ATTACHMENT_ICONS[ext] || "ph-file";
 }
 
+//: Extensions the file card labels by name rather than by the generic
+//: "File" — the type is the second most useful thing about a file after
+//: what it is called, and "PDF · Open" reads as a thing you can do where
+//: "myfile.pdf" alone reads as text that happens to end in .pdf.
+const FILE_KIND_LABELS = {
+  pdf: "PDF", doc: "Word", docx: "Word", odt: "Document", rtf: "Document",
+  xls: "Sheet", xlsx: "Sheet", ods: "Sheet", csv: "CSV",
+  ppt: "Slides", pptx: "Slides", odp: "Slides",
+  txt: "Text", md: "Markdown", markdown: "Markdown",
+  json: "JSON", xml: "XML", yaml: "YAML", yml: "YAML",
+  html: "HTML", htm: "HTML", css: "CSS",
+  js: "Code", ts: "Code", jsx: "Code", tsx: "Code", py: "Code", java: "Code",
+  c: "Code", h: "Code", cpp: "Code", hpp: "Code", cs: "Code", go: "Code",
+  rs: "Code", rb: "Code", php: "Code", sh: "Code", sql: "SQL",
+  swift: "Code", kt: "Code",
+  zip: "Archive", mp3: "Audio", wav: "Audio", m4a: "Audio",
+  mp4: "Video", mov: "Video", webm: "Video",
+};
+
+function fileKindLabel(url) {
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  return FILE_KIND_LABELS[ext] || "File";
+}
+
+/** A file attached to a note, rendered as something you can see and act on.
+ *
+ * Three affordances, and each one is a thing that was missing rather than a
+ * flourish: **open** (the card itself, into the lightbox's document viewer —
+ * the fix for the 401 dead end described at the call site), **save** (the
+ * only way to get the bytes out, since a plain link cannot authenticate),
+ * and the **type and name**, so a note full of files reads as a list of
+ * files instead of a paragraph of blue text.
+ *
+ * Deliberately not a `<a>` at all. An anchor to `/media/…` is the bug; an
+ * anchor with a token in the query string would put an unlock credential
+ * into anything that logs or copies a URL. A button that fetches with the
+ * header, like every other call in this app, has neither problem.
+ */
+/** The one-line form of `fileCard`, for a surface too small for a card. */
+function fileChip(name, url) {
+  const label = name && name !== url ? name : url.split("/").pop();
+  const chipEl = document.createElement("span");
+  chipEl.className = "chip file-chip";
+  setLabel(chipEl, `${(attachmentIconClass(url) || "ph-file").replace("ph-", "ph:")} ${label}`);
+  chipEl.title = `${fileKindLabel(url)} — ${label}`;
+  return chipEl;
+}
+
+function fileCard(name, url) {
+  const label = name && name !== url ? name : url.split("/").pop();
+  const card = document.createElement("span");
+  card.className = "file-card";
+
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "file-card-open";
+  open.title = `Open “${label}”`;
+  const icon = document.createElement("i");
+  icon.className = `ph ${attachmentIconClass(url) || "ph-file"} file-card-icon`;
+  icon.setAttribute("aria-hidden", "true");
+  const text = document.createElement("span");
+  text.className = "file-card-text";
+  const nameEl = document.createElement("span");
+  nameEl.className = "file-card-name";
+  nameEl.textContent = label;
+  const kindEl = document.createElement("span");
+  kindEl.className = "file-card-kind";
+  kindEl.textContent = fileKindLabel(url);
+  text.append(nameEl, kindEl);
+  open.append(icon, text);
+  open.addEventListener("click", () => {
+    openLightbox([{ filename: label, getUrl: () => mediaSrc(url) }], 0);
+  });
+
+  const save = document.createElement("button");
+  save.type = "button";
+  save.className = "ghost small icon-only file-card-save";
+  setLabel(save, "ph:download-simple");
+  save.title = `Save “${label}” to disk`;
+  save.setAttribute("aria-label", save.title);
+  save.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    try {
+      const response = await api(url);
+      await saveFile(label, await response.blob());
+    } catch (error) {
+      toast(error.message || `Couldn't save “${label}”.`, true);
+    }
+  });
+
+  card.append(open, save);
+  return card;
+}
+
 // LaTeX escapes that models reach for when they want a symbol (§35H).
 //
 // Screenshotted: a bullet reading "Jokes $\rightarrow$ Social Skills", with
@@ -4935,21 +5039,44 @@ function renderInlineMarkdown(element, text, terms, compact = false, options = {
     }
     if (linkUrl !== undefined) {
       if (isRenderableUrl(linkUrl)) {
-        const a = document.createElement("a");
-        a.href = linkUrl;
-        if (/^https?:\/\//i.test(linkUrl)) {
-          a.target = "_blank";
-          a.rel = "noopener";
-        }
         const iconClass = attachmentIconClass(linkUrl);
         if (iconClass) {
-          const icon = document.createElement("i");
-          icon.className = `ph ${iconClass} attachment-link-icon`;
-          icon.setAttribute("aria-hidden", "true");
-          a.appendChild(icon);
+          // **A file, not a link — and this fixes a dead end, not just the
+          // looks.** Reported directly: "once I uploaded two files into a
+          // note, they became hyperlinked text, I clicked on them, and it
+          // took me to a black fode screen with some text about needing to
+          // unlock first… there was no way for me to go back except for
+          // closing the application entirely."
+          //
+          // That is exactly what an `<a href="/media/x.pdf">` does here. A
+          // plain navigation carries no `X-Auth-Token` header — only
+          // `apiJson` and `mediaSrc` attach one — so the browser leaves the
+          // single-page app, gets the unlock guard's 401 JSON body, and
+          // renders it with its own JSON viewer. The app is gone, and in the
+          // desktop shell there is no back button to bring it back.
+          //
+          // The lightbox already reads this exact file: `show()` sniffs a
+          // `/media/…` url that is not an image and hands it to the document
+          // viewer, which renders PDFs, Office files, code and plain text
+          // through `/media/text`. Nothing routed a note's own files to it —
+          // that missing wire is the whole bug.
+          // `compact` is the same label-sized-surface case the image branch
+          // above uses it for: a dashboard preview row or a link chip has
+          // room for a line of text, not a two-line card with its own
+          // buttons. The name and the type still say what it is.
+          element.appendChild(
+            compact ? fileChip(linkText, linkUrl) : fileCard(linkText, linkUrl)
+          );
+        } else {
+          const a = document.createElement("a");
+          a.href = linkUrl;
+          if (/^https?:\/\//i.test(linkUrl)) {
+            a.target = "_blank";
+            a.rel = "noopener";
+          }
+          highlightInto(a, linkText, terms);
+          element.appendChild(a);
         }
-        highlightInto(a, linkText, terms);
-        element.appendChild(a);
       } else {
         element.appendChild(document.createTextNode(match[0]));
       }
@@ -5819,7 +5946,55 @@ function offerJumpToNewNote(saved, status) {
   status.append(" ", jump);
 }
 
+// A deferred note's filing runs after its POST returns, so the composer has
+// to find out where it landed some other way. It polls this one endpoint —
+// three fields, no joins — on a widening interval, because the answer
+// arrives either in well under a second (a semantic match, no model call)
+// or in however long the local model takes, and a fixed 250ms poll would
+// spend most of its requests on the gap between those two.
+//
+// Giving up is deliberately quiet. The note is already saved and already in
+// the list; the only thing a timeout costs is the toast, and a notebook
+// whose model has gone away should not accumulate error messages for notes
+// that saved perfectly well.
+const FILING_POLL_STEPS = [400, 600, 900, 1400, 2000, 3000, 4000, 6000, 8000];
+
+async function watchFiling(entry) {
+  for (const wait of FILING_POLL_STEPS) {
+    await new Promise((r) => setTimeout(r, wait));
+    let status;
+    try {
+      status = await apiJson(`/entries/${entry.id}/filing`, { silent: true });
+    } catch {
+      return; // deleted, or the server went away — nothing to report
+    }
+    if (status.filing_state === "pending") continue;
+    if (status.filing_state === "failed") {
+      toast(`Saved, but the AI couldn't file it — it's in “${status.category}”.`, true);
+    } else {
+      toastAction(
+        `Filed under “${status.category}” (${status.ai_confidence}% sure).`,
+        "Go to it",
+        () => flashEntry(entry.id)
+      );
+      // The near-duplicate search moved into the same background pass, so
+      // this warning arrives here now rather than on the create response.
+      // Still purely informational, still never blocking — the note saved.
+      if (status.similar) {
+        toast(`Heads up: this is close to an existing note — “${status.similar.preview}”`);
+      }
+    }
+    // The card in the list still says "Filing…" and still shows the holding
+    // category until something re-reads it.
+    await loadEntries();
+    return;
+  }
+}
+
 function filedByText(saved) {
+  if (saved.filing_state === "pending") {
+    return "Saved. Filing it in the background — keep writing.";
+  }
   switch (saved.filed_by) {
     case "semantic-match":
       return `Filed under “${saved.category}” (${saved.ai_confidence}% sure) — matched by meaning, no AI call needed`;
@@ -6111,13 +6286,25 @@ async function saveEntry() {
   const category = await resolveCategoryChoice($("entry-category"));
   if (category === undefined) return;
 
+  // Filing in the background is the default, and the reason is the whole
+  // point of the preference: filing asks a local model, so on a small
+  // machine this form used to sit disabled behind "Filing…" for seconds
+  // per note — reported as "the making of new notes was slow and annoying…
+  // I feel like the note panels should disappear while filing and
+  // continuing in the backend with a popup notification so I dont have to
+  // wait twiddling my thumbs". Choosing a category yourself skips it
+  // either way: there is nothing to wait for.
+  const deferFiling = !category && (prefsCache.background_filing ?? true);
+
   button.disabled = true;
   status.classList.remove("error");
   status.textContent = category
     ? "Saving…"
-    : modelStatus && !modelStatus.embedding_ready
-      ? "Filing… (the search AI is still warming up, this first one can take longer)"
-      : "Filing… (the AI is reading and categorising your note)";
+    : deferFiling
+      ? "Saving…"
+      : modelStatus && !modelStatus.embedding_ready
+        ? "Filing… (the search AI is still warming up, this first one can take longer)"
+        : "Filing… (the AI is reading and categorising your note)";
   try {
     const saved = await apiJson("/entries", {
       method: "POST",
@@ -6126,9 +6313,11 @@ async function saveEntry() {
         tags,
         category,
         document_ids: [...captureDocuments],
+        defer_filing: deferFiling,
       }),
     });
     status.textContent = filedByText(saved);
+    if (saved.filing_state === "pending") watchFiling(saved);
     if (saved.similar) {
       // Duplicate detection (Wave B) — informational, never blocking.
       toast(
@@ -16828,6 +17017,7 @@ async function renderPrefs() {
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
+  $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
@@ -22106,6 +22296,9 @@ $("pref-autonomous-tasks").addEventListener("change", (e) => {
   toggleAutonomousPanel();
   setPreference("autonomous_tasks_enabled", e.target.checked);
 });
+$("pref-background-filing").addEventListener("change", (e) =>
+  setPreference("background_filing", e.target.checked)
+);
 $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)
 );
@@ -24857,6 +25050,65 @@ function renderEntryAttachmentChips() {
     chipActions.append(captionBtn, editCaptionBtn, remove);
     chip.append(img, label, chipActions);
     box.appendChild(chip);
+  }
+  renderCaptureFiles();
+}
+
+/** The strip above, for files that are not images.
+ *
+ * The chip strip it sits under only ever matched image syntax
+ * (`![name](/media/…)`), because it was written to show thumbnails. A PDF
+ * or a spreadsheet is inserted with *link* syntax (`[name](/media/…)`) by
+ * `handleFileUpload`, so it matched nothing and the composer showed no sign
+ * a file had been attached at all — reported directly: "when I uplaod pdfs
+ * to a note, they are in pure md with no visual card allowing me to delete
+ * the files."
+ *
+ * Rendered *from the note's own text* rather than from a separate staging
+ * list, and that is the design rather than an economy. The markdown is
+ * where the attachment actually lives — it is what gets saved, what the AI
+ * reads, and what survives an export. A parallel list of "staged files"
+ * would be a second source of truth that a single edit to the textarea
+ * could put out of sync, and removing a card would have to reconcile the
+ * two. Here, removing a card *is* deleting that line, which is the only
+ * thing removal could honestly mean.
+ */
+function renderCaptureFiles() {
+  const strip = $("entry-file-strip");
+  const textarea = $("entry-content");
+  if (!strip || !textarea) return;
+  // Link syntax only. The negative lookbehind is what keeps images out:
+  // `![x](/media/y.png)` also ends in `[x](/media/y.png)`, so without it
+  // every image would appear twice, once as a thumbnail chip and once here.
+  const pattern = /(?<!!)\[([^\]]{0,200})\]\((\/media\/[^)\s]{1,500})\)/g;
+  const matches = [...textarea.value.matchAll(pattern)];
+  strip.replaceChildren();
+  strip.classList.toggle("hidden", matches.length === 0);
+  for (const match of matches) {
+    const [full, name, url] = match;
+    const card = fileCard(name, url);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost small icon-only file-card-remove";
+    setLabel(remove, "ph:x");
+    remove.title = `Remove “${name || url}” from this note`;
+    remove.setAttribute("aria-label", remove.title);
+    remove.addEventListener("click", async () => {
+      textarea.value = textarea.value.replace(full, "").replace(/\n{3,}/g, "\n\n");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      // Same reasoning as the image chip's own remove, directly above: a
+      // file attached to a note that has never been saved cannot be
+      // referenced from anywhere else yet, so detaching the markdown and
+      // leaving the bytes in data/media would only ever produce an orphan.
+      try {
+        const upload = await resolveMediaUploadByUrl(url);
+        if (upload) await apiJson(`/media/${upload.id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Couldn't delete the underlying upload", err);
+      }
+    });
+    card.appendChild(remove);
+    strip.appendChild(card);
   }
 }
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -133,6 +134,7 @@ def _to_out(
             for a in manager.attachments_for(session, entry)
         ],
         filed_by=filed_by,
+        filing_state=getattr(entry, "filing_state", "done") or "done",
         similar=similar,
     )
 
@@ -195,11 +197,103 @@ def _process_committed_media(session: Session, plaintext_content: str) -> None:
     )
 
 
+def _file_entry_now(session: Session, content: str) -> tuple[str, int, str]:
+    """Ask the janitor where a note belongs. Whatever goes wrong in AI land,
+    the note still gets saved (plan §4)."""
+    try:
+        return janitor.categorise(
+            session,
+            content,
+            deps.get_embeddings(),
+            deps.get_model_manager(),
+            deps.get_ollama(),
+        )
+    except Exception:
+        return manager.UNCATEGORISED, 0, "none"
+
+
+def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
+    """Decide a deferred note's category after its POST has already returned.
+
+    Runs on its own daemon thread with its own session, the same shape
+    `core/ocr.py`'s `extract_in_background` uses and for the same reason:
+    the request this belongs to is finished, and the user is already typing
+    the next note.
+
+    Two things here are load-bearing and easy to get wrong:
+
+    **The workspace has to be re-established by hand.** A fresh session from
+    `deps.get_db()` carries no `workspace_id` in `session.info`, so the
+    scoping hooks in `core/database.py` sit out entirely — which means the
+    janitor would otherwise weigh *every space's* categories when deciding
+    where a note from one space belongs, and could file it into a category
+    that space cannot even see. `impersonate_workspace` puts the session
+    back in the note's own space for the duration.
+
+    **The note is never left saying "pending" forever.** Every exit path —
+    success, a janitor that raised, an entry deleted while the thread was
+    still running — settles `filing_state`, because the composer's status
+    chip and the poller in `app.js` both read it as "still working" and a
+    stuck value would show a note filing itself for eternity.
+
+    **Filing is not the only slow thing in a save**, and deferring it alone
+    left the request at ~1s measured locally with no model running at all.
+    Embedding the note and the near-duplicate search (itself a full semantic
+    search, run only to *maybe* show an advisory toast) were the rest of it,
+    and neither is anything the composer needs before the user can start
+    typing again. They move here too. The duplicate warning comes back
+    through `GET /entries/{id}/filing` instead of the create response, so a
+    note that triggers one still gets its "you already wrote something like
+    this" — a moment later, in the same notification that says where it was
+    filed.
+    """
+    from memorymap.core.deps import impersonate_workspace
+
+    try:
+        with deps.get_db().session() as session:
+            with impersonate_workspace(session, workspace_id):
+                entry = session.get(Entry, entry_id)
+                if entry is None:
+                    return  # deleted before filing finished — nothing to settle
+                category, confidence, _filed_by = _file_entry_now(
+                    session, manager.readable_content(entry)
+                )
+                entry.category_id = manager.get_or_create_category(
+                    session, category
+                ).id
+                entry.ai_confidence = confidence
+                # Ordered deliberately: the vector has to exist before the
+                # near-duplicate search has anything to compare against, and
+                # both have to land before `filing_state` reads "done" — that
+                # flag is what the composer's poller stops on.
+                deps.store_quietly(session, entry)
+                duplicate = _find_near_duplicate(session, entry)
+                if duplicate is not None:
+                    entry.filing_similar_id = duplicate.id
+                entry.filing_state = "done"
+                session.commit()
+    except Exception:
+        logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
+        try:
+            with deps.get_db().session() as session:
+                entry = session.get(Entry, entry_id)
+                if entry is not None:
+                    entry.filing_state = "failed"
+                    session.commit()
+        except Exception:
+            logger.warning("couldn't mark entry %s as failed", entry_id, exc_info=True)
+
+
 @router.post("", response_model=EntryOut, status_code=201)
 def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> EntryOut:
     parent = None
     if body.parent_id is not None:
         parent = _existing_entry(session, body.parent_id)
+
+    # Deferred only when nothing else already decides the category: with an
+    # explicit `category` or a `parent_id` there is no model call to wait
+    # for, so deferring would add a round trip and buy nothing.
+    defer = body.defer_filing and not body.category and parent is None
 
     if body.category:
         # Guided mode: the user chose — the AI stays out of it entirely.
@@ -209,19 +303,14 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         # parent's category — predictable beats clever here.
         category = manager.category_name_for(session, parent)
         confidence, filed_by = 75, "thread"
+    elif defer:
+        # Saved to disk now, filed a moment later — see
+        # `_file_entry_in_background`. Uncategorised is a real, visible
+        # holding place rather than a null, so a note whose filing thread
+        # dies with the process is still exactly where a user can find it.
+        category, confidence, filed_by = manager.UNCATEGORISED, 0, "pending"
     else:
-        # Ask the janitor where this belongs. Whatever goes wrong in AI
-        # land, the note still gets saved (plan §4).
-        try:
-            category, confidence, filed_by = janitor.categorise(
-                session,
-                body.content,
-                deps.get_embeddings(),
-                deps.get_model_manager(),
-                deps.get_ollama(),
-            )
-        except Exception:
-            category, confidence, filed_by = manager.UNCATEGORISED, 0, "none"
+        category, confidence, filed_by = _file_entry_now(session, body.content)
 
     entry = manager.create_entry(
         session,
@@ -239,13 +328,19 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     if body.source_url:
         entry.source_url = body.source_url
         entry.source_title = body.source_title
+    if defer:
+        entry.filing_state = "pending"
     session.commit()
 
     # Best effort: a failed embedding only means this entry is invisible
     # to semantic search until re-indexed — never a failed save. It is logged
     # rather than swallowed, so a backend that has stopped working shows up in
     # Settings → Logs instead of quietly shrinking search.
-    deps.store_quietly(session, entry)
+    #
+    # Skipped when filing is deferred: the same background thread does it,
+    # right before the near-duplicate search that depends on it.
+    if not defer:
+        deps.store_quietly(session, entry)
 
     # [[wiki links]] become real links. Best effort for the same reason: a
     # link that can't be resolved must never cost someone their note.
@@ -271,9 +366,54 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # that was actually just submitted, before that happens.
     _process_committed_media(session, body.content)
 
-    return _to_out(
-        session, entry, filed_by=filed_by, similar=_find_near_duplicate(session, entry)
+    out = _to_out(
+        session,
+        entry,
+        filed_by=filed_by,
+        similar=None if defer else _find_near_duplicate(session, entry),
     )
+
+    # Started last, on purpose: everything above still runs inside the
+    # request, so the thread can never race the commit that makes this note
+    # visible to its own session.
+    if defer:
+        threading.Thread(
+            target=_file_entry_in_background,
+            args=(entry.id, getattr(entry, "workspace_id", "default") or "default"),
+            daemon=True,
+            name=f"file-entry-{entry.id}",
+        ).start()
+
+    return out
+
+
+@router.get("/{entry_id}/filing")
+def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """Where a deferred note ended up — the one thing the composer polls.
+
+    Deliberately not `GET /entries/{id}`: that serialises links, documents,
+    dates and attachments through four more queries, and a poller running
+    every second while a note settles would pay all of it to read three
+    fields. This is the whole of what the "Filed under X" notification
+    needs.
+    """
+    entry = _existing_entry(session, entry_id)
+    similar = None
+    duplicate_id = getattr(entry, "filing_similar_id", None)
+    if duplicate_id is not None:
+        other = session.get(Entry, duplicate_id)
+        if other is not None:
+            similar = {
+                "id": other.id,
+                "preview": _preview(manager.readable_content(other)),
+            }
+    return {
+        "id": entry.id,
+        "filing_state": getattr(entry, "filing_state", "done") or "done",
+        "category": manager.category_name_for(session, entry),
+        "ai_confidence": entry.ai_confidence,
+        "similar": similar,
+    }
 
 
 class SuggestTagsBody(BaseModel):

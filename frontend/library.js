@@ -2005,6 +2005,27 @@ function stopLibraryImagesPoll() {
   libraryImagesPollTimer = null;
 }
 
+//: Icon and type label for a non-image upload's tile. Deliberately reads
+//: the *url* rather than a stored mime: `MediaUpload` has never carried one
+//: (it stores a filename and nothing about content type), and the extension
+//: is what the allowlist that let the file in already validated.
+function mediaFileIcon(url) {
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  const map = {
+    pdf: "ph-file-pdf", doc: "ph-file-doc", docx: "ph-file-doc",
+    xls: "ph-file-xls", xlsx: "ph-file-xls", csv: "ph-file-csv",
+    ppt: "ph-file-ppt", pptx: "ph-file-ppt",
+    txt: "ph-file-text", md: "ph-file-md", json: "ph-file-code",
+    zip: "ph-file-archive",
+  };
+  return map[ext] || "ph-file";
+}
+
+function mediaFileKind(url) {
+  const ext = url.split(".").pop().split(/[?#]/)[0].toLowerCase();
+  return (ext || "file").toUpperCase();
+}
+
 async function renderLibraryImagesGallery() {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
@@ -2048,10 +2069,36 @@ function filterLibraryImagesGallery() {
   for (const image of images) {
     const fig = document.createElement("figure");
     fig.className = "library-image-tile";
-    const img = document.createElement("img");
-    img.src = mediaSrc(image.url);
-    img.alt = image.original_name;
-    img.loading = "lazy";
+    // **A PDF is not an image, and rendering one as an <img> is why files
+    // "dont appear anywhere".** Reported directly, and this is the whole
+    // mechanism: every `/media/upload` row was rendered into an `<img
+    // src="/media/…">` regardless of type, so a PDF failed to decode, the
+    // `error` handler below fired, and the tile *deleted itself* — silently,
+    // with no message, from the only screen that lists uploads at all. The
+    // file was on disk and in the database the entire time.
+    //
+    // The gallery already knew how to open one: the lightbox sniffs a
+    // non-image `/media/…` url and hands it to the document viewer. Only the
+    // tile was missing, so this gives a non-image its own tile instead of an
+    // image that cannot exist.
+    const isImage = /\.(png|jpe?g|gif|webp|avif|bmp|ico|svg)$/i.test(image.url);
+    const img = document.createElement(isImage ? "img" : "div");
+    if (isImage) {
+      img.src = mediaSrc(image.url);
+      img.alt = image.original_name;
+      img.loading = "lazy";
+    } else {
+      img.className = "library-file-thumb";
+      const glyph = document.createElement("i");
+      glyph.className = `ph ${mediaFileIcon(image.url)}`;
+      glyph.setAttribute("aria-hidden", "true");
+      const kind = document.createElement("span");
+      kind.className = "library-file-thumb-kind";
+      kind.textContent = mediaFileKind(image.url);
+      img.append(glyph, kind);
+      img.setAttribute("role", "img");
+      img.setAttribute("aria-label", `${mediaFileKind(image.url)} — ${image.original_name}`);
+    }
     img.addEventListener("error", () => {
       fig.remove();
       // Every tile's click handler closes over this same `images` array by

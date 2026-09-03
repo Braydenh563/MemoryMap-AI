@@ -302,6 +302,106 @@ button.ai-unavailable {
   margin-right: var(--space-1);
 }
 
+/* A file attached to a note. Replaces the bare `<a href="/media/…">` that
+   used to render here, which navigated the whole app away to a 401 page
+   with no way back — see `fileCard` in app.js for the full account.
+
+   `inline-flex`, not `block`: this is produced by the inline-markdown
+   renderer and can legitimately sit mid-sentence. Stacked one per line is
+   the common case and falls out of the flow anyway, because a note that
+   attaches files puts each on its own line. */
+.file-card {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  max-width: 100%;
+  margin: var(--space-2) var(--space-2) var(--space-2) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.file-card:hover {
+  border-color: var(--accent);
+}
+
+.file-card-open {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  height: auto;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-card-open:hover {
+  background: var(--accent-soft);
+}
+
+.file-card-icon {
+  flex: 0 0 auto;
+  font-size: var(--text-h3);
+  color: var(--accent);
+}
+
+.file-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+/* The name is the thing being identified, so it gets the ellipsis rather
+   than the row: a long filename must not be allowed to widen the card past
+   the note it sits in. */
+.file-card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.file-card-kind {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* Its own border rather than a gap, so the two halves read as one object
+   with two actions instead of two buttons that happen to be adjacent. */
+.file-card-save,
+.file-card-remove {
+  flex: 0 0 auto;
+  align-self: stretch;
+  height: auto;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* The composer's own list of attached files. A wrapping row rather than a
+   grid: there are usually one or two, and a grid would leave an empty
+   column beside a single file. */
+.file-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* Inside the strip each card is its own row item, so the inline margin the
+   in-note version needs (it can sit mid-sentence) would double the gap. */
+.file-strip .file-card {
+  margin: 0;
+}
+
 /* Swapped in for a note's own inline image once its file is gone —
    a closable box instead of a broken-image glyph, asked for directly. */
 .entry-inline-image-deleted {
@@ -2444,4 +2544,32 @@ textarea.autogrow {
   margin-bottom: var(--space-2);
   background: none;
   border-color: var(--border);
+}
+
+/* A non-image upload's tile in the Library gallery. Same footprint as an
+   image tile so the grid stays a grid — a PDF among photos must not make
+   the row it is in a different height. See library.js's own comment for why
+   these tiles used to delete themselves instead of rendering. */
+.library-file-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  /* Matched to `.library-image-tile img`'s own 9rem, not chosen: a tile
+     that is taller than the photos beside it makes its whole grid row
+     taller and the gallery stops reading as a grid. */
+  height: 9rem;
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  background: var(--chip-bg);
+  color: var(--accent);
+  font-size: var(--text-display);
+  cursor: pointer;
+}
+
+.library-file-thumb-kind {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  letter-spacing: 0.06em;
 }

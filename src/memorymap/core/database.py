@@ -192,6 +192,34 @@ class Entry(Base, WorkspaceMixin):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
+    #: Where this note is in the filing queue: `done` (the only state a note
+    #: filed synchronously is ever in), `pending` (saved, category not
+    #: decided yet), or `failed` (the background pass raised and gave up —
+    #: the note keeps whatever category it was created with).
+    #:
+    #: This exists because filing used to be part of *saving*. `POST
+    #: /entries` ran `janitor.categorise` inline, which asks a local model,
+    #: so the composer sat disabled behind a spinner for as long as that
+    #: took — reported as "the making of new notes was slow and annoying...
+    #: I feel like the note panels should disappear while filing and
+    #: continuing in the backend". A scalar string default so the additive
+    #: auto-migrator backfills every existing row to `done`, which is
+    #: exactly right: every note written before this column existed was
+    #: filed before its POST returned.
+    filing_state: Mapped[str] = mapped_column(String(10), default="done")
+    #: The note this one turned out to be a near-duplicate of, found by the
+    #: same background pass that files it. Only ever set on a deferred save:
+    #: a synchronous one still returns its `similar` in the create response,
+    #: because it has already paid for the search by then. NULL is the
+    #: overwhelmingly common case and means "no duplicate, or not looked for
+    #: yet" — the two are not worth distinguishing, since a warning nobody
+    #: has been shown yet and a warning there is nothing to show lead to
+    #: exactly the same UI.
+    #:
+    #: Not a ForeignKey on purpose: the note it points at can be deleted,
+    #: and an advisory pointer going stale must never take a `DELETE` down
+    #: with it. `filing_status` resolves it and shrugs when it is gone.
+    filing_similar_id: Mapped[int | None] = mapped_column(Integer, default=None)
     # Bumped every time this entry is opened or returned by a chat
     # question — feeds the "most used" dashboard.
     access_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -416,7 +444,7 @@ class EmbeddingRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Attachment(Base):
+class Attachment(Base, WorkspaceMixin):
     """A file the user attached to an entry. The bytes live in
     the uploads/ folder under a random stored_name; the original
     filename is kept for downloads."""
@@ -562,7 +590,7 @@ class DocumentBookmark(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class Reminder(Base):
+class Reminder(Base, WorkspaceMixin):
     """A reminder, optionally attached to an entry."""
 
     __tablename__ = "reminders"
@@ -706,7 +734,7 @@ class DocumentAiEdit(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
-class WhiteboardNode(Base):
+class WhiteboardNode(Base, WorkspaceMixin):
     """A note card placed on the whiteboard canvas."""
 
     __tablename__ = "whiteboard_nodes"
@@ -736,7 +764,7 @@ class WhiteboardNode(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
-class WhiteboardSketch(Base):
+class WhiteboardSketch(Base, WorkspaceMixin):
     """A freehand sketch placed on the whiteboard canvas."""
 
     __tablename__ = "whiteboard_sketches"
@@ -753,7 +781,7 @@ class WhiteboardSketch(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
-class WhiteboardObject(Base):
+class WhiteboardObject(Base, WorkspaceMixin):
     """A freeform item on the whiteboard that isn't tied to a note: a pasted/
     dropped/uploaded image, or a text box — the two things asked for
     directly ("I want the whiteboard to basically be like OneNote and
@@ -786,7 +814,7 @@ class WhiteboardObject(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
 
-class MediaUpload(Base):
+class MediaUpload(Base, WorkspaceMixin):
     """Every file `/media/upload` has ever produced — an image pasted or
     dropped into a *note's* own markdown, unlike a whiteboard image object
     (`WhiteboardObject`), had no row tracking it at all: nothing could list
@@ -1045,6 +1073,7 @@ class DatabaseManager:
 
         Base.metadata.create_all(self.engine)  # creates missing tables only
         self._add_missing_columns()
+        self._backfill_inherited_workspaces()
         self._ensure_fts5()
         self._ensure_indexes()
         # See _ensure_alembic_baseline's own docstring for why this is
@@ -1200,6 +1229,73 @@ class DatabaseManager:
             for name, definition in self._INDEXES:
                 connection.exec_driver_sql(
                     f"CREATE INDEX IF NOT EXISTS {name} ON {definition}"
+                )
+
+    #: Rows whose space has to be *inherited* rather than defaulted, as
+    #: `(table, parent-id column, parent table)`. See
+    #: `_backfill_inherited_workspaces` for why a plain DEFAULT is wrong here.
+    _WORKSPACE_INHERITANCE = (
+        ("attachments", "entry_id", "entries"),
+        ("reminders", "entry_id", "entries"),
+        ("whiteboard_nodes", "board_id", "entries"),
+        ("whiteboard_sketches", "board_id", "entries"),
+        ("whiteboard_objects", "board_id", "entries"),
+    )
+
+    def _backfill_inherited_workspaces(self) -> None:
+        """Give a newly-scoped child row the space its parent note is in.
+
+        These six tables (the five here plus `media_uploads`) had no
+        `workspace_id` at all until this ran, which is why an image uploaded
+        inside a class-specific space showed up in the main space's gallery
+        and a reminder written in one space appeared in every other —
+        reported directly, and reproduced before this was written.
+
+        Adding the column is the easy half. `_add_missing_columns` backfills
+        it with the model default, `'default'`, and for a *parentless* row
+        (a `media_uploads` row, a whiteboard object on the shared
+        board_id-NULL board) that is the honest answer: it really was
+        visible everywhere before, and the main space is where it belongs
+        now.
+
+        For a row that hangs off a note it is actively wrong. An attachment
+        on a note in space `uni` stamped `'default'` does not merely land in
+        the wrong gallery — the workspace loader criteria then filter it out
+        of its *own note*, so a user in `uni` opens the note they attached it
+        to and the file is gone. That is data loss as far as anyone using it
+        can tell. So each of these inherits from its parent note instead,
+        and only a row with no parent keeps the default.
+
+        Idempotent by construction: it only touches rows still sitting at
+        `'default'` whose parent says otherwise, so a second startup is a
+        no-op, and a row a user has deliberately moved is never dragged back.
+        """
+        with self.engine.begin() as connection:
+            tables = {
+                row[0]
+                for row in connection.exec_driver_sql(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            if "entries" not in tables:
+                return
+            for table, fk, parent in self._WORKSPACE_INHERITANCE:
+                if table not in tables:
+                    continue
+                columns = {
+                    row[1]
+                    for row in connection.exec_driver_sql(
+                        f'PRAGMA table_info("{table}")'
+                    ).fetchall()
+                }
+                if "workspace_id" not in columns or fk not in columns:
+                    continue
+                connection.exec_driver_sql(
+                    f'UPDATE "{table}" SET workspace_id = ('
+                    f'  SELECT p.workspace_id FROM "{parent}" p WHERE p.id = "{table}".{fk}'
+                    f") WHERE {fk} IS NOT NULL AND workspace_id = 'default'"
+                    f'   AND EXISTS (SELECT 1 FROM "{parent}" p WHERE p.id = "{table}".{fk}'
+                    f"              AND p.workspace_id <> 'default')"
                 )
 
     def _add_missing_columns(self) -> None:
